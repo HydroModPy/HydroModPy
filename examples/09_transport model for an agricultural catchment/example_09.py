@@ -33,6 +33,7 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from itertools import islice
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
@@ -783,7 +784,8 @@ ncol = model_modflow.mf.ncol
 
 sconc_init = np.ones((nlay, nrow, ncol)) * (100/1000) # 50 mg/L en kg/m3
 sconc_input = {i: np.ones((nrow, ncol)) * (50/1000) for i in range(nper)}
-rate_decay = np.ones((nlay, nrow, ncol)) * (1/(10*365))
+sconc_input = dict(islice(sconc_input.items(), 1, None))
+rate_decay = np.ones((nlay, nrow, ncol)) * (1/(2*365))
 
 BV.transport.update_mt3dms_parameters(
                  spc_name='NO3',
@@ -825,7 +827,7 @@ gif_name = vgif_name+'.gif'
 
 plot_gif = True
 
-input_no3 = model_mt3dms.sconc_init.mean() * 1000
+input_no3 = model_mt3dms.sconc_input[1].mean() * 1000
 
 ### USEFUL LINKS
 # https://www2.hawaii.edu/~jonghyun/classes/S18/CEE696/files/11_flopy_mt3dms_transport_modeling.pdf
@@ -836,13 +838,24 @@ ucnobj  = bf.UcnFile(model_modflow.full_path + '/' + 'MT3D001.ucn')
 concobj_1c = ucnobj.get_alldata(mflay=None) # 4D:[time, lay, row, col]
 
 concobj_1c_fil = concobj_1c.copy() * 1000
-concobj_1c_fil[concobj_1c_fil==1e30] = np.nan
+concobj_1c_fil[concobj_1c_fil>=1e30] = np.nan
 concobj_1c_fil = concobj_1c_fil[:]
 
 concobj_1c_fil_surf = {}
 
 the_mins = []
 the_maxs = []
+
+# import flopy
+# ucn = flopy.utils.UcnFile(model_modflow.full_path + '/' + 'MT3D001.ucn')
+# times = ucn.get_times()
+# print(f"Nombre de pas de temps : {len(times)}")  # ➜ 53
+# print("Temps disponibles :", times)
+# # Vérifier les concentrations pour les premiers pas
+# conc_init = ucn.get_data(totim=times[0])  # Concentration au pas de temps 0
+# conc_first = ucn.get_data(totim=times[1])  # Concentration au 1er pas de transport
+# print("Concentration initiale (totim=0) min/max :", conc_init.min(), conc_init.max())
+# print("Concentration après 1er transport (totim=1) min/max :", conc_first.min(), conc_first.max())
 
 # Boucle sur chaque pas de temps
 for i in range(len(concobj_1c_fil)):
@@ -936,7 +949,7 @@ for i in range(len(concobj_1c_fil_surf)):
     ax[0].axvline(x=xpos, color='black', linestyle='--', lw=0.5, zorder=-1)
 
     ax[0].axhline(y=input_no3, color='darkorange', linestyle='-', lw=1, zorder=-1,
-                  label='Injection: 50 mg/L \nNO3 decay : 1/10 y$^{-1}$ \nDispersivity: 5m long., 0.5m trans. \nDiffusion: 10$^{-10}$ m²/s')
+                  label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans. \nDiffusion: 10$^{-10}$ m²/s')
     
     # if i==0:
     ax[0].legend(loc='upper center')
@@ -996,8 +1009,11 @@ for i in range(len(concobj_1c_fil_surf)):
     fig.savefig(figures_dir+vgif_name+'_'+str(i)+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
     # Fermer la figure pour économiser de la mémoire
-    # plt.close(fig)
-
+    if i < (len(concobj_1c_fil_surf)-1):
+        plt.close(fig)
+    else:
+        plt.show()
+    
 if plot_gif == True:
     # Créer le GIF à partir des images enregistrées
     begin_by = figures_dir + vgif_name
@@ -1007,6 +1023,6 @@ if plot_gif == True:
         images.append(imageio.imread(filename))
     
     # Sauvegarder le GIF
-    imageio.mimsave(figures_dir + gif_name, images, duration=0.5, loop=0, format='GIF-PIL')
+    imageio.mimsave(figures_dir + '_' + gif_name, images, duration=0.5, loop=0, format='GIF-PIL')
 
 #%% ---- NOTES
