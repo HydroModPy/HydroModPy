@@ -921,7 +921,7 @@ class Watershed:
 
     #%% MT3DMS MODEL        
     
-    def preprocessing_mt3dms(self, model_modflow: object, for_calib: bool=False):
+    def preprocessing_mt3dms(self, model_modflow: object, for_calib: bool=False, suffix_name: str='_mt'):
         """
         Public method to set the partickle tracking method.
 
@@ -948,6 +948,7 @@ class Watershed:
                                      # Frame settings
                                      model_folder = model_folder,
                                      model_name = model_modflow.model_name,
+                                     suffix_name = suffix_name,
                                      bin_path = self.bin_path,                                  
                                      # Specific settings
                                      spc_name = self.transport.spc_name,

@@ -126,18 +126,21 @@ class Timeseries:
             recharge = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.recharge.items()}).values())), index=range(len(self.recharge)))
             
         ### Runoff management to fill the .csv file results
-        if self.runoff is not None or not self.runoff.empty or not []:
-            if isinstance(self.runoff,(int,float)) == True:
-                time=[0]
+        if self.runoff is not None and (not isinstance(self.runoff, pd.DataFrame) or not self.runoff.empty):
+            if isinstance(self.runoff, (int, float)):
+                time = [0]
                 runoff = self.runoff
-            if isinstance(self.runoff,(pd.Series)) == True:
+            elif isinstance(self.runoff, pd.Series):
                 time = self.runoff.index
                 runoff = self.runoff.values
-            if isinstance(self.runoff,(dict)) == True:
+            elif isinstance(self.runoff, dict):
                 time = range(len(self.runoff))
-                runoff = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.runoff.items()}).values())), index=range(len(self.runoff)))
+                runoff = pd.Series(
+                    np.array([np.nanmean(v) for v in self.runoff.values()]),
+                    index=range(len(self.runoff))
+                )
         else:
-            runoff = recharge*np.nan
+            runoff = recharge * np.nan
         
         # npy_list = [] 
         # for f in os.listdir(self.save_file):

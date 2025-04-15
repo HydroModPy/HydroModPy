@@ -35,6 +35,7 @@ import flopy.utils.binaryfile as bf
 import whitebox
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
+import shutil
 
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -63,6 +64,7 @@ class Mt3dms:
                  # Worflow settings
                  model_folder: str='HydroModPy_outputs',
                  model_name: str='Default_modpath',
+                 suffix_name: str='_mt',
                  bin_path: str=os.path.join(os.getcwd(),'bin'),
                  # Specific settings
                  spc_name: str='NO3',
@@ -93,7 +95,7 @@ class Mt3dms:
         self.model_name = model_name
         self.full_path = os.path.join(model_folder, model_name)
         self.model_modflow = model_modflow
-        self.model_name_mt = model_name + '_mt'
+        self.model_name_mt = model_name + suffix_name
         
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
@@ -258,6 +260,11 @@ class Mt3dms:
             if verbose == False:
                 print('MT3DMS is running...')
             success_model, tempo = self.mt.run_model(silent=not verbose, pause=False, normal_msg='normal termination') # True without msg
+        
+        if success_model == True:
+            # Copy a file from source to destination
+            shutil.copy(self.full_path+'/'+'MT3D001.ucn',
+                        self.full_path+'/'+self.model_name_mt+'.ucn')
         
         return success_model
 
