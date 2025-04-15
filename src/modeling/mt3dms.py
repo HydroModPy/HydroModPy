@@ -255,16 +255,21 @@ class Mt3dms:
             self.mt.write_input()
        
         # Run modflow files
-        success_model = False
+        success_model = True
+        
         if run_model == True:
             if verbose == False:
                 print('MT3DMS is running...')
-            success_model, tempo = self.mt.run_model(silent=not verbose, pause=False, normal_msg='normal termination') # True without msg
+            success_model, tempo = self.mt.run_model(silent=not verbose, pause=False,
+                                                     # report=True,
+                                                     normal_msg='normal termination') # True without msg
         
-        if success_model == True:
+        try:
             # Copy a file from source to destination
             shutil.copy(self.full_path+'/'+'MT3D001.ucn',
                         self.full_path+'/'+self.model_name_mt+'.ucn')
+        except:
+            pass
         
         return success_model
 

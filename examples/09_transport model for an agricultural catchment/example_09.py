@@ -800,7 +800,7 @@ BV.transport.update_mt3dms_parameters(
                  plot_conc=True)
 
 model_mt3dms = BV.preprocessing_mt3dms(model_modflow, for_calib=True)
-success_mt3dms = BV.processing_mt3dms(model_mt3dms, write_model=True, run_model=True, verbose=True)
+success_mt3dms = BV.processing_mt3dms(model_mt3dms, write_model=True, run_model=False, verbose=True)
 
 pp_model = BV.postprocessing_mt3dms(model_mt3dms,
                           concentration_seepage=True,
@@ -834,7 +834,7 @@ input_no3 = model_mt3dms.sconc_input[1].mean() * 1000
 # https://download.feflow.com/html/help72/feflow/09_Parameters/Auxiliary_Data/peclet_number.html
 # https://flopy.readthedocs.io/en/3.4.2/Notebooks/mt3dms_examples.html#
 
-ucnobj  = bf.UcnFile(model_modflow.full_path + '/' + 'MT3D001.ucn')
+ucnobj  = bf.UcnFile(model_modflow.full_path + '/' + model_mt3dms.model_name_mt+'.ucn')
 concobj_1c = ucnobj.get_alldata(mflay=None) # 4D:[time, lay, row, col]
 
 concobj_1c_fil = concobj_1c.copy() * 1000
