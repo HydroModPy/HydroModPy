@@ -72,6 +72,7 @@ importlib.reload(src)
 from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
+from matplotlib.dates import DateFormatter
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -100,10 +101,10 @@ else:
 #%% PARAMETRISATION DU MODELE
 
 # Paramètres généraux
-first_year = 2004
+first_year = 2024
 last_year = 2024
 sim_state = 'transient' # transitoire
-freq_input = 'W' # hebdomadaire
+freq_input = 'D' # hebdomadaire
 
 subbassin = False
 load_geographic = False
@@ -125,12 +126,12 @@ plot_cross = True
 nlay = 1
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 25 # if bottom is None, aquifer thickness
-hk = 1e-4* 24 * 3600 # m/day
+thick = 24.86968801 # if bottom is None, aquifer thickness
+hk = 0.000114826* 24 * 3600 # m/day
 cond_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 hk_vertical = None # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 cond_drain = None # or value of conductance
-sy = 0.1 / 100 # [%]
+sy = 0.003807997
 poro_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
 
 # Conditions aux limites
@@ -139,7 +140,7 @@ bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 
 # Paramètres de suivi des particules
-zone_partic = 'watershed' # or 'domain''
+zone_partic = 'watershed' # or 'domain'
 
 #==============================================================================
 #%% BASSIN VERSANT
@@ -152,10 +153,11 @@ hk_str = f"{hk / (24 * 3600):.1e}"
 watershed_name = '_'.join([
     'barrage_Cheze_SFR_LAK',
     pd.to_datetime("today").strftime("%Y-%m-%d"),
+    timestamp := datetime.datetime.now().strftime("%H-%M"),
     f"thick_{thick}",
     f"hk_{hk_str}",
     f"sy_{sy*100:.1f}",
-    #f"Isba_Brut"
+    f"D"
 ])
 
 logging.info('##### '+watershed_name.upper()+' #####')
@@ -177,15 +179,16 @@ if subbassin is True:
                                     "Stations ONDE")
     BV.add_intermittency(intermittency_path, 'regional onde stations.shp')
 
-#%% SOUS-BASSINS
     BV.add_subbasin(sub_snap_dist=200)
-
+#%% SOUS-BASSINS
 geol_path = os.path.join(data_path,
                         "Geologie")
 BV.add_geology(geol_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 hydrography_path = os.path.join(data_path,
                                 r"Hydrographie")
-BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX'], fields_obs=['fid'])
+
+# Utilisation d'un clip sur la bretagne pour éviter de charger trop de données
+BV.add_hydrography(hydrography_path, types_obs=['CoursEau_FXX_clip_bre'], fields_obs=['fid'])
 
 #%% (VISUALISATIONS DU SITE D'ETUDE)
 if visual_plot is True :
@@ -707,4 +710,56 @@ if visual_plot is True :
     fig.suptitle(model_name.upper(), x=0.5, y=1.0, fontsize=8)
     fig.colorbar(cb)
     plt.tight_layout()
+# %%
+#%% COMPARAISON DES VOLUMES OBSERVÉS ET SIMULÉS
+# Récupération des données de volume observé
+observed_volume = dam_input_df['cheze_lvl']
+
+# Récupération des données de volume simulé
+lake_id = 'reservoir_cheze'
+volume_column = f'{lake_id}_level'
+timeseries_results = timeseries_results.mfdata
+# Vérification que la colonne existe dans les résultats
+if volume_column in timeseries_results.columns:
+
+    simulated_volume = timeseries_results[volume_column]
+    
+    common_dates = observed_volume.index.intersection(simulated_volume.index)
+    if len(common_dates) > 0:
+        observed_volume = observed_volume.loc[common_dates]
+        simulated_volume = simulated_volume.loc[common_dates]
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(observed_volume.index, observed_volume, 'b-', linewidth=2, label='Volume observé')
+        plt.plot(simulated_volume.index, simulated_volume, 'r--', linewidth=2, label='Volume simulé')
+        
+        plt.xlabel('Date', fontsize=12)
+        plt.ylabel('Volume (m³)', fontsize=12)
+        plt.title('Comparaison des volumes observés et simulés du réservoir Cheze', fontsize=14)
+        plt.legend(fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        
+        if freq_input == 'D':
+            plt.gcf().autofmt_xdate()
+            plt.gca().xaxis.set_major_formatter(DateFormatter('%d-%m-%Y'))
+        elif freq_input == 'W':
+            plt.gca().xaxis.set_major_formatter(DateFormatter('%d-%m-%Y'))
+        else:
+            plt.gcf().autofmt_xdate()
+        
+        # Annotations
+        plt.text(0.01, 0.01, f'Modèle: {model_name}', transform=plt.gca().transAxes, 
+                    fontsize=8, verticalalignment='bottom')
+        
+        plt.tight_layout()
+        
+        output_dir = os.path.join(BV.simulations_folder, model_name, '_figures')
+        os.makedirs(output_dir, exist_ok=True)
+        plt.savefig(os.path.join(output_dir, 'volume_comparison.png'), dpi=300)
+        plt.show()
+    else:
+        logging.warning("Aucune date commune entre les données observées et simulées.")
+else:
+    logging.warning(f"La colonne '{volume_column}' n'existe pas dans les résultats des séries temporelles.")
+    logging.warning("Colonnes disponibles: " + ", ".join(timeseries_results.columns))
 # %%
