@@ -409,7 +409,7 @@ BV.hydraulic.update_sy_decay(sy_decay)
 BV.hydraulic.update_ss(ss)
 BV.hydraulic.update_ss_decay(ss_decay)
 BV.hydraulic.update_vka(vka)
-BV.hydraulic.update_hk_vertical(verti_hk)
+BV.hydraulic.update_hk_vertical(verti_hk) # here for lays [ [1e-5m/s, [0, 20m]]
 BV.hydraulic.update_sy_vertical(verti_sy)
 BV.hydraulic.update_ss_vertical(verti_ss)
 BV.hydraulic.update_bottom(bottom)
@@ -421,7 +421,7 @@ alpha = 15 # in m
 n_factor = 2
 
 the_K0 = 5e-5*24*3600
-BV.hydraulic.update_hk(the_K0)
+BV.hydraulic.update_hk(the_K0) # 3D
 Kmin_for_hk_decay = 1e-8*24*3600
 BV.hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
 
