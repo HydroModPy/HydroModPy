@@ -432,7 +432,7 @@ class Modflow:
         # Imposes discretization to modflow model through 
         # ---- flopy.modflow.ModflowDis
         self.dis = flopy.modflow.ModflowDis(self.mf, 
-                                            itmuni=0, # itmuni = 0 ==> undefined
+                                            itmuni=4, # itmuni = 0 ==> undefined
                                             lenuni=2, # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
@@ -476,7 +476,7 @@ class Modflow:
         # ---- flopy.modflow.ModflowBas
         self.bas = flopy.modflow.ModflowBas(self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999)
         
-        ### Initialze the top boundary condition of DRN package 
+        ### Initialze the top boundary condition of DRN package
         
         self.drain_array = np.ones((self.nrow, self.ncol))    
         
@@ -784,7 +784,7 @@ class Modflow:
                     self.streamflow_seepage.segment_data_1.loc[
                         nsegs, ['elevup', 'roughch']] = [
                             self.lakeres.ssmx_by_lake[lake_id],
-                            0.03*100]
+                            0.01] # low roughness for overflow, made of concrete
 
 # =============================================================================
 #             if self.streamflow_seepage.apply_elevations == True:
@@ -898,7 +898,7 @@ class Modflow:
                 # streams parameters:
                 reach_data=reach_data_rec, segment_data=segment_data, 
                 # default values:
-                numtim=2, weight=0.75,
+                numtim=2, weight=1,
                 # to create the .sfr.out file
                 istcb2=istcb2,
                 # uncertain how to use:
@@ -944,7 +944,10 @@ class Modflow:
 # =============================================================================
             
             # [temp] Verbose verification
-            self.sfr2.check()
+            # this is not needed for the model to run, but it is useful to check the data
+            # warning: this function is very slow
+            
+            # self.sfr2.check()
             
             # ---- Export
             self.sfr2.export_linkages(
@@ -1015,7 +1018,7 @@ class Modflow:
             self.lak = flopy.modflow.ModflowLak(self.mf,
                                                 nlakes = self.lakeres.n_lakeres,
                                                 ipakcb = 1, # save cell-by-cell seepage
-                                                theta = 0, # 0: explicit # 1: implicit
+                                                theta = 1, # 0: explicit # 1: implicit
                                                 stages = stages,
                                                 lakarr = lakarr,
                                                 bdlknc = bdlknc,
