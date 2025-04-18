@@ -95,7 +95,8 @@ class Mt3dms:
         self.model_name = model_name
         self.full_path = os.path.join(model_folder, model_name)
         self.model_modflow = model_modflow
-        self.model_name_mt = model_name + suffix_name
+        self.suffix_name = suffix_name
+        self.model_name_mt = model_name + self.suffix_name
         
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))

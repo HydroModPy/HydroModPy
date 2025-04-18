@@ -49,6 +49,7 @@ class Timeseries:
                  model_modflow: object,
                  model_modpath: int=None,
                  model_mt3dms: int=None,
+                 suffix_name: int=None,
                  datetime_format: bool=True,
                  subbasin_results: bool=True,
                  intermittency_yearly:bool=False,
@@ -80,6 +81,8 @@ class Timeseries:
         """
         
         # Init parameters
+        self.suffix_name = suffix_name
+        
         self.geographic = geographic
     
         self.stable_folder = geographic.stable_folder
@@ -528,8 +531,11 @@ class Timeseries:
         if self.datetime_format==True:
             self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
         self.mfdata = self.mfdata.set_index(['date'])
-        self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries.csv', sep=';')
-        
+        if self.suffix_name == None:
+            self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries.csv', sep=';')
+        else:
+            self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries'+'_'+self.suffix_name+'.csv', sep=';')
+
         if timeseries_file == self.timeseries_file:
             return self.mfdata
         

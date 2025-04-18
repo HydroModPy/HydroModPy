@@ -52,6 +52,7 @@ import flopy.utils.postprocessing as pp
 import flopy.utils.binaryfile as bf 
 from scipy.optimize import minimize
 import datetime
+from PIL import Image
 
 #%% ROOT
 
@@ -343,7 +344,7 @@ class MatchingStreams:
         wbt.add_point_coordinates_to_table(self.pt_obs_flowf)
         wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obs_flowf)
 
-#%% MODFLOW
+#%% A - MODFLOW
 
 BV = watershed_root.Watershed(watershed_name=watershed_name, dem_path=None, out_path=out_path, load=True)
 area = BV.geographic.area
@@ -662,7 +663,7 @@ for i, simul in enumerate(simul_list[:]):
     axb.set_yticklabels([0,100])
     axb.legend(loc='upper right')
     
-#%% MODPATH
+#%% B - MODPATH
 
 list_folder = glob.glob(BV.calibration_folder+'/'+vers+'*')
 
@@ -719,7 +720,7 @@ BV.filtprocessing_modpath(model_modpath,
                       random_id=None, # select randomly to keep
                       ) # None
 
-#%% PLOT AGE
+#%% PLOT PATHLINES
 
 shp_pathlines = gpd.read_file(calibration_folder+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
 shp_endpoints = gpd.read_file(calibration_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
@@ -734,22 +735,22 @@ norm = mcolors.LogNorm(vmin=0.1, vmax=100)
 im = cm.ScalarMappable(cmap='jet', norm=norm)
 im.set_array([])
 
-fig, ax = plt.subplots(1,1, figsize=(7,5))
+fig, ax = plt.subplots(1,1, figsize=(8,6))
 
 # Base raster and layers
 rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
                    cmap='Greys', alpha=0.7, zorder=-10)
 
-shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5,
+shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=1,
                    norm=norm, zorder=1)
 
-shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0, markersize=10,
-                        legend=False, norm=norm, zorder=2)
+shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5, markersize=20,
+                        legend=False, norm=norm, zorder=2, edgecolor='k')
 
 line.plot(ax=ax, facecolor='None', edgecolor='k', lw=2, zorder=-1)
 
 # Title
-ax.set_title('Residence times [y]')
+ax.set_title('Residence times - backward from seepage [y]', fontsize=10)
 
 # Colorbar on the right, same height
 divider = make_axes_locatable(ax)
@@ -761,7 +762,7 @@ fig.tight_layout()
 # fig.savefig(os.path.join(simulations_folder, model_name,
 #                             '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
 
-#%% MT3DMS
+#%% C - MT3DMS
 
 list_folder = glob.glob(BV.calibration_folder+'/'+vers+'*')
 
@@ -793,14 +794,15 @@ BV.transport.update_mt3dms_parameters(
                  sconc_input=sconc_input,         # dictionnray [time] with array of (nlay, nrow, ncol)
                  disp_long=5,           # float, longitudinal dispersitvity in meters
                  disp_transh=0.5,         # float, ratio of the horizontal transverse dispersivity to disp_long, usually 0.1*disp_long
-                 disp_transv=0.5,         # float, ratio of the vertical transverse dispersivity to disp_long, usually 0.01*disp_long
+                 disp_transv=0.05,         # float, ratio of the vertical transverse dispersivity to disp_long, usually 0.01*disp_long
                  diffu_coeff=1e-10*3600*24,         # molecular diffusion in (L2T-1)
                  react_order=1,      # None: no-reaction, 0: zero-order, 1: first-order
                  rate_decay=rate_decay,          # array of (nlay, nrow, ncol), unit T-1
                  plot_conc=True)
 
-model_mt3dms = BV.preprocessing_mt3dms(model_modflow, for_calib=True)
-success_mt3dms = BV.processing_mt3dms(model_mt3dms, write_model=True, run_model=False, verbose=True)
+scenario = 's1'
+model_mt3dms = BV.preprocessing_mt3dms(model_modflow, for_calib=True, suffix_name='_mt_'+scenario)
+success_mt3dms = BV.processing_mt3dms(model_mt3dms, write_model=True, run_model=True, verbose=True)
 
 pp_model = BV.postprocessing_mt3dms(model_mt3dms,
                           concentration_seepage=True,
@@ -811,6 +813,7 @@ pp_model = BV.postprocessing_mt3dms(model_mt3dms,
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
                                                   model_mt3dms=model_mt3dms,
+                                                  suffix_name=scenario,
                                                   datetime_format=True, 
                                                   subbasin_results=True,
                                                   intermittency_weekly=True,
@@ -819,7 +822,7 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   mass_accumulated=True
                                                   ) # or None
 
-#%% PLOT CONC
+#%% PLOT CONCENTRATION
 
 # Créer le GIF à la fin du processus
 vgif_name = vers
@@ -845,17 +848,6 @@ concobj_1c_fil_surf = {}
 
 the_mins = []
 the_maxs = []
-
-# import flopy
-# ucn = flopy.utils.UcnFile(model_modflow.full_path + '/' + 'MT3D001.ucn')
-# times = ucn.get_times()
-# print(f"Nombre de pas de temps : {len(times)}")  # ➜ 53
-# print("Temps disponibles :", times)
-# # Vérifier les concentrations pour les premiers pas
-# conc_init = ucn.get_data(totim=times[0])  # Concentration au pas de temps 0
-# conc_first = ucn.get_data(totim=times[1])  # Concentration au 1er pas de transport
-# print("Concentration initiale (totim=0) min/max :", conc_init.min(), conc_init.max())
-# print("Concentration après 1er transport (totim=1) min/max :", conc_first.min(), conc_first.max())
 
 # Boucle sur chaque pas de temps
 # for i in range(len(concobj_1c_fil)):
@@ -888,6 +880,11 @@ if not os.path.exists(figures_dir):
 
 mean_vals = []
 mean_times = []
+
+wbt.hillshade(stable_folder+'/geographic/watershed_dem.tif', stable_folder+'/geographic/watershed_hill.tif')
+
+dem = rasterio.open(stable_folder+'/geographic/watershed_dem.tif')
+hill = rasterio.open(stable_folder+'/geographic/watershed_hill.tif')
 
 # Boucle sur chaque pas de temps
 for i in range(len(concobj_1c_fil_surf)):
@@ -950,10 +947,11 @@ for i in range(len(concobj_1c_fil_surf)):
     ax[0].axvline(x=xpos, color='black', linestyle='--', lw=0.5, zorder=-1)
 
     ax[0].axhline(y=input_no3, color='darkorange', linestyle='-', lw=1, zorder=-1,
-                  label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans. \nDiffusion: 10$^{-10}$ m²/s')
+                  label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans h., 0.05 m trans v. \nDiffusion: 10$^{-10}$ m²/s',
+                  )
     
     # if i==0:
-    ax[0].legend(loc='upper center')
+    ax[0].legend(loc='upper center', frameon=False)
     
     # Réglages pour le graphique de concentration
     ax[0].set_ylabel('[NO3] mg/L', color='forestgreen')
@@ -976,20 +974,19 @@ for i in range(len(concobj_1c_fil_surf)):
     xi = conc_plt.copy()
 
     # Créer un graphique avec la carte
-    norm = mcolors.Normalize(vmin=np.nanmin(0), vmax=np.nanmax(100))
-    sm = cm.ScalarMappable(cmap='jet', norm=norm)
+    norm = mcolors.LogNorm(vmin=30, vmax=100)
+    color_camp = 'turbo'
+    sm = cm.ScalarMappable(cmap=color_camp, norm=norm)
     sm.set_array([])
-
-    dem = rasterio.open(stable_folder+'/geographic/watershed_dem.tif')
     
-    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), 
-                      ax=ax[1], transform=dem.transform,
-                      cmap='Greys', alpha=0.25, zorder=-10,
-                      )    
-    
+    rasterio.plot.show(np.ma.masked_where(hill.read(1) < 0, hill.read(1)), 
+                      ax=ax[1], transform=hill.transform,
+                      cmap='Greys_r', alpha=0.75, zorder=-10,
+                      )
+                    
     rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, xi), 
                       ax=ax[1], transform=dem.transform,
-                      cmap='jet', alpha=1, zorder=1,
+                      cmap=color_camp, alpha=1, zorder=1,
                       norm=norm
                       )    
 
@@ -1002,7 +999,9 @@ for i in range(len(concobj_1c_fil_surf)):
     divider = make_axes_locatable(ax[1])
     cax = divider.new_vertical(size='5%', pad=0.6, pack_start=True)
     fig.add_axes(cax)
-    fig.colorbar(sm, cax=cax, orientation='horizontal', label='[NO3]')
+    cbar = fig.colorbar(sm, cax=cax, orientation='horizontal', label='[NO3]')
+    cbar.ax.set_xticks([30, 50, 70 ,100])
+    cbar.ax.set_xticklabels([30, 50, 70, 100])  # (facultatif) si tu veux formater les labels
     fig.tight_layout()
 
     # Sauvegarder la figure pour ce temps
@@ -1022,8 +1021,82 @@ if plot_gif == True:
     images = []
     for filename in filenames:
         images.append(imageio.imread(filename))
-    
-    # Sauvegarder le GIF
-    imageio.mimsave(figures_dir + '_' + gif_name, images, duration=0.5, loop=0, format='GIF-PIL')
+    ### Method 1
+    # imageio.mimsave(figures_dir + '_' + gif_name, images, duration=0.5, loop=0, format='GIF-PIL')
+    image_paths = filenames
+    images = [Image.open(img) for img in image_paths]
+    ### Method 2
+    images[0].save(figures_dir + '_' + gif_name, save_all=True, append_images=images[1:], optimize=True, duration=200, loop=0)
+
+#%% WEB ANIMATION
+
+import plotly.graph_objects as go
+from PIL import Image
+import base64
+from io import BytesIO
+
+# Exemple : création de la liste des fichiers
+figures_dir = calibration_folder + '_figures/'
+begin_by = figures_dir + vers
+filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
+
+# Charger toutes les images en base64
+def image_to_base64(path):
+    img = Image.open(path)
+    with BytesIO() as stream:
+        img.save(stream, format="png")
+        return "data:image/png;base64," + base64.b64encode(stream.getvalue()).decode("utf-8")
+
+image_sources = [image_to_base64(p) for p in filenames[:]]
+
+# Première image (affichée par défaut)
+fig = go.Figure(
+    data=[go.Image(source=image_sources[0])],
+    layout=go.Layout(
+        title="Slider pour naviguer entre les images",
+        updatemenus=[dict(
+            type="buttons",
+            showactive=False,
+            y=1.05,
+            x=1.15,
+            xanchor="right",
+            yanchor="top",
+            buttons=[
+                dict(label="Play", method="animate", args=[None, {"frame": {"duration": 500, "redraw": True}, "fromcurrent": True}]),
+                dict(label="Pause", method="animate", args=[[None], {"frame": {"duration": 0, "redraw": False}, "mode": "immediate"}])
+            ]
+        )],
+        sliders=[{
+            "steps": [
+                {
+                    "method": "animate",
+                    "args": [[str(k)], {"mode": "immediate", "frame": {"duration": 0, "redraw": True}}],
+                    "label": f"{k+1}"
+                } for k in range(len(image_sources))
+            ],
+            "transition": {"duration": 0},
+            "x": 0.25,
+            "xanchor": "left",
+            "y": -0.01,
+            "yanchor": "top",
+            "len": 0.5
+        }]
+    ),
+    frames=[
+        go.Frame(data=[go.Image(source=img)], name=str(i))
+        for i, img in enumerate(image_sources)
+    ]
+)
+
+fig.update_layout(
+    width=1600,
+    height=900,
+    margin=dict(l=20, r=20, t=50, b=50),  # Petites marges pour respirer
+)
+
+fig.update_xaxes(visible=False)
+fig.update_yaxes(visible=False)
+
+fig.show("browser")
 
 #%% ---- NOTES
