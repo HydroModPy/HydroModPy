@@ -44,7 +44,13 @@ wbt.verbose = False
 # ROOT DIRECTORY
 
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+# ROOT DIRECTORY
+try:
+    root_dir = dirname(dirname(dirname(abspath(__file__))))
+except NameError:
+    # Fallback for interactive environments (e.g., Jupyter Notebook)
+    root_dir = os.getcwd()
+
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
@@ -338,3 +344,5 @@ fig.tight_layout()
 #%% ---- NOTES
 
 os.chdir(root_dir)
+
+# %%
