@@ -837,7 +837,7 @@ input_no3 = model_mt3dms.sconc_input[1].mean() * 1000
 # https://download.feflow.com/html/help72/feflow/09_Parameters/Auxiliary_Data/peclet_number.html
 # https://flopy.readthedocs.io/en/3.4.2/Notebooks/mt3dms_examples.html#
 
-ucnobj  = bf.UcnFile(model_modflow.full_path + '/' + model_mt3dms.model_name_mt+'.ucn')
+ucnobj  = bf.UcnFile(model_modflow.full_path + '/' + model_mt3dms.model_name_mt+'.UCN')
 concobj_1c = ucnobj.get_alldata(mflay=None) # 4D:[time, lay, row, col]
 
 concobj_1c_fil = concobj_1c.copy() * 1000
