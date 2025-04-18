@@ -24,7 +24,7 @@ from tools import toolbox
 
 #%% CLASS
 
-class Downslope:
+class Masstransfer:
     """
     Class for topographically-driven surface runoff of discharge outflows
     from groundwater flow model 
@@ -74,13 +74,13 @@ class Downslope:
         
         self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
         
-        self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_t(xxx).shp')
-        self.out_rast_path = os.path.join(self.shp_folder, '_trace_t(xxx).tif')
+        self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_conc_t(xxx).shp')
+        self.out_rast_path = os.path.join(self.shp_folder, '_trace_conc_t(xxx).tif')
         self.out_pt_path = os.path.join(self.shp_folder, trace_shp_name)
         
-        self.load_rast_path = os.path.join(self.shp_folder, '_load_t(xxx).tif')
-        self.eff_rast_path = os.path.join(self.shp_folder, '_eff_t(xxx).tif')
-        self.abs_rast_path = os.path.join(self.shp_folder, '_abs_t(xxx).tif')
+        self.load_rast_path = os.path.join(self.shp_folder, '_load_conc_t(xxx).tif')
+        self.eff_rast_path = os.path.join(self.shp_folder, '_eff_conc_t(xxx).tif')
+        self.abs_rast_path = os.path.join(self.shp_folder, '_abs_conc_t(xxx).tif')
         self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
         
         # self.trace_downslope()

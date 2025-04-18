@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rules>
+  <constraint>
+    <condition parametersGroup='monte_carlo' parameterName='continue' logicalOperator='different' value='1' />
+    <action parametersGroup='monte_carlo' parameterName='continue_directory' logicalOperator='disableParameter' />
+  </constraint>
+  <constraint>
+    <condition parametersGroup='monte_carlo/sampling_method' parameterName='random_type' logicalOperator='different' value='RANDOM_PARTIAL' />
+    <action parametersGroup='monte_carlo/sampling_method' parameterName='substreams_variable' logicalOperator='disableParameter' />
+    <action parametersGroup='monte_carlo/sampling_method' parameterName='nb_to_skip' logicalOperator='disableParameter' />
+  </constraint>
+</rules>

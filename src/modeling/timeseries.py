@@ -47,12 +47,18 @@ class Timeseries:
     def __init__(self,
                  geographic: object,
                  model_modflow: object,
-                 model_modpath: object,
+                 model_modpath: int=None,
+                 model_mt3dms: int=None,
+                 suffix_name: int=None,
                  datetime_format: bool=True,
                  subbasin_results: bool=True,
+                 intermittency_yearly:bool=False,
                  intermittency_monthly: bool=False,
                  intermittency_weekly: bool=False,
-                 intermittency_daily: bool=False):
+                 intermittency_daily: bool=False,
+                 residence_times: bool=False,
+                 concentration_seepage: bool=False,
+                 mass_accumulated: bool=False):
         """
         Parameters
         ----------
@@ -75,6 +81,8 @@ class Timeseries:
         """
         
         # Init parameters
+        self.suffix_name = suffix_name
+        
         self.geographic = geographic
     
         self.stable_folder = geographic.stable_folder
@@ -97,9 +105,15 @@ class Timeseries:
         self.recharge = model_modflow.recharge
         self.runoff = model_modflow.runoff
         
+        self.intermittency_yearly = intermittency_yearly
         self.intermittency_monthly = intermittency_monthly
         self.intermittency_weekly = intermittency_weekly
         self.intermittency_daily = intermittency_daily
+        
+        self.residence_times = residence_times
+        
+        self.concentration_seepage = concentration_seepage
+        self.mass_acumulated = mass_accumulated
         
         self.datetime_format = datetime_format
         
@@ -115,18 +129,21 @@ class Timeseries:
             recharge = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.recharge.items()}).values())), index=range(len(self.recharge)))
             
         ### Runoff management to fill the .csv file results
-        if self.runoff is not None and not self.runoff.empty and not []:
-            if isinstance(self.runoff,(int,float)) == True:
-                time=[0]
+        if self.runoff is not None and (not isinstance(self.runoff, pd.DataFrame) or not self.runoff.empty):
+            if isinstance(self.runoff, (int, float)):
+                time = [0]
                 runoff = self.runoff
-            if isinstance(self.runoff,(pd.Series)) == True:
+            elif isinstance(self.runoff, pd.Series):
                 time = self.runoff.index
                 runoff = self.runoff.values
-            if isinstance(self.runoff,(dict)) == True:
+            elif isinstance(self.runoff, dict):
                 time = range(len(self.runoff))
-                runoff = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.runoff.items()}).values())), index=range(len(self.runoff)))
+                runoff = pd.Series(
+                    np.array([np.nanmean(v) for v in self.runoff.values()]),
+                    index=range(len(self.runoff))
+                )
         else:
-            runoff = recharge*np.nan
+            runoff = recharge * np.nan
         
         # npy_list = [] 
         # for f in os.listdir(self.save_file):
@@ -170,11 +187,20 @@ class Timeseries:
             else:
                 type_dir = 'starting'
             try:            
-                self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', type_dir+'_weighted'+'.shp'))
+                self.shp_particles = gpd.read_file(os.path.join(self.save_file, '_particles', type_dir+'_weighted'+'.shp'))
             except:
-                self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', type_dir+'.shp'))
+                self.shp_particles = gpd.read_file(os.path.join(self.save_file, '_particles', type_dir+'.shp'))
                 pass
-                
+        if model_mt3dms != None:
+            try:
+                self.concentration_seepage = np.load(os.path.join(self.save_file, 'concentration_seepage'+'.npy'), allow_pickle=True).item()
+            except:
+                pass
+            try:
+                self.mass_accumulated = np.load(os.path.join(self.save_file, 'mass_accumulated'+'.npy'), allow_pickle=True).item()
+            except:
+                pass
+            
         ### For total catchment
         dem_clip = imageio.imread(self.geographic.watershed_dem)
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
@@ -226,6 +252,8 @@ class Timeseries:
         
         def calc_mean(key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
+            masked[masked<0] = 0 ### ATTENTION
+            masked[masked<-1] = np.nan ### ATTENTION
             calc = np.nanmean(masked)
             return calc
         
@@ -310,6 +338,61 @@ class Timeseries:
                 self.mfdata.loc[key,'accumulation_flux'] = calc
         except:
             pass
+        
+        ### concentration_seepage
+        try:
+            for key in self.concentration_seepage:
+                calc = calc_mean(key, 'concentration_seepage', self.concentration_seepage, dem_clip, '==', self.geographic.nodata)
+                self.mfdata.loc[key,'concentration_seepage'] = calc
+        except:
+            pass
+        
+        ### mass_accumualted
+        try:
+            for key in self.mass_accumulated:
+                calc = calc_max(key, 'mass_accumulated', self.mass_accumulated, dem_clip, '==', self.geographic.nodata)
+                self.mfdata.loc[key,'mass_accumulated'] = calc
+        except:
+            pass
+        
+        ### intermittency_saturation
+        if self.intermittency_yearly == True:
+            try:
+                if len(self.accumulation_flux)>=1:
+                    inf = 0
+                    sup = 1
+                    step = int(round(len(self.accumulation_flux)/1))
+                    compt=0            
+                    for i in range(step):
+                        # print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        interv = list(self.accumulation_flux.items())[inf:sup]
+                        for key in range(len(interv)):
+                            mask = dem_clip.copy()
+                            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                        zero = self.accumulation_flux[0] * 0                
+                        for j in range(len(interv)):
+                            tempo = interv[j].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo                    
+                        days_flux = zero.copy()
+                        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                        for k in range(len(interv)):
+                            tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                            tempo[days_flux<1] = 0
+                            tempo[days_flux==1] = 1
+                            tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                            surflow = (((tempo >= 0).sum()) / self.cell) * 100
+                            perenn = (((tempo == 1).sum()) / self.cell) * 100
+                            intermit = (((tempo == 0).sum()) / self.cell) * 100
+                            self.mfdata.loc[compt,'total_areas'] = surflow
+                            self.mfdata.loc[compt,'perenn_areas'] = perenn
+                            self.mfdata.loc[compt,'intermit_areas'] = intermit                    
+                            compt+=1                    
+                        inf+=1
+                        sup+=1     
+            except:
+                pass
         
         ### intermittency_saturation
         if self.intermittency_monthly == True:
@@ -427,28 +510,32 @@ class Timeseries:
                 pass
         
         ### residence_times
-        try:
-            for key in [0]:
-                try:
-                    shp_frame = gpd.read_file(self.geographic.watershed_shp)
-                    self.residence_times = self.residence_times.clip(shp_frame)
-                except:
-                    pass
-                try:
-                    calc = np.nanmean(self.residence_times['time_win'])
-                except:
-                    calc = np.nanmean(self.residence_times['time'])
-                    pass
-                self.mfdata.loc[key,'residence_times'] = calc
-        except:
-            pass
+        if self.residence_times == True:
+            try:
+                for key in [0]:
+                    try:
+                        shp_frame = gpd.read_file(self.geographic.watershed_shp)
+                        self.shp_particles = self.shp_particles.clip(shp_frame)
+                    except:
+                        pass
+                    try:
+                        calc = np.nanmean(self.shp_particles['time_win'])
+                    except:
+                        calc = np.nanmean(self.shp_particles['time'])
+                        pass
+                    self.mfdata.loc[key,'residence_times'] = calc
+            except:
+                pass
         
         ### save files
         if self.datetime_format==True:
             self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
         self.mfdata = self.mfdata.set_index(['date'])
-        self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries.csv', sep=';')
-        
+        if self.suffix_name == None:
+            self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries.csv', sep=';')
+        else:
+            self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries'+'_'+self.suffix_name+'.csv', sep=';')
+
         if timeseries_file == self.timeseries_file:
             return self.mfdata
         

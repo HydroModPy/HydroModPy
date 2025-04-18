@@ -1,0 +1,10 @@
+<!-- Launcher parameters -->
+<ParametersGroup name="launcher">
+	<Parameter name="type">
+		<description>parameter of launcher</description>
+		<possible_values/>
+		<default_value>launcher parameter default</default_value>
+		<value/>
+		<type>string</type>
+	</Parameter>
+</ParametersGroup>
