@@ -12,10 +12,6 @@
 
 #%% LIBRAIRIES
 
-# Filter 'import imp' warning (before imports) - linked to osgeo
-import warnings
-warnings.filterwarnings('ignore', message='.*imp module.*')
-
 # Python
 import sys
 import os
