@@ -269,7 +269,7 @@ class Mt3dms:
                                                      # report=True,
                                                      normal_msg='normal termination') # True without msg
         
-        shutil.copy(self.full_path+'/'+'MT3D001.UCN', self.full_path+'/'+self.model_name_mt+'.ucn')
+        shutil.copy(self.full_path+'/'+'MT3D001.UCN', self.full_path+'/'+self.model_name_mt+'.UCN')
         
         return success_model
 
