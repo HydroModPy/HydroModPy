@@ -484,85 +484,54 @@ def basin_area(target_data, mask_data, cond_symb, value_masked, resolution):
     return area
 
 def rmse_manual(sim, obs):
-    """Calcul du Root Mean Square Error (RMSE)"""
+    """Root Mean Square Error (RMSE)."""
     return np.sqrt(np.mean((sim - obs) ** 2))
 
 def nse_manual(sim, obs, transform=None):
-    """Calcul du Nash-Sutcliffe Efficiency (NSE)
-    Si transform='log', calcule NSE sur les valeurs logarithmiques"""
+    """Nash–Sutcliffe Efficiency (optionally on log‑transformed Q)."""
     if transform == 'log':
-        # Éviter les valeurs <= 0 pour le log
-        epsilon = 1e-6
-        sim_t = np.log(sim + epsilon)
-        obs_t = np.log(obs + epsilon)
-    else:
-        sim_t = sim
-        obs_t = obs
-    
-    numerator = np.sum((sim_t - obs_t) ** 2)
-    denominator = np.sum((obs_t - np.mean(obs_t)) ** 2)
-    
-    return 1 - (numerator / denominator)
+        eps = 1e-6
+        sim, obs = np.log(sim + eps), np.log(obs + eps)
+    num = np.sum((obs - sim) ** 2)
+    den = np.sum((obs - np.mean(obs)) ** 2)
+    return 1 - num/den
 
 def mare_manual(sim, obs):
-    """Calcul du Mean Absolute Relative Error (MARE)"""
+    """Mean Absolute Relative Error (MARE)."""
     return np.mean(np.abs(sim - obs) / obs)
 
 def kge_manual(sim, obs):
-    """Calcul du Kling-Gupta Efficiency (KGE) et ses composantes"""
-    # Calcul des composantes
-    r = np.corrcoef(sim, obs)[0, 1]  # Coefficient de corrélation
-    alpha = np.std(sim) / np.std(obs)  # Ratio des écarts-types
-    beta = np.mean(sim) / np.mean(obs)  # Ratio des moyennes
-    
-    # Calcul du KGE
+    """Kling–Gupta Efficiency and its three components (r, α, β)."""
+    # Pearson r
+    r = np.corrcoef(sim, obs)[0,1]
+    # spread ratio α
+    alpha = np.std(sim) / np.std(obs)
+    # bias ratio β (sum‑based, same as mean‑based)
+    beta = np.sum(sim) / np.sum(obs)
     kge = 1 - np.sqrt((r - 1)**2 + (alpha - 1)**2 + (beta - 1)**2)
-    
-    return [kge, r, alpha, beta]
+    return kge, r, alpha, beta
 
 def efficiency_criteria(sim, obs):
     """
-    Calculate successful criteria.
-
-    Parameters
-    ----------
-    sim : list or numpy array
-        Timeseries of simulated results.
-    obs : list or numpy array
-        Timeseries of observed results.
-
-    Returns
-    -------
-    list
-        Float values results [RMSE, nRMSE, NSE, NSElog, BAL, MARE, KGE].
+    Compute [RMSE, nRMSE, NSE, NSElog, BAL, MARE, KGE] on two 1D arrays,
+    doing pair‑wise deletion of NaNs in obs.
     """
-    # Convertir en numpy arrays si nécessaire
-    sim = np.array(sim)
-    obs = np.array(obs)
-    
-    # Calcul du RMSE
-    rmse_val = rmse_manual(sim, obs)
-    
-    # Calcul du nRMSE (RMSE normalisé)
-    nrmse = rmse_val / np.mean(obs)
-    
-    # Calcul du NSE (Nash-Sutcliffe Efficiency)
-    nse_val = nse_manual(sim, obs)
-    
-    # Calcul du NSElog (NSE sur les valeurs logarithmiques)
-    nselog_val = nse_manual(sim, obs, transform='log')
-    
-    # Calcul du BAL (Bilan hydrique)
-    bal = np.sum(sim) / np.sum(obs)
-    
-    # Calcul du MARE (Mean Absolute Relative Error)
-    mare_val = mare_manual(sim, obs)
-    
-    # Calcul du KGE (Kling-Gupta Efficiency) et ses composantes
-    kge_comp = kge_manual(sim, obs)
-    kge_val = kge_comp[0]
-    
-    return [rmse_val, nrmse, nse_val, nselog_val, bal, mare_val, kge_val]
+    # flatten and mask out any NaN in obs
+    sim = np.asarray(sim).ravel()
+    obs = np.asarray(obs).ravel()
+    mask = ~np.isnan(obs)
+    sim, obs = sim[mask], obs[mask]
+
+    # now all metrics on equal‑length vectors
+    rmse = rmse_manual(sim, obs)
+    nrmse = rmse / np.mean(obs)
+    nse   = nse_manual(sim, obs)
+    nselog= nse_manual(sim, obs, transform='log')
+    bal   = np.sum(sim) / np.sum(obs)
+    mare  = mare_manual(sim, obs)
+    kge   = kge_manual(sim, obs)[0]
+
+    return rmse, nrmse, nse, nselog, bal, mare, kge
 
 def date_range(start, periods, freq):
     """
