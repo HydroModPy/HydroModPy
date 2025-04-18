@@ -32,7 +32,6 @@ from pyproj import CRS
 from pyproj import Transformer
 from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
-from hydroeval import *
 import pandas as pd
 from affine import Affine
 import numpy as np
@@ -484,31 +483,86 @@ def basin_area(target_data, mask_data, cond_symb, value_masked, resolution):
     area = (cell * resolution**2) / 1000000
     return area
 
+def rmse_manual(sim, obs):
+    """Calcul du Root Mean Square Error (RMSE)"""
+    return np.sqrt(np.mean((sim - obs) ** 2))
+
+def nse_manual(sim, obs, transform=None):
+    """Calcul du Nash-Sutcliffe Efficiency (NSE)
+    Si transform='log', calcule NSE sur les valeurs logarithmiques"""
+    if transform == 'log':
+        # Éviter les valeurs <= 0 pour le log
+        epsilon = 1e-6
+        sim_t = np.log(sim + epsilon)
+        obs_t = np.log(obs + epsilon)
+    else:
+        sim_t = sim
+        obs_t = obs
+    
+    numerator = np.sum((sim_t - obs_t) ** 2)
+    denominator = np.sum((obs_t - np.mean(obs_t)) ** 2)
+    
+    return 1 - (numerator / denominator)
+
+def mare_manual(sim, obs):
+    """Calcul du Mean Absolute Relative Error (MARE)"""
+    return np.mean(np.abs(sim - obs) / obs)
+
+def kge_manual(sim, obs):
+    """Calcul du Kling-Gupta Efficiency (KGE) et ses composantes"""
+    # Calcul des composantes
+    r = np.corrcoef(sim, obs)[0, 1]  # Coefficient de corrélation
+    alpha = np.std(sim) / np.std(obs)  # Ratio des écarts-types
+    beta = np.mean(sim) / np.mean(obs)  # Ratio des moyennes
+    
+    # Calcul du KGE
+    kge = 1 - np.sqrt((r - 1)**2 + (alpha - 1)**2 + (beta - 1)**2)
+    
+    return [kge, r, alpha, beta]
+
 def efficiency_criteria(sim, obs):
     """
     Calculate successful criteria.
 
     Parameters
     ----------
-    sim : list
+    sim : list or numpy array
         Timeseries of simulated results.
-    obs : list
+    obs : list or numpy array
         Timeseries of observed results.
 
     Returns
     -------
     list
-        Float values results.
+        Float values results [RMSE, nRMSE, NSE, NSElog, BAL, MARE, KGE].
     """
-    RMSE = evaluator(rmse, sim, obs)
-    nRMSE = RMSE[0] / obs.mean() # %
-    NSE = evaluator(nse, sim, obs)
-    NSElog = evaluator(nse, sim, obs, transform='log')
-    BAL = (np.sum(sim)/np.sum(obs))
-    MARE = evaluator(mare, sim, obs)
-    KGEcomp = evaluator(kge, sim, obs) # and its three components (r, α, β)
-    KGE = KGEcomp[0]
-    return [RMSE[0], nRMSE, NSE[0], NSElog[0], BAL, MARE[0], KGE[0]]
+    # Convertir en numpy arrays si nécessaire
+    sim = np.array(sim)
+    obs = np.array(obs)
+    
+    # Calcul du RMSE
+    rmse_val = rmse_manual(sim, obs)
+    
+    # Calcul du nRMSE (RMSE normalisé)
+    nrmse = rmse_val / np.mean(obs)
+    
+    # Calcul du NSE (Nash-Sutcliffe Efficiency)
+    nse_val = nse_manual(sim, obs)
+    
+    # Calcul du NSElog (NSE sur les valeurs logarithmiques)
+    nselog_val = nse_manual(sim, obs, transform='log')
+    
+    # Calcul du BAL (Bilan hydrique)
+    bal = np.sum(sim) / np.sum(obs)
+    
+    # Calcul du MARE (Mean Absolute Relative Error)
+    mare_val = mare_manual(sim, obs)
+    
+    # Calcul du KGE (Kling-Gupta Efficiency) et ses composantes
+    kge_comp = kge_manual(sim, obs)
+    kge_val = kge_comp[0]
+    
+    return [rmse_val, nrmse, nse_val, nselog_val, bal, mare_val, kge_val]
 
 def date_range(start, periods, freq):
     """
