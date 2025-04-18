@@ -667,7 +667,7 @@ for i, simul in enumerate(simul_list[:]):
 
 list_folder = glob.glob(BV.calibration_folder+'/'+vers+'*')
 
-model_name = list_folder[0].split('\\')[-1]
+model_name = list_folder[0].split(os.path.sep)[-1]
 
 h5file = list_folder[0] + '/' + 'results_' + model_name
 d = dd.io.load(h5file)
@@ -766,7 +766,7 @@ fig.tight_layout()
 
 list_folder = glob.glob(BV.calibration_folder+'/'+vers+'*')
 
-model_name = list_folder[0].split('\\')[-1]
+model_name = list_folder[0].split(os.path.sep)[-1]
 
 h5file = list_folder[0] + '/' + 'results_' + model_name
 d = dd.io.load(h5file)

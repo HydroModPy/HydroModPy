@@ -269,12 +269,7 @@ class Mt3dms:
                                                      # report=True,
                                                      normal_msg='normal termination') # True without msg
         
-        try:
-            # Copy a file from source to destination
-            shutil.copy(self.full_path+'/'+'MT3D001.ucn',
-                        self.full_path+'/'+self.model_name_mt+'.ucn')
-        except:
-            pass
+        shutil.copy(self.full_path+'/'+'MT3D001.UCN', self.full_path+'/'+self.model_name_mt+'.ucn')
         
         return success_model
 
