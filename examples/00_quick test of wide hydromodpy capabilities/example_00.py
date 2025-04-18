@@ -11,21 +11,16 @@
 """
 
 #%% ---- LIBRAIRIES
-
-# Filter warnings (before imports)
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
-warnings.filterwarnings('ignore', message='.*pkg_resources.*')
-warnings.filterwarnings('ignore', message='.*declare_namespace.*')
-
 # PYTHON PACKAGES
 import sys
 import os
 import warnings
 
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
+    
 import pandas as pd
 import flopy
 import matplotlib as mpl
@@ -42,30 +37,21 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # ROOT DIRECTORY
-
 from os.path import dirname, abspath
-# ROOT DIRECTORY
 try:
     root_dir = dirname(dirname(dirname(abspath(__file__))))
 except NameError:
-    # Fallback for interactive environments (e.g., Jupyter Notebook)
     root_dir = os.getcwd()
-
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODULES
-
 from src import watershed_root
 from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
-
-# WARNING MANAGEMENT
-
-warnings.filterwarnings("ignore")
     
 #%% ---- PERSONAL PATHS
 

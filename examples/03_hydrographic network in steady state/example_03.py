@@ -11,23 +11,16 @@
 """
 
 #%% ---- LIBRAIRIES
-
-#%% PYTHON
-
-# Filter warnings (before imports)
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
-warnings.filterwarnings('ignore', message='.*pkg_resources.*')
-warnings.filterwarnings('ignore', message='.*declare_namespace.*')
-
 # Libraries installed by default
 import sys
 import os
 
 # Libraries need to be installed if not
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
+    
 import pandas as pd
 
 import matplotlib as mpl
@@ -36,16 +29,19 @@ from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
+
 import deepdish as dd
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
 
-#%% ROOT
-
+# ROOT DIRECTORY
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+try:
+    root_dir = dirname(dirname(dirname(abspath(__file__))))
+except NameError:
+    root_dir = os.getcwd()
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
