@@ -144,6 +144,7 @@ class Modpath:
         """
         
         #%% Load and import
+        
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = '{}.nam'.format(prefix)
         dis_file = '{}.dis'.format(prefix)
@@ -336,7 +337,7 @@ class Modpath:
                                   def_face_ct=0,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
                                   laytyp=laytype,
                                   ibound=iboundData,
-        										prsity=self.poro_modpath,
+                                  prsity=self.poro_modpath,
                                   prsityCB=self.ss_modpath,
                                   extension='mpbas',
                                   unitnumber=86)
@@ -492,8 +493,6 @@ class Modpath:
                                         mg=grid_model,
                                         epsg=epsg,
                                         verbose=False)
-
-    #%% Filtering and normalization functions
     
     def filt_processing(self,
                         model_modpath:object,
@@ -560,29 +559,30 @@ class Modpath:
             drain_matrix      = Qz_drain[0,:,:]
             sflux = recharge_matrix - drain_matrix
             sflows = sflux/drow/dcol
+            
             toolbox.export_tif(self.geographic.watershed_box_buff_dem,
                                sflows,
-                               self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
+                               self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
                                -9999)
-            wbt.extract_raster_values_at_points(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
-                                                self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp',
+            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
+                                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp',
                                                 out_text=False)
-            wbt.extract_raster_values_at_points(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
-                                                self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp',
+            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
+                                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp',
                                                 out_text=False)
             
-            start = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp')
+            start = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp')
             start_weighted = start.copy()
-            start_weighted.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+            start_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             
-            end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp')
+            end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp')
             end_weighted = end.copy()
-            end_weighted.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            end_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             
             recharge_list = np.ones(len(end))*recharge_raw.mean()
             
-            start_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            end_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            start_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+            end_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
 
             if self.track_dir == 'forward':
                 end_process['VALUE1_in'] = start_weighted['VALUE1']
@@ -600,14 +600,14 @@ class Modpath:
             
             end_up = update_time(end_process, filt_time)
             end_up, keep_particles = update_locout(end_up, filt_seep, filt_inout)
-            end_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            end_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
 
             start_up = update_time(start_process, filt_time)
             start_up, keep_particles = update_locout(start_up, filt_seep, filt_inout)
-            start_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+            start_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             
             if self.pathlines_shp == True:
-                pathlines_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines.shp')
+                pathlines_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines.shp')
                 if self.track_dir == 'forward':
                     pathlines_process['time_win'] = (end_process['time'])*end_process['rchPerc']
                 if self.track_dir == 'backward':
@@ -615,37 +615,37 @@ class Modpath:
                 pathlines_up = update_time(pathlines_process, filt_time)
                 pathlines_up = pathlines_up[pathlines_up['particleid'].isin(keep_particles)]
                 if random_id != None:
-                    if not os.path.exists(self.geographic.simulations_folder+'/'+'_id_particles_random.data'):
+                    if not os.path.exists(self.model_folder+'/'+'_id_particles_random.data'):
                         id_particles_random = random.sample(pathlines_up[:-1], random_id)
-                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'wb') as f:
+                        with open(self.model_folder+'/'+'_id_particles_random.data', 'wb') as f:
                             pickle.dump(id_particles_random, f)
                     else:
-                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'rb') as f:
+                        with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
                     pathlines_up = pathlines_up[pathlines_up['particleid'].isin(id_particles_random)]                    
-                pathlines_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines_weighted.shp')
+                pathlines_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines_weighted.shp')
             
             if self.particles_shp == True:
-                particles_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp')
+                particles_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp')
                 particles_up = update_time(particles_process, filt_time)
                 if random_id != None:
-                    if not os.path.exists(self.geographic.simulations_folder+'/'+'_id_particles_random.data'):
+                    if not os.path.exists(self.model_folder+'/'+'_id_particles_random.data'):
                         id_particles_random = random.sample(particles_up[:-1], random_id)
-                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'wb') as f:
+                        with open(self.model_folder+'/'+'_id_particles_random.data', 'wb') as f:
                             pickle.dump(id_particles_random, f)
                     else:
-                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'rb') as f:
+                        with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
                     particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
-                particles_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
+                particles_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
         
-        #%% Plot RTD
+        #%% PLOT
         
         if calc_rtd == True:
             if self.track_dir == 'forward': 
-                end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+                end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             if self.track_dir == 'backward': 
-                end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+                end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             try:
                 shp = gpd.read_file(self.geographic.watershed_shp)
                 end = end.clip(shp)
