@@ -102,6 +102,10 @@ class Mt3dms:
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
         if (sys.platform == 'win32') or (sys.platform == 'win64'):
             self.exe = os.path.join(bin_path, 'win' ,'mt3d-usgs_1.1.0_64.exe')
+        if (sys.platform == 'linux'):
+            self.exe = os.path.join(bin_path, 'linux' ,'mt3dusgs')
+        if (sys.platform == 'darwin'):
+            self.exe = os.path.join(bin_path, 'mac' ,'mt3dusgs')
         
         self.spc_name = spc_name
         self.sconc_init = sconc_init
@@ -310,7 +314,7 @@ class Mt3dms:
         #%% Load essential data
         
         # Modflow specific files (written in the processing phase)
-        self.path_file = os.path.join(self.full_path, 'MT3D001.ucn')
+        self.path_file = os.path.join(self.full_path, self.model_name_mt+'.UCN')
                 
         # Files have been output in the processing phase and are re-read here
         self.dem_mask = (self.model_modflow.dem<-9999)
