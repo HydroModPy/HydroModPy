@@ -638,7 +638,6 @@ class Visualization():
         
         # Figure params
         fig, main_ax = plt.subplots(figsize=(5, 5))
-        # title = plt.suptitle('Interactive cross section head',y=0.98)
         divider = make_axes_locatable(main_ax)
         top_ax = divider.append_axes("top",1.1, pad=0.2, sharex=main_ax)
         right_ax = divider.append_axes("right",1.1, pad=0.2, sharey=main_ax)
@@ -656,12 +655,6 @@ class Visualization():
         yvalues = np.linspace(-1,1,dem_data.shape[0])
         xx, yy = np.meshgrid(xvalues,yvalues)
         
-        # Positions
-        pos = np.empty(xx.shape + (2,))
-        pos[:, :, 0] = xx
-        pos[:, :, 1] = yy
-        
-        # V and H lines
         if interactive == True:
             cur_x = dem_data.shape[1] - 1
             cur_y = dem_data.shape[0] - 1
@@ -669,136 +662,109 @@ class Visualization():
             cur_x = dem_data.shape[1] /2
             cur_y = dem_data.shape[0] /2
         
-        # Data dem
-        dem_max = dem_data.max()
+        # Data DEM
         dem_prof = dem_data.astype(float)
         dem_prof[dem_prof<0] = np.nan
         
-        # Plot dem
-        dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
-        main_ax.imshow(dem_plot, origin='lower', cmap='terrain', alpha=0.5)
+        main_ax.imshow(
+            np.ma.masked_array(dem_data, mask=(dem_data<0)),
+            origin='lower', cmap='terrain', alpha=0.5
+        )
         
         # Plot contour
         try:
             cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
             main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
         except:
-            # print('Problem to plot contour')
+            print('  No contour file found')
             pass
         
-        # Plot rivers
         try:
             river_plot = np.ma.masked_array(river_data, mask=(river_data<=0))
             main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'), interpolation='none')
         except:
-            # print('Problem to plot streams')
+            print('  No river file found')
             pass
         
-        plt.gca().invert_yaxis()
+        main_ax.invert_yaxis()
         
         # Data wt
         wt_prof = wt_data.astype(float)
         wt_prof[wt_prof<0] = np.nan
-        # wt_max = wt_data.max()
         
         # Scaling axis
         main_ax.autoscale(enable=False)
         right_ax.autoscale(enable=False)
         top_ax.autoscale(enable=False)
-        right_ax.set_xlim(np.nanmin(wt_prof),dem_max)
-        top_ax.set_ylim(np.nanmin(wt_prof),dem_max)
         
-        # Plot lines
+        dem_max = np.nanmax(dem_prof)  # Calculate the maximum dem value
+        
+        right_ax.set_xlim(np.nanmin(wt_prof), dem_max)
+        top_ax.set_ylim(np.nanmin(wt_prof), dem_max)
+        
+        right_ax.set_ylim(0, dem_data.shape[0])
+        right_ax.invert_yaxis()
+        top_ax.set_xlim(0, dem_data.shape[1])
+        
         v_line = main_ax.axvline(cur_x, color='k', lw=2)
         h_line = main_ax.axhline(cur_y, color='k', lw=2)
-        # d_line = main_ax.plot((x0,x1),(y0,y1), 'white', '-')
         
-        # Plot dem cross-sections
-        if interactive == True:
-            lw = 1.5
-        else:
-            lw = 1
+        # Vertical line (DEM + nappe)
+        lw = 1.5 if interactive else 1
+        dem_v = dem_prof[:, int(cur_x)]; dem_v[dem_v==0] = np.nan
+        wt_v  = wt_prof[:, int(cur_x)]; wt_v[wt_v==0] = np.nan
         
-        dem_v_plot = dem_prof[:,int(cur_x)]
-        dem_v_plot[dem_v_plot == 0] = np.nan
-        dem_v_prof, = right_ax.plot(dem_v_plot,np.arange(xx.shape[0]), c='saddlebrown', lw=lw)
+        dem_v_prof, = right_ax.plot(dem_v, np.arange(xx.shape[0]), c='saddlebrown', lw=lw)
+        wt_v_prof,  = right_ax.plot(wt_v , np.arange(xx.shape[0]), c='dodgerblue',  lw=lw)
         
-        dem_h_plot = dem_prof[int(cur_y),:]
-        dem_h_plot[dem_h_plot == 0] = np.nan
-        dem_h_prof, = top_ax.plot(np.arange(xx.shape[1]),dem_h_plot, c='saddlebrown', lw=lw)
-        # dem_h_prof, = top_ax.plot(x, zi, 'b-')
+        # Always fill between the two lines
+        right_ax.fill_betweenx(np.arange(xx.shape[0]), 0,    wt_v,
+                               color='deepskyblue', alpha=0.5, lw=0)
+        right_ax.fill_betweenx(np.arange(xx.shape[0]), wt_v, dem_v,
+                               color='saddlebrown',  alpha=0.5, lw=0)
         
-        # # Plot wt cross-sections
-        if interactive == True:
-            lw = 1.5
-        else:
-            lw = 0
-            
-        wt_v_plot = wt_prof[:,int(cur_x)]
-        wt_v_plot[wt_v_plot == 0] = np.nan
-        wt_v_prof, = right_ax.plot(wt_v_plot,np.arange(xx.shape[0]), c='dodgerblue', lw=lw)
+        # Horizontal line (DEM + nappe)
+        dem_h = dem_prof[int(cur_y), :]; dem_h[dem_h==0] = np.nan
+        wt_h  = wt_prof[int(cur_y), :]; wt_h[wt_h==0] = np.nan
         
-        if interactive != True:
-            wt_v_fill = right_ax.fill_betweenx(np.arange(xx.shape[0]), 0, wt_v_plot,
-                                               color='deepskyblue', alpha=0.5, lw=0)
-            wt_v_fill = right_ax.fill_betweenx(np.arange(xx.shape[0]), wt_v_plot, dem_v_plot,
-                                               color='saddlebrown', alpha=0.5, lw=0)
+        dem_h_prof, = top_ax.plot(np.arange(xx.shape[1]), dem_h, c='saddlebrown', lw=lw)
+        wt_h_prof,  = top_ax.plot(np.arange(xx.shape[1]), wt_h,  c='dodgerblue',  lw=lw)
         
-        wt_h_plot = wt_prof[int(cur_y),:]
-        wt_h_plot[wt_h_plot == 0] = np.nan
-        wt_h_prof, = top_ax.plot(np.arange(xx.shape[1]), wt_h_plot, c='dodgerblue', lw=lw)
-        
-        if interactive != True:
-            wt_h_fill = top_ax.fill_between(np.arange(xx.shape[1]), 0, wt_h_plot,
-                                            color='deepskyblue', alpha=0.5, lw=0)
-            wt_h_fill = top_ax.fill_between(np.arange(xx.shape[1]), wt_h_plot, dem_h_plot,
-                                            color='saddlebrown', alpha=0.5, lw=0)
+        top_ax.fill_between(np.arange(xx.shape[1]), 0,    wt_h,
+                            color='deepskyblue', alpha=0.5, lw=0)
+        top_ax.fill_between(np.arange(xx.shape[1]), wt_h, dem_h,
+                            color='saddlebrown',  alpha=0.5, lw=0)
         
         plt.tight_layout()
         
         # Animation interactive
-        
-        def on_move_dem(event):
-            if event.inaxes is main_ax:       
-                cur_x = event.xdata
-                cur_y = event.ydata
-                dem_v_plot = dem_prof[:,int(cur_x)]
-                dem_v_plot[dem_v_plot == 0] = np.nan
-                dem_h_plot = dem_prof[int(cur_y),:]
-                dem_h_plot[dem_h_plot == 0] = np.nan    
-                v_line.set_xdata([cur_x, cur_x])
-                h_line.set_ydata([cur_y, cur_y])
-                dem_v_prof.set_xdata(dem_v_plot)
-                dem_h_prof.set_ydata(dem_h_plot)
-                fig.canvas.draw_idle()
-                
-        def on_move_wt(event):
-            if event.inaxes is main_ax:       
-                cur_x = event.xdata
-                cur_y = event.ydata
-                wt_v_plot = wt_prof[:,int(cur_x)]
-                wt_v_plot[wt_v_plot == 0] = np.nan
-                wt_h_plot = wt_prof[int(cur_y),:]
-                wt_h_plot[wt_h_plot == 0] = np.nan
-                v_line.set_xdata([cur_x, cur_x])
-                h_line.set_ydata([cur_y, cur_y])
-                wt_v_prof.set_xdata(wt_v_plot)
-                wt_h_prof.set_ydata(wt_h_plot)
-                wt_v_fill.set_xdata(wt_v_plot)
-                wt_h_fill.set_xdata(wt_h_plot)   
+        def on_move(event):
+            if event.inaxes is main_ax:
+                x, y = event.xdata, event.ydata
+                v_line.set_xdata([x, x])
+                h_line.set_ydata([y, y])
+                new_dem_v = dem_prof[:, int(x)]; new_dem_v[new_dem_v==0]=np.nan
+                new_wt_v  = wt_prof[:,  int(x)]; new_wt_v[new_wt_v==0]=np.nan
+                new_dem_h = dem_prof[int(y), :]; new_dem_h[new_dem_h==0]=np.nan
+                new_wt_h  = wt_prof[int(y), :]; new_wt_h[new_wt_h==0]=np.nan
+                dem_v_prof.set_xdata(new_dem_v)
+                wt_v_prof.set_xdata(new_wt_v)
+                dem_h_prof.set_ydata(new_dem_h)
+                wt_h_prof.set_ydata(new_wt_h)
                 fig.canvas.draw_idle()
         
-        def on_close(event):
-            get_ipython().run_line_magic('matplotlib', 'inline')
+        if interactive ==True:
+            fig.canvas.mpl_connect('motion_notify_event', on_move)
+            fig.canvas.mpl_connect('close_event',
+                                   lambda e: get_ipython().run_line_magic('matplotlib','inline'))
         
-        if interactive == True:
-            fig.canvas.mpl_connect('motion_notify_event', on_move_dem)
-            fig.canvas.mpl_connect('motion_notify_event', on_move_wt)
-        
-        fig.canvas.mpl_connect('close_event', on_close)
-        
-        fig.savefig(os.path.join(self.watershed.simulations_folder, self.modelname,
-                                 '_postprocess', '_figures', 'CROSS_'+self.modelname+'.png'))
+        # Sauvegarde et affichage
+        fig.savefig(os.path.join(
+            self.watershed.simulations_folder, self.modelname,
+            '_postprocess','_figures',
+            f'CROSS_{self.modelname}.png'
+        ))
+        plt.show()
         
 #%% NOTES        
         
