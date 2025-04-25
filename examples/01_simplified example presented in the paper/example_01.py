@@ -454,6 +454,7 @@ visu.visual3D(interactive=True, object_list=[
 
 #%% INTERACTIVE CROSS-SECTION
 
+# CLICK on the map to select a cross-section !
 dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
 stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
 watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data

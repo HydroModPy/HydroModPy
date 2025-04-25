@@ -709,62 +709,99 @@ class Visualization():
         v_line = main_ax.axvline(cur_x, color='k', lw=2)
         h_line = main_ax.axhline(cur_y, color='k', lw=2)
         
-        # Vertical line (DEM + nappe)
+        # Create initial data
         lw = 1.5 if interactive else 1
         dem_v = dem_prof[:, int(cur_x)]; dem_v[dem_v==0] = np.nan
-        wt_v  = wt_prof[:, int(cur_x)]; wt_v[wt_v==0] = np.nan
-        
-        dem_v_prof, = right_ax.plot(dem_v, np.arange(xx.shape[0]), c='saddlebrown', lw=lw)
-        wt_v_prof,  = right_ax.plot(wt_v , np.arange(xx.shape[0]), c='dodgerblue',  lw=lw)
-        
-        # Always fill between the two lines
-        right_ax.fill_betweenx(np.arange(xx.shape[0]), 0,    wt_v,
-                               color='deepskyblue', alpha=0.5, lw=0)
-        right_ax.fill_betweenx(np.arange(xx.shape[0]), wt_v, dem_v,
-                               color='saddlebrown',  alpha=0.5, lw=0)
-        
-        # Horizontal line (DEM + nappe)
+        wt_v = wt_prof[:, int(cur_x)]; wt_v[wt_v==0] = np.nan
         dem_h = dem_prof[int(cur_y), :]; dem_h[dem_h==0] = np.nan
-        wt_h  = wt_prof[int(cur_y), :]; wt_h[wt_h==0] = np.nan
+        wt_h = wt_prof[int(cur_y), :]; wt_h[wt_h==0] = np.nan
         
+        # Create initial plots
+        dem_v_prof, = right_ax.plot(dem_v, np.arange(xx.shape[0]), c='saddlebrown', lw=lw)
+        wt_v_prof, = right_ax.plot(wt_v, np.arange(xx.shape[0]), c='dodgerblue', lw=lw)
         dem_h_prof, = top_ax.plot(np.arange(xx.shape[1]), dem_h, c='saddlebrown', lw=lw)
-        wt_h_prof,  = top_ax.plot(np.arange(xx.shape[1]), wt_h,  c='dodgerblue',  lw=lw)
+        wt_h_prof, = top_ax.plot(np.arange(xx.shape[1]), wt_h, c='dodgerblue', lw=lw)
         
-        top_ax.fill_between(np.arange(xx.shape[1]), 0,    wt_h,
-                            color='deepskyblue', alpha=0.5, lw=0)
-        top_ax.fill_between(np.arange(xx.shape[1]), wt_h, dem_h,
-                            color='saddlebrown',  alpha=0.5, lw=0)
+        # Store references to the fill collections
+        water_fill_v = [right_ax.fill_betweenx(np.arange(xx.shape[0]), 0, wt_v,
+                                color='deepskyblue', alpha=0.5, lw=0)]
+        soil_fill_v = [right_ax.fill_betweenx(np.arange(xx.shape[0]), wt_v, dem_v,
+                                color='saddlebrown', alpha=0.5, lw=0)]
+        water_fill_h = [top_ax.fill_between(np.arange(xx.shape[1]), 0, wt_h,
+                                color='deepskyblue', alpha=0.5, lw=0)]
+        soil_fill_h = [top_ax.fill_between(np.arange(xx.shape[1]), wt_h, dem_h,
+                                color='saddlebrown', alpha=0.5, lw=0)]
         
         plt.tight_layout()
         
         # Animation interactive
         def on_move(event):
             if event.inaxes is main_ax:
-                x, y = event.xdata, event.ydata
-                v_line.set_xdata([x, x])
-                h_line.set_ydata([y, y])
-                new_dem_v = dem_prof[:, int(x)]; new_dem_v[new_dem_v==0]=np.nan
-                new_wt_v  = wt_prof[:,  int(x)]; new_wt_v[new_wt_v==0]=np.nan
-                new_dem_h = dem_prof[int(y), :]; new_dem_h[new_dem_h==0]=np.nan
-                new_wt_h  = wt_prof[int(y), :]; new_wt_h[new_wt_h==0]=np.nan
-                dem_v_prof.set_xdata(new_dem_v)
-                wt_v_prof.set_xdata(new_wt_v)
-                dem_h_prof.set_ydata(new_dem_h)
-                wt_h_prof.set_ydata(new_wt_h)
-                fig.canvas.draw_idle()
+                try:
+                    x, y = int(event.xdata), int(event.ydata)
+                    
+                    # Check bounds
+                    if x < 0 or x >= dem_prof.shape[1] or y < 0 or y >= dem_prof.shape[0]:
+                        return
+                    
+                    v_line.set_xdata([x, x])
+                    h_line.set_ydata([y, y])
+                    
+                    # Extract new profile data
+                    new_dem_v = dem_prof[:, x].copy()
+                    new_wt_v = wt_prof[:, x].copy()
+                    new_dem_h = dem_prof[y, :].copy()
+                    new_wt_h = wt_prof[y, :].copy()
+                    
+                    new_dem_v[new_dem_v==0] = np.nan
+                    new_wt_v[new_wt_v==0] = np.nan
+                    new_dem_h[new_dem_h==0] = np.nan
+                    new_wt_h[new_wt_h==0] = np.nan
+                    
+                    # Update line data
+                    dem_v_prof.set_xdata(new_dem_v)
+                    wt_v_prof.set_xdata(new_wt_v)
+                    dem_h_prof.set_ydata(new_dem_h)
+                    wt_h_prof.set_ydata(new_wt_h)
+                    
+                    # Remove old fill areas
+                    for collection in water_fill_v + soil_fill_v + water_fill_h + soil_fill_h:
+                        if collection in right_ax.collections or collection in top_ax.collections:
+                            collection.remove()
+                    
+                    water_fill_v.clear()
+                    soil_fill_v.clear()
+                    water_fill_h.clear()
+                    soil_fill_h.clear()
+                    
+                    # Create new fill areas
+                    water_fill_v.append(right_ax.fill_betweenx(np.arange(xx.shape[0]), 0, new_wt_v,
+                                    color='deepskyblue', alpha=0.5, lw=0))
+                    soil_fill_v.append(right_ax.fill_betweenx(np.arange(xx.shape[0]), new_wt_v, new_dem_v,
+                                    color='saddlebrown', alpha=0.5, lw=0))
+                    water_fill_h.append(top_ax.fill_between(np.arange(xx.shape[1]), 0, new_wt_h,
+                                    color='deepskyblue', alpha=0.5, lw=0))
+                    soil_fill_h.append(top_ax.fill_between(np.arange(xx.shape[1]), new_wt_h, new_dem_h,
+                                    color='saddlebrown', alpha=0.5, lw=0))
+                    
+                    # Force a redraw
+                    fig.canvas.draw()
+                    fig.canvas.flush_events()
+                    
+                except Exception as e:
+                    pass
         
-        if interactive ==True:
-            fig.canvas.mpl_connect('motion_notify_event', on_move)
+        if interactive == True:
+            cid = fig.canvas.mpl_connect('motion_notify_event', on_move)
             fig.canvas.mpl_connect('close_event',
-                                   lambda e: get_ipython().run_line_magic('matplotlib','inline'))
+                                lambda e: get_ipython().run_line_magic('matplotlib','inline'))
         
-        # Sauvegarde et affichage
+        # Save and display
         fig.savefig(os.path.join(
             self.watershed.simulations_folder, self.modelname,
             '_postprocess','_figures',
             f'CROSS_{self.modelname}.png'
         ))
         plt.show()
-        
 #%% NOTES        
         
