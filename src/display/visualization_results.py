@@ -454,7 +454,7 @@ class Visualization():
             grid_wireframe.alpha(0.1)
             #plt += grid_wireframe.flag()
             
-            zvals = grid_mesh.points()[:, 2]
+            zvals = grid_mesh.points[:, 2]
             # grid_mesh.add_elevation_scalars(lowPoint=(0,0,min(zvals)),highPoint=(0,0,max(zvals)), vrange=(min(zvals), max(zvals)))
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
             # grid_mesh.add_scalarbar(pos=cloc, title='Topographic elevation [m]',
@@ -482,14 +482,14 @@ class Visualization():
             drain_flow = vedo.UnstructuredGrid(watertable) # 3 Drain Flow
         watertable_blue = vedo.load(watertable) # 4 blue
         
-        zvals = watertable_elev.points()[:, 2]
+        zvals = watertable_elev.points[:, 2]
         watertable_elev.cmap('Blues_r',zvals, vmin=min(zvals))
         # watertable_elev.add_scalarbar(pos=cloc, title='Watertable elevation [m]', horizontal=False, titleFontSize=20)
         watertable_elev.add_scalarbar(pos=cloc, horizontal=False)
         watertable_elev.scale([1,1,z_scale])
         #plt += watertable_elev
         
-        watertable_depth.map_cells_to_points()
+        watertable_depth.map_cells_to_points
         watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=10)
         # watertable_depth.add_scalarbar(pos=cloc, title='Watertable depth [m]', horizontal=False, titleFontSize=20)
         watertable_depth.add_scalarbar(pos=cloc, horizontal=False)
@@ -565,31 +565,31 @@ class Visualization():
         # 
 
         #View
-        xs = max(watertable_elev.points()[:, 0]) - min(watertable_elev.points()[:, 0])
-        ys = max(watertable_elev.points()[:, 1]) - min(watertable_elev.points()[:, 1])
-        zs = max(watertable_elev.points()[:, 2]) - min(watertable_elev.points()[:, 2])
+        xs = max(watertable_elev.points[:, 0]) - min(watertable_elev.points[:, 0])
+        ys = max(watertable_elev.points[:, 1]) - min(watertable_elev.points[:, 1])
+        zs = max(watertable_elev.points[:, 2]) - min(watertable_elev.points[:, 2])
         if view == 'north':
-            pos = (min(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+            pos = (min(watertable_elev.points[:, 0])+ xs ,max(watertable_elev.points[:,1])+ ys,max(watertable_elev.points[:, 2])*10)
         if view == 'north-east':
-            pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+            pos = (max(watertable_elev.points[:, 0])+ xs ,max(watertable_elev.points[:,1])+ ys,max(watertable_elev.points[:, 2])*10)
         if view == 'east':
-            pos = (max(watertable_elev.points()[:, 0])+ xs ,min(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+            pos = (max(watertable_elev.points[:, 0])+ xs ,min(watertable_elev.points[:,1])+ ys,max(watertable_elev.points[:, 2])*10)
         if view == 'south-east':
-            pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+            pos = (max(watertable_elev.points[:, 0])+ xs ,max(watertable_elev.points[:,1])- ys,max(watertable_elev.points[:, 2])*10)
         if view == 'south':
-            pos = (min(watertable_elev.points()[:, 0])+ xs ,min(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+            pos = (min(watertable_elev.points[:, 0])+ xs ,min(watertable_elev.points[:,1])- ys,max(watertable_elev.points[:, 2])*10)
         if view == 'south-west':
-            pos = (min(watertable_elev.points()[:, 0])- xs ,min(watertable_elev.points()[:,1])- ys,max(watertable_elev.points()[:, 2])*10)
+            pos = (min(watertable_elev.points[:, 0])- xs ,min(watertable_elev.points[:,1])- ys,max(watertable_elev.points[:, 2])*10)
         if view == 'west':
-            pos = (min(watertable_elev.points()[:, 0])- xs ,min(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+            pos = (min(watertable_elev.points[:, 0])- xs ,min(watertable_elev.points[:,1])+ ys,max(watertable_elev.points[:, 2])*10)
         if view == 'north-west':
-            pos = (min(watertable_elev.points()[:, 0])- xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*10)
+            pos = (min(watertable_elev.points[:, 0])- xs ,max(watertable_elev.points[:,1])+ ys,max(watertable_elev.points[:, 2])*10)
         if view == 'custom':
-            pos = (max(watertable_elev.points()[:, 0])+ xs ,max(watertable_elev.points()[:,1])+ ys,max(watertable_elev.points()[:, 2])*4)
+            pos = (max(watertable_elev.points[:, 0])+ xs ,max(watertable_elev.points[:,1])+ ys,max(watertable_elev.points[:, 2])*4)
         if view == 'vertical':
-            pos = (np.mean(watertable_elev.points()[:, 0]) ,np.mean(watertable_elev.points()[:,1]), np.mean(watertable_elev.points()[:, 2])*400)
+            pos = (np.mean(watertable_elev.points[:, 0]) ,np.mean(watertable_elev.points[:,1]), np.mean(watertable_elev.points[:, 2])*400)
 
-        focal = (min(watertable_elev.points()[:, 0])+(xs/2), min(watertable_elev.points()[:, 1])+(ys/2), zs)
+        focal = (min(watertable_elev.points[:, 0])+(xs/2), min(watertable_elev.points[:, 1])+(ys/2), zs)
         cam = dict(pos = pos,focalPoint = focal)
         
         for i in range (0,len(object_list)):
