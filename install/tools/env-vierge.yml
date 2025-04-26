@@ -1,4 +1,4 @@
-name: hydromodpy-01
+name: hydromodpy-temp
 channels:
   - conda-forge
 dependencies:
