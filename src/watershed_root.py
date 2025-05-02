@@ -133,6 +133,12 @@ class Watershed:
         
         self.elt_def = []
         
+        # Initialize required elements
+        self.lakeres = None
+        # self.elt_def.append('lakeres')
+        self.streamflow_seepage = None
+        # self.elt_def.append('streamflow_seepage')
+        
         success = False
         
         if load==True:
