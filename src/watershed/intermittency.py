@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import geopandas as gpd
 import whitebox
 import pandas as pd
@@ -44,7 +45,7 @@ class Intermittency:
         geographic : object
             Variable object of the model domain (watershed).
         """
-        print('Extract intermittency from specific data')
+        logging.info('Extract intermittency from specific data')
         
         data_folder = os.path.join(out_path,'results_stable','intermittency')
         if not os.path.exists(data_folder):
@@ -83,14 +84,12 @@ class Intermittency:
         for i in stations:
             mask = (intermit_bv['<LbSiteHyd'] == i)
             raw = intermit_bv[mask]
-            self.code_onde.append(raw.iloc[0]['<CdSiteHyd'])
+            self.code_onde.append(raw.iloc[0]['<CdSiteHyd'] if pd.notnull(raw.iloc[0]['<CdSiteHyd']) else None)
             self.label.append(raw.iloc[0]['<LbSiteHyd'])
             self.x_coord.append(raw.iloc[0]['<CoordXSit'])
             self.y_coord.append(raw.iloc[0]['<CoordYSit'])
             # self.date_first.append(pd.to_datetime(raw.iloc[0]['<DtRealObs'], format='%Y-%m-%d'))
             # self.date_last.append(pd.to_datetime(raw.iloc[-1]['<DtRealObs'],format='%Y-%m-%d'))
-            self.date_first.append(raw.iloc[0]['<DtRealObs'])
-            self.date_last.append(raw.iloc[-1]['<DtRealObs'])
     
     #%% PLOT INTERMITTENCY DATA        
     
@@ -142,7 +141,7 @@ class Intermittency:
             plt.tight_layout()
             fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300, 
                         bbox_inches='tight', transparent=False)
-            # print(code)
+            logging.debug(code)
             # plt.close()
        
 #%% NOTES

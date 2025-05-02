@@ -1,2 +1,0 @@
-code_sub;x_outlet;y_outlet
-upstreamA;320465.377;6776490.600

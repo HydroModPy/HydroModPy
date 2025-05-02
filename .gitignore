@@ -2,14 +2,15 @@
 *.pyc
 *.chk
 **.chk
+src/watershed/.DS_Store
 src/__pycache__
 src/watershed/__pycache__
 src/tools/__pycache__
 src/modeling/__pycache__
 src/display/__pycache__
-src/watershed/.DS_Store
 examples/results/*
-test/results/*
 !examples/results/readme.txt
+test/results/*
 !test/results/readme.txt
 logs/
+users/bboivin/*

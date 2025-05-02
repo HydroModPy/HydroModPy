@@ -16,6 +16,7 @@
 import pandas as pd
 import numpy as np
 import os
+import logging
 from scipy.optimize import curve_fit
 from watershed import sim2
 import re
@@ -34,14 +35,12 @@ class Climatic:
         out_path : str
             Path of the HydroModPy outputs. 
         """    
-        print('Init climatic module to set model parameter')
+        logging.info('Init climatic module to set model parameter')
         
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
         self.drias_folder = os.path.join(out_path, 'results_stable/drias/')
-        self.freq = None
         self.recharge = None
         self.runoff = None
-        self.unit = None
 
     #%% UPDATE FROM OWN MANUAL DATA
     
@@ -77,9 +76,12 @@ class Climatic:
         self.runoff = values # recharge
         if isinstance(values,(dict))==False:
             if sim_state == 'steady':
-                self.runoff = np.mean(self.runoff)
-                if isinstance(self.runoff,(int,float))==False:
-                    self.runoff = self.runoff[0]
+                try:
+                    self.runoff = np.mean(self.runoff)
+                    if isinstance(self.runoff,(int,float))==False:
+                        self.runoff = self.runoff[0]
+                except:
+                    pass
     
     def update_first_clim(self, first_clim):
         """
@@ -95,7 +97,7 @@ class Climatic:
     #%% UPDATE FROM CREATED SYNTHETIC DATA
     
     def update_recharge_synthetic(self, rech, shape, years, start_date="2020-08", 
-                                  freq=None, dis='normal'):
+                                  time_step=None, dis='normal'):
         """
         Create synthetic recharge values from mathematical function.
 
@@ -114,7 +116,7 @@ class Climatic:
         dis : str
             Distribution of the mathematical function. The default is 'normal'.
         """
-        self.freq = freq
+        self.freq = time_step
         days = years*365
         date = pd.date_range(start_date, periods=days)
         t = np.linspace(1,365,365)
@@ -130,7 +132,7 @@ class Climatic:
             pdf = np.zeros(len(time)) 
             pdf[(time >= (mean-(shape/2))) & (time < ((shape/2)+mean))] = rech/shape
         self.recharge = pd.Series(data = pdf, index=date)
-        if freq != None:
+        if self.freq != None:
             self.recharge = self.recharge.resample(self.freq).mean()
         
     def update_recharge_sinusoid(self, serie, period, amplitude, offset, omega, phase):
@@ -187,6 +189,7 @@ class Climatic:
                                    last_year, time_step, sim_state=None):
         """
         Update the recharge from a hydrometeorological reanalysis at the France scale.
+        From an inital REA.h5 file, and after using safransurfex.py class
 
         Parameters
         ----------
@@ -234,6 +237,7 @@ class Climatic:
                                  last_year, time_step, sim_state=None):
         """
         Update the runoff from a hydrometeorological reanalysis at the France scale.
+        From an inital REA.h5 file, and after using safransurfex.py class
 
         Parameters
         ----------
@@ -469,7 +473,7 @@ class Climatic:
     #%% UPDATE FROM SIM2 REANALYSIS (online)
     
     def update_sim2_reanalysis(self, *, var_list, nc_data_path,
-                               first_year, last_year=None, time_step='D', 
+                               first_year, last_year=None, time_step='D',
                                sim_state='transient', spatial_mean=False,
                                geographic, disk_clip=None):
         """

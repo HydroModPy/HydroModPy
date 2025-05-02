@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -46,7 +47,7 @@ class Hydrography:
         hydro_path : str
             Path of the folder with the hydrography data.
         """
-        print("Extract hydrography from specific data")
+        logging.info("Extract hydrography from specific data")
         
         data_folder = out_path + '/results_stable/hydrography/'
         if not os.path.exists(data_folder):
@@ -61,7 +62,7 @@ class Hydrography:
             try:
                 self.clip_observed(type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem)
             except ValueError as e:
-                print(e)
+                logging.error(e)
                 pass
     
     #%% FUNCTIONS
@@ -99,18 +100,18 @@ class Hydrography:
         shp_base.to_file(self.streams)
         
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
-            print('    ', shp_type)
+            logging.debug('    %s', shp_type)
             # e.g. wetlands and ponds
             # wbt.dissolve(self.streams, self.streams)
             wbt.vector_polygons_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         if (shp_type == 'MultiLineString') | (shp_type == 'LineString') | (shp_type == 'Line'):
-            print('    ', shp_type)
+            logging.debug('    %s', shp_type)
             # e.g. streams
             wbt.vector_lines_to_raster(self.streams, self.tif_streams,
                                        # field=field_obs,
                                        base=watershed_dem)
         if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
-            print('    ', shp_type)
+            logging.debug('    %s', shp_type)
             # e.g. landslides, sources, wells
             wbt.vector_points_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
         

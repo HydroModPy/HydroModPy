@@ -15,6 +15,7 @@
 # Python
 import numpy as np
 import os
+import logging
 import pandas as pd
 import sys
 from os.path import dirname, abspath
@@ -43,7 +44,7 @@ class Netcdf:
     def __init__(self,
                  geographic: object,
                  model_modflow: object,
-                 actual_date: bool=True):
+                 datetime_format: bool=True):
         """
         Parameters
         ----------
@@ -51,13 +52,13 @@ class Netcdf:
             Variable object of the model domain (watershed).
         model_modflow : object
             MODFLOW model object.
-        actual_date : bool, optional
-            Indicate if the model is actual time referenced with datetime. The default is True.
+        datetime_format : bool, optional
+            Indicate if the model is referenced with datetime format. The default is True.
         subbasin_results : bool, optional
             Indicated if simulation results need to be created at subassins scale. The default is True.
         """
         
-        print('Extract modflow results in netcdf')
+        logging.info('  %s','Export results as netcdf')
         
         self.geographic = geographic
     
@@ -67,7 +68,7 @@ class Netcdf:
         self.model_name = model_modflow.model_name
         self.model_folder = model_modflow.model_folder
 
-        self.actual_date = actual_date
+        self.datetime_format = datetime_format
        
         self.full_path = model_modflow.full_path
         self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
@@ -81,9 +82,9 @@ class Netcdf:
             toolbox.create_folder(self.netcdf_file)
         
         # Get times
-        self.recharge = model_modflow.climatic
+        self.recharge = model_modflow.recharge
         
-        if self.actual_date==True:            
+        if self.datetime_format==True:            
             if isinstance(self.recharge,(int,float)) == True:
                 time=[0]
             else:
@@ -375,7 +376,7 @@ class Netcdf:
 
     @staticmethod
     def pack_value(unpacked_value, scale_factor, add_offset):
-        print(f'math.floor: {math.floor((unpacked_value - add_offset) / scale_factor)}')
+        logging.info(f'math.floor: {math.floor((unpacked_value - add_offset) / scale_factor)}')
         return (unpacked_value - add_offset) / scale_factor
 
     @staticmethod

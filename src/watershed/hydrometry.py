@@ -14,7 +14,9 @@
 
 # Python
 import os
+import logging
 import datetime
+import pandas as pd
 import geopandas as gpd
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -42,7 +44,7 @@ class Hydrometry:
             Variable object of the model domain (watershed).
         """
         
-        print('Extract hydrometry from specific data')
+        logging.info('Extract hydrometry from specific data')
         
         data_folder = os.path.join(out_path,'results_stable','hydrometry')
         if not os.path.exists(data_folder):
@@ -79,17 +81,17 @@ class Hydrometry:
         self.hydrometric_clip = os.path.join(data_folder, file_name)
         wbt.clip(hydrometric_data, geographic.watershed_shp, self.hydrometric_clip)
         # try:
-        hydromet_bv = gpd.read_file(self.hydrometric_clip)        
+        hydromet_bv = gpd.read_file(self.hydrometric_clip)
         self.label = hydromet_bv['LbStationH'].to_list()
         self.x_coord = hydromet_bv['CoordXStat'].tolist()
         self.y_coord = hydromet_bv['CoordYStat'].to_list()
         for i in range(len(hydromet_bv)):
-            hydromet_bv['CdStationH'].iloc[i] = hydromet_bv.iloc[i]['CdStationH'][0:8]
+            hydromet_bv['CdStationH'].iloc[i] = hydromet_bv.iloc[i]['CdStationH'][0:8] if pd.notnull(hydromet_bv.iloc[i]['CdStationH']) else None
             hydromet_bv['timePositi'].iloc[i] = hydromet_bv.iloc[i]['timePositi'][0:10]
-            if hydromet_bv['DtFermetur'].iloc[i] == None:
-                hydromet_bv['DtFermetur'].iloc[i] = datetime.datetime.today().strftime('%Y-%m-%d')
+            if pd.isna(hydromet_bv.at[i, 'DtFermetur']):
+                hydromet_bv.at[i, 'DtFermetur'] = datetime.datetime.today().strftime('%Y-%m-%d')
             else:
-                hydromet_bv['DtFermetur'].iloc[i] = hydromet_bv.iloc[i]['DtFermetur'][0:10]
+                hydromet_bv.at[i, 'DtFermetur'] = hydromet_bv.at[i, 'DtFermetur'][0:10]
         # self.date_inst = pd.to_datetime(hydromet_bv['timePositi'][0:10], format='%Y-%m-%d').to_list()
         # self.date_ferm = pd.to_datetime(hydromet_bv['DtFermetur'][0:10], format='%Y-%m-%d').to_list()            
         self.code_bh = hydromet_bv['CdStationH'].to_list()

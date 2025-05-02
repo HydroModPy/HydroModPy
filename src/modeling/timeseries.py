@@ -16,6 +16,7 @@
 import flopy
 import numpy as np
 import os
+import logging
 import pandas as pd
 import sys
 try:
@@ -46,12 +47,14 @@ class Timeseries:
     
     def __init__(self,
                  geographic: object,
+                 lakeres: object,
                  model_modflow: object,
                  model_modpath: object,
-                 lakeres: object,
-                 actual_date: bool=True,
+                 datetime_format: bool=True,
                  subbasin_results: bool=True,
-                 freq_time: str='D'):
+                 intermittency_monthly: bool=False,
+                 intermittency_weekly: bool=False,
+                 intermittency_daily: bool=False):
         """
         Parameters
         ----------
@@ -63,18 +66,19 @@ class Timeseries:
             MODFLOW model object.
         model_modpath : object
             MODPATH model object.
-        actual_date : bool, optional
-            Indicate if the model is actual time referenced with datetime. The default is True.
+        datetime_format : bool, optional
+            Indicate if the model is referenced with datetime format. The default is True.
         subbasin_results : bool, optional
             Indicated if simulation results need to be created at subassins scale. The default is True.
-        freq_time : str, optional
-            Time frequency of the .csv file. The default is 'D'.
+        intermittency_monthly : bool
+            If True, the intermittent and perennial part of hydrographic network is calculated on a monthly basis.
+        intermittency_weekly : bool
+            If True, the intermittent and perennial part of hydrographic network is calculated on a weekly basis.
+        intermittency_daily : bool
+            If True, the intermittent and perennial part of hydrographic network is calculated on a daily basis.
         """
         
-        print('Extract modflow and modpath results in timeseries')
-        
-        self.freq_time = freq_time
-        
+        # Init parameters
         self.geographic = geographic
         
         self.lakeres = lakeres
@@ -87,36 +91,52 @@ class Timeseries:
 
         self.actual_date = actual_date
        
+        # self.full_path = os.path.join(self.model_folder, self.model_name)
         self.full_path = model_modflow.full_path
+
         self.tifs_file = os.path.join(self.full_path, '_postprocess', '_rasters')
         
         self.save_file = os.path.join(self.full_path, '_postprocess')
         if not os.path.exists(self.save_file):
             toolbox.create_folder(self.save_file)
-        self.timeseries_file = os.path.join(self.save_file, '_timeseries')    
+            
+        self.timeseries_file = os.path.join(self.save_file, '_timeseries')
         if not os.path.exists(self.timeseries_file):
             toolbox.create_folder(self.timeseries_file)
             
-        self.recharge = model_modflow.climatic
+        self.recharge = model_modflow.recharge
+        self.runoff = model_modflow.runoff
+        
+        self.intermittency_monthly = intermittency_monthly
+        self.intermittency_weekly = intermittency_weekly
+        self.intermittency_daily = intermittency_daily
+        
+        self.datetime_format = datetime_format
+        
+        ### Recharge management to initiate the .csv file results
+        if isinstance(self.recharge,(int,float)) == True:
+            time=[0]
+            recharge = self.recharge
+        if isinstance(self.recharge,(pd.Series)) == True:
+            time = self.recharge.index
+            recharge = self.recharge.values
+        if isinstance(self.recharge,(dict)) == True:
+            time = range(len(self.recharge))
+            recharge = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.recharge.items()}).values())), index=range(len(self.recharge)))
             
-        if self.actual_date==True:            
-            if isinstance(self.recharge,(int,float)) == True:
-                time="1970-01-01"
-                recharge = self.recharge
-            else:
-                time = self.recharge.index
-                recharge = self.recharge.squeeze().values
+        ### Runoff management to fill the .csv file results
+        if self.runoff is not None and not self.runoff.empty and not []:
+            if isinstance(self.runoff,(int,float)) == True:
+                time=[0]
+                runoff = self.runoff
+            if isinstance(self.runoff,(pd.Series)) == True:
+                time = self.runoff.index
+                runoff = self.runoff.values
+            if isinstance(self.runoff,(dict)) == True:
+                time = range(len(self.runoff))
+                runoff = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.runoff.items()}).values())), index=range(len(self.runoff)))
         else:
-            if isinstance(self.recharge,(int,float)) == True:
-                time="1970-01-01"
-                recharge = self.recharge
-            else:
-                if isinstance(self.recharge,(dict))==False:
-                    time = np.array(range(len(self.recharge)))
-                    recharge = self.recharge.squeeze().values
-                else:
-                    time = pd.Series(range(len(self.recharge)), index=range(len(self.recharge)))
-                    recharge = pd.Series(np.nan, index=range(len(self.recharge)))
+            runoff = recharge*np.nan
         
         try:
             self.runoff = model_modflow.runoff
@@ -137,11 +157,13 @@ class Timeseries:
             runoff = None
             pass
         
-        npy_list = [] 
-        for f in os.listdir(self.save_file):
-             name, ext = os.path.splitext(f)
-             if ext == '.npy':
-                 npy_list.append(name)
+        # npy_list = [] 
+        # for f in os.listdir(self.save_file):
+        #      name, ext = os.path.splitext(f)
+        #      if ext == '.npy':
+        #          npy_list.append(name)
+        
+        ### Open .npy files if they exist
         
         try:
             self.watertable_elevation = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
@@ -164,44 +186,50 @@ class Timeseries:
         except:
             pass
         try:
-            self.saturated_storage = np.load(os.path.join(self.save_file, 'saturated_storage'+'.npy'), allow_pickle=True).item()
-        except:
-            pass
-        try:
             self.groundwater_storage = np.load(os.path.join(self.save_file, 'groundwater_storage'+'.npy'), allow_pickle=True).item()
         except:
             pass
         try:
             self.accumulation_flux = np.load(os.path.join(self.save_file, 'accumulation_flux'+'.npy'), allow_pickle=True).item()
         except:
-            pass  
-        try:
-            self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', 'ending_weighted'+'.shp'))
-        except:
-            pass 
+            pass
         try:
             self.lake_leakage = np.load(os.path.join(self.save_file, 'lake_leakage'+'.npy'), allow_pickle=True).item()
         except:
-            pass 
+            pass
         
+        if model_modpath != None:
+            if model_modpath.track_dir == 'forward':
+                type_dir = 'ending'
+            else:
+                type_dir = 'starting'
+            try:            
+                self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', type_dir+'_weighted'+'.shp'))
+            except:
+                self.residence_times = gpd.read_file(os.path.join(self.save_file, '_particles', type_dir+'.shp'))
+                pass
+                
+        ### For total catchment
         dem_clip = imageio.imread(self.geographic.watershed_dem)
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
         self.resolution = model_modflow.resolution
         self.extract_results(dem_clip, time, recharge, runoff, self.timeseries_file)
-       
+        logging.info('  %s','Export results as timeseries')
+
+        ### For sub-catchments
         if subbasin_results == True:
             try:
                 self.zones_folder = os.path.join(self.stable_folder, 'subbasin')
                 self.zones_list = os.listdir(self.zones_folder)
-                for zone_name in self.zones_list:
+                for zi, zone_name in enumerate(self.zones_list):
                     sub_file = os.path.join(self.full_path, '_subbasins', zone_name)
                     if not os.path.exists(sub_file):
                         toolbox.create_folder(sub_file) 
                     try:
                         dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
-                        self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
-                        print('Subbasin zones')
+                        self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()                        
                         self.extract_results(dem_clip, time, recharge, runoff, sub_file)
+                        logging.info('  %s %s','Export results for subbasin', str(zi+1))
                     except:
                         pass
             except:
@@ -224,7 +252,7 @@ class Timeseries:
         timeseries_file : str
             Path folder to save .csv file results.
         """
-        
+                
         def calc_max(key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             calc = np.nanmax(masked)
@@ -235,16 +263,15 @@ class Timeseries:
             calc = np.nanmean(masked)
             return calc
         
-        def calc_sumnorm(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
+        def calc_sum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
+            masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
+            calc = (np.nansum(masked))
+            return calc
+        
+        def calc_qspe(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             calc = (np.nansum(masked) / (cell * resolution**2))
-            return calc
-        
-        def calc_sum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
-            masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
-            cell = masked.count()
-            calc = (np.nansum(masked))
             return calc
         
         def calc_possum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
@@ -276,17 +303,14 @@ class Timeseries:
             self.mfdata['runoff'] = runoff
         except:
             pass
-        
-        if self.actual_date==True:
-            self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
-        
+                
         ### watertable_elevation
-        # try:
-        for key in self.watertable_elevation:
-            calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', self.geographic.nodata)
-            self.mfdata.loc[key,'watertable_elevation'] = calc
-        # except:
-        #     pass
+        try:
+            for key in self.watertable_elevation:
+                calc = calc_mean(key, 'watertable_elevation', self.watertable_elevation, dem_clip, '==', self.geographic.nodata)
+                self.mfdata.loc[key,'watertable_elevation'] = calc
+        except:
+            pass
         
         ### watertable_depth
         try:
@@ -307,7 +331,7 @@ class Timeseries:
         ### outflow_drain
         try:
             for key in self.outflow_drain:
-                calc = calc_sumnorm(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', self.geographic.nodata, self.resolution)
+                calc = calc_qspe(key, 'outflow_drain', self.outflow_drain, dem_clip, '==', self.geographic.nodata, self.resolution)
                 self.mfdata.loc[key,'outflow_drain'] = calc
         except:
             pass
@@ -321,12 +345,6 @@ class Timeseries:
             pass
         
         ### groundwater_storage
-        try:
-            for key in self.saturated_storage:
-                calc = calc_sum(key, 'saturated_storage', self.saturated_storage, dem_clip, '==', self.geographic.nodata, self.resolution)
-                self.mfdata.loc[key,'saturated_storage'] = calc
-        except:
-            pass
         try:
             for key in self.groundwater_storage:
                 calc = calc_sum(key, 'groundwater_storage', self.groundwater_storage, dem_clip, '==', self.geographic.nodata, self.resolution)
@@ -343,7 +361,7 @@ class Timeseries:
             pass
         
         ### intermittency_saturation
-        if self.freq_time == 'M':
+        if self.intermittency_monthly == True:
             try:
                 if len(self.accumulation_flux)>=12:
                     inf = 0
@@ -351,7 +369,7 @@ class Timeseries:
                     step = int(round(len(self.accumulation_flux)/12))
                     compt=0            
                     for i in range(step):
-                        print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        logging.debug('Compute intermittency: %s / %s', str(i), str(step))
                         interv = list(self.accumulation_flux.items())[inf:sup]
                         for key in range(len(interv)):
                             mask = dem_clip.copy()
@@ -381,45 +399,7 @@ class Timeseries:
             except:
                 pass
         
-        if self.freq_time == 'D':
-            try:
-                if len(self.accumulation_flux)>=365:
-                    inf = 0
-                    sup = 365
-                    step = int(round(len(self.accumulation_flux)/365))
-                    compt=0            
-                    for i in range(step):
-                        print('Compute intermittency: '+str(i)+' / '+str((step)))
-                        interv = list(self.accumulation_flux.items())[inf:sup]
-                        for key in range(len(interv)):
-                            mask = dem_clip.copy()
-                            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
-                        zero = self.accumulation_flux[0] * 0                
-                        for j in range(len(interv)):
-                            tempo = interv[j].copy()
-                            tempo[tempo>0] = 1
-                            zero = zero + tempo                    
-                        days_flux = zero.copy()
-                        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
-                        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
-                        for k in range(len(interv)):
-                            tempo = np.ma.masked_where(interv[k]<=0, interv[k])
-                            tempo[days_flux<365] = 0
-                            tempo[days_flux==365] = 1
-                            tempo = np.ma.masked_where(interv[k]<=0, tempo)
-                            surflow = (((tempo >= 0).sum()) / self.cell) * 100
-                            perenn = (((tempo == 1).sum()) / self.cell) * 100
-                            intermit = (((tempo == 0).sum()) / self.cell) * 100
-                            self.mfdata.loc[compt,'total_areas'] = surflow
-                            self.mfdata.loc[compt,'perenn_areas'] = perenn
-                            self.mfdata.loc[compt,'intermit_areas'] = intermit                    
-                            compt+=1                    
-                        inf+=365
-                        sup+=365    
-            except:
-                pass
-        
-        if self.freq_time == 'W':
+        if self.intermittency_weekly == True:
             try:
                 if len(self.accumulation_flux)>=52:
                     inf = 0
@@ -427,7 +407,7 @@ class Timeseries:
                     step = int(round(len(self.accumulation_flux)/52))
                     compt=0            
                     for i in range(step):
-                        print('Compute intermittency: '+str(i)+' / '+str((step)))
+                        logging.debug('Compute intermittency: %s / %s', str(i), str(step))
                         interv = list(self.accumulation_flux.items())[inf:sup]
                         for key in range(len(interv)):
                             mask = dem_clip.copy()
@@ -457,19 +437,57 @@ class Timeseries:
             except:
                 pass
         
+        if self.intermittency_daily == True:
+            try:
+                if len(self.accumulation_flux)>=365:
+                    inf = 0
+                    sup = 365
+                    step = int(round(len(self.accumulation_flux)/365))
+                    compt=0            
+                    for i in range(step):
+                        logging.debug('Compute intermittency: %s / %s', str(i), str(step))
+                        interv = list(self.accumulation_flux.items())[inf:sup]
+                        for key in range(len(interv)):
+                            mask = dem_clip.copy()
+                            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                        zero = self.accumulation_flux[0] * 0                
+                        for j in range(len(interv)):
+                            tempo = interv[j].copy()
+                            tempo[tempo>0] = 1
+                            zero = zero + tempo                    
+                        days_flux = zero.copy()
+                        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                        for k in range(len(interv)):
+                            tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                            tempo[days_flux<365] = 0
+                            tempo[days_flux==365] = 1
+                            tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                            surflow = (((tempo >= 0).sum()) / self.cell) * 100
+                            perenn = (((tempo == 1).sum()) / self.cell) * 100
+                            intermit = (((tempo == 0).sum()) / self.cell) * 100
+                            self.mfdata.loc[compt,'total_areas'] = surflow
+                            self.mfdata.loc[compt,'perenn_areas'] = perenn
+                            self.mfdata.loc[compt,'intermit_areas'] = intermit                    
+                            compt+=1                    
+                        inf+=365
+                        sup+=365    
+            except:
+                pass
+        
         ### residence_times
         try:
-            for key in ["1970-01-01"]:
+            for key in [0]:
                 try:
                     shp_frame = gpd.read_file(self.geographic.watershed_shp)
                     self.residence_times = self.residence_times.clip(shp_frame)
                 except:
                     pass
-                # filtered = self.residence_times[self.residence_times['k']<=1]
-                # filtered = filtered[filtered.i0.astype(str)+'-'+filtered.j0.astype(str)!=
-                #                     filtered.i.astype(str)+'-'+filtered.j.astype(str)]
-                # calc = np.nanmean(filtered['time'])
-                calc = np.nanmean(self.residence_times['time_win_y'])
+                try:
+                    calc = np.nanmean(self.residence_times['time_win'])
+                except:
+                    calc = np.nanmean(self.residence_times['time'])
+                    pass
                 self.mfdata.loc[key,'residence_times'] = calc
         except:
             pass
@@ -551,9 +569,9 @@ class Timeseries:
         
         
         ### save files
+        if self.datetime_format==True:
+            self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
         self.mfdata = self.mfdata.set_index(['date'])
-        # self.mfdata = self.mfdata.round(2)
-        # self.mfdata = self.mfdata.applymap(lambda x: "%.5e" % (x))
         self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries.csv', sep=';')
         
         if timeseries_file == self.timeseries_file:

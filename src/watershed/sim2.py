@@ -14,6 +14,7 @@
 
 # Python
 import sys
+import logging
 import os
 from os.path import dirname, abspath
 import re
@@ -98,6 +99,8 @@ class Sim2:
 
         """
         
+        logging.info('Extract climatic data from web')
+        
         # ---- Initialization
         self.var_list = var_list
         self.var_sublist = []
@@ -124,7 +127,7 @@ class Sim2:
             if os.path.splitext(disk_clip)[-1] == '.shp':
                 self.clip_mask = disk_clip
             else:
-                print("Error: The disk_clip value should point to a .shp file. Otherwise, use the flags disk_clip='watershed' or disk_clip=False")
+                logging.error("The disk_clip value should point to a .shp file. Otherwise, use the flags disk_clip='watershed' or disk_clip=False")
                 return
         
         varnames_dict = {
@@ -217,7 +220,7 @@ class Sim2:
                         if (ds_extent[0:2] <= mask_extent[0:2]).any() | (ds_extent[2:4] >= mask_extent[2:4]).any() :
                             self.local_data.loc[var, 'extent'] = True
                         else:
-                            print(f"   Local data {os.path.split(file)[-1]} does not cover desired spatial extent")
+                            logging.error(f"   Local data {os.path.split(file)[-1]} does not cover desired spatial extent")
                             remove_file = True # the file will be deleted (outside this 'with' section)
                     
                     if remove_file:
@@ -242,19 +245,19 @@ class Sim2:
         self.merge_folder(self.nc_data_path, sim_varlist)
         
         # ---- Format result for HydroModPy
-        print("\nFormatting results for HydroModPy model...")
+        logging.info("Formatting results for HydroModPy model...")
         for var in self.final_filelist:
-            print(f"   {var}")
+            logging.info(f"   {var}")
             # Refine period with accurate user dates
-            print("      . refining period...")
+            logging.info("      . refining period...")
             self.values[var] = self.raw_values[var].loc[
                 {'time' : slice(self.first_date, self.last_date)}]
             # Apply sim_stat option
             if self.sim_state == 'steady':
-                print("      . simplifying time dimension...")
+                logging.info("      . simplifying time dimension...")
                 self.values[var] = self.values[var].mean(dim = 'time')
             # Reprojection
-            print("      . reprojecting...")
+            logging.info("      . reprojecting...")
             self.values[var].rio.write_crs(rio.crs.CRS.from_epsg(27572), inplace = True)
             self.values[var] = toolbox.load_to_xarray(
                 # self.final_filelist[var],
@@ -268,7 +271,7 @@ class Sim2:
             self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
             # Apply spatial_mean option:
             if self.spatial_mean == True:
-                print("      . simplify spatial dimensions...")
+                logging.info("      . simplify spatial dimensions...")
                 self.values[var] = self.values[var].drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas() # convert xr.Dataset to pd.Dataframe
                 # convert pd.Dataframe to pd.Series or to single value:
                 if self.sim_state == 'transient':
@@ -278,7 +281,7 @@ class Sim2:
                 # Otherwise instead of .iloc[:,0]: self.values[var] = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']] 
             # Apply timestep
             if (self.sim_state == 'transient') & (self.time_step != 'D'):
-                print("      . resampling time...")
+                logging.info("      . resampling time...")
                 if self.spatial_mean == False:
                     self.values[var] = self.values[var].resample(time = self.time_step).mean(dim = 'time')
                     self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
@@ -358,21 +361,21 @@ class Sim2:
         # Files to download to cover the times
         # (Note that if the specified spatial extent is not covered, the files have been previously deleted in __init__())
         if len(to_download) > 0:
-            # print(f"The following .csv datasets will be downoladed: {', '.join([dataname + '(' + self.available_data.loc[dataname, 'size_Go'] + ')' for dataname in to_download])}")
+            logging.debug(f"The following .csv datasets will be downoladed: {', '.join([dataname + '(' + str(self.available_data.loc[dataname, 'size_Go']) + ')' for dataname in to_download])}")
             ram_space = self.available_data.loc[to_download, 'size_Go'].max()
             disk_space = self.available_data.loc[to_download, 'size_Go'].sum()/2.5*len(self.var_list) \
                 - sum(os.path.getsize(os.path.join(self.nc_data_path, f)) \
                       for f in os.listdir(self.nc_data_path) \
                           if os.path.isfile(os.path.join(self.nc_data_path, f)))/1073741824 
             disk_space = np.max([0, disk_space])
-            print(f"The following .csv datasets will be downloaded to RAM and exported to netcdf files to cover the required period and area: {', '.join(to_download)}")
-            print(f"(required RAM: < {ram_space} Go, required space: < {disk_space:.2f} Go)")
+            logging.warning(f"The following .csv datasets will be downloaded to RAM and exported to netcdf files to cover the required period and area: {', '.join(to_download)}")
+            logging.warning(f"(required RAM: < {ram_space} Go, required space: < {disk_space:.2f} Go)")
           
         # ---- Download the required files
         if len(to_download) > 0:
             for dataname in to_download: 
-                print(f"\nDownloading {dataname}...")
-                print("   (can take several min, depending on internet speed)")
+                logging.info(f"Downloading {dataname}...")
+                logging.info("   (can take several min, depending on internet speed)")
                 response = requests.get(self.available_data.loc[dataname, 'url'])
         
                 if response.status_code == 200:
@@ -390,10 +393,10 @@ class Sim2:
                         # Read .csv file and export to .nc files (one for each variable)
                         self.to_netcdf(f, dataname)         
                 else:
-                    print(f"   *****\n   Error while downloading the file {dataname}.csv\n   *****")
+                    logging.error(f"   *****\n   Error while downloading the file {dataname}.csv\n   *****")
                     
         else:
-            print("No additional .csv dataset need to be downloaded.")
+            logging.info("No additional .csv dataset need to be downloaded.")
                 
         
     
@@ -441,8 +444,8 @@ class Sim2:
         # Therefore, days correspond to Central Standard Time days.
     
         #%%% Loading
-        print("Loading as DataFrame...")
-        print("   (can take > 1 min per parameter for a whole decade)")
+        logging.info("Loading as DataFrame...")
+        logging.info("   (can take > 1 min per parameter for a whole decade)")
         
         df = pd.read_csv(csv_file, sep=';', 
                          usecols=usecols + self.sim_var_by_HyMoPy_var.loc[self.var_sublist, 'sim_var'].to_list(),
@@ -459,7 +462,7 @@ class Sim2:
         # Add new quantities if needed
         if ('PRENEI_Q' in df.columns) & ('PRELIQ_Q' in df.columns):
             df['PRETOT_Q'] = df['PRENEI_Q'] + df['PRELIQ_Q']
-            print("   New column added: PRETOT_Q = PRENEI_Q + PRELIQ_Q")
+            logging.info("   New column added: PRETOT_Q = PRENEI_Q + PRELIQ_Q")
             
         ds = df.to_xarray()
         # Continuous axis
@@ -476,7 +479,7 @@ class Sim2:
                       'units': 'Meter'}
         
         #%%% Export 
-        print("Exporting as netcdf...")
+        logging.info("Exporting as netcdf...")
 # =============================================================================
 #         if not os.path.exists(os.path.join(self.nc_data_path, "temp_netcdf_indiv")):
 #             os.mkdir(os.path.join(self.nc_data_path, "temp_netcdf_indiv"))
@@ -493,7 +496,7 @@ class Sim2:
             csv_name = os.path.splitext(os.path.split(dataname)[-1])[0].replace('QUOT_', '')
             
             ds_var.to_netcdf(os.path.join(self.nc_data_path, '_'.join([var, csv_name]) + '.nc'))     
-            print(f"   {var} exported")
+            logging.info(f"   {var} exported")
 
     
     #%% Convert whole folder to netcdf
@@ -530,12 +533,12 @@ class Sim2:
         sim_var = sim_pattern.findall(filename)[0][0:-6]
         HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[sim_var].item()
         
-        print(f'\nMerging {sim_var} ({HyMoPy_var}) files...')
+        logging.info(f'Merging {sim_var} ({HyMoPy_var}) files...')
         
         with xr.open_dataset(
                 filelist[0], decode_coords = 'all', decode_times = True) as ds_merged:
             ds_merged.load() # to unlock the resource
-        print(f"   {os.path.split(filelist[0])[-1]}")
+        logging.info(f"   {os.path.split(filelist[0])[-1]}")
         
         encod = ds_merged[list(ds_merged.data_vars)[0]].encoding
         
@@ -543,7 +546,7 @@ class Sim2:
             with xr.open_dataset(
                     f, decode_coords = 'all', decode_times = True) as ds:
                 ds_merged = ds.combine_first(ds_merged)
-            print(f"   {os.path.split(f)[-1]}")
+            logging.info(f"   {os.path.split(f)[-1]}")
         
         ds_merged = ds_merged.sortby('time')
         
@@ -606,7 +609,7 @@ class Sim2:
         for v in varlist:
 # =============================================================================
 #             HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[v].item()
-#             print(f"\n{'-'*(len(v)+len(HyMoPy_var)+3)}\n{v} ({HyMoPy_var})\n{'-'*(len(v)+len(HyMoPy_var)+3)}")
+#             logging.debug(f"\n{'-'*(len(v)+len(HyMoPy_var)+3)}\n{v} ({HyMoPy_var})\n{'-'*(len(v)+len(HyMoPy_var)+3)}")
 # =============================================================================
             
             # Extract all years
@@ -621,7 +624,7 @@ class Sim2:
                     yearlist.append(years)
                 
 # =============================================================================
-#             print(f"   {', '.join(yearlist)}")
+#             logging.debug(f"   {', '.join(yearlist)}")
 # =============================================================================
             
             files_to_merge = [os.path.join(folder, v + '_SIM2_' + y + '.nc') for y in yearlist]
@@ -649,7 +652,7 @@ class Sim2:
         ds[var].encoding['add_offset'] = add_offset
         ds[var].encoding['dtype'] = 'int16'
         ds[var].encoding['_FillValue'] = -32768
-        print("   Compression x4 (lossy)")
+        logging.info("   Compression x4 (lossy)")
         
         # Export
         if not os.path.exists(os.path.join(root_folder, "compressed")):
@@ -666,7 +669,7 @@ class Sim2:
         filelist = [f for f in os.listdir(folder) 
                     if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.nc')]
         
-        print("\nCompressing...")
+        logging.info("Compressing...")
         
         i = 0
         for f in filelist:
@@ -736,7 +739,7 @@ class Sim2:
         
         maskname = os.path.splitext(os.path.split(maskpath)[-1])[0]
         
-        print(f"\nClipping on {maskname}...")
+        logging.info(f"Clipping on {maskname}...")
         
         i = 0
         for f in filelist:

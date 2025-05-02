@@ -19,6 +19,7 @@
 # Python
 import sys
 import os
+import logging
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -102,8 +103,12 @@ class Geographic:
             List of tow parameters: [path, buffer_size] 
         from_xyv : list, optional
             List of four parameters: [x, y, snap_distance, buffer_size]
+        reg_fold : str, None
+            Path of the folder with regional data/results.
+            If informed, the regional results will not be created, just loaded from folder.
+            The default is None.
         """
-        print('Extract geography of the model area')
+        logging.info('Extract geography of the model area')
                 
         self.dem_path = dem_path
         self.bottom_path = bottom_path
@@ -226,10 +231,10 @@ class Geographic:
         if isinstance(self.buff_percent,(str))!=True:
             buff_raw = (np.sqrt(float(self.area))) * (float(self.buff_percent)/100) * 1000
             buff_raw = int(round(buff_raw))
-            # print(buff_raw)
+            logging.debug(buff_raw)
             dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
             buff_dist = dist[np.abs(dist-buff_raw).argmin()]
-        # print(buff_dist)
+            logging.debug(buff_dist)
         # Buffer the watershed shapefile polygon
         else:
             buff_dist = float(self.buff_percent)
@@ -332,7 +337,7 @@ class Geographic:
                                        maintain_dimensions=False)
         
         if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem):
-            print('   Reshape tifs')
+            logging.debug('   Reshape tifs')
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), self.watershed_box_buff_dem, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), self.watershed_box_buff_fill, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), self.watershed_box_buff_direc, -32768)
@@ -439,7 +444,7 @@ class Geographic:
         """
         
         # Paths
-        print(self.out_path)
+        logging.debug(self.out_path)
         self.gis_path = os.path.join(self.out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
         # Generate tif from xyz file
@@ -465,7 +470,7 @@ class Geographic:
             dem = gdal.Open(self.dem_path)
             proj = osr.SpatialReference(wkt=dem.GetProjection())
             self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
-            print(self.crs)
+            logging.debug(self.crs)
             # Copy tif
             self.watershed_raw = os.path.join(self.gis_path, 'watershed_raw.tif')
             shutil.copyfile(self.dem_path, self.watershed_raw)

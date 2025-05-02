@@ -14,6 +14,7 @@
 
 # Python
 import numpy as np
+import logging
 import whitebox
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
@@ -27,7 +28,9 @@ class Settings:
     """
     
     def __init__(self):
-        print('Init settings module to set model parameter')
+        logging.info('Init settings module to set model parameter')
+        
+        self.update_well_pumping()
     
     #%% UPDATE
     
@@ -37,8 +40,8 @@ class Settings:
 
         Parameters
         ----------
-        model_name : TYPE
-            DESCRIPTION.
+        model_name : str
+            Name of simulation.
         """
         self.model_name = model_name
     
@@ -56,14 +59,6 @@ class Settings:
         self.box = box
     
     def update_sink_fill(self, sink_fill):
-        """
-        ???
-        
-        Parameters
-        ----------
-        sink_fill : ???
-            ???.
-        """
         self.sink_fill = sink_fill
     
     def update_bc_sides(self, bc_left, bc_right):
@@ -99,7 +94,7 @@ class Settings:
         """
         self.sim_state = sim_state
         
-    def update_active_plot(self, plot_cross=True):
+    def update_check_model(self, plot_cross=True, check_grid=True, cross_ylim=[]):
         """
         Activate of not the cross-section plot of the aquifer model.
 
@@ -109,27 +104,42 @@ class Settings:
             The default is True.
         """
         self.plot_cross = plot_cross
+        self.cross_ylim = cross_ylim
+        self.check_grid = check_grid
     
     def update_input_particles(self, zone_partic, # path of a raster (injecting where pixels > 0)
-                                      cell_div = 1, # 1
-                                      zloc_div = False,
-                                      bore_depth = None, # '[0,5,10] for 3 particles
-                                      track_dir = 'forward', # backward
-                                      sel_random = None,
-                                      sel_slice = None):
+                                     cell_div = 1, # 1
+                                     zloc_div = False,
+                                     bore_depth = None, # '[0,5,10] for 3 particles
+                                     track_dir = 'forward', # backward
+                                     sel_random = None,
+                                     sel_slice = None):
         """
-        Select the limited area to inject particles onto the surface..
+        Select the zones and configurations to inject particles.
 
         Parameters
         ----------
         zone_partic : str, optional
-            'watershed':inject particles only in cells inside watershed boundaries.
-            'domain': inject particles in all cells. The default is 'domain'.
-            'path': path of .tif file
-        path : str, optional
-            Path of .tif file
-        tracking_direction: str, otpional
-            'forward' or 'backward'
+            Path of the raster used to inject particles: where value > 0.
+            The default is 'domain', so the particles are injected where the model domain area > 0m. 
+        track_dir: str
+            Choice 'forward' or 'backward' particle tracking method.
+            The default is 'forward'.
+        bore_depth: list
+            [Not stable, currently in development]
+            If not None, inject a particle in the z direction (vertical), at the center position of each lays.
+        cell_div: int
+            Fix the number of particles injected uniformly distributed for each cell.
+            If 3 is set, 9 particles will be inejcted (3x*3y)
+            The dault is 1.
+        zloc_div: bool
+            If True, 'cell_div' is also applied vetically for the cells.
+            If cell_div is 3 and zloc_div is True, 18 particles will be injected (3x*3y*3z).
+            The default is False.
+        sel_random: int
+            Select randomly where inject a total number of particles.
+        sel_random: int
+            Select with slicing value where particles.
         """
         self.zone_partic = zone_partic
         self.cell_div = cell_div
@@ -139,16 +149,30 @@ class Settings:
         self.sel_random = sel_random
         self.sel_slice = sel_slice
     
-    def update_split_temporal(self, split_temp=False):
+    def update_dis_perlen(self, dis_perlen=False):
         """
         Activate the split discretization of recharge with time length.
 
         Parameters
         ----------
-        split_temp : bool, optional
+        dis_perlen : bool, optional
             The default is False.
         """
-        self.split_temp = split_temp
+        self.dis_perlen = dis_perlen
+        
+    def update_well_pumping(self, well_coords=[], well_fluxes=[]):
+        """
+        Add wells and associated fluxes across the model domain area.
+        
+        wells_coord : list
+            Inform the outlet coordinates of wells [lay,row,col].
+            Example for 2 wells: [ [1,20,30], [1,15,15] ]
+        wells_fluxes : list
+            Inform the fluxes [L3/T] for each stress-periods, for different wells.
+            Example for 2 wells and 5 stress-periods: [ [-100,0,-100,0,-100], [-100,0,-100,0,-100] ]
+        """
+        self.well_coords=well_coords
+        self.well_fluxes=well_fluxes
     
 #%% NOTES
         
