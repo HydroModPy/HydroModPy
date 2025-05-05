@@ -1,0 +1,29 @@
+name: hydromodpy-01-3810
+channels:
+  - conda-forge
+dependencies:
+  - colormap
+  - contextily
+  - deepdish
+  - flopy
+  - gdal
+  - geopandas
+  - imageio
+  - ipykernel
+  - ipython
+  - matplotlib
+  - matplotlib-scalebar
+  - netcdf4
+  - numpy
+  - pandas
+  - plotly
+  - pyshp
+  - python=3.8.10
+  - rasterio
+  - rioxarray
+  - selenium
+  - spyder-kernels
+  - vedo
+  - whitebox
+  - xarray
+  - pysheds
