@@ -24,19 +24,15 @@ import os
 # Libraries need to be installed if not
 import numpy as np
 import pandas as pd
-import rasterio as rio
 import geopandas as gpd
 import glob
 import matplotlib.dates as mdates
 import rasterio
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from itertools import islice
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 import deepdish as dd
@@ -46,12 +42,7 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # Add
-from shapely.geometry import LineString, Polygon, MultiPolygon
-import flopy
-import flopy.utils.postprocessing as pp
 import flopy.utils.binaryfile as bf 
-from scipy.optimize import minimize
-import datetime
 from PIL import Image
 
 #%% ROOT
