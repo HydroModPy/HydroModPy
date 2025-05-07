@@ -8,25 +8,37 @@ Created on Wed Mar 26 18:55:23 2025
 import os
 import geopandas as gpd
 import rasterio
+import numpy as np
+import matplotlib.pyplot as plt
 from rasterio.mask import mask
 from rasterio.transform import array_bounds
 from matplotlib.colors import LightSource
-import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+from shapely.geometry import Polygon, MultiPolygon
+from matplotlib.patches import Polygon as MplPolygon
+from matplotlib.collections import PatchCollection
 
-def process_geology_with_glim(data_path, stable_folder, dem_path, watershed_name, site, site_num):
+def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites, site_num):
     print('I analyse the geology')
 
     # -- Paths
     geol_path = os.path.join(data_path, '_geology')
     watershed_fp = os.path.join(stable_folder, 'geographic', 'watershed.shp')
     watershed_box_fp = os.path.join(stable_folder, 'geographic', 'watershed_box.shp')
-    stream_name = 'stream_network' + watershed_name[1:] + '.shp'
-    stream_fp = os.path.join(data_path, watershed_name, stream_name)
+    stream_name = 'stream_network' + id_name + '.shp'
+    stream_fp = os.path.join(data_path,'_sites', id_name, stream_name)
+    glacier_fp = os.path.join(data_path, '_glaciers', 'rgi7_vector', 'rgi2000_v70_vector.shp')
 
     # -- Load spatial data
     watershed = gpd.read_file(watershed_fp)
     watershed_box = gpd.read_file(watershed_box_fp)
+
+    if not os.path.exists(stream_fp):
+        print(f"Stream file '{stream_fp}' not found. Using default stream file instead.")
+        stream_fp = os.path.join(data_path, '_hydrology', 'EcrRiv_c_tr_alps_pyr.shp')
+        if not os.path.exists(stream_fp):
+            raise FileNotFoundError(f"Backup stream file '{stream_fp}' is not found.")
+    
     stream = gpd.read_file(stream_fp)
 
     # -- Load and clip DEM
@@ -67,11 +79,27 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, watershed_name
 
     watershed_polyg = gpd.read_file(watershed_fp)
     watershed_area = watershed_polyg.geometry.area.sum()
-
+    row_index = sites.index[sites['ID_name'] == id_name].tolist()
+    
     for index, row in geol_clipped.iterrows():
         lithology = str(index)
         percent_cover = row['area'] / watershed_area * 100
-        site.at[site_num, lithology] = percent_cover
+        sites.loc[row_index, lithology] = percent_cover
+
+    # -- Load and clip glaciers
+    glaciers = gpd.read_file(glacier_fp)
+    if glaciers.crs != watershed.crs:
+        glaciers = glaciers.to_crs(watershed.crs)
+    glaciers_clipped = gpd.clip(glaciers, watershed)
+    glaciers_clipped_box = gpd.clip(glaciers, watershed_box)
+
+    # -- Calculate glacier coverage
+    glacier_area = glaciers_clipped.geometry.area.sum()
+    watershed_area = watershed.geometry.area.sum()
+    glacier_coverage = (glacier_area / watershed_area) * 100
+    sites.loc[sites['ID_name'] == id_name, 'glacier_coverage'] = glacier_coverage
+    print(f"Glacier coverage in the catchment: {glacier_coverage:.2f}%")
+
 
     # -- GLiM color palette
     glim_colors = {
@@ -103,20 +131,57 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, watershed_name
 
     watershed.plot(ax=ax, facecolor='none', edgecolor='red', linewidth=2)
     stream.plot(ax=ax, facecolor='none', edgecolor='blue', linewidth=2)
+    
+    #display the glaciers
+    # glaciers_clipped_box.plot(ax=ax, facecolor='none', edgecolor='cyan', linestyle='-', linewidth=1.5, alpha=1)
+    # Plot glaciers with hatch pattern
 
+    
+    glaciers_patches = []
+    for poly in glaciers_clipped_box.geometry:
+        if poly.geom_type == 'Polygon':
+            coords = np.array(poly.exterior.coords)[:, :2]  # Take only the first two columns (x, y)
+            glaciers_patches.append(MplPolygon(coords, closed=True))
+        elif poly.geom_type == 'MultiPolygon':
+            for subpoly in poly.geoms:
+                coords = np.array(subpoly.exterior.coords)[:, :2]  # Take only the first two columns (x, y)
+                glaciers_patches.append(MplPolygon(coords, closed=True))
+    
+    # Create a PatchCollection with hatching
+    glaciers_collection = PatchCollection(
+        glaciers_patches,
+        facecolor = 'none',
+        edgecolor = '#00796B',
+        hatch = 'x',
+        linewidth = 2,
+        alpha = 0.9
+    )
+    
+    # Add the PatchCollection to the plot
+    ax.add_collection(glaciers_collection)
+    
+    # Set bounds
     minx, miny, maxx, maxy = watershed_box.total_bounds
-    ax.set_xlim(minx, maxx)
-    ax.set_ylim(miny, maxy)
+    xdist = maxx-minx
+    ydist = maxy-miny
+    f = 0.1
+    ax.set_xlim(minx-f*xdist, maxx+f*xdist)
+    ax.set_ylim(miny-f*ydist, maxy+f*ydist)
 
     legend_elements = [
         Patch(facecolor=glim_colors[key], edgecolor='k', label=glim_labels[key])
         for key in lithologies_present if key in glim_colors
     ]
+    
+    # Add glacier legend with hatching pattern
+    legend_elements.append(Patch(facecolor='none', edgecolor='darkblue', label='Glacier Cover', hatch='///'))
+    
     ax.legend(handles=legend_elements, title="Lithology", loc='lower right', fontsize=11, title_fontsize=12)
     plt.tight_layout()
     plt.show()
     
-    fig.savefig(os.path.join(stable_folder, '_figures', f'geology_glim{watershed_name[1:]}.png'), dpi=300)
-    print(f"geology map for {watershed_name[2:]} saved!")
+    fig.savefig(os.path.join(stable_folder, '_figures', f'geology_glim{id_name}.png'), dpi=300)
+    # plt.close(fig)
+    print(f"geology map for {id_name} saved!")
 
-    return site
+    return sites
