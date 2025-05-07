@@ -5,22 +5,27 @@ from rasterio.mask import mask
 from rasterio.transform import array_bounds
 from matplotlib.colors import LightSource
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
 
-def plot_dem_hillshade_stream(data_path, stable_folder, dem_path, watershed_name):
+def plot_dem_hillshade_stream(data_path, stable_folder, dem_path, id_name):
     """
     Plot hillshade, elevation (color), and stream network over the watershed extent.
     """
     watershed_fp = os.path.join(stable_folder, 'geographic', 'watershed.shp')
     watershed_box_fp = os.path.join(stable_folder, 'geographic', 'watershed_box.shp')
-    stream_name = 'stream_network' + watershed_name[1:] + '.shp'
-    stream_fp = os.path.join(data_path, watershed_name, stream_name)
+    stream_name = 'stream_network' + id_name + '.shp'
+    stream_fp = os.path.join(data_path,'_sites',id_name, stream_name)
 
     # Load watershed box and stream network
     watershed_box = gpd.read_file(watershed_box_fp)
     watershed = gpd.read_file(watershed_fp)
+
+    if not os.path.exists(stream_fp):
+        print(f"Stream file '{stream_fp}' not found. Using default stream file instead.")
+        stream_fp = os.path.join(data_path, '_hydrology', 'EcrRiv_c_tr_alps_pyr.shp')
+        if not os.path.exists(stream_fp):
+            raise FileNotFoundError(f"Backup stream file '{stream_fp}' is not found.")
+    
     stream = gpd.read_file(stream_fp)
 
     # Load and clip DEM
@@ -48,7 +53,9 @@ def plot_dem_hillshade_stream(data_path, stable_folder, dem_path, watershed_name
 
     # DEM as color image with colorbar
     dem_cmap = plt.cm.terrain
-    im = ax.imshow(dem, cmap=dem_cmap, extent=extent, origin='upper', alpha=0.75)
+    min_elevation = 0
+    max_elevation = 4000
+    im = ax.imshow(dem, cmap=dem_cmap, extent=extent, origin='upper', alpha=0.75, vmin=min_elevation, vmax=max_elevation)
     cbar = plt.colorbar(im, ax=ax, orientation='vertical', shrink=0.7, label='Elevation (m)')
 
     # Stream network
@@ -61,8 +68,11 @@ def plot_dem_hillshade_stream(data_path, stable_folder, dem_path, watershed_name
 
     # Set bounds
     minx, miny, maxx, maxy = watershed_box.total_bounds
-    ax.set_xlim(minx, maxx)
-    ax.set_ylim(miny, maxy)
+    xdist = maxx-minx
+    ydist = maxy-miny
+    f = 0.1
+    ax.set_xlim(minx-f*xdist, maxx+f*xdist)
+    ax.set_ylim(miny-f*ydist, maxy+f*ydist)
 
     # Legend
     legend_elements = [
@@ -72,10 +82,11 @@ def plot_dem_hillshade_stream(data_path, stable_folder, dem_path, watershed_name
     ax.legend(handles=legend_elements, title="legend", loc='lower right', fontsize=11, title_fontsize=12)
 
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
     # Save figure
-    fig.savefig(os.path.join(stable_folder, '_figures', f'dem_stream{watershed_name[1:]}.png'), dpi=300)
-    print(f"elevation map for {watershed_name[2:]} saved!")
+    fig.savefig(os.path.join(stable_folder, '_figures', f'dem_stream{id_name}.png'), dpi=300)
+    plt.close(fig)
+    print(f"elevation map for {id_name} saved!")
 
     return
