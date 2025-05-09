@@ -25,8 +25,6 @@ import pandas as pd
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 

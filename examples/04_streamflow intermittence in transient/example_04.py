@@ -16,9 +16,6 @@ import sys
 import glob
 
 import os
-from sys import platform
-import geopandas as gpd
-from datetime import datetime
 
 # Libraries need to be installed if not
 import numpy as np
@@ -30,8 +27,6 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 import deepdish as dd
