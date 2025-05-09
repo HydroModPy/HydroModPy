@@ -208,7 +208,7 @@ class Hydraulic:
         """
         self.bottom = bottom_value
     
-    def update_hk_decay(self, hk_decay_value: float=0, min_value: float=None, log_transf: bool=False):
+    def update_hk_decay(self, hk_decay_value: float=0, min_value: float=None, log_transf: bool=False, grad_elev: list=[]):
         """
         Parameters
         ----------
@@ -223,25 +223,25 @@ class Hydraulic:
             If True, the log transform is applied to the formulation.
             log(K(z)) = log(Kmin)-(log(Kmax)-log(Kmin))*np.exp(-hk_decay_value*z)
         """
-        self.hk_decay =  [hk_decay_value, min_value, log_transf]
+        self.hk_decay =  [hk_decay_value, min_value, log_transf, grad_elev]
     
-    def update_sy_decay(self, sy_decay_value: float=0, min_value: float=None, log_transf: bool=False):
+    def update_sy_decay(self, sy_decay_value: float=0, min_value: float=None, log_transf: bool=False, grad_elev: list=[]):
         """
         Parameters
         ----------
         sy_decay_value : float
             Idem por specific yield. See 'update_hk_decay'.
         """
-        self.sy_decay = [sy_decay_value, min_value, log_transf]
+        self.sy_decay = [sy_decay_value, min_value, log_transf, grad_elev]
     
-    def update_ss_decay(self, ss_decay_value: float=0, min_value: float=None, log_transf: bool=False):
+    def update_ss_decay(self, ss_decay_value: float=0, min_value: float=None, log_transf: bool=False, grad_elev: list=[]):
         """
         Parameters
         ----------
         ss_decay_value : float
             Idem por specific stotage. See 'update_hk_decay'.
         """
-        self.ss_decay =  [ss_decay_value, min_value, log_transf]  
+        self.ss_decay =  [ss_decay_value, min_value, log_transf, grad_elev]
     
     def update_lay_decay(self, lay_decay_value: Union[float, int]):
         """

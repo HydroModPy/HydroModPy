@@ -1,5 +1,66 @@
+Ordre du Jour prochaine réunion 
+Dates possibles
+2, 3 ou 4 avril après-midi 14:00 ou 16:00
+
+HydroModPy, présentation stagiaires (à solliciter): Ariane, Maeliss, Enzo, 
+1- Présentation des sujets de stage et des besoins HydroModPy
+2- Echange sur les capacités et les limites de la plateforme
+
+Stockage HydroDataPy (Bastien)
+- Repository CNRS, Retour sur les tests des uns et des autres
+
+Paramétrage (Alexandre C., Bastien, JR)
+- Présentation d'un premier paramétrage en XML
+
+Intégration à l'échelle de l'Europe (Ronan)
+
+
+
+--------------------------
+
+Date: 03/03/25 - 14h
+Participants:  Alexandre C., Alexandre G., Bastien, Jean-Raynald, Martin, Théa, Tristan
+
+
+General discussions:
+--------------------------
+
+Présentation HydroModPy aux stagiaires
+2 modalités
+- 1er niveau : Utlisation + Manipulation à partir des exemples
+- 2ème niveau: Développement, Ajouter des fonctionnalités, demande plus d'accompagnement
+Création d'une branche spécifique par stage quitte à revenir après sur la branche dev
+Identifier ce qui va être fait
+Utilisation de slack
+Echange fin mars 
+
+Gestion de la base de données HydroDataPy
+Possibilité CNRS 
+- 200 Go sans contraint actuellement
+- Vital
+- A activer immédiatement
+Possibilité Université
+- To: 120€/an
+- VPN: 80€/an par utilisateur
+- Attendre que le système soit stabilisé
+- Stockage Chaud, Tiède ou Froid (vitesse de téléchargement, pas très clair?)
+
+Paramétrage des simulations
+- Fichiers en entrée de simulations
+- Fichier yaml: nom de variable, valeur, liste, dictionnaire
+- Migration vers des fichiers xml (à voir Alexandre C., Bastien, Jean-Raynald)
+
+Intégration calibration XML
+
+Intégration à l'échelle de l'Europe
+- Simulations de 6000 BVs par Ronan, à confirmer, à présenter
+
+Perspectives Intégration ModFllow 6
+
+
 Date: 13/01/25 - 14h
 Participants:  Jean-Raynald, Clément, Ronan, Tristan, Sarah, Bastien, Flore, Théa, Jean, Martin, Ronny, Alexandre
+
 
 General discussions:
 ---------------------------

@@ -32,7 +32,8 @@ class Hydrography:
     
     def __init__(self, out_path: str,
                  types_obs: list, fields_obs: list,
-                 geographic: object, hydro_path: str):
+                 geographic: object, hydro_path: str,
+                 streams_file=None):
         """
         Parameters
         ----------
@@ -60,14 +61,14 @@ class Hydrography:
 
         for type_obs, field_obs in zip(types_obs, fields_obs):
             try:
-                self.clip_observed(type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem)
+                self.clip_observed(type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem, streams_file)
             except ValueError as e:
                 logging.error(e)
                 pass
     
     #%% FUNCTIONS
     
-    def clip_observed(self, type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem):
+    def clip_observed(self, type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem, streams_file):
         """
         Function to clip hydrogrpahic data at the watershed scale (or model domain).
         
@@ -82,7 +83,10 @@ class Hydrography:
         self.streams = data_folder + type_obs +'.shp'
         
         # First clip of the shape file at the watershed scale (classical GIS function performed here in geopandas)
-        streams_file = gpd.read_file(streams)
+        if isinstance(streams_file, gpd.GeoDataFrame):
+            streams_file = streams_file
+        else:
+            streams_file = gpd.read_file(streams)
         watshd_file = gpd.read_file(watershed_shp)
         file_clipped = gpd.clip(streams_file, watshd_file) # wbt.clip(streams, watershed_shp, self.streams)
         
@@ -107,9 +111,7 @@ class Hydrography:
         if (shp_type == 'MultiLineString') | (shp_type == 'LineString') | (shp_type == 'Line'):
             logging.debug('    %s', shp_type)
             # e.g. streams
-            wbt.vector_lines_to_raster(self.streams, self.tif_streams,
-                                       # field=field_obs,
-                                       base=watershed_dem)
+            wbt.vector_lines_to_raster(self.streams, self.tif_streams, field=field_obs,base=watershed_dem)
         if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
             logging.debug('    %s', shp_type)
             # e.g. landslides, sources, wells

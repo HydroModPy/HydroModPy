@@ -18,7 +18,7 @@ import numpy as np
 import os
 import logging
 from scipy.optimize import curve_fit
-from watershed import sim2
+import sim2
 import re
 
 #%% CLASS
@@ -525,8 +525,13 @@ class Climatic:
         
         for var in var_list:
             exec(f"self.{var} = self.sim2_rea.values[var]")
+            # Get the data
+            data = self.sim2_rea.values[var]
+            # Construct the file path
+            file_path = os.path.join(nc_data_path, "_"+var+".csv")
+            # Save to CSV (assumes data is a pandas DataFrame or Series)
+            data.to_csv(file_path, index=True, sep=';')
         
-
     #%% SET DATA SET TO STEADY INPUTS
     
     def set_steady_recharge(self):

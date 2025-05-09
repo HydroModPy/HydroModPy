@@ -14,7 +14,6 @@
 
 # Python
 import os
-import logging
 import whitebox
 import imageio
 wbt = whitebox.WhiteboxTools()
@@ -25,7 +24,7 @@ from tools import toolbox
 
 #%% CLASS
 
-class Downslope:
+class Masstransfer:
     """
     Class for topographically-driven surface runoff of discharge outflows
     from groundwater flow model 
@@ -75,13 +74,13 @@ class Downslope:
         
         self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
         
-        self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_t(xxx).shp')
-        self.out_rast_path = os.path.join(self.shp_folder, '_trace_t(xxx).tif')
+        self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_conc_t(xxx).shp')
+        self.out_rast_path = os.path.join(self.shp_folder, '_trace_conc_t(xxx).tif')
         self.out_pt_path = os.path.join(self.shp_folder, trace_shp_name)
         
-        self.load_rast_path = os.path.join(self.shp_folder, '_load_t(xxx).tif')
-        self.eff_rast_path = os.path.join(self.shp_folder, '_eff_t(xxx).tif')
-        self.abs_rast_path = os.path.join(self.shp_folder, '_abs_t(xxx).tif')
+        self.load_rast_path = os.path.join(self.shp_folder, '_load_conc_t(xxx).tif')
+        self.eff_rast_path = os.path.join(self.shp_folder, '_eff_conc_t(xxx).tif')
+        self.abs_rast_path = os.path.join(self.shp_folder, '_abs_conc_t(xxx).tif')
         self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
         
         # self.trace_downslope()
@@ -119,16 +118,16 @@ class Downslope:
         """
         # Sim to points
         wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
-        logging.debug('raster_to_vector_points')
+        # print('raster_to_vector_points')
         # # Trace downslope sim
         wbt.trace_downslope_flowpaths(self.raw_pt_path, self.watershed_direc_surflow, self.out_rast_path)
-        logging.debug('trace_downslope_flowpaths')
+        # print('trace_downslope_flowpaths')
         # # # Simflow to points
         wbt.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
-        logging.debug('raster_to_vector_points')
+        # print('raster_to_vector_points')
         # # Extra
         # wbt.add_point_coordinates_to_table(self.out_pt_path)
         # wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
-        logging.debug('extract_raster_values_at_points')
+        # print('extract_raster_values_at_points')
         
 #%% NOTES
