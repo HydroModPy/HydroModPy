@@ -822,6 +822,8 @@ class Lakeres:
         outlet cells is temporarily set to 0.
         - WhiteBox Tools uses the D8MassFlux algorithm with 100% efficiency (no losses) 
         and 0 absorption.
+        - A previous implementation using pysheds (more optimized but no longer maintained)
+        is available in this commit: https://gitlab.com/Alex-Gauvain/HydroModPy/-/commit/1b0bce3f600719c2f1a657d58727a1049ebebf29
         
         Dependencies
         ------------
