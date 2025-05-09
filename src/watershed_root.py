@@ -102,7 +102,7 @@ class Watershed:
             True : To save the watershed object (using pickle). The default is True.
         """
         
-        #toolbox.print_hydromodpy()
+        toolbox.print_hydromodpy()
         
         self.dem_path = dem_path
         self.out_path = out_path
