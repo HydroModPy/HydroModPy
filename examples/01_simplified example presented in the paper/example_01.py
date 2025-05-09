@@ -12,18 +12,14 @@
 
 #%% ---- LIBRAIRIES
 
-# Filter warnings (before imports)
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
-warnings.filterwarnings('ignore', message='.*pkg_resources.*')
-warnings.filterwarnings('ignore', message='.*declare_namespace.*')
-
 # PYTHON PACKAGES
 import sys
 import os
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
+    
 import pandas as pd
 import flopy
 import matplotlib as mpl
@@ -35,9 +31,11 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # ROOT DIRECTORY
-
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+try:
+    root_dir = dirname(dirname(dirname(abspath(__file__))))
+except NameError:
+    root_dir = os.getcwd()
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
@@ -450,6 +448,7 @@ visu.visual3D(interactive=True, object_list=[
 
 #%% INTERACTIVE CROSS-SECTION
 
+# CLICK on the map to select a cross-section !
 dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
 stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
 watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data
@@ -459,4 +458,4 @@ visu.interactive_cross_section(dem_data, watertable_data, stream_data, interacti
 
 #%% ---- NOTES
 
-os.chdir(root_dir)
+os.chdir(root_dir) 

@@ -353,7 +353,7 @@ class Geographic:
             wbt.clip_raster_to_polygon(self.bottom_path, self.box_buff, self.watershed_box_bottom,
                                        maintain_dimensions=False)
         
-        if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem):
+        if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem).shape:
             logging.debug('   Reshape tifs')
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), self.watershed_box_buff_dem, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), self.watershed_box_buff_fill, -99999)

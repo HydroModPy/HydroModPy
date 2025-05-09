@@ -6,23 +6,16 @@ Created on Fri Mar 21 10:39:38 2025
 """
 
 #%% ---- LIBRAIRIES
-
-#%% PYTHON
-
-# Filter warnings (before imports)
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
-warnings.filterwarnings('ignore', message='.*pkg_resources.*')
-warnings.filterwarnings('ignore', message='.*declare_namespace.*')
-
 # Libraries installed by default
 import sys
 import os
 
 # Libraries need to be installed if not
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
+    
 import pandas as pd
 import geopandas as gpd
 import glob
@@ -45,10 +38,12 @@ wbt.verbose = False
 import flopy.utils.binaryfile as bf 
 from PIL import Image
 
-#%% ROOT
-
+# ROOT DIRECTORY
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+try:
+    root_dir = dirname(dirname(dirname(abspath(__file__))))
+except NameError:
+    root_dir = os.getcwd()
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
@@ -434,12 +429,7 @@ compt = 0
 
 # Change
 
-model_name = vers+'_'+str(watershed_name)+'_'+str(round(area,1))+'_'+str(round(np.mean(recharge)*365*1000,1))+'_'+\
-             str(compt)+'_'+\
-             str(round(the_K0/np.mean(recharge),1))+'_'+\
-             str("{:.2e}".format(the_K0/24/3600))+'-'+str(round(alpha,1))+'_'+\
-             str(round(the_sy0*100,1))+'_'+\
-             str("{:.2e}".format(the_ss0))
+model_name = f"{vers}_{compt}_K{the_K0/24/3600:.1e}_a{alpha:.1f}_Sy{the_sy0*100:.1f}"
 print(model_name)
 
 BV.settings.update_model_name(model_name)
