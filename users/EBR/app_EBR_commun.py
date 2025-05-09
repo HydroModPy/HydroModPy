@@ -72,7 +72,6 @@ from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
 from matplotlib.dates import DateFormatter
-from src.tools.toolbox import plot_array_map, print_array
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
