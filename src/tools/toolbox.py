@@ -33,7 +33,6 @@ from pyproj import CRS
 from pyproj import Transformer
 from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
-from hydroeval import *
 import pandas as pd
 from affine import Affine
 import numpy as np
@@ -485,31 +484,55 @@ def basin_area(target_data, mask_data, cond_symb, value_masked, resolution):
     area = (cell * resolution**2) / 1000000
     return area
 
+def rmse_manual(sim, obs):
+    """Root Mean Square Error (RMSE)."""
+    return np.sqrt(np.mean((sim - obs) ** 2))
+
+def nse_manual(sim, obs, transform=None):
+    """Nash–Sutcliffe Efficiency (optionally on log‑transformed Q)."""
+    if transform == 'log':
+        eps = 1e-6
+        sim, obs = np.log(sim + eps), np.log(obs + eps)
+    num = np.sum((obs - sim) ** 2)
+    den = np.sum((obs - np.mean(obs)) ** 2)
+    return 1 - num/den
+
+def mare_manual(sim, obs):
+    """Mean Absolute Relative Error (MARE)."""
+    return np.mean(np.abs(sim - obs) / obs)
+
+def kge_manual(sim, obs):
+    """Kling–Gupta Efficiency and its three components (r, α, β)."""
+    # Pearson r
+    r = np.corrcoef(sim, obs)[0,1]
+    # spread ratio α
+    alpha = np.std(sim) / np.std(obs)
+    # bias ratio β (sum‑based, same as mean‑based)
+    beta = np.sum(sim) / np.sum(obs)
+    kge = 1 - np.sqrt((r - 1)**2 + (alpha - 1)**2 + (beta - 1)**2)
+    return kge, r, alpha, beta
+
 def efficiency_criteria(sim, obs):
     """
-    Calculate successful criteria.
-
-    Parameters
-    ----------
-    sim : list
-        Timeseries of simulated results.
-    obs : list
-        Timeseries of observed results.
-
-    Returns
-    -------
-    list
-        Float values results.
+    Compute [RMSE, nRMSE, NSE, NSElog, BAL, MARE, KGE] on two 1D arrays,
+    doing pair‑wise deletion of NaNs in obs.
     """
-    RMSE = evaluator(rmse, sim, obs)
-    nRMSE = RMSE[0] / obs.mean() # %
-    NSE = evaluator(nse, sim, obs)
-    NSElog = evaluator(nse, sim, obs, transform='log')
-    BAL = (np.sum(sim)/np.sum(obs))
-    MARE = evaluator(mare, sim, obs)
-    KGEcomp = evaluator(kge, sim, obs) # and its three components (r, α, β)
-    KGE = KGEcomp[0]
-    return [RMSE[0], nRMSE, NSE[0], NSElog[0], BAL, MARE[0], KGE[0]]
+    # flatten and mask out any NaN in obs
+    sim = np.asarray(sim).ravel()
+    obs = np.asarray(obs).ravel()
+    mask = ~np.isnan(obs)
+    sim, obs = sim[mask], obs[mask]
+
+    # now all metrics on equal‑length vectors
+    rmse = rmse_manual(sim, obs)
+    nrmse = rmse / np.mean(obs)
+    nse   = nse_manual(sim, obs)
+    nselog= nse_manual(sim, obs, transform='log')
+    bal   = np.sum(sim) / np.sum(obs)
+    mare  = mare_manual(sim, obs)
+    kge   = kge_manual(sim, obs)[0]
+
+    return rmse, nrmse, nse, nselog, bal, mare, kge
 
 def date_range(start, periods, freq):
     """

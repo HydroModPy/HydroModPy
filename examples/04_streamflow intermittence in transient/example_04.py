@@ -11,17 +11,6 @@
 """
 
 #%% ---- LIBRAIRIES
-
-#%% PYTHON
-
-# Filter warnings (before imports)
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
-warnings.filterwarnings('ignore', message='.*pkg_resources.*')
-warnings.filterwarnings('ignore', message='.*declare_namespace.*')
-
 # Libraries installed by default
 import sys
 import glob
@@ -30,6 +19,10 @@ import os
 
 # Libraries need to be installed if not
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
+    
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -44,10 +37,12 @@ wbt.verbose = False
 import xarray as xr
 xr.set_options(keep_attrs = True)
 
-#%% ROOT
-
+# ROOT DIRECTORY
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+try:
+    root_dir = dirname(dirname(dirname(abspath(__file__))))
+except NameError:
+    root_dir = os.getcwd()
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
@@ -671,19 +666,18 @@ for i, simul in enumerate(simul_list[:]):
     axb.invert_yaxis()
     axb.set_yticklabels([0,200])
     
-    Qobs_stat = select_period(Qobs,2000,2002)
-    Qmod_stat = select_period(Qmod,2000,2002)
+    Qobs_stat = select_period(Qobs, 2000, 2002)
+    Qmod_stat = select_period(Qmod, 2000, 2002)
     
-    import hydroeval as he
-    NSE = he.evaluator(he.nse, Qmod_stat, Qobs_stat)[0]
-    NSElog = he.evaluator(he.nse, Qmod_stat, Qobs_stat, transform='log')[0]
-    RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qmod_stat.values)**2))
-    KGE = he.evaluator(he.kge, Qmod_stat, Qobs_stat)[0][0]
+    Qmod_stat = pd.DataFrame(Qmod_stat)
+    Qmod_stat = Qmod_stat.set_index(Qobs_stat.index)
+    
+    rmse_val, nrmse, nse_val, nselog_val, bal, mare_val, kge_val = toolbox.efficiency_criteria(Qmod_stat, Qobs_stat)
     print(model_name.upper())
-    print(round(NSE,2))
-    print(round(NSElog,2))
-    print(round(RMSE,2))
-    print(round(KGE,2))
+    print(round(nse_val,2))
+    print(round(nselog_val,2))
+    print(round(rmse_val,2))
+    print(round(kge_val,2))
     
     ax = a1
     ax.scatter(Qobs_stat, Qmod_stat,

@@ -1,0 +1,28 @@
+name: hydromodpy-temp
+channels:
+  - conda-forge
+dependencies:
+  - colormap
+  - contextily
+  - deepdish
+  - flopy
+  - gdal
+  - geopandas
+  - imageio
+  - ipykernel
+  - ipython
+  - matplotlib
+  - matplotlib-scalebar
+  - netcdf4
+  - numpy
+  - pandas
+  - plotly
+  - pyshp
+  - python=3.13.2
+  - rasterio
+  - rioxarray
+  - selenium
+  - spyder-kernels
+  - vedo
+  - whitebox
+  - xarray
