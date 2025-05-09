@@ -30,7 +30,6 @@ warnings.filterwarnings('ignore', message='.*declare_namespace.*')
 # Bibliothèques installées par défaut
 import sys
 import os
-import requests
 import datetime
 import logging
 
@@ -73,6 +72,7 @@ from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
 from matplotlib.dates import DateFormatter
+from src.tools.toolbox import plot_array_map, print_array
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -84,7 +84,8 @@ log_manager = toolbox.LogManager(mode="dev", # Utiliser mode="verbose" pour affi
                                      )
 
 #%% DOSSIERS UTILISATEUR
-out_path = folder_root.root_folder_results()
+# out_path = folder_root.root_folder_results()
+out_path = "/home/bb/Documents/02_Output_HydroModPy" # Voir pourquoi ça ne fonctionne pas sous Linux
 # Pour modifier ce chemin : out_path = folder_root.update_root_folder_results()
 logging.info(f"Les résultats des simulations seront stockés dans le dossier {out_path}")
 
@@ -101,8 +102,8 @@ else:
 #%% PARAMETRISATION DU MODELE
 
 # Paramètres généraux
-first_year = 2024
-last_year = 2024
+first_year = 2023
+last_year = 2023
 sim_state = 'transient' # transitoire
 freq_input = 'D' # hebdomadaire
 
@@ -154,10 +155,10 @@ watershed_name = '_'.join([
     'barrage_Cheze_SFR_LAK',
     pd.to_datetime("today").strftime("%Y-%m-%d"),
     timestamp := datetime.datetime.now().strftime("%H-%M"),
-    f"thick_{thick}",
-    f"hk_{hk_str}",
-    f"sy_{sy*100:.1f}",
-    f"D"
+    # f"thick_{thick}",
+    # f"hk_{hk_str}",
+    # f"sy_{sy*100:.1f}",
+    f"{freq_input}"
 ])
 
 logging.info('##### '+watershed_name.upper()+' #####')

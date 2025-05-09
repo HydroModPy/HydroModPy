@@ -432,7 +432,7 @@ class Modflow:
         # Imposes discretization to modflow model through 
         # ---- flopy.modflow.ModflowDis
         self.dis = flopy.modflow.ModflowDis(self.mf, 
-                                            itmuni=4, # itmuni = 0 ==> undefined
+                                            itmuni=0, # itmuni = 0 ==> undefined
                                             lenuni=2, # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
                                             nlay=self.nlay, nrow=self.nrow, ncol=self.ncol, 
                                             delr=self.resolution, delc=self.resolution,
@@ -1393,7 +1393,7 @@ class Modflow:
                 self.head_data = self.head[0]
             else:
                 ### Option 1
-                self.head_data = pp.get_water_table(self.head, -100) # -9999                
+                self.head_data = pp.get_water_table(self.head, -9999) # -9999                
                 ### Option 2
                 # head_final = np.zeros([self.nrow,self.ncol])
                 # for i in range(0,self.nrow):
