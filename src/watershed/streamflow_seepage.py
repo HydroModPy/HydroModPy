@@ -262,7 +262,7 @@ class Streamflow_seepage:
             self.watershed_mask = np.ma.where(acc_map >= self.mainstream_threshold*acc_map.max(), self.watershed_mask, nodata)
             
             self.direc = np.ma.array(
-                self.direc, mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+                self.direc.astype(np.int32), mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
             
         elif self.area == 'watershed':
         # SFR seepage is applied on the whole watershed
@@ -272,7 +272,7 @@ class Streamflow_seepage:
                 base_path = geographic.watershed_dem,
                 dst_crs = geographic.crs_proj) 
             self.direc = np.ma.array(
-                self.direc, mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+                self.direc.astype(np.int32), mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
             
         elif self.area == 'domain':
         # SFR seepage is applied on the whole domain
@@ -282,7 +282,7 @@ class Streamflow_seepage:
                 base_path = geographic.watershed_dem,
                 dst_crs = geographic.crs_proj)
             self.direc = np.ma.array(
-                self.direc, mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+                self.direc.astype(np.int32), mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
 
 
     #%% LOAD REACH AND SEGMENT DATA

@@ -35,6 +35,9 @@ import logging
 
 # Bibliothèques additionnelles installées dans l'environnement
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
 import pandas as pd
 import flopy
 import matplotlib as mpl
@@ -633,7 +636,7 @@ dd.io.save(h5file, mdflw_dict)
 
 #%% POST-PROCESSING
 start_time = datetime.datetime.now()
-logging.info("Start time: ", start_time.strftime("%Y-%m-%d %H:%M"))
+logging.info("Start time: %s", start_time.strftime("%Y-%m-%d %H:%M"))
 ##%%% General
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
@@ -660,8 +663,8 @@ netcdf_results = BV.postprocessing_netcdf(model_modflow,
                                           datetime_format=True)
 
 now = datetime.datetime.now()
-logging.info("\nEnd time:", now.strftime("%Y-%m-%d %H:%M"))
-logging.info("Total time:", now - start_time)
+logging.info("\nEnd time: %s", now.strftime("%Y-%m-%d %H:%M"))
+logging.info("Total time: %s", now - start_time)
 
 #%% VISUALISATION DU MAILLAGE
 if visual_plot is True :
