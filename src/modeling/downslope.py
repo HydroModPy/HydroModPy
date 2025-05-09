@@ -115,7 +115,7 @@ class Downslope:
 
     def trace_downslope(self):
         """
-        Generate continuous hydrogrpahic network with downslope flowpaths.
+        Generate continuous hydrographic network with downslope flowpaths.
         """
         # Sim to points
         wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
