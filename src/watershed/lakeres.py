@@ -586,9 +586,9 @@ class Lakeres:
         # ---------------------
         flux_data = {kper:[] for kper in range(0, nper)}
         settings_by_flux = {'PRCPLK': self.prcplk_by_lake, 
-                        'EVAPLK': self.evaplk_by_lake, 
-                        'RNF': self.rnf_by_lake, 
-                        'WTHDRW': self.wthdrw_by_lake}
+                            'EVAPLK': self.evaplk_by_lake, 
+                            'RNF': self.rnf_by_lake, 
+                            'WTHDRW': self.wthdrw_by_lake}
         # Final format:
         # {0:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
         #  1:[PRCPLK:list, EVAPLK:list, RNF:list, WTHDRW:list],
@@ -785,9 +785,13 @@ class Lakeres:
         data_flux for flopy.modflow.ModflowLak().
         
         This implementation uses WhiteBox Tools' D8MassFlux function to calculate 
-        accumulation based on a D8 flow direction algorithm. For each time step, 
-        runoff is routed according to DEM flow paths with outlet cells specifically 
-        blocked to ensure all runoff entering the lake/reservoir is captured.
+        accumulation based on a D8 flow direction algorithm. The function automatically 
+        detects whether runoff is spatially uniform and uses an optimized approach 
+        when possible:
+        - For spatially uniform runoff: Calculates a unit flow accumulation pattern once,
+        then scales it for each time step (much faster)
+        - For spatially variable runoff: Performs full D8MassFlux calculation for each
+        time step (more accurate for spatially heterogeneous inputs)
         
         Note: runoff input has to be a VOLUME time series ([L]**3/[T])
 
@@ -822,6 +826,8 @@ class Lakeres:
         outlet cells is temporarily set to 0.
         - WhiteBox Tools uses the D8MassFlux algorithm with 100% efficiency (no losses) 
         and 0 absorption.
+        - For meteorological data with spatially varying precipitation patterns, the standard
+        method is automatically used instead of the optimized approach.
         - A previous implementation using pysheds (more optimized but no longer maintained)
         is available in this commit: https://gitlab.com/Alex-Gauvain/HydroModPy/-/commit/1b0bce3f600719c2f1a657d58727a1049ebebf29
         
@@ -871,28 +877,32 @@ class Lakeres:
         # If data is already a xr.dataarray, no operation is needed
         if isinstance(data, xr.DataArray):
             data_4D = data
-            units = data.attrs['units'].copy()
+            units = data.attrs['units'].copy() if 'units' in data.attrs else ''
         
         # if data is a xr.dataset, the corresponding xr.dataarray is extracted
         elif isinstance(data, xr.Dataset):
             main_var = list(data.data_vars)[0]
             data_4D = data[main_var]
-            units = data[main_var].attrs['units'].copy()
+            units = data[main_var].attrs['units'].copy() if 'units' in data[main_var].attrs else ''
         
         # if data is something else, a xr.dataarray will be built from scratch
         else:
             # Create an empty dataarray
-            data_4D = xr.DataArray(coords=[time, y, x], dims=["time", "y", "x"])
+            data_4D = xr.DataArray(
+                data=np.zeros((len(time), len(y), len(x))),
+                coords=[time, y, x],
+                dims=["time", "y", "x"]
+            )
             # if data is a single number, it is used to fill the xr.dataarray
             if isinstance(data, numbers.Number):
                 data_4D[:] = data
             # if data is a pd.dataframe, it is used to fill the xr.dataarray for each time
             elif isinstance(data, pd.DataFrame):
-                for t in time:
-                    data_4D.loc[{'time': t}] = data.loc[t].iloc[0] # value of the column 0 at the time t
+                for t_idx, t in enumerate(time):
+                    data_4D[t_idx, :, :] = data.loc[t].iloc[0] # value of the column 0 at the time t
             elif isinstance(data, pd.Series):
-                for t in time:
-                    data_4D.loc[{'time': t}] = data.loc[t] # value at the time t
+                for t_idx, t in enumerate(time):
+                    data_4D[t_idx, :, :] = data.loc[t] # value at the time t
         
         # Set runoff values over the extent of all lake/reservoirs to 0
         # (no runoff over water surfaces)
@@ -911,7 +921,7 @@ class Lakeres:
             dem = src.read(1)
             profile = src.profile.copy()
         
-        """"
+        """
         To stop the flow at the outlet of each lake/reservoir, we set the
         dem elevation to 0 at the outlet cell
         (this is the cell with the highest accumulation flow) for each lake
@@ -934,73 +944,180 @@ class Lakeres:
         with rasterio.open(abs_file, 'w', **profile) as dst:
             dst.write(np.zeros(dem.shape, dtype=profile['dtype']), 1)
         
-        # ---- Loop over time steps
-        for i, t in enumerate(data_4D.time.values):
-
-            # Log progress for long time series
-
-            logging.info(f"Processing runoff accumulation for lake {lake_id}: step {i+1:3d}/{len(data_4D.time.values)}")
+        # ---- Determine if runoff is spatially uniform across all time steps
+        is_spatially_uniform = True
+        
+        # Check first time step for uniformity
+        sample_timestep = data_4D.isel(time=0).values
+        sample_masked = sample_timestep * mask  # Apply mask to only consider land cells
+        unique_values = np.unique(sample_masked[sample_masked > 0])
+        
+        # If more than one non-zero value, or no values at all, it's not uniform
+        if len(unique_values) != 1:
+            is_spatially_uniform = False
+        
+        # If first timestep is uniform, check if all other timesteps maintain the same pattern
+        if is_spatially_uniform and len(data_4D.time) > 1:
+            reference_pattern = sample_masked / unique_values[0]  # Normalize to create a pattern
+            reference_pattern[reference_pattern == 0] = 0  # Ensure zeros stay zeros
+            
+            threshold = round(len(data_4D.time)*0.05) # 5% of the time series
+            
+            # Check a few random timesteps for efficiency (checking all could be slow for large datasets)
+            check_indices = np.linspace(1, len(data_4D.time)-1, min(threshold, len(data_4D.time)-1)).astype(int)
+            for idx in check_indices:
+                check_ts = data_4D.isel(time=idx).values * mask
+                if np.sum(check_ts) == 0:  # Skip zero-sum timesteps
+                    continue
+                    
+                # Create normalized pattern
+                check_nonzero = check_ts[check_ts > 0]
+                if len(np.unique(check_nonzero)) > 1:
+                    is_spatially_uniform = False
+                    break
                 
-            # Use the time index instead of the actual timestamp to avoid index errors
-            # Extract the runoff values for the current time step
-            runoff_values = data_4D.isel(time=i).values
-            # Create temporary files for runoff and output
-            runoff_file = os.path.join(temp_dir, f'runoff_{i}.tif')
-            output_file = os.path.join(temp_dir, f'output_{i}.tif')
+                check_pattern = check_ts / check_nonzero[0]
+                check_pattern[check_pattern == 0] = 0
+                
+                # Compare patterns (allowing for small floating point differences)
+                if not np.allclose(reference_pattern, check_pattern, rtol=1e-5, equal_nan=True):
+                    is_spatially_uniform = False
+                    break
+        
+        # Determine method based on spatial uniformity
+        logging.info(f"Processing runoff accumulation for lake {lake_id}: Detected {'spatially uniform' if is_spatially_uniform else 'spatially variable'} runoff (tested on first 5% of time series : {threshold}).")
+        
+        # Initialize result array
+        result_4D = xr.DataArray(
+            data=np.zeros((len(time), len(y), len(x))),
+            coords=[time, y, x],
+            dims=["time", "y", "x"]
+        )
+        
+        # ----------------------------------------------------------------------------
+        # ---- OPTIMIZED METHOD for spatially uniform runoff
+        # ----------------------------------------------------------------------------
+        if is_spatially_uniform:
+            # Create unit loading (1.0 everywhere except lakes)
+            unit_loading = np.ones_like(mask) * mask
             
-            with rasterio.open(runoff_file, 'w', **profile) as dst:
-                dst.write(runoff_values.astype(profile['dtype']), 1)
+            # Save unit loading to file
+            unit_loading_file = os.path.join(temp_dir, 'unit_loading.tif')
+            with rasterio.open(unit_loading_file, 'w', **profile) as dst:
+                dst.write(unit_loading.astype(profile['dtype']), 1)
             
-            # Execute the d8_mass_flux function
+            # Calculate unit accumulation pattern ONCE
+            unit_output_file = os.path.join(temp_dir, 'unit_output.tif')
             wbt.d8_mass_flux(
-                dem=dem_temp, # DEM file not flow direction !
-                loading=runoff_file, # Runoff file
-                efficiency=eff_file, # Set to 1
-                absorption=abs_file, # Set to 0
-                output=output_file   # Output file (temporary)
+                dem=dem_temp,
+                loading=unit_loading_file,
+                efficiency=eff_file,
+                absorption=abs_file,
+                output=unit_output_file
             )
             
-            with rasterio.open(output_file, 'r') as src:
-                acc_values = src.read(1)  # Read the accumulated values
-                data_4D.loc[{'time': data_4D.time.values[i]}] = acc_values
+            # Load unit accumulation pattern
+            with rasterio.open(unit_output_file, 'r') as src:
+                unit_accumulation = src.read(1)
             
-            # Delete temporary files
-            os.remove(runoff_file)
-            os.remove(output_file)
-        
-       # Replace nan values with 0
-        data_4D = data_4D.fillna(0)
+            # Get total unit loading (for scaling)
+            total_unit_loading = np.sum(unit_loading)
+            
+            # Process each time step using the unit accumulation pattern
+            for i, t in enumerate(data_4D.time.values):
+                # Log progress for long time series
+                if i % 25 == 0 or i == len(data_4D.time.values) - 1:
+                    logging.info(f"Processing runoff accumulation for lake {lake_id}: step {i+1:3d}/{len(data_4D.time.values)} (optimized method)")
+                
+                # Extract runoff values for current time step
+                runoff_values = data_4D.isel(time=i).values
+                
+                # Calculate total runoff for current time step
+                total_runoff = np.sum(runoff_values)
+                
+                # Scale unit accumulation pattern by total runoff
+                if total_unit_loading > 0:
+                    scaled_accumulation = unit_accumulation * (total_runoff / total_unit_loading)
+                else:
+                    scaled_accumulation = np.zeros_like(unit_accumulation)
+                
+                # Store in result array
+                result_4D[i, :, :] = scaled_accumulation
+            
+            # Clean up temporary files
+            for temp_file in [unit_loading_file, unit_output_file]:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
 
+        # ----------------------------------------------------------------------------
+        # ---- STANDARD METHOD for spatially variable runoff
+        # ----------------------------------------------------------------------------
+        else:
+            # Process each time step using the full D8MassFlux calculation
+            for i, t in enumerate(data_4D.time.values):
+                # Log progress for long time series
+                logging.info(f"Processing runoff accumulation for lake {lake_id}: step {i+1:3d}/{len(data_4D.time.values)} (standard method)")
+                
+                # Extract runoff values for current time step
+                runoff_values = data_4D.isel(time=i).values
+                
+                # Create temporary files for runoff and output
+                runoff_file = os.path.join(temp_dir, f'runoff_{i}.tif')
+                output_file = os.path.join(temp_dir, f'output_{i}.tif')
+                
+                # Save runoff values to file
+                with rasterio.open(runoff_file, 'w', **profile) as dst:
+                    dst.write(runoff_values.astype(profile['dtype']), 1)
+                
+                # Execute D8MassFlux for current time step
+                wbt.d8_mass_flux(
+                    dem=dem_temp,
+                    loading=runoff_file,
+                    efficiency=eff_file,
+                    absorption=abs_file,
+                    output=output_file
+                )
+                
+                # Read accumulated values
+                with rasterio.open(output_file, 'r') as src:
+                    acc_values = src.read(1)
+                    result_4D[i, :, :] = acc_values
+                
+                # Delete temporary files for current time step
+                for temp_file in [runoff_file, output_file]:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+        
+        # Replace nan values with 0
+        result_4D = result_4D.fillna(0)
+        
         # ---- Export to a netcdf file in the pre-processing folder
-        data_ds = data_4D.to_dataset(name = 'acc_runoff')
+        data_ds = result_4D.to_dataset(name='acc_runoff')
         # Attributes
-        data_ds.rio.write_crs(geographic.crs_proj, inplace = True)
+        data_ds.rio.write_crs(geographic.crs_proj, inplace=True)
         data_ds.x.attrs = {'standard_name': 'projection_x_coordinate',
-                           'long_name': 'x coordinate of projection',
-                           'units': 'Meter'}
+                        'long_name': 'x coordinate of projection',
+                        'units': 'Meter'}
         data_ds.y.attrs = {'standard_name': 'projection_y_coordinate',
-                           'long_name': 'y coordinate of projection',
-                           'units': 'Meter'}
+                        'long_name': 'y coordinate of projection',
+                        'units': 'Meter'}
         main_var = list(data_ds.data_vars)[0]
         data_ds[main_var].attrs = {'standard_name': 'runoff',
-                                   'long_name': 'surface runoff',
-                                   'units': units}
+                                'long_name': 'surface runoff',
+                                'units': units}
         data_ds.to_netcdf(os.path.join(self.data_folder, f'accumulated_runoff_{lake_id}.nc'))
         
         # ---- Extract the time series in the lake outlet cells into a pandas.Series
-        # Get outlet coordinates of the currenet lake
+        # Get outlet coordinates of the current lake
         (i, j) = self.ij_outlet_by_lake[lake_id]
-        # (x_out, y_out) = (
-        #     geographic.xmin + geographic.resolution_x/2 + geographic.resolution_x*j,
-        #     geographic.ymax + geographic.resolution_y/2 + geographic.resolution_y*i
-        #     )
-        data_pd = data_4D[{'x': j, 'y': i}]
-        # data_pd = data_4D.loc[{'x': x_out, 'y': y_out}]
+        data_pd = result_4D.isel(x=j, y=i)
         
-        data_pd = data_pd.drop(['x', 'y']).to_dataframe(name = 'acc_runoff') # convert xr.dataarray to pd.dataframe
+        data_pd = data_pd.drop(['x', 'y']).to_dataframe(name='acc_runoff') # convert xr.dataarray to pd.dataframe
         data_pd = data_pd['acc_runoff']
         
-        shutil.rmtree(temp_dir) # Remove the temporary directory
+        # Clean up the temporary directory
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
         
         return data_pd
         
