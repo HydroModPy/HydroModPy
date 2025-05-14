@@ -42,11 +42,14 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
 
+import glob
+
+
 #%% ROOT
 
 # Import HydroModPy modules
 from os.path import dirname, abspath
-DIR = dirname(dirname(dirname(dirname(abspath(__file__)))))
+DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
 
 
@@ -74,8 +77,8 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-data_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/Data_temporal/Hydromodpy/'
-gis_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/GIS/Raster/'
+#data_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/Data_temporal/Hydromodpy/'
+#gis_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/GIS/Raster/'
 
 # The folder out_path is created in the example_path root directory:
 
@@ -152,7 +155,7 @@ thick = 50 # if bottom is None, aquifer thickness
 cond_drain = None # or value of conductance
 sy = 1 / 100 # -
 
-KR_ar = np.geomspace(1e0, 159, 15)
+KR_ar = np.geomspace(159, 200, 15)
 
 
 ########## LOOP ##########
@@ -218,11 +221,15 @@ for hyd_cond in list_hyd_cond:
     print(model_name)
     
     model_modflow = BV.preprocessing_modflow(for_calib=False)
-    success_modflow = BV.processing_modflow(model_modflow, write_model=False, run_model=False)
+    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
     
     list_model_name.append(model_name)
     list_success_modflow.append(success_modflow)
     list_model_modflow.append(model_modflow)
+
+print(list_model_name)
+print(list_success_modflow)
+
 
 dictio = {}
 dictio['list_model_name'] = list_model_name
@@ -257,7 +264,8 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   persistency_index=False,
                                   intermittency_monthly=False,
                                   intermittency_daily=False,
-                                  export_all_tif = False)
+                                  export_all_tif = True)
+        
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
