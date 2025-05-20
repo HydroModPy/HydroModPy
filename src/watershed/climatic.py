@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 import os
 from scipy.optimize import curve_fit
-import sim2
+from watershed import sim2
 import re
 
 #%% CLASS
