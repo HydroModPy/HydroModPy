@@ -648,6 +648,7 @@ class Watershed:
                                         sink_fill=self.settings.sink_fill,
                                         sim_state=self.settings.sim_state,                                        
                                         dis_perlen=self.settings.dis_perlen,
+                                        # Well settings
                                         well_coords=self.settings.well_coords,
                                         well_fluxes=self.settings.well_fluxes,
                                         # Output settings
