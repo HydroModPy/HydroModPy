@@ -35,8 +35,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'inline')
 
 # Libraries added from 'conda forge' procedure
 
