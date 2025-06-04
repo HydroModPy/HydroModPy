@@ -408,7 +408,7 @@ class Geographic:
         self.ymax = self.geodata[3] # originY
         self.xmax = self.xmin + self.x_pixel * self.resolution_x
         self.ymin = self.ymax + self.y_pixel * self.resolution_y
-        # Generate coordinates
+        # Generate coordinates of the upper left corner of each pixel
         self.x_coord = np.linspace(1,self.x_pixel, self.x_pixel)*(self.resolution_x) + self.xmin
         self.y_coord = self.ymax - np.linspace(1,self.y_pixel, self.y_pixel)*(self.resolution_x)
         # Calculate centroids
@@ -508,5 +508,61 @@ class Geographic:
         
         self.watershed_buff_fill = os.path.join(self.gis_path, 'watershed_buff_fill.tif')
         shutil.copyfile(self.watershed_fill, self.watershed_buff_fill)  
+      
+#%% CRS COORD TO MODEL COORD
+      
+    def crs_to_iloc(self,x_crs,y_crs,crs_proj):
+        """
+        Converts coordinates in specified Coordinates Reference System (CRS) 
+        projection into x-index and y-index of model cells.
+
+        Parameters
+        ----------
+        x_crs : float
+            X coordinate in specified CRS
+        y_crs : float
+            Y coordinate in specified CRS
+        crs_proj: str
+            Coordinates Reference System (CRS) projection of input coordinates
+            
+        Returns
+        -------
+        x_iloc : int
+            x-index of model cell
+        y_iloc : int
+            y-index of model cell
+        
+        """
+        
+        # Input coordinates reprojection into workflow CRS (if necessary)
+        if crs_proj.lower() == self.crs_proj.lower():
+            x_crs_proj=x_crs
+            y_crs_proj=y_crs
+        else:
+            transformer = Transformer.from_crs(crs_proj,self.crs_proj,always_xy = True)
+            xy_proj=transformer.transform(x_crs,y_crs)
+            x_crs_proj=xy_proj[0]
+            y_crs_proj=xy_proj[1]
+            
+        # Checks if input coordinates are inside model bounds
+        if x_crs_proj < self.xmin \
+            or x_crs_proj > self.xmax \
+            or y_crs_proj < self.ymin \
+            or y_crs_proj > self.ymax:
+            
+            print("Error: Input coordinates are out of model boundaries.")
+            return None
+        
+        # Finds the x- and y-index of the model cell where the input 
+        # coordinates are located
+        x_temp=self.x_coord-x_crs_proj
+        x_iloc=len(x_temp[x_temp<=0])
+        
+        y_temp=self.y_coord-y_crs_proj
+        y_iloc=len(y_temp[y_temp>=0])
+        
+        return x_iloc, y_iloc
+        
+        
         
 #%% NOTES
