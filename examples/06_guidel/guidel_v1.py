@@ -28,6 +28,8 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib_scalebar.scalebar import ScaleBar
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import rasterio
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
@@ -55,6 +57,7 @@ importlib.reload(src)
 from src import watershed_root
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
+from watershed import residencetimes
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -78,14 +81,14 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-dem_path = data_path + 'dem_guidel_75m.tif'
+dem_path = data_path + 'dem_guidel_25m.tif'
 # load = True
 load = False
 watershed_name = 'Guidel_Upstream-Lannenec'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
-from_xyv = [214866, 6758551 , 200 , 90 , 'EPSG:2154'] # [x, y, snap distance, buffer size]
+from_xyv = [214866, 6758551 , 200 , 30 , 'EPSG:2154'] # [x, y, snap distance, buffer size]
 bottom_path = None # path
 modflow_path = os.path.join(root_dir,'bin/')
 save_object = True
@@ -157,7 +160,7 @@ recharge = 300 / 12 / 30 /1000 # m/day
 first_clim = 'first' # or 'first or value
 
 # Hydraulic settings
-nlay = 5
+nlay = 10
 lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 20 # if bottom is None, aquifer thickness
@@ -310,23 +313,585 @@ if sim_state == 'steady':
     if success_modflow == True:
         model_modpath = BV.preprocessing_modpath(model_modflow)
         success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-    if success_modpath == True:
-        BV.postprocessing_modpath(model_modpath,
-                                  ending_point=True,
-                                  starting_point=True,
-                                  pathlines_shp=True,
-                                  particles_shp=True, #False
-                                  random_id=None, # select randomly to save (for pathlines and particles)
-                                  ) # None
+    # if success_modpath == True:
+    #     BV.postprocessing_modpath(model_modpath,
+    #                               ending_point=True,
+    #                               starting_point=True,
+    #                               pathlines_shp=True,
+    #                               particles_shp=False,
+    #                               random_id=None, # select randomly to save (for pathlines and particles)
+    #                               ) # None
         
-        BV.filtprocessing_modpath(model_modpath,
-                                  norm_flux=True, # for forward only
-                                  filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
-                                  filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
-                                  filt_inout=True, # delete particles in and out in the same cell (first layer)
-                                  calc_rtd=True, # compute residence time distribution
-                                  random_id=None, # select randomly to keep
-                                  ) # None
+        # BV.filtprocessing_modpath(model_modpath,
+        #                           norm_flux=True, # for forward only
+        #                           filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+        #                           filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+        #                           filt_inout=True, # delete particles in and out in the same cell (first layer)
+        #                           calc_rtd=True, # compute residence time distribution
+        #                           random_id=None, # select randomly to keep
+        #                           ) # None
+
+
+#%% RESIDENCE TIMES DISTRIBUTIONS
+
+
+# BV.rtd_modpath(model_modpath,
+#                norm_flux=True, # for forward only
+#                filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+#                filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+#                filt_inout=True, # delete particles in and out in the same cell (first layer)
+#                calc_rtd=True, # compute residence time distribution
+#                random_id=None, # select randomly to keep
+#                ) # None
+
+residence_times = residencetimes.Residencetimes()
+residence_times.load_modpath_results(BV.geographic,
+                                      model_modflow,
+                                      model_modpath
+                                      )
+#%% RESIDENCE TIMES DISTRIBUTIONS
+# rtd_df = residence_times.get_pathlines()
+# particles = residence_times.get_particles(particle_pos='center',zero_based=True)
+
+# residence_times.particles_to_csv()
+
+# rtd = residence_times.get_rtd_all_cells()
+
+cell_list = pd.DataFrame({'k': [1, 1, 1, 1],
+                          'i': [10, 12, 13, 15],
+                          'j': [5, 6, 3, 12]})
+
+rtd_df = residence_times.get_particles_from_cell_list(cell_list=cell_list)
+
+#%% RESIDENCE TIMES MAP
+shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
+# shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
+
+#TB: Note: there is no indication of transit times along each pathline in the
+#shp file; only end point, for one color for each line
+shp_pathlines2 = gpd.GeoDataFrame(residence_times.get_pathlines(), geometry="coordinates")
+shp_pathlines2['timemax'] = shp_pathlines2['timemax'] / 365
+
+# shp_pathlines2 = shp_pathlines2[shp_pathlines2['timemax'] > 1]
+
+try:
+    line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+except:
+    pass
+
+dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
+dem_data = dem_rio.read(1)
+dem_data = np.ma.masked_where(dem_data < 0, dem_data)
+
+fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
+                    cmap='Greys', alpha=0.7, zorder=-10)
+
+# shp_pathlines2.plot(ax=ax, column='timemax', cmap='jet', lw=0.5,
+#                     vmax=5*np.mean(shp_pathlines2['timemax']),
+#                     legend=True,
+#                     zorder=1)
+
+shp_pathlines2.plot(ax=ax, column='timemax', cmap='jet', lw=0.5,
+                    vmax=5,
+                    legend=True,
+                    zorder=1)
+
+# shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5,
+#                     norm=mpl.colors.LogNorm(vmin=1, vmax=1000),
+#                     # legend=True,
+#                     zorder=1)
+
+# shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0, markersize=10,
+#                     # norm=mpl.colors.LogNorm(vmin=0.1, vmax=1000),
+#                     legend=True,
+#                     zorder=2)
+
+try:
+    line.plot(ax=ax, color='k', lw=2, zorder=-1)
+except:
+    pass
+
+ax.set_title('Particle transit times [y]')
+
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)  
+
+fig.tight_layout()
+
+fig, ax = plt.subplots(1,1, figsize=(7,5))
+shp_pathlines2['timemax'][shp_pathlines2['timemax']>5*np.mean(shp_pathlines2['timemax'])]=np.nan
+plt.hist(shp_pathlines2['timemax'],bins=40)
+plt.xlabel('Transit time [years]')
+plt.ylabel('Number of particles')
+plt.show()
+
+# fig.savefig(os.path.join(simulations_folder, model_name,
+#                             '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
+
+
+#%% RESIDENCE TIMES DISTRIBUTIONS PLOT
+
+try:
+    line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+except:
+    pass
+
+dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
+dem_data = dem_rio.read(1)
+
+dem_clip = BV.geographic.dem_clip
+
+ismap=[]
+N=6
+
+C = int(np.sqrt(N))
+R = int(N/C)+1
+fig, ax = plt.subplots(3,2, figsize=(5*C,R*(5*dem_rio.height/dem_rio.width)),dpi=300)
+
+ax = ax.flat
+for axi in ax[N:]:
+    axi.remove()
+ax = ax[:N]
+
+
+# gets vertical average of RTDs
+zmap_min = np.full(np.shape(dem_rio),-9999)
+zmap_max = np.full(np.shape(dem_rio),9999)
+
+rtd_df = residence_times.get_particles_from_zlayers(zmap_min=zmap_min,zmap_max=zmap_max)
+# rtd_df = residence_times.get_particles_from_zlayers(zmap_min=zmap_min,zmap_max=dem_data-10)
+
+res_time = np.zeros(np.shape(dem_rio))
+res_time = np.ma.masked_where(dem_data < 0, res_time)
+
+res_time[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['mean'].to_numpy() / 365
+res_time = np.ma.masked_where(res_time <= 0, res_time)
+
+res_time = np.ma.masked_where(dem_clip <= 0, res_time)
+
+npart = np.zeros(np.shape(dem_rio))
+npart = np.ma.masked_where(dem_data < 0, npart)
+
+npart[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['npart'].to_numpy()
+npart = np.ma.masked_where(npart <= 0, npart)
+npart = np.ma.masked_where(dem_clip <= 0, npart)
+
+res_time = np.ma.masked_where(npart <= 0, res_time)
+
+ismap.append(True)
+ii=0
+
+retted = rasterio.plot.show(res_time, ax=ax[ii], transform=dem_rio.transform, 
+                            cmap='jet')
+image=[]
+im = retted.get_images()[0]
+image.append(im)
+
+ax[ii].set_title('Vertical mean residence time [y]')
+ax[ii].get_xaxis().set_visible(False)
+ax[ii].get_yaxis().set_visible(False)
+fig.tight_layout()
+
+line.plot(ax=ax[ii], color='k', lw=2, zorder=4)
+
+# Histogram vertcal mean RT
+ii=ii+1
+ismap.append(False)
+npart = np.full(np.shape(dem_rio),1)
+npart = np.sum(npart)
+res_time = np.reshape(res_time,(npart,1))
+ax[ii].hist(res_time)
+ax[ii].set_xlabel('Vertical mean residence time [y]')
+ax[ii].set_ylabel('Number of cells')
+fig.tight_layout()
+
+# Out particles
+rtd_df = residence_times.get_particles_from_zlayers(particle_pos='ending',zmap_min=zmap_min,zmap_max=zmap_max)
+
+res_time = np.zeros(np.shape(dem_rio))
+res_time = np.ma.masked_where(dem_data < 0, res_time)
+
+res_time[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['mean'].to_numpy() / 365
+res_time = np.ma.masked_where(res_time <= 0, res_time)
+
+res_time = np.ma.masked_where(dem_clip <= 0, res_time)
+
+npart = np.zeros(np.shape(dem_rio))
+npart = np.ma.masked_where(dem_data < 0, npart)
+
+npart[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['npart'].to_numpy()
+npart = np.ma.masked_where(npart <= 0, npart)
+res_time = np.ma.masked_where(npart <= 5, res_time)
+
+ii=ii+1
+ismap.append(True)
+
+retted = rasterio.plot.show(res_time, ax=ax[ii], transform=dem_rio.transform, 
+                            cmap='jet')
+
+im = retted.get_images()[0]
+image.append(im)
+
+ax[ii].set_title('Outflow mean residence times [y]')
+ax[ii].get_xaxis().set_visible(False)
+ax[ii].get_yaxis().set_visible(False)
+fig.tight_layout()
+
+line.plot(ax=ax[ii], color='k', lw=2, zorder=4)
+
+# Histogram out particles
+ii=ii+1
+ismap.append(False)
+
+npart = np.full(np.shape(dem_rio),1)
+npart = np.sum(npart)
+res_time = np.reshape(res_time,(npart,1))
+ax[ii].hist(res_time)
+ax[ii].set_xlabel('Outflow mean residence time [y]')
+ax[ii].set_ylabel('Number of cells')
+
+# Drain seepage
+drain_file = os.path.join(BV.simulations_folder, model_name,'_postprocess','outflow_drain.npy')
+drain_area = np.load(drain_file, allow_pickle=True).item()
+drain_area = drain_area[0]
+
+drain = np.ma.masked_where(dem_data<= 0, drain_area)
+drain = np.ma.masked_where(drain<= 0, drain)
+
+drain = np.ma.masked_where(dem_clip <= 0, drain)
+
+ii=ii+1
+ismap.append(True)
+
+retted = rasterio.plot.show(drain, ax=ax[ii], transform=dem_rio.transform, 
+                            cmap='jet')
+im = retted.get_images()[0]
+image.append(im)
+
+ax[ii].set_title('Seepage outflow [m$^3$/d]')
+ax[ii].get_xaxis().set_visible(False)
+ax[ii].get_yaxis().set_visible(False)
+fig.tight_layout()
+
+line.plot(ax=ax[ii], color='k', lw=2, zorder=4)
+
+
+# Age vs seepage flow rate
+ii=ii+1
+ismap.append(False)
+drain = np.reshape(drain,(npart,1))
+res_time = np.reshape(res_time,(npart,1))
+
+ax[ii].plot(drain, res_time,'.')
+ax[ii].set_xlabel('Seepage outflow [m$^3$/d]')
+ax[ii].set_ylabel('Mean residence time [y]')
+
+
+fig.set_figheight(15)
+fig.set_figwidth(12)
+fig.tight_layout(pad=2.0)
+
+
+compt=0
+k=0
+for axi in ax:
+    if ismap[k]:
+        bounds = dem_rio.bounds
+        xlim = ([bounds[0], bounds[2]])
+        ylim = ([bounds[1], bounds[3]])
+        axi.set_xlim(xlim)
+        axi.set_ylim(ylim)
+        scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower right')
+        axi.add_artist(scalebar)
+        axi.get_xaxis().set_visible(False)
+        axi.get_yaxis().set_visible(False)
+    
+        divider = make_axes_locatable(axi)
+        cax = divider.append_axes(size="4%",position='right', pad=0.05)
+        fig.add_axes(cax)
+        cbar = fig.colorbar(image[compt], cax=cax, orientation="vertical")
+        cbar.ax.get_ymajorticklabels()
+        list(cbar.get_ticks())
+        cbar.ax.tick_params(labelsize=10)
+        cbar.ax.yaxis.set_ticks_position('right')
+        cbar.ax.tick_params(size=2)
+    
+        axi.legend(loc='best',framealpha=0.8)
+        compt +=1
+    k=k+1
+
+
+modelfolder = os.path.join(BV.simulations_folder, model_name)
+fig.savefig(os.path.join(modelfolder,'_postprocess','_figures', '2D_' + 'residence_times'+'.png'), dpi=300, 
+            bbox_inches='tight', transparent=False)
+
+
+
+#%% RESIDENCE TIMES DISTRIBUTIONS PLOT
+
+try:
+    line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
+except:
+    pass
+
+dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
+dem_data = dem_rio.read(1)
+
+dem_clip = BV.geographic.dem_clip
+
+
+# gets vertical average of RTDs
+zmap_min = np.full(np.shape(dem_rio),-9999)
+zmap_max = np.full(np.shape(dem_rio),9999)
+
+# rtd_df = residence_times.get_particles_from_zlayers(zmap_min=zmap_min,zmap_max=zmap_max)
+rtd_df = residence_times.get_particles_from_zlayers(zmap_min=zmap_min,zmap_max=dem_data-10)
+
+res_time = np.zeros(np.shape(dem_rio))
+res_time = np.ma.masked_where(dem_data < 0, res_time)
+
+res_time[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['mean'].to_numpy() / 365
+res_time = np.ma.masked_where(res_time <= 0, res_time)
+
+res_time = np.ma.masked_where(dem_clip <= 0, res_time)
+
+npart = np.zeros(np.shape(dem_rio))
+npart = np.ma.masked_where(dem_data < 0, npart)
+
+npart[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['npart'].to_numpy()
+npart = np.ma.masked_where(npart <= 0, npart)
+npart = np.ma.masked_where(dem_clip <= 0, npart)
+
+res_time = np.ma.masked_where(npart <= 5, res_time)
+
+# Plot
+fig, ax = plt.subplots(1,1, figsize=(7,5))
+retted = rasterio.plot.show(res_time, ax=ax, transform=dem_rio.transform, 
+                            cmap='jet')
+im = retted.get_images()[0]
+fig.colorbar(im, ax=ax)
+ax.set_title('Vertical mean residence time [y]')
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+fig.tight_layout()
+
+line.plot(ax=ax, color='k', lw=2, zorder=4)
+
+# # Histogram
+# ii=ii+1
+# ismap.append(False)
+# npart = np.full(np.shape(dem_rio),1)
+# npart = np.sum(npart)
+# res_time = np.reshape(res_time,(npart,1))
+# ax[ii].hist(res_time)
+# ax[ii].set_xlabel('Vertical mean residence time [y]')
+# ax[ii].set_ylabel('Number of cells')
+# fig.tight_layout()
+
+# # fig, ax = plt.subplots(1, 1, figsize=(8,8))
+# # plt.plot(drain, res_time*12,'.')
+# # plt.xlabel('Seepage outflow [m$^3$/d]')
+# # plt.ylabel('Mean residence time [months]')
+# # plt.show()
+
+# # fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+
+# # ax[ii].show()
+
+# # ii=ii+1
+
+# # retted = rasterio.plot.show(npart, ax=ax[ii], transform=dem_rio.transform, 
+# #                             cmap='jet')
+
+# # im = retted.get_images()[0]
+# # fig.colorbar(im, ax=ax[ii])
+# # ax[ii].set_title('nparticles (vertical mean RT)')
+# # ax[ii].get_xaxis().set_visible(False)
+# # ax[ii].get_yaxis().set_visible(False)
+# # fig.tight_layout()
+
+# # line.plot(ax=ax[ii], color='k', lw=2, zorder=4) 
+
+# Out particles
+rtd_df = residence_times.get_particles_from_zlayers(particle_pos='ending',zmap_min=zmap_min,zmap_max=zmap_max)
+
+res_time = np.zeros(np.shape(dem_rio))
+res_time = np.ma.masked_where(dem_data < 0, res_time)
+
+res_time[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['mean'].to_numpy() / 365
+res_time = np.ma.masked_where(res_time <= 0, res_time)
+
+res_time = np.ma.masked_where(dem_clip <= 0, res_time)
+
+npart = np.zeros(np.shape(dem_rio))
+npart = np.ma.masked_where(dem_data < 0, npart)
+
+npart[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['npart'].to_numpy()
+npart = np.ma.masked_where(npart <= 0, npart)
+res_time = np.ma.masked_where(npart <= 5, res_time)
+
+drain_file = os.path.join(BV.simulations_folder, model_name,'_postprocess','outflow_drain.npy')
+drain_area = np.load(drain_file, allow_pickle=True).item()
+drain_area = drain_area[0]
+
+drain = np.ma.masked_where(dem_data<= 0, drain_area)
+drain = np.ma.masked_where(drain<= 0, drain)
+
+drain = np.ma.masked_where(dem_clip <= 0, drain)
+
+cutoff=0.6/30
+
+res_time_ma = np.ma.masked_where(res_time > cutoff*drain, res_time)
+drain_ma = np.ma.masked_where(res_time > cutoff*drain, drain)
+
+
+fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+retted = rasterio.plot.show(res_time_ma, ax=ax, transform=dem_rio.transform, 
+                            cmap='jet')
+
+im = retted.get_images()[0]
+fig.colorbar(im, ax=ax)
+ax.set_title('Outflow residence time [y]')
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+fig.tight_layout()
+
+line.plot(ax=ax, color='k', lw=2, zorder=4)
+
+
+
+fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+retted = rasterio.plot.show(drain_ma, ax=ax, transform=dem_rio.transform, 
+                            cmap='jet')
+
+im = retted.get_images()[0]
+fig.colorbar(im, ax=ax)
+ax.set_title('Seepage outflow [m$^3$/d]')
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+fig.tight_layout()
+
+line.plot(ax=ax, color='k', lw=2, zorder=4)
+
+
+
+
+
+
+# Age vs seepage flow rate
+
+# res_time = np.ma.masked_where(BV.geographic.dem_clip <= 0, res_time)
+# drain = np.ma.masked_where(res_time<= 0, drain)
+
+N = np.full(np.shape(dem_rio),1)
+N = np.sum(N)
+drain = np.reshape(drain,(N,1))
+res_time = np.reshape(res_time,(N,1))
+
+drain_ma = np.reshape(drain,(N,1))
+res_time_ma = np.reshape(res_time,(N,1))
+
+fig, ax = plt.subplots(1, 1, figsize=(8,8))
+ax.plot(drain_ma, res_time_ma,'.')
+ax.set_xlabel('Seepage outflow [m$^3$/d]')
+ax.set_ylabel('Mean residence time [y]')
+
+
+# fig.set_figheight(15)
+# fig.set_figwidth(12)
+# fig.tight_layout(pad=2.0)
+
+
+# compt=0
+# k=0
+# for axi in ax:
+#     if ismap[k]:
+#         bounds = dem_rio.bounds
+#         xlim = ([bounds[0], bounds[2]])
+#         ylim = ([bounds[1], bounds[3]])
+#         axi.set_xlim(xlim)
+#         axi.set_ylim(ylim)
+#         scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower right')
+#         axi.add_artist(scalebar)
+#         axi.get_xaxis().set_visible(False)
+#         axi.get_yaxis().set_visible(False)
+    
+#         divider = make_axes_locatable(axi)
+#         cax = divider.append_axes(size="4%",position='right', pad=0.05)
+#         fig.add_axes(cax)
+#         cbar = fig.colorbar(image[compt], cax=cax, orientation="vertical")
+#         cbar.ax.get_ymajorticklabels()
+#         list(cbar.get_ticks())
+#         cbar.ax.tick_params(labelsize=10)
+#         cbar.ax.yaxis.set_ticks_position('right')
+#         cbar.ax.tick_params(size=2)
+    
+#         axi.legend(loc='best',framealpha=0.8)
+#         compt +=1
+#     k=k+1
+
+
+# modelfolder = os.path.join(BV.simulations_folder, model_name)
+# fig.savefig(os.path.join(modelfolder,'_postprocess','_figures', '2D_' + 'residence_times'+'.png'), dpi=300, 
+#             bbox_inches='tight', transparent=False)
+
+
+# # Age vs seepage flow rate
+
+# res_time = np.ma.masked_where(BV.geographic.dem_clip <= 0, res_time)
+# drain = np.ma.masked_where(res_time<= 0, drain)
+
+# N = np.full(np.shape(dem_rio),1)
+# N = np.sum(N)
+# drain = np.reshape(drain,(N,1))
+# res_time = np.reshape(res_time,(N,1))
+
+# drain_ma = np.reshape(drain_ma,(N,1))
+# res_time_ma = np.reshape(res_time_ma,(N,1))
+
+# fig, ax = plt.subplots(1, 1, figsize=(8,8))
+# plt.plot(drain, res_time*12,'.')
+# plt.xlabel('Seepage outflow [m$^3$/d]')
+# plt.ylabel('Mean residence time [months]')
+# plt.show()
+
+# fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+# plt.hist(res_time)
+# plt.show()
+
+
+# rtd_df = residence_times.get_rtd_from_zlayers(zmap_min=zmap_min,zmap_max=zmap_max)
+
+# res_time = np.zeros(np.shape(dem_rio))
+# res_time = np.ma.masked_where(dem_data < 0, res_time)
+
+# res_time[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['mean'].to_numpy() / 365
+# res_time = np.ma.masked_where(res_time <= 0, res_time)
+
+# res_time = np.ma.masked_where(dem_clip <= 0, res_time)
+
+# npart = np.zeros(np.shape(dem_rio))
+# npart = np.ma.masked_where(dem_data < 0, npart)
+
+# npart[rtd_df['i'].to_numpy(),rtd_df['j'].to_numpy()] = rtd_df['npart'].to_numpy()
+# npart = np.ma.masked_where(npart <= 0, npart)
+# npart = np.ma.masked_where(dem_clip <= 0, npart)
+
+# res_time = np.ma.masked_where(npart <= 5, res_time)
+
+# res_time = np.reshape(res_time,(N,1))
+
+# fig, ax = plt.subplots(1,1, figsize=(7,5))
+
+# plt.hist(res_time)
+# plt.show()
+
 
 #%% TIMESERIES
 
@@ -355,84 +920,38 @@ visu.visual2D(object_list = ['map','grid',
 
 #%% SEEPAGE MAP
 
-lead_numb = '0'
-outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
-demData = imageio.imread(BV.geographic.watershed_dem)
-demData = np.ma.masked_array(demData, mask=demData<0)
-res = BV.geographic.resolution
+# lead_numb = '0'
+# outflow = imageio.imread(simulations_folder+model_name+'/_postprocess/_rasters/accumulation_flux_t(0).tif')
+# demData = imageio.imread(BV.geographic.watershed_dem)
+# demData = np.ma.masked_array(demData, mask=demData<0)
+# res = BV.geographic.resolution
 
-msk_outflow = (outflow<0)
-outflow = np.ma.masked_array(outflow, mask=msk_outflow)
-outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
-outflow = outflow * 1000 * 365 # mm/year
-outflow = np.log10(outflow)
+# msk_outflow = (outflow<0)
+# outflow = np.ma.masked_array(outflow, mask=msk_outflow)
+# outflow = ( np.ma.masked_where(outflow==0, outflow) / (res**2) )
+# outflow = outflow * 1000 * 365 # mm/year
+# outflow = np.log10(outflow)
 
-from matplotlib.colors import LightSource
-ls = LightSource(azdeg=45, altdeg=45)
-cmap = plt.cm.Greys
-rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
+# from matplotlib.colors import LightSource
+# ls = LightSource(azdeg=45, altdeg=45)
+# cmap = plt.cm.Greys
+# rgb = ls.shade(demData, cmap=cmap, blend_mode='soft', vert_exag=2, dx=res, dy=res)
 
-fig, ax = plt.subplots(1, 1, figsize=(8,8))
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)
-im = ax.imshow(demData, alpha=0.8, cmap=cmap)
-im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
-cf=ax.imshow(outflow, cmap='YlGnBu', alpha=1, vmin=outflow.min(), vmax=outflow.max())
-ax.set_title('Seepage outflow (quick view)')
+# fig, ax = plt.subplots(1, 1, figsize=(8,8))
+# ax.get_xaxis().set_visible(False)
+# ax.get_yaxis().set_visible(False)
+# im = ax.imshow(demData, alpha=0.8, cmap=cmap)
+# im = ax.imshow(rgb, alpha=0.8, cmap=cmap)
+# cf=ax.imshow(outflow, cmap='YlGnBu', alpha=1, vmin=outflow.min(), vmax=outflow.max())
+# ax.set_title('Seepage outflow (quick view)')
 
-name_fig = 'map_discharge_' + str(lead_numb) + '.png'
-plt.tight_layout()
+# name_fig = 'map_discharge_' + str(lead_numb) + '.png'
+# plt.tight_layout()
 
-# fig.savefig(os.path.join(simulations_folder, model_name,
-#                             '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
+# # fig.savefig(os.path.join(simulations_folder, model_name,
+# #                             '_postprocess', '_figures', 'RAW_'+model_name+'.png'))
 
-#%% RESIDENCE TIMES MAP
 
-shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
-# shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
-shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
-
-#TB: Note: there is no indication of transit times along each pathline in the
-#shp file; only end point, for one color for each line
-
-try:
-    line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
-except:
-    pass
-
-dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
-dem_data = dem_rio.read(1)
-dem_data = np.ma.masked_where(dem_data < 0, dem_data)
-
-fig, ax = plt.subplots(1,1, figsize=(7,5))
-
-rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
-                    cmap='Greys', alpha=0.7, zorder=-10)
-
-shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5,
-                   norm=mpl.colors.LogNorm(vmin=1, vmax=1000),
-                   # legend=True,
-                   zorder=1)
-
-shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0, markersize=10,
-                    # norm=mpl.colors.LogNorm(vmin=0.1, vmax=1000),
-                    legend=True,
-                    zorder=2)
-
-try:
-    line.plot(ax=ax, color='k', lw=2, zorder=-1)
-except:
-    pass
-
-ax.set_title('Residence times [y]')
-
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)  
-
-fig.tight_layout()
-
-# fig.savefig(os.path.join(simulations_folder, model_name,
-#                             '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
 
 #%% ---- NOTES
 

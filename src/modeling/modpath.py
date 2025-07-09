@@ -17,10 +17,12 @@ import os
 import sys
 import flopy
 import flopy.utils.binaryfile as fpu
+# import flopy.utils.geometry as geometry
 import numpy as np
 from os.path import dirname, abspath
 import random
 import pickle
+import pandas as pd
 import geopandas as gpd
 import imageio
 import flopy.utils.postprocessing as pp
@@ -45,7 +47,7 @@ class Modpath:
     """
     Class Modpath.
     
-    To build, run particle traccking from modflow simulation.
+    To build, run particle tracking from modflow simulation.
     """
     
     def __init__(self,
@@ -494,6 +496,7 @@ class Modpath:
                                         epsg=epsg,
                                         verbose=False)
 
+
     #%% Filtering and normalization functions
     
     def filt_processing(self,
@@ -699,6 +702,51 @@ class Modpath:
                 # ax.set_ylim(-0.1, 13)
             except:
                 pass
+            
+    #%% Residence times distributions
+    
+    def rtd(self,
+            model_modpath:object,
+            norm_flux: bool=False, # weight time by fluxes (recharge)
+            filt_time: bool=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+            filt_seep: bool=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+            filt_inout: bool=True, # delete particles in and out in the same cell (first layer)
+            calc_rtd: bool=True, # compute residence time distribution
+            random_id: int=None # select randomly to keep
+            ):
+        
+        # paths
+        self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
+        self.particles_path = os.path.join(self.full_path, '_postprocess', '_particles')
+        
+        # load particle file
+        pth_df=pd.read_csv(os.path.join(self.particles_path, 'rtd.csv'))
+        
+        # remove duplicate pathline points for particles in/out the same cell
+        pid=pth_df.particleid[:-1]
+        pid=pd.concat([pd.Series([1]),pid],ignore_index=True)
+        pid=pth_df.particleid-pid
+        
+        ptime=pth_df.time[:-1]
+        ptime=pd.concat([pd.Series([-1]),ptime],ignore_index=True)
+        ptime=pth_df.time-ptime
+        
+        todelete=(pid == 0) & (ptime == 0)
+        pth_df=pth_df[~todelete]
+        
+        # create unique identifier for each cell
+        pth_df=pth_df.sort_values(by=['k','i','j'])
+        pth_df['cellid']=pth_df.k.astype(str)+'-'+pth_df.i.astype(str)+'-'+pth_df.j.astype(str)
+        
+        # number of particles crossing each cell & corresponding mean rtd
+        rtd_size=pth_df.groupby('cellid')['k'].count()
+        rtd_mean=pth_df.groupby('cellid')['time'].mean()
+        
+        success=1;
+        
+        
+        
+        
 
 #%% NOTES
 

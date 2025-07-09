@@ -758,7 +758,7 @@ class Watershed:
     
     def preprocessing_modpath(self, model_modflow: object, for_calib: bool=False):
         """
-        Public method to set the partickle tracking method.
+        Public method to set the particle tracking method.
 
         Parameters
         ----------
@@ -901,6 +901,53 @@ class Watershed:
                                       calc_rtd, # compute residence time distribution
                                       random_id # select randomly to keep
                                       )
+        
+    def rtd_modpath(self,
+                    model_modpath: object,
+                    norm_flux: bool=False,
+                    filt_time: bool=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                    filt_seep: bool=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                    filt_inout: bool=True, # delete particles in and out in the same cell (first layer)
+                    calc_rtd: bool=True, # compute residence time distribution
+                    random_id: int=None # select randomly to keep
+                    ):
+        """
+        WIP
+        Public method to compute residence times distributions
+
+        Parameters
+        ----------
+        model_modpath : object
+            MODPATH model in a Python object.
+        norm_flux : bool, optional
+            Noramlization of time by input fluxes (recharge). The default is False.
+        filt_time : bool, optional
+            Divide the output column "time" by 365 to converte days in years.
+            Delete particles with time at 0.
+            The default is True.
+        filt_seep : bool, optional
+            Only if 'track_dir' is 'forward'. 
+            Keep only particles ending in the first layer.
+            The default is True.
+        filt_inout : bool, optional
+            Delete partciles in and out in the same cell.
+            The default is True.
+        calc_rtd : bool, optional
+            Compute and plot the PDF of residence times.
+            The default is True.
+        random_id : int, optional
+            Select randomly the number of prticles to keep.
+            The default is None.
+        """
+        
+        model_modpath.rtd(model_modpath,
+                          norm_flux,
+                          filt_time, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                          filt_seep, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                          filt_inout, # delete particles in and out in the same cell (first layer)
+                          calc_rtd, # compute residence time distribution
+                          random_id # select randomly to keep
+                          )
 
     #%% EXTRACT TIMESERIES
     
