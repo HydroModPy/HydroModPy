@@ -73,7 +73,14 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-#%% ---- PATHS
+
+from src.modeling import downslope, modflow, modpath, timeseries
+
+
+from pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+
+
+
 
 #%% PERSONAL
 
@@ -92,7 +99,7 @@ print('The results of the example will be saved here :', out_path)
 #%% OPTIONS
 
 # dem_path = os.path.join(gis_path, 'eu_dem_clipp_ursa_v2.tif')
-dem_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/dem_urse.tif"
+dem_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/DEMs/ursa_RS3_rot0_250.tif"
 load = False
 watershed_name = 'Urse_StreamNetwork'
 # watershed_name ='Strengbach'
@@ -102,6 +109,18 @@ from_shp = ["C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/watershed
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
+
+#%% PYHELP_PATH
+pyhelp_workdir = os.path.join(out_path, watershed_name, "netcdf_test")
+era5_folder = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/_hourly3/"
+#if already completed grid : 
+grid_base_csv = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/Urse_StreamNetwork/netcdf_test/input_grid_base1.csv"
+ready_csvs = [
+    r"C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/precip_input_data.csv",
+    r"C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/airtemp_input_data.csv",
+    r"C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/solrad_input_data.csv"
+]
+
 
 #%% GEOGRAPHIC
 
@@ -126,7 +145,60 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 #%% DATA
 KB4_loc = [2796960.102,1133328.361]
 visualization_watershed.watershed_dem(BV)
-                
+       
+
+#%% ---- PYHELP
+
+
+grid_kwargs = dict(
+    growth_start=140, growth_end=280, wind=2.5,
+    hum1=60, hum2=65, hum3=70, hum4=70,
+    nlayer=1, LAI=2.4, EZD=44.5, CN=55,
+    lay_type1=1, thick1=100, poro1=0.45, fc1=0.23, wp1=0.116,
+    ksat1=0.0037, dist_dr1=50, slope1=35,
+)
+
+
+# CSV météo et grid déjà prêts
+"""
+nc = preprocessing_pyhelp(
+    workdir = pyhelp_workdir,
+    outpath = simulations_folder,
+    grid_csv = grid_base_csv,
+    ready_csvs = ready_csvs,
+)
+print(nc)
+"""
+
+# CSV météo prêts mais update des paramètres du grid
+nc = preprocessing_pyhelp(
+    workdir = pyhelp_workdir,
+    outpath = simulations_folder,
+    grid_csv = grid_base_csv,
+    ready_csvs = ready_csvs,
+    grid_kwargs = grid_kwargs,
+    dem = dem_path,
+    shapefile = from_shp[0],
+)
+
+print(nc)
+
+# Pas de CSV météo ni grid
+"""nc = preprocessing_pyhelp(
+    workdir = pyhelp_workdir,
+    outpath = simulations_folder,
+    #grid_base = grid_base_csv,
+    dem = dem_path,
+    shapefile = from_shp[0],
+    era5_folder = era5_folder,
+    grid_kwargs = grid_kwargs,           
+    conda_env   = "pyhelp_env",
+)
+
+print("NetCDF :", nc)"""
+
+#%% TEST
+         
 
 #%% ---- PARAMETRIZATION
 
@@ -143,7 +215,7 @@ dis_perlen=False
 
 # Climatic settings
 # recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
-recharge = 1/365
+#recharge = 1/365
 first_clim = 'mean' # or 'first or value
 freq_time = 'M'
 
@@ -158,6 +230,10 @@ sy = 1 / 100 # -
 KR_ar = np.geomspace(159, 200, 15)
 
 
+
+recharge = 0.7        
+
+print(f"Recharge PyHELP : {recharge:.3e} mm/j")
 ########## LOOP ##########
 #ƒlist_hyd_cond = np.array([7.17e-1]) # m/day
 list_hyd_cond = recharge*KR_ar
@@ -174,7 +250,7 @@ zone_partic = 'domain' # or watershed
 
 # Import modules
 BV.add_settings()
-BV.add_climatic()
+#BV.add_climatic()
 BV.add_hydraulic()
 
 # Frame settings
@@ -406,8 +482,14 @@ mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.t
 for model_name, success_modflow, model_modflow in zip(list_model_name,
                                                       list_success_modflow,
                                                       list_model_modflow):
+    
 
     fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
+    
+    dem = rasterio.open(stable_folder+'/geographic/watershed_dem.tif')
+    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)),
+                              ax=ax, transform=dem.transform,
+                              cmap='Greys', alpha=0.25, zorder=0)
 
     stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
     simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')

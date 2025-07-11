@@ -39,6 +39,9 @@ from display import visualization_watershed
 from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
+#pyhelp
+from pyhelp import pyhelp_netcdf
+
 #%% CLASS
 
 class Watershed:
@@ -973,5 +976,45 @@ class Watershed:
                                            datetime_format=datetime_format)
             
             return netcdf_results
+        
+    #%% PYHELP
+
+
+    def preprocessing_pyhelp(
+            self,
+            *,
+            grid_csv,   # nom « officiel »
+            grid_base,   # alias rétro-compat
+            workdir  : str,
+            ready_csvs,          # [precip, tair, solrad]
+            grid_patch, # ex. {"dem": dem_path, "CN":75}
+            compress_level: int = 4,
+    ):
+        # 1) compatibilité ancien nom
+        if grid_csv is None:
+            grid_csv = grid_base
+        if grid_csv is None:
+            raise ValueError("Vous devez fournir grid_csv ou grid_base.")
+
+        # 2) dépaqueter la liste météo
+        try:
+            precip_csv, tair_csv, solrad_csv = ready_csvs
+        except ValueError:
+            raise ValueError(
+                "`ready_csvs` doit contenir [precip_csv, tair_csv, solrad_csv]"
+            )
+
+        # 3) appel correctement typé
+        return pyhelp_netcdf.preprocessing_pyhelp_netcdf(
+            workdir      = workdir,
+            grid_csv     = grid_csv,
+            precip_csv   = precip_csv,
+            tair_csv     = tair_csv,
+            solrad_csv   = solrad_csv,
+            grid_patch   = grid_patch,
+            compress_level = compress_level,
+        )
+
+
 
 #%% NOTES
