@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Apr 23 15:21:15 2025
-
+Modification: 2025-05-07
 @author: delarueo
 
 Extract from cerra alps data local cerra data
@@ -199,104 +199,85 @@ if 0:
     print('>< END ><')
 
 # Step 2: Generate pyhelp grid input from local cerra
+variables_pyhelp =['surface_net_solar_radiation'] # ['2m_temperature','total_precipitation',
+timestep = 'D'
 if 1:
     print('>> Generate output folder')
     site_id = 'posch'
-    output_path = f'./help_input/_{site_id}/_from_cerra_forescast/'
-    tb.create_folder(output_path)
-
-    
+    output_path = f'./help_input/_{site_id}/_from_cerra_forescast_20250606/'
+    tb.create_folder(output_path)    
     local_cerra_path = 'Z:/_waterwise_data_process/_climate/_cerra_forecast/'
     
     print('>> Read pyHelp from Base Help File')
     file_path = 'M:/GitHub/HydroModPy-dev-waterwise/users/delarue/pyhelp-copy/poschiavo/input_grid_base1.csv'
-    gdf_helpGrid, df_helpGrid = tb.Geo.load_pyHelpGrid(file_path, verbose = True)
+    gdf_helpGrid, df_helpGrid = tb.Geo.load_pyHelpGrid(file_path, verbose = False)
     
-    for var in variables:
+    for var in variables_pyhelp:
         var_cerra_file = F'{local_cerra_path}/{var}/{var}_{site_id}.nc'    
         print('>> Open variable local cerra')
-        data = tb.CERRA(var_cerra_file)
+        data = tb.CERRA(var_cerra_file, to_standard = True)
     
-        print('>> Generate py help input file')
-        timestep = '3H'
+        print('>> Generate py help input file')        
         result = data.generate_pyHelp_file(gdf_helpGrid, df_helpGrid, var, 
                                         rule = 'linear', timestep = timestep, verbose = True,
                                         save = f'{output_path}{var}_input_data.csv')    
         
-    print('>< END ><')    
+    print('>< END pyHelp input generation ><')    
     
-    # print(' >> Open alps cerra')
-    # cerra_file = 'Z:/_waterwise_data_process/_climate/_cerra_forecast/2m_temperature/1984/1984_alps.nc'
-    # data = tb.CERRA(cerra_file)
+#%%    pyHELP - timeserie
+print('>< START >< timeserie statistics - Urse for help')
+variables_pyhelp_ts = ['2m_temperature','total_precipitation','surface_net_solar_radiation']#[,'2m_relative_humidity','10m_wind_speed]']
+if 1:
+    print('>> Generate output folder')
+    site_id = 'urse'
+    output_path_ = './help_input/_posch/_cerra_timeserie_20250606/'
+    tb.create_folder(output_path_)    
+    local_cerra_path = 'Z:/_waterwise_data_process/_climate/_cerra_forecast/'
+   
+    for var in variables_pyhelp_ts:
+        var_path = f'{local_cerra_path}{var}/'
+        print(f'> {var} ')
+        data_path = f'{var_path}{var}_{site_id}.nc'
+        site_path = f'Z:/HDPY_models/CR/20250410/_{site_id}/results_stable/geographic/watershed.shp'
+        database_var = database_vars[var]
+        output_path = f'{output_path_}{var}_timeserie_statistics.csv'
+
+        try: 
+            data = tb.CERRA(data_path)
+            data.compute_timeserie_statistics(site_path, var, save = output_path)
+            print(' OKAY ')
+        except:
+            print(' FAIL ')
+
+    print('>< END pyHelp timeserie generation ><')    
+
+
+#%%
+
+if 0:
+    type_site = 'deployment'
+    print('>< START >< timeserie statistics - Poschiavo')
+    variables_ = ['total_precipitation', '2m_temperature']
     
-    # print('>> generate py help input file')
-    # timestep = 'D'
-    # var = '2m_temperature'
-    # result = data.generate_pyHelp_file(gdf_helpGrid, df_helpGrid, var, 
-    #                                     rule = 'linear', timestep = timestep, verbose = True,
-    #                                     save = f'{output_path}test_help_grid_{var}.csv')
-
-
-
-
-# if 0:  
+    for var in variables_:
+        var_path = f'{database_path}{var}/'
+        print(f'> {var} ')
+        for site_id in ['posch']:
+            data_path = f'{var_path}{var}_{site_id}.nc'
+            site_path = f'Z:/HDPY_models/CR/20250410/_{site_id}/results_stable/geographic/watershed.shp'
+            output_path_ = f'./help_input/_{site_id}/'
+            database_var = database_vars[var]
+            output_path = f'{output_path_}{var}_timeserie_statistics.csv'
+            tb.create_folder(output_path_)
+            print(f'>> {site_id}', end = '')
+            try: 
+                data = tb.CERRA(data_path)
+                data.compute_timeserie_statistics(site_path, var, save = output_path, verbose =True)
+                print(' OKAY ')
+            except:
+                print(' FAIL ')
     
-    
-#     type_site = 'deployment'
-#     site_id = 'posch'
-#     print('>< START >< generate pyHelp input Poschiavo')
-    
-#     for var in variables:
-#         var_path = f'{database_path}{var}/'
-#         print(f'> {var} ')
-
-
-
-
-
-#             data_path = f'{var_path}{var}_{site_id}.nc'
-#             site_path = f'Z:/HDPY_models/CR/20250410/_{site_id}/results_stable/geographic/watershed.shp'
-#             output_path_ = f'Z:/_waterwise_teams_database/_save/_20250319/_time_series/_{type_site}_sites/_{site_id}/'
-#             database_var = database_vars[var]
-#             output_path_ = f'{output_path_}_climate/_{database_var}/_reanalysis/_cerra_forecast/'
-#             output_path = f'{output_path_}{var}_timeserie_statistics.csv'
-#             tb.create_folder(output_path_)
-#             print(f'>> {site_id}', end = '')
-#             try: 
-#                 data = tb.CERRA(data_path)
-#                 data.compute_timeserie_statistics(site_path, var, save = output_path)
-#                 print(' OKAY ')
-#             except:
-#                 print(' FAIL ')
-    
-#     print('>< END ><')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    print('>< END ><')
 
 #%% Experiemental area
 if 0:

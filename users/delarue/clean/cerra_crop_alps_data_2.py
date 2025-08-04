@@ -120,6 +120,7 @@ end = start
 print('> START\n')
 
 #%% Data path and space to explore
+
 cerra_path = 'L:/_Alps/_public_database/_climate/cerra_forecast/'
 years = range(1984, 2023)
 variables = ['2m_temperature', 'total_precipitation']

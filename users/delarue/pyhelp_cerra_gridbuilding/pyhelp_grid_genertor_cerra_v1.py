@@ -247,7 +247,7 @@ def _downscale(data, var, gridUp, gridUp_yx, gridDown, rule = 'nearest', timeste
     values['time'] = pd.to_datetime(timeline, format='%d-%b-%Y %H:%M:%S')
 
     i = 0           
-        
+    
     for point in gridDown.geometry: 
 
         if rule == 'nearest':
@@ -276,7 +276,7 @@ def _downscale(data, var, gridUp, gridUp_yx, gridDown, rule = 'nearest', timeste
 
     values.set_index('time', inplace=True)
     values = values.resample(timestep).agg(agg_rules[var])       
-    
+    print(gridDown.scale)
     return values
 
 def to_standard(dataset):
@@ -319,10 +319,10 @@ def to_standard(dataset):
 cerra_grid_file = 'M:/crash_zone/cerra_grid_urse.nc'
 print('> open cerra grid as a GeoDataFrame and find internal bounds')
 gdf_cerraGrid,yx_cerraGrid = ncGrid2gdf(cerra_grid_file)
-cerra_area = calculate_internal_bounds(gdf_cerraGrid, shrink_distance=0.01)
+cerra_area = calculate_internal_bounds(gdf_cerraGrid, shrink_distance=0.02)
 
 print('> generate GeoDataFrame of the pixel centers of the new grid')
-step_meters = 250  # Step size in meters
+step_meters = 500  # Step size in meters
 
 print('> Generate the grid')
 gdf_newGrid,df_newGrid = grid_generator(cerra_area, step_meters)
