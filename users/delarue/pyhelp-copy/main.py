@@ -9,12 +9,11 @@ from pyhelp_grid import PyhelpGrid
 from pyhelp_era5 import PyhelpEra5
 
 if __name__ == "__main__":
-    folder = '.'
-    base_file_path = f"{folder}/example/input_grid_base1.csv"
-    csv_file_path = f"{folder}/example/input_grid_base2.csv"
-    dem_file_path = f"{folder}/DEMs/ursa_RS3_rot0_250.tif"
-    shp_file_path = f"{folder}/shps/watershed_corrected.shp" 
-    reanalysis_folder_path = f"{folder}/_hourly3"
+    base_file_path = "C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/input_grid_base1.csv"
+    csv_file_path = "C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/input_grid_base2.csv"
+    dem_file_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/DEMs/ursa_RS3_rot0_250.tif"
+    shp_file_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/shps/watershed_corrected.shp" 
+    era5_folder_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/_hourly3"
     
     
 
