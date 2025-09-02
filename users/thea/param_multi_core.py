@@ -606,7 +606,12 @@ def worker_function(worker_id, parameters_file, base_config):
         except Exception as e:
             logger.warning(f"Worker {worker_id}: Failed to clean worker directory: {e}")
 
+# Use multiprocessing Pool for parallel processing
+def worker_wrapper(args):
+    return worker_function(*args)
+    
 def main():
+    
     """
     Main function to launch parallelized calibration.
     
@@ -672,22 +677,32 @@ def main():
     
     # Limit number of files to available cores
     parameter_files = parameter_files[:base_config['n_cores']]
+
+    # Prepare arguments for each worker
+    worker_args = [
+        (i + 1, param_file, base_config)
+        for i, param_file in enumerate(parameter_files)
+    ]
+
+    # Create a pool of workers
+    with mp.Pool(processes=base_config['n_cores']) as pool:
+        pool.map(worker_wrapper, worker_args,chunksize=1)
+        
+    # # Create processes
+    # processes = []
+    # for i, param_file in enumerate(parameter_files):
+    #     worker_id = i + 1
+    #     p = mp.Process(
+    #         target=worker_function,
+    #         args=(worker_id, param_file, base_config)
+    #     )
+    #     processes.append(p)
+    #     p.start()
+    #     logging.info(f"Started worker {worker_id} for file {param_file}")
     
-    # Create processes
-    processes = []
-    for i, param_file in enumerate(parameter_files):
-        worker_id = i + 1
-        p = mp.Process(
-            target=worker_function,
-            args=(worker_id, param_file, base_config)
-        )
-        processes.append(p)
-        p.start()
-        logging.info(f"Started worker {worker_id} for file {param_file}")
-    
-    # Wait for all processes to complete
-    for p in processes:
-        p.join()
+    ## Wait for all processes to complete
+    # for p in processes:
+    #     p.join()
     
     logging.info("All workers completed!")
     
@@ -697,6 +712,6 @@ def main():
         logging.info("Cleaned main temporary directory")
     except Exception as e:
         logging.warning(f"Failed to clean main temporary directory: {e}")
-
+        
 if __name__ == "__main__":
     main()
