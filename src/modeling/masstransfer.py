@@ -24,7 +24,7 @@ from tools import toolbox
 
 #%% CLASS
 
-class Downslope:
+class Masstransfer:
     """
     Class for topographically-driven surface runoff of discharge outflows
     from groundwater flow model 
@@ -62,11 +62,6 @@ class Downslope:
         except:
             pass
         
-        #########################################################################################################################################
-        #self.watershed_buff_fill_surflow = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_box_buff_fill.tif'
-        #self.watershed_direc_surflow = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_box_buff_direc.tif'
-        #########################################################################################################################################
-
         #### CHANGE HARD DISK ####
         # self.watershed_direc_surflow = self.watershed_direc_surflow.replace('G','I',1)
         # self.watershed_buff_fill_surflow = self.watershed_buff_fill_surflow.replace('G','I',1)
@@ -79,13 +74,13 @@ class Downslope:
         
         self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
         
-        self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_t(xxx).shp')
-        self.out_rast_path = os.path.join(self.shp_folder, '_trace_t(xxx).tif')
+        self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_conc_t(xxx).shp')
+        self.out_rast_path = os.path.join(self.shp_folder, '_trace_conc_t(xxx).tif')
         self.out_pt_path = os.path.join(self.shp_folder, trace_shp_name)
         
-        self.load_rast_path = os.path.join(self.shp_folder, '_load_t(xxx).tif')
-        self.eff_rast_path = os.path.join(self.shp_folder, '_eff_t(xxx).tif')
-        self.abs_rast_path = os.path.join(self.shp_folder, '_abs_t(xxx).tif')
+        self.load_rast_path = os.path.join(self.shp_folder, '_load_conc_t(xxx).tif')
+        self.eff_rast_path = os.path.join(self.shp_folder, '_eff_conc_t(xxx).tif')
+        self.abs_rast_path = os.path.join(self.shp_folder, '_abs_conc_t(xxx).tif')
         self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
         
         # self.trace_downslope()

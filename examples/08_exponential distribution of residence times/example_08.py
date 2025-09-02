@@ -27,15 +27,11 @@ import os
 
 # Libraries need to be installed if not
 import numpy as np
-import pandas as pd
 
 # Libraries added from 'conda install' procedure
 import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import rasterio
-from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'inline')
 import flopy
 import flopy.utils.binaryfile as fpu
 import imageio

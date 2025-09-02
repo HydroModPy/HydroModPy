@@ -1,13 +1,7 @@
 # -*- coding: utf-8 -*-
 """
- * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+ * Author: T. Babey
+ * Guidel field site simulation
 """
 
 #%% ---- LIBRAIRIES
@@ -35,6 +29,9 @@ import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import rasterio
+from IPython import get_ipython
+get_ipython().run_line_magic('matplotlib', 'inline')
+import flopy
 import imageio
 
 import whitebox
@@ -56,16 +53,16 @@ importlib.reload(src)
 
 # Import HydroModPy modules
 from src import watershed_root
-from src.display import visualization_results, export_vtuvtk
+from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- PATHS
 
-#%% PERSONAL
+#%% DEFAULT PATHS
 
-example_path = os.path.join(root_dir, "examples", "06_particle tracking and residence times/")
+example_path = os.path.join(root_dir, "examples", "Dinan_retenue-val/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
@@ -77,55 +74,74 @@ out_path = os.path.join(root_dir,'examples', 'results')
 
 print('The results of the example will be saved here :', out_path)
 
-#%% ---- WATERSHED
 
-#%% OPTIONS
+#%% USER INPUTS
 
-case = 'Example_06_Lasset'
-# case = 'Example_06_Hillslope_1D'
-# case = 'Example_06_Hillslope_2D'
+# Nom du fichier MNT (doit être présent dans dossier "data")
+# Conseil : utiliser un MNT de résolution 50m voire plus large (75, 100) pour 
+# commencer afin de limiter le temps de simulation
+dem_name = 'dem_guidel_75m.tif'
 
-if case == 'Example_06_Hillslope1D':
-    dem_path = data_path + 'hillslope_1D.tif'
-    load = False
-    watershed_name = case
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
-    from_dem = [dem_path, 10] # [path, cell size]
-    from_shp = None # [path, buffer size]
-    from_xyv = None # [x, y, snap distance, buffer size]
-    bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
-    save_object = True
-    
-if case == 'Example_06_Hillslope2D':
-    dem_path = data_path + 'hillslope_2D.tif'
-    load = False
-    watershed_name = case
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
-    from_dem = [dem_path, 10] # [path, cell size]
-    from_shp = None # [path, buffer size]
-    from_xyv = None # [x, y, snap distance, buffer size]
-    bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
-    save_object = True
+# Option pour importer le réseau hydrographique depuis un fichier extérieur
+# (ex: bdtopage) : oui (True) ou non (False)
+isUsed_hydroNetwork = True
+# Si utilisé, nom du fichier de réseau hydro (doit être présent dans dossier 
+# "data")
+hydroNetwork_name = 'tronconhydro_guidel_bdtopage'
 
-if case == 'Example_06_Lasset':
-    dem_path = data_path + 'regional dem.tif'
-    load = True
-    watershed_name = case
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
-    from_dem = None # [path, cell size]
-    from_shp = None # [path, buffer size]
-    from_xyv = [601020,6193860,200,50,'EPSG:2154'] # [x, y, snap distance, buffer size]
-    bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
-    save_object = True
+# Nom bu bassin versant (BV)
+watershed_name = 'Guidel_Lannenec'
+
+# Coordonnées de l'exutoire du BV
+# [x, y, snap_distance, buffer_size, coordinate_system]
+#    -  x,y, coordinate_system : coordonnées en x et y de l'exutoire dans le
+#                                le système de coordonées coordinate_system
+#                                (par défaut en France : 'EPSG:2154' pour 
+#                                Lambert 93)
+#    -  snap_distance : [m] Distance maximum où la position de l'exutoire peut
+#                       être ajustée (par défaut: 200m)
+#    -  buffer_size : [en % de la taille du BV] Taille totale du modèle autour
+#                     du BV (par défaut : 10%)
+outlet_coordinates = [214866, 6758551 , 200 , 10 , 'EPSG:2154'] 
+
+# Calcule les dimensions du BV (load = False) ou charge les dimensions du BV 
+# calculées lors des simulations précédentes (load = True). Si load = False 
+# renvoie une erreur disant qu'un des fichiers ne peut pas être supprimé :
+# supprimer toutes les variables dans la fenêtre "Variable explorer" (haut 
+# droit de l'écran sous Spyder)
+# Utile pour éviter de re-calculer les dimensions du BV quand non nécessaire
+load = False
+
+recharge = 300        # Recharge, en mm/an
+nlay = 1              # Nombre de couches verticales du modèle, défaut : 1
+layer_thickness = 20  # Epaisseur de l'aquifère
+hk = 1e-5             # Conductivité hydraulique, en m/s
+sy = 1 / 100          # Rendement specifque (specific yield), ~ porosité
+
+# A noter / faire attention:
+#    - Prendre un DEM suffisament grand pour bien prendre en compte la zone 
+#      d'étude et son buffer  
+#    - Toutes les figures montrées dans la fenêtre "Plot" sont aussi
+#      enregistrées en format image dans le dossier de résultats (à explorer
+#      pour les trouver)  
+
+#%% INPUT CONSOLIDATION
+dem_path = data_path + dem_name
+load = load
+# load = False
+watershed_name = watershed_name
+from_lib = None # os.path.join(root_dir,'watershed_library.csv')
+from_dem = None # [path, cell size]
+from_shp = None # [path, buffer size]
+from_xyv = outlet_coordinates # [x, y, snap distance, buffer size]
+bottom_path = None # path
+modflow_path = os.path.join(root_dir,'bin/')
+save_object = True
 
 #%% GEOGRAPHIC
 
 print('##### '+watershed_name.upper()+' #####')
 
-# load = True
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -141,24 +157,37 @@ BV = watershed_root.Watershed(dem_path=dem_path,
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
 simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
 
-#%% ---- RECHARGE
+
+#%% ---- DATA
+
+# Clips specific data at the catchment scale
+# BV.add_geology(data_path, types_obs='GEO050K_HARM_056_S_FGEOL_2154.shp', fields_obs='CODE_LEG')
+if isUsed_hydroNetwork:
+    BV.add_hydrography(data_path, types_obs=[hydroNetwork_name], fields_obs=['fid'])
+
+# Vizualization
+visualization_watershed.watershed_dem(BV)
+# visualization_watershed.watershed_geology(BV)
 
 #%% CASES
+
+
 
 # # Necessary to set model parameters
 BV.add_climatic()
 
-# Different cases of recharge implementation
-time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])
-BV.climatic.update_recharge(time_series, sim_state='transient')
-fig, ax = plt.subplots(1,1, figsize=(6,3))
-R = BV.climatic.recharge
-r = R * 0.1
-ax.plot(R, label='recharge_manual', c='dodgerblue', lw=2)
-ax.plot(r, label='runoff_manual', c='navy', lw=2)
-ax.set_xlabel('Months')
-ax.set_ylabel('[mm/month]')
-ax.legend()
+# # Different cases of recharge implementation
+# time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])
+# BV.climatic.update_recharge(time_series, sim_state='transient')
+# fig, ax = plt.subplots(1,1, figsize=(6,3))
+# R = BV.climatic.recharge
+# r = R * 0.1
+# ax.plot(R, label='recharge_manual', c='dodgerblue', lw=2)
+# ax.plot(r, label='runoff_manual', c='navy', lw=2)
+# ax.set_xlabel('Months')
+# ax.set_ylabel('[mm/month]')
+# ax.legend()
+
 
 #%% ---- PARAMETRIZATION
 
@@ -173,18 +202,17 @@ plot_cross = True
 dis_perlen = False
 
 # Climatic settings
-recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
-first_clim = 'mean' # or 'first or value
-freq_time = 'M'
+recharge = recharge / 12 / 30 /1000 # m/day
+first_clim = 'first' # or 'first or value
 
 # Hydraulic settings
-nlay = 10
-lay_decay = 1.5 # 1 for no decay
-bottom = 1000 # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 100 # if bottom is None, aquifer thickness
-hk = 1e-6 * 24 * 3600 # m/day
+nlay = nlay
+lay_decay = 1 # 1 for no decay
+bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
+thick = layer_thickness # if bottom is None, aquifer thickness
+hk = hk * 24 * 3600 # m/day
 cond_drain = None # or value of conductance
-sy = 1 / 100 # -
+sy = sy # -
 ss = 1e-10
 
 # Boundary settings
@@ -219,7 +247,7 @@ BV.hydraulic.update_hk(hk)
 BV.hydraulic.update_sy(sy)
 BV.hydraulic.update_ss(ss)
 BV.hydraulic.update_cond_drain(cond_drain)
-BV.hydraulic.update_hk_decay(1/50, min_value=1e-10*24*3600, log_transf=False)
+# BV.hydraulic.update_hk_decay(1/50, min_value=1e-10*24*3600, log_transf=False)
 
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
@@ -248,41 +276,75 @@ if success_modflow == True:
 
 #%% MODPATH
 
-# Prepare particle tracking from seepage inside the catchment studied
-tif_seep = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
-tif_seep_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
-wbt.clip_raster_to_polygon(
-    tif_seep, 
-    BV.stable_folder + '/geographic/watershed.shp', 
-    tif_seep_clip, 
-    maintain_dimensions=True)
+# case = 'bw_seepage'
+# case = 'bw_wells'
+case = 'fw_recharge'
+
+if case == 'bw_seepage':
+    # Prepare backward particle tracking from seepage inside the catchment studied
+    tif_seep = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
+    tif_seep_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
+    wbt.clip_raster_to_polygon(
+        tif_seep, 
+        BV.stable_folder + '/geographic/watershed.shp', 
+        tif_seep_clip, 
+        maintain_dimensions=True)
+    
+    BV.settings.update_input_particles(zone_partic = tif_seep,
+                                       cell_div = 1, # 1
+                                       zloc_div = True,  # or True, add cells at cell bottom
+                                       bore_depth = True, # '[0,5,10] for 3 particles or None
+                                       track_dir = 'backward',
+                                       sel_random = None, # or int
+                                       sel_slice = None, # or int
+                                       )
         
-# Prepare particle tracking from synthetic boreoles across the catchment
-bore = imageio.imread(BV.geographic.watershed_box_buff_dem)
-bore = bore*0
-bore[26,34] = 1
-bore[20,20] = 1
-bore[40,48] = 1
-bore[38,22] = 1
-bore[28,21] = 1
-particles_folder = os.path.join(BV.simulations_folder + '/' + model_name, '_postprocess', '_particles')
-toolbox.create_folder(particles_folder)
-toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
+if case == 'bw_wells':
+    # Prepare backward particle tracking from synthetic boreoles across the catchment
+    bore = imageio.imread(BV.geographic.watershed_box_buff_dem)
+    bore = bore*0
+    xbore,ybore = BV.geographic.crs_to_iloc(x_crs = 214594.2, 
+                                            y_crs = 6758954.1, 
+                                            crs_proj = 'EPSG:2154')
+    bore[ybore,xbore] = 1
+    # bore[20,20] = 1
+    # bore[40,48] = 1
+    # bore[38,22] = 1
+    # bore[28,21] = 1
+    particles_folder = os.path.join(BV.simulations_folder + '/' + model_name, '_postprocess', '_particles')
+    toolbox.create_folder(particles_folder)
+    toolbox.export_tif(BV.geographic.watershed_box_buff_dem,
                    bore,
                    BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif',
                    0)
-tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
+    tif_bore = BV.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'synthetic_boreholes.tif'
+    
+    BV.settings.update_input_particles(zone_partic = tif_bore,
+                                       cell_div = 1, # 1
+                                       zloc_div = True,  # or True, add cells at cell bottom
+                                       bore_depth = True, # '[0,5,10] for 3 particles or None
+                                       track_dir = 'backward',
+                                       sel_random = None, # or int
+                                       sel_slice = None, # or int
+                                       )
 
-BV.settings.update_input_particles(#zone_partic = tif_seep,
-                                   zone_partic = tif_bore,
-                                   cell_div = 1, # 1
-                                   zloc_div = True,  # or True, add cells at cell bottom
-                                   bore_depth = True, # '[0,5,10] for 3 particles or None
-                                   track_dir = 'backward',
-                                   # track_dir = 'forward',
-                                   sel_random = None, # or int
-                                   sel_slice = None, # or int
-                                   )
+if case == 'fw_recharge': 
+    tif_recharge = BV.geographic.watershed_box_buff_dem
+    tif_recharge_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/recharge_area.tif'
+    wbt.clip_raster_to_polygon(
+        tif_recharge, 
+        BV.stable_folder + '/geographic/watershed.shp', 
+        tif_recharge_clip, 
+        maintain_dimensions=True)
+    
+    BV.settings.update_input_particles(zone_partic = tif_recharge,
+                                       cell_div = 1, # 1
+                                       zloc_div = False,  # or True, add cells at cell bottom
+                                       bore_depth = None, # '[0,5,10] for 3 particles or None
+                                       track_dir = 'forward',
+                                       sel_random = None, # or int
+                                       sel_slice = None, # or int
+                                       )
 
 if sim_state == 'steady':
     if success_modflow == True:
@@ -320,15 +382,15 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
 # if sim_state == 'steady':
 visu = visualization_results.Visualization(BV, model_name)
 visu.visual2D(object_list = ['map','grid',
-                             'watertable', 'watertable_depth',
-                             'drain_flow','surface_flow',
-                             'pathlines', 'residence_times'
-                             ],
+                              'watertable', 'watertable_depth',
+                              'drain_flow','surface_flow',
+                              'pathlines', 'residence_times'
+                              ],
               color_scale = [(None,None),(None,None),
-                             (None,None),(0,10),
-                             (None,None),(None,None),
-                             (0,100),(None,None),
-                             ], 
+                              (None,None),(0,10),
+                              (None,None),(None,None),
+                              (0,100),(None,None),
+                              ], 
               lines=500)
 
 #%% SEEPAGE MAP
@@ -369,6 +431,7 @@ plt.tight_layout()
 shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
 # shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
 shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
+
 
 try:
     line = gpd.read_file(stable_folder+'geographic/'+'watershed_contour.shp')
