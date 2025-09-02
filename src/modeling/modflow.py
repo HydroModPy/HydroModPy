@@ -1123,7 +1123,18 @@ class Modflow:
                                                               'tracept_t('+lead_numb+').shp',
                                                               'accumulation_flux_t('+lead_numb+').tif',
                                                               extraction_folder=self.save_file)
+                # accumulated_flow = downslope.Downslope(self.geographic,
+                #                                               'outflow_drain_t('+lead_numb+').tif',
+                #                                               'tracept_t('+lead_numb+').shp',
+                #                                               'accumulation_flux_t('+lead_numb+').tif',
+                #                                               'seepage_areas_t('+lead_numb+').tif',
+                #                                               'accum_cells_t('+lead_numb+').tif',
+                #                                               'river_network_t('+lead_numb+').tif',
+                #                                               'river_network_t('+lead_numb+').shp',
+                #                                               'longprofile_t('+lead_numb+').html',
+                #                                               extraction_folder=self.save_file)
                 accumulated_flow.trace_cumulated()
+                # accumulated_flow.trace_rivers(threshold=50)
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
                 try:
                     self.dict_accumulation_flux[item] = imageio.v2.imread(output_path)

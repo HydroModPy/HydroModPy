@@ -515,6 +515,8 @@ class Geographic:
         """
         Converts coordinates in specified Coordinates Reference System (CRS) 
         projection into x-index and y-index of model cells.
+        
+        @TB: there are similar functions in mfdis
 
         Parameters
         ----------

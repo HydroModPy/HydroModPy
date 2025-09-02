@@ -16,6 +16,7 @@
 import os
 import whitebox
 import imageio
+import numpy as np
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
@@ -83,6 +84,7 @@ class Downslope:
         self.abs_rast_path = os.path.join(self.shp_folder, '_abs_t(xxx).tif')
         self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
         
+        
         # self.trace_downslope()
         # self.trace_cumulated()
 
@@ -110,6 +112,7 @@ class Downslope:
                          self.load_rast_path, self.eff_rast_path,
                          self.abs_rast_path, self.mass_rast_path)
 
+    
     #%% TRACE DOWNSLOPE FLOWPATHS
 
     def trace_downslope(self):
