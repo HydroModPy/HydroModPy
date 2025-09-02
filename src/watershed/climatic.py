@@ -222,7 +222,7 @@ class Climatic:
         
         climatic.index = date_obj
         
-        climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
+        climatic = climatic[clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic # recharge in meters
         # self.recharge.index = self.recharge.asfreq(self.freq).index
@@ -268,7 +268,7 @@ class Climatic:
         
         climatic.index = date_obj
         
-        climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
+        climatic = climatic[clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic # recharge in meters
         # self.runoff.index = self.runoff.asfreq(self.freq).index
@@ -323,7 +323,7 @@ class Climatic:
         
         climatic.index = date_obj
         
-        climatic = climatic['REC_'+clim_mod+'_'+clim_sce]
+        climatic = climatic[clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic/1000 # recharge in meters
         # self.recharge.index = self.recharge.asfreq(self.freq).index
@@ -370,7 +370,7 @@ class Climatic:
         
         climatic.index = date_obj
         
-        climatic = climatic['RUN_'+clim_mod+'_'+clim_sce]
+        climatic = climatic[clim_mod+'_'+clim_sce]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic/1000 # recharge in meters
         # self.runoff.index = self.runoff.asfreq(self.freq).index
@@ -424,7 +424,7 @@ class Climatic:
         data.index = date_obj
         
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
-        self.recharge = data['REC'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
+        self.recharge = data[gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
 
@@ -465,7 +465,7 @@ class Climatic:
         data.index = date_obj
         
         data = data[(data.index.year >= first_year) & (data.index.year <= last_year)]
-        self.runoff = data['RUN'+'_'+gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
+        self.runoff = data[gcm_mod+'-'+rcm_mod+'_'+sce_mod] / 1000 # mm to m
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()
 
