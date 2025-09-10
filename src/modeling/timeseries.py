@@ -203,6 +203,11 @@ class Timeseries:
             
         ### For total catchment
         dem_clip = imageio.imread(self.geographic.watershed_dem)
+
+        #######################################################################
+        #dem_clip = imageio.imread(model_modflow.geographic.watershed_dem)
+        #######################################################################
+        
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
         self.resolution = model_modflow.resolution
         self.extract_results(dem_clip, time, recharge, runoff, self.timeseries_file)
