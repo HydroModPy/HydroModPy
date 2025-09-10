@@ -194,16 +194,28 @@ def watershed_local(regional_dem_path, BV):
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
-    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
     shp = gpd.read_file(BV.geographic.watershed_shp)
     dem = rasterio.open(regional_dem_path)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)  
     ax.set(aspect='equal')
-    show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)), ax=ax, transform=dem.transform, 
-         cmap='terrain', alpha=1, zorder=2, aspect="auto")
-    shp.plot(ax=ax, lw=2, color='yellow', zorder=4,legend=True, label='Watershed')
-    # contour.plot(ax=ax, lw=2, color='k', zorder=4,legend=True, label='Watershed', facecolor='None')
+    scalebar = ScaleBar(1, box_alpha=0, scale_loc='top', location='lower left')
+    ax.add_artist(scalebar)
+    dem_data = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
+    vmin = np.nanmin(dem_data)
+    vmax = np.nanmax(dem_data)
+    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    im = plt.cm.ScalarMappable(norm=norm, cmap='terrain')
+    im.set_array([])
+    show(dem_data, ax=ax, transform=dem.transform, cmap='terrain', alpha=1, zorder=2, aspect="auto")
+    shp.plot(ax=ax, lw=2, color='yellow', zorder=4)
+    cbar = fig.colorbar(im, ax=ax, orientation='horizontal', fraction=0.03, pad=0.02, shrink=0.8)
+    cbar.set_label('Topographic elevation [mNGF]', fontsize=8, labelpad=2)
+    cbar.ax.tick_params(labelsize=8)
+    legend_elements = [
+        mpatches.Patch(facecolor='yellow', edgecolor='black', linewidth=1, label='Watershed')
+    ]
+    ax.legend(handles=legend_elements, loc='lower right', framealpha=0.8)
     fig.tight_layout()
     fig.savefig(os.path.join(BV.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)

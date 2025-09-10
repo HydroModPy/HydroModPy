@@ -169,6 +169,12 @@ class Modflow:
         
         # General
         self.geographic = geographic
+        
+        #######################################################################
+        #self.geographic.watershed_dem = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_dem.tif'
+        #self.geographic.watershed_box_buff_dem = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif'
+        #######################################################################
+
         self.resolution = geographic.resolution
         self.xul = geographic.xmin
         self.yul = geographic.ymax
