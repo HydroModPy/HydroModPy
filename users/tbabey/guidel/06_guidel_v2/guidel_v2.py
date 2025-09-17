@@ -41,10 +41,10 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
-#%% ROOT
+#%% HYDROMODPY ROOT
 
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+root_dir = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
@@ -68,15 +68,9 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples", "06_guidel_v2/")
-data_path = os.path.join(example_path, "data/")
-
-# The folder out_path is created in the example_path root directory:
-out_path = os.path.join(root_dir,'examples', 'results')
-# Or use a function to update the root folder
-# out_path = folder_root.update_root_folder_results()
-# Or define it manually
-# out_path = 'C:/Simulations/HydroModPy/'
+csim_path = root_dir = dirname(abspath(__file__))
+data_path = os.path.join(csim_path,'data/')
+out_path = os.path.join(csim_path,'results')
 
 print('The results of the example will be saved here :', out_path)
 
