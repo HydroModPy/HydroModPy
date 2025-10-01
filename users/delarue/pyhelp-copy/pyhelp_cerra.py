@@ -1,19 +1,56 @@
+# -*- coding: utf-8 -*-
+"""
+Created on 15:39:33 2025-04-03
+Last modification : 2025-04-03
+
+@author: delarueo
+"""
+import sys
+sys.path.insert(0, 'M:/GitHub/HydroModPy-dev-waterwise/')
+
+from src.tools.toolbox import create_folder
+
 from pyhelp_csv_manager import PyhelpCsvManager
 from helper import load_shapefile, select_nearest_point, get_centroid_coordinates, convert_units, select_within_polygon_points
+
+from helper import load_csv
+
 import xarray as xr
 import pandas as pd
 import os
 
-class PyhelpCerra(PyhelpCsvManager):
-    """ERA5 climate data extraction and processing for PyHelp"""
+#%% DIRECTORY MANAGEMENT 
+
+
+
+
+#%% PYHELP CERRA CLASS
+
+class PyhelpCERRA(PyhelpCsvManager):
+    """CERRA climate data extraction and processing for PyHelp"""
     
-    def __init__(self, folder_path: str, shapefile_path: str) -> None:
-        """Initialize cerra data extraction"""
+    def __init__(self, folder_path: str, grid_path: str) -> None:
+        """Initialize ERA5 data extraction"""
         self._folder_path = folder_path
-        self._shapefile_path = shapefile_path
-        
-        
-        
+        self._grid_path = grid_path
+        self._help_grid = self._load_grid()
+
+    def _load_grid(self) -> None:
+        grid = load_csv(self.grid_path)
+        self._help_grid = grid[:]['cid','lat_dd','lon_dd']
+        # TODO verifier selection
+        self._gdf_grid = ...
+    
+    def extract_cerra_timeseries( self, var, method, ... ) -> None:
+        # put dataset to standard by safety (to standard method cerra_handler ?)
+        # method nearest linear
+
+        # to adapt from previous pyhelp generator
+        # different files navigator
+        pass
+
+
+
 
     def _get_nearest_point(self, ds: xr.Dataset) -> xr.Dataset:
         """Find the nearest grid point in the NetCDF dataset from the shapefile geometry"""
