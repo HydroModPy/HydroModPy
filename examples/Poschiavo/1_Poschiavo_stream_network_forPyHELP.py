@@ -51,6 +51,7 @@ import glob
 from os.path import dirname, abspath
 DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
+sys.path.append(os.path.join(DIR, "src"))
 
 
 # from os.path import dirname, abspath
@@ -113,8 +114,10 @@ save_object = True
 #%% PYHELP_PATH
 pyhelp_workdir = os.path.join(out_path, watershed_name, "netcdf_test")
 era5_folder = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/_hourly3/"
+
 #if already completed grid : 
 grid_base_csv = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/Urse_StreamNetwork/netcdf_test/input_grid_base1.csv"
+
 ready_csvs = [
     r"C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/precip_input_data.csv",
     r"C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/airtemp_input_data.csv",
@@ -180,16 +183,15 @@ nc = preprocessing_pyhelp(
     dem = dem_path,
     shapefile = from_shp[0],
 )
-
 print(nc)
+
 
 # Pas de CSV météo ni grid
 """nc = preprocessing_pyhelp(
     workdir = pyhelp_workdir,
     outpath = simulations_folder,
-    #grid_base = grid_base_csv,
     dem = dem_path,
-    shapefile = from_shp[0],
+    #shapefile = from_shp[0],
     era5_folder = era5_folder,
     grid_kwargs = grid_kwargs,           
     conda_env   = "pyhelp_env",

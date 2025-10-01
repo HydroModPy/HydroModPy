@@ -152,11 +152,13 @@ def preprocessing_pyhelp(
             workdir / "solrad_input_data.csv",
         ]
 
-#%% Case 2 : ready_csvs is True & grid update
+#%% Case 2 : ready_csvs is True or grid update
         #ready_csvs is given but grid update (grid_kwargs is specified)
         
     elif grid_kwargs:
         print("Grid update")
+        env = os.environ.copy()
+        env.update({"PYHELP_SHP": str(shapefile) if shapefile else ""})
         base_grid = workdir / "input_grid_base.csv"
         out_grid = workdir / "input_grid_base1.csv"
         pg = PyhelpGrid(str(base_grid), str(out_grid), str(dem or ""))
