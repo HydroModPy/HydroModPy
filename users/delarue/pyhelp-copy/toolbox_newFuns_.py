@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on 15:39:33 2025-04-03
-Last modification : 2025-04-03
+Last modification : 2025-05-07
 
 @author: delarueo
 """
@@ -513,7 +513,9 @@ class CERRA():
     # static variables
     # TODO check standard for each CERRA variables
     STANDARD_CONVERSIONS = {
-        't2m': lambda x: x - 273.15
+        't2m': lambda x: x - 273.15,
+        'ssr': lambda x: x/(6*60*60) ,
+        'surface_net_solar_radiation': lambda x: x/(6*60*60) # TEMPORARY warning
         }
     
     STANDARD_VARIABLES = {
@@ -523,9 +525,11 @@ class CERRA():
         'sd': 'snow_depth_water_equivalent',
         'ssr': 'surface_net_solar_radiation'
         }
+    
     STANDARD_DIMS ={
         'valid_time': 'time'
         }
+    
     STANDARD_COORDINATES = {
         'valid_time': 'time',
         'lon' : 'longitude',
@@ -539,6 +543,16 @@ class CERRA():
         'snow_depth_water_equivalent': 'mean',
         'surface_net_solar_radiation' : 'mean'
         }
+    
+    DOWNLOAD_SPECS = {
+        'dataset'   : 'reanalysis-cerra-single-levels',
+        'level_type': 'surface_or_atmosphere',
+        'data_type' : 'reanalysis',
+        'product_type': 'fc', #forecast
+        'leadtime_hour': 6,
+        'time': ['00:00', '03:00', '06:00','09:00',
+                 '12:00', '15:00','18:00', '21:00']
+       }
     
     def __init__(self, path: str, to_standard = True) -> None:       
         self._path = path
@@ -630,12 +644,25 @@ class CERRA():
                 # Apply the conversion if the variable has a corresponding function
                 conversion_func = __class__.STANDARD_CONVERSIONS[var_name]
                 self.dataset[var_name] = conversion_func(self.dataset[var_name])
-                
+
             if var_name in __class__.STANDARD_VARIABLES:
                 # Apply the name changes if the variable has a standard name
                 new_name = __class__.STANDARD_VARIABLES[var_name]            
                 self.dataset = self.dataset.rename({var_name : new_name})
+                
+            # Check if download specs as expected.   
+        for var_name in self.dataset.data_vars:
+            if self.dataset[var_name].attrs['GRIB_dataType'] != self.__class__.DOWNLOAD_SPECS['product_type']:
+                print(f"WARNING - {self._path} - Unexpected dataType",
+                  " {self.dataset[var_name].attrs['GRIB_dataType']- Download spec : ",
+                  "self.__class__.DOWNLOAD_SPECS['product_type']")                
+                
+            if self.dataset[var_name].attrs['GRIB_stepType'] == 'accum':
+                self.accum2instant(var_name, 
+                        leadtime_hour = self.__class__.DOWNLOAD_SPECS['leadtime_hour'],
+                        method = 'cut')
 
+        
 
     #◘ generate new files
     @staticmethod
@@ -817,6 +844,68 @@ class CERRA():
         
         return result
     
+    def accum2instant(self, name_var, leadtime_hour, method):
+        """
+        Converts accumulated precipitation to instantaneous values.
+        
+        Parameters:
+            name_var (str): Name of the variable to adjust (e.g., 'total_precipitation').
+            leadtime (int or float): Time to shift forward (in hours).
+            method (str): Method to apply. Supported: 'cut'
+        """
+        
+        if method == "cut":
+                # Convert time to datetime
+                timeline = pd.to_datetime(self.dataset['time'].values)
+    
+                # Keep only hours 0, 6, 12, 18
+                hour_mask = timeline.hour.isin([0, 6, 12, 18])
+                filtered_times = timeline[hour_mask]
+    
+                # Filter dataset
+                self.dataset = self.dataset.sel(time=filtered_times)
+    
+                # Shift timeline by leadtime (e.g., to adjust for accumulation offset)
+                self.dataset['time'] = pd.to_datetime(self.dataset['time'].values) + pd.to_timedelta(f'{leadtime_hour}H')
+    
+                # Modify attribute accordingly
+                self.dataset[name_var].attrs['GRIB_stepType'] = f'instant_{method}'
+                
+        elif method == "divise":            
+                timeline = pd.to_datetime(self.dataset['time'].values)
+                timestep = timeline[1]-timeline[0]
+                
+                divide = pd.to_timedelta(f'{leadtime_hour}H')/timestep
+
+                # Filter dataset
+                self.dataset[name_var] = (('time','y','x'), self.dataset[name_var][:,:,:].values/divide)
+
+                # Shift timeline by leadtime (e.g., to adjust for accumulation offset)
+                self.dataset['time'] = pd.to_datetime(self.dataset['time'].values) + timestep
+                
+                # Modify attribute accordingly
+                self.dataset[name_var].attrs['GRIB_stepType'] = f'instant_{method}'   
+        
+        # elif method == "avg":            
+        #         timeline = pd.to_datetime(self.dataset['time'].values)
+        #         timestep = timeline[1]-timeline[0]
+                
+        #         divide = pd.to_timedelta(f'{leadtime_hour}H')/timestep
+
+        #         # Filter dataset
+        #         self.dataset[name_var] = (('time','y','x'), self.dataset[name_var][:,:,:].values/divide)
+        #         self.dataset[name_var] = (('time','y','x'), self.dataset[name_var].rolling(time=divide, center=False).mean())
+
+        #         # Shift timeline by leadtime (e.g., to adjust for accumulation offset)
+        #         # self.dataset['time'] = pd.to_datetime(self.dataset['time'].values) + timestep
+                
+        #         # Modify attribute accordingly
+        #         self.dataset[name_var].attrs['GRIB_stepType'] = f'instant_{method}' 
+                
+        else:
+                print("Method not recognized. Use 'cut'.")
+
+        return True
 #%% Extract site data tools   
     # TODO check for crs consitency issue
     # TODO ddocumentation
@@ -995,6 +1084,34 @@ class CERRA():
             combine_file = f'{cerra_path}{var}/{var}_{site_id}.nc'
             __class__.combine(year_files,combine_file)
             vprint('combine')        
+        delete_folder(work_folder)
+        return combine_file
+    
+    def extract_site_data_(mask, site_id, list_paths, output_path, combine_file, verbose = False):
+        
+        vprint = print if verbose else lambda *a, **k: None
+        work_folder = f'{output_path}work/'
+        create_folder(work_folder)
+
+        files = []
+        i = 0
+        for path in list_paths:
+            vprint(f'{path}', end = '')
+          
+            # Check if data available for given variable and year
+            if os.path.isfile(path):                
+                # Open dataset
+                data = __class__(path)    
+                # Process and save the buffer files
+                files.append(data.crop_and_save(f'{i}_{site_id}', work_folder, mask))
+                data.__close__()
+                
+            else:
+                vprint(' no data', end = '')
+            vprint(' - ', end = '')
+            i += 1
+        __class__.combine(files,combine_file)
+        vprint('combine')        
         delete_folder(work_folder)
         return combine_file
         
@@ -1203,7 +1320,7 @@ class CERRA():
 
 
         
-#%% weather station
+#%% WeatherStation Class
 class WeatherStation():
     
     """
@@ -1225,19 +1342,46 @@ class WeatherStation():
         self._read_coordinate_infos()
         for var in variables:
             self._load_data(var)
-    def __init__(self, name, path):
-       self._name = name        
-       self._path = path
-       self._infos = {}
-       self._data = {}
-       self._read_coordinate_infos()                    
+            
+    # def __init__(self, name, path):
+    #    self._name = name        
+    #    self._path = path
+    #    self._infos = {}
+    #    self._data = {}
+    #    self._read_coordinate_infos()                    
             
     def __str__(self):
-        text = f'{self.name}\n'
+        text = f'{self._name}\n'
         for key,val in self._infos.items():
             text = f'{text}{key} {val}\n'
         return text
     
+    def info2pdf(self, site = '', comments = ''):
+
+        data = pd.DataFrame(columns = ['site', 'id', 'X', 'Y', 'crs', 
+                                       'variables', 'comments'], 
+                            data = np.empty((1,7)))
+        data['site'] = site
+        data['id'] = self._name
+        data['X'] = self._infos['x']
+        data['Y'] = self._infos['y']
+        if 'crs' in self._infos:
+            crs = f"{self._infos['crs']}"
+            if 'zone' in self._infos and self._infos['zone'] != '':
+                crs += f"/{self._infos['zone']}" 
+        elif 'epsg':
+            crs = f"{self._infos['epsg']}"
+        else: 
+            crs = 'nan'
+            print(f">> WeatherStation.info2pdf - fail to crs to str: {self._name}")
+            
+        data['crs'] = crs
+        str_variables = " ".join(self._data.keys())
+        data['variables'] = str_variables
+        data['comments'] = comments
+
+        return data
+            
     def _load_data(self, var):
         DELIMITER = re.compile(r'(,|;)')
         def csv_read(path):            
@@ -1255,7 +1399,7 @@ class WeatherStation():
 
         # Format weather station data
         station_data = pd.DataFrame()
-        station_data['time'] = pd.to_datetime(data[cols[0]], format= 'mixed') #'%d-%b-%Y %H:%M:%S')
+        station_data['time'] = pd.to_datetime(data[cols[0]], format= "%d/%m/%Y %H:%M") #'%d-%b-%Y %H:%M:%S')
 
         # Extract the year for grouping
         station_data['year'] = station_data['time'].dt.year
@@ -1308,11 +1452,11 @@ class WeatherStation():
                 zone = ZONE.search(line)
                 geo_info['zone'] = zone.group(1)
                     
-            elif line.lower().startswith(('x','easting')):
+            elif line.lower().startswith(('x','easting','long')):
                 x = NUMS.search(line)
                 geo_info['x'] = float(x.group(0))        
                 
-            elif line.lower().startswith(('y','northing')):
+            elif line.lower().startswith(('y','northing','lat')):
                 y = NUMS.search(line)
                 geo_info['y'] = float(y.group(0))    
             
@@ -1378,7 +1522,6 @@ class ClimateStats():
         self.data_origin = pd.DataFrame()
         self.data_work = pd.DataFrame()
         self.load_data()
-   
     
     def load_data(self):
         df = pd.read_csv(self.path, index_col=0)
@@ -1394,7 +1537,7 @@ class ClimateStats():
         self.name = __class__.VAR_ID_TO_NAME[self.variable_id]
         
     def resample_data(self, timestep, method):
-        # Modify unit in ClimateStats if necessary
+        # Modify unit in ClimateStats if necessary - to verify
         try:
             new_unit = __class__.RESAMPLE_UNIT[f'{self.variable_id}_{method}']  
             if new_unit:
