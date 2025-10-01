@@ -52,7 +52,8 @@ def main():
     pg = PyhelpGrid(
         str(base_grid),
         str(out_grid_csv),
-        str(dem_path) if dem_path else ""
+        str(dem_path) if dem_path else "",
+        str(shp_path) if shp_path else ""
     )
 
     if "PYHELP_GRID_KWARGS" in os.environ:
