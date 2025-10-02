@@ -34,7 +34,8 @@ args = p.parse_args()
 workdir = Path(os.environ.get("PYHELP_WORKDIR", args.workdir)).expanduser()
 workdir.mkdir(parents=True, exist_ok=True)
 
-obs_csv = workdir / "obs_yearly_river_flow_poschiavino.csv"
+obs_csv = workdir.parents[2] / "obs_yearly_river_flow_urse.csv"
+
 if not obs_csv.exists():
     raise FileNotFoundError(f"observation flow file not found: {obs_csv}")
     #with open(obs_csv, "w", newline="") as f:
