@@ -91,7 +91,7 @@ from pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 # The folder out_path is created in the example_path root directory:
 
 # Or define it manually
-out_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/"
+out_path = "C:/Users/Pelissierm/pyhelp/test/outputs"
 
 print('The results of the example will be saved here :', out_path)
 
@@ -100,30 +100,28 @@ print('The results of the example will be saved here :', out_path)
 #%% OPTIONS
 
 # dem_path = os.path.join(gis_path, 'eu_dem_clipp_ursa_v2.tif')
-dem_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/DEMs/ursa_RS3_rot0_250.tif"
-load = False
+dem_path = "C:/Users/Pelissierm/pyhelp/test/ursa_RS3_rot0_250.tif"
 watershed_name = 'Urse_StreamNetwork'
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
-from_shp = ["C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/watershed_urse.shp", 10]
+from_shp = ["C:/Users/Pelissierm/pyhelp/test/watershed_urse_EPSG2056.shp", 10]
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
 #%% PYHELP_PATH
 pyhelp_workdir = os.path.join(out_path, watershed_name, "netcdf_test")
-era5_folder = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/_hourly3/"
+era5_folder = "C:/Users/Pelissierm/pyhelp/test/era5/"
 
 #if already completed grid : 
-grid_base_csv = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/Urse_StreamNetwork/netcdf_test/input_grid_base1.csv"
+#grid_base_csv = "C:/Users/Pelissierm/pyhelp/test/CSVs/input_grid_base1.csv"
 
 ready_csvs = [
-    r"C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/precip_input_data.csv",
-    r"C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/airtemp_input_data.csv",
-    r"C:/Users/mathi/Dev/pyhelp-master/pyhelp-test/example/example/solrad_input_data.csv"
+    r"C:/Users/Pelissierm/pyhelp/test/CSVs/precip_input_data.csv",
+    r"C:/Users/Pelissierm/pyhelp/test/CSVs/airtemp_input_data.csv",
+    r"C:/Users/Pelissierm/pyhelp/test/CSVs/solrad_input_data.csv"
 ]
-
 
 #%% GEOGRAPHIC
 
@@ -177,7 +175,7 @@ print(nc)
 nc = preprocessing_pyhelp(
     workdir = pyhelp_workdir,
     outpath = simulations_folder,
-    grid_csv = grid_base_csv,
+    #grid_csv = grid_base_csv,
     ready_csvs = ready_csvs,
     grid_kwargs = grid_kwargs,
     dem = dem_path,
@@ -450,7 +448,7 @@ from rasterio.plot import show
 import geopandas as gpd
 from rasterio.features import geometry_mask
 compt = 0
-stream_obs=gpd.read_file("C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/stream_network_urse.shp")
+stream_obs=gpd.read_file("C:/Users/Pelissierm/pyhelp/test/stream_network_urse.shp")
 
    
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots

@@ -8,6 +8,11 @@ Updated for PyHELP version 0.3.1
 
 import os.path as osp
 import os
+import sys
+from pathlib import Path
+repo_root = Path(__file__).resolve().parents[1]   # monte de 2 niveaux (pyhelp/ -> src/ -> hydromodpy)
+sys.path.insert(0, str(repo_root))
+
 import shutil
 import pandas as pd
 from pathlib import Path
@@ -75,12 +80,13 @@ if __name__ == '__main__':
     
     # Export and save annual averages of HELP output values to a csv file.
     output_help.save_to_csv(osp.join(workdir, 'help_example_yearly.csv'))
+    """
     
     # Plot some results.
     output_help.plot_area_monthly_avg(fig_title="PyHELP Example")
     output_help.plot_area_yearly_avg(fig_title="PyHELP Example")
     output_help.plot_area_yearly_series(fig_title="PyHELP Example")
-    
+    """
     # =========================================================================
     # Compare with river total and base streamflow
     # =========================================================================
@@ -93,17 +99,19 @@ if __name__ == '__main__':
     
     # Read observed yearly total and base streamflow (in mm/year).
     obs_qflow = pd.read_csv(
-        osp.join(workdir, 'obs_yearly_river_flow_prese.csv'),
+        osp.join(workdir.parents[2], "obs_yearly_river_flow_urse.csv"),
         index_col=0)
     
     # Calcul simulated early total and base streamflow (in mm/year).
     sim_qflow = HelpBilan.calc_yearly_streamflow(output_help, output_surf)
     
     # Plot results.
+    """
     HelpBilan.plot_sim_vs_obs_yearly_streamflow(
         sim_qflow, obs_qflow, fig_title="PyHELP Example")
     HelpBilan.plot_streamflow_scatter(
         sim_qflow, obs_qflow, fig_title="PyHELP Example")
+    """
        
     
     # =========================================================================
@@ -114,7 +122,7 @@ if __name__ == '__main__':
     
     print(df_daily_mean.head())
     
-    plot_daily(df_daily_mean, title="Bilan journalier moyen")
+    #plot_daily(df_daily_mean, title="Bilan journalier moyen")
     
     df_daily_mean.to_csv(osp.join(workdir, 'help_example_daily_mean.csv'))
         
