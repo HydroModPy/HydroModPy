@@ -10,7 +10,7 @@ import os.path as osp
 import os
 import sys
 from pathlib import Path
-repo_root = Path(__file__).resolve().parents[1]   # monte de 2 niveaux (pyhelp/ -> src/ -> hydromodpy)
+repo_root = Path(__file__).resolve().parents[1]   
 sys.path.insert(0, str(repo_root))
 
 import shutil
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     
     # Read observed yearly total and base streamflow (in mm/year).
     obs_qflow = pd.read_csv(
-        osp.join(workdir.parents[2], "obs_yearly_river_flow_urse.csv"),
+        osp.join(workdir.parents[3], "Poschiavo", "data", "obs_yearly_river_flow_urse.csv"),
         index_col=0)
     
     # Calcul simulated early total and base streamflow (in mm/year).
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     
     df_daily_mean = calc_area_daily_avg(cellnames, helpm.workdir)
     
-    print(df_daily_mean.head())
+    #print(df_daily_mean.head())
     
     #plot_daily(df_daily_mean, title="Bilan journalier moyen")
     

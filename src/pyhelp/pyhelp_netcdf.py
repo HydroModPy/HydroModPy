@@ -159,7 +159,7 @@ def preprocessing_pyhelp(
         print("Grid update")
         env = os.environ.copy()
         env.update({"PYHELP_SHP": str(shapefile) if shapefile else ""})
-        base_grid = workdir.parents[2] / "input_grid_base.csv"
+        base_grid = workdir.parents[3] / "Poschiavo" / "data" / "input_grid_base.csv"
         out_grid = workdir / "input_grid_base1.csv"
         pg = PyhelpGrid(str(base_grid), str(out_grid), str(dem or ""))
         pg.update_parameters(**grid_kwargs)
@@ -169,7 +169,7 @@ def preprocessing_pyhelp(
             src = Path(csv).expanduser().resolve()
             dst = workdir / src.name
             shutil.copy2(src, dst)
-            print(f"[preprocessing_pyhelp] copied : {src.name} -> {dst}")
+            #print(f"[PyHELP preprocessing] copied : {src.name} to {dst}")
 
     if len(ready_csvs) != 3:
         raise ValueError("ready_csvs must contain [precip, tair, solrad]")
@@ -258,10 +258,7 @@ def preprocessing_pyhelp(
                 # Values
                 stacks["runoff"].append(np.asarray(data["runoff"], dtype="float32"))
                 stacks["evapo"].append(np.asarray(data["et"], dtype="float32"))
-                stacks["rechg"].append(
-                    np.asarray(data["leak_first"], dtype="float32")
-                    + np.asarray(data["leak_last"], dtype="float32")
-                )
+                stacks["rechg"].append(np.asarray(data["leak_last"], dtype="float32"))
 
                 # coordinates
                 x, y = xy_dict.get(cid, (np.nan, np.nan))
@@ -286,10 +283,11 @@ def preprocessing_pyhelp(
 
                 enc2 = {v: {"zlib": True, "complevel": compress_level}
                         for v in ds_pts.data_vars}
-                nc_pts = outpath / "pyhelp_outputs_points.nc"
+                nc_pts = outpath / "_pyhelp_outputs_points.nc"
                 ds_pts.to_netcdf(nc_pts, format="NETCDF4", encoding=enc2)
                 print(f"[OK] NetCDF created : {nc_pts}")
                 print("[INFO] PyHELP processing is over.")
+                shutil.rmtree(os.path.join(workdir, 'help_input_files', '.temp'))
         else:
             print("[INFO] No *.OUT* file found, NetCDF point not created")
     else:

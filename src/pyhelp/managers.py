@@ -499,7 +499,7 @@ class HelpManager(object):
         data['lon_dd'] = self.grid.loc[cellnames]['lon_dd'].values
 
         for i, cellname in enumerate(cellnames):
-            print("\rPost-processing cell %d of %d..." % (i+1, Np), end=' ')
+            #print("\rPost-processing cell %d of %d..." % (i+1, Np), end=' ')
             for key in keys[:-1]:
                 data[key][i, :, :] = output[cellname][key]
 

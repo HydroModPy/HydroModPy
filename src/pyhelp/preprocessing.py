@@ -182,17 +182,17 @@ def format_d10d11_inputs(grid, cellnames):
     d10dat = {}
     N = len(cellnames)
     for i, cid in enumerate(cellnames):
-        print("\rFormatting D10 and D11 data for cell %d of %d (%0.1f%%)" %
-              (i+1, N, (i+1)/N*100), end=' ')
+        #print("\rFormatting D10 and D11 data for cell %d of %d (%0.1f%%)" %
+         #     (i+1, N, (i+1)/N*100), end=' ')
 
         row = grid.loc[cid]
         d11dat[cid] = _format_d11_singlecell(row)
         d10dat[cid] = _format_d10_singlecell(row)
 
-    print("\rFormatting D10 and D11 data for cell %d of %d (%0.1f%%)" %
-          (i+1, N, (i+1)/N*100))
+    #print("\rFormatting D10 and D11 data for cell %d of %d (%0.1f%%)" %
+     #     (i+1, N, (i+1)/N*100))
     tac = time.perf_counter()
-    print('Task completed in %0.2f sec' % (tac-tic))
+    #print('Task completed in %0.2f sec' % (tac-tic))
 
     warnings = [cid for cid, val in d10dat.items() if val is None]
     if warnings:
@@ -238,10 +238,10 @@ def write_d10d11_allcells(dirpath, d10data, d11data, ncore=None):
         d10_connect_table.update(i)
         calcul_progress += 1
         progress_pct = calcul_progress/N*100
-        print("\rCreating D10 input file for cell %d of %d (%0.1f%%)" %
-              (calcul_progress, N, progress_pct), end=' ')
+        #print("\rCreating D10 input file for cell %d of %d (%0.1f%%)" %
+         #     (calcul_progress, N, progress_pct), end=' ')
     tac = time.perf_counter()
-    print('\nTask completed in %0.2f sec' % (tac-tic))
+    #print('\nTask completed in %0.2f sec' % (tac-tic))
 
     # Prepare evapotranspiration input files (D11).
 
@@ -255,9 +255,9 @@ def write_d10d11_allcells(dirpath, d10data, d11data, ncore=None):
         d11_connect_table.update(i)
         calcul_progress += 1
         progress_pct = calcul_progress/N*100
-        print("\rCreating D11 input file for cell %d of %d (%0.1f%%)" %
-              (calcul_progress, N, progress_pct), end=' ')
+        #print("\rCreating D11 input file for cell %d of %d (%0.1f%%)" %
+         #     (calcul_progress, N, progress_pct), end=' ')
     tac = time.perf_counter()
-    print('\nTask completed in %0.2f sec' % (tac-tic))
+    #print('\nTask completed in %0.2f sec' % (tac-tic))
 
     return d10_connect_table, d11_connect_table

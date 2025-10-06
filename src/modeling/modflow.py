@@ -65,7 +65,7 @@ class Modflow:
                  bottom: float=None, thick: float=100.,
                  verti_hk=None, verti_sy=None, verti_ss=None,
                  hk_value=0.0864, sy_value: float=0.1, ss_value: float=1e-5,
-                 hk_decay: list=[0.,None,False], sy_decay: list=[0.,None,False], ss_decay: list=[0.,None,False],
+                 hk_decay: list=[0.,None,False,[]], sy_decay: list=[0.,None,False,[]], ss_decay: list=[0.,None,False,[]],
                  vka: float=1.0,
                  # Well settings
                  well_coords: list=[], well_fluxes: list=[],
@@ -169,6 +169,12 @@ class Modflow:
         
         # General
         self.geographic = geographic
+        
+        #######################################################################
+        #self.geographic.watershed_dem = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_dem.tif'
+        #self.geographic.watershed_box_buff_dem = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif'
+        #######################################################################
+
         self.resolution = geographic.resolution
         self.xul = geographic.xmin
         self.yul = geographic.ymax
@@ -445,32 +451,57 @@ class Modflow:
                 # Homogeneous or heterogeneous hydraulic conductivity 
                 # self.hk_value is always a 3D matrix create from hydraulic.py
 
+        ### FUNCTION FOR GRADIENT DECAY LINKED TO DEM ELEVATION
+        def compute_values(dem, dem_min, dem_max, dcal, dadj):             
+            # Compute boundary values
+            val_min = (1/dcal)
+            val_max = (1/dcal) + dadj  # Ensure positive denominator
+            if val_max <0:
+                val_max=1
+            result = np.ones((dem.shape[0], dem.shape[1]))
+            result = np.where((dem>dem_min) & (dem<dem_max),
+                              (val_min + (val_max - val_min) * ((dem - dem_min) / (dem_max - dem_min))),
+                              result)
+            result =  np.where(dem <= dem_min, val_min, result)
+            result =  np.where(dem >= dem_max, val_max, result)
+            result[result<=0] = val_max
+            return result
+
         ### Hydraulic conductivty
         self.hk = np.ones((self.nlay, self.nrow, self.ncol))*self.hk_value               
         # Exponential decay
         if self.hk_decay[0] != 0:
-            kdec = self.hk_decay[0]
+            grad_elev = self.hk_decay[3]
+            if grad_elev != []:
+                dem_min = grad_elev[0]
+                dem_max = grad_elev[1]
+                dadj = grad_elev[2]
+                dcal = self.hk_decay[0]
+                self.kdec_inv = compute_values(self.dem, dem_min, dem_max, dcal, dadj)
+                self.kdec = 1/self.kdec_inv
+            else:
+                self.kdec = self.hk_decay[0]
             kmin = self.hk_decay[1]
             kmax = self.hk_value
             hklog_transf = self.hk_decay[2]
             if kmin == None:
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-                self.hk *= np.exp(-kdec*depth)
+                self.hk *= np.exp(-self.kdec*depth)
                 #print('        ', 'Decay without Kmin')
             if kmin != None:
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:] # self.zbot[:-1,:,:]
-                self.hk = (kmin)+((kmax)-(kmin))*np.exp(-kdec*depth)
+                self.hk = (kmin)+((kmax)-(kmin))*np.exp(-self.kdec*depth)
                 # self.hk[self.hk<kmin] = kmin
                 #print('        ', 'Decay with Kmin')
             if (kmin != None) and (hklog_transf==True):
                 depth = np.zeros(self.hk.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:] # self.zbot[:-1,:,:]
-                self.hk = np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-kdec*depth)
+                self.hk = np.log10(kmin)+(np.log10(kmax)-np.log10(kmin))*np.exp(-self.kdec*depth)
                 self.hk = 10**self.hk
                 #print('        ', 'Decay with Kmin and log trasnform')
-                # self.hk[self.hk<10**kmin] = 10**kmin
+                # self.hk[self.hk<10**kmin] = 10**kmin                
         # Define values for some thickness (disconnected from the vertical discretization)
         if self.verti_hk != None:
             for j in range(len(self.verti_hk)):
@@ -487,26 +518,35 @@ class Modflow:
                     # print(k_val)
         
         ### Specific yield
-        self.sy = np.ones((self.nlay, self.nrow, self.ncol))*self.sy_value  
+        self.sy = np.ones((self.nlay, self.nrow, self.ncol))*self.sy_value
         # Exponential decay
         if self.sy_decay[0] != 0:
-            sydec = self.sy_decay[0]
+            grad_elev = self.sy_decay[3]
+            if grad_elev != []:
+                dem_min = grad_elev[0]
+                dem_max = grad_elev[1]
+                dadj = grad_elev[2]
+                dcal = self.sy_decay[0]
+                self.sydec_inv = compute_values(self.dem, dem_min, dem_max, dcal, dadj)
+                self.sydec = 1/self.sydec_inv
+            else:
+                self.sydec = self.sy_decay[0]
             symin = self.sy_decay[1]
             symax = self.sy_value
             sylog_transf = self.sy_decay[2]
             if symin == None:
                 depth = np.zeros(self.sy.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-                self.sy *= np.exp(-sydec*depth)
+                self.sy *= np.exp(-self.sydec*depth)
             if symin != None:
                 depth = np.zeros(self.sy.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
-                self.sy = (symin)+((symax)-(symin))*np.exp(-sydec*depth)
+                self.sy = (symin)+((symax)-(symin))*np.exp(-self.sydec*depth)
                 # self.sy[self.sy<symin] = symin
             if (symin != None) and (sylog_transf==True):
                 depth = np.zeros(self.sy.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-                self.sy = np.log10(symin)+(np.log10(symax)-np.log10(symin))*np.exp(-sydec*depth)
+                self.sy = np.log10(symin)+(np.log10(symax)-np.log10(symin))*np.exp(-self.sydec*depth)
                 self.sy = 10**self.sy
                 # self.sy[self.sy<10**symin] = 10**symin
         # Define values for some thickness (disconnected from the vertical discretization)
@@ -528,23 +568,32 @@ class Modflow:
         self.ss = np.ones((self.nlay, self.nrow, self.ncol))*self.ss_value
         # Exponential decay
         if self.ss_decay[0] != 0:
-            ssdec = self.ss_decay[0]
+            grad_elev = self.ss_decay[3]
+            if grad_elev != []:
+                dem_min = grad_elev[0]
+                dem_max = grad_elev[1]
+                dadj = grad_elev[2]
+                dcal = self.ss_decay[0]
+                self.ssdec_inv = compute_values(self.dem, dem_min, dem_max, dcal, dadj)
+                self.ssdec = 1/self.ssdec_inv
+            else:
+                self.ssdec = self.ss_decay[0]
             ssmin = self.ss_decay[1]
             ssmax = self.ss_value
             sslog_transf = self.ss_decay[2]
             if symin == None:
                 depth = np.zeros(self.ss.shape)
                 depth[1:,:,:] = self.dem - self.zbot[:-1,:,:]
-                self.ss *= np.exp(-ssdec*depth)
+                self.ss *= np.exp(-self.ssdec*depth)
             if symin != None:
                 depth = np.zeros(self.ss.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
-                self.ss = (ssmin)+((ssmax)-(ssmin))*np.exp(-ssdec*depth)
+                self.ss = (ssmin)+((ssmax)-(ssmin))*np.exp(-self.ssdec*depth)
                 # self.ss[self.ss<ssmin] = ssmin
             if (symin != None) and (sslog_transf==True):
                 depth = np.zeros(self.ss.shape)
                 depth[1:,:,:] = self.dem - self.zbot[1:,:,:]
-                self.ss = np.log10(ssmin)+(np.log10(ssmax)-np.log10(ssmin))*np.exp(-ssdec*depth)
+                self.ss = np.log10(ssmin)+(np.log10(ssmax)-np.log10(ssmin))*np.exp(-self.ssdec*depth)
                 self.ss = 10**self.ss
                 # self.ss[self.ss<10**ssmin] = 10**ssmin
         # Define values for some thickness (disconnected from the vertical discretization)
@@ -760,8 +809,10 @@ class Modflow:
             problematic_cells = check_water_flow_connectivity(grid_to_check)
             if not problematic_cells:
                 print("Check model grid:", "all cells satisfy the water flow connectivity condition")
+                self.prob_cells = 0
             else:
                 print("Check model grid:", f"total number of problematic cells is {len(problematic_cells)}")
+                self.prob_cells = len(problematic_cells)
             
         # CrossSection figure
         if self.plot_cross == True:
@@ -816,7 +867,8 @@ class Modflow:
     
     def processing(self,
                    write_model:bool=True,
-                   run_model:bool=False):
+                   run_model:bool=False,
+                   link_mt3dms:bool=False):
         """
         Run the hydrologic model.
 
@@ -832,7 +884,13 @@ class Modflow:
         success_model : bool
             Flag to know if the simulation is done correctly.
 
-        """
+        """       
+        
+        if link_mt3dms == True:
+            lmt = flopy.modflow.ModflowLmt(self.mf,
+                                           output_file_name='mt3d_link.ftl',
+                                           extension='lmt8', output_file_format='unformatted', unitnumber=None) # unitnumber=30 (Luca)
+            
         # Create modflow files
         if write_model == True:
             # Write input files
@@ -857,10 +915,11 @@ class Modflow:
                         groundwater_storage:bool=True,
                         accumulation_flux:bool=True,
                         persistency_index:bool=False,
+                        intermittency_yearly:bool=False,
                         intermittency_monthly:bool=False,
                         intermittency_weekly:bool=False,
                         intermittency_daily:bool=False,
-                        export_all_tif:bool=False,):
+                        export_all_tif:bool=False):
         """
         Create outputs files.
 
@@ -949,6 +1008,7 @@ class Modflow:
         self.dict_accumulation_flux = {}
         self.dict_groundwater_storage = {}
         self.dict_persistency_index = {}
+        self.dict_intermittency_yearly = {}
         self.dict_intermittency_monthly = {}
         self.dict_intermittency_weekly = {}
         self.dict_intermittency_daily = {}
@@ -1258,5 +1318,48 @@ class Modflow:
                     inf+=12
                     sup+=12                    
             np.save(self.save_file+'/intermittency_monthly', self.dict_intermittency_monthly)
-                                        
+            
+        if intermittency_yearly == True:
+            ### Intermittency monthly
+            print('  ','Export intermittency yearly')
+            acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
+                              allow_pickle=True).item()
+            acc_npy = list(acc_npy_raw.items())[:]
+            if len(acc_npy_raw)>=1:
+                inf = 0
+                sup = 1
+                step = int(round(len(acc_npy_raw)/1))
+                compt=0            
+                for i in range(step):
+                    # print('t: '+str(i)+' / '+str((step)))
+                    interv = list(acc_npy)[inf:sup]
+                    for key in range(len(interv)):
+                        mask = imageio.imread(self.geographic.watershed_dem)
+                        interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))                    
+                    zero = acc_npy_raw[0] * 0                
+                    for j in range(len(interv)):
+                        tempo = interv[j].copy()
+                        tempo[tempo>0] = 1
+                        zero = zero + tempo                    
+                    days_flux = zero.copy()
+                    days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))                
+                    for k in range(len(interv)):
+                        tempo = np.ma.masked_where(interv[k]<=0, interv[k])
+                        tempo[days_flux<1] = 0
+                        tempo[days_flux==1] = 1
+                        tempo_export = tempo.copy()
+                        self.tempo = np.ma.masked_where(interv[k]<=0, tempo)
+                        self.dict_intermittency_monthly[compt] = self.tempo
+                        tempo_export[interv[k]<=0] = -9999
+                        tempo_export[mask<=0] = -9999
+                        output_path = self.tifs_file+'/intermittency_yearly_t('+str(compt)+').tif'
+                        toolbox.export_tif(self.geographic.watershed_dem,
+                                           tempo_export,
+                                           output_path, -9999)
+                        compt+=1                    
+                    inf+=12
+                    sup+=12                    
+            np.save(self.save_file+'/intermittency_yearly', self.dict_intermittency_monthly)
+                
 #%% NOTES
