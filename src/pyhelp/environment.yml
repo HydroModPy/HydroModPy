@@ -1,19 +1,28 @@
-name: pyhelp_env
+name: pyhelp-0.1
 channels:
   - conda-forge
+  - defaults
+
 dependencies:
   - python=3.8
   - pip
+
   - numpy
   - pandas
-  - matplotlib
-  - matplotlib-inline
+  - scipy
   - xarray
   - netcdf4
-  - h5netcdf
-  - cftime
+  - bottleneck
+  - matplotlib
+
+  - gdal
+  - rasterio
   - geopandas
   - shapely
-  - pyproj
   - fiona
-  - rasterio
+  - pyproj
+  - proj
+  - geos
+
+  - imageio
+  - h5netcdf

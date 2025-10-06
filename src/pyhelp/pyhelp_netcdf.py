@@ -49,7 +49,7 @@ def preprocessing_pyhelp(
     ready_csvs: List[str] | None = None,
     era5_folder: str | None = None,
     shapefile: str | None = None,
-    conda_env: str = "pyhelp_env",
+    conda_env: str = "pyhelp-0.1",
     main_py: str | None = None,
     help_cli: str | None = None,
     compress_level: int = 4,
@@ -74,7 +74,7 @@ def preprocessing_pyhelp(
         the main_cdf.py script.
     era5_folder, shapefile : str | None
         Additional parameters used by main_cdf.py.
-    conda_env : str, default "pyhelp_env"
+    conda_env : str, default "pyhelp-0.1"
         Name of the Conda environment for PyHELP.
     main_py, help_cli : str | None
         Custom paths for the auxiliary command‑line interfaces. When None the
