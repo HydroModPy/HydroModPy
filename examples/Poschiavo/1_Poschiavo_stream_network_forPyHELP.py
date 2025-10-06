@@ -44,7 +44,6 @@ wbt.verbose = True
 
 import glob
 
-
 #%% ROOT
 
 # Import HydroModPy modules
@@ -60,7 +59,6 @@ sys.path.append(os.path.join(DIR, "src"))
 print("Root path directory is: {0}".format(DIR.upper()))
 
 #%% HYDROMODPY
-
 import src
 import importlib
 importlib.reload(src)

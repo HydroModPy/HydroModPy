@@ -86,12 +86,11 @@ def calc_area_daily_avg(cellnames, workdir):
                 for y, d in zip(data['years'], data['days'])
             ]
 
-            # Recharge = leak_first + leak_last
             df_cell = pd.DataFrame({
                 'precip': np.array(data['rain']),
                 'runoff': np.array(data['runoff']),
                 'evapo':  np.array(data['et']),
-                'rechg':  np.array(data['leak_first']) + np.array(data['leak_last']),
+                'rechg':  np.array(data['leak_last']),
             }, index=dates)
 
             all_dfs.append(df_cell)
