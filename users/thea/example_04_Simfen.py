@@ -24,6 +24,7 @@ warnings.filterwarnings('ignore', message='.*declare_namespace.*')
 # Libraries installed by default
 import sys
 import glob
+
 import os
 from sys import platform
 import geopandas as gpd
@@ -51,7 +52,7 @@ xr.set_options(keep_attrs = True)
 #%% ROOT
 
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname((abspath(__file__)))))
+root_dir = dirname(dirname(dirname(((abspath(__file__))))))
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
@@ -71,14 +72,14 @@ def select_period(df, first, last):
     return df
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
-study_site = 'LA_FLUME'
+study_site = 'LANGAN'
 first_year = 1981
-last_year = 2024
+last_year = 2023
 freq_input = 'M'
 sim_state = 'transient' 
-parameters = "1.6e-5_0.02%"
+parameters = "5.6e-6_0.01%"
 out_path = folder_root.root_folder_results()
-# out_path = r"C:\Users\theat\Documents\Python\02_Output_HydroModPy" # Manually set the output path
+#out_path = r"C:\Users\theat\Documents\Python\Output_HydroModPy" # Manually set the output path
 data_path = os.path.join(out_path, "data")
 specific_data_path = os.path.join(data_path, study_site)
 
@@ -101,7 +102,7 @@ load = True
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
-from_xyv = [344966, 6797471, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+from_xyv = [340999,6805250, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
@@ -128,7 +129,7 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 
 # Clip specific data at the catchment scale
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-BV.add_hydrography(data_path, types_obs=['regional stream network']) 
+BV.add_hydrography(data_path, types_obs=['regional stream network'])
 BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
 BV.add_intermittency(data_path, 'regional onde stations.shp')
 # BV.add_piezometry()
@@ -144,77 +145,55 @@ BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 #%% climatic settings
 BV.add_climatic()
 
-# Load climatic data from CSV
-df_climatic = pd.read_csv(
-    os.path.join(data_path, study_site, 'Meteo', 'Historiques SIM2', 'climatic_data_mean_m_month_1980_2024.csv'), 
-    index_col=0, parse_dates=True
-)
-df_climatic.index = pd.to_datetime(df_climatic.index)
-df_climatic = df_climatic.loc[
-    (df_climatic.index >= pd.Timestamp(f"01/01/{first_year}")) &
-    (df_climatic.index <= pd.Timestamp(f"31/12/{last_year}"))
-]
+##%%% Reanalyse
+BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
+                                             'evt', 'etp', 't',
+                                              ],
+                                       nc_data_path=os.path.join(
+                                           specific_data_path,
+                                           r"Meteo\Historiques SIM2"),
+                                       first_year=first_year,
+                                       last_year=last_year,
+                                       time_step='D',
+                                       sim_state=sim_state,
+                                       spatial_mean=True,
+                                       geographic=BV.geographic,
+                                       disk_clip='watershed') # for clipping the netcdf files saved on disk
+                                                                # can be a shapefile path or a flag: 'watershed' or False
 
-agg_dict = {
-    'recharge': 'sum', 'runoff': 'sum', 'precip': 'sum',
-    'evt': 'sum', 'etp': 'sum', 't': 'mean'
-}
-df_climatic = df_climatic.resample(freq_input).agg(agg_dict)
+# Units
+BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
+BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
+BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
+BV.climatic.t = BV.climatic.t / 1000 # from mm to m
+# BV.climatic.recharge = BV.climatic.recharge / 1000 # from mm to m
+# BV.climatic.runoff = BV.climatic.runoff / 1000 # from mm to m
+#%% SAFRAN
+BV.add_safransurfex(r"C:\\Users\\theat\\Documents\\Python\\02_Output_HydroModPy\\data\\Meteo\\REA")
+#%%RECHARGE REANALYSIS
+BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=first_year,
+                                       last_year=last_year,
+                                       time_step='D',
+                                       sim_state=sim_state)
 
-# Climatic configuration
-BV.climatic.recharge = df_climatic['recharge']
-BV.climatic.runoff = df_climatic['runoff']
-BV.climatic.precip = df_climatic['precip']
-BV.climatic.evt = df_climatic['evt']
-BV.climatic.etp = df_climatic['etp']
-BV.climatic.t = df_climatic['t']
-# # Reanalyse
-# BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
-#                                              'evt', 'etp', 't', 'eff_rain'
-#                                               ],
-#                                        nc_data_path=os.path.join(
-#                                            data_path,
-#                                            r"Meteo\Historiques SIM2"),
-#                                        first_year=first_year,
-#                                        last_year=last_year,
-#                                        time_step=freq_input,
-#                                        sim_state=sim_state,
-#                                        spatial_mean=True,
-#                                        geographic=BV.geographic,
-#                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
-#                                                                 # can be a shapefile path or a flag: 'watershed' or False
-                                                                
-# # # # # Units
-# BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
-# BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
-# BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
-# BV.climatic.t = BV.climatic.t / 1000 # from mm to m
-
-# # Besoin de le mettre à jour qu'une fois par an.
-# BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
-
-# #%%RECHARGE REANALYSIS
-# BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
-#                                        clim_mod='REA',
-#                                        clim_sce='historic',
-#                                        first_year=first_year,
-#                                        last_year=last_year,
-#                                        time_step=freq_input,
-#                                        sim_state=sim_state)
-
-# # BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
-# BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
+# BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
+BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
 # # BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
+#%% RUNOFF REANALYSIS
+BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=first_year,
+                                       last_year=last_year,
+                                       time_step='D',
+                                       sim_state=sim_state)
 
-# BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
-#                                        clim_mod='REA',
-#                                        clim_sce='historic',
-#                                        first_year=first_year,
-#                                        last_year=last_year,
-#                                        time_step=freq_input,
-#                                        sim_state=sim_state)
-
-# BV.climatic.update_runoff(BV.climatic.runoff/1000, sim_state=sim_state) # from mm to m
+# BV.climatic.runoff = BV.climatic.runoff* BV.climatic.runoff.index.day #meandaypermonth to mm/month
+BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state = sim_state) # from mm to m
+# # BV.climatic.update_runoff(BV.climatic.runoff.resample('M').sum(), sim_state = sim_state)
 
 #%% R and r ASSIGNATION
 if isinstance(BV.climatic.recharge, float):
@@ -241,141 +220,59 @@ ax.set_ylabel('[m/d]')
 plt.xticks(rotation=45, ha="right")
 ax.legend()
 
-# #%% Qobs FORMATTING et F normalization 
-# Qobs_path = os.path.join(data_path,'J721401001.csv')
-# Qobs = pd.read_csv(Qobs_path, delimiter=',')
-# #print (Qobs.columns)
-# #print(Qobs.head())
-# # Split the values at 'T' for the 'Date(TU)' column and remove the values after 'T'
-# Qobs["Date (TU)"] = Qobs["Date (TU)"].str.split('T').str[0]
-# Qobs["Date (TU)"] = pd.to_datetime(Qobs["Date (TU)"], format='%Y-%m-%d')
-# Qobs.set_index("Date (TU)", inplace=True)
-
-# Qobs = Qobs.drop(columns=["Statut", "Qualification", "Méthode", "Continuité"])
-# Qobs = Qobs.squeeze()
-# Qobs = Qobs.rename('Q')
-
-# area = int(round(BV.geographic.area))
-# Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
-# Qobsyear = Qobs.resample('Y').sum().mean() # m/day to m/y
-# Qobsmonth = Qobs.resample('M').sum()
-# Qobsweek = Qobs.resample('W').sum()
-# Qobsweekmm = Qobsweek * 1000  # m/day to mm/week
-# Qobsweekmm = select_period(Qobsweekmm, first_year, last_year)
-# Qobsmonthmm = Qobsmonth * 1000  # m/day to mm/month
-# Qobsmonthmm = select_period(Qobsmonthmm, first_year, last_year)
-
 #%% Qobs FORMATTING et F normalization 
-Qobs_path = os.path.join(specific_data_path,'J721401001.csv')
-Qobs = pd.read_csv(Qobs_path, delimiter=',')
-#print (Qobs.columns)
-#print(Qobs.head())
+Qsim_simfen_path = os.path.join(specific_data_path,f'simulation_01011964_31122023_simfen_{study_site}','output_simulation.csv')
+Qsim_simfen = pd.read_csv(Qsim_simfen_path, sep=';',skiprows=7, index_col=0)
 
-Qobs["Date (TU)"] = pd.to_datetime(Qobs["date_obs_elab"], format='%Y-%m-%d')
-Qobs.set_index("Date (TU)", inplace=True)
-
-Qobs = Qobs.drop(columns=["date_obs_elab","grandeur_hydro_elab","libelle_qualification","specific_discharge"])
-Qobs = Qobs.rename(columns={"debit_obs_elab": "Q"})
+Qsim_simfen.index = pd.to_datetime(Qsim_simfen.index, format='%Y-%m-%d')
+#print(type(Qsim_simfen.index))
+Qsim_simfen = Qsim_simfen.squeeze()
+Qsim_simfen = Qsim_simfen.rename('Q')
+Qsim_simfen = select_period(Qsim_simfen, first_year, last_year)
+rsim = select_period(r, first_year, last_year)
 
 area = int(round(BV.geographic.area))
-Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
-Qobsyear = Qobs.resample('Y').sum().mean().values[0]  # m/day to m/y
-# to calculate the mean value as the same shape as modflow input value
-Qobsmmmonth = Qobs.resample('M').sum() * 1000  # m/day to mm/month
-Qobsmmperweek = Qobs.resample('W').sum() * 1000  # m/day to mm/week
-
-#%% Q resample by timescale
-Qobsmonth = Qobs.resample('M').sum()
-Qobsweek = Qobs.resample('W').sum()
-Qobsweekmm = Qobsweek * 1000 # m/day to mm/week
-Qobsweekmm = select_period(Qobsweekmm, first_year, last_year)
-Qobsmonthmm = Qobsmonth * 1000 # m/day to mm/month
-Qobsmonthmm = select_period(Qobsmonthmm, first_year, last_year)
-
-if freq_input == 'D':
-    Qobsmm = Qobs * 1000 # m/day to mm/day
-    Qobsmm = select_period(Qobsmm, first_year, last_year)
-    print(f"Qobsday : {Qobsmm}")
-if freq_input == 'W':
-    Qobsmm = select_period(Qobsweekmm,first_year,last_year)
-    print(f"Qobs : {Qobsweekmm}")
-    Qobsmm = Qobsmm.resample('W').mean() # to calculate the mean value as the same shape as modflow input value
-if freq_input == 'M':
-    Qobsmm = select_period(Qobsmonthmm,first_year,last_year)
-    print(f"Qobs : {Qobsmonthmm}")
-    Qobsmm = Qobsmm.resample('M').mean() # to calculate the mean value as the same shape as modflow input value
+Qsim_simfen= (Qsim_simfen / (area*1000000)) * (3600 * 24) # m3/s to m/day
+Qsim_simfenyear = Qsim_simfen.resample('Y').sum().mean() # m/day to m/y
+Qsim_simfen_month = Qsim_simfen.resample('M').sum()
+Qsim_simfen_week = Qsim_simfen.resample('W').sum()
+Qsim_simfen_weekmm = Qsim_simfen_week * 1000 # m/day to mm/week
+Qsim_simfen_weekmm = select_period(Qsim_simfen_weekmm, first_year, last_year)
+Qsim_simfen_monthmm = Qsim_simfen_month * 1000 # m/day to mm/month
+Qsim_simfen_monthmm = select_period(Qsim_simfen_monthmm, first_year, last_year)
 
 #%% R AND r RESAMPLE BY YEAR AND NORMALIZATION
 #! ne pas faire tourner deux fois de suite sinon le facteur de normalisation tombe à 1 ou 0.99 car ca reprend les valeurs déja pondérées (serpent qui se mort la queue)
 
-if freq_input == 'w':
-    Rec = R*7
-    run = r * 7
-elif freq_input == 'M':
-    Rec = R * R.index.day
-    run = r * R.index.day
-else :
-    Rec = R
-    run = r
-
-Rannual = Rec.resample('Y').sum().mean()
-rannual = run.resample('Y').sum().mean()
+Rannual = R.resample('Y').sum().mean()
+rannual = r.resample('Y').sum().mean()
 Qsafran = Rannual+rannual
 
-F = Qobsyear / Qsafran
+if freq_input == 'M':
+    R = R.resample('M').mean()
+    r = r.resample('M').mean()
+if freq_input == 'W':
+    R = R*7 
+    r = r*7
+
+F = Qsim_simfenyear / Qsafran
 
 print (f'F = {F}')
 R = R * F
-r = r * F
-
-# #%% PLOT Precip and Q
-# # =============================================================================
-# precip_mm_day = BV.climatic.precip * 1000  # m/day to mm/day
-# Qobs_mm_day = Qobs * 1000  # m/day to mm/day
-
-# fig, ax1 = plt.subplots(figsize=(8, 5))
-
-# # Plot Qobs on the left y-axis
-# ax1.plot(Qobs_mm_day, label='Qobs', c='navy', lw=2)
-# ax1.set_ylabel('Qobs [mm/day]', color='navy')
-# ax1.set_yscale('log')
-# ax1.set_ylim(1e-2, 1e5)
-# ax1.tick_params(axis='y', labelcolor='navy')
-# ax1.set_xlim(pd.to_datetime(f'{first_year}'), pd.to_datetime(f'{last_year}'))
-
-# # Create a second y-axis for precip on the right
-# ax2 = ax1.twinx()
-# ax2.plot(precip_mm_day, label='precip', c='blue', lw=2)
-# ax2.set_ylabel('Precip [mm/day]', color='blue')
-# ax2.set_ylim(60,0)  # Reverse the y-axis for precip
-# ax2.tick_params(axis='y', labelcolor='blue')
-
-# # Add a title and grid
-# plt.title('Precipitation and Qobs')
-# ax1.grid()
-
-# # Show the plot
-# plt.tight_layout()
-# plt.savefig(os.path.join(watershed_path,'precip_discharge.png'), dpi=300)
-# plt.show()
 
 #%% Plots R et r
-Qnormalized = Rec+run
 fig, ax = plt.subplots(1,1, figsize=(6,3))
-ax.plot(Qnormalized*1000, label='Qnormalized', c='orange', lw=0.5)
-ax.plot(Rec*1000, label='recharge_reanalysis_normalized', c='dodgerblue', lw=0.5)
-# ax.plot(r, label='runoff_reanalysis_normalized', c='navy', lw=0.5)
-ax.plot(Qobsmm, label='Qobs', c='darkgreen', lw=0.5)
-# ax.plot(BV.climatic.precip*1000, label='precip', c='blue', lw=0.5, linestyle = '--')
-# ax.plot(BV.climatic.recharge, label='recharge_reanalysis', c='deepskyblue', lw=0.5,  linestyle = '--')
-# ax.plot(BV.climatic.runoff, label='runoff_reanalysis', c='black', lw=0.5,  linestyle = '--')
+ax.plot(R, label='recharge_reanalysis_normalized', c='dodgerblue', lw=0.5)
+ax.plot(r, label='runoff_reanalysis_normalized', c='navy', lw=0.5)
+ax.plot(BV.climatic.recharge, label='recharge_reanalysis', c='deepskyblue', lw=0.5,  linestyle = '--')
+ax.plot(BV.climatic.runoff, label='runoff_reanalysis', c='black', lw=0.5,  linestyle = '--')
+ax.set_xlim(pd.to_datetime('1981-01-01'), pd.to_datetime('2024-12-31'))
 ax.set_xlabel('Date')
-ax.set_ylabel(f'[mm/{freq_input}]')
-ax.set_yscale('log')
+ax.set_ylabel('[m/M]')
 plt.xticks(rotation=45, ha="right")
 ax.legend()
 plt.savefig(os.path.join(out_path, watershed_name, 'results_stable', '_figures', 'R_r.png'), dpi=300)
-
+#%% ---- PARAMETRIZATION
 #%% DEFINE
 
 # Frame settings
@@ -388,7 +285,7 @@ plot_cross = False
 dis_perlen = True
 
 # Climatic settings
-first_clim = 'mean' # or 'first or value
+first_clim = 'first' # or 'first or value
 freq_time = freq_input
 
 # Hydraulic settings
@@ -396,11 +293,11 @@ nlay = 1
 lay_decay = 10 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
-hk = 1.6e-5 * 3600 * 24 # m/day
+hk = 5.6e-6* 3600 * 24 # m/day 
 cond_drain = None # or value of conductance
 
 ########## LOOP ##########
-list_porosity = np.array([0.02]) / 100 # [-] 
+list_porosity = np.array([0.01]) / 100 # [-] 
 
 # Boundary settings
 bc_left = None # or value
@@ -464,7 +361,7 @@ list_model_modflow = []
 for i, sy in enumerate(list_porosity[:]):
     BV.hydraulic.update_sy(sy)
     
-    model_name = iD_set_simulations+'_'+str(i)+'_'+str(round(sy,3))+'_'+str(round(hk,3))+'_'+str(round(thick,3))
+    model_name = iD_set_simulations+'_'+str(i)+'_'+str(round(sy,3))
     BV.settings.update_model_name(model_name)
     print(model_name)
     
@@ -484,6 +381,8 @@ h5file = os.path.join(simulations_folder, 'results_listing_'+iD_set_simulations)
 dd.io.save(h5file, dictio)
 
 #%% RELOAD
+
+iD_set_simulations = 'explorSy_test1'
 
 h5file = os.path.join(simulations_folder, 'results_listing_'+iD_set_simulations)
 d = dd.io.load(h5file)
@@ -558,6 +457,10 @@ for i, simul in enumerate(simul_list[:]):
         
         cur_x = dem_data.shape[1] /2
         cur_y = dem_data.shape[0] /2 # 39
+        #print (cur_x, cur_y)
+        # cur_x = 95
+        # cur_y = 95
+        
         
         dem_prof = dem_data.astype(float)
         dem_prof[dem_prof < 0] = np.nan
@@ -571,8 +474,6 @@ for i, simul in enumerate(simul_list[:]):
         
         ax.fill_between(np.arange(dem_h_plot.size) * 75, dem_h_plot - 30, wt_h_plot,
                         color=color, alpha=0.5, lw=0)
-        ax.fill_between(np.arange(dem_h_plot.size) * 75, wt_h_plot, dem_h_plot,
-                        color='saddlebrown', alpha=0.5, lw=0)  # Fill the space between max and topography
         ax.plot(np.arange(dem_h_plot.size) * 75, wt_h_plot, color=color, lw=1, label=f'{label} {str(dates[key])[:7]}')
     
     ax.fill_between(np.arange(dem_h_plot.size) * 75, 0, dem_h_plot - 30,
@@ -580,7 +481,7 @@ for i, simul in enumerate(simul_list[:]):
     ax.plot(np.arange(dem_h_plot.size) * 75, dem_h_plot - 30, color='dimgray', lw=1.5)
     ax.plot(np.arange(dem_h_plot.size) * 75, dem_h_plot, 'saddlebrown', lw=1.5, label='DEM')
     
-ax.set_xlim(4000, 12000)
+ax.set_xlim(1500, 4000)
 ax.set_ylim(20, 200)
 ax.set_yticks([50, 100, 150, 200])
 ax.set_xlabel('Distance [m]')
@@ -743,33 +644,39 @@ fig.savefig(os.path.join(simulations_folder, '_figures',
             bbox_inches='tight')
     
 #%% STREAMFLOW
+
+# iD_set_simulations = 'explorSy_mperday_monthly_steady'
+# iD_set_simulations = 'explorSy_mperday_monthly_transient'
+# iD_set_simulations = 'explorSy_mpermonth_monthly_transient'
+# iD_set_simulations = 'explorSy_mpermonth_monthly_steady'
 #%% SEWAGE INPUT 
-# area = int(round(BV.geographic.area))
-# sewage_path = os.path.join (data_path, 'sewage_input.csv')
-# sewage = pd.read_csv(sewage_path, sep=';', skiprows = 2,  parse_dates = ['DATE_MESURE'], index_col = 'DATE_MESURE')
-# sewage.index = pd.to_datetime(sewage.index, format='%d/%m/%Y')
-# sewage_filtered = sewage[(sewage['Système EU'] == 'Langan') | (sewage['Système EU'] == 'Chapelle Chaussée (La)')] #La chapelle chaussée n'a pas de valeur donc on va mettre la règlementaire par défaut 
-# sewage_input = sewage_filtered['Qs']
-# sewage_input_mmmonth = (sewage_input/(area*1000000)).resample('M').sum()*1000
+area = int(round(BV.geographic.area))
+sewage_path = os.path.join (data_path, 'sewage_input.csv')
+sewage = pd.read_csv(sewage_path, sep=';', skiprows = 2,  parse_dates = ['DATE_MESURE'], index_col = 'DATE_MESURE')
+sewage.index = pd.to_datetime(sewage.index, format='%d/%m/%Y')
+sewage_filtered = sewage[sewage['Système EU'] == 'Langan']
+sewage_input = sewage_filtered['Qs']
+sewage_input_mmmonth = (sewage_input/(area*1000000)).resample('M').sum()*1000
 
-# regulatory_value = pd.DataFrame({
-#     'month': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-#     'values': [150, 150, 150, 150, 50, 10, 10, 10, 10, 50, 150, 150]
-# }).set_index('month') #va remplacer les valeurs de la chapelle chaussée par les valeurs règlementaires
+#%% Qsim_simfen 
+Qsim_simfen_path = os.path.join(specific_data_path,f'simulation_01011964_31122023_simfen_{study_site}','output_simulation.csv')
+Qsim_simfen = pd.read_csv(Qsim_simfen_path, sep=';',skiprows=7, index_col=0)
 
-# # Initialize Qregulatory column with None values
-# sewage['Qregulatory'] = None
+Qsim_simfen.index = pd.to_datetime(Qsim_simfen.index, format='%Y-%m-%d')
+#print(type(Qsim_simfen.index))
+Qsim_simfen = Qsim_simfen.squeeze()
+Qsim_simfen = Qsim_simfen.rename('Q')
+Qsim_simfen = select_period(Qsim_simfen, first_year, last_year)
+rsim = select_period(r, first_year, last_year)
 
-# # Loop through all dates in the index (which was DATE_MESURE)
-# for date in sewage_filtered.index:
-#     # Get the month from the date (1-12)
-#     month = date.month
-#     if month in regulatory_value.index:
-#         sewage_filtered.loc[date, 'Qregulatory'] = regulatory_value.loc[month, 'values']  # Assign regulatory value
-# sewage_regulatory_mcubepersecond = sewage_filtered['Qregulatory']*1000/(24*60*60) # convert to l/s
-# sewage_regulatory_monthmm = (sewage_filtered['Qregulatory']/(area*1000000)).resample('M').sum()*1000
-
-#%% FORMATTING QobsGAUGED STATION CSV + SEWAGE INPUT
+area = int(round(BV.geographic.area))
+Qsim_simfen= (Qsim_simfen / (area*1000000)) * (3600 * 24) # m3/s to m/day
+Qsim_simfenyear = Qsim_simfen.resample('Y').sum().mean() # m/day to m/y
+Qsim_simfen_month = Qsim_simfen.resample('M').sum()
+Qsim_simfen_monthmm = Qsim_simfen_month * 1000 # m/day to mm/month
+Qsim_simfen_weekmm = Qsim_simfen.resample('W').sum()
+Qsim_simfen_weekmm = Qsim_simfen_weekmm * 1000 # m/day to mm/week
+#%% FORMATTING FOR UNGAUGED SIMULATION COMPARIZON WITH SIMFEN
 
 simul_list = sorted(glob.glob(os.path.join(simulations_folder,
                                            iD_set_simulations+'*')),
@@ -789,7 +696,7 @@ for i, simul in enumerate(simul_list[:]):
     Qmod = Smod['outflow_drain'] 
     Qmod = Qmod.squeeze()
     Qmod = Qmod*1000
-    Qmod = (Qmod + (r * 1000)) * Qmod.index.day
+    Qmod = Qmod = (Qmod + (r * 1000)) * Qmod.index.day
     # Qmod_sewage = (Qmod + sewage_input_mmmonth + sewage_regulatory_monthmm)
     print (f'valeur de Qmod : {Qmod}')
     # Rmod = Smod['recharge'] 
@@ -804,16 +711,16 @@ for i, simul in enumerate(simul_list[:]):
 
     ax = a0
     if freq_input == 'W':
-        ax.plot(Qobsmmperweek, color='k', lw=1, ls='-', zorder=0, label='observed')
+        ax.plot(Qsim_simfen_weekmm, color='k', lw=1, ls='-', zorder=0, label='observed')
     if freq_input == 'M':
-        ax.plot(Qobsmmmonth, color='k', lw=1, ls='-', zorder=0, label='observed')
+        ax.plot(Qsim_simfen_monthmm, color='k', lw=1, ls='-', zorder=0, label='observed')
     ax.plot(Qmod, color='red', lw=1, label='modeled')
-    ax.plot(Qnormalized*Qmod.index.day*1000, label='Qnormalized', c='orange',ls='--', lw=0.5)
+    # ax.plot(Qnormalized*Qmod.index.day*1000, label='Qnormalized', c='orange',ls='--', lw=0.5)
     # ax.plot(Rmod.index, Rmod*1000, color='blue', lw=2.5)
     ax.set_xlabel('Date')
     ax.set_ylabel('Q / A [mm/month]')
     ax.set_yscale('log')
-    ax.set_ylim(0.0001, 1000)
+    ax.set_ylim(0.01, 1000)
     # years_5 = mdates.YearLocator(5)  # every 5 years
     # ax.xaxis.set_major_locator(years_5)
     ax.xaxis.set_minor_locator(yearsmin)
@@ -830,17 +737,18 @@ for i, simul in enumerate(simul_list[:]):
     # axb.invert_yaxis()
     # axb.set_yticklabels([0.1,200])
     if freq_input == 'W':
-        Qobs_stat = select_period(Qobsmmperweek,first_year,last_year)
+        Qobs_stat = select_period(Qsim_simfen_weekmm,first_year,last_year)
     if freq_input == 'M':
-        Qobs_stat = select_period(Qobsmmmonth,first_year,last_year)
-
-    Qmod_stat = select_period(Qmod,first_year,last_year)
+        Qobs_stat = select_period(Qsim_simfen_monthmm,first_year,last_year)
+        
+    Qmod_stat = select_period(Qmod, first_year, last_year)
+    Qobs_stat = Qobs_stat.loc[Qmod_stat.index]  # Align indices to ensure compatibility
     
     import hydroeval as he
-    NSE = he.evaluator(he.nse, Qmod_stat, Qobs_stat)[0]
-    NSElog = he.evaluator(he.nse, Qmod_stat, Qobs_stat, transform='log')[0]
-    RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qmod_stat.values)**2))
-    KGE = he.evaluator(he.kge, Qmod_stat, Qobs_stat)[0][0]
+    NSE = he.evaluator(he.nse, Qmod_stat.values, Qobs_stat.values)[0]
+    NSElog = he.evaluator(he.nse, Qmod_stat.values, Qobs_stat.values, transform='log')[0]
+    RMSE = np.sqrt(np.nanmean((Qobs_stat.values - Qmod_stat.values)**2))
+    KGE = he.evaluator(he.kge, Qmod_stat.values, Qobs_stat.values)[0][0]
     print(model_name.upper())
     print(f'NSE = {NSE}')
     print(f'NSElog = {NSElog}')
@@ -867,7 +775,8 @@ for i, simul in enumerate(simul_list[:]):
     
     
     ax = a1
-    ax.scatter(Qobs_stat, Qmod_stat, edgecolor='none', alpha=0.75, facecolor='forestgreen')
+    ax.scatter(Qobs_stat, Qmod_stat,
+               s=25, edgecolor='none', alpha=0.75, facecolor='forestgreen')
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.plot((0.01,1000),(0.01,1000), color='grey', zorder=-1)
@@ -883,6 +792,118 @@ for i, simul in enumerate(simul_list[:]):
                 'STREAMFLOW_'+model_name+'.png'),
                 bbox_inches='tight')
     
+#%% FORMATTING FOR COMPARIZON WITH SEWAGE INPUT
+
+for i, simul in enumerate(simul_list[:]):
+    
+    fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
+                                 figsize=(10,3))
+
+
+    model_name = os.path.split(simul)[-1]
+        
+    Smod_path = os.path.join(simul, 
+                                r'_postprocess/_timeseries/_simulated_timeseries.csv')
+    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+
+    Qmod = Smod['outflow_drain'] 
+    Qmod = Qmod.squeeze()
+    Qmod = Qmod*1000
+    Qmod = (Qmod + (r * 1000))*Qmod.index.day
+    # Qmod_sewage = (Qmod + sewage_input_mmmonth)
+
+    # Qmod_sewage_select2023 = select_period(Qmod_sewage, 2023, 2023)
+    # print (f'valeur de débit modelisée avec rejet step : {Qmod_sewage_select2023}')
+    # Qmod_select2023 = select_period(Qmod, 2023, 2023)
+    # print (f'valeur de débit modelisée: {Qmod_select2023}')
+
+    # print (f'valeur de Qmod : {Qmod}')
+    # Rmod = Smod['recharge'] 
+    # print (f'valeur de Rmod : {Rmod}')
+
+    #print(rsim)
+    # Qsim_simfen_select2023 = select_period(Qsim_simfen_monthmm, 2023, 2023)
+    # print (f'valeur de débit simfen: {Qsim_simfen_select2023}')
+
+    yearsmaj = mdates.YearLocator(1)   # every year
+    yearsmin = mdates.YearLocator(1)
+    monthsmaj = mdates.MonthLocator(6)  # every month
+    monthsmin = mdates.MonthLocator(3)
+    months_fmt = mdates.DateFormatter('%m') #b = name of month ?
+    years_fmt = mdates.DateFormatter('%Y')
+
+    ax = a0
+    ax.plot(Qsim_simfen_monthmm, color='k', lw=1, ls='-', zorder=0, label='simfen')
+    ax.plot(Qmod, color='red', lw=1, label='modeled')
+    # ax.plot(Qmod_sewage, color='purple', lw=1, label='modeled with sewage input')
+    # ax.plot(Rmod.index, Rmod*1000, color='blue', lw=2.5)
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Q / A [mm/month]')
+    ax.set_yscale('log')
+    ax.set_ylim(-10, 10000)
+    years_5 = mdates.YearLocator(5)  # every 5 years
+    # ax.xaxis.set_major_locator(years_5)
+    # ax.xaxis.set_minor_locator(yearsmin)
+    ax.xaxis.set_major_formatter(months_fmt)
+    ax.set_xlim(pd.to_datetime(f'{first_year}-01'), pd.to_datetime(f'{last_year}-12'))
+    ax.legend()
+    ax.set_title(model_name.upper(), fontsize=10)
+
+    for label in ax.get_xticklabels():
+        label.set_rotation(45)
+        
+    Qobs_stat = Qsim_simfen_monthmm.copy()
+    Qmod_stat = Qmod.copy()
+    # Qobs_stat = select_period(Qsim_simfen_monthmm,1981,2023)
+    # Qmod_stat = select_period(Qmod,1981,2023)
+
+    import hydroeval as he
+    NSE = he.evaluator(he.nse, Qmod_stat, Qobs_stat)[0]
+    NSElog = he.evaluator(he.nse, Qmod_stat, Qobs_stat, transform='log')[0]
+    RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qmod_stat.values)**2))
+    KGE = he.evaluator(he.kge, Qmod_stat, Qobs_stat)[0][0]
+    print(model_name.upper())
+    print(round(NSE,2))
+    print(round(NSElog,2))
+    print(round(RMSE,2))
+    print(round(KGE,2))
+
+        # Store metrics in DataFrame
+    metrics_df = pd.DataFrame({
+        'model_name': [model_name],
+        'NSE': [round(NSE, 2)],
+        'NSElog': [round(NSElog, 2)],
+        'RMSE': [round(RMSE, 2)],
+        'KGE': [round(KGE, 2)]
+    })
+
+    # Define the CSV file path
+    metrics_csv_path = os.path.join(simulations_folder, '_figures', 'model_metrics.csv')
+
+    # Check if the file already exists to determine whether to write headers
+    if os.path.isfile(metrics_csv_path):
+        metrics_df.to_csv(metrics_csv_path, mode='a', header=False, index=False)
+    else:
+        metrics_df.to_csv(metrics_csv_path, index=False)
+
+
+    ax = a1
+    ax.scatter(Qobs_stat, Qmod_stat,
+                s=25, edgecolor='none', alpha=0.75, facecolor='forestgreen')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.plot((0.01,100),(0.01,100), color='grey', zorder=-1)
+    ax.set_xlim(0.1,100)
+    ax.set_ylim(0.1,100)
+    # ax.set_xlim(0.1,300)
+    # ax.set_ylim(0.1,300)    
+    ax.set_xlabel('$Q_{obs}$ / A [mm/month]', fontsize=12)
+    ax.set_ylabel('$Q_{sim}$ / A [mm/month]', fontsize=12)
+    fig.tight_layout()
+                
+    fig.savefig(os.path.join(simulations_folder, '_figures',
+                'STREAMFLOW'+model_name+'.png'),
+                bbox_inches='tight')
 # #%% VALUE PER YEAR FOR TURC BUDYKO EQUATION when timepath is daily
 # Qmod_year = Smod['outflow_drain'] 
 # Qmod_year = Qmod_year.squeeze()
@@ -898,6 +919,10 @@ for i, simul in enumerate(simul_list[:]):
 # print(etp_year)
 #%% SATURATION
 
+def select_period(df, first, last):
+    df = df[(df.index.year>=first) & (df.index.year<=last)]
+    return df
+
 simul_list = sorted(glob.glob(os.path.join(simulations_folder,
                                            iD_set_simulations+'*')),
                    key=os.path.getmtime)
@@ -905,6 +930,16 @@ simul_list = sorted(glob.glob(os.path.join(simulations_folder,
 for i, simul in enumerate(simul_list[:]):
     
     model_name = os.path.split(simul)[-1]
+    
+    Smod_path = os.path.join(simul, 
+                             r'_postprocess/_timeseries/_simulated_timeseries.csv')
+    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+    
+    Qmod = Smod['outflow_drain'] 
+    Qmod = Qmod.squeeze() * 1000
+    Qmod = Qmod + (r * 1000)*Qmod.index.day
+    
+    Rmod = Smod['recharge'] * 1000
         
     Sonde_path = os.path.join(glob.glob(
         os.path.join(simul, r'_subbasins/intermittency_*'))[0],
@@ -923,10 +958,10 @@ for i, simul in enumerate(simul_list[:]):
     
     # Smod['onde'] = d
     
-    from datetime import timedelta
-    x_months = Smod.index #+ timedelta(days=-30)
-    Smod['date'] = x_months
-    Smod.index = Smod['date']
+    # from datetime import timedelta
+    # x_months = Smod.index #+ timedelta(days=-30)
+    # Smod['date'] = x_months
+    # Smod.index = Smod['date']
     
     fig, ax = plt.subplots(1, 1, figsize=(7,3.5))
     
@@ -946,8 +981,10 @@ for i, simul in enumerate(simul_list[:]):
             markersize=5, lw=1, label='upstream',
             where='pre')
 
+    ax.set_ylim(-0,12)
     # ax.set_yticks(np.arange(0,15.05,2.5))
     ax.set_ylabel('Drainge density [%]')
+    ax.set_xlim(pd.to_datetime(f'{first_year}-01'), pd.to_datetime('{last_year}-12'))
     plt.xticks(rotation=45, ha="right")
 
     years_maj = mdates.YearLocator()   # every year

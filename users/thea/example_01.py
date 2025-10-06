@@ -1,9 +1,3 @@
-#TYPE OF COMMENTS
-# ! Attention : Cette ligne est critique
-# ? besoin d'explication TT
-# TODO: Implémenter la gestion des erreurs
-# * commentaire général TT
-
 #%% ---- LIBRAIRIES
 # Filter warnings (before imports)
 import warnings
@@ -28,10 +22,12 @@ import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+import xarray as xr
+xr.set_options(keep_attrs = True)
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(dirname(((abspath(__file__)))))))
+root_dir = dirname(dirname(dirname(((abspath(__file__))))))
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
@@ -44,7 +40,7 @@ from src.watershed import climatic, geographic, geology, hydraulic, hydrography,
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, export_vtuvtk
 from src.tools import toolbox, folder_root
-from users.touzeau.Examples import visualization_results
+from users.thea import visualization_results
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 # # Vérifiez si la variable d'environnement est correctement définie
@@ -53,9 +49,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
 study_site = 'LA_FLUME'
-first_year = 1964
+first_year = 1981
 last_year = 2023
 parameters = '30_1.3e-5_0.1'
+from_xyv = [344966, 6797471, 150, 10 , 'EPSG:2154']
 
 out_path = folder_root.root_folder_results()
 #out_path = r"C:\Users\theat\Documents\Python\Output_HydroModPy" # Manually set the output path
@@ -68,16 +65,16 @@ print(f"out_path; {out_path}, Data path: {data_path}, specific_data_folder; {spe
 
 # Name of the study site
 watershed_name = '_'.join([
-    "Example_01",study_site,parameters,str(first_year),str(last_year)
+    "Example_01_REA",study_site,parameters,str(first_year),str(last_year)
 ])
 
 print('##### '+watershed_name.upper()+' #####')
 
-# Regional DEM
+watershed_path = os.path.join(out_path, watershed_name)
 dem_path = os.path.join(data_path, 'regional dem.tif')
 
 # Outlet coordinates of the catchment
-from_xyv = [344964,6797466, 150, 10 , 'EPSG:2154']
+# from_xyv = [339515,6796665, 150, 10 , 'EPSG:2154']
 
 # Extract the catchment from a regional DEM
 BV = watershed_root.Watershed(dem_path=dem_path,
@@ -103,92 +100,129 @@ visualization_watershed.watershed_local(dem_path, BV)
 # Clip specific data at the catchment scale
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(data_path, types_obs=['regional stream network'])
-
-# Add hydrological data
 BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
 BV.add_intermittency(data_path, 'regional onde stations.shp')
 
-# subbasin_path = os.path.join(data_path,
-#                                   'additional')
+subbasin_path = os.path.join(data_path,
+                                  'additional') 
 
-# # Extract a subbasin inside the study site
-# BV.add_subbasin(subbasin_path, 150) # path, snap_point
+# Extract a subbasin inside the study site
+BV.add_subbasin(subbasin_path) # path, snap_point
 
 # Visualization
 visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
-# #%% ---- PLOT STREAMFLOW
-# Qobs = pd.read_csv(data_path+'\\J7214010_QmnJ(n=1_non-glissant)_01011981_31122024.csv', sep=',', index_col=0, parse_dates=True) #m3/s
-# Qobs= Qobs.drop(columns=["Statut","Qualification","Méthode","Continuité"])
-# Qobs = Qobs.squeeze()
-# Qobs = Qobs.rename('Q')
+#%% SLOPE
+# Calculate the slope using WhiteboxTools
+watershed_dem_tif = os.path.join(stable_folder, 'geographic', 'watershed_fill.tif')
+slope_tif = os.path.join(out_path, watershed_name, 'watershed_slope.tif')
+wbt.slope(dem= watershed_dem_tif, output=slope_tif, units = 'percent')
 
-# def select_period(df, first, last):
-#     df = df[(df.index.year>=first) & (df.index.year<=last)]
-#     return df
-# area = BV.geographic.area
-# first = 1981
-# last = 2024
-# Qobs = select_period(Qobs, first, last)
-# Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/j
-# data_index = Qobs.copy()
+# Load the slope raster and calculate the mean slope over the watershed
+slope_data = xr.open_rasterio(slope_tif)
+# Calculate the mean slope
 
-# mean_mensual = data_index.resample('M').mean() # mensual mean
-# mean_annual = data_index.resample('Y').mean() # annual mean
-# Mean = round(data_index.mean(),2)
-# Mean = data_index.mean()
-# Min = data_index.resample('Y').min()
-# Q10 = data_index.resample('Y').quantile(0.10)
-# Q25 = data_index.resample('Y').quantile(0.25)
-# Q50 = data_index.resample('Y').quantile(0.50)
-# Q75 = data_index.resample('Y').quantile(0.75)
-# Q90 = data_index.resample('Y').quantile(0.90)
-# Max = data_index.resample('Y').max()
-# mean_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).mean().to_frame()
-# std_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).std()
-# q10_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).quantile(0.10)
-# q90_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).quantile(0.90)
-# q50_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).quantile(0.50)
-# mean_interan_days['std'] = std_interan_days
-# mean_interan_days['q10'] = q10_interan_days
-# mean_interan_days['q90'] = q90_interan_days
-# mean_interan_days['q50'] = q50_interan_days
-# mean_interan_days.index.names = ['months','days']
-# mean_interan_days = mean_interan_days.reset_index()
-# mean_interan_days = mean_interan_days.sort_values(['months','days'])
-# mean_interan_days['counts'] = np.array(range(1,len(mean_interan_days)+1))
-
-# fig, ax = plt.subplots(figsize=(6,4))
-# ax.plot(mean_interan_days.counts, mean_interan_days.q50, lw=2, color='darkred', label='Median')
-# yerrmax = mean_interan_days.q90
-# yerrmin = mean_interan_days.q10
-# ax.fill_between(mean_interan_days.counts, yerrmin, yerrmax, color='cyan', edgecolor='grey', lw=0.5, alpha=0.5, label='10-90th')
-# ax.set_yscale('log')
-# ax.set_xlim(0,366)
-# ax.set_ylim(0.01,10)
-# ax.tick_params(axis='both', which='major', pad=10)
-# x1 = np.linspace(0,366,13)
-# squad = ['J','F','M','A','M','J','J','A','S','O','N','D','J']
-# ax.set_xticks(x1)
-# ax.set_xticklabels(squad, minor=False, rotation='horizontal')
-# ax.set_xlabel('Months', labelpad=+10)
-# ax.set_ylabel('Q / A [mm/d]',labelpad=+10)
-# ax.set_title(watershed_name + ' [' + str(first) + ' to ' + str(last) + ']\n' )
-# ax.grid(alpha=0.25, zorder=0)
-# one = 2022
-# dates = np.array([one],dtype=np.int64)
-# colors = ['blue']
-# for z in np.array(range(len(dates))):
-#     onlyone = data_index[(data_index.index.year==dates[z])].to_frame()
-#     onlyone = onlyone.groupby([onlyone.index.month, onlyone.index.day], as_index=True).mean()
-#     onlyone['counts'] = np.array(range(1,len(onlyone)+1))
-#     ax.plot(onlyone.counts, onlyone['Q'], color=colors[z], lw=1, label = str(dates[z]))
-# ax.legend(loc='lower left')
-# plt.tight_layout()
+mean_slope = slope_data.where(slope_data > -99999).mean().item()
+print(f"Mean slope of the watershed: {mean_slope:.2f} percent")
 
 #%% ---- MODEL PARAMETRIZATION
+#%% climatic settings
+BV.add_climatic()
+first_year = 1994
+last_year = 2023
+freq_input = 'y' 
+sim_state = 'steady' 
 
+# Load climatic data from CSV
+df_climatic = pd.read_csv(
+    os.path.join(data_path, study_site, 'Meteo', 'Historiques SIM2', 'climatic_data_mean_m_month_1980_2024.csv'), 
+    index_col=0, parse_dates=True
+)
+df_climatic.index = pd.to_datetime(df_climatic.index)
+df_climatic = df_climatic.loc[
+    (df_climatic.index >= pd.Timestamp(f"01/01/{first_year}")) &
+    (df_climatic.index <= pd.Timestamp(f"31/12/{last_year}"))
+]
+
+agg_dict = {
+    'recharge': 'sum', 'runoff': 'sum', 'precip': 'sum',
+    'evt': 'sum', 'etp': 'sum', 't': 'mean'
+}
+df_climatic = df_climatic.resample(freq_input).agg(agg_dict)
+
+# Climatic configuration
+BV.climatic.recharge = df_climatic['recharge']
+BV.climatic.runoff = df_climatic['runoff']
+BV.climatic.precip = df_climatic['precip']
+BV.climatic.evt = df_climatic['evt']
+BV.climatic.etp = df_climatic['etp']
+BV.climatic.t = df_climatic['t']
+
+# #%% Reanalyse
+# BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
+#                                              'evt', 'etp', 't',
+#                                               ],
+#                                        nc_data_path=os.path.join(
+#                                            specific_data_path,
+#                                            r"Meteo\Historiques SIM2"),
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state,
+#                                        spatial_mean=True,
+#                                        geographic=BV.geographic,
+#                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
+#                                                                 # can be a shapefile path or a flag: 'watershed' or False
+
+# # Units
+# BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
+# BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
+# BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
+# BV.climatic.t = BV.climatic.t / 1000 # from mm to m
+
+# #%% SAFRAN
+# BV.add_safransurfex(r"C:\\Users\\theat\\Documents\\Python\\Output_HydroModPy\\data\\Meteo\\REA")
+# #%%RECHARGE REANALYSIS
+# BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=1994,
+#                                        last_year=2023,
+#                                        time_step='Y',
+#                                        sim_state='steady')
+# #%% RUNOFF REANALYSIS
+# BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=1994,
+#                                        last_year=2023,
+#                                        time_step='Y',
+#                                        sim_state='steady')
+# #%% UPDATE RECHARGE
+# BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
+# print(BV.climatic.recharge)
+
+# #%% UPDATE RUNOFF
+# BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
+# print(BV.climatic.runoff)
+
+#%% Format for plots
+if isinstance(BV.climatic.recharge, float):
+    print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
+    print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
+    R = BV.climatic.recharge
+    r = BV.climatic.runoff
+else:
+    if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
+        R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+        r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
+        # R = R.resample('M').sum()
+        # r = r.resample('M').sum()
+    elif isinstance(BV.climatic.recharge, pd.core.series.Series):  
+        R = BV.climatic.recharge
+        r = BV.climatic.runoff        
+#%%UPDATE
 # Name of the model/simulation
 model_name = 'test_0'
 
@@ -196,7 +230,6 @@ model_name = 'test_0'
 BV.add_settings()
 BV.add_climatic()
 BV.add_hydraulic()
-
 
 # Frame settings
 BV.settings.update_model_name(model_name) # Name of the model/simulation
@@ -207,7 +240,9 @@ BV.settings.update_check_model(plot_cross=False, check_grid=True)
 BV.settings.update_dis_perlen(dis_perlen=False)
 
 # Climatic settings
-BV.climatic.update_recharge(350 / 1000 / 365, sim_state=BV.settings.sim_state) #* Les valeurs ici sont à changer prendre celle qui sortiront de SIM2
+# Climatic settings
+recharge = R.copy()
+BV.climatic.update_recharge(recharge, sim_state=sim_state)
 BV.climatic.update_first_clim('mean') # or 'first or value
 
 # Hydraulic settings
@@ -273,64 +308,7 @@ netcdf_results = BV.postprocessing_netcdf(model_modflow,
                                           datetime_format=False)
 
 #%% ---- PLOT OUTPUT RESULTS
-#%% RECHARGE SOURCE
-
-BV.add_climatic()
-# # TODO cette class là est faite car la données de sim 2 recharge trop forte pour BZH donc il va lire et récupérer les données ISBA 
-first_year = 1994
-last_year = 2023
-freq_input = 'y' 
-sim_state = 'steady' 
-
-##%%% Reanalyse
-BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
-                                             'evt', 'etp', 't',
-                                              ],
-                                       nc_data_path=os.path.join(
-                                           specific_data_path,
-                                           r"Meteo\Historiques SIM2"),
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step=freq_input,
-                                       sim_state=sim_state,
-                                       spatial_mean=True,
-                                       geographic=BV.geographic,
-                                       disk_clip='watershed') # for clipping the netcdf files saved on disk
-                                                                # can be a shapefile path or a flag: 'watershed' or False
-
-# Units
-BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
-BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
-BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
-BV.climatic.t = BV.climatic.t / 1000 # from mm to m
-
-# #* cette methode définit la recharge moyenne (en condition stationaire) par rapport au fichier d'entrée _climate_reanalysis.csv, de ce que j'ai compris ca ne fait pas retourner de sous class par rapport à climatic.update_recharge_reanalysis, dans cette class resempling et mean de data c'est tout
-# #* en condition transitoire ça ne fais pas la moyenne des données.
-
-# fig, ax = plt.subplots(1,1, figsize=(6,2), dpi=300)
-# ax.patch.set_visible(False)
-# # axb = ax.twinx()
-# R = BV.climatic.recharge
-# ax.plot(R.index, R,  color='blue', lw=1, ms=0, clip_on=True)
-# # axb.bar(R.resample('Y').sum().index, R.resample('Y').sum(),  color='red', lw=0, width=100, alpha=1, clip_on=True)
-# # axb.set_ylim(0,1000)
-# # axb.invert_yaxis()
-# ax.fill_between(R.index, R*0, R, color='skyblue', clip_on=True, alpha=1)
-# ax.set_xlabel('Date')
-# # ax.set_ylabel('Recharge [mm/d]', color='blue')
-# ax.xaxis.set(minor_locator=mdates.YearLocator(1), major_locator=mdates.YearLocator(5))
-# ax.set_ylim(0,8)
-# ax.set_xlim(pd.to_datetime('2000'), pd.to_datetime('2020'))
-# ax.set_yticks([0,2,4,6,8])
-# ax.grid(which='both', axis='x')
-# # ax.set_zorder(axb.get_zorder() + 1)
-# # plt.setp(axb.get_yticklabels(), color="red")
-# ax.invert_yaxis()
-# ax.set_title('Recharge [mm/d]', color='blue')
-
-# fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'input_rec.png', dpi=300, bbox_inches='tight')
-
-# %% FIXED CROSS SECTION
+#%% FIXED CROSS SECTION
 fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
 print(stable_folder)
 
@@ -397,9 +375,6 @@ visu.visual2D(object_list = [
                              lines=1000)
 
 #%% 3D VISUALIZATION
-#? Pour celui là = même erreur que dans le code exmaple01 hydromodpy general, on a 
-#?[vedo.file_io] ERROR: in load(), cannot load C:\Users\theat\Documents\Python\Output_HydroModPy\Example_01_Langan_J7214010_2025-01-31\results_simulations\test_0\_postprocess\_vtuvtk\streams.vtk
-#? qu'est ce que streams.vtk ?
 export_vtuvtk.VTK(BV, model_name)
 visu = visualization_results.Visualization(BV, model_name)
 visu.visual3D(interactive=True, object_list=[

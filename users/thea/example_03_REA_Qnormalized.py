@@ -69,7 +69,7 @@ def select_period(df, first, last):
     return df
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
-study_site = 'LA_FLUME'
+study_site = 'NANCON'
 first_year = 2010
 last_year = 2020
 parameters = '30_3_10e-6_10e-2_10values_10'
@@ -100,7 +100,7 @@ load = False
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
-from_xyv = [344966, 6797471, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+from_xyv = [389358, 6816630, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
@@ -173,64 +173,94 @@ BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershe
                                        clim_sce='historic',
                                        first_year=first_year,
                                        last_year=last_year,
-                                       time_step= freq_input,
+                                       time_step=freq_input,
                                        sim_state=sim_state)
-BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
-print(BV.climatic.recharge)
+
+# BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
+BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
+# # BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
 #%% RUNOFF REANALYSIS
 BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
                                        clim_mod='REA',
                                        clim_sce='historic',
                                        first_year=first_year,
                                        last_year=last_year,
-                                       time_step= freq_input,
+                                       time_step=freq_input,
                                        sim_state=sim_state)
-BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
-print(BV.climatic.runoff)  
-#%% R et r affectation
+
+# BV.climatic.runoff = BV.climatic.runoff* BV.climatic.runoff.index.day #meandaypermonth to mm/month
+BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state = sim_state) # from mm to m
+# # BV.climatic.update_runoff(BV.climatic.runoff.resample('M').sum(), sim_state = sim_state)
+
+#%% R and r ASSIGNATION
 if isinstance(BV.climatic.recharge, float):
     print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
     print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
     R = BV.climatic.recharge
-    r = BV.climatic.runoff  
+    r = BV.climatic.runoff
 else:
     if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
         R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
         r = BV.climatic.runoff.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
-        #R = R.resample('M').sum()
-        #r = r.resample('M').sum()
     elif isinstance(BV.climatic.recharge, pd.core.series.Series):  
         R = BV.climatic.recharge
-        r = BV.climatic.runoff  
+        r = BV.climatic.runoff
         
-#%% Qobs FORMATTING et F normalization
-Qobs = os.path.join(data_path,'J721401001.csv')
-Qobs = pd.read_csv(Qobs, delimiter=',')
+        
+#%% Qobs FORMATTING et F normalization 
+# Qobs_path = os.path.join(data_path,'J001401001.csv')
+# Qobs = pd.read_csv(Qobs_path, delimiter=',')
+# #print (Qobs.columns)
+# #print(Qobs.head())
+# # Split the values at 'T' for the 'Date(TU)' column and remove the values after 'T'
+# Qobs["Date (TU)"] = Qobs["Date (TU)"].str.split('T').str[0]
+# Qobs["Date (TU)"] = pd.to_datetime(Qobs["Date (TU)"], format='%Y-%m-%d')
+# Qobs.set_index("Date (TU)", inplace=True)
+
+# Qobs = Qobs.drop(columns=["Statut", "Qualification", "Méthode", "Continuité"])
+# Qobs = Qobs.squeeze()
+# Qobs = Qobs.rename('Q')
+
+# area = int(round(BV.geographic.area))
+# Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+# Qobsyear = Qobs.resample('Y').sum().mean() # m/day to m/y
+# Qobsmonth = Qobs.resample('M').sum()
+# Qobsweek = Qobs.resample('W').sum()
+# Qobsweekmm = Qobsweek * 1000  # m/day to mm/week
+# Qobsweekmm = select_period(Qobsweekmm, first_year, last_year)
+# Qobsmonthmm = Qobsmonth * 1000  # m/day to mm/month
+# Qobsmonthmm = select_period(Qobsmonthmm, first_year, last_year)
+
+#%% Qobs FORMATTING et F normalization 
+Qobs_path = os.path.join(specific_data_path,'J001401001.csv')
+Qobs = pd.read_csv(Qobs_path, delimiter=',')
 #print (Qobs.columns)
 #print(Qobs.head())
-# Split the values at 'T' for the 'Date(TU)' column and remove the values after 'T'
-Qobs["Date (TU)"] = Qobs["Date (TU)"].str.split('T').str[0]
-Qobs["Date (TU)"] = pd.to_datetime(Qobs["Date (TU)"], format='%Y-%m-%d')
+
+Qobs["Date (TU)"] = pd.to_datetime(Qobs["date_obs_elab"], format='%Y-%m-%d')
 Qobs.set_index("Date (TU)", inplace=True)
-Qobs = Qobs.drop(columns=["Statut", "Qualification", "Méthode", "Continuité"])
 
-# print(Qobs.index)
-# print ('--------')
-# print (Qobs.columns)
+Qobs = Qobs.drop(columns=["date_obs_elab","grandeur_hydro_elab","libelle_qualification","specific_discharge"])
+Qobs = Qobs.rename(columns={"debit_obs_elab": "Q"})
 
-Qobs = Qobs.squeeze()
-Qobs = Qobs.rename('Q')
 area = int(round(BV.geographic.area))
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
-Qobsyear = Qobs.resample('Y').sum().mean() # m3/s to m/y
+Qobsyear = Qobs.resample('Y').sum().mean().values[0]  # m/day to m/y
+# to calculate the mean value as the same shape as modflow input value
+Qobsmmmonth = Qobs.resample('M').sum() * 1000  # m/day to mm/month
+Qobsmmperweek = Qobs.resample('W').sum() * 1000  # m/day to mm/week
+#%% R AND r RESAMPLE BY YEAR AND NORMALIZATION
+#! ne pas faire tourner deux fois de suite sinon le facteur de normalisation tombe à 1 ou 0.99 car ca reprend les valeurs déja pondérées (serpent qui se mort la queue)
 
-Qobs = Qobs.resample('M').sum() # m3/s to m/month
-Qsafran = (r+R)*365
-
+Rannual = R*365
+rannual = r*365
+Qsafran = Rannual+rannual
 F = Qobsyear / Qsafran
-print(F)
+
+print (f'F = {F}')
 R = R * F
 r = r * F
+
 #%% FORMATTING Q CSV
 
 # Qsim_simfen_path = os.path.join(specific_data_path,f'simulation_01011964_31122023_simfen_{study_site}','output_simulation.csv')
@@ -248,8 +278,6 @@ r = r * F
 # Qsafran = (r+R)*365
 
 # F = Qsim_simfen_year / Qsafran
-
-
 # R = R * F
 # r = r * F
 #%% ---- SETTINGS
@@ -273,7 +301,7 @@ cond_drain = None # or value of conductance
 lay_decay = 1 # 1 for no decay
 
 ########## LOOP ##########
-list_hyd_cond = np.geomspace(1e-6,1e-2,10) * 24 * 3600 # m/day #* geomspace = fonction de numpy pour générer 10 valeurs a intervalle égale entre les deux bornes données
+list_hyd_cond = np.geomspace(1e-6,1e-4,6) * 24 * 3600 # m/day #* geomspace = fonction de numpy pour générer 10 valeurs a intervalle égale entre les deux bornes données
 
 # Boundary settings
 bc_left = None # or value
