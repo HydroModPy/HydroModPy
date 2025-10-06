@@ -159,7 +159,7 @@ def preprocessing_pyhelp(
         print("Grid update")
         env = os.environ.copy()
         env.update({"PYHELP_SHP": str(shapefile) if shapefile else ""})
-        base_grid = workdir.parents[3] / "Poschiavo" / "data" / "input_grid_base.csv"
+        base_grid = workdir.parents[3] / "10_coupling with land surface model pyhelp" / "data" / "input_grid_base.csv"
         out_grid = workdir / "input_grid_base1.csv"
         pg = PyhelpGrid(str(base_grid), str(out_grid), str(dem or ""))
         pg.update_parameters(**grid_kwargs)
