@@ -99,12 +99,14 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-cell_size = 100
-wbt.resample(os.path.join(data_path, "ursa_RS3_rot0.tif"),
-             os.path.join(data_path, "ursa_RS3_rot0_"+str(cell_size)+".tif"),
-             cell_size)
+# cell_size = 100
+# wbt.resample(os.path.join(data_path, "ursa_RS3_rot0.tif"),
+#              os.path.join(data_path, "ursa_RS3_rot0_"+str(cell_size)+".tif"),
+#              cell_size)
+# dem_path = os.path.join(data_path, "ursa_RS3_rot0_"+str(cell_size)+".tif")
 
-dem_path = os.path.join(data_path, "ursa_RS3_rot0_"+str(cell_size)+".tif")
+dem_path_pyhelp = os.path.join(data_path, "ursa_RS3_rot0_250.tif")
+dem_path = os.path.join(data_path, "ursa_RS3_rot0.tif")
 
 watershed_name = "Example_10_Urse"
 # watershed_name ='Strengbach'
@@ -184,7 +186,7 @@ for k in k_values[1:2]:
             outpath = os.path.join(pyhelp_workdir, f"_sim_{k}"),
             ready_csvs = ready_csvs,
             grid_kwargs = grid_kwargs,
-            dem = dem_path,
+            dem = dem_path_pyhelp,
             shapefile = from_shp[0],
         )
         # print("NetCDF :", nc)
@@ -208,7 +210,7 @@ for k in k_values[1:2]:
         nc = preprocessing_pyhelp(
             workdir = pyhelp_workdir,
             outpath = simulations_folder,
-            dem = dem_path,
+            dem = dem_path_pyhelp,
             era5_folder = era5_folder,
             grid_kwargs = grid_kwargs,           
             conda_env   = "pyhelp_env",
@@ -229,9 +231,31 @@ df = df.rename(columns={df.columns[0]: "time"})
 formatted_csv_path =  pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean_formatted.csv"
 df.to_csv(formatted_csv_path, index=False)
 
+#%% SCALING
+
+"""
+import netCDF4
+file2read = netCDF4.Dataset(pyhelp_workdir + '/' + name_sim + '/' + '_pyhelp_outputs_points.nc','r')
+rec_netcdf = file2read.variables['rechg']  # access a variable in the file
+
+# Ici un NETCDF avec les grilles 40x40 pour chaque pas de temps
+# ==> recharge pyhelp "propre" et spatialisée et géoréférencée
+# Une fois que le netcdf est "propre"
+
+### ==> Trouver le moyen de "coller" les valeurs de la recharge pyhelp, sur la grille MODFLOW "grid_to_imitate"
+
+grid_to_imitate = os.path.join(stable_folder, 'geographic', 'watershed_box_buff_dem.tif')
+
+# Transformer la recharge 25mx25m, en DICTIONNAIRE pour HydroModPy
+# Tant que la size de la grille DICTIONNAIRE colle avec 'watershed_box_buff_dem.tif', c'est ok
+# dict() = (1, 100, 100) ==> 1 pas de temps
+# dict() = (1095, 100, 100) ==> 1095 pas de temps
+"""
+
 #%% YEARLY
 
 rec_path = pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean_formatted.csv"
+
 rec_data = pd.read_csv(rec_path, sep=',')
 rec_data = rec_data[['time','rechg']]
 rec_mean = rec_data.groupby('time', as_index=False).mean()
@@ -468,7 +492,7 @@ class MatchingStreams:
         wbt.add_point_coordinates_to_table(self.pt_obs_flowf)
         wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obs_flowf)
 
-#%% PARAMETRIZATION
+#%% PARAMETERS
 
 vers = 'DICHOT1' # dichotomy on 30 catchments (all hydrosystems)
  
@@ -854,8 +878,9 @@ for i, model_name in enumerate([model_name_ref]):
     
     fig, ax = plt.subplots(1,1, figsize=(10,10), dpi=300)
     
-    simflowf.plot(ax=ax, column='VALUE1', cmap='RdYlGn_r', lw=0, zorder=1, s=250,
-                  marker='s')
+    simflowf.plot(ax=ax, column='VALUE1', cmap='RdYlGn_r', lw=0, zorder=1, s=50,
+                  marker='s',
+                  vmin=0,vmax=25*10)
     
     HYD_shp.plot(ax=ax, color='blue', lw=4, zorder=0)
     
