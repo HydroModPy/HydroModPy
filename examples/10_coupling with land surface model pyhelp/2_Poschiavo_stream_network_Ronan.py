@@ -537,7 +537,7 @@ toolbox.create_folder(BV.calibration_folder)
 calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
 # Type obs hydro
-BV.add_hydrography(data_path+'hydro/', types_obs=['stream_network_urse_reproj'])
+BV.add_hydrography(data_path+'/'+'hydro/', types_obs=['stream_network_urse_reproj'])
         
 # Objects
 BV.add_settings()
@@ -868,7 +868,7 @@ stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # neces
 simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
-model_name_ref = 'DICHOT1_ref_Urse2_6_12_50-331_1.4e-06-129'
+model_name_ref = 'DICHOT1_ref_Example_10_Urse_6_0_50-752_1.2e-04-5000'
 
 WC0 = os.path.join(stable_folder, 'geographic', 'watershed.shp')
 WC_shp = gpd.read_file(WC0)
@@ -975,7 +975,7 @@ BV.hydraulic.update_thick(thickness) # 30 / intervient pas si bottom != None
 
 #%% MODFLOW
 
-model_name_ref = 'DICHOT1_ref_Urse2_6_12_50-331_1.4e-06-129'
+model_name_ref = 'DICHOT1_ref_Example_10_Urse_6_0_50-752_1.2e-04-5000'
 
 WC0 = os.path.join(stable_folder, 'geographic', 'watershed.shp')
 WC_shp = gpd.read_file(WC0)
