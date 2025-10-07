@@ -17,8 +17,10 @@ from matplotlib.patches import Patch
 from shapely.geometry import Polygon, MultiPolygon
 from matplotlib.patches import Polygon as MplPolygon
 from matplotlib.collections import PatchCollection
+from shapely.geometry import box
+from scipy.ndimage import gaussian_filter
 
-def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites, site_num):
+def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites, site_num, watershed_name):
     print('I analyse the geology')
 
     # -- Paths
@@ -35,28 +37,35 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites
 
     if not os.path.exists(stream_fp):
         print(f"Stream file '{stream_fp}' not found. Using default stream file instead.")
-        stream_fp = os.path.join(data_path, '_hydrology', 'EcrRiv_c_tr_alps_pyr.shp')
+        # stream_fp = os.path.join(data_path, '_hydrology', 'EcrRiv_c_tr_alps_pyr.shp')
+        stream_fp = os.path.join(data_path, '_hydrology', 'euhydro_v013_alps.gpkg')
         if not os.path.exists(stream_fp):
             raise FileNotFoundError(f"Backup stream file '{stream_fp}' is not found.")
     
     stream = gpd.read_file(stream_fp)
 
-    # -- Load and clip DEM
+    # Load full DEM 
     with rasterio.open(dem_path) as ra:
         if watershed_box.crs != ra.crs:
             watershed_box = watershed_box.to_crs(ra.crs)
+        if stream.crs != ra.crs:
+            stream = stream.to_crs(ra.crs)
+        if watershed.crs != ra.crs:
+            watershed = watershed.to_crs(ra.crs)
 
-        clipped_dem, clipped_transform = mask(ra, watershed_box.geometry, crop=True)
-        dem = clipped_dem[0]
+        dem = ra.read(1)
+        bounds = ra.bounds
+        transform = ra.transform
+        
+        # Smooth the DEM before hillshading
+        dem = gaussian_filter(dem, sigma=1)  # try sigma between 1 and 2
 
-        #print("DEM min/max:", dem.min(), dem.max())
-
+        # Create hillshade
         ls = LightSource(azdeg=135, altdeg=45)
         hillshade = ls.hillshade(dem, vert_exag=2, dx=1, dy=1)
 
-        height, width = dem.shape
-        bounds = array_bounds(height, width, clipped_transform)
-        extent = [bounds[0], bounds[2], bounds[1], bounds[3]]
+        # Get extent of the full DEM
+        extent = [bounds.left, bounds.right, bounds.bottom, bounds.top]
 
     # -- Load and process geology
     geol = gpd.read_file(os.path.join(geol_path, 'GLiM_clip_EU.shp'))
@@ -66,14 +75,14 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites
         print("Reprojected EU geology to match watershed CRS.")
 
     geol_clipped = gpd.clip(geol, watershed)
-    geol_clipped_display = gpd.clip(geol, watershed_box)
+
 
     out_fp = os.path.join(stable_folder, 'geology', 'geology_watershed.shp')
     geol_clipped.to_file(out_fp)
     print(f"Clipped geology saved to: {out_fp}")
 
     geol_clipped = geol_clipped.dissolve(by='xx')
-    geol_clipped_display = geol_clipped_display.dissolve(by='xx')
+
     geol_clipped['area'] = geol_clipped.geometry.area
     geol_clipped = geol_clipped.sort_values(by='area')
 
@@ -91,7 +100,7 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites
     if glaciers.crs != watershed.crs:
         glaciers = glaciers.to_crs(watershed.crs)
     glaciers_clipped = gpd.clip(glaciers, watershed)
-    glaciers_clipped_box = gpd.clip(glaciers, watershed_box)
+
 
     # -- Calculate glacier coverage
     glacier_area = glaciers_clipped.geometry.area.sum()
@@ -100,6 +109,28 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites
     sites.loc[sites['ID_name'] == id_name, 'glacier_coverage'] = glacier_coverage
     print(f"Glacier coverage in the catchment: {glacier_coverage:.2f}%")
 
+    # -- clip the geol for display
+    # Compute buffered bounds
+    minx, miny, maxx, maxy = watershed_box.total_bounds
+    xdist = maxx - minx
+    ydist = maxy - miny
+    f = 0.1  # 10% buffer
+    
+    # Create the bounding box geometry (buffered mask)
+    mask_geom = box(
+        minx - f * xdist,
+        miny - f * ydist,
+        maxx + f * xdist,
+        maxy + f * ydist
+    )
+    
+    # Create a GeoDataFrame for the mask (same CRS as the shapefile to be clipped)
+    mask_gdf = gpd.GeoDataFrame(geometry=[mask_geom], crs=watershed_box.crs)
+    
+    geol_clipped_display = gpd.clip(geol, mask_gdf)
+    geol_clipped_display = geol_clipped_display.dissolve(by='xx')
+    
+    glaciers_clipped_box = gpd.clip(glaciers, mask_gdf)
 
     # -- GLiM color palette
     glim_colors = {
@@ -133,10 +164,8 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites
     stream.plot(ax=ax, facecolor='none', edgecolor='blue', linewidth=2)
     
     #display the glaciers
-    # glaciers_clipped_box.plot(ax=ax, facecolor='none', edgecolor='cyan', linestyle='-', linewidth=1.5, alpha=1)
     # Plot glaciers with hatch pattern
-
-    
+   
     glaciers_patches = []
     for poly in glaciers_clipped_box.geometry:
         if poly.geom_type == 'Polygon':
@@ -151,20 +180,16 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites
     glaciers_collection = PatchCollection(
         glaciers_patches,
         facecolor = 'none',
-        edgecolor = '#00796B',
+        edgecolor = 'cyan', #'#00796B',
         hatch = 'x',
         linewidth = 2,
-        alpha = 0.9
+        alpha = 1
     )
     
     # Add the PatchCollection to the plot
     ax.add_collection(glaciers_collection)
     
     # Set bounds
-    minx, miny, maxx, maxy = watershed_box.total_bounds
-    xdist = maxx-minx
-    ydist = maxy-miny
-    f = 0.1
     ax.set_xlim(minx-f*xdist, maxx+f*xdist)
     ax.set_ylim(miny-f*ydist, maxy+f*ydist)
 
@@ -174,14 +199,15 @@ def process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites
     ]
     
     # Add glacier legend with hatching pattern
-    legend_elements.append(Patch(facecolor='none', edgecolor='darkblue', label='Glacier Cover', hatch='///'))
+    legend_elements.append(Patch(facecolor='none', edgecolor='cyan', label='Glacier Cover', hatch='x'))
     
     ax.legend(handles=legend_elements, title="Lithology", loc='lower right', fontsize=11, title_fontsize=12)
+    ax.set_title(f'{watershed_name}', fontsize=14, fontweight='bold', loc='center')
     plt.tight_layout()
     plt.show()
     
     fig.savefig(os.path.join(stable_folder, '_figures', f'geology_glim{id_name}.png'), dpi=300)
-    # plt.close(fig)
+    plt.close(fig)
     print(f"geology map for {id_name} saved!")
 
     return sites

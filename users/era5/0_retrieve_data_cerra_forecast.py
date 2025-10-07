@@ -71,14 +71,13 @@ possible_variable = [
     ]
 
 
-selected_variables = [
-    '10m_wind_speed', 
+selected_variables = [ 
     '2m_relative_humidity'
 ]
 
 
 # start = 1984
-start = 1984
+start = 2007
 stop = 2022
 years = np.linspace(start, stop, stop - start + 1).astype(int)
 

@@ -12,6 +12,7 @@ Created on Tue Apr 7, 2025
 import os
 import sys
 from os.path import dirname, abspath
+import tempfile
 
 import socket
 hostname = socket.gethostname()
@@ -30,8 +31,13 @@ elif hostname in ['CHYN-2115-W']:
     # DIR2 = "D:/_GitHub/HydroModPy-dev-waterwise"
     DIR2 = "//home/roquesc$/_travail/_GitHub/HydroModPy-dev-waterwise"
     data_path = 'Y:\HDPY_database_forModelling/'
-    out_path = 'Y:/HDPY_models/CR_20250407'
+    out_path = 'Y:/HDPY_models/CR_20250409'
     os.makedirs(out_path, exist_ok=True)
+    temp_path = '//home/roquesc$/_temp/'
+    os.makedirs(temp_path, exist_ok=True)
+    os.environ['TEMP'] = temp_path
+    os.environ['TMP'] = temp_path
+    tempfile.tempdir = temp_path
 elif hostname in ['Computer Name ORC']:
     print("Running on Odile's computer")
     DIR = "D:/github/hydromodpy-dev-waterwise/users"
@@ -43,6 +49,11 @@ else:
     print("Running on HYDRA")
     DIR = "D:/Users/figueroar/Documents/HydroModPy/users"
     DIR2 = "D:/Users/figueroar/Documents/HydroModPy"   
+
+
+
+import os
+
 
 #%%Import packages    
 sys.path.append(DIR2)
@@ -128,10 +139,55 @@ if waterwise_tools not in sys.path:
 
 from geol_glim import process_geology_with_glim
 from elevation import plot_dem_hillshade_stream
-import open_street_map
+from open_street_map import open_street_map
+from google_satellite_map import google_satellite_map
 
 
 #%% BULK FUNCTIONS
+
+import os
+from scipy.ndimage import gaussian_filter
+
+
+def clip_raster_to_square(raster_path, output_path, center_coords, side_length):  
+    """
+    Clip a raster file to a square region centered at given coordinates.
+    
+    Parameters:
+    - raster_path (str): Path to the original raster file.
+    - output_path (str): Path to save the clipped raster file.
+    - center_coords (tuple): (x, y) coordinates of the center of the square.
+    - side_length (float): Length of the square's side in meters (default is 200000, i.e., 200 km).
+    """
+    x_center, y_center = center_coords
+    half_side = side_length / 2
+
+    # Define the square bounding box
+    square = box(
+        x_center - half_side,  # left
+        y_center - half_side,  # bottom
+        x_center + half_side,  # right
+        y_center + half_side   # top
+    )
+
+    with rasterio.open(raster_path) as src:
+        geojson_geometry = [square.__geo_interface__]
+
+        out_image, out_transform = mask(src, geojson_geometry, crop=True)
+
+        out_meta = src.meta.copy()
+        out_meta.update({
+            "driver": "GTiff",
+            "height": out_image.shape[1],
+            "width": out_image.shape[2],
+            "transform": out_transform,
+            "crs": src.crs
+        })       
+        with rasterio.open(output_path, "w", **out_meta) as dest:
+            dest.write(out_image)
+
+    print(f"Clipped raster saved to: {output_path}")
+    
 
 from rasterio.enums import Resampling
 
@@ -529,50 +585,58 @@ output_sites_fp = os.path.join(data_path, '_sites','', 'Waterwise_sites_saved.sh
 sites_gdf.to_file(output_sites_fp)
 
 #%% Define the paths to main files
-dem_name = "eu_dem_v11_E30-40N20_clip_alps_polyg_EPSG3035.tif" # name of dem
-dem_name_resampled = "eu_dem_v11_E30-40N20_clip_alps_polyg_EPSG3035_resampled0.1.tif" # name of dem
-# dem_name = "eu_dem_v11_E30-40N20_LAEA_europe.tif" # name of dem
+dem_name = "gedtm30_alps_epsg3035.tif" # name of dem
+# dem_name_resampled = "eu_dem_v11_E30-40N20_clip_alps_polyg_EPSG3035_resampled0.1.tif" # name of dem
+# dem_name = "eu_dem_v11_E30-40N20_clip_alps_polyg_EPSG3035.tif" # name of dem
 dem_path = os.path.join(data_path,'_dem/',dem_name)
-dem_path_resampled = os.path.join(data_path,'_dem/',dem_name_resampled)
+# dem_path_resampled = os.path.join(data_path,'_dem/',dem_name_resampled)
 # dem_path = 'G:/Mon Drive/_travail/_python/project/alps_pyr/_data/dem/eu_dem_v11_E30-40N20_EPSG3035.tif'
-reg_fold = data_path + '_regional/'
+# reg_fold = data_path + '_regional/'
 # dem_path = 'Y:/HDPY_database_forModelling/_sites/_cont/dem_cont.tif'
 
 #%% Resample DEM
-# name_dem_resampled = dem_name[:-4] + '_resampled.tif'
+# name_dem_resampled = dem_name[:-4] + '_resampled0.1.tif'
 # dem_path_resampled = os.path.join(data_path,'_dem/',name_dem_resampled)
 # resample_and_save_dem(dem_path, dem_path_resampled, scale_factor=0.1)
 
-dem_path = dem_path_resampled
+# dem_path = dem_path_resampled
 
 # Example DataFrame of points
 points = sites.loc[:, ['x_LAEA', 'y_LAEA']]
 points = pd.DataFrame(points)
 
-# Plotting
-plot_dem_and_points(dem_path, points)
+
 
 #%% run the analysis
-
-
 for i, j in sites.iterrows():
-    
+    if i<10:
+        continue
     id_name = str(sites.loc[i,'ID_name'])
     watershed_name = str(sites.loc[i,'Name'])
     site_num = str(sites.loc[i,'ID'])
     
+    print('##########################################')
+    print('##### Working on '+ watershed_name.upper()+' #####')
+    
     x = sites.loc[i,'x_LAEA']
     y = sites.loc[i,'y_LAEA']
+    
+    # Define the output path for the clipped DEM
+    clipped_dem_fp = os.path.join(data_path, '_sites', id_name)
+    os.makedirs(clipped_dem_fp, exist_ok=True)
+    
+    clipped_dem_path = os.path.join(clipped_dem_fp, f'{id_name}_clipped_dem.tif')
+    
+    # Clip the DEM
+    clip_raster_to_square(dem_path, clipped_dem_path, (x, y), 100000)
 
-    from_xyv = [x, y, 100, 50, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
+    from_xyv = [x, y, 150, 50, 'EPSG:3035'] # [x, y, snap distance, buffer size [%], crs proj]
     
     #%% Plot the dem 
-    
-
-    # Extract the catchment from a regional DEM
-    BV = watershed_root.Watershed(dem_path=dem_path,
+    # Extract the catchment from the clipped DEM
+    BV = watershed_root.Watershed(dem_path=clipped_dem_path,
                                   out_path=out_path,
-                                  load=False,
+                                  load=True,
                                   watershed_name=id_name,
                                   from_lib=None, # os.path.join(root_dir,'watershed_library.csv')
                                   from_dem=None, # [path, cell size]
@@ -581,29 +645,45 @@ for i, j in sites.iterrows():
                                   bottom_path=None, # path 
                                   save_object=True)
     
-    # Paths necessary for the script
+    # Paths necessary for the rest of the script
     stable_folder = os.path.join(out_path, id_name, 'results_stable')
     simulations_folder = os.path.join(out_path, id_name, 'results_simulations')
                       
     print('Area: ' + str(BV.geographic.area.round(2)) + 'km^2')
     print('Slope: ' + str(BV.geographic.slope.round(2)))
         
-    visualization_watershed.watershed_local(dem_path, BV)
+    visualization_watershed.watershed_local(clipped_dem_path, BV)
     visualization_watershed.watershed_dem(BV)
     
     #%% plot dem elevation
-    plot_dem_hillshade_stream(data_path, stable_folder, dem_path, id_name)
+    plot_dem_hillshade_stream(data_path, 
+                              stable_folder, 
+                              clipped_dem_path, 
+                              id_name, 
+                              watershed_name)
     
     #%% plot the Open street map
-    open_street_map(stable_folder, id_name)
+    open_street_map(stable_folder, 
+                    id_name, 
+                    watershed_name)
+    
+    #%% plot the google earth map
+    google_satellite_map(data_path, 
+                         stable_folder, 
+                         id_name, 
+                         watershed_name)
     
     #%% GEOLOGY
     geol_path = os.path.join(data_path, '_geology')
     BV.add_geology(geol_path, types_obs='GLiM_clip_EU.shp', fields_obs='xx')
     
-    process_geology_with_glim(data_path, stable_folder, dem_path, id_name, sites, site_num)
+    process_geology_with_glim(data_path, 
+                              stable_folder, 
+                              clipped_dem_path, 
+                              id_name, sites, 
+                              site_num, 
+                              watershed_name)
  
-    # Skip the rest of the loop for now☺
-    continue
+    
 
 
