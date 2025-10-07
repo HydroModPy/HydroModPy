@@ -150,7 +150,7 @@ pyhelp_workdir = os.path.join(out_path, watershed_name, "results_pyhelp")
 era5_folder = os.path.join(data_path)
 
 ### If already completed grid: 
-grid_base_csv = data_path+"/"+"custom_input_grid"+"input_grid_base1.csv"
+grid_base_csv = data_path+"/"+"_init_input_grid_base1/"+"input_grid_base1.csv"
 
 ready_csvs = [
     os.path.join(era5_folder, "precip_input_data.csv"),
@@ -201,6 +201,7 @@ for k in k_values[1:2]:
         )
         # print("NetCDF :", nc)
 
+    """
     if option == '3':
     
         #---- Input climatic updated - Input grid updated:
@@ -213,6 +214,7 @@ for k in k_values[1:2]:
             conda_env   = "pyhelp_env",
         )
         # print("NetCDF :", nc)
+    """
     
     list_of_sims.append(f"_sim_{k}")
 
@@ -739,20 +741,8 @@ for irec, (name, drec) in enumerate(recharges):
 
         compt += 1
         
-    # if valid_result == True:
-    #     break
-    # else:
-    #     print("PROBLEM!")
-        
-    # if (success_modflow==True) and (os.path.exists(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflowf.shp'))):
-    #     break  # Exit retry loop if successful
-
     if (success_modflow==True) and (os.path.exists(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflowf.shp'))):
-        # break  # Exit retry loop if successful
 
-        # for to_delete in list_of_model_names[:-1]:
-        #     shutil.rmtree(to_delete)
-        
         # Save ALL
         name_for_save = vers+'_'+str(name)+'_'+str(watershed_name)+'_'+str(round(area,1))
         df_calib.to_csv(BV.calibration_folder+'/'+name_for_save+'_CALIB'+'.csv', sep=';', index=True)
@@ -763,15 +753,9 @@ for irec, (name, drec) in enumerate(recharges):
         dictio['model_modflow'] = model_modflow
         h5file = BV.calibration_folder+'/'+model_name+'.h5'
         dd.io.save(h5file, dictio)
-        # d = dd.io.load(h5file)
-        # model_modflow = d['model_modflow'][:]
+
         del(dictio)
 
-        # print(list_of_model_names)  
-        
-        # for to_delete in list_of_model_names[:-1]:
-        #     shutil.rmtree(to_delete)
-        
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
                                                           datetime_format=False,
@@ -779,29 +763,14 @@ for irec, (name, drec) in enumerate(recharges):
                                                           intermittency_yearly=True) # or None
         
         listfile = os.path.join(BV.calibration_folder, model_name, model_name + '.list')
-        # lst = MfListBudget(listfile)  # <-- utile si tu veux analyser les budgets
-        # with open(listfile, 'r') as f:
-        #     lines = f.readlines()
-        # for line in reversed(lines):
-        #     if "Elapsed run time" in line:
-        #         match = re.search(r'Elapsed run time:\s+([\d.]+)\s+Seconds', line)
-        #         if match:
-        #             elapsed_time = float(match.group(1))
-        #             print(f"Temps de simulation : {elapsed_time} secondes")
-        #         del(lines)
-        #         break
         
         del(model_modflow)
 
-        # end = datetime.datetime.now()
-        # oclock_end = end.strftime("%Y%m%d_%Hh%Mm%Ss")
-        
         sim_series = pd.read_csv(BV.calibration_folder+'/'+model_name+'/'+'_postprocess/_timeseries/_simulated_timeseries.csv', sep=';')
         
         df_optim.loc[0,'IDX_NODPOL'] = i
         df_optim.loc[0,'NAME_RECAL'] = watershed_name
         
-        # df_optim.loc[0,'HYDRO_OBS'] = type_obs
         df_optim.loc[0,'MODEL_NAME'] = model_name
         
         df_optim.loc[0,'GRID_RES'] = 75
@@ -811,11 +780,6 @@ for irec, (name, drec) in enumerate(recharges):
         df_optim.loc[0,'GRID_CHECK'] = round(prob_cells, 4)
         
         df_optim.loc[0,'COMPT_SIM'] = compt
-        
-        # df_optim.loc[0,'TIME_BEG'] = oclock_start
-        # df_optim.loc[0,'TIME_END'] = oclock_end
-        # df_optim.loc[0,'TIME_CAL'] = abs((start - end).total_seconds() / 60) # min
-        # df_optim.loc[0,'TIME_SIM'] = round(elapsed_time,2)
         
         df_optim.loc[0,'INPUT_REC'] = round(BV.climatic.recharge*1000*365, 4) # mm/y
         df_optim.loc[0,'AQUI_THICK'] = round(thickness, 4)
@@ -848,8 +812,6 @@ for irec, (name, drec) in enumerate(recharges):
         
         df_optim.loc[0,'OUT_SEEP'] = round(sim_series['outflow_drain'].values[0]*365*1000, 4)
         df_optim.loc[0,'OUT_ACC'] = round((1000*(BV.geographic.area*1e6)*sim_series['outflow_drain'].values[0])/24/60/60, 4)               
-        # df_optim.loc[0,'OUT_ACC'] = round(sim_series['accumulation_flux'].values[0]/24/60/60, 4)
-        # ==> Potential troubles with accumulation_flux raster
         df_optim.loc[0,'OUT_PROP'] = round(df_optim.loc[0,'OUT_SEEP'] / df_optim.loc[0,'INPUT_REC'], 4)
                                                 
         df_optim.to_csv(BV.calibration_folder+'/'+name_for_save+'_OPTIM'+'.csv', sep=';', index=True)
