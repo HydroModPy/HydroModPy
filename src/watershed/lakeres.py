@@ -40,14 +40,14 @@ class Lakeres:
 
     
     #%% INIT
-    
+
     def __init__(self, stable_folder):
         """
         Class to initialize the lake/reservoir option.
         At this point, no lake/reservoir is defined. The process of defining
         a lake/reservoir is done during at a later stage using new_lakeres.
         Note that if the class lakeres is activated, but no lake/reservoir has
-        been defined when running the modflow model, then the option 
+        been defined when running the modflow model, then the option
         lake/reservoir will be automatically deactivated.
 
         Parameters
@@ -56,24 +56,27 @@ class Lakeres:
             Path where to store stable results for the current simulation
 
         """
-                                 
+
         self.data_folder = os.path.join(stable_folder, 'lakeres')
         if not os.path.exists(self.data_folder):
                 os.makedirs(self.data_folder)
-                
+
         self.n_lakeres:int = 0 # number of lakes/reservoirs
         self.indexes:list = [] # identifiers of lakes/reservoirs
-        self.maskmx_by_lake:dict = {} # dict of lakes/reservoirs masks paths, 
+        self.maskmx_by_lake:dict = {} # dict of lakes/reservoirs masks paths,
                                    # keyed by lake_id
-                                   # masks correspond to te maximal extent of 
-                                   # the lake, or larger (see computation of 
-                                   # bathymetry)   
+                                   # masks correspond to te maximal extent of
+                                   # the lake, or larger (see computation of
+                                   # bathymetry)
         self.mask_crs_by_lake:dict = {} # user has the possibility to define the source
                                          # CRS of the mask file (if not embeded in the file)
-        self.bathymetry_by_lake:dict = {} # bathymetry raster paths, 
-                                           # or computation option such as 'cuboid' 
+        self.bathymetry_by_lake:dict = {} # bathymetry raster paths,
+                                           # or computation option such as 'cuboid'
                                            # or nothing (topography will be used as bathymetry)
         self.bathy_crs_by_lake:dict = {}
+        self.ref_table_by_lake:dict = {} # reference table for bathymetry fitting
+        self.optimize_bathy_by_lake:dict = {} # flag to enable bathymetry optimization
+        self.bathy_fit_params_by_lake:dict = {} # parameters for bathymetry fitting
         self.ssmx_by_lake:dict = {} # dict of maximum stages keyed by lake_id
         self.volmx_by_lake:dict = {}
         self.bdlknc_by_lake:dict = {} # dict of lakebed leakance
@@ -91,11 +94,13 @@ class Lakeres:
         self.ij_outlet_by_lake:dict = {}
         
 
-    #%% ADD A NEW LAKE/RESERVOIR   
+    #%% ADD A NEW LAKE/RESERVOIR
     def new_lakeres(self, maskmx:str, lake_id:int=None, mask_crs=None,
-                    bathymetry_raster:str=None, bathy_crs=None, 
+                    bathymetry_raster:str=None, bathy_crs=None,
+                    ref_table:str=None, optimize_bathymetry:bool=False,
+                    bathy_fit_params:dict=None,
                     ssmx:float=None, volmx:float=None, bdlknc:float=86400, # default = 1 m/s
-                    prcplk=0, evaplk=0, rnf=0, rnf_acc=False, wthdrw=0, rtrn=None, 
+                    prcplk=0, evaplk=0, rnf=0, rnf_acc=False, wthdrw=0, rtrn=None,
                     stageinit=None, outlet=None,
                     ):
         """
@@ -114,9 +119,30 @@ class Lakeres:
         mask_crs : TYPE, optional
             DESCRIPTION. The default is None.
         bathymetry_raster : str, optional
-            DESCRIPTION. The default is None.
+            Path to bathymetry raster file (.tif or .nc). The default is None.
         bathy_crs : TYPE, optional
-            DESCRIPTION. The default is None.
+            CRS of the bathymetry raster. The default is None.
+        ref_table : str, optional
+            Path to reference table (CSV) for bathymetry optimization.
+            Must contain columns: elevation, volume, and optionally surface.
+            The default is None.
+        optimize_bathymetry : bool, optional
+            Enable bathymetry optimization to match reference table.
+            The default is False.
+        bathy_fit_params : dict, optional
+            Parameters for bathymetry fitting algorithm. Keys:
+            - max_iter: maximum iterations (default 80)
+            - step_init: initial step size (default 0.3)
+            - max_step: maximum adjustment per iteration (default 1.2)
+            - backtrack: backtracking steps (default 6)
+            - retries: retry attempts (default 3)
+            - rmse_stop: convergence threshold (default 0.0)
+            - volume_weight: weight for volume error (default 0.5)
+            - surface_weight: weight for surface error (default 0.5)
+            - mask_buffer: buffer around mask in meters (default 0.0)
+            - coverage_threshold: minimum cell coverage (default 0.0)
+            - supersample: supersampling factor (default 8)
+            The default is None (uses default values).
         ssmx : float, optional
             Maximal stage (level) of the lake/reservoir
             The default is None.
@@ -185,6 +211,9 @@ class Lakeres:
         self.mask_crs_by_lake[lake_id] = mask_crs
         self.bathymetry_by_lake[lake_id] = bathymetry_raster
         self.bathy_crs_by_lake[lake_id] = bathy_crs
+        self.ref_table_by_lake[lake_id] = ref_table
+        self.optimize_bathy_by_lake[lake_id] = optimize_bathymetry
+        self.bathy_fit_params_by_lake[lake_id] = bathy_fit_params or {}
         self.ssmx_by_lake[lake_id] = ssmx
         self.volmx_by_lake[lake_id] = volmx
 
@@ -207,13 +236,15 @@ class Lakeres:
         self.n_lakeres = len(self.indexes)
         
         # List of attributes
-        self.attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake, 
+        self.attr_list = [self.maskmx_by_lake, self.mask_crs_by_lake,
                           self.bathymetry_by_lake, self.bathy_crs_by_lake,
-                          self.ssmx_by_lake, self.volmx_by_lake, 
+                          self.ref_table_by_lake, self.optimize_bathy_by_lake,
+                          self.bathy_fit_params_by_lake,
+                          self.ssmx_by_lake, self.volmx_by_lake,
                           self.bdlknc_by_lake, self.stageinit_by_lake,
-                          self.outlet_by_lake, self.prcplk_by_lake, 
+                          self.outlet_by_lake, self.prcplk_by_lake,
                           self.evaplk_by_lake, self.rnf_by_lake,
-                          self.rnf_acc_by_lake, self.wthdrw_by_lake, 
+                          self.rnf_acc_by_lake, self.wthdrw_by_lake,
                           self.rtrn_by_lake]
         
         
@@ -342,14 +373,187 @@ class Lakeres:
             
             if os.path.isfile(self.bathymetry_by_lake[lake_id]):
                 bathymetry, _, _, _ = toolbox.load_to_numpy(
-                    self.bathymetry_by_lake[lake_id], 
+                    self.bathymetry_by_lake[lake_id],
                     src_crs = self.bathy_crs_by_lake[lake_id],
-                    base_path = geographic.watershed_dem, 
+                    base_path = geographic.watershed_dem,
                     dst_crs = geographic.crs_proj)
-                
+
+                # Export resampled bathymetry before optimization
+                bathy_resampled_path = os.path.join(self.data_folder, f'bathymetry_resampled_lake_{lake_id}.tif')
+                toolbox.export_tif(
+                    geographic.watershed_dem,
+                    bathymetry,
+                    bathy_resampled_path,
+                    geographic.nodata,
+                    geographic.crs_proj
+                )
+                logging.info(f"Exported resampled bathymetry (before optimization): {bathy_resampled_path}")
+
+                # Bathymetry optimization if requested
+                if self.optimize_bathy_by_lake[lake_id] and self.ref_table_by_lake[lake_id]:
+                    logging.info(f"Starting bathymetry optimization for lake '{lake_id}'")
+
+                    # Load reference table
+                    ref_df, has_surface = self._load_reference_table(self.ref_table_by_lake[lake_id])
+
+                    # Filter reference table to max elevation
+                    if self.ssmx_by_lake[lake_id]:
+                        ref_df = ref_df[ref_df['elevation'] <= self.ssmx_by_lake[lake_id] + 1e-6].reset_index(drop=True)
+
+                    # Prepare mask with fractional coverage (supersampling)
+                    fit_params = self.bathy_fit_params_by_lake[lake_id].copy()
+                    supersample = fit_params.get('supersample', 8)
+                    mask_buffer = fit_params.get('mask_buffer', 0.0)
+                    coverage_threshold = fit_params.get('coverage_threshold', 0.0)
+
+                    # Load mask with supersampling for fractional coverage
+                    from rasterio.features import rasterize as rio_rasterize
+                    if self.maskmx_by_lake[lake_id].endswith('.shp'):
+                        import geopandas as gpd
+                        from rasterio.transform import from_origin
+                        gdf = gpd.read_file(self.maskmx_by_lake[lake_id])
+                        if geographic.crs_proj:
+                            gdf = gdf.to_crs(geographic.crs_proj)
+                        if mask_buffer != 0.0:
+                            gdf = gdf.set_geometry(gdf.buffer(mask_buffer))
+                            gdf = gdf[~gdf.geometry.is_empty]
+
+                        shape = bathymetry.shape
+                        if supersample > 1:
+                            # Supersample for fractional coverage
+                            fine_shape = (shape[0] * supersample, shape[1] * supersample)
+                            fine_transform = rasterio.Affine(
+                                transform.a / supersample, 0, transform.c,
+                                0, transform.e / supersample, transform.f
+                            )
+                            fine_mask = rio_rasterize(
+                                (geom for geom in gdf.geometry),
+                                out_shape=fine_shape,
+                                transform=fine_transform,
+                                fill=0,
+                                default_value=1,
+                                dtype='uint8',
+                                all_touched=True
+                            ).astype(np.float32)
+                            fine_mask = fine_mask.reshape(shape[0], supersample, shape[1], supersample)
+                            fraction = fine_mask.mean(axis=(1, 3))
+                        else:
+                            fraction = rio_rasterize(
+                                (geom for geom in gdf.geometry),
+                                out_shape=shape,
+                                transform=transform,
+                                fill=0,
+                                default_value=1,
+                                dtype='float32',
+                                all_touched=True
+                            )
+
+                        weights = np.where(fraction >= coverage_threshold, fraction, 0.0).astype(np.float32)
+                        opt_mask = weights > 0
+                    else:
+                        # Raster mask - no supersampling
+                        opt_mask = maskmx.copy()
+                        weights = opt_mask.astype(np.float32)
+
+                    # Set max_elev parameter
+                    if self.ssmx_by_lake[lake_id]:
+                        fit_params['max_elev'] = self.ssmx_by_lake[lake_id]
+                    fit_params['nodata'] = nodata
+
+                    # Store initial volumes/surfaces for comparison
+                    vol_init = self._compute_volume_curve(
+                        bathymetry,
+                        opt_mask & np.isfinite(bathymetry) & (bathymetry != nodata),
+                        cell_area,
+                        ref_df["elevation"].to_numpy(np.float32),
+                        weights
+                    )
+                    if has_surface:
+                        surf_init = self._compute_surface_curve(
+                            bathymetry,
+                            opt_mask & np.isfinite(bathymetry) & (bathymetry != nodata),
+                            cell_area,
+                            ref_df["elevation"].to_numpy(np.float32),
+                            weights
+                        )
+
+                    # Run optimization
+                    fitted_bathy, levels, vol_fit, vol_ref, surf_fit, surf_ref = self._fit_bathymetry(
+                        bathymetry,
+                        opt_mask,
+                        cell_area,
+                        ref_df,
+                        weights,
+                        has_surface,
+                        fit_params
+                    )
+
+                    # Export fitted bathymetry
+                    bathy_fitted_path = os.path.join(self.data_folder, f'bathymetry_fitted_lake_{lake_id}.tif')
+                    toolbox.export_tif(
+                        geographic.watershed_dem,
+                        fitted_bathy,
+                        bathy_fitted_path,
+                        geographic.nodata,
+                        geographic.crs_proj
+                    )
+                    logging.info(f"Exported fitted bathymetry: {bathy_fitted_path}")
+
+                    # Compute and export statistics
+                    vol_metrics = self._compute_metrics(vol_fit, vol_ref)
+                    stats = {
+                        'lake_id': lake_id,
+                        'volume_rmse_m3': vol_metrics['rmse'],
+                        'volume_mae_m3': vol_metrics['mae'],
+                        'volume_rel_error_%': vol_metrics['rel'],
+                        'volume_r2': vol_metrics['r2']
+                    }
+
+                    if has_surface:
+                        surf_metrics = self._compute_metrics(surf_fit, surf_ref)
+                        stats.update({
+                            'surface_rmse_m2': surf_metrics['rmse'],
+                            'surface_mae_m2': surf_metrics['mae'],
+                            'surface_rel_error_%': surf_metrics['rel'],
+                            'surface_r2': surf_metrics['r2']
+                        })
+
+                    stats_df = pd.DataFrame([stats])
+                    stats_path = os.path.join(self.data_folder, f'bathymetry_fit_stats_lake_{lake_id}.csv')
+                    stats_df.to_csv(stats_path, sep=';', index=False)
+                    logging.info(f"Exported fitting statistics: {stats_path}")
+
+                    # Display statistics
+                    if has_surface:
+                        logging.info(f"Volume metrics -> RMSE: {vol_metrics['rmse']:,.0f} m³, MAE: {vol_metrics['mae']:,.0f} m³, Rel: {vol_metrics['rel']:.2f} %, R²: {vol_metrics['r2']:.4f}")
+                        logging.info(f"Surface metrics -> RMSE: {surf_metrics['rmse']:,.0f} m², MAE: {surf_metrics['mae']:,.0f} m², Rel: {surf_metrics['rel']:.2f} %, R²: {surf_metrics['r2']:.4f}")
+                    else:
+                        logging.info(f"Volume metrics -> RMSE: {vol_metrics['rmse']:,.0f} m³, MAE: {vol_metrics['mae']:,.0f} m³, Rel: {vol_metrics['rel']:.2f} %, R²: {vol_metrics['r2']:.4f}")
+
+                    # Generate diagnostic plot (will be implemented in display module)
+                    try:
+                        from display import visualization_results
+                        plot_path = os.path.join(self.data_folder, f'bathymetry_fit_diagnostics_lake_{lake_id}.png')
+                        visualization_results.plot_bathymetry_fit(
+                            levels, vol_init, vol_fit, vol_ref,
+                            surf_init if has_surface else None,
+                            surf_fit if has_surface else None,
+                            surf_ref if has_surface else None,
+                            has_surface,
+                            plot_path
+                        )
+                        logging.info(f"Exported diagnostic plot: {plot_path}")
+                    except Exception as e:
+                        logging.warning(f"Could not generate diagnostic plot: {e}")
+
+                    # Use fitted bathymetry
+                    bathymetry = fitted_bathy
+                else:
+                    logging.info(f"Bathymetry optimization disabled for lake '{lake_id}'")
+
                 # Replace topo by bathy, on the area where bathy exists:
                 dem = np.where(bathymetry == nodata, dem, bathymetry)
-                
+
                 # Update dem files:
                 self.update_dem(geographic, dem)
                 
@@ -1067,8 +1271,326 @@ class Lakeres:
         return data_pd
         
     #%% DISPLAY PLOT
-    
+
     def display_data(self, etc):
         fontprop = toolbox.plot_params(15,15,18,20)
-        
+
+
+    #%% BATHYMETRY OPTIMIZATION
+
+    def _load_reference_table(self, path):
+        """
+        Load reference bathymetry table from CSV file.
+
+        Parameters
+        ----------
+        path : str
+            Path to CSV file
+
+        Returns
+        -------
+        df : pd.DataFrame
+            DataFrame with columns: elevation, volume, and optionally surface
+        has_surface : bool
+            True if surface column is present
+        """
+        for sep in (";", ",", "\t"):
+            try:
+                df = pd.read_csv(path, sep=sep)
+                if df.shape[1] > 1:
+                    break
+            except Exception:
+                continue
+
+        df.columns = df.columns.str.lower().str.strip()
+
+        # Find columns with flexible naming
+        def find_col(colnames):
+            for alias in colnames:
+                if alias in df.columns:
+                    return alias
+            return None
+
+        elev = find_col(["elevation", "altitude", "height", "z"])
+        vol = find_col(["volume", "vol"])
+        surf = find_col(["surface", "area", "surf"])
+
+        if elev is None or vol is None:
+            raise ValueError("Reference table must contain elevation and volume columns")
+
+        # Convert string numbers with commas to float
+        for col in filter(None, [elev, vol, surf]):
+            df[col] = df[col].astype(str).str.replace(",", ".").astype(float)
+
+        df = df.dropna(subset=[elev, vol]).sort_values(elev).reset_index(drop=True)
+        df = df.rename(columns={elev: "elevation", vol: "volume"})
+
+        has_surface = surf is not None
+        if has_surface:
+            df = df.rename(columns={surf: "surface"})
+
+        return df, has_surface
+
+
+    def _compute_volume_curve(self, dem, mask, cell_area, levels, weights=None):
+        """
+        Compute volume curve for given elevation levels.
+
+        Parameters
+        ----------
+        dem : np.ndarray
+            Digital elevation model
+        mask : np.ndarray
+            Boolean mask of lake area
+        cell_area : float
+            Area of each cell in m²
+        levels : np.ndarray
+            Elevation levels to evaluate
+        weights : np.ndarray, optional
+            Fractional coverage weights for each cell
+
+        Returns
+        -------
+        volumes : np.ndarray
+            Volumes at each elevation level
+        """
+        elev = dem[mask]
+        w = weights[mask] if weights is not None else np.ones_like(elev)
+
+        volumes = []
+        for z in levels:
+            depth = np.maximum(0.0, z - elev)
+            volumes.append((depth * w).sum() * cell_area)
+
+        return np.asarray(volumes, dtype=np.float64)
+
+
+    def _compute_surface_curve(self, dem, mask, cell_area, levels, weights=None):
+        """
+        Compute surface area curve for given elevation levels.
+
+        Parameters
+        ----------
+        dem : np.ndarray
+            Digital elevation model
+        mask : np.ndarray
+            Boolean mask of lake area
+        cell_area : float
+            Area of each cell in m²
+        levels : np.ndarray
+            Elevation levels to evaluate
+        weights : np.ndarray, optional
+            Fractional coverage weights for each cell
+
+        Returns
+        -------
+        surfaces : np.ndarray
+            Surface areas at each elevation level
+        """
+        elev = dem[mask]
+        w = weights[mask] if weights is not None else np.ones_like(elev)
+
+        surfaces = []
+        for z in levels:
+            surfaces.append(w[elev < z].sum() * cell_area)
+
+        return np.asarray(surfaces, dtype=np.float64)
+
+
+    def _fit_bathymetry(self, dem, mask, cell_area, ref_df, weights, has_surface, params):
+        """
+        Iteratively adjust DEM to match reference volume/surface curves.
+
+        Parameters
+        ----------
+        dem : np.ndarray
+            Initial digital elevation model
+        mask : np.ndarray
+            Boolean mask of lake area
+        cell_area : float
+            Area of each cell in m²
+        ref_df : pd.DataFrame
+            Reference table with elevation, volume, and optionally surface
+        weights : np.ndarray
+            Fractional coverage weights for each cell
+        has_surface : bool
+            Whether to fit surface area in addition to volume
+        params : dict
+            Fitting parameters
+
+        Returns
+        -------
+        fitted_dem : np.ndarray
+            Adjusted DEM
+        levels : np.ndarray
+            Elevation levels used
+        vol_fit : np.ndarray
+            Final fitted volumes
+        vol_ref : np.ndarray
+            Reference volumes
+        surf_fit : np.ndarray or None
+            Final fitted surfaces (if has_surface=True)
+        surf_ref : np.ndarray or None
+            Reference surfaces (if has_surface=True)
+        """
+        # Extract parameters with defaults
+        max_elev = params.get('max_elev', ref_df['elevation'].max())
+        max_iter = params.get('max_iter', 80)
+        step_init = params.get('step_init', 0.3)
+        max_step = params.get('max_step', 1.2)
+        backtrack = params.get('backtrack', 6)
+        retries = params.get('retries', 3)
+        rmse_stop = params.get('rmse_stop', 0.0)
+        volume_weight = params.get('volume_weight', 0.5)
+        surface_weight = params.get('surface_weight', 0.5)
+        nodata = params.get('nodata', -9999.0)
+
+        levels = ref_df["elevation"].to_numpy(np.float32)
+
+        # Prepare DEM
+        dem = dem.copy().astype(np.float32)
+        valid = mask & np.isfinite(dem) & (dem != nodata)
+        dem[valid] = np.minimum(dem[valid], max_elev)
+        w_full = np.where(valid, weights.astype(np.float32), 0.0)
+
+        # Target curves
+        target_vol = ref_df["volume"].to_numpy(np.float64)
+        vol_scale = target_vol.max() or 1.0
+
+        if has_surface:
+            target_surf = ref_df["surface"].to_numpy(np.float64)
+            surf_scale = target_surf.max() or 1.0
+        else:
+            surf_scale = 1.0
+
+        # Initial state
+        vol = self._compute_volume_curve(dem, valid, cell_area, levels, w_full)
+        res_vol = (vol - target_vol) / vol_scale
+        rmse_vol = np.sqrt(np.mean(res_vol**2)) * vol_scale
+
+        if has_surface:
+            surf = self._compute_surface_curve(dem, valid, cell_area, levels, w_full)
+            res_surf = (surf - target_surf) / surf_scale
+            rmse_surf = np.sqrt(np.mean(res_surf**2)) * surf_scale
+            rmse = volume_weight * rmse_vol + surface_weight * rmse_surf
+            logging.info(f"[Iter 00] RMSE_vol={rmse_vol:,.0f} m³, RMSE_surf={rmse_surf:,.0f} m², Combined={rmse:,.0f}")
+        else:
+            rmse = rmse_vol
+            logging.info(f"[Iter 00] RMSE_vol={rmse_vol:,.0f} m³")
+
+        step = step_init
+        levels_count = len(levels)
+
+        # Iterative optimization
+        for it in range(1, max_iter + 1):
+            improved = False
+
+            for _retry in range(retries + 1):
+                # Compute cumulative errors
+                if levels_count > 1:
+                    combo = res_vol * volume_weight
+                    if has_surface:
+                        combo += res_surf * surface_weight
+                    cumsum = np.cumsum(combo[::-1])
+                    cumulative = (cumsum / np.arange(1, levels_count + 1))[::-1][1:]
+                else:
+                    combo = res_vol * volume_weight
+                    if has_surface:
+                        combo += res_surf * surface_weight
+                    cumulative = np.array([combo[0]])
+
+                # Compute adjustments per elevation bin
+                adjust = np.zeros_like(dem, dtype=np.float32)
+                for i in range(levels_count - 1):
+                    z0, z1 = levels[i], levels[i + 1]
+                    in_bin = valid & (dem >= z0) & (dem < z1)
+                    area_equiv = float(w_full[in_bin].sum())
+
+                    if area_equiv <= 0:
+                        continue
+
+                    err = cumulative[i] * vol_scale
+                    delta = (step * err) / (area_equiv * cell_area + 1e-12)
+                    delta = float(np.clip(delta, -max_step, max_step))
+
+                    if delta:
+                        adjust[in_bin] += delta
+
+                # Backtracking line search
+                scale = 1.0
+                for _back in range(backtrack):
+                    trial = dem.copy()
+                    trial[valid] = np.minimum(trial[valid] + scale * adjust[valid], max_elev)
+
+                    t_vol = self._compute_volume_curve(trial, valid, cell_area, levels, w_full)
+                    t_res_vol = (t_vol - target_vol) / vol_scale
+                    t_rmse_vol = np.sqrt(np.mean(t_res_vol**2)) * vol_scale
+
+                    if has_surface:
+                        t_surf = self._compute_surface_curve(trial, valid, cell_area, levels, w_full)
+                        t_res_surf = (t_surf - target_surf) / surf_scale
+                        t_rmse_surf = np.sqrt(np.mean(t_res_surf**2)) * surf_scale
+                        t_rmse = volume_weight * t_rmse_vol + surface_weight * t_rmse_surf
+                    else:
+                        t_rmse = t_rmse_vol
+
+                    if t_rmse <= rmse:
+                        dem = trial
+                        vol, res_vol, rmse_vol = t_vol, t_res_vol, t_rmse_vol
+                        if has_surface:
+                            surf, res_surf, rmse_surf = t_surf, t_res_surf, t_rmse_surf
+                        rmse = t_rmse
+                        improved = True
+                        break
+
+                    scale *= 0.5
+
+                if improved:
+                    if has_surface:
+                        logging.info(f"[Iter {it:02d}] RMSE_vol={rmse_vol:,.0f} m³, RMSE_surf={rmse_surf:,.0f} m², Combined={rmse:,.0f} (step={step:.3f}, scale={scale:.3f})")
+                    else:
+                        logging.info(f"[Iter {it:02d}] RMSE_vol={rmse_vol:,.0f} m³ (step={step:.3f}, scale={scale:.3f})")
+                    break
+
+                step *= 0.5
+
+            if not improved:
+                logging.info(f"[Iter {it:02d}] No improvement - stopping")
+                break
+
+            if rmse_stop > 0 and rmse <= rmse_stop:
+                logging.info("Convergence threshold reached")
+                break
+
+        final_surf = surf if has_surface else None
+        return dem, levels, vol, target_vol, final_surf, target_surf if has_surface else None
+
+
+    def _compute_metrics(self, sim, ref):
+        """
+        Compute statistical metrics between simulated and reference curves.
+
+        Parameters
+        ----------
+        sim : np.ndarray
+            Simulated values
+        ref : np.ndarray
+            Reference values
+
+        Returns
+        -------
+        metrics : dict
+            Dictionary with rmse, mae, rel (relative error %), and r2
+        """
+        res = sim - ref
+        rmse = np.sqrt(np.mean(res**2))
+        mae = np.mean(np.abs(res))
+        rel = rmse / (np.mean(ref) or 1) * 100
+        ss_res = np.sum(res**2)
+        ss_tot = np.sum((ref - np.mean(ref)) ** 2)
+        r2 = 1 - ss_res / ss_tot if ss_tot else np.nan
+
+        return {'rmse': rmse, 'mae': mae, 'rel': rel, 'r2': r2}
+
+
 #%% NOTES

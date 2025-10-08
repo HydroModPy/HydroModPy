@@ -804,5 +804,95 @@ class Visualization():
             f'CROSS_{self.modelname}.png'
         ))
         plt.show()
+
+
+#%% BATHYMETRY FIT DIAGNOSTIC PLOT
+
+def plot_bathymetry_fit(levels, vol_init, vol_fit, vol_ref,
+                         surf_init=None, surf_fit=None, surf_ref=None,
+                         has_surface=False, output_path=None):
+    """
+    Generate diagnostic plots for bathymetry fitting results.
+
+    Parameters
+    ----------
+    levels : np.ndarray
+        Elevation levels
+    vol_init : np.ndarray
+        Initial volume curve (before fitting)
+    vol_fit : np.ndarray
+        Fitted volume curve
+    vol_ref : np.ndarray
+        Reference volume curve
+    surf_init : np.ndarray, optional
+        Initial surface curve
+    surf_fit : np.ndarray, optional
+        Fitted surface curve
+    surf_ref : np.ndarray, optional
+        Reference surface curve
+    has_surface : bool
+        Whether surface curves are provided
+    output_path : str, optional
+        Path to save the plot
+    """
+    if has_surface:
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        ax = axes[0, 0]
+    else:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+        ax = axes[0]
+
+    # Volume curve
+    ax.plot(vol_ref / 1e6, levels, "k-", lw=2, label="Reference")
+    ax.plot(vol_init / 1e6, levels, "r--", label="Initial (resampled)")
+    ax.plot(vol_fit / 1e6, levels, "b-", label="Fitted")
+    ax.set_xlabel("Volume (×10⁶ m³)")
+    ax.set_ylabel("Elevation (m)")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.set_title("Volume Curve")
+
+    # Volume residuals
+    ax = axes[0, 1] if has_surface else axes[1]
+    ax.plot((vol_init - vol_ref) / 1e6, levels, "r--", label="Initial")
+    ax.plot((vol_fit - vol_ref) / 1e6, levels, "b-", label="Fitted")
+    ax.axvline(0, color="k", lw=1, alpha=0.3)
+    ax.set_xlabel("Volume Residual (×10⁶ m³)")
+    ax.set_ylabel("Elevation (m)")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.set_title("Volume Residuals")
+
+    if has_surface:
+        # Surface curve
+        ax = axes[1, 0]
+        ax.plot(surf_ref / 1e4, levels, "k-", lw=2, label="Reference")
+        ax.plot(surf_init / 1e4, levels, "r--", label="Initial (resampled)")
+        ax.plot(surf_fit / 1e4, levels, "b-", label="Fitted")
+        ax.set_xlabel("Surface Area (ha)")
+        ax.set_ylabel("Elevation (m)")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        ax.set_title("Surface Area Curve")
+
+        # Surface residuals
+        ax = axes[1, 1]
+        ax.plot((surf_init - surf_ref) / 1e4, levels, "r--", label="Initial")
+        ax.plot((surf_fit - surf_ref) / 1e4, levels, "b-", label="Fitted")
+        ax.axvline(0, color="k", lw=1, alpha=0.3)
+        ax.set_xlabel("Surface Area Residual (ha)")
+        ax.set_ylabel("Elevation (m)")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        ax.set_title("Surface Area Residuals")
+
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        logging.info(f"Bathymetry fit diagnostic plot saved to {output_path}")
+
+    plt.close(fig)
+
 #%% NOTES        
         
