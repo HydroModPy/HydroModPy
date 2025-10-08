@@ -162,21 +162,78 @@ ready_csvs = [
 
 #%% RUN
 
-k_values = [0.00037, 0.0037, 0.037]
+k_values = [1e-5*3600*24]
 
 list_of_sims = []
 
 option = '1'
 
-for k in k_values[1:2]:
+for k in k_values[:]:
+    
+    # grid_kwargs = dict(
+    #     growth_start=140,
+    #     growth_end=280,
+    #     wind=2.5,
+    #     hum1=60, hum2=65, hum3=70, hum4=70,
+    #     nlayer=1, LAI=2.4, EZD=44.5, CN=55,
+    #     lay_type1=1, thick1=100, poro1=0.45, fc1=0.23, wp1=0.116,
+    #     ksat1=k, dist_dr1=50, slope1=35,
+    # )
     
     grid_kwargs = dict(
-        growth_start=140, growth_end=280, wind=2.5,
-        hum1=60, hum2=65, hum3=70, hum4=70,
-        nlayer=1, LAI=2.4, EZD=44.5, CN=55,
-        lay_type1=1, thick1=100, poro1=0.45, fc1=0.23, wp1=0.116,
-        ksat1=k, dist_dr1=50, slope1=35,
-    )
+         growth_start=120,
+         growth_end=280,
+         wind=10,
+         hum1=60,
+         hum2=60,
+         hum3=60,
+         hum4=60,
+         LAI=2,
+         EZD=50,
+         CN=50,
+         nlayer=1,
+         lay_type1=1,
+         thick1=100,
+         poro1=0.1,
+         fc1=0.23,
+         wp1=0.116,
+         ksat1=k,
+         dist_dr1=500,
+         slope1=3,
+         )
+    
+    # cid                             Unique cell ID
+    # lat_dd                          Decimal degrees Latitude of the cell centroid
+    # lon_dd                          Decimal degrees Longitude of the cell centroid
+    
+    # wind            km/h            Average annual wind speed
+    # hum1            %               Average quarterly relative humidity (Jan to Mar)
+    # hum2            %               Average quarterly relative humidity (Apr to Jun)
+    # hum3            %               Average quarterly relative humidity (Jul to Sep)
+    # hum4            %               Average quarterly relative humidity (Oct to Dec)
+    # growth_start    julian day      First day of the growing season
+    # growth_end      julian day      Last day of the growing season
+    # LAI             –               Maximum leaf area index
+    # EZD             cm              Evaporative zone depth
+    # CN              –               Curve Number
+    # nlayer          –               Number of hydrostratigraphic layers at cell cid
+    # lay_type{i}     –               Type of HELP layer of the ith soil layer
+    # thick{i}        cm              Thickness of the ith soil layer
+    # poro{i}         m3/m3           Total porosity of the ith soil layer
+    # fc{i}           m3/m3           Field capacity of the ith soil layer
+    # wp{i}           m3/m3           Wilting point of the ith soil layer
+    # ksat            cm/s            Saturated hydraulic conductivity of the ith soil layer
+    # dist_dr         m               Distance to discharge
+    # slope           %               Average slope
+    
+    # run             –               Identify cells to be run with the HELP model
+    # context         –               Identify cells by context:
+    #     0 - Water cell
+    #     1 - Normal cell
+    #     2 - Stream edge with superficial hypodermic runoff
+    #     3 - River edge with deep hypodermic runoff
+    #     4 - Urban cell
+    #     5 - Cell not mapped
     
     if option == '1':
     
