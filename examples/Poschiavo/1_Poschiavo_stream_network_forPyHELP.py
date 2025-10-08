@@ -42,12 +42,15 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
 
+import glob
+
 #%% ROOT
 
 # Import HydroModPy modules
 from os.path import dirname, abspath
-DIR = dirname(dirname(dirname(dirname(abspath(__file__)))))
+DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
+sys.path.append(os.path.join(DIR, "src"))
 
 
 # from os.path import dirname, abspath
@@ -56,7 +59,6 @@ sys.path.append(DIR)
 print("Root path directory is: {0}".format(DIR.upper()))
 
 #%% HYDROMODPY
-
 import src
 import importlib
 importlib.reload(src)
@@ -70,17 +72,24 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-#%% ---- PATHS
+
+from src.modeling import downslope, modflow, modpath, timeseries
+
+
+from pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+
+
+
 
 #%% PERSONAL
 
-data_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/Data_temporal/Hydromodpy/'
-gis_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/GIS/Raster/'
+#data_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/Data_temporal/Hydromodpy/'
+#gis_path = 'D:/Dropbox/1_CHYN_Neuchatel/1PhD_Project/Poschiavo_HMP_model/GIS/Raster/'
 
 # The folder out_path is created in the example_path root directory:
 
 # Or define it manually
-out_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/"
+out_path = "C:/Users/Pelissierm/pyhelp/test/outputs"
 
 print('The results of the example will be saved here :', out_path)
 
@@ -89,16 +98,28 @@ print('The results of the example will be saved here :', out_path)
 #%% OPTIONS
 
 # dem_path = os.path.join(gis_path, 'eu_dem_clipp_ursa_v2.tif')
-dem_path = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/dem_urse.tif"
-load = False
+dem_path = "C:/Users/Pelissierm/pyhelp/test/ursa_RS3_rot0_250.tif"
 watershed_name = 'Urse_StreamNetwork'
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
-from_shp = ["C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/watershed_urse.shp", 10]
+from_shp = ["C:/Users/Pelissierm/pyhelp/test/watershed_urse_EPSG2056.shp", 10]
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
+
+#%% PYHELP_PATH
+pyhelp_workdir = os.path.join(out_path, watershed_name, "netcdf_test")
+era5_folder = "C:/Users/Pelissierm/pyhelp/test/era5/"
+
+#if already completed grid : 
+#grid_base_csv = "C:/Users/Pelissierm/pyhelp/test/CSVs/input_grid_base1.csv"
+
+ready_csvs = [
+    r"C:/Users/Pelissierm/pyhelp/test/CSVs/precip_input_data.csv",
+    r"C:/Users/Pelissierm/pyhelp/test/CSVs/airtemp_input_data.csv",
+    r"C:/Users/Pelissierm/pyhelp/test/CSVs/solrad_input_data.csv"
+]
 
 #%% GEOGRAPHIC
 
@@ -123,7 +144,59 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 #%% DATA
 KB4_loc = [2796960.102,1133328.361]
 visualization_watershed.watershed_dem(BV)
-                
+       
+
+#%% ---- PYHELP
+
+
+grid_kwargs = dict(
+    growth_start=140, growth_end=280, wind=2.5,
+    hum1=60, hum2=65, hum3=70, hum4=70,
+    nlayer=1, LAI=2.4, EZD=44.5, CN=55,
+    lay_type1=1, thick1=100, poro1=0.45, fc1=0.23, wp1=0.116,
+    ksat1=0.0037, dist_dr1=50, slope1=35,
+)
+
+
+# CSV météo et grid déjà prêts
+"""
+nc = preprocessing_pyhelp(
+    workdir = pyhelp_workdir,
+    outpath = simulations_folder,
+    grid_csv = grid_base_csv,
+    ready_csvs = ready_csvs,
+)
+print(nc)
+"""
+
+# CSV météo prêts mais update des paramètres du grid
+nc = preprocessing_pyhelp(
+    workdir = pyhelp_workdir,
+    outpath = simulations_folder,
+    #grid_csv = grid_base_csv,
+    ready_csvs = ready_csvs,
+    grid_kwargs = grid_kwargs,
+    dem = dem_path,
+    shapefile = from_shp[0],
+)
+print(nc)
+
+
+# Pas de CSV météo ni grid
+"""nc = preprocessing_pyhelp(
+    workdir = pyhelp_workdir,
+    outpath = simulations_folder,
+    dem = dem_path,
+    #shapefile = from_shp[0],
+    era5_folder = era5_folder,
+    grid_kwargs = grid_kwargs,           
+    conda_env   = "pyhelp_env",
+)
+
+print("NetCDF :", nc)"""
+
+#%% TEST
+         
 
 #%% ---- PARAMETRIZATION
 
@@ -140,7 +213,7 @@ dis_perlen=False
 
 # Climatic settings
 # recharge = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10])/30/1000
-recharge = 1/365
+#recharge = 1/365
 first_clim = 'mean' # or 'first or value
 freq_time = 'M'
 
@@ -152,9 +225,13 @@ thick = 50 # if bottom is None, aquifer thickness
 cond_drain = None # or value of conductance
 sy = 1 / 100 # -
 
-KR_ar = np.geomspace(1e0, 159, 15)
+KR_ar = np.geomspace(159, 200, 15)
 
 
+
+recharge = 0.7        
+
+print(f"Recharge PyHELP : {recharge:.3e} mm/j")
 ########## LOOP ##########
 #ƒlist_hyd_cond = np.array([7.17e-1]) # m/day
 list_hyd_cond = recharge*KR_ar
@@ -171,7 +248,7 @@ zone_partic = 'domain' # or watershed
 
 # Import modules
 BV.add_settings()
-BV.add_climatic()
+#BV.add_climatic()
 BV.add_hydraulic()
 
 # Frame settings
@@ -218,11 +295,15 @@ for hyd_cond in list_hyd_cond:
     print(model_name)
     
     model_modflow = BV.preprocessing_modflow(for_calib=False)
-    success_modflow = BV.processing_modflow(model_modflow, write_model=False, run_model=False)
+    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
     
     list_model_name.append(model_name)
     list_success_modflow.append(success_modflow)
     list_model_modflow.append(model_modflow)
+
+print(list_model_name)
+print(list_success_modflow)
+
 
 dictio = {}
 dictio['list_model_name'] = list_model_name
@@ -257,7 +338,8 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
                                   persistency_index=False,
                                   intermittency_monthly=False,
                                   intermittency_daily=False,
-                                  export_all_tif = False)
+                                  export_all_tif = True)
+        
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
@@ -364,7 +446,7 @@ from rasterio.plot import show
 import geopandas as gpd
 from rasterio.features import geometry_mask
 compt = 0
-stream_obs=gpd.read_file("C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/8_urse/stream_network_urse.shp")
+stream_obs=gpd.read_file("C:/Users/Pelissierm/pyhelp/test/stream_network_urse.shp")
 
    
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
@@ -398,8 +480,14 @@ mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.t
 for model_name, success_modflow, model_modflow in zip(list_model_name,
                                                       list_success_modflow,
                                                       list_model_modflow):
+    
 
     fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
+    
+    dem = rasterio.open(stable_folder+'/geographic/watershed_dem.tif')
+    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, dem.read(1)),
+                              ax=ax, transform=dem.transform,
+                              cmap='Greys', alpha=0.25, zorder=0)
 
     stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
     simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')

@@ -88,6 +88,24 @@ def transform_coordinates(dem_file_path: str, from_crs: str, to_crs: str) -> lis
     except Exception as e:
         print(f"Error processing DEM file: {e}")
         return []
+    
+def filter_coordinates_by_shape(coordinates: list, shapefile_path: str, target_crs: str) -> list:
+    """
+    Filter the DEM coordinates according to the watershed shapefile polygon.
+    
+    return --> list of (float, float)
+    """
+    try:
+        gdf = load_shapefile(shapefile_path)
+        if gdf is None:
+            return []
+
+        polygon = gdf.to_crs(target_crs).unary_union
+        filtered = [pt for pt in coordinates if polygon.covers(Point(pt))]
+        return filtered
+    except Exception as e:
+        print(f"Error filtering coordinates by shapefile: {e}")
+        return []
 
 def select_nearest_point(ds: xr.Dataset, lon: float, lat: float) -> xr.Dataset:
     """
@@ -137,6 +155,7 @@ def convert_units(df: pd.DataFrame, var_key: str) -> pd.DataFrame:
     """   
     if var_key == "precipitation":
         df = df * 1000.0
+        pass
     elif var_key == "temperature":
         df = df - 273.15
     elif var_key == "radiation":

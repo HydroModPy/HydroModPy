@@ -7,7 +7,8 @@ Created on Mon Feb 24 19:03:21 2025
 
 import pandas as pd
 from pyhelp_csv_manager import PyhelpCsvManager
-from helper import load_csv, transform_coordinates
+from helper import load_csv, transform_coordinates, filter_coordinates_by_shape
+from typing import Optional
 
 class PyhelpGrid(PyhelpCsvManager):
     """
@@ -16,15 +17,20 @@ class PyhelpGrid(PyhelpCsvManager):
        assigns the new parameter values to all rows, appends lat/lon, then saves.
     """
 
-    def __init__(self, base_file_path: str, output_file_path: str, dem_file_path: str) -> None:
+    def __init__(self, base_file_path: str, output_file_path: str,
+                 dem_file_path: str, shapefile_path: Optional[str] = None) -> None:    
         """
         :param base_file_path: Path to the single-row CSV (e.g., input_grid_base1.csv).
         :param output_file_path: Where the updated CSV will be saved.
         :param dem_file_path: Path to the DEM for lat/lon extraction.
+        :param shapefile_path: (optional) Path to the polygon used to filter lat/lon.
+                       If None or "", the DEM is assumed already clipped.
+        
         """
         self._base_file_path = base_file_path
         self._output_file_path = output_file_path
         self._dem_file_path = dem_file_path
+        self._shapefile_path = shapefile_path
         
         # Load the single-row base CSV
         self._base_data = self._load_base_csv()
@@ -36,6 +42,7 @@ class PyhelpGrid(PyhelpCsvManager):
         if base_df.empty:
             print(f"Base CSV '{self._base_file_path}' is empty or not found.")
         return base_df
+    
 
     def _dem_coordinate(self) -> list:
         """
@@ -43,6 +50,9 @@ class PyhelpGrid(PyhelpCsvManager):
         Here, it transforms from EPSG:2056 to EPSG:4326
         """
         coords = transform_coordinates(self._dem_file_path, "EPSG:2056", "EPSG:4326")
+        # Si aucun shapefile n’est indiqué, on ne filtre pas les points :
+        if self._shapefile_path:
+            return filter_coordinates_by_shape(coords, self._shapefile_path, "EPSG:4326")
         return coords
 
     def display_data(self) -> None:

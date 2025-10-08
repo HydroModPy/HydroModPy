@@ -1,0 +1,295 @@
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+"""
+Created on Wed Jun 11 09:45:12 2025
+
+@author: mathi
+"""
+"""
+This module orchestrates the full PyHELP workflow from raw inputs to a
+NetCDF. it performs:
+
+-Generation of climate CSV files (precip, airtemp, solrad) via 
+the auxiliary main_cdf.py when they are not provided.
+
+- Optional grid update using PyhelpGrid when grid_kwargs is set.
+
+- Execution of the HELP model through help_example_cli.py (called via
+a Conda environment) to compute daily outputs.
+
+- Conversion of daily .OUT files into a NetCDF dataset containing
+runoff, *evapotranspiration* and *recharge* time‑series for every cell.
+
+"""
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+from typing import List, Dict
+import json
+
+import numpy as np
+import pandas as pd
+import xarray as xr
+from pyhelp.daily_output import read_daily_help_output
+from pyhelp.pyhelp_grid import PyhelpGrid
+
+
+
+def preprocessing_pyhelp(
+    *,
+    workdir: str,
+    outpath: str,
+    grid_csv: str | None = None,
+    grid_base: str | None = None,
+    dem: str | None = None,
+    grid_kwargs: Dict | None = None,
+    ready_csvs: List[str] | None = None,
+    era5_folder: str | None = None,
+    shapefile: str | None = None,
+    conda_env: str = "pyhelp-0.1",
+    main_py: str | None = None,
+    help_cli: str | None = None,
+    compress_level: int = 4,
+):
+    """Run the full PyHELP workflow.
+
+    Parameters:
+        
+    workdir : str
+        Destination folder where every intermediate and final file will be
+        written.
+    grid_csv, grid_base : str | None
+        Path to the base COMPLETED grid CSV. 
+    dem : str | None
+        Optional DEM raster required when the grid is updated.
+    grid_kwargs : Dict | None
+        Keyword arguments forwarded to pyhelp.pyhelp_grid.PyhelpGrid to
+        chnage cell size, lat/lon rounding, etc. If None no update is done.
+    ready_csvs : List[str] | None
+        If provided, absolute paths to the three climate CSV inputs
+        [precip, airtemp, solrad]. When None they will be generated via
+        the main_cdf.py script.
+    era5_folder, shapefile : str | None
+        Additional parameters used by main_cdf.py.
+    conda_env : str, default "pyhelp-0.1"
+        Name of the Conda environment for PyHELP.
+    main_py, help_cli : str | None
+        Custom paths for the auxiliary command‑line interfaces. When None the
+        script will look for main_cdf.py and help_example_cli.py in
+        the current file folder.
+    compress_level : int, default 4
+        zlib compression level (0–9) for the output NetCDF file.
+    """
+    
+    
+    workdir = Path(workdir).expanduser().resolve()
+    workdir.mkdir(parents=True, exist_ok=True)
+    
+    outpath = Path(outpath).expanduser().resolve()
+    
+    if grid_csv:
+        grid_csv = Path(grid_csv).expanduser()
+        if not grid_csv.exists():
+            raise FileNotFoundError(f"Grid CSV not found: {grid_csv}")
+        
+        
+#%% Case 1 : ready_cscv is None
+    #if ready_csvs (climatic) is None-> launch main_cdf.py   
+    
+    if ready_csvs is None:
+        main_script = Path(main_py) if main_py else Path(__file__).with_name("main_cdf.py")
+        if not main_script.exists():
+            raise FileNotFoundError(f"main_cdf not found: {main_script}")
+        
+        env = os.environ.copy()
+        
+        if grid_csv is not None:
+            env["PYHELP_BASE_GRID"] = str(grid_csv)
+        
+        env.update({
+            "PYHELP_DEM": str(dem) if dem else "",
+            "PYHELP_SHP": str(shapefile) if shapefile else "",
+            "PYHELP_ERA5_FOLDER": str(era5_folder) if era5_folder else "",
+            "PYHELP_GRID_KWARGS": json.dumps(grid_kwargs or {}),
+            "PYHELP_WORKDIR": str(workdir),
+        })
+
+        conda_cmd = shutil.which("conda") or shutil.which("conda.bat")
+        if not conda_cmd:
+            raise FileNotFoundError("`conda` not found in PATH.")
+
+        src_root = Path(__file__).parent.parent
+        env["PYTHONPATH"] = str(src_root)
+
+        cmd = [
+            conda_cmd, "run", "-n", conda_env,
+            "python", "-m", "pyhelp.main_cdf",
+            "--workdir", str(workdir),
+        ]
+        
+        
+        #User console informations from system
+        print(f"[INFO] launching main_cdf.py through {conda_cmd}")
+        proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        print("\n" + "[ main_cdf COMMAND ]".center(60, "-"))
+        print(" ".join(cmd))
+        print("\n" + "[ main_cdf STDOUT ]".center(60, "-"))
+        print(proc.stdout)
+        print("\n" + "[ main_cdf STDERR ]".center(60, "-"))
+        print(proc.stderr)
+        print("-" * 60 + "\n")
+        proc.check_returncode()
+        
+        grid_csv = workdir / "input_grid_base1.csv"
+        
+        #outputs from main_cdf.py
+        ready_csvs = [
+            workdir / "precip_input_data.csv",
+            workdir / "airtemp_input_data.csv",
+            workdir / "solrad_input_data.csv",
+        ]
+
+#%% Case 2 : ready_csvs is True or grid update/generation
+        #ready_csvs is given but grid update (grid_kwargs is specified)
+        
+    elif grid_kwargs:
+        print("Grid update")
+        env = os.environ.copy()
+        env.update({"PYHELP_SHP": str(shapefile) if shapefile else ""})
+        base_grid = workdir.parents[3] / "10_coupling with land surface model pyhelp" / "data" / "input_grid_base.csv"
+        out_grid = workdir / "input_grid_base1.csv"
+        pg = PyhelpGrid(str(base_grid), str(out_grid), str(dem or ""))
+        pg.update_parameters(**grid_kwargs)
+        grid_csv = out_grid
+        
+        for csv in ready_csvs:
+            src = Path(csv).expanduser().resolve()
+            dst = workdir / src.name
+            shutil.copy2(src, dst)
+            #print(f"[PyHELP preprocessing] copied : {src.name} to {dst}")
+
+    if len(ready_csvs) != 3:
+        raise ValueError("ready_csvs must contain [precip, tair, solrad]")
+    precip_csv, tair_csv, solrad_csv = map(Path, ready_csvs)
+
+    in_files = {
+        Path(grid_csv): workdir / "input_grid_base1.csv",
+        precip_csv: workdir / "precip_input_data.csv",
+        tair_csv: workdir / "airtemp_input_data.csv",
+        solrad_csv: workdir / "solrad_input_data.csv",
+    }
+    
+    #Copy each input file into workdir
+    for src, dst in in_files.items():
+        if src.resolve() != dst.resolve():
+            dst.write_bytes(src.read_bytes())
+            
+            
+
+#%% Help_example_cli.py execution
+
+    conda_cmd = shutil.which("conda") or shutil.which("conda.bat")
+    help_cli = Path(help_cli) if help_cli else Path(__file__).with_name("help_example_cli.py")
+
+    cmd = [
+        conda_cmd, "run", "-n", conda_env,
+        "python", str(help_cli),
+        "--workdir", str(workdir),
+        "--grid_csv", str(in_files[Path(grid_csv)]),
+        "--precip",   str(in_files[precip_csv]),
+        "--tair",     str(in_files[tair_csv]),
+        "--solrad",   str(in_files[solrad_csv]),
+    ]
+    
+    print("[INFO] pyHELP model execution...")
+    env_cli = os.environ.copy()
+    env_cli["PYHELP_WORKDIR"] = str(workdir)
+    proc = subprocess.run(cmd, env=env_cli, capture_output=True, text=True)
+    
+    print("\n" + "[ help_example_cli STDOUT ]".center(70, "-"))
+    print(proc.stdout)
+    print("\n" + "[ help_example_cli STDERR ]".center(70, "-"))
+    print(proc.stderr)
+    
+    proc.check_returncode()
+    
+    
+    #%% Daily NETCDF file generation
+    
+    print("[INFO] PyHELP outputs NETCDF generation... ")
+    temp_dir1 = workdir / "help_input_files" / ".temp"    
+    temp_dir = Path(temp_dir1) 
+    if temp_dir.exists():
+        out_files = sorted(temp_dir.glob("*.OUT"))
+        if out_files:
+            dates_ref  = None
+            cids, xs, ys = [], [], []
+            stacks = {"runoff": [], "evapo": [], "rechg": []}
+            
+            #grid_csv = workdir / "_pyhelp_run" / "input_grid_base1.csv"
+
+            df_grid = pd.read_csv(grid_csv)
+
+            # Same cid in both cases test
+            df_grid["cid"] = df_grid["cid"].astype(str)
+            xy_dict = dict(zip(df_grid["cid"], zip(df_grid["lon_dd"], df_grid["lat_dd"])))
+            
+            #cid 
+            for fp in out_files:
+                cid = fp.stem
+                data = read_daily_help_output(fp)
+                if not data["rain"]: 
+                    continue  
+
+                # dates
+                dates = [
+                    pd.Timestamp(y, 1, 1) + pd.Timedelta(days=d - 1)
+                    for y, d in zip(data["years"], data["days"])
+                ]
+                if dates_ref is None:
+                    dates_ref = pd.Index(dates, name="time")
+                elif len(dates) != len(dates_ref):
+                    print(f"[WARN] {cid} : longueur de série différente, ignoré")
+                    continue
+
+                # Values
+                stacks["runoff"].append(np.asarray(data["runoff"], dtype="float32"))
+                stacks["evapo"].append(np.asarray(data["et"], dtype="float32"))
+                stacks["rechg"].append(np.asarray(data["leak_last"], dtype="float32"))
+
+                # coordinates
+                x, y = xy_dict.get(cid, (np.nan, np.nan))
+                cids.append(cid); xs.append(x); ys.append(y)
+
+            if cids:
+                coords = {
+                    "time": dates_ref,
+                    "cell": ("cell", cids),
+                    "x":    ("cell", xs),
+                    "y":    ("cell", ys),
+                }
+                ds_pts = xr.Dataset({
+                    v: xr.DataArray(
+                        np.column_stack(stacks[v]),
+                        dims=("time", "cell"),
+                        coords=coords,
+                        attrs={"units": "mm"},
+                    )
+                    for v in ("runoff", "evapo", "rechg")
+                })
+
+                enc2 = {v: {"zlib": True, "complevel": compress_level}
+                        for v in ds_pts.data_vars}
+                nc_pts = outpath / "_pyhelp_outputs_points.nc"
+                ds_pts.to_netcdf(nc_pts, format="NETCDF4", encoding=enc2)
+                print(f"[OK] NetCDF created : {nc_pts}")
+                print("[INFO] PyHELP processing is over.")
+                shutil.rmtree(os.path.join(workdir, 'help_input_files', '.temp'))
+        else:
+            print("[INFO] No *.OUT* file found, NetCDF point not created")
+    else:
+        print("[INFO] Folder .temp not found ; NetCDF point not created")
+

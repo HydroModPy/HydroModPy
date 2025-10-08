@@ -102,7 +102,8 @@ def ncGrid2gdf(grid_file):
             points.append(Point(lon[y,x], lat[y,x]))
             yx.append((y,x))
     gdf = gpd.GeoDataFrame(geometry=points, crs="EPSG:4326")      
-            
+    #TODO yx -> df_yx   
+     
     return gdf,yx
     
 def plot_multiple_geodataframes(gdfs, colors=None, markersize=[50], markershape = ['o'], alpha=0.5, 
@@ -167,6 +168,7 @@ def find_closest_grid_point_idx(grid_gdf, target_point):
     Returns:
     - The closest grid point to the target point.
     """
+    # TODO reprojection better distance handling
     # Calculate distance from the target point to all grid points
     grid_gdf['distance'] = grid_gdf.geometry.distance(target_point)
     # Get the grid point with the smallest distance
@@ -245,7 +247,7 @@ def _downscale(data, var, gridUp, gridUp_yx, gridDown, rule = 'nearest', timeste
     values['time'] = pd.to_datetime(timeline, format='%d-%b-%Y %H:%M:%S')
 
     i = 0           
-        
+    
     for point in gridDown.geometry: 
 
         if rule == 'nearest':
@@ -268,12 +270,13 @@ def _downscale(data, var, gridUp, gridUp_yx, gridDown, rule = 'nearest', timeste
         else: 
             print('> _downscale rule - not available')
             v = []
+        # TODO need modif performance warning 
         values[i] = pd.to_numeric(v, errors='coerce')  
         i += 1
 
     values.set_index('time', inplace=True)
     values = values.resample(timestep).agg(agg_rules[var])       
-    
+    print(gridDown.scale)
     return values
 
 def to_standard(dataset):
@@ -316,10 +319,10 @@ def to_standard(dataset):
 cerra_grid_file = 'M:/crash_zone/cerra_grid_urse.nc'
 print('> open cerra grid as a GeoDataFrame and find internal bounds')
 gdf_cerraGrid,yx_cerraGrid = ncGrid2gdf(cerra_grid_file)
-cerra_area = calculate_internal_bounds(gdf_cerraGrid, shrink_distance=0.01)
+cerra_area = calculate_internal_bounds(gdf_cerraGrid, shrink_distance=0.02)
 
 print('> generate GeoDataFrame of the pixel centers of the new grid')
-step_meters = 5000  # Step size in meters
+step_meters = 500  # Step size in meters
 
 print('> Generate the grid')
 gdf_newGrid,df_newGrid = grid_generator(cerra_area, step_meters)
