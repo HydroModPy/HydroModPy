@@ -3,22 +3,28 @@ from helper import load_shapefile, select_nearest_point, get_centroid_coordinate
 import xarray as xr
 import pandas as pd
 import os
+from typing import Optional   
 
 class PyhelpEra5(PyhelpCsvManager):
     """ERA5 climate data extraction and processing for PyHelp"""
     
-    def __init__(self, folder_path: str, shapefile_path: str) -> None:
+    def __init__(self, folder_path: str, shapefile_path: Optional[str] = None) -> None:
         """Initialize ERA5 data extraction"""
         self._folder_path = folder_path
         self._shapefile_path = shapefile_path
 
     def _get_nearest_point(self, ds: xr.Dataset) -> xr.Dataset:
         """Find the nearest grid point in the NetCDF dataset from the shapefile geometry"""
+        if not self._shapefile_path:
+            return ds
         gdf = load_shapefile(self._shapefile_path)
         lon, lat = get_centroid_coordinates(gdf)
         return select_nearest_point(ds, lon, lat)
     
     def _select_within_polygon_points(self, ds: xr.Dataset) -> xr.Dataset:
+        """Find the grid points in the NetCDF dataset that are within the shapefile geometry"""
+        if not self._shapefile_path:
+            return ds
         gdf = load_shapefile(self._shapefile_path)
         return select_within_polygon_points(ds, gdf)
 
@@ -64,21 +70,30 @@ class PyhelpEra5(PyhelpCsvManager):
         """Get a sorted list of NetCDF files from a year folder."""
         return [os.path.join(year_folder, file) for file in sorted(os.listdir(year_folder))]
 
-    def _process_dataset(self, netcdf_files: list) -> xr.Dataset:
-        """
-        Open the NetCDF files, find the nearest grid point 
-        or the grid points within the shapefile area
-        and reshape the data to daily timeseries.
-        """
-        ds = xr.open_mfdataset(netcdf_files)
-        
-        
-        #  if the bassin shapefile is bigger than the netCDF cells, change the method accordingly
-        #ds = self._select_within_polygon_points(ds)
-        ds = self._get_nearest_point(ds)
-        
-        ds = ds.coarsen(valid_time=24, boundary="trim").mean()
-        return ds
+    def _process_dataset(self, netcdf_files: list, nearest_filter: bool = True) -> xr.Dataset:
+    
+        ds = xr.open_mfdataset(netcdf_files, combine='by_coords', decode_times=True)
+    
+        if 'time' in ds.coords and 'valid_time' not in ds.coords:
+            ds = ds.rename({'time': 'valid_time'})
+    
+        ds = self._get_nearest_point(ds) if nearest_filter else self._select_within_polygon_points(ds)
+    
+        if 'valid_time' not in ds.dims:
+            raise ValueError("Pas de dimension temporelle détectée.")
+    
+        var = list(ds.data_vars)[0]
+        da = ds[var]
+          
+        if var == "tp" or var == "fal":
+            da_diff = da.diff('valid_time', label='upper').clip(min=0)
+            da_daily = da_diff.resample(valid_time='1D').sum()
+        else:
+            da_daily = da.resample(valid_time='1D').mean()
+    
+        return da_daily.to_dataset(name=var)
+    
+    
 
     def _process_dataframe(self, ds: xr.Dataset) -> pd.DataFrame:
         """Convert the preprocessed dataset to a dataframe and reshape it"""

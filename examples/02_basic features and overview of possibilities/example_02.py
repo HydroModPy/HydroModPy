@@ -34,8 +34,6 @@ import pandas as pd
 import matplotlib as mpl        # install automatically by geopandas
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 import imageio
