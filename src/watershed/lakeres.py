@@ -22,17 +22,14 @@ import logging
 import shutil
 import numbers
 import pandas as pd
-import tempfile
-import rasterio
 import numpy as np
+import rasterio
 import rasterio as rio
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 import xarray as xr
 xr.set_options(keep_attrs = True)
-wbt = whitebox.WhiteboxTools() # to compute runoff accumulation
-wbt.verbose = False
+from pysheds.grid import Grid
+from pysheds.view import Raster
+from affine import Affine
 
 # HydroModPy
 from tools import toolbox
@@ -720,6 +717,7 @@ class Lakeres:
     #%% FORMAT OUTLETS
     def format_outlets(self, lakarr, geographic, dem_watershed_path):
         self.ij_outlet_by_lake = {}
+        outlet_map = np.full(lakarr.shape, geographic.nodata, dtype=float)
         for num_id in self.lake_by_num_id.keys():
             lake_id = self.lake_by_num_id[num_id]
             file = self.outlet_by_lake[lake_id]
@@ -748,17 +746,15 @@ class Lakeres:
                 arr, _, _, _ = toolbox.load_to_numpy(
                     file,
                     src_crs = self.mask_crs_by_lake[lake_id],
-                    base_path = geographic.watershed_dem, 
+                    base_path = geographic.watershed_dem,
                     dst_crs = geographic.crs_proj)
-                
-                i = np.argwhere(arr==num_id)[0,0] 
+
+                i = np.argwhere(arr==num_id)[0,0]
                 j = np.argwhere(arr==num_id)[0,1]
-            
+
             self.ij_outlet_by_lake[lake_id] = (i, j)
-        
+
         # Export lake outlet
-        outlet_map = acc_map.copy()
-        outlet_map[:] = nodata
         for num_id in self.lake_by_num_id.keys():
             lake_id = self.lake_by_num_id[num_id]
             outlet_map[self.ij_outlet_by_lake[lake_id][0],
@@ -766,7 +762,7 @@ class Lakeres:
                        ] = num_id
         toolbox.export_tif(
             geographic.watershed_dem,
-            outlet_map, 
+            outlet_map,
             os.path.join(self.data_folder, "lak_outlets.tif"),
             geographic.nodata,
             geographic.crs_proj
@@ -779,97 +775,78 @@ class Lakeres:
     #%% ACCUMULATE RUNOFF
     def accumulate_runoff(self, data, lake_id, lakarr, geographic):
         """
-        Compute the accumulated runoff entering a lake/reservoir, from a runoff 
-        input (single value, .csv or .txt file, timeseries or dataframe, NetCDF 
-        file...). The result is a dataframe that will be used to fill the
-        data_flux for flopy.modflow.ModflowLak().
-        
-        This implementation uses WhiteBox Tools' D8MassFlux function to calculate 
-        accumulation based on a D8 flow direction algorithm. The function automatically 
-        detects whether runoff is spatially uniform and uses an optimized approach 
-        when possible:
-        - For spatially uniform runoff: Calculates a unit flow accumulation pattern once,
-        then scales it for each time step (much faster)
-        - For spatially variable runoff: Performs full D8MassFlux calculation for each
-        time step (more accurate for spatially heterogeneous inputs)
-        
-        Note: runoff input has to be a VOLUME time series ([L]**3/[T])
+        Compute accumulated runoff entering a lake/reservoir using pysheds D8 flow routing.
+
+        This function processes runoff data (constant, timeseries, or spatially distributed)
+        and calculates water accumulation at the lake outlet. Performance is optimized by
+        detecting spatially uniform runoff and computing a reusable unit accumulation pattern.
+
+        Note: runoff input must be volumetric rate [L³/T]
 
         Parameters
         ----------
-        data : xr.Dataset/xr.DataArray, pd.DataFrame/pd.Series, Number
-            Runoff input.
-            The conversion from file (.txt, .csv, .nc) to variable is made
-            beforehand in format_to_modflow(), before calling accumulate_runoff()
-            function.
-        lake_id : str, int
-            Identifier of the lake/reservoir. It is defined by user when 
-            initializing the lake/reservoir.
-        lakarr : np.array
-            Array containing the value 0 everywhere except on lake/reservoir
-            locations, where the value is equal to the num_id of the lake/res.
-            (num_id is the number of the lake/reservoir, starting from 1, taken
-            as the numeric identifier equivalent of the lake_id identifier)
+        data : Number, pd.Series, pd.DataFrame, xr.DataArray, xr.Dataset
+            Runoff input as volumetric rate [L³/T]. Can be:
+            - Single number: constant runoff for all timesteps
+            - pd.Series/DataFrame: temporal variation, spatially uniform
+            - xr.DataArray/Dataset: spatio-temporal variation
+        lake_id : str or int
+            Lake identifier defined by user
+        lakarr : np.ndarray
+            Lake identifier array (0 = land, num_id = lake cells)
         geographic : object
-            Watershed object built by HydroModPy (model domain)
+            Watershed object with DEM, flow directions, and coordinate system
 
         Returns
         -------
         pd.Series
-            A pandas Series containing the timeseries of accumulated runoff
-            entering the lake identified by 'lake_id' at its outlet cell.
-        
+            Timeseries of accumulated runoff at lake outlet [L³/T]
+
         Notes
         -----
-        - The function sets runoff to 0 over all lake/reservoir areas based on the lakarr mask.
-        - To block flow at lake outlets (ensuring accumulation), the DEM elevation at 
-        outlet cells is temporarily set to 0.
-        - WhiteBox Tools uses the D8MassFlux algorithm with 100% efficiency (no losses) 
-        and 0 absorption.
-        - For meteorological data with spatially varying precipitation patterns, the standard
-        method is automatically used instead of the optimized approach.
-        - A previous implementation using pysheds (more optimized but no longer maintained)
-        is available in this commit: https://gitlab.com/Alex-Gauvain/HydroModPy/-/commit/1b0bce3f600719c2f1a657d58727a1049ebebf29
-        
+        - Runoff over lake surfaces is automatically set to 0
+        - Flow is blocked at lake outlets to capture all incoming runoff
+        - Spatial uniformity detection samples 5% of timesteps for efficiency
+        - Uses pysheds for fast in-memory flow accumulation (D8 routing)
+        - Normalized weights ensure numerical stability
+
         Dependencies
         ------------
-        - WhiteBox Tools (wbt)
-        - rasterio
-        - numpy
-        - pandas
-        - xarray
-        - tempfile
-        - shutil
+        pysheds, rasterio, numpy, pandas, xarray, affine
         """
         
         # ---- Initialize
+        logging.info(f"Initializing runoff accumulation for lake {lake_id}")
+
         # Create mask of watershed: =0 on lakes/reservoirs, =1 everywhere else
         mask = np.where(lakarr > 0, 0, 1)
-        
+
         # Get time coordinate
         if isinstance(data, (pd.DataFrame, pd.Series)):
             # if data.index are dates...
-            if isinstance(data.index[0], (datetime.datetime, 
-                                        pd.Timestamp, 
+            if isinstance(data.index[0], (datetime.datetime,
+                                        pd.Timestamp,
                                         np.datetime64,
-                                        str)):          
+                                        str)):
                 # ...then the index is used as the time coordinate
                 time = data.index
         # If data has no index, or no date index...
-        else:       
-            # ...then the tim coordinate is built as a 0, 1, 2, 3... array
+        else:
+            # ...then the time coordinate is built as a 0, 1, 2, 3... array
             time = np.array(range(len(data)))
             # In that case, data is formatted to a pd.dataframe
             data = pd.DataFrame(data=data, index=time, columns=['runoff'])
 
-        # Build space coordinates
+        # Build space coordinates based on lakarr dimensions (not mask)
+        # This ensures consistency throughout the function
+        actual_shape = lakarr.shape  # Use lakarr as reference
         x = [x for x in np.arange(
-            geographic.xmin + geographic.resolution_x/2, 
-            geographic.xmin + geographic.resolution_x*mask.shape[1] + geographic.resolution_x/2, 
+            geographic.xmin + geographic.resolution_x/2,
+            geographic.xmin + geographic.resolution_x*actual_shape[1] + geographic.resolution_x/2,
             geographic.resolution_x)]
         y = [y for y in np.arange(
-            geographic.ymax + geographic.resolution_y/2, 
-            geographic.ymax + geographic.resolution_y*mask.shape[0] + geographic.resolution_y/2, 
+            geographic.ymax + geographic.resolution_y/2,
+            geographic.ymax + geographic.resolution_y*actual_shape[0] + geographic.resolution_y/2,
             geographic.resolution_y)]
         
         # Generate a xarray.DataArray of runoff: data_4D
@@ -909,40 +886,6 @@ class Lakeres:
         # Note that, in the place of runoff, the precipitations falling directly on
         # lakes/reservoirs are expected to be user-defined as the 'PRCPLK' flux (self.prcplk_by_lake)
         data_4D = data_4D.where(np.tile(mask, (len(time), 1, 1)) == 1, 0)
-        
-        # ---- Setup path for WhiteBoxTools temporary files
-        temp_dir = tempfile.mkdtemp(dir=self.data_folder) # Folder LakeRes in results_stable
-        
-        # ---- Use dem file in d8_mass_flux not flow direction
-        dem_file = os.path.join(geographic.gis_path, 'watershed_box_buff_fill.tif')
-        dem_temp = os.path.join(temp_dir, 'dem_temp.tif')
-    
-        with rasterio.open(dem_file) as src:
-            dem = src.read(1)
-            profile = src.profile.copy()
-        
-        """
-        To stop the flow at the outlet of each lake/reservoir, we set the
-        dem elevation to 0 at the outlet cell
-        (this is the cell with the highest accumulation flow) for each lake
-        """
-        for l in self.ij_outlet_by_lake:
-            (i_, j_) = self.ij_outlet_by_lake[l]
-            dem[i_, j_] = 0
-        
-        with rasterio.open(dem_temp, 'w', **profile) as dst:
-            dst.write(dem, 1)
-        
-        # ---- Create efficiency and absorption rasters
-        eff_file = os.path.join(temp_dir, 'efficiency.tif')
-        abs_file = os.path.join(temp_dir, 'absorption.tif')
-        
-        # Set efficiency to 1 (100%) and absorption to 0 (0%)
-        with rasterio.open(eff_file, 'w', **profile) as dst:
-            dst.write(np.ones(dem.shape, dtype=profile['dtype']), 1)
-        
-        with rasterio.open(abs_file, 'w', **profile) as dst:
-            dst.write(np.zeros(dem.shape, dtype=profile['dtype']), 1)
         
         # ---- Determine if runoff is spatially uniform across all time steps
         is_spatially_uniform = True
@@ -984,9 +927,6 @@ class Lakeres:
                     is_spatially_uniform = False
                     break
         
-        # Determine method based on spatial uniformity
-        logging.info(f"Processing runoff accumulation for lake {lake_id}: Detected {'spatially uniform' if is_spatially_uniform else 'spatially variable'} runoff (tested on first 5% of time series : {threshold}).")
-        
         # Initialize result array
         result_4D = xr.DataArray(
             data=np.zeros((len(time), len(y), len(x))),
@@ -994,100 +934,109 @@ class Lakeres:
             dims=["time", "y", "x"]
         )
         
-        # ----------------------------------------------------------------------------
-        # ---- OPTIMIZED METHOD for spatially uniform runoff
-        # ----------------------------------------------------------------------------
-        if is_spatially_uniform:
-            # Create unit loading (1.0 everywhere except lakes)
-            unit_loading = np.ones_like(mask) * mask
-            
-            # Save unit loading to file
-            unit_loading_file = os.path.join(temp_dir, 'unit_loading.tif')
-            with rasterio.open(unit_loading_file, 'w', **profile) as dst:
-                dst.write(unit_loading.astype(profile['dtype']), 1)
-            
-            # Calculate unit accumulation pattern ONCE
-            unit_output_file = os.path.join(temp_dir, 'unit_output.tif')
-            wbt.d8_mass_flux(
-                dem=dem_temp,
-                loading=unit_loading_file,
-                efficiency=eff_file,
-                absorption=abs_file,
-                output=unit_output_file
-            )
-            
-            # Load unit accumulation pattern
-            with rasterio.open(unit_output_file, 'r') as src:
-                unit_accumulation = src.read(1)
-            
-            # Get total unit loading (for scaling)
-            total_unit_loading = np.sum(unit_loading)
-            
-            # Process each time step using the unit accumulation pattern
-            for i, t in enumerate(data_4D.time.values):
-                # Log progress for long time series
-                if i % 25 == 0 or i == len(data_4D.time.values) - 1:
-                    logging.info(f"Processing runoff accumulation for lake {lake_id}: step {i+1:3d}/{len(data_4D.time.values)} (optimized method)")
-                
-                # Extract runoff values for current time step
-                runoff_values = data_4D.isel(time=i).values
-                
-                # Calculate total runoff for current time step
-                total_runoff = np.sum(runoff_values)
-                
-                # Scale unit accumulation pattern by total runoff
-                if total_unit_loading > 0:
-                    scaled_accumulation = unit_accumulation * (total_runoff / total_unit_loading)
-                else:
-                    scaled_accumulation = np.zeros_like(unit_accumulation)
-                
-                # Store in result array
-                result_4D[i, :, :] = scaled_accumulation
-            
-            # Clean up temporary files
-            for temp_file in [unit_loading_file, unit_output_file]:
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
+        # ---- Use pysheds method for flow accumulation (fast in-memory processing)
+        logging.info(f"Processing runoff accumulation for lake {lake_id}: Using pysheds method")
 
-        # ----------------------------------------------------------------------------
-        # ---- STANDARD METHOD for spatially variable runoff
-        # ----------------------------------------------------------------------------
+        # Load flow directions - aligned to the same grid as lakarr
+        direc, _, _, _ = toolbox.load_to_numpy(
+            geographic.watershed_box_buff_direc,
+            src_crs=geographic.crs_proj,
+            base_path=geographic.watershed_dem,  # same reference as lakarr
+            dst_crs=geographic.crs_proj)
+
+        # Check compatibility of sizes with lakarr
+        if direc.shape != lakarr.shape:
+            logging.warning(f"Flow direction shape mismatch: {direc.shape} vs {lakarr.shape}")
+            from scipy.ndimage import zoom
+            scale_y = lakarr.shape[0] / direc.shape[0]
+            scale_x = lakarr.shape[1] / direc.shape[1]
+            direc = zoom(direc, (scale_y, scale_x), order=0)  # order=0 to preserve directions
+            logging.info(f"Flow directions resized to {direc.shape}")
+
+        # Cancel flow direction in lake outlets to ensure accumulation
+        # Here we consider that the runoff can accumulate over the lake (in
+        # order to compute the accumulated runoff value), but it can not leave the lake.
+        for l in self.ij_outlet_by_lake:  # for each lake on the watershed
+            (i_, j_) = self.ij_outlet_by_lake[l]
+            direc[i_, j_] = 0
+
+        # Create a pysheds.grid object with flow directions
+        direc_raster = Raster(direc)
+        direc_raster.crs = geographic.crs_proj
+        direc_raster.nodata = -1  # geographic.nodata
+        direc_raster.affine = Affine(
+            geographic.resolution_x, 0, geographic.xmin,
+            0, geographic.resolution_y, geographic.ymax)
+        grid = Grid.from_raster(direc_raster, data_name='direc')
+
+        # Specify directional mapping (D8 WhiteBox Tools system)
+        dirmap = (128, 1, 2, 4, 8, 16, 32, 64)
+
+        # ---- PYSHEDS OPTIMIZED METHOD for spatially uniform runoff
+        if is_spatially_uniform:
+            logging.info(f"Detected spatially uniform runoff - using optimized method for lake {lake_id}")
+
+            # Create unit weights (1.0 everywhere except lakes, normalized)
+            unit_weights = mask.astype(float)
+            unit_weights_norm = unit_weights / unit_weights.sum() if unit_weights.sum() > 0 else unit_weights
+
+            # Create unit weights raster
+            unit_weights_raster = Raster(unit_weights_norm)
+            unit_weights_raster.crs = geographic.crs_proj
+            unit_weights_raster.nodata = geographic.nodata
+            unit_weights_raster.affine = Affine(
+                geographic.resolution_x, 0, geographic.xmin,
+                0, geographic.resolution_y, geographic.ymax)
+
+            # Calculate unit flow accumulation pattern ONCE
+            unit_acc = grid.accumulation(direc_raster, weights=unit_weights_raster, dirmap=dirmap)
+            unit_acc_array = np.array(grid.view(unit_acc))
+
+            # Process each time step by scaling the unit accumulation pattern
+            for i, t in enumerate(data_4D.time):
+                if i % 25 == 0 or i == len(data_4D.time) - 1:
+                    logging.info(f"Processing lake {lake_id}: step {i+1:3d}/{len(data_4D.time)} (optimized)")
+
+                # Get total runoff for current time step
+                weights = data_4D.loc[{'time': t}].copy(deep=True)
+                total_runoff = weights.sum().item()
+
+                # Scale unit accumulation by total runoff
+                result_4D.loc[{'time': t}] = unit_acc_array * total_runoff
+
+        # ---- PYSHEDS STANDARD METHOD for spatially variable runoff
         else:
-            # Process each time step using the full D8MassFlux calculation
-            for i, t in enumerate(data_4D.time.values):
-                # Log progress for long time series
-                logging.info(f"Processing runoff accumulation for lake {lake_id}: step {i+1:3d}/{len(data_4D.time.values)} (standard method)")
-                
-                # Extract runoff values for current time step
-                runoff_values = data_4D.isel(time=i).values
-                
-                # Create temporary files for runoff and output
-                runoff_file = os.path.join(temp_dir, f'runoff_{i}.tif')
-                output_file = os.path.join(temp_dir, f'output_{i}.tif')
-                
-                # Save runoff values to file
-                with rasterio.open(runoff_file, 'w', **profile) as dst:
-                    dst.write(runoff_values.astype(profile['dtype']), 1)
-                
-                # Execute D8MassFlux for current time step
-                wbt.d8_mass_flux(
-                    dem=dem_temp,
-                    loading=runoff_file,
-                    efficiency=eff_file,
-                    absorption=abs_file,
-                    output=output_file
-                )
-                
-                # Read accumulated values
-                with rasterio.open(output_file, 'r') as src:
-                    acc_values = src.read(1)
-                    result_4D[i, :, :] = acc_values
-                
-                # Delete temporary files for current time step
-                for temp_file in [runoff_file, output_file]:
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
-        
+            logging.info(f"Detected spatially variable runoff - using standard method for lake {lake_id}")
+
+            # Process each time step with full accumulation calculation
+            for i, t in enumerate(data_4D.time):
+                logging.info(f"Processing lake {lake_id}: step {i+1:3d}/{len(data_4D.time)} (standard)")
+
+                # Create a pysheds.raster object with runoff values
+                weights = data_4D.loc[{'time': t}].copy(deep=True)
+
+                # Skip if no runoff for this timestep
+                if weights.sum().item() == 0:
+                    result_4D.loc[{'time': t}] = np.zeros_like(weights.values)
+                    continue
+
+                # Runoff values are normalized into weights
+                weights_norm = weights / weights.sum()  # normalize
+                weights_raster = Raster(weights_norm.values)
+                weights_raster.crs = geographic.crs_proj
+                weights_raster.nodata = geographic.nodata
+                weights_raster.affine = Affine(
+                    geographic.resolution_x, 0, geographic.xmin,
+                    0, geographic.resolution_y, geographic.ymax)
+
+                # Calculate flow accumulation based on flow directions weighted by runoff values
+                acc = grid.accumulation(direc_raster, weights=weights_raster, dirmap=dirmap)
+
+                # Remove the normalization to obtain the absolute accumulated values
+                acc_denorm = acc * weights.sum().item()  # denormalize
+                result_4D.loc[{'time': t}] = np.array(grid.view(acc_denorm))
+
+        # ---- POST-PROCESSING
         # Replace nan values with 0
         result_4D = result_4D.fillna(0)
         
@@ -1114,10 +1063,6 @@ class Lakeres:
         
         data_pd = data_pd.drop(['x', 'y']).to_dataframe(name='acc_runoff') # convert xr.dataarray to pd.dataframe
         data_pd = data_pd['acc_runoff']
-        
-        # Clean up the temporary directory
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
         
         return data_pd
         
