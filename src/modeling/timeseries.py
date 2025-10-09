@@ -534,7 +534,11 @@ class Timeseries:
         
         ### save files
         if self.datetime_format==True:
-            self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
+            try:
+                self.mfdata['date'] = pd.to_datetime(time, format='%Y-%m-%d')
+            except:
+                self.mfdata['date'] = np.arange(0,len(self.mfdata),1)
+                pass
         self.mfdata = self.mfdata.set_index(['date'])
         if self.suffix_name == None:
             self.mfdata.to_csv(timeseries_file + '/_simulated_timeseries.csv', sep=';')
