@@ -49,6 +49,7 @@ class Hydraulic:
                  verti_sy_init=None,
                  verti_ss_init=None,
                  vka_init: float=1.,
+                 expd_init: float=1.
                  ):
         """
         Parameters
@@ -137,7 +138,8 @@ class Hydraulic:
         self.cond_drain = cond_drain_init
         
         self.vka = vka_init
-                
+        self.expd = expd_init
+        
         self.update_hk_decay()
         self.update_sy_decay()
         self.update_ss_decay()
@@ -170,6 +172,16 @@ class Hydraulic:
             Ratio of horizontal to vertical hydraulic conductivity.
         """
         self.vka = vka_value
+    
+        
+    def update_exdp(self, exdp_value: float):
+        """
+        Parameters
+        ----------
+        exdp : float
+            Extinction depth from the surface of the evapotranspiration.
+        """
+        self.exdp = exdp_value
     
     def update_sy(self, sy_value: float):
         """

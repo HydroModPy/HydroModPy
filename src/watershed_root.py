@@ -681,7 +681,8 @@ class Watershed:
                                         verti_sy=self.hydraulic.verti_sy,
                                         verti_ss=self.hydraulic.verti_ss,                                       
                                         cond_drain=self.hydraulic.cond_drain,
-                                        vka=self.hydraulic.vka)
+                                        vka=self.hydraulic.vka,
+                                        exdp=self.hydraulic.exdp)
         
         # Preprocessing Modflow
         model_modflow.pre_processing() # verbose
