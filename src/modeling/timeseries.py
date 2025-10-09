@@ -291,13 +291,36 @@ class Timeseries:
             calc = np.nansum(masked)
             return calc
         
-        def calc_percent(key, data_process, target_data, mask_data, cond_symb, value_masked):            
+        def calc_percent(key, data_process, target_data, mask_data, cond_symb, value_masked):
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             count = (masked > 0).sum()
             calc = (count/cell) * 100
             return calc
-        
+
+        def calc_lake_sum(key, target_data, lake_mask_array, lake_num_id):
+            """Calculate sum for a specific lake using lake array mask."""
+            lake_mask = np.where(lake_mask_array == lake_num_id, 1, np.nan)
+            masked_data = target_data[key] * lake_mask
+            calc = np.nansum(masked_data)
+            return calc
+
+        def calc_lake_possum(key, target_data, lake_mask_array, lake_num_id):
+            """Calculate positive sum for a specific lake using lake array mask."""
+            target_pos = np.where(target_data[key] >= 0, target_data[key], 0)
+            lake_mask = np.where(lake_mask_array == lake_num_id, 1, np.nan)
+            masked_data = target_pos * lake_mask
+            calc = np.nansum(masked_data)
+            return calc
+
+        def calc_lake_negsum(key, target_data, lake_mask_array, lake_num_id):
+            """Calculate negative sum (inverted) for a specific lake using lake array mask."""
+            target_neg = np.where(target_data[key] <= 0, -target_data[key], 0)
+            lake_mask = np.where(lake_mask_array == lake_num_id, 1, np.nan)
+            masked_data = target_neg * lake_mask
+            calc = np.nansum(masked_data)
+            return calc
+
         def calc_local(key, data_process, target_data, mask_data, cond_symb, value_masked):
             return calc
         
@@ -617,12 +640,12 @@ class Timeseries:
                         # Otherwise, area variations are too small to be detected.
                         self.mfdata.loc[key,f'{lake_id}_area'] = area
                         
-                        # lake vertical leakage
-                        lake_leakage = calc_sum(key, 'lake_leakage', self.lake_leakage, dem_clip, '==', self.geographic.nodata, self.resolution)
+                        # lake vertical leakage (using lake-specific mask)
+                        lake_leakage = calc_lake_sum(key, self.lake_leakage, lakarr_clip, num_id)
                         self.mfdata.loc[key,f'{lake_id}_lake_leakage'] = lake_leakage
-                        lake_leakage_downwards = calc_possum(key, 'lake_leakage', self.lake_leakage, dem_clip, '==', self.geographic.nodata, self.resolution)
+                        lake_leakage_downwards = calc_lake_possum(key, self.lake_leakage, lakarr_clip, num_id)
                         self.mfdata.loc[key,f'{lake_id}_lake_leakage_downwards'] = lake_leakage_downwards
-                        lake_leakage_upwards = calc_negsum(key, 'lake_leakage', self.lake_leakage, dem_clip, '==', self.geographic.nodata, self.resolution)
+                        lake_leakage_upwards = calc_lake_negsum(key, self.lake_leakage, lakarr_clip, num_id)
                         self.mfdata.loc[key,f'{lake_id}_lake_leakage_upwards'] = lake_leakage_upwards
                     
                 except:
