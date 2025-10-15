@@ -72,9 +72,9 @@ def select_period(df, first, last):
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
 study_site = 'LA_FLUME'
-first_year = 1981
-last_year = 2024
-freq_input = 'M'
+first_year = 2012
+last_year = 2012
+freq_input = 'D'
 sim_state = 'transient' 
 parameters = "1.6e-5_0.02%"
 out_path = folder_root.root_folder_results()
@@ -88,7 +88,7 @@ print(f"out_path; {out_path}, Data path: {data_path}, specific_data_folder; {spe
 #%% OPTIONS
 # Name of the study site
 watershed_name = '_'.join([
-    "Example_04_REA_Qnormalized",study_site,parameters,str(first_year),str(last_year),freq_input,sim_state
+    "RUN",study_site,parameters,str(first_year),str(last_year),freq_input,sim_state
 ])
 
 print('##### '+watershed_name.upper()+' #####')
@@ -144,77 +144,53 @@ BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 #%% climatic settings
 BV.add_climatic()
 
-# Load climatic data from CSV
-df_climatic = pd.read_csv(
-    os.path.join(data_path, study_site, 'Meteo', 'Historiques SIM2', 'climatic_data_mean_m_month_1980_2024.csv'), 
-    index_col=0, parse_dates=True
-)
-df_climatic.index = pd.to_datetime(df_climatic.index)
-df_climatic = df_climatic.loc[
-    (df_climatic.index >= pd.Timestamp(f"01/01/{first_year}")) &
-    (df_climatic.index <= pd.Timestamp(f"31/12/{last_year}"))
-]
-
-agg_dict = {
-    'recharge': 'sum', 'runoff': 'sum', 'precip': 'sum',
-    'evt': 'sum', 'etp': 'sum', 't': 'mean'
-}
-df_climatic = df_climatic.resample(freq_input).agg(agg_dict)
-
-# Climatic configuration
-BV.climatic.recharge = df_climatic['recharge']
-BV.climatic.runoff = df_climatic['runoff']
-BV.climatic.precip = df_climatic['precip']
-BV.climatic.evt = df_climatic['evt']
-BV.climatic.etp = df_climatic['etp']
-BV.climatic.t = df_climatic['t']
-# # Reanalyse
-# BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
-#                                              'evt', 'etp', 't', 'eff_rain'
-#                                               ],
-#                                        nc_data_path=os.path.join(
-#                                            data_path,
-#                                            r"Meteo\Historiques SIM2"),
-#                                        first_year=first_year,
-#                                        last_year=last_year,
-#                                        time_step=freq_input,
-#                                        sim_state=sim_state,
-#                                        spatial_mean=True,
-#                                        geographic=BV.geographic,
-#                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
-#                                                                 # can be a shapefile path or a flag: 'watershed' or False
+# Reanalyse
+BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
+                                             'evt', 'etp', 't', 'eff_rain'
+                                              ],
+                                       nc_data_path=os.path.join(
+                                           data_path,
+                                           r"Meteo\Historiques SIM2"),
+                                       first_year=first_year,
+                                       last_year=last_year,
+                                       time_step=freq_input,
+                                       sim_state=sim_state,
+                                       spatial_mean=True,
+                                       geographic=BV.geographic,
+                                       disk_clip='watershed') # for clipping the netcdf files saved on disk
+                                                                # can be a shapefile path or a flag: 'watershed' or False
                                                                 
-# # # # # Units
-# BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
-# BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
-# BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
-# BV.climatic.t = BV.climatic.t / 1000 # from mm to m
+# # # # Units
+BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
+BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
+BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
+BV.climatic.t = BV.climatic.t / 1000 # from mm to m
 
-# # Besoin de le mettre à jour qu'une fois par an.
-# BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
+# Besoin de le mettre à jour qu'une fois par an.
+BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
 
-# #%%RECHARGE REANALYSIS
-# BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
-#                                        clim_mod='REA',
-#                                        clim_sce='historic',
-#                                        first_year=first_year,
-#                                        last_year=last_year,
-#                                        time_step=freq_input,
-#                                        sim_state=sim_state)
+#%%RECHARGE REANALYSIS
+BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=first_year,
+                                       last_year=last_year,
+                                       time_step=freq_input,
+                                       sim_state=sim_state)
 
-# # BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
-# BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
-# # BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
+# BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
+BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
+# BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
 
-# BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
-#                                        clim_mod='REA',
-#                                        clim_sce='historic',
-#                                        first_year=first_year,
-#                                        last_year=last_year,
-#                                        time_step=freq_input,
-#                                        sim_state=sim_state)
+BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
+                                       clim_mod='REA',
+                                       clim_sce='historic',
+                                       first_year=first_year,
+                                       last_year=last_year,
+                                       time_step=freq_input,
+                                       sim_state=sim_state)
 
-# BV.climatic.update_runoff(BV.climatic.runoff/1000, sim_state=sim_state) # from mm to m
+BV.climatic.update_runoff(BV.climatic.runoff/1000, sim_state=sim_state) # from mm to m
 
 #%% R and r ASSIGNATION
 if isinstance(BV.climatic.recharge, float):
@@ -228,19 +204,6 @@ else:
         R = BV.climatic.recharge
         r = BV.climatic.runoff
         
-#plot
-q = r+R
-fig, ax = plt.subplots(1,1, figsize=(6,3))
-# ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
-# ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
-ax.plot(q, label='Q', c='orange', lw=2)
-ax.set_yscale('log')
-ax.set_ylim(1e-8, 1e-1)
-ax.set_xlabel('Date')
-ax.set_ylabel('[m/d]')
-plt.xticks(rotation=45, ha="right")
-ax.legend()
-
 # #%% Qobs FORMATTING et F normalization 
 # Qobs_path = os.path.join(data_path,'J721401001.csv')
 # Qobs = pd.read_csv(Qobs_path, delimiter=',')
@@ -275,7 +238,7 @@ Qobs["Date (TU)"] = pd.to_datetime(Qobs["date_obs_elab"], format='%Y-%m-%d')
 Qobs.set_index("Date (TU)", inplace=True)
 
 Qobs = Qobs.drop(columns=["date_obs_elab","grandeur_hydro_elab","libelle_qualification","specific_discharge"])
-Qobs = Qobs.rename(columns={"debit_obs_elab": "Q"})
+Qobs = Qobs.rename(columns={"resultat_obs_elab": "Q"})
 
 area = int(round(BV.geographic.area))
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
@@ -789,7 +752,11 @@ for i, simul in enumerate(simul_list[:]):
     Qmod = Smod['outflow_drain'] 
     Qmod = Qmod.squeeze()
     Qmod = Qmod*1000
-    Qmod = (Qmod + (r * 1000)) * Qmod.index.day
+    Qmod = (Qmod + (r * 1000)) 
+    
+    if freq_input == 'M' :
+        Qmod = Qmod* Qmod.index.day
+        
     # Qmod_sewage = (Qmod + sewage_input_mmmonth + sewage_regulatory_monthmm)
     print (f'valeur de Qmod : {Qmod}')
     # Rmod = Smod['recharge'] 
@@ -803,12 +770,14 @@ for i, simul in enumerate(simul_list[:]):
     years_fmt = mdates.DateFormatter('%Y')
 
     ax = a0
+    if freq_input == 'D':
+        ax.plot(Qobsmm, color='k', lw=1, ls='-', zorder=0, label='observed')
     if freq_input == 'W':
         ax.plot(Qobsmmperweek, color='k', lw=1, ls='-', zorder=0, label='observed')
     if freq_input == 'M':
         ax.plot(Qobsmmmonth, color='k', lw=1, ls='-', zorder=0, label='observed')
     ax.plot(Qmod, color='red', lw=1, label='modeled')
-    ax.plot(Qnormalized*Qmod.index.day*1000, label='Qnormalized', c='orange',ls='--', lw=0.5)
+    ax.plot(Qnormalized*1000, label='Qnormalized', c='orange',ls='--', lw=0.5)
     # ax.plot(Rmod.index, Rmod*1000, color='blue', lw=2.5)
     ax.set_xlabel('Date')
     ax.set_ylabel('Q / A [mm/month]')
@@ -829,6 +798,8 @@ for i, simul in enumerate(simul_list[:]):
     # axb.set_ylim(0,999)
     # axb.invert_yaxis()
     # axb.set_yticklabels([0.1,200])
+    if freq_input == 'D':
+        Qobs_stat = select_period(Qobsmm,first_year,last_year)
     if freq_input == 'W':
         Qobs_stat = select_period(Qobsmmperweek,first_year,last_year)
     if freq_input == 'M':
