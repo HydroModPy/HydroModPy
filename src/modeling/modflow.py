@@ -668,7 +668,10 @@ class Modflow:
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.recharge,(dict))==True:
-                self.rchData = self.recharge
+                if self.sim_state == 'steady': 
+                    self.rchData = (sum(self.recharge.values()) / len(self.recharge))
+                if self.sim_state == 'transient':
+                    self.rchData = self.recharge
             else:
                 if isinstance(self.recharge,(int,float)):
                     # Only value in self.climatic (steady)
