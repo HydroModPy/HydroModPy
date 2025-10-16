@@ -31,6 +31,8 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import rasterio
+import xarray as xr
+import rioxarray as rxr
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -136,8 +138,9 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
-stable_folder = os.path.join(out_path, 'results_stable')
-simulations_folder = os.path.join(out_path, 'results_simulations')
+stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
+simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
 #%% DATA
 
@@ -162,7 +165,7 @@ ready_csvs = [
 
 #%% RUN
 
-k_values = [1e-5*3600*24]
+k_values = [4.28e-8 * 3600 * 24] #◘ 0.0037 m/day
 
 list_of_sims = []
 
@@ -170,37 +173,26 @@ option = '1'
 
 for k in k_values[:]:
     
-    # grid_kwargs = dict(
-    #     growth_start=140,
-    #     growth_end=280,
-    #     wind=2.5,
-    #     hum1=60, hum2=65, hum3=70, hum4=70,
-    #     nlayer=1, LAI=2.4, EZD=44.5, CN=55,
-    #     lay_type1=1, thick1=100, poro1=0.45, fc1=0.23, wp1=0.116,
-    #     ksat1=k, dist_dr1=50, slope1=35,
-    # )
+    k = round(k, 5)
     
     grid_kwargs = dict(
-         growth_start=120,
-         growth_end=280,
-         wind=10,
-         hum1=60,
-         hum2=60,
-         hum3=60,
-         hum4=60,
-         LAI=2,
-         EZD=50,
-         CN=50,
-         nlayer=1,
-         lay_type1=1,
-         thick1=100,
-         poro1=0.1,
-         fc1=0.23,
-         wp1=0.116,
-         ksat1=k,
-         dist_dr1=500,
-         slope1=3,
-         )
+                       growth_start=140,
+                       growth_end=280,
+                       wind=2.5,
+                       hum1=60, hum2=65, hum3=70, hum4=70,
+                       LAI=2.4, 
+                       EZD=44.5,
+                       CN=55,
+                       nlayer=1,  
+                       lay_type1=1,
+                       thick1=100,
+                       poro1=0.45,
+                       fc1=0.23,
+                       wp1=0.116,
+                       ksat1=k,
+                       dist_dr1=50,
+                       slope1=35
+                       )
     
     # cid                             Unique cell ID
     # lat_dd                          Decimal degrees Latitude of the cell centroid
@@ -290,31 +282,8 @@ df.to_csv(formatted_csv_path, index=False)
 
 #%% SCALING
 
-"""
-import netCDF4
-file2read = netCDF4.Dataset(pyhelp_workdir + '/' + name_sim + '/' + '_pyhelp_outputs_points.nc','r')
-rec_netcdf = file2read.variables['rechg']  # access a variable in the file
-
-# Ici un NETCDF avec les grilles 40x40 pour chaque pas de temps
-# ==> recharge pyhelp "propre" et spatialisée et géoréférencée
-# Une fois que le netcdf est "propre"
-
-### ==> Trouver le moyen de "coller" les valeurs de la recharge pyhelp, sur la grille MODFLOW "grid_to_imitate"
-
-grid_to_imitate = os.path.join(stable_folder, 'geographic', 'watershed_box_buff_dem.tif')
-
-# Transformer la recharge 25mx25m, en DICTIONNAIRE pour HydroModPy
-# Tant que la size de la grille DICTIONNAIRE colle avec 'watershed_box_buff_dem.tif', c'est ok
-# dict() = (1, 100, 100) ==> 1 pas de temps
-# dict() = (1095, 100, 100) ==> 1095 pas de temps
-"""
-
-import xarray as xr
-import rioxarray as rxr
-
-nc_path  = r"C:\Users\Pelissierm\Hydromodpy\examples\results\Example_10_Urse\results_pyhelp\_sim_0.8640000000000001\_pyhelp_outputs_grid.nc"
-dem_path = r"C:\Users\Pelissierm\Hydromodpy\examples\results\Example_10_Urse\results_stable\geographic\watershed_box_buff_dem.tif"
-
+nc_path  = pyhelp_workdir + '/' + name_sim + "/_pyhelp_outputs_grid.nc"
+dem_path = stable_folder + "/geographic/watershed_box_buff_dem.tif"
 
 ds  = xr.open_dataset(nc_path)
 dem = rxr.open_rasterio(dem_path)
@@ -322,11 +291,10 @@ dem = rxr.open_rasterio(dem_path)
 R = ds["rechg"]  
 R = R.rio.write_crs(dem.rio.crs)
 
-Rt   = R.rio.reproject_match(dem, nodata=0.0) 
-cube = Rt.values
+Rt   = R.rio.reproject_match(dem, nodata=0.0)
+cube = Rt.values / 1000
 
 recharge_dict = {i: cube[i] for i in range(cube.shape[0])}
-
 
 #%% YEARLY
 
@@ -570,7 +538,7 @@ class MatchingStreams:
 
 #%% PARAMETERS
 
-vers = 'DICHOT1' # dichotomy on 30 catchments (all hydrosystems)
+vers = 'DICHOT2' # dichotomy on 30 catchments (all hydrosystems)
  
 box = False # or False
 sink_fill = False # or True
@@ -605,9 +573,9 @@ rec_mean = rec_data.groupby('time', as_index=False).mean()
 rec_mean['time'] = pd.to_datetime(rec_mean['time'])
 rec_mean = rec_mean.set_index(['time'])
 
-recharge_ref = rec_mean['rechg']
+recharge_csv = rec_mean['rechg']
 
-print(f"Recharge: {recharge_ref.mean()*365} mm/y")
+print(f"Recharge: {recharge_csv.mean()*365} mm/y")
 
 #%% LAUNCH
 
@@ -628,9 +596,6 @@ path_box = BV.geographic.watershed_box_buff_dem
 boxc = imageio.imread(path_box)
 boxc = np.ma.masked_array(boxc, mask=boxc<0)
 boxc_cells = boxc.count()
-
-# Fill
-# globals()['df_'+watershed_name] = pd.DataFrame()
 
 # Create folders
 stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
@@ -673,25 +638,24 @@ BV.hydraulic.update_hk_decay(hk_decay, min_value=Kmin, log_transf=Klog_transf) #
 BV.hydraulic.update_thick(thickness) # 30 / intervient pas si bottom != None
 
 recharges = [
-    ("REF", recharge_ref)
+    ("REF", recharge_dict)
 ]
 
 for irec, (name, drec) in enumerate(recharges):
-    print(f"{irec}: traitement de la recharge {name}")
     
     df_optim = pd.DataFrame()
     df_calib = pd.DataFrame()
     
-    # Specific recharge
-    recharge = drec.mean()/1000
-    BV.climatic.update_recharge(recharge, sim_state=sim_state)
+    mean_recharge_from_dict = (sum(drec.values()) / len(drec)).mean()
+    
+    BV.climatic.update_recharge(drec, sim_state=sim_state)
         
     KRmin = 1
     KRmax = 1000
 
     # Define permeability range
-    Kmin = KRmin * recharge
-    Kmax = KRmax * recharge
+    Kmin = KRmin * mean_recharge_from_dict
+    Kmax = KRmax * mean_recharge_from_dict
     
     # Params
     params_df = pd.DataFrame(columns=['params', 'init_values', 'lower_bounds', 'higher_bounds', 'units', 'scale'])
@@ -704,9 +668,6 @@ for irec, (name, drec) in enumerate(recharges):
     diff = p_max - p_min
     half = (p_min + p_max) / 2
 
-    # start = datetime.datetime.now()
-    # oclock_start = start.strftime("%Y%m%d_%Hh%Mm%Ss")
-    
     gap = 1
     compt = 0
     
@@ -720,17 +681,9 @@ for irec, (name, drec) in enumerate(recharges):
     
     while (diff > ((gap/100) * half)):
                             
-        # now = datetime.datetime.now()
-        # if  (now - start).seconds > datetime.timedelta(seconds=5*60).total_seconds():
-        #     print("Loop exceeded 5 minutes, terminating.")
-        #     df_optim.loc[0,:] = np.nan
-        #     df_optim.loc[0,'NAME_RECAL'] = watershed_name   
-        #     success_modflow = False
-        #     break                    
-        
         half = (p_min + p_max) / 2
         hyd_cond = half.copy() # if K in calib_params.csv
-        kr = hyd_cond / BV.climatic.recharge
+        kr = hyd_cond / mean_recharge_from_dict
         
         # Update value
         BV.hydraulic.update_hk(hyd_cond)
@@ -740,8 +693,8 @@ for irec, (name, drec) in enumerate(recharges):
                      str(name)+'_'+\
                      str(watershed_name)+'_'+str(int(round(area,1)))+'_'+\
                      str(compt)+'_'+\
-                     str(round(thickness,1))+'-'+str(int(round(recharge*365*1000,1)))+'_'+\
-                     str("{:.1e}".format(hyd_cond/24/3600))+'-'+str(int(round(hyd_cond/recharge,1))) #+'-'+oclock
+                     str(round(thickness,1))+'-'+str(int(round(mean_recharge_from_dict*365*1000,1)))+'_'+\
+                     str("{:.1e}".format(hyd_cond/24/3600))+'-'+str(int(round(hyd_cond/mean_recharge_from_dict,1))) #+'-'+oclock
                      
         print(model_name)
         BV.settings.update_model_name(model_name)
@@ -756,10 +709,6 @@ for irec, (name, drec) in enumerate(recharges):
         # Run
         model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
         success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-        
-        # if not success_modflow:
-        #     print("Modflow run failed, retrying if possible.")
-        #     break  # Sortie prématurée pour forcer retry
         
         # Cells
         if compt == 0:
@@ -828,7 +777,7 @@ for irec, (name, drec) in enumerate(recharges):
         df_calib.loc[compt,'NAME_RECAL'] = watershed_name  
         df_calib.loc[compt,'MODEL_NAME'] = model_name
         df_calib.loc[compt,'COMPT_SIM'] = compt
-        df_calib.loc[compt,'INPUT_REC'] = round(BV.climatic.recharge*1000*365, 4) # mm/y
+        df_calib.loc[compt,'INPUT_REC'] = round(mean_recharge_from_dict*1000*365, 4) # mm/y
         df_calib.loc[compt,'AQUI_THICK'] = round(thickness, 4)
         df_calib.loc[compt,'DSO'] = round(sim, 4)
         df_calib.loc[compt,'DOS'] = round(obs, 4)
@@ -836,7 +785,7 @@ for irec, (name, drec) in enumerate(recharges):
         df_calib.loc[compt,'DSO/DOS'] = round(indicator, 4)
         df_calib.loc[compt,'DSO/DOS_LG'] = round(np.log10(indicator)**2, 10)                    
         df_calib.loc[compt,'K_OPTIM'] = float("{:.5e}".format(hyd_cond/24/3600))                
-        df_calib.loc[compt,'K/R_OPTIM'] = round(hyd_cond/BV.climatic.recharge, 4)
+        df_calib.loc[compt,'K/R_OPTIM'] = round(hyd_cond/mean_recharge_from_dict, 4)
         df_calib.loc[compt,'TMAX_OPTIM'] = df_calib.loc[compt,'K_OPTIM'] * thickness
 
         compt += 1
@@ -881,7 +830,7 @@ for irec, (name, drec) in enumerate(recharges):
         
         df_optim.loc[0,'COMPT_SIM'] = compt
         
-        df_optim.loc[0,'INPUT_REC'] = round(BV.climatic.recharge*1000*365, 4) # mm/y
+        df_optim.loc[0,'INPUT_REC'] = round(mean_recharge_from_dict*1000*365, 4) # mm/y
         df_optim.loc[0,'AQUI_THICK'] = round(thickness, 4)
     
         df_optim.loc[0,'DSO'] = round(sim, 4)
@@ -892,7 +841,7 @@ for irec, (name, drec) in enumerate(recharges):
         df_optim.loc[0,'OF_DSO/DOS'] = round(np.log10(indicator)**2, 10)
     
         df_optim.loc[0,'K_OPTIM'] = float("{:.5e}".format(hyd_cond/24/3600))                
-        df_optim.loc[0,'K/R_OPTIM'] = round(hyd_cond/BV.climatic.recharge, 4)
+        df_optim.loc[0,'K/R_OPTIM'] = round(hyd_cond/mean_recharge_from_dict, 4)
         
         df_optim.loc[0,'WT_ELEV'] = round(sim_series['watertable_elevation'].values[0], 4)
         df_optim.loc[0,'WT_DEPTH'] = round(sim_series['watertable_depth'].values[0], 4)
