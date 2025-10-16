@@ -51,7 +51,7 @@ A HydroModPy environment can be installed with "conda" using the ".yml" file ava
 (0) Open Anaconda Prompt :
 ```
 cd /d "path/where/is/the/install/directory/"
-conda env create -f environment_windows.yml -n hydromodpy-0.1
+conda env create -f env_hydromodpy-0.1_windows.yml -n hydromodpy-0.1
 ```
 
 ## Launch HydroModPy
@@ -83,6 +83,8 @@ jupyter notebook
 ## Linked publications
 
 Papers published using HydroModPy.
+
+Abhervé, R., Roques, C., de Dreuzy, J.-R., Van Der Veen, T., Dumaine, L., Chatton, E., Brunner, P., Aquilina, L., & Servière, L. (2025). Projected climate change impacts on groundwater-surface water connectivity in a compartmentalized mountain headwater bedrock aquifer. Water Resources Research, 61(10), https://doi.org/10.1029/2025WR040083
 
 Marti, E., Leray, S., & Roques, C. (2024). Catchment landforms predict groundwater-dependent wetland sensitivity to recharge changes. Hydrology and Earth System Sciences Discussions. https://doi.org/10.5194/HESS-2024-381
 
