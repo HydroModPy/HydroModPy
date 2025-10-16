@@ -309,6 +309,25 @@ grid_to_imitate = os.path.join(stable_folder, 'geographic', 'watershed_box_buff_
 # dict() = (1095, 100, 100) ==> 1095 pas de temps
 """
 
+import xarray as xr
+import rioxarray as rxr
+
+nc_path  = r"C:\Users\Pelissierm\Hydromodpy\examples\results\Example_10_Urse\results_pyhelp\_sim_0.8640000000000001\_pyhelp_outputs_grid.nc"
+dem_path = r"C:\Users\Pelissierm\Hydromodpy\examples\results\Example_10_Urse\results_stable\geographic\watershed_box_buff_dem.tif"
+
+
+ds  = xr.open_dataset(nc_path)
+dem = rxr.open_rasterio(dem_path)
+
+R = ds["rechg"]  
+R = R.rio.write_crs(dem.rio.crs)
+
+Rt   = R.rio.reproject_match(dem, nodata=0.0) 
+cube = Rt.values
+
+recharge_dict = {i: cube[i] for i in range(cube.shape[0])}
+
+
 #%% YEARLY
 
 rec_path = pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean_formatted.csv"

@@ -35,6 +35,7 @@ import pandas as pd
 import xarray as xr
 from pyhelp.daily_output import read_daily_help_output
 from pyhelp.pyhelp_grid import PyhelpGrid
+from .pyhelp_netcdf_writer import pyhelp_outputs_rasterized_netcdf  
 
 
 
@@ -217,79 +218,14 @@ def preprocessing_pyhelp(
     proc.check_returncode()
     
     
-    #%% Daily NETCDF file generation
     
-    print("[INFO] PyHELP outputs NETCDF generation... ")
-    temp_dir1 = workdir / "help_input_files" / ".temp"    
-    temp_dir = Path(temp_dir1) 
-    if temp_dir.exists():
-        out_files = sorted(temp_dir.glob("*.OUT"))
-        if out_files:
-            dates_ref  = None
-            cids, xs, ys = [], [], []
-            stacks = {"runoff": [], "evapo": [], "rechg": []}
-            
-            #grid_csv = workdir / "_pyhelp_run" / "input_grid_base1.csv"
+    #%% Daily and spatialised NETCDF file generation
 
-            df_grid = pd.read_csv(grid_csv)
-
-            # Same cid in both cases test
-            df_grid["cid"] = df_grid["cid"].astype(str)
-            xy_dict = dict(zip(df_grid["cid"], zip(df_grid["lon_dd"], df_grid["lat_dd"])))
-            
-            #cid 
-            for fp in out_files:
-                cid = fp.stem
-                data = read_daily_help_output(fp)
-                if not data["rain"]: 
-                    continue  
-
-                # dates
-                dates = [
-                    pd.Timestamp(y, 1, 1) + pd.Timedelta(days=d - 1)
-                    for y, d in zip(data["years"], data["days"])
-                ]
-                if dates_ref is None:
-                    dates_ref = pd.Index(dates, name="time")
-                elif len(dates) != len(dates_ref):
-                    print(f"[WARN] {cid} : longueur de série différente, ignoré")
-                    continue
-
-                # Values
-                stacks["runoff"].append(np.asarray(data["runoff"], dtype="float32"))
-                stacks["evapo"].append(np.asarray(data["et"], dtype="float32"))
-                stacks["rechg"].append(np.asarray(data["leak_last"], dtype="float32"))
-
-                # coordinates
-                x, y = xy_dict.get(cid, (np.nan, np.nan))
-                cids.append(cid); xs.append(x); ys.append(y)
-
-            if cids:
-                coords = {
-                    "time": dates_ref,
-                    "cell": ("cell", cids),
-                    "x":    ("cell", xs),
-                    "y":    ("cell", ys),
-                }
-                ds_pts = xr.Dataset({
-                    v: xr.DataArray(
-                        np.column_stack(stacks[v]),
-                        dims=("time", "cell"),
-                        coords=coords,
-                        attrs={"units": "mm"},
-                    )
-                    for v in ("runoff", "evapo", "rechg")
-                })
-
-                enc2 = {v: {"zlib": True, "complevel": compress_level}
-                        for v in ds_pts.data_vars}
-                nc_pts = outpath / "_pyhelp_outputs_points.nc"
-                ds_pts.to_netcdf(nc_pts, format="NETCDF4", encoding=enc2)
-                print(f"[OK] NetCDF created : {nc_pts}")
-                print("[INFO] PyHELP processing is over.")
-                shutil.rmtree(os.path.join(workdir, 'help_input_files', '.temp'))
-        else:
-            print("[INFO] No *.OUT* file found, NetCDF point not created")
-    else:
-        print("[INFO] Folder .temp not found ; NetCDF point not created")
-
+    nc_grid = pyhelp_outputs_rasterized_netcdf(
+        workdir=workdir,
+        outpath=outpath,
+        grid_csv=grid_csv,
+        dem=dem,
+        compress_level=compress_level,
+        clean_temp=True,
+    )
