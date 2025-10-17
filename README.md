@@ -15,16 +15,17 @@ The second goal is to facilitate the visualization and comparison of results fro
 
 ## Authors
 
-Alexandre Gauvain [1,2], Ronan Abhervé [1,3],  Alexandre Coche [1], Martin Le Mesnil [1], Clément Roques [3], Camille Bouchez [1],  Jean Marçais [4], Sarah Leray [5], Etienne Marti [5], Etienne Bresciani [8], Camille Vautier [1], Bastien Boivin [1], June Sallou [6], Johan Bourcier [7], Benoit Combemale [7], Philip Brunner [3], Laurent Longuevergne [1], Luc Aquilina [1], Jean-Raynald de Dreuzy [1]. 
+Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le Mesnil [1], Clément Roques [3], Camille Bouchez [1],  Jean Marçais [4], Sarah Leray [5], Etienne Marti [5], Ronny Figueroa [3], Etienne Bresciani [6], Camille Vautier [1], Bastien Boivin [1], June Sallou [7], Johan Bourcier [8], Benoit Combemale [8], Philip Brunner [3], Laurent Longuevergne [1], Luc Aquilina [1], Jean-Raynald de Dreuzy [1].
 
-- [1] Univ Rennes, CNRS, Geosciences Rennes — UMR 6118, Rennes, France
-- [2] Laboratoire de Météorologie Dynamique (LMD), CNRS, Sorbonne Université, Paris, France
+- [1] Geosciences Rennes -- UMR 6118, CNRS, Université de Rennes, Rennes, France 
+- [2] Laboratoire de Météorologie Dynamique (LMD), CNRS, Sorbonne Université, Paris, France 
 - [3] Centre for Hydrogeology and Geothermics (CHYN), Université de Neuchâtel, Neuchâtel, Switzerland
-- [4] INRAE, UR RiverLy, Villeurbanne, France
+- [4] INRAE, UR RiverLy, Centre Lyon-Grenoble Auvergne-Rhône-Alpes, Villeurbanne, France
 - [5] Pontificia Universidad Católica de Chile, Santiago, Chile
-- [6] INF, Wageningen University & Research, Wageningen, Netherlands 
-- [7] Univ Rennes, Inria, CNRS, IRISA, Rennes, France
-- [8] Instituto de Ciencias de la Ingeniería, Universidad de O’Higgins, Rancagua, Chile
+- [6] Instituto de Ciencias de la Ingeniería, Universidad de O'Higgins, Rancagua, Chile 
+- [7] INF, Wageningen University \& Research, Wageningen, Netherlands
+- [8] Inria, IRISA, CNRS, Université de Rennes, Rennes, France
+- [9] INRAE, UMR SAS 1069, Centre Bretagne-Normandie, Rennes, France
 
 ## Links
 
@@ -51,7 +52,7 @@ A HydroModPy environment can be installed with "conda" using the ".yml" file ava
 (0) Open Anaconda Prompt :
 ```
 cd /d "path/where/is/the/install/directory/"
-conda env create -f environment_windows.yml -n hydromodpy-0.1
+conda env create -f env_hydromodpy-0.1_windows.yml -n hydromodpy-0.1
 ```
 
 ## Launch HydroModPy
@@ -78,11 +79,15 @@ jupyter notebook
  - 06_particle tracking for residence times
  - 07_analytical solution for streamflow recession
  - 08_exponential distribution of residence times
+ - 09_transport model for an agricultural catchment
+ - 10_coupling with land surface model pyhelp
 ```
 
 ## Linked publications
 
 Papers published using HydroModPy.
+
+Abhervé, R., Roques, C., de Dreuzy, J.-R., Van Der Veen, T., Dumaine, L., Chatton, E., Brunner, P., Aquilina, L., & Servière, L. (2025). Projected climate change impacts on groundwater-surface water connectivity in a compartmentalized mountain headwater bedrock aquifer. Water Resources Research, 61(10), https://doi.org/10.1029/2025WR040083
 
 Marti, E., Leray, S., & Roques, C. (2024). Catchment landforms predict groundwater-dependent wetland sensitivity to recharge changes. Hydrology and Earth System Sciences Discussions. https://doi.org/10.5194/HESS-2024-381
 
@@ -108,6 +113,6 @@ HydroModPy's user-friendly Python interface allows for testing and exploring var
 
 ## How to cite
 
-A paper about HydroModPy is in preparation for the journal Hydrology and Earth System Sciences.
+A paper about HydroModPy is in preparation for the journal Technical Note: Hydrology and Earth System Sciences.
 
-Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Bresciani, E., Vautier, C., Boivin, B., Sallou, J.,  Bourcier, J., Combemale, B., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. (2025). HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models. In preparation for Hydrology and Earth System Sciences.
+Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C., Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L., Aquilina, L., and de Dreuzy, J.-R. (2025). Technical note: HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models. Hydrology and Earth System Sciences. In prep.
