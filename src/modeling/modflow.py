@@ -1076,7 +1076,7 @@ class Modflow:
                 count = 0
                 for i in range(0, self.dis.nrow):
                     for j in range(0, self.dis.ncol):
-                      if self.drain_array[i,j] == 1:
+                       if self.drain_array[i,j] == 1:
                         self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
                         count = count + 1
                 self.out_drn = self.out_all[0]

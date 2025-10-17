@@ -19,6 +19,8 @@ warnings.filterwarnings('ignore', message='.*declare_namespace.*')
 # Libraries installed by default
 import sys
 import os
+import datetime
+import dateutil
 
 # Libraries need to be installed if not
 import numpy as np
@@ -82,9 +84,10 @@ print('The results of the example will be saved here :', out_path)
 #%% OPTIONS
 
 dem_path = os.path.join(data_path,'dem_guidel_25m.tif')
+# dem_path = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/dem_brittany/BDALTI_bzh_75m.tif'
 # load = True
 load = False
-watershed_name = 'Guidel_Upstream-Lannenec_v2'
+watershed_name = 'Guidel_Upstream-Lannenec_v3'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
@@ -96,6 +99,12 @@ save_object = True
 
 print('##### '+watershed_name.upper()+' #####')
 
+# BV = watershed_root.Watershed(dem_path=dem_path,
+#                               out_path=out_path,
+#                               load=load,
+#                               watershed_name=watershed_name,
+#                               save_object=save_object)
+
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
@@ -104,6 +113,8 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                              # nlay=10,
+                              # lay_thickness=20,
                               bottom_path=bottom_path, # path 
                               save_object=save_object)
 
@@ -219,23 +230,419 @@ BV.settings.update_dis_perlen(dis_perlen=dis_perlen)
 
 #%% MODFLOW
 
-model_modflow = BV.preprocessing_modflow(for_calib=False)
-success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+# model_modflow = BV.preprocessing_modflow(for_calib=False)
+# success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 
-#%% MODFLOW POSTPROCESSING
-if success_modflow == True:
-    BV.postprocessing_modflow(model_modflow,
-                              watertable_elevation = True,
-                              watertable_depth= True, 
-                              seepage_areas = True,
-                              outflow_drain = True,
-                              groundwater_flux = True,
-                              groundwater_storage = True,
-                              accumulation_flux = True,
-                              persistency_index = False,
-                              intermittency_monthly = False,
-                              intermittency_daily = False,
-                              export_all_tif = False)
+# #%% MODFLOW POSTPROCESSING
+# if success_modflow == True:
+#     BV.postprocessing_modflow(model_modflow,
+#                               watertable_elevation = True,
+#                               watertable_depth = True, 
+#                               seepage_areas = True,
+#                               outflow_drain = True,
+#                               groundwater_flux = True,
+#                               groundwater_storage = True,
+#                               accumulation_flux = True,
+#                               persistency_index = False,
+#                               intermittency_monthly = False,
+#                               intermittency_daily = False,
+#                               export_all_tif = False)
+
+
+
+#%% TEST
+
+shrenv={}
+
+# Modflow5
+from src.modeling import Modflow5
+mf5 = Modflow5('modflow5')
+mf5.set_iptpar(model_folder = BV.simulations_folder,  
+               model_name   = BV.settings.model_name)
+               # bin_path     = BV.bin_path)
+
+# spatial discretization
+from src.discretization import SDis
+sdis = SDis('sdis')
+sdis.set_iptpar(genmtd_surf   = 'from_demtif',
+                demtif_path   = BV.geographic.watershed_box_buff_dem,
+                genmtd_vert   = 'homogeneous',
+                crs           = 'EPSG:2154',
+                lenuni        = 'm',    
+                nlay          = 10,
+                lay_thickness = 2)
+mf5.add_module(sdis)
+
+# time discretization
+from src.discretization import TDis
+tdis = TDis('tdis')
+tdis.set_iptpar(sim_state = 'steady',
+                nper      = 1,
+                itmuni    = 'd')
+# tdis.set_iptpar(sim_state    = 'transient',
+#                 genmtd       = 'from_csv',
+#                 datefilepath = 'C:/Users/trist/Documents/teaching/2024-2025/M1_statistiques/TP/TP1_voilage/donnees_voilage_nettoyees.csv',
+#                 dateheader   = 'date',
+#                 dateformat   = '%d/%m/%Y %H:%M',
+#                 itmuni       = 'd')
+# tdis.set_iptpar(sim_state    = 'transient',
+#                 genmtd       = 'synthetic_regular',
+#                 itmuni       = 'd',
+#                 nper         = 30,
+#                 lenper       = 1)
+mf5.add_module(tdis)
+
+# hydraulic conductivity
+from parameters import HydraulicConductivity
+hhc = HydraulicConductivity('hhc')
+# hhc.set_iptpar(genmtd_sdis = 'homogeneous',
+#                 value       = 1.0e-5,
+#                 lenuni      = 'm',
+#                 itmuni      = 's',
+#                 sgrid       = 'from_shrenv',
+#                 tgrid       = 'from_shrenv')
+# hhc.set_iptpar(genmtd_sdis    = 'exp_decay_depth',
+#                surfvalue      = 1.0e-5*3600*24,
+#                decay_constant = 0.01,
+#                minvalue       = 1.0e-6*3600*24,
+#                lenuni         = 'm',
+#                itmuni         = 'd',
+#                sgrid          = 'from_shrenv',
+#                tgrid          = 'from_shrenv')
+hhc.set_iptpar(genmtd_sdis       = 'map_csv',
+                fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg2154.csv',
+                crs_map_pos      = 'EPSG:2154',
+                idheader_map_pos = 'facies',
+                # fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg27572.csv',
+                # crs_map_pos      = 'EPSG:27572',
+                fpath_map_par    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/hydro_parameters_guidel.csv',
+                idheader_value   = 'hk_ms',
+                lenuni           = 'm',
+                itmuni           = 's')
+mf5.add_module(hhc)
+
+# Specific yield
+from parameters import SpecificYield
+sy = SpecificYield('sy')
+sy.set_iptpar(genmtd_sdis = 'homogeneous',
+              value       = 0.01)
+mf5.add_module(sy)
+
+# Specific storage
+from parameters import SpecificStorage
+ss = SpecificStorage('ss')
+ss.set_iptpar(genmtd_sdis = 'homogeneous',
+              value       = 1e-10)
+mf5.add_module(ss)
+
+# Vertical anistropy K
+from parameters import VerticalAnisotropyK
+vka = VerticalAnisotropyK('vka')
+vka.set_iptpar(genmtd_sdis = 'homogeneous',
+               value       = 1)
+mf5.add_module(vka)
+
+# recharge
+from parameters import Recharge
+rec = Recharge('rec')
+rec.set_iptpar(genmtd_sdis = 'homogeneous',
+                genmtd_tdis = 'constant',
+                value = 300,
+                lenuni = 'mm',
+                itmuni = 'Y')
+# rec.set_iptpar(genmtd_sdis = 'homogeneous',
+#                 genmtd_tdis = 'chronicles_csv',
+#                 fpath_chron = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/rech_chronicles.csv',
+#                 dateheader_chron = 'date',
+#                 dateformat_chron = '%d/%m/%Y',
+#                 lenuni           = 'mm',
+#                 itmuni           = 'Y',
+#                 idheader_value   = 'station2',   
+#                 sgrid = 'from_shrenv',
+#                 tgrid = 'from_shrenv')
+# rec.set_iptpar(genmtd_sdis = 'map_csv',
+#                fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/weather_stations_pos_epsg2154.csv',
+#                crs_map_pos      = 'EPSG:2154',
+#                idheader_map_pos = 'station',
+#                 genmtd_tdis = 'chronicles_csv',
+#                 fpath_chron = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/rech_chronicles.csv',
+#                 dateheader_chron = 'date',
+#                 dateformat_chron = '%d/%m/%Y',
+#                 lenuni           = 'mm',
+#                 itmuni           = 'Y',  
+#                 first_clim       = 'mean',
+#                 sgrid = 'from_shrenv',
+#                 tgrid = 'from_shrenv')
+mf5.add_module(rec)
+
+# # Evapotranspiration
+# from parameters import Evapotranspiration
+# evtr = Evapotranspiration('evt')
+# evtr.set_iptpar(genmtd_sdis = 'homogeneous',
+#                 genmtd_tdis = 'constant',
+#                 genmtd_surf = 'from_dem',
+#                 value       = 50,
+#                 lenuni      = 'mm',
+#                 itmuni      = 'Y')
+# mf5.add_module(evtr)
+
+# # sea level
+# from parameters import SeaLevel
+# slvl = SeaLevel('sealvl')
+# slvl.set_iptpar(genmtd_tdis = 'constant',
+#                 value = 0,
+#                 lenuni = 'm',
+#                 sgrid = 'from_shrenv',
+#                 tgrid = 'from_shrenv')
+# # slvl.set_iptpar(genmtd_tdis = 'chronicles_csv',
+# #                 fpath_chron = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/rech_chronicles.csv',
+# #                 dateheader_chron = 'date',
+# #                 dateformat_chron = '%d/%m/%Y',
+# #                 idheader_value   = 'station2',
+# #                 lenuni           = 'mm', 
+# #                 sgrid = 'from_shrenv',
+# #                 tgrid = 'from_shrenv')
+# mf5.add_module(slvl)
+
+# initial boundary conditions
+from parameters import InitialBoundaryCondition
+ibound = InitialBoundaryCondition('ibnd')
+ibound.set_iptpar(genmtd_sdis = 'all_active')
+mf5.add_module(ibound)
+
+# initial heads
+from parameters import InitialHead
+strh = InitialHead('strh')
+strh.set_iptpar(genmtd_sdis = 'vertical_hydrostatic_equilibrium',
+                genmtd_ihd  = 'dem')
+mf5.add_module(strh)
+
+# drains
+from parameters import Drain
+drn = Drain('drn')
+drn.set_iptpar(genmtd_sdis  = 'surface_no_constanthead',
+               genmtd_value = 'conductance',
+               thickness    = 1,
+               lenuni       = 'm')
+mf5.add_module(drn)
+
+# wells 
+# TODO@TB: not implemented as its own class yet, but should be functional
+mf5.set_iptpar(well_coords = BV.settings.well_coords, 
+               well_fluxes = BV.settings.well_fluxes)
+
+# plot data options (hk...)
+# TODO@TB: rewrite
+mf5.set_advpar(plot_cross = BV.settings.plot_cross, 
+               # plot_cross = False,
+               # cross_ylim = BV.settings.cross_ylim, 
+               cross_ylim = [-200,50])
+
+# Check grid option (hk...) 
+mf5.set_advpar(check_grid = True)
+
+#%% TEST PP
+mf5.preprocessing(shrenv)
+shrenv,success_modflow = mf5.processing(shrenv)
+#%% TEST PP
+if success_modflow is True:
+    mf5.dem_watershed_path = BV.geographic.watershed_box_buff_dem  #TODO@TB
+    mf5.geographic = BV.geographic  #TODO@TB
+    mf5.postprocessing(shrenv)
+
+model_modflow = mf5
+#%% TEST MODULES
+
+# res={}
+
+
+# # spatial discretization
+# from src.discretization import SDis
+# sdis = SDis('sdis')
+# sdis.set_iptpar(genmtd_surf = 'from_demtif',
+#                 demtif_path = BV.geographic.watershed_box_buff_dem,
+#                 genmtd_vert = 'homogeneous',
+#                 crs = 'EPSG:2154',
+#                 lenuni = 'm',    
+#                 nlay = 10,
+#                 lay_thickness = 2)
+# sdis.preprocessing(res)
+# res = sdis.processing(res)
+
+# # time discretization
+# from src.discretization import TDis
+# tdis = TDis('tdis')
+# # tdis.set_iptpar(sim_state = 'steady',
+# #                 nper      = 1,
+# #                 itmuni    = 'd')
+# # tdis.set_iptpar(sim_state    = 'transient',
+# #                 genmtd       = 'from_csv',
+# #                 datefilepath = 'C:/Users/trist/Documents/teaching/2024-2025/M1_statistiques/TP/TP1_voilage/donnees_voilage_nettoyees.csv',
+# #                 dateheader   = 'date',
+# #                 dateformat   = '%d/%m/%Y %H:%M',
+# #                 itmuni       = 'd')
+# tdis.set_iptpar(sim_state    = 'transient',
+#                 genmtd       = 'synthetic_regular',
+#                 itmuni       = 'd',
+#                 nper         = 30,
+#                 lenper       = 1)
+# tdis.preprocessing(res)
+# res = tdis.processing(res)
+
+# # hydraulic conductivity
+# from parameters import HydraulicConductivity
+# hhc = HydraulicConductivity('hhc')
+# # hhc.set_iptpar(genmtd_sdis = 'homogeneous',
+# #                value       = 1.0e-5*3600*24,
+# #                lenuni      = 'm',
+# #                itmuni      = 'd',
+# #                sgrid       = 'from_shrenv',
+# #                tgrid       = 'from_shrenv')
+# # hhc.set_iptpar(genmtd_sdis    = 'exp_decay_depth',
+# #                surfvalue      = 1.0e-5*3600*24,
+# #                decay_constant = 0.01,
+# #                minvalue       = 1.0e-6*3600*24,
+# #                lenuni         = 'm',
+# #                itmuni         = 'd',
+# #                sgrid          = 'from_shrenv',
+# #                tgrid          = 'from_shrenv')
+# hhc.set_iptpar(genmtd_sdis      = 'map_csv',
+#                fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg2154.csv',
+#                crs_map_pos      = 'EPSG:2154',
+#                idheader_map_pos = 'facies',
+#                # fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg27572.csv',
+#                # crs_map_pos      = 'EPSG:27572',
+#                fpath_map_par    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/hydro_parameters_guidel.csv',
+#                idheader_value   = 'hk_ms',
+#                lenuni           = 'm',
+#                itmuni           = 's',
+#                sgrid            = 'from_shrenv',
+#                tgrid            = 'from_shrenv')
+
+# hhc.preprocessing(res)
+# res = hhc.processing(res)
+
+# # recharge
+# from parameters import Recharge
+# rec = Recharge('rec')
+# # rec.set_iptpar(genmtd_sdis = 'homogeneous',
+# #                 genmtd_tdis = 'constant',
+# #                 value = 300,
+# #                 lenuni           = 'mm',
+# #                 itmuni           = 'Y',
+# #                 sgrid = 'from_shrenv',
+# #                 tgrid = 'from_shrenv')
+# # rec.set_iptpar(genmtd_sdis = 'homogeneous',
+# #                 genmtd_tdis = 'chronicles_csv',
+# #                 fpath_chron = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/rech_chronicles.csv',
+# #                 dateheader_chron = 'date',
+# #                 dateformat_chron = '%d/%m/%Y',
+# #                 lenuni           = 'mm',
+# #                 itmuni           = 'Y',
+# #                 idheader_value   = 'station2',   
+# #                 sgrid = 'from_shrenv',
+# #                 tgrid = 'from_shrenv')
+# rec.set_iptpar(genmtd_sdis = 'map_csv',
+#                fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/weather_stations_pos_epsg2154.csv',
+#                crs_map_pos      = 'EPSG:2154',
+#                idheader_map_pos = 'station',
+#                 genmtd_tdis = 'chronicles_csv',
+#                 fpath_chron = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/rech_chronicles.csv',
+#                 dateheader_chron = 'date',
+#                 dateformat_chron = '%d/%m/%Y',
+#                 lenuni           = 'mm',
+#                 itmuni           = 'Y',  
+#                 first_clim       = 'mean',
+#                 sgrid = 'from_shrenv',
+#                 tgrid = 'from_shrenv')
+
+# rec.preprocessing(res)
+# res = rec.processing(res)
+
+# # sea level
+# from parameters import SeaLevel
+# slvl = SeaLevel('sealvl')
+# slvl.set_iptpar(genmtd_tdis = 'constant',
+#                 value = 0,
+#                 lenuni = 'm',
+#                 sgrid = 'from_shrenv',
+#                 tgrid = 'from_shrenv')
+# # slvl.set_iptpar(genmtd_tdis = 'chronicles_csv',
+# #                 fpath_chron = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/rech_chronicles.csv',
+# #                 dateheader_chron = 'date',
+# #                 dateformat_chron = '%d/%m/%Y',
+# #                 idheader_value   = 'station2',
+# #                 lenuni           = 'mm', 
+# #                 sgrid = 'from_shrenv',
+# #                 tgrid = 'from_shrenv')
+
+# slvl.preprocessing(res)
+# res = slvl.processing(res)
+
+# # initial boundary conditions
+# from parameters import InitialBoundaryCondition
+# ibound = InitialBoundaryCondition('ibnd')
+# ibound.set_iptpar(genmtd_sdis = 'all_active')
+
+# ibound.preprocessing(res)
+# res = ibound.processing(res)
+
+# # initial heads
+# from parameters import InitialHead
+# strh = InitialHead('strh')
+# strh.set_iptpar(genmtd_sdis = 'vertical_hydrostatic_equilibrium',
+#                 genmtd_ihd  = 'dem')
+
+# strh.preprocessing(res)
+# res = strh.processing(res)
+
+# # Specific yield
+# from parameters import SpecificYield
+# sy = SpecificYield('sy')
+# sy.set_iptpar(genmtd_sdis = 'homogeneous',
+#               value       = 0.02)
+
+# sy.preprocessing(res)
+# res = sy.processing(res)
+
+# # Specific storage
+# from parameters import SpecificStorage
+# ss = SpecificStorage('ss')
+# ss.set_iptpar(genmtd_sdis = 'homogeneous',
+#               value       = 2e-10)
+
+# ss.preprocessing(res)
+# res = ss.processing(res)
+
+# # Vertical anistropy K
+# from parameters import VerticalAnisotropyK
+# vka = VerticalAnisotropyK('vka')
+# vka.set_iptpar(genmtd_sdis = 'homogeneous',
+#                value       = 10)
+
+# vka.preprocessing(res)
+# res = vka.processing(res)
+
+# # Evapotranspiration
+# from parameters import Evapotranspiration
+# evtr = Evapotranspiration('evapo')
+# evtr.set_iptpar(genmtd_sdis = 'homogeneous',
+#                 genmtd_tdis = 'constant',
+#                 value       = 1e-3)
+
+# evtr.preprocessing(res)
+# res = evtr.processing(res)
+
+# # drains
+# from parameters import Drain
+# drn = Drain('drn')
+# drn.set_iptpar(genmtd_sdis  = 'surface_no_constanthead',
+#                genmtd_value = 'conductance',
+#                thickness    = 50,
+#                lenuni       = 'cm')
+
+# drn.preprocessing(res)
+# res = drn.processing(res)
 
 #%% MODPATH
 
@@ -1264,7 +1671,7 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
 
 #%% 2D
 
-# if sim_state == 'steady':
+# # if sim_state == 'steady':
 visu = visualization_results.Visualization(BV, model_name)
 visu.visual2D(object_list = ['map','grid',
                               'watertable', 'watertable_depth',
@@ -1277,6 +1684,18 @@ visu.visual2D(object_list = ['map','grid',
                               (0,100),(None,None),
                               ], 
               lines=500)
+
+# if sim_state == 'steady':
+# visu = visualization_results.Visualization(BV, model_name)
+# visu.visual2D(object_list = ['map','grid',
+#                               'watertable', 'watertable_depth',
+#                               'drain_flow','surface_flow'
+#                               ],
+#               color_scale = [(None,None),(None,None),
+#                               (None,None),(0,10),
+#                               (None,None),(None,None),
+#                               ], 
+#               lines=500)
 
 #%% SEEPAGE MAP
 

@@ -170,14 +170,14 @@ visualization_watershed.watershed_dem(BV)
 BV.add_climatic()
 
 ### Choice the case of recharge input
-# recharge_data = 'manual'
+recharge_data = 'manual'
 # recharge_data = 'reanalysis'
 # recharge_data = 'explore1'
 # recharge_data = 'explore2'
 # recharge_data = 'synthetic'
 # recharge_data = 'raster'
 # recharge_data = 'evapotranspiration'
-recharge_data = 'dictionary'
+# recharge_data = 'dictionary'
 ###
 
 if recharge_data == 'manual':
@@ -341,8 +341,8 @@ if recharge_data == 'dictionary':
 model_name = 'default'
 box = True # or False
 sink_fill = False # or True
-# sim_state = 'transient' # 'steady' or 'transient'
-sim_state = 'steady' # 'steady' or 'transient'
+sim_state = 'transient' # 'steady' or 'transient'
+# sim_state = 'steady' # 'steady' or 'transient'
 plot_cross = True
 cross_ylim = [-100,100]
 check_grid = True

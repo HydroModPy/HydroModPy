@@ -334,7 +334,7 @@ class Modpath:
         # ---- flflopy.modpath.Modpath6Basopy.modpath.mp6sim.StartingLocationsFile
         flopy.modpath.Modpath6Bas(self.mp,
                                   hnoflo=-9999,
-                                  hdry=-100,
+                                  hdry=-10000,   #TODO@TB: AAAAAH HAS TO BE THE SAME AS HDRY IN MF!!!
                                   # def_iface=[6, 6],
                                   def_face_ct=0,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
                                   laytyp=laytype,

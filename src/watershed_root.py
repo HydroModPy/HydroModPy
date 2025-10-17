@@ -137,8 +137,8 @@ class Watershed:
         if load==True:
             # Load from previously stored (saved) watershed
             success = self.__load_object()
-            # if success == True:
-                # print("Python object was successfully loaded as requested; imported from output directory")
+            if success == True:
+                print("Python object was successfully loaded as requested; imported from output directory")
             if success == False:
                 print("Python object was not successfully loaded as requested; so it was created from scratch instead")
                 # Definition of the watershed
@@ -353,7 +353,19 @@ class Watershed:
             visualization_watershed.watershed_zones(self) 
 
     #%% ADDING DATA
-    
+#####    
+    def add_geographic(self):
+        """
+        Public method to add climatic data.
+
+        Returns
+        -------
+        None.
+        """
+        self.geographic = geographic.Geographic(out_path=self.watershed_folder)
+        self.elt_def.append('geographic')
+        self.save_object()
+ ####   
     def add_climatic(self):
         """
         Public method to add climatic data.

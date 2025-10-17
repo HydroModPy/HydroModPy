@@ -36,9 +36,31 @@ from hydroeval import *
 import pandas as pd
 from affine import Affine
 import numpy as np
+from os.path import dirname, abspath
+from scipy.spatial import KDTree
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+
+#%% HYDROMODPY ROOT
+def hydromodpy_root(print_option: bool=False):
+    """
+    Get the environment variable containing the HydroModPy root folder path.
+    
+    Parameters
+    ----------
+    print_option : bool
+        If True, will print folder path in console.
+    
+    Returns
+    -------
+    folder : str
+        HydroModPy root folder path.
+    """
+    folder = dirname(dirname(dirname(abspath(__file__))))
+    if print_option == True:
+        print("HydroModPy root path directory is: {0}".format(folder.upper())) 
+    return folder
 
 #%% DIRECTORY MANAGEMENT
 
@@ -777,6 +799,29 @@ def reproject_shp(raw_shp_path, out_shp_path, utm_crs):
     shp.set_crs(epsg=crs_code, inplace=True, allow_override=True)
     # shp.to_crs(utm_crs)
     shp.to_file(out_shp_path)
+    
+def crs_reprojection(xini, yini, crs_in, crs_out):
+    """
+    Reprojects xy coordinates in initial crs into xy coordinates in output crs.
+    TODO@TB WIP description
+    Parameters
+    ----------
+    df : DataFrame or Series
+        DataFrame or Series with datetime index.
+    first : int
+        Starting year.
+    last : int
+        Ending year.
+
+    Returns
+    -------
+    df : DataFrame or Series
+        Clipped variable.
+    """
+    if crs_in == crs_out: return xini, yini
+    transformer = Transformer.from_crs(crs_in, crs_out)
+    xyres = transformer.transform(xini,yini)
+    return xyres[0], xyres[1]
 
 def select_period(df, first, last):
     """
@@ -798,7 +843,93 @@ def select_period(df, first, last):
     """
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
-  
+
+#%% UNIT CONVERSION
+def unitconversion_time(val, unin, unout, power: int=1):
+    """
+    Converts time unit of a value to another time unit.
+    TODO@TB WIP description
+    Parameters
+    ----------
+    df : DataFrame or Series
+        DataFrame or Series with datetime index.
+    first : int
+        Starting year.
+    last : int
+        Ending year.
+
+    Returns
+    -------
+    df : DataFrame or Series
+        Clipped variable.
+    """
+    # Values of different unit in s - same format as DateTime '%Y-%m-%d %H:%M:%S'
+    refdic = {'Y': 3600*24*365,
+              'm': 3600*24*365/12,
+              'd': 3600*24,
+              'H': 3600,
+              'M': 60,
+              's': 1}
+    # initial time unit to second
+    val = val * pow(refdic[unin], power)
+    # second to output time unit
+    val = val * pow(refdic[unout], -power)
+    return val
+
+def unitconversion_length(val, unin, unout, power: int=1):
+    """
+    Converts length unit of a value to another length unit.
+    TODO@TB WIP description
+    Parameters
+    ----------
+    df : DataFrame or Series
+        DataFrame or Series with datetime index.
+    first : int
+        Starting year.
+    last : int
+        Ending year.
+
+    Returns
+    -------
+    df : DataFrame or Series
+        Clipped variable.
+    """
+    # Values of different unit in m
+    refdic = {'km': 1000,
+              'm' : 1,
+              'dm': 0.1,
+              'cm': 0.01,
+              'mm': 0.001,
+              2   : 1}             # modflow5 Grid convention 2 = m
+    # initial time unit to meter
+    val = val * pow(refdic[unin], power)
+    # second to output time unit
+    val = val * pow(refdic[unout], -power)
+    return val
+
+#%% CLOSEST NEIGHBORS
+def closest_neighbors(data,sample,n):
+    """
+    Returns the n closest neighbor in data for all len(sample) candidates
+    TODO@TB WIP description
+    Parameters
+    ----------
+    df : DataFrame or Series
+        DataFrame or Series with datetime index.
+    first : int
+        Starting year.
+    last : int
+        Ending year.
+
+    Returns
+    -------
+    df : DataFrame or Series
+        Clipped variable.
+    """
+    kdtree=KDTree(data)
+    dist,points=kdtree.query(sample,n)
+    return dist,points
+
 
 #%% DISPLAY 
 
