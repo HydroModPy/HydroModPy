@@ -1,0 +1,28 @@
+name: pyhelp-0.1
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.8
+  - pip
+
+  - numpy
+  - pandas
+  - scipy
+  - xarray
+  - netcdf4
+  - bottleneck
+  - matplotlib
+
+  - gdal
+  - rasterio
+  - geopandas
+  - shapely
+  - fiona
+  - pyproj
+  - proj
+  - geos
+
+  - imageio
+  - h5netcdf

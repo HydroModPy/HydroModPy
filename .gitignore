@@ -12,3 +12,5 @@ examples/results/*
 !examples/results/readme.txt
 test/results/*
 !test/results/readme.txt
+users/
+users/*

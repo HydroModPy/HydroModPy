@@ -67,6 +67,7 @@ class Modflow:
                  hk_value=0.0864, sy_value: float=0.1, ss_value: float=1e-5,
                  hk_decay: list=[0.,None,False,[]], sy_decay: list=[0.,None,False,[]], ss_decay: list=[0.,None,False,[]],
                  vka: float=1.0,
+                 exdp: float=1,
                  # Well settings
                  well_coords: list=[], well_fluxes: list=[],
                  # Boundary settings
@@ -232,6 +233,7 @@ class Modflow:
         self.verti_hk = verti_hk
         
         self.vka = vka
+        self.exdp = exdp
         
         self.sy_value = sy_value
         self.sy_decay = sy_decay
@@ -653,9 +655,9 @@ class Modflow:
                 self.evt = flopy.modflow.ModflowEvt(self.mf,
                                                     evtr=self.evtData,
                                                     surf = self.dem,
-                                                    nevtop = 1, # default: 1 (top), 2 (layer), 3 (highest active)
-                                                    exdp = 10, # default: 1 (from surf normally)
-                                                    ievt = 1, # default: 1 (if layer)
+                                                    nevtop = 3, # 1 (top), 2 (layer), 3 (highest active) is default
+                                                    exdp = self.exdp, # default is 1 (1m from surface)
+                                                    ievt = 1, # default: 1 (if layer) ==> activated only if nevtop = 2
                                                     ipakcb = 1 # default: 0 
                                                     )
                 # Finally sets all negative of self.recharge to zero values for simulation
@@ -666,7 +668,10 @@ class Modflow:
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.recharge,(dict))==True:
-                self.rchData = self.recharge
+                if self.sim_state == 'steady': 
+                    self.rchData = (sum(self.recharge.values()) / len(self.recharge))
+                if self.sim_state == 'transient':
+                    self.rchData = self.recharge
             else:
                 if isinstance(self.recharge,(int,float)):
                     # Only value in self.climatic (steady)
