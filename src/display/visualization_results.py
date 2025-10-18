@@ -15,6 +15,7 @@
 # Python
 import vedo
 import numpy as np
+from collections.abc import Sequence
 from datetime import datetime
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -27,6 +28,7 @@ import flopy
 import os, sys
 import contextily as cx
 import matplotlib as mpl
+from matplotlib import rcsetup
 from IPython import get_ipython
 import imageio
 
@@ -411,10 +413,52 @@ class Visualization():
             The default is False.
         lines : int, optional
             the number of random pathlines displayed
+        cloc : tuple, optional
+            Scalar bar location either as legacy (x, y) anchor or as ((x0, y0), (x1, y1)) bounding box.
         """
         
         print('  Plot 3D maps visualization')
         
+        def _normalize_scalarbar_pos(raw_pos):
+            """Keep backward compatibility with legacy scalarbar coordinates."""
+            if raw_pos is None or isinstance(raw_pos, str):
+                return raw_pos
+
+            if not isinstance(raw_pos, Sequence):
+                return raw_pos
+
+            try:
+                if len(raw_pos) == 4 and not any(isinstance(v, Sequence) and not isinstance(v, str) for v in raw_pos):
+                    x0, y0, width, height = map(float, raw_pos)
+                    x0 = max(0.0, min(x0, 0.99))
+                    y0 = max(0.0, min(y0, 0.99))
+                    x1 = max(x0 + 0.01, min(x0 + width, 0.999))
+                    y1 = max(y0 + 0.01, min(y0 + height, 0.999))
+                    return ((x0, y0), (x1, y1))
+
+                if len(raw_pos) == 2:
+                    first, second = raw_pos
+                    if isinstance(first, Sequence) and not isinstance(first, str):
+                        if isinstance(second, Sequence) and not isinstance(second, str):
+                            return (
+                                (float(first[0]), float(first[1])),
+                                (float(second[0]), float(second[1])),
+                            )
+                    if not isinstance(first, Sequence) and not isinstance(second, Sequence):
+                        x0, y0 = float(first), float(second)
+                        width, height = 0.1, 0.45
+                        x0 = max(0.0, min(x0, 0.99))
+                        y0 = max(0.0, min(y0, 0.99))
+                        x1 = max(x0 + 0.01, min(x0 + width, 0.999))
+                        y1 = max(y0 + 0.01, min(y0 + height, 0.999))
+                        return ((x0, y0), (x1, y1))
+            except (TypeError, ValueError, IndexError):
+                return raw_pos
+
+            return raw_pos
+
+        scalarbar_pos = _normalize_scalarbar_pos(cloc)
+
         vedo.settings.default_backend= 'vtk'
         
         #vedo.settings.screeshot_scale = render
@@ -459,7 +503,7 @@ class Visualization():
             grid_mesh.cmap('terrain',zvals, vmin=min(zvals))
             # grid_mesh.add_scalarbar(pos=cloc, title='Topographic elevation [m]',
             #                        horizontal=False, titleFontSize=20)
-            grid_mesh.add_scalarbar(pos=cloc, 
+            grid_mesh.add_scalarbar(pos=scalarbar_pos, 
                                    horizontal=False)
             grid_mesh.scale([1,1,z_scale])
             
@@ -485,14 +529,14 @@ class Visualization():
         zvals = watertable_elev.points[:, 2]
         watertable_elev.cmap('Blues_r',zvals, vmin=min(zvals))
         # watertable_elev.add_scalarbar(pos=cloc, title='Watertable elevation [m]', horizontal=False, titleFontSize=20)
-        watertable_elev.add_scalarbar(pos=cloc, horizontal=False)
+        watertable_elev.add_scalarbar(pos=scalarbar_pos, horizontal=False)
         watertable_elev.scale([1,1,z_scale])
         #plt += watertable_elev
         
-        watertable_depth.map_cells_to_points
+        watertable_depth = watertable_depth.map_cells_to_points()
         watertable_depth.cmap('coolwarm_r',input_array='Drawdown', vmin=0, vmax=10)
         # watertable_depth.add_scalarbar(pos=cloc, title='Watertable depth [m]', horizontal=False, titleFontSize=20)
-        watertable_depth.add_scalarbar(pos=cloc, horizontal=False)
+        watertable_depth.add_scalarbar(pos=scalarbar_pos, horizontal=False)
         watertable_depth.scale([1,1,z_scale])
         #plt += watertable_depth
         
@@ -508,7 +552,7 @@ class Visualization():
             surface_flow = surface_flow.extract_cells([i for i, x in enumerate(nan_loc) if x])
             surface_flow.cmap('jet', 'Surfaceflow_log', on='cells')
             # surface_flow.add_scalarbar(pos=cloc, title='Flow (log)', horizontal=False, titleFontSize=20)
-            surface_flow.add_scalarbar(pos=cloc, horizontal=False)
+            surface_flow.add_scalarbar(pos=scalarbar_pos, horizontal=False)
             surface_flow.scale([1,1,z_scale])
             
         if 'drain_flow' in object_list:
@@ -524,7 +568,7 @@ class Visualization():
             else:
                 drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells')
             # drain_flow.add_scalarbar(pos=cloc, title='Seepage outflow log [m$^3$/d]', horizontal=False, titleFontSize=20)
-            drain_flow.add_scalarbar(pos=cloc,
+            drain_flow.add_scalarbar(pos=scalarbar_pos,
                                     horizontal=False)
             drain_flow.scale([1,1,z_scale])
             #except:
@@ -544,7 +588,7 @@ class Visualization():
             cmax = cmax
         pathlines_mesh.cmap('plasma_r', input_array='Time_log', vmin=cmin, vmax=cmax).lw(5)
         # pathlines_mesh.add_scalarbar(pos=cloc, title='Residence times log [y]', horizontal=False, titleFontSize=20)
-        pathlines_mesh.add_scalarbar(pos=cloc, horizontal=False)
+        pathlines_mesh.add_scalarbar(pos=scalarbar_pos, horizontal=False)
         pathlines_mesh.scale([1,1,z_scale])
         pathlines_mesh.render_lines_as_tubes(value=True)
         pathlines_mesh.legend('Pathlines')
@@ -621,6 +665,7 @@ class Visualization():
                 #plt.show(grid_mesh,drain_flow,camera=cam, viewup ='z', at=i, axes = 13)
         if interactive == True:
             plt.show(interactive=1)
+            plt.close()
         else:
             plt += __doc__
             plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname,
@@ -634,7 +679,32 @@ class Visualization():
         
         # Modules
         mpl.rcParams.update(mpl.rcParamsDefault)
-        get_ipython().run_line_magic('matplotlib', 'qt')
+        original_backend = plt.get_backend()
+        backend_supports_events = original_backend in rcsetup.interactive_bk
+        backend_switched = False
+
+        if interactive and not backend_supports_events:
+            try:
+                plt.switch_backend("QtAgg")
+            except Exception:
+                backend_supports_events = False
+                print(
+                    "  Unable to activate QtAgg; showing static plot and saving to "
+                    f"_postprocess/_figures/CROSS_{self.modelname}.png."
+                )
+            else:
+                backend_supports_events = True
+                backend_switched = True
+                print("  Matplotlib interactive backend enabled: QtAgg")
+        elif backend_supports_events:
+            print(f"  Matplotlib interactive backend active: {original_backend}")
+        else:
+            print(
+                "  Current Matplotlib backend is not interactive; showing static plot and saving to "
+                f"_postprocess/_figures/CROSS_{self.modelname}.png."
+            )
+
+        effective_interactive = interactive and backend_supports_events
         
         # Figure params
         fig, main_ax = plt.subplots(figsize=(5, 5))
@@ -791,10 +861,10 @@ class Visualization():
                 except Exception as e:
                     pass
         
-        if interactive == True:
+        if effective_interactive:
             cid = fig.canvas.mpl_connect('motion_notify_event', on_move)
-            fig.canvas.mpl_connect('close_event',
-                                lambda e: get_ipython().run_line_magic('matplotlib','inline'))
+        elif interactive:
+            print("  Current backend does not support interactivity; showing a static plot.")
         
         # Save and display
         fig.savefig(os.path.join(
@@ -802,6 +872,13 @@ class Visualization():
             '_postprocess','_figures',
             f'CROSS_{self.modelname}.png'
         ))
-        plt.show()
+        plt.show(block=effective_interactive)
+
+        if backend_switched:
+            plt.close(fig)
+            try:
+                plt.switch_backend(original_backend)
+            except Exception:
+                pass
 #%% NOTES        
         
