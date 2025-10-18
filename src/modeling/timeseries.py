@@ -23,7 +23,6 @@ try:
 except:
     import imageio
 from os.path import dirname, abspath
-from osgeo import gdal
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import glob
