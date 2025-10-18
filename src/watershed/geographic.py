@@ -22,7 +22,6 @@ import os
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from osgeo import gdal, osr # or import gdal
 import imageio
 from pyproj import Transformer
 from geopy.geocoders import Nominatim
@@ -242,16 +241,13 @@ class Geographic:
         Buffer distance operations
         """
         # Normalize initial buffer distance value
-        dem = gdal.Open(self.dem_path)
-        geodata = dem.GetGeoTransform()
+        with rasterio.open(self.dem_path) as dem_src:
+            pixel_width = abs(dem_src.transform.a)
         if isinstance(self.buff_percent,(str))!=True:
             buff_raw = (np.sqrt(float(self.area))) * (float(self.buff_percent)/100) * 1000
             buff_raw = int(round(buff_raw))
-            # print(buff_raw)
-            dist = np.linspace(0,buff_raw,buff_raw+1)*np.abs(geodata[1])
+            dist = np.linspace(0,buff_raw,buff_raw+1)*pixel_width
             buff_dist = dist[np.abs(dist-buff_raw).argmin()]
-        # print(buff_dist)
-        # Buffer the watershed shapefile polygon
         else:
             buff_dist = float(self.buff_percent)
         site_polyg = gpd.read_file(self.watershed_shp)
@@ -377,29 +373,28 @@ class Geographic:
         """
         
         # Open DEM used for modeling
-        dem = gdal.Open(self.watershed_buff_dem)
-        self.dem_data = dem.GetRasterBand(1).ReadAsArray()
-        self.geodata = dem.GetGeoTransform()
-        dem_box = gdal.Open(self.watershed_box_buff_dem)
-        self.dem_box_data = dem_box.GetRasterBand(1).ReadAsArray()
-        """
-        ### DELETE GDAL ###
-        bv = gdal.Open(self.watershed_dem)
-        self.dem_clip = bv.GetRasterBand(1).ReadAsArray()
-        """
-        with rasterio.open(self.watershed_dem, "r+") as src:
+        with rasterio.open(self.watershed_buff_dem) as dem_src:
+            self.dem_data = dem_src.read(1)
+            self.geodata = dem_src.transform.to_gdal()
+            dem_crs = dem_src.crs
+        with rasterio.open(self.watershed_box_buff_dem) as dem_box_src:
+            self.dem_box_data = dem_box_src.read(1)
+        with rasterio.open(self.watershed_dem) as src:
             # Read the data into a numpy array
             self.dem_clip = src.read(1)
             self.nodata = src.nodata            
         # Open DEM depressions
         try:
-            dem_dep = gdal.Open(self.depressions)
-            self.depressions_data = dem_dep.GetRasterBand(1).ReadAsArray()
-        except:
+            with rasterio.open(self.depressions) as dem_dep:
+                self.depressions_data = dem_dep.read(1)
+        except Exception:
             pass
         # Extract the coordinate system
-        proj = osr.SpatialReference(wkt=dem.GetProjection())
-        crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1)) 
+        if dem_crs:
+            epsg_code = dem_crs.to_epsg()
+            crs = f"EPSG:{epsg_code}" if epsg_code else dem_crs.to_string()
+        else:
+            crs = None
         # Extract size characteristics
         self.x_pixel = self.dem_box_data.shape[1] # columns
         self.y_pixel = self.dem_box_data.shape[0] # rows
@@ -482,10 +477,13 @@ class Geographic:
             shutil.copyfile(self.watershed_raw, self.watershed_dem)
         else:
             # Find crs
-            dem = gdal.Open(self.dem_path)
-            proj = osr.SpatialReference(wkt=dem.GetProjection())
-            self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
-            # print(self.crs)
+            with rasterio.open(self.dem_path) as dem_src:
+                src_crs = dem_src.crs
+            if src_crs:
+                epsg_code = src_crs.to_epsg()
+                self.crs = f"EPSG:{epsg_code}" if epsg_code else src_crs.to_string()
+            else:
+                self.crs = None
             # Copy tif
             self.watershed_raw = os.path.join(self.gis_path, 'watershed_raw.tif')
             shutil.copyfile(self.dem_path, self.watershed_raw)

@@ -30,7 +30,10 @@ import matplotlib.pyplot as plt
 import flopy
 import flopy.utils.binaryfile as fpu
 import imageio
-from osgeo import gdal # Error warnings to fix
+import rasterio as rio
+from rasterio.transform import from_origin
+from rasterio.warp import reproject
+from rasterio.enums import Resampling
 from scipy.optimize import curve_fit
 
 import whitebox
@@ -103,10 +106,34 @@ if case == 'Example_08_Synthetic':
         # specify input and output filenames
         inputFile = dem_path_ref
         outputFile = dem_path_res
-        # call gdal Warp
-        kwargs = {"format": "GTiff", "xRes": x_res, "yRes": y_res}
-        ds = gdal.Warp(outputFile, inputFile, **kwargs)
-        del(ds)
+        # resample le raster à la résolution souhaitée
+        with rio.open(inputFile) as src:
+            dst_transform = from_origin(
+                src.bounds.left,
+                src.bounds.top,
+                x_res,
+                y_res
+            )
+            dst_width = max(1, int(np.ceil((src.bounds.right - src.bounds.left) / x_res)))
+            dst_height = max(1, int(np.ceil((src.bounds.top - src.bounds.bottom) / y_res)))
+            dst_meta = src.meta.copy()
+            dst_meta.update({
+                "driver": "GTiff",
+                "transform": dst_transform,
+                "width": dst_width,
+                "height": dst_height
+            })
+            with rio.open(outputFile, "w", **dst_meta) as dst:
+                for band in range(1, src.count + 1):
+                    reproject(
+                        source=rio.band(src, band),
+                        destination=rio.band(dst, band),
+                        src_transform=src.transform,
+                        src_crs=src.crs,
+                        dst_transform=dst_transform,
+                        dst_crs=src.crs,
+                        resampling=Resampling.bilinear
+                    )
         
     x = imageio.imread(dem_path_res)
     x = (x*0)+1000*dL_fact

@@ -18,7 +18,7 @@ import os
 import pickle
 import pandas as pd
 import geopandas as gpd
-from osgeo import gdal, osr # or import gdal
+import rasterio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -261,8 +261,8 @@ class Watershed:
             self.crs_proj = watershed_info.iloc[0]['crs_proj']     
             
         if self.from_dem != None:
-            dem = gdal.Open(self.from_dem[0])
-            proj = osr.SpatialReference(wkt=dem.GetProjection())
+            with rasterio.open(self.from_dem[0]) as dem_src:
+                src_crs = dem_src.crs
             self.dem_path = self.from_dem[0]
             self.bottom_path = self.bottom_path
             self.cell_size = self.from_dem[1]
@@ -270,7 +270,11 @@ class Watershed:
             self.y_outlet = None
             self.snap_dist = None
             self.buff_percent = None
-            self.crs_proj = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+            if src_crs:
+                epsg_code = src_crs.to_epsg()
+                self.crs_proj = f"EPSG:{epsg_code}" if epsg_code else src_crs.to_string()
+            else:
+                self.crs_proj = None
                         
         if self.from_shp != None:
             shp_file = gpd.read_file(self.from_shp[0])

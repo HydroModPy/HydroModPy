@@ -22,12 +22,12 @@ import matplotlib as mpl
 from matplotlib.font_manager import FontProperties
 import rasterio as rio
 import rasterio.features # necessary to avoid a bug
+from rasterio.warp import calculate_default_transform, reproject
 import geopandas as gpd
 from shapely.geometry import Point
 import xarray as xr
 xr.set_options(keep_attrs = True)
 # import rioxarray as rio #Not necessary, the rio module from xarray is enough
-from osgeo import gdal, osr
 from pyproj import CRS
 from pyproj import Transformer
 from pyproj.aoi import AreaOfInterest
@@ -737,39 +737,79 @@ def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
     """
     Reproject raster from WGS to UTM projection.
     """
-    raw_dem = gdal.Open(raw_dem_path)    
-    warp = gdal.Warp(wgs_dem_path, raw_dem, dstSRS='EPSG:4326')
-    warp = None
-    
-    wgs_dem = gdal.Open(wgs_dem_path)
-    # proj = osr.SpatialReference(wkt=dem.GetProjection())
-    # self.crs = 'EPSG:'+str(proj.GetAttrValue('AUTHORITY',1))
+    with rio.open(raw_dem_path) as src:
+        dst_crs = rio.crs.CRS.from_epsg(4326)
+        transform, width, height = calculate_default_transform(
+            src.crs, dst_crs, src.width, src.height, *src.bounds
+        )
+        kwargs = src.meta.copy()
+        kwargs.update({
+            'crs': dst_crs,
+            'transform': transform,
+            'width': width,
+            'height': height
+        })
+        with rio.open(wgs_dem_path, 'w', **kwargs) as dst:
+            for band in range(1, src.count + 1):
+                reproject(
+                    source=rio.band(src, band),
+                    destination=rio.band(dst, band),
+                    src_transform=src.transform,
+                    src_crs=src.crs,
+                    dst_transform=transform,
+                    dst_crs=dst_crs,
+                    resampling=rio.enums.Resampling.bilinear
+                )
 
-    wgs_dem_data = wgs_dem.GetRasterBand(1).ReadAsArray()
-    geodata = wgs_dem.GetGeoTransform()
-    x_pixel = wgs_dem_data.shape[1] # columns
-    y_pixel = wgs_dem_data.shape[0] # rows
-    resolution_x = geodata[1] # pixelWidth: positive
-    resolution_y = geodata[5] # pixelHeight: negative
-    resolution = resolution_x
-    xmin = geodata[0] # originX
-    ymax = geodata[3] # originY
-    xmax = xmin + x_pixel * resolution_x
-    ymin = ymax + y_pixel * resolution_y
-    centroid = [xmin+((xmax-xmin)/2),ymin+((ymax-ymin)/2)]
-    
-    lon = centroid[0]
-    lat = centroid[1]
-    utm_crs_list = query_utm_crs_info(datum_name="WGS 84",area_of_interest=AreaOfInterest(
-                                                            west_lon_degree=lon,
-                                                            south_lat_degree=lat,
-                                                            east_lon_degree=lon,
-                                                            north_lat_degree=lat,),)
-    utm_crs = CRS.from_epsg(utm_crs_list[0].code).srs
-    
-    warp = gdal.Warp(utm_dem_path,wgs_dem,dstSRS=utm_crs.upper())
-    warp = None
-    
+    with rio.open(wgs_dem_path) as wgs_dem:
+        wgs_dem_data = wgs_dem.read(1)
+        geodata = wgs_dem.transform.to_gdal()
+        x_pixel = wgs_dem_data.shape[1] # columns
+        y_pixel = wgs_dem_data.shape[0] # rows
+        resolution_x = geodata[1] # pixelWidth: positive
+        resolution_y = geodata[5] # pixelHeight: negative
+        resolution = resolution_x
+        xmin = geodata[0] # originX
+        ymax = geodata[3] # originY
+        xmax = xmin + x_pixel * resolution_x
+        ymin = ymax + y_pixel * resolution_y
+        centroid = [xmin+((xmax-xmin)/2),ymin+((ymax-ymin)/2)]
+
+        lon = centroid[0]
+        lat = centroid[1]
+        utm_crs_list = query_utm_crs_info(
+            datum_name="WGS 84",
+            area_of_interest=AreaOfInterest(
+                west_lon_degree=lon,
+                south_lat_degree=lat,
+                east_lon_degree=lon,
+                north_lat_degree=lat,
+            ),
+        )
+        utm_crs = CRS.from_epsg(utm_crs_list[0].code).srs
+
+        dst_crs = rio.crs.CRS.from_string(utm_crs)
+        transform, width, height = calculate_default_transform(
+            wgs_dem.crs, dst_crs, wgs_dem.width, wgs_dem.height, *wgs_dem.bounds
+        )
+        kwargs = wgs_dem.meta.copy()
+        kwargs.update({
+            'crs': dst_crs,
+            'transform': transform,
+            'width': width,
+            'height': height
+        })
+        with rio.open(utm_dem_path, 'w', **kwargs) as dst:
+            for band in range(1, wgs_dem.count + 1):
+                reproject(
+                    source=rio.band(wgs_dem, band),
+                    destination=rio.band(dst, band),
+                    src_transform=wgs_dem.transform,
+                    src_crs=wgs_dem.crs,
+                    dst_transform=transform,
+                    dst_crs=dst_crs,
+                    resampling=rio.enums.Resampling.bilinear
+                )
     return utm_crs
 
 def reproject_coord(x_wgs, y_wgs):

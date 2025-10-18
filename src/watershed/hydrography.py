@@ -17,7 +17,7 @@ import os
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-from osgeo import gdal
+import rasterio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -120,10 +120,9 @@ class Hydrography:
                     self.tif_streams, 
                     self.tif_streams, 
                     back_value=-32768)
-        
-        dem_streams = gdal.Open(self.tif_streams)
-        self.streams_array = dem_streams.GetRasterBand(1).ReadAsArray()
-        self.streams_array = self.streams_array.astype(float)
+
+        with rasterio.open(self.tif_streams) as dem_streams:
+            self.streams_array = dem_streams.read(1).astype(float)
         self.streams_array[self.streams_array<0] = np.nan
                 
         pt_streams = data_folder + type_obs + '_pt.shp'

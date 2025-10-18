@@ -15,7 +15,7 @@
 # Python
 import os
 import numpy as np
-from osgeo import gdal
+import rasterio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -109,20 +109,21 @@ class Geology:
         self
             Add some variable in Geology class self object.
         """
-        dem_geo = gdal.Open(self.structure_dem_path)
-        dem_data = dem_geo.GetRasterBand(1).ReadAsArray()
+        with rasterio.open(self.structure_dem_path) as src:
+            dem_data = src.read(1)
         if self.landsea != None:
-                dem_T_M = gdal.Open(data_folder + 'Land_Sea.tif')
-                dem_data_T_M = dem_T_M.GetRasterBand(1).ReadAsArray()
+                with rasterio.open(data_folder + 'Land_Sea.tif') as dem_T_M:
+                        dem_data_T_M = dem_T_M.read(1)
+                dem_data = dem_data.astype(float, copy=False)
                 dem_data[dem_data_T_M==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
         self.geology_array = dem_data.astype(int)
         self.geology_code = np.intersect1d(self.geology_array, self.geology_array)
 
-        dem_geo_clip = gdal.Open(self.structure_dem_path)
-        dem_data_clip = dem_geo_clip.GetRasterBand(1).ReadAsArray()
+        with rasterio.open(self.structure_dem_path) as src_clip:
+            dem_data_clip = src_clip.read(1).astype(float)
         if self.landsea != None:
-                dem_T_M_clip = gdal.Open(data_folder + 'Land_Sea_clip.tif')
-                dem_data_T_M_clip = dem_T_M_clip.GetRasterBand(1).ReadAsArray()
+                with rasterio.open(data_folder + 'Land_Sea_clip.tif') as dem_T_M_clip:
+                        dem_data_T_M_clip = dem_T_M_clip.read(1)
                 dem_data_clip[dem_data_T_M_clip==0] = 1 # Condidering that the part imerged by the sea is a superficial formation
         dem_data_clip[dem_data_clip<0]= np.nan
         self.geology_array_clip = dem_data_clip.astype(int)
