@@ -1023,18 +1023,42 @@ filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
 
 # Charger toutes les images en base64
 def image_to_base64(path):
-    img = Image.open(path)
-    with BytesIO() as stream:
-        img.save(stream, format="png")
-        return "data:image/png;base64," + base64.b64encode(stream.getvalue()).decode("utf-8")
+    with Image.open(path) as img:
+        with BytesIO() as stream:
+            img.save(stream, format="png")
+            return "data:image/png;base64," + base64.b64encode(stream.getvalue()).decode("utf-8")
 
-image_sources = [image_to_base64(p) for p in filenames[:]]
+image_sources = [image_to_base64(p) for p in filenames]
+
+if not image_sources:
+    raise FileNotFoundError(f"No PNG files matching {begin_by}*.png were found")
+
+base_image = dict(
+    source=image_sources[0],
+    xref="paper",
+    yref="paper",
+    x=0.5,
+    y=0.5,
+    sizex=1,
+    sizey=1,
+    xanchor="center",
+    yanchor="middle",
+    sizing="contain"
+)
+
+frames = [
+    go.Frame(
+        name=str(i),
+        layout=go.Layout(images=[dict(base_image, source=src)])
+    )
+    for i, src in enumerate(image_sources)
+]
 
 # Première image (affichée par défaut)
 fig = go.Figure(
-    data=[go.Image(source=image_sources[0])],
     layout=go.Layout(
-        title="Slider pour naviguer entre les images",
+        title="Slider to navigate between images",
+        images=[base_image],
         updatemenus=[dict(
             type="buttons",
             showactive=False,
@@ -1056,23 +1080,21 @@ fig = go.Figure(
                 } for k in range(len(image_sources))
             ],
             "transition": {"duration": 0},
-            "x": 0.25,
-            "xanchor": "left",
+            "x": 0.5,
+            "xanchor": "center",
             "y": -0.01,
             "yanchor": "top",
-            "len": 0.5
+            "len": 0.85,
+            "pad": {"t": 40}
         }]
     ),
-    frames=[
-        go.Frame(data=[go.Image(source=img)], name=str(i))
-        for i, img in enumerate(image_sources)
-    ]
+    frames=frames
 )
 
 fig.update_layout(
     width=1600,
     height=900,
-    margin=dict(l=20, r=20, t=50, b=50),  # Petites marges pour respirer
+    margin=dict(l=60, r=60, t=60, b=90),  # Small margins for spacing
 )
 
 fig.update_xaxes(visible=False)
