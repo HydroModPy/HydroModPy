@@ -8,3 +8,4 @@ from .specific_yield import SpecificYield
 from .specific_storage import SpecificStorage
 from .vertical_anisotropy_K import VerticalAnisotropyK
 from .drain import Drain
+from .well import Well

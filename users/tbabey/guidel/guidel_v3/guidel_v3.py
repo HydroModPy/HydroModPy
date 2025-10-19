@@ -259,7 +259,6 @@ from src.modeling import Modflow5
 mf5 = Modflow5('modflow5')
 mf5.set_iptpar(model_folder = BV.simulations_folder,  
                model_name   = BV.settings.model_name)
-               # bin_path     = BV.bin_path)
 
 # spatial discretization
 from src.discretization import SDis
@@ -309,16 +308,16 @@ hhc = HydraulicConductivity('hhc')
 #                itmuni         = 'd',
 #                sgrid          = 'from_shrenv',
 #                tgrid          = 'from_shrenv')
-hhc.set_iptpar(genmtd_sdis       = 'map_csv',
-                fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg2154.csv',
-                crs_map_pos      = 'EPSG:2154',
-                idheader_map_pos = 'facies',
-                # fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg27572.csv',
-                # crs_map_pos      = 'EPSG:27572',
-                fpath_map_par    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/hydro_parameters_guidel.csv',
-                idheader_value   = 'hk_ms',
-                lenuni           = 'm',
-                itmuni           = 's')
+hhc.set_iptpar(genmtd_sdis      = 'map_csv',
+               fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg2154.csv',
+               crs_map_pos      = 'EPSG:2154',
+               idheader_map_pos = 'facies',
+               # fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg27572.csv',
+               # crs_map_pos      = 'EPSG:27572',
+               fpath_map_par    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/hydro_parameters_guidel.csv',
+               idheader_value   = 'hk_ms',
+               lenuni           = 'm',
+               itmuni           = 's')
 mf5.add_module(hhc)
 
 # Specific yield
@@ -426,10 +425,22 @@ drn.set_iptpar(genmtd_sdis  = 'surface_no_constanthead',
                lenuni       = 'm')
 mf5.add_module(drn)
 
-# wells 
-# TODO@TB: not implemented as its own class yet, but should be functional
-mf5.set_iptpar(well_coords = BV.settings.well_coords, 
-               well_fluxes = BV.settings.well_fluxes)
+# # wells 
+# from parameters import Well
+# wel = Well('well')
+# wel.set_iptpar(genmtd_pos       = 'map_csv',
+#                 fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/pumping_wells_pos_epsg2154.csv',
+#                 crs_map_pos      = 'EPSG:2154',
+#                 idheader_map_pos = 'wells',
+#                 genmtd_total_flux = 'chronicles_csv',
+#                 fpath_chron       = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/pumping_wells_chronicles_m3d.csv',
+#                 dateheader_chron  = 'date',
+#                 dateformat_chron  = '%d/%m/%Y',
+#                 lenuni            = 'm',
+#                 itmuni            = 'd',
+#                 genmtd_zdstr_flux = 'proportional_transmissivity',
+#                 opposite_flux_sign_option = True)
+# mf5.add_module(wel)
 
 # plot data options (hk...)
 # TODO@TB: rewrite
@@ -438,7 +449,7 @@ mf5.set_advpar(plot_cross = BV.settings.plot_cross,
                # cross_ylim = BV.settings.cross_ylim, 
                cross_ylim = [-200,50])
 
-# Check grid option (hk...) 
+# Check grid option (flow connectivity) 
 mf5.set_advpar(check_grid = True)
 
 #%% TEST PP
@@ -455,7 +466,6 @@ model_modflow = mf5
 
 # res={}
 
-
 # # spatial discretization
 # from src.discretization import SDis
 # sdis = SDis('sdis')
@@ -465,7 +475,7 @@ model_modflow = mf5
 #                 crs = 'EPSG:2154',
 #                 lenuni = 'm',    
 #                 nlay = 10,
-#                 lay_thickness = 2)
+#                 lay_thickness = 6)
 # sdis.preprocessing(res)
 # res = sdis.processing(res)
 
@@ -507,17 +517,17 @@ model_modflow = mf5
 # #                sgrid          = 'from_shrenv',
 # #                tgrid          = 'from_shrenv')
 # hhc.set_iptpar(genmtd_sdis      = 'map_csv',
-#                fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg2154.csv',
-#                crs_map_pos      = 'EPSG:2154',
-#                idheader_map_pos = 'facies',
-#                # fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg27572.csv',
-#                # crs_map_pos      = 'EPSG:27572',
-#                fpath_map_par    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/hydro_parameters_guidel.csv',
-#                idheader_value   = 'hk_ms',
-#                lenuni           = 'm',
-#                itmuni           = 's',
-#                sgrid            = 'from_shrenv',
-#                tgrid            = 'from_shrenv')
+#                 fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg2154.csv',
+#                 crs_map_pos      = 'EPSG:2154',
+#                 idheader_map_pos = 'facies',
+#                 # fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/geol_model_XYZ_epsg27572.csv',
+#                 # crs_map_pos      = 'EPSG:27572',
+#                 fpath_map_par    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/hydro_parameters_guidel.csv',
+#                 idheader_value   = 'hk_ms',
+#                 lenuni           = 'm',
+#                 itmuni           = 's',
+#                 sgrid            = 'from_shrenv',
+#                 tgrid            = 'from_shrenv')
 
 # hhc.preprocessing(res)
 # res = hhc.processing(res)
@@ -543,9 +553,9 @@ model_modflow = mf5
 # #                 sgrid = 'from_shrenv',
 # #                 tgrid = 'from_shrenv')
 # rec.set_iptpar(genmtd_sdis = 'map_csv',
-#                fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/weather_stations_pos_epsg2154.csv',
-#                crs_map_pos      = 'EPSG:2154',
-#                idheader_map_pos = 'station',
+#                 fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/weather_stations_pos_epsg2154.csv',
+#                 crs_map_pos      = 'EPSG:2154',
+#                 idheader_map_pos = 'station',
 #                 genmtd_tdis = 'chronicles_csv',
 #                 fpath_chron = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/rech_chronicles.csv',
 #                 dateheader_chron = 'date',
@@ -618,7 +628,7 @@ model_modflow = mf5
 # from parameters import VerticalAnisotropyK
 # vka = VerticalAnisotropyK('vka')
 # vka.set_iptpar(genmtd_sdis = 'homogeneous',
-#                value       = 10)
+#                 value       = 10)
 
 # vka.preprocessing(res)
 # res = vka.processing(res)
@@ -637,12 +647,30 @@ model_modflow = mf5
 # from parameters import Drain
 # drn = Drain('drn')
 # drn.set_iptpar(genmtd_sdis  = 'surface_no_constanthead',
-#                genmtd_value = 'conductance',
-#                thickness    = 50,
-#                lenuni       = 'cm')
+#                 genmtd_value = 'conductance',
+#                 thickness    = 50,
+#                 lenuni       = 'cm')
 
 # drn.preprocessing(res)
 # res = drn.processing(res)
+
+# from parameters import Well
+# wel = Well('well')
+
+# wel.set_iptpar(genmtd_pos       = 'map_csv',
+#                fpath_map_pos    = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/pumping_wells_pos_epsg2154.csv',
+#                crs_map_pos      = 'EPSG:2154',
+#                idheader_map_pos = 'wells',
+#                genmtd_total_flux = 'chronicles_csv',
+#                fpath_chron       = 'C:/Users/trist/Documents/SSH/HydroModPy/src/geomodeller/data/geol_model/pumping_wells_chronicles_m3d.csv',
+#                dateheader_chron  = 'date',
+#                dateformat_chron  = '%d/%m/%Y',
+#                lenuni            = 'm',
+#                itmuni            = 'd',
+#                genmtd_zdstr_flux = 'proportional_transmissivity',
+#                opposite_flux_sign_option = True)
+# wel.preprocessing(res)
+# res = wel.processing(res)
 
 #%% MODPATH
 
@@ -1672,30 +1700,30 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
 #%% 2D
 
 # # if sim_state == 'steady':
-visu = visualization_results.Visualization(BV, model_name)
-visu.visual2D(object_list = ['map','grid',
-                              'watertable', 'watertable_depth',
-                              'drain_flow','surface_flow',
-                              'pathlines', 'residence_times'
-                              ],
-              color_scale = [(None,None),(None,None),
-                              (None,None),(0,10),
-                              (None,None),(None,None),
-                              (0,100),(None,None),
-                              ], 
-              lines=500)
-
-# if sim_state == 'steady':
 # visu = visualization_results.Visualization(BV, model_name)
 # visu.visual2D(object_list = ['map','grid',
 #                               'watertable', 'watertable_depth',
-#                               'drain_flow','surface_flow'
+#                               'drain_flow','surface_flow',
+#                               'pathlines', 'residence_times'
 #                               ],
 #               color_scale = [(None,None),(None,None),
 #                               (None,None),(0,10),
 #                               (None,None),(None,None),
+#                               (0,100),(None,None),
 #                               ], 
 #               lines=500)
+
+# if sim_state == 'steady':
+visu = visualization_results.Visualization(BV, model_name)
+visu.visual2D(object_list = ['map','grid',
+                              'watertable', 'watertable_depth',
+                              'drain_flow','surface_flow'
+                              ],
+              color_scale = [(None,None),(None,None),
+                              (None,None),(0,10),
+                              (None,None),(None,None),
+                              ], 
+              lines=500)
 
 #%% SEEPAGE MAP
 

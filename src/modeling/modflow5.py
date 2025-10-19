@@ -36,7 +36,7 @@ import flopy
 import flopy.utils.binaryfile as fpu
 import flopy.utils.postprocessing as pp
 
-#Hydromodpy
+# Hydromodpy
 from tools import toolbox, Process
 from modeling import downslope
 
@@ -84,8 +84,6 @@ class Modflow5(Process):
         self._default_shared_parameters()
         
         # ==== TODO@TB: residuals of previous Modflow class initialization
-        self.set_iptpar(well_coords = [],
-                        well_fluxes = [])
         # default advanced parameters: plot options 
         self.set_advpar(plot_cross  = True,
                         cross_ylim = [])
@@ -204,6 +202,7 @@ class Modflow5(Process):
         groundwater_flux      = self.get_advpar['ppc_groundwater_flux']
         groundwater_storage   = self.get_advpar['ppc_groundwater_storage']
         accumulation_flux     = self.get_advpar['ppc_accumulation_flux']
+        verbose               = self.get_advpar['ppc_verbose']
         persistency_index     = self.get_advpar['ppc_persistency_index']
         intermittency_yearly  = self.get_advpar['ppc_intermittency_yearly']
         intermittency_monthly = self.get_advpar['ppc_intermittency_monthly']
@@ -295,7 +294,8 @@ class Modflow5(Process):
         
         # Loop over times: fills each of the previous structures and create raster
         for item, time in enumerate(self.times):
-            print(' Post-processing:  Stress period:   ', str(int(item+1)), ' / ', str(len(self.times)))
+            if verbose == True:
+                print(' Post-processing:  Stress period:   ', str(int(item+1)), ' / ', str(len(self.times)))
             
             if len(self.times) == 1:
                 self.kstpkper = self.kstpkpers[0]
@@ -433,30 +433,38 @@ class Modflow5(Process):
             
         ### Save dictionaries to npy
         if watertable_elevation == True:
-            print('  ','Export watertable elevation')
+            if verbose == True:
+                print('  ','Export watertable elevation')
             np.save(self.save_file+'/watertable_elevation', self.dict_watertable_elevation)
         if watertable_depth == True:
-            print('  ','Export watertable depth')
+            if verbose == True:
+                print('  ','Export watertable depth')
             np.save(self.save_file+'/watertable_depth', self.dict_watertable_depth)
         if seepage_areas == True:
-            print('  ','Export seepage areas')
+            if verbose == True:
+                print('  ','Export seepage areas')
             np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
         if outflow_drain == True:
-            print('  ','Export outflow drain')
+            if verbose == True:
+                print('  ','Export outflow drain')
             np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
         if groundwater_flux == True:
-            print('  ','Export groundwater flux')
+            if verbose == True:
+                print('  ','Export groundwater flux')
             np.save(self.save_file+'/groundwater_flux', self.dict_groundwater_flux)
         if groundwater_storage == True:
-            print('  ','Export groundwater storage')
+            if verbose == True:
+                print('  ','Export groundwater storage')
             np.save(self.save_file+'/groundwater_storage', self.dict_groundwater_storage)
         if accumulation_flux == True:
-            print('  ','Export accumulation flux')
+            if verbose == True:
+                print('  ','Export accumulation flux')
             np.save(self.save_file+'/accumulation_flux', self.dict_accumulation_flux)
 
         if persistency_index == True:
             ### Persistency index
-            print('  ','Export persistency index')
+            if verbose == True:
+                print('  ','Export persistency index')
             acc_npy_raw = np.load(os.path.join(self.save_file,'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -482,7 +490,8 @@ class Modflow5(Process):
             
         if intermittency_daily == True:
             ### Intermittency daily
-            print('  ','Export intermittency daily')
+            if verbose == True:
+                print('  ','Export intermittency daily')
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -525,7 +534,8 @@ class Modflow5(Process):
             np.save(self.save_file+'/intermittency_daily', self.dict_intermittency_daily)
         
         if intermittency_weekly == True:
-            print('  ','Export intermittency weekly')
+            if verbose == True:
+                print('  ','Export intermittency weekly')
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -569,7 +579,8 @@ class Modflow5(Process):
         
         if intermittency_monthly == True:
             ### Intermittency monthly
-            print('  ','Export intermittency monthly')
+            if verbose == True:
+                print('  ','Export intermittency monthly')
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -612,7 +623,8 @@ class Modflow5(Process):
             
         if intermittency_yearly == True:
             ### Intermittency monthly
-            print('  ','Export intermittency yearly')
+            if verbose == True:
+                print('  ','Export intermittency yearly')
             acc_npy_raw = np.load(os.path.join(self.save_file, 'accumulation_flux.npy'),
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
@@ -715,6 +727,7 @@ class Modflow5(Process):
                         ppc_groundwater_flux      = True,
                         ppc_groundwater_storage   = True,
                         ppc_accumulation_flux     = True,
+                        ppc_verbose               = True,
                         ppc_persistency_index     = False,
                         ppc_intermittency_yearly  = False,
                         ppc_intermittency_monthly = False,
@@ -737,14 +750,13 @@ class Modflow5(Process):
                         vka    = 'vka',
                         rch    = 'rch',
                         evt    = 'evt',
+                        wel    = 'wel',
                         drn    = 'drn')
     
     # %%% PRIVATE METHODS: PREPROCESSING
     # workflow paths consolidation
     def _workflow_paths(self):
-        # TODO@TB clean up? No - iptpar should be relative, while self
-        # should be absolute, user-specific paths. Only model_name remains
-        # unchanged
+        # iptpar is relative path, property is absolute user-specific path
         self.model_folder = self.get_iptpar['model_folder']
         self.model_name   = self.get_iptpar['model_name']
         self.bin_path     = self.get_iptpar['bin_path']
@@ -767,7 +779,7 @@ class Modflow5(Process):
         self.full_path = os.path.join(self.model_folder, self.model_name)
     
     
-    # processing modules
+    # preprocessing and processing modules
     def _processing_modules(self, shrenv):
         for modname in self.get_module:
             mod = self.get_module[modname]
@@ -782,11 +794,11 @@ class Modflow5(Process):
         # Flopy initialization of Modflow model
         # ---- flopy.modflow.Modflow
         self.mf = flopy.modflow.Modflow(modelname = self.get_iptpar['model_name'], 
-                                        exe_name  = self.exe,  #TODO path
+                                        exe_name  = self.exe,  
                                         version   = self.get_advpar['mf_version'],
                                         listunit  = self.get_advpar['mf_listunit'],
                                         verbose   = self.get_advpar['mf_verbose'],
-                                        model_ws  = self.full_path) #TODO path   
+                                        model_ws  = self.full_path)    
         
         # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
         # Sets up numerical parameters
@@ -913,38 +925,20 @@ class Modflow5(Process):
                                             stress_period_data = drndat)
         
                
-        # %%%% Well package 
-        # TODO@TB: should be functional - but should also be rewritten as 
-        # Process class
+        # %%%% Well package (optional)
+        welnam = self.get_shrpar['wel']
+        weldat = self.get_envar(shrenv,welnam)
         
-        well_coords = self.get_iptpar['well_coords']
-        well_fluxes = self.get_iptpar['well_fluxes']
-        
-        if (well_coords != []) or (len(well_coords) > 0):
-    
-            # Number of stress periods
-            n_stress_periods = len(tgrid.nper)
-            n_wells = len(well_coords)
-            
-            # Initialize the dictionary
-            lrcq = {}
-            
-            # Populate the dictionary with well data for each stress period
-            for t in range(n_stress_periods):
-                list_t = []
-                for n in range(n_wells):
-                    list_t.append([*well_coords[n], well_fluxes[n][t]])
-                lrcq[t] = list_t
-            
-            # ---- flopy.modflow.ModflowWel
+        # ---- flopy.modflow.ModflowWel
+        if weldat != None:
             self.wel = flopy.modflow.ModflowWel(model  = self.mf,
                                                 ipakcb = self.get_advpar['wel_ipakcb'],
                                                 stress_period_data 
-                                                       = lrcq)
+                                                       = weldat)
         
         # %%%% Output control
         
-        # TODO@TB: should be parameterized by its own class 
+        # TODO@TB: should be parameterized by its own class? 
         oc_stress_period_save = self.get_advpar['oc_stress_period_save']
         if oc_stress_period_save == 'end_each_stress_period':
             oc_stress_period_data = self.get_advpar['oc_stress_period_data']           

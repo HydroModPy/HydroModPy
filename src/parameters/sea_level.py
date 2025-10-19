@@ -199,7 +199,6 @@ class SeaLevel(Process):
             dem_matc = dem_matc[dem_matc['dem'] - dem_matc['shead'] <= 0]
             resmat = dem_matc[['l','r','c','shead','ehead']].to_numpy()
             resdict.update({i:resmat})
-            # if self.get_iptpar['genmtd_tdis'] == 'constant': break
             
         return resdict   
         
