@@ -45,8 +45,8 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from tools import toolbox
-from modeling import downslope, masstransfer
+from hydromodpy.tools import toolbox
+from hydromodpy.modeling import downslope, masstransfer
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% CLASS

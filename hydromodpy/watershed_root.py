@@ -29,14 +29,14 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
-from modeling import modflow, modpath, mt3dms, timeseries, netcdf
-from display import visualization_watershed
-from tools import toolbox
+from hydromodpy.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
+from hydromodpy.modeling import modflow, modpath, mt3dms, timeseries, netcdf
+from hydromodpy.display import visualization_watershed
+from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #pyhelp
-from pyhelp import pyhelp_netcdf
+from hydromodpy.pyhelp import pyhelp_netcdf
 
 #%% CLASS
 
