@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
- * Copyright (c) 2023 Clément, Roques, Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ * Copyright (C) 2023-2025 Clément, Roques, Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
