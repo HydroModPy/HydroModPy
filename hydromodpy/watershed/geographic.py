@@ -224,6 +224,8 @@ class Geographic:
         if self.from_shp != None:
             self.watershed_shp = os.path.join(self.gis_path, 'watershed.shp')
             shp_file = gpd.read_file(self.from_shp[0])
+            # Remove duplicate columns if any exist
+            shp_file = shp_file.loc[:, ~shp_file.columns.duplicated()]
             shp_file.to_file(self.watershed_shp)
         wbt.polygon_area(self.watershed_shp)
         # Create shapefile polyline of the watershed
@@ -251,6 +253,8 @@ class Geographic:
         else:
             buff_dist = float(self.buff_percent)
         site_polyg = gpd.read_file(self.watershed_shp)
+        # Remove duplicate columns if any exist
+        site_polyg = site_polyg.loc[:, ~site_polyg.columns.duplicated()]
         site_polyg.to_file(self.watershed_shp)
         site_polyg['geometry'] = site_polyg.geometry.buffer(buff_dist)
         buffer = os.path.join(self.gis_path, 'buff.shp')
@@ -264,12 +268,16 @@ class Geographic:
         wbt.minimum_bounding_envelope(self.watershed_shp, self.watershed_box_shp, features=False)
         # Buffer the box extent watershed shapefile polygon
         site_bound = gpd.read_file(self.watershed_box_shp)
+        # Remove duplicate columns if any exist
+        site_bound = site_bound.loc[:, ~site_bound.columns.duplicated()]
         site_bound.to_file(self.watershed_box_shp)
         site_bound['geometry'] = site_bound.geometry.buffer(buff_dist)
         self.box_buff = os.path.join(self.gis_path, 'box_buff.shp')
         site_bound.to_file(self.box_buff)
         wbt.minimum_bounding_envelope(self.box_buff, self.box_buff, features=False)
         site_bound = gpd.read_file(self.box_buff)
+        # Remove duplicate columns if any exist
+        site_bound = site_bound.loc[:, ~site_bound.columns.duplicated()]
         site_bound.to_file(self.box_buff)
         
         """
