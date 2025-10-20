@@ -20,6 +20,22 @@ __releases_api__ = "https://api.github.com/repos/cgq-qgc/pyhelp/releases"
 
 __rootdir__ = os.path.dirname(os.path.realpath(__file__))
 
+# Try to import the HELP3O Fortran extension
+try:
+    from . import HELP3O
+    _HELP3O_AVAILABLE = True
+except ImportError as e:
+    _HELP3O_AVAILABLE = False
+    HELP3O = None
+    import warnings
+    warnings.warn(
+        f"HELP3O Fortran extension not available: {e}\n"
+        "PyHELP functionality will be limited. To compile the extension, run:\n"
+        "  python build_extensions.py\n"
+        "from the project root directory.",
+        ImportWarning
+    )
+
 try:
     from hydromodpy.pyhelp.managers import HelpManager
 except ImportError as e:

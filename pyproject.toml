@@ -1,5 +1,10 @@
 [build-system]
-requires = ["setuptools>=65.0", "wheel"]
+requires = [
+    "setuptools>=65.0",
+    "wheel",
+    "numpy>=1.20",
+    "meson-python>=0.13.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -82,3 +87,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*"]
+"hydromodpy.pyhelp" = ["*.FOR", "*.so", "*.pyd"]
+
+[project.scripts]
+build-help3o = "build_extensions:build_help3o_extension"

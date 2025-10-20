@@ -16,7 +16,7 @@ the auxiliary main_cdf.py when they are not provided.
 - Optional grid update using PyhelpGrid when grid_kwargs is set.
 
 - Execution of the HELP model through help_example_cli.py (called via
-a Conda environment) to compute daily outputs.
+the current Python environment) to compute daily outputs.
 
 - Conversion of daily .OUT files into a NetCDF dataset containing
 runoff, *evapotranspiration* and *recharge* time‑series for every cell.
@@ -50,7 +50,6 @@ def preprocessing_pyhelp(
     ready_csvs: List[str] | None = None,
     era5_folder: str | None = None,
     shapefile: str | None = None,
-    conda_env: str = "pyhelp-0.1",
     main_py: str | None = None,
     help_cli: str | None = None,
     compress_level: int = 4,
@@ -58,12 +57,12 @@ def preprocessing_pyhelp(
     """Run the full PyHELP workflow.
 
     Parameters:
-        
+
     workdir : str
         Destination folder where every intermediate and final file will be
         written.
     grid_csv, grid_base : str | None
-        Path to the base COMPLETED grid CSV. 
+        Path to the base COMPLETED grid CSV.
     dem : str | None
         Optional DEM raster required when the grid is updated.
     grid_kwargs : Dict | None
@@ -75,8 +74,6 @@ def preprocessing_pyhelp(
         the main_cdf.py script.
     era5_folder, shapefile : str | None
         Additional parameters used by main_cdf.py.
-    conda_env : str, default "pyhelp-0.1"
-        Name of the Conda environment for PyHELP.
     main_py, help_cli : str | None
         Custom paths for the auxiliary command‑line interfaces. When None the
         script will look for main_cdf.py and help_example_cli.py in
@@ -118,22 +115,19 @@ def preprocessing_pyhelp(
             "PYHELP_WORKDIR": str(workdir),
         })
 
-        conda_cmd = shutil.which("conda") or shutil.which("conda.bat")
-        if not conda_cmd:
-            raise FileNotFoundError("`conda` not found in PATH.")
-
+        # Use the current Python executable directly (no conda needed)
         src_root = Path(__file__).parent.parent
         env["PYTHONPATH"] = str(src_root)
 
         cmd = [
-            conda_cmd, "run", "-n", conda_env,
-            "python", "-m", "pyhelp.main_cdf",
+            sys.executable,
+            str(main_script),
             "--workdir", str(workdir),
         ]
         
-        
+
         #User console informations from system
-        print(f"[INFO] launching main_cdf.py through {conda_cmd}")
+        print(f"[INFO] launching main_cdf.py through Python {sys.version_info.major}.{sys.version_info.minor}")
         proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
         print("\n" + "[ main_cdf COMMAND ]".center(60, "-"))
         print(" ".join(cmd))
@@ -192,12 +186,12 @@ def preprocessing_pyhelp(
 
 #%% Help_example_cli.py execution
 
-    conda_cmd = shutil.which("conda") or shutil.which("conda.bat")
+    # Use the current Python executable directly (no conda needed)
     help_cli = Path(help_cli) if help_cli else Path(__file__).with_name("help_example_cli.py")
 
     cmd = [
-        conda_cmd, "run", "-n", conda_env,
-        "python", str(help_cli),
+        sys.executable,
+        str(help_cli),
         "--workdir", str(workdir),
         "--grid_csv", str(in_files[Path(grid_csv)]),
         "--precip",   str(in_files[precip_csv]),

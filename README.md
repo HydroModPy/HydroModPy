@@ -51,6 +51,15 @@ Install HydroModPy directly from PyPI:
 pip install hydromodpy
 ```
 
+**Note for PyHELP users**:
+
+PyHELP now supports cross-platform installation. When installing from source, a Fortran compiler is required:
+- **Linux**: `sudo apt-get install gfortran`
+- **macOS**: `brew install gcc`
+- **Windows**: Install MinGW-w64
+
+See [hydromodpy/pyhelp/README.md](hydromodpy/pyhelp/README.md) for detailed build instructions.
+
 For development mode (editable installation):
 
 ```bash
@@ -59,6 +68,9 @@ cd HydroModPy
 
 # Install in editable mode
 pip install -e .
+
+# For PyHELP, ensure Fortran compiler is installed first
+# See hydromodpy/pyhelp/README.md for details
 ```
 
 ### Option 2: conda environment
@@ -109,6 +121,50 @@ from hydromodpy import Watershed
 # Check version
 print(hydromodpy.__version__)
 ```
+
+## PyHELP Module
+
+HydroModPy includes the PyHELP module for regional groundwater recharge assessment using the HELP (Hydrologic Evaluation of Landfill Performance) model.
+
+### What's New in This Version
+
+**Cross-Platform Support**: The PyHELP module now works on Linux, macOS, and Windows with Python 3.11+
+
+**Unified Environment**: No longer requires a separate conda environment - everything runs in a single Python environment
+
+**Auto-Compilation**: The HELP3O Fortran extension is automatically compiled during installation for your specific platform and Python version
+
+### Quick Start with PyHELP
+
+```python
+from hydromodpy.pyhelp import HelpManager
+
+# Initialize the manager
+manager = HelpManager(
+    workdir="path/to/workdir",
+    path_to_grid="grid.csv",
+    path_to_precip="precip.csv",
+    path_to_airtemp="airtemp.csv",
+    path_to_solrad="solrad.csv"
+)
+
+# Build HELP input files
+manager.build_help_input_files()
+
+# Run simulation
+output = manager.calc_help_cells(
+    path_to_hdf5="output.hdf5",
+    tfsoil=-3
+)
+```
+
+### Requirements for PyHELP
+
+- Fortran compiler (gfortran, ifort, etc.)
+- NumPy ≥ 1.20
+- Meson build system (automatically installed)
+
+See the installation section above for platform-specific compiler installation instructions.
 
 ## Usage Examples
 
