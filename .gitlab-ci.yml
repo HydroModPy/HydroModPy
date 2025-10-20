@@ -27,7 +27,7 @@ cache:
       - dist/*.whl
     expire_in: 7 days
 
-# Linux builds ! à vérif ! 
+# Linux builds
 build:linux:python311:
   <<: *build_template
   image: quay.io/pypa/manylinux2014_x86_64
@@ -35,8 +35,6 @@ build:linux:python311:
     - yum install -y gcc-gfortran
     - /opt/python/cp311-cp311/bin/python -m venv /tmp/venv
     - source /tmp/venv/bin/activate
-  tags:
-    - docker
 
 build:linux:python312:
   <<: *build_template
@@ -45,8 +43,6 @@ build:linux:python312:
     - yum install -y gcc-gfortran
     - /opt/python/cp312-cp312/bin/python -m venv /tmp/venv
     - source /tmp/venv/bin/activate
-  tags:
-    - docker
 
 build:linux:python313:
   <<: *build_template
@@ -55,8 +51,6 @@ build:linux:python313:
     - yum install -y gcc-gfortran
     - /opt/python/cp313-cp313/bin/python -m venv /tmp/venv
     - source /tmp/venv/bin/activate
-  tags:
-    - docker
 
 # macOS builds (nécessite un runner macOS)
 build:macos:python311:
