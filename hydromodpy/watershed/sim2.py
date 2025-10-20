@@ -35,8 +35,8 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from tools import toolbox
-from modeling import netcdf
+from hydromodpy.tools import toolbox
+from hydromodpy.modeling import netcdf
 
 #%% CLASS
 

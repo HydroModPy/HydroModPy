@@ -38,8 +38,8 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from tools import toolbox
-from modeling import downslope
+from hydromodpy.tools import toolbox
+from hydromodpy.modeling import downslope
 
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
