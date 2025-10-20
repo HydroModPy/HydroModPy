@@ -43,9 +43,9 @@ sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODULES
-from src import watershed_root
-from src.display import visualization_watershed, visualization_results
-from src.tools import toolbox
+from hydromodpy import watershed_root
+from hydromodpy.display import visualization_watershed, visualization_results
+from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
     
 #%% ---- PERSONAL PATHS

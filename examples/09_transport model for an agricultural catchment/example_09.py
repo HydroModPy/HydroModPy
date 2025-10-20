@@ -49,16 +49,16 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 
 #%% HYDROMODPY
 
-import src
+import hydromodpy
 import importlib
 importlib.reload(src)
 
 # Import HydroModPy modules
-from src import watershed_root
-from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin, transport
-from src.modeling import downslope, modflow, modpath, timeseries
-from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox, folder_root
+from hydromodpy import watershed_root
+from hydromodpy.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin, transport
+from hydromodpy.modeling import downslope, modflow, modpath, timeseries
+from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
+from hydromodpy.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
