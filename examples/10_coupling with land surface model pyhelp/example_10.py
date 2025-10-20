@@ -31,13 +31,13 @@ import geopandas as gpd
 import rasterio
 import xarray as xr
 import rioxarray as rxr
+import pickle
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 
-import deepdish as dd
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -794,8 +794,9 @@ for irec, (name, drec) in enumerate(recharges):
         model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
         dictio = {}
         dictio['model_modflow'] = model_modflow
-        h5file = BV.calibration_folder+'/'+model_name+'.h5'
-        dd.io.save(h5file, dictio)
+        pickle_file = BV.calibration_folder+'/'+model_name+'.pkl'
+        with open(pickle_file, 'wb') as f:
+            pickle.dump(dictio, f)
 
         del(dictio)
 
