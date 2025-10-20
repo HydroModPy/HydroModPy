@@ -23,11 +23,11 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODEULES
 
-import src
+import hydromodpy
 import importlib
-importlib.reload(src)
-from modeling.gr4j.gr4j_cal import gr4j_cal
-from modeling.gr4j.ennash import ennash
+importlib.reload(hydromodpy)
+from hydromodpy.modeling.gr4j.gr4j_cal import gr4j_cal
+from hydromodpy.modeling.gr4j.ennash import ennash
 
 
 #%% Function calibre

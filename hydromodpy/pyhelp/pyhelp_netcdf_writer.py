@@ -17,7 +17,7 @@ import rasterio
 from rasterio.transform import rowcol
 from pyproj import CRS, Transformer
 
-from pyhelp.daily_output import read_daily_help_output
+from hydromodpy.pyhelp.daily_output import read_daily_help_output
 
 
 def pyhelp_outputs_rasterized_netcdf(

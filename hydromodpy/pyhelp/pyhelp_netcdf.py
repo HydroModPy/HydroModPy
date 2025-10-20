@@ -33,8 +33,8 @@ import json
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pyhelp.daily_output import read_daily_help_output
-from pyhelp.pyhelp_grid import PyhelpGrid
+from hydromodpy.pyhelp.daily_output import read_daily_help_output
+from hydromodpy.pyhelp.pyhelp_grid import PyhelpGrid
 from .pyhelp_netcdf_writer import pyhelp_outputs_rasterized_netcdf  
 
 

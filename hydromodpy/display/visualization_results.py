@@ -33,7 +33,7 @@ from IPython import get_ipython
 import imageio
 
 # HydroModPy
-from tools import toolbox
+from hydromodpy.tools import toolbox
 
 #%% CLASS
 

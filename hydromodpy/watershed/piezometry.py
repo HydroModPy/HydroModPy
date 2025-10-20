@@ -31,7 +31,7 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # HydroModPy
-from tools import toolbox
+from hydromodpy.tools import toolbox
 import requests
 
 #%% CLASS

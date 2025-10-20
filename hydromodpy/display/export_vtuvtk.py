@@ -22,7 +22,7 @@ import flopy
 import flopy.utils.binaryfile as bf
 
 # HydroModPy
-from tools import toolbox
+from hydromodpy.tools import toolbox
 
 #%% CLASS 1
 

@@ -27,7 +27,7 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from tools import toolbox
+from hydromodpy.tools import toolbox
 
 #%% CLASS
 

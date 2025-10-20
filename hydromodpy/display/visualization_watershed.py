@@ -31,7 +31,7 @@ except:
     pass
 
 # HydroModPy
-from tools import toolbox
+from hydromodpy.tools import toolbox
 
 #%% PLOT SETTINGS
 
