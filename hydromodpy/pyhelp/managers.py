@@ -23,13 +23,13 @@ import numpy as np
 import pandas as pd
 
 # ---- Local Libraries Imports
-from pyhelp.preprocessing import write_d10d11_allcells, format_d10d11_inputs
-from pyhelp.processing import run_help_allcells
-from pyhelp.utils import (savedata_to_hdf5, calc_dist_from_coord,
+from hydromodpy.pyhelp.preprocessing import write_d10d11_allcells, format_d10d11_inputs
+from hydromodpy.pyhelp.processing import run_help_allcells
+from hydromodpy.pyhelp.utils import (savedata_to_hdf5, calc_dist_from_coord,
                           delete_folder_recursively)
-from pyhelp.weather_reader import (
+from hydromodpy.pyhelp.weather_reader import (
     save_precip_to_HELP, save_airtemp_to_HELP, save_solrad_to_HELP)
-from pyhelp.output import HelpOutput
+from hydromodpy.pyhelp.output import HelpOutput
 
 
 FNAME_CONN_TABLES = 'connect_table.json'

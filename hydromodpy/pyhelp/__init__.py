@@ -21,7 +21,7 @@ __releases_api__ = "https://api.github.com/repos/cgq-qgc/pyhelp/releases"
 __rootdir__ = os.path.dirname(os.path.realpath(__file__))
 
 try:
-    from pyhelp.managers import HelpManager
+    from hydromodpy.pyhelp.managers import HelpManager
 except ImportError as e:
     # We need to do this to avoid an error when building the
     # help extension with setup.py

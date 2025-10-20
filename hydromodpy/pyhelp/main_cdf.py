@@ -20,8 +20,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pyhelp.pyhelp_grid import PyhelpGrid
-from pyhelp.pyhelp_era5 import PyhelpEra5
+from hydromodpy.pyhelp.pyhelp_grid import PyhelpGrid
+from hydromodpy.pyhelp.pyhelp_era5 import PyhelpEra5
 
 
 def _need(var: str):

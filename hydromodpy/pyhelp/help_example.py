@@ -16,9 +16,9 @@ sys.path.insert(0, str(repo_root))
 import shutil
 import pandas as pd
 from pathlib import Path
-from pyhelp.managers import HelpManager
+from hydromodpy.pyhelp.managers import HelpManager
 import pyhelp.bilan as HelpBilan
-from pyhelp.daily_output import calc_area_daily_avg, plot_daily
+from hydromodpy.pyhelp.daily_output import calc_area_daily_avg, plot_daily
 
 
 

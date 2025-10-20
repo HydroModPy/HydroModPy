@@ -20,7 +20,7 @@ import calendar
 import numpy as np
 
 # ---- Local Libraries Imports
-from pyhelp import HELP3O
+from hydromodpy.pyhelp import HELP3O
 
 DEL_TEMPFILES = False
 
