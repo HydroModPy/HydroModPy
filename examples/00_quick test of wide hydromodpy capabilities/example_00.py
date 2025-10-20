@@ -1,13 +1,21 @@
 # -*- coding: utf-8 -*-
 """
- * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
+This file is part of HydroModPy.
+
+HydroModPy is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+HydroModPy is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with HydroModPy. If not, see <https://www.gnu.org/licenses/>.
 """
 
 #%% ---- LIBRAIRIES
@@ -15,12 +23,7 @@
 import sys
 import os
 import warnings
-
 import numpy as np
-# For compatibility with older versions of numpy (deepdish) - Temmporary fix
-if not hasattr(np, 'ComplexWarning'):
-    np.ComplexWarning = Warning
-    
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -39,8 +42,6 @@ try:
     root_dir = dirname(dirname(dirname(abspath(__file__))))
 except NameError:
     root_dir = os.getcwd()
-sys.path.append(root_dir)
-print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root

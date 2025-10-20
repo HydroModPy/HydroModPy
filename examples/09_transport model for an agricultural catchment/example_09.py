@@ -10,12 +10,7 @@ Created on Fri Mar 21 10:39:38 2025
 import sys
 import os
 
-# Libraries need to be installed if not
 import numpy as np
-# For compatibility with older versions of numpy (deepdish) - Temmporary fix
-if not hasattr(np, 'ComplexWarning'):
-    np.ComplexWarning = Warning
-    
 import pandas as pd
 import geopandas as gpd
 import glob
@@ -27,7 +22,6 @@ import matplotlib.pyplot as plt
 from itertools import islice
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# # Libraries added from 'pip install' procedure
 import deepdish as dd
 import imageio
 import whitebox
@@ -44,23 +38,12 @@ try:
     root_dir = dirname(dirname(dirname(abspath(__file__))))
 except NameError:
     root_dir = os.getcwd()
-sys.path.append(root_dir)
-print("Root path directory is: {0}".format(root_dir.upper()))
 
-#%% HYDROMODPY
-
-import hydromodpy
-import importlib
-importlib.reload(src)
-
-# Import HydroModPy modules
+# HYDROMODPY MODULES
 from hydromodpy import watershed_root
-from hydromodpy.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin, transport
-from hydromodpy.modeling import downslope, modflow, modpath, timeseries
-from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox, folder_root
-
-fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+from hydromodpy.display import visualization_watershed, visualization_results
+from hydromodpy.tools import toolbox
+fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 #%% PATHS
 
