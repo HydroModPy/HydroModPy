@@ -34,41 +34,85 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le
 - Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - Forum Group: https://groups.google.com/g/hydromodpy
 
-## Git installation
+## Installation
 
-Option 1 : Download the .zip folder directly on the GitLab project.
+HydroModPy can be installed using pip or by setting up a conda environment.
 
-Option 2 : Clone a repository using a Git management tool like GitHub Desktop.
+### Prerequisites
 
-Option 3 : Use command line and classical Git functions to set up your work environment.
+- **Anaconda3** or **Miniconda3** must be installed on your computer
+- **Important**: Your local path directory should not contain any white spaces, to be compatible with MODFLOW-MODPATH suite
 
-Requirement : Your local path directory should not contain any white space, to be compatible with MODFLOW-MODPATH suite.
+### Option 1: pip install (recommended)
 
-## Environment installation
+Install HydroModPy directly from PyPI:
 
-To install HydroModPy, Anaconda3 or Miniconda3 must be installed on your computer.
-A HydroModPy environment can be installed with "conda" using the ".yml" file available in the "install" directory:
-
-(0) Open Anaconda Prompt :
+```bash
+pip install hydromodpy
 ```
-cd /d "path/where/is/the/install/directory/"
+
+For development mode (editable installation):
+
+```bash
+# Clone the repository (see Git installation options below)
+cd HydroModPy
+
+# Install in editable mode
+pip install -e .
+```
+
+### Option 2: conda environment
+
+A HydroModPy environment can be installed with conda using the `.yml` file available in the `install/` directory:
+
+```bash
+cd /d "path/to/HydroModPy/install/"
 conda env create -f env_hydromodpy-0.1_windows.yml -n hydromodpy-0.1
+conda activate hydromodpy-0.1
+```
+
+### Git installation
+
+To obtain the source code for development:
+
+**Option 1**: Download the `.zip` folder directly from the [GitLab project](https://gitlab.com/Alex-Gauvain/HydroModPy/)
+
+**Option 2**: Clone the repository using a Git management tool like GitHub Desktop
+
+**Option 3**: Use command line with classical Git functions:
+
+```bash
+git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
+cd HydroModPy
 ```
 
 ## Launch HydroModPy
 
-(1) Activate HydroModPy environment :
-```
-conda activate hydromodpy-0.1
+(1) Activate HydroModPy environment:
+```bash
+conda activate hydromodpy-3119
 ```
 
-(2) Open Spyder or Jupyter Notebook :
-```
+(2) Open Spyder or Jupyter Notebook:
+```bash
 spyder
+# or
 jupyter notebook
 ```
 
-(3) Execute Python script following examples below :
+(3) Import HydroModPy in Python:
+
+```python
+import hydromodpy
+from hydromodpy import Watershed
+
+# Check version
+print(hydromodpy.__version__)
+```
+
+## Usage Examples
+
+Execute Python scripts following the examples below:
 ```
  - 00_quick test of wide hydromodpy capabilities
  - 01_simplified example presented in the paper

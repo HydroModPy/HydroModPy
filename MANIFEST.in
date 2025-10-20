@@ -1,0 +1,39 @@
+# Include important documentation files
+include README.md
+include LICENSE
+include pyproject.toml
+
+# Include binary executables for MODFLOW, MODPATH, MT3DMS
+recursive-include bin *
+
+# Include example files
+recursive-include examples *.py
+recursive-include examples *.txt
+recursive-include examples *.csv
+recursive-include examples *.shp
+recursive-include examples *.shx
+recursive-include examples *.dbf
+recursive-include examples *.prj
+
+# Include documentation
+recursive-include docs *.rst
+recursive-include docs *.md
+recursive-include docs *.png
+recursive-include docs *.jpg
+recursive-include docs *.txt
+
+# Include conda environment files
+recursive-include install *.yml
+
+# Exclude compiled Python files
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so
+global-exclude .DS_Store
+
+# Exclude development and test files
+exclude .gitignore
+exclude .readthedocs.yaml
+recursive-exclude tests *
+recursive-exclude .git *
+recursive-exclude .venv *
