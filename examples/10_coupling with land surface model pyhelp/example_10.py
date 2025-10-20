@@ -894,7 +894,7 @@ for i, model_name in enumerate([model_name_ref]):
     simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
     calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
-    simflowf = gpd.read_file(calibration_folder+'/'+model_name+'/_matchingstreams/'+'simflowf.shp')
+    simflowf = gpd.read_file(os.path.join(model_name, '_matchingstreams', 'simflowf.shp'))
     
     fig, ax = plt.subplots(1,1, figsize=(10,10), dpi=300)
     
