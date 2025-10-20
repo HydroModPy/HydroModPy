@@ -1,32 +1,30 @@
 # -*- coding: utf-8 -*-
 """
- * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
+This file is part of HydroModPy.
+
+HydroModPy is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+HydroModPy is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with HydroModPy. If not, see <https://www.gnu.org/licenses/>.
 """
 
 #%% ---- LIBRAIRIES
 
 #%% PYTHON
-
-# Filter warnings (before imports)
-import warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
-warnings.filterwarnings('ignore', message='.*pkg_resources.*')
-warnings.filterwarnings('ignore', message='.*declare_namespace.*')
-
 # Libraries installed by default
 import sys
 import os
 
-# Libraries need to be installed if not
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -39,7 +37,6 @@ import matplotlib.pyplot as plt
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 
-# # Libraries added from 'pip install' procedure
 import deepdish as dd
 import imageio
 import whitebox
@@ -64,17 +61,14 @@ DIR = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(DIR)
 sys.path.append(os.path.join(DIR, "src"))
 
-
 # from os.path import dirname, abspath
 # root_dir = dirname(dirname(dirname(abspath(__file__))))
 # sys.path.append(root_dir)
-print("Root path directory is: {0}".format(DIR.upper()))
 
 #%% HYDROMODPY
 
 import hydromodpy
 import importlib
-importlib.reload(src)
 
 # Import HydroModPy modules
 from hydromodpy import watershed_root

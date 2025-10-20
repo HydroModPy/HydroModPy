@@ -1,34 +1,33 @@
 # -*- coding: utf-8 -*-
 """
- * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+
+This file is part of HydroModPy.
+
+HydroModPy is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+HydroModPy is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with HydroModPy. If not, see <https://www.gnu.org/licenses/>.
 """
 
 #%% ---- LIBRAIRIES
 # Libraries installed by default
 import sys
 import os
-
-# Libraries need to be installed if not
-import numpy as np
-# For compatibility with older versions of numpy (deepdish) - Temmporary fix
-if not hasattr(np, 'ComplexWarning'):
-    np.ComplexWarning = Warning
-    
 import pandas as pd
-
-# Libraries added from 'conda install' procedure
+import numpy as np
 import matplotlib as mpl        # install automatically by geopandas
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# # Libraries added from 'pip install' procedure
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -40,21 +39,12 @@ try:
     root_dir = dirname(dirname(dirname(abspath(__file__))))
 except NameError:
     root_dir = os.getcwd()
-sys.path.append(root_dir)
-print("Root path directory is: {0}".format(root_dir.upper()))
 
-#%% HYDROMODPY
-
-import hydromodpy
-import importlib
-importlib.reload(src)
-
-# Import HydroModPy modules
+# HYDROMODPY MODULES
 from hydromodpy import watershed_root
-from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox, folder_root
-
-fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+from hydromodpy.display import export_vtuvtk, visualization_watershed, visualization_results
+from hydromodpy.tools import toolbox
+fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 #%% ---- PATHS
 
