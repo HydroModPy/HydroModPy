@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import glob
+import pickle
 import matplotlib.dates as mdates
 import rasterio
 import matplotlib.cm as cm
@@ -22,7 +23,6 @@ import matplotlib.pyplot as plt
 from itertools import islice
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-import deepdish as dd
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -182,8 +182,9 @@ vers = 'TRANS1'
 # iD_set_simulations = vers
 
 # folder = glob.glob(os.path.join(calibration_folder, iD_set_simulations+'*'))
-# h5file = glob.glob(folder[0]+'/'+'results_'+vers+'*')[0]
-# d = dd.io.load(h5file)
+# pickle_file = glob.glob(folder[0]+'/'+'results_'+vers+'*.pkl')[0]
+# with open(pickle_file, 'rb') as f:
+#     d = pickle.load(f)
 # list_model_name = d['list_model_name'][:]
 # list_model_modflow = d['list_model_modflow'][:]
 
@@ -429,8 +430,9 @@ list_model_modflow.append(model_modflow)
 dictio = {}
 dictio['list_model_name'] = list_model_name
 dictio['list_model_modflow'] = list_model_modflow
-h5file = BV.calibration_folder+'/'+model_name+'/'+'results_'+model_name
-dd.io.save(h5file, dictio)
+pickle_file = BV.calibration_folder+'/'+model_name+'/'+'results_'+model_name+'.pkl'
+with open(pickle_file, 'wb') as f:
+    pickle.dump(dictio, f)
     
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True, link_mt3dms=True)
 
@@ -633,8 +635,9 @@ list_folder = glob.glob(BV.calibration_folder+'/'+vers+'*')
 
 model_name = list_folder[0].split(os.path.sep)[-1]
 
-h5file = list_folder[0] + '/' + 'results_' + model_name
-d = dd.io.load(h5file)
+pickle_file = list_folder[0] + '/' + 'results_' + model_name + '.pkl'
+with open(pickle_file, 'rb') as f:
+    d = pickle.load(f)
 
 list_model_name = d['list_model_name'][:]
 list_flow_model = d['list_model_modflow'][:]
@@ -732,8 +735,9 @@ list_folder = glob.glob(BV.calibration_folder+'/'+vers+'*')
 
 model_name = list_folder[0].split(os.path.sep)[-1]
 
-h5file = list_folder[0] + '/' + 'results_' + model_name
-d = dd.io.load(h5file)
+pickle_file = list_folder[0] + '/' + 'results_' + model_name + '.pkl'
+with open(pickle_file, 'rb') as f:
+    d = pickle.load(f)
 
 list_model_name = d['list_model_name'][:]
 list_flow_model = d['list_model_modflow'][:]

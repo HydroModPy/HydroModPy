@@ -21,11 +21,11 @@ with HydroModPy. If not, see <https://www.gnu.org/licenses/>.
 #%% ---- LIBRAIRIES
 import sys
 import os
-import numpy as np 
+import pickle
+import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import deepdish as dd
 import imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
@@ -244,14 +244,16 @@ dictio = {}
 dictio['list_model_name'] = list_model_name
 dictio['list_success_modflow'] = list_success_modflow
 dictio['list_model_modflow'] = list_model_modflow
-h5file = os.path.join(simulations_folder,'results_listing_'+iD_set_simulations)
-    
-dd.io.save(h5file, dictio)
+pickle_file = os.path.join(simulations_folder,'results_listing_'+iD_set_simulations+'.pkl')
+
+with open(pickle_file, 'wb') as f:
+    pickle.dump(dictio, f)
 
 #%% RELOAD
 
-h5file = os.path.join(simulations_folder,'results_listing_'+iD_set_simulations)
-d = dd.io.load(h5file)
+pickle_file = os.path.join(simulations_folder,'results_listing_'+iD_set_simulations+'.pkl')
+with open(pickle_file, 'rb') as f:
+    d = pickle.load(f)
 list_model_name = d['list_model_name'][:]
 list_success_modflow = d['list_success_modflow'][:]
 list_model_modflow = d['list_model_modflow'][:]

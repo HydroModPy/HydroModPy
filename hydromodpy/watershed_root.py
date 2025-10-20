@@ -172,8 +172,8 @@ class Watershed:
             True if the watershed object is load succesfully.
         """
         if os.path.exists(os.path.join(self.watershed_folder, 'watershed_object')):
-            
-            # Test the existence of the stored watershed within the default path name "watershed_object"
+
+            # Load watershed object from pickle file
             with open(os.path.join(self.watershed_folder, 'watershed_object'), 'rb') as config_dictionary_file:
                 BV = pickle.load(config_dictionary_file)
                 
