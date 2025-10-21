@@ -7,7 +7,7 @@ Created on Mon Feb 24 19:03:21 2025
 
 import pandas as pd
 from .pyhelp_csv_manager import PyhelpCsvManager
-from .helper import load_csv, transform_coordinates, filter_coordinates_by_shape
+from hydromodpy.tools.toolbox import load_csv, transform_coordinates, filter_coordinates_by_shape
 from typing import Optional
 
 class PyhelpGrid(PyhelpCsvManager):
