@@ -2,7 +2,7 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-Stable current version: v0.1 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
+Stable current version: v0.1.2 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
 
 ## Presentation
 
