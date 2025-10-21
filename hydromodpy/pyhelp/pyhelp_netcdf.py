@@ -24,6 +24,7 @@ runoff, *evapotranspiration* and *recharge* time‑series for every cell.
 """
 
 import os
+import sys
 import shutil
 import subprocess
 from pathlib import Path
@@ -200,16 +201,15 @@ def preprocessing_pyhelp(
     ]
     
     print("[INFO] pyHELP model execution...")
+    print(f"[INFO] Command: {' '.join(cmd)}")
     env_cli = os.environ.copy()
     env_cli["PYHELP_WORKDIR"] = str(workdir)
-    proc = subprocess.run(cmd, env=env_cli, capture_output=True, text=True)
-    
-    print("\n" + "[ help_example_cli STDOUT ]".center(70, "-"))
-    print(proc.stdout)
-    print("\n" + "[ help_example_cli STDERR ]".center(70, "-"))
-    print(proc.stderr)
-    
-    proc.check_returncode()
+
+    # Run with real-time output display instead of capturing
+    proc = subprocess.run(cmd, env=env_cli)
+
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, cmd)
     
     
     
