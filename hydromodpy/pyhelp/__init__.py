@@ -74,6 +74,7 @@ def _download_help3o_binary():
     """Download HELP3O binary from GitHub releases"""
     import urllib.request
     import json
+    import tarfile
 
     binary_filename = _get_binary_filename()
     if not binary_filename:
@@ -94,7 +95,36 @@ def _download_help3o_binary():
         with urllib.request.urlopen(request, timeout=30) as response:
             release_data = json.loads(response.read().decode())
 
-        # Find the binary in assets
+        # On macOS, look for bundled tarball with GCC libraries
+        if platform.system() == "Darwin":
+            bundle_filename = binary_filename.replace(".so", "_bundle.tar.gz")
+            bundle_url = None
+            for asset in release_data.get("assets", []):
+                if asset["name"] == bundle_filename:
+                    bundle_url = asset["browser_download_url"]
+                    break
+
+            if bundle_url:
+                # Download and extract bundle
+                bundle_path = cache_dir / bundle_filename
+                print(f"  Downloading macOS bundle: {bundle_filename}")
+                print(f"  URL: {bundle_url}")
+
+                bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
+                with urllib.request.urlopen(bundle_request, timeout=60) as response, bundle_path.open("wb") as fh:
+                    shutil.copyfileobj(response, fh)
+
+                # Extract tarball to cache directory
+                print(f"  Extracting bundle to {cache_dir}...")
+                with tarfile.open(bundle_path, "r:gz") as tar:
+                    tar.extractall(path=cache_dir)
+
+                # Clean up tarball
+                bundle_path.unlink()
+                print(f"✓ HELP3O bundle extracted successfully")
+                return binary_path
+
+        # Fallback: download standalone binary (for Linux/Windows or old macOS releases)
         binary_url = None
         for asset in release_data.get("assets", []):
             if asset["name"] == binary_filename:
