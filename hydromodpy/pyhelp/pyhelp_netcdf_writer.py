@@ -16,8 +16,25 @@ import xarray as xr
 import rasterio
 from rasterio.transform import rowcol
 from pyproj import CRS, Transformer
+from pyproj.exceptions import ProjError
 
 from hydromodpy.pyhelp.daily_output import read_daily_help_output
+
+
+def _ensure_proj_data():
+    """Ensure PROJ data is available, download if necessary"""
+    import pyproj
+    try:
+        # Try to create a simple transformer to test PROJ data
+        Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+    except ProjError:
+        # PROJ data missing, try to sync
+        print("[INFO] PROJ data not found, syncing...")
+        try:
+            pyproj.sync.sync_proj_data()
+        except Exception as e:
+            print(f"[WARN] Could not sync PROJ data: {e}")
+            print("[INFO] Please install PROJ data with: pip install pyproj[sync] or conda install proj-data")
 
 
 def pyhelp_outputs_rasterized_netcdf(
@@ -30,7 +47,9 @@ def pyhelp_outputs_rasterized_netcdf(
     clean_temp: bool = True,
 ) -> Path:
 
-    
+    # Ensure PROJ data is available
+    _ensure_proj_data()
+
     workdir = Path(workdir)
     outpath = Path(outpath)
     grid_csv = Path(grid_csv)
