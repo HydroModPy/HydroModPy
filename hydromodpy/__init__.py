@@ -20,9 +20,9 @@ You should have received a copy of the GNU Lesser General Public License along
 with HydroModPy. If not, see <https://www.gnu.org/licenses/>.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __author__ = "Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy"
-__email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com"
+__email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 
 # Import main class
 from hydromodpy.watershed_root import Watershed

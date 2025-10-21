@@ -9,6 +9,7 @@
 
 import os
 import sys
+import shutil
 import platform
 import warnings
 from pathlib import Path
@@ -27,6 +28,10 @@ __rootdir__ = os.path.dirname(os.path.realpath(__file__))
 # GitHub repository for pre-compiled HELP3O binaries
 HELP3O_BINARIES_REPO = "bastien-boivin/HELP3O-binaries"
 HELP3O_BINARIES_API = f"https://api.github.com/repos/{HELP3O_BINARIES_REPO}/releases/latest"
+_GITHUB_HEADERS = {
+    "User-Agent": f"hydromodpy-pyhelp/{__version__}",
+    "Accept": "application/vnd.github+json",
+}
 
 
 def _get_cache_dir():
@@ -85,7 +90,8 @@ def _download_help3o_binary():
 
     try:
         # Get latest release info from GitHub API
-        with urllib.request.urlopen(HELP3O_BINARIES_API) as response:
+        request = urllib.request.Request(HELP3O_BINARIES_API, headers=_GITHUB_HEADERS)
+        with urllib.request.urlopen(request, timeout=30) as response:
             release_data = json.loads(response.read().decode())
 
         # Find the binary in assets
@@ -104,7 +110,10 @@ def _download_help3o_binary():
         # Download binary
         print(f"  URL: {binary_url}")
         print(f"  Destination: {binary_path}")
-        urllib.request.urlretrieve(binary_url, binary_path)
+
+        binary_request = urllib.request.Request(binary_url, headers=_GITHUB_HEADERS)
+        with urllib.request.urlopen(binary_request, timeout=60) as response, binary_path.open("wb") as fh:
+            shutil.copyfileobj(response, fh)
         print(f"✓ HELP3O binary downloaded successfully")
 
         return binary_path
