@@ -28,7 +28,7 @@ build:wheel:
   artifacts:
     paths:
       - dist/
-    expire_in: 7 days
+    expire_in: 2 hours
   when: manual  # Click to trigger build
 
 # Test installation and basic imports - MANUAL
