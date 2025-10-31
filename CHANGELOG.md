@@ -44,5 +44,6 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.1.0...master  
-[v0.1.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/tags/v0.1.0
+[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.1.0...dev
+[v0.1.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/releases/v0.1.0
+
