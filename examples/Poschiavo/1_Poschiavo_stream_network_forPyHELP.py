@@ -80,12 +80,16 @@ from src.modeling import downslope, modflow, modpath, timeseries
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
 
 from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 
 
+=======
+from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+>>>>>>> Stashed changes
 =======
 from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 >>>>>>> Stashed changes
@@ -107,7 +111,11 @@ from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 out_path = "./"
+=======
+out_path = "D:/pyhelp_example/output/"
+>>>>>>> Stashed changes
 =======
 out_path = "D:/pyhelp_example/output/"
 >>>>>>> Stashed changes
@@ -134,7 +142,11 @@ from_dem = None # [path, cell size]
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 from_shp = ["D:/pyhelp_example/input/watershed_urse.shp", 15]
+=======
+from_shp = ["D:/pyhelp_example/input/watershed_urse.shp", 10]
+>>>>>>> Stashed changes
 =======
 from_shp = ["D:/pyhelp_example/input/watershed_urse.shp", 10]
 >>>>>>> Stashed changes
@@ -160,7 +172,11 @@ era5_folder = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/_hourly3/"
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 grid_base_csv = "D:/pyhelp_example/input/input_grid_base1.csv"
+=======
+grid_base_csv = "D:/pyhelp_example/input/soil_parameters/input_grid_base1.csv"
+>>>>>>> Stashed changes
 =======
 grid_base_csv = "D:/pyhelp_example/input/soil_parameters/input_grid_base1.csv"
 >>>>>>> Stashed changes
