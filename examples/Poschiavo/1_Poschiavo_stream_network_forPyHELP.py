@@ -78,12 +78,16 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #%%
 from src.modeling import downslope, modflow, modpath, timeseries
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
 
 from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 
 
+=======
+from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+>>>>>>> Stashed changes
 =======
 from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 >>>>>>> Stashed changes
@@ -97,7 +101,11 @@ from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 # Or define it manually
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 out_path = "./"
+=======
+out_path = "D:/pyhelp_example/output/"
+>>>>>>> Stashed changes
 =======
 out_path = "D:/pyhelp_example/output/"
 >>>>>>> Stashed changes
@@ -116,7 +124,11 @@ watershed_name = 'Urse_StreamNetwork'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 from_shp = ["D:/pyhelp_example/input/watershed_urse.shp", 15]
+=======
+from_shp = ["D:/pyhelp_example/input/watershed_urse.shp", 10]
+>>>>>>> Stashed changes
 =======
 from_shp = ["D:/pyhelp_example/input/watershed_urse.shp", 10]
 >>>>>>> Stashed changes
@@ -134,7 +146,11 @@ era5_folder = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/_hourly3/"
 
 #if already completed grid : 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 grid_base_csv = "D:/pyhelp_example/input/input_grid_base1.csv"
+=======
+grid_base_csv = "D:/pyhelp_example/input/soil_parameters/input_grid_base1.csv"
+>>>>>>> Stashed changes
 =======
 grid_base_csv = "D:/pyhelp_example/input/soil_parameters/input_grid_base1.csv"
 >>>>>>> Stashed changes
