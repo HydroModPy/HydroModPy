@@ -39,6 +39,7 @@ try:
     root_dir = dirname(dirname(dirname(abspath(__file__))))
 except NameError:
     root_dir = os.getcwd()
+sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
@@ -50,7 +51,7 @@ fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples", "02_basic features and overview of possibilities/")
+example_path = os.path.join(root_dir, "examples", "02_basic_features_and_overview_of_possibilities/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
