@@ -43,7 +43,11 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #pyhelp
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 from src.pyhelp import pyhelp_netcdf
+=======
+try: 
+>>>>>>> Stashed changes
 =======
 try: 
 >>>>>>> Stashed changes
