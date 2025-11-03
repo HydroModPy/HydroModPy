@@ -1,0 +1,27 @@
+# My Python plot settings:
+
+figure.figsize:   7, 7
+figure.facecolor: white
+
+axes.labelweight: normal
+
+axes.titley:      1.05
+axes.titlecolor:  'slategrey'
+axes.titlesize:   20
+axes.labelsize:   18
+axes.grid:        False
+
+lines.linewidth:  1
+lines.markersize: 10
+
+xtick.labelsize:  10
+ytick.labelsize:  10
+xtick.major.size: 5
+ytick.major.size: 5
+
+font.size:        15
+
+# Source sans pro style python settings (WaterWise standards)
+font.family:         Source Sans Pro 
+mathtext.fontset:    dejavuserif  
+text.usetex:         False

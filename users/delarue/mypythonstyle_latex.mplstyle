@@ -1,0 +1,25 @@
+# My Python plot settings:
+# figure.figsize:   7, 7
+figure.facecolor: white
+
+axes.labelweight: bold
+axes.titley:      1
+axes.titlecolor:  'slategrey'
+axes.titlesize:   20
+axes.labelsize:   18
+axes.grid:        False
+
+lines.linewidth:  1
+lines.markersize: 10
+
+xtick.labelsize:  15
+ytick.labelsize:  15
+xtick.major.size: 5
+ytick.major.size: 5
+
+font.size:        15
+
+# Latex style python settings
+font.family:         serif  # Uses built-in serif (e.g., DejaVu Serif)
+mathtext.fontset:    dejavuserif  # Math font matches serif look
+text.usetex:         False

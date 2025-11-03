@@ -322,6 +322,14 @@ class Geographic:
         wbt.slope(self.watershed_dem,
                   os.path.join(self.gis_path, 'watershed_slope.tif'),
                   units="percent")
+        
+        # testOdile
+        from pathlib import Path
+        testFile_slope = Path(os.path.join(self.gis_path, 'watershed_slope.tif'))
+        print(testFile_slope.is_file())
+        # testOdile
+
+        
         slope = imageio.imread(os.path.join(self.gis_path, 'watershed_slope.tif'))
         self.slope = np.nanmean(slope[slope>=0])
         # Create contour

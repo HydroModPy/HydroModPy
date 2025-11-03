@@ -26,3 +26,8 @@ except ImportError as e:
     # We need to do this to avoid an error when building the
     # help extension with setup.py
     print('ImportError:', e)
+
+try:
+    from pyhelp import pyhelp_netcdf
+except ImportError as e:
+    print('ImportError:', e)

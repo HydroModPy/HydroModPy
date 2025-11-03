@@ -64,8 +64,10 @@ import src
 import importlib
 importlib.reload(src)
 
+#%%
 # Import HydroModPy modules
 from src import watershed_root
+
 from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
 from src.modeling import downslope, modflow, modpath, timeseries
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
@@ -73,14 +75,18 @@ from src.tools import toolbox, folder_root
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-
+#%%
 from src.modeling import downslope, modflow, modpath, timeseries
+<<<<<<< Updated upstream
 
 
 from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 
 
+=======
+from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+>>>>>>> Stashed changes
 
 #%% PERSONAL
 
@@ -90,7 +96,11 @@ from src.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 # The folder out_path is created in the example_path root directory:
 
 # Or define it manually
+<<<<<<< Updated upstream
 out_path = "./"
+=======
+out_path = "D:/pyhelp_example/output/"
+>>>>>>> Stashed changes
 
 print('The results of the example will be saved here :', 'D:/pyhelp_example/output/')
 
@@ -105,21 +115,35 @@ watershed_name = 'Urse_StreamNetwork'
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
+<<<<<<< Updated upstream
 from_shp = ["D:/pyhelp_example/input/watershed_urse.shp", 15]
+=======
+from_shp = ["D:/pyhelp_example/input/watershed_urse.shp", 10]
+>>>>>>> Stashed changes
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
 #%% PYHELP_PATH
+
+# MANDATORY - need to contain a csv file input_grid_base.csv - for grid generation
+# other variables - no to mention 
 pyhelp_workdir = os.path.join(out_path, watershed_name, "netcdf_test")
+# MANDATORY - full alpes era5 or alternative climate data
 era5_folder = "C:/Users/mathi/Dev/pyhelp-master/Poschiavo_Mathias/_hourly3/"
+
 #if already completed grid : 
+<<<<<<< Updated upstream
 grid_base_csv = "D:/pyhelp_example/input/input_grid_base1.csv"
+=======
+grid_base_csv = "D:/pyhelp_example/input/soil_parameters/input_grid_base1.csv"
+>>>>>>> Stashed changes
 ready_csvs = [
     r"D:/pyhelp_example/input/ready_csvs/precip_input_data.csv",
     r"D:/pyhelp_example/input/ready_csvs/airtemp_input_data.csv",
     r"D:/pyhelp_example/input/ready_csvs/solrad_input_data.csv"
 ]
+
 
 
 #%% GEOGRAPHIC
@@ -163,14 +187,14 @@ grid_kwargs = dict(
 """
 nc = preprocessing_pyhelp(
     workdir = pyhelp_workdir,
-    outpath = simulations_folder,
+    outpath = simulations_folder, # output file
     grid_csv = grid_base_csv,
-    ready_csvs = ready_csvs,
+    ready_csvs = ready_csvs, # dossier input climatic
 )
 print(nc)
 """
 
-# CSV météo prêts mais update des paramètres du grid
+# CSV météo prêts mais update des paramètres du grid (soil)
 nc = preprocessing_pyhelp(
     workdir = pyhelp_workdir,
     outpath = simulations_folder,

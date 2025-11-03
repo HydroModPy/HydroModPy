@@ -31,6 +31,7 @@ wbt.verbose = False
 from os.path import dirname, abspath
 root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
+print(root_dir)
 
 # HydroModPy
 from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
@@ -40,8 +41,24 @@ from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #pyhelp
+<<<<<<< Updated upstream
 from src.pyhelp import pyhelp_netcdf
+=======
+try: 
+>>>>>>> Stashed changes
 
+    from pyhelp import processing, bilan, preprocessing
+    
+    # FAIL: daily_output help_example help_example_cli helper
+    # main_cdf, managers, output, prepare_inputs pyhelp_csv_manager
+    # pyhelp_era5 pyhelp_grid pyhelp_netcdf utils weather_reader
+        
+        
+    # from pyhelp import pyhelp_netcdf
+    # import pyhelp.pyhelp_netcdf as pyhelp_netcdf
+    # from src.pyhelp import pyhelp_netcdf
+except:
+    print('fail importing module from pyhelp')
 #%% CLASS
 
 class Watershed:
