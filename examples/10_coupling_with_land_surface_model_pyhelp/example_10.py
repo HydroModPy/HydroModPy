@@ -84,7 +84,7 @@ from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 #%% PERSONAL
 
-data_path = os.path.join(DIR, "examples", "10_coupling with land surface model pyhelp", "data")
+data_path = os.path.join(DIR, "examples", "10_coupling_with_land_surface_model_pyhelp", "data")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(DIR, "examples", "results")

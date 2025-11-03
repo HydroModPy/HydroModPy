@@ -166,17 +166,17 @@ Supported platforms: Linux x86_64, macOS (Intel/Apple Silicon), Windows AMD64
 
 Execute Python scripts following the examples below:
 ```
- - 00_quick test of wide hydromodpy capabilities
- - 01_simplified example presented in the paper
- - 02_basic features and overview of possibilities
- - 03_hydrographic network in steady state
- - 04_streamflow intermittence in transient
- - 05_piezometry in a heterogeneous coastal aquifer
- - 06_particle tracking for residence times
- - 07_analytical solution for streamflow recession
- - 08_exponential distribution of residence times
- - 09_transport model for an agricultural catchment
- - 10_coupling with land surface model pyhelp
+ - 00_quick_test_of_wide_hydromodpy_capabilities
+ - 01_simplified_example_presented_in_the_paper
+ - 02_basic_features_and_overview_of_possibilities
+ - 03_hydrographic_network_in_steady_state
+ - 04_streamflow_intermittence_in_transient
+ - 05_piezometry_in_a_heterogeneous_coastal_aquifer
+ - 06_particle_tracking_and_residence_times
+ - 07_analytical_solution_for_streamflow_recession
+ - 08_exponential_distribution_of_residence_times
+ - 09_transport_model_for_an_agricultural_catchment
+ - 10_coupling_with_land_surface_model_pyhelp
 ```
 
 ## Linked publications

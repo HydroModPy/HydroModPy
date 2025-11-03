@@ -41,7 +41,6 @@ try:
 except NameError:
     root_dir = os.getcwd()
 sys.path.append(root_dir)
-print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
@@ -49,7 +48,7 @@ from hydromodpy.display import visualization_watershed, visualization_results, e
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
-example_path = os.path.join(root_dir, "examples", "01_simplified example presented in the paper/")
+example_path = os.path.join(root_dir, "examples", "01_simplified_example_presented_in_the_paper/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
@@ -459,3 +458,5 @@ visu.interactive_cross_section(dem_data, watertable_data, stream_data, interacti
 #%% ---- NOTES
 
 os.chdir(root_dir) 
+
+# %%
