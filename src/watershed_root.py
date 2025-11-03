@@ -40,7 +40,7 @@ from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #pyhelp
-from pyhelp import pyhelp_netcdf
+from src.pyhelp import pyhelp_netcdf
 
 #%% CLASS
 

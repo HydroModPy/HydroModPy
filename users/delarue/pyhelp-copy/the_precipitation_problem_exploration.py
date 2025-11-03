@@ -4,6 +4,7 @@ Created on Mon Jun  2 11:56:18 2025
 
 @author: delarueo
 """
+#%%
 import toolbox_newFuns_ as tb
 import os
 import pandas as pd
@@ -17,7 +18,7 @@ variable = 'total_precipitation'
 
 
 print('>> Open variable local cerra')
-data = tb.CERRA(cerra_urse)
+data = tb.CERRA(cerra_urse, to_standard=False)
 #%%
 # y,x = 70, 87 #Urse alps
 y,x = 3,3
@@ -28,8 +29,20 @@ timeline = data.dataset['time'].values
 
 df = pd.DataFrame()
 df['time'] = pd.to_datetime(timeline)
-df['tp'] = tp
+df['tp_raw'] = tp
 df.set_index('time', inplace=True)
+
+data_cut = df.apply(lambda row: row['tp_raw'] if row.name.hour % 6 == 0 else 0, axis=1)
+
+df['tp_cut'] = data_cut
+
+#%%
+fig, ax = plt.subplots(1,1,figsize = [5,5])
+
+# ax.set_xlim([f'{year}-09-15',f'{year}-10-15']))
+df.plot(ax = ax, y = 'tp_raw', ls = '', marker = '.')
+df.plot(ax = ax, y = 'tp_cut', ls = '', marker = '+')
+ax.set_xlim([f'{year}-09-20',f'{year}-09-22'])
 
 #%%
 fig, ax = plt.subplots(1,1,figsize = [5,5])
@@ -40,7 +53,7 @@ df.plot(ax = ax,ls =':',marker = '.')
 df_day = df.resample('D').sum(numeric_only=True)
 df_day.plot(ax = ax, ls = '', marker = '.')
 
-ax.set_xlim([f'{year}-09-20',f'{year}-09-22'])
+ax.set_xlim([f'{year}-09-20',f'{year}-09-30'])
 
 #%%
 df_yearly = df.resample('Y').sum(numeric_only=True)
@@ -140,7 +153,7 @@ plt.show()
 
 #%%
 # 📅 Select the year
-year = 2015
+year = 2018
 
 # 🎯 Filter data for that year
 station_year = data_day[data_day.index.year == year]
@@ -148,13 +161,14 @@ model_year = df_day[df_day.index.year == year]
 
 # 📈 Compute cumulative sums
 station_cum = station_year['total_precipitation'].cumsum()
-model_cum = model_year['tp'].cumsum()
+model1_cum = model_year['tp_raw'].cumsum()
+model2_cum = model_year['tp_cut'].cumsum()
 
 # 🖼️ Plot
 fig, ax = plt.subplots(figsize=(12, 6))
 ax.plot(station_cum.index.dayofyear, station_cum, label='Station', color='blue', linewidth=2)
-ax.plot(model_cum.index.dayofyear, model_cum, label='Modèle CERRA', color='red', linestyle='--', linewidth=2)
-
+ax.plot(model1_cum.index.dayofyear, model1_cum, label='Modèle CERRA raw', color='red', linestyle='--', linewidth=2)
+ax.plot(model2_cum.index.dayofyear, model2_cum, label='Modèle CERRA cut', color='orange', linestyle='--', linewidth=2)
 # 🎨 Formatting
 ax.set_title(f'Précipitations cumulées – {year} – Robbia')
 ax.set_xlabel('Jour de l\'année')
@@ -263,10 +277,11 @@ plt.show()
 #%% Plot xy - station/cerra
 
 combined_day = data_day[['total_precipitation']].join(
-    df_day[['tp']], how='inner', lsuffix='_station', rsuffix='_model')
+    df_day[['tp_raw','tp_cut']], how='inner', lsuffix='_station', rsuffix='_model')
 
 plt.figure(figsize=(6, 6))
-plt.plot(combined_day['total_precipitation'], combined_day['tp'], 'o', alpha=0.5)
+plt.plot(combined_day['total_precipitation'], combined_day['tp_raw'], 'o', alpha=0.5, label = 'raw')
+plt.plot(combined_day['total_precipitation'], combined_day['tp_cut'], '*', color = 'red', alpha=0.5, label = 'cut')
 plt.plot([-10,150],[-10,150] ,color='k')
 plt.xlabel('Station (mm/jour)')
 plt.ylabel('CERRA (mm/jour)')
@@ -274,6 +289,9 @@ plt.axis('equal')
 plt.title('Précipitations journalières')
 plt.grid(True, which='both', linestyle=':', alpha=0.6)
 plt.tight_layout()
+plt.legend()
+plt.semilogx()
+plt.semilogy()
 plt.show()
 
 # #%% Plot xy - station/cerra - zoom
@@ -293,3 +311,4 @@ plt.show()
 # plt.grid(True, which='both', linestyle=':', alpha=0.6)
 # plt.tight_layout()
 # plt.show()
+# %%
