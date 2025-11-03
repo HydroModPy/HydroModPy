@@ -1,0 +1,29 @@
+name: hydromodpy
+channels:
+- conda-forge
+dependencies:
+- colormap
+- contextily
+- flopy
+- geopandas
+- h5py
+- imageio
+- ipykernel
+- ipython
+- matplotlib
+- matplotlib-scalebar
+- netcdf4
+- numpy
+- pandas
+- plotly
+- pyshp
+- python
+- rasterio
+- rioxarray
+- selenium
+- spyder-kernels
+- vedo
+- whitebox
+- xarray
+- pyside6
+- pysheds
