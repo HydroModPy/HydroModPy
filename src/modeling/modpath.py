@@ -249,13 +249,15 @@ class Modpath:
         
         prow = self.cell_div
         pcol = self.cell_div
-        if self.zloc_div == True:
-            play = self.cell_div
-        else:
-            play = 1
+        # if self.zloc_div == True:
+        #     play = self.cell_div
+        # else:
+        #     play = 1
         if self.bore_depth != None:
             # play = len(self.bore_depth)
             play = nlay
+        else:
+            play = 1
             
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem>0)*prow*pcol*play)
               
@@ -292,19 +294,13 @@ class Modpath:
                                     else:
                                         ztop = self.mf.dis.botm.array[k-1, i, j]
                                     zbot = self.mf.dis.botm.array[k, i, j]
-                                    aux_stl = min((wt[i, j] - zbot)/(ztop - zbot), 1.)  #==> min(max((wt[i,j] - botm[k]) / (top - botm[k]), 0.), 1.)
+                                    aux_stl = min(max((wt[i,j] - zbot[k]) / (ztop - zbot[k]), 0.), 1.)
+                                    # ==> min((wt[i, j] - zbot)/(ztop - zbot), 1.)
                                     val_z_wt = np.abs(aux_stl)
-                                    if l == 0:
-                                        stldata[compt]['zloc0'] = val_z_wt
-                                    else:
-                                        if self.bore_depth == None:
-                                            # stldata[compt]['zloc0'] = (val_z_wt+1)*1/(play +1)
-                                            stldata[compt]['zloc0'] = 0
-                                        else:
-                                            # z0 not exist at this step: need to find the good k (layer) to inject at different depth (create a loop)
-                                            # For example: stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
-                                            stldata[compt]['k0'] = l
-                                            stldata[compt]['zloc0'] = 0.5 # Find a way to associate altitude/depth of injection with k and zloc0
+                                    # if l == 0:
+                                    stldata[compt]['zloc0'] = val_z_wt
+                                    # else:
+                                    #     stldata[compt]['zloc0'] = 0
                                     compt = compt + 1
                 
         if self.track_dir == 'backward':
@@ -321,7 +317,6 @@ class Modpath:
                                     #         stldata[compt]['k0'] = k
                                     #         break
                                     # Calculate the starting location for each sub-cell
-                                    stldata[compt]['k0'] = 0
                                     stldata[compt]['j0'] = j
                                     stldata[compt]['i0'] = i
                                     # stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
@@ -333,24 +328,12 @@ class Modpath:
                                     # stldata[compt]['xloc0'] = 0.5
                                     # stldata[compt]['yloc0'] = 0.5
                                     stldata[compt]['zloc0'] = 0.5
-                                    # if k == 0:
-                                    #     ztop = self.mf.dis.top.array[i,j]
-                                    # else:
-                                    #     ztop = self.mf.dis.botm.array[k-1, i, j]
-                                    # zbot = self.mf.dis.botm.array[k, i, j]
-                                    # aux_stl = min((wt[i, j] - zbot)/(ztop - zbot), 1.)
-                                    # val_z_wt = np.abs(aux_stl)
-                                    # if l == 0:
-                                    #     stldata[compt]['zloc0'] = val_z_wt
-                                    # else:
-                                    #     if self.bore_depth == None:
-                                    #         # stldata[compt]['zloc0'] = (val_z_wt+1)*1/(play +1)
-                                    #         stldata[compt]['zloc0'] = 0
-                                    #     else:
-                                    #         # z0 not exist at this step: need to find the good k (layer) to inject at different depth (create a loop)
-                                    #         # For example: stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
-                                    #         stldata[compt]['k0'] = l
-                                    #         stldata[compt]['zloc0'] = 0.5 # Find a way to associate altitude/depth of injection with k and zloc0
+                                    if self.bore_depth == True:
+                                        # z0 not exist at this step: need to find the good k (layer) to inject at different depth (create a loop)
+                                        # For example: stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
+                                        stldata[compt]['k0'] = l
+                                    else:
+                                        stldata[compt]['k0'] = 0
                                     compt = compt + 1
         
         #%% Select random particles to inject
