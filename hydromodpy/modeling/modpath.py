@@ -249,13 +249,15 @@ class Modpath:
         
         prow = self.cell_div
         pcol = self.cell_div
-        if self.zloc_div == True:
-            play = self.cell_div
-        else:
-            play = 1
+        # if self.zloc_div == True:
+        #     play = self.cell_div
+        # else:
+        #     play = 1
         if self.bore_depth != None:
             # play = len(self.bore_depth)
             play = nlay
+        else:
+            play = 1
             
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem>0)*prow*pcol*play)
               
@@ -264,45 +266,75 @@ class Modpath:
         head_1c = hds_1c.get_data(totim=1)        
         wt = pp.get_water_table(head_1c, -100) # -9999
         # wt = np.ones((nrow, ncol)) * wt
-        
-        compt = 0
-        for i in range(0, nrow):
-            for j in range(0, ncol):
-                if mask_dem[i,j] > 0: # active or note
-                    for r in range(prow):
-                        for c in range(pcol):
-                            for l in range(play):
-                                stldata[compt]['label'] = 'p' + str(compt+1) + '-' + str(r) + '-' + str(c)
-                                for k in range(0, nlay):
-                                    if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
-                                        stldata[compt]['k0'] = k
-                                        break
-                                # Calculate the starting location for each sub-cell
-                                stldata[compt]['j0'] = j
-                                stldata[compt]['i0'] = i
-                                stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
-                                stldata[compt]['yloc0'] = (c +1) * 1/(pcol +1)
-                                # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2) # old method
-                                # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2) # old method
-                                if k == 0:
-                                    ztop = self.mf.dis.top.array[i,j]
-                                else:
-                                    ztop = self.mf.dis.botm.array[k-1, i, j]
-                                zbot = self.mf.dis.botm.array[k, i, j]
-                                aux_stl = min((wt[i, j] - zbot)/(ztop - zbot), 1.)
-                                val_z_wt = np.abs(aux_stl)
-                                if l == 0:
-                                    stldata[compt]['zloc0'] = val_z_wt
-                                else:
-                                    if self.bore_depth == None:
-                                        # stldata[compt]['zloc0'] = (val_z_wt+1)*1/(play +1)
-                                        stldata[compt]['zloc0'] = 0
+                
+        if self.track_dir == 'forward':
+            compt = 0
+            for i in range(0, nrow):
+                for j in range(0, ncol):
+                    if mask_dem[i,j] > 0: # active or note
+                        for r in range(prow):
+                            for c in range(pcol):
+                                for l in range(play):
+                                    stldata[compt]['label'] = 'p' + str(compt+1) + '-' + str(r) + '-' + str(c)
+                                    for k in range(0, nlay):
+                                        if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
+                                            stldata[compt]['k0'] = k
+                                            break
+                                    # Calculate the starting location for each sub-cell
+                                    stldata[compt]['j0'] = j
+                                    stldata[compt]['i0'] = i
+                                    # stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
+                                    # stldata[compt]['yloc0'] = (c +1) * 1/(pcol +1)
+                                    # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2) # old method
+                                    # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2) # old method
+                                    stldata[compt]['xloc0'] = (r+0.5)/(prow) # new method
+                                    stldata[compt]['yloc0'] = (c+0.5)/(pcol) # new method
+                                    if k == 0:
+                                        ztop = self.mf.dis.top.array[i,j]
                                     else:
+                                        ztop = self.mf.dis.botm.array[k-1, i, j]
+                                    zbot = self.mf.dis.botm.array[k, i, j]
+                                    aux_stl = min(max((wt[i,j] - zbot[k]) / (ztop - zbot[k]), 0.), 1.)
+                                    # ==> min((wt[i, j] - zbot)/(ztop - zbot), 1.)
+                                    val_z_wt = np.abs(aux_stl)
+                                    # if l == 0:
+                                    stldata[compt]['zloc0'] = val_z_wt
+                                    # else:
+                                    #     stldata[compt]['zloc0'] = 0
+                                    compt = compt + 1
+                
+        if self.track_dir == 'backward':
+            compt = 0
+            for i in range(0, nrow):
+                for j in range(0, ncol):
+                    if mask_dem[i,j] > 0: # active or note
+                        for r in range(prow):
+                            for c in range(pcol):
+                                for l in range(play):
+                                    stldata[compt]['label'] = 'p' + str(compt+1) + '-' + str(r) + '-' + str(c)
+                                    # for k in range(0, nlay):
+                                    #     if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
+                                    #         stldata[compt]['k0'] = k
+                                    #         break
+                                    # Calculate the starting location for each sub-cell
+                                    stldata[compt]['j0'] = j
+                                    stldata[compt]['i0'] = i
+                                    # stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
+                                    # stldata[compt]['yloc0'] = (c +1) * 1/(pcol +1)
+                                    # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2) # old method
+                                    # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2) # old method
+                                    stldata[compt]['xloc0'] = (r+0.5)/(prow) # new method
+                                    stldata[compt]['yloc0'] = (c+0.5)/(pcol) # new method
+                                    # stldata[compt]['xloc0'] = 0.5
+                                    # stldata[compt]['yloc0'] = 0.5
+                                    stldata[compt]['zloc0'] = 0.5
+                                    if self.bore_depth == True:
                                         # z0 not exist at this step: need to find the good k (layer) to inject at different depth (create a loop)
                                         # For example: stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
                                         stldata[compt]['k0'] = l
-                                        stldata[compt]['zloc0'] = 0.5 # Find a way to associate altitude/depth of injection with k and zloc0
-                                compt = compt + 1
+                                    else:
+                                        stldata[compt]['k0'] = 0
+                                    compt = compt + 1
         
         #%% Select random particles to inject
         
@@ -341,7 +373,14 @@ class Modpath:
                                   prsityCB=self.ss_modpath,
                                   extension='mpbas',
                                   unitnumber=86)
-                
+        
+        # 1	gauche	face Ouest (x– direction)
+        # 2	droite	face Est (x+ direction)
+        # 3	avant	face Sud (y– direction)
+        # 4	arrière	face Nord (y+ direction)
+        # 5	bas   	face inférieure (z– direction)
+        # 6	haut	face supérieure (z+ direction)
+                        
     #%% PROCESSING
     
     def processing(self,
