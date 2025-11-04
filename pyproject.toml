@@ -59,7 +59,8 @@ dependencies = [
     "numpy",
     "pandas",
     "plotly",
-    "pyproj>=3.4.0",  # Coordinate transformations for pyhelp
+    "pyproj",
+    "pyproj-data",
     "pyshp",
     "rasterio",
     "rioxarray",
