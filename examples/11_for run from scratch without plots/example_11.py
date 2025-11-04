@@ -95,7 +95,7 @@ def run_hydromodpy(watershed_name):
     BV.climatic.update_first_clim('mean') # or 'first or value
     
     # Hydraulic settings
-    BV.hydraulic.update_nlay(1)
+    BV.hydraulic.update_nlay(3)
     BV.hydraulic.update_lay_decay(1) # 1 if not activated
     BV.hydraulic.update_bottom(None) # Set a value to set a flat bottom
     BV.hydraulic.update_thick(50) # Not consider if bottom != of None
@@ -113,7 +113,10 @@ def run_hydromodpy(watershed_name):
     
     # Particle tracking settings
     BV.settings.update_input_particles(zone_partic = os.path.join(simulations_folder,model_name,'_postprocess/_rasters/seepage_areas_t(0).tif'),
-                                       track_dir = 'backward')
+                                       track_dir = 'backward',
+                                       bore_depth = False,
+                                       cell_div = 1, # 1
+                                       )
     
     #%% ---- FLOW MODEL
     
@@ -153,7 +156,7 @@ def run_hydromodpy(watershed_name):
         BV.postprocessing_modpath(model_modpath,
                                   ending_point=True,
                                   starting_point=True,
-                                  pathlines_shp=True,
+                                  pathlines_shp=False,
                                   particles_shp=False,
                                   random_id=None) # None
     
