@@ -10,7 +10,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
-#%% ---- LIBRAIRIES
+# ---- LIBRAIRIES
 
 # PYTHON PACKAGES
 import sys
@@ -28,11 +28,11 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 #import src
 from src import watershed_root
 
-#%% ---- FUNCTION LAUNCH
+# ---- FUNCTION LAUNCH
 
 def run_hydromodpy(watershed_name):
 
-    #%% ---- PERSONAL PATHS
+    # ---- PERSONAL PATHS
     
     example_path = os.path.join(root_dir, "examples", "11_for run from scratch without plots/")
     data_path = os.path.join(example_path, "data/")
@@ -44,7 +44,7 @@ def run_hydromodpy(watershed_name):
     
     print('The results of the example will be saved here :', out_path)
     
-    #%% ---- EXTRACT CATCHMENT
+    # ---- EXTRACT CATCHMENT
     
     # Name of the study site
     watershed_name = watershed_name
@@ -72,7 +72,7 @@ def run_hydromodpy(watershed_name):
     stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
     simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
     
-    #%% ---- MODEL PARAMETRIZATION
+    # ---- MODEL PARAMETRIZATION
     
     # Name of the model/simulation
     model_name = 'Test_Galaxy_v0'
@@ -118,7 +118,7 @@ def run_hydromodpy(watershed_name):
                                        cell_div = 1, # 1
                                        )
     
-    #%% ---- FLOW MODEL
+    # ---- FLOW MODEL
     
     # Pre-processing
     model_modflow = BV.preprocessing_modflow(for_calib=False)
@@ -142,7 +142,7 @@ def run_hydromodpy(watershed_name):
                                   intermittency_daily=False, # only in transient
                                   export_all_tif=False)
     
-    #%% ---- PARTICLE TRACKING
+    # ---- PARTICLE TRACKING
     
     # Pre-processing
     if success_modflow == True:
@@ -160,7 +160,7 @@ def run_hydromodpy(watershed_name):
                                   particles_shp=False,
                                   random_id=None) # None
     
-    #%% ---- POST PROCESSING
+    # ---- POST PROCESSING
     
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=model_modpath,
@@ -174,9 +174,9 @@ def run_hydromodpy(watershed_name):
     
     return watertable_depth_output
     
-#%% ---- RUN THE SCRIPT
+# ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
     watertable_depth_output = run_hydromodpy('Example_11_Galaxy') # watershed_name
     
-#%% ---- NOTES
+# ---- NOTES
