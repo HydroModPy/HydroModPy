@@ -71,7 +71,7 @@ watershed_name = '_'.join([
 print('##### '+watershed_name.upper()+' #####')
 
 watershed_path = os.path.join(out_path, watershed_name)
-dem_path = os.path.join(data_path, 'regional dem.tif')
+dem_path = os.path.join(data_path, 'dem', 'regional dem.tif')
 
 # Outlet coordinates of the catchment
 # from_xyv = [339515,6796665, 150, 10 , 'EPSG:2154']
@@ -98,10 +98,10 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 visualization_watershed.watershed_local(dem_path, BV)
 
 # Clip specific data at the catchment scale
-BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-BV.add_hydrography(data_path, types_obs=['regional stream network'])
-BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-BV.add_intermittency(data_path, 'regional onde stations.shp')
+BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+BV.add_hydrography(os.path.join(data_path, 'hydrography'), types_obs=['regional stream network'])
+BV.add_hydrometry(os.path.join(data_path, 'hydrometry'), 'france hydrometric stations.shp')
+BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp')
 
 subbasin_path = os.path.join(data_path,
                                   'additional') 
@@ -131,7 +131,7 @@ print(f"Mean slope of the watershed: {mean_slope:.2f} percent")
 BV.add_climatic()
 first_year = 1994
 last_year = 2023
-freq_input = 'y' 
+freq_input = 'Y' 
 sim_state = 'steady' 
 
 # Load climatic data from CSV
@@ -146,8 +146,8 @@ df_climatic = df_climatic.loc[
 ]
 
 agg_dict = {
-    'recharge': 'sum', 'runoff': 'sum', 'precip': 'sum',
-    'evt': 'sum', 'etp': 'sum', 't': 'mean'
+    'recharge': 'mean', 'runoff': 'mean', 'precip': 'mean',
+    'evt': 'mean', 'etp': 'mean', 't': 'mean'
 }
 df_climatic = df_climatic.resample(freq_input).agg(agg_dict)
 
@@ -253,7 +253,6 @@ BV.hydraulic.update_thick(30) # Not consider if bottom != of None
 BV.hydraulic.update_hk(1.3e-5 * 24 * 3600) # m/d
 BV.hydraulic.update_sy(0.1/100) # -
 
-#* Pour le moment je n'ai pas renseigné ces champs la car je n'ai pas compris leur fonction
 # BV.hydraulic.update_hk_decay(1/20, min_value=None, log_transf=False) # Exponential decay with depth : 1/10 (about half decrease at 10m)
 # BV.hydraulic.update_sy_decay(1/20, min_value=None, log_transf=False)
 # BV.hydraulic.update_ss_decay(1/20, min_value=None, log_transf=False)
@@ -263,7 +262,7 @@ BV.hydraulic.update_hk_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
 
 # Boundary settings
 BV.settings.update_bc_sides(None, None)
-BV.add_oceanic('None') #? On doit le mettre par défaut à None pour que modflow ait bien toute les entrées ? (y/n)
+BV.add_oceanic('None') 
 
 # # Particle tracking settings
 # BV.settings.update_input_particles(zone_partic = os.path.join(simulations_folder,model_name,'_postprocess/_rasters/seepage_areas_t(0).tif'),
@@ -295,12 +294,10 @@ if success_modflow == True:
 
 # %%#%% ---- GENERATE TIMESERIES
 
-# timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-#                                                   model_modpath = None,
-#                                                   subbasin_results=False,
-#                                                   datetime_format=False)
-# #? que veut dire datetime_format: bool=True dans la classe postprocessing_timeseries ? 
-# #? qu'est ce que c'est subbassin c'est un sous bassin de notre outlet ou c'est le bassin de l'outlet ? 
+timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                  model_modpath = None,
+                                                  subbasin_results=False,
+                                                  datetime_format=False)
 
 #%% ---- GENERATE NETCDF FILES
 
