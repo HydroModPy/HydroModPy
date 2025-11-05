@@ -148,7 +148,7 @@ def combine_metrics(df: pd.DataFrame,
                    metrics: List[str], 
                    weights: Optional[List[float]] = None,
                    method: str = 'weighted_sum',
-                   normalize: bool = True) -> Tuple[pd.Series, str]:
+                   normalize: bool = False) -> Tuple[pd.Series, str]:
     """
     Combine multiple performance metrics into a single composite metric.
     
@@ -162,7 +162,7 @@ def combine_metrics(df: pd.DataFrame,
         Weights for each metric (default: equal weights)
     method : str, default='weighted_sum'
         Combination method: 'weighted_sum', 'weighted_mean', 'product', 'geometric_mean'
-    normalize : bool, default=True
+    normalize : bool, default=False
         Whether to normalize metrics to [0,1] before combining
         
     Returns
@@ -277,7 +277,9 @@ def combine_metrics(df: pd.DataFrame,
     return combined, description
 
 def determine_color_normalization(data: np.ndarray, metric_name: str, 
-                                color_log: Optional[bool] = None) -> Tuple[Normalize, str]:
+                                color_log: Optional[bool] = None,
+                                vmin: Optional[float] = None,
+                                vmax: Optional[float] = None) -> Tuple[Normalize, str]:
     """
     Determine the best color normalization for a given metric and data.
     
@@ -289,6 +291,10 @@ def determine_color_normalization(data: np.ndarray, metric_name: str,
         Name of the metric
     color_log : bool, optional
         Force logarithmic scale if True, force linear if False, auto-detect if None
+    vmin : float, optional
+        Minimum value for color scale (default: use data minimum)
+    vmax : float, optional
+        Maximum value for color scale (default: use data maximum)
         
     Returns
     -------
@@ -299,19 +305,26 @@ def determine_color_normalization(data: np.ndarray, metric_name: str,
     if len(data_clean) == 0:
         return Normalize(), "No valid data"
     
-    data_min, data_max = np.min(data_clean), np.max(data_clean)
+    # Use user-specified limits or data limits
+    data_min = vmin if vmin is not None else np.min(data_clean)
+    data_max = vmax if vmax is not None else np.max(data_clean)
     data_range = data_max - data_min
     
     # Get metric info
     metric_info = get_metric_info(metric_name)
     recommended_scale = metric_info.get('color_scale', 'normal')
     
+    # Add description of custom limits
+    custom_limits_desc = ""
+    if vmin is not None or vmax is not None:
+        custom_limits_desc = f" [custom: {data_min:.3g} to {data_max:.3g}]"
+    
     # If user explicitly requested log or linear
     if color_log is not None:
         if color_log and data_min > 0:
-            return LogNorm(vmin=data_min, vmax=data_max), "Logarithmic (user-requested)"
+            return LogNorm(vmin=data_min, vmax=data_max), f"Logarithmic (user-requested){custom_limits_desc}"
         else:
-            return Normalize(vmin=data_min, vmax=data_max), "Linear (user-requested)"
+            return Normalize(vmin=data_min, vmax=data_max), f"Linear (user-requested){custom_limits_desc}"
     
     # Auto-detection based on metric type and data characteristics
     if recommended_scale == 'symlog':
@@ -319,19 +332,19 @@ def determine_color_normalization(data: np.ndarray, metric_name: str,
         if data_min >= 0:
             # Use symlog with appropriate threshold
             linthresh = max(data_range * 0.01, 0.1)  # 1% of range or 0.1, whichever is larger
-            return SymLogNorm(linthresh=linthresh, vmin=data_min, vmax=data_max), f"Symlog (threshold: {linthresh:.2f})"
+            return SymLogNorm(linthresh=linthresh, vmin=data_min, vmax=data_max), f"Symlog (threshold: {linthresh:.2f}){custom_limits_desc}"
         else:
-            return Normalize(vmin=data_min, vmax=data_max), "Linear"
+            return Normalize(vmin=data_min, vmax=data_max), f"Linear{custom_limits_desc}"
     
     elif recommended_scale == 'log_if_large_range':
         # Use log if range is large and all values positive
         if data_min > 0 and (data_max / data_min) > 10:
-            return LogNorm(vmin=data_min, vmax=data_max), "Logarithmic (large range)"
+            return LogNorm(vmin=data_min, vmax=data_max), f"Logarithmic (large range){custom_limits_desc}"
         else:
-            return Normalize(vmin=data_min, vmax=data_max), "Linear"
+            return Normalize(vmin=data_min, vmax=data_max), f"Linear{custom_limits_desc}"
     
     else:  # 'normal'
-        return Normalize(vmin=data_min, vmax=data_max), "Linear"
+        return Normalize(vmin=data_min, vmax=data_max), f"Linear{custom_limits_desc}"
 
 def create_legend_markers(ax, best_idx: Tuple[int, int], worst_idx: Tuple[int, int],
                          best_value: float, worst_value: float, 
@@ -377,6 +390,8 @@ def analyze_calibration_grid(folder_path: str,
                            x_log: bool = False,
                            y_log: bool = False,
                            color_log: Optional[bool] = None,  # Changed to Optional for auto-detection
+                           vmin: Optional[float] = None,
+                           vmax: Optional[float] = None,
                            colormap: str = 'Spectral',
                            figsize: Tuple[int, int] = (12, 10),
                            title: Optional[str] = None,
@@ -410,6 +425,10 @@ def analyze_calibration_grid(folder_path: str,
         Use logarithmic scale for Y-axis
     color_log : bool, optional
         Use logarithmic scale for colorbar (None for auto-detection)
+    vmin : float, optional
+        Minimum value for color scale (e.g., 0, -1). If None, uses data minimum
+    vmax : float, optional
+        Maximum value for color scale (e.g., 1, 10). If None, uses data maximum
     colormap : str, default='Spectral'
         Matplotlib colormap name
     figsize : tuple, default=(12, 10)
@@ -435,6 +454,17 @@ def analyze_calibration_grid(folder_path: str,
         The main axes object
     df_combined : pandas.DataFrame
         Combined dataframe with all calibration results
+        
+    Examples
+    --------
+    >>> # Standard plot with auto color range
+    >>> fig, ax, df = analyze_calibration_grid(path, 'hk', 'sy', 'NSE')
+    
+    >>> # Force color scale from 0 to 1 (useful for NSE, KGE)
+    >>> fig, ax, df = analyze_calibration_grid(path, 'hk', 'sy', 'NSE', vmin=0, vmax=1)
+    
+    >>> # Force color scale from -5 to 10
+    >>> fig, ax, df = analyze_calibration_grid(path, 'hk', 'sy', 'custom_metric', vmin=-5, vmax=10)
     """
     
     print(f"Analyzing calibration grid from: {folder_path}")
@@ -561,7 +591,9 @@ def analyze_calibration_grid(folder_path: str,
     if color_column in df_clean.columns:
         z_data = df_clean[color_column].dropna()
         if len(z_data) > 0:
-            norm, norm_description = determine_color_normalization(z_data.values, color_column, color_log)
+            norm, norm_description = determine_color_normalization(
+                z_data.values, color_column, color_log
+                )
             print(f"Color normalization: {norm_description}")
     
     # Configure colormap with gray for NaN values
@@ -884,7 +916,7 @@ def create_combined_metric(metrics: List[str],
         - 'weighted_mean': Mean of weighted normalized metrics  
         - 'product': Product of weighted normalized metrics
         - 'geometric_mean': Geometric mean of weighted normalized metrics
-    normalize : bool, default=True
+    normalize : bool, default=False
         Whether to normalize metrics to [0,1] before combining
         
     Returns
@@ -914,7 +946,9 @@ def quick_combined_plot(folder_path: str,
                        x_column: str = 'hk', 
                        y_column: str = 'sy',
                        weights: Optional[List[float]] = None,
-                       method: str = 'weighted_sum') -> Tuple[plt.Figure, plt.Axes, pd.DataFrame]:
+                       method: str = 'weighted_sum', 
+                       vmin: Optional[float] = None,
+                       vmax: Optional[float] = None) -> Tuple[plt.Figure, plt.Axes, pd.DataFrame]:
     """
     Create a quick plot with combined metrics.
     
@@ -930,6 +964,10 @@ def quick_combined_plot(folder_path: str,
         Weights for each metric
     method : str, default='weighted_sum'
         Combination method
+    vmin : float, optional
+        Minimum value for color scale (e.g., 0). If None, uses data minimum
+    vmax : float, optional
+        Maximum value for color scale (e.g., 1). If None, uses data maximum
         
     Returns
     -------
@@ -949,7 +987,7 @@ def quick_combined_plot(folder_path: str,
     print(f"Method: {method}, Weights: {weights}")
     
     # Create combined metric configuration
-    combined_config = create_combined_metric(metrics, weights, method, normalize=True)
+    combined_config = create_combined_metric(metrics, weights, method, normalize=False)
     
     # Auto-detect parameter scales
     df = explore_parameter_grid(folder_path)
@@ -987,6 +1025,8 @@ def quick_combined_plot(folder_path: str,
         x_log=x_log,
         y_log=y_log,
         color_log=None,  # Auto-detect
+        vmin=vmin,
+        vmax=vmax,
         colormap=colormap,
         figsize=(12, 10),
         show_values=False,
@@ -1017,8 +1057,15 @@ def quick_grid_plot(folder_path: str,
     -------
     tuple
         Figure, axes, and dataframe objects
-    """
+        
+        Examples
+    --------
+    >>> # Quick plot with auto color range
+    >>> fig, ax, df = quick_grid_plot(path, 'hk', 'sy', 'NSE')
     
+    >>> # With fixed color range from 0 to 1
+    >>> fig, ax, df = quick_grid_plot(path, 'hk', 'sy', 'NSE', vmin=0, vmax=1)
+    """
     print("Creating quick calibration grid plot")
     print("="*35)
     
@@ -1099,14 +1146,18 @@ def print_metric_definitions():
                 print(f"  Color scale: {info['color_scale']}")
 #%%
 if __name__ == "__main__":
-    folder_path = r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\LA_FLUME\last_FA_LOG\parameters"
+    folder_path = r"C:\Users\theat\Desktop\parameters_exdp30m"
     if os.path.exists(folder_path):
         print_metric_definitions()
         
         df = explore_parameter_grid(folder_path)
         if df is not None:
             fig1, ax1, df1 = quick_grid_plot(folder_path, 'hk', 'sy', 'NSElog')
-            fig2, ax2, df2 = quick_combined_plot(folder_path, ['NSElog', 'FA'], weights=[1, 1], method='weighted_mean')
+            fig2, ax2, df2 = quick_combined_plot(
+                folder_path, ['NSElog', 'FA'], weights=[1, 1], method='weighted_mean',
+                                # vmin=0,  # Force color scale to start at 0
+                # vmax=1   # Force color scale to end at 1
+            )
             plt.show()
         else:
             print("No data found for visualization")
