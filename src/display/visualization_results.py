@@ -738,6 +738,7 @@ class Visualization():
         wt_v_plot[wt_v_plot == 0] = np.nan
         wt_v_prof, = right_ax.plot(wt_v_plot,np.arange(xx.shape[0]), c='dodgerblue', lw=lw)
         
+        wt_v_fill = None
         if interactive != True:
             wt_v_fill = right_ax.fill_betweenx(np.arange(xx.shape[0]), 0, wt_v_plot,
                                                color='deepskyblue', alpha=0.5, lw=0)
@@ -748,6 +749,7 @@ class Visualization():
         wt_h_plot[wt_h_plot == 0] = np.nan
         wt_h_prof, = top_ax.plot(np.arange(xx.shape[1]), wt_h_plot, c='dodgerblue', lw=lw)
         
+        wt_h_fill = None
         if interactive != True:
             wt_h_fill = top_ax.fill_between(np.arange(xx.shape[1]), 0, wt_h_plot,
                                             color='deepskyblue', alpha=0.5, lw=0)
@@ -784,8 +786,10 @@ class Visualization():
                 h_line.set_ydata([cur_y, cur_y])
                 wt_v_prof.set_xdata(wt_v_plot)
                 wt_h_prof.set_ydata(wt_h_plot)
-                wt_v_fill.set_xdata(wt_v_plot)
-                wt_h_fill.set_xdata(wt_h_plot)   
+                if wt_v_fill is not None:
+                    wt_v_fill.set_xdata(wt_v_plot)
+                if wt_h_fill is not None:
+                    wt_h_fill.set_xdata(wt_h_plot)
                 fig.canvas.draw_idle()
         
         def on_close(event):
