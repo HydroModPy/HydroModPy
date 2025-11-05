@@ -52,14 +52,14 @@ A HydroModPy environment can be installed with "conda" using the ".yml" file ava
 (0) Open Anaconda Prompt :
 ```
 cd /d "path/where/is/the/install/directory/"
-conda env create -f env_hydromodpy-0.1_windows.yml -n hydromodpy-0.1
+conda env create -f env_hydromodpy-v0.2.0_windows.yml -n hydromodpy-v0.2.0
 ```
 
 ## Launch HydroModPy
 
 (1) Activate HydroModPy environment :
 ```
-conda activate hydromodpy-0.1
+conda activate hydromodpy-v0.2.0
 ```
 
 (2) Open Spyder or Jupyter Notebook :
