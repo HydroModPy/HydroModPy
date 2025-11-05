@@ -83,18 +83,27 @@ def preprocessing_pyhelp(
         zlib compression level (0–9) for the output NetCDF file.
     """
     
-    
     workdir = Path(workdir).expanduser().resolve()
     workdir.mkdir(parents=True, exist_ok=True)
-    
+
     outpath = Path(outpath).expanduser().resolve()
-    
+
     if grid_csv:
         grid_csv = Path(grid_csv).expanduser()
         if not grid_csv.exists():
             raise FileNotFoundError(f"Grid CSV not found: {grid_csv}")
-        
-        
+
+    repo_root = Path(__file__).resolve().parents[2]
+
+    def _inject_pythonpath(env: dict) -> None:
+        """Ensure child processes can import hydromodpy without installation."""
+        paths = [str(repo_root)]
+        existing = env.get("PYTHONPATH")
+        if existing:
+            paths.append(existing)
+        env["PYTHONPATH"] = os.pathsep.join(paths)
+
+
 #%% Case 1 : ready_cscv is None
     #if ready_csvs (climatic) is None-> launch main_cdf.py   
     
@@ -117,8 +126,7 @@ def preprocessing_pyhelp(
         })
 
         # Use the current Python executable directly (no conda needed)
-        src_root = Path(__file__).parent.parent
-        env["PYTHONPATH"] = str(src_root)
+        _inject_pythonpath(env)
 
         cmd = [
             sys.executable,
@@ -155,7 +163,7 @@ def preprocessing_pyhelp(
         print("Grid update")
         env = os.environ.copy()
         env.update({"PYHELP_SHP": str(shapefile) if shapefile else ""})
-        base_grid = workdir.parents[3] / "10_coupling with land surface model pyhelp" / "data" / "input_grid_base.csv"
+        base_grid = workdir.parents[3] / "10_coupling_with_land_surface_model_pyhelp" / "data" / "input_grid_base.csv"
         out_grid = workdir / "input_grid_base1.csv"
         pg = PyhelpGrid(str(base_grid), str(out_grid), str(dem or ""))
         pg.update_parameters(**grid_kwargs)
@@ -204,6 +212,7 @@ def preprocessing_pyhelp(
     print(f"[INFO] Command: {' '.join(cmd)}")
     env_cli = os.environ.copy()
     env_cli["PYHELP_WORKDIR"] = str(workdir)
+    _inject_pythonpath(env_cli)
 
     # Run with real-time output display instead of capturing
     proc = subprocess.run(cmd, env=env_cli)
