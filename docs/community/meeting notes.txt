@@ -1,0 +1,208 @@
+--------------------------
+Date: 23/05/25 - 14h
+Participants:  Alexandre C., Bastien, Jean-Raynald, Sarah, Théa, Ariane, Tristan, Alexandre G.
+
+General discussions:
+--------------------------
+
+Article : Relancer (JR) pour avoir une réponse de HESS pour passer le papier en Technical Note. 
+
+Ozcar : Gestion de la ressource sur l'ensemble du cycle sur un territoire (type AquiFR). Service de modélisation. EcH2O modèle physique sur l'ensemble des compartiments. HydroModPy focus sur un compartiment.
+Ronan et JR: message pour se manifester sur notre intention de contribuer avec HydroModPy.
+
+1. Paramétrage :
+    - Paramètres à extraire des codes (Bastien, Alexandre et Jean-Raynald)
+    - Présentation pratique (lors de notre prochaine) : comment faire pour intégrer un nouveau paramètre au nouveau système de paramétrisation d'HMP ?
+
+2. Base donnée :
+    - Stocker les résultats de simulation dans une base de donnée
+    - Ces résultats pourront servir comme base dans les tests de non-régression (Test pour validation et déploiement du code)
+
+3. Temps ingénieur pour le poursuivre le développement :
+    - Moyen ANR?, INRIA?, INRAE?
+    - Volume horaire : 2 ans d'ingenieur ou 20% sur un an (1 journée par semaine) en fonction des financements
+    - Remarque d'Alexandre Coche : Financemet (Appel d'offre OPen - CNRS innovation - https://www.cnrs.fr/fr/actualite/open-le-nouveau-programme-de-financement-et-daccompagnement-du-cnrs-pour-valoriser-les )
+
+4. Présentation des développements en cours :
+    - Ariane : Implémentation du package Mnw2 (Multi-node well) de Modflow
+    - Théa : Interaction surface/souterrain. Nécessité d'injecter une concentration à un endroit précis dans le cours d'eau => Utilisation du package D8MassFlux de WhiteboxTools (https://www.whiteboxgeo.com/manual/wbt_book/available_tools/hydrological_analysis.html?highlight=mass#d8massflux) et le package SFR (implémenter par Alexandre C. dans HMP) pour prendre en compte l'infiltration.
+    - Bastien : Mise à jour de la version Python d'HydroModPy
+    - Ronan : Présentation des résultats d'évolution des concentrations en nitrate à l'échelle d'un BV (Effet de la dégradation des nitrates sur les concentrations en cours d'eau)
+    - Alexandre C. : Présentation de l'outil GEOP4TH (https://gitlab.com/AlexandreCoche/geop4th)
+    - Alexandre G. : Implémentation du code pour la prise en charge de Modflow 6. Présentation de la structure d'un maillage irrégulier. 
+
+Prochaine date de réunion 25juin - 26juin - 3juillet 
+
+--------------------------
+Date: 03/03/25 - 14h
+Participants:  Alexandre C., Alexandre G., Bastien, Jean-Raynald, Martin, Théa, Tristan
+
+General discussions:
+--------------------------
+
+Présentation HydroModPy aux stagiaires
+2 modalités
+- 1er niveau : Utlisation + Manipulation à partir des exemples
+- 2ème niveau: Développement, Ajouter des fonctionnalités, demande plus d'accompagnement
+Création d'une branche spécifique par stage quitte à revenir après sur la branche dev
+Identifier ce qui va être fait
+Utilisation de slack
+Echange fin mars 
+
+Gestion de la base de données HydroDataPy
+Possibilité CNRS 
+- 200 Go sans contraint actuellement
+- Vital
+- A activer immédiatement
+Possibilité Université
+- To: 120€/an
+- VPN: 80€/an par utilisateur
+- Attendre que le système soit stabilisé
+- Stockage Chaud, Tiède ou Froid (vitesse de téléchargement, pas très clair?)
+
+Paramétrage des simulations
+- Fichiers en entrée de simulations
+- Fichier yaml: nom de variable, valeur, liste, dictionnaire
+- Migration vers des fichiers xml (à voir Alexandre C., Bastien, Jean-Raynald)
+
+Intégration calibration XML
+
+Intégration à l'échelle de l'Europe
+- Simulations de 6000 BVs par Ronan, à confirmer, à présenter
+
+Perspectives Intégration ModFllow 6
+
+Ordre du Jour prochaine réunion 
+Dates possibles
+2, 3 ou 4 avril après-midi 14:00 ou 16:00
+
+HydroModPy, présentation stagiaires (à solliciter): Ariane, Maeliss, Enzo, 
+1- Présentation des sujets de stage et des besoins HydroModPy
+2- Echange sur les capacités et les limites de la plateforme
+
+Stockage HydroDataPy (Bastien)
+- Repository CNRS, Retour sur les tests des uns et des autres
+
+Paramétrage (Alexandre C., Bastien, JR)
+- Présentation d'un premier paramétrage en XML
+
+Intégration à l'échelle de l'Europe (Ronan)
+
+
+--------------------------
+
+Date: 13/01/25 - 14h
+Participants:  Jean-Raynald, Clément, Ronan, Tristan, Sarah, Bastien, Flore, Théa, Jean, Martin, Ronny, Alexandre
+
+
+General discussions:
+---------------------------
+
+Next meeting: 03/03/25 - 2pm
+
+- Preprint available (https://egusphere.copernicus.org/preprints/2025/egusphere-2024-3962/)
+
+- Latest innovations and changes in code
+  - pyhelp and pyemu (pest), ongoing developments. topic for the next meeting
+  - Strategy to define paremeter file to launch HydroModPy. Propose something with a master student.
+
+- New git structure: master - dev and dev- branches...
+  - new feature branch must be named with the prefix "dev-" to keep high level of security
+
+- First non-regression test: based on example 1
+
+- Automatic generation on readthedocs (refine the doc, comment all the code)
+  - Code to transform python file example to notebook: easy to update example on readthedoc
+
+- Documents shared directly in the "docs" folder (meeting notes, branches list, google drive...)
+
+- Coupling with other databases
+  - HydroDataPy - JR: ask the DSI - either an account for HydromodPy or extend Jean-Raynald's account. (1To or 5To?)
+  - BDD-HydroClim - Hydro-climatic database of 4,000 French watersheds (https://webgr.inrae.fr/outils/bases-de-donnees/bdd-hydroclim)
+
+- Ignored files between the master and dev branches (via gitignores)
+
+- Update of issues on the git (warnings, prints...)
+
+- Think about the supervision of master internships.
+
+
+Recent commit/branch:  https://gitlab.com/Alex-Gauvain/HydroModPy/-/commits
+---------------------
+
+Gitlab Open Issues: https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues
+-------------------
+
+- List of error messages clustering console #35 · created 1 month ago by Ronan Abhervé
+- Hide deprecationwarning error message #34 · created 1 month ago by Bastien Boivin
+- Parametrization external with a configuration file #33 · created 1 month ago by Alexandre Coche
+- Problem projection retrieval by flopy give error message #32 · created 2 months ago by Bastien Boivin
+- Standardized messaging with a verbose mode #30 · created 4 months ago by Alexandre Coche
+- MétéoFrance data download from website #28 · created 5 months ago by Jean-Raynald de Dreuzy
+- Branch dev-lakeres management #26 · created 5 months ago by Jean-Raynald de Dreuzy
+- Run the code in batch #23 · created 1 year ago by Jean-Raynald de Dreuzy
+- Upgrade to modflow 6 #18 · created 2 years ago by Jean-Raynald de Dreuzy
+- Parameterization with external files #6 · created 2 years ago by Jean-Raynald de Dreuzy
+- Implement more non-regression tests #4 · created 2 years ago by Jean-Raynald de Dreuzy
+- Sharing common database #1 · created 2 years ago by Jean-Raynald de Dreuzy
+
+===========================================================================
+
+Date: 04/12/24 - 15h.
+
+Participants: Ronan, Alexandre C., Alexandre G.
+
+Branch : master (branche utilisateur) - dev (branche centrale) - dev-features (branche de dévellopement d'une feature spécifique)
+
+Actions:
+(1) Envoyer un mail sur la mail-list de prévention
+(2) Back-up de toutes les branches
+(3) Merge v0.1 vers master 
+(4) Tag de la branch master : v1.0.0 (majeurs.features.corrections)
+(5) Merge v0.1 vers dev0.1 /!\ Attention conflits
+(6) Supprimer la v0.1
+(7) Créé old-calibration à la place de dev: /!\ Faire un back up
+(8) supprimer la branch dev
+(9) Créer la branch dev à partir de la dev0.1
+(10) Supprimer la dev0.1
+
+Recap liste des branches à créer :
+  CB, JM & RA:
+    Branch teaching
+  RA:
+    Branch dev-examples
+    Branch dev-gr4j
+    Branch dev-pyhelp
+  AG & Martin:
+    Branch old-calibration
+  AC:
+    Branch dev-lakeres 
+    Branch dev-lakeres-warm-up
+    Branch dev-sequential
+    Branch dev-lakeres-sequential
+    Branch dev-optim-postproc
+  Stage IRISA:
+    Branch dev-jeremy
+
+Réunion HMP:
+  - Faire le point sur l'activité : commits/nouvelles branches
+  - Faire un guide du dev HydroModPy: Branch par feature
+  - Ajouter un fichier meeting.txt sur le git dev: rapport de réunion
+
+===========================================================================  
+Template
+===========================================================================
+Date: 
+Participants: 
+  
+General discussions:
+-------------------
+
+Recent commits:  https://gitlab.com/Alex-Gauvain/HydroModPy/-/commits
+--------------
+
+Gitlab Issues: https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues
+-------------
+
+
+===========================================================================

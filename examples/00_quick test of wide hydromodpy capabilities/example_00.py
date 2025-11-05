@@ -12,20 +12,24 @@
 
 #%% ---- LIBRAIRIES
 
-# PYTHON PACKAGES
+# Filter warnings (before imports)
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
+import pkg_resources # Must be placed after DeprecationWarning as it is itself deprecated
+warnings.filterwarnings('ignore', message='.*pkg_resources.*')
+warnings.filterwarnings('ignore', message='.*declare_namespace.*')
+
+# PYTHON PACKAGES
 import sys
 import os
 import warnings
 
 import numpy as np
 import pandas as pd
-import flopy
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from IPython import get_ipython
-get_ipython().run_line_magic('matplotlib', 'inline')
 import imageio
 import whitebox
 import rasterio
@@ -44,15 +48,9 @@ print("Root path directory is: {0}".format(root_dir.upper()))
 # HYDROMODPY MODULES
 
 from src import watershed_root
-from src.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
-from src.modeling import downslope, modflow, modpath
-from src.display import visualization_watershed, visualization_results, export_vtuvtk
-from src.tools import toolbox, folder_root
+from src.display import visualization_watershed, visualization_results
+from src.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
-
-# WARNING MANAGEMENT
-
-warnings.filterwarnings("ignore")
     
 #%% ---- PERSONAL PATHS
 
@@ -62,7 +60,7 @@ data_path = os.path.join(regression_path, "data/")
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir, "examples", "results")
 # Or define it manually
-# out_path = 'C:/Simulations/HydroModPy/'
+# out_path = 'D:/_HydroModPy/_results'
 
 print('The results of the example will be saved here :', out_path)
 

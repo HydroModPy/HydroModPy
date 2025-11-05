@@ -49,6 +49,7 @@ class Hydraulic:
                  verti_sy_init=None,
                  verti_ss_init=None,
                  vka_init: float=1.,
+                 exdp_init: float=1.
                  ):
         """
         Parameters
@@ -137,7 +138,8 @@ class Hydraulic:
         self.cond_drain = cond_drain_init
         
         self.vka = vka_init
-                
+        self.exdp = exdp_init
+        
         self.update_hk_decay()
         self.update_sy_decay()
         self.update_ss_decay()
@@ -170,6 +172,16 @@ class Hydraulic:
             Ratio of horizontal to vertical hydraulic conductivity.
         """
         self.vka = vka_value
+    
+        
+    def update_exdp(self, exdp_value: float):
+        """
+        Parameters
+        ----------
+        exdp : float
+            Extinction depth from the surface of the evapotranspiration.
+        """
+        self.exdp = exdp_value
     
     def update_sy(self, sy_value: float):
         """
@@ -207,7 +219,7 @@ class Hydraulic:
         """
         self.bottom = bottom_value
     
-    def update_hk_decay(self, hk_decay_value: float=0, min_value: float=None, log_transf: bool=False):
+    def update_hk_decay(self, hk_decay_value: float=0, min_value: float=None, log_transf: bool=False, grad_elev: list=[]):
         """
         Parameters
         ----------
@@ -222,25 +234,25 @@ class Hydraulic:
             If True, the log transform is applied to the formulation.
             log(K(z)) = log(Kmin)-(log(Kmax)-log(Kmin))*np.exp(-hk_decay_value*z)
         """
-        self.hk_decay =  [hk_decay_value, min_value, log_transf]
+        self.hk_decay =  [hk_decay_value, min_value, log_transf, grad_elev]
     
-    def update_sy_decay(self, sy_decay_value: float=0, min_value: float=None, log_transf: bool=False):
+    def update_sy_decay(self, sy_decay_value: float=0, min_value: float=None, log_transf: bool=False, grad_elev: list=[]):
         """
         Parameters
         ----------
         sy_decay_value : float
             Idem por specific yield. See 'update_hk_decay'.
         """
-        self.sy_decay = [sy_decay_value, min_value, log_transf]
+        self.sy_decay = [sy_decay_value, min_value, log_transf, grad_elev]
     
-    def update_ss_decay(self, ss_decay_value: float=0, min_value: float=None, log_transf: bool=False):
+    def update_ss_decay(self, ss_decay_value: float=0, min_value: float=None, log_transf: bool=False, grad_elev: list=[]):
         """
         Parameters
         ----------
         ss_decay_value : float
             Idem por specific stotage. See 'update_hk_decay'.
         """
-        self.ss_decay =  [ss_decay_value, min_value, log_transf]  
+        self.ss_decay =  [ss_decay_value, min_value, log_transf, grad_elev]
     
     def update_lay_decay(self, lay_decay_value: Union[float, int]):
         """

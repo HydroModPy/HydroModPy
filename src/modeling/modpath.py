@@ -144,6 +144,7 @@ class Modpath:
         """
         
         #%% Load and import
+        
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = '{}.nam'.format(prefix)
         dis_file = '{}.dis'.format(prefix)
@@ -248,13 +249,15 @@ class Modpath:
         
         prow = self.cell_div
         pcol = self.cell_div
-        if self.zloc_div == True:
-            play = self.cell_div
-        else:
-            play = 1
+        # if self.zloc_div == True:
+        #     play = self.cell_div
+        # else:
+        #     play = 1
         if self.bore_depth != None:
             # play = len(self.bore_depth)
             play = nlay
+        else:
+            play = 1
             
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem>0)*prow*pcol*play)
               
@@ -263,45 +266,75 @@ class Modpath:
         head_1c = hds_1c.get_data(totim=1)        
         wt = pp.get_water_table(head_1c, -100) # -9999
         # wt = np.ones((nrow, ncol)) * wt
-        
-        compt = 0
-        for i in range(0, nrow):
-            for j in range(0, ncol):
-                if mask_dem[i,j] > 0: # active or note
-                    for r in range(prow):
-                        for c in range(pcol):
-                            for l in range(play):
-                                stldata[compt]['label'] = 'p' + str(compt+1) + '-' + str(r) + '-' + str(c)
-                                for k in range(0, nlay):
-                                    if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
-                                        stldata[compt]['k0'] = k
-                                        break
-                                # Calculate the starting location for each sub-cell
-                                stldata[compt]['j0'] = j
-                                stldata[compt]['i0'] = i
-                                stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
-                                stldata[compt]['yloc0'] = (c +1) * 1/(pcol +1)
-                                # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2) # old method
-                                # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2) # old method
-                                if k == 0:
-                                    ztop = self.mf.dis.top.array[i,j]
-                                else:
-                                    ztop = self.mf.dis.botm.array[k-1, i, j]
-                                zbot = self.mf.dis.botm.array[k, i, j]
-                                aux_stl = min((wt[i, j] - zbot)/(ztop - zbot), 1.)
-                                val_z_wt = np.abs(aux_stl)
-                                if l == 0:
-                                    stldata[compt]['zloc0'] = val_z_wt
-                                else:
-                                    if self.bore_depth == None:
-                                        # stldata[compt]['zloc0'] = (val_z_wt+1)*1/(play +1)
-                                        stldata[compt]['zloc0'] = 0
+                
+        if self.track_dir == 'forward':
+            compt = 0
+            for i in range(0, nrow):
+                for j in range(0, ncol):
+                    if mask_dem[i,j] > 0: # active or note
+                        for r in range(prow):
+                            for c in range(pcol):
+                                for l in range(play):
+                                    stldata[compt]['label'] = 'p' + str(compt+1) + '-' + str(r) + '-' + str(c)
+                                    for k in range(0, nlay):
+                                        if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
+                                            stldata[compt]['k0'] = k
+                                            break
+                                    # Calculate the starting location for each sub-cell
+                                    stldata[compt]['j0'] = j
+                                    stldata[compt]['i0'] = i
+                                    # stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
+                                    # stldata[compt]['yloc0'] = (c +1) * 1/(pcol +1)
+                                    # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2) # old method
+                                    # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2) # old method
+                                    stldata[compt]['xloc0'] = (r+0.5)/(prow) # new method
+                                    stldata[compt]['yloc0'] = (c+0.5)/(pcol) # new method
+                                    if k == 0:
+                                        ztop = self.mf.dis.top.array[i,j]
                                     else:
+                                        ztop = self.mf.dis.botm.array[k-1, i, j]
+                                    zbot = self.mf.dis.botm.array[k, i, j]
+                                    aux_stl = min(max((wt[i,j] - zbot[k]) / (ztop - zbot[k]), 0.), 1.)
+                                    # ==> min((wt[i, j] - zbot)/(ztop - zbot), 1.)
+                                    val_z_wt = np.abs(aux_stl)
+                                    # if l == 0:
+                                    stldata[compt]['zloc0'] = val_z_wt
+                                    # else:
+                                    #     stldata[compt]['zloc0'] = 0
+                                    compt = compt + 1
+                
+        if self.track_dir == 'backward':
+            compt = 0
+            for i in range(0, nrow):
+                for j in range(0, ncol):
+                    if mask_dem[i,j] > 0: # active or note
+                        for r in range(prow):
+                            for c in range(pcol):
+                                for l in range(play):
+                                    stldata[compt]['label'] = 'p' + str(compt+1) + '-' + str(r) + '-' + str(c)
+                                    # for k in range(0, nlay):
+                                    #     if (wt[i, j] > self.mf.dis.botm.array[k, i, j]):
+                                    #         stldata[compt]['k0'] = k
+                                    #         break
+                                    # Calculate the starting location for each sub-cell
+                                    stldata[compt]['j0'] = j
+                                    stldata[compt]['i0'] = i
+                                    # stldata[compt]['xloc0'] = (r +1) * 1/(prow +1)
+                                    # stldata[compt]['yloc0'] = (c +1) * 1/(pcol +1)
+                                    # stldata[compt]['xloc0'] = (r+0.1)/(prow+0.2) # old method
+                                    # stldata[compt]['yloc0'] = (c+0.1)/(pcol+0.2) # old method
+                                    stldata[compt]['xloc0'] = (r+0.5)/(prow) # new method
+                                    stldata[compt]['yloc0'] = (c+0.5)/(pcol) # new method
+                                    # stldata[compt]['xloc0'] = 0.5
+                                    # stldata[compt]['yloc0'] = 0.5
+                                    stldata[compt]['zloc0'] = 0.5
+                                    if self.bore_depth == True:
                                         # z0 not exist at this step: need to find the good k (layer) to inject at different depth (create a loop)
                                         # For example: stldata[compt]['z0'] = self.mf.dis.top.array[i,j] - self.bore_depth[l]
                                         stldata[compt]['k0'] = l
-                                        stldata[compt]['zloc0'] = 0.5 # Find a way to associate altitude/depth of injection with k and zloc0
-                                compt = compt + 1
+                                    else:
+                                        stldata[compt]['k0'] = 0
+                                    compt = compt + 1
         
         #%% Select random particles to inject
         
@@ -336,11 +369,18 @@ class Modpath:
                                   def_face_ct=0,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
                                   laytyp=laytype,
                                   ibound=iboundData,
-        										prsity=self.poro_modpath,
+                                  prsity=self.poro_modpath,
                                   prsityCB=self.ss_modpath,
                                   extension='mpbas',
                                   unitnumber=86)
-                
+        
+        # 1	gauche	face Ouest (x– direction)
+        # 2	droite	face Est (x+ direction)
+        # 3	avant	face Sud (y– direction)
+        # 4	arrière	face Nord (y+ direction)
+        # 5	bas   	face inférieure (z– direction)
+        # 6	haut	face supérieure (z+ direction)
+                        
     #%% PROCESSING
     
     def processing(self,
@@ -492,8 +532,6 @@ class Modpath:
                                         mg=grid_model,
                                         epsg=epsg,
                                         verbose=False)
-
-    #%% Filtering and normalization functions
     
     def filt_processing(self,
                         model_modpath:object,
@@ -560,29 +598,30 @@ class Modpath:
             drain_matrix      = Qz_drain[0,:,:]
             sflux = recharge_matrix - drain_matrix
             sflows = sflux/drow/dcol
+            
             toolbox.export_tif(self.geographic.watershed_box_buff_dem,
                                sflows,
-                               self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
+                               self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
                                -9999)
-            wbt.extract_raster_values_at_points(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
-                                                self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp',
+            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
+                                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp',
                                                 out_text=False)
-            wbt.extract_raster_values_at_points(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
-                                                self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp',
+            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
+                                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp',
                                                 out_text=False)
             
-            start = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp')
+            start = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp')
             start_weighted = start.copy()
-            start_weighted.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+            start_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             
-            end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp')
+            end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp')
             end_weighted = end.copy()
-            end_weighted.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            end_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             
             recharge_list = np.ones(len(end))*recharge_raw.mean()
             
-            start_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            end_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            start_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+            end_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
 
             if self.track_dir == 'forward':
                 end_process['VALUE1_in'] = start_weighted['VALUE1']
@@ -600,14 +639,14 @@ class Modpath:
             
             end_up = update_time(end_process, filt_time)
             end_up, keep_particles = update_locout(end_up, filt_seep, filt_inout)
-            end_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            end_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
 
             start_up = update_time(start_process, filt_time)
             start_up, keep_particles = update_locout(start_up, filt_seep, filt_inout)
-            start_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+            start_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             
             if self.pathlines_shp == True:
-                pathlines_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines.shp')
+                pathlines_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines.shp')
                 if self.track_dir == 'forward':
                     pathlines_process['time_win'] = (end_process['time'])*end_process['rchPerc']
                 if self.track_dir == 'backward':
@@ -615,37 +654,37 @@ class Modpath:
                 pathlines_up = update_time(pathlines_process, filt_time)
                 pathlines_up = pathlines_up[pathlines_up['particleid'].isin(keep_particles)]
                 if random_id != None:
-                    if not os.path.exists(self.geographic.simulations_folder+'/'+'_id_particles_random.data'):
+                    if not os.path.exists(self.model_folder+'/'+'_id_particles_random.data'):
                         id_particles_random = random.sample(pathlines_up[:-1], random_id)
-                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'wb') as f:
+                        with open(self.model_folder+'/'+'_id_particles_random.data', 'wb') as f:
                             pickle.dump(id_particles_random, f)
                     else:
-                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'rb') as f:
+                        with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
                     pathlines_up = pathlines_up[pathlines_up['particleid'].isin(id_particles_random)]                    
-                pathlines_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines_weighted.shp')
+                pathlines_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines_weighted.shp')
             
             if self.particles_shp == True:
-                particles_process = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp')
+                particles_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp')
                 particles_up = update_time(particles_process, filt_time)
                 if random_id != None:
-                    if not os.path.exists(self.geographic.simulations_folder+'/'+'_id_particles_random.data'):
+                    if not os.path.exists(self.model_folder+'/'+'_id_particles_random.data'):
                         id_particles_random = random.sample(particles_up[:-1], random_id)
-                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'wb') as f:
+                        with open(self.model_folder+'/'+'_id_particles_random.data', 'wb') as f:
                             pickle.dump(id_particles_random, f)
                     else:
-                        with open(self.geographic.simulations_folder+'/'+'_id_particles_random.data', 'rb') as f:
+                        with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
                     particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
-                particles_up.to_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
+                particles_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
         
-        #%% Plot RTD
+        #%% PLOT
         
         if calc_rtd == True:
             if self.track_dir == 'forward': 
-                end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+                end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             if self.track_dir == 'backward': 
-                end = gpd.read_file(self.geographic.simulations_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+                end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             try:
                 shp = gpd.read_file(self.geographic.watershed_shp)
                 end = end.clip(shp)

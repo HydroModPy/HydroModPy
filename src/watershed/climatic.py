@@ -188,6 +188,7 @@ class Climatic:
                                    last_year, time_step, sim_state=None):
         """
         Update the recharge from a hydrometeorological reanalysis at the France scale.
+        From an inital REA.h5 file, and after using safransurfex.py class
 
         Parameters
         ----------
@@ -235,6 +236,7 @@ class Climatic:
                                  last_year, time_step, sim_state=None):
         """
         Update the runoff from a hydrometeorological reanalysis at the France scale.
+        From an inital REA.h5 file, and after using safransurfex.py class
 
         Parameters
         ----------
@@ -522,8 +524,13 @@ class Climatic:
         
         for var in var_list:
             exec(f"self.{var} = self.sim2_rea.values[var]")
+            # Get the data
+            data = self.sim2_rea.values[var]
+            # Construct the file path
+            file_path = os.path.join(nc_data_path, "_"+var+".csv")
+            # Save to CSV (assumes data is a pandas DataFrame or Series)
+            data.to_csv(file_path, index=True, sep=';')
         
-
     #%% SET DATA SET TO STEADY INPUTS
     
     def set_steady_recharge(self):

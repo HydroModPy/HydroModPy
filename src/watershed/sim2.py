@@ -65,7 +65,7 @@ class Sim2:
         var_list : iterable
             List of variable names.
             HydroModPy variable names: 'recharge' | 'runoff' | 'evt' | 'precip' | 'temp'
-            Also works with SIM2 variable names: 'DRAINC_Q' | 'RUNC_Q' | 'EVAP_Q' | 'PRETOT_Q' | 'T_Q' ...
+            Also works with SIM2 variable names: 'DRAINC' | 'RUNC' | 'EVAP' | 'PRETOT' | 'T' ...
         nc_data_path : str
             Path to the folder containing the clipped SIM2 .nc files.
         first_year : int
@@ -130,33 +130,33 @@ class Sim2:
                 return
         
         varnames_dict = {
-        'DRAINC_Q': 'recharge',
-        'RUNC_Q': 'runoff',
-        'EVAP_Q': 'evt',
-        'PRETOT_Q': 'precip',
-        'PRENEI_Q': 'rain',
-        'PRELIQ_Q': 'snow',
-        'T_Q': 't',
-        'FF_Q': 'wind',
-        'SWI_Q': 'swi',
-        'ETP_Q': 'etp',
-        'TINF_H_Q': 'tmin',
-        'TSUP_H_Q': 'tmax',
-        'SWI_Q': 'swi',
-        'SSI_Q': 'ssi',
-        'DLI_Q': 'dli',
-        'PE_Q': 'eff_rain',
-        'WG_RACINE_Q': 'wg_root', 
-        'WGI_RACINE_Q': 'wgi_root',
-        'Q_Q': 'hum_spec',
-        'HU_Q': 'hum_rel',
-        'RESR_NEIGE_Q': 'snow_resr',
-        'RESR_NEIGE6_Q ': 'snow_resr_6utc',
-        'HTEURNEIGE_Q': 'snow_thickness',
-        'HTEURNEIGEX_Q': 'snow_thickness_max',
-        'HTEURNEIGE6_Q': 'snow_thickness_6utc',
-        'SNOW_FRAC_Q': 'snow_cover',   
-        'ECOULEMENT_Q': 'snow_flow',
+        'DRAINC': 'recharge',
+        'RUNC': 'runoff',
+        'EVAP': 'evt',
+        'PRETOT': 'precip',
+        'PRENEI': 'snow',
+        'PRELIQ': 'rain',
+        'T': 't',
+        'FF': 'wind',
+        'SWI': 'swi',
+        'ETP': 'etp',
+        'TINF_H': 'tmin',
+        'TSUP_H': 'tmax',
+        'SSI': 'ssi',
+        'DLI': 'dli',
+        'PE': 'eff_rain',
+        'WG_RACINE': 'wg_root',
+        'WGI_RACINE': 'wgi_root',
+        'Q': 'hum_spec',
+        'HU': 'hum_rel',
+        'RESR_NEIGE': 'snow_resr',
+        'RESR_NEIGE6': 'snow_resr_6utc',
+        'HTEURNEIGE': 'snow_thickness',
+        'HTEURNEIGEX': 'snow_thickness_max',
+        'HTEURNEIGE6': 'snow_thickness_6utc',
+        'SNOW_FRAC': 'snow_cover',
+        'ECOULEMENT': 'snow_flow',
+        'SSWI_10J': 'soil_drought_index',
         }
         self.HyMoPy_var_by_sim_var = pd.DataFrame.from_dict(
             data = varnames_dict,
@@ -232,7 +232,7 @@ class Sim2:
         
         
         # ---- Clip data
-        # Convert HyMoPy var list ('recharge', 'runoff'...) into sim var list ('DRAINC_Q', 'RUNC_Q'...)
+        # Convert HyMoPy var list ('recharge', 'runoff'...) into sim var list ('DRAINC', 'RUNC'...)
         sim_varlist = self.sim_var_by_HyMoPy_var.loc[self.var_list].sim_var.values
         
         if self.clip_mask is not None:
@@ -410,34 +410,35 @@ class Sim2:
         # Needed columns
         usecols = ['LAMBX', 'LAMBY', 'DATE']
     
-        # Units and long names (from liste_parametres.odt https://www.data.gouv.fr/fr/datasets/r/d1ffaf5e-7d15-4fb5-a34c-f76aaf417b46)
+        # Units and long names (updated according to SIM2 new specifications from Météo-France)
         units_by_var = {
-                     'PRENEI_Q': ['mm', 'Précipitations solides (cumul quotidien 06-06 UTC)'], 
-                     'PRELIQ_Q': ['mm', 'Précipitations liquides (cumul quotidien 06-06 UTC)'], 
-                     'T_Q': ['°C','Température (moyenne quotidienne)'], 
-                     'FF_Q': ['m/s', 'Vitesse du vent (moyenne quotidienne)'], 
-                     'Q_Q': ['g/kg','Humidité spécifique (moyenne quotidienne)'], 
-                     'DLI_Q': ['J/cm2', 'Rayonnement atmosphérique (cumul quotidien)'],
-                     'SSI_Q': ['J/cm2', 'Rayonnement visible (cumul quotidien)'], 
-                     'HU_Q': ['%', 'Humidité relative (moyenne quotidienne)'], 
-                     'EVAP_Q': ['mm', 'Evapotranspiration réelle (cumul quotidien 06-06 UTC)'], 
-                     'ETP_Q': ['mm', 'Evapotranspiration potentielle (formule de Penman-Monteith)'], 
-                     'PE_Q': ['mm', 'Pluies efficaces (cumul quotidien)'], 
-                     'SWI_Q': ['%', "Indice d'humidité des sols (moyenne quotidienne 06-06 UTC)"],
-                     'DRAINC_Q': ['mm', 'Drainage (cumul quotidien 06-06 UTC)'], 
-                     'RUNC_Q': ['mm', 'Ruissellement (cumul quotidien 06-06 UTC)'], 
-                     'RESR_NEIGE_Q': ['mm', 'Equivalent en eau du manteau neigeux (moyenne quotidienne 06-06 UTC)'], 
-                     'RESR_NEIGE6_Q': ['mm', 'Equivalent en eau du manteau neigeux à 06 UTC'], 
-                     'HTEURNEIGE_Q': ['m', 'Epaisseur du manteau neigeux (moyenne quotidienne 06-06 UTC)'], 
-                     'HTEURNEIGE6_Q': ['m', 'Epaisseur du manteau à 06 UTC'], 
-                     'HTEURNEIGEX_Q': ['m', 'Epaisseur du manteau neigeux maximum au cours de la journée'], 
-                     'SNOW_FRAC_Q': ['%', 'Fraction de maille recouverte par la neige (moyenne quotidienne 06-06 UTC)'], 
-                     'ECOULEMENT_Q': ['mm', 'Ecoulement à la base du manteau neigeux'], 
-                     'WG_RACINE_Q': ['mm','Contenu en eau liquide dans la couche racinaire à 06 UTC'], 
-                     'WGI_RACINE_Q': ['mm', 'Contenu en eau gelée dans la couche de racinaire à 06 UTC'], 
-                     'TINF_H_Q': ['°C', 'Température minimale des 24 températures horaires'], 
-                     'TSUP_H_Q': ['°C', 'Température maximale des 24 températures horaires'],
-                     'PRETOT_Q': ['mm', 'Précipitations totales (cumul quotidien 06-06 UTC)'], 
+                     'PRENEI': ['mm', 'Précipitations solides cumul quotidien ]06UTC-06UTC]'],
+                     'PRELIQ': ['mm', 'Précipitations liquides cumul quotidien ]06UTC-06UTC]'],
+                     'T': ['°C','Température moyenne quotidienne ]00UTC-00UTC]'],
+                     'FF': ['m/s', 'Vent moyenne quotidienne ]00UTC-00UTC]'],
+                     'Q': ['g/kg','Humidité spécifique moyenne quotidienne ]00UTC-00UTC]'],
+                     'DLI': ['J/cm2', 'Rayonnement atmosphérique cumul quotidien ]00UTC-00UTC]'],
+                     'SSI': ['J/cm2', 'Rayonnement visible cumul quotidien ]00UTC-00UTC]'],
+                     'HU': ['%', 'Humidité relative moyenne quotidienne ]00UTC-00UTC]'],
+                     'EVAP': ['mm', 'Evapotranspiration totale cumul quotidien ]06UTC-06UTC]'],
+                     'ETP': ['mm', 'Evapotranspiration potentielle (formule de Penman-Monteith)'],
+                     'PE': ['mm', 'Pluies efficaces cumul quotidien ]06UTC-06UTC]'],
+                     'SWI': ['%', "Indice d'humidité des sols moyenne quotidienne [06UTC-06UTC]"],
+                     'DRAINC': ['mm', 'Drainage cumul quotidien ]06UTC-06UTC]'],
+                     'RUNC': ['mm', 'Ruissellement cumul quotidien ]06UTC-06UTC]'],
+                     'RESR_NEIGE': ['mm', 'Equivalent en eau du manteau neigeux moyenne quotidienne [06UTC-06UTC]'],
+                     'RESR_NEIGE6': ['mm', 'Equivalent en eau du manteau neigeux à 06 UTC'],
+                     'HTEURNEIGE': ['m', 'Epaisseur du manteau neigeux moyenne quotidienne [06UTC-06UTC]'],
+                     'HTEURNEIGE6': ['m', 'Epaisseur du manteau neigeux à 06 UTC'],
+                     'HTEURNEIGEX': ['m', 'Epaisseur du manteau neigeux horaire maximum au cours de la journée'],
+                     'SNOW_FRAC': ['%', 'Fraction de maille recouverte par la neige moyenne quotidienne [06UTC-06UTC]'],
+                     'ECOULEMENT': ['mm', 'Ecoulement à la base du manteau neigeux cumul quotidien ]06UTC-06UTC]'],
+                     'WG_RACINE': ['m³/m³','Contenu en eau liquide dans la couche racinaire à 06 UTC'],
+                     'WGI_RACINE': ['m³/m³', 'Contenu en eau gelée dans la couche racinaire à 06 UTC'],
+                     'TINF_H': ['°C', 'Température minimale des 24 températures horaires période ]18UTC-18UTC]'],
+                     'TSUP_H': ['°C', 'Température maximale des 24 températures horaires période ]06UTC-06UTC]'],
+                     'PRETOT': ['mm', 'Précipitations totales (cumul quotidien 06-06 UTC)'],
+                     'SSWI_10J': ['sans unité', 'indice sécheresse de l\'humidité des sols intégré sur 10 jours'],
                      }
         # NB: Cumulated values (day 1) are summed from 06:00 UTC (day 1) to 06:00 UTC (day 2)
         # Therefore, days correspond to Central Standard Time days.
@@ -459,9 +460,9 @@ class Sim2:
         df.set_index(['time', 'y', 'x'], inplace = True)
         
         # Add new quantities if needed
-        if ('PRENEI_Q' in df.columns) & ('PRELIQ_Q' in df.columns):
-            df['PRETOT_Q'] = df['PRENEI_Q'] + df['PRELIQ_Q']
-            print("   New column added: PRETOT_Q = PRENEI_Q + PRELIQ_Q")
+        if ('PRENEI' in df.columns) & ('PRELIQ' in df.columns):
+            df['PRETOT'] = df['PRENEI'] + df['PRELIQ']
+            print("   New column added: PRETOT = PRENEI + PRELIQ")
             
         ds = df.to_xarray()
         # Continuous axis
