@@ -33,11 +33,14 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin
-from modeling import modflow, modpath, timeseries, netcdf
+from watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
+from modeling import modflow, modpath, mt3dms, timeseries, netcdf
 from display import visualization_watershed
 from tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+#pyhelp
+from pyhelp import pyhelp_netcdf
 
 #%% CLASS
 
@@ -101,7 +104,7 @@ class Watershed:
             True : To save the watershed object (using pickle). The default is True.
         """
         
-        toolbox.print_hydromodpy()
+        #toolbox.print_hydromodpy()
         
         self.dem_path = dem_path
         self.out_path = out_path
@@ -124,6 +127,9 @@ class Watershed:
         self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
         toolbox.create_folder(self.simulations_folder)
         
+        self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
+        toolbox.create_folder(self.calibration_folder)
+        
         self.add_data_folder = os.path.join(self.stable_folder, 'add_data')
         toolbox.create_folder(self.add_data_folder)
         
@@ -137,9 +143,9 @@ class Watershed:
         if load==True:
             # Load from previously stored (saved) watershed
             success = self.__load_object()
-            if success == True:
-                print("Python object was successfully loaded as requested; imported from output directory")
-            else:
+            # if success == True:
+                # print("Python object was successfully loaded as requested; imported from output directory")
+            if success == False:
                 print("Python object was not successfully loaded as requested; so it was created from scratch instead")
                 # Definition of the watershed
                 self.__init_object()
@@ -227,6 +233,9 @@ class Watershed:
             if ('settings' in BV.__dir__()) == True:
                 self.settings = BV.settings
                 self.elt_def.append('settings')
+            if ('transport' in BV.__dir__()) == True:
+                self.transport = BV.transport
+                self.elt_def.append('transport')
                 
             return True 
         
@@ -309,6 +318,7 @@ class Watershed:
                                                 self.watershed_folder,
                                                 self.stable_folder,
                                                 self.simulations_folder,
+                                                self.calibration_folder,
                                                 self.from_lib,
                                                 self.from_dem,
                                                 self.from_shp,
@@ -444,7 +454,8 @@ class Watershed:
     def add_hydrography(self,
                         hydrography_path: str,
                         types_obs: list=['streams'], 
-                        fields_obs: list=['FID']):
+                        fields_obs: list=['FID'],
+                        streams_file=None):
         """
         Public method to add hydrography data.
 
@@ -464,7 +475,8 @@ class Watershed:
                                                    types_obs=self.types_obs,
                                                    fields_obs=self.fields_obs,
                                                    geographic=self.geographic,
-                                                   hydro_path=self.hydrography_path)
+                                                   hydro_path=self.hydrography_path,
+                                                   streams_file=streams_file)
         self.elt_def.append('hydrography')
         self.save_object()
 
@@ -592,6 +604,19 @@ class Watershed:
         
         self.elt_def.append('subbasin')
         self.save_object()
+        
+        
+    def add_transport(self):
+        """
+        Pulic method to add specific model transport parameters.
+
+        Returns
+        -------
+        None.
+        """
+        self.transport = transport.Transport()
+        self.elt_def.append('transport')
+        self.save_object()
     
     #%% MODFLOW MODEL
     
@@ -613,8 +638,6 @@ class Watershed:
         if for_calib == False:
             model_folder = self.simulations_folder
         else:
-            self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
-            toolbox.create_folder(self.calibration_folder)
             model_folder = self.calibration_folder
         
         # Type of run: classical simulation or calibration
@@ -628,6 +651,7 @@ class Watershed:
                                         sink_fill=self.settings.sink_fill,
                                         sim_state=self.settings.sim_state,                                        
                                         dis_perlen=self.settings.dis_perlen,
+                                        # Well settings
                                         well_coords=self.settings.well_coords,
                                         well_fluxes=self.settings.well_fluxes,
                                         # Output settings
@@ -657,7 +681,8 @@ class Watershed:
                                         verti_sy=self.hydraulic.verti_sy,
                                         verti_ss=self.hydraulic.verti_ss,                                       
                                         cond_drain=self.hydraulic.cond_drain,
-                                        vka=self.hydraulic.vka)
+                                        vka=self.hydraulic.vka,
+                                        exdp=self.hydraulic.exdp)
         
         # Preprocessing Modflow
         model_modflow.pre_processing() # verbose
@@ -667,7 +692,8 @@ class Watershed:
     def processing_modflow(self, 
                            model_modflow: object, 
                            write_model: bool=True,
-                           run_model: bool=False):
+                           run_model: bool=False,
+                           link_mt3dms: bool=False):
         """
         Public method to run the MODFLOW model.
 
@@ -686,7 +712,7 @@ class Watershed:
             Boolean to know if the simulation rans succesfully.
         """
         # Processing Modflow
-        success_model = model_modflow.processing(write_model=write_model, run_model=run_model)
+        success_model = model_modflow.processing(write_model=write_model, run_model=run_model, link_mt3dms=link_mt3dms)
         
         return success_model
         
@@ -699,6 +725,7 @@ class Watershed:
                                groundwater_storage: bool=True,
                                accumulation_flux: bool=True,
                                persistency_index: bool=False,
+                               intermittency_yearly: bool=False,
                                intermittency_monthly: bool=False,
                                intermittency_weekly: bool=False,
                                intermittency_daily: bool=False,
@@ -745,6 +772,7 @@ class Watershed:
                                       groundwater_storage=groundwater_storage,
                                       accumulation_flux=accumulation_flux,
                                       persistency_index=persistency_index,
+                                      intermittency_yearly=intermittency_yearly,
                                       intermittency_monthly=intermittency_monthly,
                                       intermittency_weekly=intermittency_weekly,
                                       intermittency_daily=intermittency_daily,
@@ -772,8 +800,6 @@ class Watershed:
         if for_calib == False:
             model_folder = self.simulations_folder
         else:
-            self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
-            toolbox.create_folder(self.calibration_folder)
             model_folder = self.calibration_folder
         
         model_modpath = modpath.Modpath(self.geographic,
@@ -898,16 +924,116 @@ class Watershed:
                                       random_id # select randomly to keep
                                       )
 
+    #%% MT3DMS MODEL        
+    
+    def preprocessing_mt3dms(self, model_modflow: object, for_calib: bool=False, suffix_name: str='_mt'):
+        """
+        Public method to set the partickle tracking method.
+
+        Parameters
+        ----------
+        model_modflow : object
+            MODFLOW model in a Python object.
+        for_calib : bool, False
+            If False, the simulation results are store in folder results_simulations.
+            If True, the simulation results are store in folder results_calibration.
+
+        Returns
+        -------
+        model_mt3dms : object
+            Python object of the created MT3DMS model.
+        """
+        if for_calib == False:
+            model_folder = self.simulations_folder
+        else:
+            model_folder = self.calibration_folder
+        
+        model_mt3dms = mt3dms.Mt3dms(self.geographic,
+                                     model_modflow,
+                                     # Frame settings
+                                     model_folder = model_folder,
+                                     model_name = model_modflow.model_name,
+                                     suffix_name = suffix_name,
+                                     bin_path = self.bin_path,                                  
+                                     # Specific settings
+                                     spc_name = self.transport.spc_name,
+                                     sconc_init = self.transport.sconc_init,
+                                     sconc_input = self.transport.sconc_input,
+                                     disp_long = self.transport.disp_long,
+                                     disp_transh = self.transport.disp_transh,
+                                     disp_transv = self.transport.disp_transv,
+                                     diffu_coeff = self.transport.diffu_coeff,
+                                     react_order = self.transport.react_order,
+                                     rate_decay = self.transport.rate_decay,
+                                     plot_conc = self.transport.plot_conc,
+                                     )
+        
+        # Preprocessing Modflow
+        model_mt3dms.pre_processing() # verbose
+                
+        return model_mt3dms
+                            
+    def processing_mt3dms(self, model_mt3dms: object, write_model: bool=True, run_model: bool=False, verbose: bool=True):
+        """
+        Public method to run the partickle tracking.
+
+        Parameters
+        ----------
+        model_mt3dms : object
+            MT3DMS model in a Python object.
+        write_model : bool, True
+            If True, write input files before run simulation.
+        run_model : bool, False
+            Run simulation. The default is False.
+
+        Returns
+        -------
+        success_model : bool
+            Boolean to know if the simulation rans succesfully.
+        """
+        # Processing Modpath
+        success_model = model_mt3dms.processing(write_model=write_model, run_model=run_model, verbose=verbose)
+        
+        return success_model
+        
+    def postprocessing_mt3dms(self,
+                              model_mt3dms: object,
+                              concentration_seepage:bool=True,
+                              mass_seepage:bool=True,
+                              mass_accumulated:bool=False,
+                              export_all_tif:bool=False):
+        """
+        Public method to post-process the simulation of the particle tracking.
+
+        Parameters
+        ----------
+        model_mt3dms : object
+            MT3DMS model in a Python object.
+        """
+        model_mt3dms.post_processing(model_mt3dms,
+                                      concentration_seepage=concentration_seepage,
+                                      mass_seepage=mass_seepage,
+                                      mass_accumulated=mass_accumulated,
+                                      export_all_tif=export_all_tif)
+        
+        return model_mt3dms
+            
     #%% EXTRACT TIMESERIES
     
     def postprocessing_timeseries(self,
                                   model_modflow: object,
-                                  model_modpath: object,
+                                  model_modpath: int=None,
+                                  model_mt3dms: int=None,
+                                  suffix_name: int=None,
                                   datetime_format: bool=True,
                                   subbasin_results: bool=True,
+                                  intermittency_yearly: bool=False,
                                   intermittency_monthly: bool=False,
                                   intermittency_weekly: bool=False,
                                   intermittency_daily: bool=False,
+                                  residence_times: bool=False,
+                                  concentration_seepage: bool=False,
+                                  mass_accumulated: bool=False
                                   ):
         """
         Public method to postprocess the watershed timeseries.
@@ -928,7 +1054,6 @@ class Watershed:
             If True, the intermittent and perennial part of hydrographic network is calculated on a weekly basis.
         intermittency_daily : bool
             If True, the intermittent and perennial part of hydrographic network is calculated on a daily basis.
-        
         Returns
         -------
         timeseries_results : object
@@ -939,11 +1064,17 @@ class Watershed:
             timeseries_results = timeseries.Timeseries(self.geographic,
                                                        model_modflow=model_modflow,
                                                        model_modpath=model_modpath,
+                                                       model_mt3dms=model_mt3dms,
+                                                       suffix_name=suffix_name,
                                                        datetime_format=datetime_format,
                                                        subbasin_results=subbasin_results,
+                                                       intermittency_yearly=intermittency_yearly,
                                                        intermittency_monthly=intermittency_monthly,
                                                        intermittency_weekly=intermittency_weekly,
                                                        intermittency_daily=intermittency_daily,
+                                                       residence_times=residence_times,
+                                                       concentration_seepage=concentration_seepage,
+                                                       mass_accumulated=mass_accumulated
                                                        )
             return timeseries_results
         
@@ -953,7 +1084,7 @@ class Watershed:
                                   model_modflow: object,
                                   datetime_format: bool=True):
         """
-        Public method to postprocess the watershed timeseries.
+        Public method to postprocess the watershed netCDF.
 
         Parameters
         ----------
@@ -973,5 +1104,45 @@ class Watershed:
                                            datetime_format=datetime_format)
             
             return netcdf_results
+        
+    #%% PYHELP
+
+
+    def preprocessing_pyhelp(
+            self,
+            *,
+            grid_csv,   # nom « officiel »
+            grid_base,   # alias rétro-compat
+            workdir  : str,
+            ready_csvs,          # [precip, tair, solrad]
+            grid_patch, # ex. {"dem": dem_path, "CN":75}
+            compress_level: int = 4,
+    ):
+        # 1) compatibilité ancien nom
+        if grid_csv is None:
+            grid_csv = grid_base
+        if grid_csv is None:
+            raise ValueError("Vous devez fournir grid_csv ou grid_base.")
+
+        # 2) dépaqueter la liste météo
+        try:
+            precip_csv, tair_csv, solrad_csv = ready_csvs
+        except ValueError:
+            raise ValueError(
+                "`ready_csvs` doit contenir [precip_csv, tair_csv, solrad_csv]"
+            )
+
+        # 3) appel correctement typé
+        return pyhelp_netcdf.preprocessing_pyhelp_netcdf(
+            workdir      = workdir,
+            grid_csv     = grid_csv,
+            precip_csv   = precip_csv,
+            tair_csv     = tair_csv,
+            solrad_csv   = solrad_csv,
+            grid_patch   = grid_patch,
+            compress_level = compress_level,
+        )
+
+
 
 #%% NOTES

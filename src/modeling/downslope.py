@@ -62,6 +62,11 @@ class Downslope:
         except:
             pass
         
+        #########################################################################################################################################
+        #self.watershed_buff_fill_surflow = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_box_buff_fill.tif'
+        #self.watershed_direc_surflow = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_box_buff_direc.tif'
+        #########################################################################################################################################
+
         #### CHANGE HARD DISK ####
         # self.watershed_direc_surflow = self.watershed_direc_surflow.replace('G','I',1)
         # self.watershed_buff_fill_surflow = self.watershed_buff_fill_surflow.replace('G','I',1)
@@ -114,7 +119,7 @@ class Downslope:
 
     def trace_downslope(self):
         """
-        Generate continuous hydrogrpahic network with downslope flowpaths.
+        Generate continuous hydrographic network with downslope flowpaths.
         """
         # Sim to points
         wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
