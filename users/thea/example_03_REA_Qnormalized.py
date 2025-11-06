@@ -11,6 +11,7 @@
 """
 
 #%% ---- LIBRAIRIES
+#%% PYTHON
 
 # Filter warnings (before imports)
 import warnings
@@ -22,38 +23,39 @@ warnings.filterwarnings('ignore', message='.*declare_namespace.*')
 
 # Libraries installed by default
 import sys
+import glob
 import os
+from sys import platform
+import geopandas as gpd
+from datetime import datetime
 
 # Libraries need to be installed if not
 import numpy as np
 import pandas as pd
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 # # Libraries added from 'pip install' procedure
 import deepdish as dd
 import imageio
+import hydroeval
 import whitebox
 wbt = whitebox.WhiteboxTools()
-wbt.verbose = True
+wbt.verbose = False
 import xarray as xr
 xr.set_options(keep_attrs = True)
 
 #%% ROOT
 
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(((abspath(__file__))))))
+root_dir = dirname(dirname(dirname((abspath(__file__)))))
 sys.path.append(root_dir)
 print("Root path directory is: {0}".format(root_dir.upper()))
 
 #%% HYDROMODPY
-
-import src
-import importlib
-importlib.reload(src)
 
 # Import HydroModPy modules
 from src import watershed_root
@@ -70,39 +72,40 @@ def select_period(df, first, last):
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
 study_site = 'NANCON'
-first_year = 2010
-last_year = 2020
-parameters = '30_3_10e-6_10e-2_10values_10'
-freq_input = 'M' 
-sim_state = 'steady' 
-
+first_year = 2012
+last_year = 2012
+freq_input = 'M'
+sim_state = 'transient' 
+parameters = "1.6e-5_0.02%-PEr"
 out_path = folder_root.root_folder_results()
-#out_path = r"C:\Users\theat\Documents\Python\Output_HydroModPy" # Manually set the output path
+# out_path = r"C:\Users\theat\Documents\Python\02_Output_HydroModPy" # Manually set the output path
 data_path = os.path.join(out_path, "data")
 specific_data_path = os.path.join(data_path, study_site)
 
-
 print(f"out_path; {out_path}, Data path: {data_path}, specific_data_folder; {specific_data_path}")
 
-#%% ---- EXTRACT CATCHMENT
+#%% ---- WATERSHED
+#%% OPTIONS
 # Name of the study site
 watershed_name = '_'.join([
-    "Example_03_REA_Qnormalized",study_site,parameters,str(first_year),str(last_year)
+    "Example_03",study_site,parameters,str(first_year),str(last_year),freq_input,sim_state
 ])
 
 print('##### '+watershed_name.upper()+' #####')
 
 watershed_path = os.path.join(out_path, watershed_name)
-dem_path = os.path.join(data_path, 'regional dem.tif')
+dem_path = os.path.join(data_path, 'dem', 'regional dem.tif')
 
 load = False
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
-from_xyv = [389358, 6816630, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+from_xyv = [389358,6816630, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
+
+#%% GEOGRAPHIC)
 
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
@@ -112,39 +115,38 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=bottom_path, # path 
+                              bottom_path=bottom_path, # path
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
 simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+
 #%% DATA
 
-#visualization_watershed.watershed_local(dem_path, BV)
+# visualization_watershed.watershed_local(dem_path, BV)
 
-if from_dem == None:
-    # Clip specific data at the catchment scale
-    BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-    BV.add_hydrography(data_path, types_obs=['regional stream network'])
-    BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-    BV.add_intermittency(data_path, 'regional onde stations.shp')
-    # BV.add_piezometry()
+# Clip specific data at the catchment scale
+BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+BV.add_hydrography(os.path.join(data_path, 'hydrography'), types_obs=['regional stream network'])
+BV.add_hydrometry(os.path.join(data_path, 'hydrometry'), 'france hydrometric stations.shp')
+BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp')
+# BV.add_piezometry()
 
-    # Extract some subbasin from data available above
-    BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
+#Extract some subbasin from data available above
+BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
 # # General plot of the study site
-# if from_dem == None:
-#     visualization_watershed.watershed_geology(BV)
-    
+# visualization_watershed.watershed_geology(BV)
 # visualization_watershed.watershed_dem(BV)
 
+#%% ---- RECHARGE
 #%% climatic settings
 BV.add_climatic()
 
-##%%% Reanalyse
+# Reanalyse
 BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
-                                             'evt', 'etp', 't',
+                                             'evt', 'etp', 't', 'eff_rain'
                                               ],
                                        nc_data_path=os.path.join(
                                            specific_data_path,
@@ -157,15 +159,15 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                        geographic=BV.geographic,
                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
                                                                 # can be a shapefile path or a flag: 'watershed' or False
-
-# Units
+                                                                
+# # # # Units
 BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
 BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
 BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
 BV.climatic.t = BV.climatic.t / 1000 # from mm to m
 
-#%% SAFRAN
-BV.add_safransurfex(r"C:\\Users\\theat\\Documents\\Python\\02_Output_HydroModPy\\data\\Meteo\\REA")
+# Besoin de le mettre à jour qu'une fois par an.
+BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
 
 #%%RECHARGE REANALYSIS
 BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
@@ -178,8 +180,9 @@ BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershe
 
 # BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
 BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
-# # BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
-#%% RUNOFF REANALYSIS
+# print(f"recharge_1 : {BV.climatic.recharge}")
+# BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
+
 BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
                                        clim_mod='REA',
                                        clim_sce='historic',
@@ -188,16 +191,13 @@ BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_
                                        time_step=freq_input,
                                        sim_state=sim_state)
 
-# BV.climatic.runoff = BV.climatic.runoff* BV.climatic.runoff.index.day #meandaypermonth to mm/month
-BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state = sim_state) # from mm to m
-# # BV.climatic.update_runoff(BV.climatic.runoff.resample('M').sum(), sim_state = sim_state)
-
+BV.climatic.update_runoff(BV.climatic.runoff/1000, sim_state=sim_state) # from mm to m
+BV.climatic.recharge = BV.climatic.precip - BV.climatic.runoff - BV.climatic.evt
+# print(f"recharge_2 : {BV.climatic.recharge}")
 #%% R and r ASSIGNATION
 if isinstance(BV.climatic.recharge, float):
     print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
     print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
-    R = BV.climatic.recharge
-    r = BV.climatic.runoff
 else:
     if isinstance(BV.climatic.recharge, xr.core.dataset.Dataset):
         R = BV.climatic.recharge.drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas().iloc[:,0]
@@ -206,9 +206,8 @@ else:
         R = BV.climatic.recharge
         r = BV.climatic.runoff
         
-        
 #%% Qobs FORMATTING et F normalization 
-# Qobs_path = os.path.join(data_path,'J001401001.csv')
+# Qobs_path = os.path.join(data_path,'hydrometry','J001401001.csv')
 # Qobs = pd.read_csv(Qobs_path, delimiter=',')
 # #print (Qobs.columns)
 # #print(Qobs.head())
@@ -232,7 +231,7 @@ else:
 # Qobsmonthmm = select_period(Qobsmonthmm, first_year, last_year)
 
 #%% Qobs FORMATTING et F normalization 
-Qobs_path = os.path.join(specific_data_path,'J001401001.csv')
+Qobs_path = os.path.join(specific_data_path,'hydrometry','J001401001.csv')
 Qobs = pd.read_csv(Qobs_path, delimiter=',')
 #print (Qobs.columns)
 #print(Qobs.head())

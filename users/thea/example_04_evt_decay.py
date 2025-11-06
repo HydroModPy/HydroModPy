@@ -72,8 +72,8 @@ def select_period(df, first, last):
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
 study_site = 'LA_FLUME'
-first_year = 2021
-last_year = 2024
+first_year = 2020
+last_year = 2020
 freq_input = 'M'
 sim_state = 'transient'
 parameters = "1.37e-5_10.7%_exdp13.9_a0.03_bottom"
@@ -125,10 +125,10 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 # visualization_watershed.watershed_local(dem_path, BV)
 
 # Clip specific data at the catchment scale
-# BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-BV.add_hydrography(os.path.join(data_path, 'hydrography'), types_obs=['regional stream network']) 
+BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+BV.add_hydrography(os.path.join(data_path, 'hydrography'), types_obs=['regional stream network'])
 BV.add_hydrometry(os.path.join(data_path, 'hydrometry'), 'france hydrometric stations.shp')
-# BV.add_intermittency(os.path.join(data_path, 'intermittency'), types_obs='regional onde stations.shp')
+BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp') BV.add_intermittency(os.path.join(data_path, 'intermittency'), types_obs='regional onde stations.shp')
 # BV.add_piezometry()
 
 # # Extract some subbasin from data available above
@@ -207,7 +207,7 @@ else:
         
 #%% Qobs FORMATTING et F normalization 
 ##option 1 
-# Qobs_path = os.path.join(specific_data_path,'J560681001.csv')
+# Qobs_path = os.path.join(specific_data_path,'hydrometry','J560681001.csv')
 # Qobs = pd.read_csv(Qobs_path, delimiter=';')
 # #print (Qobs.columns)
 # #print(Qobs.head())

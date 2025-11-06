@@ -72,9 +72,9 @@ def select_period(df, first, last):
     return df
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
-study_site = 'LA_FLUME_calib_RA'
-first_year = 2010
-last_year = 2015
+study_site = 'LA_FLUME'
+first_year = 1999
+last_year = 1999
 freq_input = 'M'
 sim_state = 'transient' 
 parameters = "1e-6_1%"
@@ -88,15 +88,15 @@ print(f"out_path; {out_path}, Data path: {data_path}, specific_data_folder; {spe
 #%% OPTIONS
 # Name of the study site
 watershed_name = '_'.join([
-    study_site,parameters,str(first_year),str(last_year),freq_input,sim_state
+    'testhk',study_site,parameters,str(first_year),str(last_year),freq_input,sim_state
 ])
 
 print('##### '+watershed_name.upper()+' #####')
 
 watershed_path = os.path.join(out_path, watershed_name)
-dem_path = os.path.join(data_path, 'regional dem.tif')
+dem_path = os.path.join(data_path,'dem', 'regional dem.tif')
 
-load = True
+load = False
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
@@ -128,10 +128,10 @@ calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration
 # visualization_watershed.watershed_local(dem_path, BV)
 
 # Clip specific data at the catchment scale
-BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-BV.add_hydrography(data_path, types_obs=['regional stream network'])
-BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-BV.add_intermittency(data_path, 'regional onde stations.shp')
+BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+BV.add_hydrography(os.path.join(data_path, 'hydrography'), types_obs=['regional stream network'])
+BV.add_hydrometry(os.path.join(data_path, 'hydrometry'), 'france hydrometric stations.shp')
+BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp')
 # BV.add_piezometry()
 
 #Extract some subbasin from data available above
@@ -145,7 +145,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                              'evt', 'etp', 't', 'eff_rain'
                                               ],
                                        nc_data_path=os.path.join(
-                                           data_path,
+                                           specific_data_path,
                                            r"Meteo\Historiques SIM2"),
                                        first_year=first_year,
                                        last_year=last_year,
@@ -156,54 +156,42 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                        disk_clip='watershed') # for clipping the netcdf files saved on disk
                                                                 # can be a shapefile path or a flag: 'watershed' or False
                                                                 
-# # # # Units
+#%% Units
 BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
 BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
 BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
 BV.climatic.t = BV.climatic.t / 1000 # from mm to m
+BV.climatic.runoff= BV.climatic.runoff / 1000 # from mm to m
+BV.climatic.recharge = BV.climatic.precip - BV.climatic.evt - BV.climatic.runoff
+# BV.climatic.recharge = (BV.climatic.precip - BV.climatic.etp - BV.climatic.runoff).where(
+#     (BV.climatic.precip - BV.climatic.etp - BV.climatic.runoff) > 0,
+#     0
+# )
+#%% UPDATE RECHARGE RUNOFF
+# BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
 
-# Besoin de le mettre à jour qu'une fois par an.
-BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
+# #%%RECHARGE REANALYSIS
+# BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state)
 
-#%%RECHARGE REANALYSIS
-BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
-                                       clim_mod='REA',
-                                       clim_sce='historic',
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step=freq_input,
-                                       sim_state=sim_state)
+# # BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
+# BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
+# # BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
 
-# BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
-BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
-# BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
+# BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state)
 
-BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
-                                       clim_mod='REA',
-                                       clim_sce='historic',
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step=freq_input,
-                                       sim_state=sim_state)
-
-BV.climatic.update_runoff(BV.climatic.runoff/1000, sim_state=sim_state) # from mm to m
-
-# # =============================================================================
-# # Exportation des données climatiques
-# # =============================================================================
-# df_climatic = pd.DataFrame({
-#     'recharge': BV.climatic.recharge,
-#     'runoff': BV.climatic.runoff,
-#     'precip': BV.climatic.precip,
-#     'evt': BV.climatic.evt,
-#     'etp': BV.climatic.etp,
-#     't': BV.climatic.t,
-#     'eff_rain': BV.climatic.eff_rain,
-#     })
-
-# df_climatic.index.name = 'time'
-# df_climatic.to_csv(os.path.join(data_path,'Meteo', 'Historiques SIM2', f'climatic_data_Flume_mm_day_{first_year}_{last_year}.csv'))
-# # =============================================================================
+# BV.climatic.update_runoff(BV.climatic.runoff/1000, sim_state=sim_state) # from mm to m
 
 #%% R and r ASSIGNATION
 if isinstance(BV.climatic.recharge, float):
@@ -218,22 +206,50 @@ else:
         r = BV.climatic.runoff
 
 #%% Qobs FORMATTING et F normalization 
-Qobs_path = os.path.join(data_path,'J721401001.csv')
+##option 1 
+# Qobs_path = os.path.join(specific_data_path,'hydrometry','J560681001.csv')
+# Qobs = pd.read_csv(Qobs_path, delimiter=';')
+# #print (Qobs.columns)
+# #print(Qobs.head())
+# Qobs["date"] = pd.to_datetime(Qobs["date"], format='%d/%m/%Y')
+# Qobs.set_index("date", inplace=True)
+
+# Qobs = Qobs.drop(columns=["time"])
+# Qobs = Qobs.rename(columns={'Q_Lperday': 'Q'})
+# Qobs['Q'] = Qobs['Q'] / 1000  # L/d to m3/d
+# area = int(round(BV.geographic.area))
+# Qobs = (Qobs / (area*1000000)) # m3/d to m/day
+# Qobsyear = Qobs.resample('Y').sum().mean().values[0] # m/day to m/y
+
+##option 2
+# Qobs_path = os.path.join(specific_data_path,'hydrometry','J560681001.csv')
+# Qobs = pd.read_csv(Qobs_path, delimiter=',')
+# #print (Qobs.columns)
+# #print(Qobs.head())
+# Qobs["Date (TU)"] = Qobs["Date (TU)"].str.split('T').str[0]
+# Qobs["Date (TU)"] = pd.to_datetime(Qobs["Date (TU)"], format='%Y-%m-%d')
+# Qobs.set_index("Date (TU)", inplace=True)
+
+# Qobs = Qobs.drop(columns=["Statut", "Qualification", "Méthode", "Continuité"])
+# Qobs = Qobs.squeeze()
+# Qobs = Qobs.rename('Q')
+
+# area = int(round(BV.geographic.area))
+# Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+# Qobsyear = Qobs.resample('Y').sum().mean() # m/day to m/y
+
+##option 3 
+Qobs_path = os.path.join(specific_data_path,'hydrometry','J721401001.csv')
 Qobs = pd.read_csv(Qobs_path, delimiter=',')
-#print (Qobs.columns)
-#print(Qobs.head())
-# Split the values at 'T' for the 'Date(TU)' column and remove the values after 'T'
-Qobs["Date (TU)"] = Qobs["Date (TU)"].str.split('T').str[0]
-Qobs["Date (TU)"] = pd.to_datetime(Qobs["Date (TU)"], format='%Y-%m-%d')
+Qobs["Date (TU)"] = pd.to_datetime(Qobs["date_obs_elab"], format='%Y-%m-%d')
 Qobs.set_index("Date (TU)", inplace=True)
 
-Qobs = Qobs.drop(columns=["Statut", "Qualification", "Méthode", "Continuité"])
-Qobs = Qobs.squeeze()
-Qobs = Qobs.rename('Q')
+Qobs = Qobs.drop(columns=["date_obs_elab","grandeur_hydro_elab","libelle_qualification","specific_discharge"])
+Qobs = Qobs.rename(columns={"resultat_obs_elab": "Q"})
 
 area = int(round(BV.geographic.area))
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
-Qobsyear = Qobs.resample('Y').sum().mean() # m/day to m/y
+Qobsyear = Qobs.resample('Y').sum().mean().values[0]  # m/day to m/y
 
 #%% Q resample by timescale
 Qobsmonth = Qobs.resample('M').sum()
@@ -259,15 +275,20 @@ if freq_input == 'M':
 #%% R AND r RESAMPLE BY YEAR AND NORMALIZATION
 #! ne pas faire tourner deux fois de suite sinon le facteur de normalisation tombe à 1 ou 0.99 car ca reprend les valeurs déja pondérées (serpent qui se mort la queue)
 
-if freq_input == 'M':
-    groundwater = R*R.resample('M').sum()
-    surfacewater = r*r.resample('M').sum()
-if freq_input == 'W':
-    groundwater = R*7 
-    surfacewater = r*7
-groundwaterannual = groundwater.resample('Y').sum().mean()
-surfacewaterannual = surfacewater.resample('Y').sum().mean()
-Qsafran = groundwaterannual+surfacewaterannual
+if freq_input == 'w':
+    Rec = R*7
+    run = r * 7
+elif freq_input == 'M':
+    Rec = R * R.index.day
+    run = r * R.index.day
+else :
+    Rec = R
+    run = r
+
+Rannual = Rec.resample('Y').sum().mean()
+rannual = run.resample('Y').sum().mean()
+Qsafran = Rannual+rannual
+
 F = Qobsyear / Qsafran
 
 print (f'F = {F}')
@@ -306,10 +327,10 @@ r = r * F
 # plt.show()
 
 #%% Plots R et r
-Qnormalized = R+r
+Qnormalized = Rec+run
 fig, ax = plt.subplots(1,1, figsize=(6,3))
 ax.plot(Qnormalized*1000, label='Qnormalized', c='orange', lw=0.5)
-ax.plot(R*1000, label='recharge_reanalysis_normalized', c='dodgerblue', lw=0.5)
+ax.plot(Rec*1000, label='recharge_reanalysis_normalized', c='dodgerblue', lw=0.5)
 # ax.plot(r, label='runoff_reanalysis_normalized', c='navy', lw=0.5)
 ax.plot(Qobsmm, label='Qobs', c='darkgreen', lw=0.5)
 # ax.plot(BV.climatic.precip*1000, label='precip', c='blue', lw=0.5, linestyle = '--')
@@ -344,12 +365,13 @@ freq_time = freq_input
 
 # Hydraulic settings
 nlay = 1
-lay_decay = 10 # 1 for no decay
+lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 30 # if bottom is None, aquifer thickness
-hk = 1.0e-6* 3600 * 24 # m/day 
+thick = 50 # if bottom is None, aquifer thickness
+hk = 1.0e-5 * 3600 * 24 # m/day
 # hk_decay = 0.01 # soit une décroissance de 100m
 cond_drain = None # or value of conductance
+exdp = 0
 
 sy = 1/100 # [-] 
 
@@ -396,7 +418,7 @@ BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 BV.hydraulic.update_hk(hk)
 BV.hydraulic.update_sy(sy) # 0.1/100
 BV.hydraulic.update_cond_drain(cond_drain)
-
+BV.hydraulic.update_exdp(exdp)
 # Boundary settings
 BV.settings.update_bc_sides(bc_left, bc_right)
 BV.add_oceanic(sea_level)
@@ -643,13 +665,10 @@ if run_optimization:
     
         obs_distance = mean_obsf_to_simf
         sim_distance = mean_simf_to_obsf
-        
-        obs_pixel = mean_obsf_to_simf
-        sim_pixel = mean_simf_to_obsf
-        
-        matching = sim_pixel / obs_pixel
+
+        matching = (abs(sim_distance) + abs(obs_distance)) / 2
         print('INDICATORMATCHINGSRTEAM : ', matching)
-        errormatchingstream = abs(np.log(matching)) #* to constraint the error see if an other value will be better 
+        errormatchingstream = matching 
         # Store results in dictionary
         optimization_results["model_name"] = model_name
         optimization_results["model_modflow"] = model_modflow
@@ -662,8 +681,6 @@ if run_optimization:
         current_simulation = {
         "obs_distance": obs_distance,
         "sim_distance": sim_distance,
-        "obs_pixel": obs_pixel,
-        "sim_pixel": sim_pixel,
         "iteration": compt,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "model_name": model_name,
@@ -986,7 +1003,7 @@ freq_time = freq_input
 
 # Hydraulic settings
 nlay = 1
-lay_decay = 10 # 1 for no decay
+lay_decay = 1 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
 hk = best_hk # m/day 
@@ -1517,7 +1534,10 @@ Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
 Qmod = Smod['outflow_drain'] 
 Qmod = Qmod.squeeze()
 Qmod = Qmod*1000
-Qmod = (Qmod + (r * 1000)) * Qmod.index.day
+if freq_input == 'M':
+    Qmod = (Qmod + (r * 1000)) * Qmod.index.day
+elif freq_input == 'W':
+    Qmod = (Qmod + (r * 1000)) * 7
 print (f'valeur de Qmod : {Qmod}')
 # Rmod = Smod['recharge'] 
 # print (f'valeur de Rmod : {Rmod}')
@@ -1596,7 +1616,6 @@ if os.path.isfile(metrics_csv_path):
     metrics_df.to_csv(metrics_csv_path, mode='a', header=False, index=False)
 else:
     metrics_df.to_csv(metrics_csv_path, index=False)
-
 
 ax = a1
 ax.scatter(Qobs_stat, Qmod_stat,

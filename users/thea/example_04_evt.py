@@ -72,11 +72,11 @@ def select_period(df, first, last):
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
 study_site = 'LA_FLUME'
-first_year = 2012
-last_year = 2012
-freq_input = 'D'
+first_year = 2020
+last_year = 2020
+freq_input = 'M'
 sim_state = 'transient'
-parameters = "exdp10_5.31e-6_1%"
+parameters = "1.88e-5_8.9%_exdp1_dem-10"
 out_path = folder_root.root_folder_results()
 # out_path = r"C:\Users\theat\Documents\Python\02_Output_HydroModPy" # Manually set the output path
 data_path = os.path.join(out_path, "data")
@@ -94,7 +94,7 @@ watershed_name = '_'.join([
 print('##### '+watershed_name.upper()+' #####')
 
 watershed_path = os.path.join(out_path, watershed_name)
-dem_path = os.path.join(data_path, 'regional dem.tif')
+dem_path = os.path.join(data_path, 'dem', 'regional dem.tif')
 
 load = True
 # watershed_name ='Strengbach'
@@ -127,14 +127,14 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 # visualization_watershed.watershed_local(dem_path, BV)
 
 # Clip specific data at the catchment scale
-BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
-BV.add_hydrography(data_path, types_obs=['regional stream network']) 
-BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-BV.add_intermittency(data_path, 'regional onde stations.shp')
+# BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+BV.add_hydrography(os.path.join(data_path, 'hydrography'), types_obs=['regional stream network']) 
+BV.add_hydrometry(os.path.join(data_path, 'hydrometry'), 'france hydrometric stations.shp')
+# BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp')
 # BV.add_piezometry()
 
-#Extract some subbasin from data available above
-BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
+# #Extract some subbasin from data available above
+# BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
 # # General plot of the study site
 # visualization_watershed.watershed_geology(BV)
@@ -149,7 +149,7 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                              'evt', 'etp', 't', 'eff_rain'
                                               ],
                                        nc_data_path=os.path.join(
-                                           data_path,
+                                           specific_data_path,
                                            r"Meteo\Historiques SIM2"),
                                        first_year=first_year,
                                        last_year=last_year,
@@ -165,34 +165,36 @@ BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m
 BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
 BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
 BV.climatic.t = BV.climatic.t / 1000 # from mm to m
+BV.climatic.runoff = BV.climatic.runoff / 1000 # from mm to m
 
-# Besoin de le mettre à jour qu'une fois par an.
-BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
+#%%
+# BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
 
-#%%RECHARGE REANALYSIS
-BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
-                                       clim_mod='REA',
-                                       clim_sce='historic',
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step=freq_input,
-                                       sim_state=sim_state)
+# #%%RECHARGE REANALYSIS
+# BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state)
 
-#BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
-BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
-#BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
+# #BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
+# BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
 
-BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
-                                       clim_mod='REA',
-                                       clim_sce='historic',
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step=freq_input,
-                                       sim_state=sim_state)
+# BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step=freq_input,
+#                                        sim_state=sim_state)
 
-BV.climatic.update_runoff(BV.climatic.runoff/1000, sim_state=sim_state) # from mm to m
-# BV.climatic.recharge = BV.climatic.precip - BV.climatic.runoff - BV.climatic.evt
-#BV.climatic.update_recharge(BV.climatic.recharge,sim_state=sim_state)
+# BV.climatic.update_runoff(BV.climatic.runoff/1000, sim_state=sim_state) # from mm to m
+BV.climatic.recharge = (BV.climatic.precip - BV.climatic.runoff - BV.climatic.etp)*0.94
+BV.climatic.update_recharge(BV.climatic.recharge,sim_state=sim_state)
+BV.climatic.runoff = BV.climatic.runoff*0.94
+BV.climatic.etp = BV.climatic.etp * 0.94
 #%% R and r ASSIGNATION
 if isinstance(BV.climatic.recharge, float):
     print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
@@ -206,7 +208,22 @@ else:
         r = BV.climatic.runoff
         
 #%% Qobs FORMATTING et F normalization 
-Qobs_path = os.path.join(specific_data_path,'J721401001.csv')
+##option 1 
+# Qobs_path = os.path.join(specific_data_path,'J560681001.csv')
+# Qobs = pd.read_csv(Qobs_path, delimiter=';')
+# #print (Qobs.columns)
+# #print(Qobs.head())
+# Qobs["date"] = pd.to_datetime(Qobs["date"], format='%d/%m/%Y')
+# Qobs.set_index("date", inplace=True)
+
+# Qobs = Qobs.rename(columns={'Q_Lperday': 'Q'})
+# Qobs['Q'] = Qobs['Q'] / 1000  # L/d to m3/d
+# area = int(round(BV.geographic.area))
+# Qobs = (Qobs / (area*1000000)) # m3/d to m/day
+# Qobsyear = Qobs.resample('Y').sum().mean().values[0] # m/day to m/y
+
+#option 2 
+Qobs_path = os.path.join(specific_data_path, 'hydrometry', 'J721401001.csv')
 Qobs = pd.read_csv(Qobs_path, delimiter=',')
 #print (Qobs.columns)
 #print(Qobs.head())
@@ -245,21 +262,21 @@ if freq_input == 'M':
 #%% R AND r RESAMPLE BY YEAR AND NORMALIZATION
 #! ne pas faire tourner deux fois de suite sinon le facteur de normalisation tombe à 1 ou 0.99 car ca reprend les valeurs déja pondérées (serpent qui se mort la queue)
 
-if freq_input == 'w':
-    Rec = R*7
-    run = r * 7
-elif freq_input == 'M':
-    Rec = R * R.index.day
-    run = r * R.index.day
-else :
-    Rec = R
-    run = r
+# if freq_input == 'W':
+#     Rec = R*7
+#     run = r * 7
+# elif freq_input == 'M':
+#     Rec = R * R.index.day
+#     run = r * R.index.day
+# else :
+#     Rec = R
+#     run = r
 
-Rannual = Rec.resample('Y').sum().mean()
-rannual = run.resample('Y').sum().mean()
-Qsafran = Rannual+rannual
+# Rannual = Rec.resample('Y').sum().mean()
+# rannual = run.resample('Y').sum().mean()
+# Qsafran = Rannual+rannual
 
-F = Qobsyear / Qsafran
+# F = Qobsyear / Qsafran
 
 # print (f'F = {F}')
 # R = R * F
@@ -296,22 +313,53 @@ F = Qobsyear / Qsafran
 # plt.savefig(os.path.join(watershed_path,'precip_discharge.png'), dpi=300)
 # plt.show()
 
-#%% Plots R et r
-Qnormalized = Rec+run
+#%% PLOT INPUT DATA 
 fig, ax = plt.subplots(1,1, figsize=(6,3))
-ax.plot(Qnormalized*1000, label='Qnormalized', c='orange', lw=0.5)
-ax.plot(Rec*1000, label='recharge_reanalysis_normalized', c='dodgerblue', lw=0.5)
-# ax.plot(r, label='runoff_reanalysis_normalized', c='navy', lw=0.5)
-ax.plot(Qobsmm, label='Qobs', c='darkgreen', lw=0.5)
-# ax.plot(BV.climatic.precip*1000, label='precip', c='blue', lw=0.5, linestyle = '--')
-# ax.plot(BV.climatic.recharge, label='recharge_reanalysis', c='deepskyblue', lw=0.5,  linestyle = '--')
-# ax.plot(BV.climatic.runoff, label='runoff_reanalysis', c='black', lw=0.5,  linestyle = '--')
+
+if freq_input == 'D':   
+    ax.plot(BV.climatic.recharge*1000, label='recharge', c='purple', lw=0.5)
+    ax.plot(BV.climatic.precip*1000, label='precip', c='dodgerblue', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(BV.climatic.runoff*1000, label='runoff', c='cyan', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(BV.climatic.etp*1000, label='etp', c='orange', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(Qobsmm, label='Qobs', c='darkgreen', lw=0.5)
+
+elif freq_input == 'W':
+    ax.plot(BV.climatic.recharge*7*1000, label='recharge_reanalysis_normalized', c='purple', lw=0.5)
+    ax.plot(BV.climatic.precip*7*1000, label='precip', c='dodgerblue', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(BV.climatic.runoff*7*1000, label='runoff', c='cyan', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(BV.climatic.etp*7*1000, label='etp', c='orange', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(Qobsmm, label='Qobs', c='darkgreen', lw=0.5)
+    
+elif freq_input == 'M':
+    ax.plot(BV.climatic.recharge*BV.climatic.recharge.index.day*1000, label='recharge_reanalysis_normalized', c='purple', lw=0.5)
+    ax.plot(BV.climatic.precip*BV.climatic.precip.index.day*1000, label='precip', c='dodgerblue', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(BV.climatic.runoff*BV.climatic.runoff.index.day*1000, label='runoff', c='cyan', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(BV.climatic.etp*BV.climatic.etp.index.day*1000, label='etp', c='orange', linestyle='--', lw=0.5, alpha=0.5)
+    ax.plot(Qobsmm, label='Qobs', c='darkgreen', lw=0.5)
+
 ax.set_xlabel('Date')
 ax.set_ylabel(f'[mm/{freq_input}]')
 ax.set_yscale('log')
 plt.xticks(rotation=45, ha="right")
 ax.legend()
 plt.savefig(os.path.join(out_path, watershed_name, 'results_stable', '_figures', 'R_r.png'), dpi=300)
+
+# #%% Plots R et r
+# Qnormalized = Rec+run
+# fig, ax = plt.subplots(1,1, figsize=(6,3))
+# ax.plot(Qnormalized*1000, label='Qnormalized', c='orange', lw=0.5)
+# ax.plot(Rec*1000, label='recharge_reanalysis_normalized', c='dodgerblue', lw=0.5)
+# # ax.plot(r, label='runoff_reanalysis_normalized', c='navy', lw=0.5)
+# ax.plot(Qobsmm, label='Qobs', c='darkgreen', lw=0.5)
+# # ax.plot(BV.climatic.precip*1000, label='precip', c='blue', lw=0.5, linestyle = '--')
+# # ax.plot(BV.climatic.recharge, label='recharge_reanalysis', c='deepskyblue', lw=0.5,  linestyle = '--')
+# # ax.plot(BV.climatic.runoff, label='runoff_reanalysis', c='black', lw=0.5,  linestyle = '--')
+# ax.set_xlabel('Date')
+# ax.set_ylabel(f'[mm/{freq_input}]')
+# ax.set_yscale('log')
+# plt.xticks(rotation=45, ha="right")
+# ax.legend()
+# plt.savefig(os.path.join(out_path, watershed_name, 'results_stable', '_figures', 'R_r.png'), dpi=300)
 
 #%% DEFINE
 
@@ -333,11 +381,11 @@ nlay = 1
 lay_decay = 10 # 1 for no decay
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
 thick = 30 # if bottom is None, aquifer thickness
-hk = 5.31e-6 * 3600 * 24 # m/day
+hk = 1.88e-5 * 3600 * 24 # m/day
 cond_drain = None # or value of conductance
-exdp = 10 
+exdp = 1
 ########## LOOP ##########
-list_porosity = np.array([1]) / 100 # [-] 
+list_porosity = np.array([8.9]) / 100 # [-] 
 
 # Boundary settings
 bc_left = None # or value
@@ -518,8 +566,8 @@ for i, simul in enumerate(simul_list[:]):
     ax.plot(np.arange(dem_h_plot.size) * 75, dem_h_plot - 30, color='dimgray', lw=1.5)
     ax.plot(np.arange(dem_h_plot.size) * 75, dem_h_plot, 'saddlebrown', lw=1.5, label='DEM')
     
-ax.set_xlim(4000, 12000)
-ax.set_ylim(20, 200)
+# ax.set_xlim(4000, 12000)
+# ax.set_ylim(20, 200)
 ax.set_yticks([50, 100, 150, 200])
 ax.set_xlabel('Distance [m]')
 ax.set_ylabel('Elevation [m]')
@@ -530,9 +578,8 @@ fig.tight_layout()
 fig.savefig(os.path.join(simulations_folder, '_figures',
             'CROSS_'+iD_set_simulations+'.png'),
             bbox_inches='tight')
-    
+ 
 #%% MAP MIN MAX
-
 dates = pd.date_range(start='01/01/1981', end='31/12/2024', freq=freq_input)
     
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
@@ -631,6 +678,113 @@ for simul in simul_list[:]:
                 
     fig.savefig(os.path.join(simulations_folder, '_figures',
                 'MAPminmax_'+model_name+'.png'),
+                bbox_inches='tight')
+    
+#%% MAP MIN MAX Q5 AND Q95
+# Calcul des quantiles 5% et 95%
+
+dates = pd.date_range(start='01/01/1981', end='31/12/2024', freq=freq_input)
+    
+stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
+simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+
+line = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_contour.tif'))
+line = np.ma.masked_where(line <= 0, line)
+
+mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
+
+simul_list = sorted(glob.glob(os.path.join(simulations_folder, iD_set_simulations+'*')),
+                   key=os.path.getmtime)
+        
+for simul in simul_list[:]:
+    
+    model_name = os.path.split(simul)[-1]
+        
+    Smod_path = os.path.join(simul, r'_postprocess/_timeseries/_simulated_timeseries.csv')
+    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+        
+    # Calculate 5% and 95% quantiles instead of min/max
+    q5_area = Smod['total_areas'].quantile(0.05)
+    q95_area = Smod['total_areas'].quantile(0.95)
+    
+    # Find indices corresponding to these quantiles (closest values)
+    q5_idx = np.argmin(np.abs(Smod['total_areas'].values - q5_area))
+    q95_idx = np.argmin(np.abs(Smod['total_areas'].values - q95_area))
+    
+    acc_npy = np.load(os.path.join(simul, '_postprocess', 'accumulation_flux.npy'), allow_pickle=True).item()
+    inf = 0
+    sup = 12
+    compt = 0
+    step = int(round(len(acc_npy)/12))
+    
+    for i in range(step):
+        print(str(i)+'/'+str(step))
+        interv = list(acc_npy.items())[inf:sup]
+        for key in range(len(interv)):
+            interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))
+
+        zero = acc_npy[0] * 0
+        for j in range(len(interv)):
+            tempo = interv[j].copy()
+            tempo[tempo>0] = 1
+            zero = zero + tempo
+        days_flux = zero.copy()
+        days_flux = np.ma.masked_array(days_flux, mask=(mask<0))
+        days_flux = np.ma.masked_array(days_flux, mask=(days_flux<=0))
+    
+    fig, axs = plt.subplots(1,2, figsize=(7,6))
+    axs = axs = axs.ravel()
+    
+    for k, j in enumerate([q5_idx, q95_idx]):
+            
+        ax = axs[k]
+    
+        year = Smod['total_areas'].index[j]
+        val = Smod.iloc[j]['total_areas']
+
+        days_flux = acc_npy[j]
+        
+        # Add quantile label to title
+        label_text = f'Q5 ({str(year)[0:10]})' if k == 0 else f'Q95 ({str(year)[0:10]})'
+        ax.set_title(label_text + '   ' + '$A_{sat}$ = ' + str(val.round(1)) + ' [%]',
+                     pad=10, fontsize=10)
+        ax.imshow(np.ma.masked_where(mask<0, mask), cmap='Greys', alpha=0.5, zorder=0)
+        ax.imshow(np.ma.masked_where((days_flux<=0) | (mask <0),
+                                     days_flux), 
+                  cmap = mpl.colors.ListedColormap(['navy'])) # dodgerblue
+        ax.imshow(line, cmap=mpl.colors.ListedColormap('k'))
+        
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.axis('off')
+            
+        try:
+            path_sub = os.path.join(glob.glob(
+                os.path.join(stable_folder, 'subbasin','intermittency*'))[0],
+                'watershed_contour.shp')
+            wbt.vector_lines_to_raster(path_sub,
+                                       os.path.join(glob.glob(
+                                           os.path.join(stable_folder,
+                                                        'subbasin',
+                                                        'intermittency*'))[0],
+                                           'watershed_contour.tif'),
+                                       base = os.path.join(stable_folder,
+                                                           'geographic',
+                                                           'watershed_dem.tif'))
+            line_sub = imageio.imread(os.path.join(glob.glob(
+                os.path.join(stable_folder, 'subbasin', 'intermittency*'))[0],
+                'watershed_contour.tif'))
+            line_sub = np.ma.masked_where(line_sub <= 0, line_sub)
+            ax.imshow(line_sub, cmap=mpl.colors.ListedColormap('grey'))
+        except:
+            pass
+        
+    fig.suptitle(model_name.upper(), y=0.85, fontsize=8)
+    
+    fig.tight_layout()
+                
+    fig.savefig(os.path.join(simulations_folder, '_figures',
+                'MAP_Q5_Q95_'+model_name+'.png'),
                 bbox_inches='tight')
 
 #%% PERSISTENCY
@@ -753,7 +907,6 @@ for i, simul in enumerate(simul_list[:]):
     if freq_input == 'M':
         ax.plot(Qobsmonthmm, color='k', lw=1, ls='-', zorder=0, label='observed')
     ax.plot(Qmod, color='red', lw=1, label='modeled')
-    ax.plot(Qnormalized*1000, label='Qnormalized', c='orange',ls='--', lw=0.5)
     # ax.plot(Rmod.index, Rmod*1000, color='blue', lw=2.5)
     ax.set_xlabel('Date')
     ax.set_ylabel('Q / A [mm/month]')
