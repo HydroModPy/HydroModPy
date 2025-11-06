@@ -1,26 +1,17 @@
-# -*- coding: utf-8 -*-
-"""
-HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
+"""Public entry points for HydroModPy."""
 
-Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+from importlib import metadata
+from pathlib import Path
 
-This file is part of HydroModPy.
+try:
+    __version__ = metadata.version("hydromodpy")
+except metadata.PackageNotFoundError:
+    import tomllib
 
-HydroModPy is free software: you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
+    _pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    with _pyproject.open("rb") as fh:
+        __version__ = tomllib.load(fh)["project"]["version"]
 
-HydroModPy is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
-details.
-
-You should have received a copy of the GNU Lesser General Public License along
-with HydroModPy. If not, see <https://www.gnu.org/licenses/>.
-"""
-
-__version__ = "0.1.4"
 __author__ = "Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy"
 __email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 
