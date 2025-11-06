@@ -40,6 +40,7 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
 import xarray as xr
 xr.set_options(keep_attrs = True)
+import plotly.express as px
 
 #%% ROOT
 
@@ -69,9 +70,9 @@ def select_period(df, first, last):
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
 study_site = 'CANUT'
-first_year = 1990
-last_year = 2024 #ne pas mettre none sinon ca va beuguer
-freq_input = 'M' 
+first_year = 2021
+last_year = 2021 #ne pas mettre none sinon ca va beuguer
+freq_input = 'D' 
 sim_state = 'transient'
 
 out_path = folder_root.root_folder_results()
@@ -82,29 +83,19 @@ specific_data_path = os.path.join(data_path, study_site)
 print(f"out_path; {out_path}, Data path: {data_path}, specific_data_folder; {specific_data_path}")
 
 #%% ---- EXTRACT CATCHMENT
-#%% NEW watershed
-watershed_name = '_'.join([
-    study_site,str(first_year),str(last_year)
-])
-print('##### '+watershed_name.upper()+' #####')
-
-watershed_path = os.path.join(out_path, watershed_name)
-dem_path = os.path.join(data_path, 'regional dem.tif')
-
-#%% LOAD watershed
-watershed_name = ""
+watershed_name = f"param_clim_data_{study_site}"
 
 print('##### '+watershed_name.upper()+' #####')
 
 watershed_path = os.path.join(out_path, watershed_name)
-dem_path = os.path.join(data_path, 'regional dem.tif')
+dem_path = os.path.join(data_path, 'dem', 'regional dem.tif')
 
 #%% ---- WATERSHED
 load = False
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
-from_xyv = [327816, 6777886, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 bottom_path = None # path
 save_object = True
 
@@ -143,11 +134,12 @@ BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff', 'precip',
                                                                 # can be a shapefile path or a flag: 'watershed' or False
 
 # Units
-BV.climatic.evt = BV.climatic.evt / 1000 # from mm to m 
+BV.climatic.evt = BV.climatic.evt / 1000# from mm to m 
 BV.climatic.etp = BV.climatic.etp / 1000 # from mm to m
 BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
 BV.climatic.t = BV.climatic.t / 1000 # from mm to m
-
+BV.climatic.runoff = BV.climatic.runoff / 1000 # from mm to m
+# BV.climatic.recharge = BV.climatic.recharge / 1000 # from mm to m
 #%% SAFRAN
 BV.add_safransurfex(r"C:\\Users\\theat\\Documents\\Python\\02_Output_HydroModPy\\data\\Meteo\\REA")
 
@@ -161,17 +153,18 @@ BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershe
                                        sim_state=sim_state)
 
 BV.climatic.update_recharge(BV.climatic.recharge / 1000, sim_state=sim_state) # from mm to m
-#%% RUNOFF REANALYSIS
-BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
-                                       clim_mod='REA',
-                                       clim_sce='historic',
-                                       first_year=first_year,
-                                       last_year=last_year,
-                                       time_step='D',
-                                       sim_state=sim_state)
+# #%% RUNOFF REANALYSIS
+# BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
+#                                        clim_mod='REA',
+#                                        clim_sce='historic',
+#                                        first_year=first_year,
+#                                        last_year=last_year,
+#                                        time_step='D',
+#                                        sim_state=sim_state)
 
-BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
+# BV.climatic.update_runoff(BV.climatic.runoff / 1000, sim_state=sim_state) # from mm to m
 #%% R et r affectation
+
 if isinstance(BV.climatic.recharge, float):
     print(f"Time-space daily average value for recharge = {BV.climatic.recharge} m")
     print(f"Time-space daily average value for runoff = {BV.climatic.runoff} m")
@@ -185,24 +178,25 @@ else:
         R = BV.climatic.recharge
         r = BV.climatic.runoff  
 
-# =============================================================================
-# Exportation des données climatiques
-# =============================================================================
-df_climatic = pd.DataFrame({
-    'recharge': R,
-    'runoff': r,
-    'precip': BV.climatic.precip,
-    'evt': BV.climatic.evt,
-    'etp': BV.climatic.etp,
-    't': BV.climatic.t,
-    })
-
-df_climatic.index.name = 'time'
-df_climatic.to_csv(os.path.join(data_path, study_site ,'Meteo', 'Historiques SIM2', f'climatic_data_m_day_{first_year}_{last_year}.csv'))
-# =============================================================================
-
 #%% Qobs FORMATTING et F normalization 
-Qobs_path = os.path.join(specific_data_path,'J751301001.csv')
+
+# ## option 1
+# Qobs_path = os.path.join(specific_data_path,'hydrometry','J560681001.csv')
+# Qobs = pd.read_csv(Qobs_path, delimiter=';')
+# #print (Qobs.columns)
+# #print(Qobs.head())
+# Qobs["date"] = pd.to_datetime(Qobs["date"], format='%d/%m/%Y')
+# Qobs.set_index("date", inplace=True)
+
+# Qobs = Qobs.drop(columns=["time"])
+# Qobs = Qobs.rename(columns={'Q_Lperday': 'Q'})
+# Qobs['Q'] = Qobs['Q'] / 1000  # L/d to m3/d
+# area = int(round(BV.geographic.area))
+# Qobs = (Qobs / (area*1000000)) # m3/d to m/day
+# Qobsyear = Qobs.resample('Y').sum().mean().values[0] # m/day to m/y
+
+## option 2
+Qobs_path = os.path.join(specific_data_path,'hydrometry', 'J751301001.csv')
 Qobs = pd.read_csv(Qobs_path, delimiter=',')
 #print (Qobs.columns)
 #print(Qobs.head())
@@ -211,10 +205,14 @@ Qobs["Date (TU)"] = pd.to_datetime(Qobs["date_obs_elab"], format='%Y-%m-%d')
 Qobs.set_index("Date (TU)", inplace=True)
 
 Qobs = Qobs.drop(columns=["date_obs_elab","grandeur_hydro_elab","libelle_qualification","specific_discharge"])
-Qobs = Qobs.rename(columns={"debit_obs_elab": "Q"})
+Qobs = Qobs.rename(columns={"resultat_obs_elab": "Q"})
 
 area = int(round(BV.geographic.area))
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) # m3/s to m/day
+
+# Filter Qobs to the same period as other variables
+Qobs = select_period(Qobs, first_year, last_year)
+
 Qobsyear = Qobs.resample('Y').sum().mean().values[0]  # m/day to m/y
 
 #%% Q resample by timescale
@@ -225,34 +223,41 @@ if freq_input == 'W':
 # to calculate the mean value as the same shape as modflow input value
 
 #%% R AND r RESAMPLE BY YEAR AND NORMALIZATION
-#! ne pas faire tourner deux fois de suite sinon le facteur de normalisation tombe à 1 ou 0.99 car ca reprend les valeurs déja pondérées (serpent qui se mort la queue)
 
 Rannual = R.resample('Y').sum().mean()
 rannual = r.resample('Y').sum().mean()
 Qsafran = Rannual+rannual
 F = Qobsyear / Qsafran
-
-if freq_input == 'M':
-
-    precip = BV.climatic.precip.resample('M').mean()
-    evt = BV.climatic.evt.resample('M').mean()
-    etp = BV.climatic.etp.resample('M').mean()
-    t = BV.climatic.t.resample('M').mean()
-    R = R.resample('M').mean()
-    r = r.resample('M').mean()
-    
-if freq_input == 'W':
-
-    precip = BV.climatic.precip.resample('W').mean()
-    evt = BV.climatic.evt.resample('W').mean()
-    etp = BV.climatic.etp.resample('W').mean()
-    t = BV.climatic.t.resample('W').mean()
-    R = R.resample('W').mean()
-    r = r.resample('W').mean()
-
 print (f'F = {F}')
 R = R * F
 r = r * F
+
+if freq_input == 'M':
+
+    precip = BV.climatic.precip.resample('M').mean()*F
+    evt = BV.climatic.evt.resample('M').mean()*F
+    etp = BV.climatic.etp.resample('M').mean()*F
+    t = BV.climatic.t.resample('M').mean()*F
+    R = R.resample('M').mean()*F
+    r = r.resample('M').mean()*F
+
+if freq_input == 'W':
+
+    precip = BV.climatic.precip.resample('W').mean()*F
+    evt = BV.climatic.evt.resample('W').mean()*F
+    etp = BV.climatic.etp.resample('W').mean()*F
+    t = BV.climatic.t.resample('W').mean()*F
+    R = R.resample('W').mean()*F
+    r = r.resample('W').mean()*F
+
+# Define variables for all frequencies (including daily 'D')
+if freq_input == 'D':
+    precip = BV.climatic.precip*F
+    evt = BV.climatic.evt*F
+    etp = BV.climatic.etp*F
+    t = BV.climatic.t*F
+    R = R*F
+    r = r*F
 #%%Exportation des données climatiques
 # =============================================================================
 df_climatic = pd.DataFrame({
@@ -262,11 +267,32 @@ df_climatic = pd.DataFrame({
     'evt': evt,
     'etp': etp,
     't': t,
+    'p-r': precip - r,
+    'p-r-evt' : precip - r - evt, 
+    'discharge' : Qobs['Q'] 
     })
 
 df_climatic.index.name = 'time'
 df_climatic.to_csv(os.path.join(data_path, study_site, 'Meteo', 'Historiques SIM2', f'climatic_data_{first_year}_{last_year}.csv'))
 # =============================================================================
+
+#%% PLOT VARIABLES
+# Create an interactive plot for the variables in df_climatic with a logarithmic y-axis
+fig = px.line(df_climatic, x=df_climatic.index, y=df_climatic.columns, 
+              title="Interactive Visualization of Climatic Variables (Log Scale)",
+              labels={"value": "Values (Log Scale)", "time": "Time"},
+              template="plotly")
+            #   log_y=True)  # Set y-axis to logarithmic scale
+
+# Define the full file path for saving the HTML
+output_file_path = os.path.join(watershed_path, "climatic_variables_log.html")
+fig.write_html(output_file_path)
+
+# Show the plot
+fig.show()
+
+print(f"Figure saved at: {output_file_path}")
+
 #%% means values 
 # R = BV.climatic.recharge.resample('Y').sum().mean()#mm/year
 # r = BV.climatic.runoff.resample('Y').sum().mean()#mm/year

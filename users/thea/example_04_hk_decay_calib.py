@@ -73,11 +73,11 @@ def select_period(df, first, last):
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
 study_site = 'LA_FLUME'
-first_year = 1999
-last_year = 1999
+first_year = 2021
+last_year = 2021
 freq_input = 'M'
 sim_state = 'transient' 
-parameters = "1e-6_1%"
+parameters = "testdailyimpact"
 out_path = folder_root.root_folder_results()
 #out_path = r"C:\Users\theat\Documents\Python\Output_HydroModPy" # Manually set the output path
 data_path = os.path.join(out_path, "data")
@@ -88,13 +88,13 @@ print(f"out_path; {out_path}, Data path: {data_path}, specific_data_folder; {spe
 #%% OPTIONS
 # Name of the study site
 watershed_name = '_'.join([
-    'testhk',study_site,parameters,str(first_year),str(last_year),freq_input,sim_state
+    'calib',study_site,parameters,str(first_year),str(last_year),freq_input,sim_state
 ])
 
 print('##### '+watershed_name.upper()+' #####')
 
 watershed_path = os.path.join(out_path, watershed_name)
-dem_path = os.path.join(data_path,'dem', 'regional dem.tif')
+dem_path = os.path.join(data_path, 'dem', 'regional dem.tif')
 
 load = False
 # watershed_name ='Strengbach'
@@ -128,10 +128,10 @@ calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration
 # visualization_watershed.watershed_local(dem_path, BV)
 
 # Clip specific data at the catchment scale
-BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+# BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(os.path.join(data_path, 'hydrography'), types_obs=['regional stream network'])
 BV.add_hydrometry(os.path.join(data_path, 'hydrometry'), 'france hydrometric stations.shp')
-BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp')
+# BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp')
 # BV.add_piezometry()
 
 #Extract some subbasin from data available above
@@ -163,14 +163,16 @@ BV.climatic.precip = BV.climatic.precip / 1000 # from mm to m
 BV.climatic.t = BV.climatic.t / 1000 # from mm to m
 BV.climatic.runoff= BV.climatic.runoff / 1000 # from mm to m
 BV.climatic.recharge = BV.climatic.precip - BV.climatic.evt - BV.climatic.runoff
+# BV.climatic.recharge = BV.climatic.recharge/1000
 # BV.climatic.recharge = (BV.climatic.precip - BV.climatic.etp - BV.climatic.runoff).where(
 #     (BV.climatic.precip - BV.climatic.etp - BV.climatic.runoff) > 0,
 #     0
 # )
+
 #%% UPDATE RECHARGE RUNOFF
 # BV.add_safransurfex(r"C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\Meteo\REA")
 
-# #%%RECHARGE REANALYSIS
+# # #%%RECHARGE REANALYSIS
 # BV.climatic.update_recharge_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_REC_D.csv'),
 #                                        clim_mod='REA',
 #                                        clim_sce='historic',
@@ -179,9 +181,8 @@ BV.climatic.recharge = BV.climatic.precip - BV.climatic.evt - BV.climatic.runoff
 #                                        time_step=freq_input,
 #                                        sim_state=sim_state)
 
-# # BV.climatic.recharge = BV.climatic.recharge * BV.climatic.recharge.index.day #meandaypermonth to mm/month
 # BV.climatic.update_recharge(BV.climatic.recharge/1000, sim_state = sim_state) # from mm to m
-# # BV.climatic.update_recharge(BV.climatic.recharge.resample('M').sum(), sim_state = sim_state) # days to month
+
 
 # BV.climatic.update_runoff_reanalysis(path_file=os.path.join(out_path, watershed_name, 'results_stable', 'climatic', '_RUN_D.csv'),
 #                                        clim_mod='REA',
@@ -364,16 +365,21 @@ first_clim = 'mean' # or 'first or value
 freq_time = freq_input
 
 # Hydraulic settings
-nlay = 1
-lay_decay = 1 # 1 for no decay
+nlay = 10
+lay_decay = 1.25
+
 bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 50 # if bottom is None, aquifer thickness
-hk = 1.0e-5 * 3600 * 24 # m/day
-# hk_decay = 0.01 # soit une décroissance de 100m
+thick = 30 # if bottom is None, aquifer thickness
+alpha = (1/21)
+hk = 1.0e-4* 3600 * 24 # m/day = Kmax qui va être optimisé dans la suite
+hk_decay = (alpha, None, True,[]) # soit une décroissance de 10m
 cond_drain = None # or value of conductance
 exdp = 0
 
-sy = 1/100 # [-] 
+sy = 1/100 # [-]
+sy_decay = ((alpha/2), None, True, [])
+ss = 1e-5
+ss_decay = ((alpha/2), None, True, [])
 
 # Boundary settings
 bc_left = None # or value
@@ -412,11 +418,24 @@ BV.climatic.update_first_clim(first_clim)
 
 # Hydraulic settings
 BV.hydraulic.update_nlay(nlay) # 1
-BV.hydraulic.update_lay_decay(lay_decay) # 1
+BV.hydraulic.update_lay_decay(lay_decay) 
 BV.hydraulic.update_bottom(bottom) # None
 BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
 BV.hydraulic.update_hk(hk)
-BV.hydraulic.update_sy(sy) # 0.1/100
+BV.hydraulic.update_hk_decay(hk_decay_value=hk_decay[0], 
+                             min_value=hk_decay[1], 
+                             log_transf=hk_decay[2], 
+                             grad_elev=hk_decay[3])
+BV.hydraulic.update_sy(sy) 
+BV.hydraulic.update_sy_decay(sy_decay_value=sy_decay[0], 
+                             min_value=sy_decay[1], 
+                             log_transf=sy_decay[2], 
+                             grad_elev=sy_decay[3])
+BV.hydraulic.update_ss(ss)
+BV.hydraulic.update_ss_decay(ss_decay_value=ss_decay[0], 
+                             min_value=ss_decay[1], 
+                             log_transf=ss_decay[2], 
+                             grad_elev=ss_decay[3])
 BV.hydraulic.update_cond_drain(cond_drain)
 BV.hydraulic.update_exdp(exdp)
 # Boundary settings
@@ -425,7 +444,7 @@ BV.add_oceanic(sea_level)
 BV.settings.update_dis_perlen(dis_perlen)
 
 # Particle tracking settings
-BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
+# BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path' - DÉSACTIVÉ
 #%% CLASS MatchingStreams
 
 class MatchingStreams:
@@ -623,7 +642,7 @@ if run_optimization:
         #hk_decay_value = denormalize(params_norm[1], hk_decay_min, hk_decay_max)# Convert log(K) to hk
         # sy_value = denormalize(params_norm[2], sy_min, sy_max)
         
-        print(f'hk = {hk/24/3600}')
+        print(f'hk = {hk_value/24/3600}')
         BV.hydraulic.update_hk(hk_value)
         # BV.hydraulic.update_sy(sy_value)
         #BV.hydraulic.update_hk_decay(hk_decay_value)
@@ -667,9 +686,9 @@ if run_optimization:
         sim_distance = mean_simf_to_obsf
 
         matching = (abs(sim_distance) + abs(obs_distance)) / 2
+        
         print('INDICATORMATCHINGSRTEAM : ', matching)
-        errormatchingstream = matching 
-        # Store results in dictionary
+        errormatchingstream = matching
         optimization_results["model_name"] = model_name
         optimization_results["model_modflow"] = model_modflow
     
@@ -915,6 +934,7 @@ plt.savefig(os.path.join(calibration_folder,'_figures','hk_ms_variation.png'), d
 # ax.set_title('Specific yield (sy) optimization')
 # ax.set_xlabel('Simulation index')
 # plt.tight_layout()
+
 #%% run best model 
 BV.settings.update_model_name(model_name)
 BV.settings.update_check_model(plot_cross=False, check_grid=True)
@@ -937,9 +957,15 @@ BV.postprocessing_modflow(model_modflow,
                             intermittency_yearly=True,
                             export_all_tif=False)
 
-# BV.postprocessing_timeseries(model_modflow=model_modflow,
-#                                 model_modpath=None, 
-#                                 datetime_format=True)
+timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
+                                                    model_modpath=None,
+                                                    datetime_format=True, 
+                                                    subbasin_results=True,
+                                                    intermittency_monthly=True) # or None
+        
+# netcdf_results = BV.postprocessing_netcdf(model_modflow,
+#                                             datetime_format=True)
+
 #%% PLOTS MATCHING STREAMS
 fig, ax = plt.subplots(1, 1, figsize=(5,3), dpi=300)
 
@@ -984,655 +1010,215 @@ fig.savefig(os.path.join(calibration_folder, '_figures',
 #             'MAP_'+model_name+'_'+str(compt)+'.png'),
 #             bbox_inches='tight')
 
-#%% DEFINE SY
-
-# Frame settings
-
-print(f"R mean: {R}, r mean: {r}")
-
-box = True # or False
-sink_fill = False # or True
-
-sim_state = sim_state # 'steady' or 'transient'
-plot_cross = False
-dis_perlen = True
-
-# Climatic settings
-first_clim = 'mean' # or 'first or value
-freq_time = freq_input
-
-# Hydraulic settings
-nlay = 1
-lay_decay = 1 # 1 for no decay
-bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = 30 # if bottom is None, aquifer thickness
-hk = best_hk # m/day 
-# hk_decay = best_hk_decay # soit une décroissance de 100m
-cond_drain = None # or value of conductance
-
-sy = 1/100 # [-] 
-
-# Boundary settings
-bc_left = None # or value
-bc_right = None # or value
-sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
-split_temp = True
-
-# # Particle tracking settings
-# zone_partic = 'domain' # or watershed
-
-# plt.plot(hk/R)
-# plt.yscale('log')
-
-iD_set_simulations = 'explorSy_test1'
-
-#%% UPDATE
-# Import modules
-BV.add_settings()
-BV.add_climatic()
-BV.add_hydraulic()
-
-# Frame settings
-BV.settings.update_box_model(box)
-BV.settings.update_sink_fill(sink_fill)
-BV.settings.update_simulation_state(sim_state)
-BV.settings.update_check_model(plot_cross=plot_cross)
-
-# Climatic settings
-recharge = R.copy()
-BV.climatic.update_recharge(recharge, sim_state=sim_state)
-BV.climatic.update_first_clim(first_clim)
-
-runoff = r.copy()
-BV.climatic.update_runoff(runoff, sim_state=sim_state)
-BV.climatic.update_first_clim(first_clim)
-
-# Hydraulic settings
-BV.hydraulic.update_nlay(nlay) # 1
-BV.hydraulic.update_lay_decay(lay_decay) # 1
-BV.hydraulic.update_bottom(bottom) # None
-BV.hydraulic.update_thick(thick) # 30 / intervient pas si bottom != None
-BV.hydraulic.update_hk(hk)
-# BV.hydraulic.update_hk_decay(hk_decay) # 0.003
-BV.hydraulic.update_sy(sy) # 0.1/100
-BV.hydraulic.update_cond_drain(cond_drain)
-
-# Boundary settings
-BV.settings.update_bc_sides(bc_left, bc_right)
-BV.add_oceanic(sea_level)
-BV.settings.update_dis_perlen(dis_perlen)
-
-# Particle tracking settings
-BV.settings.update_input_particles(zone_partic=BV.geographic.watershed_box_buff_dem) # or 'seepage_path'
-
-
-#%%CALIBRATION sy 
-run_optimization = True
-
-if run_optimization:
-    optim_folder = os.path.join(calibration_folder, 'optimization_results')
-    os.makedirs(optim_folder, exist_ok=True)
-
-    all_simulations_results = []
-    all_Qmod_Qobs_results = []
-    use_time_filter = True
-    
-    calib_start_date = f"{first_year}-01-01"
-    calib_end_date = f"{last_year}-12-31"
-    
-    use_seasonal_filter = False
-    season_start_month = 7
-    season_start_day = 1
-    season_end_month = 12
-    season_end_day = 31
-    
-    def filter_dates(dates):
-        """Filter dates based on time and seasonal criteria"""
-        if not isinstance(dates, pd.DatetimeIndex):
-            dates = pd.DatetimeIndex(dates)
-        mask = pd.Series(True, index=dates)
-
-        if use_time_filter:
-            mask = mask & (dates >= calib_start_date) & (dates <= calib_end_date)
-
-            if use_seasonal_filter:
-                def is_in_season(date):
-                    start = pd.Timestamp(date.year, season_start_month, season_start_day)
-                    # Adjust end date if season ends in the next year
-                    if season_end_month < season_start_month:
-                        end = pd.Timestamp(date.year + 1, season_end_month, season_end_day)
-                    else:
-                        end = pd.Timestamp(date.year, season_end_month, season_end_day)
-                    
-                    return (date >= start) & (date <= end)
-                
-                seasonal_mask = dates.map(is_in_season)
-                mask = mask & seasonal_mask
-
-        return mask
-
-    def normalize(x, xmin, xmax):
-        return (x - xmin) / (xmax - xmin)
-
-    def denormalize(x_norm, xmin, xmax):
-        return x_norm * (xmax - xmin) + xmin
-
-    optimization_results = {"model_name": None, "model_modflow": None, "best_error": np.inf}
-
-    # Define bounds and normalization factors
-    # thick_min, thick_max = 20, 30 # m
-    # log_hk_min, log_hk_max = np.log10(1e-8*24*3600), np.log10(1e-2*24*3600)  # Log scale
-    # hk_decay_min, hk_decay_max = 0.003, 0.1  # m
-    sy_min, sy_max = 0.1/100, 10/100
-    compt = 0
-
-    # Error function using normalized parameters
-    def erreur_modele_norm(params_norm):
-        global compt
-    
-        # Convert normalized parameters back to real values
-
-        sy_value = denormalize(params_norm[0], sy_min, sy_max)   
-
-        BV.hydraulic.update_sy(sy_value)
-
-        # Model name
-        timestamp = datetime.now().strftime("%H%M%S") #permet d'afficher l'heure à laquelle le script à tourner
-        model_name = f"optim_{compt}_{timestamp}_sy{sy_value*100:.4f}%"
-        # logging.info(f"\nSimulation {compt}: hk={hk_value/24/3600:.2e}m/s, hk_decay={hk_decay_value:.3f}m")
-        BV.settings.update_model_name(model_name)
-        BV.settings.update_check_model(plot_cross=False, check_grid=True)
-
-        model_modflow = BV.preprocessing_modflow(for_calib=True)
-        success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-
-        if not success_modflow:
-            print("Échec de la simulation!")
-            compt += 1  # Still increment counter on failure
-            return 1e6
-
-        # Post-processing
-        BV.postprocessing_modflow(model_modflow,
-                                    watertable_elevation=True,
-                                    seepage_areas=True,
-                                    outflow_drain=True,
-                                    accumulation_flux=True,
-                                    watertable_depth=True,
-                                    groundwater_flux=False,
-                                    groundwater_storage=False,
-                                    intermittency_yearly=True,
-                                    export_all_tif=False)
-
-        BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                     model_modpath=None, 
-                                     datetime_format=True)
-
-        # NSELOG OBJECTIVE FONCTION #
-
-        smod_path = os.path.join(calibration_folder, model_name, r'_postprocess/_timeseries/_simulated_timeseries.csv')
-        # C:\Users\theat\Documents\Python\02_Output_HydroModPy\Example_04_REA_Qnormalized_calib_LA_FLUME_thick_hk_sy_2021_2023_M_transient\results_calibration\optim_0_224802_hk1.00e-04_sy10.00%_th30.0\_postprocess\_timeseries
-        if not os.path.exists(smod_path):
-            # logging.error(f"Fichier de résultats non trouvé: {smod_path}")
-            print(f"Fichier de résultats non trouvé: {smod_path}")
-            return 1e6
-
-        sim_series = pd.read_csv(smod_path, sep=';', index_col=0, parse_dates=True)
-
-        if "outflow_drain" not in sim_series.columns:
-            print("Colonne 'outflow_drain' manquante dans le fichier de résultats!")
-            print("Colonnes disponibles: %s", sim_series.columns.tolist())
-            return 1e6
-
-        simulated_series = sim_series['outflow_drain']
-        if simulated_series.empty:
-            print("Série temporelle vide!")
-            return 1e6
-
-        # ---- Filtrage des dates ----
-        sim_dates = simulated_series.index
-        date_mask = filter_dates(sim_dates)
-        filtered_dates = sim_dates[date_mask]
-        simulated_Q = simulated_series[date_mask].values
-
-        if len(filtered_dates) == 0:
-            print("Aucune date ne correspond aux critères de filtrage!")
-            return 1e6
-
-        print(f"Utilisation de {len(filtered_dates)} dates sur {len(sim_dates)} pour la calibration")
-
-        observed_Q = []
-
-        # print("Qobsmm index:", Qobsmm.index)
-        # print("filtered_dates:", filtered_dates)
-
-        for date in filtered_dates:
-            print(f"Processing date: {date}")
-            # adapte la variable a entrer en fonction de freq_input
-            if date in Qobs.index:
-                observed_Q.append(Qobs.loc[date])
-                print(f"Found date: {date}, Q: {Qobs.loc[date]}")
-            else:
-                closest_date = Qobs.index[abs(Qobs.index - date).argmin()]
-                observed_Q.append(Qobs.loc[closest_date])
-                print(f"Closest date found: {closest_date}, Q: {Qobs.loc[closest_date, 'Q']}")
-
-        print("observed_Q:", observed_Q)
-        
-        n = len(simulated_Q)
-        if n == 0:
-            return 1e6
-            
-        Smod = pd.read_csv(smod_path, sep=';', index_col=0, parse_dates=True)
-
-        Qmod = Smod['outflow_drain'] 
-        Qmod = Qmod.squeeze()
-        Qmod = Qmod*1000
-        if freq_input == 'M':
-            Qmod = (Qmod + (r * 1000)) * Qmod.index.day
-        elif freq_input == 'W':
-            Qmod = (Qmod + (r * 1000)) * 7
-        print (f'valeur de Qmod : {Qmod}')
-        
-        if freq_input == 'D':
-            Qobs_stat = select_period(Qobsmm,first_year,last_year)
-            print(f"Qobs : {Qobsmm}")
-            
-        if freq_input == 'W':
-            Qobs_stat = select_period(Qobsweekmm,first_year,last_year)
-            print(f"Qobs : {Qobsweekmm}")
-            
-        if freq_input == 'M':
-            Qobs_stat = select_period(Qobsmonthmm,first_year,last_year)
-            print(f"Qobs : {Qobsmonthmm}")
-        
-        Qmod_stat = select_period(Qmod,first_year,last_year)
-        
-        import hydroeval as he
-        NSElog = he.evaluator(he.nse, Qmod_stat, Qobs_stat, transform='log')[0]
-        print(f'NSElog : {NSElog}')
-        # Store results in dictionary
-        optimization_results["model_name"] = model_name
-        optimization_results["model_modflow"] = model_modflow
-
-        errorNSElog = 1-NSElog # Squared error to match 1
-        if np.isnan(errorNSElog) :
-            return np.inf  # Large error if indicator is invalid
-
-        # Store results in dictionary
-        optimization_results["model_name"] = model_name
-        optimization_results["model_modflow"] = model_modflow
-        
-        error = errorNSElog # Average error between NSElog 
-        # Save the results    
-        current_simulation = {
-        "iteration": compt,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "model_name": model_name,
-        # "hk": hk_value,
-        # "hk_ms": hk_value/24/3600,
-        # "log_hk": log_hk_value,  # Ajout du log(hk) dans les résultats
-        # "hk_decay_value": hk_decay_value,
-        "sy": sy_value,
-        # "thick": thick,
-        "NSElog": NSElog,
-        # "matchingstream": errormatching,
-        # 'errormatchingstream': errormatchingstream,
-        # "nse": nse,
-        # "r_squared": r_squared,
-        # "rmse": rmse,
-        "error_nselog": errorNSElog,
-        "error": error,
-        # "filtered_points": len(filtered_dates),
-        # "total_points": len(sim_dates),
-        }
-        
-        # Qmod_Qobs ={
-        #     'Qmod': Qmod,
-        #     'Qobs': Qobsmonthmm,
-        # }
-        
-        # all_Qmod_Qobs_results.append(Qmod_Qobs)
-        #pd.DataFrame (all_Qmod_Qobs_results).to_csv(os.path.join(optim_folder,'all_Qmod_Qosb_results.csv'))
-        
-        # Append the results to the list
-        all_simulations_results.append(current_simulation)
-
-        pd.DataFrame(all_simulations_results).to_csv(
-            os.path.join(optim_folder, 'all_simulations_resultsNSElog.csv'), 
-            index=False
-        )
-
-        # Save if the error is the best so far
-        if error < optimization_results["best_error"]:
-            optimization_results["model_name"] = model_name
-            optimization_results["model_modflow"] = model_modflow
-            optimization_results["best_error"] = error
-            optimization_results["best_NSElog"] = NSElog
-            optimization_results["best_params"] = {
-                #"log_hk": log_hk,  # Ajout du log(hk) dans les meilleurs paramètres
-                # "hk_decay_vlaue": hk_decay_value,
-                "sy": sy_value,
-                # "thick": thick
-            }
-            # optimization_results["filtered_dates"] = filtered_dates
-            logging.info("► Meilleure simulation jusqu'à présent ◄")
-
-        compt += 1
-        return error
-
-    # Run the optimization
-    print("\n=== DÉMARRAGE DE L'OPTIMISATION SIMPLEX ===")
-    start_time = datetime.now()
-    print(f"Démarrage: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
-    if use_time_filter:
-        filter_info = f"Période de calibration: {calib_start_date} à {calib_end_date}"
-        if use_seasonal_filter:
-            filter_info += f", saison: {season_start_day}/{season_start_month} à {season_end_day}/{season_end_month}"
-        print(filter_info)
-
-    # Define the bounds for the parameters
-    sy_min, sy_max = 0.01/100, 10/100  # Porosity bounds    
-        
-    # Initial values
-    sy_init = sy
-
-
-    # Normalize the initial values with hk in log scale
-    x0_norm = [
-        normalize(sy_init, sy_min, sy_max),
-    ]
-    
-    print(f"Bornes sy: [{sy_min:.4f}, {sy_max:.4f}] %")
-    # Run the optimization using the Nelder-Mead method (Simplex)
-    result = minimize(
-        erreur_modele_norm, 
-        x0_norm, 
-        method='Nelder-Mead',
-        options={
-            'xatol': 0.01,
-            'fatol': 0.01,
-            'maxiter': 30,
-            'disp': True
-        }
-    )
-
-    # best_hk_decay = denormalize(result.x[1], hk_decay_min, hk_decay_max)
-    best_sy = denormalize(result.x[0], sy_min, sy_max)
-    # best_thick = denormalize(result.x[2], thick_min, thick_max)
-
-    end_time = datetime.now()
-    duration = end_time - start_time
-
-    print("\n=== RÉSULTATS DE L'OPTIMISATION ===")
-    print(f"Conductivité hydraulique optimale: {best_hk/24/3600:.2e} m/s ({best_hk:.2e} m/jour)")
-    # print(f"Log(K) optimal: {best_log_hk:.4f}")
-    print(f"Porosité efficace optimale: {best_sy:.4f}")
-    # print(f"Décroissance de la conductivité hydraulique optimale: {best_hk_decay:.3f} m")
-    # print(f"Épaisseur optimale: {best_thick:.2f} m")
-    print(f"NSElog: {optimization_results.get('best_NSElog', 'N/A')}")
-    print(f"distance optimale : {optimization_results.get('matchingstream', 'N/A')} m")
-    # logging.info(f"NSE: {optimization_results.get('best_nse', 'N/A')}")
-    # logging.info(f"R²: {optimization_results.get('best_r_squared', 'N/A')}")
-    # logging.info(f"RMSE: {optimization_results.get('best_rmse', 'N/A')} m³")
-    print(f"Meilleur modèle: {optimization_results['model_name']}")
-    print(f"Nombre de simulations: {compt}")
-    print(f"Durée totale: {duration}")
-
-    # Use the best parameters for the final run
-    BV.hydraulic.update_sy(best_sy)
-
-    # Update the model name with the best parameters
-    model_name = f"final_optimized_sy{best_sy*100:.4f}%" #! hk{best_hk/24/3600:.2e} rajouter le plot de hk decay soi on en calibre une en plus 
-    BV.settings.update_model_name(model_name)
-
-    # Save the optimization results
-    optim_results = {
-        # "best_hk": best_hk,
-        # "best_hk_ms": best_hk/24/3600,
-        # "best_log_hk": best_log_hk,  # Ajout du log(hk) dans les résultats
-        # "best_hk_decay": best_hk_decay,
-        "best_sy": best_sy,
-        # "best_thickness": best_thick,
-        "best NSElog": optimization_results.get('best_NSElog'),
-        # "best_nse": optimization_results.get('best_nse'),
-        # "best_r_squared": optimization_results.get('best_r_squared'),
-        # "best_rmse": optimization_results.get('best_rmse'),
-        "iterations": compt,
-        "duration_seconds": duration.total_seconds(),
-        "optimization_start": start_time.strftime('%Y-%m-%d %H:%M:%S'),
-        "optimization_end": end_time.strftime('%Y-%m-%d %H:%M:%S'),
-        "best_model": optimization_results['model_name'],
-        "time_filter": {
-            "enabled": use_time_filter,
-            "global_start": calib_start_date,
-            "global_end": calib_end_date,
-            "seasonal_filter": use_seasonal_filter,
-            "season_start": f"{season_start_day}/{season_start_month}",
-            "season_end": f"{season_end_day}/{season_end_month}"
-        }
-    }
-
-    # Create optimization results folder if it doesn't exist
-    optim_df = pd.DataFrame([optim_results])
-    optim_df.to_csv(os.path.join(optim_folder, f'optimization_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'), index=False)
-
-    print(f"Résultats d'optimisation sauvegardés dans {optim_folder}")
-else: 
-    print("Optimisation désactivée, utilisation des paramètres définis manuellement.")
-
-#%% PRINT EACH VALUE OF NSElog
-stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
-simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
-calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
-optim_folder = os.path.join(calibration_folder, 'optimization_results')
-# Paths generated automatically but necessary for plots
-
-fig2, (b1) = plt.subplots(gridspec_kw={'width_ratios': [1]},  
-                              figsize=(10, 5))
-
-result_each_calib = pd.read_csv(os.path.join(optim_folder, 'all_simulations_resultsNSElog.csv'))
-step = result_each_calib['iteration']
-result_each_calib.set_index('iteration', inplace=True)
-NSElog = result_each_calib['NSElog']
-
-error_nselog = result_each_calib['error_nselog']
-
-# Plot errormatchingstream and error_nselog
-bx = b1
-bx.plot(step, error_nselog, label='error_nselog', color='deepskyblue')
-bx.set_xlabel('Step')
-bx.set_ylabel('Values of error_nselog', size = 8)
-# bx.set_yscale('log')
-bx.legend()
-bx.grid()
-
-# Adjust layout and save the figure
-fig2.tight_layout()
-fig2.savefig(os.path.join(calibration_folder,'_figures','error_metrics_NSElog.png'), dpi=300)
-plt.show()
-
-#%% PRINT PARAMETERS VARIATIONS
-datahkmin = 1e-8
-datahkmax = 1e-2
-datasymin = 0.001
-datasymax = 0.1
-datahkdecaymin = 0.003
-datahkdecaymax = 0.1
-
-fig, (ax1) = plt.subplots(1,1,figsize=(10, 6))
-
-# ax = ax0
-# ax.plot(result_each_calib.index, result_each_calib['hk_ms'], linestyle='--', label='hk_ms', color='blue')
-# # ax.plot(datta.index, datahkmin, linestyle='--', label='hk_min', color='grey')
-# # ax.plot(data.index, datahkmax, linestyle='--', label='hk_max', color='grey')
-# ax.set_ylabel('hk_ms (m/s)')
-# ax.legend(loc='upper right')
-# ax.set_ylim(datahkmin, datahkmax)
-# ax.set_title('Hydraulic conductivity (hk_ms) optimization')
-# ax.set_xlabel('Simulation index')
-# ax.set_yscale('log')
-# plt.tight_layout()
-
-ax = ax1
-ax.plot(result_each_calib.index, result_each_calib['sy'], linestyle='--', label='sy', color='green')
-# ax.plot(data.index, datasymin, linestyle='--', label='sy_min', color='grey')
-# ax.plot(data.index, datasymax, linestyle='--', label='sy_max', color='grey')
-ax.set_ylabel('sy')
-ax.legend(loc='upper right')
-ax.set_ylim(datasymin, datasymax)
-ax.set_title('Specific yield (sy) optimization')
-ax.set_xlabel('Simulation index')
+#%% FIXED CROSS-SECTION
+
+fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
+print(stable_folder)
+
+mask = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
+watertable_elevation = np.load(calibration_folder+'/'+model_name+'/_postprocess/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
+
+dem_data = imageio.imread(BV.geographic.watershed_dem)
+wt_data = watertable_elevation[0]
+
+xvalues = np.linspace(-1,1,dem_data.shape[1])
+yvalues = np.linspace(-1,1,dem_data.shape[0])
+xx, yy = np.meshgrid(xvalues,yvalues)
+
+cur_x = dem_data.shape[1] /2
+cur_x = 65
+
+wt_prof = wt_data.astype(float)
+wt_prof[wt_prof<0] = np.nan
+dem_max = dem_data.max()
+dem_prof = dem_data.astype(float)
+dem_prof[dem_prof<0] = np.nan
+dem_plot = np.ma.masked_array(dem_data, mask=(dem_data<0))
+dem_v_plot = dem_prof[:,int(cur_x)]
+dem_v_plot[dem_v_plot == 0] = np.nan
+wt_v_plot = wt_prof[:,int(cur_x)]
+wt_v_plot[wt_v_plot == 0] = np.nan
+wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*25, dem_v_plot-50, wt_v_plot, color='dodgerblue', alpha=0.5, lw=0)
+w_prof = ax.plot(np.arange(xx.shape[0])*25, wt_v_plot, color='navy', lw=1.5)
+wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*25, wt_v_plot, dem_v_plot, color='saddlebrown', alpha=0.5, lw=0)
+d_prof = ax.plot(np.arange(xx.shape[0])*25, dem_v_plot, 'saddlebrown', lw=1.5)
+ax.fill_between(np.arange(xx.shape[0])*25, 0, dem_v_plot-20, color='lightgrey', alpha=0.5, lw=0)
+ax.plot(np.arange(xx.shape[0])*25, dem_v_plot-50, color='dimgray', lw=1.5)
+
+ax.set_xlim(600, 3000)
+ax.set_ylim(40, 140)
+#ax.set_yticks([90,100,110,120,130])
+ax.set_xlabel('Distance [m]')
+ax.set_ylabel('Elevation [m]')
 plt.tight_layout()
 
-# ax = ax2
-# ax.plot(result_each_calib.index, result_each_calib['hk_decay_value'], linestyle='--', label='hk_decay', color='red')
-# # ax.plot(data.index, datahkdecaymin, linestyle='--', label='hk_decay_min', color='grey')
-# # ax.plot(data.index, datahkdecaymax, linestyle='--', label='hk_decay_max', color='grey')
-# ax.set_ylabel('hk_decay')
-# ax.legend(loc='upper right')
-# ax.set_ylim(datahkdecaymin, datahkdecaymax)
-# ax.set_title('Hydraulic conductivity decay (hk_decay) optimization')
-# ax.set_xlabel('Simulation index')
-# plt.tight_layout()
-plt.savefig(os.path.join(calibration_folder,'_figures','SY_variation.png'), dpi=300)
-#%% RUN BEST MODELE
-BV.settings.update_model_name(model_name)
-BV.settings.update_check_model(plot_cross=False, check_grid=True)
+# fig.savefig(out_path+'/'+watershed_name+'/results_simulations/'+model_name+'/_postprocess/_figures/'+'2D_cross.png', dpi=300, bbox_inches='tight')
 
-model_modflow = BV.preprocessing_modflow(for_calib=True)
-success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+#%% PROFIL DE CONDUCTIVITÉ HYDRAULIQUE EN FONCTION DE LA PROFONDEUR
+# Extract hk values from the model
+hk_3d = model_modflow.hk  # Shape: (nlay, nrow, ncol)
+zbot_3d = model_modflow.zbot  # Shape: (nlay, nrow, ncol)
+dem = model_modflow.dem  # Shape: (nrow, ncol)
 
-if not success_modflow:
-    print("Échec de la simulation!")
+# Define the cross-section position (same as the previous plot)
+cur_x = 65  # Column index for the cross-section
 
-# Post-processing
-BV.postprocessing_modflow(model_modflow,
-                            watertable_elevation=True,
-                            seepage_areas=True,
-                            outflow_drain=True,
-                            accumulation_flux=True,
-                            watertable_depth=True,
-                            groundwater_flux=False,
-                            groundwater_storage=False,
-                            intermittency_yearly=True,
-                            export_all_tif=False)
+# Extract the vertical profile at this position
+# We'll take the middle row for simplicity
+cur_y = dem.shape[0] // 2  # Middle row
 
-BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                model_modpath=None, 
-                                datetime_format=True)
+# Get hk values along the vertical at this position
+hk_vertical = hk_3d[:, cur_y, cur_x]  # hk for all layers at this (y,x) position
+zbot_vertical = zbot_3d[:, cur_y, cur_x]  # bottom elevation of each layer
 
-#%% FORMATTING QobsGAUGED STATION CSV 
-simul = os.path.join(calibration_folder,model_name)
+# Calculate layer centers for plotting
+layer_centers = np.zeros(len(zbot_vertical))
+layer_centers[0] = (dem[cur_y, cur_x] + zbot_vertical[0]) / 2  # Top layer
+for i in range(1, len(zbot_vertical)):
+    layer_centers[i] = (zbot_vertical[i-1] + zbot_vertical[i]) / 2
 
-fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]},
-                                figsize=(10,3))
-    
-Smod_path = os.path.join(simul, r"_postprocess\_timeseries\_simulated_timeseries.csv")
-Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+# Calculate depth from surface
+dem_at_point = dem[cur_y, cur_x]
+depth_from_surface = dem_at_point - layer_centers
 
-Qmod = Smod['outflow_drain'] 
-Qmod = Qmod.squeeze()
-Qmod = Qmod*1000
-if freq_input == 'M':
-    Qmod = (Qmod + (r * 1000)) * Qmod.index.day
-elif freq_input == 'W':
-    Qmod = (Qmod + (r * 1000)) * 7
-print (f'valeur de Qmod : {Qmod}')
-# Rmod = Smod['recharge'] 
-# print (f'valeur de Rmod : {Rmod}')
+# Create the figure with two subplots side by side
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6), dpi=300)
 
-yearsmaj = mdates.YearLocator(1)   # every year
-yearsmin = mdates.YearLocator(1)
-# monthsmaj = mdates.MonthLocator(6)  # every month
-# monthsmin = mdates.MonthLocator(3)
-# months_fmt = mdates.DateFormatter('%m') #b = name of month ?
-years_fmt = mdates.DateFormatter('%Y')
+# --- Plot 1: hk as a function of depth ---
+ax1.plot(hk_vertical / (24 * 3600), depth_from_surface, 'o-', color='darkblue', linewidth=2, markersize=8)
+ax1.set_xlabel('Conductivité hydraulique [m/s]', fontsize=12)
+ax1.set_ylabel('Profondeur depuis la surface [m]', fontsize=12)
+ax1.set_title(f'Profil vertical de K\nPosition: ligne {cur_y}, colonne {cur_x}', fontsize=13)
+ax1.set_xscale('log')
+ax1.grid(True, alpha=0.3, which='both')
+ax1.invert_yaxis()  # Depth increases downward
 
-ax = a0
-if freq_input == 'W':
-    ax.plot(Qobsweekmm, color='k', lw=1, ls='-', zorder=0, label='observed')
-    ax.plot(Qmod, color='red', lw=1, label='modeled')
-if freq_input == 'M':
-    ax.plot(Qobsmonthmm, color='k', lw=1, ls='-', zorder=0, label='observed')
-    ax.plot(Qmod, color='red', lw=1, label='modeled')
-    # ax.plot(Qnormalized*1000, label='Qnormalized', c='orange', lw=0.5)
+# Add text with parameters
+alpha_value = alpha if 'alpha' in locals() else hk_decay[0]
+textstr = f'hk_surface = {best_hk/(24*3600):.2e} m/s\nalpha (decay) = {alpha_value:.4f} m⁻¹\nnlay = {nlay}'
+ax1.text(0.05, 0.95, textstr, transform=ax1.transAxes, fontsize=10,
+         verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
-# ax.plot(Rmod.index, Rmod*1000, color='blue', lw=2.5)
-ax.set_xlabel('Date')
-ax.set_ylabel('Q / A [mm/month]')
-ax.set_yscale('log')
-ax.set_ylim(0.0001, 1000)
-# years_5 = mdates.YearLocator(5)  # every 5 years
-# ax.xaxis.set_major_locator(years_5)
-ax.xaxis.set_minor_locator(yearsmin)
-ax.xaxis.set_major_formatter(years_fmt)
-ax.set_xlim(pd.to_datetime(f'{first_year}-01'), pd.to_datetime(f'{last_year}-12'))
-# ax.set_xlim(pd.to_datetime(f'2023-01'), pd.to_datetime(f'2023-12'))
-ax.legend()
-ax.set_title(model_name.upper(), fontsize=10)
-for label in ax.get_xticklabels():
-    label.set_rotation(45)
-# axb = ax.twinx()
-# axb.bar(Rmod.index, Rmod,color='blue', edgecolor='blue', lw=2.5)
-# axb.set_ylim(0,999)
-# axb.invert_yaxis()
-# axb.set_yticklabels([0.1,200])
-if freq_input == 'W':
-    Qobs_stat = select_period(Qobsweekmm,first_year,last_year)
-if freq_input == 'M':
-    Qobs_stat = select_period(Qobsmonthmm,first_year,last_year)
-    
-Qmod_stat = select_period(Qmod,first_year,last_year)
+# --- Plot 2: hk as a function of elevation ---
+ax2.plot(hk_vertical / (24 * 3600), layer_centers, 'o-', color='darkgreen', linewidth=2, markersize=8, 
+         label=f'K profile (min: {np.min(hk_vertical / (24 * 3600)):.2e} m/s, max: {np.max(hk_vertical / (24 * 3600)):.2e} m/s)')
+
+ax2.set_xlabel('Conductivité hydraulique [m/s]', fontsize=12)
+ax2.set_ylabel('Élévation [m]', fontsize=12)
+ax2.set_title(f'Profil vertical de K (élévation)\nPosition: ligne {cur_y}, colonne {cur_x}', fontsize=13)
+ax2.set_xscale('log')
+ax2.grid(True, alpha=0.3, which='both')
+
+# Add horizontal line for DEM
+ax2.axhline(y=dem_at_point, color='brown', linestyle='--', linewidth=1.5, label='Surface (DEM)')
+
+# Add hk range to the legend
+hk_min = np.min(hk_vertical / (24 * 3600))
+hk_max = np.max(hk_vertical / (24 * 3600))
+ax2.legend([f'Surface (DEM)', f'Range de K: {hk_min:.2e} - {hk_max:.2e} m/s'])
+
+plt.tight_layout()
+plt.savefig(os.path.join(calibration_folder, '_figures', f'hk_vertical_profile_{model_name}.png'), 
+            dpi=300, bbox_inches='tight')
+plt.show()
+
+# --- Optional: 2D cross-section showing hk variation as grid ---
+fig3, ax3 = plt.subplots(1, 1, figsize=(14, 7), dpi=300)
+
+# Extract a full cross-section (all rows, fixed column)
+hk_cross_section = hk_3d[:, :, cur_x] / (24 * 3600)  # Convert to m/s
+zbot_cross_section = zbot_3d[:, :, cur_x]
+ztop_cross_section = np.zeros_like(zbot_cross_section)
+ztop_cross_section[0, :] = dem[:, cur_x]  # Top of first layer is DEM
+ztop_cross_section[1:, :] = zbot_cross_section[:-1, :]  # Top of layer i is bottom of layer i-1
+
+# Resolution of the grid
+resolution = 75  # meters (as specified)
+x_coords = np.arange(dem.shape[0]) * resolution  # Distance in meters
+
+# Plot each cell as a rectangle (pcolormesh style)
+from matplotlib.patches import Rectangle
+from matplotlib.collections import PatchCollection
+
+patches = []
+colors = []
+
+for layer_idx in range(nlay):
+    for row_idx in range(dem.shape[0]):
+        # Get cell boundaries
+        x_left = row_idx * resolution
+        x_right = (row_idx + 1) * resolution
+        z_bottom = zbot_cross_section[layer_idx, row_idx]
+        z_top = ztop_cross_section[layer_idx, row_idx]
         
-import hydroeval as he
-NSE = he.evaluator(he.nse, Qmod_stat, Qobs_stat)[0]
-NSElog = he.evaluator(he.nse, Qmod_stat, Qobs_stat, transform='log')[0]
-RMSE = np.sqrt(np.nanmean((Qobs_stat.values-Qmod_stat.values)**2))
-KGE = he.evaluator(he.kge, Qmod_stat, Qobs_stat)[0][0]
-print(model_name.upper())
-print(f" NSE {NSE}")
-print(f" NSElog {NSElog}")
-print(f" RMSE {RMSE}")
-print(f" KGE {KGE}")
+        # Skip invalid cells
+        if z_bottom < 0 or z_top < 0 or z_top <= z_bottom:
+            continue
+        
+        # Create rectangle for this cell
+        width = resolution
+        height = z_top - z_bottom
+        rect = Rectangle((x_left, z_bottom), width, height, linewidth=0.5, 
+                         edgecolor='black', facecolor='none')
+        patches.append(rect)
+        colors.append(hk_cross_section[layer_idx, row_idx])
 
-    # Store metrics in DataFrame
-metrics_df = pd.DataFrame({
-    'model_name': [model_name],
-    'NSE': [round(NSE, 2)],
-    'NSElog': [round(NSElog, 2)],
-    'RMSE': [round(RMSE, 2)],
-    'KGE': [round(KGE, 2)]
-})
+# Create patch collection with colors (reversed colormap)
+pc = PatchCollection(patches, cmap='jet_r', 
+                     norm=mpl.colors.LogNorm(vmin=np.array(colors).min(), 
+                                            vmax=np.array(colors).max()),
+                     edgecolors='black', linewidths=0.3)
+pc.set_array(np.array(colors))
+ax3.add_collection(pc)
 
-# Define the CSV file path
-figures_folder = os.path.join(simulations_folder, '_figures')
-metrics_csv_path = os.path.join(simulations_folder, '_figures', 'model_metrics.csv')
-if os.path.exists(figures_folder) == False :
-    os.makedirs(os.path.join(simulations_folder, '_figures'), exist_ok=True)
-    pass
-# Check if the file already exists to determine whether to write headers
-if os.path.isfile(metrics_csv_path):
-    metrics_df.to_csv(metrics_csv_path, mode='a', header=False, index=False)
-else:
-    metrics_df.to_csv(metrics_csv_path, index=False)
+# Plot the DEM on top
+ax3.plot(x_coords, dem[:, cur_x], color='saddlebrown', linewidth=2.5, label='Surface (DEM)', zorder=10)
 
-ax = a1
-ax.scatter(Qobs_stat, Qmod_stat,
-            s=25, edgecolor='none', alpha=0.75, facecolor='forestgreen')
-ax.set_xscale('log')
-ax.set_yscale('log')
-ax.plot((0.01,1000),(0.01,1000), color='grey', zorder=-1)
-ax.set_xlim(0.01,1000)
-ax.set_ylim(0.01,1000)
-# ax.set_xlim(0.1,300)
-# ax.set_ylim(0.1,300)    
-ax.set_xlabel('$Q_{obs}$ / A [mm/month]', fontsize=12)
-ax.set_ylabel('$Q_{sim}$ / A [mm/month]', fontsize=12)
-fig.tight_layout()
-            
-fig.savefig(os.path.join(simulations_folder, '_figures',
-            'STREAMFLOW_'+model_name+'.png'),
-            bbox_inches='tight')
+# Plot the watertable
+wt_cross_section = wt_data[:, cur_x]
+wt_cross_section_masked = wt_cross_section.astype(float)
+wt_cross_section_masked[wt_cross_section_masked < 0] = np.nan
+ax3.plot(x_coords, wt_cross_section_masked, color='yellow', linewidth=2.5, label='Nappe phréatique', zorder=10)
+
+# Fill between watertable and bottom to show saturated zone
+bottom_elevation = zbot_cross_section[-1, :]
+# ax3.fill_between(x_coords, wt_cross_section_masked, bottom_elevation, 
+#                  color='dodgerblue', alpha=0.3, label='Zone saturée', zorder=5)
+
+# Plot the bottom boundary
+ax3.plot(x_coords, bottom_elevation, color='dimgray', linewidth=2, label='Fond de l\'aquifère', linestyle='--')
+
+# Add colorbar
+cbar = plt.colorbar(pc, ax=ax3, pad=0.02)
+cbar.set_label('Conductivité hydraulique [m/s]', fontsize=12)
+
+# Set axis limits
+ax3.set_xlim(x_coords.min(), x_coords.max())
+z_min = np.nanmin(zbot_cross_section[zbot_cross_section > 0])
+z_max = np.nanmax(dem[:, cur_x])
+ax3.set_ylim(z_min - 5, z_max + 5)
+
+ax3.set_xlabel('Distance [m]', fontsize=12)
+ax3.set_ylabel('Élévation [m]', fontsize=12)
+ax3.set_title(f'Coupe transversale 2D - Grille de conductivité hydraulique (colonne {cur_x})\nRésolution: {resolution}m × {nlay} couches', fontsize=13)
+ax3.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+ax3.legend(fontsize=10)
+
+# Add text with model info
+textstr = f'Résolution horizontale: {resolution} m\nNombre de couches: {nlay}\nhk_surface: {hk/(24*3600):.2e} m/s\nDécroissance: α = {alpha_value:.4f} m⁻¹'
+ax3.text(0.02, 0.98, textstr, transform=ax3.transAxes, fontsize=9,
+         verticalalignment='top', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.7))
+
+plt.tight_layout()
+plt.savefig(os.path.join(calibration_folder, '_figures', f'hk_cross_section_2D_grid_{model_name}.png'), 
+            dpi=300, bbox_inches='tight')
+plt.show()
+
+print(f"\n=== PROFIL DE CONDUCTIVITÉ HYDRAULIQUE ===")
+print(f"Position de la coupe: ligne {cur_y}, colonne {cur_x}")
+print(f"Élévation du DEM à cette position: {dem_at_point:.2f} m")
+print(f"\nValeurs de hk par couche (m/s):")
+for i, (hk_val, depth, elev) in enumerate(zip(hk_vertical / (24*3600), depth_from_surface, layer_centers)):
+    print(f"  Couche {i+1}: hk = {hk_val:.2e} m/s, profondeur = {depth:.2f} m, élévation = {elev:.2f} m")
 
 # %%
