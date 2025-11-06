@@ -24,6 +24,12 @@ __version__ = "0.1.4"
 __author__ = "Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy"
 __email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 
+# Initialize logging system
+from hydromodpy.tools.log_manager import LogManager
+_log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
+# Public access to log manager for users
+log_manager = _log_manager
+
 # Import main class
 from hydromodpy.watershed_root import Watershed
 
@@ -41,5 +47,6 @@ __all__ = [
     "display",
     "tools",
     "pyhelp",
+    "log_manager",
     "__version__",
 ]
