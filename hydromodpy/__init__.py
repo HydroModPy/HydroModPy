@@ -5,10 +5,10 @@ import warnings
 from importlib import metadata
 from pathlib import Path
 
+
 def _configure_proj_support():
-    """Register known PROJ data locations so coordinate transforms work out-of-the-box."""
+    """Register bundled and user-provided PROJ data directories."""
     try:
-        from importlib import resources
         from pyproj import datadir, network
     except ImportError:
         return
@@ -20,26 +20,22 @@ def _configure_proj_support():
     except Exception:
         pass
 
-    extra_dirs = []
+    package_dir = Path(__file__).resolve().parent
+    project_root = package_dir.parent
 
-    try:
-        pkg_proj_dir = resources.files("hydromodpy").joinpath("proj_data")
-        if pkg_proj_dir.is_dir():
-            extra_dirs.append(pkg_proj_dir)
-    except Exception:
-        pass
-
-    cache_dir = Path.home() / ".cache" / "hydromodpy" / "proj"
-    if cache_dir.exists():
-        extra_dirs.append(cache_dir)
+    extra_dirs = [
+        package_dir / "proj_data",
+        project_root / "bin" / "proj_data",
+        Path.home() / ".cache" / "hydromodpy" / "proj",
+    ]
 
     custom_dir = os.environ.get("HYDROMODPY_PROJ_DATA")
     if custom_dir:
-        custom_path = Path(custom_dir).expanduser()
-        if custom_path.exists():
-            extra_dirs.append(custom_path)
+        extra_dirs.append(Path(custom_dir).expanduser())
 
     for proj_dir in extra_dirs:
+        if not proj_dir or not proj_dir.exists():
+            continue
         try:
             datadir.append_data_dir(str(proj_dir))
         except Exception:
