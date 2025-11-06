@@ -3,6 +3,7 @@ include README.md
 include LICENSE
 include pyproject.toml
 recursive-include bin *
+recursive-include hydromodpy/proj_data *
 
 # Exclude compiled Python files
 global-exclude *.py[cod]
