@@ -28,11 +28,34 @@ def _enable_pyproj_network():
         )
 
 
+def _ensure_proj_data_dir():
+    """Point pyproj to the bundled data directory if pyproj-data is installed."""
+    try:
+        from pyproj import datadir
+        import pyproj_data
+    except ImportError:
+        return
+
+    try:
+        data_dir = pyproj_data.get_data_dir()
+        if data_dir and os.path.isdir(data_dir):
+            datadir.set_data_dir(data_dir)
+    except Exception as exc:  # pragma: no cover - environment specific
+        warnings.warn(
+            f"HydroModPy could not configure pyproj data directory automatically ({exc}). "
+            "If coordinate transformations fail, install the 'pyproj-data' package or "
+            "set the PROJ_DATA environment variable to the directory containing grid files.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+
 def _check_proj_connectivity():
     """Warn early if pyproj cannot access grid data (offline or missing files)."""
     try:
         from pyproj import Transformer
         _enable_pyproj_network()
+        _ensure_proj_data_dir()
         transformer = Transformer.from_crs("EPSG:4326", "EPSG:2056", always_xy=True)
         # Trigger actual use so PROJ requests the grid if needed.
         transformer.transform(0.0, 0.0)
