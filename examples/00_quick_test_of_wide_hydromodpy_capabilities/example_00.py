@@ -49,7 +49,30 @@ from hydromodpy import watershed_root
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
-    
+
+#%% ---- LOGGING CONFIGURATION (OPTIONAL)
+# By default, HydroModPy logs INFO messages to console and creates a debug log
+# file in the watershed output folder. You can customize this behavior:
+
+from hydromodpy import log_manager
+
+# Change console output level (default is "verbose")
+# log_manager.set_console_level("quiet")    # Only show warnings and errors
+# log_manager.set_console_level("verbose")  # Show info, warnings, and errors
+# log_manager.set_console_level("dev")      # Show everything including debug
+
+# Enable user log file in current directory (optional)
+# log_manager.enable_user_log()                           # Save to current directory
+# log_manager.enable_user_log("/path/to/your/folder")    # Save to specific path
+
+# Show logs from third-party libraries (fiona, rasterio, matplotlib, etc.)
+# By default, these libraries are muted to avoid cluttering the console
+# log_manager.show_library_logs(True)    # Show library warnings
+# log_manager.show_library_logs(False)   # Hide library logs (default)
+
+# Note: A complete debug log is automatically saved in the watershed output folder
+# at: out_path/watershed_name/hydromodpy_debug.log
+
 #%% ---- PERSONAL PATHS
 
 regression_path = os.path.join(root_dir, "examples", "00_quick_test_of_wide_hydromodpy_capabilities/")
