@@ -85,5 +85,5 @@ packages = ["hydromodpy", "hydromodpy.watershed", "hydromodpy.modeling", "hydrom
 include-package-data = true
 
 [tool.setuptools.package-data]
-hydromodpy = ["proj_data/*", "../bin/**/*"]
+hydromodpy = ["../bin/**/*"]
 "hydromodpy.pyhelp" = ["*.FOR"]

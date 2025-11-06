@@ -7,44 +7,21 @@ Created on Tue Oct 14 11:58:51 2025
 
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+from pathlib import Path
 import os
 import shutil
-import warnings
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import xarray as xr
-import rasterio
+import rioxarray as rxr
 from rasterio.transform import rowcol
 from pyproj import CRS, Transformer
-from pyproj.exceptions import ProjError
 
 from hydromodpy.tools import get_logger
 
 from hydromodpy.pyhelp.daily_output import read_daily_help_output
 
 logger = get_logger(__name__)
-
-
-def _transform_lonlat(xs, ys, target_crs):
-    """Project lon/lat arrays to the target CRS, falling back gracefully if grids are missing."""
-    try:
-        transformer = Transformer.from_crs("EPSG:4326", target_crs, always_xy=True)
-    except ProjError:
-        transformer = Transformer.from_crs(
-            "EPSG:4326",
-            target_crs,
-            always_xy=True,
-            allow_ballpark=True,
-        )
-        warnings.warn(
-            "PROJ grid files not found for high-accuracy reprojection; "
-            "falling back to allow_ballpark=True. Install CHENyx06a grids "
-            "for full precision.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    return transformer.transform(xs, ys)
 
 def pyhelp_outputs_rasterized_netcdf(
     *,
@@ -116,10 +93,10 @@ def pyhelp_outputs_rasterized_netcdf(
         return None
 
     # Lire géométrie du DEM
-    with rasterio.open(dem_fp) as src:
-        H, W = src.height, src.width
-        T = src.transform
-        crs = src.crs
+    dem_raster = rxr.open_rasterio(dem_fp, masked=True)
+    H, W = dem_raster.rio.height, dem_raster.rio.width
+    T = dem_raster.rio.transform()
+    crs = dem_raster.rio.crs
 
     # coords points to ndarray
     xs_arr = np.asarray(xs, dtype=float)
@@ -128,12 +105,12 @@ def pyhelp_outputs_rasterized_netcdf(
     # Reprojection si DEM projeté (en mètres)
     # géographique = lat/lon
     if crs and not CRS.from_user_input(crs).is_geographic:
-        target_crs = CRS.from_user_input(crs)
-        xs_arr, ys_arr = _transform_lonlat(xs_arr, ys_arr, target_crs)
+        tr = Transformer.from_crs("EPSG:4326", CRS.from_user_input(crs), always_xy=True)
+        xs_arr, ys_arr = tr.transform(xs_arr, ys_arr)
         xs_arr = np.asarray(xs_arr, dtype=float)
         ys_arr = np.asarray(ys_arr, dtype=float)
 
-    # coord en indices pixel 
+    # coord en indices pixel
     rows, cols = rowcol(T, xs_arr, ys_arr, op=round)
     rows = np.asarray(rows, dtype=int)
     cols = np.asarray(cols, dtype=int)
@@ -143,10 +120,10 @@ def pyhelp_outputs_rasterized_netcdf(
     # Coords x/y (centres de pixels)
     x_coords = (T.c + T.a * (np.arange(W) + 0.5)).astype(float)
     y_coords = (T.f + T.e * (np.arange(H) + 0.5)).astype(float)
-    
-    
+
+
     _geo_transform = f"{T.c}, {T.a}, {T.b}, {T.f}, {T.d}, {T.e}"
-    
+
     ds_grid = xr.Dataset(
         coords={
             "time": dates_ref,
@@ -157,7 +134,7 @@ def pyhelp_outputs_rasterized_netcdf(
             "GeoTransform": _geo_transform,  # aide QGIS/GDAL
         },
     )
-    
+
     _wkt = CRS.from_user_input(crs).to_wkt()
     ds_grid = ds_grid.rio.write_crs(_wkt).rio.write_transform(T)
 
