@@ -43,7 +43,6 @@ Each release section includes the following standard categories:
 - Single cross-platform conda environment file (`environment-conda.yml`) for Linux, macOS, and Windows.
 - Automatic download of HELP3O binaries on first use (no Fortran compiler needed).
 - `MANIFEST.in` for packaging executables, examples, and documentation.
-- `pyproj-data` dependency for PROJ coordinate system data.
 
 ### Changed
 - Renamed package from `src` to `hydromodpy` following standard Python conventions.
