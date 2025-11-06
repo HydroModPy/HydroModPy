@@ -9,10 +9,30 @@ from pathlib import Path
 os.environ.setdefault("PROJ_NETWORK", "ON")
 
 
+def _enable_pyproj_network():
+    """Ensure pyproj network access is enabled even if pyproj was imported earlier."""
+    try:
+        from pyproj import network
+    except ImportError:
+        return
+
+    try:
+        network.set_network_enabled(True)
+    except Exception as exc:  # pragma: no cover - platform specific behaviour
+        warnings.warn(
+            f"HydroModPy could not enable pyproj network access automatically ({exc}). "
+            "Install the 'pyproj-data' package or set PROJ_NETWORK=ON before importing "
+            "HydroModPy if reprojection grids are missing.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+
 def _check_proj_connectivity():
     """Warn early if pyproj cannot access grid data (offline or missing files)."""
     try:
         from pyproj import Transformer
+        _enable_pyproj_network()
         transformer = Transformer.from_crs("EPSG:4326", "EPSG:2056", always_xy=True)
         # Trigger actual use so PROJ requests the grid if needed.
         transformer.transform(0.0, 0.0)
