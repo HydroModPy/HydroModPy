@@ -19,11 +19,14 @@ from pathlib import Path
 from hydromodpy.pyhelp.managers import HelpManager
 import pyhelp.bilan as HelpBilan
 from hydromodpy.pyhelp.daily_output import calc_area_daily_avg, plot_daily
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 
 
 if __name__ == '__main__':
-    print(HelpBilan.__file__)
+    logger.info("pyhelp.bilan module resolved at %s", HelpBilan.__file__)
     # For an explanation of why (on Windows) the if __name__ == '__main__'
     # part is necessary, please see :
     #    https://docs.python.org/3.6/library/

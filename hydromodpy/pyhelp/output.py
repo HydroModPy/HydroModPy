@@ -21,6 +21,10 @@ import numpy as np
 import h5py
 from scipy.stats import linregress
 
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
+
 
 VARNAMES = ['precip', 'rechg', 'runoff', 'evapo',
             'subrun1', 'subrun2', 'perco']
@@ -54,7 +58,7 @@ class HelpOutput(object):
 
     def load_from_hdf5(self, path_to_hdf5: str):
         """Read data and grid from an HDF5 file at the specified location."""
-        print(f"Loading data and grid from {path_to_hdf5}")
+        logger.info("Loading water budget dataset from %s", path_to_hdf5)
         hdf5 = h5py.File(path_to_hdf5, mode='r+')
         try:
             # Load the data.
@@ -66,11 +70,11 @@ class HelpOutput(object):
                 self.data[key] = values
         finally:
             hdf5.close()
-        print("Data and grid loaded successfully.")
+        logger.info("Water budget dataset loaded in memory")
 
     def save_to_hdf5(self, path_to_hdf5: str):
         """Save the data and grid to an HDF5 file at the specified location."""
-        print("Saving data to {}...".format(osp.basename(path_to_hdf5)))
+        logger.info("Writing water budget dataset to %s", osp.basename(path_to_hdf5))
         hdf5file = h5py.File(path_to_hdf5, mode='w')
         try:
             # Save the data.
@@ -88,7 +92,7 @@ class HelpOutput(object):
                     group.create_dataset(key, data=self.data[key])
         finally:
             hdf5file.close()
-        print("Data saved successfully.")
+        logger.info("Water budget dataset written successfully")
 
     def save_to_csv(self, path_to_csv: str,
                     year_from: int = -np.inf,
@@ -106,7 +110,7 @@ class HelpOutput(object):
             Maximum year of the period over which the average annual values
             are calculated. The default is np.inf.
         """
-        print("Saving data to {}...".format(osp.basename(path_to_csv)))
+        logger.info("Exporting annual averages to %s", osp.basename(path_to_csv))
         df = pd.DataFrame(index=self.data['cid'])
         df.index.name = 'cid'
 
@@ -118,7 +122,7 @@ class HelpOutput(object):
             df[key] = value
 
         df.to_csv(path_to_csv, encoding='utf8')
-        print("Data saved successfully.")
+        logger.info("Annual averages exported successfully")
 
     # ---- Calcul
     def calc_area_monthly_avg(self):

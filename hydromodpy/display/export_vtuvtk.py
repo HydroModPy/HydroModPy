@@ -22,7 +22,9 @@ import flopy
 import flopy.utils.binaryfile as bf
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
+
+logger = get_logger(__name__)
 
 #%% CLASS 1
 
@@ -98,32 +100,32 @@ class VTK():
             modelfolder= os.path.join(watershed.simulations_folder, modelname)
             save_file = os.path.join(modelfolder, '_postprocess','_vtuvtk')
             toolbox.create_folder(save_file)
-            print('  Export vtuvtk results for grid')
+            logger.info("Exporting VTU/VTK grid mesh for model %s", modelname)
             self.grid(modelname, modelfolder, save_file, watershed.geographic)
-            print('  Export vtuvtk results for watertable')
+            logger.info("Exporting VTU/VTK water table surfaces for model %s", modelname)
             self.watertable(modelname, modelfolder, save_file, watershed.geographic)
             try:
-                print('  Export vtuvtk results for boundary')
+                logger.info("Exporting VTU/VTK watershed boundary for model %s", modelname)
                 self.watershed_boundary(save_file, watershed.geographic)
-            except:
-                pass
+            except Exception:
+                logger.exception("Failed to export VTU/VTK watershed boundary for model %s", modelname)
             try:
                 self.pathlines(modelname, modelfolder, save_file, watershed.geographic)
-                print('  Export vtuvtk results for pathlines')
-            except:
-                pass
+                logger.info("Exported VTU/VTK pathlines for model %s", modelname)
+            except Exception:
+                logger.exception("Failed to export VTU/VTK pathlines for model %s", modelname)
             try:
                 self.piezometers(save_file, watershed.piezometry)
-                print('  Export vtuvtk results for piezometers')
-            except:
-                pass
+                logger.info("Exported VTU/VTK piezometer set for model %s", modelname)
+            except Exception:
+                logger.exception("Failed to export VTU/VTK piezometers for model %s", modelname)
             try:
-                print('  Export vtuvtk results for streams')
                 self.streams(save_file, watershed.hydrography, watershed.geographic)
-            except:
-                pass
+                logger.info("Exported VTU/VTK streams for model %s", modelname)
+            except Exception:
+                logger.exception("Failed to export VTU/VTK streams for model %s", modelname)
         else:
-            print('Need name of groundwater model: modelname (str)')
+            logger.error("Missing groundwater model name; provide 'modelname' argument")
             
     #%% DIFFERENT OBJECTS TO BE PROCESSED
     

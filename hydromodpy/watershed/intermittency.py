@@ -20,8 +20,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -44,7 +47,7 @@ class Intermittency:
         geographic : object
             Variable object of the model domain (watershed).
         """
-        print('Extract intermittency from specific data')
+        logger.info('Extracting stream intermittency data from %s', intermittency_path)
         
         data_folder = os.path.join(out_path,'results_stable','intermittency')
         if not os.path.exists(data_folder):
@@ -140,7 +143,7 @@ class Intermittency:
             plt.tight_layout()
             fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300, 
                         bbox_inches='tight', transparent=False)
-            # print(code)
+            logger.debug("Intermittency station processed: %s", code)
             # plt.close()
        
 #%% NOTES

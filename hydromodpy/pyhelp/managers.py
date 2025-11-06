@@ -30,9 +30,12 @@ from hydromodpy.pyhelp.utils import (savedata_to_hdf5, calc_dist_from_coord,
 from hydromodpy.pyhelp.weather_reader import (
     save_precip_to_HELP, save_airtemp_to_HELP, save_solrad_to_HELP)
 from hydromodpy.pyhelp.output import HelpOutput
+from hydromodpy.tools import get_logger
 
 
 FNAME_CONN_TABLES = 'connect_table.json'
+
+logger = get_logger(__name__)
 
 
 class HelpManager(object):
@@ -138,13 +141,13 @@ class HelpManager(object):
             dividing the study area.
         """
         self.grid_filename = osp.abspath(path_to_grid)
-        print(f'Reading grid data from {path_to_grid}...')
+        logger.info("Loading grid data from %s", path_to_grid)
         if not osp.exists(path_to_grid):
             self.grid = None
-            print("Grid input csv file does not exist.")
+            logger.error("Grid input CSV %s does not exist", path_to_grid)
         else:
             self.grid = load_grid_from_csv(path_to_grid)
-            print('Grid data read successfully from input csv file.')
+            logger.info("Grid data loaded successfully from %s", path_to_grid)
 
     def load_weather_input_data(self, path_to_precip: str,
                                 path_to_airtemp: str,
@@ -164,15 +167,15 @@ class HelpManager(object):
             The path to the csv file that contains the input data for the
             daily global solar radiation.
         """
-        print(f'Reading input precip data from {path_to_precip}...')
+        logger.info("Loading precipitation inputs from %s", path_to_precip)
         self.precip_data = load_weather_from_csv(path_to_precip)
         self.precip_filename = path_to_precip
 
-        print(f'Reading input airtemp data from {path_to_airtemp}...')
+        logger.info("Loading air temperature inputs from %s", path_to_airtemp)
         self.airtemp_data = load_weather_from_csv(path_to_airtemp)
         self.airtemp_filename = path_to_airtemp
 
-        print(f'Reading input solrad data from {path_to_solrad}...')
+        logger.info("Loading solar radiation inputs from %s", path_to_solrad)
         self.solrad_data = load_weather_from_csv(path_to_solrad)
         self.solrad_filename = path_to_solrad
 
@@ -222,14 +225,14 @@ class HelpManager(object):
                     "{} and {} data does not match: {} != {}."
                     ).format(name1, name2.lower(),
                              x1[~match][0], x2[~match][0]))
-        print('Input weather data read successfully.')
+        logger.info("Weather input datasets loaded successfully")
 
     # ---- HELP input files creation
     def clear_cache(self):
         """Delete all cached HELP input data files from the input folder."""
-        print('Clearing HELP input files cache...', end=' ')
+        logger.info("Clearing HELP input cache in %s", self.inputdir)
         delete_folder_recursively(self.inputdir)
-        print('done')
+        logger.debug("HELP input cache cleared")
 
     def build_help_input_files(self, cellnames: list = None,
                                sf_edepth: float = 1, sf_ulai: float = 1,
@@ -299,11 +302,11 @@ class HelpManager(object):
             d10d11_inputdir, d10data, d11data)
 
         # Update the connection table.
-        print("\rSaving the connectivity tables...", end=' ')
+        logger.info("Persisting D10/D11 connectivity tables")
         self.connect_tables['D10'] = d10_conn_tbl
         self.connect_tables['D11'] = d11_conn_tbl
         self._save_connect_tables()
-        print("done")
+        logger.debug("D10/D11 connectivity tables saved to %s", self.path_connect_tables)
 
     def _generate_d4d7d13_input_files(self, cellnames):
         """
@@ -321,11 +324,10 @@ class HelpManager(object):
                 ('airtemp', 'D7', save_airtemp_to_HELP, self.airtemp_data),
                 ('solrad', 'D13', save_solrad_to_HELP, self.solrad_data))
         for var, fext, to_help_func, data in args:
-            print('Generating {} HELP input files for {}...'.format(
-                  fext, var.lower()), end=' ')
+            logger.info("Generating %s HELP input files for %s", fext, var.lower())
 
             if data is None:
-                print('failed')
+                logger.warning("Skipping %s HELP input files; %s dataset not loaded", fext, var.lower())
                 continue
 
             help_inputdir = osp.join(self.inputdir, fext + '_input_files')
@@ -364,12 +366,12 @@ class HelpManager(object):
 
             self.connect_tables[fext] = file_conn_tbl
             self.connect_tables[var] = index_conn_tbl
-            print('done')
+            logger.debug("Generated %s HELP input files for %s", fext, var.lower())
 
         # Update the connectivity table.
-        print("\rUpdating the connection table...", end=' ')
+        logger.info("Updating HELP input connectivity tables")
         self._save_connect_tables()
-        print('done')
+        logger.debug("HELP input connectivity tables updated")
 
     def calc_help_cells(self, path_to_hdf5=None, cellnames=None, tfsoil=0,
                         sf_edepth: float = 1, sf_ulai: float = 1,
@@ -445,13 +447,12 @@ class HelpManager(object):
 
         skipped_cells = list(set(skipped_cells))
         if skipped_cells:
-            print('-' * 25)
-            msg = "Warning: calcul for "
-            msg += "cell " if len(skipped_cells) == 1 else "cells "
-            msg += ", ".join(skipped_cells)
-            msg += " will be skipped due to problems with the input data."
-            print(msg)
-            print('-' * 25)
+            cell_label = "cell" if len(skipped_cells) == 1 else "cells"
+            logger.warning(
+                "Skipping %s %s due to invalid HELP input mapping",
+                cell_label,
+                ", ".join(skipped_cells),
+            )
 
         output_data = run_help_allcells(cellparams)
         output_data = self._post_process_output(output_data)
@@ -499,7 +500,7 @@ class HelpManager(object):
         data['lon_dd'] = self.grid.loc[cellnames]['lon_dd'].values
 
         for i, cellname in enumerate(cellnames):
-            #print("\rPost-processing cell %d of %d..." % (i+1, Np), end=' ')
+            logger.debug("Post-processing cell %d/%d (%s)", i + 1, Np, cellname)
             for key in keys[:-1]:
                 data[key][i, :, :] = output[cellname][key]
 
@@ -517,7 +518,7 @@ class HelpManager(object):
                     data['subrun2'][i, :, :] += output[cellname]['rechg']
             else:
                 data['rechg'][i, :, :] = output[cellname]['rechg']
-        print("done")
+        logger.info("Post-processed HELP outputs for %d cells", len(cellnames))
 
         return data
 
@@ -528,9 +529,9 @@ class HelpManager(object):
         surface water bodies.
         """
         tstart = time.perf_counter()
-        print("Calculating budget for water cells...", end=' ')
         cellnames = self.get_water_cellnames(cellnames)
         lat_dd, lon_dd = self.get_latlon_for_cellnames(cellnames)
+        logger.info("Calculating surface water budget for %d cells", len(cellnames))
 
         year_start = self.precip_data.index.year.min()
         year_end = self.precip_data.index.year.max()
@@ -556,8 +557,7 @@ class HelpManager(object):
         if path_outfile:
             savedata_to_hdf5(output, path_outfile)
         calcul_time = (time.perf_counter() - tstart)
-        print("done")
-        print('Task completed in %0.2f sec' % calcul_time)
+        logger.info("Surface water budget computed in %.2f sec", calcul_time)
         return output
 
     # ---- Grid Utilities

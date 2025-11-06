@@ -45,7 +45,7 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import downslope, masstransfer
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -263,8 +263,8 @@ class Mt3dms:
         success_model = True
         
         if run_model == True:
-            if verbose == False:
-                print('MT3DMS is running...')
+            if verbose is False:
+                logger.info("Running MT3DMS transport simulation")
             success_model, tempo = self.mt.run_model(silent=not verbose, pause=False,
                                                      # report=True,
                                                      normal_msg='normal termination') # True without msg
@@ -333,9 +333,9 @@ class Mt3dms:
         
         # Boucle sur chaque pas de temps
         # for i in range(len(concobj_1c_fil)):
-        for i in range(model_mt3dms.model_modflow.nper): ### Fix the problem ###
+        for i in range(model_mt3dms.model_modflow.nper):
             the_time = str(i+1)
-            # print(i)
+            logger.info("Processing MT3DMS timestep %d/%d", i+1, model_mt3dms.model_modflow.nper)
             
             export_tif = True
             if export_all_tif == False:
@@ -394,16 +394,17 @@ class Mt3dms:
         # concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
                     
         if concentration_seepage == True:
-            print('  ','Export concentration seepage')
+            logger.info("Exporting concentration seepage timeseries")
             np.save(self.save_file+'/concentration_seepage', self.dict_concentration_seepage)
-        
+
         if mass_seepage == True:
-            print('  ','Export mass seepage')
+            logger.info("Exporting mass seepage timeseries")
             np.save(self.save_file+'/mass_seepage', self.dict_mass_seepage)
             
         if mass_accumulated == True:
-            print('  ','Export mass accumulated')
+            logger.info("Exporting accumulated mass timeseries")
             np.save(self.save_file+'/mass_accumulated', self.dict_mass_accumulated)
         
     
 #%% ---- NOTES
+logger = get_logger(__name__)

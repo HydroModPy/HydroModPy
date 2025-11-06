@@ -37,6 +37,9 @@ import xarray as xr
 from hydromodpy.pyhelp.daily_output import read_daily_help_output
 from hydromodpy.pyhelp.pyhelp_grid import PyhelpGrid
 from .pyhelp_netcdf_writer import pyhelp_outputs_rasterized_netcdf  
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 
 
@@ -136,15 +139,13 @@ def preprocessing_pyhelp(
         
 
         #User console informations from system
-        print(f"[INFO] launching main_cdf.py through Python {sys.version_info.major}.{sys.version_info.minor}")
+        logger.info("Launching main_cdf.py with Python %s.%s", sys.version_info.major, sys.version_info.minor)
         proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
-        print("\n" + "[ main_cdf COMMAND ]".center(60, "-"))
-        print(" ".join(cmd))
-        print("\n" + "[ main_cdf STDOUT ]".center(60, "-"))
-        print(proc.stdout)
-        print("\n" + "[ main_cdf STDERR ]".center(60, "-"))
-        print(proc.stderr)
-        print("-" * 60 + "\n")
+        logger.debug("main_cdf.py command: %s", " ".join(cmd))
+        if proc.stdout:
+            logger.debug("main_cdf.py stdout:\n%s", proc.stdout)
+        if proc.stderr:
+            logger.debug("main_cdf.py stderr:\n%s", proc.stderr)
         proc.check_returncode()
         
         grid_csv = workdir / "input_grid_base1.csv"
@@ -160,7 +161,7 @@ def preprocessing_pyhelp(
         #ready_csvs is given but grid update (grid_kwargs is specified)
         
     elif grid_kwargs:
-        print("Grid update")
+        logger.info("Updating PyHELP grid geometry before run")
         env = os.environ.copy()
         env.update({"PYHELP_SHP": str(shapefile) if shapefile else ""})
         base_grid = workdir.parents[3] / "10_coupling_with_land_surface_model_pyhelp" / "data" / "input_grid_base.csv"
@@ -208,8 +209,8 @@ def preprocessing_pyhelp(
         "--solrad",   str(in_files[solrad_csv]),
     ]
     
-    print("[INFO] pyHELP model execution...")
-    print(f"[INFO] Command: {' '.join(cmd)}")
+    logger.info("Executing pyHELP CLI workflow")
+    logger.debug("pyHELP CLI command: %s", " ".join(cmd))
     env_cli = os.environ.copy()
     env_cli["PYHELP_WORKDIR"] = str(workdir)
     _inject_pythonpath(env_cli)

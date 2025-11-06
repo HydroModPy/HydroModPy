@@ -33,7 +33,9 @@ from IPython import get_ipython
 import imageio
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -79,18 +81,18 @@ class Visualization():
             Structure of the frame figures 'h':horizontal or 'v': vertical. The default is 'v'.
         """
        
-        print('  Plot 2D maps visualization')
+        logger.info("Plotting 2D map visualizations for model %s", self.modelname)
        
         if len(object_list) == len(color_scale):
             pass
-        elif color_scale == None:
+        elif color_scale is None:
             color_scale = [(None,None),(None,None),
                            (None,None),(None,None),
                            (None,None),(None,None),
                            (None,None),(None,None)]
         else:
-            # print('  object_list and color_scale must have the same lenght.')
-            sys.exit()
+            logger.error("object_list and color_scale must have the same length.")
+            sys.exit(1)
         
         def trim_axs(axs, N):
             """Help to manage the axs list in order to have correct lenght/height"""
@@ -417,7 +419,7 @@ class Visualization():
             Scalar bar location either as legacy (x, y) anchor or as ((x0, y0), (x1, y1)) bounding box.
         """
         
-        print('  Plot 3D maps visualization')
+        logger.info("Plotting 3D visualization for model %s", self.modelname)
         
         def _normalize_scalarbar_pos(raw_pos):
             """Keep backward compatibility with legacy scalarbar coordinates."""
@@ -512,8 +514,8 @@ class Visualization():
             #plt += grid_mesh     
             #plt += grid_mesh.isolines(5).lw(1).c('k')
     
-        except:
-            print("  File vtuvtk grid doesn't exist")
+        except Exception:
+            logger.warning("VTU grid mesh missing for 3D visualization: %s", grid, exc_info=True)
             
         #try: 
         watertable = os.path.join(self.watershed.simulations_folder, self.modelname,
@@ -561,24 +563,24 @@ class Visualization():
             drain_flow = drain_flow.extract_cells([i for i, x in enumerate(nan_loc) if x])
             # cmin = min(drain_flow.pointdata['Drainflow_log'])
             # cmax = max(drain_flow.pointdata['Drainflow_log'])
-            if cscale == 'custom':
-                mi = 1
-                ma = 4
-                drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells', vmin=mi, vmax=ma)
-            else:
-                drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells')
-            # drain_flow.add_scalarbar(pos=cloc, title='Seepage outflow log [m$^3$/d]', horizontal=False, titleFontSize=20)
-            drain_flow.add_scalarbar(pos=scalarbar_pos,
-                                    horizontal=False)
-            drain_flow.scale([1,1,z_scale])
-            #except:
-            #print("VTK watertable doesn't exist")
+            try:
+                if cscale == 'custom':
+                    mi = 1
+                    ma = 4
+                    drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells', vmin=mi, vmax=ma)
+                else:
+                    drain_flow.cmap('RdYlGn_r', 'Drainflow_log', on='cells')
+                # drain_flow.add_scalarbar(pos=cloc, title='Seepage outflow log [m$^3$/d]', horizontal=False, titleFontSize=20)
+                drain_flow.add_scalarbar(pos=scalarbar_pos,
+                                         horizontal=False)
+                drain_flow.scale([1,1,z_scale])
+            except Exception:
+                logger.warning("VTK drain_flow mesh missing or failed to process for 3D visualization", exc_info=True)
             
         #try:
         pathlines = os.path.join(self.watershed.simulations_folder, self.modelname,
                                  '_postprocess', '_vtuvtk', 'pathlines.vtk')
         pathlines_mesh = vedo.Mesh(pathlines) #5
-        
         #Pathlines
         if cscale == 'default':
             cmin = int(min(pathlines_mesh.pointdata['Time_log']))
@@ -636,9 +638,9 @@ class Visualization():
         focal = (min(watertable_elev.points[:, 0])+(xs/2), min(watertable_elev.points[:, 1])+(ys/2), zs)
         cam = dict(pos = pos,focalPoint = focal)
         
-        for i in range (0,len(object_list)):
+        for i in range(len(object_list)):
             obj = object_list[i]
-            # print(obj)
+            logger.info("Processing object %s", obj)
             if obj == 'grid':
                 plt.show(grid_mesh,contour,stream,"Topographic elevation [m]", at=i,
                          camera=cam, viewup='z', axes = 13, bg=bg)
@@ -674,8 +676,7 @@ class Visualization():
     #%% CROSS
     
     def interactive_cross_section(self, dem_data, wt_data, river_data, interactive):
-        
-        print('  Plot 2D cross-section visualization')
+        logger.info("Plotting 2D cross-section for model %s", self.modelname)
         
         # Modules
         mpl.rcParams.update(mpl.rcParamsDefault)
@@ -688,20 +689,20 @@ class Visualization():
                 plt.switch_backend("QtAgg")
             except Exception:
                 backend_supports_events = False
-                print(
-                    "  Unable to activate QtAgg; showing static plot and saving to "
-                    f"_postprocess/_figures/CROSS_{self.modelname}.png."
+                logger.warning(
+                    "Unable to activate QtAgg; falling back to static cross-section output at %s",
+                    f"_postprocess/_figures/CROSS_{self.modelname}.png",
                 )
             else:
                 backend_supports_events = True
                 backend_switched = True
-                print("  Matplotlib interactive backend enabled: QtAgg")
+                logger.info("Matplotlib interactive backend enabled: QtAgg")
         elif backend_supports_events:
-            print(f"  Matplotlib interactive backend active: {original_backend}")
+            logger.info("Matplotlib interactive backend active: %s", original_backend)
         else:
-            print(
-                "  Current Matplotlib backend is not interactive; showing static plot and saving to "
-                f"_postprocess/_figures/CROSS_{self.modelname}.png."
+            logger.warning(
+                "Current Matplotlib backend is not interactive; saving static cross-section to %s",
+                f"_postprocess/_figures/CROSS_{self.modelname}.png",
             )
 
         effective_interactive = interactive and backend_supports_events
@@ -745,15 +746,15 @@ class Visualization():
         try:
             cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
             main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
-        except:
-            print('  No contour file found')
+        except Exception:
+            logger.warning("No contour raster available for cross-section overlay")
             pass
         
         try:
             river_plot = np.ma.masked_array(river_data, mask=(river_data<=0))
             main_ax.imshow(river_plot, origin='lower', cmap=mpl.colors.ListedColormap('navy'), interpolation='none')
-        except:
-            print('  No river file found')
+        except Exception:
+            logger.warning("No river raster available for cross-section overlay")
             pass
         
         main_ax.invert_yaxis()
@@ -864,7 +865,7 @@ class Visualization():
         if effective_interactive:
             cid = fig.canvas.mpl_connect('motion_notify_event', on_move)
         elif interactive:
-            print("  Current backend does not support interactivity; showing a static plot.")
+            logger.warning("Matplotlib backend lacks interactivity; displaying static cross-section")
         
         # Save and display
         fig.savefig(os.path.join(

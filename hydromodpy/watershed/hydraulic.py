@@ -19,9 +19,12 @@ from os.path import dirname
 from typing import Union
 import os
 import imageio
+from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
 # wbt.set_compress_rasters(True)
 wbt.verbose = False
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -107,7 +110,7 @@ class Hydraulic:
             Initial value.
             Ratio of horizontal to vertical hydraulic conductivity. The default is 1.
         """
-        print('Init hydraulic module to set model parameter')
+        logger.info('Initializing hydraulic module for parameter setup')
         
         self.box_dem = box_dem
         

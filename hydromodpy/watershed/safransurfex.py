@@ -9,9 +9,12 @@ import geopandas as gpd
 import pandas as pd
 import os 
 import sys
+from hydromodpy.tools import get_logger
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
+
+logger = get_logger(__name__)
 
 # from data import climatic_display
 
@@ -45,7 +48,7 @@ class SafranSurfex:
 
         if not os.path.exists(self.figure_folder):
                 os.makedirs(self.figure_folder)
-        print('Extraction des données climatiques')
+        logger.info('Extracting SAFRAN-SURFEX climatic data for watershed')
         self.extract_cells_from_shapefile(safransurfex_path, watershed_shp)
         self.extract_values_from_h5file(data_folder, safransurfex_path)
         
@@ -89,7 +92,7 @@ class SafranSurfex:
                 for sce in scenarios:
                     try:
                         values = pd.read_hdf(safransurfex_path+'/'+sim+'.h5',var+'/'+sce)
-                        print('    ', 'Find: '+sim+'-'+var)
+                        logger.debug('Loaded %s-%s climate dataset', sim, var)
                         if (sim == 'REA') | (sim == 'OLD') | (sim == 'REAUP'):
                             values.index.freq = values.index.inferred_freq
                         # values = values.loc[:,self.cells_list]
@@ -97,8 +100,8 @@ class SafranSurfex:
                         values['MEAN'] = values.mean(numeric_only=True, axis=1)
                         values.to_hdf(h5file, var+'/'+sce)
                         self.values[sim][var][sce] = values
-                    except:
-                        # print('    ', 'None: '+sim+'-'+var)
+                    except Exception as e:
+                        logger.debug('No data for %s-%s: %s', sim, var, e)
                         pass
 
 #%% CLASS 2
@@ -161,7 +164,7 @@ class Merge:
             # if (self.time_step == 'M'):
             dfm = df.copy() 
             dfm = dfm[~dfm.index.duplicated()]
-            # print(dfm)
+            logger.debug('Monthly resampling for variable %s - shape: %s', var, dfm.shape)
             mask = dfm.resample("M").count() >= 27
             if (var == 'TAS'):
                 dfm = dfm.resample("M").mean()[mask]
@@ -199,4 +202,3 @@ class Merge:
         dfd.to_csv(self.data_folder+'_ALL_D.csv', sep=';')
 
 #%% NOTES
-

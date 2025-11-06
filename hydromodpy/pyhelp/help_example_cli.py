@@ -20,8 +20,12 @@ import os
 import shutil
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
-import subprocess, sys, textwrap
+
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 p = argparse.ArgumentParser(prog="help_example_cli")
 p.add_argument("--workdir", required=True, help="Dossier de travail temporaire")
@@ -47,15 +51,13 @@ help_example_path = Path(
                    Path(__file__).with_name("help_example.py"))
 ).resolve()
 
-subprocess.check_call(
-    [sys.executable, str(help_example_path),
-     "--workdir", str(workdir)]
-)
+cmd = [sys.executable, str(help_example_path), "--workdir", str(workdir)]
+logger.info("Launching help_example.py workflow: %s", " ".join(cmd))
+subprocess.check_call(cmd)
 
 daily_src = workdir / "help_example_daily_mean.csv"
 
-print("PyHELP simulation over.")
-print(f"[INFO] File created : {daily_src}")
-
+logger.info("PyHELP simulation complete")
+logger.info("Daily mean output generated at %s", daily_src)
 
 

@@ -20,7 +20,9 @@ wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -118,16 +120,20 @@ class Masstransfer:
         """
         # Sim to points
         wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
-        # print('raster_to_vector_points')
-        # # Trace downslope sim
+        logger.info("raster_to_vector_points: created %s from %s", self.raw_pt_path, self.raw_rast_path)
+
+        # Trace downslope sim
         wbt.trace_downslope_flowpaths(self.raw_pt_path, self.watershed_direc_surflow, self.out_rast_path)
-        # print('trace_downslope_flowpaths')
-        # # # Simflow to points
+        logger.info("trace_downslope_flowpaths: traced flowpaths to %s", self.out_rast_path)
+
+        # Simflow to points
         wbt.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
-        # print('raster_to_vector_points')
-        # # Extra
+        logger.info("raster_to_vector_points: created %s from %s", self.out_pt_path, self.out_rast_path)
+
+        # Extra (disabled by default)
         # wbt.add_point_coordinates_to_table(self.out_pt_path)
         # wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
-        # print('extract_raster_values_at_points')
+        logger.debug("Optional extras (add_point_coordinates_to_table, extract_raster_values_at_points) are available but disabled.")
+        
         
 #%% NOTES

@@ -14,6 +14,10 @@ import platform
 import warnings
 from pathlib import Path
 
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
+
 version_info = (0, 4, 1, 'dev0')
 __version__ = '.'.join(map(str, version_info))
 __appname__ = 'PyHELP'
@@ -87,7 +91,12 @@ def _download_help3o_binary():
     if binary_path.exists():
         return binary_path
 
-    print(f"Downloading HELP3O binary for {platform.system()} Python {sys.version_info.major}.{sys.version_info.minor}...")
+    logger.info(
+        "Downloading HELP3O binary for %s Python %s.%s",
+        platform.system(),
+        sys.version_info.major,
+        sys.version_info.minor,
+    )
 
     try:
         # Get latest release info from GitHub API
@@ -107,21 +116,21 @@ def _download_help3o_binary():
             if bundle_url:
                 # Download and extract bundle
                 bundle_path = cache_dir / bundle_filename
-                print(f"  Downloading macOS bundle: {bundle_filename}")
-                print(f"  URL: {bundle_url}")
+                logger.info("Downloading macOS bundle %s", bundle_filename)
+                logger.debug("macOS bundle URL: %s", bundle_url)
 
                 bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
                 with urllib.request.urlopen(bundle_request, timeout=60) as response, bundle_path.open("wb") as fh:
                     shutil.copyfileobj(response, fh)
 
                 # Extract tarball to cache directory
-                print(f"  Extracting bundle to {cache_dir}...")
+                logger.info("Extracting bundle to %s", cache_dir)
                 with tarfile.open(bundle_path, "r:gz") as tar:
                     tar.extractall(path=cache_dir)
 
                 # Clean up tarball
                 bundle_path.unlink()
-                print(f"✓ HELP3O bundle extracted successfully")
+                logger.info("HELP3O bundle extracted successfully")
                 return binary_path
 
         # Fallback: download standalone binary (for Linux/Windows or old macOS releases)
@@ -138,13 +147,13 @@ def _download_help3o_binary():
             )
 
         # Download binary
-        print(f"  URL: {binary_url}")
-        print(f"  Destination: {binary_path}")
+        logger.info("Downloading HELP3O binary from %s", binary_url)
+        logger.debug("HELP3O binary destination %s", binary_path)
 
         binary_request = urllib.request.Request(binary_url, headers=_GITHUB_HEADERS)
         with urllib.request.urlopen(binary_request, timeout=60) as response, binary_path.open("wb") as fh:
             shutil.copyfileobj(response, fh)
-        print(f"✓ HELP3O binary downloaded successfully")
+        logger.info("HELP3O binary downloaded successfully")
 
         return binary_path
 
@@ -210,4 +219,4 @@ try:
 except ImportError as e:
     # We need to do this to avoid an error when building the
     # help extension with setup.py
-    print('ImportError:', e)
+    logger.warning("HelpManager import failed: %s", e)

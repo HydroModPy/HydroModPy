@@ -36,7 +36,9 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
+logger = get_logger(__name__)
+
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% CLASS
@@ -236,7 +238,7 @@ class Modpath:
                               zone_opt, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
                               1, # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations. 2 = An array of retardation factors is read and used in the velocity calculations.
                               1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.        
-        # print(track, zone_opt, zone_inj)
+        logger.debug('Modpath settings - track: %s, zone_opt: %s, zone_inj: %s', track, zone_opt, type(zone_inj))
         
         # ---- flopy.modpath.Modpath6
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
@@ -506,7 +508,7 @@ class Modpath:
                         
                 pth_data_save = []
                 for o, i in enumerate(id_random_particles):
-                    # print(o, i, len(id_random_particles))
+                    logger.debug('Processing random particle %d/%d (id: %s)', o, len(id_random_particles), i)
                     for j in pth_data:
                         if i == j.particleid[0]:
                             pth_data_save.append(j)
@@ -739,9 +741,9 @@ class Modpath:
 
 #%% NOTES
 
-# print(self.point_data)
+# logger.debug('Point data: %s', self.point_data)
 
 # if sorted(self.point_data['particleid']) == list(self.point_data['particleid']):
-#     print("list1 is sorted")
+#     logger.debug("list1 is sorted")
 # else:
-#     print("list is not sorted")
+#     logger.debug("list is not sorted")

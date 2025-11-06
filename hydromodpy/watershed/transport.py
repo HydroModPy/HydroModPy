@@ -15,9 +15,12 @@
 # Python
 import numpy as np
 import whitebox
+from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
 wbt.verbose = False
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -27,7 +30,7 @@ class Transport:
     """
     
     def __init__(self):
-        print('Init trasnport module to set model parameter')
+        logger.info('Initializing transport module for concentration parameters')
         
     #%% UPDATE
     

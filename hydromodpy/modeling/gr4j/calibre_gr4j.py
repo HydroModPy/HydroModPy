@@ -9,6 +9,7 @@ import numpy as np
 from scipy.optimize import least_squares
 import sys
 import os
+from hydromodpy.tools import get_logger
 
 # ROOT DIRECTORY
 
@@ -19,7 +20,8 @@ sys.path.append(root_dir)
 cwd = os.getcwd()
 if not cwd == root_dir:
     os.chdir(root_dir)
-print("Root path directory is: {0}".format(root_dir.upper()))
+logger = get_logger(__name__)
+logger.info("Root path directory is: %s", root_dir.upper())
 
 # HYDROMODPY MODEULES
 
@@ -35,7 +37,10 @@ from hydromodpy.modeling.gr4j.ennash import ennash
 def calibre_gr4j(modele, xdata, ydata, init, mini, maxi):
     if np.isnan(ydata).any():
         indicN = np.isnan(ydata)
-        print(f'Note that {np.sum(indicN) / len(ydata) * 100:.2f} % of the dataset contain NANs and have been interpolated')
+        logger.warning(
+            "Interpolated %.2f %% of target dataset due to NaN values",
+            np.sum(indicN) / len(ydata) * 100,
+        )
         indic = np.arange(len(ydata))
         ydata[indicN] = np.interp(indic[indicN], indic[~indicN], ydata[~indicN])
     
@@ -62,18 +67,15 @@ def calibre_gr4j(modele, xdata, ydata, init, mini, maxi):
     par = result.x
     resnorm = result.cost
     
-    print('')
-    print('... OK I managed to have something. Here are the results:')
-    print('')
-    print(f'Parameters : {par}')
-    print('')
+    logger.info('GR4J calibration completed successfully')
+    logger.info('Parameters: %s', par)
     
     qsim, out = gr4j_cal(par, xdata)
     nash = ennash(ydata, qsim)
-    print(f'Nash : {nash}')
+    logger.info('Nash coefficient: %.4f', nash)
     
     bilan = np.mean(qsim) / np.mean(ydata)
-    print(f'Bilan : {bilan}')
+    logger.info('Water balance ratio: %.4f', bilan)
     
     # plt.figure()
     # if len(xdata['indices']) == len(xdata['p']):

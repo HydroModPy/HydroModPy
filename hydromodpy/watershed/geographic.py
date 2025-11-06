@@ -41,8 +41,10 @@ root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -109,7 +111,7 @@ class Geographic:
             If informed, the regional results will not be created, just loaded from folder.
             The default is None.
         """
-        print('Extract geography of the model area')
+        logger.info('Extracting geographic data for model area')
                 
         self.dem_path = dem_path
         self.bottom_path = bottom_path
@@ -357,7 +359,7 @@ class Geographic:
                                        maintain_dimensions=False)
         
         if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem).shape:
-            # print('   Reshape tifs')
+            logger.debug('Reshaping box buffered rasters to match watershed dimensions')
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), self.watershed_box_buff_dem, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), self.watershed_box_buff_fill, -99999)
             toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), self.watershed_box_buff_direc, -32768)

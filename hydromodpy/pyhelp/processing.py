@@ -21,6 +21,9 @@ import numpy as np
 
 # ---- Local Libraries Imports
 from hydromodpy.pyhelp import HELP3O
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 DEL_TEMPFILES = False
 
@@ -61,13 +64,13 @@ def run_help_allcells(cellparams, ncore=None):
     for cell in pool.imap_unordered(run_help_singlecell, cellparams.items()):
         output[cell[0]] = cell[1]
         calcul_progress += 1
-        progress_pct = calcul_progress/N*100
-        tpassed = time.perf_counter() - tstart
-        tremain = (100-progress_pct)*tpassed/progress_pct/60
-        #print(('\rHELP simulation in progress: %3.1f%% (%0.1f min remaining)'
-         #      "     ") % (progress_pct, tremain), end='')
+        if calcul_progress % 100 == 0 or calcul_progress == N:
+            progress_pct = calcul_progress/N*100
+            tpassed = time.perf_counter() - tstart
+            tremain = (100-progress_pct)*tpassed/progress_pct/60 if progress_pct > 0 else 0
+            logger.debug("HELP simulation in progress: %3.1f%% (%0.1f min remaining)", progress_pct, tremain)
     calcul_time = (time.perf_counter() - tstart)
-    #print('\nTask completed in %0.2f sec' % calcul_time)
+    logger.info("HELP simulation completed for %d cells in %0.2f sec", N, calcul_time)
 
     return output
 

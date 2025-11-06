@@ -31,7 +31,9 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -57,7 +59,7 @@ class Netcdf:
             Indicated if simulation results need to be created at subassins scale. The default is True.
         """
         
-        print('  ','Export results as netcdf')
+        logger.info("Exporting MODFLOW results as NetCDF for model %s", model_modflow.model_name)
         
         self.geographic = geographic
     
@@ -366,7 +368,12 @@ class Netcdf:
 
     @staticmethod
     def pack_value(unpacked_value, scale_factor, add_offset):
-        print(f'math.floor: {math.floor((unpacked_value - add_offset) / scale_factor)}')
+        logger.debug(
+            "Packing value %.6f with scale %.6f and offset %.6f",
+            unpacked_value,
+            scale_factor,
+            add_offset,
+        )
         return (unpacked_value - add_offset) / scale_factor
 
     @staticmethod
