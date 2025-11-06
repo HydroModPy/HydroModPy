@@ -5,114 +5,53 @@ import warnings
 from importlib import metadata
 from pathlib import Path
 
-# Permit pyproj to fetch missing grid files over the network when available.
-os.environ.setdefault("PROJ_NETWORK", "ON")
-
-
-def _enable_pyproj_network():
-    """Ensure pyproj network access is enabled even if pyproj was imported earlier."""
+def _configure_proj_support():
+    """Register known PROJ data locations so coordinate transforms work out-of-the-box."""
     try:
-        from pyproj import network
+        from importlib import resources
+        from pyproj import datadir, network
     except ImportError:
         return
+
+    os.environ.setdefault("PROJ_NETWORK", "ON")
 
     try:
         network.set_network_enabled(True)
-    except Exception as exc:  # pragma: no cover - platform specific behaviour
-        warnings.warn(
-            f"HydroModPy could not enable pyproj network access automatically ({exc}). "
-            "Install the 'pyproj-data' package or set PROJ_NETWORK=ON before importing "
-            "HydroModPy if reprojection grids are missing.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+    except Exception:
+        pass
 
-
-def _ensure_proj_data_dir():
-    """Point pyproj to the bundled data directory if pyproj-data is installed."""
-    try:
-        from pyproj import datadir
-        import pyproj_data
-    except ImportError:
-        return
+    extra_dirs = []
 
     try:
-        data_dir = pyproj_data.get_data_dir()
-        if data_dir and os.path.isdir(data_dir):
-            datadir.set_data_dir(data_dir)
-    except Exception as exc:  # pragma: no cover - environment specific
-        warnings.warn(
-            f"HydroModPy could not configure pyproj data directory automatically ({exc}). "
-            "If coordinate transformations fail, install the 'pyproj-data' package or "
-            "set the PROJ_DATA environment variable to the directory containing grid files.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+        pkg_proj_dir = resources.files("hydromodpy").joinpath("proj_data")
+        if pkg_proj_dir.is_dir():
+            extra_dirs.append(pkg_proj_dir)
+    except Exception:
+        pass
 
+    cache_dir = Path.home() / ".cache" / "hydromodpy" / "proj"
+    if cache_dir.exists():
+        extra_dirs.append(cache_dir)
 
-_TRANSFORMER_PATCHED = False
+    custom_dir = os.environ.get("HYDROMODPY_PROJ_DATA")
+    if custom_dir:
+        custom_path = Path(custom_dir).expanduser()
+        if custom_path.exists():
+            extra_dirs.append(custom_path)
 
-
-def _patch_transformer_fallback():
-    """Patch pyproj Transformer to fall back to ballpark transforms when grids are missing."""
-    global _TRANSFORMER_PATCHED
-    if _TRANSFORMER_PATCHED:
-        return
-    try:
-        from pyproj import Transformer
-        from pyproj.exceptions import ProjError
-    except ImportError:
-        return
-
-    original_from_crs = Transformer.from_crs
-
-    def from_crs_with_fallback(*args, **kwargs):
+    for proj_dir in extra_dirs:
         try:
-            return original_from_crs(*args, **kwargs)
-        except ProjError as exc:
-            if kwargs.get("allow_ballpark"):
-                raise
-            fallback_kwargs = dict(kwargs)
-            fallback_kwargs["allow_ballpark"] = True
+            datadir.append_data_dir(str(proj_dir))
+        except Exception:
             warnings.warn(
-                (
-                    "pyproj could not locate high-accuracy grid files for the requested "
-                    "CRS transformation. Falling back to a lower-accuracy transformation "
-                    "with allow_ballpark=True. Install the official PROJ grids or set "
-                    "PROJ_NETWORK=ON for full accuracy."
-                ),
+                f"Unable to register PROJ data directory '{proj_dir}'. "
+                "Install the required grid files or adjust HYDROMODPY_PROJ_DATA.",
                 RuntimeWarning,
-                stacklevel=3,
+                stacklevel=2,
             )
-            return original_from_crs(*args, **fallback_kwargs)
-
-    Transformer.from_crs = staticmethod(from_crs_with_fallback)
-    _TRANSFORMER_PATCHED = True
 
 
-def _check_proj_connectivity():
-    """Warn early if pyproj cannot access grid data (offline or missing files)."""
-    try:
-        from pyproj import Transformer
-        _enable_pyproj_network()
-        _ensure_proj_data_dir()
-        _patch_transformer_fallback()
-        transformer = Transformer.from_crs("EPSG:4326", "EPSG:2056", always_xy=True)
-        # Trigger actual use so PROJ requests the grid if needed.
-        transformer.transform(0.0, 0.0)
-    except ImportError:
-        # pyproj is an explicit dependency; if absent, later imports will fail normally.
-        return
-    except Exception as exc:  # pragma: no cover - network/PROJ specific paths
-        hint = (
-            "HydroModPy detected that pyproj cannot access required grid files. "
-            "Ensure the machine has internet access or install the 'pyproj-data' "
-            "package to provide them offline. Details: "
-        )
-        warnings.warn(f"{hint}{exc}", RuntimeWarning, stacklevel=2)
-
-
-_check_proj_connectivity()
+_configure_proj_support()
 
 try:
     __version__ = metadata.version("hydromodpy")
