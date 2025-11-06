@@ -296,7 +296,12 @@ class Modpath:
                                     else:
                                         ztop = self.mf.dis.botm.array[k-1, i, j]
                                     zbot = self.mf.dis.botm.array[k, i, j]
-                                    aux_stl = min(max((wt[i,j] - zbot[k]) / (ztop - zbot[k]), 0.), 1.)
+                                    thickness = ztop - zbot
+                                    if thickness <= 0:
+                                        aux_stl = 0.0
+                                    else:
+                                        # Normalize the water level between 0 and 1 using the local cell thickness
+                                        aux_stl = min(max((wt[i, j] - zbot) / thickness, 0.0), 1.0)
                                     # ==> min((wt[i, j] - zbot)/(ztop - zbot), 1.)
                                     val_z_wt = np.abs(aux_stl)
                                     # if l == 0:

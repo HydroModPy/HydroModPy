@@ -10,7 +10,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
-#%% ---- LIBRAIRIES
+# ---- LIBRAIRIES
 
 # PYTHON PACKAGES
 import sys
@@ -29,7 +29,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODEULES
 from hydromodpy import watershed_root
 
-#%% ---- FUNCTION LAUNCH
+# ---- FUNCTION LAUNCH
 
 def run_hydromodpy(watershed_name):
 
@@ -175,9 +175,9 @@ def run_hydromodpy(watershed_name):
     
     return watertable_depth_output
     
-#%% ---- RUN THE SCRIPT
+# ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
     watertable_depth_output = run_hydromodpy('Example_11_Galaxy') # watershed_name
     
-#%% ---- NOTES
+# ---- NOTES
