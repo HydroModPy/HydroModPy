@@ -50,12 +50,53 @@ def _ensure_proj_data_dir():
         )
 
 
+_TRANSFORMER_PATCHED = False
+
+
+def _patch_transformer_fallback():
+    """Patch pyproj Transformer to fall back to ballpark transforms when grids are missing."""
+    global _TRANSFORMER_PATCHED
+    if _TRANSFORMER_PATCHED:
+        return
+    try:
+        from pyproj import Transformer
+        from pyproj.exceptions import ProjError
+    except ImportError:
+        return
+
+    original_from_crs = Transformer.from_crs
+
+    def from_crs_with_fallback(*args, **kwargs):
+        try:
+            return original_from_crs(*args, **kwargs)
+        except ProjError as exc:
+            if kwargs.get("allow_ballpark"):
+                raise
+            fallback_kwargs = dict(kwargs)
+            fallback_kwargs["allow_ballpark"] = True
+            warnings.warn(
+                (
+                    "pyproj could not locate high-accuracy grid files for the requested "
+                    "CRS transformation. Falling back to a lower-accuracy transformation "
+                    "with allow_ballpark=True. Install the official PROJ grids or set "
+                    "PROJ_NETWORK=ON for full accuracy."
+                ),
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            return original_from_crs(*args, **fallback_kwargs)
+
+    Transformer.from_crs = staticmethod(from_crs_with_fallback)
+    _TRANSFORMER_PATCHED = True
+
+
 def _check_proj_connectivity():
     """Warn early if pyproj cannot access grid data (offline or missing files)."""
     try:
         from pyproj import Transformer
         _enable_pyproj_network()
         _ensure_proj_data_dir()
+        _patch_transformer_fallback()
         transformer = Transformer.from_crs("EPSG:4326", "EPSG:2056", always_xy=True)
         # Trigger actual use so PROJ requests the grid if needed.
         transformer.transform(0.0, 0.0)
