@@ -74,5 +74,3 @@ publish:pypi:
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
       when: manual  # Click to publish to PyPI production
-  only:
-    - master
