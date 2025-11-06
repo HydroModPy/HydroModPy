@@ -7,9 +7,10 @@ Created on Tue Oct 14 11:58:51 2025
 
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from pathlib import Path
 import os
 import shutil
+import warnings
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -23,6 +24,27 @@ from hydromodpy.tools import get_logger
 from hydromodpy.pyhelp.daily_output import read_daily_help_output
 
 logger = get_logger(__name__)
+
+
+def _transform_lonlat(xs, ys, target_crs):
+    """Project lon/lat arrays to the target CRS, falling back gracefully if grids are missing."""
+    try:
+        transformer = Transformer.from_crs("EPSG:4326", target_crs, always_xy=True)
+    except ProjError:
+        transformer = Transformer.from_crs(
+            "EPSG:4326",
+            target_crs,
+            always_xy=True,
+            allow_ballpark=True,
+        )
+        warnings.warn(
+            "PROJ grid files not found for high-accuracy reprojection; "
+            "falling back to allow_ballpark=True. Install CHENyx06a grids "
+            "for full precision.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return transformer.transform(xs, ys)
 
 def pyhelp_outputs_rasterized_netcdf(
     *,
@@ -106,8 +128,8 @@ def pyhelp_outputs_rasterized_netcdf(
     # Reprojection si DEM projeté (en mètres)
     # géographique = lat/lon
     if crs and not CRS.from_user_input(crs).is_geographic:
-        tr = Transformer.from_crs("EPSG:4326", CRS.from_user_input(crs), always_xy=True)
-        xs_arr, ys_arr = tr.transform(xs_arr, ys_arr)
+        target_crs = CRS.from_user_input(crs)
+        xs_arr, ys_arr = _transform_lonlat(xs_arr, ys_arr, target_crs)
         xs_arr = np.asarray(xs_arr, dtype=float)
         ys_arr = np.asarray(ys_arr, dtype=float)
 
