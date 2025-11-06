@@ -4,6 +4,9 @@ import xarray as xr
 import pandas as pd
 import os
 from typing import Optional
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 class PyhelpEra5(PyhelpCsvManager):
     """ERA5 climate data extraction and processing for PyHelp"""
@@ -65,7 +68,7 @@ class PyhelpEra5(PyhelpCsvManager):
                 self._save_csv(dataframe, output_file)
     
             except Exception as e:
-                print(f"Error processing ERA5 data for {folder}: {e}")
+                logger.exception("Failed processing ERA5 %s dataset", folder)
 
     def _get_netcdf_files(self, year_folder: str) -> list:
         """Get a sorted list of NetCDF files from a year folder."""
@@ -143,10 +146,10 @@ class PyhelpEra5(PyhelpCsvManager):
         
         data = pd.read_csv(file)
         if data.empty:
-            print("No data available.")
+            logger.warning("ERA5 CSV %s contains no data", csv_name)
         else:
-            print("Données du fichier CSV:")
-            print(data)
+            logger.info("Loaded %d rows from ERA5 CSV %s", len(data), csv_name)
+            logger.debug("ERA5 CSV %s content:\n%s", csv_name, data)
 
     def list_parameters(self) -> None:
         pass

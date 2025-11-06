@@ -16,6 +16,9 @@ import os.path as osp
 import multiprocessing as mp
 from multiprocessing import Pool
 
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 MINEDEPTH = 3
 MAXEDEPTH = 80
@@ -182,27 +185,19 @@ def format_d10d11_inputs(grid, cellnames):
     d10dat = {}
     N = len(cellnames)
     for i, cid in enumerate(cellnames):
-        #print("\rFormatting D10 and D11 data for cell %d of %d (%0.1f%%)" %
-         #     (i+1, N, (i+1)/N*100), end=' ')
+        if (i + 1) % 100 == 0 or i == 0:
+            logger.debug("Formatting D10 and D11 data for cell %d of %d (%0.1f%%)", i+1, N, (i+1)/N*100)
 
         row = grid.loc[cid]
         d11dat[cid] = _format_d11_singlecell(row)
         d10dat[cid] = _format_d10_singlecell(row)
 
-    #print("\rFormatting D10 and D11 data for cell %d of %d (%0.1f%%)" %
-     #     (i+1, N, (i+1)/N*100))
-    tac = time.perf_counter()
-    #print('Task completed in %0.2f sec' % (tac-tic))
+    logger.info("D10 and D11 data formatting completed for %d cells in %0.2f sec", N, time.perf_counter() - tic)
 
     warnings = [cid for cid, val in d10dat.items() if val is None]
     if warnings:
-        print('-' * 25)
-        msg = "Warning: the data for "
-        msg += "cell " if len(warnings) == 1 else "cells "
-        msg += ", ".join(warnings)
-        msg += " are not formatted correctly."
-        print(msg)
-        print('-' * 25)
+        cell_label = "cell" if len(warnings) == 1 else "cells"
+        logger.warning("D10 data not generated for %s %s due to invalid configuration", cell_label, ", ".join(warnings))
 
     return d10dat, d11dat
 
@@ -237,11 +232,9 @@ def write_d10d11_allcells(dirpath, d10data, d11data, ncore=None):
     for i in pool.imap_unordered(write_d10d11_singlecell, iterable):
         d10_connect_table.update(i)
         calcul_progress += 1
-        progress_pct = calcul_progress/N*100
-        #print("\rCreating D10 input file for cell %d of %d (%0.1f%%)" %
-         #     (calcul_progress, N, progress_pct), end=' ')
-    tac = time.perf_counter()
-    #print('\nTask completed in %0.2f sec' % (tac-tic))
+        if calcul_progress % 100 == 0 or calcul_progress == N:
+            logger.debug("Creating D10 input file for cell %d of %d (%0.1f%%)", calcul_progress, N, calcul_progress/N*100)
+    logger.info("D10 files created in %0.2f sec", time.perf_counter() - tic)
 
     # Prepare evapotranspiration input files (D11).
 
@@ -254,10 +247,8 @@ def write_d10d11_allcells(dirpath, d10data, d11data, ncore=None):
     for i in pool.imap_unordered(write_d10d11_singlecell, iterable):
         d11_connect_table.update(i)
         calcul_progress += 1
-        progress_pct = calcul_progress/N*100
-        #print("\rCreating D11 input file for cell %d of %d (%0.1f%%)" %
-         #     (calcul_progress, N, progress_pct), end=' ')
-    tac = time.perf_counter()
-    #print('\nTask completed in %0.2f sec' % (tac-tic))
+        if calcul_progress % 100 == 0 or calcul_progress == N:
+            logger.debug("Creating D11 input file for cell %d of %d (%0.1f%%)", calcul_progress, N, calcul_progress/N*100)
+    logger.info("D11 files created in %0.2f sec", time.perf_counter() - tic)
 
     return d10_connect_table, d11_connect_table

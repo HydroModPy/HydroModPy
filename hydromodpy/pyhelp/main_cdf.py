@@ -18,6 +18,10 @@ main_cdf.py – Generate grid and climate CSVS for PyHELP
 import json, os, sys, shutil
 from pathlib import Path
 
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from hydromodpy.pyhelp.pyhelp_grid import PyhelpGrid
@@ -60,7 +64,7 @@ def main():
         kwargs = json.loads(os.environ["PYHELP_GRID_KWARGS"])
         pg.update_parameters(**kwargs)
 
-    print(f"[main_cdf] Grid file written → {out_grid_csv}")
+    logger.info("Grid specification written to %s", out_grid_csv)
 
     # Call PyhelpEra5 with or without shapefile
     if shp_path and shp_path.exists():
@@ -74,16 +78,16 @@ def main():
     
     for name in ("precip_input_data.csv", "airtemp_input_data.csv", "solrad_input_data.csv"):
         shutil.move(Path(era5_root) / name, workdir_path / name)
-        print(f"[main_cdf] Climatic CSV generated in {workdir_path}")
+        logger.info("Climatic CSV %s moved to %s", name, workdir_path)
 
 
     for name in ("precip_input_data.csv",
              "airtemp_input_data.csv",
              "solrad_input_data.csv"):
-        print(f"[main_cdf] climatic CSV ready : {Path(era5_root) / name}")
+        logger.debug("Climatic CSV ready at %s", Path(era5_root) / name)
 
 
-    print("[main_cdf] finished ")
+    logger.info("main_cdf workflow completed")
 
 
 if __name__ == "__main__":

@@ -17,8 +17,11 @@ import os
 import numpy as np
 import rasterio
 import whitebox
+from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -48,7 +51,7 @@ class Geology:
         fields_obs : TYPE, optional
             Column field label of the geological map shapefile. The default is 'CODE_LEG'.
         """
-        print('Extract geology from specific data')
+        logger.info("Extracting geology data from %s", geo_path)
         
         data_folder = os.path.join(out_path,'results_stable/geology/')
         if not os.path.exists(data_folder):

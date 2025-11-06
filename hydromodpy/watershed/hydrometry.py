@@ -18,8 +18,11 @@ import datetime
 import pandas as pd
 import geopandas as gpd
 import whitebox
+from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -43,7 +46,7 @@ class Hydrometry:
             Variable object of the model domain (watershed).
         """
         
-        print('Extract hydrometry from specific data')
+        logger.info('Extracting hydrometry data from %s', hydrometry_path)
         
         data_folder = os.path.join(out_path,'results_stable','hydrometry')
         if not os.path.exists(data_folder):

@@ -20,13 +20,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import datetime
 from numpy import sqrt, mean
+from hydromodpy.tools import get_logger
 
 # ROOT DIRECTORY
 
 from os.path import dirname, abspath
 root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
-print("Root path directory is: {0}".format(root_dir.upper()))
+logger = get_logger(__name__)
+logger.info("Root path directory is: %s", root_dir.upper())
 
 # HYDROMODPY MODEULES
 
@@ -133,9 +135,7 @@ data_calib = {
 
 #%%... and we run the model starting by defining the initial values and ranges for all the parameters
 
-print('#######################################')
-print('I will try to calibrate all those parameters...')
-print('')
+logger.info('Starting GR4J parameter calibration')
 """
     MODEL PARAMETERS
         X1 : Production reservoir capacity [ mm]
@@ -209,7 +209,7 @@ maxI9 = [X1[2],   X2[2],    X3[2],   X4[2],      X5[2],    X6[2],      X7[2],   
 # Model calibration
 parameters, nash, bilan = calibre_gr4j('gr4j_cal', data_calib, data_calib['q'], parI9, minI9, maxI9)
 
-print('#######################################')
+logger.info('Calibration finished; running full simulation')
 
 #%% Now we can model the full dataset and evaluate the quality of the fit
 
@@ -249,12 +249,9 @@ x, y = filter_nan(Qsim_val, Qobs_val)
 rmse = sqrt(mean((x - y) ** 2.0))
 nse = ennash(y, x)
 
-print('')
-print('Quality of fit on the full dataset')
-print(f"rmse = {rmse}")
-print(f"nse = {nse}")
-print('')
-print('#######################################')
+logger.info('Quality of fit on the full dataset')
+logger.info('RMSE: %.4f', rmse)
+logger.info('NSE: %.4f', nse)
 
 #%% Plot results
 
@@ -320,6 +317,6 @@ output_df.index = date_f
 output_csv_path = os.path.join(output_path, 'model_outputs.csv')
 output_df.to_csv(output_csv_path)
 
-print(f"Model outputs saved to {output_csv_path}")
+logger.info('Model outputs saved to %s', output_csv_path)
 
 #%% Notes

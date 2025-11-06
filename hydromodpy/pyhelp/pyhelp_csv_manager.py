@@ -7,6 +7,9 @@ Created on Mon Feb 24 15:57:13 2025
 
 import pandas as pd
 from abc import ABC, abstractmethod
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 class PyhelpCsvManager(ABC):
     """Abstract base class for managing operations on PyHelp CSV input files."""
@@ -16,7 +19,7 @@ class PyhelpCsvManager(ABC):
         try:
             data.to_csv(output_path, index=False)
         except Exception as e:
-            print(f"Error saving CSV file: {e}")
+            logger.exception("Failed to save CSV to %s", output_path)
     
     @abstractmethod
     def display_data(self) -> None:

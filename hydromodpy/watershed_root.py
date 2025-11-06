@@ -32,8 +32,10 @@ sys.path.append(root_dir)
 from hydromodpy.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
 from hydromodpy.modeling import modflow, modpath, mt3dms, timeseries, netcdf
 from hydromodpy.display import visualization_watershed
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+logger = get_logger(__name__)
 
 #pyhelp
 from hydromodpy.pyhelp import pyhelp_netcdf
@@ -100,7 +102,7 @@ class Watershed:
             True : To save the watershed object (using pickle). The default is True.
         """
         
-        #toolbox.print_hydromodpy()
+        toolbox.print_hydromodpy()
         
         self.dem_path = dem_path
         self.out_path = out_path
@@ -116,7 +118,11 @@ class Watershed:
         
         self.watershed_folder = os.path.join(out_path, watershed_name)
         toolbox.create_folder(self.watershed_folder)
-        
+
+        # Setup simulation log in watershed folder
+        from hydromodpy.tools import setup_simulation_log
+        setup_simulation_log(self.watershed_folder)
+
         self.stable_folder = os.path.join(self.watershed_folder, 'results_stable')
         toolbox.create_folder(self.stable_folder)
         
@@ -139,10 +145,10 @@ class Watershed:
         if load==True:
             # Load from previously stored (saved) watershed
             success = self.__load_object()
-            # if success == True:
-                # print("Python object was successfully loaded as requested; imported from output directory")
+            if success == True:
+                logger.info("Python object was successfully loaded as requested; imported from output directory %s", self.watershed_folder)
             if success == False:
-                print("Python object was not successfully loaded as requested; so it was created from scratch instead")
+                logger.warning("Stored watershed object not available; rebuilding from inputs")
                 # Definition of the watershed
                 self.__init_object()
                 # Creation of the watershed defined at the previous line
@@ -151,7 +157,7 @@ class Watershed:
                 if save_object == True:
                     self.save_object()
         else:
-            print("Python object was not loaded; it was created from scratch as requested")
+            logger.info("Initializing watershed object from scratch as requested")
             # Definition of the watershed
             self.__init_object()
             # Creation of the watershed defined at the previous line
@@ -182,7 +188,7 @@ class Watershed:
                 self.geographic = BV.geographic
                 self.elt_def.append('geographic')
             else:
-                # print("Warning: geographic doesn't exist in object")
+                logger.warning("geographic doesn't exist in object")
                 return False
             if ('subbasin' in BV.__dir__()) == True:   # Generates basin where there are hydrological stations
                 self.subbasin = BV.subbasin
@@ -236,7 +242,7 @@ class Watershed:
             return True 
         
         else:
-            # print("Warning: watershed_object doesn't exist in", self.watershed_folder)
+            logger.warning("watershed_object doesn't exist in %s", self.watershed_folder)
             
             return False
 

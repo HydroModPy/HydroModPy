@@ -11,6 +11,10 @@ import numpy as np
 import os.path as osp
 import matplotlib.pyplot as plt
 
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
+
 def read_daily_help_output(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
         lines = f.readlines()
@@ -78,7 +82,7 @@ def calc_area_daily_avg(cellnames, workdir):
             data = read_daily_help_output(fpath)
 
             if not data['rain']:
-                print(f"Pas de données journalières pour la cellule {cid}.")
+                logger.warning("No daily HELP data available for cell %s", cid)
                 continue
 
             dates = [
@@ -95,8 +99,8 @@ def calc_area_daily_avg(cellnames, workdir):
 
             all_dfs.append(df_cell)
 
-        except Exception as e:
-            print(f" Erreur pour la cellule {cid} : {e}")
+        except Exception:
+            logger.exception("Failed processing daily HELP outputs for cell %s", cid)
             continue
 
     if not all_dfs:
@@ -142,4 +146,3 @@ def plot_daily(df_daily_mean, title="Bilan journalier moyen"):
     ax.legend()
     ax.grid(True)
     plt.show()
-

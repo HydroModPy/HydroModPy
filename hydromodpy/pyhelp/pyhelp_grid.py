@@ -9,6 +9,9 @@ import pandas as pd
 from .pyhelp_csv_manager import PyhelpCsvManager
 from hydromodpy.tools.toolbox import load_csv, transform_coordinates, filter_coordinates_by_shape
 from typing import Optional
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 class PyhelpGrid(PyhelpCsvManager):
     """
@@ -40,7 +43,7 @@ class PyhelpGrid(PyhelpCsvManager):
         """Load the base CSV file """
         base_df = load_csv(self._base_file_path)
         if base_df.empty:
-            print(f"Base CSV '{self._base_file_path}' is empty or not found.")
+            logger.error("Base grid CSV %s is empty or missing", self._base_file_path)
         return base_df
     
 
@@ -58,18 +61,17 @@ class PyhelpGrid(PyhelpCsvManager):
     def display_data(self) -> None:
         """Displays the current, in-memory _data."""
         if self._data.empty:
-            print("No data available.")
+            logger.warning("No grid data available to display")
         else:
-            print(self._data)
+            logger.info("Grid dataset contains %d rows", len(self._data))
+            logger.debug("Grid dataset preview:\n%s", self._data)
 
     def list_parameters(self) -> None:
         """Lists the columns in the current in-memory DataFrame."""
         if self._data.empty:
-            print("No parameters available.")
+            logger.warning("No grid parameters available")
         else:
-            print("Parameters (columns):")
-            for col in self._data.columns:
-                print(f"- {col}")
+            logger.info("Grid parameters available: %s", ", ".join(map(str, self._data.columns)))
 
     def update_parameters(self, **params) -> None:
         """
@@ -85,13 +87,13 @@ class PyhelpGrid(PyhelpCsvManager):
         # Start from the base row again each time
         base_df = self._base_data.copy()
         if base_df.empty:
-            print("Base CSV is empty; cannot update parameters.")
+            logger.error("Base CSV is empty; cannot update grid parameters")
             return
         
         # Transform DEM to get coordinates
         coordinates = self._dem_coordinate()
         if not coordinates:
-            print("No coordinates found from DEM.")
+            logger.error("No coordinates extracted from DEM %s", self._dem_file_path)
             return
         
         # Replicate the single base row to match the number of DEM points to create homogeneous case
@@ -118,7 +120,7 @@ class PyhelpGrid(PyhelpCsvManager):
         self._data = df2
 
         self._save_csv(self._data, self._output_file_path)
-        print(f"Updated grid saved to '{self._output_file_path}'.")
+        logger.info("Updated grid saved to %s", self._output_file_path)
 
     def _prompt_parameters(self) -> dict:
         """Prompt the user to input parameter values if none were passed."""

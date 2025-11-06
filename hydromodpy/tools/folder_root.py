@@ -19,6 +19,9 @@ import os
 import sys as sys
 import time as time
 import pathlib
+from hydromodpy.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
 
 #%% FUNCTION 
 
@@ -49,7 +52,10 @@ def root_folder_results(user_folder_path = None):
     folder = os.getenv(env_name)
     
     if (folder != None) & (isinstance(user_folder_path, str)):
-        print(f"/!\ Result folder '{os.getenv(env_name)}' is already defined as an environment variable. Use update_root_folder_results() to modify it.")
+        logger.warning(
+            "Result folder %s already defined via environment variable; use update_root_folder_results() to change it",
+            os.getenv(env_name),
+        )
         
     # If environment variable does not exist, define it 
     if folder == None :
@@ -67,19 +73,18 @@ def root_folder_results(user_folder_path = None):
             exp='export ' + env_name + '="' + folder + '"'
         os.system(exp)
         os.environ[env_name] = folder
-        print("\nEnvironement variable set for results folder")
-        print(env_name, "=", folder)
-        print("/!\ Make sure to have restarted the conda session before the next spyder launching")
+        logger.info("Environment variable %s registered for results folder", env_name)
+        logger.debug("%s = %s", env_name, folder)
+        logger.info("Restart the conda session before relaunching Spyder to use the new results folder")
         
     # Creates folder if folder does not exist
     isExist = os.path.exists(folder)
     if not isExist:
         # Create a new directory because it does not exist
         os.makedirs(folder)
-        print("\nThe folder has been created!")
+        logger.info("Created results folder at %s", folder)
     
     # Returns folder 
-    print('')
     return folder
 
 #%% UPDATE

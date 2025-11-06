@@ -19,6 +19,9 @@ import os
 from scipy.optimize import curve_fit
 from hydromodpy.watershed import sim2
 import re
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -34,7 +37,7 @@ class Climatic:
         out_path : str
             Path of the HydroModPy outputs. 
         """    
-        print('Init climatic module to set model parameter')
+        logger.info('Initializing climatic module parameters')
         
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
         self.drias_folder = os.path.join(out_path, 'results_stable/drias/')

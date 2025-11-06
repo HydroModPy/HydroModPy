@@ -18,7 +18,11 @@ from rasterio.transform import rowcol
 from pyproj import CRS, Transformer
 from pyproj.exceptions import ProjError
 
+from hydromodpy.tools import get_logger
+
 from hydromodpy.pyhelp.daily_output import read_daily_help_output
+
+logger = get_logger(__name__)
 
 def pyhelp_outputs_rasterized_netcdf(
     *,
@@ -35,16 +39,16 @@ def pyhelp_outputs_rasterized_netcdf(
     grid_csv = Path(grid_csv)
     dem_fp = Path(dem)
 
-    print("[INFO] PyHELP outputs NETCDF generation... ")
+    logger.info("Generating PyHELP NetCDF cubes from daily outputs")
 
     temp_dir = workdir / "help_input_files" / ".temp"
     if not temp_dir.exists():
-        print("[INFO] Folder .temp not found ; NetCDF grid not created")
+        logger.warning("Temporary directory %s not found; skipping NetCDF export", temp_dir)
         return None
 
     out_files = sorted(temp_dir.glob("*.OUT"))
     if not out_files:
-        print("[INFO] No *.OUT* file found, NetCDF grid not created")
+        logger.warning("No .OUT files detected in %s; NetCDF export aborted", temp_dir)
         return None
 
     dates_ref = None
@@ -71,7 +75,7 @@ def pyhelp_outputs_rasterized_netcdf(
         if dates_ref is None:
             dates_ref = pd.Index(dates, name="time")
         elif len(dates) != len(dates_ref):
-            print(f"[WARN] {cid} : longueur de série différente, ignoré")
+            logger.warning("Skipping cell %s due to inconsistent time series length", cid)
             continue
 
         # valeurs
@@ -86,7 +90,7 @@ def pyhelp_outputs_rasterized_netcdf(
         ys.append(y)
 
     if not cids:
-        print("[INFO] No data gathered from .OUT files; NetCDF grid not created")
+        logger.warning("No valid daily outputs read; NetCDF export aborted")
         return None
 
     # Lire géométrie du DEM
@@ -157,10 +161,11 @@ def pyhelp_outputs_rasterized_netcdf(
     enc["spatial_ref"] = {"zlib": False}
     ds_grid.to_netcdf(nc_grid, format="NETCDF4", encoding=enc)
 
-    print(f"[OK] NetCDF (time, y, x) créé : {nc_grid}")
+    logger.info("NetCDF grid export complete: %s", nc_grid)
 
     if clean_temp:
         shutil.rmtree(workdir / "help_input_files" / ".temp")
+        logger.debug("Removed temporary directory %s", workdir / "help_input_files" / ".temp")
 
 
     return nc_grid

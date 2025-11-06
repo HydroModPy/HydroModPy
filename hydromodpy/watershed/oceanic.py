@@ -20,6 +20,7 @@ import geopandas as gpd
 from netCDF4 import Dataset
 import sys
 import matplotlib.pyplot as plt
+from hydromodpy.tools import get_logger
 
 # Root
 from os.path import dirname, abspath
@@ -28,6 +29,8 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -190,7 +193,7 @@ class Oceanic:
         """
         values_list = ['RMSL','RSL']
         if values not in values_list:
-            print('You must specify the values you want to display')
+            logger.error('Unsupported oceanic display value: %s', values)
         if values == 'RMSL':
             oceanic_display_data(self.RMSL, self.figure_folder+'RMSL', values)
         if values == 'RSL':

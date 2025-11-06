@@ -28,6 +28,9 @@ except:
 import rasterio
 import matplotlib.pyplot as plt
 import gc
+from hydromodpy.tools import get_logger
+
+logger = get_logger(__name__)
 
 # df = dirname(dirname(abspath(__file__)))
 # sys.path.append(df)
@@ -87,7 +90,7 @@ class Driasclimat:
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
                 
-        print('Extraction des données explore2')
+        logger.info('Extracting Drias climat datasets from %s', driasclimat_path)
         
         df = pd.DataFrame()
         df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
@@ -110,15 +113,15 @@ class Driasclimat:
                          'FAO', # # 'FAO' at the end
                          'Hg0175']
             
-        print(list_models)
-        print(list_vars)
+        logger.info('Selected climate models: %s', ', '.join(list_models))
+        logger.info('Selected variables: %s', ', '.join(list_vars))
 
         for model in list_models:
             models_path = glob.glob(os.path.join(driasclimat_path, model + '*'))
             # print(os.path.join(driasclimat_path, model))
             # print(models_path)
             for model in models_path:
-                print('     '+model)
+                logger.debug('Processing model path %s', model)
                 for var in list_vars: # ['DRAINC','RUNOFF','EVAPC']
                     files_path = glob.glob(model + '/' + var + '*' + '.nc') # 'QGIS.nc'
                     if (var == 'FAO'):
@@ -128,7 +131,7 @@ class Driasclimat:
                     # print(files_path)
                     for en, file_path in enumerate(files_path):
                         if not os.path.exists(os.path.join(data_folder, file_path.split('\\')[-1])):
-                            print('          '+file_path)
+                            logger.debug('Clipping dataset %s', file_path)
                             self.clip_netcdf(data_folder, file_path, watershed_shp, var)
                     # except:
                     #     print('NOT FOUND : '+model+'  -  '+var)
@@ -222,7 +225,7 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
     
     for idx, path_netcdf in enumerate(list_of_paths):
         
-        print(str(idx+1)+'/'+str(len(list_of_paths)))
+        logger.info('Processing Drias NetCDF %d/%d', idx + 1, len(list_of_paths))
         
         var_init = path_netcdf.split('\\')[-1].split('_')[0]
         
@@ -323,7 +326,7 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
             clipped_ds.load()
             
         name_col = var+'_'+gcm+'-'+rcm+'_'+sce
-        print(name_col)
+        logger.debug('Aggregating column %s', name_col)
         if name_col not in df:
             df[name_col] = ""
             
@@ -363,4 +366,3 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
     #           '_ALL_D.csv', sep=';')
 
 #%% NOTES
-

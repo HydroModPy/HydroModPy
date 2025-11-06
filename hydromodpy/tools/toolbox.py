@@ -39,6 +39,10 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
+from .log_manager import get_logger
+
+logger = get_logger(__name__)
+
 #%% DIRECTORY MANAGEMENT
 
 def create_folder(path):
@@ -175,9 +179,12 @@ def load_to_numpy(file, src_crs=None,
             geometry = [Point(xy) for xy in zip(df.x, df.y)]
             df = df.drop(columns = ['x', 'y'])
             file_vect = gpd.GeoDataFrame(df, geometry = geometry)
-        except:
-            print("Error: The input file should be formated as:")
-            print("    id;x;y\n    0;34500;7456125\n    1;35675;7991500\n    ...\n")
+        except Exception as exc:
+            logger.error(
+                "Failed to read coordinate CSV %s; expected columns 'id;x;y'",
+                file,
+            )
+            logger.debug("Coordinate CSV parsing error: %s", exc)
     
     if file_vect is not None: # shapefile
         if base_profile:
@@ -186,17 +193,17 @@ def load_to_numpy(file, src_crs=None,
                 if src_crs: 
                     file_vect.set_crs(crs = src_crs, inplace = True, allow_override = True)
                 else: 
-                    print("Error: Source CRS (src_crs) is required to rasterize.\n")
+                    logger.error("Source CRS (src_crs) required to rasterize vector dataset")
                     return
                     
             if not base_profile['crs'].is_valid:
                 if dst_crs: base_profile['crs'] = dst_crs
                 else: 
-                    print("Error; Destination CRS (dst_crs) is required to rasterize.\n")
+                    logger.error("Destination CRS (dst_crs) required to rasterize vector dataset")
                     return
                     
             # The vector needs to be in the same CRS as the base raster:
-            # print(f"Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'.\n")            
+            logger.info(f"Before rasterization, the vector will be converted from 'EPSG:{file_vect.crs.to_epsg()}' into 'EPSG:{base_profile['crs'].to_epsg()}'.")
             file_vect.to_crs(crs = base_profile['crs'].to_epsg(), inplace = True)
             # Rasterize:
             val = rio.features.rasterize(
@@ -208,7 +215,7 @@ def load_to_numpy(file, src_crs=None,
             # update profile
             data_profile = base_profile
         else: # if there is no base_profile
-            print('RasterizeError: A rasterio profile is required to convert vectoriel data into raster.\n')
+            logger.error("Raster profile required to rasterize vector dataset; provide base raster or profile")
             return
     
     else: # input file is a raster
@@ -229,10 +236,10 @@ def load_to_numpy(file, src_crs=None,
                 
         if data_profile != base_profile:
             if not data_profile['crs'].is_valid:
-                print('Error: Source CRS (src_crs) is required to reproject.\n')
+                logger.error("Source CRS (src_crs) required to reproject raster dataset")
                 return
             if not base_profile['crs'].is_valid:
-                print('Error: Destination CRS (dst_crs) is required to reproject.\n')
+                logger.error("Destination CRS (dst_crs) required to reproject raster dataset")
                 return
             rio.warp.reproject(source = val, 
                                destination = base_val, 
@@ -352,14 +359,14 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 # Usually this error appears when unable to decode 
                 # time units 'Months since 1901-01-01' with 
                 # "calendar 'proleptic_gregorian'"
-                print("Warning: Unable to decode time units.\n")
+                logger.warning("Unable to decode NetCDF time units; falling back to manual parsing")
                 with xr.open_dataset(file, decode_coords = 'all', 
                                      decode_times = False) as ds:
                     ds.load()
                     
                 try: ds.time.attrs['units']
                 except: 
-                    print("Error: No information on time units in attributes.\n")
+                    logger.error("No time unit metadata found in NetCDF dataset")
                     return
                 # Build back time scale:
                 # print(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
@@ -371,9 +378,9 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                     freq = '1D'
                     freq_info = 'daily'
                 
-                print("   | Note that The format of the origin date is expected to be either")
-                print("   | YYYY MM DD or DD MM YYYY (with any separator). The american format")
-                print("   | MM DD YYYY will not be considered.\n")
+                logger.info(
+                    "Expecting origin date formatted as YYYY MM DD or DD MM YYYY when rebuilding time axis"
+                )
                 # The format of the origin date is expected to be either 
                 # YYYY MM DD or DD MM YYYY (with any separator)
                 # The american format MM DD YYYY is not considered
@@ -395,7 +402,7 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 ds['time'] = date_index  
         
         else:
-            print(f"Error: Extension {os.path.splitext(file)[-1]} is not recognized by xarray.\n")
+            logger.error("File extension %s not supported for xarray loading", os.path.splitext(file)[-1])
             return
     
     elif isinstance(file, xr.core.dataset.Dataset):
@@ -423,10 +430,10 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                 
         if (data_transform != base_profile['transform']) | (ds.rio.crs != base_profile['crs']):
             if not ds.rio.crs.is_valid:
-                print('Error: Source CRS (src_crs) is required to reproject.\n')
+                logger.error("Source CRS (src_crs) required to reproject xarray dataset")
                 return
             if not base_profile['crs'].is_valid:
-                print('Error: Destination CRS (dst_crs) is required to reproject.\n')
+                logger.error("Destination CRS (dst_crs) required to reproject xarray dataset")
                 return
             ds_reprj = ds.rio.reproject(dst_crs = base_profile['crs'],
                                              # resolution = (1000, 1000),
@@ -588,7 +595,7 @@ def hydrological_mean(data, accuracy=15):
         data.index = pd.to_datetime(data.index)
     # Safeguard
     if not isinstance(data.index[0], datetime.datetime):
-        print("Error: No recognized time index in data")
+        logger.error("No recognized datetime index in input series for hydrological_mean")
         return
     
     #% Get the most recent date that falls within the accuracy range
@@ -599,8 +606,7 @@ def hydrological_mean(data, accuracy=15):
     # n_years = np.mean((data.index[-1]-data.index[0])/365.2425)
     
     if (idx - data.index[0]).days < 350:
-        print("HydrologicalMean Warning: Total time range is too short (less than 1 year)")
-        print("    Simple mean is used instead")
+        logger.warning("Time range shorter than one year; using simple mean instead of hydrological mean")
     
     # print(f"Average values are computed from {data.index[0].strftime('%Y-%m-%d')} to {idx.strftime('%Y-%m-%d')}")
 
@@ -871,7 +877,7 @@ def load_csv(file_path: str) -> pd.DataFrame:
     try:
         return pd.read_csv(file_path)
     except Exception as e:
-        print(f"Error loading CSV file: {e}")
+        logger.exception("Failed to load CSV file %s", file_path)
         return pd.DataFrame()
 
 def load_shapefile(shapefile_path: str) -> gpd.GeoDataFrame:
@@ -883,7 +889,7 @@ def load_shapefile(shapefile_path: str) -> gpd.GeoDataFrame:
     try:
         return gpd.read_file(shapefile_path)
     except Exception as e:
-        print(f"Error loading shapefile: {e}")
+        logger.exception("Failed to load shapefile %s", shapefile_path)
         return None
 
 def get_centroid_coordinates(gdf: gpd.GeoDataFrame) -> tuple:
@@ -894,15 +900,15 @@ def get_centroid_coordinates(gdf: gpd.GeoDataFrame) -> tuple:
     tuple (longitude, latitude) of the centroid
     """
     if gdf is None:
-        print("Error: GeoDataFrame is None")
+        logger.error("GeoDataFrame input is None")
         return None, None
 
     if gdf.empty:
-        print("Error: GeoDataFrame is empty")
+        logger.error("GeoDataFrame contains no features")
         return None, None
 
     if gdf.crs is None:
-        print("Error: Shapefile has no CRS")
+        logger.error("GeoDataFrame has no CRS defined")
         return None, None
 
     try:
@@ -912,7 +918,7 @@ def get_centroid_coordinates(gdf: gpd.GeoDataFrame) -> tuple:
         point = gdf.geometry.iloc[0]
         return point.x, point.y
     except Exception as e:
-        print(f"Error processing centroid: {e}")
+        logger.exception("Failed computing centroid coordinates")
         return None, None
 
 def transform_coordinates(dem_file_path: str, from_crs: str, to_crs: str) -> list:
@@ -937,7 +943,7 @@ def transform_coordinates(dem_file_path: str, from_crs: str, to_crs: str) -> lis
                 coordinates.append((lon, lat))
         return coordinates
     except Exception as e:
-        print(f"Error processing DEM file: {e}")
+        logger.exception("Failed processing DEM raster %s", dem_file_path)
         return []
 
 def filter_coordinates_by_shape(coordinates: list, shapefile_path: str, target_crs: str) -> list:
@@ -955,7 +961,7 @@ def filter_coordinates_by_shape(coordinates: list, shapefile_path: str, target_c
         filtered = [pt for pt in coordinates if polygon.covers(Point(pt))]
         return filtered
     except Exception as e:
-        print(f"Error filtering coordinates by shapefile: {e}")
+        logger.exception("Failed filtering coordinates with shapefile %s", shapefile_path)
         return []
 
 def select_nearest_point(ds: xr.Dataset, lon: float, lat: float) -> xr.Dataset:
@@ -994,7 +1000,7 @@ def select_within_polygon_points(ds: xr.Dataset, gdf: gpd.GeoDataFrame) -> xr.Da
         return ds_filtered
 
     except Exception as e:
-        print(f"Error in select_within_polygon_points: {e}")
+        logger.exception("Failed selecting dataset points within polygon")
         return ds
 
 
@@ -1016,13 +1022,17 @@ def convert_units(df: pd.DataFrame, var_key: str) -> pd.DataFrame:
 #%% DISPLAY 
 
 def print_hydromodpy():
-    print(r'      __  __          __           __  ____          ________     ') 
-    print(r'     / / / /         / /          /  \/   /         / / __  /     ') 
-    print(r'    / /_/ /_  ______/ /________  /       /___  ____/ / /_/ /_  __ ')
-    print(r'   / __  / / / / __  / ___/ __ \/ /\,-/ / __ \/ __  / ____/ / / / ')  
-    print(r'  / / / / /_/ / /_/ / /  / /_/ / /   / / /_/ / /_/ / /   / /_/ /  ')  
-    print(r' /_/ /_/\__, /_____/_/   \____/_/   /_/\____/_____/_/____\__, /   ')  
-    print(r'       /____/ Hydrological Modelling in Python /_____________/    ')  
-    print(r'                                                                  ')
+    banner_lines = [
+        r'      __  __          __           __  ____          ________     ',
+        r'     / / / /         / /          /  \/   /         / / __  /     ',
+        r'    / /_/ /_  ______/ /________  /       /___  ____/ / /_/ /_  __ ',
+        r'   / __  / / / / __  / ___/ __ \/ /\,-/ / __ \/ __  / ____/ / / / ',
+        r'  / / / / /_/ / /_/ / /  / /_/ / /   / / /_/ / /_/ / /   / /_/ /  ',
+        r' /_/ /_/\__, /_____/_/   \____/_/   /_/\____/_____/_/____\__, /   ',
+        r'       /____/ Hydrological Modelling in Python /_____________/    ',
+        r'                                                                  ',
+    ]
+    for line in banner_lines:
+        logger.info(line)
     
 #%% NOTES

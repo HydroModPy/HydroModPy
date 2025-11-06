@@ -30,8 +30,10 @@ root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.tools import toolbox, get_logger
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+logger = get_logger(__name__)
 
 #%% CLASS
 
@@ -63,7 +65,7 @@ class Subbasin:
         out_path : str
             Path of the HydroModPy outputs.
         """
-        print('Extract subbasin from specific data')
+        logger.info('Extracting subbasin definitions for watershed')
         
         self.sub_snap_dist = sub_snap_dist
         
@@ -82,11 +84,11 @@ class Subbasin:
             for i in range(len(x_coord)):
                 station_name = f'hydrometry_{code_bh[i]}' if code_bh[i] else f'hydrometry_default_{i + 1}'
                 if not code_bh[i]:
-                    print(f'code_bh is empty for index {i}, generating default name.')
+                    logger.warning('Hydrometry code missing at index %d; using generated name', i)
                 sub_path = os.path.join(self.subbasin_path, station_name)
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
-        except:
-            # print('     No hydrometry subbasin or problem')
+        except Exception as e:
+            logger.debug('No hydrometry subbasin or problem: %s', e)
             pass
         
         try:
@@ -96,11 +98,11 @@ class Subbasin:
             for i in range(len(x_coord)):
                 onde_name = f'intermittency_{code_onde[i]}' if code_onde[i] else f'intermittency_default_{i + 1}'
                 if not code_bh[i]:
-                    print(f'code_onde is empty for index {i}, generating default name.')
+                    logger.warning('Intermittency code missing at index %d; using generated name', i)
                 sub_path = os.path.join(self.subbasin_path, onde_name)
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
-        except:
-            # print('     No intermittency subbasin or problem')
+        except Exception as e:
+            logger.debug('No intermittency subbasin or problem: %s', e)
             pass
         
         try:
@@ -108,8 +110,8 @@ class Subbasin:
             for i in range(len(code_sub)):
                 sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
                 self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
-        except:
-            # print('     No personnal subbasins or problem')
+        except Exception as e:
+            logger.debug('No personal subbasins or problem: %s', e)
             pass
 
     #%% SUB-CATCHMENT FROM STATIONS
@@ -153,7 +155,8 @@ class Subbasin:
                                  sub_snap_dist
                                  # geographic.snap_dist
                                  )
-        # print(os.path.join(geographic.reg_fold, 'region_acc.tif'))
+        logger.debug('Using regional accumulation from: %s', 
+                    os.path.join(geographic.reg_fold or geographic.reg_path, 'region_acc.tif'))
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
         if geographic.reg_fold == None:
@@ -162,7 +165,7 @@ class Subbasin:
             wbt.watershed(os.path.join(geographic.reg_fold, 'region_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
         # Create shapefile polygon of the watershed
         watershed_shp = outpath + 'watershed.shp'
-        # print(watershed_shp)
+        logger.debug('Creating watershed shapefile: %s', watershed_shp)
         wbt.raster_to_vector_polygons(watershed, watershed_shp)
         shp = gpd.read_file(watershed_shp)
         shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
@@ -186,7 +189,7 @@ class Subbasin:
         Check files in folder and extract 'code_sub','x_outlet','y_outlet'
         """
         path_coord = glob.glob(add_path+'/'+'*')[0]
-        # print(path_coord)
+        logger.debug('Loading coordinates from: %s', path_coord)
         sub_list = pd.read_csv(path_coord, sep=';')
         code_sub = sub_list['code_sub'].to_list()
         x_coord = sub_list['x_outlet'].to_list()
