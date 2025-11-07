@@ -202,13 +202,26 @@ def _load_help3o_from_path(binary_path):
     """Load HELP3O module from a specific path"""
     import importlib.util
 
-    spec = importlib.util.spec_from_file_location("HELP3O", binary_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Failed to load HELP3O from {binary_path}")
+    binary_path = Path(binary_path)
+    dll_token = None
 
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
+        try:
+            dll_token = os.add_dll_directory(str(binary_path.parent))
+        except FileNotFoundError:
+            dll_token = None
+
+    try:
+        spec = importlib.util.spec_from_file_location("HELP3O", str(binary_path))
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Failed to load HELP3O from {binary_path}")
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if dll_token is not None:
+            dll_token.close()
 
 
 # Try to import the HELP3O Fortran extension
@@ -228,6 +241,7 @@ if binary_filename:
             HELP3O = _load_help3o_from_path(binary_path)
             _HELP3O_AVAILABLE = True
         except Exception as e:
+            logger.exception("Failed to load cached HELP3O binary from %s", binary_path)
             warnings.warn(f"Failed to load cached HELP3O binary: {e}", ImportWarning)
     else:
         # Download from GitHub
@@ -237,6 +251,7 @@ if binary_filename:
                 HELP3O = _load_help3o_from_path(binary_path)
                 _HELP3O_AVAILABLE = True
         except Exception as e:
+            logger.exception("Failed to download/load HELP3O binary: %s", e)
             warnings.warn(
                 f"HELP3O Fortran extension not available: {e}\n"
                 "PyHELP functionality will be limited.",
