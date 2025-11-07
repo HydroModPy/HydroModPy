@@ -201,6 +201,7 @@ def _download_help3o_binary():
 def _load_help3o_from_path(binary_path):
     """Load HELP3O module from a specific path"""
     import importlib.util
+    import ctypes
 
     binary_path = Path(binary_path)
     dll_token = None
@@ -210,6 +211,13 @@ def _load_help3o_from_path(binary_path):
             dll_token = os.add_dll_directory(str(binary_path.parent))
         except FileNotFoundError:
             dll_token = None
+        else:
+            for dll in sorted(binary_path.parent.glob("lib*.dll")):
+                try:
+                    ctypes.WinDLL(str(dll))
+                except OSError as exc:
+                    logger.error("Failed to preload dependency %s: %s", dll.name, exc)
+                    raise
 
     try:
         spec = importlib.util.spec_from_file_location("HELP3O", str(binary_path))
