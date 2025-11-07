@@ -53,11 +53,12 @@ help_example_path = Path(
 
 cmd = [sys.executable, str(help_example_path), "--workdir", str(workdir)]
 logger.info("Launching help_example.py workflow: %s", " ".join(cmd))
-subprocess.check_call(cmd)
+child_env = os.environ.copy()
+child_env.setdefault("PYHELP_WORKDIR", str(workdir))
+subprocess.check_call(cmd, env=child_env)
 
 daily_src = workdir / "help_example_daily_mean.csv"
 
 logger.info("PyHELP simulation complete")
 logger.info("Daily mean output generated at %s", daily_src)
-
 

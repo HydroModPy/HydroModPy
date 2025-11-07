@@ -37,6 +37,7 @@ Each release section includes the following standard categories:
 ### Fixed
 - HydroModPy now pins `PROJ_DATA`/`PROJ_LIB` to the active environment's pyproj data directory on import, preventing accidental use of stale global `proj.db` copies.
 - Added detection that overrides user-defined `PROJ_DATA` values pointing outside the active environment or to missing `proj.db` files, ensuring conda/venv-specific databases are always preferred.
+- PyHELP CLI now propagates the working directory via `PYHELP_WORKDIR`, and `help_example.py` also accepts `--workdir`, fixing the Windows crash when launching example 10 manually.
 
 ---
 
