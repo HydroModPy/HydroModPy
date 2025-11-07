@@ -6,8 +6,9 @@ for a section of the Rivière du Nord watershed in the Laurentians, Quebec, Can.
 Updated for PyHELP version 0.3.1
 """
 
-import os.path as osp
+import argparse
 import os
+import os.path as osp
 import sys
 from pathlib import Path
 repo_root = Path(__file__).resolve().parents[1]   
@@ -26,14 +27,25 @@ logger = get_logger(__name__)
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Run PyHELP example workflow.")
+    parser.add_argument(
+        "--workdir",
+        help="Working directory containing HELP inputs (defaults to PYHELP_WORKDIR env var).",
+        default=None,
+    )
+    args = parser.parse_args()
+
+    workdir_raw = args.workdir or os.getenv("PYHELP_WORKDIR")
+    if not workdir_raw:
+        raise RuntimeError("Working directory missing; set PYHELP_WORKDIR or pass --workdir.")
+
+    workdir = Path(workdir_raw).expanduser().resolve()
+
     logger.info("pyhelp.bilan module resolved at %s", HelpBilan.__file__)
     # For an explanation of why (on Windows) the if __name__ == '__main__'
     # part is necessary, please see :
     #    https://docs.python.org/3.6/library/
     #    multiprocessing.html#programming-guidelines
-
-    # Define the working directory.
-    workdir = Path(os.getenv("PYHELP_WORKDIR")).expanduser().resolve()
 
      # Instantiate the HelpManager and provide the paths to the grid and
     # weather input data files so that they are loaded automatically.
