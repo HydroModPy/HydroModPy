@@ -39,7 +39,7 @@ Each release section includes the following standard categories:
 - Added detection that overrides user-defined `PROJ_DATA` values pointing outside the active environment or to missing `proj.db` files, ensuring conda/venv-specific databases are always preferred.
 - PyHELP CLI now propagates the working directory via `PYHELP_WORKDIR`, and `help_example.py` also accepts `--workdir`, fixing the Windows crash when launching example 10 manually.
 - PyHELP automatically downloads and extracts the Windows bundle (`HELP3O_*_bundle.zip`) so that MinGW runtime DLLs ship alongside `HELP3O.cp***.pyd`.
-- Windows now registers the cache directory via `os.add_dll_directory` before loading HELP3O, ensuring the bundled MinGW DLLs are resolved correctly.
+- Windows now registers the cache directory via `os.add_dll_directory` and preloads bundled MinGW DLLs before importing HELP3O, so missing dependencies are reported explicitly and resolved automatically.
 
 ---
 
