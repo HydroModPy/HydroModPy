@@ -34,6 +34,9 @@ Each release section includes the following standard categories:
 ### Added
 - Planned updates and improvements for future releases.
 
+### Fixed
+- HydroModPy now pins `PROJ_DATA`/`PROJ_LIB` to the active environment's pyproj data directory on import, preventing accidental use of stale global `proj.db` copies.
+
 ---
 
 ## [v0.3.0] - 2025-11-06
