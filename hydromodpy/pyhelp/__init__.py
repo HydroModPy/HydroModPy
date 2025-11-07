@@ -79,6 +79,7 @@ def _download_help3o_binary():
     import urllib.request
     import json
     import tarfile
+    import zipfile
 
     binary_filename = _get_binary_filename()
     if not binary_filename:
@@ -104,8 +105,10 @@ def _download_help3o_binary():
         with urllib.request.urlopen(request, timeout=30) as response:
             release_data = json.loads(response.read().decode())
 
+        system_name = platform.system()
+
         # On macOS, look for bundled tarball with GCC libraries
-        if platform.system() == "Darwin":
+        if system_name == "Darwin":
             bundle_filename = binary_filename.replace(".so", "_bundle.tar.gz")
             bundle_url = None
             for asset in release_data.get("assets", []):
@@ -131,6 +134,32 @@ def _download_help3o_binary():
                 # Clean up tarball
                 bundle_path.unlink()
                 logger.info("HELP3O bundle extracted successfully")
+                return binary_path
+
+        # On Windows, prefer the bundle zip that contains the MinGW runtime
+        if system_name == "Windows":
+            bundle_filename = binary_filename.replace(".pyd", "_bundle.zip")
+            bundle_url = None
+            for asset in release_data.get("assets", []):
+                if asset["name"] == bundle_filename:
+                    bundle_url = asset["browser_download_url"]
+                    break
+
+            if bundle_url:
+                bundle_path = cache_dir / bundle_filename
+                logger.info("Downloading Windows bundle %s", bundle_filename)
+                logger.debug("Windows bundle URL: %s", bundle_url)
+
+                bundle_request = urllib.request.Request(bundle_url, headers=_GITHUB_HEADERS)
+                with urllib.request.urlopen(bundle_request, timeout=60) as response, bundle_path.open("wb") as fh:
+                    shutil.copyfileobj(response, fh)
+
+                logger.info("Extracting Windows bundle to %s", cache_dir)
+                with zipfile.ZipFile(bundle_path, "r") as zip_fh:
+                    zip_fh.extractall(cache_dir)
+
+                bundle_path.unlink(missing_ok=True)
+                logger.info("HELP3O Windows bundle extracted successfully")
                 return binary_path
 
         # Fallback: download standalone binary (for Linux/Windows or old macOS releases)
