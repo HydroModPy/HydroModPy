@@ -1021,7 +1021,13 @@ def convert_units(df: pd.DataFrame, var_key: str) -> pd.DataFrame:
 
 #%% DISPLAY 
 
+_banner_printed = False
+
+
 def print_hydromodpy():
+    global _banner_printed
+    if _banner_printed:
+        return
     banner_lines = [
         r'      __  __          __           __  ____          ________     ',
         r'     / / / /         / /          /  \/   /         / / __  /     ',
@@ -1034,5 +1040,6 @@ def print_hydromodpy():
     ]
     for line in banner_lines:
         logger.info(line)
+    _banner_printed = True
     
 #%% NOTES
