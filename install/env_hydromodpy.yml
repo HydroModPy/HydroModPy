@@ -17,7 +17,7 @@ dependencies:
 - pandas
 - plotly
 - pyshp
-- python
+- python>=3.11
 - rasterio
 - rioxarray
 - selenium
