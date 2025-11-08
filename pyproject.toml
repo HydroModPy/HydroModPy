@@ -7,11 +7,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "0.1.6"
+version = "0.3.0"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "LGPL-3.0-or-later"}
+license = {text = "Eclipse Public License 2.0 (EPL-2.0)"}
 authors = [
     {name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com"},
     {name = "Ronan Abhervé", email = "ronan.abherve@gmail.com"},
