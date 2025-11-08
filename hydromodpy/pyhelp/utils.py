@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
-
-# Copyright © 2018 PyHelp Project Contributors
-# https://github.com/jnsebgosselin/gwhat
-#
-# This file is part of PyHelp.
-# Licensed under the terms of the GNU General Public License.
+"""
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+"""
 
 # ---- Standard imports
 import os
