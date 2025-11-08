@@ -34,7 +34,8 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "License :: OSI Approved :: Eclipse Public License 2.0 (EPL-2.0)",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
