@@ -51,12 +51,6 @@ Install HydroModPy directly from PyPI:
 pip install hydromodpy
 ```
 
-**Note for PyHELP users**:
-
-PyHELP now supports automatic cross-platform installation. Pre-compiled binaries are automatically downloaded on first use - no Fortran compiler required!
-
-See [hydromodpy/pyhelp/README.md](hydromodpy/pyhelp/README.md) for technical details.
-
 For development mode (editable installation):
 
 ```bash
@@ -75,8 +69,8 @@ A HydroModPy environment can be installed with conda using the `.yml` file avail
 
 ```bash
 cd /d "path/to/HydroModPy/install/"
-conda env create -f env_hydromodpy-0.1_windows.yml -n hydromodpy-0.1
-conda activate hydromodpy-0.1
+conda env create -f env_hydromodpy.yml -n hydromodpy
+conda activate hydromodpy
 ```
 
 ### Git installation
@@ -118,50 +112,6 @@ from hydromodpy import Watershed
 print(hydromodpy.__version__)
 ```
 
-## PyHELP Module
-
-HydroModPy includes the PyHELP module for regional groundwater recharge assessment using the HELP (Hydrologic Evaluation of Landfill Performance) model.
-
-### What's New in This Version
-
-**Cross-Platform Support**: The PyHELP module now works on Linux, macOS, and Windows with Python 3.11+
-
-**Unified Environment**: No longer requires a separate conda environment - everything runs in a single Python environment
-
-**Automatic Binary Download**: Pre-compiled HELP3O binaries are automatically downloaded on first use - no compilation required
-
-### Quick Start with PyHELP
-
-```python
-from hydromodpy.pyhelp import HelpManager
-
-# Initialize the manager
-manager = HelpManager(
-    workdir="path/to/workdir",
-    path_to_grid="grid.csv",
-    path_to_precip="precip.csv",
-    path_to_airtemp="airtemp.csv",
-    path_to_solrad="solrad.csv"
-)
-
-# Build HELP input files
-manager.build_help_input_files()
-
-# Run simulation
-output = manager.calc_help_cells(
-    path_to_hdf5="output.hdf5",
-    tfsoil=-3
-)
-```
-
-### Requirements for PyHELP
-
-- Python 3.11, 3.12, or 3.13
-- NumPy ≥ 1.20 (automatically installed with dependencies)
-- Internet connection for first-time binary download
-
-Supported platforms: Linux x86_64, macOS (Intel/Apple Silicon), Windows AMD64
-
 ## Usage Examples
 
 Execute Python scripts following the examples below:
@@ -177,6 +127,7 @@ Execute Python scripts following the examples below:
  - 08_exponential_distribution_of_residence_times
  - 09_transport_model_for_an_agricultural_catchment
  - 10_coupling_with_land_surface_model_pyhelp
+ - 11_full_workflow_from_scratch_without_plots
 ```
 
 ## Linked publications
