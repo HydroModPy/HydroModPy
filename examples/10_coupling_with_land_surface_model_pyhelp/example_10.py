@@ -879,8 +879,9 @@ calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration
 model_names = [
     path for path in glob.glob(os.path.join(calibration_folder, vers + '*'))
     if os.path.isdir(path)
-    ]
-model_name_ref = model_names[-1].split('\\')[-1]
+]
+model_names.sort()
+model_name_ref = model_names[-1]
 
 WC0 = os.path.join(stable_folder, 'geographic', 'watershed.shp')
 WC_shp = gpd.read_file(WC0)
@@ -888,13 +889,14 @@ WC_shp = gpd.read_file(WC0)
 HYD0 = os.path.join(stable_folder, 'hydrography', 'stream_network_urse_reproj.shp')
 HYD_shp = gpd.read_file(HYD0)
 
-for i, model_name in enumerate([model_name_ref]):
+for i, model_path in enumerate([model_name_ref]):
     
     stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
     simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
     calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
-    simflowf = gpd.read_file(os.path.join(model_name, '_matchingstreams', 'simflowf.shp'))
+    simflowf_path = os.path.join(model_path, '_matchingstreams', 'simflowf.shp')
+    simflowf = gpd.read_file(simflowf_path)
     
     fig, ax = plt.subplots(1,1, figsize=(10,10), dpi=300)
     
@@ -906,7 +908,7 @@ for i, model_name in enumerate([model_name_ref]):
     
     WC_shp.plot(ax=ax, facecolor='None', zorder=2, lw=4)
     
-    plt.suptitle(model_name, fontsize=10, y=1)
+    plt.suptitle(os.path.basename(model_path), fontsize=10, y=1)
     
     plt.tight_layout()
     
