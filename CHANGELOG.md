@@ -32,14 +32,13 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 ### Added
-- Planned updates and improvements for future releases.
-
+-
+### Changed
+-
 ### Fixed
-- HydroModPy now pins `PROJ_DATA`/`PROJ_LIB` to the active environment's pyproj data directory on import, preventing accidental use of stale global `proj.db` copies.
-- Added detection that overrides user-defined `PROJ_DATA` values pointing outside the active environment or to missing `proj.db` files, ensuring conda/venv-specific databases are always preferred.
-- PyHELP CLI now propagates the working directory via `PYHELP_WORKDIR`, and `help_example.py` also accepts `--workdir`, fixing the Windows crash when launching example 10 manually.
-- PyHELP automatically downloads and extracts the Windows bundle (`HELP3O_*_bundle.zip`) so that MinGW runtime DLLs ship alongside `HELP3O.cp***.pyd`.
-- Windows now registers the cache directory via `os.add_dll_directory` and preloads bundled MinGW DLLs before importing HELP3O, so missing dependencies are reported explicitly and resolved automatically.
+-
+### Removed
+-
 
 ---
 
@@ -50,6 +49,11 @@ Each release section includes the following standard categories:
 - Single cross-platform conda environment file (`environment-conda.yml`) for Linux, macOS, and Windows.
 - Automatic download of HELP3O binaries on first use (no Fortran compiler needed).
 - `MANIFEST.in` for packaging executables, examples, and documentation.
+- Pin `PROJ_DATA` and `PROJ_LIB` to the active pyproj data folder to avoid stale `proj.db` files.
+- Override external `PROJ_DATA` paths that leave the environment or miss `proj.db` so the environment copy always loads.
+- `pyhelp` CLI now exports `PYHELP_WORKDIR` and `help_example.py --workdir` to stop the Windows crash on Example 10.
+- Auto-download and unpack the Windows HELP3O bundle so bundled DLLs ship with `HELP3O.cp***.pyd`.
+- On Windows register the cache folder through `os.add_dll_directory` and preload the MinGW DLLs before importing HELP3O.
 
 ### Changed
 - Renamed package from `src` to `hydromodpy` following standard Python conventions.
