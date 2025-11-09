@@ -2,37 +2,83 @@
 
 All notable changes to this project will be documented in this file.
 
-The format follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) convention  
+The format follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) convention
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
 ## About this file
 
-This changelog lists every significant modification of the HydroModPy project,  
-from new features to fixes and internal updates.  
+This changelog lists every significant modification of the HydroModPy project,
+from new features to fixes and internal updates.
 
 Each release section includes the following standard categories:
 
-- **Added** – for new features  
-- **Changed** – for updates in existing functionality  
-- **Deprecated** – for soon-to-be removed features  
-- **Removed** – for removed features or files  
-- **Fixed** – for any bug fixes  
+- **Added** – for new features
+- **Changed** – for updates in existing functionality
+- **Deprecated** – for soon-to-be removed features
+- **Removed** – for removed features or files
+- **Fixed** – for any bug fixes
 - **Security** – for security improvements
 
 ### How to update it
 
-1. During development, document all notable changes under the **[Unreleased]** section.  
-2. When creating a new release (e.g., `v0.1.1`), move that content into a new section  
-   named `## [v0.1.1] - YYYY-MM-DD`.  
-3. Keep the `[Unreleased]` section empty to start recording changes for the next release.  
+1. During development, document all notable changes under the **[Unreleased]** section.
+2. When creating a new release (e.g., `v0.1.1`), move that content into a new section
+   named `## [v0.1.1] - YYYY-MM-DD`.
+3. Keep the `[Unreleased]` section empty to start recording changes for the next release.
 
 ---
 
 ## [Unreleased]
 ### Added
-- Planned updates and improvements for future releases.
+-
+### Changed
+-
+### Fixed
+-
+### Removed
+-
+
+---
+
+## [v0.3.0] - 2025-11-06
+### Compatibility
+- Runtime baseline jumps from Python 3.8.10 to the Python 3.11–3.13 series. Tested on Linux, macOS, and Windows.
+
+### Added
+- Logging system with `LogManager` class (replaces all `print()` statements).
+- GitLab CI/CD pipeline for automated builds and PyPI publication.
+- Single cross-platform conda environment file (`environment-conda.yml`) for Linux, macOS, and Windows.
+- Automatic download of HELP3O binaries on first use (no Fortran compiler needed).
+- `MANIFEST.in` for packaging executables, examples, and documentation.
+- Pin `PROJ_DATA` and `PROJ_LIB` to the active pyproj data folder to avoid stale `proj.db` files.
+- Override external `PROJ_DATA` paths that leave the environment or miss `proj.db` so the environment copy always loads (problem often caused by gdal).
+- `pyhelp` CLI now exports `PYHELP_WORKDIR` and `help_example.py --workdir` to stop the Windows crash on Example 10.
+
+### Changed
+- Renamed package from `src` to `hydromodpy` following standard Python conventions.
+- Replaced GDAL with rasterio for pip-only installation (tested with Python 3.13).
+- First version available via `pip install hydromodpy`.
+- Conda installation now fully automatic with single environment file (with only conda-forge channels, no pip dependencies).
+- Updated all imports in examples (00-11) from `src` to `hydromodpy`.
+- PyHELP now downloads pre-compiled binaries instead of requiring Fortran compilation.
+- Logging supports three modes: "dev" (DEBUG), "verbose" (INFO), "quiet" (WARNING).
+- Replaced deepdish with pickle for serialization.
+
+### Removed
+- Platform-specific environment files (`env_pyhelp-0.1_windows.yml`, `environment-crossplatform-3119.yml`).
+- Fortran compilation requirements for PyHELP.
+- Unused FTP-AQUIFER utility scripts.
+- Hard-coded GDAL dependencies.
+- Removed obsolete third-party packages (e.g., hydroeval, deepdish) to ensure compatibility with Python 3.11+.
+
+### Fixed
+- Normalized example folder names.
+- Cross-platform file path handling.
+- Suppressed verbose logging from third-party libraries (matplotlib, flopy, etc.).
+- PROJ data synchronization in PyHELP NetCDF writer.
+- macOS HELP3O binary extraction.
 
 ---
 
@@ -61,12 +107,13 @@ Each release section includes the following standard categories:
 
 ## [v0.1.0] - 2025-10-31
 ### Added
-- **First official release** of the HydroModPy package.  
-- Established the initial project structure for hydrological/hydrogeological modeling workflows.  
+- **First official release** of the HydroModPy package.
+- Established the initial project structure for hydrological/hydrogeological modeling workflows.
 - Defined the versioning convention following **Semantic Versioning (vX.Y.Z)**.
 
 ---
 
-[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.2.0...dev
+[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.0...dev
+[v0.3.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/releases/v0.1.0
