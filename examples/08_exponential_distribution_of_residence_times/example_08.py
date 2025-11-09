@@ -81,10 +81,10 @@ case = 'Example_08_Synthetic'         #name of the folder in examples folder
 
 if case == 'Example_08_Synthetic':
     dem_path_ref = data_path + 'hillslope_1D.tif'
-    
+
     resamp_res = dx
     dem_path_res = data_path + 'hillslope_1D_resampled'+str(resamp_res)+'.tif'
-    
+
     if not os.path.exists(dem_path_res):
         # open reference file and get resolution
         x_res = resamp_res
@@ -92,7 +92,7 @@ if case == 'Example_08_Synthetic':
         # specify input and output filenames
         inputFile = dem_path_ref
         outputFile = dem_path_res
-        # resample le raster à la résolution souhaitée
+        # resample the raster to the desired resolution
         with rio.open(inputFile) as src:
             dst_transform = from_origin(
                 src.bounds.left,
@@ -120,12 +120,12 @@ if case == 'Example_08_Synthetic':
                         dst_crs=src.crs,
                         resampling=Resampling.bilinear
                     )
-        
+
     x = imageio.imread(dem_path_res)
     x = (x*0)+1000*dL_fact
     toolbox.export_tif(dem_path_res, x, data_path + 'hillslope_1D_userdefined.tif', -99999)
     dem_path = data_path + 'hillslope_1D_userdefined.tif'
-    
+
     load = False
     watershed_name = case
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
@@ -135,7 +135,7 @@ if case == 'Example_08_Synthetic':
     bottom_path = None # path
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
-    
+
 #%% GEOGRAPHIC
 
 print('##### '+watershed_name.upper()+' #####')
@@ -149,7 +149,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=bottom_path, # path 
+                              bottom_path=bottom_path, # path
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -168,7 +168,7 @@ plot_cross = False
 dis_perlen =  True
 check_grid = True
 
-# Ratio to reach 
+# Ratio to reach
 KR = 15000 # hydraulic conductivity divided by recharge
 # KR = 10 # hydraulic conductivity divided by recharge
 
@@ -234,7 +234,7 @@ success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_mod
 
 BV.postprocessing_modflow(model_modflow,
                           watertable_elevation = True,
-                          watertable_depth= True, 
+                          watertable_depth= True,
                           seepage_areas = True,
                           outflow_drain = True,
                           groundwater_flux = True,
@@ -249,7 +249,7 @@ BV.settings.update_input_particles(zone_partic = BV.geographic.watershed_dem,
                                     cell_div = part_num, # 1, distribution of partciles by cell in x and y direction
                                     zloc_div = False,  # False or True, inject partciles in z direction. Same number as cell_div
                                     bore_depth = None, # None or True, None 1 particle in the first layer, If True it will inject 1 particle in every layer.
-                                    track_dir = tracking_dir, # backward or forward 
+                                    track_dir = tracking_dir, # backward or forward
                                     sel_random = None, # or int
                                     sel_slice = None, # or int
                                     )
@@ -284,21 +284,21 @@ hdobj = flopy.utils.HeadFile(fname + '.hds')
 times = hdobj.get_times()
 
 for i, t in enumerate([times[0]]):
-    
+
     # Data
     i = int(i)
     head = hdobj.get_data(totim=t)
-    
+
     # Figure
     fig = plt.figure(figsize=(10, 4), dpi=300)
     ax = fig.add_subplot(1, 1, 1)
     ax.set_title('Cross-section : '+'time '+str(i))
     ax.set_xlabel('x [m]')
     ax.set_ylabel('z [m]')
-    
+
     # Init cross-section
     xsect = flopy.plot.PlotCrossSection(model=ml, line={'Row': 0})
-    
+
     # Head color
     pc = xsect.plot_array(head, masked_values=[999.], head=head, cmap='Blues',
                             vmin=0, vmax=None,
@@ -306,13 +306,13 @@ for i, t in enumerate([times[0]]):
     cb = plt.colorbar(pc, shrink=0.75)
     cb.set_label('Head [m]', labelpad=+10)
     wt = xsect.plot_surface(head, masked_values=[999.], color='b', lw=1)
-    
+
     # Boundary
     patches = xsect.plot_ibound(head=head)
-    
+
     # Grid
     linecollection = xsect.plot_grid(alpha=0.75, zorder=0)
-    
+
     # # Particles plot
     end = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/ending.shp')
     prt = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/particles.shp')
@@ -325,11 +325,11 @@ for i, t in enumerate([times[0]]):
     list_particles = [10,20,30,40,50,60,70,80,90,100]
     # prt_fil = prt[prt['particleid']==100]
     prt_fil =  prt[prt['particleid'].isin(list_particles)]
-    sc = ax.scatter(prt_fil['x'], prt_fil['z'], c=prt_fil['time']/365, s=20, 
+    sc = ax.scatter(prt_fil['x'], prt_fil['z'], c=prt_fil['time']/365, s=20,
                     cmap='spring', linewidths=0, norm=mpl.colors.LogNorm(vmin=1/365, vmax=10))
     cbsc = plt.colorbar(sc, shrink=0.75)
     cbsc.set_label('Residence times [y]', labelpad=+10)
-    
+
     # Adjust
     ax.set_ylim(0,thick*1.1)
     fig.tight_layout()
@@ -348,12 +348,12 @@ else:
     tau = np.average(end['time_win_y'])
 
 # Pdf
-def pdf_function(M, nbin, Weight):    
+def pdf_function(M, nbin, Weight):
     bin_min = np.quantile(M, 0.01)
     bin_max = np.quantile(M, 0.99)
     bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
     pdf, binEdges = np.histogram(M, bins=bins, density=True, weights=Weight)
-    dx = np.diff(binEdges)  
+    dx = np.diff(binEdges)
     xh =  (binEdges[1:] + binEdges[:-1])/2
     xh = np.array(xh)
     return (xh, pdf)
@@ -404,13 +404,13 @@ p_ttd = 1/tau2*np.exp(-t/tau2)
 ax.plot(t, p_ttd, 'grey', lw=3, label='Exponential model')
 ax.plot(10**x_fit, 10**y_fit, '-', lw=3, c='dodgerblue', label='Fitting curve')
 ax.plot(xh, yh, '.', lw=0, ms=10, c='red', label='PDF on particles')
-intrp = np.interp(xh, t, p_ttd)        
+intrp = np.interp(xh, t, p_ttd)
 ax.set_ylabel("PDF")
 ax.set_xlabel("t / "+r'$\tau$')
-ax.set_xscale('log')    
+ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_title('Residence times distribution', fontsize=12)
-ax.set_xlim(1e-2, 1e1)    
+ax.set_xlim(1e-2, 1e1)
 ax.set_ylim(1e-2, 1e1)
 ax.axvline(x=1, c='k', ls='--', zorder=-1)
 ax.axhline(y=1, c='k', ls='--', zorder=-1)
@@ -420,10 +420,10 @@ ax.legend(loc='lower left')
 
 # wbt.verbose = True
 # wbt.resample(
-#     dem_path_ref, 
-#     dem_path_res, 
-#     cell_size=100, 
-#     base=None, 
+#     dem_path_ref,
+#     dem_path_res,
+#     cell_size=100,
+#     base=None,
 #     method="cc")
 
 # bx = fig.add_subplot(212)
