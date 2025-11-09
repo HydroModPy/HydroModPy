@@ -71,10 +71,10 @@ case = 'Example_07_Hillslope'
 
 if case == 'Example_07_Hillslope':
     dem_path_ref = data_path + 'hillslope_1D.tif'
-    
+
     resamp_res = 20
     dem_path_res = data_path + 'hillslope_1D_resampled'+str(resamp_res)+'.tif'
-    
+
     if not os.path.exists(dem_path_res):
         # open reference file and get resolution
         x_res = resamp_res
@@ -82,7 +82,7 @@ if case == 'Example_07_Hillslope':
         # specify input and output filenames
         inputFile = dem_path_ref
         outputFile = dem_path_res
-        # resample le raster à la résolution souhaitée
+        # resample the raster to the desired resolution
         with rio.open(inputFile) as src:
             dst_transform = from_origin(
                 src.bounds.left,
@@ -110,12 +110,12 @@ if case == 'Example_07_Hillslope':
                         dst_crs=src.crs,
                         resampling=Resampling.bilinear
                     )
-        
+
     x = imageio.imread(dem_path_res)
     x = (x*0)+100
     toolbox.export_tif(dem_path_res, x, data_path + 'hillslope_1D_userdefined.tif', -99999)
     dem_path = data_path + 'hillslope_1D_userdefined.tif'
-    
+
     load = False
     watershed_name = case
     from_lib = None # os.path.join(root_dir,'watershed_library.csv')
@@ -139,7 +139,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=bottom_path, # path 
+                              bottom_path=bottom_path, # path
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -182,7 +182,7 @@ plot_cross = False
 dis_perlen =  True
 check_grid = True
 
-# Ratio to reach 
+# Ratio to reach
 KR = 10 # hydraulic conductivity divided by recharge
 
 # Climatic settings
@@ -269,7 +269,7 @@ times = hdobj.get_times()
 for i, t in enumerate([times[0],times[-1]]):
     i = int(i)
     head = hdobj.get_data(totim=t)
-    
+
     # Figure
     fig = plt.figure(figsize=(10, 4), dpi=300)
     ax = fig.add_subplot(1, 1, 1)
@@ -279,7 +279,7 @@ for i, t in enumerate([times[0],times[-1]]):
     ax.set_ylim(0,100)
 
     xsect = flopy.plot.PlotCrossSection(model=ml, line={'Row': 0})
-    
+
     # Head color
     pc = xsect.plot_array(head, masked_values=[999.], head=head, cmap='Blues_r',
                             vmin=0, vmax=100,
@@ -287,10 +287,10 @@ for i, t in enumerate([times[0],times[-1]]):
     cb = plt.colorbar(pc, shrink=0.75)
     cb.set_label('Head [m]', labelpad=+10)
     wt = xsect.plot_surface(head, masked_values=[999.], color='b', lw=1)
-    
+
     # Boundary
     patches = xsect.plot_ibound(head=head)
-    
+
     # Grid
     linecollection = xsect.plot_grid(alpha=0.75, zorder=0)
 
@@ -305,18 +305,18 @@ list_D = []
 list_CH = []
 list_R = []
 list_S = []
-for i in range(len(kstpkper)):   
+for i in range(len(kstpkper)):
     st = cbb.get_data(text='STORAGE', kstpkper=(0,i))
     ch = cbb.get_data(text='CONSTANT HEAD', kstpkper=(0,i))
     drain = cbb.get_data(text='DRAINS', kstpkper=(0,i))
     rec = cbb.get_data(text='RECHARGE', kstpkper=(0,i))
     list_D.append(drain[0]['q'].sum())
     list_CH.append(ch[0]['q'].sum())
-    list_R.append(rec[0][-1][0].sum())    
+    list_R.append(rec[0][-1][0].sum())
     Qx = cbb.get_data(text='FLOW RIGHT FACE', kstpkper=(0,i))
     Qy = np.ones(shape=(10,1,100))
     Qz = cbb.get_data(text='FLOW LOWER FACE', kstpkper=(0,i))
-    # Q = np.sqrt(Qx**2 + Qz**2) # 
+    # Q = np.sqrt(Qx**2 + Qz**2) #
     # Q_print = Q[0,0,0] # m/m
 
 df = pd.DataFrame()
@@ -380,8 +380,8 @@ os.chdir(root_dir)
 
 # wbt.verbose = True
 # wbt.resample(
-#     dem_path_ref, 
-#     dem_path_res, 
-#     cell_size=100, 
-#     base=None, 
+#     dem_path_ref,
+#     dem_path_res,
+#     cell_size=100,
+#     base=None,
 #     method="cc")
