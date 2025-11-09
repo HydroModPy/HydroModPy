@@ -71,7 +71,6 @@ dependencies = [
     "pysheds",
     "pyside6",
     "spyder-kernels",
-
 ]
 
 [project.urls]
