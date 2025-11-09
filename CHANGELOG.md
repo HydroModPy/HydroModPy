@@ -43,6 +43,9 @@ Each release section includes the following standard categories:
 ---
 
 ## [v0.3.0] - 2025-11-06
+### Compatibility
+- Runtime baseline jumps from Python 3.8.10 to the Python 3.11–3.13 series. Tested on Linux, macOS, and Windows.
+
 ### Added
 - Logging system with `LogManager` class (replaces all `print()` statements).
 - GitLab CI/CD pipeline for automated builds and PyPI publication.
@@ -50,27 +53,25 @@ Each release section includes the following standard categories:
 - Automatic download of HELP3O binaries on first use (no Fortran compiler needed).
 - `MANIFEST.in` for packaging executables, examples, and documentation.
 - Pin `PROJ_DATA` and `PROJ_LIB` to the active pyproj data folder to avoid stale `proj.db` files.
-- Override external `PROJ_DATA` paths that leave the environment or miss `proj.db` so the environment copy always loads.
+- Override external `PROJ_DATA` paths that leave the environment or miss `proj.db` so the environment copy always loads (problem often caused by gdal).
 - `pyhelp` CLI now exports `PYHELP_WORKDIR` and `help_example.py --workdir` to stop the Windows crash on Example 10.
-- Auto-download and unpack the Windows HELP3O bundle so bundled DLLs ship with `HELP3O.cp***.pyd`.
-- On Windows register the cache folder through `os.add_dll_directory` and preload the MinGW DLLs before importing HELP3O.
 
 ### Changed
 - Renamed package from `src` to `hydromodpy` following standard Python conventions.
 - Replaced GDAL with rasterio for pip-only installation (tested with Python 3.13).
 - First version available via `pip install hydromodpy`.
-- Conda installation now fully automatic with single environment file.
+- Conda installation now fully automatic with single environment file (with only conda-forge channels, no pip dependencies).
 - Updated all imports in examples (00-11) from `src` to `hydromodpy`.
 - PyHELP now downloads pre-compiled binaries instead of requiring Fortran compilation.
 - Logging supports three modes: "dev" (DEBUG), "verbose" (INFO), "quiet" (WARNING).
 - Replaced deepdish with pickle for serialization.
-- Updated copyright years to 2023-2025.
 
 ### Removed
 - Platform-specific environment files (`env_pyhelp-0.1_windows.yml`, `environment-crossplatform-3119.yml`).
 - Fortran compilation requirements for PyHELP.
 - Unused FTP-AQUIFER utility scripts.
 - Hard-coded GDAL dependencies.
+- Removed obsolete third-party packages (e.g., hydroeval, deepdish) to ensure compatibility with Python 3.11+.
 
 ### Fixed
 - Normalized example folder names.
