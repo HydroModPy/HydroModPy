@@ -25,6 +25,56 @@ logging.basicConfig(
     ]
 )
 
+def rmse_manual(sim, obs):
+    """Root Mean Square Error (RMSE)."""
+    return np.sqrt(np.mean((sim - obs) ** 2))
+
+def nse_manual(sim, obs, transform=None):
+    """Nash–Sutcliffe Efficiency (optionally on log‑transformed Q)."""
+    if transform == 'log':
+        eps = 1e-6
+        sim, obs = np.log(sim + eps), np.log(obs + eps)
+    num = np.sum((obs - sim) ** 2)
+    den = np.sum((obs - np.mean(obs)) ** 2)
+    return 1 - num/den
+
+def mare_manual(sim, obs):
+    """Mean Absolute Relative Error (MARE)."""
+    return np.mean(np.abs(sim - obs) / obs)
+
+def kge_manual(sim, obs):
+    """Kling–Gupta Efficiency and its three components (r, α, β)."""
+    # Pearson r
+    r = np.corrcoef(sim, obs)[0,1]
+    # spread ratio α
+    alpha = np.std(sim) / np.std(obs)
+    # bias ratio β (sum‑based, same as mean‑based)
+    beta = np.sum(sim) / np.sum(obs)
+    kge = 1 - np.sqrt((r - 1)**2 + (alpha - 1)**2 + (beta - 1)**2)
+    return kge, r, alpha, beta
+
+def efficiency_criteria(sim, obs):
+    """
+    Compute [RMSE, nRMSE, NSE, NSElog, BAL, MARE, KGE] on two 1D arrays,
+    doing pair‑wise deletion of NaNs in obs.
+    """
+    # flatten and mask out any NaN in obs
+    sim = np.asarray(sim).ravel()
+    obs = np.asarray(obs).ravel()
+    mask = ~np.isnan(obs)
+    sim, obs = sim[mask], obs[mask]
+
+    # now all metrics on equal‑length vectors
+    rmse = rmse_manual(sim, obs)
+    nrmse = rmse / np.mean(obs)
+    nse   = nse_manual(sim, obs)
+    nselog= nse_manual(sim, obs, transform='log')
+    bal   = np.sum(sim) / np.sum(obs)
+    mare  = mare_manual(sim, obs)
+    kge   = kge_manual(sim, obs)[0]
+
+    return rmse, nrmse, nse, nselog, bal, mare, kge
+
 def setup_worker_environment(worker_id, base_config):
     """
     Configure the environment for a specific worker.
@@ -65,7 +115,7 @@ def run_single_simulation(hk,hk_decay, exdp, sy, sy_decay, ss, ss_decay, alpha, 
     base_config : dict
         Base configuration dictionary
     iteration_name : str
-        Name for this iteration
+        Name for this iterations
     #!! FAIRE LA DOCSTRING COMPLETE AVEC TOUS LES PARAMETRES
     Returns
     -------
@@ -283,9 +333,9 @@ def run_single_simulation(hk,hk_decay, exdp, sy, sy_decay, ss, ss_decay, alpha, 
         Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
         
         # Temporal configuration
-        if config['freq_input'] == 'M':
+        if config['freq_input'] == 'M' or config['freq_input'] == 'm':
             temp_config = {'multiplier': 'days_in_period', 'label': 'mm/month'}
-        elif config['freq_input'] == 'W':
+        elif config['freq_input'] == 'W' or config['freq_input'] == 'w':
             temp_config = {'multiplier': 7, 'label': 'mm/week'}
         else:
             temp_config = {'multiplier': 1, 'label': 'mm/day'}
@@ -341,7 +391,7 @@ def run_single_simulation(hk,hk_decay, exdp, sy, sy_decay, ss, ss_decay, alpha, 
                         
                         # Common date column indicators
                         date_indicators = ['date', 'time', 'Date', 'DATE', 'Time', 'TIME', 'datetime', 'DATETIME']
-                        flow_indicators = ['q', 'Q', 'flow', 'Flow', 'FLOW', 'debit', 'Debit', 'DEBIT']
+                        flow_indicators = ['q', 'flow', 'debit', 'Q_Lperday']
                         
                         # Find date column
                         for col in df.columns:
@@ -361,7 +411,7 @@ def run_single_simulation(hk,hk_decay, exdp, sy, sy_decay, ss, ss_decay, alpha, 
                                 if any(indicator.lower() in col_str for indicator in flow_indicators):
                                     flow_col = col
                                     break
-                        
+
                         # If no explicit flow column found, assume second column or first non-date column
                         if flow_col is None:
                             remaining_cols = [col for col in df.columns if col != date_col]
@@ -370,28 +420,20 @@ def run_single_simulation(hk,hk_decay, exdp, sy, sy_decay, ss, ss_decay, alpha, 
                             else:
                                 continue
                         
+                        # Check if flow column is 'Q_Lperday' and apply conversion
+                        if flow_col == 'Q_Lperday':
+                            flow_data = flow_data / 1000 / 24 * 3600  # Convert from liters/day to m³/s
+                            
                         # Extract data
                         flow_data = df[flow_col]
                         date_data = df[date_col]
                         
-                        # Convert dates - try different formats
-                        date_formats = ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%Y/%m/%d', 
-                                       '%d-%m-%Y', '%m-%d-%Y', '%d.%m.%Y', '%Y.%m.%d']
-                        
-                        parsed_dates = None
-                        for date_format in date_formats:
-                            try:
-                                parsed_dates = pd.to_datetime(date_data, format=date_format)
-                                break
-                            except:
-                                continue
-                        
-                        # If specific formats fail, use pandas' automatic parsing
-                        if parsed_dates is None:
-                            try:
-                                parsed_dates = pd.to_datetime(date_data, infer_datetime_format=True)
-                            except:
-                                continue
+                        # Convert dates with automatic inference
+                        try:
+                            parsed_dates = pd.to_datetime(date_data, infer_datetime_format=True, errors='coerce')
+                        except Exception as e:
+                            logging.debug(f"Error converting dates with sep='{sep}', encoding='{encoding}': {e}")
+                            continue
                         
                         # Convert flow to numeric
                         flow_numeric = pd.to_numeric(flow_data, errors='coerce')
@@ -428,9 +470,9 @@ def run_single_simulation(hk,hk_decay, exdp, sy, sy_decay, ss, ss_decay, alpha, 
         Qobs = (Qobs * 3600 * 24) / area_m2 * 1000 # m3/s to mm/day
         
         # Aggregation according to frequency
-        if config['freq_input'] == 'M':
+        if config['freq_input'] == 'M' or config['freq_input'] == 'm':
             Qobs = Qobs.resample('M').sum()
-        elif config['freq_input'] == 'W':
+        elif config['freq_input'] == 'W' or config['freq_input'] == 'w':
             Qobs = Qobs.resample('W').sum()
         
         # Prepare modeled flow
@@ -452,18 +494,22 @@ def run_single_simulation(hk,hk_decay, exdp, sy, sy_decay, ss, ss_decay, alpha, 
         Qobs_cal = Qobs_cal.loc[common_idx]
         Qmod_cal = Qmod_cal.loc[common_idx]
         
-        # Calculate performance indicators
-        try:
-            import hydroeval as he
-            arr_obs = Qobs_cal.values
-            arr_mod = Qmod_cal.values
-            NSE = he.evaluator(he.nse, arr_mod, arr_obs)[0]
-            NSElog = he.evaluator(he.nse, arr_mod, arr_obs, transform='log')[0]
-            KGE = he.evaluator(he.kge, arr_mod, arr_obs)[0][0]
-            RMSE = np.sqrt(np.nanmean((arr_obs - arr_mod)**2))
-        except ImportError:
-            NSE = NSElog = KGE = np.nan
-            RMSE = np.sqrt(np.nanmean((arr_obs - arr_mod)**2))
+        # Calculate performance indicators using manual functions
+        arr_obs = Qobs_cal.values
+        arr_mod = Qmod_cal.values
+        
+        # Remove NaN values from observations
+        mask = ~np.isnan(arr_obs)
+        arr_obs_clean = arr_obs[mask]
+        arr_mod_clean = arr_mod[mask]
+        
+        if len(arr_obs_clean) > 0:
+            RMSE = rmse_manual(arr_mod_clean, arr_obs_clean)
+            NSE = nse_manual(arr_mod_clean, arr_obs_clean)
+            NSElog = nse_manual(arr_mod_clean, arr_obs_clean, transform='log')
+            KGE = kge_manual(arr_mod_clean, arr_obs_clean)[0]
+        else:
+            RMSE = NSE = NSElog = KGE = np.nan
         
         # Initialize default values for spatial metrics
         sim_distance = obs_distance = FA = FQA = np.nan
@@ -883,19 +929,19 @@ def main():
         'streamflow_obs_file': 'J560681001.csv',  # streamflow observations file
         
         # Fixed hydraulic parameters
-        'hk': 5e-5,  # Fixed hydraulic conductivity (m/s) - ADJUST THIS VALUE AS NEEDED
-        'thick': None,
+        'hk': 2.1e-5,  # Fixed hydraulic conductivity (m/s) - ADJUST THIS VALUE AS NEEDED
+        'thick': 30,
         'nlay': 20,
-        'lay_decay': 1,
+        'lay_decay': 1.25,
         'bottom': 0,
         'cond_drain': None,
         'ss': 1e-5,  # Specific storage top of the layer (m^-1)
-        'alpha': (1/21),
-        'hk_decay': ((1/21), None, True, []),  # Example fixed values
-        'sy_decay': (((1/21)/2), None, True, []),  # Example fixed values,
-        'ss_decay': (((1/21)/2), None, True, []),  # Example fixed values
+        'alpha': (1/30),
+        'hk_decay': ((1/30), None, True, []),  # Example fixed values
+        'sy_decay': (((1/30)/2), None, True, []),  # Example fixed values,
+        'ss_decay': (((1/30)/2), None, True, []),  # Example fixed values
         # Modeling parameters
-        'from_xyv': [265547, 6783313, 150, 10, 'EPSG:2154'],
+        'from_xyv': [265549.268, 6783310.595, 150, 10, 'EPSG:2154'],
         'load': False,
         'save_object': True,
         'box': True,
