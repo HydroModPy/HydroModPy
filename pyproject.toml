@@ -73,6 +73,23 @@ dependencies = [
     "spyder-kernels",
 ]
 
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme",
+    "myst-parser",
+    "nbsphinx",
+    "sphinx-gallery",
+    "sphinx-autobuild",
+    "readthedocs-sphinx-ext",
+    "pydata-sphinx-theme",
+    "sphinx-design",
+    "sphinx-copybutton",
+    "sphinx-togglebutton",
+    "sphinx-tabs",
+    "sphinx-multiversion",
+]
+
 [project.urls]
 Homepage = "https://hydromod.readthedocs.io/"
 Documentation = "https://hydromod.readthedocs.io/"
