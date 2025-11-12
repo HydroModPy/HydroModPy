@@ -146,6 +146,7 @@ examples/results/
 *.lst
 *.nam
 test_*/
+test/results/
 
 # Temporary files
 *.tmp
