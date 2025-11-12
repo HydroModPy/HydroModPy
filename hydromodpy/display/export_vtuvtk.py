@@ -131,19 +131,18 @@ class VTK():
     
     def grid(self, modelname, modelfolder, save_file, geographic):
         """
-        
-        build vtk file of grid model
+        Build a VTK file describing the MODFLOW grid.
+
         Parameters
         ----------
         modelname : str
-            name of model.
+            Name of the groundwater model.
         modelfolder : str
-            folder where the model files are save.
+            Directory where the model input/output files are stored.
         save_file : str
-            folder where the vtk file is save.
-        geographic : Python object
-            object geographic of watershed class.
-            
+            Directory where the generated VTK artefacts are saved.
+        geographic : hydromodpy.watershed.geographic.Geographic
+            Geographic descriptor of the watershed instance.
         """
         
         def GetExtent(gt,geotx, geoty, cols, rows):

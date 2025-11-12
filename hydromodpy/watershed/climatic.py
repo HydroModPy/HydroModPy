@@ -479,40 +479,34 @@ class Climatic:
                                sim_state='transient', spatial_mean=False,
                                geographic, disk_clip=None):
         """
-        Download the SIM2 historical reanalysis data into watershed.climatic
-        objects and save them to netCDF files (not compressed, clipped on
-        the watershed).
+        Download SIM2 reanalysis datasets and attach them to the climatic object.
 
         Parameters
         ----------
-        * : TYPE
-            DESCRIPTION.
-        var_list : TYPE
-            DESCRIPTION.
-        nc_data_path : TYPE,
-            DESCRIPTION. The default is None.
-        first_year : TYPE
-            DESCRIPTION.
-        last_year : TYPE, optional
-            DESCRIPTION. The default is None.
-        time_step : TYPE, optional
-            DESCRIPTION. The default is 'D'.
-        sim_state : TYPE, optional
-            DESCRIPTION. The default is 'transient'.
-        spatial_mean : bool
-            0
-        geographic : object
-            Watershed.geographic object, including info such as crs, mask...
-        disk_clip : str
-            Shapefile_path or flag ('watershed' | None) to indicate how to clip
-            the netcdf files that are stored on the nc_data_path folder.
-            The only purpose of clipping these files is to save disk space.
-                
+        var_list : str or list[str]
+            Variables to download (``['recharge', 'runoff', ...]``). Accepts a
+            single string which is converted to a list internally.
+        nc_data_path : str
+            Folder where the NetCDF files are cached (created if missing).
+        first_year : int
+            First year included in the extraction window.
+        last_year : int, optional
+            Last year to download (defaults to ``first_year`` if omitted).
+        time_step : {'D', 'M'}, optional
+            Temporal resolution requested when querying SIM2 (daily by default).
+        sim_state : {'transient', 'steady'}, optional
+            Simulation flavour; used when setting HydroModPy inputs.
+        spatial_mean : bool, optional
+            Average each variable over the watershed mask before storing it.
+        geographic : hydromodpy.watershed.geographic.Geographic
+            Geographic descriptor providing CRS, bounds, and watershed mask.
+        disk_clip : str, optional
+            Either ``'watershed'`` or a shapefile path controlling how cached
+            NetCDF cubes are spatially clipped to save disk space.
 
         Returns
         -------
-        Extracted data as xarray.
-
+        None
         """
         # If a single var name is provided, convert it to a list.
         if isinstance(var_list, str): var_list = [var_list]

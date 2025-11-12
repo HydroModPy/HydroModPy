@@ -14,17 +14,42 @@
 #
 import os
 import sys
+from pathlib import Path
 from sphinx.builders.html import StandaloneHTMLBuilder
 
-package_path = os.path.abspath('../..')
-os.environ['PYTHONPATH'] = ':'.join((package_path, os.environ.get('PYTHONPATH', '')))
+package_path = Path(__file__).resolve().parents[3]
+os.environ['PYTHONPATH'] = ':'.join((str(package_path), os.environ.get('PYTHONPATH', '')))
 
-sys.path.insert(0, os.path.abspath('../../../src/'))
-sys.path.insert(0, os.path.abspath('../../../src/watershed/'))
-sys.path.insert(0, os.path.abspath('../../../src/tools/'))
-sys.path.insert(0, os.path.abspath('../../../src/modeling/'))
-sys.path.insert(0, os.path.abspath('../../../src/display/'))
+# Make the editable install (or cloned repo) importable without relying on src/
+sys.path.insert(0, str(package_path))
+sys.path.insert(0, str(package_path / "hydromodpy"))
 
+import importlib
+
+try:
+    import shapely  # noqa: F401
+except Exception:
+    import types
+
+    shapely_stub = types.ModuleType("shapely")
+    geometry_stub = types.ModuleType("shapely.geometry")
+
+    def _dummy_mapping(obj):
+        return getattr(obj, "__geo_interface__", obj)
+
+    class _DummyPoint:
+        def __init__(self, *args, **kwargs):
+            self.__geo_interface__ = {
+                "type": "Point",
+                "coordinates": args if args else kwargs.get("coordinates", (0, 0)),
+            }
+
+    geometry_stub.mapping = _dummy_mapping
+    geometry_stub.Point = _DummyPoint
+    shapely_stub.geometry = geometry_stub
+
+    sys.modules["shapely"] = shapely_stub
+    sys.modules["shapely.geometry"] = geometry_stub
 
 # -- Project information -----------------------------------------------------
 
@@ -60,9 +85,16 @@ extensions = [
     'nbsphinx',
     "sphinx_gallery.load_style",
     "myst_parser",
+    "sphinx_design",
+    "sphinx_copybutton",
+    "sphinx_togglebutton",
+    "sphinx_tabs.tabs",
+    "sphinx_multiversion",
 ]
 autoclass_content = 'both'
+autosummary_generate = True
 nbsphinx_allow_errors = True
+nbsphinx_execute = "never"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -81,7 +113,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -97,7 +129,7 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'pydata_sphinx_theme'
 html_favicon = 'images/logoHydroModPy.png'
 html_logo = 'images/logoHydroModPy_long.png'
 
@@ -106,26 +138,53 @@ html_logo = 'images/logoHydroModPy_long.png'
 # documentation.
 #
 html_theme_options = {
-    'analytics_id': 'G-XXXXXXXXXX',  #  Provided by Google in your dashboard
-    'analytics_anonymize_ip': False,
-    'logo_only': True,
-    'display_version': True,
-    'prev_next_buttons_location': 'bottom',
-    'style_external_links': False,
-    'vcs_pageview_mode': 'display_gitlab',
-    'style_nav_header_background': '#343131',
-    # Toc options
-    'collapse_navigation': True,
-    'sticky_navigation': True,
-    'navigation_depth': 4,
-    'includehidden': True,
-    'titles_only': False
+    "logo": {
+        "image_light": "images/logoHydroModPy_long.png",
+        "image_dark": "images/logoHydroModPy_long.png",
+    },
+    "announcement": "🚧 Development documentation",
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "show_nav_level": 2,
+    "navigation_with_keys": True,
+    "primary_sidebar_end": ["indices.html"],
+    "secondary_sidebar_items": ["page-toc"],
+    "footer_start": ["copyright"],
+    "footer_end": ["sphinx-version"],
+    "icon_links_label": "HydroModPy Resources",
+    "icon_links": [
+        {
+            "name": "GitLab",
+            "url": "https://gitlab.com/Alex-Gauvain/HydroModPy",
+            "icon": "fa-brands fa-gitlab",
+            "type": "fontawesome",
+        },
+        {
+            "name": "Issues",
+            "url": "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues",
+            "icon": "fa-solid fa-circle-info",
+            "type": "fontawesome",
+        },
+        {
+            "name": "Google Group",
+            "url": "https://groups.google.com/g/hydromodpy",
+            "icon": "fa-solid fa-envelope",
+            "type": "fontawesome",
+        },
+    ],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
+copybutton_prompt_is_regexp = True
+copybutton_only_copy_prompt_lines = False
+
+togglebutton_hint = "Click to show or hide details"
+togglebutton_hint_none = True
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -197,10 +256,34 @@ texinfo_documents = [
 ]
 
 # -- Extension configuration -------------------------------------------------
-autodoc_mock_imports = ["osgeo","gdal","whitebox"]
+autodoc_mock_imports = [
+    "contextily",
+    "flopy",
+    "geopandas",
+    "gdal",
+    "h5py",
+    "imageio",
+    "ipykernel",
+    "ipython",
+    "matplotlib_scalebar",
+    "netCDF4",
+    "osgeo",
+    "plotly",
+    "pyproj",
+    "pyshp",
+    "rasterio",
+    "rioxarray",
+    "selenium",
+    "spyder",
+    "spyder_kernels",
+    "pyside6",
+    "vedo",
+    "whitebox",
+    "xarray",
+    "pysheds",
+]
 
 # use :numref: for references (instead of :ref:)
 numfig = True
 smart_quotes = False
 html_use_smartypants = False
-html_theme = 'sphinx_rtd_theme'
