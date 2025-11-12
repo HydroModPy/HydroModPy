@@ -17,3 +17,5 @@ sphinx:
 python:
   install:
     - requirements: docs/readthedocs/readthedocs_requirements.txt
+    - method: pip
+      path: .
