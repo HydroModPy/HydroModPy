@@ -342,5 +342,3 @@ fig.tight_layout()
 #%% ---- NOTES
 
 os.chdir(root_dir)
-
-# %%
