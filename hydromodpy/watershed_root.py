@@ -355,11 +355,11 @@ class Watershed:
         Parameters
         ----------
         dtype : str, optional
-            Three posibilities:
-                'watershed_dem' to display the watershed elevation
-                'watershed_geology' to display the watershed geology
-                'watershed_zones' to display hydraulic zones of the watershed
-            The default is 'watershed_dem'
+            Three possibilities:
+
+            - ``'watershed_dem'`` to display the watershed elevation (default).
+            - ``'watershed_geology'`` to display the watershed geology.
+            - ``'watershed_zones'`` to display the hydraulic zones of the watershed.
         """
         if dtype == 'watershed_dem':
             visualization_watershed.watershed_dem(self)
@@ -1049,20 +1049,32 @@ class Watershed:
         model_modflow : object
             MODFLOW model in a Python object.
         model_modpath : object
-            MODPATH model in a Python object.
+            MODPATH model in a Python object. Optional if only flow outputs are
+            required.
+        model_mt3dms : object, optional
+            MT3DMS model used when extracting concentration/mass indicators.
         datetime_format : bool, optional
             True if the index is in datetime format (e.g. 1995-10-17 00:00:00). The default is True.
         subbasin_results : bool, optional
             Extract and clip results for each subbasins previously generated and stored. The default is True.
+        intermittency_yearly : bool, optional
+            Compute yearly intermittency metrics for the hydrographic network.
         intermittency_monthly : bool
             If True, the intermittent and perennial part of hydrographic network is calculated on a monthly basis.
         intermittency_weekly : bool
             If True, the intermittent and perennial part of hydrographic network is calculated on a weekly basis.
         intermittency_daily : bool
             If True, the intermittent and perennial part of hydrographic network is calculated on a daily basis.
+        residence_times : bool, optional
+            Export residence-time diagnostics if MODPATH results are available.
+        concentration_seepage : bool, optional
+            When True the MT3DMS seepage concentrations are summarised.
+        mass_accumulated : bool, optional
+            Aggregate the accumulated mass time series from MT3DMS outputs.
+
         Returns
         -------
-        timeseries_results : object
+        timeseries_results : hydromodpy.modeling.timeseries.Timeseries
             Python object with results stored.
             The variable 'mfdata' inside correspond to the .csv file results.
         """
