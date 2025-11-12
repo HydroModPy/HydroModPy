@@ -1,0 +1,89 @@
+[build-system]
+requires = [
+    "setuptools>=65.0",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydromodpy"
+version = "0.3.0"
+description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Eclipse Public License 2.0 (EPL-2.0)"}
+authors = [
+    {name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com"},
+    {name = "Ronan Abhervé", email = "ronan.abherve@gmail.com"},
+    {name = "Jean-Raynald de Dreuzy", email = "jean-raynald.de-dreuzy@univ-rennes.fr"},
+]
+maintainers = [
+    {name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com"},
+    {name = "Ronan Abhervé", email = "ronan.abherve@gmail.com"},
+    {name = "Bastien Boivin", email = "bastien.boivin@proton.me"},
+]
+keywords = [
+    "hydrology",
+    "hydrogeology",
+    "groundwater",
+    "modflow",
+    "watershed",
+    "modeling",
+    "catchment",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Eclipse Public License 2.0 (EPL-2.0)",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+dependencies = [
+    "colormap",
+    "contextily",
+    "flopy",
+    "geopandas",
+    "h5py",  # Required by pyhelp module for HDF5 data files
+    "imageio",
+    "ipykernel",
+    "ipython",
+    "matplotlib",
+    "matplotlib-scalebar",
+    "netCDF4",
+    "numpy",
+    "pandas",
+    "plotly",
+    "pyproj",
+    "pyshp",
+    "rasterio",
+    "rioxarray",
+    "selenium",
+    "vedo",
+    "whitebox",
+    "xarray",
+    "pysheds",
+    "pyside6",
+    "spyder-kernels",
+]
+
+[project.urls]
+Homepage = "https://hydromod.readthedocs.io/"
+Documentation = "https://hydromod.readthedocs.io/"
+Repository = "https://gitlab.com/Alex-Gauvain/HydroModPy"
+Issues = "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues"
+"Google Group" = "https://groups.google.com/g/hydromodpy"
+
+[tool.setuptools]
+packages = ["hydromodpy", "hydromodpy.watershed", "hydromodpy.modeling", "hydromodpy.modeling.gr4j", "hydromodpy.display", "hydromodpy.tools", "hydromodpy.pyhelp"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+hydromodpy = ["../bin/**/*"]
+"hydromodpy.pyhelp" = ["*.FOR"]

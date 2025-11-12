@@ -20,13 +20,14 @@ import pandas as pd
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
-root_dir = dirname(dirname(dirname(abspath(__file__))))
+try:
+    root_dir = dirname(dirname(dirname(abspath(__file__))))
+except NameError:
+    root_dir = os.getcwd()
 sys.path.append(root_dir)
-print("Root path directory is: {0}".format(root_dir.upper()))
 
 # HYDROMODPY MODEULES
-#import src
-from src import watershed_root
+from hydromodpy import watershed_root
 
 # ---- FUNCTION LAUNCH
 
