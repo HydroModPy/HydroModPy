@@ -278,6 +278,7 @@ autodoc_mock_imports = [
     "spyder_kernels",
     "pyside6",
     "vedo",
+    "vtk",
     "whitebox",
     "xarray",
     "pysheds",
