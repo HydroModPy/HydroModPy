@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "0.3.0"
+version = "0.3.1"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -71,6 +71,27 @@ dependencies = [
     "pysheds",
     "pyside6",
     "spyder-kernels",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme",
+    "myst-parser",
+    "nbsphinx",
+    "sphinx-gallery",
+    "sphinx-autobuild",
+    "readthedocs-sphinx-ext",
+    "pydata-sphinx-theme",
+    "sphinx-design",
+    "sphinx-copybutton",
+    "sphinx-togglebutton",
+    "sphinx-tabs",
+    "sphinx-multiversion",
+]
+ide = [
+    "spyder>=6.0",
+    "jupyterlab>=4.0",
 ]
 
 [project.urls]
