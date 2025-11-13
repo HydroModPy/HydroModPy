@@ -2,7 +2,7 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-Stable current version: v0.1.2 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
+Stable current version: v0.3.1 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
 
 ## Presentation
 
@@ -49,6 +49,8 @@ Install HydroModPy directly from PyPI:
 
 ```bash
 pip install hydromodpy
+# or include Spyder + JupyterLab
+pip install "hydromodpy[ide]"
 ```
 
 For development mode (editable installation):
@@ -65,12 +67,21 @@ pip install -e .
 
 ### Option 2: conda environment
 
-A HydroModPy environment can be installed with conda using the `.yml` file available in the `install/` directory:
+Two ready-to-use Conda recipes live in `install/`:
+
+- `env_hydromodpy.yml` installs every runtime dependency (including Spyder) so you
+  can run scripts and notebooks right away.
+- `env_hydromodpy_pkg.yml` mirrors the same stack but finishes with
+  `pip install -e ..` to expose the local repository as a package.
 
 ```bash
-cd /d "path/to/HydroModPy/install/"
-conda env create -f env_hydromodpy.yml -n hydromodpy
+# from the repository root
+conda env create -f install/env_hydromodpy.yml -n hydromodpy
 conda activate hydromodpy
+
+# editable/package variant
+conda env create -f install/env_hydromodpy_pkg.yml -n hydromodpy-pkg
+conda activate hydromodpy-pkg
 ```
 
 ### Git installation
