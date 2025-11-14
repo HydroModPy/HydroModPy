@@ -29,6 +29,15 @@ appears in a conference.
       ^^^
       Maintenance line for Python 3.8–3.10 with documentation cleanup.
 
+Full changelog
+--------------
+
+The raw ``CHANGELOG.md`` is embedded below so it always stays in sync with the
+repository history.
+
+.. literalinclude:: ../../../CHANGELOG.md
+   :language: md
+
 .. toctree::
    :hidden:
 
