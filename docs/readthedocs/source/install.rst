@@ -44,24 +44,47 @@ releases should rely on the conda environment and the ``v0.2.0`` tag.
 Install with conda
 ------------------
 
-Two ready-to-use environment files live in ``install/``:
+Two ready-to-use environment files live in ``install/``. Pick the tabbed recipe
+that matches your workflow.
 
-- ``env_hydromodpy.yml`` installs the runtime stack (Spyder included) for running
-  scripts and notebooks.
-- ``env_hydromodpy_pkg.yml`` installs the same stack then runs ``pip install -e ..``
-  so the local repository is importable everywhere.
+.. tab-set::
 
-When running scripts/notebooks inside this cloned repository, add the project
-root to ``sys.path`` if you rely on the runtime-only YAML file:
+   .. tab-item:: Conda (Runtime stack)
 
-.. code-block:: python
+      Installs the runtime stack (Spyder included) for executing scripts and
+      notebooks without touching the local source tree.
 
-   # ROOT DIRECTORY
-   import sys
-   sys.path.append(r"/absolute/path/to/your/HydroModPy")
+      .. code-block:: bash
 
-This snippet is not required for pip installations because the package is
-installed system-wide.
+         conda env create -n <env> -f install/env_hydromodpy.yml
+         conda activate <env>
+
+      When running scripts or notebooks inside this repository, append the
+      project root to ``sys.path`` so the runtime-only environment sees the
+      package:
+
+      .. code-block:: python
+
+         # ROOT DIRECTORY
+         import sys
+         sys.path.append(r"/absolute/path/to/your/HydroModPy")
+
+      Pip-based installs expose ``hydromodpy`` globally, so the snippet is not
+      required outside this workflow.
+
+   .. tab-item:: Conda (Editable stack)
+
+      Sets up the same environment but finishes with ``pip install -e ..`` so
+      the cloned repository stays importable everywhere.
+
+      .. code-block:: bash
+
+         conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml
+         conda activate <env>-pkg
+
+      Run the commands from the repository root (``install/`` sits at the top
+      level) so the relative ``pip install -e ..`` executed by the YAML file can
+      reach the project.
 
 Command recipes
 ---------------
