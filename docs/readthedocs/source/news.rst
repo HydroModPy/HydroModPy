@@ -5,6 +5,18 @@ Keep track of releases, compatibility notes, and events related to HydroModPy.
 Add a new card whenever a version ships, a breaking change lands, or the toolbox
 appears in a conference.
 
+.. dropdown:: How to read this page?
+   :color: info
+   :icon: info
+
+   The cards below only highlight major events or updates (public releases,
+   announcements, conferences). Treat this view as a mini HydroModPy blog that
+   spotlights key milestones.
+
+   For the full history, minor fixes included, rely on the raw ``CHANGELOG.md``
+   embedded at the bottom of this page. It remains the authoritative log of
+   every change per release.
+
 .. grid:: 1 1 2 2
    :gutter: 2
 
