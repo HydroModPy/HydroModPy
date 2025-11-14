@@ -72,11 +72,11 @@ def select_period(df, first, last):
 
 #%% ---- PERSONAL PARAMETERS AND PATHS
 study_site = 'LA_FLUME'
-first_year = 2020
-last_year = 2020
+first_year = 2021
+last_year = 2021
 freq_input = 'M'
 sim_state = 'transient'
-parameters = "1.37e-5_10.7%_exdp13.9_a0.03_bottom"
+parameters = "3.12.e-5_10.7%_ex13.9_thick"
 out_path = folder_root.root_folder_results()
 # out_path = r"C:\Users\theat\Documents\Python\02_Output_HydroModPy" # Manually set the output path
 data_path = os.path.join(out_path, "data")
@@ -128,7 +128,7 @@ simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations
 BV.add_geology(os.path.join(data_path, 'geology'), types_obs='GEO1M.shp', fields_obs='CODE_LEG')
 BV.add_hydrography(os.path.join(data_path, 'hydrography'), types_obs=['regional stream network'])
 BV.add_hydrometry(os.path.join(data_path, 'hydrometry'), 'france hydrometric stations.shp')
-BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp') BV.add_intermittency(os.path.join(data_path, 'intermittency'), types_obs='regional onde stations.shp')
+BV.add_intermittency(os.path.join(data_path, 'intermittency'), 'regional onde stations.shp')
 # BV.add_piezometry()
 
 # # Extract some subbasin from data available above
@@ -376,11 +376,11 @@ freq_time = freq_input
 
 # Hydraulic settings
 nlay = 10
-lay_decay = 1 # 1 for no decay
-bottom = 0 # elevation in meters, None for constant auifer thickness, or 2D matrix
-thick = None # if bottom is None, aquifer thickness
-alpha = 0.03
-hk = 1.37e-5 * 3600 * 24 # m/day
+lay_decay = 1.25 # 1 for no decay
+bottom = None # elevation in meters, None for constant auifer thickness, or 2D matrix
+thick = 30 # if bottom is None, aquifer thickness
+alpha = 1/30
+hk = 3.12e-5 * 3600 * 24 # m/day
 hk_decay = (alpha, None, True, [])
 cond_drain = None # or value of conductance
 exdp = 13.9

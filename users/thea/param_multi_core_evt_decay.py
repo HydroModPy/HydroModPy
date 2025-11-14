@@ -912,11 +912,11 @@ def main():
     # Base configuration (ADAPT THESE PATHS TO YOUR CONFIGURATION)
     base_config = {
         # Paths - ADAPT THESE PATHS TO YOUR CONFIGURATION
-        'root_dir': r'C:\Users\theat\Documents\Python\01_Git_Repository\01-HMPdev-sewage',  # Your root_dir
-        'out_path': r'C:\Users\theat\Documents\Python\02_Output_HydroModPy',  # Your out_path
-        'data_path': r'C:\Users\theat\Documents\Python\02_Output_HydroModPy\data',  # Your data_path
-        'dem_path': r'C:\Users\theat\Documents\Python\02_Output_HydroModPy\data\dem\Naizin25m.tif',  # Your dem_path
-        'temp_base_dir': r'C:\Users\theat\Documents\Python\tmp\hydromod_calibration',  # Base temporary directory
+        'root_dir': r'C:/Users/theat/Documents/Python/01_Git_Repository/01-HMPdev-sewage',  # Your root_dir
+        'out_path': r'C:/Users/theat/Documents/Python/02_Output_HydroModPy',  # Your out_path
+        'data_path': r'C:/Users/theat/Documents/Python/02_Output_HydroModPy/data',  # Your data_path
+        'dem_path': r'C:/Users/theat/Documents/Python/02_Output_HydroModPy/data/dem/BDALTI_bzh_25m.tif',  # Your dem_path
+        'temp_base_dir': r'C:/Users/theat/Documents/Python/tmp',  # Base temporary directory
         
         # Study 
         'study_site': 'KERVIDY_NAIZIN',
@@ -958,6 +958,7 @@ def main():
     
     # Create base temporary directory
     os.makedirs(base_config['temp_base_dir'], exist_ok=True)
+    print(f"Base temporary directory: {base_config['temp_base_dir']}")
         
     # Test CSV file reading before proceeding
     logging.info("Testing CSV file reading...")
