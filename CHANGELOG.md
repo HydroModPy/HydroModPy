@@ -42,6 +42,18 @@ Each release section includes the following standard categories:
 
 ---
 
+## [v0.3.1] - 2025-11-14
+### Changed
+- Installation guide reorganized with ready-made command recipes, dual YAML options (runtime vs editable), and clearer guidance for conda-versus-pip setups.
+- README now flags v0.3.1 as the stable release and the conda YAMLs pin Python 3.11–3.13 explicitly.
+- Add spyder package to the conda environment for users of that IDE.
+
+### Fixed
+- `pyproject.toml` now lets setuptools auto-discover all `hydromodpy*` packages so `pip install hydromodpy` (and ReadTheDocs builds) no longer fail if optional submodules such as `hydromodpy.modeling.gr4j` are absent from the current branch.
+- Pinned NumPy to >= 2.0 and restricted supported Python to >= 3.11, < 3.14 to avoid incompatibilities with other packages.
+
+---
+
 ## [v0.3.0] - 2025-11-06
 ### Compatibility
 - Runtime baseline jumps from Python 3.8.10 to the Python 3.11–3.13 series. Tested on Linux, macOS, and Windows.
@@ -113,7 +125,8 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.0...dev
+[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.1...dev
+[v0.3.1]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/releases/v0.1.0
