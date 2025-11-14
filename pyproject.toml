@@ -102,8 +102,10 @@ Issues = "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues"
 "Google Group" = "https://groups.google.com/g/hydromodpy"
 
 [tool.setuptools]
-packages = ["hydromodpy", "hydromodpy.watershed", "hydromodpy.modeling", "hydromodpy.modeling.gr4j", "hydromodpy.display", "hydromodpy.tools", "hydromodpy.pyhelp"]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["hydromodpy*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*"]
