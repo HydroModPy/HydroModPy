@@ -1,15 +1,13 @@
-# Byte-compiled / optimized / DLL files
+# Python artifacts
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
+*.pyd
 *.so
 
 # Distribution / packaging
 .Python
 build/
-develop-eggs/
 dist/
 downloads/
 eggs/
@@ -27,15 +25,11 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# PyInstaller
-*.manifest
-*.spec
-
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# Test & coverage reports
 htmlcov/
 .tox/
 .nox/
@@ -49,56 +43,11 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-docs/**/_build/
-docs/**/_autosummary/
-docs/**/.doctrees/
-docs/readthedocs/source/notebooks/.virtual_documents/
-docs/readthedocs/source/api/generated/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-.python-version
-
-# pipenv
-Pipfile.lock
-
-# PEP 582
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
 
 # Environments
 .env
@@ -108,48 +57,50 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.python-version
+Pipfile.lock
+__pypackages__/
 
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# IDE specific files
+# IDE / editor
 .vscode/
 .idea/
+.spyderproject
+.spyproject
+.ropeproject
 *.swp
 *.swo
 *~
-
-# OS specific files
 .DS_Store
 Thumbs.db
 
-# HydroModPy specific
+# IPython
+profile_default/
+ipython_config.py
+
+# Documentation builds
+docs/**/_build/
+docs/**/_autosummary/
+docs/**/.doctrees/
+docs/readthedocs/source/notebooks/.virtual_documents/
+docs/readthedocs/source/notebooks/.ipynb_checkpoints/
+docs/readthedocs/source/notebooks/.nbconvert/
+docs/readthedocs/source/notebooks/.jupyter_cache/
+.jupyter_cache/
+docs/readthedocs/source/api/generated/
+docs/readthedocs/source/_generated/
+!docs/readthedocs/source/_generated/CHANGELOG.md
+
+# Project data & results
 examples/results/
+test/results/
+test_*/
 *.chk
 *.hds
 *.cbc
 *.lst
 *.nam
-test_*/
-test/results/
 
 # Temporary files
 *.tmp
 *.bak
 *.old
-*.pyd
