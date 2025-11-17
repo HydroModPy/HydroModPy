@@ -49,7 +49,7 @@ class Hydraulic:
                  verti_sy_init=None,
                  verti_ss_init=None,
                  vka_init: float=1.,
-                 expd_init: float=1.
+                 exdp_init: float=1.
                  ):
         """
         Parameters
@@ -138,7 +138,7 @@ class Hydraulic:
         self.cond_drain = cond_drain_init
         
         self.vka = vka_init
-        self.expd = expd_init
+        self.exdp = exdp_init
         
         self.update_hk_decay()
         self.update_sy_decay()

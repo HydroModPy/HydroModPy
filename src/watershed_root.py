@@ -721,6 +721,7 @@ class Watershed:
                                watertable_depth: bool=True, 
                                seepage_areas: bool=True,
                                outflow_drain: bool=True,
+                               outflow_etr : bool=False,
                                groundwater_flux: bool=True,
                                groundwater_storage: bool=True,
                                accumulation_flux: bool=True,
@@ -745,6 +746,8 @@ class Watershed:
             Build seepage area outputs. The default is True.
         outflow_drain : bool, optional
             Build outflow drain outputs. The default is True.
+        outflow_etr : bool, optional
+            Build outflow evapotranspiration outputs. The default is False.
         groundwater_flux : bool, optional
             Build groudwater flux outputs. The default is True.
         groundwater_storage : bool, optional
@@ -768,6 +771,7 @@ class Watershed:
                                       watertable_depth=watertable_depth, 
                                       seepage_areas=seepage_areas,
                                       outflow_drain=outflow_drain,
+                                      outflow_etr=outflow_etr,
                                       groundwater_flux=groundwater_flux,
                                       groundwater_storage=groundwater_storage,
                                       accumulation_flux=accumulation_flux,

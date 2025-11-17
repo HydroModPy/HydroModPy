@@ -654,11 +654,11 @@ class Modflow:
                 # ---- flopy.modflow.ModflowEvt
                 self.evt = flopy.modflow.ModflowEvt(self.mf,
                                                     evtr=self.evtData,
-                                                    surf = self.dem,
+                                                    surf = self.dem-2,  # ET surface below ground level
                                                     nevtop = 3, # 1 (top), 2 (layer), 3 (highest active) is default
                                                     exdp = self.exdp, # default is 1 (1m from surface)
                                                     ievt = 1, # default: 1 (if layer) ==> activated only if nevtop = 2
-                                                    ipakcb = 1 # default: 0 
+                                                    ipakcb = 1001 # default: 0 
                                                     )
                 # Finally sets all negative of self.recharge to zero values for simulation
                 if not isinstance(self.recharge,(int,float)):
@@ -913,6 +913,7 @@ class Modflow:
                         watertable_depth:bool=True, 
                         seepage_areas:bool=True,
                         outflow_drain:bool=True,
+                        outflow_etr:bool=True,
                         groundwater_flux:bool=True,
                         groundwater_storage:bool=True,
                         accumulation_flux:bool=True,
@@ -937,6 +938,8 @@ class Modflow:
             Write seepage areas outputs. The default is True.
         outflow_drain : bool, optional
             Write outflow drain outputs. The default is True.
+        outflow_etr : bool, optional
+            Write outflow evapotranspiration outputs. The default is True.
         groundwater_flux : bool, optional
             Write groundwater flux outputs. The default is True.
         groundwater_storage : bool, optional
@@ -1005,6 +1008,7 @@ class Modflow:
         self.dict_watertable_depth = {}
         self.dict_seepage_areas = {}
         self.dict_outflow_drain = {}
+        self.dict_outflow_etr = {}
         self.dict_groundwater_flux = {}
         self.dict_specific_discharge = {}
         self.dict_accumulation_flux = {}
@@ -1100,6 +1104,36 @@ class Modflow:
                     if export_tif==True:
                         toolbox.export_tif(self.dem_watershed_path, self.out_drn, output_path, -9999)
                 self.dict_outflow_drain[item] = self.out_drn
+                
+            if outflow_etr == True:
+                ### Outflow evapotranspiration (EVT package)
+                # EVT can be activated on multiple layers (nevtop=3: highest active cell)
+                self.etr = self.cbb.get_data(text='ET', kstpkper=self.kstpkper, totim=time)
+                
+                if self.etr is not None and len(self.etr) > 0:
+                    # EVT data structure from CBC: list of [mask_array, flux_array]
+                    # etr[0][0] = mask (cells with EVT active, values = 1)
+                    # etr[0][1] = flux values (negative = ETR out of aquifer)
+                    flux_data = self.etr[0][1]  
+                    
+                    # Take absolute value (EVT fluxes are negative in CBC)
+                    self.out_etr = np.abs(flux_data)
+                
+                else:
+                    # No EVT data available for this time step
+                    self.out_etr = np.zeros((self.dis.nrow, self.dis.ncol))
+                
+                # Apply mask and export
+                self.out_etr[self.dem_mask] = -9999
+                output_path = self.tifs_file+'/outflow_etr_t('+lead_numb+').tif' 
+                
+                if accumulation_flux==True:
+                    toolbox.export_tif(self.dem_watershed_path, self.out_etr, output_path, -9999)
+                else:
+                    if export_tif==True:
+                        toolbox.export_tif(self.dem_watershed_path, self.out_etr, output_path, -9999)
+                
+                self.dict_outflow_etr[item] = self.out_etr
             
             if groundwater_flux == True:
                 ### Groundwater flux
@@ -1153,6 +1187,9 @@ class Modflow:
         if seepage_areas == True:
             print('  ','Export seepage areas')
             np.save(self.save_file+'/seepage_areas', self.dict_seepage_areas)
+        if outflow_etr == True:
+            print('  ','Export outflow evapotranspiration')
+            np.save(self.save_file+'/outflow_etr', self.dict_outflow_etr)
         if outflow_drain == True:
             print('  ','Export outflow drain')
             np.save(self.save_file+'/outflow_drain', self.dict_outflow_drain)
