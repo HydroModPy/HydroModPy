@@ -1,0 +1,110 @@
+[build-system]
+requires = [
+    "setuptools>=65.0",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydromodpy"
+version = "0.3.1"
+description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "EPL-2.0"
+authors = [
+    {name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com"},
+    {name = "Ronan Abhervé", email = "ronan.abherve@gmail.com"},
+    {name = "Jean-Raynald de Dreuzy", email = "jean-raynald.de-dreuzy@univ-rennes.fr"},
+]
+maintainers = [
+    {name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com"},
+    {name = "Ronan Abhervé", email = "ronan.abherve@gmail.com"},
+    {name = "Bastien Boivin", email = "bastien.boivin@proton.me"},
+]
+keywords = [
+    "hydrology",
+    "hydrogeology",
+    "groundwater",
+    "modflow",
+    "watershed",
+    "modeling",
+    "catchment",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+dependencies = [
+    "colormap",
+    "contextily",
+    "flopy",
+    "geopandas",
+    "h5py",  # Required by pyhelp module for HDF5 data files
+    "imageio",
+    "ipykernel",
+    "ipython",
+    "matplotlib",
+    "matplotlib-scalebar",
+    "netCDF4",
+    "numpy>=2.0",
+    "pandas",
+    "plotly",
+    "pyproj",
+    "pyshp",
+    "rasterio",
+    "rioxarray",
+    "selenium",
+    "vedo",
+    "whitebox",
+    "xarray",
+    "pysheds",
+    "pyside6",
+    "spyder-kernels",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme",
+    "myst-parser",
+    "nbsphinx",
+    "sphinx-gallery",
+    "sphinx-autobuild",
+    "readthedocs-sphinx-ext",
+    "pydata-sphinx-theme",
+    "sphinx-design",
+    "sphinx-copybutton",
+    "sphinx-togglebutton",
+    "sphinx-tabs",
+    "sphinx-multiversion",
+]
+ide = [
+    "spyder>=6.0",
+    "jupyterlab>=4.0",
+]
+
+[project.urls]
+Homepage = "https://hydromod.readthedocs.io/"
+Documentation = "https://hydromod.readthedocs.io/"
+Repository = "https://gitlab.com/Alex-Gauvain/HydroModPy"
+Issues = "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues"
+"Google Group" = "https://groups.google.com/g/hydromodpy"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["hydromodpy*"]
+
+[tool.setuptools.package-data]
+hydromodpy = ["../bin/**/*"]
+"hydromodpy.pyhelp" = ["*.FOR"]
