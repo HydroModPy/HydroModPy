@@ -169,6 +169,10 @@ class Timeseries:
             self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
         except:
             pass
+        try : 
+            self.outflow_etr = np.load(os.path.join(self.save_file, 'outflow_etr'+'.npy'), allow_pickle=True).item()
+        except :
+            pass
         try:
             self.groundwater_flux = np.load(os.path.join(self.save_file, 'groundwater_flux'+'.npy'), allow_pickle=True).item()
         except:
@@ -320,6 +324,13 @@ class Timeseries:
         except:
             pass
         
+        ### outflow_etr
+        try:
+            for key in self.outflow_etr:
+                calc = calc_qspe(key, 'outflow_etr', self.outflow_etr, dem_clip, '==', self.geographic.nodata, self.resolution)
+                self.mfdata.loc[key,'outflow_etr'] = calc
+        except:
+            pass
         ### groundwater_flux
         try:
             for key in self.groundwater_flux:
