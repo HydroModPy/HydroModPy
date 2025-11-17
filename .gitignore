@@ -1,14 +1,106 @@
-*.DS_Store
-*.pyc
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Test & coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+Pipfile.lock
+__pypackages__/
+
+# IDE / editor
+.vscode/
+.idea/
+.spyderproject
+.spyproject
+.ropeproject
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Documentation builds
+docs/**/_build/
+docs/**/_autosummary/
+docs/**/.doctrees/
+docs/readthedocs/source/notebooks/.virtual_documents/
+docs/readthedocs/source/notebooks/.ipynb_checkpoints/
+docs/readthedocs/source/notebooks/.nbconvert/
+docs/readthedocs/source/notebooks/.jupyter_cache/
+.jupyter_cache/
+docs/readthedocs/source/api/generated/
+docs/readthedocs/source/_generated/
+!docs/readthedocs/source/_generated/CHANGELOG.md
+
+# Project data & results
+examples/results/
+test/results/
+test_*/
 *.chk
-**.chk
-src/watershed/.DS_Store
-src/__pycache__
-src/watershed/__pycache__
-src/tools/__pycache__
-src/modeling/__pycache__
-src/display/__pycache__
-examples/results/*
-!examples/results/readme.txt
-test/results/*
-!test/results/readme.txt
+*.hds
+*.cbc
+*.lst
+*.nam
+
+# Temporary files
+*.tmp
+*.bak
+*.old

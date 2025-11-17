@@ -1,21 +1,28 @@
-Readthedocs
-	files .yaml
-	install miniconda ou python
-	configuration: conf.py
-	download PDF
-	install python: requierements
-	sphinx: site format
-	
-Clone git and installation: site compilation
+Read the Docs checklist
+=======================
 
-conf.py: possibilities and template
-.rst: research the index.rst
-index.rst: site beginning
-maxdepth: arboresence
+1. Configuration
+   - Project root contains ``.readthedocs.yaml`` (v2) pointing to
+     ``docs/readthedocs/source/conf.py`` and Python 3.11.
+   - The hosted build now installs a single requirement file:
+     ``docs/readthedocs/readthedocs_requirements.txt``.
 
-Modifier des choses
-Hydromodpy/docs/source: add images
-.rst: undeline things
-autoclass: call class
-index: names of .rst
-sys.path: in conf
+2. Python environment
+   - The requirement file only lists Sphinx extensions plus a few core
+     scientific libraries (``numpy``, ``pandas``, ``scipy``).
+   - Heavy, compiled dependencies (GDAL, geopandas, whitebox, etc.) are mocked
+     via ``autodoc_mock_imports`` inside ``conf.py`` so they do not need to be
+     installed on Read the Docs.
+
+3. Sphinx settings
+   - ``sys.path`` is extended in ``conf.py`` so the local package is importable
+     without running ``pip install .``.
+   - ``nbsphinx_execute = "never"`` prevents notebook execution during the
+     hosted build; notebooks are converted as-is.
+   - Autosummary pages are generated automatically (``autosummary_generate``)
+     and stored under ``source/api/generated`` (ignored by git).
+
+4. Local preview
+   - Use ``pip install -r docs/readthedocs/readthedocs_requirements.txt`` in a
+     clean virtual environment.
+   - Build once with ``sphinx-build -b html docs/readthedocs/source docs/readthedocs/_build/html``.
