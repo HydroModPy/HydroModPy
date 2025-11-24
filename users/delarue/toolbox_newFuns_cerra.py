@@ -43,7 +43,7 @@ from pywtraj import geohydroconvert as ghc # /\ to include in root folder
 import copy
 
 from shapely.geometry import Point
-import cartopy
+
 
 from math import floor,ceil,sqrt
 
