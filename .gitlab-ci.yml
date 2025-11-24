@@ -1,0 +1,76 @@
+# GitLab CI/CD Pipeline for HydroModPy
+# Manual build and publication to PyPI
+
+stages:
+  - build
+  - test
+  - publish
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+default:
+  image: python:3.12
+  before_script:
+    - python --version
+    - python -m pip install --upgrade pip
+
+cache:
+  paths:
+    - .cache/pip
+
+# Build package (source + wheel) - MANUAL
+build:wheel:
+  stage: build
+  script:
+    - pip install build
+    - python -m build  # Generates dist/*.tar.gz and dist/*.whl
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 2 hours
+  when: manual  # Click to trigger build
+
+# Test installation and basic imports - MANUAL
+test:wheel:
+  stage: test
+  needs:
+    - build:wheel
+  script:
+    - pip install dist/*.whl
+    - python -c "import hydromodpy; print('✓ hydromodpy version:', hydromodpy.__version__)"
+    - python -c "from hydromodpy.pyhelp import HelpManager; print('✓ HelpManager imported')"
+  when: manual  # Click to trigger tests
+
+# Publish to TestPyPI (manual trigger, any branch)
+publish:test-pypi:
+  stage: publish
+  needs:
+    - build:wheel
+    - test:wheel
+  script:
+    - pip install twine
+    - python -m twine check dist/*
+    - python -m twine upload --repository-url https://test.pypi.org/legacy/ --non-interactive dist/*
+  variables:
+    TWINE_USERNAME: "__token__"
+    TWINE_PASSWORD: "$TEST_PYPI_API_TOKEN"
+  when: manual  # Click to publish to TestPyPI
+  allow_failure: true  # Does not block other jobs
+
+# Publish to PyPI PRODUCTION (manual, master branch only)
+publish:pypi:
+  stage: publish
+  needs:
+    - build:wheel
+    - test:wheel
+  script:
+    - pip install twine
+    - python -m twine check dist/*
+    - python -m twine upload --non-interactive dist/*
+  variables:
+    TWINE_USERNAME: "__token__"
+    TWINE_PASSWORD: "$PYPI_API_TOKEN"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual  # Click to publish to PyPI production
