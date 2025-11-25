@@ -1,4 +1,4 @@
-name: hydromodpy
+name: hydromodpy-dev
 channels:
 - conda-forge
 dependencies:
@@ -29,3 +29,5 @@ dependencies:
 - pyside6
 - pysheds
 - pip
+- pip:
+  - -e ..
