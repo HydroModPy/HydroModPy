@@ -443,6 +443,11 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                                              resampling = rasterio.enums.Resampling(1), # (0), (5)
                                              )
             ds = ds_reprj
+    
+    else:
+        if dst_crs is not None:
+            ds_reprj = ds.rio.reproject(dst_crs = dst_crs)
+            ds = ds_reprj
             
     # ---- Format spatial attributes for compatibility with QGIS
     if 'units' in ds.x.attrs.keys() and ds.x.attrs['units'].casefold() in ['m', 'meter', 'meters', 'metre', 'metres']:
