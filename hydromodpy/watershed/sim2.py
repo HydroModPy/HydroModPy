@@ -125,10 +125,10 @@ class Sim2:
         elif disk_clip is None:
             self.clip_mask = None
         else:
-            if os.path.splitext(disk_clip)[-1] == '.shp':
+            if os.path.splitext(disk_clip)[-1] in ['.shp', '.gpkg', '.geojson']: # file formats supported by geopandas
                 self.clip_mask = disk_clip
             else:
-                logger.error("disk_clip must reference a .shp file or use 'watershed'/'False' flags")
+                logger.error("disk_clip must reference a .shp/.gpkg/.geojson file or use 'watershed'/'False' flags")
                 return
         
         varnames_dict = {
@@ -183,7 +183,7 @@ class Sim2:
                                                                     'extent'])
         self.local_data.extent = False
 
-        sim_pattern = re.compile('.*_SIM2_')
+        sim_pattern = re.compile('(.*)_SIM2_')
         # year_pattern = re.compile('\d{4,8}')
         filelist = [os.path.join(self.nc_data_path, f) \
                     for f in os.listdir(self.nc_data_path) \
@@ -194,7 +194,7 @@ class Sim2:
                 sim_match = sim_pattern.findall(filename)
                 # years = year_pattern.findall(filename)
                 if (len(sim_match) > 0) & (os.path.splitext(file)[-1] == '.nc'):
-                    sim_var = sim_match[0][0:-6]
+                    sim_var = sim_match[0]
                     var = self.HyMoPy_var_by_sim_var.loc[sim_var, 'HyMoPy_var']
                     self.local_data.loc[var, 'nc_file'] = file
                     # if len(years[0]) == 4:
@@ -252,26 +252,54 @@ class Sim2:
         logger.info("Formatting SIM2 results for HydroModPy")
         for var in self.final_filelist:
             logger.info("Processing SIM2 variable %s", var)
+            # Save encodings
+            self.raw_values[var].rio.write_crs(rio.crs.CRS.from_epsg(27572), inplace = True)
+            encodings = self.raw_values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding
+            # Clip on watershed bounds (to avoid useless computations in the following steps)
+            mask = toolbox.load_to_xarray(
+                self.geographic.watershed_dem,
+                src_crs = self.geographic.crs_proj,
+                dst_crs = self.raw_values[var].rio.crs)
+            x_min, y_min, x_max, y_max = mask.rio.bounds()
+            self.values[var] = self.raw_values[var].where(
+                (self.raw_values[var].x > (x_min - 8000)) & # 8000 m is sim2 resolution
+                (self.raw_values[var].x < (x_max + 8000)) &
+                (self.raw_values[var].y > (y_min - 8000)) &
+                (self.raw_values[var].y < (y_max + 8000)),
+                drop = True
+                )
             # Refine period with accurate user dates
             logger.debug("Refining period for %s", var)
-            self.values[var] = self.raw_values[var].loc[
+            self.values[var] = self.values[var].loc[
                 {'time' : slice(self.first_date, self.last_date)}]
             # Apply sim_stat option
             if self.sim_state == 'steady':
                 logger.debug("Simplifying time dimension for %s", var)
                 self.values[var] = self.values[var].mean(dim = 'time')
+            # Apply timestep
+            if (self.sim_state == 'transient') & (self.time_step != 'D'):
+                logger.debug("Resampling %s to %s", var, self.time_step)
+                self.values[var] = self.values[var].resample(time = self.time_step).mean(dim = 'time')
+                self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
+# =============================================================================
+#                     # TODO: Very slow. Attempt to have a quicker resolution:
+#                     temp_df = self.values[var].to_dataframe().reset_index([1,2]).resample(self.time_step).mean()
+#                     temp_df.reset_index()
+#                     self.values[var] = temp_df.set_index(['time', 'y', 'x']).to_xarray()
+# =============================================================================
             # Reprojection
             logger.debug("Reprojecting %s to model grid", var)
-            self.values[var].rio.write_crs(rio.crs.CRS.from_epsg(27572), inplace = True)
+            
             self.values[var] = toolbox.load_to_xarray(
                 # self.final_filelist[var],
                 self.values[var],
                 base_path = self.geographic.watershed_box_buff_dem,
                 dst_crs = self.geographic.crs_proj)
-            mask, _, _, _ = toolbox.load_to_numpy(self.geographic.watershed_dem,
-                                                       dst_crs = self.geographic.crs_proj) 
-            encodings = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding
-            self.values[var] = self.values[var].where(mask != self.geographic.nodata)
+            mask_reproj, _, _, _ = toolbox.load_to_numpy(
+                self.geographic.watershed_dem,
+                dst_crs = self.geographic.crs_proj
+                )
+            self.values[var] = self.values[var].where(mask_reproj != self.geographic.nodata)
             self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
             # Apply spatial_mean option:
             if self.spatial_mean == True:
@@ -283,20 +311,6 @@ class Sim2:
                 elif self.sim_state == 'steady':
                     self.values[var] = self.values[var].iloc[0]
                 # Otherwise instead of .iloc[:,0]: self.values[var] = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']] 
-            # Apply timestep
-            if (self.sim_state == 'transient') & (self.time_step != 'D'):
-                logger.debug("Resampling %s to %s", var, self.time_step)
-                if self.spatial_mean == False:
-                    self.values[var] = self.values[var].resample(time = self.time_step).mean(dim = 'time')
-                    self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
-# =============================================================================
-#                     # Very slow. Attempt to have a quicker resolution:
-#                     temp_df = self.values[var].to_dataframe().reset_index([1,2]).resample(self.time_step).mean()
-#                     temp_df.reset_index()
-#                     self.values[var] = temp_df.set_index(['time', 'y', 'x']).to_xarray()
-# =============================================================================
-                elif self.spatial_mean == True:
-                    self.values[var] = self.values[var].resample(self.time_step).mean()
             
             
         
