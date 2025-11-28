@@ -42,6 +42,17 @@ Each release section includes the following standard categories:
 
 ---
 
+## [v0.3.2] - 2025-11-28
+### Changed
+- Reworked SIM2 workflow: coarse clip without reprojection to trim inputs, resample on that reduced dataset, then final clip/mask with reprojection for clean outputs without wasted time or RAM.
+- `disk_clip` now accepts `.shp`, `.gpkg`, and `.geojson`, and SIM2 filename parsing keeps the full variable name before `_SIM2_`.
+
+### Fixed
+- `toolbox.load_to_xarray` reprojects when `dst_crs` is provided even without a mask, matching the new SIM2 flow and avoiding extra memory use.
+- SIM2 resampling preserves encodings and applies masking with the reprojected DEM consistently.
+
+---
+
 ## [v0.3.1] - 2025-11-14
 ### Changed
 - Installation guide reorganized with ready-made command recipes, dual YAML options (runtime vs editable), and clearer guidance for conda-versus-pip setups.
@@ -125,7 +136,8 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.1...dev
+[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.2...dev
+[v0.3.2]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.1.0...v0.2.0
