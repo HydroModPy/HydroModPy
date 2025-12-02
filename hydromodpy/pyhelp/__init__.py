@@ -232,39 +232,72 @@ def _load_help3o_from_path(binary_path):
             dll_token.close()
 
 
-# Try to import the HELP3O Fortran extension
 _HELP3O_AVAILABLE = False
+_HELP3O_ERROR = None
 HELP3O = None
 
-# Try to load from cache directory or download from GitHub
-cache_dir = _get_cache_dir()
-binary_filename = _get_binary_filename()
 
-if binary_filename:
+def ensure_help3o_loaded():
+    """Load HELP3O on demand. Return the module or None if not usable."""
+    global HELP3O, _HELP3O_AVAILABLE, _HELP3O_ERROR
+
+    if HELP3O is not None:
+        return HELP3O
+    if _HELP3O_ERROR is not None:
+        return None
+
+    binary_filename = _get_binary_filename()
+    if not binary_filename:
+        _HELP3O_ERROR = RuntimeError(f"Unsupported platform: {platform.system()} {platform.machine()}")
+        warnings.warn(str(_HELP3O_ERROR), ImportWarning)
+        return None
+
+    cache_dir = _get_cache_dir()
     binary_path = cache_dir / binary_filename
 
-    if binary_path.exists():
-        # Binary already in cache
-        try:
-            HELP3O = _load_help3o_from_path(binary_path)
-            _HELP3O_AVAILABLE = True
-        except Exception as e:
-            logger.exception("Failed to load cached HELP3O binary from %s", binary_path)
-            warnings.warn(f"Failed to load cached HELP3O binary: {e}", ImportWarning)
-    else:
-        # Download from GitHub
-        try:
-            binary_path = _download_help3o_binary()
-            if binary_path and binary_path.exists():
-                HELP3O = _load_help3o_from_path(binary_path)
-                _HELP3O_AVAILABLE = True
-        except Exception as e:
-            logger.exception("Failed to download/load HELP3O binary: %s", e)
-            warnings.warn(
-                f"HELP3O Fortran extension not available: {e}\n"
-                "PyHELP functionality will be limited.",
-                ImportWarning
-            )
+    if not binary_path.exists():
+        binary_path = _download_help3o_binary() or binary_path
+
+    if not binary_path.exists():
+        _HELP3O_ERROR = FileNotFoundError(
+            f"HELP3O binary {binary_filename} not found; download it into {cache_dir}"
+        )
+        warnings.warn(str(_HELP3O_ERROR), ImportWarning)
+        return None
+
+    try:
+        HELP3O = _load_help3o_from_path(binary_path)
+    except OSError as exc:
+        _HELP3O_ERROR = exc
+        logger.error("Failed to load HELP3O binary %s: %s", binary_path, exc)
+        warnings.warn(
+            f"HELP3O binary present at {binary_path} but could not be loaded: {exc}",
+            ImportWarning,
+        )
+        return None
+    except Exception as exc:
+        _HELP3O_ERROR = exc
+        logger.exception("Failed to load HELP3O binary from %s", binary_path)
+        warnings.warn(
+            f"HELP3O Fortran extension not available: {exc}\n"
+            "PyHELP functionality will be limited.",
+            ImportWarning,
+        )
+        return None
+
+    _HELP3O_AVAILABLE = True
+    return HELP3O
+
+
+def help3o_available() -> bool:
+    """Return True if HELP3O could be loaded successfully."""
+    return ensure_help3o_loaded() is not None
+
+
+def __getattr__(name):
+    if name == "HELP3O":
+        return ensure_help3o_loaded()
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 try:
     from hydromodpy.pyhelp.managers import HelpManager
