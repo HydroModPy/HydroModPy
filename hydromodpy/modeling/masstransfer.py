@@ -15,7 +15,7 @@
 # Python
 import os
 import whitebox
-import imageio
+import imageio.v2 as imageio
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 

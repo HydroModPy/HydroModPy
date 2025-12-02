@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 
-import imageio
+import imageio.v2 as imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False

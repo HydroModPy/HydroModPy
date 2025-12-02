@@ -18,7 +18,7 @@ import os
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-import imageio
+import imageio.v2 as imageio
 from pyproj import Transformer
 from geopy.geocoders import Nominatim
 import geopy.geocoders

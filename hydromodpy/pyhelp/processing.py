@@ -14,7 +14,6 @@
 # ---- Standard Library Imports
 import os
 import os.path as osp
-from multiprocessing import Pool
 import multiprocessing as mp
 import time
 import csv
@@ -65,7 +64,7 @@ def run_help_allcells(cellparams, ncore=None):
     tstart = time.perf_counter()
     calcul_progress = 0
     N = len(cellparams)
-    pool = Pool(ncore)
+    pool = mp.get_context("spawn").Pool(ncore)
     for cell in pool.imap_unordered(run_help_singlecell, cellparams.items()):
         output[cell[0]] = cell[1]
         calcul_progress += 1

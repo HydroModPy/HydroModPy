@@ -18,7 +18,7 @@ import whitebox
 from os.path import dirname
 from typing import Union
 import os
-import imageio
+import imageio.v2 as imageio
 from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
 # wbt.set_compress_rasters(True)
