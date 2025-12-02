@@ -46,7 +46,7 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.modeling import downslope, masstransfer
+from hydromodpy.modeling import masstransfer
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% CLASS
