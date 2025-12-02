@@ -13,7 +13,6 @@
 #%% LIBRAIRIES
 
 # Python
-import vedo
 import numpy as np
 from collections.abc import Sequence
 from datetime import datetime
@@ -29,13 +28,37 @@ import os, sys
 import contextily as cx
 import matplotlib as mpl
 from matplotlib import rcsetup
-from IPython import get_ipython
 import imageio
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 
 logger = get_logger(__name__)
+
+
+def _require_vedo():
+    """
+    Import vedo only when 3D visualizations are requested.
+
+    Raises a clear error when the VTK stack is missing instead of
+    crashing on module import.
+    """
+    try:
+        import vedo  # type: ignore
+    except ImportError as exc:
+        raise ImportError(
+            "3D visualization requires the 'vedo' dependency (VTK stack). "
+            "Install it with 'pip install vedo' or use the full HydroModPy "
+            "install (not the 'light' extra)."
+        ) from exc
+    except OSError as exc:
+        raise ImportError(
+            "The VTK runtime used by vedo could not start. Install the "
+            "system libraries for VTK/Qt (e.g. libgl1, libx11-6) or run "
+            "inside an image that bundles them."
+        ) from exc
+
+    return vedo
 
 #%% CLASS
 
@@ -420,6 +443,7 @@ class Visualization():
         """
         
         logger.info("Plotting 3D visualization for model %s", self.modelname)
+        vedo = _require_vedo()
         
         def _normalize_scalarbar_pos(raw_pos):
             """Keep backward compatibility with legacy scalarbar coordinates."""
