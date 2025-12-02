@@ -31,7 +31,7 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.modeling import downslope
+from hydromodpy.modeling import masstransfer
 
 logger = get_logger(__name__)
 
@@ -1130,11 +1130,11 @@ class Modflow:
 
             if accumulation_flux == True:
                 ### Accumulation flux
-                accumulated_flow = downslope.Downslope(self.geographic,
-                                                              'outflow_drain_t('+lead_numb+').tif',
-                                                              'tracept_t('+lead_numb+').shp',
-                                                              'accumulation_flux_t('+lead_numb+').tif',
-                                                              extraction_folder=self.save_file)
+                accumulated_flow = masstransfer.Masstransfer(self.geographic,
+                                                             'outflow_drain_t('+lead_numb+').tif',
+                                                             'tracept_t('+lead_numb+').shp',
+                                                             'accumulation_flux_t('+lead_numb+').tif',
+                                                             extraction_folder=self.save_file)
                 accumulated_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
                 try:

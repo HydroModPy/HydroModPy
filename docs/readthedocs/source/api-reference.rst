@@ -11,8 +11,8 @@ Module overview
   basin descriptors (geography, geology, hydraulics, climate, hydrography, etc.),
   and the main :class:`hydromodpy.watershed_root.Watershed` object.
 - :doc:`hydromodpy.modeling <api/hydromodpy-modeling>` – preprocessing /
-  processing / post-processing helpers for MODFLOW, MODPATH, downslope recharge,
-  MT3DMS transport, and time-series utilities.
+  processing / post-processing helpers for MODFLOW, MODPATH, surface
+  mass-transfer routing, MT3DMS transport, and time-series utilities.
 - :doc:`hydromodpy.display <api/hydromodpy-display>` – visualisation routines
   for descriptors and simulation results plus VTU/VTK exporters.
 - :doc:`hydromodpy.pyhelp <api/hydromodpy-pyhelp>` – coupling layer with the HELP
