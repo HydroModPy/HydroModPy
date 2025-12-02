@@ -28,7 +28,7 @@ import os, sys
 import contextily as cx
 import matplotlib as mpl
 from matplotlib import rcsetup
-import imageio
+import imageio.v2 as imageio
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger

@@ -19,7 +19,7 @@ import os
 import datetime
 import pandas as pd
 import sys
-import imageio                           # Import raster to numpy matrix (not georeferenced but handy)
+import imageio.v2 as imageio                           # Import raster to numpy matrix (not georeferenced but handy)
 from os.path import dirname, abspath
 import matplotlib.pyplot as plt
 import flopy.utils.binaryfile as fpu
