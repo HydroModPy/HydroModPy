@@ -1,0 +1,25 @@
+name: hydromodpy-light
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.11,<3.14
+  - colormap
+  - contextily
+  - flopy
+  - geopandas
+  - h5py
+  - imageio
+  - matplotlib
+  - matplotlib-scalebar
+  - netcdf4
+  - numpy>=2.0
+  - pandas
+  - pyproj
+  - pyshp
+  - rasterio
+  - rioxarray
+  - selenium
+  - whitebox
+  - xarray
+  - pysheds
+  - pip
