@@ -42,6 +42,26 @@ Each release section includes the following standard categories:
 
 ---
 
+## [v0.3.3] - 2025-12-03
+### Added
+- Lightweight conda environment option (`env_hydromodpy_light.yml`) and matching light dependency set in `pyproject.toml` for setups without VTK or Jupyter kernels.
+
+### Changed
+- Replaced the former `downslope` helper with `masstransfer` as the single surface routing engine.
+- Standardized raster reads on `imageio.v2` and removed deprecation warnings.
+- Refactored SIM2 processing for leaner memory use.
+- Simplified vedo imports in visualization routines and centralized PyHELP imports inside `watershed_root`.
+- HELP3O loading now retries/resolves paths more reliably during PyHELP runs.
+
+### Fixed
+- Pandas warnings in PyHELP CSV ingestion and daily output aggregation (removed deprecated args and axis-based groupby).
+- Multiprocessing pools in PyHELP now use a spawn context to avoid fork-in-multithreaded warnings on Python 3.11–3.13.
+
+### Removed
+- `hydromodpy.modeling.downslope` module (functionality consolidated into `masstransfer`).
+
+---
+
 ## [v0.3.2] - 2025-11-28
 ### Changed
 - Reworked SIM2 workflow: coarse clip without reprojection to trim inputs, resample on that reduced dataset, then final clip/mask with reprojection for clean outputs without wasted time or RAM.
