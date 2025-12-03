@@ -682,7 +682,7 @@ class Modflow:
                         # More flexibility in the possible format of the climatic chronicles
                         # Should only be used exceptionnaly (pandas series recommended)
                         try:
-                            self.rchData[kper] = self.recharge[kper]
+                            self.rchData[kper] = self.recharge.iloc[kper]
                         except:
                             self.rchData[kper] = self.recharge.iloc[kper].values[0]
 
