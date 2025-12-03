@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import flopy
 import flopy.utils.binaryfile as fpu
 import flopy.utils.binaryfile as bf
-import imageio
+import imageio.v2 as imageio
 import rasterio as rio
 from rasterio.transform import from_origin
 from rasterio.warp import reproject
@@ -30,6 +30,11 @@ from rasterio.enums import Resampling
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath

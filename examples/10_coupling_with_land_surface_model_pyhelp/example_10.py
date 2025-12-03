@@ -37,6 +37,11 @@ wbt.verbose = False
 
 import glob
 
+try:
+    import hydromodpy
+except:
+    pass
+
 #%% ROOT
 
 """

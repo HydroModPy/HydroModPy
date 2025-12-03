@@ -18,6 +18,11 @@ import os
 import numpy as np
 import pandas as pd
 
+try:
+    import hydromodpy
+except:
+    pass
+
 # ROOT DIRECTORY
 from os.path import dirname, abspath
 try:
@@ -34,29 +39,29 @@ from hydromodpy import watershed_root
 def run_hydromodpy(watershed_name):
 
     # ---- PERSONAL PATHS
-    
+
     example_path = os.path.join(root_dir, "examples", "11_for run from scratch without plots/")
     data_path = os.path.join(example_path, "data/")
-    
+
     # The folder out_path is created in the example_path root directory:
     out_path = os.path.join(root_dir,'examples', 'results')
     # Or define it manually
     # out_path = 'C:/Simulations/HydroModPy/'
-    
+
     print('The results of the example will be saved here :', out_path)
-    
+
     # ---- EXTRACT CATCHMENT
-    
+
     # Name of the study site
     watershed_name = watershed_name
     print('##### '+watershed_name.upper()+' #####')
-    
+
     # Regional DEM
     dem_path = os.path.join(data_path, 'regional dem.tif')
-    
+
     # Outlet coordinates of the catchment
     from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154']
-    
+
     # Extract the catchment from a regional DEM
     BV = watershed_root.Watershed(dem_path=dem_path,
                                   out_path=out_path,
@@ -66,23 +71,23 @@ def run_hydromodpy(watershed_name):
                                   from_dem=None, # [path, cell size]
                                   from_shp=None, # [path, buffer size]
                                   from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                                  bottom_path=None, # path 
+                                  bottom_path=None, # path
                                   save_object=True)
-    
+
     # Paths necessary for the script
     stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
     simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
-    
+
     # ---- MODEL PARAMETRIZATION
-    
+
     # Name of the model/simulation
     model_name = 'Test_Galaxy_v0'
-    
+
     # Import modules
     BV.add_settings()
     BV.add_climatic()
     BV.add_hydraulic()
-    
+
     # Frame settings
     BV.settings.update_model_name(model_name) # Name of the model/simulation
     BV.settings.update_box_model(True)
@@ -90,11 +95,11 @@ def run_hydromodpy(watershed_name):
     BV.settings.update_simulation_state('steady') # Transient
     BV.settings.update_check_model(plot_cross=False, check_grid=True)
     BV.settings.update_dis_perlen(dis_perlen=False)
-    
+
     # Climatic settings
     BV.climatic.update_recharge(350 / 1000 / 365, sim_state=BV.settings.sim_state)
     BV.climatic.update_first_clim('mean') # or 'first or value
-    
+
     # Hydraulic settings
     BV.hydraulic.update_nlay(3)
     BV.hydraulic.update_lay_decay(1) # 1 if not activated
@@ -107,31 +112,31 @@ def run_hydromodpy(watershed_name):
     BV.hydraulic.update_ss_decay(0, min_value=None, log_transf=False)
     BV.hydraulic.update_hk_vertical(None) # or [ [1e-5, [0, 20]], [1e-6, [20,80]] ]
     BV.hydraulic.update_cond_drain(None)
-    
+
     # Boundary settings
     BV.settings.update_bc_sides(None, None)
     BV.add_oceanic('None')
-    
+
     # Particle tracking settings
     BV.settings.update_input_particles(zone_partic = os.path.join(simulations_folder,model_name,'_postprocess/_rasters/seepage_areas_t(0).tif'),
                                        track_dir = 'backward',
                                        bore_depth = False,
                                        cell_div = 1, # 1
                                        )
-    
+
     # ---- FLOW MODEL
-    
+
     # Pre-processing
     model_modflow = BV.preprocessing_modflow(for_calib=False)
-    
+
     # Processing
     success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-    
+
     # Post-processing
     if success_modflow == True:
         BV.postprocessing_modflow(model_modflow,
                                   watertable_elevation=True,
-                                  watertable_depth=True, 
+                                  watertable_depth=True,
                                   seepage_areas=True,
                                   outflow_drain=True,
                                   groundwater_flux=True,
@@ -142,16 +147,16 @@ def run_hydromodpy(watershed_name):
                                   intermittency_weekly=False, # only in transient
                                   intermittency_daily=False, # only in transient
                                   export_all_tif=False)
-    
+
     # ---- PARTICLE TRACKING
-    
+
     # Pre-processing
     if success_modflow == True:
         model_modpath = BV.preprocessing_modpath(model_modflow)
-    
+
     # Processing
         success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-    
+
     # Post-processing
     if success_modpath == True:
         BV.postprocessing_modpath(model_modpath,
@@ -160,24 +165,24 @@ def run_hydromodpy(watershed_name):
                                   pathlines_shp=False,
                                   particles_shp=False,
                                   random_id=None) # None
-    
+
     # ---- POST PROCESSING
-    
+
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=model_modpath,
                                                       subbasin_results=True,
                                                       datetime_format=False)
-        
+
     netcdf_results = BV.postprocessing_netcdf(model_modflow,
                                               datetime_format=False)
-    
-    watertable_depth_output = timeseries_results.watertable_depth  
-    
+
+    watertable_depth_output = timeseries_results.watertable_depth
+
     return watertable_depth_output
-    
+
 # ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
     watertable_depth_output = run_hydromodpy('Example_11_Galaxy') # watershed_name
-    
+
 # ---- NOTES

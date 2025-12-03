@@ -20,10 +20,15 @@ import matplotlib as mpl        # install automatically by geopandas
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-import imageio
+import imageio.v2 as imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
@@ -58,7 +63,7 @@ print('The results of the example will be saved here :', out_path)
 #%% OPTIONS
 
 ### Choice of model domain initialization (shapefile, .csv library of coordinates, )
-# case = 'FromSHP'    # from a shapefile: clip a provided DEM 
+# case = 'FromSHP'    # from a shapefile: clip a provided DEM
 # case = 'FromLIB'  # from a library of coordinates: extract the catchment from a DEM
 # case = 'FromXYV'  # from a XY coordinates: the catchment is extracted from outlet coordinates
 case = 'FromDEM'  # from a DEM: the model domain is directly the DEM provided
@@ -157,7 +162,7 @@ recharge_data = 'dictionary'
 ###
 
 if recharge_data == 'manual':
-    
+
     time_series = pd.Series([10,20,30,40,50,60,60,50,40,30,20,10]) # mm/month
     BV.climatic.update_recharge(time_series, sim_state='transient')
     fig, ax = plt.subplots(1,1, figsize=(6,3))
@@ -252,7 +257,7 @@ if recharge_data == 'synthetic':
     # dis = 'uniform'
 
     fig, ax = plt.subplots(1,1, figsize=(8,3), dpi=300)
-    
+
     BV.climatic.update_recharge_synthetic(rtot, shape, years, start_date=start_date, freq=freq, dis=dis)
     R = BV.climatic.recharge
     r = R * 0.1
@@ -264,29 +269,29 @@ if recharge_data == 'synthetic':
     print(R.resample('Y').sum()*1000)
 
 if recharge_data == 'raster':
-    
+
     dem_struct = imageio.imread(os.path.join(stable_folder,r'geographic/watershed_box_buff_dem.tif')) * 0
     dem_struct = dem_struct + 10/1000/30
     dem_struct[:,int(dem_struct.shape[1]/2):] = dem_struct[:,int(dem_struct.shape[1]/2):] + 1000/1000/30
-    
+
     list_of_arrays = [dem_struct, dem_struct, dem_struct] # transient
     # list_of_arrays = [dem_struct] # steay
-        
+
     dictio = {}
-    
+
     for i in range(len(list_of_arrays)):
         dictio[i] = list_of_arrays[i]
-    
+
     R = dictio.copy()
     r = R.copy()
     for i in range(len(R)):
         r[i] = r[i] * 0.1
-    
+
     fig, ax = plt.subplots(1,1, figsize=(6,3))
     ax.imshow(R[0])
 
 if recharge_data == 'evapotranspiration':
-    
+
     time_series = pd.Series([10,20,30,-20,-100,-40,20,50,40,30,20,10]) # mm/month
     BV.climatic.update_recharge(time_series, sim_state='transient')
     fig, ax = plt.subplots(1,1, figsize=(6,3))
@@ -296,9 +301,9 @@ if recharge_data == 'evapotranspiration':
     ax.set_xlabel('Months')
     ax.set_ylabel('[mm/month]')
     ax.legend()
-    
+
 if recharge_data == 'dictionary':
-    
+
     shape_rec = np.random.rand(BV.geographic.dem_clip.shape[0],BV.geographic.dem_clip.shape[1])*100 # mm/month
     dict_rec = {}
     dict_rec[0] = shape_rec
@@ -399,7 +404,7 @@ success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_mod
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
                               watertable_elevation = True,
-                              watertable_depth= True, 
+                              watertable_depth= True,
                               seepage_areas = True,
                               outflow_drain = True,
                               groundwater_flux = True,
@@ -524,7 +529,7 @@ visu.visual2D(object_list = ['map','grid',
                              (None,None),(0,10),
                              (None,None),(None,None),
                              (0,100),(None,None),
-                             ], 
+                             ],
               lines=250)
 
 #%% 3D

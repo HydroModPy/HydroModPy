@@ -23,14 +23,19 @@ import matplotlib.pyplot as plt
 from itertools import islice
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-import imageio
+import imageio.v2 as imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
 # Add
-import flopy.utils.binaryfile as bf 
+import flopy.utils.binaryfile as bf
 from PIL import Image
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
@@ -85,7 +90,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=bottom_path, # path 
+                              bottom_path=bottom_path, # path
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -195,23 +200,23 @@ vers = 'TRANS1'
 #%% FUNCTION
 
 class MatchingStreams:
-    """ 
-    
-    Class for the calibration based on river occurency
-        
-    Attributes
-    ----------
-    
-    Methods
-    ----------
-    
     """
 
-    def __init__(self, 
-                 watershed, 
+    Class for the calibration based on river occurency
+
+    Attributes
+    ----------
+
+    Methods
+    ----------
+
+    """
+
+    def __init__(self,
+                 watershed,
                  iteration_label=None,
                  from_calib=True):
-        
+
         self.geographic = watershed.geographic
         self.hydrography = watershed.hydrography
         if from_calib==True:
@@ -219,16 +224,16 @@ class MatchingStreams:
         else:
             self.calibration_folder = watershed.simulations_folder
         self.iteration_label = iteration_label
-        
+
         self.watershed_shp = watershed.geographic.watershed_shp
         self.watershed_fill = watershed.geographic.watershed_fill
         self.watershed_direc = watershed.geographic.watershed_direc
-              
+
         self.prepare_files()
         self.sim_to_obs()
         self.obs_to_sim()
         # self.get_indicator()
-        
+
     def prepare_files(self):
         #files are necessary for whiteboxtool
         self.results_folder=os.path.join(self.calibration_folder, self.iteration_label, '_postprocess')
@@ -236,7 +241,7 @@ class MatchingStreams:
         # New folder results
         self.dichotomy_folder = os.path.join(self.calibration_folder, self.iteration_label, '_matchingstreams')
         toolbox.create_folder(self.dichotomy_folder)
-        
+
         # Observed buff data
         self.buff_tif_obs = self.hydrography.tif_streams
         # Mask observed
@@ -250,7 +255,7 @@ class MatchingStreams:
         # Trace downslope obs
         self.obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.tif')
         wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
-        
+
         # Mask simulated
         tif_sim = os.path.join(self.results_folder,'_rasters','seepage_areas_t(0).tif')
         self.tif_sim = os.path.join(self.dichotomy_folder,'sim.tif')
@@ -263,18 +268,18 @@ class MatchingStreams:
         # Trace downslope sim
         self.sim_flow = os.path.join(self.dichotomy_folder, 'simflow.tif')
         wbt.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)
-        
+
     def sim_to_obs(self):
         # Simflow to points
         self.pt_sim_flow = os.path.join(self.dichotomy_folder, 'simflow.shp')
         wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)
         self.pt_sim_flowf = os.path.join(self.dichotomy_folder, 'simflowf.shp')
-        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flowf)   
-        
+        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flowf)
+
         # Distance of dem to obs
         self.dist_dem_obs = os.path.join(self.dichotomy_folder, 'dist_dem_obs.tif')
         wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_obs, self.dist_dem_obs)
-        
+
         # Distance of dem to obsflow
         self.dist_dem_obsflow = os.path.join(self.dichotomy_folder, 'dist_dem_obsflow.tif')
         wbt.downslope_distance_to_stream(self.watershed_fill, self.obs_flow, self.dist_dem_obsflow)
@@ -296,7 +301,7 @@ class MatchingStreams:
         wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
         self.pt_obs_flowf = os.path.join(self.dichotomy_folder, 'obsflowf.shp')
         wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flowf)
-        
+
         # Distance of dem to sim
         self.dist_dem_sim = os.path.join(self.dichotomy_folder, 'dist_dem_sim.tif')
         wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_sim, self.dist_dem_sim)
@@ -325,7 +330,7 @@ simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # ne
 calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/' # necessary for plots
 
 BV.calibration_folder = calibration_folder
-        
+
 box = True # or False
 sink_fill = False # or True
 # sim_state = 'steady' # 'steady' or 'transient'
@@ -351,7 +356,7 @@ bc_right = None # or value
 sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
 zone_partic = 'domain' # or watershed
 vka = 1
-bottom = 0 
+bottom = 0
 thickness = 100
 Klog_transf = False
 
@@ -400,13 +405,13 @@ BV.hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay, log_transf=Kl
 # the_sy0 = 0.1/100 #
 the_sy0 = 2/100 #
 BV.hydraulic.update_sy(the_sy0)
-Symin_for_sy_decay = 0.1/100   
+Symin_for_sy_decay = 0.1/100
 BV.hydraulic.update_sy_decay((1/alpha)/n_factor, min_value=Symin_for_sy_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
 # BV.hydraulic.update_sy_decay(0) # 0
 
 the_ss0 = 1e-10
 BV.hydraulic.update_ss(the_ss0)
-# Ssmin_for_ss_decay = 1e-10 
+# Ssmin_for_ss_decay = 1e-10
 # BV.hydraulic.update_ss_decay((1/alpha)/n_factor, min_value=Ssmin_for_ss_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
 BV.hydraulic.update_ss_decay(0) # 0
 
@@ -422,19 +427,19 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
 
 model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
-          
+
 list_model_name = []
 list_model_name.append(model_name)
 list_model_modflow = []
 list_model_modflow.append(model_modflow)
-     
+
 dictio = {}
 dictio['list_model_name'] = list_model_name
 dictio['list_model_modflow'] = list_model_modflow
 pickle_file = BV.calibration_folder+'/'+model_name+'/'+'results_'+model_name+'.pkl'
 with open(pickle_file, 'wb') as f:
     pickle.dump(dictio, f)
-    
+
 success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True, link_mt3dms=True)
 
 prob_cells = model_modflow.prob_cells
@@ -444,7 +449,7 @@ BV.postprocessing_modflow(model_modflow,
                           seepage_areas = True,
                           outflow_drain = True,
                           accumulation_flux = True,
-                          watertable_depth = True, 
+                          watertable_depth = True,
                           groundwater_flux = False,
                           groundwater_storage = False,
                           intermittency_weekly = True,
@@ -454,7 +459,7 @@ BV.postprocessing_modflow(model_modflow,
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=None,
                                                   model_mt3dms=None,
-                                                  datetime_format=True, 
+                                                  datetime_format=True,
                                                   subbasin_results=True,
                                                   intermittency_weekly=True,
                                                   intermittency_yearly=False) # or None
@@ -480,7 +485,7 @@ mean_obsf_to_simf = np.nanmean(obsf_to_simf[obsf_to_simf['VALUE1']>=0]['VALUE1']
 # mean_sim_to_obsf = np.nanmean(sim_to_obsf[sim_to_obsf['VALUE1']>=0]['VALUE1'])
 # mean_simf_to_obs = np.nanmean(simf_to_obs[simf_to_obs['VALUE1']>=0]['VALUE1'])
 mean_simf_to_obsf = np.nanmean(simf_to_obsf[simf_to_obsf['VALUE1']>=0]['VALUE1'])
-        
+
 ### vf simf/obsf - with : gap=0.5, streams : RNF, rec : 1000 (year) ==> isba
 obs = mean_obsf_to_simf
 sim = mean_simf_to_obsf
@@ -505,20 +510,20 @@ Qobs = Qobs * 7 * 1000
 simul_list = sorted(glob.glob(os.path.join(calibration_folder,vers+'*')), key=os.path.getmtime)
 
 for i, simul in enumerate(simul_list[:]):
-    
+
     fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(12,3.5), dpi=300)
 
     model_name = os.path.split(simul)[-1]
 
     Smod_path = os.path.join(simul, r'_postprocess/_timeseries/_simulated_timeseries.csv')
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-    
+
     Rmod = Smod['recharge'] * 7 * 1000
-    rmod = Smod['runoff'] * 7 * 1000 
-    
+    rmod = Smod['runoff'] * 7 * 1000
+
     Omod = (Smod['outflow_drain'] * 7 * 1000)
     Qmod = Omod + rmod
-    
+
     ax = a0
     ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='Observed')
     # ax.fill_between(Omod.index, Omod, Qmod, color='red', lw=1, label='Simualted : outflow + runoff', alpha=0.5)
@@ -535,18 +540,18 @@ for i, simul in enumerate(simul_list[:]):
     ax.legend(loc='upper left')
     ax.set_title(model_name.upper(), fontsize=10)
     ax.set_ylim(None,50)
-    
+
     # axb = ax.twinx()
     # axb.bar(Rmod.index, Rmod, color='dodgerblue', width=10, edgecolor='None', lw=0, alpha=1, label='Recharge')
     # axb.set_ylim(0,100)
     # axb.invert_yaxis()
     # axb.set_yticklabels([0,100])
     # axb.legend(loc='upper right')
-    
+
     """
     Qobs_stat = select_period(Qobs,2003,2003)
     Qmod_stat = select_period(Qmod,2003,2003)
-    
+
     # import hydroeval as he
     # NSE = he.evaluator(he.nse, Qmod_stat, Qobs_stat)[0]
     # NSElog = he.evaluator(he.nse, Qmod_stat, Qobs_stat, transform='log')[0]
@@ -557,7 +562,7 @@ for i, simul in enumerate(simul_list[:]):
     # print('NSElog',round(NSElog,2))
     # print('RMSE',round(RMSE,2))
     # print('KGE',round(KGE,2))
-    
+
     ax = a1
     ax.scatter(Qobs_stat, Qmod_stat, s=25, edgecolor='none', alpha=0.75, facecolor='forestgreen')
     ax.set_xscale('log')
@@ -567,7 +572,7 @@ for i, simul in enumerate(simul_list[:]):
     ax.set_ylim(1,500)
     ax.set_xlim(0.1,300)
     ax.set_ylim(0.1,300)
-    
+
     ax.set_xlabel('$Q_{obs}$ / A [mm/week]', fontsize=12)
     ax.set_ylabel('$Q_{sim}$ / A [mm/week]', fontsize=12)
 
@@ -593,15 +598,15 @@ area = int(round(BV.geographic.area))
 simul_list = sorted(glob.glob(os.path.join(calibration_folder,vers+'*')), key=os.path.getmtime)
 
 for i, simul in enumerate(simul_list[:]):
-    
+
 
     model_name = os.path.split(simul)[-1]
 
     Smod_path = os.path.join(simul, r'_postprocess/_timeseries/_simulated_timeseries.csv')
     Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
-    
+
     Rmod = Smod['recharge'] * 7 * 1000
-    
+
     WTEmod = Smod['watertable_elevation']
     WTDmod = Smod['watertable_depth']
 
@@ -629,7 +634,7 @@ for i, simul in enumerate(simul_list[:]):
     axb.invert_yaxis()
     axb.set_yticklabels([0,100])
     axb.legend(loc='upper right')
-    
+
 #%% B - MODPATH
 
 list_folder = glob.glob(BV.calibration_folder+'/'+vers+'*')
@@ -649,9 +654,9 @@ model_modflow = list_flow_model[0]
 tif_seep = os.path.join(BV.calibration_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
 tif_seep_clip = os.path.join(BV.calibration_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
 wbt.clip_raster_to_polygon(
-    tif_seep, 
-    BV.stable_folder + '/geographic/watershed.shp', 
-    tif_seep_clip, 
+    tif_seep,
+    BV.stable_folder + '/geographic/watershed.shp',
+    tif_seep_clip,
     maintain_dimensions=True)
 
 BV.add_settings()
@@ -706,7 +711,7 @@ im.set_array([])
 fig, ax = plt.subplots(1,1, figsize=(8,6))
 
 # Base raster and layers
-rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
+rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform,
                    cmap='Greys', alpha=0.7, zorder=-10)
 
 shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=1,
@@ -783,7 +788,7 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
                                                   model_mt3dms=model_mt3dms,
                                                   suffix_name=scenario,
-                                                  datetime_format=True, 
+                                                  datetime_format=True,
                                                   subbasin_results=True,
                                                   intermittency_weekly=True,
                                                   residence_times=True,
@@ -830,10 +835,10 @@ for i in range((model_mt3dms.model_modflow.nper)):
     concobj_1c_fil_surf[the_time] = concobj_1c_fil[the_time+1][0]
     concobj_1c_fil_surf[the_time] = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf[the_time])
     # concobj_1c_fil[the_time][0][concobj_1c_fil[the_time][0] <= 0] = np.nan
-    
+
     the_mins.append(np.nanmin(concobj_1c_fil_surf[the_time]))
     the_maxs.append(np.nanmax(concobj_1c_fil_surf[the_time]))
-    
+
 the_min = np.nanmin(the_mins)
 the_max = np.nanmax(the_maxs)
 
@@ -858,9 +863,9 @@ hill = rasterio.open(stable_folder+'/geographic/watershed_hill.tif')
 # Boucle sur chaque pas de temps
 for i in range(len(concobj_1c_fil_surf)):
     the_time = i
-    
+
     conc_plt = concobj_1c_fil_surf[i]
-    
+
     xi = conc_plt.flatten()
     xi = xi[~np.isnan(xi)]
 
@@ -883,7 +888,7 @@ for i in range(len(concobj_1c_fil_surf)):
         'whishi': q90,
         'fliers': []
     }]
-    
+
     mean_vals.append(mean)
     mean_times.append(xpos)
 
@@ -893,14 +898,14 @@ for i in range(len(concobj_1c_fil_surf)):
     # Créer une nouvelle figure et des axes à chaque itération
     fig, axs = plt.subplots(2, 1, figsize=(8, 12), dpi=300, gridspec_kw={'height_ratios': [1, 3]})
     ax = axs.ravel()
-    
+
     # Graphique du boxplot et de la recharge (subplot du haut)
     axb = ax[0].twinx()
-    
+
     ax[0].zorder = 1
     axb.zorder = 0 # fills in back
     ax[0].patch.set_visible(False)
-    
+
     # Ajouter les boxplots précédents et actuels à la figure
     for xpos, box_stat in all_box_stats:
         ax[0].bxp(box_stat, positions=[xpos], widths=5, showfliers=False,
@@ -918,10 +923,10 @@ for i in range(len(concobj_1c_fil_surf)):
     ax[0].axhline(y=input_no3, color='darkorange', linestyle='-', lw=1, zorder=-1,
                   label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans h., 0.05 m trans v. \nDiffusion: 10$^{-10}$ m²/s',
                   )
-    
+
     # if i==0:
     ax[0].legend(loc='upper center', frameon=False)
-    
+
     # Réglages pour le graphique de concentration
     ax[0].set_ylabel('[NO3] mg/L', color='forestgreen')
     ax[0].set_title('Synthetic drought year - Initial: mean recharge and aquifer at 100 mg/L', fontsize=10)
@@ -931,8 +936,8 @@ for i in range(len(concobj_1c_fil_surf)):
     ax[0].set_ylim(30, 100)
 
     # Line connectant les moyennes
-    ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)   
-    
+    ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)
+
     # Placer la recharge en arrière-plan du graphique
     axb.step(R_mm_day_filt.index, R_mm_day_filt * 7, lw=2, color='dodgerblue', zorder=0)
     axb.set_ylabel('Recharge [mm/week]', color='dodgerblue')
@@ -947,21 +952,21 @@ for i in range(len(concobj_1c_fil_surf)):
     color_camp = 'turbo'
     sm = cm.ScalarMappable(cmap=color_camp, norm=norm)
     sm.set_array([])
-    
-    rasterio.plot.show(np.ma.masked_where(hill.read(1) < 0, hill.read(1)), 
+
+    rasterio.plot.show(np.ma.masked_where(hill.read(1) < 0, hill.read(1)),
                       ax=ax[1], transform=hill.transform,
                       cmap='Greys_r', alpha=0.75, zorder=-10,
                       )
-                    
-    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, xi), 
+
+    rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, xi),
                       ax=ax[1], transform=dem.transform,
                       cmap=color_camp, alpha=1, zorder=1,
                       norm=norm
-                      )    
+                      )
 
     # Ajouter les limites du bassin versant
     shp_bv = gpd.read_file(BV.geographic.watershed_shp)
-    shp_hydro = gpd.read_file(BV.hydrography.streams)    
+    shp_hydro = gpd.read_file(BV.hydrography.streams)
     shp_bv.plot(ax=ax[1], facecolor='None', lw=3, zorder=2)
     shp_hydro.plot(ax=ax[1], color='navy', lw=1, zorder=0)
 
@@ -982,7 +987,7 @@ for i in range(len(concobj_1c_fil_surf)):
         plt.close(fig)
     else:
         plt.show()
-    
+
 if plot_gif == True:
     # Créer le GIF à partir des images enregistrées
     begin_by = figures_dir + vgif_name
