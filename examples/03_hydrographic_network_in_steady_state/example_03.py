@@ -18,10 +18,15 @@ import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import imageio
+import imageio.v2 as imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
@@ -80,7 +85,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=bottom_path, # path 
+                              bottom_path=bottom_path, # path
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -105,7 +110,7 @@ if from_dem == None:
 # General plot of the study site
 if from_dem == None:
     visualization_watershed.watershed_geology(BV)
-    
+
 visualization_watershed.watershed_dem(BV)
 
 #%% ---- RECHARGE
@@ -221,14 +226,14 @@ list_model_modflow = []
 
 for hyd_cond in list_hyd_cond:
     BV.hydraulic.update_hk(hyd_cond)
-    
+
     model_name = iD_set_simulations+'_'+str(round(hyd_cond,3))
     BV.settings.update_model_name(model_name)
     print(model_name)
-    
+
     model_modflow = BV.preprocessing_modflow(for_calib=False)
     success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-    
+
     list_model_name.append(model_name)
     list_success_modflow.append(success_modflow)
     list_model_modflow.append(model_modflow)
@@ -259,7 +264,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     if success_modflow == True:
         BV.postprocessing_modflow(model_modflow,
                                   watertable_elevation = True,
-                                  watertable_depth= True, 
+                                  watertable_depth= True,
                                   seepage_areas = True,
                                   outflow_drain = True,
                                   groundwater_flux = True,
@@ -272,9 +277,9 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
         timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                           model_modpath=None,
-                                                          datetime_format=False, 
+                                                          datetime_format=False,
                                                           subbasin_results=True) # or None
-        
+
         netcdf_results = BV.postprocessing_netcdf(model_modflow,
                                                   datetime_format=False)
 
@@ -295,21 +300,21 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
     dem_data = imageio.imread(BV.geographic.watershed_dem)
     dem_data = np.ma.masked_where(dem_data < 0, dem_data)
-    
-    wt_data = imageio.imread(os.path.join(simulations_folder, model_name, 
+
+    wt_data = imageio.imread(os.path.join(simulations_folder, model_name,
                                           r'_postprocess/_rasters/watertable_elevation_t(0).tif'))
     wt_data = np.ma.masked_where(wt_data < 0, wt_data)
-    
-    river_data = imageio.imread(os.path.join(stable_folder, 'hydrography', 
+
+    river_data = imageio.imread(os.path.join(stable_folder, 'hydrography',
                                              'regional stream network.tif'))
 
     xvalues = np.linspace(-1,1,dem_data.shape[1])
     yvalues = np.linspace(-1,1,dem_data.shape[0])
     xx, yy = np.meshgrid(xvalues,yvalues)
-    
+
     cur_x = dem_data.shape[1] /2
     # cur_y = dem_data.shape[0] /2
-    
+
     dem_prof = dem_data.astype(float)
     dem_prof[dem_prof<0] = np.nan
     dem_v_plot = dem_prof[:,int(cur_x)]
@@ -324,29 +329,29 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     # wt_prof_min[wt_prof_min<0] = np.nan
     # wt_v_plot_min = wt_prof_min[:,int(cur_x)]
     # wt_v_plot_min[wt_v_plot_min == 0] = np.nan
-    
+
     # Facecolor watertable
     wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75,
                                 dem_v_plot-30, wt_v_plot,
                                 color='dodgerblue', alpha=0.5, lw=0)
     # Line watertable
     w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=1)
-    
+
     # Facecolor unsaturated
-    wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, 
+    wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75,
                                 wt_v_plot, dem_v_plot,
                                 color='saddlebrown', alpha=0.5, lw=0)
-    
+
     # Line unsaturated
     d_prof = ax.plot(np.arange(xx.shape[0])*75, dem_v_plot, 'saddlebrown', lw=1.5)
-    
+
     # Facecolor noflow
     ax.fill_between(np.arange(xx.shape[0])*75,
                     0, dem_v_plot-30,
                     color='lightgrey', alpha=1, lw=0, zorder=10)
     # Line noflow
     ax.plot(np.arange(xx.shape[0])*75, dem_v_plot-30, color='dimgray', lw=1.5)
-    
+
     # Settings
     ax.set_xlim(1000, 4000)
     ax.set_ylim(85, 130)
@@ -354,19 +359,19 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     ax.set_xlabel('Distance [m]')
     ax.set_ylabel('Elevation [m]')
     ax.set_title('K = '+'{:.2e}'.format(model_modflow.hk.mean()/24/3600)+' m/s')
-    
+
     compt += 1
-    
+
     fig.tight_layout
-    
+
     # fig.savefig(os.path.join(model_modflow.figure_file,
     #             'CROSS_'+model_name+'_'+str(compt)+'.png'),
     #             bbox_inches='tight')
-        
+
     # fig.savefig(os.path.join(model_modflow.save_fig,
     #             'CROSS_'+model_name+'_'+str(compt)+'.png'),
     #             bbox_inches='tight')
-    
+
 #%% MAP
 
 compt = 0
@@ -382,22 +387,22 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
     dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
     dem_data = np.ma.masked_where(dem_data < 0, dem_data)
-    
+
     contour = imageio.imread(BV.geographic.watershed_contour_tif)
     contour = np.ma.masked_where(contour < 0, contour)
-    
+
     obs_river_data = imageio.imread(os.path.join(stable_folder, 'hydrography',
                                                  'regional stream network.tif'))
     obs_river_data = np.ma.masked_where(obs_river_data < 0, obs_river_data)
-    
+
     seep_river_data = imageio.imread(os.path.join(simulations_folder, model_name,
                                                   r'_postprocess/_rasters/seepage_areas_t(0).tif'))
     seep_river_data = np.ma.masked_where(seep_river_data <= 0, seep_river_data)
-    
+
     sim_river_data = imageio.imread(os.path.join(simulations_folder, model_name,
                                                  r'_postprocess/_rasters/accumulation_flux_t(0).tif'))
     sim_river_data = np.ma.masked_where(sim_river_data <= 0, sim_river_data)
-    
+
     im_dem = ax.imshow(dem_data, alpha=0.5, cmap='Greys')
     im_cont = ax.imshow(contour, alpha=1, cmap=mpl.colors.ListedColormap('k'))
     im_obs = ax.imshow(obs_river_data, alpha=1, cmap=mpl.colors.ListedColormap('navy'))
@@ -407,19 +412,19 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
     ax.set_xlabel('X [pixels]')
     ax.set_ylabel('Y [pixels]')
     ax.set_title('K = '+'{:.2e}'.format(model_modflow.hk.mean()/24/3600)+' m/s')
-    
+
     compt += 1
-    
+
     fig.tight_layout()
 
     # fig.savefig(os.path.join(model_modflow.figure_file,
     #             'MAP_'+model_name+'_'+str(compt)+'.png'),
     #             bbox_inches='tight')
-    
+
     # fig.savefig(os.path.join(model_modflow.save_fig,
     #             'MAP_'+model_name+'_'+str(compt)+'.png'),
     #             bbox_inches='tight')
-    
+
 #%% GRAPH
 
 fig, ax = plt.subplots(1, 1, figsize=(5,4), dpi=300)
@@ -427,25 +432,25 @@ fig, ax = plt.subplots(1, 1, figsize=(5,4), dpi=300)
 for model_name, success_modflow, model_modflow in zip(list_model_name,
                                                       list_success_modflow,
                                                       list_model_modflow):
-    
-    simulations_folder = os.path.join(out_path, watershed_name, 
+
+    simulations_folder = os.path.join(out_path, watershed_name,
                                       'results_simulations')
-    
+
     simul_csv = pd.read_csv(os.path.join(simulations_folder, model_name,
                             r'_postprocess/_timeseries/', '_simulated_timeseries.csv'),
                             sep=';')
-    
+
 
     ax.plot(model_modflow.hk.mean()/24/3600,
             simul_csv['seepage_areas'],
             marker='o', ms=8, lw=0, color='k')
-    
+
     ax.set_xscale('log')
     ax.set_xlabel('K [m/s]')
     ax.set_ylabel('Drainage density [%]')
-    
+
     # fig.tight_layout()
-    
+
     # fig.savefig(os.path.join(model_modflow.save_fig,
     #             'GRAPH_sat_'+iD_set_simulations+'.png'),
     #             bbox_inches='tight')
