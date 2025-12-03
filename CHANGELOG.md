@@ -52,6 +52,7 @@ Each release section includes the following standard categories:
 - Refactored SIM2 processing for leaner memory use.
 - Simplified vedo imports in visualization routines and centralized PyHELP imports inside `watershed_root`.
 - HELP3O loading now retries/resolves paths more reliably during PyHELP runs.
+- Replace 'imageio' by 'rasterio' to resolve deprecation.
 
 ### Fixed
 - Pandas warnings in PyHELP CSV ingestion and daily output aggregation (removed deprecated args and axis-based groupby).

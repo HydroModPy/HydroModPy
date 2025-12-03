@@ -344,7 +344,7 @@ def load_to_xarray(file, src_crs=None, main_var=None,
             with xr.open_dataset(file) as ds:
                 ds.load() # to unlock the resource
             ds = ds.squeeze('band')
-            ds = ds.drop('band')
+            ds = ds.drop_vars('band')
             if main_var:
                 ds = ds.rename(dict(band_data = main_var))
 
@@ -408,44 +408,56 @@ def load_to_xarray(file, src_crs=None, main_var=None,
 
 
     # ---- Reprojection
-    # Add Coordinate Reference System if needed
-    if not src_crs:
-        if 'spatial_ref' not in list(ds.coords):
+    # Helper function to check if a CRS is invalid
+    def _is_crs_invalid(crs):
+        if crs is None:
+            return True
+        crs_str = str(crs)
+        invalid_patterns = ['EngineeringCRS', 'Unknown engineering datum',
+                          'LOCAL_CS', 'UNIT["unknown"', 'unnamed']
+        if any(p in crs_str for p in invalid_patterns):
+            return True
+        try:
+            return crs.to_dict().get('type') == 'EngineeringCRS'
+        except:
+            return False
+
+    # Apply source CRS if provided and needed
+    if src_crs:
+        current_crs = ds.rio.crs
+        if _is_crs_invalid(current_crs) or 'spatial_ref' not in ds.coords:
+            if 'spatial_ref' in ds.coords:
+                ds = ds.drop_vars('spatial_ref')
             ds.rio.write_crs(src_crs, inplace = True)
-            # print(f"The CRS of input data has been set to '{ds.rio.crs.to_string()}'.\n")
-    else:
-        if not ds.rio.crs.is_valid:
-            ds.rio.write_crs(src_crs, inplace = True)
-        # print(f"The CRS of input data has been set to '{ds.rio.crs.to_string()}'.\n")
 
     data_transform = ds.rio.transform()
 
-    # if (crs_proj and (str(data_crs) != crs_proj)) or (base_profile and (data_profile != base_profile)):
+    # Reproject to match base profile if provided
     if base_profile:
-        # CRS initialization
-        if dst_crs and not base_profile['crs'].is_valid:
+        # Fix base CRS if invalid
+        if dst_crs and _is_crs_invalid(base_profile['crs']):
             base_profile['crs'] = dst_crs
 
+        # Reproject if geometry or CRS differ
         if (data_transform != base_profile['transform']) | (ds.rio.crs != base_profile['crs']):
-            if not ds.rio.crs.is_valid:
+            if _is_crs_invalid(ds.rio.crs):
                 logger.error("Source CRS (src_crs) required to reproject xarray dataset")
                 return
-            if not base_profile['crs'].is_valid:
+            if _is_crs_invalid(base_profile['crs']):
                 logger.error("Destination CRS (dst_crs) required to reproject xarray dataset")
                 return
-            ds_reprj = ds.rio.reproject(dst_crs = base_profile['crs'],
-                                             # resolution = (1000, 1000),
-                                             transform = base_profile['transform'],
-                                             shape = (base_profile['height'], base_profile['width']),
-                                             nodata = np.nan,
-                                             resampling = rasterio.enums.Resampling(1), # (0), (5)
-                                             )
-            ds = ds_reprj
+            ds = ds.rio.reproject(dst_crs = base_profile['crs'],
+                                 transform = base_profile['transform'],
+                                 shape = (base_profile['height'], base_profile['width']),
+                                 nodata = np.nan,
+                                 resampling = rasterio.enums.Resampling(1))
 
-    else:
-        if dst_crs is not None:
-            ds_reprj = ds.rio.reproject(dst_crs = dst_crs)
-            ds = ds_reprj
+    # Or reproject to dst_crs if specified without base
+    elif dst_crs is not None:
+        if _is_crs_invalid(ds.rio.crs):
+            logger.error("Source CRS (src_crs) required to reproject - current CRS is invalid: %s", ds.rio.crs)
+            return
+        ds = ds.rio.reproject(dst_crs = dst_crs)
 
     # ---- Format spatial attributes for compatibility with QGIS
     if 'units' in ds.x.attrs.keys() and ds.x.attrs['units'].casefold() in ['m', 'meter', 'meters', 'metre', 'metres']:

@@ -78,7 +78,7 @@ class Sim2:
         time_step : str
             'D' for daily
             'W' for weekly (aggregated on Sundays)
-            'M' for monthly (aggregated on last day of the month)
+            'ME' for monthly (aggregated on last day of the month) - 'M' is deprecated but still supported
             ...for offset alias list, see https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
         sim_state : str
             'transient' | 'steady'
@@ -113,7 +113,8 @@ class Sim2:
             self.last_date = pd.to_datetime('today').normalize()
         else:
             self.last_date = pd.to_datetime(f"{last_year}-12-31", format = "%Y-%m-%d")
-        self.time_step = time_step
+        # Convert deprecated 'M' to 'ME' for month-end frequency
+        self.time_step = 'ME' if time_step == 'M' else time_step
         self.sim_state = sim_state
         self.spatial_mean = spatial_mean
         self.geographic = geographic
@@ -195,6 +196,9 @@ class Sim2:
                 # years = year_pattern.findall(filename)
                 if (len(sim_match) > 0) & (os.path.splitext(file)[-1] == '.nc'):
                     sim_var = sim_match[0]
+                    if sim_var not in self.HyMoPy_var_by_sim_var.index:
+                        logger.warning("SIM2 variable %s is not recognized and will be skipped (file: %s)", sim_var, filename)
+                        continue
                     var = self.HyMoPy_var_by_sim_var.loc[sim_var, 'HyMoPy_var']
                     self.local_data.loc[var, 'nc_file'] = file
                     # if len(years[0]) == 4:
@@ -253,8 +257,14 @@ class Sim2:
         for var in self.final_filelist:
             logger.info("Processing SIM2 variable %s", var)
             # Save encodings
+            if var not in self.raw_values:
+                logger.error("No raw data loaded for %s; skipping.", var)
+                continue
             self.raw_values[var].rio.write_crs(rio.crs.CRS.from_epsg(27572), inplace = True)
-            encodings = self.raw_values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding
+
+            sim_var_name = self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']
+
+            encodings = self.raw_values[var][sim_var_name].encoding
             # Clip on watershed bounds (to avoid useless computations in the following steps)
             mask = toolbox.load_to_xarray(
                 self.geographic.watershed_dem,
@@ -282,7 +292,10 @@ class Sim2:
             if (self.sim_state == 'transient') & (self.time_step != 'D'):
                 logger.debug("Resampling %s to %s", var, self.time_step)
                 self.values[var] = self.values[var].resample(time = self.time_step).mean(dim = 'time')
-                self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
+                # Reapply CRS after resampling
+                self.values[var].rio.write_crs(rio.crs.CRS.from_epsg(27572), inplace = True)
+                self.values[var][sim_var_name].encoding = encodings
+
 # =============================================================================
 #                     # TODO: Very slow. Attempt to have a quicker resolution:
 #                     temp_df = self.values[var].to_dataframe().reset_index([1,2]).resample(self.time_step).mean()
@@ -302,13 +315,12 @@ class Sim2:
                 dst_crs = self.geographic.crs_proj
                 )
             self.values[var] = self.values[var].where(mask_reproj != self.geographic.nodata)
-            self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
-            # Free reprojection mask memory
+            self.values[var][sim_var_name].encoding = encodings
             del mask_reproj
             # Apply spatial_mean option:
             if self.spatial_mean == True:
                 logger.debug("Reducing spatial dimensions for %s", var)
-                self.values[var] = self.values[var].drop('spatial_ref').mean(dim = ['x', 'y']).to_pandas() # convert xr.Dataset to pd.Dataframe
+                self.values[var] = self.values[var].drop_vars('spatial_ref').mean(dim = ['x', 'y']).to_pandas() # convert xr.Dataset to pd.Dataframe
                 # convert pd.Dataframe to pd.Series or to single value:
                 if self.sim_state == 'transient':
                     self.values[var] = self.values[var].iloc[:, 0]
@@ -316,41 +328,43 @@ class Sim2:
                     self.values[var] = self.values[var].iloc[0]
                 # Otherwise instead of .iloc[:,0]: self.values[var] = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']]
 
-            # CRITICAL: Close and free raw_values to release memory
-            # After processing, we don't need the raw values anymore
+            # Close raw dataset
             if var in self.raw_values:
-                logger.debug("Closing raw dataset for %s to free memory", var)
                 if hasattr(self.raw_values[var], 'close'):
                     self.raw_values[var].close()
                 del self.raw_values[var]
 
-            # For spatial_mean=False with many variables, save processed data to disk
-            # and reopen in lazy mode to avoid RAM saturation
+            # Save processed data to disk in lazy mode for large datasets
             if self.spatial_mean == False and isinstance(self.values[var], xr.Dataset):
-                logger.debug("Saving processed data for %s to disk (lazy mode)", var)
                 temp_file = os.path.join(
                     self.nc_data_path,
                     f"_processed_{var}_temp.nc"
                 )
-
-                # Clean up encoding conflicts before saving
-                # Remove _FillValue from attrs if it exists (should only be in encoding)
+                # Remove _FillValue from attrs (should only be in encoding)
                 for data_var in self.values[var].data_vars:
                     if '_FillValue' in self.values[var][data_var].attrs:
                         del self.values[var][data_var].attrs['_FillValue']
 
-                # Save to disk
-                self.values[var].to_netcdf(temp_file)
-                # Close the in-memory dataset
+                # Compression settings to reduce file size
+                encoding = {}
+                for data_var in self.values[var].data_vars:
+                    encoding[data_var] = {
+                        'zlib': True,
+                        'complevel': 4,
+                        'dtype': 'float32'
+                    }
+
+                self.values[var].to_netcdf(temp_file, encoding=encoding)
                 if hasattr(self.values[var], 'close'):
                     self.values[var].close()
-                # Reopen in lazy mode (doesn't load into RAM)
                 self.values[var] = xr.open_dataset(temp_file, chunks='auto')
 
-            # Force garbage collection to free memory immediately
+            # Force garbage collection to free memory
             import gc
             gc.collect()
 
+        # Note: Temporary processed files (_processed_*_temp.nc) are kept on disk
+        # They will be reused if the script is rerun with same parameters
 
 
     #%% Download
@@ -461,6 +475,10 @@ class Sim2:
                             self.var_sublist = list(self.var_sublist.union(['rain', 'snow']))
                         # Read .csv file and export to .nc files (one for each variable)
                         self.to_netcdf(f, dataname)
+
+                        # Force garbage collection after each dataset download
+                        import gc
+                        gc.collect()
                 else:
                     logger.error("Failed to download %s.csv (status %s)", dataname, response.status_code)
 
@@ -517,12 +535,40 @@ class Sim2:
         logger.info("Loading SIM2 CSV file into DataFrame")
         logger.debug("This step can take more than one minute per parameter for decade-scale datasets")
 
-        df = pd.read_csv(csv_file, sep=';',
-                         usecols=usecols + self.sim_var_by_HyMoPy_var.loc[self.var_sublist, 'sim_var'].to_list(),
-                         header=0, decimal='.',
-                         parse_dates=['DATE'],
-                         # date_format='%Y%m%d', # Not available before pandas 2.0.0
-                         )
+        # Identify requested SIM2 columns (may contain multiple options per HyMoPy var, e.g. *_QUOT)
+        requested_vars = self.sim_var_by_HyMoPy_var.loc[self.var_sublist, 'sim_var']
+        potential_sim_vars = set()
+        if isinstance(requested_vars, pd.Series):
+            potential_sim_vars.update(requested_vars.values.flatten())
+        else:
+            potential_sim_vars.add(requested_vars)
+
+        # Use a column filter to avoid double-reading (works with gzip streams)
+        def column_filter(col_name):
+            return (col_name in usecols) or (col_name in potential_sim_vars)
+
+        try:
+            df = pd.read_csv(
+                csv_file,
+                sep=';',
+                usecols=column_filter,
+                header=0,
+                decimal='.',
+                parse_dates=['DATE'],
+            )
+        except pd.errors.EmptyDataError:
+            logger.error("CSV file is empty or unreadable: %s", dataname)
+            return
+
+        # Verify required coordinate columns
+        if not set(usecols).issubset(df.columns):
+            logger.error("Missing required coordinate columns (LAMBX, LAMBY, DATE) in dataset %s", dataname)
+            return
+
+        # Identify variables actually loaded (exclude static coords)
+        valid_sim_vars = [c for c in df.columns if c not in usecols]
+        if not valid_sim_vars:
+            logger.warning("None of the requested variables %s found in %s", potential_sim_vars, dataname)
 
         #%%% Formatting
         df.rename(columns = {'LAMBX': 'x', 'LAMBY': 'y', 'DATE': 'time'}, inplace = True)
@@ -533,11 +579,17 @@ class Sim2:
         if ('PRENEI' in df.columns) & ('PRELIQ' in df.columns):
             df['PRETOT'] = df['PRENEI'] + df['PRELIQ']
             logger.debug("Computed PRETOT as PRENEI + PRELIQ")
+            if 'PRETOT' not in valid_sim_vars:
+                valid_sim_vars.append('PRETOT')
 
         ds = df.to_xarray()
+        # Free DataFrame immediately after conversion
+        del df
         # Continuous axis
-        ds = ds.reindex(x = range(ds.x.min().values, ds.x.max().values + 8000, 8000))
-        ds = ds.reindex(y = range(ds.y.min().values, ds.y.max().values + 8000, 8000))
+        x_min, x_max = ds.x.min().item(), ds.x.max().item() # scalar values
+        y_min, y_max = ds.y.min().item(), ds.y.max().item() # idem
+        ds = ds.reindex(x = range(int(x_min), int(x_max) + 8000, 8000))
+        ds = ds.reindex(y = range(int(y_min), int(y_max) + 8000, 8000))
         # Include CRS
         ds.rio.write_crs(27572, inplace = True)
         # Standard attributes
@@ -549,20 +601,24 @@ class Sim2:
                       'units': 'Meter'}
 
         # Variable metadata and export for each variable
-        csv_name = dataname  # Ensure csv_name is defined
-        for var in self.sim_var_by_HyMoPy_var.loc[self.var_sublist, 'sim_var']:
+        csv_name = dataname.replace('QUOT_', '')  # Remove QUOT_ prefix from filename
+        for var in valid_sim_vars:
+            if var not in ds:
+                logger.warning("Variable %s not found in dataset; skipping export", var)
+                continue
             ds[var].attrs = {'standard_name': var,
-                             'long_name': units_by_var[var][1],
-                             'units': units_by_var[var][0]}
+                             'long_name': units_by_var.get(var, ['', ''])[1],
+                             'units': units_by_var.get(var, ['', ''])[0]}
 
-            # Export to NetCDF
-            ds.to_netcdf(os.path.join(self.nc_data_path, '_'.join([var, csv_name]) + '.nc'))
+            # Export to NetCDF (one file per variable)
+            ds[[var]].to_netcdf(os.path.join(self.nc_data_path, '_'.join([var, csv_name]) + '.nc'))
             logger.info("Exported %s to NetCDF", var)
 
-        del ds  # Free memory before next variable
+        del ds
 
-        # Free the main DataFrame
-        del df
+        # Force garbage collection after processing CSV period
+        import gc
+        gc.collect()
 
 
     #%% Convert whole folder to netcdf
@@ -592,6 +648,9 @@ class Sim2:
 
     #%% Merge
     def merge(self, filelist):
+        if not filelist:
+            raise FileNotFoundError("No NetCDF files provided to merge; check SIM2 downloads and paths.")
+
         root_folder = os.path.split(filelist[0])[0]
 
         sim_pattern = re.compile('.*_SIM2_')
@@ -602,30 +661,42 @@ class Sim2:
         logger.info("Merging %s (%s) NetCDF files", sim_var, HyMoPy_var)
 
         # Use xarray's multi-file dataset for lazy loading (memory efficient)
-        ds_merged = xr.open_mfdataset(
-            filelist,
-            decode_coords='all',
-            decode_times=True,
-            combine='by_coords',
-            chunks='auto',  # Enable chunked/lazy loading
-            parallel=False  # Sequential to avoid memory spikes
-        )
+        try:
+            ds_merged = xr.open_mfdataset(
+                filelist,
+                decode_coords='all',
+                decode_times=True,
+                combine='by_coords',
+                chunks='auto',
+                parallel=False
+            )
+        except ValueError as e:
+            if "monotonic" in str(e):
+                logger.warning("Time dimension not monotonic, loading files sequentially to handle overlaps")
+                datasets = []
+                for f in sorted(filelist):
+                    ds = xr.open_dataset(f, decode_coords='all', decode_times=True, chunks='auto')
+                    datasets.append(ds)
+                ds_merged = xr.concat(datasets, dim='time', combine_attrs='override')
+                # Remove duplicates and sort
+                _, index = np.unique(ds_merged['time'], return_index=True)
+                ds_merged = ds_merged.isel(time=np.sort(index))
+                for ds in datasets:
+                    ds.close()
+            else:
+                raise
         logger.debug("Merged %d files for %s", len(filelist), HyMoPy_var)
 
         encod = ds_merged[list(ds_merged.data_vars)[0]].encoding
 
         ds_merged = ds_merged.sortby('time')
 
-        # Load data into memory and close source files to release locks
-        # This is necessary before we can delete the source files
+        # Load into memory before deleting source files
         logger.debug("Loading merged data into memory")
         ds_loaded = ds_merged.load()
-
-        # Close the lazy dataset to release file handles
         ds_merged.close()
         del ds_merged
 
-        # Now work with the loaded dataset
         ds_loaded[list(ds_loaded.data_vars)[0]].encoding = encod
 
         yearset = set()
@@ -638,21 +709,18 @@ class Sim2:
             '_'.join([sim_var, 'SIM2', sorted(yearset)[0].strftime("%Y%m%d"), sorted(yearset)[-1].strftime("%Y%m%d")]) + '.nc'
             )
 
-        # Save merged dataset
         logger.debug("Saving merged dataset to %s", new_filepath)
         ds_loaded.to_netcdf(new_filepath)
-
-        # Close the loaded dataset
         ds_loaded.close()
         del ds_loaded
 
-        # Delete previous files after successful merge
+        # Delete source files after successful merge
         for f in filelist:
             os.remove(f)
 
         self.final_filelist[HyMoPy_var] = new_filepath
 
-        # Reopen in lazy mode instead of keeping in memory
+        # Reopen in lazy mode
         self.raw_values[HyMoPy_var] = xr.open_dataset(
             new_filepath,
             decode_coords='all',
@@ -660,9 +728,9 @@ class Sim2:
             chunks='auto'
         )
 
-# =============================================================================
-#         self.values[HyMoPy_var] = ds_merged
-# =============================================================================
+        # Force garbage collection after merge
+        import gc
+        gc.collect()
 
 
     #%% Merge whole folder netcdf files
@@ -670,62 +738,57 @@ class Sim2:
         filelist = [f for f in os.listdir(folder)
                     if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.nc')]
 
-        # In case the function is used without a list, all variables are processed
+        # Determine which HyMoPy variables to process
         if len(varlist) == 0:
-            varlist = set()
-            # Extract all variables
-            for f in filelist:
-                filename = os.path.splitext(f)[0]
-                sim_pattern = re.compile('.*_SIM2_')
-                var = sim_pattern.findall(filename)
-                if len(var) > 0:
-                    var = var[0][0:-6]
-                    varlist.add(var)
+            sim_pattern = re.compile('.*_SIM2_')
+            sim_vars_found = [
+                sim_pattern.findall(os.path.splitext(f)[0])[0][0:-6]
+                for f in filelist if len(sim_pattern.findall(os.path.splitext(f)[0])) > 0
+            ]
+            hy_targets = set(self.HyMoPy_var_by_sim_var.loc[sim_vars_found, 'HyMoPy_var'])
+        else:
+            hy_targets = set(self.HyMoPy_var_by_sim_var.loc[varlist, 'HyMoPy_var'])
 
-        for v in varlist:
-# =============================================================================
-#             HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[v].item()
-#             print(f"\n{'-'*(len(v)+len(HyMoPy_var)+3)}\n{v} ({HyMoPy_var})\n{'-'*(len(v)+len(HyMoPy_var)+3)}")
-# =============================================================================
+        for hy_var in hy_targets:
+            sim_synonyms = self.HyMoPy_var_by_sim_var.index[self.HyMoPy_var_by_sim_var.HyMoPy_var == hy_var]
 
-            # Extract all years
             yearlist = []
+            files_for_var = []
             sim_pattern = re.compile('_SIM2_')
             for f in filelist:
                 filename = os.path.splitext(f)[0]
                 res = sim_pattern.split(filename)
                 if len(res) > 1:
-                    var, years = res
-                if var == v:
-                    yearlist.append(years)
+                    sim_name, years = res
+                    if sim_name in sim_synonyms:
+                        yearlist.append(years)
+                        files_for_var.append(f)
 
-            # Check if there's already a merged file (format: YYYYMMDD_YYYYMMDD)
-            # Filter out latest_days if a merged file exists
+            if len(yearlist) == 0:
+                logger.debug("No NetCDF files found for HyMoPy var %s (synonyms %s) in %s; skipping.", hy_var, list(sim_synonyms), folder)
+                continue
+
             merged_files = [y for y in yearlist if len(y) == 17 and '_' in y and y[0].isdigit()]
 
             if merged_files:
-                # Already have a merged file - use it and ignore others (like latest_days)
-                logger.debug("Skipping merge for %s - using existing merged file", v)
-                HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[v].item()
-                merged_file = os.path.join(folder, f"{v}_SIM2_{merged_files[0]}.nc")
-                self.final_filelist[HyMoPy_var] = merged_file
-                self.raw_values[HyMoPy_var] = xr.open_dataset(
+                logger.debug("Skipping merge for %s - using existing merged file", hy_var)
+                merged_file = os.path.join(folder, files_for_var[0])
+                self.final_filelist[hy_var] = merged_file
+                self.raw_values[hy_var] = xr.open_dataset(
                     merged_file,
                     decode_coords='all',
                     decode_times=True,
                     chunks='auto'
                 )
-
-                # Delete extra files like latest_days to avoid conflicts
                 for y in yearlist:
                     if y not in merged_files:
-                        extra_file = os.path.join(folder, f"{v}_SIM2_{y}.nc")
-                        if os.path.exists(extra_file):
-                            logger.debug("Removing redundant file %s", extra_file)
-                            os.remove(extra_file)
+                        for sim_name in sim_synonyms:
+                            extra_file = os.path.join(folder, f"{sim_name}_SIM2_{y}.nc")
+                            if os.path.exists(extra_file):
+                                logger.debug("Removing redundant file %s", extra_file)
+                                os.remove(extra_file)
             else:
-                # Need to merge multiple files
-                files_to_merge = [os.path.join(folder, v + '_SIM2_' + y + '.nc') for y in yearlist]
+                files_to_merge = [os.path.join(folder, fname) for fname in files_for_var]
                 self.merge(files_to_merge)
 
 
@@ -764,8 +827,6 @@ class Sim2:
         new_filepath = os.path.join(
             root_folder, 'compressed', filename + '_comp.nc')
         ds.to_netcdf(new_filepath)
-
-        # Close dataset to free resources
         ds.close()
         del ds
 
@@ -784,19 +845,16 @@ class Sim2:
 
             self.compress(os.path.join(folder, f))
 
-
     #%% Clip
     def clip(self, filepath, maskpath):
         root_folder = os.path.split(filepath)[0]
 
-        # Load polygon
+        # Load and reproject polygon
         mask = gpd.read_file(maskpath)
-        # Reproject
         src_epsg = rio.crs.CRS.from_string(self.geographic.crs_proj).to_epsg()
         mask.set_crs(epsg = src_epsg,
                      inplace = True, allow_override = True)
         mask.to_crs(epsg = 27572, inplace = True)
-        # epsg = rio.crs.CRS.from_epsg(27572)
 
 # =============================================================================
 #         # Expand polygon
@@ -805,7 +863,7 @@ class Sim2:
 #         mask.scale(xfact = 1, yfact = 1, origin = 'center')
 # =============================================================================
 
-        # Open with chunking for memory efficiency (don't load all into RAM)
+        # Open with chunking for memory efficiency
         ds = xr.open_dataset(
             filepath,
             decode_times=True,
@@ -820,29 +878,18 @@ class Sim2:
             mask.crs,
             all_touched=True
         )
-
-        # Compute to finalize the clipping operation
         clipped_ds = clipped_ds.compute()
-
-        # Close source dataset to release file lock before overwriting
         ds.close()
         del ds
 
-        # Export - will overwrite the original file
+        # Overwrite original file
         filename = os.path.splitext(os.path.split(filepath)[-1])[0]
-        new_filepath = os.path.join(
-            root_folder,
-            # 'clipped',
-            filename + '.nc')
+        new_filepath = os.path.join(root_folder, filename + '.nc')
 
-        # Save to temporary file first, then rename to avoid corruption
+        # Save to temp file first to avoid corruption
         temp_filepath = new_filepath + '.tmp'
         clipped_ds.to_netcdf(temp_filepath)
-
-        # Replace original file with clipped version
         os.replace(temp_filepath, new_filepath)
-
-        # Clean up
         clipped_ds.close()
         del clipped_ds
 

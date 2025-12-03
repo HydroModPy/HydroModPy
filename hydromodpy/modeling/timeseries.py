@@ -17,10 +17,7 @@ import numpy as np
 import os
 import pandas as pd
 import sys
-try:
-    import imageio.v2 as imageio
-except:
-    import imageio
+import rasterio
 from os.path import dirname, abspath
 import geopandas as gpd
 
@@ -199,11 +196,8 @@ class Timeseries:
                 pass
 
         ### For total catchment
-        dem_clip = imageio.imread(self.geographic.watershed_dem)
-
-        #######################################################################
-        #dem_clip = imageio.imread(model_modflow.geographic.watershed_dem)
-        #######################################################################
+        with rasterio.open(self.geographic.watershed_dem) as src:
+            dem_clip = src.read(1)
 
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
         self.resolution = model_modflow.resolution
@@ -220,7 +214,8 @@ class Timeseries:
                     if not os.path.exists(sub_file):
                         toolbox.create_folder(sub_file)
                     try:
-                        dem_clip = imageio.imread(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif'))
+                        with rasterio.open(os.path.join(self.zones_folder, zone_name, 'watershed_dem.tif')) as src:
+                            dem_clip = src.read(1)
                         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip<0)).count()
                         self.extract_results(dem_clip, time, recharge, runoff, sub_file)
                         logger.info("Exported time series for subbasin %s to %s", zi + 1, sub_file)

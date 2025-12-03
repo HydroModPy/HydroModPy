@@ -161,16 +161,16 @@ class Merge:
                     except:
                         continue
             
-            # if (self.time_step == 'M'):
-            dfm = df.copy() 
+            # if (self.time_step == 'ME'):
+            dfm = df.copy()
             dfm = dfm[~dfm.index.duplicated()]
             logger.debug('Monthly resampling for variable %s - shape: %s', var, dfm.shape)
-            mask = dfm.resample("M").count() >= 27
+            mask = dfm.resample("ME").count() >= 27
             if (var == 'TAS'):
-                dfm = dfm.resample("M").mean()[mask]
+                dfm = dfm.resample("ME").mean()[mask]
             else:
-                # df = df.resample('M').sum(min_count=27) # mm/month
-                dfm = dfm.resample("M").mean()[mask]
+                # df = df.resample('ME').sum(min_count=27) # mm/month
+                dfm = dfm.resample("ME").mean()[mask]
                     
             # if (self.time_step == 'Y'):
             dfy = df.copy()
