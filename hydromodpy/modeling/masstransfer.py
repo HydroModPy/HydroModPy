@@ -15,7 +15,7 @@
 # Python
 import os
 import whitebox
-import imageio
+import imageio.v2 as imageio
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
@@ -37,7 +37,8 @@ class Masstransfer:
                  raw_rast_name: str, 
                  trace_shp_name: str, 
                  mass_rast_name: str,
-                 extraction_folder: str=None):
+                 extraction_folder: str=None,
+                 label: str="conc"):
         """
         Parameters
         ----------
@@ -51,9 +52,13 @@ class Masstransfer:
             Name of the generated flow accumulated raster.
         extraction_folder : str, optional
             Path of the model simulation results. The default is None.
+        label : str, optional
+            Optional tag injected into intermediate filenames to distinguish
+            runs (default keeps historical '_conc' suffixes).
         """
         self.geographic = geographic
         self.extraction_folder = extraction_folder
+        label_suffix = f"_{label}" if label else ""
                
         self.watershed_direc_surflow = geographic.watershed_direc
         self.watershed_buff_fill_surflow = geographic.watershed_buff_fill
@@ -76,13 +81,13 @@ class Masstransfer:
         
         self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
         
-        self.raw_pt_path = os.path.join(self.shp_folder, '_rawpt_conc_t(xxx).shp')
-        self.out_rast_path = os.path.join(self.shp_folder, '_trace_conc_t(xxx).tif')
+        self.raw_pt_path = os.path.join(self.shp_folder, f'_rawpt{label_suffix}_t(xxx).shp')
+        self.out_rast_path = os.path.join(self.shp_folder, f'_trace{label_suffix}_t(xxx).tif')
         self.out_pt_path = os.path.join(self.shp_folder, trace_shp_name)
         
-        self.load_rast_path = os.path.join(self.shp_folder, '_load_conc_t(xxx).tif')
-        self.eff_rast_path = os.path.join(self.shp_folder, '_eff_conc_t(xxx).tif')
-        self.abs_rast_path = os.path.join(self.shp_folder, '_abs_conc_t(xxx).tif')
+        self.load_rast_path = os.path.join(self.shp_folder, f'_load{label_suffix}_t(xxx).tif')
+        self.eff_rast_path = os.path.join(self.shp_folder, f'_eff{label_suffix}_t(xxx).tif')
+        self.abs_rast_path = os.path.join(self.shp_folder, f'_abs{label_suffix}_t(xxx).tif')
         self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
         
         # self.trace_downslope()

@@ -22,7 +22,7 @@ from os.path import dirname, abspath
 import random
 import pickle
 import geopandas as gpd
-import imageio
+import imageio.v2 as imageio
 import flopy.utils.postprocessing as pp
 import whitebox
 from scipy.optimize import curve_fit
