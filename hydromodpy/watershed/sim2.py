@@ -47,19 +47,19 @@ class Sim2:
     Class to extract the SIM2 historic reanalysis data.
     Since 13/12/2023 these data are in open access on https://meteo.data.gouv.fr/
     (tab "Données climatologiques de référence pour le changement climatique",
-     then "Données changement climatique - SIM quotidienne" : 
+     then "Données changement climatique - SIM quotidienne" :
      https://meteo.data.gouv.fr/datasets/6569b27598256cc583c917a7 )
-        
-    Note: Data values stored in HydroModPy variables are reprojected and 
+
+    Note: Data values stored in HydroModPy variables are reprojected and
     selected according to user requirements (period, time_step, ...) but
     generated netcdf files are kept in original data spatial profile.
     """
-    
+
     def __init__(self, *,
                  var_list, nc_data_path: str,
                  first_year: int, last_year: int=None,
                  time_step: str, sim_state: str,
-                 spatial_mean=False, geographic, 
+                 spatial_mean=False, geographic,
                  disk_clip: str=None):
         """
         Parameters
@@ -73,13 +73,13 @@ class Sim2:
         first_year : int
             Data will be extracted from 1st January of first_year to 31st December of last_year.
         last_year : int or None (optional)
-            End date of data to be extracted. 
+            End date of data to be extracted.
             If None, the current date will be used instead.
         time_step : str
             'D' for daily
             'W' for weekly (aggregated on Sundays)
             'M' for monthly (aggregated on last day of the month)
-            ...for offset alias list, see https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases 
+            ...for offset alias list, see https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
         sim_state : str
             'transient' | 'steady'
             If 'steady', the time mean will be used.
@@ -95,13 +95,13 @@ class Sim2:
 
         Returns
         -------
-        None. The sim2 object is updated. 
+        None. The sim2 object is updated.
         Also create or update the netcdf files.
 
         """
-        
+
         logger.info("Extracting SIM2 climatic datasets from remote archives")
-        
+
         # ---- Initialization
         self.var_list = var_list
         self.var_sublist = []
@@ -130,7 +130,7 @@ class Sim2:
             else:
                 logger.error("disk_clip must reference a .shp/.gpkg/.geojson file or use 'watershed'/'False' flags")
                 return
-        
+
         varnames_dict = {
         'DRAINC': 'recharge',
         'RUNC': 'runoff',
@@ -168,10 +168,10 @@ class Sim2:
             index = self.HyMoPy_var_by_sim_var.HyMoPy_var.copy(),
             columns = ['sim_var'],
             data = self.HyMoPy_var_by_sim_var.index.copy())
-        
-        
+
+
         # ---- Determine which data needs to be downloaded
-        # Data already available for each variable 
+        # Data already available for each variable
 # =============================================================================
 #         self.nc_file_by_var = dict.fromkeys(var_list, None)
 #         self.start_date_by_var = dict.fromkeys(var_list, None)
@@ -200,12 +200,12 @@ class Sim2:
                     # if len(years[0]) == 4:
                     #     date_i = pd.to_datetime(f"{years[0]-01-01}", format = "%Y-%m-%d")
                     # self.dates_by_var[self.HyMoPy_var_by_sim_var[sim_var]] = date_i
-                    
+
                     remove_file = False
                     with xr.open_dataset(file, decode_coords = 'all', decode_times = True) as ds_temp:
                         # Dates
-                        if pd.date_range(start = ds_temp.time[0].item(), 
-                                         end = ds_temp.time[-1].item(), 
+                        if pd.date_range(start = ds_temp.time[0].item(),
+                                         end = ds_temp.time[-1].item(),
                                          freq = 'D').size == ds_temp.time.size: # all time values are contiguous
                             self.local_data.loc[var, 'start_date'] = pd.to_datetime(ds_temp.time[0].item())
                             self.local_data.loc[var, 'end_date'] = pd.to_datetime(ds_temp.time[-1].item())
@@ -217,7 +217,7 @@ class Sim2:
                             mask_extent = mask.buffer(resolution).total_bounds
                         else:
                             mask_extent = (56000.0, 1613000.0, 1200000.0, 2685000.0) # whole France
-                        
+
                         if (ds_extent[0:2] <= mask_extent[0:2]).any() | (ds_extent[2:4] >= mask_extent[2:4]).any() :
                             self.local_data.loc[var, 'extent'] = True
                         else:
@@ -226,28 +226,28 @@ class Sim2:
                                 os.path.split(file)[-1],
                             )
                             remove_file = True # the file will be deleted (outside this 'with' section)
-                    
+
                     if remove_file:
                         os.remove(file)
-                            
+
             self.local_data.iloc[:, 0:3][self.local_data.extent == True] = np.nan
-        
+
         # ---- Download
         self.download()
-        
-        
+
+
         # ---- Clip data
         # Convert HyMoPy var list ('recharge', 'runoff'...) into sim var list ('DRAINC', 'RUNC'...)
         sim_varlist = self.sim_var_by_HyMoPy_var.loc[self.var_list].sim_var.values
-        
+
         if self.clip_mask is not None:
-            self.clip_folder(self.nc_data_path, 
+            self.clip_folder(self.nc_data_path,
                               self.clip_mask,
-                              sim_varlist)            
-        
+                              sim_varlist)
+
         # ---- Merge NetCDF files
         self.merge_folder(self.nc_data_path, sim_varlist)
-        
+
         # ---- Format result for HydroModPy
         logger.info("Formatting SIM2 results for HydroModPy")
         for var in self.final_filelist:
@@ -268,6 +268,8 @@ class Sim2:
                 (self.raw_values[var].y < (y_max + 8000)),
                 drop = True
                 )
+            # Free mask memory
+            del mask
             # Refine period with accurate user dates
             logger.debug("Refining period for %s", var)
             self.values[var] = self.values[var].loc[
@@ -289,7 +291,7 @@ class Sim2:
 # =============================================================================
             # Reprojection
             logger.debug("Reprojecting %s to model grid", var)
-            
+
             self.values[var] = toolbox.load_to_xarray(
                 # self.final_filelist[var],
                 self.values[var],
@@ -301,6 +303,8 @@ class Sim2:
                 )
             self.values[var] = self.values[var].where(mask_reproj != self.geographic.nodata)
             self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']].encoding = encodings
+            # Free reprojection mask memory
+            del mask_reproj
             # Apply spatial_mean option:
             if self.spatial_mean == True:
                 logger.debug("Reducing spatial dimensions for %s", var)
@@ -310,12 +314,46 @@ class Sim2:
                     self.values[var] = self.values[var].iloc[:, 0]
                 elif self.sim_state == 'steady':
                     self.values[var] = self.values[var].iloc[0]
-                # Otherwise instead of .iloc[:,0]: self.values[var] = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']] 
-            
-            
-        
+                # Otherwise instead of .iloc[:,0]: self.values[var] = self.values[var][self.sim_var_by_HyMoPy_var.loc[var, 'sim_var']]
 
-    #%% Download                
+            # CRITICAL: Close and free raw_values to release memory
+            # After processing, we don't need the raw values anymore
+            if var in self.raw_values:
+                logger.debug("Closing raw dataset for %s to free memory", var)
+                if hasattr(self.raw_values[var], 'close'):
+                    self.raw_values[var].close()
+                del self.raw_values[var]
+
+            # For spatial_mean=False with many variables, save processed data to disk
+            # and reopen in lazy mode to avoid RAM saturation
+            if self.spatial_mean == False and isinstance(self.values[var], xr.Dataset):
+                logger.debug("Saving processed data for %s to disk (lazy mode)", var)
+                temp_file = os.path.join(
+                    self.nc_data_path,
+                    f"_processed_{var}_temp.nc"
+                )
+
+                # Clean up encoding conflicts before saving
+                # Remove _FillValue from attrs if it exists (should only be in encoding)
+                for data_var in self.values[var].data_vars:
+                    if '_FillValue' in self.values[var][data_var].attrs:
+                        del self.values[var][data_var].attrs['_FillValue']
+
+                # Save to disk
+                self.values[var].to_netcdf(temp_file)
+                # Close the in-memory dataset
+                if hasattr(self.values[var], 'close'):
+                    self.values[var].close()
+                # Reopen in lazy mode (doesn't load into RAM)
+                self.values[var] = xr.open_dataset(temp_file, chunks='auto')
+
+            # Force garbage collection to free memory immediately
+            import gc
+            gc.collect()
+
+
+
+    #%% Download
     def download(self):
         """
         Download only the necessary data files from MeteoFrance API
@@ -323,30 +361,30 @@ class Sim2:
         # Until the access to SIM2 data is implemented through the Météo-France's
         # API (https://portail-api.meteofrance.fr), the current stable urls
         # are used.
-        
+
         stable_urls = {
-            'QUOT_SIM2_1958-1959': ('https://www.data.gouv.fr/fr/datasets/r/5dfb33b3-fae5-4d0e-882d-7db74142bcae', 
+            'QUOT_SIM2_1958-1959': ('https://www.data.gouv.fr/fr/datasets/r/5dfb33b3-fae5-4d0e-882d-7db74142bcae',
                                     0.16, pd.to_datetime('1958-08-01', format = "%Y-%m-%d"),
                                     pd.to_datetime('1959-12-31', format = "%Y-%m-%d")),
-            'QUOT_SIM2_1960-1969': ('https://www.data.gouv.fr/fr/datasets/r/eb0d6e42-cee6-4d7c-bc5b-646be4ced72e', 
+            'QUOT_SIM2_1960-1969': ('https://www.data.gouv.fr/fr/datasets/r/eb0d6e42-cee6-4d7c-bc5b-646be4ced72e',
                                     1.1, pd.to_datetime('1960-01-01', format = "%Y-%m-%d"),
                                     pd.to_datetime('1969-12-31', format = "%Y-%m-%d")),
-            'QUOT_SIM2_1970-1979': ('https://www.data.gouv.fr/fr/datasets/r/33417617-c0dd-4513-804e-c3f563cb81b4', 
+            'QUOT_SIM2_1970-1979': ('https://www.data.gouv.fr/fr/datasets/r/33417617-c0dd-4513-804e-c3f563cb81b4',
                                     1.1, pd.to_datetime('1970-01-01', format = "%Y-%m-%d"),
                                     pd.to_datetime('1979-12-31', format = "%Y-%m-%d")),
-            'QUOT_SIM2_1980-1989': ('https://www.data.gouv.fr/fr/datasets/r/08ad5936-cb9e-4284-a6fc-36b29aca9607', 
+            'QUOT_SIM2_1980-1989': ('https://www.data.gouv.fr/fr/datasets/r/08ad5936-cb9e-4284-a6fc-36b29aca9607',
                                     1.1, pd.to_datetime('1980-01-01', format = "%Y-%m-%d"),
                                     pd.to_datetime('1989-12-31', format = "%Y-%m-%d")),
-            'QUOT_SIM2_1990-1999': ('https://www.data.gouv.fr/fr/datasets/r/ad584d65-7d2d-4ff1-bc63-4f93357ed196', 
+            'QUOT_SIM2_1990-1999': ('https://www.data.gouv.fr/fr/datasets/r/ad584d65-7d2d-4ff1-bc63-4f93357ed196',
                                     1.1, pd.to_datetime('1990-01-01', format = "%Y-%m-%d"),
                                     pd.to_datetime('1999-12-31', format = "%Y-%m-%d")),
-            'QUOT_SIM2_2000-2009': ('https://www.data.gouv.fr/fr/datasets/r/10d2ce77-5c3b-44f8-bb46-4df27ed48595', 
+            'QUOT_SIM2_2000-2009': ('https://www.data.gouv.fr/fr/datasets/r/10d2ce77-5c3b-44f8-bb46-4df27ed48595',
                                     1.1, pd.to_datetime('2000-01-01', format = "%Y-%m-%d"),
                                     pd.to_datetime('2009-12-31', format = "%Y-%m-%d")),
-            'QUOT_SIM2_2010-2019': ('https://www.data.gouv.fr/fr/datasets/r/da6cd598-498b-4e39-96ea-fae89a4a8a46', 
+            'QUOT_SIM2_2010-2019': ('https://www.data.gouv.fr/fr/datasets/r/da6cd598-498b-4e39-96ea-fae89a4a8a46',
                                     1.1, pd.to_datetime('2010-01-01', format = "%Y-%m-%d"),
                                     pd.to_datetime('2019-12-31', format = "%Y-%m-%d")),
-            'QUOT_SIM2_latest_period': ('https://www.data.gouv.fr/fr/datasets/r/92065ec0-ea6f-4f5e-8827-4344179c0a7f', 
+            'QUOT_SIM2_latest_period': ('https://www.data.gouv.fr/fr/datasets/r/92065ec0-ea6f-4f5e-8827-4344179c0a7f',
                                         1.1, pd.to_datetime('2020-01-01', format = "%Y-%m-%d"),
                                         (pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')).replace(day = 1) - pd.Timedelta(1, 'D')),
             'QUOT_SIM2_latest_days': (#'https://www.data.gouv.fr/fr/datasets/r/ff8e9fc6-d269-45e8-a3c3-a738195ea92a',
@@ -354,12 +392,12 @@ class Sim2:
                                        0.1, (pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')).replace(day = 1),
                                        pd.to_datetime('today').normalize() - pd.Timedelta(1, 'D')),
             }
-        
+
         self.available_data = pd.DataFrame.from_dict(
-            data = stable_urls, 
-            orient = 'index', 
+            data = stable_urls,
+            orient = 'index',
             columns = ['url', 'size_Go', 'start_date', 'end_date'])
-        
+
         # ---- Identify which files will be needed
         # If there is no netcdf file already
         if self.local_data.nc_file.isnull().values.any():
@@ -368,14 +406,14 @@ class Sim2:
                 (self.available_data.end_date > self.first_date) \
                      & (self.available_data.start_date < self.last_date)]
         else:
-            # The "core period" is the period that is covered by local data for 
+            # The "core period" is the period that is covered by local data for
             # specified variables
             min_core_date = self.local_data.start_date[self.var_list].max()
             max_core_date = self.local_data.end_date[self.var_list].min()
             to_download = self.available_data.index[
                 ((self.available_data.start_date < min_core_date) & (self.available_data.end_date > self.first_date)) \
                     | ((self.available_data.end_date > max_core_date) & (self.available_data.start_date < self.last_date))]
-        
+
         # Files to download to cover the times
         # (Note that if the specified spatial extent is not covered, the files have been previously deleted in __init__())
         if len(to_download) > 0:
@@ -390,7 +428,7 @@ class Sim2:
             disk_space = self.available_data.loc[to_download, 'size_Go'].sum()/2.5*len(self.var_list) \
                 - sum(os.path.getsize(os.path.join(self.nc_data_path, f)) \
                       for f in os.listdir(self.nc_data_path) \
-                          if os.path.isfile(os.path.join(self.nc_data_path, f)))/1073741824 
+                          if os.path.isfile(os.path.join(self.nc_data_path, f)))/1073741824
             disk_space = np.max([0, disk_space])
             logger.info(
                 "Downloading %s datasets to cover requested period and area",
@@ -401,14 +439,14 @@ class Sim2:
                 ram_space,
                 disk_space,
             )
-          
+
         # ---- Download the required files
         if len(to_download) > 0:
-            for dataname in to_download: 
+            for dataname in to_download:
                 logger.info("Downloading dataset %s", dataname)
                 logger.debug("Download may take several minutes depending on bandwidth")
                 response = requests.get(self.available_data.loc[dataname, 'url'])
-        
+
                 if response.status_code == 200:
                     # Decompress gzip content
                     with gzip.open(BytesIO(response.content), 'rt') as f:
@@ -420,19 +458,19 @@ class Sim2:
                         # Replace 'precip' with 'rain' and 'snow'
                         if len(set(self.var_sublist).intersection(['precip'])) > 0:
                             self.var_sublist = set(self.var_sublist) - set(['precip'])
-                            self.var_sublist = list(self.var_sublist.union(['rain', 'snow']))    
+                            self.var_sublist = list(self.var_sublist.union(['rain', 'snow']))
                         # Read .csv file and export to .nc files (one for each variable)
-                        self.to_netcdf(f, dataname)         
+                        self.to_netcdf(f, dataname)
                 else:
                     logger.error("Failed to download %s.csv (status %s)", dataname, response.status_code)
-                    
+
         else:
             logger.info("Existing SIM2 CSV datasets already cover requested domain and period")
-                
-        
-    
+
+
+
     #%% Convert to NetCDF
-    def to_netcdf(self, csv_file, dataname):  
+    def to_netcdf(self, csv_file, dataname):
         # root_folder = os.path.split(os.path.split(csv_file_path)[0])[0]
     # =============================================================================
     #     coords_filepath = os.path.join(
@@ -441,7 +479,7 @@ class Sim2:
 
         # Needed columns
         usecols = ['LAMBX', 'LAMBY', 'DATE']
-    
+
         # Units and long names (updated according to SIM2 new specifications from Météo-France)
         units_by_var = {
                      'PRENEI': ['mm', 'Précipitations solides cumul quotidien ]06UTC-06UTC]'],
@@ -474,28 +512,28 @@ class Sim2:
                      }
         # NB: Cumulated values (day 1) are summed from 06:00 UTC (day 1) to 06:00 UTC (day 2)
         # Therefore, days correspond to Central Standard Time days.
-    
+
         #%%% Loading
         logger.info("Loading SIM2 CSV file into DataFrame")
         logger.debug("This step can take more than one minute per parameter for decade-scale datasets")
-        
-        df = pd.read_csv(csv_file, sep=';', 
+
+        df = pd.read_csv(csv_file, sep=';',
                          usecols=usecols + self.sim_var_by_HyMoPy_var.loc[self.var_sublist, 'sim_var'].to_list(),
                          header=0, decimal='.',
                          parse_dates=['DATE'],
                          # date_format='%Y%m%d', # Not available before pandas 2.0.0
                          )
-        
-        #%%% Formatting    
+
+        #%%% Formatting
         df.rename(columns = {'LAMBX': 'x', 'LAMBY': 'y', 'DATE': 'time'}, inplace = True)
         df[['x', 'y']] = df[['x', 'y']]*100 # convert hm to m
         df.set_index(['time', 'y', 'x'], inplace = True)
-        
+
         # Add new quantities if needed
         if ('PRENEI' in df.columns) & ('PRELIQ' in df.columns):
             df['PRETOT'] = df['PRENEI'] + df['PRELIQ']
             logger.debug("Computed PRETOT as PRENEI + PRELIQ")
-            
+
         ds = df.to_xarray()
         # Continuous axis
         ds = ds.reindex(x = range(ds.x.min().values, ds.x.max().values + 8000, 8000))
@@ -509,28 +547,24 @@ class Sim2:
         ds.y.attrs = {'standard_name': 'projection_y_coordinate',
                       'long_name': 'y coordinate of projection',
                       'units': 'Meter'}
-        
-        #%%% Export 
-        logger.info("Exporting SIM2 variables to NetCDF")
-# =============================================================================
-#         if not os.path.exists(os.path.join(self.nc_data_path, "temp_netcdf_indiv")):
-#             os.mkdir(os.path.join(self.nc_data_path, "temp_netcdf_indiv"))
-# =============================================================================
-        
-        for var in list(ds.data_vars): # batch_var: 
-            # Include metadata
+
+        # Variable metadata and export for each variable
+        csv_name = dataname  # Ensure csv_name is defined
+        for var in self.sim_var_by_HyMoPy_var.loc[self.var_sublist, 'sim_var']:
             ds[var].attrs = {'standard_name': var,
                              'long_name': units_by_var[var][1],
                              'units': units_by_var[var][0]}
-            
-            ds_var = ds[[var]]
-            
-            csv_name = os.path.splitext(os.path.split(dataname)[-1])[0].replace('QUOT_', '')
-            
-            ds_var.to_netcdf(os.path.join(self.nc_data_path, '_'.join([var, csv_name]) + '.nc'))     
+
+            # Export to NetCDF
+            ds.to_netcdf(os.path.join(self.nc_data_path, '_'.join([var, csv_name]) + '.nc'))
             logger.info("Exported %s to NetCDF", var)
 
-    
+        del ds  # Free memory before next variable
+
+        # Free the main DataFrame
+        del df
+
+
     #%% Convert whole folder to netcdf
     def folder_to_netcdf(self, folder):
         """
@@ -538,94 +572,104 @@ class Sim2:
         ----------
         folder : str
             Folder containing the .csv files.
-    
+
         Returns
         -------
         None. Creates the .nc files in the folder 'netcdf'
-    
+
         """
-        
-        filelist = [f for f in os.listdir(folder) 
+
+        filelist = [f for f in os.listdir(folder)
                     if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.csv')]
-        
+
         for f in filelist:
             filename = os.path.splitext(f)[0]
             sim_pattern = re.compile('SIM2_')
             years = sim_pattern.split(filename)[-1]
             logger.info("Converting SIM2 CSV slice %s", years)
             self.to_netcdf(os.path.join(folder, f))
-        
-    
+
+
     #%% Merge
     def merge(self, filelist):
         root_folder = os.path.split(filelist[0])[0]
-        
+
         sim_pattern = re.compile('.*_SIM2_')
         filename = os.path.split(os.path.splitext(filelist[0])[0])[-1]
         sim_var = sim_pattern.findall(filename)[0][0:-6]
         HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[sim_var].item()
-        
+
         logger.info("Merging %s (%s) NetCDF files", sim_var, HyMoPy_var)
-        
-        with xr.open_dataset(
-                filelist[0], decode_coords = 'all', decode_times = True) as ds_merged:
-            ds_merged.load() # to unlock the resource
-        logger.debug("Base file for merge: %s", os.path.split(filelist[0])[-1])
-        
+
+        # Use xarray's multi-file dataset for lazy loading (memory efficient)
+        ds_merged = xr.open_mfdataset(
+            filelist,
+            decode_coords='all',
+            decode_times=True,
+            combine='by_coords',
+            chunks='auto',  # Enable chunked/lazy loading
+            parallel=False  # Sequential to avoid memory spikes
+        )
+        logger.debug("Merged %d files for %s", len(filelist), HyMoPy_var)
+
         encod = ds_merged[list(ds_merged.data_vars)[0]].encoding
-        
-        for f in filelist[1:]:
-            with xr.open_dataset(
-                    f, decode_coords = 'all', decode_times = True) as ds:
-                ds_merged = ds.combine_first(ds_merged)
-            logger.debug("Merging with %s", os.path.split(f)[-1])
-        
+
         ds_merged = ds_merged.sortby('time')
-        
-        # Export
-        ds_merged[list(ds_merged.data_vars)[0]].encoding = encod
-        
+
+        # Load data into memory and close source files to release locks
+        # This is necessary before we can delete the source files
+        logger.debug("Loading merged data into memory")
+        ds_loaded = ds_merged.load()
+
+        # Close the lazy dataset to release file handles
+        ds_merged.close()
+        del ds_merged
+
+        # Now work with the loaded dataset
+        ds_loaded[list(ds_loaded.data_vars)[0]].encoding = encod
+
         yearset = set()
-# =============================================================================
-#         year_pattern = re.compile('\d{4,8}')
-#         for f in filelist:
-#             filename = os.path.split(os.path.splitext(f)[0])[-1]
-#             var, years = sim_pattern.split(filename)
-#             yearset.update(year_pattern.findall(years))
-# ============================================================================= 
-        yearset.update([pd.to_datetime(ds_merged.time[0].item()),
-                        pd.to_datetime(ds_merged.time[-1].item())])
-        
-# =============================================================================
-#         if not os.path.exists(os.path.join(root_folder, "merged")):
-#             os.mkdir(os.path.join(root_folder, "merged"))
-# =============================================================================
-        
-        # Delete previous files
+        yearset.update([pd.to_datetime(ds_loaded.time[0].item()),
+                        pd.to_datetime(ds_loaded.time[-1].item())])
+
+        new_filepath = os.path.join(
+            root_folder,
+            # "merged",
+            '_'.join([sim_var, 'SIM2', sorted(yearset)[0].strftime("%Y%m%d"), sorted(yearset)[-1].strftime("%Y%m%d")]) + '.nc'
+            )
+
+        # Save merged dataset
+        logger.debug("Saving merged dataset to %s", new_filepath)
+        ds_loaded.to_netcdf(new_filepath)
+
+        # Close the loaded dataset
+        ds_loaded.close()
+        del ds_loaded
+
+        # Delete previous files after successful merge
         for f in filelist:
             os.remove(f)
 
-        new_filepath = os.path.join(
-            root_folder, 
-            # "merged", 
-            '_'.join([sim_var, 'SIM2', sorted(yearset)[0].strftime("%Y%m%d"), sorted(yearset)[-1].strftime("%Y%m%d")]) + '.nc'
-            )
-        ds_merged.to_netcdf(new_filepath)
-        
         self.final_filelist[HyMoPy_var] = new_filepath
-        
-        self.raw_values[HyMoPy_var] = ds_merged
-        
+
+        # Reopen in lazy mode instead of keeping in memory
+        self.raw_values[HyMoPy_var] = xr.open_dataset(
+            new_filepath,
+            decode_coords='all',
+            decode_times=True,
+            chunks='auto'
+        )
+
 # =============================================================================
 #         self.values[HyMoPy_var] = ds_merged
 # =============================================================================
-        
-    
+
+
     #%% Merge whole folder netcdf files
-    def merge_folder(self, folder, varlist=[]):    
-        filelist = [f for f in os.listdir(folder) 
+    def merge_folder(self, folder, varlist=[]):
+        filelist = [f for f in os.listdir(folder)
                     if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.nc')]
-        
+
         # In case the function is used without a list, all variables are processed
         if len(varlist) == 0:
             varlist = set()
@@ -637,13 +681,13 @@ class Sim2:
                 if len(var) > 0:
                     var = var[0][0:-6]
                     varlist.add(var)
-            
+
         for v in varlist:
 # =============================================================================
 #             HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[v].item()
 #             print(f"\n{'-'*(len(v)+len(HyMoPy_var)+3)}\n{v} ({HyMoPy_var})\n{'-'*(len(v)+len(HyMoPy_var)+3)}")
 # =============================================================================
-            
+
             # Extract all years
             yearlist = []
             sim_pattern = re.compile('_SIM2_')
@@ -651,26 +695,52 @@ class Sim2:
                 filename = os.path.splitext(f)[0]
                 res = sim_pattern.split(filename)
                 if len(res) > 1:
-                    var, years = res 
+                    var, years = res
                 if var == v:
                     yearlist.append(years)
-                
-# =============================================================================
-#             print(f"   {', '.join(yearlist)}")
-# =============================================================================
-            
-            files_to_merge = [os.path.join(folder, v + '_SIM2_' + y + '.nc') for y in yearlist]
-            self.merge(files_to_merge)        
-            
-    
+
+            # Check if there's already a merged file (format: YYYYMMDD_YYYYMMDD)
+            # Filter out latest_days if a merged file exists
+            merged_files = [y for y in yearlist if len(y) == 17 and '_' in y and y[0].isdigit()]
+
+            if merged_files:
+                # Already have a merged file - use it and ignore others (like latest_days)
+                logger.debug("Skipping merge for %s - using existing merged file", v)
+                HyMoPy_var = self.HyMoPy_var_by_sim_var.loc[v].item()
+                merged_file = os.path.join(folder, f"{v}_SIM2_{merged_files[0]}.nc")
+                self.final_filelist[HyMoPy_var] = merged_file
+                self.raw_values[HyMoPy_var] = xr.open_dataset(
+                    merged_file,
+                    decode_coords='all',
+                    decode_times=True,
+                    chunks='auto'
+                )
+
+                # Delete extra files like latest_days to avoid conflicts
+                for y in yearlist:
+                    if y not in merged_files:
+                        extra_file = os.path.join(folder, f"{v}_SIM2_{y}.nc")
+                        if os.path.exists(extra_file):
+                            logger.debug("Removing redundant file %s", extra_file)
+                            os.remove(extra_file)
+            else:
+                # Need to merge multiple files
+                files_to_merge = [os.path.join(folder, v + '_SIM2_' + y + '.nc') for y in yearlist]
+                self.merge(files_to_merge)
+
+
     #%% Compress
-    def compress(self, filepath):    
+    def compress(self, filepath):
         root_folder = os.path.split(os.path.split(filepath)[0])[0]
-        
-        with xr.open_dataset(filepath, decode_times = True,
-                             decode_coords = 'all') as ds:
-            ds.load() # to unlock the resource
-            
+
+        # Open with chunking for memory efficiency
+        ds = xr.open_dataset(
+            filepath,
+            decode_times=True,
+            decode_coords='all',
+            chunks='auto'
+        )
+
         # Discretization compression (lossy):
         var = list(ds.data_vars)[0]
         bound_max = float(ds[var].max())
@@ -685,102 +755,124 @@ class Sim2:
         ds[var].encoding['dtype'] = 'int16'
         ds[var].encoding['_FillValue'] = -32768
         logger.info("Applying lossy compression (scale factor %.6f, offset %.6f)", scale_factor, add_offset)
-        
+
         # Export
         if not os.path.exists(os.path.join(root_folder, "compressed")):
             os.mkdir(os.path.join(root_folder, "compressed"))
-        
+
         filename = os.path.splitext(os.path.split(filepath)[-1])[0]
         new_filepath = os.path.join(
             root_folder, 'compressed', filename + '_comp.nc')
         ds.to_netcdf(new_filepath)
-            
-        
+
+        # Close dataset to free resources
+        ds.close()
+        del ds
+
+
     #%% Compress whole folder
-    def compress_folder(self, folder):    
-        filelist = [f for f in os.listdir(folder) 
+    def compress_folder(self, folder):
+        filelist = [f for f in os.listdir(folder)
                     if (os.path.isfile(os.path.join(folder, f))) & (os.path.splitext(f)[-1] == '.nc')]
-        
+
         logger.info("Compressing %d NetCDF files", len(filelist))
-        
+
         i = 0
         for f in filelist:
             i += 1
             logger.debug("Compressing %s (%d/%d)", f, i, len(filelist))
-            
+
             self.compress(os.path.join(folder, f))
-        
-        
+
+
     #%% Clip
     def clip(self, filepath, maskpath):
         root_folder = os.path.split(filepath)[0]
-        
+
         # Load polygon
         mask = gpd.read_file(maskpath)
         # Reproject
         src_epsg = rio.crs.CRS.from_string(self.geographic.crs_proj).to_epsg()
-        mask.set_crs(epsg = src_epsg, 
+        mask.set_crs(epsg = src_epsg,
                      inplace = True, allow_override = True)
         mask.to_crs(epsg = 27572, inplace = True)
         # epsg = rio.crs.CRS.from_epsg(27572)
-        
+
 # =============================================================================
 #         # Expand polygon
 #         # because if clipped raster is smaller than 2 pixels (on any of its
 #         # dimensions), visualization softwares will have trouble to display it.
 #         mask.scale(xfact = 1, yfact = 1, origin = 'center')
 # =============================================================================
-        
-        with xr.open_dataset(filepath, decode_times = True,
-                             decode_coords = 'all') as ds:
-            ds.load() # to unlock the resource
-        
-        resolution = abs(ds.rio.transform()[0])
-        
-        clipped_ds = ds.rio.clip(mask.buffer(resolution).geometry.apply(mapping), 
-                                 mask.crs, all_touched = True)
-    
-        # Export
-# =============================================================================
-#         if not os.path.exists(os.path.join(root_folder, "clipped")):
-#             os.mkdir(os.path.join(root_folder, "clipped"))
-# =============================================================================
 
-        
+        # Open with chunking for memory efficiency (don't load all into RAM)
+        ds = xr.open_dataset(
+            filepath,
+            decode_times=True,
+            decode_coords='all',
+            chunks='auto'  # Enable lazy loading
+        )
+
+        resolution = abs(ds.rio.transform()[0])
+
+        clipped_ds = ds.rio.clip(
+            mask.buffer(resolution).geometry.apply(mapping),
+            mask.crs,
+            all_touched=True
+        )
+
+        # Compute to finalize the clipping operation
+        clipped_ds = clipped_ds.compute()
+
+        # Close source dataset to release file lock before overwriting
+        ds.close()
+        del ds
+
+        # Export - will overwrite the original file
         filename = os.path.splitext(os.path.split(filepath)[-1])[0]
         new_filepath = os.path.join(
-            root_folder, 
-            # 'clipped', 
+            root_folder,
+            # 'clipped',
             filename + '.nc')
-        clipped_ds.to_netcdf(new_filepath)
-        
-    
+
+        # Save to temporary file first, then rename to avoid corruption
+        temp_filepath = new_filepath + '.tmp'
+        clipped_ds.to_netcdf(temp_filepath)
+
+        # Replace original file with clipped version
+        os.replace(temp_filepath, new_filepath)
+
+        # Clean up
+        clipped_ds.close()
+        del clipped_ds
+
+
     #%% Clip whole folder
     def clip_folder(self, folder, maskpath, varlist=[]):
-        
+
         sim_pattern = re.compile('.*_SIM2_')
-        filelist = [f for f in os.listdir(folder) 
+        filelist = [f for f in os.listdir(folder)
                     if (os.path.isfile(os.path.join(folder, f))) \
                         & (os.path.splitext(f)[-1] == '.nc') \
                             & (len(sim_pattern.findall(f)) > 0)]
-            
-        if len(varlist) != 0:     
+
+        if len(varlist) != 0:
             sim_pattern2 = re.compile(f'{"|".join(varlist)}_SIM2_')
             filelist = [f for f in filelist
                         if (len(sim_pattern2.findall(f)) > 0)]
-        
+
         maskname = os.path.splitext(os.path.split(maskpath)[-1])[0]
-        
+
         logger.info("Clipping NetCDF files with mask %s", maskname)
-        
+
         i = 0
         for f in filelist:
             i += 1
             logger.debug("Clipping %s (%d/%d)", f, i, len(filelist))
-            
+
             self.clip(os.path.join(folder, f), maskpath)
 
-    
+
 #%% NOTES
 """
 First implemented in May 2024, from the work of Loic Duffar (https://github.com/loicduffar),

@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 from IPython import get_ipython
 get_ipython().run_line_magic('matplotlib', 'inline')
 
-import imageio
+import imageio.v2 as imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -64,14 +64,11 @@ import importlib
 
 # Import HydroModPy modules
 from hydromodpy import watershed_root
-from hydromodpy.watershed import climatic, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, subbasin
-from hydromodpy.modeling import downslope, modflow, modpath, timeseries
-from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox, folder_root
+from hydromodpy.display import visualization_watershed
+from hydromodpy.tools import toolbox
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-from hydromodpy.modeling import downslope, modflow, modpath, timeseries
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 #%% PERSONAL
@@ -120,7 +117,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=bottom_path, # path 
+                              bottom_path=bottom_path, # path
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -132,7 +129,7 @@ calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration
 
 KB4_loc = [2796960.102,1133328.361] #???
 visualization_watershed.watershed_dem(BV)
-      
+
 #%% ---- PYHELP
 
 #%% PATH
@@ -140,7 +137,7 @@ visualization_watershed.watershed_dem(BV)
 pyhelp_workdir = os.path.join(out_path, watershed_name, "results_pyhelp")
 era5_folder = os.path.join(data_path)
 
-### If already completed grid: 
+### If already completed grid:
 grid_base_csv = data_path+"/"+"_init_input_grid_base1/"+"input_grid_base1.csv"
 
 ready_csvs = [
@@ -158,18 +155,18 @@ list_of_sims = []
 option = '1'
 
 for k in k_values[:]:
-    
+
     k = round(k, 5)
-    
+
     grid_kwargs = dict(
                        growth_start=140,
                        growth_end=280,
                        wind=2.5,
                        hum1=60, hum2=65, hum3=70, hum4=70,
-                       LAI=2.4, 
+                       LAI=2.4,
                        EZD=44.5,
                        CN=55,
-                       nlayer=1,  
+                       nlayer=1,
                        lay_type1=1,
                        thick1=100,
                        poro1=0.45,
@@ -179,11 +176,11 @@ for k in k_values[:]:
                        dist_dr1=50,
                        slope1=35
                        )
-    
+
     # cid                             Unique cell ID
     # lat_dd                          Decimal degrees Latitude of the cell centroid
     # lon_dd                          Decimal degrees Longitude of the cell centroid
-    
+
     # wind            km/h            Average annual wind speed
     # hum1            %               Average quarterly relative humidity (Jan to Mar)
     # hum2            %               Average quarterly relative humidity (Apr to Jun)
@@ -203,7 +200,7 @@ for k in k_values[:]:
     # ksat            cm/s            Saturated hydraulic conductivity of the ith soil layer
     # dist_dr         m               Distance to discharge
     # slope           %               Average slope
-    
+
     # run             –               Identify cells to be run with the HELP model
     # context         –               Identify cells by context:
     #     0 - Water cell
@@ -212,9 +209,9 @@ for k in k_values[:]:
     #     3 - River edge with deep hypodermic runoff
     #     4 - Urban cell
     #     5 - Cell not mapped
-    
+
     if option == '1':
-    
+
         #---- Input climatic ready - Input grid updated:
         nc = preprocessing_pyhelp(
             workdir = os.path.join(pyhelp_workdir, f"_sim_{k}"),
@@ -225,11 +222,11 @@ for k in k_values[:]:
             shapefile = from_shp[0],
         )
         # print("NetCDF :", nc)
-    
+
     if option == '2':
-    
+
         #---- Input climatic ready - Input grid ready:
-        
+
         nc = preprocessing_pyhelp(
             workdir = pyhelp_workdir,
             outpath = simulations_folder,
@@ -240,19 +237,19 @@ for k in k_values[:]:
 
     """
     if option == '3':
-    
+
         #---- Input climatic updated - Input grid updated:
         nc = preprocessing_pyhelp(
             workdir = pyhelp_workdir,
             outpath = simulations_folder,
             dem = dem_path_pyhelp,
             era5_folder = era5_folder,
-            grid_kwargs = grid_kwargs,           
+            grid_kwargs = grid_kwargs,
             conda_env   = "pyhelp_env",
         )
         # print("NetCDF :", nc)
     """
-    
+
     list_of_sims.append(f"_sim_{k}")
 
 #%% FORMATING
@@ -274,7 +271,7 @@ dem_path = stable_folder + "/geographic/watershed_box_buff_dem.tif"
 ds  = xr.open_dataset(nc_path)
 dem = rxr.open_rasterio(dem_path)
 
-R = ds["rechg"]  
+R = ds["rechg"]
 R = R.rio.write_crs(dem.rio.crs)
 
 Rt   = R.rio.reproject_match(dem, nodata=0.0)
@@ -364,7 +361,7 @@ for i, y in enumerate(years[:]):  # Saute la première année si besoin
     month_ticks = pd.date_range(start=f'{y}-01-01', end=f'{y}-12-31', freq='MS')
     ax.set_xticks(month_ticks)
     ax.set_xticklabels([str(m.month) for m in month_ticks])
-    
+
     if i == 0:
         ax.legend(loc='upper left', frameon=False, fontsize=13)
 
@@ -402,23 +399,23 @@ plt.tight_layout()
 #%% CALIBRATION
 
 class MatchingStreams:
-    """ 
-    
-    Class for the calibration based on river occurency
-        
-    Attributes
-    ----------
-    
-    Methods
-    ----------
-    
     """
 
-    def __init__(self, 
-                 watershed, 
+    Class for the calibration based on river occurency
+
+    Attributes
+    ----------
+
+    Methods
+    ----------
+
+    """
+
+    def __init__(self,
+                 watershed,
                  iteration_label=None,
                  from_calib=True):
-        
+
         self.geographic = watershed.geographic
         self.hydrography = watershed.hydrography
         if from_calib==True:
@@ -426,16 +423,16 @@ class MatchingStreams:
         else:
             self.calibration_folder = watershed.simulations_folder
         self.iteration_label = iteration_label
-        
+
         self.watershed_shp = watershed.geographic.watershed_shp
         self.watershed_fill = watershed.geographic.watershed_fill
         self.watershed_direc = watershed.geographic.watershed_direc
-              
+
         self.prepare_files()
         self.sim_to_obs()
         self.obs_to_sim()
         # self.get_indicator()
-        
+
     def prepare_files(self):
         #files are necessary for whiteboxtool
         self.results_folder=os.path.join(self.calibration_folder, self.iteration_label, '_postprocess')
@@ -443,7 +440,7 @@ class MatchingStreams:
         # New folder results
         self.dichotomy_folder = os.path.join(self.calibration_folder, self.iteration_label, '_matchingstreams')
         toolbox.create_folder(self.dichotomy_folder)
-        
+
         # Observed buff data
         self.buff_tif_obs = self.hydrography.tif_streams
         # Mask observed
@@ -457,7 +454,7 @@ class MatchingStreams:
         # Trace downslope obs
         self.obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.tif')
         wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
-        
+
         # Mask simulated
         tif_sim = os.path.join(self.results_folder,'_rasters','seepage_areas_t(0).tif')
         self.tif_sim = os.path.join(self.dichotomy_folder,'sim.tif')
@@ -470,18 +467,18 @@ class MatchingStreams:
         # Trace downslope sim
         self.sim_flow = os.path.join(self.dichotomy_folder, 'simflow.tif')
         wbt.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)
-        
+
     def sim_to_obs(self):
         # Simflow to points
         self.pt_sim_flow = os.path.join(self.dichotomy_folder, 'simflow.shp')
         wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)
         self.pt_sim_flowf = os.path.join(self.dichotomy_folder, 'simflowf.shp')
-        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flowf)   
-        
+        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flowf)
+
         # Distance of dem to obs
         self.dist_dem_obs = os.path.join(self.dichotomy_folder, 'dist_dem_obs.tif')
         wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_obs, self.dist_dem_obs)
-        
+
         # Distance of dem to obsflow
         self.dist_dem_obsflow = os.path.join(self.dichotomy_folder, 'dist_dem_obsflow.tif')
         wbt.downslope_distance_to_stream(self.watershed_fill, self.obs_flow, self.dist_dem_obsflow)
@@ -503,7 +500,7 @@ class MatchingStreams:
         wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
         self.pt_obs_flowf = os.path.join(self.dichotomy_folder, 'obsflowf.shp')
         wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flowf)
-        
+
         # Distance of dem to sim
         self.dist_dem_sim = os.path.join(self.dichotomy_folder, 'dist_dem_sim.tif')
         wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_sim, self.dist_dem_sim)
@@ -525,7 +522,7 @@ class MatchingStreams:
 #%% PARAMETERS
 
 vers = 'DICHOT2' # dichotomy on 30 catchments (all hydrosystems)
- 
+
 box = False # or False
 sink_fill = False # or True
 sim_state = 'steady' # 'steady' or 'transient'
@@ -538,7 +535,7 @@ verti_hk = None # or [ [1e-5, [0, 20]],
 verti_sy = None
 verti_ss = None
 cond_drain = None # or value of conductance
-Kmin = 1e-10 * 3600 * 24 
+Kmin = 1e-10 * 3600 * 24
 Klog_transf = False
 sy = 1 / 100 # -
 sy_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
@@ -593,7 +590,7 @@ calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration
 
 # Type obs hydro
 BV.add_hydrography(data_path, types_obs=['stream_network_urse_reproj'])
-        
+
 # Objects
 BV.add_settings()
 BV.add_climatic()
@@ -628,27 +625,27 @@ recharges = [
 ]
 
 for irec, (name, drec) in enumerate(recharges):
-    
+
     df_optim = pd.DataFrame()
     df_calib = pd.DataFrame()
-    
+
     mean_recharge_from_dict = (sum(drec.values()) / len(drec)).mean()
-    
+
     BV.climatic.update_recharge(drec, sim_state=sim_state)
-        
+
     KRmin = 1
     KRmax = 1000
 
     # Define permeability range
     Kmin = KRmin * mean_recharge_from_dict
     Kmax = KRmax * mean_recharge_from_dict
-    
+
     # Params
     params_df = pd.DataFrame(columns=['params', 'init_values', 'lower_bounds', 'higher_bounds', 'units', 'scale'])
     params_df.loc[0] = ['k1', '?', Kmin, Kmax, 'm/j', 'lin']
     params_file = vers+'_BOUNDS_CALIB_PARAMS'
     params_df.to_csv(BV.calibration_folder+'/'+params_file+'.csv', sep=';', index=None)
-    
+
     p_min = params_df['lower_bounds'].values[0]
     p_max = params_df['higher_bounds'].values[0]
     diff = p_max - p_min
@@ -656,24 +653,24 @@ for irec, (name, drec) in enumerate(recharges):
 
     gap = 1
     compt = 0
-    
+
     success_modflow = False # init
-    
+
     list_of_model_names = []
 
     # Main dichotomy loop
-    
+
     valid_result = True
-    
+
     while (diff > ((gap/100) * half)):
-                            
+
         half = (p_min + p_max) / 2
         hyd_cond = half.copy() # if K in calib_params.csv
         kr = hyd_cond / mean_recharge_from_dict
-        
+
         # Update value
         BV.hydraulic.update_hk(hyd_cond)
-        
+
         # Change
         model_name = vers+'_'+\
                      str(name)+'_'+\
@@ -681,107 +678,107 @@ for irec, (name, drec) in enumerate(recharges):
                      str(compt)+'_'+\
                      str(round(thickness,1))+'-'+str(int(round(mean_recharge_from_dict*365*1000,1)))+'_'+\
                      str("{:.1e}".format(hyd_cond/24/3600))+'-'+str(int(round(hyd_cond/mean_recharge_from_dict,1))) #+'-'+oclock
-                     
+
         print(model_name)
         BV.settings.update_model_name(model_name)
-        
-        # Check grid                    
+
+        # Check grid
         if compt == 0:
             check_grid = True
         else:
-            check_grid = False                        
+            check_grid = False
         BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
 
         # Run
         model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
         success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
-        
+
         # Cells
         if compt == 0:
             prob_cells = model_modflow.prob_cells
-        
+
         # Post-process
         BV.postprocessing_modflow(model_modflow,
                                   watertable_elevation = True,
                                   seepage_areas = True,
                                   outflow_drain = True,
                                   accumulation_flux = True,
-                                  watertable_depth = True, 
+                                  watertable_depth = True,
                                   groundwater_flux = True,
                                   groundwater_storage = True,
                                   intermittency_yearly = True,
                                   export_all_tif = False)
-        
+
         iter_results = MatchingStreams(BV, iteration_label=model_name, from_calib=True)
-        
+
         # obs_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_pt.shp'))
         # obs_to_simf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_ptf.shp'))
         # obsf_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obsflow.shp'))
         obsf_to_simf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obsflowf.shp'))
-        
+
         if not os.path.exists(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflowf.shp')):
             valid_result = False
             break  # Sortie prématurée pour forcer retry ==> not really good
-        
+
         # sim_to_obs = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','sim_pt.shp'))
         # sim_to_obsf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','sim_ptf.shp'))
         # simf_to_obs = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflow.shp'))
         simf_to_obsf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflowf.shp'))
-    
+
         # mean_obs_to_sim = np.nanmean(obs_to_sim[obs_to_sim['VALUE1']>=0]['VALUE1'])
         # mean_obs_to_simf = np.nanmean(obs_to_simf[obs_to_simf['VALUE1']>=0]['VALUE1'])
         # mean_obsf_to_sim = np.nanmean(obsf_to_sim[obsf_to_sim['VALUE1']>=0]['VALUE1'])
         mean_obsf_to_simf = np.nanmean(obsf_to_simf[obsf_to_simf['VALUE1']>=0]['VALUE1'])
-        
+
         # mean_sim_to_obs = np.nanmean(sim_to_obs[sim_to_obs['VALUE1']>=0]['VALUE1'])
         # mean_sim_to_obsf = np.nanmean(sim_to_obsf[sim_to_obsf['VALUE1']>=0]['VALUE1'])
         # mean_simf_to_obs = np.nanmean(simf_to_obs[simf_to_obs['VALUE1']>=0]['VALUE1'])
         mean_simf_to_obsf = np.nanmean(simf_to_obsf[simf_to_obsf['VALUE1']>=0]['VALUE1'])
-                
+
         ### Conditions
         obs = mean_obsf_to_simf
         sim = mean_simf_to_obsf
         indicator = sim/obs
-    
+
         if sim > obs:
             p_min = half
         if sim < obs:
             p_max = half
         if np.isnan(indicator):
             p_max = half
-        
+
         diff = p_max - p_min
-        
+
         print('==> SIMULATION : '+str(compt))
         print('    K/R = '+str(round(kr, 4)))
         print('    GAP = '+str(round((gap/100) * kr, 4)))
         print('    INDICATOR = '+str(round(indicator, 4)))
-                                                
+
         list_of_model_names.append(BV.calibration_folder+'/'+model_name+'/')
-        
+
         df_calib.loc[compt,'IDX_NODPOL'] = i
-        df_calib.loc[compt,'NAME_RECAL'] = watershed_name  
+        df_calib.loc[compt,'NAME_RECAL'] = watershed_name
         df_calib.loc[compt,'MODEL_NAME'] = model_name
         df_calib.loc[compt,'COMPT_SIM'] = compt
         df_calib.loc[compt,'INPUT_REC'] = round(mean_recharge_from_dict*1000*365, 4) # mm/y
         df_calib.loc[compt,'AQUI_THICK'] = round(thickness, 4)
         df_calib.loc[compt,'DSO'] = round(sim, 4)
         df_calib.loc[compt,'DOS'] = round(obs, 4)
-        df_calib.loc[compt,'DOPTIM'] = round((sim+obs)/2, 4)            
+        df_calib.loc[compt,'DOPTIM'] = round((sim+obs)/2, 4)
         df_calib.loc[compt,'DSO/DOS'] = round(indicator, 4)
-        df_calib.loc[compt,'DSO/DOS_LG'] = round(np.log10(indicator)**2, 10)                    
-        df_calib.loc[compt,'K_OPTIM'] = float("{:.5e}".format(hyd_cond/24/3600))                
+        df_calib.loc[compt,'DSO/DOS_LG'] = round(np.log10(indicator)**2, 10)
+        df_calib.loc[compt,'K_OPTIM'] = float("{:.5e}".format(hyd_cond/24/3600))
         df_calib.loc[compt,'K/R_OPTIM'] = round(hyd_cond/mean_recharge_from_dict, 4)
         df_calib.loc[compt,'TMAX_OPTIM'] = df_calib.loc[compt,'K_OPTIM'] * thickness
 
         compt += 1
-        
+
     if (success_modflow==True) and (os.path.exists(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflowf.shp'))):
 
         # Save ALL
         name_for_save = vers+'_'+str(name)+'_'+str(watershed_name)+'_'+str(round(area,1))
         df_calib.to_csv(BV.calibration_folder+'/'+name_for_save+'_CALIB'+'.csv', sep=';', index=True)
-    
+
         # Save model_modflow
         model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
         dictio = {}
@@ -797,65 +794,65 @@ for irec, (name, drec) in enumerate(recharges):
                                                           datetime_format=False,
                                                           subbasin_results=False,
                                                           intermittency_yearly=True) # or None
-        
+
         listfile = os.path.join(BV.calibration_folder, model_name, model_name + '.list')
-        
+
         del(model_modflow)
 
         sim_series = pd.read_csv(BV.calibration_folder+'/'+model_name+'/'+'_postprocess/_timeseries/_simulated_timeseries.csv', sep=';')
-        
+
         df_optim.loc[0,'IDX_NODPOL'] = i
         df_optim.loc[0,'NAME_RECAL'] = watershed_name
-        
+
         df_optim.loc[0,'MODEL_NAME'] = model_name
-        
+
         df_optim.loc[0,'GRID_RES'] = 75
         df_optim.loc[0,'GRID_BOX'] = boxc_cells
         df_optim.loc[0,'GRID_BUFF'] = buff_cells
         df_optim.loc[0,'GRID_CATCH'] = dem_cells
         df_optim.loc[0,'GRID_CHECK'] = round(prob_cells, 4)
-        
+
         df_optim.loc[0,'COMPT_SIM'] = compt
-        
+
         df_optim.loc[0,'INPUT_REC'] = round(mean_recharge_from_dict*1000*365, 4) # mm/y
         df_optim.loc[0,'AQUI_THICK'] = round(thickness, 4)
-    
+
         df_optim.loc[0,'DSO'] = round(sim, 4)
         df_optim.loc[0,'DOS'] = round(obs, 4)
         df_optim.loc[0,'DOPTIM'] = round((sim+obs)/2, 4)
 
         df_optim.loc[0,'DSO/DOS'] = round(indicator, 4)
         df_optim.loc[0,'OF_DSO/DOS'] = round(np.log10(indicator)**2, 10)
-    
-        df_optim.loc[0,'K_OPTIM'] = float("{:.5e}".format(hyd_cond/24/3600))                
+
+        df_optim.loc[0,'K_OPTIM'] = float("{:.5e}".format(hyd_cond/24/3600))
         df_optim.loc[0,'K/R_OPTIM'] = round(hyd_cond/mean_recharge_from_dict, 4)
-        
+
         df_optim.loc[0,'WT_ELEV'] = round(sim_series['watertable_elevation'].values[0], 4)
         df_optim.loc[0,'WT_DEPTH'] = round(sim_series['watertable_depth'].values[0], 4)
-        
-        df_optim.loc[0,'HSAT_OPTIM'] = round(thickness - sim_series['watertable_depth'].values[0], 4) 
+
+        df_optim.loc[0,'HSAT_OPTIM'] = round(thickness - sim_series['watertable_depth'].values[0], 4)
         df_optim.loc[0,'HSAT_PROP'] = round((sim_series['watertable_depth'].values[0]/(thickness - sim_series['watertable_depth'].values[0])), 4)
-        
+
         df_optim.loc[0,'TMAX_OPTIM'] = df_optim.loc[0,'K_OPTIM'] * thickness
         df_optim.loc[0,'TSAT_OPTIM'] = df_optim.loc[0,'K_OPTIM'] * df_optim.loc[0,'HSAT_OPTIM']
-                    
+
         df_optim.loc[0,'GW_STORAG'] = round(sim_series['groundwater_storage'].values[0], 4)
         df_optim.loc[0,'GW_FLOW'] = round(sim_series['groundwater_flux'].values[0]/(75*50), 4)
-        
+
         df_optim.loc[0,'DD_SEEP'] = round(sim_series['seepage_areas'].values[0], 4)
         df_optim.loc[0,'DD_NETW'] = round(sim_series['total_areas'].values[0], 4)
         df_optim.loc[0,'DD_RATIO'] = round(sim_series['total_areas'].values[0]/sim_series['seepage_areas'].values[0], 4)
-        
+
         df_optim.loc[0,'OUT_SEEP'] = round(sim_series['outflow_drain'].values[0]*365*1000, 4)
-        df_optim.loc[0,'OUT_ACC'] = round((1000*(BV.geographic.area*1e6)*sim_series['outflow_drain'].values[0])/24/60/60, 4)               
+        df_optim.loc[0,'OUT_ACC'] = round((1000*(BV.geographic.area*1e6)*sim_series['outflow_drain'].values[0])/24/60/60, 4)
         df_optim.loc[0,'OUT_PROP'] = round(df_optim.loc[0,'OUT_SEEP'] / df_optim.loc[0,'INPUT_REC'], 4)
-                                                
+
         df_optim.to_csv(BV.calibration_folder+'/'+name_for_save+'_OPTIM'+'.csv', sep=';', index=True)
 
     else:
         df_optim.loc[0,:] = np.nan
         df_optim.loc[0,'NAME_RECAL'] = watershed_name
-                            
+
         name_for_save = vers+'_'+str(name)+'_'+str(watershed_name)+'_'+str(round(area,1))
         df_optim.to_csv(BV.calibration_folder+'/'+name_for_save+'_OPTIM'+'.csv', sep=';', index=True)
 
@@ -882,28 +879,28 @@ HYD0 = os.path.join(stable_folder, 'hydrography', 'stream_network_urse_reproj.sh
 HYD_shp = gpd.read_file(HYD0)
 
 for i, model_path in enumerate([model_name_ref]):
-    
+
     stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
     simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
     calibration_folder = os.path.join(out_path, watershed_name, 'results_calibration')
 
     simflowf_path = os.path.join(model_path, '_matchingstreams', 'simflowf.shp')
     simflowf = gpd.read_file(simflowf_path)
-    
+
     fig, ax = plt.subplots(1,1, figsize=(10,10), dpi=300)
-    
+
     simflowf.plot(ax=ax, column='VALUE1', cmap='RdYlGn_r', lw=0, zorder=1, s=50,
                   marker='s',
                   vmin=0,vmax=25*10)
-    
+
     HYD_shp.plot(ax=ax, color='blue', lw=4, zorder=0)
-    
+
     WC_shp.plot(ax=ax, facecolor='None', zorder=2, lw=4)
-    
+
     plt.suptitle(os.path.basename(model_path), fontsize=10, y=1)
-    
+
     plt.tight_layout()
-    
+
 #%% ---- NOTES
 
 os.chdir(DIR)

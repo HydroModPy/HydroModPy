@@ -14,7 +14,6 @@ import csv
 import time
 import os.path as osp
 import multiprocessing as mp
-from multiprocessing import Pool
 
 from hydromodpy.tools import get_logger
 
@@ -219,7 +218,7 @@ def write_d10d11_allcells(dirpath, d10data, d11data, ncore=None):
     Write the content of each cell in individual D10 and D11 files.
     """
     ncore = max(mp.cpu_count() if ncore is None else ncore, 1)
-    pool = Pool(ncore)
+    pool = mp.get_context("spawn").Pool(ncore)
 
     # Prepare soil and design input files (D10).
 
