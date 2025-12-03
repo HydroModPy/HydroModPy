@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "0.3.1"
+version = "0.3.3"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -90,27 +90,6 @@ docs = [
 ide = [
     "spyder>=6.0",
     "jupyterlab>=4.0",
-]
-light = [
-    "colormap",
-    "contextily",
-    "flopy",
-    "geopandas",
-    "h5py",
-    "imageio",
-    "matplotlib",
-    "matplotlib-scalebar",
-    "netCDF4",
-    "numpy>=2.0",
-    "pandas",
-    "pyproj",
-    "pyshp",
-    "rasterio",
-    "rioxarray",
-    "selenium",
-    "whitebox",
-    "xarray",
-    "pysheds",
 ]
 
 [project.urls]
