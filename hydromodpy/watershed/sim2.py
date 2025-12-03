@@ -345,7 +345,16 @@ class Sim2:
                     if '_FillValue' in self.values[var][data_var].attrs:
                         del self.values[var][data_var].attrs['_FillValue']
 
-                self.values[var].to_netcdf(temp_file)
+                # Compression settings to reduce file size
+                encoding = {}
+                for data_var in self.values[var].data_vars:
+                    encoding[data_var] = {
+                        'zlib': True,
+                        'complevel': 4,
+                        'dtype': 'float32'
+                    }
+
+                self.values[var].to_netcdf(temp_file, encoding=encoding)
                 if hasattr(self.values[var], 'close'):
                     self.values[var].close()
                 self.values[var] = xr.open_dataset(temp_file, chunks='auto')
@@ -652,14 +661,30 @@ class Sim2:
         logger.info("Merging %s (%s) NetCDF files", sim_var, HyMoPy_var)
 
         # Use xarray's multi-file dataset for lazy loading (memory efficient)
-        ds_merged = xr.open_mfdataset(
-            filelist,
-            decode_coords='all',
-            decode_times=True,
-            combine='by_coords',
-            chunks='auto',  # Enable chunked/lazy loading
-            parallel=False  # Sequential to avoid memory spikes
-        )
+        try:
+            ds_merged = xr.open_mfdataset(
+                filelist,
+                decode_coords='all',
+                decode_times=True,
+                combine='by_coords',
+                chunks='auto',
+                parallel=False
+            )
+        except ValueError as e:
+            if "monotonic" in str(e):
+                logger.warning("Time dimension not monotonic, loading files sequentially to handle overlaps")
+                datasets = []
+                for f in sorted(filelist):
+                    ds = xr.open_dataset(f, decode_coords='all', decode_times=True, chunks='auto')
+                    datasets.append(ds)
+                ds_merged = xr.concat(datasets, dim='time', combine_attrs='override')
+                # Remove duplicates and sort
+                _, index = np.unique(ds_merged['time'], return_index=True)
+                ds_merged = ds_merged.isel(time=np.sort(index))
+                for ds in datasets:
+                    ds.close()
+            else:
+                raise
         logger.debug("Merged %d files for %s", len(filelist), HyMoPy_var)
 
         encod = ds_merged[list(ds_merged.data_vars)[0]].encoding
