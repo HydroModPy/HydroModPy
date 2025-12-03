@@ -330,7 +330,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 
 #%% CROSS MIN MAX
 
-dates = pd.date_range(start='01/01/2000', end='31/12/2002', freq='M')
+dates = pd.date_range(start='01/01/2000', end='31/12/2002', freq='ME')
     
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
 simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
@@ -439,7 +439,7 @@ fig.tight_layout
     
 #%% MAP MIN MAX
 
-dates = pd.date_range(start='01/01/2000', end='31/12/2002', freq='M')
+dates = pd.date_range(start='01/01/2000', end='31/12/2002', freq='ME')
     
 stable_folder = os.path.join(out_path, watershed_name, 'results_stable') # necessary for plots
 simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')

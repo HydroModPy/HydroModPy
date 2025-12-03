@@ -25,7 +25,7 @@ import sys
 import flopy
 import numpy as np
 from os.path import dirname, abspath
-import imageio.v2 as imageio
+import rasterio
 import flopy.utils.binaryfile as bf
 import whitebox
 import shutil
@@ -375,11 +375,8 @@ class Mt3dms:
                                                               extraction_folder=self.save_file)
                 accumulated_mass.trace_cumulated()
                 output_path = self.tifs_file+'/mass_accumulated_t('+the_time+').tif'
-                try:
-                    self.dict_mass_accumulated[i] = imageio.v2.imread(output_path)
-                except:
-                    self.dict_mass_accumulated[i] = imageio.imread(output_path)
-                    pass
+                with rasterio.open(output_path) as src:
+                    self.dict_mass_accumulated[i] = src.read(1)
 
         the_min = np.nanmin(the_mins)
         the_max = np.nanmax(the_maxs)

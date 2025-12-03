@@ -130,7 +130,7 @@ BV.settings.update_check_model(plot_cross=True, check_grid=True)
 BV.settings.update_dis_perlen(dis_perlen=True)
 
 # Climatic settings
-time_index = pd.date_range(start='2017-01-01', end='2017-12-31', freq='M') # datetime in months
+time_index = pd.date_range(start='2017-01-01', end='2017-12-31', freq='ME') # datetime in months
 rch_series = pd.Series([10, 60, 40, 20, 10, 5, 4, 20, 10, 1, 0, 0]) / 1000 / 30 # recharge mm/month to in m/day
 recharge = pd.Series(rch_series.values, index=time_index)
 BV.climatic.update_recharge(recharge, sim_state=BV.settings.sim_state)

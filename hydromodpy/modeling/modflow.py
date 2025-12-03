@@ -19,7 +19,7 @@ import os
 import datetime
 import pandas as pd
 import sys
-import imageio.v2 as imageio                           # Import raster to numpy matrix (not georeferenced but handy)
+import rasterio
 from os.path import dirname, abspath
 import matplotlib.pyplot as plt
 import flopy.utils.binaryfile as fpu
@@ -1137,11 +1137,8 @@ class Modflow:
                                                              extraction_folder=self.save_file)
                 accumulated_flow.trace_cumulated()
                 output_path = self.tifs_file+'/accumulation_flux_t('+lead_numb+').tif'
-                try:
-                    self.dict_accumulation_flux[item] = imageio.v2.imread(output_path)
-                except:
-                    self.dict_accumulation_flux[item] = imageio.imread(output_path)
-                    pass
+                with rasterio.open(output_path) as src:
+                    self.dict_accumulation_flux[item] = src.read(1)
 
         ### Save dictionaries to npy
         if watertable_elevation == True:
@@ -1173,7 +1170,8 @@ class Modflow:
                               allow_pickle=True).item()
             acc_npy = list(acc_npy_raw.items())[:]
             for key in range(len(acc_npy)):
-                mask = imageio.imread(self.geographic.watershed_box_buff_dem)
+                with rasterio.open(self.geographic.watershed_box_buff_dem) as src:
+                    mask = src.read(1)
                 acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask<0))
             zero = acc_npy[0] * 0
             for i in range(len(acc_npy)):
@@ -1206,7 +1204,8 @@ class Modflow:
                     logger.debug('Processing daily intermittency t: %d / %d', i, step)
                     interv = list(acc_npy)[inf:sup]
                     for key in range(len(interv)):
-                        mask = imageio.imread(self.geographic.watershed_dem)
+                        with rasterio.open(self.geographic.watershed_dem) as src:
+                            mask = src.read(1)
                         interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))
                     zero = acc_npy_raw[0] * 0
                     for j in range(len(interv)):
@@ -1249,7 +1248,8 @@ class Modflow:
                     logger.debug('Processing weekly intermittency t: %d / %d', i, step)
                     interv = list(acc_npy)[inf:sup]
                     for key in range(len(interv)):
-                        mask = imageio.imread(self.geographic.watershed_dem)
+                        with rasterio.open(self.geographic.watershed_dem) as src:
+                            mask = src.read(1)
                         interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))
                     zero = acc_npy_raw[0] * 0
                     for j in range(len(interv)):
@@ -1293,7 +1293,8 @@ class Modflow:
                     logger.debug('Processing monthly intermittency t: %d / %d', i, step)
                     interv = list(acc_npy)[inf:sup]
                     for key in range(len(interv)):
-                        mask = imageio.imread(self.geographic.watershed_dem)
+                        with rasterio.open(self.geographic.watershed_dem) as src:
+                            mask = src.read(1)
                         interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))
                     zero = acc_npy_raw[0] * 0
                     for j in range(len(interv)):
@@ -1336,7 +1337,8 @@ class Modflow:
                     logger.debug('Processing yearly intermittency t: %d / %d', i, step)
                     interv = list(acc_npy)[inf:sup]
                     for key in range(len(interv)):
-                        mask = imageio.imread(self.geographic.watershed_dem)
+                        with rasterio.open(self.geographic.watershed_dem) as src:
+                            mask = src.read(1)
                         interv[key] = np.ma.masked_array(interv[key][1], mask=(mask<0))
                     zero = acc_npy_raw[0] * 0
                     for j in range(len(interv)):
