@@ -22,7 +22,7 @@ from os.path import dirname, abspath
 import random
 import pickle
 import geopandas as gpd
-import imageio.v2 as imageio
+import rasterio
 import flopy.utils.postprocessing as pp
 import whitebox
 from scipy.optimize import curve_fit
@@ -243,8 +243,9 @@ class Modpath:
         # ---- flopy.modpath.Modpath6
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
                                   group_placement=[[1, 1, 1, 0, 1, 1]], stop_zone=1, zone=zone_inj) # szone
-        
-        mask_dem = imageio.imread(self.zone_partic)
+
+        with rasterio.open(self.zone_partic) as src:
+            mask_dem = src.read(1)
 
         # ---- flopy.modpath.mp6sim.StartingLocationsFile
         stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)

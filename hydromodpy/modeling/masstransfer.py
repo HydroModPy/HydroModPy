@@ -15,7 +15,7 @@
 # Python
 import os
 import whitebox
-import imageio.v2 as imageio
+import rasterio
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
@@ -101,15 +101,18 @@ class Masstransfer:
         Need to have DEM, flux, efficiency and adsorption rasters.
         """
         ### Loading ###
-        im = imageio.imread(self.raw_rast_path)
+        with rasterio.open(self.raw_rast_path) as src:
+            im = src.read(1)
         im[im<0] = 0
         toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.load_rast_path, -99999)
         ### Efficiency ###
-        im = imageio.imread(self.watershed_buff_fill_surflow)
+        with rasterio.open(self.watershed_buff_fill_surflow) as src:
+            im = src.read(1)
         im[im>=0] = 1
-        toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.eff_rast_path, -99999)        
+        toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.eff_rast_path, -99999)
         ### Adsorption ###
-        im = imageio.imread(self.watershed_buff_fill_surflow)
+        with rasterio.open(self.watershed_buff_fill_surflow) as src:
+            im = src.read(1)
         im[im>=0] = 0
         toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
         ### d8massflux ###

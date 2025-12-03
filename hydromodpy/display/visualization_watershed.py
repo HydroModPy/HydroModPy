@@ -276,7 +276,7 @@ def watershed_geology(BV):
         color = data['hex'].iloc[0]
         data.plot(color=color,
               ax=ax,alpha=0.5, edgecolor='dimgrey', zorder=2,
-              label=ctype.upper())
+              label='_nolegend_')
     for ctype, data in geol.groupby('NATURE'):
         color = data['hex'].iloc[0]
         if ctype.find('Partie marine')!=0:
@@ -304,7 +304,12 @@ def watershed_geology(BV):
         pass
     scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left')
     ax.add_artist(scalebar)
-    l2 = plt.legend( loc='lower right', title = BV.watershed_name,framealpha=0.8)
+    handles2, labels2 = ax.get_legend_handles_labels()
+    legend_items = [(h, lbl) for h, lbl in zip(handles2, labels2) if lbl and not lbl.startswith('_')]
+    l2 = None
+    if legend_items:
+        handles2, labels2 = zip(*legend_items)
+        l2 = ax.legend(handles2, labels2, loc='lower right', title=BV.watershed_name, framealpha=0.8)
     plt.gca().add_artist(l1)
     fig.tight_layout()
     try:

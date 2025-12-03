@@ -18,7 +18,7 @@ import os
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-import imageio.v2 as imageio
+import rasterio
 from pyproj import Transformer
 from geopy.geocoders import Nominatim
 import geopy.geocoders
@@ -324,7 +324,8 @@ class Geographic:
         wbt.slope(self.watershed_dem,
                   os.path.join(self.gis_path, 'watershed_slope.tif'),
                   units="percent")
-        slope = imageio.imread(os.path.join(self.gis_path, 'watershed_slope.tif'))
+        with rasterio.open(os.path.join(self.gis_path, 'watershed_slope.tif')) as src:
+            slope = src.read(1)
         self.slope = np.nanmean(slope[slope>=0])
         # Create contour
         self.watershed_contour_tif = os.path.join(self.gis_path, 'watershed_contour.tif')
@@ -354,13 +355,18 @@ class Geographic:
             wbt.clip_raster_to_polygon(self.bottom_path, self.box_buff, self.watershed_box_bottom,
                                        maintain_dimensions=False)
 
-        if imageio.imread(self.watershed_box_buff_dem).shape != imageio.imread(self.watershed_buff_dem).shape:
-            logger.debug('Reshaping box buffered rasters to match watershed dimensions')
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_dem), self.watershed_box_buff_dem, -99999)
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_fill), self.watershed_box_buff_fill, -99999)
-            toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_direc), self.watershed_box_buff_direc, -32768)
-            if self.bottom_path != None :
-                toolbox.export_tif(self.watershed_buff_dem, imageio.imread(self.watershed_box_buff_bottom), self.watershed_box_buff_bottom, -99999)
+        with rasterio.open(self.watershed_box_buff_dem) as src1, rasterio.open(self.watershed_buff_dem) as src2:
+            if src1.read(1).shape != src2.read(1).shape:
+                logger.debug('Reshaping box buffered rasters to match watershed dimensions')
+                with rasterio.open(self.watershed_box_buff_dem) as src:
+                    toolbox.export_tif(self.watershed_buff_dem, src.read(1), self.watershed_box_buff_dem, -99999)
+                with rasterio.open(self.watershed_box_buff_fill) as src:
+                    toolbox.export_tif(self.watershed_buff_dem, src.read(1), self.watershed_box_buff_fill, -99999)
+                with rasterio.open(self.watershed_box_buff_direc) as src:
+                    toolbox.export_tif(self.watershed_buff_dem, src.read(1), self.watershed_box_buff_direc, -32768)
+                if self.bottom_path != None :
+                    with rasterio.open(self.watershed_box_buff_bottom) as src:
+                        toolbox.export_tif(self.watershed_buff_dem, src.read(1), self.watershed_box_buff_bottom, -99999)
 
         """
         Create depressions raster

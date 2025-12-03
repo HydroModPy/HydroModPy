@@ -84,16 +84,20 @@ class Hydrometry:
         wbt.clip(hydrometric_data, geographic.watershed_shp, self.hydrometric_clip)
         # try:
         hydromet_bv = gpd.read_file(self.hydrometric_clip)
+        hydromet_bv = hydromet_bv.copy()
         self.label = hydromet_bv['LbStationH'].to_list()
         self.x_coord = hydromet_bv['CoordXStat'].tolist()
         self.y_coord = hydromet_bv['CoordYStat'].to_list()
-        for i in range(len(hydromet_bv)):
-            hydromet_bv['CdStationH'].iloc[i] = hydromet_bv.iloc[i]['CdStationH'][0:8] if pd.notnull(hydromet_bv.iloc[i]['CdStationH']) else None
-            hydromet_bv['timePositi'].iloc[i] = hydromet_bv.iloc[i]['timePositi'][0:10]
-            if pd.isna(hydromet_bv.at[i, 'DtFermetur']):
-                hydromet_bv.at[i, 'DtFermetur'] = datetime.datetime.today().strftime('%Y-%m-%d')
-            else:
-                hydromet_bv.at[i, 'DtFermetur'] = hydromet_bv.at[i, 'DtFermetur'][0:10]
+        hydromet_bv['CdStationH'] = hydromet_bv['CdStationH'].apply(
+            lambda value: value[0:8] if pd.notnull(value) else None
+        )
+        hydromet_bv['timePositi'] = hydromet_bv['timePositi'].apply(
+            lambda value: value[0:10] if pd.notnull(value) else None
+        )
+        today_str = datetime.datetime.today().strftime('%Y-%m-%d')
+        hydromet_bv['DtFermetur'] = hydromet_bv['DtFermetur'].apply(
+            lambda value: today_str if pd.isna(value) else value[0:10]
+        )
         # self.date_inst = pd.to_datetime(hydromet_bv['timePositi'][0:10], format='%Y-%m-%d').to_list()
         # self.date_ferm = pd.to_datetime(hydromet_bv['DtFermetur'][0:10], format='%Y-%m-%d').to_list()            
         self.code_bh = hydromet_bv['CdStationH'].to_list()

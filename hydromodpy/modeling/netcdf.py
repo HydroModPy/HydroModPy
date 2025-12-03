@@ -241,7 +241,7 @@ class Netcdf:
         elif isinstance(base_crs, int): base_crs = rio.crs.CRS.from_epsg(base_crs)
         with rio.open(base_path, 'r') as base:
             base_profile = base.profile
-            if base_crs and not base_profile['crs'].is_valid:
+            if base_crs and not base_profile.get('crs'):
                 base_profile['crs'] = base_crs
             val_for_mask = base.read(1)
         [reso_x, _, x_min, _, reso_y, y_max, _, _, _] = list(base_profile['transform'])
