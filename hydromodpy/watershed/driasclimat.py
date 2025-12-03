@@ -153,8 +153,8 @@ class Driasclimat:
 
         try:
             # Comme les latitudes sont fausses, il vaut mieux les supprimer :
-            ds = ds.drop('lon')
-            ds = ds.drop('lat')
+            ds = ds.drop_vars('lon')
+            ds = ds.drop_vars('lat')
         except:
             pass
         try:
