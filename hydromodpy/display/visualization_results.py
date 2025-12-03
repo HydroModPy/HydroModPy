@@ -28,7 +28,6 @@ import os, sys
 import contextily as cx
 import matplotlib as mpl
 from matplotlib import rcsetup
-import imageio.v2 as imageio
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
@@ -768,7 +767,8 @@ class Visualization():
         
         # Plot contour
         try:
-            cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
+            with rasterio.open(self.watershed.geographic.watershed_contour_tif) as src:
+                cont = src.read(1)
             main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
         except Exception:
             logger.warning("No contour raster available for cross-section overlay")
