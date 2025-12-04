@@ -169,7 +169,7 @@ BV.oceanic.update_MSL(sea_level)
 sl = BV.oceanic.MSL
 
 fig, ax = plt.subplots(1,1, figsize=(7,4))
-ax.plot(sl, c='navy', lw=2)
+ax.plot(sl, c='navy', lw=2, label='Sea level')
 ax.set_xlabel('Days')
 ax.set_ylabel('Sea level [m.a.s.l]')
 plt.xticks(rotation=45, ha="right")

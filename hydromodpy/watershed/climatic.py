@@ -230,7 +230,7 @@ class Climatic:
         self.recharge = climatic # recharge in meters
         # self.recharge.index = self.recharge.asfreq(self.freq).index
         self.recharge = self.recharge.resample(self.freq).mean()
-        self.recharge.fillna(method = 'ffill', inplace = True)
+        self.recharge = self.recharge.ffill()
         # self.recharge.index = self.recharge.index.to_period(self.freq)
         if sim_state == 'steady':
             self.recharge = self.recharge.mean()
@@ -276,7 +276,7 @@ class Climatic:
         self.runoff = climatic # recharge in meters
         # self.runoff.index = self.runoff.asfreq(self.freq).index
         self.runoff = self.runoff.resample(self.freq).mean()
-        self.runoff.fillna(method = 'ffill', inplace = True)
+        self.runoff = self.runoff.ffill()
         # self.runoff.index = self.runoff.index.to_period(self.freq)
         if sim_state == 'steady':
             self.runoff = self.runoff.mean()

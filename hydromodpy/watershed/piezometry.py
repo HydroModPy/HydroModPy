@@ -79,6 +79,7 @@ class Piezometry:
         self.out_path = out_path
         self.geo_x_coord = geographic.x_coord
         self.geo_y_coord = geographic.y_coord
+        self.crs_proj = geographic.crs_proj
         self.x_coord = []
         self.y_coord = []
         self.x_coord_wgs84 = []
@@ -150,8 +151,7 @@ class Piezometry:
             df[i] = df[i].astype('float64')
         df['cote_eau'] = df['z_bdalti'] - df['prof_eau_sol']
         df.to_csv(os.path.join(folder,"BSS.csv"), index=False, encoding='utf-8-sig')
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.x_ref06, df.y_ref06))
-        gdf = gdf.set_crs(epsg=2154)
+        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.x_ref06, df.y_ref06), crs="EPSG:2154")
         gdf.to_file(os.path.join(folder,"BSS.shp"))
         os.remove(os.path.join(folder, bss_csv))
             
@@ -203,7 +203,11 @@ class Piezometry:
             piezos = []
             for i in range(0, self.piezos['count']):
                 piezos.append([self.codes_bss[i], Point([self.x_coord[i],self.y_coord[i]])])
-            shp_piezo = gpd.GeoDataFrame(data=piezos, columns=['code_bss', 'geometry'])
+            shp_piezo = gpd.GeoDataFrame(
+                data=piezos,
+                columns=['code_bss', 'geometry'],
+                crs=self.crs_proj,
+            )
             shp_piezo.to_file(os.path.join(data_folder, 'shapefile','piezos.shp'))
         except:
             pass
@@ -372,7 +376,7 @@ class Piezometry:
                 df = df.drop(['Date'], axis=1)
                 self.elevation = pd.merge(self.elevation, df, left_index=True, right_index=True, how='outer') #pd.concat([self.elevation, df], axis=1).sort_index()
             df = pd.DataFrame({'code_bss': self.codes_bss, 'X': self.x_coord, 'Y': self.y_coord})
-            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y))
+            gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y), crs=self.crs_proj)
             gdf.to_file(self.piezos_shp)
         
     #%% DISPLAY PLOT
