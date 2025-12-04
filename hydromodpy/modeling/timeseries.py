@@ -20,6 +20,7 @@ import sys
 import rasterio
 from os.path import dirname, abspath
 import geopandas as gpd
+import warnings
 
 # Root
 df = dirname(dirname(abspath(__file__)))
@@ -31,6 +32,8 @@ from hydromodpy.tools import toolbox, get_logger
 #%% CLASS
 
 logger = get_logger(__name__)
+# Silence pandas masked-to-nan spam when handling masked arrays
+warnings.filterwarnings("ignore", message=".*converting a masked element to nan.*")
 
 
 class Timeseries:

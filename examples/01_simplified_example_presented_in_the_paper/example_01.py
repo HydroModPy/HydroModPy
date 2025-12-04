@@ -118,17 +118,17 @@ Qobs = select_period(Qobs, first, last)
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/j
 data_index = Qobs.copy()
 
-mean_mensual = data_index.resample('M').mean() # mensual mean
-mean_annual = data_index.resample('Y').mean() # annual mean
+mean_mensual = data_index.resample('ME').mean() # mensual mean
+mean_annual = data_index.resample('YE').mean() # annual mean
 Mean = round(data_index.mean(),2)
 Mean = data_index.mean()
-Min = data_index.resample('Y').min()
-Q10 = data_index.resample('Y').quantile(0.10)
-Q25 = data_index.resample('Y').quantile(0.25)
-Q50 = data_index.resample('Y').quantile(0.50)
-Q75 = data_index.resample('Y').quantile(0.75)
-Q90 = data_index.resample('Y').quantile(0.90)
-Max = data_index.resample('Y').max()
+Min = data_index.resample('YE').min()
+Q10 = data_index.resample('YE').quantile(0.10)
+Q25 = data_index.resample('YE').quantile(0.25)
+Q50 = data_index.resample('YE').quantile(0.50)
+Q75 = data_index.resample('YE').quantile(0.75)
+Q90 = data_index.resample('YE').quantile(0.90)
+Max = data_index.resample('YE').max()
 mean_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).mean().to_frame()
 std_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).std()
 q10_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).quantile(0.10)

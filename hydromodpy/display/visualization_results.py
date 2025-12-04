@@ -379,7 +379,8 @@ class Visualization():
             ylim = ([bounds[1], bounds[3]])
             ax.set_xlim(xlim)
             ax.set_ylim(ylim)
-            scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower right')
+            ax.set_aspect('equal')
+            scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower right', rotation='horizontal-only')
             ax.add_artist(scalebar)
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
@@ -398,7 +399,9 @@ class Visualization():
                     cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
                 except:
                     pass
-            ax.legend(loc='best',framealpha=0.8)
+            handles, labels = ax.get_legend_handles_labels()
+            if handles:
+                ax.legend(loc='best', framealpha=0.8)
             compt +=1
         
         name = self.modelname

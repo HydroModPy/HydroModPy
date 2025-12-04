@@ -114,11 +114,14 @@ class VTK():
                 logger.info("Exported VTU/VTK pathlines for model %s", modelname)
             except Exception:
                 logger.exception("Failed to export VTU/VTK pathlines for model %s", modelname)
-            try:
-                self.piezometers(save_file, watershed.piezometry)
-                logger.info("Exported VTU/VTK piezometer set for model %s", modelname)
-            except Exception:
-                logger.exception("Failed to export VTU/VTK piezometers for model %s", modelname)
+            if hasattr(watershed, "piezometry"):
+                try:
+                    self.piezometers(save_file, watershed.piezometry)
+                    logger.info("Exported VTU/VTK piezometer set for model %s", modelname)
+                except Exception:
+                    logger.exception("Failed to export VTU/VTK piezometers for model %s", modelname)
+            else:
+                logger.info("No piezometry data found on watershed; skipping VTU/VTK piezometers for model %s", modelname)
             try:
                 self.streams(save_file, watershed.hydrography, watershed.geographic)
                 logger.info("Exported VTU/VTK streams for model %s", modelname)

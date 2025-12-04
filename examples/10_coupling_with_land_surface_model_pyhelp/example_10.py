@@ -297,7 +297,7 @@ rec_mean = rec_mean.set_index(['time'])
 years = rec_mean.index.year.unique()
 
 # Calculer la moyenne annuelle
-rec_annual = rec_mean.resample('Y').sum()
+rec_annual = rec_mean.resample('YE').sum()
 
 # Extraire les années pour l'axe X
 years = rec_annual.index.year

@@ -136,8 +136,8 @@ BV.climatic.update_runoff_reanalysis(path_file=os.path.join(data_path,'_climate_
                                      sim_state='transient')
 
 fig, ax = plt.subplots(1,1, figsize=(6,3))
-R = BV.climatic.recharge.resample('Y').sum()#*1000
-r = BV.climatic.runoff.resample('Y').sum()#*1000
+R = BV.climatic.recharge.resample('YE').sum()#*1000
+r = BV.climatic.runoff.resample('YE').sum()#*1000
 ax.plot(R, label='recharge_reanalysis', c='dodgerblue', lw=2)
 ax.plot(r, label='runoff_reanalysis', c='navy', lw=2)
 ax.set_xlabel('Date')
