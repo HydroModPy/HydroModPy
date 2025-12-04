@@ -20,13 +20,18 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import imageio
+import imageio.v2 as imageio
 import whitebox
 import rasterio
 import geopandas as gpd
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
@@ -98,7 +103,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=None, # [path, cell size]
                               from_shp=None, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=None, # path 
+                              bottom_path=None, # path
                               save_object=True)
 
 # Paths necessary for the script
@@ -185,7 +190,7 @@ success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_mod
 # Post-processing
 BV.postprocessing_modflow(model_modflow,
                           watertable_elevation=True,
-                          watertable_depth=True, 
+                          watertable_depth=True,
                           seepage_areas=True,
                           outflow_drain=True,
                           groundwater_flux=True,
@@ -216,7 +221,7 @@ if success_modpath == True:
                               pathlines_shp=True,
                               particles_shp=False,
                               random_id=None) # None
-    
+
     BV.filtprocessing_modpath(model_modpath,
                               norm_flux=True, # for forward only
                               filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
@@ -230,11 +235,11 @@ if success_modpath == True:
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  datetime_format=False, 
+                                                  datetime_format=False,
                                                   subbasin_results=True,
                                                   intermittency_monthly=True, # only in transient
                                                   intermittency_weekly=False, # only in transient
-                                                  intermittency_daily=False, # only in transient                        
+                                                  intermittency_daily=False, # only in transient
                                                   ) # or 'M' or None
 
 #%% ---- OPEN SIMULATED

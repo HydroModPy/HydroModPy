@@ -20,6 +20,7 @@ import flopy.utils.binaryfile as fpu
 import numpy as np
 from os.path import dirname, abspath
 import random
+import warnings
 import pickle
 import geopandas as gpd
 import rasterio
@@ -156,12 +157,21 @@ class Modpath:
         lpf_file = '{}.upw'.format(prefix)
         
         # ---- flopy.modflow.Modflow.load
-        self.mf = flopy.modflow.Modflow.load(nam_file, model_ws=self.full_path, verbose=False, check=False)
+        self.mf = flopy.modflow.Modflow.load(
+            nam_file,
+            model_ws=self.full_path,
+            verbose=False,
+            check=False,
+            exe_name=getattr(self.model_modflow, "exe", None) or "mfnwt",
+        )
         
-        # ---- flopy.modflow.ModflowBas.load
-        bas = flopy.modflow.ModflowBas.load(bas_file, self.mf)
-        # ---- flopy.modflow.ModflowUpw.load
-        lpf = flopy.modflow.ModflowUpw.load(lpf_file, self.mf, check=False)
+        # Avoid re-loading packages already attached to the model (prevents flopy duplicate warnings)
+        bas = self.mf.get_package('BAS6')
+        if bas is None:
+            bas = flopy.modflow.ModflowBas.load(bas_file, self.mf)
+        lpf = self.mf.get_package('UPW')
+        if lpf is None:
+            lpf = flopy.modflow.ModflowUpw.load(lpf_file, self.mf, check=False)
         nlay = self.mf.nlay
         ncol = self.mf.ncol
         nrow = self.mf.nrow
@@ -465,12 +475,19 @@ class Modpath:
         grid_model = model_modpath.mf.modelgrid
         
         crs = model_modpath.geographic.crs_proj
-        if isinstance(crs, (int,float)) == True:
+        if isinstance(crs, (int, float)):
             epsg = crs
-        elif crs[:4].upper() == 'EPSG':
+        elif isinstance(crs, str) and crs[:4].upper() == 'EPSG':
             epsg = int(crs.split(':')[-1])
         else:
             epsg = None
+        crs_for_write = crs if crs is not None else (f"EPSG:{epsg}" if epsg is not None else None)
+
+        def ensure_crs(gdf):
+            """Attach CRS when missing to avoid warnings and mismatches."""
+            if gdf.crs is None and crs_for_write is not None:
+                return gdf.set_crs(crs_for_write, allow_override=True)
+            return gdf
             
         # Import mpend file
         path_mpend = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
@@ -480,19 +497,23 @@ class Modpath:
         
         # Create ending point file
         if ending_point == True:
-            endobj.write_shapefile(endpoint_data=e,
-                                   shpname=os.path.join(self.particles_file, 'ending.shp'),
-                                   direction='ending',
-                                   mg=grid_model,
-                                   epsg=epsg)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
+                endobj.write_shapefile(endpoint_data=e,
+                                       shpname=os.path.join(self.particles_file, 'ending.shp'),
+                                       direction='ending',
+                                       mg=grid_model,
+                                       crs=crs_for_write)
         
         # Create starting point file
         if starting_point == True:
-            endobj.write_shapefile(endpoint_data=e,
-                                   shpname=os.path.join(self.particles_file, 'starting.shp'),
-                                   direction='starting',
-                                   mg=grid_model,
-                                   epsg=epsg)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
+                endobj.write_shapefile(endpoint_data=e,
+                                       shpname=os.path.join(self.particles_file, 'starting.shp'),
+                                       direction='starting',
+                                       mg=grid_model,
+                                       crs=crs_for_write)
         
         # Import mppth file
         if (pathlines_shp == True) or (particles_shp == True):
@@ -523,23 +544,27 @@ class Modpath:
             
             # Create pathlines file
             if pathlines_shp == True:
-                pthobj.write_shapefile(pathline_data=pth_data_save,
-                                        shpname=os.path.join(self.particles_file, 'pathlines.shp'),
-                                        one_per_particle=True, 
-                                        direction='ending',
-                                        mg=grid_model,
-                                        epsg=epsg,
-                                        verbose=False)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
+                    pthobj.write_shapefile(pathline_data=pth_data_save,
+                                            shpname=os.path.join(self.particles_file, 'pathlines.shp'),
+                                            one_per_particle=True, 
+                                            direction='ending',
+                                            mg=grid_model,
+                                            crs=crs_for_write,
+                                            verbose=False)
             
             # Create particles file
             if particles_shp == True:
-                pthobj.write_shapefile(pathline_data=pth_data_save,
-                                        shpname=os.path.join(self.particles_file, 'particles.shp'),
-                                        one_per_particle=False, 
-                                        direction='ending',
-                                        mg=grid_model,
-                                        epsg=epsg,
-                                        verbose=False)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
+                    pthobj.write_shapefile(pathline_data=pth_data_save,
+                                            shpname=os.path.join(self.particles_file, 'particles.shp'),
+                                            one_per_particle=False, 
+                                            direction='ending',
+                                            mg=grid_model,
+                                            crs=crs_for_write,
+                                            verbose=False)
     
     def filt_processing(self,
                         model_modpath:object,
@@ -577,6 +602,21 @@ class Modpath:
         # Paths
         self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
         self.particles_file = os.path.join(self.full_path, '_postprocess', '_particles')
+
+        crs = model_modpath.geographic.crs_proj
+        if isinstance(crs, (int, float)):
+            epsg = crs
+        elif isinstance(crs, str) and crs[:4].upper() == 'EPSG':
+            epsg = int(crs.split(':')[-1])
+        else:
+            epsg = None
+        crs_for_write = crs if crs is not None else (f"EPSG:{epsg}" if epsg is not None else None)
+
+        def ensure_crs(gdf):
+            """Attach CRS when missing to avoid warnings and mismatches."""
+            if gdf.crs is None and crs_for_write is not None:
+                return gdf.set_crs(crs_for_write, allow_override=True)
+            return gdf
         
         # Create a new shapefile named '_weighted'
         if norm_flux == True:
@@ -619,27 +659,29 @@ class Modpath:
                                                 out_text=False)
             
             start = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp')
+            start = ensure_crs(start)
             start_weighted = start.copy()
             start_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             
             end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp')
+            end = ensure_crs(end)
             end_weighted = end.copy()
             end_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
             
             recharge_list = np.ones(len(end))*recharge_raw.mean()
             
-            start_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            end_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            start_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp'))
+            end_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp'))
 
             if self.track_dir == 'forward':
                 end_process['VALUE1_in'] = start_weighted['VALUE1']
                 end_process['rchPerc'] = end_process['VALUE1_in'] / recharge_list
-                end_process['rchPerc'][end_process['rchPerc']<0] = 0
+                end_process.loc[end_process['rchPerc']<0, 'rchPerc'] = 0
                 time_win = (end_process['time'])*end_process['rchPerc']
             if self.track_dir == 'backward':
                 start_process['VALUE1_in'] = end_weighted['VALUE1']
                 start_process['rchPerc'] = start_process['VALUE1_in'] / recharge_list
-                start_process['rchPerc'][start_process['rchPerc']<0] = 0
+                start_process.loc[start_process['rchPerc']<0, 'rchPerc'] = 0
                 time_win = (start_process['time'])*start_process['rchPerc']     
         
             start_process['time_win'] = time_win
@@ -647,14 +689,16 @@ class Modpath:
             
             end_up = update_time(end_process, filt_time)
             end_up, keep_particles = update_locout(end_up, filt_seep, filt_inout)
+            end_up = ensure_crs(end_up)
             end_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
 
             start_up = update_time(start_process, filt_time)
             start_up, keep_particles = update_locout(start_up, filt_seep, filt_inout)
+            start_up = ensure_crs(start_up)
             start_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
             
             if self.pathlines_shp == True:
-                pathlines_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines.shp')
+                pathlines_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines.shp'))
                 if self.track_dir == 'forward':
                     pathlines_process['time_win'] = (end_process['time'])*end_process['rchPerc']
                 if self.track_dir == 'backward':
@@ -670,10 +714,11 @@ class Modpath:
                         with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
                     pathlines_up = pathlines_up[pathlines_up['particleid'].isin(id_particles_random)]                    
+                pathlines_up = ensure_crs(pathlines_up)
                 pathlines_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines_weighted.shp')
             
             if self.particles_shp == True:
-                particles_process = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp')
+                particles_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp'))
                 particles_up = update_time(particles_process, filt_time)
                 if random_id != None:
                     if not os.path.exists(self.model_folder+'/'+'_id_particles_random.data'):
@@ -684,21 +729,22 @@ class Modpath:
                         with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
                     particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
+                particles_up = ensure_crs(particles_up)
                 particles_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
         
         #%% PLOT
         
         if calc_rtd == True:
             if self.track_dir == 'forward': 
-                end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+                end = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp'))
             if self.track_dir == 'backward': 
-                end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
+                end = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp'))
             try:
                 shp = gpd.read_file(self.geographic.watershed_shp)
                 end = end.clip(shp)
             except:
                 pass
-            end[end['time_win']==0] = np.nan
+            end.loc[end['time_win']==0, :] = np.nan
             end = end.dropna()
             try:
                 tau = np.average(end['time_win'], weights=end['rchPerc'])
