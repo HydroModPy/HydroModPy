@@ -31,7 +31,10 @@ wbt.verbose = False
 import xarray as xr
 xr.set_options(keep_attrs = True)
 
-import hydromodpy
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath

@@ -28,6 +28,11 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
+try:
+    import hydromodpy
+except:
+    pass
+
 # ROOT DIRECTORY
 from os.path import dirname, abspath
 try:
@@ -164,7 +169,7 @@ BV.oceanic.update_MSL(sea_level)
 sl = BV.oceanic.MSL
 
 fig, ax = plt.subplots(1,1, figsize=(7,4))
-ax.plot(sl, c='navy', lw=2)
+ax.plot(sl, c='navy', lw=2, label='Sea level')
 ax.set_xlabel('Days')
 ax.set_ylabel('Sea level [m.a.s.l]')
 plt.xticks(rotation=45, ha="right")
@@ -249,7 +254,7 @@ success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_mod
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
                               watertable_elevation = True,
-                              watertable_depth= True, 
+                              watertable_depth= True,
                               seepage_areas = True,
                               outflow_drain = True,
                               groundwater_flux = True,
@@ -261,7 +266,7 @@ if success_modflow == True:
                               export_all_tif = False)
     timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                       model_modpath=None,
-                                                      datetime_format=True, 
+                                                      datetime_format=True,
                                                       subbasin_results=False)
     netcdf_results = BV.postprocessing_netcdf(model_modflow,
                                               datetime_format=True)
@@ -355,7 +360,7 @@ else:
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  datetime_format=True, 
+                                                  datetime_format=True,
                                                   subbasin_results=subbasin_results) # or None
 
 #%% ---- NOTES
