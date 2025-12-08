@@ -1,13 +1,13 @@
 """
 @date: 2025-10-20
-@lastMod: 2025-10-21
+@lastMod: 2025-11-26
 @author: delarueo
-@description: CERRA example code
+@description: Test hypothese explication bug pyhelp
 @littleMemo: ...
 """
 # %% 
 # Import libraries
-import toolbox_newFuns_cerra as tb
+import toolbox_newFuns_cerra_dev as tb
 import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -28,10 +28,10 @@ verbose = True
 withDate = True
 
 # Processing steps
-doLocal = 1
+doLocal = 0
 doDebiasing = 0
-doPyHelpInput = 0
-doTimeserie = 0
+doPyHelpInput = 1
+doTimeserie = 1
 doFigures = 0
 
 # Processsin parameters
@@ -74,8 +74,6 @@ variables = ['2m_temperature', 'total_precipitation',
              '10m_wind_speed']
 years = range(1984, 2022)
 
-
-
 database_vars = {'2m_temperature': 'air_temperature',
                  'total_precipitation': 'total_precipitation',
                  'snow_depth': 'snow_depth', 
@@ -83,10 +81,11 @@ database_vars = {'2m_temperature': 'air_temperature',
                  'surface_net_solar_radiation': 'surface_net_solar_radiation'}
 
 # Define site to process
-variables = ['2m_temperature']
+variables = ['total_precipitation']
 years = range(1984, 2022)
-sites = ['sado']
+sites = ['urse']
 
+extra = '20251126'
 #%% 
 # For one site only - do Local cerra file
 site_id = sites[0]
@@ -153,7 +152,7 @@ if doPyHelpInput:
     # Try option 2 if doesn't work fall back to option 1
     try: 
         print('>> Load existing pyHelp grid')
-        pyHelp_grid_file = f'{pyHelpInput_data_folder}_{site_id}/{site_id}_pyhelp_grid.csv'
+        pyHelp_grid_file = f'{pyHelpInput_data_folder}_{site_id}/{site_id}_grid_pyhelp.csv'
         gdf_helpGrid, df_helpGrid = tb.Geo.load_pyHelpGrid(pyHelp_grid_file, verbose = verbose)
 
         # Define & create output folder
@@ -161,7 +160,7 @@ if doPyHelpInput:
         tb.create_folder(output_path)
         for variable in variables:
             print(f'>> {variable}')
-            local_cerra_file = f'Z{cerraLocal_data_folder}_{site_id}/{site_id}_{variable}.nc'
+            local_cerra_file = f'{cerraLocal_data_folder}_{site_id}/{site_id}_{variable}.nc'
             if os.path.exists(local_cerra_file):
                 print('>>> Open variable local cerra')
                 data = tb.CERRA(local_cerra_file)
@@ -172,7 +171,7 @@ if doPyHelpInput:
             print('>>> Generate pyHelp input file')        
             result = data.generate_pyHelp_file(gdf_helpGrid, df_helpGrid, variable, 
                                             rule = 'linear', timestep = timestep, verbose = True,
-                                            save = f'{output_path}{site_id}_{variable}_pyhelp.csv')
+                                            save = f'{output_path}{site_id}_{variable}_pyhelp{extra}.csv')
         newGrid = False
         
     except:
@@ -211,7 +210,7 @@ if doPyHelpInput:
             print('>>> Generate pyHelp input file')      
             result = data.generate_pyHelp_file(gdf_helpGrid, df_helpGrid, variable, 
                                             rule = 'linear', timestep = timestep, verbose = verbose,
-                                            save = f'{output_path}{site_id}_{variable}_pyhelp.csv')
+                                            save = f'{output_path}{site_id}_{variable}_pyhelp{extra}.csv')
     
         
     print('>< END pyHelp input generation ><\n')        
@@ -238,7 +237,7 @@ if doTimeserie:
 
         # define output location
         
-        timeserie_file = f'{output_path}{site_id}_{variable}_timeserie.csv' 
+        timeserie_file = f'{output_path}{site_id}_{variable}_timeserie{extra}.csv' 
         print('>>> Compute timeserie statistics')
         stats = data.compute_timeserie_statistics(variable = variable,
                                                 save = timeserie_file)
@@ -260,8 +259,8 @@ if doFigures:
 
     print(f'> {site_id}')
     # paths to needed timeserie files
-    t2m_timeserie_file = f'{timeserieLocal_data_folder}_{site_id}/{site_id}_2m_temperature_timeserie.csv'
-    tp_timeserie_file = f'{timeserieLocal_data_folder}_{site_id}/{site_id}_total_precipitation_timeserie.csv'
+    t2m_timeserie_file = f'{timeserieLocal_data_folder}_{site_id}/{site_id}_2m_temperature_timeserie{extra}.csv'
+    tp_timeserie_file = f'{timeserieLocal_data_folder}_{site_id}/{site_id}_total_precipitation_timeserie{extra}.csv'
 
     # load temperature timeserie
     if os.path.exists(t2m_timeserie_file):

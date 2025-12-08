@@ -1,12 +1,12 @@
 """
 @date: 2025-04-07
-@lastMod: 2025-09-23
+@lastMod: 2025-11-24
 @author: delarueo
 @description: Toolbox Tester
 @littleMemo: ...
 """
 #%%
-import toolbox_newFuns_cerra as tb
+import toolbox_newFuns_cerra_dev as tb
 import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -15,13 +15,13 @@ import os
 #%% test selector
 
 geoTest = 0
-cerraTest = 0  
-wsTest = 0
-helpTest = 0
-debiasTest = 0
-localCerraTest = 0
-testDebiasing = 0
-testTimeserieStats = 0
+cerraTest = 0
+wsTest = 1
+helpTest = 1
+debiasTest = 1
+localCerraTest = 1
+testDebiasing = 1
+testTimeserieStats = 1
 testClimateStats = 1
 
 #%%
@@ -84,7 +84,7 @@ if cerraTest:
     result = data._find_nearest_point(46.33, 10, direction = 'each', work_crs = 3035, checkplot = True)
     print(result, end = '\n\n')
 
-    print('> CERRA extract_site_data')
+    print('> CERRA do_site_mask')
     database_folder = 'Z:/_waterwise_teams_database/_save/_20250319/'
     output_folder = './masks/'
     type_site = 'testing'
@@ -92,13 +92,15 @@ if cerraTest:
     buffer = 0.2
     site_shape_path = f'{database_folder}_spatial/_{type_site}_sites/_{site_id}/_catchment_bnd/watershed.shp'
     obs_path = f'{database_folder}_time_series/_{type_site}_sites/_{site_id}/_climate/'  
-    
-    mask = data.generate_site_mask(site_id, 
-                                   site_shape_path, obs_path, output_folder,
-                                   buffer, catch_crs = 3035,
-                                   checkplot =True)
+    output_path = f'{output_folder}/{site_id}_mask'
 
-    print('> CERRA generate_site_data')
+    mask = data.do_site_mask(site_id, 
+                            site_shape_path, 
+                            output_path, 
+                            buffer = buffer, catch_crs = 3035,
+                            checkplot =True)
+
+    print('> CERRA extract_site_data')
     cerra_path= 'Z:/_waterwise_data_process/_climate/_cerra_forecast/'
     output_path = 'C:/Users/delarueo/Desktop/crash_zone/_'
     variables = ['2m_temperature']
@@ -190,8 +192,8 @@ if localCerraTest :
 
     print(f'> create local dataset cerra  - {site_id}')   
     grid = tb.CERRA(grid_path)
-    mask = grid.generate_site_mask(site_id, site_shape_path, obs_paths, output_path,
-                                   buffer, catch_crs = 3035,
+    mask = grid.do_site_mask(site_id, site_shape_path,  output_path,
+                                   buffer = buffer, catch_crs = 3035,
                                    checkplot =True, verbose = verbose)
     grid.__close__()
     local_cerra_file = tb.CERRA.extract_site_data(mask, site_id, 

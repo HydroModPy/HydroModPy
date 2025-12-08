@@ -1,23 +1,29 @@
 # -*- coding: utf-8 -*-
 """
 @date: 2025-04-07
-@lastMod: 2025-11-03
+@lastMod: 2025-09-23
 @author: delarueo
 @description: Toolbox new functions
-@littleMemo: A lot - to unpack
+@littleMemo: a lot - to unpack
 """
 #%% 
-import os
-local_loc = os.getcwd()
-local_loc = local_loc.replace('\\','/')
-local_loc_split = local_loc.split('/')
-folder_path = local_loc_split[0:-2]
-root_path = '/'.join(folder_path) + '/'
+# To be compatible with hydromodpy structure
+# import os
+# local_loc = os.getcwd()
+# local_loc = local_loc.replace('\\','/')
+# local_loc_split = local_loc.split('/')
+# folder_path = local_loc_split[0:-2]
+# root_path = '/'.join(folder_path) + '/'
+# import sys
+# sys.path.insert(0, root_path)
 import sys
-sys.path.insert(0, root_path)
+sys.path.insert(0, 'D:/modelChain_hmp/')
 
 # import for DIRECTORY MANGEMENT
-from src.tools.toolbox import create_folder
+
+# remplace by access to your local src folder
+from src_hmp_odela.tools.toolbox import create_folder 
+# from src.tools.toolbox import create_folder # if intergqte with hydromodpy structure
 import os
 import shutil
 
@@ -25,11 +31,10 @@ import shutil
 import math
 import geopandas as gpd
 import numpy as np
-# from shapely.geometry import Polygon, Point
 
+# from shapely.geometry import Polygon, Point
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
 import pandas as pd
 
 from matplotlib.lines import Line2D
@@ -61,6 +66,9 @@ from matplotlib.collections import PatchCollection
 from matplotlib.colors import ListedColormap
 
 from datetime import datetime
+import matplotlib.dates as mdates
+
+import seaborn as sns
 
 # from matplotlib.ticker import FuncFormatter
 # # Visual settings
@@ -70,13 +78,11 @@ from datetime import datetime
 # FROM cerra_crops_alps_cerra clean_buffer_folder
 def delete_folder(path):
     """
-    If exist, delete folder and its contents.
+    delete_folder delete folder at [path] and its contents
 
-    Parameters
-    ----------
-    path : str
-        Folder path.
-    """
+    :param path: folder to delete
+    :type path: str
+      """
     
     if os.path.exists(path) and os.path.isdir(path):
         shutil.rmtree(path)  # Remove buffer folder and its contents
@@ -84,6 +90,20 @@ def delete_folder(path):
         
 #%% PLOT MANAGEMENT
 def save_plot(fig, fig_folder, fig_label, fig_formats = ['png'], verbose = False):
+    """
+    save_plot save plot at the given location & in the given location.
+
+    :param fig: figure to save
+    :type fig: fig object
+    :param fig_folder: save location
+    :type fig_folder: str
+    :param fig_label: name of the figure
+    :type fig_label: str
+    :param fig_formats: list of the formats in which to save the figure, defaults to ['png']
+    :type fig_formats: list[str], optional
+    :param verbose: activate comment display, defaults to False
+    :type verbose: bool, optional
+    """
     os.makedirs(fig_folder, exist_ok=True)
     for f in fig_formats:
         fig_name = os.path.join(fig_folder, f'{fig_label}.{f}')
@@ -95,15 +115,12 @@ def save_plot(fig, fig_folder, fig_label, fig_formats = ['png'], verbose = False
 #%% DEBIASING MANAGEMENT       
     # Linear scaling x* = a + b.x
 def generate_debiaser(data_ref,data_raw,method='LinearScaling'):
-    """
-        
+    """        
     method dispo : 'LinearScaling'
     corr = a + b. mes
     a = 1/b.(ref_mean-mes_mean)
-    b = ref_std
-    
+    b = ref_std    
     """
-
     if method == 'LinearScaling':
         mean_ref = data_ref.mean()
         mean_raw = data_raw.mean()
@@ -218,6 +235,9 @@ def evaluate_debias_(data, cRef, cRaw, cCor, label = 'corr', output = dict(), cT
 #%% GEOGRAPHY TOOLS
 # TODO find better name close to src.watershed.geographic
 class Geo():
+    """
+    Geo class to manage geographic calculations
+    """
 
     # static variables
     EARTH_RADIUS = 6378137  # Earth's radius in meters (WGS84)
@@ -227,19 +247,13 @@ class Geo():
     @staticmethod
     def meters_per_degree_longitude(latitude):
         """
-        Return meters per longitude degree at a given latitude.
+        meters_per_degree_longitude compute the number of meters per degree of longitude at a given latitude.
 
-        Parameters
-        ----------
-        latitude : float
-            latitude in degree.
-
-        Returns
-        -------
-        TYPE  float
-            meters per degree longitude at the given latitude.
-
-        """
+        :param latitude: latitude in degrees
+        :type latitude: float
+        :return: meters per degree of longitude at a given latitude
+        :rtype: float
+        """               
         return (math.pi / 180) * __class__.EARTH_RADIUS * math.cos(math.radians(latitude))
     
     
@@ -248,33 +262,26 @@ class Geo():
     # Functions from geoDataFrame to array coords coords[0] longitude  - coords[1]  latitude
     # TODO standardize coords manipulation
     # TODO check for fonctionality clearer name
-    
+
     def file2coords(file_path, src_crs = 3035, dst_crs = 4326):
         """
+        file2coords 
         Open .shp file and return the coordonates of the exterior boundary of the object in an array obj_coords.
         If dst_crs = 4326,
             obj_coords[0] : longitude of the exterior boundary
             obj_coords[1] : latitude of the exterior boundary
-        
-        Parameters
-        ----------
-        file_path : str
-            path to the .shp file.
-            
-        src_crs : int, optional
-            epsg id of the source coordonate system of the .shp file. 
+
+        :param file_path: path to the .shp file
+        :type file_path: str
+        :param src_crs: epsg id of the source coordonate system of the .shp file. 
             The default is 3035 (ETRS89-extend / LAEA europe).
-            
-        dst_crs : int, optional
-            epsg id of the destination coordonate system of the returned obj_coords. 
+        :type src_crs: int, optional
+        :param dst_crs: epsg id of the destination coordonate system of the returned obj_coords. 
             The default is 4326 (WGS 84 - World geodetic system 1984, used in GPS).
             /!\ If not default value - obj_coords provided in description not valid.
-
-        Returns
-        -------
-        obj_coords: array[rows:**, cols:2] 
-            Coordonates of the exterior boundary of the object in path_file.shp .
-
+        :type dst_crs: int, optional
+        :return: Coordonates of the exterior boundary of the object in path_file.shp
+        :rtype: array[rows:**, cols:2] 
         """
         try:
             obj = gpd.read_file(file_path)  
@@ -295,34 +302,28 @@ class Geo():
         
         obj_coords = toCoords(obj)
         return obj_coords
-    
+  
     def gdf2coords(gdf, src_crs = 3035, dst_crs = 4326):    
         """
+        gdf2coords 
         Return the coordonates of the exterior boundary of the gdf object in an array obj_coords.
         If dst_crs = 4326,
             obj_coords[0] : longitude of the exterior boundary
             obj_coords[1] : latitude of the exterior boundary
-        
-        Parameters
-        ----------
-        gdf : GeoDataFrame
-            GeoDataFrame object countaining either a Polygon, a MultiPolygon or a LineString.
-            
-        src_crs : int, optional
-            epsg id of the source coordonate system of the .shp file. 
+
+        :param gdf: GeoDataFrame object countaining either a Polygon, a MultiPolygon or a LineString
+        :type gdf: GeoDataFrame
+        :param src_crs: epsg id of the source coordonate system of the .shp file. 
             The default is 3035 (ETRS89-extend / LAEA europe).
-            
-        dst_crs : int, optional
-            epsg id of the destination coordonate system of the returned obj_coords. 
+        :type src_crs: int, optional
+        :param dst_crs: epsg id of the destination coordonate system of the returned obj_coords. 
             The default is 4326 (WGS 84 - World geodetic system 1984, used in GPS).
             /!\ If not default value - obj_coords provided in description not valid
-
-        Returns
-        -------
-        obj_coords: array[rows:**, cols:2] 
-            Coordonates of the exterior boundary of the gdf object.
-
+        :type dst_crs: int, optional
+        :return: Coordonates of the exterior boundary of the gdf object.
+        :rtype: array[rows:**, cols:2] 
         """
+        
         if gdf.crs:
             gdf = gdf.to_crs(epsg=dst_crs)
         else:
@@ -350,41 +351,39 @@ class Geo():
                                     src_crs = 3035, dst_crs = 4326,
                                     save = False):
         """
-        Plot several geodataframes (gdfs) on the same figure
+        plot_multiple_gdfs 
+        Create a plot displaying multiple GeoDataFrames on the same axes.
 
-        Parameters
-        ----------
-        gdfs : list[gdf]
-            List of the gdfs to plot together.
-        colors : list[color_code], optional (default: None)
-            List of the colors to use on the figure for each gdf.
-        color_space : str, optional (default : 'viridis')
-            Name of the color space from which extract the colors. 
-            Used only if *colors* parameter is None or does not comply with requirements.
-        markersize : list[int], optional
-            The default is [50].
-        markershape : TYPE, optional
-            DESCRIPTION. The default is ['o'].
-        alpha : TYPE, optional
-            DESCRIPTION. The default is 0.5.
-        title : TYPE, optional
-            DESCRIPTION. The default is "Multiple GeoDataFrames".
-        xlabel : TYPE, optional
-            DESCRIPTION. The default is "Longitude".
-        ylabel : TYPE, optional
-            DESCRIPTION. The default is "Latitude".
-        labels : TYPE, optional
-            DESCRIPTION. The default is None.
-        src_crs : TYPE, optional
-            DESCRIPTION. The default is 3035.
-        dst_crs : TYPE, optional
-            DESCRIPTION. The default is 4326.
-
-        Returns
-        -------
-        None.
-
+        :param gdfs: list of GeoDataFrames to plot
+        :type gdfs: [gdfs]
+        :param colors: list of the colors to used, defaults to None
+        :type colors: [str], optional
+        :param color_space: color space to used, defaults to 'viridis'
+            Possible color_space : 'viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Greys', 'Purples', etc.
+        :type color_space: str, optional
+        :param markersize: list of marker size to used, defaults to [50]
+        :type markersize: [int], optional
+        :param markershape: list of the marker symbole to used, defaults to ['o']
+            Possible markershape : 'o', 's', '^', 'D', 'v', '<', '>', 'p', '*', '+', 'x', etc.
+        :type markershape: [str], optional
+        :param alpha: TO_CONTINUE  , defaults to 0.5
+        :type alpha: float, optional
+        :param title: _description_, defaults to "Multiple GeoDataFrames"
+        :type title: str, optional
+        :param xlabel: _description_, defaults to "Longitude"
+        :type xlabel: str, optional
+        :param ylabel: _description_, defaults to "Latitude"
+        :type ylabel: str, optional
+        :param labels: _description_, defaults to None
+        :type labels: _type_, optional
+        :param src_crs: _description_, defaults to 3035
+        :type src_crs: int, optional
+        :param dst_crs: _description_, defaults to 4326
+        :type dst_crs: int, optional
+        :param save: _description_, defaults to False
+        :type save: bool, optional
         """
+
         # TODO save option - display option
         # TODO complite legend
         
@@ -509,10 +508,14 @@ class CERRA():
     # static variables
     # TODO check standard for each CERRA variables
     STANDARD_CONVERSIONS = {
-        't2m': lambda x: x - 273.15,
-        'ssr': lambda x: x/(6*60*60) ,
-        'surface_net_solar_radiation': lambda x: x/(6*60*60) # TEMPORARY warning
+        't2m': lambda x: x - 273.15
         }
+    
+    # Conversions to apply for pyHelp input generation    
+    PYHELP_CONVERSIONS = {
+        'surface_net_solar_radiation': lambda x: x/10**6  # from J/m2 to MJ/m2
+        }
+
     
     STANDARD_VARIABLES = {
         't2m': '2m_temperature',
@@ -537,7 +540,7 @@ class CERRA():
         'total_precipitation': 'sum',
         'snow_depth': 'mean',
         'snow_depth_water_equivalent': 'mean',
-        'surface_net_solar_radiation' : 'mean'
+        'surface_net_solar_radiation' : 'sum' # warning cumulative value
         }
     
     DOWNLOAD_SPECS = {
@@ -560,7 +563,9 @@ class CERRA():
         self.dataset.close()
         del self
         
-    def __save__(self, save_path):
+    def __save__(self, save_path = ''):
+        if save_path == '':
+            save_path = self._path
         try: 
             self.dataset.to_netcdf(save_path, mode='w')
         except:
@@ -583,7 +588,7 @@ class CERRA():
         """
         self.dataset = xr.open_dataset(self._path, mode='r', engine='netcdf4')
         if to_standard:
-            print('_load_dataset> ', end = '')
+            # print('_load_dataset> ', end = '')
             self.to_standard()
         self.shape_grid = self.dataset.latitude.shape
             
@@ -611,9 +616,9 @@ class CERRA():
         df_yx = pd.DataFrame({'y': Y, 'x': X})
         
         return gdf, yx, df_yx
-        
-    
-    def to_standard(self, accum_method = 'cut') -> None: 
+      
+   
+    def to_standard(self, accum_method = None, verbose = False) -> None: 
         """
         Modify dimension, coordinate and variables names of Dataset for them to be compliant with the standard of HelperCERRA class.
         Idem for unit conversions.
@@ -623,7 +628,8 @@ class CERRA():
         None.
 
         """
-        print('to_standard> ', end = '\n    ')
+        vprint = print if verbose else lambda *a, **k: None 
+        vprint('to_standard> ', end = '\n    ')
         # Coordinates to standard name
         for dim_name in self.dataset.dims:
             if dim_name in __class__.STANDARD_DIMS:
@@ -651,19 +657,19 @@ class CERRA():
         for var_name in self.dataset.data_vars:
             # TODO why this loop ? WARNING
             if self.dataset[var_name].attrs['GRIB_dataType'] != self.__class__.DOWNLOAD_SPECS['product_type']:
-                print(f"\n WARNING - {self._path} - Unexpected dataType",
+                vprint(f"\n WARNING - {self._path} - Unexpected dataType",
                   f" {self.dataset[var_name].attrs['GRIB_dataType']} - Download spec : ",
                   f"{self.__class__.DOWNLOAD_SPECS['product_type']}")                
                 
             # Transform cumulative variable into dataset    
-            print(self.dataset[var_name].attrs['GRIB_stepType'])
-            if self.dataset[var_name].attrs['GRIB_stepType'] == 'accum':                
-                # self.accum2instant(var_name, 
-                #         leadtime_hour = self.__class__.DOWNLOAD_SPECS['leadtime_hour'],
-                #         method = 'cut')
-                print('data step type accum')
-
-        
+            vprint(self.dataset[var_name].attrs['GRIB_stepType'])
+            if self.dataset[var_name].attrs['GRIB_stepType'] == 'accum' and self.dataset[var_name].attrs['GRIB_stepType'] == 'fc':                
+                self.accum2instant(var_name, 
+                        leadtime_hour = self.__class__.DOWNLOAD_SPECS['leadtime_hour'],
+                        method = accum_method,
+                        verbose = verbose)
+                vprint('data step type accum')
+       
 
     #◘ generate new files
     @staticmethod
@@ -702,9 +708,6 @@ class CERRA():
         vprint(grid)        
            
         return grid
-  
-  
-
 
     def _find_nearest_point(self, lat, lon, work_crs = 3035, direction = 'all',
                             checkplot = False):
@@ -845,7 +848,7 @@ class CERRA():
         
         return result
     
-    def accum2instant(self, name_var, leadtime_hour, method, verbose = False):
+    def accum2instant(self, name_var, leadtime_hour, method = None, verbose = False):
         """
         Converts accumulated precipitation to instantaneous values.
         
@@ -856,8 +859,31 @@ class CERRA():
         """
         vprint = print if verbose else lambda *a, **k: None
         vprint(f'>> accum2instant - {name_var} - method: {method}')
-        
-        if method == "cut":
+
+        if method == None:
+            vprint("accum2instant - No method provided. Exiting without changes.")
+            return True
+        elif  method == "day":
+            # Convert time to datetime
+                timeline = pd.to_datetime(self.dataset['time'].values)
+                # Keep only hours 0, 6, 12, 18
+                hour_mask = timeline.hour.isin([0, 6, 12, 18])
+                filtered_times = timeline[hour_mask]
+    
+                # Filter dataset
+                self.dataset = self.dataset.sel(time=filtered_times)
+
+                # Resample onremaining data
+                self.dataset = self.dataset.resample('D').sum()
+    
+                # Shift timeline by leadtime (e.g., to adjust for accumulation offset)
+                self.dataset['time'] = pd.to_datetime(self.dataset['time'].values) + pd.to_timedelta(f'{leadtime_hour}H')
+    
+                # Modify attribute accordingly
+                self.dataset[name_var].attrs['GRIB_stepType'] = f'cumul_{method}'
+                vprint(self.dataset[name_var].max(),self.dataset[name_var].mean(), self.dataset[name_var].min())
+
+        elif method == "cut":
                 # Convert time to datetime
                 timeline = pd.to_datetime(self.dataset['time'].values)
     
@@ -919,7 +945,8 @@ class CERRA():
                     verbose = False, 
                     checkplot = False,  
                     save = True,
-                    reset = False):   
+                    reset = False,
+                    buffer = 0):   
         def doMaskCheckplot(mask, output_path):
             '''
             Create checkplot of the mask
@@ -986,13 +1013,13 @@ class CERRA():
             minX, maxX = min(grid_corners['x']), max(grid_corners['x'])
             
             # # 2. Adjust indexes according to buffer
-            # rangeY = (maxY - minY)/2
-            # rangeX = (maxX - minX)/2
-            # midY,midX = (minY+maxY)/2, (minX+maxX)/2
-            # minY = floor(midY - rangeY)
-            # maxY = ceil(midY + rangeY)
-            # minX = floor(midX - rangeX)
-            # maxX = ceil(midX + rangeX)  
+            rangeY = (1+buffer)*(maxY - minY)/2
+            rangeX = (1+buffer)*(maxX - minX)/2
+            midY,midX = (minY+maxY)/2, (minX+maxX)/2
+            minY = floor(midY - rangeY)
+            maxY = ceil(midY + rangeY)
+            minX = floor(midX - rangeX)
+            maxX = ceil(midX + rangeX)  
             
             # 3. Generate mask
             vprint(f'>> Generate mask array')
@@ -1006,7 +1033,6 @@ class CERRA():
             np.save(site_mask_path, mask)  
             vprint('>>< END > generate_site_mask')          
             return mask
-
 
     def crop_and_save(self, file_id, output_folder, mask):
         
@@ -1028,8 +1054,7 @@ class CERRA():
         self.dataset = self.dataset.where(self.dataset.mask == 1)  # Apply the mask        
         self.dataset = self.dataset.dropna("y", how="all").dropna("x", how="all")  # Drop all-NaN rows/columns
         self.dataset = self.dataset.drop(['mask'])
-        
-      
+             
     @staticmethod  
     def combine(list_path, output_path):
         """
@@ -1186,32 +1211,13 @@ class CERRA():
     
     def generate_pyHelp_file(self, gdf_helpGrid, df_helpGrid, var, rule = 'nearest', timestep = 'D',
                               verbose = False, save = False):   
-        """
-        
-        Parameters
-        ----------
-        gdf_helpGrid : TYPE
-            DESCRIPTION.
-        df_helpGrid : TYPE
-            DESCRIPTION.
-        var : TYPE
-            DESCRIPTION.
-        rule : TYPE, optional
-            DESCRIPTION. The default is 'nearest'.
-        timestep : TYPE, optional
-            DESCRIPTION. The default is 'D'.
-        verbose : TYPE, optional
-            DESCRIPTION. The default is False.
-        save : TYPE, optional
-            DESCRIPTION. The default is False.
 
-        Returns
-        -------
-        values : TYPE
-            DESCRIPTION.
-
-        """
+        if var in __class__.PYHELP_CONVERSIONS:
+            # Apply the conversion if the variable has a corresponding function
+            conversion_func = __class__.PYHELP_CONVERSIONS[var]
+            self.dataset[var] = conversion_func(self.dataset[var])
         
+        # define vprint accordingly to *verbose*
         vprint = print if verbose else lambda *a, **k: None
         vprint(f'> generate_pyHelp_input {var} {timestep}')
     
@@ -1226,13 +1232,36 @@ class CERRA():
             if rule == 'nearest':
                 nearest = self._find_nearest_point(point.y, point.x, direction='all')
                 v = self.dataset[var][:,nearest['y']['all'],nearest['x']['all']]
-    
+
+            elif rule == 'inverse_distance':
+                nearest = self._find_nearest_point(point.y, point.x, direction='each')                
+                v = np.zeros(len(timeline))
+                for r in nearest.index:                    
+                    v +=  self.dataset[var][:,nearest['y'][r],nearest['x'][r]].values/(nearest['d_m'][r])
+                v = v / sum(1/(nearest['d_m']))
+            elif rule == 'inverse_distance2':
+                nearest = self._find_nearest_point(point.y, point.x, direction='each')                
+                v = np.zeros(len(timeline))
+                for r in nearest.index:                    
+                    v +=  self.dataset[var][:,nearest['y'][r],nearest['x'][r]].values/(nearest['d_m'][r]**2)
+                v = v / sum(1/(nearest['d_m']**2))    
             elif rule == 'linear':
                 nearest = self._find_nearest_point(point.y, point.x, direction='each')                
                 v = np.zeros(len(timeline))
                 for r in nearest.index:                    
-                    v +=  self.dataset[var][:,nearest['y'][r],nearest['x'][r]].values*nearest['d_m'][r]/nearest['d_m'].sum()
-                    
+                    v +=  self.dataset[var][:,nearest['y'][r],nearest['x'][r]].values*(nearest['d_m'].sum()-nearest['d_m'][r])/(nearest['d_m'].sum())            
+            elif rule == 'bilinear':
+                nearest = self._find_nearest_point(point.y, point.x, direction='each')                
+                v = np.zeros(len(timeline))
+                
+                d_y = nearest['d_m']['sw'] + nearest['d_m']['se'] - nearest['d_m']['nw'] - nearest['d_m']['ne']
+                d_x = nearest['d_m']['sw'] + nearest['d_m']['nw'] - nearest['d_m']['se'] - nearest['d_m']['ne']
+                d_xy = (nearest['d_m']['sw'] - nearest['d_m']['se'] - nearest['d_m']['nw'] + nearest['d_m']['ne'])
+                
+                v += self.dataset[var][:,nearest['y']['sw'],nearest['x']['sw']].values * ( (d_y + d_x + d_xy) / (4*nearest['d_m'].sum()) )
+                v += self.dataset[var][:,nearest['y']['se'],nearest['x']['se']].values * ( (d_y - d_x - d_xy) / (4*nearest['d_m'].sum()) )
+                v += self.dataset[var][:,nearest['y']['nw'],nearest['x']['nw']].values * ( (-d_y + d_x - d_xy) / (4*nearest['d_m'].sum()) )
+                v += self.dataset[var][:,nearest['y']['ne'],nearest['x']['ne']].values * ( (-d_y - d_x + d_xy) / (4*nearest['d_m'].sum()) )
             else: 
                 print('> rule not available')
                            
@@ -1486,29 +1515,33 @@ class ClimateStats():
     
     ANOMALY_SETTINGS = {'timestep': 'Y', 
                         'method': 'mean',
-                        'ref_bounds': [pd.Timestamp('1984-01-01'), pd.Timestamp('2000-12-31')]}
+                        'ref_bounds': [pd.Timestamp('1985-01-01'), pd.Timestamp('2000-12-31')]}
 
     VAR_ID_TO_NAME = {
         '2m_temperature': 'Air Temperature',
-        'total_precipitation': 'Precipitation'
+        'total_precipitation': 'Precipitation',
+        'surface_net_solar_radiation': 'Surface net Solar Radiation'
         }
     
     VAR_ID_TO_UNIT = {
         '2m_temperature': '°C',
-        'total_precipitation': 'mm/3h'
+        'total_precipitation': 'mm/3h',
+        'surface_net_solar_radiation': 'J/m²/3h'
         }
     
     RESAMPLE_UNIT = {
-        'total_precipition_sum': {'H': 'mm/hour', 'D': 'mm/day', 
+        'total_precipitation_sum': {'H': 'mm/hour', 'D': 'mm/day', 
                                   'M': 'mm/month','Y': 'mm/year'},
         'total_precipitation_mean': {},
-        '2m_temperature_mean': {}
+        '2m_temperature_mean': {},
+        'surface_net_solar_radiation_sum': {'H': 'J/m²/hour', 'D': 'J/m²/day', 
+                                  'M': 'J/m²/month','Y': 'J/m²/year'},
+        'surface_net_solar_radiation_mean': {}
         }
-    
+ 
     
         
     def __init__(self, path, var_id, location = 'Neverland'):
-        
         self.path = path
         self.variable_id = var_id
         self.name = __class__.VAR_ID_TO_NAME[self.variable_id]
@@ -1535,6 +1568,7 @@ class ClimateStats():
         
     def resample_data(self, timestep, method):
         # Modify unit in ClimateStats if necessary - to verify
+        # TODO make better + deal with supplementary columns
         try:
             new_unit = __class__.RESAMPLE_UNIT[f'{self.variable_id}_{method}']  
             if new_unit:
@@ -1545,11 +1579,13 @@ class ClimateStats():
                 
         except:
             print('>> WARNING Not information in RESAMPLE_UNIT for the provided parameters')
-        
         # Resample data
         if method == 'mean':
-            self.data_work = self.data_work.resample(timestep).mean()
-            
+            temp = pd.DataFrame()
+            temp['mean'] = self.data_work['mean'].resample(timestep).mean()
+            temp['min'] = self.data_work['min'].resample(timestep).min()
+            temp['max'] = self.data_work['max'].resample(timestep).max()
+            self.data_work = temp
         elif method == 'sum':
             self.data_work = self.data_work.resample(timestep).sum()
             
@@ -1584,6 +1620,18 @@ class ClimateStats():
             self.anomaly_unit = '%'
         else:
             print('>> WARNING compute_anomaly - methode [{method}] not avaliable')
+
+    def compute_threshold(self, threshold, timestep = 'D', method = 'mean'):
+        self.resample_data(timestep, method)
+        years = self.data_work.index.year.unique()
+        counter = pd.DataFrame(columns = [f'{key}_inf{threshold}' for key in self.data_work.columns])
+        temp = pd.DataFrame()
+        for key in self.data_work.columns:
+            temp[f'{key}_inf{threshold}'] = self.data_work[key] < threshold
+        for year in years:
+            group = temp[temp.index.year == year]
+            counter.loc[year] = group[[f'{key}' for key in temp.columns]].sum()
+        return counter
         
     # Visualisation methods        
     def plot_climate_stripes(self, fig_folder, fig_formats = ['png','pdf'], 
@@ -1634,8 +1682,10 @@ class ClimateStats():
             plt.show()
         
         # save plot
-        save_plot(fig, fig_folder, f'{self.variable_id}_{self.location}_stripes_{FIRST}_{LAST}', 
+        file_name = f'{self.variable_id}_{self.location}_stripes_{FIRST}_{LAST}'
+        save_plot(fig, fig_folder, file_name, 
                   fig_formats = fig_formats, verbose = verbose)
+        return file_name
 
     def plot_monthly_anomaly(self, fig_folder, fig_formats = ['png','pdf'], 
                              time_bounds = [], plot_settings = {}, 
@@ -1644,8 +1694,8 @@ class ClimateStats():
         
         # Plot setting
         settings = {
-            'NegColor':      'red',
-            'PosColor':      'blue',
+            'NegColor':      'blue',
+            'PosColor':      'red',
             'HorizontalGrid': False
             }
         # define plot time boundaries
@@ -1655,10 +1705,9 @@ class ClimateStats():
             settings[key] = val
         
         # Compute data anomaly
-        self.compute_anomaly(anomaly_settings['ref_bounds'])        
-        self.resample_data('M', 'mean')
-
-        
+        self.resample_data('M', anomaly_settings['method'])
+        self.compute_anomaly(anomaly_settings['ref_bounds'])
+             
         # Calculate the rolling 12-month average
         rolling_12m_avg = self.data_work['anomaly'].rolling(window=12, min_periods=1).mean()
 
@@ -1705,8 +1754,9 @@ class ClimateStats():
 
         # Customize tick marks and labels
         for ax in axes:
-            ax.set_xticks(self.data_work.index[::24])  # Display every other year
-            ax.set_xticklabels(self.data_work.index.year.unique()[::2], rotation=45, ha='right', fontsize=8)
+            ax.xaxis.set_major_locator(mdates.YearLocator(2))  # tick every 2 years
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))  # Display every other year
+            # ax.set_xticklabels(self.data_work.index.year.unique()[::2], rotation=45, ha='right', fontsize=8)
         # Add horizontal line at 0 for both subplots
         for ax in axes:
             ax.axhline(0, color='black', linewidth=1)
@@ -1721,6 +1771,101 @@ class ClimateStats():
         # save plot
         save_plot(fig, fig_folder, f'{self.variable_id}_{self.location}_monthly_anomaly', 
                   fig_formats = fig_formats, verbose = verbose)
+        plt.close(fig)
+        
+    def plot_negDays(self, fig_folder, fig_formats = ['png','pdf'], 
+                            time_bounds = [], plot_settings = {}, 
+                            display = False, verbose = False):
+        
+        # Default plot settings
+        settings = {
+            'PlotVersion': 'simple', # 'full' or 'simple'
+            'ColorPalette':  'jet_r',
+            'Title': f'Number of Days per Year with {self.name} < 0 {self.unit}',
+            'HorizontalGrid': False
+            }
+        
+        # Update plot settings            
+        for key, val in plot_settings.items():
+            settings[key] = val
+        
+        # Compute negative days
+        counter = self.compute_threshold(0, 'D', 'mean')    
+        counter = counter.loc[counter.index>=time_bounds[0]]
+        counter = counter.loc[counter.index<=time_bounds[1]]
+        
+
+        # Build plot
+        if settings['PlotVersion'] == 'simple':
+
+            # Create colormap
+            cmap = plt.get_cmap(settings['ColorPalette'])
+            # Generate values in the range 0 to 1
+            num_colors = 16
+            values = np.linspace(0.25, 1, num_colors)
+            # Extract colors
+            colors = [cmap(value) for value in values]
+            # Assign colors based on the value in the column
+            col_colors = [colors[x//25] for x in counter['mean_inf0']]
+
+
+            fig, ax = plt.subplots(1, 1, figsize=(14, 5), sharex=True)
+            fig.subplots_adjust(hspace=0.25)
+            ax.bar(counter.index, counter['mean_inf0'], 
+                            color = col_colors,
+                            width = 0.8, align='center')
+            yMax = counter['mean_inf0'].max() + 10
+            yMin = counter['mean_inf0'].min() - 10
+            print(yMin, yMax)
+            ax.set_ylim(yMin, yMax)
+            ax.set_xlim(time_bounds[0]-1, time_bounds[1]+1)  
+            ax.set_xlabel('Year', fontsize=13)
+            ax.set_ylabel('Number of Days', fontsize=14, labelpad=15)
+            ax.set_title(f'Number of Days per Year with {self.name} < 0 {self.unit}', fontsize=16, pad=10)
+            if settings['HorizontalGrid']:
+                ax.grid(axis='y', linestyle='--', linewidth=0.5, color='gray')  
+            # Customize tick marks and labels
+            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))  
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12) 
+            if display:
+                plt.show()
+    
+        elif settings['PlotVersion'] == 'full':        
+            fig, axes = plt.subplots(3, 1, figsize=(14, 12), sharex=True)
+            fig.subplots_adjust(hspace=0.25)
+
+            for i,col in enumerate(counter.columns):
+                #Create colormap
+                cmap = plt.get_cmap(settings['ColorPalette'])
+                # Generate values in the range 0 to 1
+                num_colors = 37
+                values = np.linspace(0, 1, num_colors)
+                # Extract colors
+                colors = [cmap(value) for value in values]
+                # Assign colors based on the value in the column
+                col_colors = [colors[x//10] for x in counter[col]]
+
+                ax = axes[i]
+                ax.bar(counter.index, counter[col], 
+                            color = col_colors,
+                            width = 0.5, align='edge')
+                ax.set_ylim(0, 385)
+                ax.set_xlim(time_bounds[0], time_bounds[1])
+                ax.axhline(365, ls = ':', color='black', linewidth=1)        
+                ax.set_ylabel('Number of Days', fontsize=14, labelpad=15)
+            fig.suptitle(f'Number of Days per Year with {self.name} < 0 {self.unit}', fontsize=16, y=0.93)
+            axes[-1].set_xlabel('Year', fontsize=13)
+            if display:
+                plt.show()
+
+
+        # save plot 
+        file_name = f'{self.variable_id}_{self.location}_negDays_perYear'
+        save_plot(fig, fig_folder, file_name, 
+                  fig_formats = fig_formats, verbose = verbose)        
+        return file_name
+
 
     @staticmethod
     def plot_XY_anomaly(X, Y, fig_folder, fig_formats = ['png','pdf'], 
@@ -1746,8 +1891,7 @@ class ClimateStats():
         MONTHS_SHORT = {
             1: 'Jan', 2: 'Feb', 3: 'Mar' ,  4: 'Apr',  5: 'May',  6: 'Jun',
             7: 'Jul', 8: 'Aug', 9: 'Sept', 10: 'Oct', 11: 'Nov', 12: 'Dec'
-            }
-        
+            }        
             
         # Define the months to include
         X.data_work = X.data_work[X.data_work.index.month.isin(settings['months_X'])]
@@ -1763,8 +1907,7 @@ class ClimateStats():
         X.compute_anomaly(anomaly_settings['ref_bounds'], settings['anomaly_method_X'])
         Y.compute_anomaly(anomaly_settings['ref_bounds'], settings['anomaly_method_Y'])
         vprint('compute anomaly OKAY')
-        
-        
+                
         # Crop data to commun area
         df = __class__.combine_data(X,Y)
         vprint(df)
@@ -1801,10 +1944,263 @@ class ClimateStats():
             plt.show()
         
         # save plot
-        save_plot(fig, fig_folder, f'{X.variable_id}_{Y.variable_id}_{X.location}_anomaly', 
-                  fig_formats = fig_formats, verbose = verbose)
-       
-        return df
+        file_name = f'{X.variable_id}_{Y.variable_id}_{X.location}_anomaly'
+        save_plot(fig, fig_folder, file_name,
+                  fig_formats = fig_formats, verbose = verbose)       
+        return df, file_name
     
+    # Climate history plot
+    VARIABLE_COLOR = {
+        '2m_temperature': '#67000d',
+        'total_precipitation': '#2171b5',
+        'surface_net_solar_radiation': '#fcbba1'
+    }
+    def plot_bar_timeserie(self, fig_folder, fig_formats = ['png','pdf'], 
+                            time_bounds = [], timestep = 'Y', 
+                            plot_settings = {},
+                            display = False, verbose = False):
+        
+        # plot setting
+        settings = {
+                'time_bounds' : [1984,2021],
+                'timestep': 'Y',
+                'agg_method': {
+                    '2m_temperature': 'mean',
+                    'total_precipitation': 'sum',
+                    'surface_net_solar_radiation': 'sum'
+                }
+                }
+        
+        for key, val in plot_settings.items():
+            settings[key] = val
+
+        method = settings['agg_method'][self.variable_id]
+        colorVar = __class__.VARIABLE_COLOR[self.variable_id]
+
+        # prepare data for plotting
+        self.resample_data(timestep, method)
+        self.data_work['years'] = pd.to_numeric(self.data_work.index.year)
+        self.data_work = self.data_work[self.data_work.years > settings['time_bounds'][0]]
+        self.data_work = self.data_work[self.data_work.years < settings['time_bounds'][1]]
+
+        # build figure
+        fig, ax = plt.subplots(1,1,figsize = [10,5])  
+        self.data_work.plot(ax = ax, x = 'years', y = 'mean', kind = 'bar', color = colorVar)
+        ax.yaxis.set_label_text(f'{self.name} ({self.unit})')
+        ax.xaxis.set_label_text(f'Years')
+
+        # ax.tick_params(axis='x', labelrotation=45)
+
+        ax.set_title(f'Annual Mean Value over Catchement\n{self.location}')
+        ax.legend([])
+        if display:
+            plt.show()     
+
+        # save plot
+        file_name = f'{self.variable_id}_{self.location}_bar_timeserie'
+        save_plot(fig, fig_folder, file_name, 
+                    fig_formats = fig_formats, verbose = verbose)
+        
+        # reset data
+        self.reset_data()
+        return file_name
     
-    
+    def plot_interannual_seasonal_tendancy(self, fig_folder, fig_formats = ['png','pdf'], 
+                            time_bounds = [], timestep = 'Y', 
+                            plot_settings = {},
+                            display = False, verbose = False):
+        
+        # plot setting
+        settings = {
+                'time_bounds' : [1985,2022],
+                'agg_method': {
+                    '2m_temperature': 'mean',
+                    'total_precipitation': 'sum',
+                    'surface_net_solar_radiation': 'sum'
+                },
+                'statistics' : {
+                    'q10':  lambda x: x.quantile(q=0.1), # dispersion - low boundary
+                    'mean': lambda x: x.mean(),          # main Line
+                    'q90':  lambda x: x.quantile(q=0.9)  # dispersion - high boundary
+                },
+                'legend': {
+                    'mainLine': 'Mean',
+                    'dispersion': "10–90th Percentile"
+                }
+            }
+
+        # 1. EXTRACT NEEDED DATA
+        # Reset to data to original
+        self.reset_data()
+        # Resample by month
+        self.resample_data('M', settings['agg_method'][self.variable_id])
+        # Drop data outside of the timeline of interest
+        self.data_work = self.data_work[self.data_work.index.year > settings['time_bounds'][0]]
+        self.data_work = self.data_work[self.data_work.index.year < settings['time_bounds'][1]]
+
+        # Groups data by Months & by Years 
+        byMonths = self.data_work.groupby(self.data_work.index.month)
+        byYears = self.data_work.groupby(self.data_work.index.year)
+        # Define Dataframe for statistic computation
+        interYear = pd.DataFrame(index = range(1,13), 
+                                 columns = list(settings['statistics'].keys()))
+        interYear['label'] = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        # Compute interannual statistics
+        for month,group in byMonths:
+            for stat,func in settings['statistics'].items():
+                interYear.at[month,stat] = func(group['mean'])
+                # interYear.at[month,stat] = group['mean'].max()
+                # interYear.at[month,'mean'] = group['mean'].mean()
+                # interYear.at[month,'min'] = group['mean'].min()
+                # interYear.at[month,'q90'] = group['mean'].quantile(q = 0.9)
+                # interYear.at[month,'q10'] = group['mean'].quantile(q = 0.1)
+
+        # Seasonal values for each year considered
+        years = []
+        for year,group in byYears:
+            years.append(year)
+            interYear[year] = group['mean'].values
+
+        for col in interYear.columns:
+            if col != 'label':
+                interYear[col] = pd.to_numeric(interYear[col])
+
+        # display parameter
+        sns.set_theme(style="whitegrid")
+        plt.rcParams.update({
+            "font.family": "serif",
+            "font.size": 13,
+            "axes.labelsize": 14,
+            "axes.titlesize": 16,
+            "axes.edgecolor": "0.3",
+            "grid.color": "0.85",
+            "grid.linestyle": "--",
+            "grid.linewidth": 0.5,
+            "axes.linewidth": 1.0,
+            "legend.frameon": False,
+        })
+
+        colorVar = __class__.VARIABLE_COLOR[self.variable_id]
+        stats = list(settings['statistics'].keys())
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        # plot every year data
+        interYear.plot(
+            ax=ax, x='label', y=years,
+            color="0.65", alpha=0.25,
+            linewidth=1,
+            legend=False
+        )
+        # plot statistic main line
+        interYear.plot(
+            ax=ax, x='label', y=stats[1],
+            color=colorVar, lw=2.5,
+            label=settings['legend']['mainLine']
+        )
+        # plot statistic dispersion
+        ax.fill_between(
+            interYear['label'],
+            interYear[stats[0]], interYear[stats[2]],
+            color=colorVar, alpha=0.22,
+            label=settings['legend']['dispersion']
+        )
+
+        # format axis
+        ax.set_ylabel(f"{self.name} ({self.unit})")
+        ax.set_xlabel("Year")
+        ax.set_xticks(interYear['label'])
+        ax.set_xticklabels(interYear['label'], rotation=45, ha='right')
+        ax.set_xlim(['Jan','Dec'])
+        ax.set_title(f"Interannual variability\n{self.location}", pad=12)
+        # format legend
+        legendElts = list(ax.get_legend_handles_labels())
+        labels = legendElts[1]
+        labels = labels[-2:]
+        elts = legendElts[0]
+        elts = elts[-2:]
+        ax.legend(labels=labels, handles=elts)
+        # ax.grid(False)
+
+        plt.tight_layout()
+        if display:
+            plt.show()     
+
+        # save plot
+        file_name = f'{self.variable_id}_{self.location}_interannual_season_tendancy'
+        save_plot(fig, fig_folder, file_name, 
+                    fig_formats = fig_formats, verbose = verbose)
+        
+        # reset data
+        self.reset_data()
+
+        return interYear
+
+    def plot_wetDays(self, fig_folder, fig_formats = ['png','pdf'], 
+                            time_bounds = [1985,2020], plot_settings = {}, 
+                            display = False, verbose = False, 
+                            threshold = 1):
+        
+        # Default plot settings
+        settings = {
+            'PlotVersion': 'simple', # 'full' or 'simple'
+            'ColorPalette':  'jet_r',
+            'Title': f'Number of wet Days per Year',
+            'HorizontalGrid': False
+            }
+        
+        # Update plot settings            
+        for key, val in plot_settings.items():
+            settings[key] = val
+        
+        # Compute negative days
+        counter = self.compute_threshold(threshold, 'D', 'sum')    
+        counter = counter.loc[counter.index>=time_bounds[0]]
+        counter = counter.loc[counter.index<=time_bounds[1]]
+        print(counter.head())
+        
+        counter = 364 - counter
+        print('after')
+        print(counter.head())
+
+        interestLabel = f'mean_inf{threshold}'
+
+
+        # Create colormap
+        cmap = plt.get_cmap(settings['ColorPalette'])
+        # Generate values in the range 0 to 1
+        num_colors = 16
+        values = np.linspace(0.25, 1, num_colors)
+        # Extract colors
+        colors = [cmap(value) for value in values]
+        # Assign colors based on the value in the column
+        col_colors = [colors[x//25] for x in counter[interestLabel]]
+
+
+        fig, ax = plt.subplots(1, 1, figsize=(14, 5), sharex=True)
+        fig.subplots_adjust(hspace=0.25)
+        ax.bar(counter.index, counter[interestLabel], 
+                        color = col_colors,
+                        width = 0.8, align='center')
+        yMax = counter[interestLabel].max() + 10
+        yMin = counter[interestLabel].min() - 10
+        print(yMin, yMax)
+        ax.set_ylim(yMin, yMax)
+        ax.set_xlim(time_bounds[0]-1, time_bounds[1]+1)  
+        ax.set_xlabel('Year', fontsize=13)
+        ax.set_ylabel('Number of Days', fontsize=14, labelpad=15)
+        ax.set_title(f'Number of Wet Days per Year\n{self.location}', fontsize=16, pad=10)
+        if settings['HorizontalGrid']:
+            ax.grid(axis='y', linestyle='--', linewidth=0.5, color='gray')  
+        # Customize tick marks and labels
+        ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))  
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12) 
+        if display:
+            plt.show()
+
+        # save plot 
+        file_name = f'{self.variable_id}_{self.location}_wetDays_perYear'
+        save_plot(fig, fig_folder, file_name, 
+                  fig_formats = fig_formats, verbose = verbose)        
+        return file_name
