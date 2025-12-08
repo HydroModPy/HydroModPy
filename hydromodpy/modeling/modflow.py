@@ -426,6 +426,10 @@ class Modflow:
         
         self.drain_array = np.ones((self.nrow, self.ncol))    
         
+        ### Initialize the top boundary condition of EVT package
+        
+        self.etr_array = np.ones((self.nrow, self.ncol))
+        
         ### Constant head boundary conditions of no f : specific for sea level
         
         if isinstance(self.sea_level, (int,float,pd.Series,list)) == True:
@@ -1115,32 +1119,20 @@ class Modflow:
                 
             if outflow_etr == True:
                 ### Outflow evapotranspiration (EVT package)
-                # EVT can be activated on multiple layers (nevtop=3: highest active cell)
                 self.etr = self.cbb.get_data(text='ET', kstpkper=self.kstpkper, totim=time)
-                
+                self.out_etr = np.zeros((self.dis.nrow, self.dis.ncol))
+                count = 0
                 if self.etr is not None and len(self.etr) > 0:
-                    # EVT data structure from CBC: list of [mask_array, flux_array]
-                    # etr[0][0] = mask (cells with EVT active, values = 1)
-                    # etr[0][1] = flux values (negative = ETR out of aquifer)
-                    flux_data = self.etr[0][1]  
-                    
-                    # Take absolute value (EVT fluxes are negative in CBC)
-                    self.out_etr = np.abs(flux_data)
-                
-                else:
-                    # No EVT data available for this time step
-                    self.out_etr = np.zeros((self.dis.nrow, self.dis.ncol))
-                
-                # Apply mask and export
+                    for i in range(0, self.dis.nrow):
+                        for j in range(0, self.dis.ncol):
+                            if self.etr_array[i,j] == 1 and count < len(self.etr[0]):
+                                # absolute value (EVT fluxes are negative in CBC)
+                                self.out_etr[i, j] = np.abs(self.etr[0][count][1])
+                                count = count + 1
                 self.out_etr[self.dem_mask] = -9999
                 output_path = self.tifs_file+'/outflow_etr_t('+lead_numb+').tif' 
-                
-                if accumulation_flux==True:
+                if export_tif==True:
                     toolbox.export_tif(self.dem_watershed_path, self.out_etr, output_path, -9999)
-                else:
-                    if export_tif==True:
-                        toolbox.export_tif(self.dem_watershed_path, self.out_etr, output_path, -9999)
-                
                 self.dict_outflow_etr[item] = self.out_etr
             
             if groundwater_flux == True:
