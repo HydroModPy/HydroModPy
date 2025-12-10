@@ -21,10 +21,15 @@ import flopy
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import imageio
+import imageio.v2 as imageio
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
@@ -71,7 +76,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=None, # [path, cell size]
                               from_shp=None, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=None, # path 
+                              bottom_path=None, # path
                               save_object=True)
 
 # Paths necessary for the script
@@ -98,7 +103,7 @@ BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 visualization_watershed.watershed_geology(BV)
 visualization_watershed.watershed_dem(BV)
 
-#%% ---- PLOT STREAMFLOW 
+#%% ---- PLOT STREAMFLOW
 
 Qobs = pd.read_csv(data_path+'/'+'hydrometry catchment Canut.csv', sep=';', index_col=0, parse_dates=True)
 Qobs = Qobs.squeeze()
@@ -113,17 +118,17 @@ Qobs = select_period(Qobs, first, last)
 Qobs = (Qobs / (area*1000000)) * (3600 * 24) * 1000 # m3/s to mm/j
 data_index = Qobs.copy()
 
-mean_mensual = data_index.resample('M').mean() # mensual mean
-mean_annual = data_index.resample('Y').mean() # annual mean
+mean_mensual = data_index.resample('ME').mean() # mensual mean
+mean_annual = data_index.resample('YE').mean() # annual mean
 Mean = round(data_index.mean(),2)
 Mean = data_index.mean()
-Min = data_index.resample('Y').min()
-Q10 = data_index.resample('Y').quantile(0.10)
-Q25 = data_index.resample('Y').quantile(0.25)
-Q50 = data_index.resample('Y').quantile(0.50)
-Q75 = data_index.resample('Y').quantile(0.75)
-Q90 = data_index.resample('Y').quantile(0.90)
-Max = data_index.resample('Y').max()
+Min = data_index.resample('YE').min()
+Q10 = data_index.resample('YE').quantile(0.10)
+Q25 = data_index.resample('YE').quantile(0.25)
+Q50 = data_index.resample('YE').quantile(0.50)
+Q75 = data_index.resample('YE').quantile(0.75)
+Q90 = data_index.resample('YE').quantile(0.90)
+Max = data_index.resample('YE').max()
 mean_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).mean().to_frame()
 std_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).std()
 q10_interan_days = data_index.groupby([data_index.index.month,data_index.index.day], as_index=True).quantile(0.10)
@@ -221,7 +226,7 @@ success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_mod
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
                               watertable_elevation=True,
-                              watertable_depth=True, 
+                              watertable_depth=True,
                               seepage_areas=True,
                               outflow_drain=True,
                               groundwater_flux=True,
@@ -334,7 +339,7 @@ ax = axs[1]
 modelxsect = flopy.plot.PlotCrossSection(model=mf, line={'Column': int((grid_model.shape[2])/2)})
 cb = modelxsect.plot_array(sy_grid.array*100, ax=ax, cmap='viridis', lw=0.5,
                             # vmin=0, vmax=30,
-                            norm=mpl.colors.LogNorm(vmin=0.1, 
+                            norm=mpl.colors.LogNorm(vmin=0.1,
                                                     vmax=10))
 ax.set_title('Specific yield [%] - N to S (center)', fontsize=12)
 ax.set_xlim(0, 5500)
@@ -376,7 +381,7 @@ dem_v_plot = dem_prof[:,int(cur_x)]
 dem_v_plot[dem_v_plot == 0] = np.nan
 wt_v_plot = wt_prof[:,int(cur_x)]
 wt_v_plot[wt_v_plot == 0] = np.nan
-           
+
 wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, dem_v_plot-20, wt_v_plot, color='dodgerblue', alpha=0.5, lw=0)
 w_prof = ax.plot(np.arange(xx.shape[0])*75, wt_v_plot, color='navy', lw=1.5)
 wt_v_fill = ax.fill_between(np.arange(xx.shape[0])*75, wt_v_plot, dem_v_plot, color='saddlebrown', alpha=0.5, lw=0)
@@ -416,7 +421,7 @@ visu.visual2D(object_list = [
                              (0,30000),
                              (0,3),
                              (0,3),
-                             ], 
+                             ],
                              lines=1000)
 
 #%% 3D VISUALIZATION
@@ -449,6 +454,6 @@ visu.interactive_cross_section(dem_data, watertable_data, stream_data, interacti
 
 #%% ---- NOTES
 
-os.chdir(root_dir) 
+os.chdir(root_dir)
 
 # %%

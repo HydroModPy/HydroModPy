@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import flopy
 import flopy.utils.binaryfile as fpu
 import flopy.utils.binaryfile as bf
-import imageio
+import imageio.v2 as imageio
 import rasterio as rio
 from rasterio.transform import from_origin
 from rasterio.warp import reproject
@@ -30,6 +30,11 @@ from rasterio.enums import Resampling
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
@@ -159,14 +164,14 @@ x = select_period(x, 2001, 2003)
 x = x['REA_historic'] / 1000
 Rd = x.copy()
 Rw = x.resample('W').mean()
-Rm = x.resample('M').mean()
+Rm = x.resample('ME').mean()
 y = pd.read_csv(data_path+'/'+'_RUN_D.csv', sep=';', parse_dates=True, index_col=0)
 y = y.sort_index()
 y = select_period(y, 2001, 2003)
 y = y['REA_historic'] / 1000
 rd = y.copy()
-rw = y.resample('M').mean()
-rm = y.resample('M').mean()
+rw = y.resample('ME').mean()
+rm = y.resample('ME').mean()
 
 #%% ---- PARAMETRIZATION
 

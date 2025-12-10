@@ -22,11 +22,16 @@ import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import rasterio
-import imageio
+import imageio.v2 as imageio
 
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
@@ -77,7 +82,7 @@ if case == 'Example_06_Hillslope1D':
     bottom_path = None # path
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
-    
+
 if case == 'Example_06_Hillslope2D':
     dem_path = data_path + 'hillslope_2D.tif'
     load = False
@@ -115,7 +120,7 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              bottom_path=bottom_path, # path 
+                              bottom_path=bottom_path, # path
                               save_object=save_object)
 
 # Paths generated automatically but necessary for plots
@@ -216,7 +221,7 @@ success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_mod
 if success_modflow == True:
     BV.postprocessing_modflow(model_modflow,
                               watertable_elevation = True,
-                              watertable_depth= True, 
+                              watertable_depth= True,
                               seepage_areas = True,
                               outflow_drain = True,
                               groundwater_flux = True,
@@ -233,11 +238,11 @@ if success_modflow == True:
 tif_seep = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0).tif'
 tif_seep_clip = BV.simulations_folder + '/' + model_name + '/_postprocess/_rasters/seepage_areas_t(0)_clip.tif'
 wbt.clip_raster_to_polygon(
-    tif_seep, 
-    BV.stable_folder + '/geographic/watershed.shp', 
-    tif_seep_clip, 
+    tif_seep,
+    BV.stable_folder + '/geographic/watershed.shp',
+    tif_seep_clip,
     maintain_dimensions=True)
-        
+
 # Prepare particle tracking from synthetic boreoles across the catchment
 bore = imageio.imread(BV.geographic.watershed_box_buff_dem)
 bore = bore*0
@@ -277,7 +282,7 @@ if sim_state == 'steady':
                                   particles_shp=False,
                                   random_id=None, # select randomly to save (for pathlines and particles)
                                   ) # None
-        
+
         BV.filtprocessing_modpath(model_modpath,
                                   norm_flux=True, # for forward only
                                   filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
@@ -291,7 +296,7 @@ if sim_state == 'steady':
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_modpath=model_modpath,
-                                                  datetime_format=False, 
+                                                  datetime_format=False,
                                                   subbasin_results=True) # or None
 
 #%% ---- PLOT
@@ -309,7 +314,7 @@ visu.visual2D(object_list = ['map','grid',
                              (None,None),(0,10),
                              (None,None),(None,None),
                              (0,100),(None,None),
-                             ], 
+                             ],
               lines=500)
 
 #%% SEEPAGE MAP
@@ -362,7 +367,7 @@ dem_data = np.ma.masked_where(dem_data < 0, dem_data)
 
 fig, ax = plt.subplots(1,1, figsize=(7,5))
 
-rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, 
+rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform,
                     cmap='Greys', alpha=0.7, zorder=-10)
 
 shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5,
@@ -382,7 +387,7 @@ except:
 ax.set_title('Residence times [y]')
 
 ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)  
+ax.get_yaxis().set_visible(False)
 
 fig.tight_layout()
 
@@ -394,12 +399,12 @@ fig.tight_layout()
 os.chdir(root_dir)
 
 # wbt.geomorphons(
-#     'xxx/watershed_box_buff_dem.tif', 
-#     'xxx/watershed_box_geomorphons.tif', 
+#     'xxx/watershed_box_buff_dem.tif',
+#     'xxx/watershed_box_geomorphons.tif',
 #     search=5, # in cell
 #     threshold=0, # angle in degree
-#     fdist=0, # in cell  
+#     fdist=0, # in cell
 #     skip=0, # in cell
-#     forms=True, 
-#     residuals=False, 
+#     forms=True,
+#     residuals=False,
 # )

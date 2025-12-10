@@ -127,7 +127,9 @@ class Intermittency:
                        marker='|', s=50, lw=1.5)
             lab = raw.iloc[0]['<LbSiteHyd']
             ax.set_title(code+' - '+lab)
-            ax.set_yticklabels(['-','Dry','Invisible','Low','Acceptable','Visible'])
+            y_ticks = list(dicecoul.values())
+            ax.set_yticks(y_ticks)
+            ax.set_yticklabels(['Dry','Invisible','Low','Acceptable','Visible'])
             ax.set_ylim(0.5,5.5)
             ax.set_xlim(([pd.to_datetime('2012'), pd.to_datetime('2022')]))                  
             years = mdates.YearLocator(2)   # every 2 years
