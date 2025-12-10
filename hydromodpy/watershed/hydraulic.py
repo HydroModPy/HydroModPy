@@ -18,7 +18,7 @@ import whitebox
 from os.path import dirname
 from typing import Union
 import os
-import imageio
+import rasterio
 from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
 # wbt.set_compress_rasters(True)
@@ -334,12 +334,9 @@ class Hydraulic:
             cell_size=None, 
             base=self.box_dem)
         
-        raster_load = imageio.imread(output)
+        with rasterio.open(output) as src:
+            raster_load = src.read(1)
         raster_load[raster_load<=-9999] = default_zone
-
-        # src = rasterio.open(output)
-        # plt.imshow(src.read(1), cmap='pink')
-        # plt.show()
         
         self.calib_zones = raster_load
     

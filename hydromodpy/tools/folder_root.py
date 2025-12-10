@@ -12,9 +12,6 @@
 
 #%% LIBRAIRIES
 
-from datetime import datetime
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import sys as sys
 import time as time
@@ -23,21 +20,21 @@ from hydromodpy.tools.log_manager import get_logger
 
 logger = get_logger(__name__)
 
-#%% FUNCTION 
+#%% FUNCTION
 
 # Gets or defines folder result
 def root_folder_results(user_folder_path = None):
     """
-    Get the environment variable containing the result folder path, or define 
+    Get the environment variable containing the result folder path, or define
     it. Note that in that second case, the environment variable will be updated
     in the next conda session (if spyder is closed and opened again without
     restarting the conda console, the effective environment variable will be
     the old one).
-    
+
     Parameters
     ----------
     folder_path : str, optional
-        This function can take a user-defined path as the function parameter. 
+        This function can take a user-defined path as the function parameter.
         If None (default), the user is asked to define the path as text input.
 
     Returns
@@ -45,27 +42,27 @@ def root_folder_results(user_folder_path = None):
     folder : str
         Result folder path.
     """
-    
+
     env_name = "HYDROMODPY_RESULTS"
-    
-    # Gets environment variable 
+
+    # Gets environment variable
     folder = os.getenv(env_name)
-    
+
     if (folder != None) & (isinstance(user_folder_path, str)):
         logger.warning(
             "Result folder %s already defined via environment variable; use update_root_folder_results() to change it",
             os.getenv(env_name),
         )
-        
-    # If environment variable does not exist, define it 
+
+    # If environment variable does not exist, define it
     if folder == None :
         if user_folder_path == None :
             folder = pathlib.Path(input(r"Enter the path of the results folder: "))
         elif isinstance(user_folder_path, str):
             folder = pathlib.Path(user_folder_path)
         folder = str(folder)
-            
-        if os.name == 'nt': 
+
+        if os.name == 'nt':
             # folder = folder.replace('\\', '//')
             exp='setx ' + env_name + ' "' + folder + '"'
         else :
@@ -76,15 +73,15 @@ def root_folder_results(user_folder_path = None):
         logger.info("Environment variable %s registered for results folder", env_name)
         logger.debug("%s = %s", env_name, folder)
         logger.info("Restart the conda session before relaunching Spyder to use the new results folder")
-        
+
     # Creates folder if folder does not exist
     isExist = os.path.exists(folder)
     if not isExist:
         # Create a new directory because it does not exist
         os.makedirs(folder)
         logger.info("Created results folder at %s", folder)
-    
-    # Returns folder 
+
+    # Returns folder
     return folder
 
 #%% UPDATE
@@ -95,7 +92,7 @@ def update_root_folder_results(user_folder_path = None):
     os.environ.pop(env_name, None)
     # folder = None
     folder = root_folder_results(user_folder_path)
-    
+
     return folder
 
 #%% HIDE

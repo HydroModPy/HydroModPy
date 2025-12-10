@@ -23,7 +23,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import flopy
 import flopy.utils.binaryfile as fpu
-import imageio
+import imageio.v2 as imageio
 import rasterio as rio
 from rasterio.transform import from_origin
 from rasterio.warp import reproject
@@ -33,6 +33,11 @@ from scipy.optimize import curve_fit
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = True
+
+try:
+    import hydromodpy
+except:
+    pass
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath

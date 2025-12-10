@@ -13,9 +13,7 @@
 
 import geopandas as gpd
 import pandas as pd
-import os 
-import sys
-from os.path import dirname, abspath
+import os
 import glob
 import xarray as xr
 from shapely.geometry import mapping
@@ -38,9 +36,9 @@ logger = get_logger(__name__)
 #%% CLASS
 
 class Driasclimat:
-    
+
     #%% INIT
-    
+
     def __init__(self, out_path, driasclimat_path, watershed_shp, list_models='all', list_vars='all'):
         """
 
@@ -52,10 +50,10 @@ class Driasclimat:
             DESCRIPTION.
         watershed_shp : TYPE
             DESCRIPTION.
-        
+
         list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
                        'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
-        
+
         list_vars = ['prtotAdjust',
                      'prsnAdjust',
                      'tasAdjust',
@@ -67,7 +65,7 @@ class Driasclimat:
                      'rsdsAdjust',
                      'evspsblpotAdjust', # # 'FAO' at the end
                      'evspsblpotAdjust'] # 'Hg0175' at the end
-        
+
         prtot : précipitations totale |kg/m2/s]
         prsn : chute de neige à grande échelle |kg/m2/s]
         tas : température moyenne journalière à 2m [K]
@@ -79,27 +77,27 @@ class Driasclimat:
         rsds : rayonnement visible incident à la surface [W/m2]
         etpFAO : evapotranspiration potentielle calculée par la méthode FAO [kg.m-2.s-1]
         etpHg : evapotranspiration potentielle calculée par la méthode Hargreaves [kg.m-2.s-1]
-        
+
         Returns
         -------
         None.
 
         """
-        
+
         data_folder = os.path.join(out_path, 'results_stable/driasclimat')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
-                
+
         logger.info('Extracting Drias climat datasets from %s', driasclimat_path)
-        
+
         df = pd.DataFrame()
         df.index = pd.date_range(start="1950-01-01",end="2100-12-31")
-        
+
 
         if list_models == ['all']:
             list_models = ['Model_01','Model_02','Model_03','Model_04','Model_05','Model_06',
                            'Model_07','Model_08','Model_09','Model_10','Model_11','Model_12']
-        
+
         if list_vars == ['all']:
             list_vars = ['prtotAdjust',
                          'prsnAdjust',
@@ -112,7 +110,7 @@ class Driasclimat:
                          'rsdsAdjust',
                          'FAO', # # 'FAO' at the end
                          'Hg0175']
-            
+
         logger.info('Selected climate models: %s', ', '.join(list_models))
         logger.info('Selected variables: %s', ', '.join(list_vars))
 
@@ -136,27 +134,27 @@ class Driasclimat:
                     # except:
                     #     print('NOT FOUND : '+model+'  -  '+var)
                     #     pass
-    
+
         # self.extract_values(data_folder, df)
-    
+
     #%% TIME FUNCTION
-    
+
     def select_period(df, first, last):
         df = df[(df.index.year>=first) & (df.index.year<=last)]
         return df
-    
+
     #%% CLIP DATA
-    
+
     def clip_netcdf(self, data_folder, path_qgis, shp_path, var):
-        
+
         with xr.open_dataset(path_qgis, decode_coords = 'all') as ds:
             ds.load()
         # ds.sel(x = 76000, y = 2273000)
-        
+
         try:
             # Comme les latitudes sont fausses, il vaut mieux les supprimer :
-            ds = ds.drop('lon')
-            ds = ds.drop('lat')
+            ds = ds.drop_vars('lon')
+            ds = ds.drop_vars('lat')
         except:
             pass
         try:
@@ -167,12 +165,12 @@ class Driasclimat:
                 y = ('j', 1609000 + ds.j.values*8000))
         except:
             pass
-        try:    
+        try:
             # Remplacer i et j par x et y comme coordonnées
             ds = ds.swap_dims(i = 'x', j = 'y')
         except:
             pass
-        try:    
+        try:
             # Ajouter les attributs standards
             ds.x.attrs = {'standard_name': 'projection_x_coordinate',
                                 'long_name': 'x coordinate of projection',
@@ -186,7 +184,7 @@ class Driasclimat:
             ds.rio.write_crs("epsg:27572", inplace = True)
         except:
             pass
-        
+
         geodf = gpd.read_file(shp_path)
         geom = geodf.geometry.apply(mapping)
         # try :
@@ -195,11 +193,11 @@ class Driasclimat:
         #     pass
         # clipped_ds = ds.clip(geom, geodf.crs, all_touched = True, drop = True)
         # ds.rio.write_crs("epsg:2154", inplace = True)
-        
+
         del ds
-                
+
         outfile_path = os.path.join(data_folder, path_qgis.split('\\')[-1])
-        
+
         try:
             # if (var == 'tasAdjust') | (var == 'prtotAdjust') :
             clipped_ds.lat.attrs['missing_value'] = np.nan
@@ -210,30 +208,30 @@ class Driasclimat:
             # del clipped_ds.lon.attrs['_FillValue']
         except:
             pass
-            
+
         clipped_ds.to_netcdf(outfile_path)
-        
+
         del clipped_ds
-        
+
         gc.collect()
-    
+
     #%% CSV DATA
-    
+
 def driasclimat_extract_values(data_folder, list_of_paths, df):
-    
+
     # paths_netcdf = glob.glob(os.path.join(data_folder, '*.nc'))
-    
+
     for idx, path_netcdf in enumerate(list_of_paths):
-        
+
         logger.info('Processing Drias NetCDF %d/%d', idx + 1, len(list_of_paths))
-        
+
         var_init = path_netcdf.split('\\')[-1].split('_')[0]
-        
+
         var_raw = None
         if var_init == 'evspsblpotAdjust':
-            var_raw = path_netcdf.split('\\')[-1].split('_')[-1].split('.nc')[0] 
+            var_raw = path_netcdf.split('\\')[-1].split('_')[-1].split('.nc')[0]
             # print(var_raw)
-        
+
         # list_vars = ['prtotAdjust',
         #              'prsnAdjust',
         #              'tasAdjust',
@@ -245,7 +243,7 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
         #              'rsdsAdjust',
         #              'evspsblpotAdjust', # # 'FAO' at the end
         #              'evspsblpotAdjust'] # 'Hg0175' at the end
-        
+
         # prtot : précipitations totale |kg/m2/s]
         # prsn : chute de neige à grande échelle |kg/m2/s] or mm/day
         # tas : température moyenne journalière à 2m [K]
@@ -257,7 +255,7 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
         # rsds : rayonnement visible incident à la surface [W/m2]
         # etpFAO : evapotranspiration potentielle calculée par la méthode FAO [kg.m-2.s-1]
         # etpHg : evapotranspiration potentielle calculée par la méthode Hargreaves [kg.m-2.s-1]
-        
+
         if var_init == 'prtotAdjust':
             var = 'PPTT'
         if var_init == 'prsnAdjust':
@@ -273,23 +271,23 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
         if var_init == 'sfcWindAdjust':
             var = 'WIND'
         if var_init == 'rlds':
-            var = 'RAYI'                
+            var = 'RAYI'
         if var_init == 'rsds':
-            var = 'RAYV'  
+            var = 'RAYV'
         if var_raw == 'FAO':
-            var = 'ETPF'  
+            var = 'ETPF'
         if var_raw == 'Hg0175':
-            var = 'ETPH'  
-            
+            var = 'ETPH'
+
         sce = path_netcdf.split('\\')[-1].split('_')[3]
         gcm_raw = path_netcdf.split('\\')[-1].split('_')[2]
         rcm_raw = path_netcdf.split('\\')[-1].split('_')[5]
-            
+
         if (sce == 'historical'):
             sce = 'historic'
         else:
             sce = sce.upper()
-                    
+
         if 'CNRM' in gcm_raw :
             gcm = 'CNR'
         if 'MPI' in gcm_raw :
@@ -302,7 +300,7 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
             gcm = 'IPS'
         if 'NCC' in gcm_raw :
             gcm = 'NOR'
-            
+
         if 'ALADIN' in rcm_raw :
             rcm = 'ALA'
         if 'CCLM' in rcm_raw :
@@ -321,25 +319,25 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
             rcm = 'R09'
         if 'HIRH' in rcm_raw :
             rcm = 'HIR'
-                        
+
         with xr.open_dataset(path_netcdf, decode_coords = 'all') as clipped_ds:
             clipped_ds.load()
-            
+
         name_col = var+'_'+gcm+'-'+rcm+'_'+sce
         logger.debug('Aggregating column %s', name_col)
         if name_col not in df:
             df[name_col] = ""
-            
+
         dates = clipped_ds.time.data
         dates = pd.Series(dates)
-        
+
         try:
             var_ds = clipped_ds[var_init]
             x_mean = np.nanmean(var_ds.mean(dim='x').values, axis=1)
             y_mean = np.nanmean(var_ds.mean(dim='y').values, axis=1)
             serie = pd.Series(( x_mean + y_mean ) / 2 )
             serie.index = dates
-            
+
             # if (var == 'PPTT') :
             #     serie = serie * 3600 * 24 # kg/m2/s to mm per day
             # if (var == 'SNOW') :
@@ -354,13 +352,13 @@ def driasclimat_extract_values(data_folder, list_of_paths, df):
             #     serie = serie * 3600 * 24
             # if (var == 'ETPH') :
             #     serie = serie * 3600 * 24
- 
+
             df[name_col] = serie
-            
+
         except:
-            df[name_col] = np.nan            
+            df[name_col] = np.nan
             pass
-        
+
     df.to_csv(data_folder+'/'+'_ALL_D.csv', sep=';')
     # df.to_csv('C:/Users/ronan/OneDrive/_HydroDataPy/CLIMATE/France/DRIAS/Bretagne/results_stable/drias/'+
     #           '_ALL_D.csv', sep=';')

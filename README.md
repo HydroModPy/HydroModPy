@@ -2,7 +2,7 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-Stable current version: v0.3.1 [![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
 
 ## Presentation
 
@@ -15,7 +15,7 @@ The second goal is to facilitate the visualization and comparison of results fro
 
 ## Authors
 
-Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le Mesnil [1], Clément Roques [3], Camille Bouchez [1],  Jean Marçais [4], Sarah Leray [5], Etienne Marti [5], Ronny Figueroa [3], Etienne Bresciani [6], Camille Vautier [1], Bastien Boivin [1], June Sallou [7], Johan Bourcier [8], Benoit Combemale [8], Philip Brunner [3], Laurent Longuevergne [1], Luc Aquilina [1], Jean-Raynald de Dreuzy [1].
+Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le Mesnil [1], Clément Roques [3], Camille Bouchez [1],  Jean Marçais [4], Sarah Leray [5], Etienne Marti [5], Ronny Figueroa [3], Etienne Bresciani [6], Camille Vautier [1], Bastien Boivin [1], Tristan Babey [1], June Sallou [7], Johan Bourcier [8], Benoit Combemale [8], Philip Brunner [3], Laurent Longuevergne [1], Luc Aquilina [1], Jean-Raynald de Dreuzy [1].
 
 - [1] Geosciences Rennes -- UMR 6118, CNRS, Université de Rennes, Rennes, France
 - [2] Laboratoire de Météorologie Dynamique (LMD), CNRS, Sorbonne Université, Paris, France
@@ -138,7 +138,7 @@ Execute Python scripts following the examples below:
  - 08_exponential_distribution_of_residence_times
  - 09_transport_model_for_an_agricultural_catchment
  - 10_coupling_with_land_surface_model_pyhelp
- - 11_full_workflow_from_scratch_without_plots
+ - 11_for_run_from_scratch_without_plots
 ```
 
 ## Linked publications

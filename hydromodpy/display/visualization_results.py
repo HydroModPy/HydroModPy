@@ -13,7 +13,6 @@
 #%% LIBRAIRIES
 
 # Python
-import vedo
 import numpy as np
 from collections.abc import Sequence
 from datetime import datetime
@@ -29,13 +28,36 @@ import os, sys
 import contextily as cx
 import matplotlib as mpl
 from matplotlib import rcsetup
-from IPython import get_ipython
-import imageio
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 
 logger = get_logger(__name__)
+
+
+def _require_vedo():
+    """
+    Import vedo only when 3D visualizations are requested.
+
+    Raises a clear error when the VTK stack is missing instead of
+    crashing on module import.
+    """
+    try:
+        import vedo  # type: ignore
+    except ImportError as exc:
+        raise ImportError(
+            "3D visualization requires the 'vedo' dependency (VTK stack). "
+            "Install it with 'pip install vedo' or use the full HydroModPy "
+            "install (not the 'light' extra)."
+        ) from exc
+    except OSError as exc:
+        raise ImportError(
+            "The VTK runtime used by vedo could not start. Install the "
+            "system libraries for VTK/Qt (e.g. libgl1, libx11-6) or run "
+            "inside an image that bundles them."
+        ) from exc
+
+    return vedo
 
 #%% CLASS
 
@@ -357,7 +379,8 @@ class Visualization():
             ylim = ([bounds[1], bounds[3]])
             ax.set_xlim(xlim)
             ax.set_ylim(ylim)
-            scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower right')
+            ax.set_aspect('equal')
+            scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower right', rotation='horizontal-only')
             ax.add_artist(scalebar)
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
@@ -376,7 +399,9 @@ class Visualization():
                     cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
                 except:
                     pass
-            ax.legend(loc='best',framealpha=0.8)
+            handles, labels = ax.get_legend_handles_labels()
+            if handles:
+                ax.legend(loc='best', framealpha=0.8)
             compt +=1
         
         name = self.modelname
@@ -420,6 +445,7 @@ class Visualization():
         """
         
         logger.info("Plotting 3D visualization for model %s", self.modelname)
+        vedo = _require_vedo()
         
         def _normalize_scalarbar_pos(raw_pos):
             """Keep backward compatibility with legacy scalarbar coordinates."""
@@ -744,7 +770,8 @@ class Visualization():
         
         # Plot contour
         try:
-            cont = imageio.imread(self.watershed.geographic.watershed_contour_tif)
+            with rasterio.open(self.watershed.geographic.watershed_contour_tif) as src:
+                cont = src.read(1)
             main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
         except Exception:
             logger.warning("No contour raster available for cross-section overlay")

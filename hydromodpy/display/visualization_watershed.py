@@ -108,7 +108,7 @@ def watershed_dem(BV):
     ylim = ([bounds[1], bounds[3]])
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left')
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left', rotation='horizontal-only')
     ax.add_artist(scalebar)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
@@ -117,43 +117,50 @@ def watershed_dem(BV):
                               cmap='terrain')
     show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
           cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
+    legend_handles = []
     try:
         streams = gpd.read_file(BV.hydrography.streams)
-        streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
-    except:
+        legend_handles += streams.plot(ax=ax, lw=1.5, color='navy', zorder=3, legend=True, label='Streams').get_legend_handles_labels()[0]
+    except Exception:
         pass
     try:
-        contour.plot(ax=ax, lw=1.5, zorder=4,legend=True, label='Watershed', edgecolor='k', facecolor='None')
-    except:
+        h = contour.plot(ax=ax, lw=1.5, zorder=4, legend=True, label='Watershed', edgecolor='k', facecolor='None')
+        legend_handles += h.get_legend_handles_labels()[0]
+    except Exception:
         pass
     try:
         if os.path.exists(BV.piezometry.piezos_shp):
             piezos = gpd.read_file(BV.piezometry.piezos_shp)
-            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
-                        edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
-    except:
+            h = piezos.plot(ax=ax, color='blue', marker='^', zorder=6,
+                            edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
+            legend_handles += h.get_legend_handles_labels()[0]
+    except Exception:
         pass
     try:
         if len(BV.piezometry.x_coord_discrete)>0:
-            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
+            h = ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
                         marker='^', zorder=5, label='Piezometers: discrete')
-    except:
-        pass   
+            legend_handles.append(h)
+    except Exception:
+        pass
     try:
         if os.path.exists(BV.hydrometry.hydrometric_clip):
             hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
-            hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
+            h = hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
                           edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
-    except:
-        pass 
+            legend_handles += h.get_legend_handles_labels()[0]
+    except Exception:
+        pass
     try:
         if os.path.exists(BV.intermittency.onde_clip):
             intermit = gpd.read_file(BV.intermittency.onde_clip)
-            intermit.plot(ax=ax, color='grey', zorder=8, marker='s',
+            h = intermit.plot(ax=ax, color='grey', zorder=8, marker='s',
                           edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
-    except:
+            legend_handles += h.get_legend_handles_labels()[0]
+    except Exception:
         pass
-    ax.legend(loc='lower right', title=BV.watershed_name, framealpha=0.8)
+    if legend_handles:
+        ax.legend(loc='lower right', title=BV.watershed_name, framealpha=0.8)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(size="4%",position='right', pad=0.05)
     fig.add_axes(cax)
@@ -199,7 +206,7 @@ def watershed_local(regional_dem_path, BV):
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)  
     ax.set(aspect='equal')
-    scalebar = ScaleBar(1, box_alpha=0, scale_loc='top', location='lower left')
+    scalebar = ScaleBar(1, box_alpha=0, scale_loc='top', location='lower left', rotation='horizontal-only')
     ax.add_artist(scalebar)
     dem_data = np.ma.masked_where(dem.read(1) < 0, dem.read(1))
     vmin = np.nanmin(dem_data)
@@ -276,7 +283,7 @@ def watershed_geology(BV):
         color = data['hex'].iloc[0]
         data.plot(color=color,
               ax=ax,alpha=0.5, edgecolor='dimgrey', zorder=2,
-              label=ctype.upper())
+              label='_nolegend_')
     for ctype, data in geol.groupby('NATURE'):
         color = data['hex'].iloc[0]
         if ctype.find('Partie marine')!=0:
@@ -302,9 +309,14 @@ def watershed_geology(BV):
                         edgecolor='k',legend=True, label='Piezometers: continue')
     except:
         pass
-    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left')
+    scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left', rotation='horizontal-only')
     ax.add_artist(scalebar)
-    l2 = plt.legend( loc='lower right', title = BV.watershed_name,framealpha=0.8)
+    handles2, labels2 = ax.get_legend_handles_labels()
+    legend_items = [(h, lbl) for h, lbl in zip(handles2, labels2) if lbl and not lbl.startswith('_')]
+    l2 = None
+    if legend_items:
+        handles2, labels2 = zip(*legend_items)
+        l2 = ax.legend(handles2, labels2, loc='lower right', title=BV.watershed_name, framealpha=0.8)
     plt.gca().add_artist(l1)
     fig.tight_layout()
     try:

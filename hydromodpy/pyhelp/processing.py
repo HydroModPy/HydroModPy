@@ -14,7 +14,6 @@
 # ---- Standard Library Imports
 import os
 import os.path as osp
-from multiprocessing import Pool
 import multiprocessing as mp
 import time
 import csv
@@ -24,7 +23,7 @@ import calendar
 import numpy as np
 
 # ---- Local Libraries Imports
-from hydromodpy.pyhelp import HELP3O
+from hydromodpy.pyhelp import ensure_help3o_loaded
 from hydromodpy.tools import get_logger
 
 logger = get_logger(__name__)
@@ -39,7 +38,8 @@ def run_help_singlecell(item):
     cellname, outparam = item
 
     # Check if HELP3O is available
-    if HELP3O is None:
+    help3o = ensure_help3o_loaded()
+    if help3o is None:
         raise RuntimeError(
             "HELP3O Fortran extension is not available. "
             "This usually happens when:\n"
@@ -50,7 +50,7 @@ def run_help_singlecell(item):
             "Python 3.11, 3.12, or 3.13 on Linux, macOS, or Windows."
         )
 
-    HELP3O.run_simulation(*outparam)
+    help3o.run_simulation(*outparam)
     results = read_monthly_help_output(outparam[5])
     if DEL_TEMPFILES:
         os.remove(outparam[5])
@@ -64,7 +64,7 @@ def run_help_allcells(cellparams, ncore=None):
     tstart = time.perf_counter()
     calcul_progress = 0
     N = len(cellparams)
-    pool = Pool(ncore)
+    pool = mp.get_context("spawn").Pool(ncore)
     for cell in pool.imap_unordered(run_help_singlecell, cellparams.items()):
         output[cell[0]] = cell[1]
         calcul_progress += 1

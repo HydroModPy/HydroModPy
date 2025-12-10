@@ -14,4 +14,4 @@ Class overview
    ~hydromodpy.modeling.modflow.Modflow
    ~hydromodpy.modeling.modpath.Modpath
    ~hydromodpy.modeling.timeseries.Timeseries
-   ~hydromodpy.modeling.downslope.Downslope
+   ~hydromodpy.modeling.masstransfer.Masstransfer
