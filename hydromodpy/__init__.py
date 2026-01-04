@@ -182,12 +182,12 @@ def _ensure_proj_db_compatibility() -> None:
         if candidate:
             os.environ["PROJ_DATA"] = str(candidate)
             os.environ["PROJ_LIB"] = str(candidate)
-            _bootstrap_logger.warning(
-                "Detected incompatible PROJ database layout; switching PROJ_DATA/PROJ_LIB to %s (layout %s).",
-                candidate,
-                layout,
-            )
-            return
+        _bootstrap_logger.debug(
+            "Detected incompatible PROJ database layout; switching PROJ_DATA/PROJ_LIB to %s (layout %s).",
+            candidate,
+            layout,
+        )
+        return
 
         _bootstrap_logger.warning(
             "PROJ database layout is older than expected (need >= %s). "
