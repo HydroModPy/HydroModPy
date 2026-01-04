@@ -28,7 +28,11 @@ from shapely.geometry import mapping
 import rasterio as rio
 import rasterio.features # necessary to avoid a bug
 import xarray as xr
+import importlib.util
 xr.set_options(keep_attrs = True)
+
+# Optional Dask support for chunked xarray operations.
+_XR_CHUNKS = "auto" if importlib.util.find_spec("dask") else None
 
 # Root
 df = dirname(dirname(abspath(__file__)))
@@ -357,7 +361,7 @@ class Sim2:
                 self.values[var].to_netcdf(temp_file, encoding=encoding)
                 if hasattr(self.values[var], 'close'):
                     self.values[var].close()
-                self.values[var] = xr.open_dataset(temp_file, chunks='auto')
+                self.values[var] = xr.open_dataset(temp_file, chunks=_XR_CHUNKS)
 
             # Force garbage collection to free memory
             import gc
@@ -667,7 +671,7 @@ class Sim2:
                 decode_coords='all',
                 decode_times=True,
                 combine='by_coords',
-                chunks='auto',
+                chunks=_XR_CHUNKS,
                 parallel=False
             )
         except ValueError as e:
@@ -675,7 +679,7 @@ class Sim2:
                 logger.warning("Time dimension not monotonic, loading files sequentially to handle overlaps")
                 datasets = []
                 for f in sorted(filelist):
-                    ds = xr.open_dataset(f, decode_coords='all', decode_times=True, chunks='auto')
+                    ds = xr.open_dataset(f, decode_coords='all', decode_times=True, chunks=_XR_CHUNKS)
                     datasets.append(ds)
                 ds_merged = xr.concat(datasets, dim='time', combine_attrs='override')
                 # Remove duplicates and sort
@@ -725,7 +729,7 @@ class Sim2:
             new_filepath,
             decode_coords='all',
             decode_times=True,
-            chunks='auto'
+            chunks=_XR_CHUNKS
         )
 
         # Force garbage collection after merge
@@ -778,7 +782,7 @@ class Sim2:
                     merged_file,
                     decode_coords='all',
                     decode_times=True,
-                    chunks='auto'
+                    chunks=_XR_CHUNKS
                 )
                 for y in yearlist:
                     if y not in merged_files:
@@ -801,7 +805,7 @@ class Sim2:
             filepath,
             decode_times=True,
             decode_coords='all',
-            chunks='auto'
+            chunks=_XR_CHUNKS
         )
 
         # Discretization compression (lossy):
@@ -868,7 +872,7 @@ class Sim2:
             filepath,
             decode_times=True,
             decode_coords='all',
-            chunks='auto'  # Enable lazy loading
+            chunks=_XR_CHUNKS  # Enable lazy loading if Dask is available
         )
 
         resolution = abs(ds.rio.transform()[0])
