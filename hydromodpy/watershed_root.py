@@ -31,7 +31,6 @@ sys.path.append(root_dir)
 # HydroModPy
 from hydromodpy.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
 from hydromodpy.modeling import modflow, modpath, mt3dms, timeseries, netcdf
-from hydromodpy.display import visualization_watershed
 from hydromodpy.tools import toolbox, get_logger
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
@@ -359,6 +358,12 @@ class Watershed:
             - ``'watershed_geology'`` to display the watershed geology.
             - ``'watershed_zones'`` to display the hydraulic zones of the watershed.
         """
+        try:
+            from hydromodpy.display import visualization_watershed
+        except Exception as exc:
+            raise ModuleNotFoundError(
+                "Display dependencies are not installed. Install the full stack (contextily, matplotlib, vedo)."
+            ) from exc
         if dtype == 'watershed_dem':
             visualization_watershed.watershed_dem(self)
         if dtype == 'watershed_geology':

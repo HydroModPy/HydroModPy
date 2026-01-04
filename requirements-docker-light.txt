@@ -1,0 +1,20 @@
+# Docker/server light requirements (no visualization, no IDE extras).
+# Python version is controlled by the Docker base image (same as pyproject.toml: 3.11-3.13).
+# Install with: python -m pip install -r requirements-docker-light.txt
+# Then: pip install -e . --no-deps
+flopy
+geopandas
+h5py
+netCDF4
+numpy>=2.0
+pandas
+pyproj
+pyshp
+pysheds
+rasterio
+rioxarray
+whitebox
+xarray
+requests
+geopy
+selenium
