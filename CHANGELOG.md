@@ -44,7 +44,7 @@ Each release section includes the following standard categories:
 
 ## [v0.3.4] - 2026-01-04
 ### Added
-- Added `requirements-docker-light.txt` for pip-only Docker/server installs without IDE or visualization dependencies.
+- Added `install/requirements-docker-light.txt` for pip-only Docker/server installs without IDE or visualization dependencies.
 - Added optional Dask handling in SIM2 (chunked xarray only when Dask is available).
 
 ### Changed
@@ -171,7 +171,8 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.2...dev
+[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.4...dev
+[v0.3.4]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.3...v0.3.4
 [v0.3.2]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.2.0...v0.3.0
