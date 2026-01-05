@@ -5,8 +5,8 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /scripts
 
 RUN python -m pip install -U --upgrade pip
-COPY requirements-docker-light.txt .
-RUN pip install --no-cache-dir -r requirements-docker-light.txt
+COPY install/requirements-docker-light.txt install/requirements-docker-light.txt
+RUN pip install --no-cache-dir -r install/requirements-docker-light.txt
 RUN pip install --no-cache-dir --no-deps hydromodpy
 
 # copy all python programme
