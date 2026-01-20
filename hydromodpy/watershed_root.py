@@ -36,25 +36,13 @@ from hydromodpy.display import visualization_watershed
 from hydromodpy.tools import toolbox, get_logger
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-<<<<<<< HEAD:src/watershed_root.py
+#<<<<<<< HEAD:src/watershed_root.py
 #pyhelp
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
+
 from src.pyhelp import pyhelp_netcdf
-=======
+
+
 try: 
->>>>>>> Stashed changes
-=======
-try: 
->>>>>>> Stashed changes
-=======
-try: 
->>>>>>> Stashed changes
-=======
-try: 
->>>>>>> Stashed changes
 
     from pyhelp import processing, bilan, preprocessing
     
@@ -68,13 +56,13 @@ try:
     # from src.pyhelp import pyhelp_netcdf
 except:
     print('fail importing module from pyhelp')
-=======
+
 logger = get_logger(__name__)
 
 #pyhelp
 from hydromodpy.pyhelp import pyhelp_netcdf
 
->>>>>>> dev:hydromodpy/watershed_root.py
+
 #%% CLASS
 
 class Watershed:
