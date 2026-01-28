@@ -68,7 +68,6 @@ def read_daily_help_output(filepath):
 
 def calc_area_daily_avg(cellnames, workdir):
     
-
     COMPONENTS = ['precip', 'runoff', 'evapo', 'rechg']
     all_dfs = []
 
@@ -142,4 +141,56 @@ def plot_daily(df_daily_mean, title="Bilan journalier moyen"):
     ax.legend()
     ax.grid(True)
     plt.show()
+
+
+def calc_area_yearly_avg_from_daily(
+    df_daily_mean: pd.DataFrame,
+    year_from: int | float = -np.inf,
+    year_to: int | float = np.inf,
+    return_yearly_series: bool = False,
+    full_year_columns: bool = True,
+):
+ 
+    if df_daily_mean is None or df_daily_mean.empty:
+        raise ValueError("df_daily_mean est vide.")
+    if not isinstance(df_daily_mean.index, pd.DatetimeIndex):
+        raise TypeError("df_daily_mean doit etre indexe par des dates (DatetimeIndex).")
+
+    years = df_daily_mean.index.year
+    mask_years = (years >= year_from) & (years <= year_to)
+    df = df_daily_mean.loc[mask_years].copy()
+    if df.empty:
+        raise ValueError("Aucune donnee dans la plage d'annees demandee.")
+
+    yearly_series = df.groupby(df.index.year).sum(numeric_only=True)
+    yearly_series.index.name = 'year'
+
+    mean_interannual = yearly_series.mean(axis=0, numeric_only=True)
+
+    if full_year_columns:
+        target_cols = ['precip', 'rechg', 'runoff', 'evapo', 'subrun1', 'subrun2', 'perco']
+        mean_interannual = mean_interannual.reindex(target_cols)
+        yearly_series = yearly_series.reindex(columns=target_cols)
+
+    if return_yearly_series:
+        return mean_interannual, yearly_series
+    return mean_interannual
+
+
+def save_area_yearly_avg_from_daily(
+    df_daily_mean: pd.DataFrame,
+    out_csv: str,
+    year_from: int | float = -np.inf,
+    year_to: int | float = np.inf,
+):
+    mean_interannual = calc_area_yearly_avg_from_daily(
+        df_daily_mean,
+        year_from=year_from,
+        year_to=year_to,
+        return_yearly_series=False,
+        full_year_columns=True,
+    )
+    df_out = mean_interannual.to_frame().T
+    df_out.index = ['area_yearly_avg']
+    df_out.to_csv(out_csv, encoding='utf-8')
 

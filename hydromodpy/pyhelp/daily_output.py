@@ -1,148 +1,266 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Mar 23 11:45:06 2025
+Created on Tue Jan 27 08:15:31 2026
 
-@author: mathi
+@author: pelissierm
 """
 
-import re
-import pandas as pd
-import numpy as np
-import os.path as osp
-import matplotlib.pyplot as plt
 
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Iterable, Mapping, Optional, Tuple, Union
+
+import numpy as np
+import pandas as pd
+
+from hydromodpy.pyhelp.processing import read_daily_help_output
 from hydromodpy.tools import get_logger
 
 logger = get_logger(__name__)
 
-def read_daily_help_output(filepath):
-    with open(filepath, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
 
-    results = {
-        'years': [], 'days': [],
-        'rain': [], 'runoff': [], 'et': [],
-        'leak_first': [], 'leak_last': []
-    }
-    current_year = None
+#%%config & constants
 
-    for i, line in enumerate(lines):
-        if "DAILY OUTPUT FOR YEAR" in line:
-            match = re.search(r"\d{4}", line)
-            if match:
-                current_year = int(match.group())
+DAILY_COMPONENTS = ("precip", "runoff", "evapo", "rechg")
+
+HELP_DAILY_KEYS = {
+    "precip": "rain",
+    "runoff": "runoff",
+    "evapo": "et",
+    "rechg": "leak last",
+}
+
+MONTHS = tuple(range(1, 13))
+
+YEARLY_COLS: Tuple[str, ...] = ("precip", "rechg", "runoff", "evapo", "subrun1", "subrun2", "perco")
+
+
+#%% private functions
+
+@dataclass(frozen=True)
+class DailyCellSeries:
+    cid: str
+    df: pd.DataFrame
+
+#corrects dates format
+def _to_dates(years, doy):
+    dates = pd.to_datetime(years * 1000 + doy, format="%Y%j", errors="coerce")
+    return pd.DatetimeIndex(dates)
+
+
+def _parse_daily_outfile(cid, outpath):
+    cid_str = str(cid)
+    outpath = Path(outpath)
+    
+    try:
+        d = read_daily_help_output(str(outpath))
+    except Exception:
+        logger.exception("Failed reading daily HELP output for cell %s (%s)", cid_str, outpath)
+        return None
+
+    years = np.asarray(d.get("years", []), dtype=int)
+    doy = np.asarray(d.get("days", []), dtype=int)
+    dates = _to_dates(years, doy)
+    valid = ~pd.isna(dates)
+    dates = dates[valid]
+    df = pd.DataFrame(index=dates)
+
+    # Standardize columns
+    for out_var, in_key in HELP_DAILY_KEYS.items():
+        arr = np.asarray(d.get(in_key, []), dtype=float)
+        if arr.size == 0:
+            df[out_var] = np.nan
             continue
+        arr = arr[: valid.size]
+        df[out_var] = arr[valid]
 
-        if current_year is not None:
-            parts = line.strip().split()
-            if len(parts) < 4:
+    df = df.dropna(how="any")  #only keep days where all components exist
+    df = df.sort_index()
+    return DailyCellSeries(cid=cid_str, df=df)
+
+
+def _iter_cell_series_from_outfiles(cell_outfiles):
+    for cid, outpath in cell_outfiles.items():
+        s = _parse_daily_outfile(cid, outpath)
+        if s is not None:
+            yield s
+
+
+#%%Public functions
+
+def export_cells_daily_to_csv(cell_outfiles, out_csv, year_from, year_to, overwrite = True):
+    
+    out_csv = Path(out_csv)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    mode = "w" if overwrite else "a"
+    header = overwrite or (not out_csv.exists())
+
+    cols = ["cid", "date", "year", "doy", *DAILY_COMPONENTS]
+
+    with out_csv.open(mode, encoding="utf-8", newline="") as f:
+        if header:
+            f.write(",".join(cols) + "\n")
+
+        for s in _iter_cell_series_from_outfiles(cell_outfiles):
+            df = s.df.copy()
+            mask = (df.index.year >= year_from) & (df.index.year <= year_to)
+            df = df.loc[mask]
+            if df.empty:
                 continue
 
-            try:
-                day_str = parts[0].replace('*', '0')
-                rain_str = parts[1].replace('*', '0')
-                runoff_str = parts[2].replace('*', '0')
-                et_str = parts[3].replace('*', '0')
+            years = df.index.year.astype(int)
+            doy = df.index.dayofyear.astype(int)
 
-                day = int(day_str)
-                rain = float(rain_str)
-                runoff = float(runoff_str)
-                et = float(et_str)
+            out = df.copy()
+            out.insert(0, "doy", doy)
+            out.insert(0, "year", years)
+            out.insert(0, "date", df.index)
+            out.insert(0, "cid", s.cid)
 
-                leak_first_str = parts[6].replace('*', '0') if len(parts) > 6 else '0'
-                leak_last_str  = parts[7].replace('*', '0') if len(parts) > 7 else '0'
-                leak_first = float(leak_first_str)
-                leak_last  = float(leak_last_str)
+            out.to_csv(f, index=False, header=False, float_format="%.6f")
 
-                results['years'].append(current_year)
-                results['days'].append(day)
-                results['rain'].append(rain)
-                results['runoff'].append(runoff)
-                results['et'].append(et)
-                results['leak_first'].append(leak_first)
-                results['leak_last'].append(leak_last)
-
-            except ValueError:
-                continue
-
-    return results
-
-
+    return out_csv
 
 
 def calc_area_daily_avg(cellnames, workdir):
     
+    workdir = Path(workdir)
+    temp_dir = workdir / "help_input_files" / ".temp"
 
-    COMPONENTS = ['precip', 'runoff', 'evapo', 'rechg']
-    all_dfs = []
-
+    series = []
     for cid in cellnames:
-        fpath = osp.join(workdir, "help_input_files", ".temp", f"{cid}.OUT")
-        try:
-            data = read_daily_help_output(fpath)
+        outpath = temp_dir / f"{cid}.OUT"
+        s = _parse_daily_outfile(cid, outpath)
+        if s is not None:
+            series.append(s.df)
 
-            if not data['rain']:
-                logger.warning("No daily HELP data available for cell %s", cid)
-                continue
+    df_concat = pd.concat(series, axis=1, keys=range(len(series)))
+    df_mean = df_concat.T.groupby(level=1).mean(numeric_only=True).T
 
-            dates = [
-                pd.Timestamp(y, 1, 1) + pd.Timedelta(days=(d - 1))
-                for y, d in zip(data['years'], data['days'])
-            ]
-
-            df_cell = pd.DataFrame({
-                'precip': np.array(data['rain']),
-                'runoff': np.array(data['runoff']),
-                'evapo':  np.array(data['et']),
-                'rechg':  np.array(data['leak_last']),
-            }, index=dates)
-
-            all_dfs.append(df_cell)
-
-        except Exception:
-            logger.exception("Failed processing daily HELP outputs for cell %s", cid)
-            continue
-
-    if not all_dfs:
-        raise RuntimeError("Aucune donnée journalière n’a été chargée.")
-
-    # Concat
-    df_concat = pd.concat(all_dfs, axis=1)
-
-    # Crée un multi-index de colonnes => (cell, flux)
-    multi_cols = []
-    cell_index = 0
-    for df_cell in all_dfs:
-        for comp in COMPONENTS:
-            multi_cols.append((cell_index, comp))
-        cell_index += 1
-
-    df_concat.columns = pd.MultiIndex.from_tuples(multi_cols)
-
-    # Moyenne spatiale => groupby(level=1).mean()
-    df_mean = df_concat.groupby(level=1, axis=1).mean()
-
+    df_mean = df_mean.reindex(columns=list(DAILY_COMPONENTS))
     return df_mean
 
+def calc_cells_yearly_avg_from_daily(cell_outfiles, year_from, year_to, fill_missing):
 
-def plot_daily(df_daily_mean, title="Bilan journalier moyen"):
+    rows = []
 
-    COMPONENTS = ['precip', 'runoff', 'evapo', 'rechg']
-    LABELS = {
-        'precip': 'Précipitations',
-        'runoff': 'Ruissellement',
-        'evapo': 'Évapotranspiration',
-        'rechg': 'Recharge'
-    }
+    for s in _iter_cell_series_from_outfiles(cell_outfiles):
+        df = s.df
+        mask = (df.index.year >= year_from) & (df.index.year <= year_to)
+        df = df.loc[mask]
 
-    fig, ax = plt.subplots(figsize=(9, 5))
-    for comp in COMPONENTS:
-        if comp in df_daily_mean.columns:
-            ax.plot(df_daily_mean.index, df_daily_mean[comp], label=LABELS.get(comp, comp))
+        if df.empty:
+            out = {c: fill_missing for c in YEARLY_COLS}
+            out["cid"] = s.cid
+            rows.append(out)
+            continue
 
-    ax.set_title(title)
-    ax.set_xlabel("Date")
-    ax.set_ylabel("mm / jour")
-    ax.legend()
-    ax.grid(True)
-    plt.show()
+        yearly = df.groupby(df.index.year).sum(numeric_only=True)
+        mean_interannual = yearly.mean(axis=0, numeric_only=True)
+
+        out = {c: fill_missing for c in YEARLY_COLS}
+        out.update(mean_interannual.to_dict())
+        out["cid"] = s.cid
+        rows.append(out)
+
+    if not rows:
+        return pd.DataFrame(columns=list(YEARLY_COLS)).set_index(pd.Index([], name="cid"))
+
+    df_out = pd.DataFrame(rows).set_index("cid")
+    df_out = df_out.reindex(columns=list(YEARLY_COLS))
+    return df_out
+
+
+def save_cells_yearly_avg_from_daily(cell_outfiles, out_csv, year_from, year_to, fill_missing):
+    out_csv = Path(out_csv)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    df = calc_cells_yearly_avg_from_daily(cell_outfiles=cell_outfiles, year_from=year_from, year_to=year_to, fill_missing=fill_missing)
+    df.to_csv(out_csv, encoding="utf-8")
+    return out_csv
+
+
+def calc_cells_monthly_climatology_from_daily(
+    cell_outfiles,
+    year_from,
+    year_to,
+    require_full_years = True,
+    output_format = "wide"
+):
+    """
+    output_format:
+      - "wide": one row per cid, columns like precip_01 ... rechg_12
+      - "long": MultiIndex (cid, month) with columns precip/runoff/evapo/rechg
+    """
+    if output_format not in {"wide", "long"}:
+        raise ValueError("output_format must be 'wide' or 'long'")
+
+    records = []
+
+    for s in _iter_cell_series_from_outfiles(cell_outfiles):
+        df = s.df.copy()
+        mask = (df.index.year >= year_from) & (df.index.year <= year_to)
+        df = df.loc[mask]
+        if df.empty:
+            continue
+
+        df["year"] = df.index.year
+        df["month"] = df.index.month
+
+        monthly_by_year = (
+            df.groupby(["year", "month"])[list(DAILY_COMPONENTS)]
+              .sum(numeric_only=True)
+              .sort_index()
+        )
+        if monthly_by_year.empty:
+            continue
+
+        if require_full_years:
+            tmp = monthly_by_year.reset_index()
+            months_count = tmp.groupby("year")["month"].nunique()
+            full_years = months_count[months_count == 12].index.values
+            monthly_by_year = monthly_by_year.loc[
+                monthly_by_year.index.get_level_values(0).isin(full_years)
+            ]
+            if monthly_by_year.empty:
+                continue
+
+        clim = monthly_by_year.groupby(level="month").mean(numeric_only=True).reindex(MONTHS)
+
+        if output_format == "long":
+            out = clim.reset_index().rename(columns={"month": "month"})
+            out.insert(0, "cid", s.cid)
+            records.append(out)
+        else:
+            row = {"cid": s.cid}
+            for m in MONTHS:
+                for v in DAILY_COMPONENTS:
+                    row[f"{v}_{m:02d}"] = float(clim.loc[m, v]) if pd.notna(clim.loc[m, v]) else np.nan
+            records.append(pd.DataFrame([row]))
+
+    if not records:
+        return pd.DataFrame()
+
+    if output_format == "long":
+        out = pd.concat(records, ignore_index=True)
+        out = out.set_index(["cid", "month"]).sort_index()
+        return out
+
+    return pd.concat(records, ignore_index=True).set_index("cid")
+
+
+def save_cells_monthly_climatology_from_daily(cell_outfiles, out_csv, year_from, year_to, require_full_years = True, output_format = "wide"):
+
+    out_csv = Path(out_csv)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    df = calc_cells_monthly_climatology_from_daily(
+        cell_outfiles=cell_outfiles,
+        year_from=year_from,
+        year_to=year_to,
+        require_full_years=require_full_years,
+        output_format=output_format,
+    )
+    df.to_csv(out_csv, encoding="utf-8")
+    return out_csv

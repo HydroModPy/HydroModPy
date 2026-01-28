@@ -298,10 +298,31 @@ class HelpOutput(object):
             text = "Années considérées pour le bilan : "
             text += f"{year_min:0.0f} - {year_max:0.0f}"
 
-        fig.canvas.draw()
+        """fig.canvas.draw()
         bbox_bottom, _ = ax.xaxis.get_ticklabel_extents(
             fig.canvas.get_renderer())
         y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
+        offset = transforms.ScaledTranslation(0, -12/72, fig.dpi_scale_trans)
+        ax.text(0, y0, text, transform=ax.transAxes + offset,
+                va='top', ha='left')"""
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+
+        # Récupérer tous les labels visibles de l’axe X
+        labels = [lab for lab in ax.get_xticklabels() if lab.get_visible()]
+
+        if labels:
+            # BBox de chaque label en coordonnées fenêtre
+            bboxes = [lab.get_window_extent(renderer) for lab in labels]
+            # Union de toutes les BBox pour avoir l’enveloppe globale
+            bbox_bottom = transforms.Bbox.union(bboxes)
+
+            # Conversion en coordonnées Axes
+            y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
+        else:
+            # Cas extrême : aucun label visible
+            y0 = 0.0
+
         offset = transforms.ScaledTranslation(0, -12/72, fig.dpi_scale_trans)
         ax.text(0, y0, text, transform=ax.transAxes + offset,
                 va='top', ha='left')
@@ -409,13 +430,31 @@ class HelpOutput(object):
             text = "Années considérées pour le bilan : "
             text += f"{year_min:0.0f} - {year_max:0.0f}"
 
-        fig.canvas.draw()
+        """fig.canvas.draw()
         bbox_bottom, _ = ax.xaxis.get_ticklabel_extents(
             fig.canvas.get_renderer())
         y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
         offset = transforms.ScaledTranslation(0, -6/72, fig.dpi_scale_trans)
         ax.text(0, y0, text, transform=ax.transAxes + offset,
+                va='top', ha='left')"""
+        
+        
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+
+        labels = [lab for lab in ax.get_xticklabels() if lab.get_visible()]
+
+        if labels:
+            bboxes = [lab.get_window_extent(renderer) for lab in labels]
+            bbox_bottom = transforms.Bbox.union(bboxes)
+            y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
+        else:
+            y0 = 0.0
+
+        offset = transforms.ScaledTranslation(0, -6/72, fig.dpi_scale_trans)
+        ax.text(0, y0, text, transform=ax.transAxes + offset,
                 va='top', ha='left')
+      
 
         # We call tight_layout two times to make sure the layout is
         # adjusted correctly.

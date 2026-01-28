@@ -21,19 +21,21 @@ import numpy as np
 import h5py
 from scipy.stats import linregress
 
-from hydromodpy.tools import get_logger
-
-logger = get_logger(__name__)
-
 
 VARNAMES = ['precip', 'rechg', 'runoff', 'evapo',
             'subrun1', 'subrun2', 'perco']
-LABELS = {'precip': "Précipitations totales",
+"""LABELS = {'precip': "Précipitations totales",
           'rechg': "Recharge au roc",
           'runoff': "Ruissellement de surface",
           'evapo': "Évapotranspiration",
           'subrun1': "Ruissellement hypodermique superficiel",
-          'subrun2': "Ruissellement hypodermique profond"}
+          'subrun2': "Ruissellement hypodermique profond"}"""
+LABELS = {'precip': "Total precipitation",
+          'rechg': "Recharge",
+          'runoff': "Surface runoff",
+          'evapo': "Evapotranspiration",
+          'subrun1': "Superficial hypodermic runoff",
+          'subrun2': "Deep hypodermic runoff"}
 COLORS = {'precip': '#1f77b4',
           'rechg': '#ff7f0e',
           'runoff': '#2ca02c',
@@ -58,7 +60,7 @@ class HelpOutput(object):
 
     def load_from_hdf5(self, path_to_hdf5: str):
         """Read data and grid from an HDF5 file at the specified location."""
-        logger.info("Loading water budget dataset from %s", path_to_hdf5)
+        print(f"Loading data and grid from {path_to_hdf5}")
         hdf5 = h5py.File(path_to_hdf5, mode='r+')
         try:
             # Load the data.
@@ -70,11 +72,11 @@ class HelpOutput(object):
                 self.data[key] = values
         finally:
             hdf5.close()
-        logger.info("Water budget dataset loaded in memory")
+        print("Data and grid loaded successfully.")
 
     def save_to_hdf5(self, path_to_hdf5: str):
         """Save the data and grid to an HDF5 file at the specified location."""
-        logger.info("Writing water budget dataset to %s", osp.basename(path_to_hdf5))
+        print("Saving data to {}...".format(osp.basename(path_to_hdf5)))
         hdf5file = h5py.File(path_to_hdf5, mode='w')
         try:
             # Save the data.
@@ -92,7 +94,7 @@ class HelpOutput(object):
                     group.create_dataset(key, data=self.data[key])
         finally:
             hdf5file.close()
-        logger.info("Water budget dataset written successfully")
+        print("Data saved successfully.")
 
     def save_to_csv(self, path_to_csv: str,
                     year_from: int = -np.inf,
@@ -110,7 +112,7 @@ class HelpOutput(object):
             Maximum year of the period over which the average annual values
             are calculated. The default is np.inf.
         """
-        logger.info("Exporting annual averages to %s", osp.basename(path_to_csv))
+        print("Saving data to {}...".format(osp.basename(path_to_csv)))
         df = pd.DataFrame(index=self.data['cid'])
         df.index.name = 'cid'
 
@@ -122,7 +124,7 @@ class HelpOutput(object):
             df[key] = value
 
         df.to_csv(path_to_csv, encoding='utf8')
-        logger.info("Annual averages exported successfully")
+        print("Data saved successfully.")
 
     # ---- Calcul
     def calc_area_monthly_avg(self):
@@ -273,15 +275,15 @@ class HelpOutput(object):
                     label=LABELS[varname], color=COLORS[varname])
 
         ax.set_ylabel(
-            'Composantes mensuelles moyennes\ndu bilan hydrologique (mm/mois)',
+            'Average monthly components of the hydrological balance (mm/month)',
             fontsize=16, labelpad=10)
         ax.axis(ymin=-5)
         ax.grid(axis='y', color=[0.35, 0.35, 0.35], ls='-', lw=0.5)
         ax.set_xticks(months)
 
         # http://bdl.oqlf.gouv.qc.ca/bdl/gabarit_bdl.asp?id=3619
-        ax.set_xticklabels(['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul',
-                            'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'])
+        ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul',
+                            'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
         ax.tick_params(axis='both', direction='out', labelsize=12)
 
         ax.legend(
@@ -297,15 +299,36 @@ class HelpOutput(object):
         year_min = masked_years.min()
         year_max = masked_years.max()
         if year_min == year_max:
-            text = f"Année considérée pour le bilan : {year_min:0.0f}"
+            text = f"Year considered for the assessment: {year_min:0.0f}"
         else:
-            text = "Années considérées pour le bilan : "
+            text = "Years considered for the assessment: "
             text += f"{year_min:0.0f} - {year_max:0.0f}"
 
-        fig.canvas.draw()
+        """fig.canvas.draw()
         bbox_bottom, _ = ax.xaxis.get_ticklabel_extents(
             fig.canvas.get_renderer())
         y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
+        offset = transforms.ScaledTranslation(0, -12/72, fig.dpi_scale_trans)
+        ax.text(0, y0, text, transform=ax.transAxes + offset,
+                va='top', ha='left')"""
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+
+        # Récupérer tous les labels visibles de l’axe X
+        labels = [lab for lab in ax.get_xticklabels() if lab.get_visible()]
+
+        if labels:
+            # BBox de chaque label en coordonnées fenêtre
+            bboxes = [lab.get_window_extent(renderer) for lab in labels]
+            # Union de toutes les BBox pour avoir l’enveloppe globale
+            bbox_bottom = transforms.Bbox.union(bboxes)
+
+            # Conversion en coordonnées Axes
+            y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
+        else:
+            # Cas extrême : aucun label visible
+            y0 = 0.0
+
         offset = transforms.ScaledTranslation(0, -12/72, fig.dpi_scale_trans)
         ax.text(0, y0, text, transform=ax.transAxes + offset,
                 va='top', ha='left')
@@ -390,7 +413,7 @@ class HelpOutput(object):
         ax.tick_params(axis='y', direction='out', labelsize=12)
         ax.tick_params(axis='x', direction='out', length=0)
         ax.set_ylabel(
-            'Composantes annuelles moyennes\ndu bilan hydrologique (mm/an)',
+            'Average annual components\nof the hydrological balance (mm/year)',
             fontsize=16, labelpad=10)
         ax.set_xticklabels([])
 
@@ -408,18 +431,36 @@ class HelpOutput(object):
         year_min = masked_years.min()
         year_max = masked_years.max()
         if year_min == year_max:
-            text = f"Année considérée pour le bilan : {year_min:0.0f}"
+            text = f"Year considered for the assessment: {year_min:0.0f}"
         else:
-            text = "Années considérées pour le bilan : "
+            text = "Years considered for the assessment: "
             text += f"{year_min:0.0f} - {year_max:0.0f}"
 
-        fig.canvas.draw()
+        """fig.canvas.draw()
         bbox_bottom, _ = ax.xaxis.get_ticklabel_extents(
             fig.canvas.get_renderer())
         y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
         offset = transforms.ScaledTranslation(0, -6/72, fig.dpi_scale_trans)
         ax.text(0, y0, text, transform=ax.transAxes + offset,
+                va='top', ha='left')"""
+        
+        
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+
+        labels = [lab for lab in ax.get_xticklabels() if lab.get_visible()]
+
+        if labels:
+            bboxes = [lab.get_window_extent(renderer) for lab in labels]
+            bbox_bottom = transforms.Bbox.union(bboxes)
+            y0 = ax.transAxes.inverted().transform(bbox_bottom)[0][1]
+        else:
+            y0 = 0.0
+
+        offset = transforms.ScaledTranslation(0, -6/72, fig.dpi_scale_trans)
+        ax.text(0, y0, text, transform=ax.transAxes + offset,
                 va='top', ha='left')
+      
 
         # We call tight_layout two times to make sure the layout is
         # adjusted correctly.
@@ -482,9 +523,10 @@ class HelpOutput(object):
                     dashes=[5, 3], color=COLORS[varname])
 
         ax.tick_params(axis='both', direction='out', labelsize=12)
-        ax.set_ylabel('Composantes annuelles\ndu bilan hydrologique (mm/an)',
+        ax.set_ylabel('Annual components\nof the hydrological balance (mm/year)',
                       fontsize=16, labelpad=10)
-        ax.set_xlabel('Années', fontsize=16, labelpad=10)
+        ax.set_xlabel('Years', fontsize=16, labelpad=10)
+        ax.ticklabel_format(style='plain', axis='x', useOffset=False)
         ax.axis(ymin=0)
         ax.xaxis.get_major_locator().set_params(integer=True)
         ax.grid(axis='y', color=[0.35, 0.35, 0.35], ls='-', lw=0.5)
