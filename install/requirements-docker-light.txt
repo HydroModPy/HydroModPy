@@ -7,7 +7,7 @@ geopandas
 h5py
 netCDF4
 numpy>=2.0
-pandas
+pandas<3.0
 pyproj
 pyshp
 pysheds
