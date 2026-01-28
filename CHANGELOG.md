@@ -42,6 +42,12 @@ Each release section includes the following standard categories:
 
 ---
 
+## [v0.3.5] - 2026-01-28
+### Changed
+- Pinned pandas to `<3.0` across pip/conda install files and docs to avoid breaking changes from pandas 3.0.
+
+---
+
 ## [v0.3.4] - 2026-01-04
 ### Added
 - Added `install/requirements-docker-light.txt` for pip-only Docker/server installs without IDE or visualization dependencies.
@@ -171,7 +177,8 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.4...dev
+[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.5...dev
+[v0.3.5]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.4...v0.3.5
 [v0.3.4]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.3...v0.3.4
 [v0.3.2]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.0...v0.3.1

@@ -13,7 +13,7 @@ dependencies:
   - matplotlib-scalebar
   - netcdf4
   - numpy>=2.0
-  - pandas
+  - pandas<3.0
   - pyproj
   - pyshp
   - rasterio
