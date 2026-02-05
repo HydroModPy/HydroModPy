@@ -1,6 +1,6 @@
 """
 @date: 2025-04-07
-@lastMod: 2025-11-24
+@lastMod: 2026 01 28
 @author: delarueo
 @description: Toolbox Tester
 @littleMemo: ...
@@ -16,19 +16,18 @@ import os
 
 geoTest = 0
 cerraTest = 0
-wsTest = 1
+wsTest = 0
 helpTest = 1
-debiasTest = 1
-localCerraTest = 1
-testDebiasing = 1
-testTimeserieStats = 1
-testClimateStats = 1
+debiasTest = 0 
+localCerraTest = 0 #repeat cerratest ?
+testDebiasing = 0 # to update
+testTimeserieStats = 0
+testClimateStats = 0
 
 #%%
 output = 'M:/crash_zone/'
 
 #%% class Geo test
-
 if geoTest:
     path_catchement = 'M:/crash_zone/catchements/'
     sites = ['cont','urse','peca', 'jamt', 'zugs']
@@ -41,11 +40,8 @@ if geoTest:
     tb.Geo.plot_multiple_gdfs(gdfs, labels = sites)
 
 #%% class CERRA test
-
-if cerraTest:
-    
-    cerra_path = './test_data/1984_alps.nc'
-
+if cerraTest:    
+    cerra_path = 'M:/crash_zone/test_data/1984_alps.nc'
     # test __init__
     print('> CERRA init')
     data = tb.CERRA(cerra_path, to_standard = False)    
@@ -80,13 +76,14 @@ if cerraTest:
     result = data._find_nearest_point(46.33, 10, direction = 'se', work_crs = 3035, checkplot = True)
     print(result, end = '\n\n')
     
+
     print('> CERRA _find_nearest_point - *each*')
     result = data._find_nearest_point(46.33, 10, direction = 'each', work_crs = 3035, checkplot = True)
     print(result, end = '\n\n')
 
     print('> CERRA do_site_mask')
     database_folder = 'Z:/_waterwise_teams_database/_save/_20250319/'
-    output_folder = './masks/'
+    output_folder = 'M:/crash_zone/masks'
     type_site = 'testing'
     site_id = 'urse'
     buffer = 0.2
@@ -113,7 +110,7 @@ if cerraTest:
 #%% Help function test
 
 if helpTest:
-    cerra_file = 'C:/Users/delarueo/Desktop/crash_zone/2m_temperature_urse.nc'
+    cerra_file = 'M:/crash_zone/urse_2m_temperature.nc'
     data = tb.CERRA(cerra_file)
     output_path = './test_help_input/'
     tb.create_folder(output_path)
@@ -133,29 +130,29 @@ if helpTest:
     gdf_helpGrid = gdf_helpGrid.set_crs('EPSG:4326', allow_override=True)
     tb.Geo.plot_multiple_gdfs([gdf_cerraGrid, gdf_helpGrid], title ='Pixel centers of the grids', labels = ['cerra','pyhelp'], markersize = [100,10])
 
-    timestep = 'M'
+    timestep = 'ME'
     var = '2m_temperature'
     result = data.generate_pyHelp_file(gdf_helpGrid, df_helpGrid, var, 
                                         rule = 'linear', timestep = timestep, 
                                         save = f'{output_path}test_help_grid_{var}.csv')
 
     
-    # print('> CERRA test generate_localHelp')
-    # grid_path = 'Z:/_waterwise_data_process/_climate/_cerra_forecast/cerra_grid_alps.nc'
-    # cerra_path= 'Z:/_waterwise_data_process/_climate/_cerra_forecast/'
-    # # output_path = 'C:/Users/delarueo/Desktop/crash_zone/_'
-    # variables = ['2m_temperature']
-    # years = range(1984,1990)
+    print('> CERRA test generate_localHelp')
+    grid_path = 'Z:/_waterwise_data_process/_climate/_cerra_forecast/cerra_grid_alps.nc'
+    cerra_path= 'Z:/_waterwise_data_process/_climate/_cerra_forecast/'
+    # output_path = 'C:/Users/delarueo/Desktop/crash_zone/_'
+    variables = ['2m_temperature']
+    years = range(1984,1990)
     
-    # database_folder = 'Z:/_waterwise_teams_database/_save/_20250319/'
-    # output_path = './generate_localHelp/'
-    # type_site = 'testing'
-    # site_id = 'urse'
-    # buffer = 0.2
+    database_folder = 'Z:/_waterwise_teams_database/_save/_20250319/'
+    output_path = './generate_localHelp/'
+    type_site = 'testing'
+    site_id = 'urse'
+    buffer = 0.2
         
-    # grid = tb.CERRA(grid_path)
-    # grid.generate_localHelp(cerra_path, site_shape_path, obs_path, output_path,
-    #                         site_id, type_site, variables, years, buffer = 0.2)
+    grid = tb.CERRA(grid_path)
+    grid.generate_localHelp(cerra_path, site_shape_path, obs_path, output_path,
+                            site_id, type_site, variables, years, buffer = 0.2)
 
 #%%   Weather station class
 
@@ -169,30 +166,29 @@ if wsTest:
     
     
 #%%   class CERRA - generate Local cerra
-
 if localCerraTest :    
     grid_path = 'Z:/_waterwise_data_process/_climate/_cerra_forecast/cerra_grid_alps.nc'
     cerra_path= 'Z:/_waterwise_data_process/_climate/_cerra_forecast/'
-    output_path = './output_debias_test/'
+    output_path = 'M:/crash_zone/masks/'
     tb.create_folder(output_path)
     
     variables = ['2m_temperature']
-    years = range(2013,2022)
+    years = range(1984,1990)
     verbose = True
     checkplot = True
     
     type_site = 'testing'
-    site_id = 'zugs'
+    site_id = 'urse'
     buffer = 0.2
     
-    site_shape_path = f'Z:/HDPY_models/CR/20250410/_{site_id}/results_stable/geographic/watershed.shp'
+    site_shape_path = f'M:/crash_zone/catchements/watershed_{site_id}.shp'
+    site_mask_path = f'{output_path}mask_{site_id}.npy'
     # manually enter mobilisation path
-    obs_path = f'Z:/_waterwise_teams_database/_save/_20250319/_time_series/_testing_sites/_{site_id}/_climate/_air_temperature/_observation/'
-    obs_paths = [f'{obs_path}{path}/' for path in  os.listdir(obs_path)]
+    obs_paths = []
 
     print(f'> create local dataset cerra  - {site_id}')   
     grid = tb.CERRA(grid_path)
-    mask = grid.do_site_mask(site_id, site_shape_path,  output_path,
+    mask = grid.do_site_mask(site_id, site_shape_path,  site_mask_path,
                                    buffer = buffer, catch_crs = 3035,
                                    checkplot =True, verbose = verbose)
     grid.__close__()
@@ -331,17 +327,16 @@ if testDebiasing:
 #%% test Timeserie stats
 
 if testTimeserieStats:
-    data_path = 'Z:/_waterwise_data_process/_climate/_cerra_forecast/2m_temperature/2m_temperature_urse.nc'
-    shape_path = 'Z:/HDPY_models/CR/20250410/_urse/results_stable/geographic/watershed.shp'
-    output_path = './timeserie_statistic_test/'
+    data_path = 'M:/crash_zone/urse_2m_temperature.nc'
+    shape_path = 'M:/crash_zone/catchments/watershed_urse.shp'
+    output_path = 'M:/crash_zone/timeserie_statistic_test/'
     tb.create_folder(output_path)
     
     data = tb.CERRA(data_path)
-    # print(data.dataset['2m_temperature'][:,:,:].values)
-    stats = data.compute_timeserie_statistics(shape_path, 
-                                              variable = '2m_temperature',
-                                               catch_crs = 3035, save = False)
-    
+    stats = data.compute_timeserie_statistics(variable = '2m_temperature',
+                                            shape_path = shape_path, 
+                                            catch_crs = 3035, save = False)
+
     # plot result
     fig, ax = plt.subplots(1,1,figsize = [10,5])
 

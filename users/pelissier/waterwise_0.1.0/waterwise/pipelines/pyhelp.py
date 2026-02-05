@@ -11,7 +11,7 @@ import io
 from pathlib import Path
 
 
-def run_pyhelp_simulation(run_pyhelp_func, workdir: Path, logger):
+def run_pyhelp_simulation(run_pyhelp_func, workdir: Path, logger, climate_map: dict = {}):
     workdir.mkdir(parents=True, exist_ok=True)
     logger.info(f"[pyhelp] running run_pyhelp(workdir={workdir})")
 
@@ -22,9 +22,13 @@ def run_pyhelp_simulation(run_pyhelp_func, workdir: Path, logger):
 
     try:
         with redirect_stdout(buf), redirect_stderr(buf):
-            ret, diag = run_pyhelp_func(str(workdir))
+            ret, diag = run_pyhelp_func(str(workdir), 
+                                        climate_map = climate_map)
+    # except Exception as e: ####
+    #     logger.info(f"An error occurred: {e}") ####
     finally:
         logging.disable(prev_disable) 
+
     for line in buf.getvalue().splitlines():
         if line.strip():
             logger.info(f"[pyhelp.ext] {line}")

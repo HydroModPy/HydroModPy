@@ -127,7 +127,7 @@ def _read_climate_timeseries_csv(csv_path):
         raise ValueError(f"Unexpected climate CSV shape for {csv_path.name}: {df.shape}")
 
     raw_dates = df.iloc[2:, 0].astype(str).str.strip()
-    dates = pd.to_datetime(raw_dates, dayfirst=True, errors="coerce", infer_datetime_format=True)
+    dates = pd.to_datetime(raw_dates, dayfirst=True, errors="coerce", format = '%Y-%m-%d %H:%M:%S') #infer_datetime_format=True)
 
     data = df.iloc[2:, 1:].apply(pd.to_numeric, errors="coerce").to_numpy()
 
@@ -708,16 +708,17 @@ def plot_all_outputs(workdir, save_dir = None,
     return save_dir_path
 
 
+#%%
+# not an import but a running piece of code
 
-workdir = r"C:\Users\Pelissierm\Waterwise\HDPY_models\_urse\results_pyhelp"
-workdir = Path(workdir)
+# workdir = r"D:/git/HydroModPy-WaterWise/users/pelissier/waterwise_0.1.0/output/result_pyhelp"
+# workdir = Path(workdir)
 
-plot_spatialised(
-    csv_path=workdir / "help_example_yearly.csv",
-    component="rechg",
-    save_path=workdir / "plots_pyhelp" / "rechg_spatial.png",
-    boundary_shp=workdir.parent / "results_stable" / "geographic" / "watershed.shp",
-    glaciers_shp=Path(r"Z:\HDPY_database_forModelling\PyHELP_rasters\rgi_clip.shp"),
-    dem_for_hillshade=r"Z:\HDPY_database_forModelling\_sites\_urse\_urse_clipped_dem.tif"
-    
-)
+# plot_spatialised(
+#     csv_path=workdir / "help_example_yearly.csv",
+#     component="rechg",
+#     save_path=workdir / "plots_pyhelp" / "rechg_spatial.png",
+#     boundary_shp=workdir.parent / "results_stable" / "geographic" / "watershed.shp",
+#     glaciers_shp=Path(r"Z:/HDPY_database_forModelling/PyHELP_rasters/rgi_clip.shp"),
+#     dem_for_hillshade=r"Z:/HDPY_database_forModelling/_sites/_urse/_urse_clipped_dem.tif"
+# )

@@ -16,15 +16,13 @@
 # root_path = '/'.join(folder_path) + '/'
 # import sys
 # sys.path.insert(0, root_path)
-import sys
-sys.path.insert(0, 'D:/modelChain_hmp/')
 
-# import for DIRECTORY MANGEMENT
-
-# remplace by access to your local src folder
-from src_hmp_odela.tools.toolbox import create_folder 
-# from src.tools.toolbox import create_folder # if intergqte with hydromodpy structure
 import os
+from pathlib import Path
+import sys
+EXTERNAL_DIR = Path(r"D:/git/hydromodpy-waterwise")
+sys.path.insert(0, str(EXTERNAL_DIR))
+
 import shutil
 
 # import for GEOGRAPHY TOOLS
@@ -32,7 +30,6 @@ import math
 import geopandas as gpd
 import numpy as np
 
-# from shapely.geometry import Polygon, Point
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -86,7 +83,18 @@ def delete_folder(path):
     
     if os.path.exists(path) and os.path.isdir(path):
         shutil.rmtree(path)  # Remove buffer folder and its contents
-        
+
+def create_folder(path):
+    """
+    If not exist, create a new empty folder.
+
+    Parameters
+    ----------
+    path : str
+        Folder path.
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)     
         
 #%% PLOT MANAGEMENT
 def save_plot(fig, fig_folder, fig_label, fig_formats = ['png'], verbose = False):
@@ -763,22 +771,21 @@ class CERRA():
             'se': (grid_lat < lat) & (grid_lon > lon % 360),
             'nw': (grid_lat > lat) & (grid_lon < lon % 360),
             'ne': (grid_lat > lat) & (grid_lon > lon % 360),
-            'all': (grid_lat > -90) & (grid_lon >= 0) }
+            'all': (grid_lat > -90) & (grid_lon >= 0) 
+            }
         
         # For specific direction or absolu nearest *all*
         if direction in dictMask.keys():
             # Choose mask indicating the points which should be considered depending of direction.
-            mask = dictMask.get(direction)
-                        
-            # Mask the grid points outside the specified direction
-            mask_h = [~mask[y,x] for y in range(shape[0]) for x in range(shape[1])]
+            mask = dictMask.get(direction)            
             
             # Extract dataset grid gdf             
             gdf_grid_, yx, df_yx = self._extract_gdfGrid(dst_crs = work_crs)
             gdf_grid = copy.deepcopy(gdf_grid_)
-            gdf_grid.geometry[mask_h] = None
-            
-            
+            mask_h = [i for i, row in df_yx.iterrows() if not mask[row['y'], row['x']]]
+            for idx in mask_h:
+                gdf_grid.at[idx,'geometry'] = None    
+
             # Define gdf goal point
             gdf_point = gpd.GeoDataFrame(geometry = [Point(lon,lat) for i in range(len(yx))])
             gdf_point = gdf_point.set_crs(epsg = 4326)          
@@ -790,10 +797,10 @@ class CERRA():
             
             # Extracte characteristics of the nearest grid point in the choosen direction
             result = pd.DataFrame(index = [direction], columns = ['y','x','point','d_m'])
-            result['y'][direction] = df_yx['y'][idx]
-            result['x'][direction] = df_yx['x'][idx]
-            result['point'][direction] = gdf_grid.to_crs(epsg = 4326).geometry[idx]
-            result['d_m'][direction] = distances.values[idx]
+            result.at[direction,'y'] = df_yx.at[idx,'y']
+            result.at[direction,'x'] = df_yx.at[idx,'x']
+            result.at[direction,'point'] = gdf_grid.to_crs(epsg = 4326).geometry[idx]
+            result.at[direction,'d_m'] = distances.values[idx]
                         
             if checkplot:
                 gdf_selec = gpd.GeoDataFrame(geometry=list(result['point'][:]))
@@ -827,10 +834,10 @@ class CERRA():
                 distances_[mask_h] = None                
                 idx = distances_.argmin() 
                 
-                result['y'][compass] = df_yx['y'][idx]
-                result['x'][compass] = df_yx['x'][idx]
-                result['point'][compass] = gdf_grid.to_crs(epsg = 4326).geometry[idx]
-                result['d_m'][compass] = distances.values[idx]
+                result.at[compass,'y'] = df_yx.at[idx,'y']
+                result.at[compass,'x'] = df_yx.at[idx,'x']
+                result.at[compass,'point']= gdf_grid.to_crs(epsg = 4326).geometry[idx]
+                result.at[compass,'d_m'] = distances.values[idx]
             
             if checkplot:                
                 gdf_selec = gpd.GeoDataFrame(geometry=list(result['point'][:]))
@@ -951,11 +958,13 @@ class CERRA():
             '''
             Create checkplot of the mask
             '''           
-            gdf_grid,_,_ = self._extract_gdfGrid(dst_crs = 4326)
+            gdf_grid,yx, df_yx  = self._extract_gdfGrid(dst_crs = 4326)
             gdf_mask = copy.deepcopy(gdf_grid)
-            mask_ = mask.astype(bool)
-            mask_h = [~mask_[y,x] for y in range(self.shape_grid[0]) for x in range(self.shape_grid[1])]
-            gdf_mask.geometry[mask_h] = None           
+            mask_h = [i for i, row in df_yx.iterrows() if not mask[row['y'], row['x']]]
+            print(gdf_mask)
+            for idx in mask_h:
+                gdf_mask.at[idx,'geometry'] = None  
+
             Geo.plot_multiple_gdfs([gdf_grid,gdf_mask], labels=['grid','mask'],
                                 title = f'Checkplot Mask {site_id}',
                                 markersize = [5],
@@ -1205,7 +1214,7 @@ class CERRA():
         coordinates = np.array(coordinates)
         points = [Point(lon, lat) for lat, lon in coordinates]
         gdf = gpd.GeoDataFrame(geometry=points)
-        df = pd.DataFrame({'latitude': coordinates.T[0], 'longitude': coordinates.T[1]})
+        df = pd.DataFrame({'Latitude (dd)': coordinates.T[0], 'Longitude (dd)': coordinates.T[1]})
         
         return gdf, df
     
@@ -1269,14 +1278,21 @@ class CERRA():
             values[i] = pd.to_numeric(v, errors='coerce')  
             i += 1
     
-        vprint(f'\n> resample time - new timestep :{timestep}')
+        vprint(f'\n> resample time - new timestep :{timestep}')      
         values.set_index('time', inplace=True)
-        values = values.resample(timestep).agg(__class__.AGGREGATION_RULES[var])       
+        values = values.resample(timestep).agg(__class__.AGGREGATION_RULES[var]) 
+        values.reset_index(inplace = True)
+
+        dates = pd.to_datetime(values['time'])
+        values.index = dates.dt.strftime("%d/%m/%Y")
         values = pd.concat([df_helpGrid.T, values])
         
         if save:
             vprint(f'> save data at {save}')
-            values.to_csv(save)
+            values.to_csv(save, 
+                          date_format = "%d/%m/%Y", # follow requirement format from pyhelp
+                          header = False # column id not saved
+                          )
             
         return values
     
@@ -1555,6 +1571,7 @@ class ClimateStats():
     
     def load_data(self):
         df = pd.read_csv(self.path, index_col=0)
+        print(df.head())
         df['time'] = pd.to_datetime(df.index, format='%Y-%m-%d %H:%M:%S')
         df = df.set_index('time')
         

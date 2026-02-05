@@ -33,11 +33,11 @@ class ClimateInputs:
 class WorkflowFiles:
     workdir: Path
     grid: Path
-    climate_fixed: ClimateInputs
+    climate_input: ClimateInputs
     climate_backup: Optional[ClimateInputs] = None
 
     @staticmethod
-    def from_workdir(workdir: Union[str, Path]):
+    def from_workdir(workdir: Union[str, Path], climate_map: dict = {}):
         wd = Path(workdir)
         if not wd.exists():
             raise FileNotFoundError(f"workdir not found: {wd}")
@@ -45,15 +45,26 @@ class WorkflowFiles:
         grid = wd / "input_grid.csv"
         if not grid.exists():
             raise FileNotFoundError(f"Missing grid file: {grid}")
+        
+        # define default climate candidate following classic work flow
+        climate_candidate = ClimateInputs(
+                    precip= wd / "precip_input_data.csv",
+                    airtemp= wd / "airtemp_input_data.csv",
+                    solrad= wd / "solrad_input_data.csv",
+                )
+        if climate_map:
+            try:
+                climate_candidate = ClimateInputs(
+                    precip= climate_map["precip_input"],
+                    airtemp=climate_map["airtemp_input"],
+                    solrad=climate_map["solrad_input"],
+                )
+            except Exception:
+                logger.exception("Invalid climate input map provided.")
 
-        fixed = ClimateInputs(
-            precip=wd / "precip_input_data_fixed.csv",
-            airtemp=wd / "airtemp_input_data_fixed.csv",
-            solrad=wd / "solrad_input_data_fixed.csv",
-        )
-        for p in (fixed.precip, fixed.airtemp, fixed.solrad):
+        for p in (climate_candidate.precip, climate_candidate.airtemp, climate_candidate.solrad):
             if not p.exists():
-                raise FileNotFoundError(f"Missing climate input (fixed): {p}")
+                raise FileNotFoundError(f"Missing climate input: {p}")
 
         backup_candidate = ClimateInputs(
             precip=wd / "precip_input_data_backup.csv",
@@ -65,8 +76,7 @@ class WorkflowFiles:
             if all(p.exists() for p in (backup_candidate.precip, backup_candidate.airtemp, backup_candidate.solrad))
             else None
         )
-
-        return WorkflowFiles(workdir=wd, grid=grid, climate_fixed=fixed, climate_backup=backup)
+        return WorkflowFiles(workdir=wd, grid=grid, climate_input=climate_candidate, climate_backup=backup)
 
 
 def _plots_dir(workdir):
@@ -134,22 +144,23 @@ def _builtin_plots(output_help, out_dir):
         logger.exception("PyHELP built-in plots failed unexpectedly.")
 
 
-def run_pyhelp(workdir):
+def run_pyhelp(workdir, climate_map: dict = {}):
 
-    files = WorkflowFiles.from_workdir(workdir)
+    files = WorkflowFiles.from_workdir(workdir, climate_map = climate_map)
     used_backup = 0
+
 
     logger.info("Running PyHELP in workdir: %s", files.workdir)
     logger.info("pyhelp.bilan module resolved at %s", getattr(HelpBilan, "__file__", "unknown"))
 
     # Run HELP (with fallback to backup climate inputs if fixed fails)
     try:
-        helpm, cellnames, output_help = _run_help_once(files.workdir, files.grid, files.climate_fixed)
+        helpm, cellnames, output_help = _run_help_once(files.workdir, files.grid, files.climate_input)
     except ValueError as e:
         if files.climate_backup is None:
             raise
         logger.warning("Fixed climate inputs failed (%s). Falling back to backup climate inputs.", e)
-        time.sleep(60)
+        time.sleep(300)
         used_backup = 1
         helpm, cellnames, output_help = _run_help_once(files.workdir, files.grid, files.climate_backup)
 

@@ -31,12 +31,12 @@ import re
 import sys
 import gc # garbage collector
 import pathlib
-from osgeo import gdal
-from osgeo import osr
-from osgeo import ogr
-from osgeo import gdalconst
+# from osgeo import gdal
+# from osgeo import osr
+# from osgeo import ogr
+# from osgeo import gdalconst
 import matplotlib.pyplot as plt
-import fiona
+# import fiona
 import datetime
 import math
 

@@ -7,7 +7,7 @@
 """
 # %% 
 # Import libraries
-import toolbox_newFuns_cerra as tb
+import toolbox_newFuns_cerra_dev as tb
 import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -28,10 +28,10 @@ verbose = True
 withDate = True
 
 # Processing steps
-doLocal = 1
+doLocal = 0
 doPyHelpInput = 1
-doTimeserie = 1
-doFigures = 1
+doTimeserie = 0
+doFigures = 0
 
 # Processsin parameters
 ## doLocal
@@ -40,7 +40,7 @@ localBuffer = 0.1 # buffer around catchment for local cerra extraction (in % of 
 
 ## doPyHelpInput
 # pyHelp_vars = ['2m_temperature', 'total_precipitation', 'surface_net_solar_radiation']
-pyHelp_vars = ['total_precipitation']
+pyHelp_vars = ['2m_temperature', 'total_precipitation', 'surface_net_solar_radiation']
 shrink_distance = 0.075  # % to shrink cerra grid bounds for pyHelp grid creation
 ### Time resolution
 timestep = 'D'  # 'D' daily, 'M' monthly

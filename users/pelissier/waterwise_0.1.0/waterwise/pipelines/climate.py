@@ -95,21 +95,21 @@ def _backup_csv(out_path: Path, lat, lon, dates, backup_series: pd.Series):
     tmp.to_csv(out_path, mode="a", header=False)
 
 
-def preprocess_climate_inputs(workdir: Path, decimals: int, date_window, logger):
+def preprocess_climate_inputs(climate_map: dict, 
+                              workdir: Path, decimals: int, date_window, logger):
     workdir.mkdir(parents=True, exist_ok=True)
-
     inputs = [
-        ("precip", workdir / "precip_input_data.csv", "max"),
-        ("airtemp", workdir / "airtemp_input_data.csv", "min"),
-        ("solrad", workdir / "solrad_input_data.csv", "max"),
+        ("precip", climate_map['precip_input'], "max"),
+        ("airtemp",  climate_map['airtemp_input'], "min"),
+        ("solrad", climate_map['solrad_input'], "max"),
     ]
 
     for name, raw_path, crit in inputs:
         lat, lon, dates, vals = _read_raw_pyhelp_csv(raw_path, decimals=decimals)
 
-        fixed_path = workdir / f"{name}_input_data_fixed.csv"
-        _fixed_pyhelp_csv(fixed_path, lat, lon, dates, vals)
-        logger.info(f"[climate] wrote {fixed_path.name}")
+        # fixed_path = workdir / f"{name}_input_data_fixed.csv"
+        # _fixed_pyhelp_csv(fixed_path, lat, lon, dates, vals)
+        # logger.info(f"[climate] wrote {fixed_path.name}")
 
         b = backup_climate(vals, crit)
 
@@ -120,7 +120,7 @@ def preprocess_climate_inputs(workdir: Path, decimals: int, date_window, logger)
         _backup_csv(backup_path, lat[col0], lon[col0], dates, vals.iloc[:, col0])
         logger.info(f"[climate] wrote {backup_path.name}")
 
-        for p in (fixed_path, backup_path):
+        for p in (raw_path, backup_path):
             filter_by_date(
                 p,
                 start_date=date_window.start_date,
@@ -131,11 +131,65 @@ def preprocess_climate_inputs(workdir: Path, decimals: int, date_window, logger)
             
             logger.info(f"[climate] filtered {p.name} to {date_window.start_date}..{date_window.end_date}")
 
-    climate_stats(workdir)
+    climate_stats(workdir, climate_map)
     logger.info("[climate] stats extracted")
 
 
 def copy_climate_from_cerra(site_id: str, climate_root: Path, workdir: Path, logger):
+    """
+    copy_climate_from_cerra 
+    Find source files for each pyHelp variable and create a copy in workdir.
+
+    :param site_id: _description_
+    :type site_id: str
+    :param climate_root: _description_
+    :type climate_root: Path
+    :param workdir: _description_
+    :type workdir: Path
+    :param logger: _description_
+    :type logger: _type_
+    :raises FileNotFoundError: _description_
+    :return: _description_
+    :rtype: _type_
+    """
+    src_dir = climate_root / site_id
+    if not src_dir.is_dir():
+        raise FileNotFoundError(f"Climate folder not found: {src_dir}")
+
+    files = sorted([p.name for p in src_dir.iterdir() if p.is_file()])
+
+    def pick(cond):
+        for f in files:
+            if f.startswith(site_id + "_") and cond(f):
+                return src_dir / f
+        return None
+
+    mapping = {
+        "precip_input": pick(lambda f: f"total_precipitation_pyhelp" in f),
+        "airtemp_input": pick(lambda f: f"2m_temperature_pyhelp" in f),
+        "solrad_input": pick(lambda f: f"surface_net_solar_radiation_pyhelp" in f),
+    }
+    
+    climate_map = {
+        'precip_input': None,
+        'airtemp_input': None,
+        'solrad_input': None,
+    }
+
+    workdir.mkdir(parents=True, exist_ok=True)
+    for var_name, src in mapping.items():
+        if src is None:
+            logger.warning(f"[climate] missing source for {var_name} (site={site_id})")
+            continue
+        dst = workdir / f'{var_name}_data.csv'
+        logger.info(f"[climate] {var_name} pyHelp input mapped at {src_dir / src}.")   
+        shutil.copyfile(src, dst)
+        logger.info(f"[climate] copied {src.name} -> {dst}")
+        climate_map[var_name] = dst                   
+    return climate_map
+
+# @TODO - remove check climate - not used in intergrated code
+def check_climate_from_cerra(site_id: str, climate_root: Path, workdir: Path, logger):
     src_dir = climate_root / site_id
     if not src_dir.is_dir():
         raise FileNotFoundError(f"Climate folder not found: {src_dir}")
@@ -150,31 +204,35 @@ def copy_climate_from_cerra(site_id: str, climate_root: Path, workdir: Path, log
         return None
 
     mapping = {
-        "precip_input_data.csv": pick(lambda f: "total_precipitation_pyhelp" in f),
-        "airtemp_input_data.csv": pick(lambda f: "2m_temperature_pyhelp" in f),
-        "solrad_input_data.csv": pick(lambda f: "surface_net_solar_radiation_pyhelp" in f),
+        'precip_input': pick(lambda f: "total_precipitation_pyhelp" in f),
+        'airtemp_input': pick(lambda f: "2m_temperature_pyhelp" in f),
+        'solrad_input': pick(lambda f: "surface_net_solar_radiation_pyhelp" in f),
+    }
+    climate_map = {
+        'precip_input': None,
+        'airtemp_input': None,
+        'solrad_input': None,
     }
 
     workdir.mkdir(parents=True, exist_ok=True)
-    for dst_name, src in mapping.items():
+    for var_name, src in mapping.items():
         if src is None:
-            logger.warning(f"[climate] missing source for {dst_name} (site={site_id})")
+            logger.warning(f"[climate] missing source for {var_name} (site={site_id})")
             continue
-        dst = workdir / dst_name
-        shutil.copyfile(src, dst)
-        logger.info(f"[climate] copied {src.name} -> {dst.name}")
-        
-        
-def climate_stats(workdir: Path):
+        climate_map[var_name] = src
+        logger.info(f"[climate] {var_name} pyHelp input mapped at {src_dir / src}.")       
+    return climate_map
+
+def climate_stats(workdir: Path, climate_map: dict):
     def _all_pixels(path: Path):
         df = pd.read_csv(path)
         data = df.iloc[1:, 1:].apply(pd.to_numeric, errors="coerce")
         vals = data.to_numpy().ravel()
         return float(vals.mean()), float(vals.std(ddof=1)), float(vals.min()), float(vals.max())
 
-    m_air, s_air, min_air, max_air = _all_pixels(workdir / "airtemp_input_data_fixed.csv")
-    m_sol, s_sol, min_sol, max_sol = _all_pixels(workdir / "solrad_input_data_fixed.csv")
-    m_pre, s_pre, min_pre, max_pre = _all_pixels(workdir / "precip_input_data_fixed.csv")
+    m_air, s_air, min_air, max_air = _all_pixels(climate_map['airtemp_input'])
+    m_sol, s_sol, min_sol, max_sol = _all_pixels(climate_map['solrad_input'])
+    m_pre, s_pre, min_pre, max_pre = _all_pixels(climate_map['precip_input'])
 
     clim = pd.DataFrame(
         [[m_pre, m_sol, m_air],
