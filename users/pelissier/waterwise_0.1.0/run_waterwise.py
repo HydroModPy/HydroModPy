@@ -15,10 +15,12 @@ from rasterio.mask import mask
 from shapely.geometry import box
 
 
-EXTERNAL_DIR = Path(r"C:\Users\Pelissierm\Hydromodpy")
+# MODIF 
+EXTERNAL_DIR = Path(r"D:/git/hydromodpy-waterwise")
 sys.path.insert(0, str(EXTERNAL_DIR))
 import src
 import importlib
+import numpy as np
 importlib.reload(src)
 
 from hydromodpy import watershed_root
@@ -36,7 +38,8 @@ from waterwise.waterwise_tools.elevation import plot_dem_hillshade_stream
 from waterwise.waterwise_tools.open_street_map import open_street_map
 from waterwise.waterwise_tools.google_satellite_map import google_satellite_map
 
-from waterwise.config import Paths, ClimateWindow, RunOptions
+from waterwise.config import Paths, ClimateWindow, RunOptions, CerraPaths
+from waterwise.config import CerraParams
 from waterwise.logging_utils import setup_logger
 from waterwise.io.paths import site_paths
 from waterwise.io.pyhelp_diagnostics import diag_reset, diag_section, diag_line
@@ -54,6 +57,7 @@ from waterwise.pipelines.climate import climate_stats
 import logging
 logging.raiseExceptions = False
 
+from cerra.climate_cerra import make_local_mask, make_local_cerra, make_pyhelp_inputs, make_local_csv
 
 
 #%%Helpers
@@ -186,22 +190,47 @@ def run_catchment(cfg, row, dem_path, out_path, sites, site_num):
 
 if __name__ == "__main__":
 
-    # PARAMS
-    SITES_XLSX = Path(r"C:\Users\Pelissierm\Waterwise_0.0.0\Waterwise_sites_may2025_test.xlsx")
-    XLSX_OUT = Path(r"C:\Users\Pelissierm\Waterwise_0.0.0\Waterwise_sites_may2025_updated.xlsx")
+# PARAMS PATHS
+    # Processing controle file
+    # Here version which start everything from scratch
+    SITES_XLSX = Path(r"D:/git/HydroModPy-WaterWise/users/pelissier/waterwise_0.1.0/data/Waterwise_sites_may2025_full_reset.xlsx")
+    # Processing controle file - copy for test
+    XLSX_OUT = Path(r"D:/git/HydroModPy-WaterWise/users/pelissier/waterwise_0.1.0/data/Waterwise_sites_may2025_updated.xlsx")
 
+    # CFG - configuration - Grid and climate data paths
     CFG = Paths(
-        data_root=Path(r"Z:\HDPY_database_forModelling"),
-        out_root=Path(r"C:\Users\Pelissierm\Waterwise\HDPY_models"),
-        climate_root=Path(r"Z:\HDPY_database_forModelling\_climate\_cerra\_pyHelpInput"),
-        base_grid_csv=Path(r"C:\Users\Pelissierm\Waterwise_0.0.0\data\PyHELP\Geomatics\test\input_grid_base.csv"),
+        data_root=Path(r"Z:/HDPY_database_forModelling"),
+        out_root=Path(r"D:/git/HydroModPy-WaterWise/users/pelissier/waterwise_0.1.0/output"),
+        climate_root=Path(r"Z:/HDPY_database_forModelling/_climate/_cerra/_pyHelpInput"),
+        base_grid_csv=Path(r"D:/git/HydroModPy-WaterWise/users/pelissier/waterwise_0.1.0/data/input_grid_base.csv"),
     )
 
-    RASTERS_DIR = Path(r"Z:\HDPY_database_forModelling\pyHELP_rasters")
+    CFG_CERRA = CerraPaths(
+        forecast_root = Path(r'Z:/_waterwise_data_process/_climate/_cerra_forecast/'),  #_{variable}/{year}/{year}_alps.nc,
+        land_root = Path(r'Z:/_waterwise_data_process/_climate/_cerra_land/'),          #_{variable}/{year}/{year}_alps.nc,
+        local_root = Path(r'Z:/HDPY_database_forModelling/_climate/_cerra/_local/'),    #_{siteId}/{siteId}_{variable}.nc
+        timeserie_root = Path(r'Z:/HDPY_database_forModelling/_climate/_cerra/_timeserie/'), 
+        alps_grid = Path(r'Z:/_waterwise_data_process/_climate/_cerra_forecast/cerra_grid_alps.nc'),
+    )
+
+    # to complite with relevant values
+    PARAMS_CERRA = CerraParams()
+
+    RASTERS_DIR = Path(r"Z:/HDPY_database_forModelling/pyHELP_rasters")
     DEM_PATH = "Z:/HDPY_database_forModelling/_dem/gedtm30_alps_epsg3035.tif"  
 
-    DATE_WINDOW = ClimateWindow("01/01/1993", "31/12/2020", "%d/%m/%Y")
-    OPT = RunOptions(True, True, True, True, True, True)
+    DATE_WINDOW = ClimateWindow("01/01/1985", "31/12/1990", "%d/%m/%Y")
+    OPT = RunOptions(
+            make_catchment = False,
+            make_grid = False,
+            make_climate_locale = True,
+            make_climate_timeserie = True,
+            make_climate_pyHelp = True,            
+            make_climate = False,
+            run_pyhelp =False,
+            make_plots = False,
+            save_png = True
+        )
 
     # log global
     CFG.out_root.mkdir(parents=True, exist_ok=True)
@@ -217,6 +246,7 @@ if __name__ == "__main__":
         if c not in df.columns:
             df[c] = 0
 
+    # site by site processing
     for i in df.index:
         site_id = str(df.at[i, "ID_name"])
         sp = site_paths(CFG.out_root, site_id)
@@ -232,7 +262,7 @@ if __name__ == "__main__":
             "shp.create",
             int(str(df.at[i, "shp_upload"]) == "1") if "shp_upload" in df.columns else 0
         )
-  
+
         ############CATCHMENT
         if OPT.make_catchment and int(df.at[i, "catchment_bnd"]) == 0:
             clip_shp = run_catchment(CFG, df.loc[i], DEM_PATH, str(CFG.out_root), sites=df, site_num=i)
@@ -291,20 +321,99 @@ if __name__ == "__main__":
             df.at[i, "catchment_characteristics"] = 1
 
         ############CLIMATE
+        # we keep out of the main code cerra europe to cerra alps for lisibility
+        # code will be provided in a separate folder @TODO
+        if OPT.make_climate_locale and int(df.at[i, "local_climate"]) == 0:
+            logger.info(f'{sp.site_id} | create site mask')
+            site_mask = make_local_mask( workdir = sp.site_root, 
+                alps_grid_file = CFG_CERRA.alps_grid,  
+                buffer = PARAMS_CERRA.local_buffer,
+                reset = True, 
+                site_epsg = PARAMS_CERRA.site_shape_epsg,
+                checkplot = False, verbose= False,
+                logger = logger)
+
+            if isinstance(site_mask,np.ndarray):
+                logger.info(f'{sp.site_id} | create local cerra')
+                local_files = make_local_cerra(
+                    mask = site_mask,
+                    site_id = sp.site_id,
+                    local_dir = CFG_CERRA.local_root,
+                    alps_forecast_dir = CFG_CERRA.forecast_root,
+                    alps_land_dir = CFG_CERRA.land_root,
+                    years = PARAMS_CERRA.date_window,
+                    logger = logger,
+                    reset = True,
+                    variables = {
+                        # '2m_temperature': 'forecast',
+                        'surface_solar_radiation_downwards': 'forecast',
+                        # 'total_precipitation' : 'land',                        
+                    })                
+            else:
+                logger.info('ERROR | fail to create mask')
+                local_files = []
+
+        if OPT.make_climate_timeserie and int(df.at[i, "local_climate"]) == 0:
+                make_local_csv(
+                            site_id = sp.site_id,
+                            local_dir = CFG_CERRA.local_root,
+                            variables = ['surface_solar_radiation_downwards'],#,'2m_temperature'],# 'total_precipitation','surface_solar_radiation_downwards'],
+                            logger = logger,
+                            checkplot = True,
+                            # shape = sp.site_root / f'results_stable/geographic/box_buff.shp',
+                            timeserie_dir = CFG_CERRA.timeserie_root
+                            )
+            
+        if OPT.make_climate_pyHelp and int(df.at[i, "local_climate"]) == 0:
+            logger.info(f'{sp.site_id} | make pyhelp inputs') 
+            # pyHelp input grid - 2 options:
+            # 1 - create new pyHelp Grid for the area.
+            # 2 - load a existing pyHelp grid for the area.
+            make_pyhelp_inputs(
+                site_id = sp.site_id,
+                grid_file = sp.results_pyhelp / 'input_grid.csv',
+                local_dir = CFG_CERRA.local_root,
+                pyhelp_dir = CFG.climate_root,
+                params = PARAMS_CERRA,
+                logger = logger,
+                variables = ['surface_solar_radiation_downwards'],#,'2m_temperature'], #: 'forecast',
+                        # 'surface_solar_radiation_downwards': 'forecast',
+                        # 'total_precipitation' : 'land',,                
+                verbose = False,
+                checkplot = True,
+                newGrid = False
+                )
+
         if OPT.make_climate and int(df.at[i, "local_climate"]) == 0:
-            copy_climate_from_cerra(site_id, CFG.climate_root, sp.results_pyhelp, logger)
-            preprocess_climate_inputs(sp.results_pyhelp, decimals=1, date_window=DATE_WINDOW, logger=logger)
-             
+            logger.info('step1')
+            climate_map = copy_climate_from_cerra(site_id, CFG.climate_root, sp.results_pyhelp, logger)
+            logger.info('step1')
+            preprocess_climate_inputs(climate_map, sp.results_pyhelp, 
+                                    decimals=1, date_window=DATE_WINDOW, logger=logger)
+
             pop.plot_climate_boxplots(workdir=str(sp.results_pyhelp), save_dir=str(sp.results_pyhelp / "boxplots_climate"))
             pop.plot_climate_mean_maps(workdir=str(sp.results_pyhelp), save_dir=str(sp.results_pyhelp / "climate_mean_map"))
             pop.plot_climate_timeseries_batch(workdir=str(sp.results_pyhelp), save_dir=str(sp.results_pyhelp / "climate_timeseries"))
 
             df.at[i, "local_climate"] = 1
 
+#%%
         ############PYHELP + PLOTS
         if OPT.run_pyhelp and int(df.at[i, "Pyhelp"]) == 0:
+            # climate_map_backup = {
+            #     'precip_input' : sp.results_pyhelp / "precip_input_data_backup.csv",
+            #     'airtemp_input': sp.results_pyhelp / "airtemp_input_data_backup.csv",
+            #     'solrad_input' : sp.results_pyhelp / "solrad_input_data_backup.csv"
+            # }
+            # from waterwise.pipelines.help_example_WW import WorkflowFiles
+            # files = WorkflowFiles.from_workdir(sp.results_pyhelp)
+
+            # print(files.climate_backup)
+            # print(files.climate_input)
+
             (sp.results_pyhelp / "plots_pyhelp").mkdir(parents=True, exist_ok=True)
-            ret, diag = run_pyhelp_simulation(run_pyhelp, sp.results_pyhelp, logger)
+            ret, diag = run_pyhelp_simulation(run_pyhelp, sp.results_pyhelp, logger) #,climate_map = climate_map_backup)
+            
             diag_line(str(CFG.out_root), "pyhelp.ok", diag)
             if ret == 0:
                 df.at[i, "Pyhelp"] = 1
@@ -313,3 +422,5 @@ if __name__ == "__main__":
 
     df.to_excel(XLSX_OUT, index=False)
     global_logger.info(f"[done] wrote {XLSX_OUT}")
+
+# %%
