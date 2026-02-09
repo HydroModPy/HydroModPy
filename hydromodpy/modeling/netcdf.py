@@ -142,6 +142,15 @@ class Netcdf:
         except:
             pass
         try:
+            dict_outflow_etr = np.load(os.path.join(self.save_file, 'outflow_etr'+'.npy'), allow_pickle=True).item()
+            self.export_netcdf(dict_outflow_etr,
+                            base_path = self.geographic.watershed_dem,
+                            out_path = os.path.join(self.netcdf_file, 'outflow_etr.nc'),
+                            base_crs = self.geographic.crs_proj,
+                            times = time)
+        except:
+            pass
+        try:
             dict_groundwater_flux = np.load(os.path.join(self.save_file, 'groundwater_flux'+'.npy'), allow_pickle=True).item()
             self.export_netcdf(dict_groundwater_flux,
                                base_path = self.geographic.watershed_dem,
