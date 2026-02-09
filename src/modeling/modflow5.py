@@ -22,6 +22,7 @@ from os.path import dirname, abspath
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import math
 
 # Warnings
 import warnings
@@ -101,6 +102,14 @@ class Modflow5(Process):
         
         
     # %%% PREPROCESSING
+    # preprocessing and processing modules
+    def processing_modules(self, shrenv):
+        for modname in self.get_module:
+            mod = self.get_module[modname]
+            mod.preprocessing(shrenv)
+            shrenv = mod.processing(shrenv)
+        return shrenv
+    
     def preprocessing(self,shrenv: dict={}):
         """
         Pre-processing to build the hydrologic model.
@@ -112,8 +121,8 @@ class Modflow5(Process):
         """
         # workflow paths consolidation
         self._workflow_paths()
-        # processing modules to get consolidated simulation parameters
-        shrenv = self._processing_modules(shrenv)
+        # # processing modules to get consolidated simulation parameters
+        # shrenv = self._processing_modules(shrenv)
         # load consolidated parameters into Modflow packages and prepare
         # simulation
         self._load_modflow_packages(shrenv) 
@@ -365,7 +374,7 @@ class Modflow5(Process):
                 count = 0
                 for i in range(0, self.dis.nrow):
                     for j in range(0, self.dis.ncol):
-                     # if self.drain_array[i,j] == 1:  #TODO@TB
+                     # if self.drain_array[i,j] == 1:  #TODO@TB: will return error if drains arent present everywhere on first layer (e.g. ocean)
                         self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
                         count = count + 1
                 self.out_drn = self.out_all[0]
@@ -764,11 +773,11 @@ class Modflow5(Process):
             self.bin_path = os.path.join(toolbox.hydromodpy_root(),'bin')
         
         if not os.path.exists(self.model_folder):
-            toolbox.create(self.model_folder) 
+            toolbox.create_folder(self.model_folder) 
             
         self.full_path = os.path.join(self.model_folder, self.model_name)
         if not os.path.exists(self.full_path):
-            toolbox.create(self.full_path)
+            toolbox.create_folder(self.full_path)
         
         if (sys.platform == 'win32') or (sys.platform == 'win64'):
             self.exe = os.path.join(self.bin_path, 'win' ,'mfnwt.exe')
@@ -779,13 +788,13 @@ class Modflow5(Process):
         self.full_path = os.path.join(self.model_folder, self.model_name)
     
     
-    # preprocessing and processing modules
-    def _processing_modules(self, shrenv):
-        for modname in self.get_module:
-            mod = self.get_module[modname]
-            mod.preprocessing(shrenv)
-            shrenv = mod.processing(shrenv)
-        return shrenv
+    # # preprocessing and processing modules
+    # def _processing_modules(self, shrenv):
+    #     for modname in self.get_module:
+    #         mod = self.get_module[modname]
+    #         mod.preprocessing(shrenv)
+    #         shrenv = mod.processing(shrenv)
+    #     return shrenv
     
     
     # load consolidated parameters into Modflow packages
@@ -1052,7 +1061,7 @@ class Modflow5(Process):
         modelxsect1 = flopy.plot.PlotCrossSection(model=self.mf, line={'Row': int((grid_model.shape[1])/2)})
         imhk = modelxsect1.plot_array(hk, masked_values=[-9999], cmap='jet', alpha=0.5, lw=0.1, ax=axs[0],
                                       # norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max())
-                                      norm=mpl.colors.LogNorm(vmin=1e-10, vmax=1e-1)
+                                      norm=mpl.colors.LogNorm(vmin=1e-7, vmax=1e1)
                                       )
         # modelxsect1.plot_grid(ax=axs[0])
         lenuni = sgrid.lenuni 
@@ -1092,5 +1101,11 @@ class Modflow5(Process):
         
         fig.suptitle(model_name.upper(), y=1.0, fontsize=10)
         fig.tight_layout()
-                
+        plt.show()
+        
+        # for i in list(range(len(hk[:,0,0]))):
+        #     plt.imshow(np.log10(hk[i,:,:]), interpolation='none')
+        #     plt.colorbar()
+        #     plt.show()
+        
 #%% NOTES

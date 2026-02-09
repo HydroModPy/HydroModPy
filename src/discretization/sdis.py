@@ -144,7 +144,7 @@ class SDis(Process):
         nlay   = self.get_iptpar['nlay']
         lthick = self.get_iptpar['lay_thickness']
         
-        if ~isinstance(lthick,list): 
+        if not isinstance(lthick,list): 
             lthick = [lthick] * nlay
         cthick = np.cumsum(lthick)
         botm = np.zeros((nlay,len(surf[:,0]),len(surf[0,:])))

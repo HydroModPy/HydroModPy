@@ -233,6 +233,8 @@ class Well(Process):
                                                        yini    = mapcoord[:,1],
                                                        crs_in  = crs_map,
                                                        crs_out = sgrid.crs.srs)
+        mappos[xheader] = mapcoord[:,0]
+        mappos[yheader] = mapcoord[:,1]
         # formate spatial grid cell coordinates
         xyzccenters = sgrid.xyzcellcenters
         xcenters    = xyzccenters[0][0,:]

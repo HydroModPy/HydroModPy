@@ -76,10 +76,14 @@ class HydraulicConductivity(Process):
                         crs_map_pos      = None,
                         colsep_map_pos   = '\t')
         # Companion parameter csv-file to geological map
-        self.set_iptpar(colsep_map_par = '\t')
+        self.set_iptpar(map_param_source = 'from_csv')
+        self.set_shrpar(mappar           = 'geol_map_param')
+        self.set_iptpar(colsep_map_par   = '\t')
         # Default parameters for reprojecting geological model into master 
         # spatial discretization
         self.set_iptpar(reprojection_sdis = 'closest_neighbor')
+        
+        self.set_iptpar(set_first_layer_as_facies = False)
         
     # %%% INSTANCIATION OF ABSTRACT METHODS FROM PROCESS CLASS
     def preprocessing(self,shrenv):
@@ -104,9 +108,13 @@ class HydraulicConductivity(Process):
             mappos   = pd.read_csv(mapposfp, sep = mapposcs)
             self._set_csdpar(mappos = mappos)
             # Companion parameter csv-file to geological map
-            mapparfp = self.get_iptpar['fpath_map_par']
-            mapparcs = self.get_iptpar['colsep_map_par'] 
-            mappar   = pd.read_csv(mapparfp, sep = mapparcs, index_col=0)
+            if self.get_iptpar['map_param_source'] == 'from_csv':
+                mapparfp = self.get_iptpar['fpath_map_par']
+                mapparcs = self.get_iptpar['colsep_map_par'] 
+                mappar   = pd.read_csv(mapparfp, sep = mapparcs, index_col=0)
+            elif self.get_iptpar['map_param_source'] == 'from_shrenv':
+                mapparnam = self.get_shrpar['mappar']
+                mappar = self.get_envar(shrenv,mapparnam)
             self._set_csdpar(mappar = mappar)     
             
         self._isPreprocessed = True
@@ -226,6 +234,9 @@ class HydraulicConductivity(Process):
             dist,points = closest_neighbors(mapcoord,gridcoord[['x','y','z']].to_numpy(),1)
             id_col = mappos[idheader].iloc[points].to_numpy()
             gridcoord[idheader]=id_col.astype(str)
+            # forces specific facies to op layer
+            if self.get_iptpar['set_first_layer_as_facies'] is not False:
+                gridcoord[idheader][gridcoord['l']==0] = self.get_iptpar['set_first_layer_as_facies']
             # replace facies id by its value given in companion csv-file
             mappar = mappar.transpose()
             mappar = mappar.set_index(mappar.index.astype(str))
