@@ -97,8 +97,9 @@ class SafranSurfex:
                             values.index.freq = values.index.inferred_freq
                         # values = values.loc[:,self.cells_list]
                         values = values[values.columns.intersection(self.cells_list)]
+                        values.columns = values.columns.astype(str)
                         values['MEAN'] = values.mean(numeric_only=True, axis=1)
-                        values.to_hdf(h5file, var+'/'+sce)
+                        values.to_hdf(path_or_buf=h5file, key=var+'/'+sce)
                         self.values[sim][var][sce] = values
                     except Exception as e:
                         logger.debug('No data for %s-%s: %s', sim, var, e)
@@ -174,12 +175,12 @@ class Merge:
                     
             # if (self.time_step == 'Y'):
             dfy = df.copy()
-            mask = dfy.resample("Y").count() >= 364
+            mask = dfy.resample("YE").count() >= 364
             if (var == 'TAS'):
-                dfy = dfy.resample("Y").mean()[mask]
+                dfy = dfy.resample("YE").mean()[mask]
             else:
                 # df = df.resample('Y').sum(min_count=364) # mm/year
-                dfy = dfy.resample("Y").mean()[mask]
+                dfy = dfy.resample("YE").mean()[mask]
             
             df.to_csv(self.data_folder+'_'+var+'_'+'D'+'.csv', sep=';')
             dfm.to_csv(self.data_folder+'_'+var+'_'+'M'+'.csv', sep=';')
