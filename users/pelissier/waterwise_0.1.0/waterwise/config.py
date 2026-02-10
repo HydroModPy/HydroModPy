@@ -42,7 +42,7 @@ class CerraParams:
     site_shape_epsg: int = 3035
 
     # Parameters used in make_local_climate
-    local_buffer: float = 0.1
+    local_buffer: float = 0.3
     local_checkplot: bool = True
     date_window = [1984,2025]
 

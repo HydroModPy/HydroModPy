@@ -219,12 +219,12 @@ if __name__ == "__main__":
     RASTERS_DIR = Path(r"Z:/HDPY_database_forModelling/pyHELP_rasters")
     DEM_PATH = "Z:/HDPY_database_forModelling/_dem/gedtm30_alps_epsg3035.tif"  
 
-    DATE_WINDOW = ClimateWindow("01/01/1985", "31/12/1990", "%d/%m/%Y")
+    DATE_WINDOW = ClimateWindow("01/01/1985", "31/12/2024", "%d/%m/%Y")
     OPT = RunOptions(
             make_catchment = False,
             make_grid = False,
-            make_climate_locale = True,
-            make_climate_timeserie = True,
+            make_climate_locale = False,
+            make_climate_timeserie = False,
             make_climate_pyHelp = True,            
             make_climate = False,
             run_pyhelp =False,
@@ -345,9 +345,9 @@ if __name__ == "__main__":
                     logger = logger,
                     reset = True,
                     variables = {
-                        # '2m_temperature': 'forecast',
+                        '2m_temperature': 'forecast',
                         'surface_solar_radiation_downwards': 'forecast',
-                        # 'total_precipitation' : 'land',                        
+                        'total_precipitation' : 'land',                        
                     })                
             else:
                 logger.info('ERROR | fail to create mask')
@@ -357,7 +357,7 @@ if __name__ == "__main__":
                 make_local_csv(
                             site_id = sp.site_id,
                             local_dir = CFG_CERRA.local_root,
-                            variables = ['surface_solar_radiation_downwards'],#,'2m_temperature'],# 'total_precipitation','surface_solar_radiation_downwards'],
+                            variables = ['2m_temperature','surface_solar_radiation_downwards','total_precipitation'],
                             logger = logger,
                             checkplot = True,
                             # shape = sp.site_root / f'results_stable/geographic/box_buff.shp',
@@ -376,14 +376,12 @@ if __name__ == "__main__":
                 pyhelp_dir = CFG.climate_root,
                 params = PARAMS_CERRA,
                 logger = logger,
-                variables = ['surface_solar_radiation_downwards'],#,'2m_temperature'], #: 'forecast',
-                        # 'surface_solar_radiation_downwards': 'forecast',
-                        # 'total_precipitation' : 'land',,                
+                variables = ['2m_temperature','surface_solar_radiation_downwards', 'total_precipitation'],                
                 verbose = False,
                 checkplot = True,
                 newGrid = False
                 )
-
+#%%
         if OPT.make_climate and int(df.at[i, "local_climate"]) == 0:
             logger.info('step1')
             climate_map = copy_climate_from_cerra(site_id, CFG.climate_root, sp.results_pyhelp, logger)
@@ -397,7 +395,7 @@ if __name__ == "__main__":
 
             df.at[i, "local_climate"] = 1
 
-#%%
+
         ############PYHELP + PLOTS
         if OPT.run_pyhelp and int(df.at[i, "Pyhelp"]) == 0:
             # climate_map_backup = {
@@ -420,7 +418,7 @@ if __name__ == "__main__":
                 if OPT.make_plots:
                     run_pyhelp_plots(pop, sp.results_pyhelp, site_id, logger)
 
-    df.to_excel(XLSX_OUT, index=False)
-    global_logger.info(f"[done] wrote {XLSX_OUT}")
+    # df.to_excel(XLSX_OUT, index=False)
+    # global_logger.info(f"[done] wrote {XLSX_OUT}")
 
 # %%

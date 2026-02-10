@@ -162,36 +162,61 @@ def make_pyhelp_inputs(
             logger.info(f'ERROR | Fail to create pyhelp grid.') 
             return False
     
-        ## generate_pyhelp_input
-        try:                
-            # Generate pyHelp input file on the defined grid
-            logger.info(f'{site_id} | generate pyhelp inputs from local cerra file')
-            # Define & create output folder
-            output_folder = pyhelp_dir / f'{site_id}'
-            output_folder.mkdir(parents = True, exist_ok = True)
-            for var_name in variables:                    
-                logger.info(f'{site_id} | generate pyhelp - {var_name}') 
+    ## generate_pyhelp_input
+        # Generate pyHelp input file on the defined grid
+    logger.info(f'{site_id} | generate pyhelp inputs from local cerra file')
+    # Define & create output folder
+    output_folder = pyhelp_dir / f'{site_id}'
+    output_folder.mkdir(parents = True, exist_ok = True)
+    for var_name in variables:                    
+        logger.info(f'{site_id} | generate pyhelp - {var_name}') 
 
-                local_cerra_file = local_dir / f'{site_id}/{site_id}_{var_name}.nc'
-                output_file = output_folder / f'{site_id}_{var_name}_pyhelp.csv'
-                if local_cerra_file.exists():
-                    data = tb.CERRA(local_cerra_file)
-                    logger.info(f'{site_id} | load local cerra') 
-                else:
-                    logger.error(f'{site_id} | CERRA file not found at {local_cerra_file} - Go to create local cerra.') 
-                    return False
-                logger.info(f'{site_id} | test') 
-                result = data.generate_pyHelp_file(gdf_helpGrid, df_helpGrid, var_name, 
-                                                rule = params.interpolation_rule, timestep = params.timestep, 
-                                                verbose = verbose,
-                                                save = output_file)      
-                logger.info(f'{site_id} | Saved at {output_file}')
-                        
-            logger.info(f'{site_id} | all pyhelp inputs generated')
-            return True
-        except:
-            logger.error(f'{site_id} | fail to generate pyhelp inputs')
+        local_cerra_file = local_dir / f'{site_id}/{site_id}_{var_name}.nc'
+        output_file = output_folder / f'{site_id}_{var_name}_pyhelp.csv'
+        if local_cerra_file.exists():
+            data = tb.CERRA(local_cerra_file)
+            logger.info(f'{site_id} | load local cerra') 
+        else:
+            logger.error(f'{site_id} | CERRA file not found at {local_cerra_file} - Go to create local cerra.') 
             return False
+        result = data.generate_pyHelp_file(gdf_helpGrid, df_helpGrid, var_name, 
+                                        rule = params.interpolation_rule, timestep = params.timestep, 
+                                        logger = logger,
+                                        verbose = verbose,
+                                        save = output_file)      
+        logger.info(f'{site_id} | Saved at {output_file}')
+                
+    logger.info(f'{site_id} | all pyhelp inputs generated')
+    return True
+    try:                
+        # Generate pyHelp input file on the defined grid
+        logger.info(f'{site_id} | generate pyhelp inputs from local cerra file')
+        # Define & create output folder
+        output_folder = pyhelp_dir / f'{site_id}'
+        output_folder.mkdir(parents = True, exist_ok = True)
+        for var_name in variables:                    
+            logger.info(f'{site_id} | generate pyhelp - {var_name}') 
+
+            local_cerra_file = local_dir / f'{site_id}/{site_id}_{var_name}.nc'
+            output_file = output_folder / f'{site_id}_{var_name}_pyhelp.csv'
+            if local_cerra_file.exists():
+                data = tb.CERRA(local_cerra_file)
+                logger.info(f'{site_id} | load local cerra') 
+            else:
+                logger.error(f'{site_id} | CERRA file not found at {local_cerra_file} - Go to create local cerra.') 
+                return False
+            logger.info(f'{site_id} | test') 
+            result = data.generate_pyHelp_file(gdf_helpGrid, df_helpGrid, var_name, 
+                                            rule = params.interpolation_rule, timestep = params.timestep, 
+                                            verbose = verbose,
+                                            save = output_file)      
+            logger.info(f'{site_id} | Saved at {output_file}')
+                    
+        logger.info(f'{site_id} | all pyhelp inputs generated')
+        return True
+    except:
+        logger.error(f'{site_id} | fail to generate pyhelp inputs')
+        return False
     
 def make_local_csv(site_id: str,
                 local_dir: Path,

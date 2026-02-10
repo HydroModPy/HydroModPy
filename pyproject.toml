@@ -68,7 +68,7 @@ dependencies = [
     "xarray",
     "pysheds",
     "pyside6",
-    "spyder-kernels",
+    "spyder-kernels"
 ]
 
 [project.optional-dependencies]
