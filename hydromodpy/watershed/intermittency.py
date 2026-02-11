@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import geopandas as gpd
 import whitebox
 import pandas as pd
@@ -32,7 +33,7 @@ class Intermittency:
     """
     Add streamflow intermittence data from specific data at France scale.
     """
-    
+
     def __init__(self, out_path: str, intermittency_path: str, file_name: str, geographic: object):
         """
         Parameters
@@ -48,7 +49,7 @@ class Intermittency:
             Variable object of the model domain (watershed).
         """
         logger.info('Extracting stream intermittency data from %s', intermittency_path)
-        
+
         data_folder = os.path.join(out_path,'results_stable','intermittency')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
@@ -66,9 +67,9 @@ class Intermittency:
             self.load_intermittency_data(data_folder)
         except:
             pass
-    
+
     #%% CLIP DATA FROM A FRANCE SCALE SHAPEFILE
-    
+
     def extract_intermittency_from_watershed(self, data_folder, intermittency_path, file_name, geographic):
         """
         Select the ONDE streamflow intermittence station at the model domain (watershed) scale.
@@ -92,9 +93,9 @@ class Intermittency:
             self.y_coord.append(raw.iloc[0]['<CoordYSit'])
             # self.date_first.append(pd.to_datetime(raw.iloc[0]['<DtRealObs'], format='%Y-%m-%d'))
             # self.date_last.append(pd.to_datetime(raw.iloc[-1]['<DtRealObs'],format='%Y-%m-%d'))
-    
-    #%% PLOT INTERMITTENCY DATA        
-    
+
+    #%% PLOT INTERMITTENCY DATA
+
     def load_intermittency_data(self, data_folder):
         """
         Load and plot ONDE streamflow intermittence data.
@@ -131,7 +132,7 @@ class Intermittency:
             ax.set_yticks(y_ticks)
             ax.set_yticklabels(['Dry','Invisible','Low','Acceptable','Visible'])
             ax.set_ylim(0.5,5.5)
-            ax.set_xlim(([pd.to_datetime('2012'), pd.to_datetime('2022')]))                  
+            ax.set_xlim(([pd.to_datetime('2012'), pd.to_datetime('2022')]))
             years = mdates.YearLocator(2)   # every 2 years
             ax.xaxis.set_major_locator(years)
             years_fmt = mdates.DateFormatter('%Y')
@@ -139,13 +140,13 @@ class Intermittency:
             yearsmin = mdates.YearLocator(1)
             ax.xaxis.set_minor_locator(yearsmin)
             months = mdates.MonthLocator(6)  # every month
-            months_fmt = mdates.DateFormatter('%m') #b = name of month ? 
+            months_fmt = mdates.DateFormatter('%m') #b = name of month ?
                 # ax.xaxis.set_minor_locator(months)
-            ax.grid(True, axis='x', which='major')   
+            ax.grid(True, axis='x', which='major')
             plt.tight_layout()
-            fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300, 
+            fig.savefig(self.fig_intermit+'/'+code+'_'+lab+'.png', dpi=300,
                         bbox_inches='tight', transparent=False)
             logger.debug("Intermittency station processed: %s", code)
             # plt.close()
-       
+
 #%% NOTES

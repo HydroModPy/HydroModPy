@@ -1,0 +1,915 @@
+# -*- coding: utf-8 -*-
+"""
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy,
+ * Alexandre Coche
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+"""
+
+#%% LIBRAIRIES
+
+# Python
+import os
+import logging
+import pandas as pd
+import numpy as np
+
+# HydroModPy
+from hydromodpy.tools import toolbox
+
+#%% CLASS
+
+class Streamflow_seepage:
+
+    
+    #%% INIT
+    
+    def __init__(self, geographic : object, area=None, mainstream_threshold=0.1,
+                 icalc:int=0, thickm:float=0.1, 
+                 depth:float=0, hcond:float=0.08, width:float=None, 
+                 slope:float=0.1, rchlen:float=None, roughch:float=0, 
+                 runoff=None, critical_mode=None, 
+                 correction_multiple_reaches:bool=False,
+                 correction_elevations:bool=True, reach_data=None,
+                 segment_data=None):
+        
+        """
+        Class to initialize the streamflow seepage option.
+
+        Parameters
+        ----------
+        geographic : object
+            DESCRIPTION
+        area : str, optional
+            'mainstream' | 'watershed' | 'domain' | None (default)
+            Flag to choose whether the SFR seepage is applied on the main
+            river, on the watershed or on the whole modeled domain.
+        mainstream_threshold : 
+            Threshold (ratio of maximum accumulation flux) above which the 
+            stream is considered to be part of the main stream.
+            The default is 0.1 (10%).
+        icalc : integer, optional
+            The default is 0 (no computation of flow thickness and width)
+        thickm : float, optional
+            Average streambed thickness. The default is 0.1.
+        depth : float, optional
+            Average water depth. The default is 0.
+        hcond : float, optional
+            Avergae streambed conductivity. The default is 0.08.
+            (Note : Can be 0.085)
+        width : float, optional
+            Average channel width. The default is the length of a cell.
+        slope : float, optional
+            The average slope of the streambed. The default is 0.1 (10%).
+        rchlen
+            length of the channel. The default is the lenght of a cell.
+        roughch : float, optional
+            Only used when icalc = 1 (rectangular Manning routing)
+            The defualt is 0.
+        runoff : optional
+            Can be a float or a pandas.core.series.Series or a xarray.DataSet.
+            If specified, this flow is added in the streamflow in the 
+            corresponding cells.
+        critical_mode : str, optional
+            A flag or a filepath to indicate which cells are critical for
+            convergence and whose conductance should be adapted.
+            The default is None. If None, no correction is applied.
+        correction_multiple_reaches : bool, optional
+            Flag to indicate whether to remove multiple reaches located on the 
+            same cell or not.
+            The default is False
+        correction_elevations : bool, optional
+            Flag to indicate whether to correct streambed elevations and slopes
+            to avoid any sink or flat zone.
+            The default is True
+        reach_data : pandas.DataFrame, optional
+            The default is None
+        segment_data : pandas.DataFrame, optional
+            The default is None
+            
+            
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        # ---- Create folder (in 'results_stable')
+        self.sfr_seepage_folder = os.path.join(geographic.stable_folder, "sfr_seepage")
+        if not os.path.exists(self.sfr_seepage_folder):
+            os.makedirs(self.sfr_seepage_folder)
+        
+        # ---- Initialize parameter values
+        self.icalc = icalc # No computation of flow thickness and width
+        
+        self.thickm = thickm # average streambed thickness
+        self.depth = depth # average depth of water in the channel
+        self.hcond = hcond # average streambed conductivity
+        self.hcond_max = hcond # value used to fill segment hcond1/hcond2
+        self.slope = slope # average channel slope
+        if width is None: # average channel width
+            self.width = geographic.resolution
+        else:
+            self.width = width
+        if rchlen is None: # average channel lenght in each cell
+            # self.rchlen = geographic.resolution * (1/4 + 1/(2*np.sqrt(2))) # average straight euclidien length
+            self.rchlen = geographic.resolution
+        else:
+            self.rchlen = rchlen
+        self.roughch = roughch
+        self.runoff = runoff
+            
+        self.area = area # area where the SFR seepage will be applied
+        self.mainstream_threshold = mainstream_threshold
+        
+        # Load data or not
+        self.load_reach_data = reach_data
+        self.load_segment_data = segment_data
+        
+        self.critical_mode = critical_mode # 
+        self.crit_area = None # Should be defined by calling 
+                              # correct_critical_cells() function
+        
+        self.correction_multiple_reaches = correction_multiple_reaches # Remove double reaches
+        self.correction_elevations = correction_elevations # correct elevations and slopes to
+                                                           # avoid sinks and flat areae
+
+    #%% Renumber segments
+    def renumber_segments(self):
+        """
+        Method modified from mfsfr2.py.
+        
+        Note: This method has been corrected in order to be fully compatible
+        with the presence of lakes/reservoirs. It can even be used after 
+        the lake correction as well: it can be called for example just before 
+        '# 7. Fill in the parameter values' (7% slower than current procedure). 
+        
+        Renumber segments so that segment numbering is continuous and always
+        increases in the downstream direction. This may speed convergence of
+        the NWT solver in some situations.
+    
+        Returns
+        -------
+        r : dictionary mapping old segment numbers to new
+        """
+    
+        nseg = sorted(list(self.segment_data_1.index))
+        outseg = [self.segment_data_1.loc[k, 'outseg'].item() for k in nseg]
+    
+        # explicitly fix any gaps in the numbering
+        # (i.e. from removing segments)
+        nseg2 = np.arange(1, len(nseg) + 1)
+        # intermediate mapping that
+        r1 = dict(zip(nseg, nseg2))
+        r1[0] = 0
+        outseg_array = np.array(outseg)
+        for neg_out in outseg_array[outseg_array < 0]:
+            r1[neg_out] = neg_out # handle lakes
+        outseg2 = np.array([r1[s] for s in outseg])
+    
+        # function re-assigning upseg numbers consecutively at one level
+        # relative to outlet(s).  Counts down from the number of segments
+        def reassign_upsegs(r, nexts, upsegs):
+            nextupsegs = []
+            for u in upsegs:
+                r[u] = nexts if u > 0 else u  # handle lakes
+                nexts -= 1
+                nextupsegs += list(nseg2[outseg2 == u])
+            return r, nexts, nextupsegs
+    
+        ns = len(nseg)
+    
+        # start at outlets with nss;
+        # renumber upsegs consecutively at each level
+        # until all headwaters have been reached
+        nexts = ns
+        r2 = {0: 0}
+        for neg_out in outseg_array[outseg_array < 0]:
+            r2[neg_out] = neg_out # handle lakes
+        nextupsegs = nseg2[outseg2 <= 0]
+        for _ in range(ns):
+            r2, nexts, nextupsegs = reassign_upsegs(r2, nexts, nextupsegs)
+            if len(nextupsegs) == 0:
+                break
+        # map original segment numbers to new numbers
+        r = {k: r2.get(v, v) for k, v in r1.items()}
+    
+        # renumber segments
+        self.segment_data_1.index = [
+            r.get(s, s) for s in self.segment_data_1.index
+        ]
+        self.segment_data_1["outseg"] = [
+            r.get(s, s) for s in self.segment_data_1.outseg
+        ]
+        self.segment_data_1.sort_index(inplace = True)
+        nseg = self.segment_data_1.index
+        outseg = self.segment_data_1.outseg
+        inds = (outseg > 0) & (nseg > outseg)
+        assert not np.any(inds)
+        assert (
+            len(self.segment_data_1.index)
+            == self.segment_data_1.index.max()
+        )
+        
+        self.segment_data_1.index.name = 'nseg'
+    
+        # renumber segments in reach_data
+        self.reach_data["iseg"] = [r.get(s, s) for s in self.reach_data.iseg]
+        self.reach_data.sort_values(by = ['iseg', 'ireach'], inplace = True)
+        self.reach_data.index = np.arange(1, len(self.reach_data) + 1)
+
+
+    #%% Define seepage area where StreamFLow Routing will be applied
+    def SFR_seepage_area(self, geographic, dem, dem_domain_path ):
+        self.dem = dem
+        # Discretization: by default, the number of rows and columns is the DEM discretization
+        self.nrow = dem.shape[0]
+        self.ncol = dem.shape[1]
+        self.resolution = geographic.resolution
+        
+        # ---- Define the area of SFR seepage
+        self.direc, _, _, _ = toolbox.load_to_numpy(geographic.watershed_box_buff_direc)
+        
+        if self.area == 'mainstream':
+        # SFR seepage is only applied on the main river
+            self.watershed_mask, _, _, nodata = toolbox.load_to_numpy(
+               geographic.watershed_dem,
+               src_crs = geographic.crs_proj, 
+               base_path = geographic.watershed_dem,
+               dst_crs = geographic.crs_proj)
+           
+            acc_map, _, _, nodata = toolbox.load_to_numpy(
+                os.path.join(geographic.reg_path, 'region_acc.tif'), 
+                src_crs = geographic.crs_proj, 
+                base_path = geographic.watershed_dem, 
+                dst_crs = geographic.crs_proj)
+
+            self.watershed_mask = np.ma.where(acc_map >= self.mainstream_threshold*acc_map.max(), self.watershed_mask, nodata)
+            
+            self.direc = np.ma.array(
+                self.direc.astype(np.int32), mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+            
+        elif self.area == 'watershed':
+        # SFR seepage is applied on the whole watershed
+            self.watershed_mask, _, _, nodata = toolbox.load_to_numpy(
+                geographic.watershed_dem,
+                src_crs = geographic.crs_proj, 
+                base_path = geographic.watershed_dem,
+                dst_crs = geographic.crs_proj) 
+            self.direc = np.ma.array(
+                self.direc.astype(np.int32), mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+            
+        elif self.area == 'domain':
+        # SFR seepage is applied on the whole domain
+            self.watershed_mask, _, _, nodata = toolbox.load_to_numpy(
+                dem_domain_path,
+                src_crs = geographic.crs_proj, 
+                base_path = geographic.watershed_dem,
+                dst_crs = geographic.crs_proj)
+            self.direc = np.ma.array(
+                self.direc.astype(np.int32), mask = self.watershed_mask==nodata, fill_value = nodata) # masked np.ndarray
+
+
+    #%% LOAD REACH AND SEGMENT DATA
+    def load_data(self, reach_data, segment_data):
+        """
+        
+
+        Parameters
+        ----------
+        reach_data : str, path
+            Filepath to the .csv file.
+        segment_data : str, path
+            Filepath to the .csv file.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.load_reach_data = reach_data
+        self.load_segment_data = segment_data
+    
+    
+    #%% UPDATE PARAMETER VALUES
+    def update_area(self, area, mainstream_threshold=None):
+        self.area = area
+        if mainstream_threshold is not None:
+            self.mainstream_threshold = mainstream_threshold
+    
+    def update_reach_data(self, param_name, param_value):
+        # self.reach_data[param_name] = param_value   
+        if param_name in ['rchlen']:
+            self.rchlen = param_value
+        
+    def update_segment_data(self, param_name, param_value):
+        # self.segment_data_1[param_name] = param_value
+        if param_name in ['thickm1', 'thickm2', 'thickm']:
+            self.thickm = param_value
+        elif param_name in ['depth1', 'depth2', 'depth']:
+            self.depth = param_value
+        elif param_name in ['hcond1', 'hcond2', 'hcond']:
+            self.hcond_max = param_value
+        elif param_name in ['width1', 'width2', 'width']:
+            self.width = param_value
+        elif param_name == 'roughch':
+            self.roughch = param_value
+        elif param_name == 'runoff':
+            self.runoff = param_value
+            
+    def correct(self, param_name, param_value):
+        if param_name == 'multiple_reaches':            
+            self.correction_multiple_reaches = param_value
+        if param_name == 'elevations':
+            self.correction_elevations = param_value
+    
+    
+    #%% GENERATE REACH AND SEGMENT DATA (LOAD or AUTOMATICALLY COMPUTE)
+    def compute_data(self, lakarr=None):
+        ### Initialize reach and segment info:
+         # NOTE: self.reach_data is first created as a pandas.dataframe and then 
+         # converted into a numpy.recarray. It is not directly created as a 
+         # recarray because of the difficulty to handle and modify recarrays.
+         # Same for self.segment_data_1
+        
+        # ---- Load (if specified)
+        if (self.load_reach_data is not None) & (self.load_segment_data is not None):
+            if os.path.isfile(self.load_reach_data) & os.path.isfile(self.load_segment_data):
+# =============================================================================
+#                 # version recarray
+#                 self.reach_data = np.genfromtxt(reach_data_path, delimiter=';', names=True)
+# =============================================================================
+                self.reach_data = pd.read_csv(self.load_reach_data, sep=';')
+# =============================================================================
+#                 # version reacarray
+#                 self.segment_data_1 = np.genfromtxt(segment_data_path, delimiter=';', names=True)
+# =============================================================================
+                self.segment_data_1 = pd.read_csv(self.load_segment_data, sep=';') 
+                
+                self.cond_drain = self.segment_data_1['hcond'].mean() \
+                    * self.segment_data_1['rchlen'].mean() \
+                        * self.segment_data_1['width'] / self.segment_data_1['thickm'].mean()
+                
+        # ---- Otherwise:
+        elif self.area is not None :    
+            # ---- Initialize
+            self.reach_data = pd.DataFrame(
+                index = range(0, (~np.isnan(self.direc)).sum()), 
+                              # (~np.isnan(self.direc)).sum(), 
+                              # self.direc.count(),
+                columns = ['k', 'i', 'j', 'iseg', 'ireach','rchlen', 'strtop', 
+                           'slope'])
+                
+            self.segment_data_1 = pd.DataFrame(columns = ['icalc', 'outseg', 'iupseg',
+                                                     'nstrpts', 'flow', 'roughch',
+                                                     'roughbk', 'cdpth', 'fdpth',
+                                                     'awdth', 'bwdth', 'hcond1',
+                                                     'thickm1', 'elevup', 'width1',
+                                                     'depth1', 'hcond2', 'thickm2',
+                                                     'elevdn', 'width2', 'depth2',
+                                                     'runoff'])
+            # Note: self.segment_data_1 is the data for the 1st stress period
+            self.segment_data_1.index.name = 'nseg'
+            self.segment_data_1['outseg'] = 0
+            self.reach_data['ireach'] = 1
+            self.reach_data['iseg'] = 0 # range(1, self.direc.count()+1)
+            self.reach_data['slope'] = self.slope
+            ilist = [ij[0] for ij, _ in np.ma.ndenumerate(self.direc)]
+            jlist = [ij[1] for ij, _ in np.ma.ndenumerate(self.direc)]
+            self.reach_data['i'] = ilist
+            self.reach_data['j'] = jlist
+            
+            # Note: k, rchlen, strtop and slope are corrected in the next sections
+            
+            # ---- Recursive generation of segments and reaches      
+            # 1. Convert D8 local direction codes into indexes i and j:
+                # Notes: D8 notation from WhiteToolBox differs from the standard D8 notation
+                # see https://www.whiteboxgeo.com/manual/wbt_book/available_tools/hydrological_analysis.html#D8Pointer
+            downstream_ij_by_val = {
+                0: (0, 0), 
+                1: (-1, 1), #128 (esri code)
+                2: (0, 1), #1 
+                4: (1, 1), #2
+                8: (1, 0), #4
+                16: (1, -1), #8
+                32: (0, -1), #16
+                64: (-1, -1), #32
+                128: (-1, 0), #64
+                }
+                
+            self.upstream_cells_by_ij = {
+                (self.reach_data.loc[r, 'i'], self.reach_data.loc[r, 'j']): [] \
+                    for r in self.reach_data.index}
+            for i, j in self.upstream_cells_by_ij.keys():
+                val = self.direc[i, j]
+                i2 = i + downstream_ij_by_val[val][0]
+                j2 = j + downstream_ij_by_val[val][1]
+                    
+                # if the downstream cell is part of the valid domain:
+                if val != 0:
+                    if (i2 <= self.nrow-1) & (i2 >= 0) & (j2 <= self.ncol-1) & (j2 >= 0):
+                        if not np.ma.is_masked(self.direc[i2, j2]):
+                            self.upstream_cells_by_ij[(i2, j2)] += [(i, j)]
+            
+            # 2. Get all the outlets
+            outlet_map = self.direc.copy()
+            outlet_map.mask = True
+            
+            for ij, val in np.ma.ndenumerate(self.direc):
+                i = ij[0]
+                j = ij[1]
+                i2 = i + downstream_ij_by_val[val][0]
+                j2 = j + downstream_ij_by_val[val][1]
+                
+                if val == 0:
+                # all cells with local drain direction = 0 are internal outlets
+                    outlet_map.mask[i, j] = False
+                elif (i2 > self.nrow-1) | (i2 < 0) | (j2 > self.ncol-1) | (j2 < 0):
+                # downstream cell outside of the box domain
+                    outlet_map.mask[i, j] = False
+                elif self.direc.mask[i2, j2] == True:
+                # downstream cell outside of the valid data region
+                    outlet_map.mask[i, j] = False
+                
+            outlets = [ij for ij, _ in np.ma.ndenumerate(outlet_map)]    
+            
+            # 3. Definition of the recursive function
+            def stream_reconstruct(ij_outlet, last_iseg):            
+                self.segment_data_1.loc[last_iseg, 'icalc'] = self.icalc # in order to initialize a new row
+                ireach = 1
+                
+                # While there is one and only one upstream cell:
+                while len(self.upstream_cells_by_ij[ij_outlet]) == 1:
+                    self.reach_data.loc[
+                        self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+                        ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+                                                         ij_outlet[1],
+                                                         last_iseg,
+                                                         ireach]
+                    ij_outlet = self.upstream_cells_by_ij[ij_outlet][0]
+                    ireach += 1
+                    
+                # if there are several upstream cells
+                if len(self.upstream_cells_by_ij[ij_outlet]) > 1:
+                    self.reach_data.loc[
+                        self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+                        ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+                                                         ij_outlet[1],
+                                                         last_iseg,
+                                                         ireach]
+                    downstream_iseg = last_iseg
+                    for ij_tributary in self.upstream_cells_by_ij[ij_outlet]:
+                        last_iseg += 1
+                        self.segment_data_1.loc[last_iseg, 'outseg'] = downstream_iseg
+                        last_iseg = stream_reconstruct(ij_tributary, last_iseg)
+                    return last_iseg
+                
+                # if there is no upstream cell:
+                else:
+                    self.reach_data.loc[
+                        self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+                        ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+                                                         ij_outlet[1],
+                                                         last_iseg,
+                                                         ireach]
+                    return last_iseg
+
+            # 3bis. Definition of the recursive function, adapted for lakes/reservoirs
+# =============================================================================
+#             def stream_lake_reconstruct(ij_outlet, last_iseg):            
+#                 self.segment_data_1.loc[last_iseg, 'icalc'] = self.icalc # in order to initialize a new row
+#                 ireach = 1
+#                 
+#                 # While there is one and only one upstream cell:
+#                 while len(self.upstream_cells_by_ij[ij_outlet]) == 1:
+#                     self.reach_data.loc[
+#                         self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+#                         ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+#                                                          ij_outlet[1],
+#                                                          last_iseg,
+#                                                          ireach]
+#                     ij_outlet = self.upstream_cells_by_ij[ij_outlet][0]
+#                     ireach += 1
+#                     
+#                 # if there are several upstream cells
+#                 if len(self.upstream_cells_by_ij[ij_outlet]) > 1:
+#                     self.reach_data.loc[
+#                         self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+#                         ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+#                                                          ij_outlet[1],
+#                                                          last_iseg,
+#                                                          ireach]
+#                     downstream_iseg = last_iseg
+#                     for ij_tributary in self.upstream_cells_by_ij[ij_outlet]:
+#                         last_iseg += 1
+#                         self.segment_data_1.loc[last_iseg, 'outseg'] = downstream_iseg
+#                         last_iseg = stream_reconstruct(ij_tributary, last_iseg)
+#                     return last_iseg
+#                 
+#                 # if there is no upstream cell:
+#                 else:
+#                     self.reach_data.loc[
+#                         self.reach_data.loc[self.reach_data['iseg'] == 0].index[0], 
+#                         ['i', 'j', 'iseg', 'ireach']] = [ij_outlet[0],
+#                                                          ij_outlet[1],
+#                                                          last_iseg,
+#                                                          ireach]
+#                     return last_iseg
+# =============================================================================
+    
+            # 4. Call the recursive method:   
+            last_iseg = 1
+# =============================================================================
+#             if use_lakeres == False:
+#                 for ij_outlet in outlets:
+#                     last_iseg = stream_reconstruct(ij_outlet, last_iseg) + 1
+#             elif use_lakeres == True:
+#                 for ij_outlet in outlets:
+#                     last_iseg = stream_lake_reconstruct(ij_outlet, last_iseg) + 1
+# =============================================================================
+            for ij_outlet in outlets:
+                last_iseg = stream_reconstruct(ij_outlet, last_iseg) + 1
+             
+            # Note: if self.segment_data_1 contains nan, Modflow crashes
+            self.segment_data_1 = self.segment_data_1.fillna(0)
+            self.reach_data.fillna(0)
+            
+            # 5. Reverse segment and reach numbering: 
+             # reverse 'ireach' in reach_data:
+            for iseg in self.segment_data_1.index:
+                self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'] \
+                    = self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach'].max() + 1 \
+                        - self.reach_data.loc[self.reach_data['iseg'] == iseg, 'ireach']
+             # reverse row order in reach_data:
+            self.reach_data = self.reach_data[::-1]
+            self.reach_data.index = self.reach_data.index[::-1]
+             # reverse 'iseg' in reach_data:
+            self.reach_data['iseg'] = self.reach_data['iseg'].max() + 1 - self.reach_data['iseg']
+             # reverse 'outseg' in segment_data_1:
+            special_idx = self.segment_data_1[
+                self.segment_data_1['outseg'] <= 0].index.copy() # save indices of outlet or lake outsegs
+            special_outseg = self.segment_data_1.loc[special_idx, 'outseg'].copy()
+            self.segment_data_1['outseg'] = self.segment_data_1.index.max() + 1 \
+                - self.segment_data_1['outseg']
+            self.segment_data_1.loc[special_idx, 'outseg'] = special_outseg # set back outlet or lake outsegs
+             # reverse 'nseg' in segment_data_1:
+            self.segment_data_1.index = self.segment_data_1.index.max() + 1 \
+                - self.segment_data_1.index
+            self.segment_data_1 = self.segment_data_1[::-1]
+            # self.segment_data_1.index = self.segment_data_1.index[::-1]
+            
+            # Renumber segments
+            self.renumber_segments()
+            
+            # 6. Lake correction
+            if lakarr is not None:
+                for idr, r in self.reach_data.iterrows():
+                # (it is important that reach_data is ordered here? Apparently not?)
+                    # If this reach is under a lake:
+                    if lakarr[r['i'], r['j']] > 0:
+                        # The reach will be removed (at the end of this procedure)
+                        nseg = r['iseg']
+                        
+                        # # Remove all reaches belonging to this segment
+                        # self.reach_data = self.reach_data[self.reach_data.iseg != nseg]
+                        
+                        # Correct outsegs
+                        # ---------------
+                        # It it is the (remaining) downstream reach, correct the outlet on the current segment:
+                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].max():
+                            self.segment_data_1.loc[nseg, 'outseg'] = -lakarr[r['i'], r['j']]
+                            is_dnstr = True
+                        else:
+                            is_dnstr = False
+                        
+                        # If it is the (remaining) upstream reach, correct the outlet on the upstream segment (if any):
+                        if r['ireach'] == self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'ireach'].min():
+                            self.segment_data_1.loc[
+                                self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+                                'outseg'] = -lakarr[r['i'], r['j']]
+                            is_upstr = True
+                        else:
+                            is_upstr = False
+                            
+                        # It it is an intermediary reach (tricky), split the segment into 2:
+                        if (not is_dnstr) & (not is_upstr):
+                            logging.warning(f"Intermediary reach {[r['ireach']]} on segment {nseg} on cell {r['i']}, {r['j']}")
+                            logging.info("Not implemented yet (see compute_data() in streamflow_seepage.py)")
+
+                        # Remove the segment (if relevant)
+                        # ------------------
+                        # If it was the only (remaining) reach on the segment
+                        if (self.reach_data.iseg == nseg).sum() == 1:
+                            # Remove this whole segment in segment_data
+                            self.segment_data_1 = self.segment_data_1[self.segment_data_1.index != nseg]
+                            
+                        # Remove the reach
+                        # ----------------
+                        self.reach_data = self.reach_data[self.reach_data.index != idr]
+                    
+                    else:
+                        up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
+                        for upcell in up_ij:
+                            # Correct iupsegs
+                            if lakarr[upcell[0], upcell[1]] > 0:
+                                nseg = r['iseg']
+                                # self.segment_data_1.loc[
+                                #     self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+                                #     'iupseg'] = -lakarr[upcell[0], upcell[1]]
+                                self.segment_data_1.loc[
+                                    nseg, ['icalc', 'iupseg']
+                                    ] = [1, -lakarr[upcell[0], upcell[1]]]
+
+            # 6. Lake correction (v2)
+# =============================================================================
+#             if lakarr is not None:
+#                 # For each segment
+#                 for nseg, s in self.segment_data_1.iterrows():
+#                     # If the whole segment is under the lake, it is removed
+#                     count_underlake = 0
+#                     mask = self.reach_data.iseg == nseg
+#                     for _, r in self.reach_data[mask].iterrows():
+#                         if lakarr[r['i'], r['j']] > 0:
+#                             count_underlake += 1
+#                     
+#                     # If all the reaches of this segment are under a lake:
+#                     if count_underlake == mask.sum():
+#                         # Correct outseg of upstream segments
+#                         self.segment_data_1.loc[
+#                             self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+#                             'outseg'] = -lakarr[r['i'], r['j']]
+#                         
+#                         # Remove the segment (in segment data)
+#                         self.segment_data_1 = self.segment_data_1[self.segment_data_1.index != nseg]
+#                         
+#                         # Remove the reaches (in reach data)
+#                         self.reach_data = self.reach_data[~mask]
+#                     
+# # =============================================================================
+# #                     else:
+# #                         up_ij = self.upstream_cells_by_ij[r['i'], r['j']]
+# #                         for upcell in up_ij:
+# #                             # Correct iupsegs
+# #                             if lakarr[upcell[0], upcell[1]] > 0:
+# #                                 nseg = r['iseg']
+# #                                 # self.segment_data_1.loc[
+# #                                 #     self.segment_data_1[self.segment_data_1.outseg == nseg].index,
+# #                                 #     'iupseg'] = -lakarr[upcell[0], upcell[1]]
+# #                                 self.segment_data_1.loc[
+# #                                     nseg, ['icalc', 'iupseg']
+# #                                     ] = [1, -lakarr[upcell[0], upcell[1]]]
+# # =============================================================================
+# =============================================================================
+
+            # Corect the gaps after the lake correction
+            self.segment_data_1.sort_index(inplace = True)
+            self.reach_data.sort_values(by = ['iseg', 'ireach'], inplace = True)
+            last_nseg = 0
+            for nseg, _ in self.segment_data_1.iterrows():
+                corr_nseg = last_nseg + 1
+                # if there is a gap in nsegs:
+                if nseg > corr_nseg:
+                    # correct the nseg in segment_data
+                    self.segment_data_1.rename(index = {nseg: corr_nseg}, inplace = True)
+                    # correct the outseg in segment_data
+                    self.segment_data_1.loc[self.segment_data_1[self.segment_data_1.outseg == nseg].index, 'outseg'] = corr_nseg
+                    # correct the iupseg in segment_data
+                    self.segment_data_1.loc[self.segment_data_1[self.segment_data_1.outseg == nseg].index, 'iupseg'] = corr_nseg
+                    # correct the iseg in reach_data
+                    self.reach_data.loc[self.reach_data[self.reach_data.iseg == nseg].index, 'iseg'] = corr_nseg
+                # correct the reach numbering
+                idr = self.reach_data[self.reach_data.iseg == corr_nseg].index
+                self.reach_data.loc[idr, 'ireach'] = range(1, len(idr) + 1)
+                last_nseg = corr_nseg
+
+            # 7. Fill in the parameter values
+            self.reach_data['rchlen'] = self.rchlen
+            
+            self.segment_data_1['thickm1'] = self.thickm
+            self.segment_data_1['thickm2'] = self.thickm
+            self.segment_data_1['depth1'] = self.depth
+            self.segment_data_1['depth2'] = self.depth
+            self.segment_data_1['hcond1'] = self.hcond_max
+            self.segment_data_1['hcond2'] = self.hcond_max
+            self.segment_data_1['width1'] = self.width
+            self.segment_data_1['width2'] = self.width
+            self.segment_data_1['roughch'] = self.roughch
+            
+            # Get strtops
+            for idx, r in self.reach_data.iterrows(): # strtop
+                self.reach_data.loc[idx, 'strtop'] = self.dem[r['i'], r['j']]
+                                                   # self.dem[r['i'], r['j']] - depth
+                                                   # self.bottom_layer[r['i'], r['j']]
+                                                   
+            # Correct the elevation of the stream outlets of thelake/reservoirs,
+            # so that the strtop is not lower than the bottom of the lake.
+            if lakarr is not None:
+              for nseg in self.segment_data_1[self.segment_data_1.iupseg < 0].index:
+                  # Identify the upstream reaches of the segment directly 
+                  # located downstream some lake
+                  idx = (self.reach_data.iseg == nseg) & (self.reach_data.ireach == 1)
+                  self.reach_data.loc[idx, 'strtop'] = max(
+                      self.reach_data.loc[idx, 'strtop'].item(),
+                      self.dem[lakarr == -self.segment_data_1.loc[nseg, 'iupseg']].min())
+            
+            self.cond_drain = self.hcond_max * self.rchlen * self.width / self.thickm # hcond * self.resolution** 2
+            
+    
+    #%% SET PARAMETERS FOR CRITICAL AREA COMPUTATION
+    def critical_cells(self, hcond:float=0.0001, area:str='sinks', 
+                               sink_threshold:float=0):
+        
+        self.hcond_min = hcond # was 0.000096 by default before
+        self.critical_mode = area
+        self.sink_threshold = sink_threshold
+    
+    
+    #%% CORRECT CONDUCTANCE ON CELLS CRITICAL FOR CONVERGENCE
+    def correct_critical_cells(self, geographic):
+        
+        if self.critical_mode == "sinks":          
+            self.crit_area, _, _, nodata = toolbox.load_to_numpy(
+                geographic.depressions, 
+                src_crs = geographic.crs_proj, 
+                base_path = geographic.watershed_dem, 
+                dst_crs = geographic.crs_proj)
+            # self.crit_area[self.crit_area == nodata] = 0
+            self.crit_area = np.ma.array(
+                self.crit_area, 
+                mask = self.crit_area == nodata, 
+                fill_value = nodata)
+            
+            acc_map, _, _, nodata = toolbox.load_to_numpy(
+                os.path.join(geographic.reg_path, 'region_acc.tif'), 
+                src_crs = geographic.crs_proj, 
+                base_path = geographic.watershed_dem, 
+                dst_crs = geographic.crs_proj)
+            
+            for dep_val in np.unique(self.crit_area):
+                self.crit_area[self.crit_area == dep_val] = acc_map[self.crit_area == dep_val].sum()
+            
+            # For each segment...
+            for nseg, s in self.segment_data_1.iterrows():
+                # ... get the corresponding reaches
+                r = self.reach_data[self.reach_data['iseg'] == nseg]
+                # If this segment is made only of one reach:
+                if len(r) == 1:
+                    # If this cell is not masked:
+                    if not np.ma.is_masked(self.crit_area[r['i'], r['j']]):
+                        # If this reach is located on a sink cell:
+                        if self.crit_area[r['i'], r['j']] >= self.sink_threshold:
+                            # then the upstream and downstream conductivities are set to 0
+                            self.segment_data_1.loc[nseg, 'hcond1'] = self.hcond_min
+                            self.segment_data_1.loc[nseg, 'hcond2'] = self.hcond_min
+                # If this segment is made of two reaches:
+                elif len(r) == 2:
+                    # If this cell is not masked:
+                    if not np.ma.is_masked(self.crit_area[r['i'].iloc[1], r['j'].iloc[1]]):
+                        # If the downstream reach is located on a sink cell:
+                        if self.crit_area[r['i'].iloc[1], r['j'].iloc[1]] >= self.sink_threshold:
+                            # its conductivity is set to 0
+                            self.segment_data_1.loc[nseg, 'hcond2'] = self.hcond_min
+                    # Same for the upstream reach
+                    # If this cell is not masked:
+                    if not np.ma.is_masked(self.crit_area[r['i'].iloc[0], r['j'].iloc[0]]):
+                        if self.crit_area[r['i'].iloc[0], r['j'].iloc[0]] >= self.sink_threshold:
+                            self.segment_data_1.loc[nseg, 'hcond1'] = self.hcond_min
+                # For segments made of more than 2 reaches, the segment's conductivity
+                # is let as it is.
+
+        elif os.path.isfile(self.critical_mode):
+            self.crit_area, _, _, nodata = toolbox.load_to_numpy(
+                self.critical_mode,
+                src_crs = geographic.crs_proj, 
+                base_path = geographic.watershed_dem,
+                dst_crs = geographic.crs_proj)
+            
+    # Adaptation of hcond values to accumulation_flux values
+    # =============================================================================
+    #         acc_map, _, _, nodata = toolbox.load_to_numpy(
+    #             os.path.join(geographic.reg_path, 'region_acc.tif'), 
+    #             src_crs = geographic.crs_proj, 
+    #             base_path = geographic.watershed_dem, 
+    #             dst_crs = geographic.crs_proj)
+    #         acc_map = np.ma.array(acc_map, 
+    #                               mask = self.watershed_mask==nodata, 
+    #                               fill_value = nodata)
+    #         # Threshold version
+    # # =============================================================================
+    # #         # For each segment...
+    # #         for nseg, s in self.segment_data_1.iterrows():
+    # #             r = self.reach_data[self.reach_data['iseg'] == nseg]
+    # #             # for the upstream reach:
+    # #             acc1 = acc_map[r['i'].iloc[0], r['j'].iloc[0]]
+    # #             if acc1 > 7.5:
+    # #                 self.segment_data_1.loc[nseg, 'hcond1'] = hcond_low
+    # #             # for the downstream reach:
+    # #             acc2 = acc_map[r['i'].iloc[-1], r['j'].iloc[-1]]
+    # #             if acc2 > 7.5:
+    # #                 self.segment_data_1.loc[nseg, 'hcond2'] = hcond_low
+    # # =============================================================================
+    #         
+    #         # Linear version
+    # # =============================================================================
+    # #         # For each segment...
+    # #         for nseg, s in self.segment_data_1.iterrows():
+    # #             r = self.reach_data[self.reach_data['iseg'] == nseg]
+    # #             # for the upstream reach:
+    # #             acc1 = max(7.5, acc_map[r['i'].iloc[0], r['j'].iloc[0]])
+    # #             self.segment_data_1.loc[nseg, 'hcond1'] = hcond + (hcond_low-hcond)*(acc1-7.5)/(acc_map.max()-7.5)
+    # #             # for the downstream reach:
+    # #             acc2 = max(7.5, acc_map[r['i'].iloc[-1], r['j'].iloc[-1]])
+    # #             self.segment_data_1.loc[nseg, 'hcond2'] = hcond + (hcond_low-hcond)*(acc2-7.5)/(acc_map.max()-7.5)
+    # # =============================================================================
+    # 
+    #         # Logarithmic version
+    # # =============================================================================
+    # #         # For each segment...
+    # #         for nseg, s in self.segment_data_1.iterrows():
+    # #             r = self.reach_data[self.reach_data['iseg'] == nseg]
+    # #             # for the upstream reach:
+    # #             acc1 = max(7.5, acc_map[r['i'].iloc[0], r['j'].iloc[0]])
+    # #             self.segment_data_1.loc[nseg, 'hcond1'] = ...
+    # #             # for the downstream reach:
+    # #             acc2 = max(7.5, acc_map[r['i'].iloc[-1], r['j'].iloc[-1]])
+    # #             self.segment_data_1.loc[nseg, 'hcond2'] = ...
+    # # =============================================================================
+    # =============================================================================
+            
+    #%% OTHER CORRECTIONS AND DATA IMPROVMENT
+    
+    def remove_multiple_reaches(self):
+        for cell in np.unique(self.reach_data[['i', 'j']]):
+            while len(self.reach_data[self.reach_data[['i', 'j']] == cell]) > 1:
+                iseg = self.reach_data[self.reach_data[['i', 'j']] == cell]['iseg'].min()
+                self.reach_data = self.reach_data[
+                    (self.reach_data['i'] != cell[0]) | (self.reach_data['j'] != cell[1]) | (self.reach_data['iseg'] != iseg)
+                    ]
+                logging.info(f"row {cell[0]}, {cell[1]}, {iseg} removed")
+                # iseg = set(self.reach_data[self.reach_data[['i', 'j']] == cell]['iseg']) \
+                #     - set([self.reach_data[self.reach_data[['i', 'j']] == cell]['iseg'].max()])
+        
+    def correct_elevations(self, dem):
+        # Correct inconsistent elevations and too small slopes in reach_data 
+        # (not reflected on the dem map)
+          # Note:
+          # It could have been possible to use the <watershed_(box_)buff_fill> DEM
+          # as the basis for streambed elevations, or even to use it directly
+          # as the self.dem instead of <watershed_(box_)buff_dem>. It yields basically
+          # the same results as the current method, except that it is slightly
+          # less accurate and can lead to minor "model top violations" (the 
+          # strtop is slightly above the surface)
+        
+        # 1. Correct elevations and effective slopes amongst one segment
+        min_slope = 0.001
+        min_depression = self.resolution * min_slope
+        for nseg, s in self.segment_data_1.iterrows():
+            prev_strtop = self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == nseg].index[0], 'strtop'].item()
+            
+            for r_idx, _ in self.reach_data[self.reach_data['iseg'] == nseg].iterrows():
+                self.reach_data.loc[r_idx, 'strtop'] = min(self.reach_data.loc[r_idx, 'strtop'], prev_strtop)
+                prev_strtop = self.reach_data.loc[r_idx, 'strtop'] - min_depression
+                
+            # Correct elevations amongst connected segments
+            if s['outseg'] > 0:
+                self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[0], 'strtop'] \
+                    = min(self.reach_data.loc[self.reach_data[self.reach_data['iseg'] == s['outseg']].index[0], 'strtop'], prev_strtop)
+                
+        # 2. Update elevdn and elevup in segment_data_1:
+        for nseg, _ in self.segment_data_1.iterrows():
+            self.segment_data_1.loc[nseg, 'elevdn'] = self.reach_data.loc[self.reach_data['iseg'] == nseg, 'strtop'].min()
+            self.segment_data_1.loc[nseg, 'elevup'] = self.reach_data.loc[self.reach_data['iseg'] == nseg, 'strtop'].max()
+            if self.segment_data_1.loc[nseg, 'elevdn'] == self.segment_data_1.loc[nseg, 'elevup']:
+                self.segment_data_1.loc[nseg, 'elevdn'] = self.segment_data_1.loc[nseg, 'elevdn'] - min_depression/2
+
+        return dem
+    
+    def apply_strtop_to_dem(self, geographic, dem):
+        # Reflect the changes made with correct_elevations() on the dem 
+        # used for the modeling (model_modflow.dem)
+        
+        elev_map, _, _, nodata = toolbox.load_to_numpy(
+            geographic.watershed_dem, src_crs = geographic.crs_proj, 
+            base_path = geographic.watershed_dem, dst_crs = geographic.crs_proj)
+        elev_map[elev_map > nodata] = 0
+        
+        for _, r in self.reach_data.iterrows():
+            elev_map[r['i'], r['j']] = r['strtop']
+        
+        dem[self.watershed_mask!=nodata] = elev_map[self.watershed_mask!=nodata]
+            
+        return dem
+    
+
+    #%% DISPLAY PLOT
+    
+    def display_data(self, etc):
+        fontprop = toolbox.plot_params(15,15,18,20)
+        
+#%% NOTES

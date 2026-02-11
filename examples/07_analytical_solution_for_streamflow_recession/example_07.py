@@ -16,6 +16,10 @@ import sys
 import os
 
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
+
 import pandas as pd
 
 import matplotlib.pyplot as plt
@@ -266,6 +270,7 @@ import flopy.utils.binaryfile as fpu
 
 # Load model
 fname = simulations_folder+model_name+'/'+model_name
+ml = flopy.modflow.Modflow.load(fname+'.nam', check=False, forgive=True)
 ml = flopy.modflow.Modflow.load(fname+'.nam', check=False, forgive=True)
 hdobj = flopy.utils.HeadFile(fname + '.hds')
 times = hdobj.get_times()

@@ -15,6 +15,7 @@
 # Python
 import numpy as np
 import os
+import logging
 import pandas as pd
 import sys
 import rasterio
@@ -43,6 +44,7 @@ class Timeseries:
 
     def __init__(self,
                  geographic: object,
+                 lakeres: object,
                  model_modflow: object,
                  model_modpath: int=None,
                  model_mt3dms: int=None,
@@ -61,6 +63,8 @@ class Timeseries:
         ----------
         geographic : object
             Variable object of the model domain (watershed).
+        lakeres : object
+            Object lakeres built by HydroModPy
         model_modflow : object
             MODFLOW model object.
         model_modpath : object
@@ -81,6 +85,8 @@ class Timeseries:
         self.suffix_name = suffix_name
 
         self.geographic = geographic
+
+        self.lakeres = lakeres
 
         self.stable_folder = geographic.stable_folder
         self.simulations = geographic.simulations_folder
@@ -178,6 +184,11 @@ class Timeseries:
             self.accumulation_flux = np.load(os.path.join(self.save_file, 'accumulation_flux'+'.npy'), allow_pickle=True).item()
         except:
             pass
+        try:
+            self.lake_leakage = np.load(os.path.join(self.save_file, 'lake_leakage'+'.npy'), allow_pickle=True).item()
+        except:
+            pass
+
         if model_modpath != None:
             if model_modpath.track_dir == 'forward':
                 type_dir = 'ending'
@@ -277,6 +288,36 @@ class Timeseries:
 
         ### Create the initial dataframe file
         self.mfdata = pd.DataFrame({"date": time, "recharge": recharge}, index=range(len(time)))
+
+
+        def calc_lake_sum(key, target_data, lake_mask_array, lake_num_id):
+            """Calculate sum for a specific lake using lake array mask."""
+            lake_mask = np.where(lake_mask_array == lake_num_id, 1, np.nan)
+            masked_data = target_data[key] * lake_mask
+            calc = np.nansum(masked_data)
+            return calc
+
+        def calc_lake_possum(key, target_data, lake_mask_array, lake_num_id):
+            """Calculate positive sum for a specific lake using lake array mask."""
+            target_pos = np.where(target_data[key] >= 0, target_data[key], 0)
+            lake_mask = np.where(lake_mask_array == lake_num_id, 1, np.nan)
+            masked_data = target_pos * lake_mask
+            calc = np.nansum(masked_data)
+            return calc
+
+        def calc_lake_negsum(key, target_data, lake_mask_array, lake_num_id):
+            """Calculate negative sum (inverted) for a specific lake using lake array mask."""
+            target_neg = np.where(target_data[key] <= 0, -target_data[key], 0)
+            lake_mask = np.where(lake_mask_array == lake_num_id, 1, np.nan)
+            masked_data = target_neg * lake_mask
+            calc = np.nansum(masked_data)
+            return calc
+
+        def calc_local(key, data_process, target_data, mask_data, cond_symb, value_masked):
+            return calc
+
+        self.mfdata = pd.DataFrame({"date": time, "recharge": recharge},
+                                   index=range(len(time)))
 
         try:
             self.mfdata['runoff'] = runoff
@@ -526,6 +567,83 @@ class Timeseries:
                     self.mfdata.loc[key,'residence_times'] = calc
             except:
                 pass
+
+
+        ### lakes/reservoirs variables (stage, volume, area)
+        if self.lakeres and self.lakeres.n_lakeres > 0:
+            # All lakes/reservoirs
+            lakarr_clip, _, _, _ = toolbox.load_to_numpy(
+                os.path.join(self.stable_folder, 'lakeres', 'lakarr.tif'),
+                # base_path = self.geographic.watershed_dem,
+                # dst_crs = self.geographic.crs_proj,
+                )
+
+            for num_id in self.lakeres.lake_by_num_id.keys():
+                lake_id = self.lakeres.lake_by_num_id[num_id]
+                # Mask for the specific lake/reservoir
+                masked_accu = np.ma.array(self.accumulation_flux[0],
+                                          mask = lakarr_clip != num_id,
+                                          fill_value = self.geographic.nodata,
+                                          )
+                # Outlet
+                # outlet_mask_old = self.accumulation_flux[0] == masked_accu.max()
+                outlet_mask = self.accumulation_flux[0]*0
+                i, j = self.lakeres.ij_outlet_by_lake[lake_id]
+                outlet_mask[i, j] = 1
+                outlet_mask = outlet_mask.astype(bool)
+
+                # Watershed DEM
+                watershed_dem, _, _, _ = toolbox.load_to_numpy(
+                    self.geographic.watershed_dem,
+                    dst_crs = self.geographic.crs_proj)
+
+                try:
+                    for key in self.watertable_elevation:
+                        # level
+                        level = self.watertable_elevation[key][outlet_mask][0]#.max()
+                        self.mfdata.loc[key,f'{lake_id}_level'] = level
+
+                        # volume
+# =============================================================================
+#                         map_level = level
+# =============================================================================
+                        map_level = self.watertable_elevation[key]
+
+                        masked_level_diff = np.ma.array(
+                            map_level - watershed_dem,
+                            mask = lakarr_clip != num_id,
+                            fill_value = self.geographic.nodata,
+                            )
+                        # Note: Equivalent to -np.ma.array(
+                        #   self.watertable_depth[key],
+                        #   mask = lakarr_clip != num_id,
+                        #   fill_value = self.geographic.nodata,)
+
+                        # Discard negative values
+                        masked_lake_depth = np.ma.where(
+                            masked_level_diff >= 0, masked_level_diff, 0)
+
+                        volume = masked_lake_depth.sum() * self.geographic.cell_size
+                        self.mfdata.loc[key,f'{lake_id}_volume'] = volume
+
+                        # area
+                        area = (masked_level_diff > 0.01).sum()*self.geographic.cell_size
+                        # The threshold of 0.01 m (1 cm) is used instead of 0,
+                        # in order to actually visualize area variations.
+                        # Otherwise, area variations are too small to be detected.
+                        self.mfdata.loc[key,f'{lake_id}_area'] = area
+
+                        # lake vertical leakage (using lake-specific mask)
+                        lake_leakage = calc_lake_sum(key, self.lake_leakage, lakarr_clip, num_id)
+                        self.mfdata.loc[key,f'{lake_id}_lake_leakage'] = lake_leakage
+                        lake_leakage_downwards = calc_lake_possum(key, self.lake_leakage, lakarr_clip, num_id)
+                        self.mfdata.loc[key,f'{lake_id}_lake_leakage_downwards'] = lake_leakage_downwards
+                        lake_leakage_upwards = calc_lake_negsum(key, self.lake_leakage, lakarr_clip, num_id)
+                        self.mfdata.loc[key,f'{lake_id}_lake_leakage_upwards'] = lake_leakage_upwards
+
+                except:
+                    pass
+
 
         ### save files
         if self.datetime_format==True:

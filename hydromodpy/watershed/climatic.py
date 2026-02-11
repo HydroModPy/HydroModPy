@@ -16,6 +16,7 @@
 import pandas as pd
 import numpy as np
 import os
+import logging
 from scipy.optimize import curve_fit
 from hydromodpy.watershed import sim2
 import re

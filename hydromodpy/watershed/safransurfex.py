@@ -7,7 +7,7 @@
 
 import geopandas as gpd
 import pandas as pd
-import os 
+import os
 import sys
 from hydromodpy.tools import get_logger
 from os.path import dirname, abspath
@@ -24,13 +24,13 @@ class SafranSurfex:
     """
     Class to clip and extract climate data from specific .h5 (NetCDF) file at France scale.
     """
-    
+
     def __init__(self, out_path: str, safransurfex_path: str, watershed_shp: str):
         """
         Functions to clip .h5 SURFEX files at the model domain scale
             - Historical data from Quentin COURTOIS thesis ['OLD'] (reanalysis SAFRAN / SURFEX)
             - Historical reanalysis SAFRAN / SURFEX ['REA'] (1958 to 2019) and updated REAUP (2019 to 2023)
-            
+
         Parameters
         ----------
         out_path : str
@@ -40,7 +40,7 @@ class SafranSurfex:
         watershed_shp : str
             Path of the shapefile polygon of the model domain (watershed).
         """
-        
+
         data_folder = os.path.join(out_path, 'results_stable/climatic/')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
@@ -51,16 +51,16 @@ class SafranSurfex:
         logger.info('Extracting SAFRAN-SURFEX climatic data for watershed')
         self.extract_cells_from_shapefile(safransurfex_path, watershed_shp)
         self.extract_values_from_h5file(data_folder, safransurfex_path)
-        
-    #%% CLIP DATA    
-    
+
+    #%% CLIP DATA
+
     def extract_cells_from_shapefile(self, safransurfex_path, watershed_shp):
         """
         Extract cells in watershed from France scale grid of 8x8km.
         """
         mesh_path = safransurfex_path + '/mesh/maille_meteo_fr_pr93.shp'
         mask = gpd.read_file(watershed_shp , encoding="utf-8")
-        mesh = gpd.read_file(mesh_path, encoding="utf-8") 
+        mesh = gpd.read_file(mesh_path, encoding="utf-8")
         intersect = gpd.clip(mesh, mask)
         self.cells_list = intersect.num_id.to_list() # wanted Surfex cells list
 
@@ -110,7 +110,7 @@ class SafranSurfex:
 class Merge:
     """
     Generated timeseries in .csv format from .h5 (netCDF) generated at the watershed scale.
-    """    
+    """
 
     def __init__(self, out_path: str):
         """
@@ -128,7 +128,7 @@ class Merge:
         self.simulations = ['REA','OLD','REAUP']
 
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')
-                
+
         columns = []
         for sim in self.simulations:
             for sce in self.scenarios:
@@ -140,14 +140,14 @@ class Merge:
                     columns.append(sim+'_'+sce)
                 if (sim != 'REA') & (sim != 'OLD') & (sim != 'REAUP'):
                     columns.append(sim+'_'+sce)
-                        
+
         date = pd.date_range(start='01/01/1960', end='31/12/2099', freq='D')
         self.base = pd.DataFrame(index=date, columns=columns)
-        
+
         self.df_climate_bv()
-    
+
     #%% MERGE ALL DATA IN CSV
-    
+
     def df_climate_bv(self):
         """
         Concatenate all climate data in one .csv file (mean values at the watershed scale).
@@ -158,10 +158,10 @@ class Merge:
                 for sce in self.scenarios:
                     try:
                         hdf = pd.read_hdf(self.data_folder+sim+'.h5',var+'/'+sce) # mm/day or °C
-                        df[sim+'_'+sce] = hdf.MEAN               
+                        df[sim+'_'+sce] = hdf.MEAN
                     except:
                         continue
-            
+
             # if (self.time_step == 'ME'):
             dfm = df.copy()
             dfm = dfm[~dfm.index.duplicated()]
@@ -172,7 +172,7 @@ class Merge:
             else:
                 # df = df.resample('ME').sum(min_count=27) # mm/month
                 dfm = dfm.resample("ME").mean()[mask]
-                    
+
             # if (self.time_step == 'Y'):
             dfy = df.copy()
             mask = dfy.resample("YE").count() >= 364
@@ -181,11 +181,11 @@ class Merge:
             else:
                 # df = df.resample('Y').sum(min_count=364) # mm/year
                 dfy = dfy.resample("YE").mean()[mask]
-            
+
             df.to_csv(self.data_folder+'_'+var+'_'+'D'+'.csv', sep=';')
             dfm.to_csv(self.data_folder+'_'+var+'_'+'M'+'.csv', sep=';')
             dfy.to_csv(self.data_folder+'_'+var+'_'+'Y'+'.csv', sep=';')
-            
+
         # Mix all data in a dataframe
         ppt = pd.read_csv(self.data_folder+'_'+'PPT'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)
         etp = pd.read_csv(self.data_folder+'_'+'ETP'+'_'+'D'+'.csv', sep=";", index_col=0, parse_dates=True)

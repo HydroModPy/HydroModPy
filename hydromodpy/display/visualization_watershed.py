@@ -17,6 +17,7 @@ import os
 import numpy as np
 import geopandas as gpd
 import rasterio
+import logging
 from rasterio.plot import show
 import contextily as cx
 import matplotlib as mpl

@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import datetime
 import pandas as pd
 import geopandas as gpd
@@ -30,7 +31,7 @@ class Hydrometry:
     """
     Add hydrometry data in the watershed object.
     """
-    
+
     def __init__(self, out_path: str, hydrometry_path: str, file_name: str, geographic: object):
         """
         Parameters
@@ -45,9 +46,9 @@ class Hydrometry:
         geographic : object
             Variable object of the model domain (watershed).
         """
-        
+
         logger.info('Extracting hydrometry data from %s', hydrometry_path)
-        
+
         data_folder = os.path.join(out_path,'results_stable','hydrometry')
         if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
@@ -69,11 +70,11 @@ class Hydrometry:
             self.load_hydrometric_data(data_folder)
         except:
             pass
-    
+
     def extract_hydrometry_from_watershed(self, data_folder, hydrometry_path, file_name, geographic):
         """
         Clip hydrometric stations at the watershed scale (model domain).
-        
+
         Parameters
         ----------
         data_folder : str
@@ -99,9 +100,9 @@ class Hydrometry:
             lambda value: today_str if pd.isna(value) else value[0:10]
         )
         # self.date_inst = pd.to_datetime(hydromet_bv['timePositi'][0:10], format='%Y-%m-%d').to_list()
-        # self.date_ferm = pd.to_datetime(hydromet_bv['DtFermetur'][0:10], format='%Y-%m-%d').to_list()            
+        # self.date_ferm = pd.to_datetime(hydromet_bv['DtFermetur'][0:10], format='%Y-%m-%d').to_list()
         self.code_bh = hydromet_bv['CdStationH'].to_list()
         self.date_inst = hydromet_bv['timePositi'].to_list()
         self.date_ferm = hydromet_bv['DtFermetur'].to_list()
-       
+
 #%% NOTES

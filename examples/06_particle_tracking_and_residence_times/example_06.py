@@ -16,6 +16,10 @@ import sys
 import os
 
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
+
 import pandas as pd
 
 import geopandas as gpd

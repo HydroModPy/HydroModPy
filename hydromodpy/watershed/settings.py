@@ -14,6 +14,7 @@
 
 # Python
 import numpy as np
+import logging
 import whitebox
 from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
@@ -28,14 +29,14 @@ class Settings:
     """
     Class with some update functions for groundwater model parameters.
     """
-    
+
     def __init__(self):
         logger.info('Initializing settings module for groundwater parameters')
-        
+
         self.update_well_pumping()
-    
+
     #%% UPDATE
-    
+
     def update_model_name(self, model_name):
         """
         Update the model name of the simulation.
@@ -46,7 +47,7 @@ class Settings:
             Name of simulation.
         """
         self.model_name = model_name
-    
+
     def update_box_model(self, box):
         """
         Define the extend of the groundwater flow model simulation.
@@ -59,10 +60,10 @@ class Settings:
             If False, the model is run at the buffered model domain scale.
         """
         self.box = box
-    
+
     def update_sink_fill(self, sink_fill):
         self.sink_fill = sink_fill
-    
+
     def update_bc_sides(self, bc_left, bc_right):
         """
         Apply boundary conditions on the side of the groundwater flow model.
@@ -76,7 +77,14 @@ class Settings:
         """
         self.bc_left = bc_left
         self.bc_right = bc_right
-        
+
+    def add_inputflow(self, bound_id, fixed_flow_coords, snap_dist,
+                      return_flow_series):
+        self.inputflow[bound_id] = (fixed_flow_coords, snap_dist, return_flow_series)
+
+    def remove_inputflow(self, bound_id):
+        self.inputflow.pop(bound_id)
+
     def update_simulation_state(self, sim_state):
         """
         Define the type of simulation.
@@ -88,7 +96,7 @@ class Settings:
             If 'steady', input forcing is only one value.
         """
         self.sim_state = sim_state
-        
+
     def update_check_model(self, plot_cross=True, check_grid=True, cross_ylim=[]):
         """
         Activate of not the cross-section plot of the aquifer model.
@@ -101,7 +109,7 @@ class Settings:
         self.plot_cross = plot_cross
         self.cross_ylim = cross_ylim
         self.check_grid = check_grid
-    
+
     def update_input_particles(self, zone_partic, # path of a raster (injecting where pixels > 0)
                                      cell_div = 1, # 1
                                      zloc_div = False,
@@ -116,7 +124,7 @@ class Settings:
         ----------
         zone_partic : str, optional
             Path of the raster used to inject particles: where value > 0.
-            The default is 'domain', so the particles are injected where the model domain area > 0m. 
+            The default is 'domain', so the particles are injected where the model domain area > 0m.
         track_dir: str
             Choice 'forward' or 'backward' particle tracking method.
             The default is 'forward'.
@@ -143,7 +151,7 @@ class Settings:
         self.track_dir = track_dir
         self.sel_random = sel_random
         self.sel_slice = sel_slice
-    
+
     def update_dis_perlen(self, dis_perlen=False):
         """
         Activate the split discretization of recharge with time length.
@@ -154,11 +162,11 @@ class Settings:
             The default is False.
         """
         self.dis_perlen = dis_perlen
-        
+
     def update_well_pumping(self, well_coords=[], well_fluxes=[]):
         """
         Add wells and associated fluxes across the model domain area.
-        
+
         wells_coord : list
             Inform the outlet coordinates of wells [lay,row,col].
             Example for 2 wells: [ [1,20,30], [1,15,15] ]
@@ -168,6 +176,6 @@ class Settings:
         """
         self.well_coords=well_coords
         self.well_fluxes=well_fluxes
-    
+
 #%% NOTES
-        
+

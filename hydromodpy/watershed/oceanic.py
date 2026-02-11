@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -39,7 +40,7 @@ class Oceanic:
     Add oceanic data from specific data at France scale.
     Allow to define head boundary with water levels in groundwater flow model.
     """
-    
+
     def __init__(self):
         """
         Parameters
@@ -51,22 +52,22 @@ class Oceanic:
         self.oceanic_path = None
 
 #%% FUNCTIONS
-        
+
     def update_MSL(self, value):
         """
         Update the MSL value.
-        
+
         Parameters
         ----------
         value : float
             Elevation Meter Above Sea Level [m]. The default is None.
         """
         self.MSL = value
-    
+
     def extract_data(self, out_path, geographic, oceanic_path=None):
         """
         Clip data at the model_domain (watershed) scale.
-        
+
         Parameters
         ----------
         out_path : str
@@ -185,7 +186,7 @@ class Oceanic:
     def display_data(self, values):
         """
         Function to activate plots.
-        
+
         Parameters
         ----------
         values : str
@@ -217,10 +218,10 @@ def oceanic_display_data(data, figure_folder, value):
     color_dict = {'RCP2.6':'dodgerblue',
                   'RCP8.5':'red',
                   'RCP4.5':'salmon'}
-    
+
     fontprop = toolbox.plot_params(15,15,18,20)
     fig = plt.figure()
-    
+
     for sce in data:
         d = data[sce].index.values
         data[sce]['median'].plot(c=color_dict[sce], label=sce+': median values')
@@ -234,7 +235,7 @@ def oceanic_display_data(data, figure_folder, value):
         plt.ylabel('Mean Sea Level [m]')
     if value =='RSL':
         plt.ylabel('Rise Sea Level [m]')
-    
+
     plt.tight_layout()
     name_out = figure_folder + 'plot'
     fig.savefig(name_out + '.png', dpi=300, bbox_inches='tight')

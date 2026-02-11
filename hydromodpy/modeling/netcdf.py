@@ -15,6 +15,7 @@
 # Python
 import numpy as np
 import os
+import logging
 import pandas as pd
 import sys
 from os.path import dirname, abspath
@@ -182,6 +183,15 @@ class Netcdf:
             self.export_netcdf(dict_residence_times,
                                base_path = self.geographic.watershed_dem,
                                out_path = os.path.join(self.netcdf_file, 'accumulation_flux.nc'),
+                               base_crs = self.geographic.crs_proj,
+                               times = time)
+        except:
+            pass
+        try:
+            dict_lake_leakage = np.load(os.path.join(self.save_file, 'lake_leakage'+'.npy'), allow_pickle=True).item()
+            self.export_netcdf(dict_lake_leakage,
+                               base_path = self.geographic.watershed_dem,
+                               out_path = os.path.join(self.netcdf_file, 'lake_leakage.nc'),
                                base_crs = self.geographic.crs_proj,
                                times = time)
         except:

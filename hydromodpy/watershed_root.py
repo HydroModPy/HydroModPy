@@ -15,6 +15,7 @@
 # Python
 import sys
 import os
+import logging
 import pickle
 import pandas as pd
 import geopandas as gpd
@@ -29,7 +30,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
+from hydromodpy.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, lakeres, oceanic, piezometry, settings, safransurfex, streamflow_seepage, subbasin, transport
 from hydromodpy.modeling import modflow, modpath, mt3dms, timeseries, netcdf
 from hydromodpy.tools import toolbox, get_logger
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -137,6 +138,12 @@ class Watershed:
 
         self.elt_def = []
 
+        # Initialize required elements
+        self.lakeres = None
+        # self.elt_def.append('lakeres')
+        self.streamflow_seepage = None
+        # self.elt_def.append('streamflow_seepage')
+
         success = False
 
         if load==True:
@@ -213,7 +220,13 @@ class Watershed:
             if ('intermittency' in BV.__dir__()) == True:
                 self.intermittency = BV.intermittency
                 self.elt_def.append('intermittency')
-            # Atmospheric
+            if ('lakeres' in BV.__dir__()) == True:
+                self.lakeres = BV.lakeres
+                self.elt_def.append('lakeres')
+            if ('streamflow_seepage' in BV.__dir__()) == True:
+                self.streamflow_seepage = BV.streamflow_seepage
+                self.elt_def.append('streamflow_seepage')
+            # Atmospheric (compulsory : hydrodynamic)
             if ('safransurfex' in BV.__dir__()) == True:
                 self.safransurfex = BV.safransurfex
                 self.elt_def.append('safransurfex')
@@ -585,6 +598,183 @@ class Watershed:
         self.elt_def.append('safransurfex')
         self.save_object()
 
+    def add_lakeres(self):
+        """
+
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        None. Create an empty lakeres object within the watershed object.
+
+        """
+        self.lakeres = lakeres.Lakeres(self.stable_folder)
+        self.elt_def.append('lakeres')
+        self.save_object()
+
+    def add_streamflow_seepage(self, area=None, mainstream_threshold:float=0.1,
+                 icalc:int=0, thickm:float=0.1,
+                 depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
+                 rchlen:float=None, roughch:float=0, runoff=None,
+                 critical_mode=None, correction_multiple_reaches:bool=False,
+                 correction_elevations:bool=True, reach_data=None,
+                 segment_data=None):
+        """
+        Public method to add a seepage through SFR instead of DRN.
+
+        Parameters
+        ----------
+        area : str, optional
+            'river' | 'watershed' | 'domain' | None (default)
+            Flag to choose whether the SFR seepage is applied on the main
+            river, on the watershed or on the whole modeled domain.
+        mainstream_threshold :
+            Threshold (ratio of maximum accumulation flux) above which the
+            stream is considered to be part of the main stream.
+            The default is 0.1 (10%).
+        icalc : integer, optional
+            The default is 0 (no computation of flow thickness and width)
+        thickm : float, optional
+            Average streambed thickness. The default is 0.1.
+        depth : float, optional
+            Average water depth. The default is 0.
+        hcond : float, optional
+            Avergae streambed conductivity. The default is 0.08.
+            (Note: can even be 0.085)
+        width : float, optional
+            Average channel width. The default is the length of a cell.
+        slope : float, optional
+            The average slope of the streambed. The default is 0.1 (10%).
+        rchlen
+            length of the channel. The default is the length of a cell.
+        roughch : float, optional
+            Only used when icalc = 1 or 2 (Manning routing)
+            The default is 0.
+        runoff : optional
+            Can be a float or a pandas.core.series.Series or a xarray.DataSet.
+            If specified, this flow is added in the streamflow in the
+            corresponding cells.
+        critical_mode : str, optional
+            A flag or a filepath to indicate which cells are critical for
+            convergence and whose conductance should be adapted.
+            The default is None. If None, no correction is applied.
+        correction_multiple_reaches : bool, optional
+            Flag to indicate whether to remove multiple reaches located on the
+            same cell or not.
+            The default is False
+        correction_elevations : bool, optional
+            Flag to indicate whether to correct streambed elevations and slopes
+            to avoid any sink or flat zone.
+            The default is True
+        reach_data : pandas.DataFrame, optional
+            The default is None
+        segment_data : pandas.DataFrame, optional
+            The default is None
+
+
+        Returns
+        -------
+        None.
+
+        """
+
+        self.streamflow_seepage = streamflow_seepage.Streamflow_seepage(
+            self.geographic, area, mainstream_threshold, icalc, thickm, depth, hcond, width, slope, rchlen,
+            roughch, runoff, critical_mode, correction_multiple_reaches, correction_elevations)
+        self.elt_def.append('streamflow_seepage')
+        self.save_object()
+
+
+    def add_lakeres(self):
+        """
+
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        None. Create an empty lakeres object within the watershed object.
+
+        """
+        self.lakeres = lakeres.Lakeres(self.stable_folder)
+        self.elt_def.append('lakeres')
+        self.save_object()
+
+    def add_streamflow_seepage(self, area=None, mainstream_threshold:float=0.1,
+                 icalc:int=0, thickm:float=0.1,
+                 depth:float=0, hcond:float=0.08, width:float=None, slope:float=0.1,
+                 rchlen:float=None, roughch:float=0, runoff=None,
+                 critical_mode=None, correction_multiple_reaches:bool=False,
+                 correction_elevations:bool=True, reach_data=None,
+                 segment_data=None):
+        """
+        Public method to add a seepage through SFR instead of DRN.
+
+        Parameters
+        ----------
+        area : str, optional
+            'river' | 'watershed' | 'domain' | None (default)
+            Flag to choose whether the SFR seepage is applied on the main
+            river, on the watershed or on the whole modeled domain.
+        mainstream_threshold :
+            Threshold (ratio of maximum accumulation flux) above which the
+            stream is considered to be part of the main stream.
+            The default is 0.1 (10%).
+        icalc : integer, optional
+            The default is 0 (no computation of flow thickness and width)
+        thickm : float, optional
+            Average streambed thickness. The default is 0.1.
+        depth : float, optional
+            Average water depth. The default is 0.
+        hcond : float, optional
+            Avergae streambed conductivity. The default is 0.08.
+            (Note: can even be 0.085)
+        width : float, optional
+            Average channel width. The default is the length of a cell.
+        slope : float, optional
+            The average slope of the streambed. The default is 0.1 (10%).
+        rchlen
+            length of the channel. The default is the length of a cell.
+        roughch : float, optional
+            Only used when icalc = 1 or 2 (Manning routing)
+            The default is 0.
+        runoff : optional
+            Can be a float or a pandas.core.series.Series or a xarray.DataSet.
+            If specified, this flow is added in the streamflow in the
+            corresponding cells.
+        critical_mode : str, optional
+            A flag or a filepath to indicate which cells are critical for
+            convergence and whose conductance should be adapted.
+            The default is None. If None, no correction is applied.
+        correction_multiple_reaches : bool, optional
+            Flag to indicate whether to remove multiple reaches located on the
+            same cell or not.
+            The default is False
+        correction_elevations : bool, optional
+            Flag to indicate whether to correct streambed elevations and slopes
+            to avoid any sink or flat zone.
+            The default is True
+        reach_data : pandas.DataFrame, optional
+            The default is None
+        segment_data : pandas.DataFrame, optional
+            The default is None
+
+
+        Returns
+        -------
+        None.
+
+        """
+
+        self.streamflow_seepage = streamflow_seepage.Streamflow_seepage(
+            self.geographic, area, mainstream_threshold, icalc, thickm, depth, hcond, width, slope, rchlen,
+            roughch, runoff, critical_mode, correction_multiple_reaches, correction_elevations)
+        self.elt_def.append('streamflow_seepage')
+        self.save_object()
+
     def add_subbasin(self, add_path: str = None, sub_snap_dist: int = 200):
         """
         Public method to add subbasins.
@@ -671,6 +861,7 @@ class Watershed:
                                         sea_level=self.oceanic.MSL,
                                         bc_left=self.settings.bc_left,
                                         bc_right=self.settings.bc_right,
+                                        # split_temp=self.settings.split_temp,
                                         # Climatic settings
                                         recharge=self.climatic.recharge,
                                         runoff=self.climatic.runoff,
@@ -691,7 +882,11 @@ class Watershed:
                                         verti_ss=self.hydraulic.verti_ss,
                                         cond_drain=self.hydraulic.cond_drain,
                                         vka=self.hydraulic.vka,
-                                        exdp=self.hydraulic.exdp)
+                                        exdp=self.hydraulic.exdp,
+                                        # Lakes/reservoirs
+                                        lakeres=self.lakeres,
+                                        # Streamflow seepage
+                                        streamflow_seepage = self.streamflow_seepage)
 
         # Preprocessing Modflow
         model_modflow.pre_processing() # verbose
@@ -733,6 +928,7 @@ class Watershed:
                                groundwater_flux: bool=True,
                                groundwater_storage: bool=True,
                                accumulation_flux: bool=True,
+                               lake_leakage: bool=True,
                                persistency_index: bool=False,
                                intermittency_yearly: bool=False,
                                intermittency_monthly: bool=False,
@@ -780,6 +976,7 @@ class Watershed:
                                       groundwater_flux=groundwater_flux,
                                       groundwater_storage=groundwater_storage,
                                       accumulation_flux=accumulation_flux,
+                                      lake_leakage=lake_leakage,
                                       persistency_index=persistency_index,
                                       intermittency_yearly=intermittency_yearly,
                                       intermittency_monthly=intermittency_monthly,
@@ -1049,6 +1246,10 @@ class Watershed:
 
         Parameters
         ----------
+        geographic : object
+            Watershed object built by HydroModPy (model domain)
+        lakeres : object
+            Watershed object built by HydroModPy (lakes and reservoirs)
         model_modflow : object
             MODFLOW model in a Python object.
         model_modpath : object
@@ -1083,20 +1284,22 @@ class Watershed:
         """
         if model_modflow != None:
             timeseries_results = timeseries.Timeseries(self.geographic,
-                                                       model_modflow=model_modflow,
-                                                       model_modpath=model_modpath,
-                                                       model_mt3dms=model_mt3dms,
+                                                        self.lakeres,
+                                                        model_modflow=model_modflow,
+                                                        model_modpath=model_modpath,
+                                                        model_mt3dms=model_mt3dms,
                                                        suffix_name=suffix_name,
                                                        datetime_format=datetime_format,
-                                                       subbasin_results=subbasin_results,
-                                                       intermittency_yearly=intermittency_yearly,
+                                                        subbasin_results=subbasin_results,
+                                                        intermittency_yearly=intermittency_yearly,
                                                        intermittency_monthly=intermittency_monthly,
-                                                       intermittency_weekly=intermittency_weekly,
-                                                       intermittency_daily=intermittency_daily,
-                                                       residence_times=residence_times,
+                                                        intermittency_weekly=intermittency_weekly,
+                                                        intermittency_daily=intermittency_daily,
+                                                        residence_times=residence_times,
                                                        concentration_seepage=concentration_seepage,
                                                        mass_accumulated=mass_accumulated
                                                        )
+
             return timeseries_results
 
     #%% EXTRACT NETCDF

@@ -89,7 +89,7 @@ class Driaseau:
                             logger.debug('Clipping dataset %s', file_path)
                             self.clip_netcdf(data_folder, file_path, watershed_shp, var)
                     # except:
-                    #     print('NOT FOUND : '+model+'  -  '+var)
+                    #     logging.error('NOT FOUND : %s - %s', model, var)
                     #     pass
 
         # self.extract_values(data_folder, df)

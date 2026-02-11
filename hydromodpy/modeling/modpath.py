@@ -15,6 +15,7 @@
 # Python
 import os
 import sys
+import logging
 import flopy
 import flopy.utils.binaryfile as fpu
 import numpy as np
@@ -47,10 +48,10 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 class Modpath:
     """
     Class Modpath.
-    
+
     To build, run particle traccking from modflow simulation.
     """
-    
+
     def __init__(self,
                  geographic: object,
                  model_modflow: object,
@@ -83,7 +84,7 @@ class Modpath:
             Location folder of the modflow executables. The default is 'bin'.
         zone_partic : str, optional
             Path of the raster used to inject particles: where value > 0.
-            The default is 'domain', so the particles are injected where the model domain area > 0m. 
+            The default is 'domain', so the particles are injected where the model domain area > 0m.
         track_dir: str
             Choice 'forward' or 'backward' particle tracking method.
             The default is 'forward'.
@@ -103,16 +104,16 @@ class Modpath:
         sel_random: int
             Select with slicing value where particles.
         """
-        
+
         #%% Initialisation
-        
+
         self.geographic = geographic
-        
+
         self.model_modflow = model_modflow
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name)
-        
+
         if not os.path.isdir(self.full_path):
             raise FileNotFoundError('Directory not found: {}'.format(self.full_path))
         if (sys.platform == 'win32') or (sys.platform == 'win64'):
@@ -121,7 +122,7 @@ class Modpath:
             self.exe = os.path.join(bin_path, 'linux' ,'mp6')
         if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mp6')
-        
+
         # Parameters for particles
         if zone_partic == 'domain':
             self.zone_partic = geographic.watershed_box_buff_dem
@@ -135,7 +136,7 @@ class Modpath:
         self.sel_slice = sel_slice
 
     #%% PRE-PROCESSING
-    
+
     def pre_processing(self):
         """
         Pre-processing to build the partickle tracking.
@@ -145,9 +146,9 @@ class Modpath:
         None.
 
         """
-        
+
         #%% Load and import
-        
+
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = '{}.nam'.format(prefix)
         dis_file = '{}.dis'.format(prefix)
@@ -155,7 +156,7 @@ class Modpath:
         bud_file = '{}.cbc'.format(prefix)
         bas_file = '{}.bas'.format(prefix)
         lpf_file = '{}.upw'.format(prefix)
-        
+
         # ---- flopy.modflow.Modflow.load
         self.mf = flopy.modflow.Modflow.load(
             nam_file,
@@ -164,7 +165,7 @@ class Modpath:
             check=False,
             exe_name=getattr(self.model_modflow, "exe", None) or "mfnwt",
         )
-        
+
         # Avoid re-loading packages already attached to the model (prevents flopy duplicate warnings)
         bas = self.mf.get_package('BAS6')
         if bas is None:
@@ -177,7 +178,7 @@ class Modpath:
         nrow = self.mf.nrow
         laytype = lpf.laytyp.array
         iboundData = bas.ibound.array
-        
+
         # ---- flopy.modpath.Modpath6
         self.mp = flopy.modpath.Modpath6(modelname=self.mf.name,
                                          model_ws=self.full_path,
@@ -190,24 +191,24 @@ class Modpath:
                                          dis_file=dis_file,
                                          dis_unit=87,
                                          budget_file=bud_file)
-        
+
         self.mp.array_free_format = True
         cbb = fpu.CellBudgetFile(bud_file)
         # cbb.list_records()
         rec_drn = cbb.get_data(kstpkper=(0, 0), text='DRAINS')
         rec_rch = cbb.get_data(kstpkper=(0, 0), text='RECHARGE')
-        
+
         self.mp.dis_file = dis_file
         self.mp.head_file = head_file
         self.mp.budget_file = bud_file
-                
+
         #%% Specific parametrization
-        
+
         if self.track_dir=='forward':
             track = 1
             zone_opt = 1
             zone_inj = 1
-            
+
         if self.bore_depth==None:
             drn = np.ones((nrow, ncol))
             compti = 0
@@ -247,9 +248,9 @@ class Modpath:
                               1, # BudgetOutputOption : 1 = No budget checking 2 = A summary of cell-by-cell budgets is printed in the Listing File 3 = A list of cells is specified for which detailed budget information is summarized in the Listing File 4 = Trace mode is in effect
                               zone_opt, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
                               1, # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations. 2 = An array of retardation factors is read and used in the velocity calculations.
-                              1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.        
+                              1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.
         logger.debug('Modpath settings - track: %s, zone_opt: %s, zone_inj: %s', track, zone_opt, type(zone_inj))
-        
+
         # ---- flopy.modpath.Modpath6
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
                                   group_placement=[[1, 1, 1, 0, 1, 1]], stop_zone=1, zone=zone_inj) # szone
@@ -259,7 +260,7 @@ class Modpath:
 
         # ---- flopy.modpath.mp6sim.StartingLocationsFile
         stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
-        
+
         prow = self.cell_div
         pcol = self.cell_div
         # if self.zloc_div == True:
@@ -271,15 +272,15 @@ class Modpath:
             play = nlay
         else:
             play = 1
-            
+
         stldata = stl.get_empty_starting_locations_data(npt=np.sum(mask_dem>0)*prow*pcol*play)
-              
+
         hds_1c = fpu.HeadFile(head_file)
         # head_1c = hds_1c.get_alldata(mflay=None)
-        head_1c = hds_1c.get_data(totim=1)        
+        head_1c = hds_1c.get_data(totim=1)
         wt = pp.get_water_table(head_1c, -100) # -9999
         # wt = np.ones((nrow, ncol)) * wt
-                
+
         if self.track_dir == 'forward':
             compt = 0
             for i in range(0, nrow):
@@ -320,7 +321,7 @@ class Modpath:
                                     # else:
                                     #     stldata[compt]['zloc0'] = 0
                                     compt = compt + 1
-                
+
         if self.track_dir == 'backward':
             compt = 0
             for i in range(0, nrow):
@@ -353,9 +354,9 @@ class Modpath:
                                     else:
                                         stldata[compt]['k0'] = 0
                                     compt = compt + 1
-        
+
         #%% Select random particles to inject
-        
+
         # Random
         if self.sel_random != None:
             if self.sel_random >= len(stldata):
@@ -367,18 +368,18 @@ class Modpath:
             self.point_data = self.point_data[np.argsort(self.point_data['particleid'])] # do not work for pathlines, bug sometimes
         else:
             self.point_data = stldata
-        
+
         # Slicing
         if self.sel_slice != None:
             self.point_data = stldata[::self.sel_slice]
-        
+
         #%% Finalize settings
-        
+
         stl.data = self.point_data
-        
+
         self.poro_modpath = self.model_modflow.sy
         self.ss_modpath = self.model_modflow.ss
-        
+
         # ---- flflopy.modpath.Modpath6Basopy.modpath.mp6sim.StartingLocationsFile
         flopy.modpath.Modpath6Bas(self.mp,
                                   hnoflo=-9999,
@@ -391,16 +392,16 @@ class Modpath:
                                   prsityCB=self.ss_modpath,
                                   extension='mpbas',
                                   unitnumber=86)
-        
+
         # 1	gauche	face Ouest (x– direction)
         # 2	droite	face Est (x+ direction)
         # 3	avant	face Sud (y– direction)
         # 4	arrière	face Nord (y+ direction)
         # 5	bas   	face inférieure (z– direction)
         # 6	haut	face supérieure (z+ direction)
-                        
+
     #%% PROCESSING
-    
+
     def processing(self,
                    write_model:bool=True,
                    run_model:bool=False):
@@ -423,18 +424,18 @@ class Modpath:
         # Create modflow files
         if write_model == True:
             self.mp.write_input()
-       
+
         # Run modflow files
         success_model = False
         if run_model == True:
             verbose = True
             success_model, tempo = self.mp.run_model(silent=not verbose) # True without msg
-        
+
         return success_model
 
     #%% POST-PROCESSING
-    
-    def post_processing(self, 
+
+    def post_processing(self,
                         model_modpath:object,
                         starting_point:bool = True,
                         ending_point:bool = True,
@@ -459,21 +460,21 @@ class Modpath:
         random_id : int, optional
             Export random pathlines. The default is None.
         """
-        
+
         # The outputs to create
         self.starting_point = starting_point
         self.ending_point = ending_point
         self.pathlines_shp = pathlines_shp
         self.particles_shp = particles_shp
-        
+
         # Path and load
         self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
-        
+
         self.particles_file = os.path.join(self.full_path, '_postprocess', '_particles')
         toolbox.create_folder(self.particles_file)
-                
+
         grid_model = model_modpath.mf.modelgrid
-        
+
         crs = model_modpath.geographic.crs_proj
         if isinstance(crs, (int, float)):
             epsg = crs
@@ -488,13 +489,13 @@ class Modpath:
             if gdf.crs is None and crs_for_write is not None:
                 return gdf.set_crs(crs_for_write, allow_override=True)
             return gdf
-            
+
         # Import mpend file
         path_mpend = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
         # ---- flopy.utils.EndpointFile
         endobj = flopy.utils.EndpointFile(path_mpend+'.mpend')
         e = endobj.get_alldata()
-        
+
         # Create ending point file
         if ending_point == True:
             with warnings.catch_warnings():
@@ -504,7 +505,7 @@ class Modpath:
                                        direction='ending',
                                        mg=grid_model,
                                        crs=crs_for_write)
-        
+
         # Create starting point file
         if starting_point == True:
             with warnings.catch_warnings():
@@ -514,25 +515,25 @@ class Modpath:
                                        direction='starting',
                                        mg=grid_model,
                                        crs=crs_for_write)
-        
+
         # Import mppth file
         if (pathlines_shp == True) or (particles_shp == True):
-        
+
             path_mppth = os.path.join(model_modpath.model_folder, model_modpath.model_name, model_modpath.model_name)
             # ---- flopy.utils.PathlineFile
             pthobj = flopy.utils.PathlineFile(path_mppth+'.mppth')
             pth_data = pthobj.get_alldata()
-                
+
             if random_id != None:
                 shp_endpoint = gpd.read_file(os.path.join(self.particles_file, 'ending.shp'))
                 keep_id = shp_endpoint.particleid
                 keep_id = keep_id.tolist()
-     
+
                 # if not os.path.exists(self.particles_file+'/_random_id.data'):
                 id_random_particles = random.sample(keep_id[:-1], random_id)
                 with open(self.particles_file+'/_random_id.data', 'wb') as f:
                     pickle.dump(id_random_particles, f)
-                        
+
                 pth_data_save = []
                 for o, i in enumerate(id_random_particles):
                     logger.debug('Processing random particle %d/%d (id: %s)', o, len(id_random_particles), i)
@@ -541,31 +542,31 @@ class Modpath:
                             pth_data_save.append(j)
             else:
                 pth_data_save = pth_data
-            
+
             # Create pathlines file
             if pathlines_shp == True:
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                     pthobj.write_shapefile(pathline_data=pth_data_save,
                                             shpname=os.path.join(self.particles_file, 'pathlines.shp'),
-                                            one_per_particle=True, 
+                                            one_per_particle=True,
                                             direction='ending',
                                             mg=grid_model,
                                             crs=crs_for_write,
                                             verbose=False)
-            
+
             # Create particles file
             if particles_shp == True:
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                     pthobj.write_shapefile(pathline_data=pth_data_save,
                                             shpname=os.path.join(self.particles_file, 'particles.shp'),
-                                            one_per_particle=False, 
+                                            one_per_particle=False,
                                             direction='ending',
                                             mg=grid_model,
                                             crs=crs_for_write,
                                             verbose=False)
-    
+
     def filt_processing(self,
                         model_modpath:object,
                         norm_flux: bool=False, # weight time by fluxes (recharge)
@@ -575,7 +576,7 @@ class Modpath:
                         calc_rtd: bool=True, # compute residence time distribution
                         random_id: int=None # select randomly to keep
                         ):
-    
+
         # Convert days in years
         def update_time(df, filt_time):
             if filt_time == True:
@@ -586,7 +587,7 @@ class Modpath:
                     pass
                 df = df[df['time']>0]
             return df
-        
+
         # Keep particles ending in seepage and not in/out in the same cell
         def update_locout(df, filt_seep, filt_inout):
             if filt_seep == True:
@@ -598,7 +599,7 @@ class Modpath:
                         df.i.astype(str)+'-'+df.j.astype(str)] # NOT IN AND OUT FOR SAME CELL
             keep_particles = df['particleid']
             return df, keep_particles
-        
+
         # Paths
         self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
         self.particles_file = os.path.join(self.full_path, '_postprocess', '_particles')
@@ -617,7 +618,7 @@ class Modpath:
             if gdf.crs is None and crs_for_write is not None:
                 return gdf.set_crs(crs_for_write, allow_override=True)
             return gdf
-        
+
         # Create a new shapefile named '_weighted'
         if norm_flux == True:
             modeldir = self.full_path+'/'
@@ -631,14 +632,14 @@ class Modpath:
             nrow          = np.unique(mydis.nrow)[0]
             nlay          = np.unique(mydis.nlay)[0]
             dcol          = np.unique(mydis.delc)[0]
-            drow          = np.unique(mydis.delr)[0]    
+            drow          = np.unique(mydis.delr)[0]
             period        = 0
             step          = 0
-            Qx, Qy, Qz_rech  = pp.get_extended_budget(modeldir+namepath+'.cbc', precision='single', idx=None, 
-                                                      kstpkper=(step, period), totim=None,boundary_ifaces={'RECHARGE': 6}, hdsfile=modeldir+namepath+'.hds', 
+            Qx, Qy, Qz_rech  = pp.get_extended_budget(modeldir+namepath+'.cbc', precision='single', idx=None,
+                                                      kstpkper=(step, period), totim=None,boundary_ifaces={'RECHARGE': 6}, hdsfile=modeldir+namepath+'.hds',
                                                       model=mymodel)
-            Qx_2, Qy_2, Qz_drain  = pp.get_extended_budget(modeldir+namepath+'.cbc', precision='single', idx=None, 
-                                                           kstpkper=(step, period), totim=None,boundary_ifaces={'DRAINS': 6}, hdsfile=modeldir+namepath+'.hds', 
+            Qx_2, Qy_2, Qz_drain  = pp.get_extended_budget(modeldir+namepath+'.cbc', precision='single', idx=None,
+                                                           kstpkper=(step, period), totim=None,boundary_ifaces={'DRAINS': 6}, hdsfile=modeldir+namepath+'.hds',
                                                            model=mymodel)
             recharge_raw      = aux_rech.rech.array[0,0]
             recharge_list     = recharge_raw.flatten()
@@ -646,30 +647,30 @@ class Modpath:
             drain_matrix      = Qz_drain[0,:,:]
             sflux = recharge_matrix - drain_matrix
             sflows = sflux/drow/dcol
-            
+
             toolbox.export_tif(self.geographic.watershed_box_buff_dem,
                                sflows,
                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
                                -9999)
-            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
+            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
                                                 self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp',
                                                 out_text=False)
-            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
+            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
                                                 self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp',
                                                 out_text=False)
-            
+
             start = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp')
             start = ensure_crs(start)
             start_weighted = start.copy()
             start_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            
+
             end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp')
             end = ensure_crs(end)
             end_weighted = end.copy()
             end_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
-            
+
             recharge_list = np.ones(len(end))*recharge_raw.mean()
-            
+
             start_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp'))
             end_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp'))
 
@@ -682,11 +683,11 @@ class Modpath:
                 start_process['VALUE1_in'] = end_weighted['VALUE1']
                 start_process['rchPerc'] = start_process['VALUE1_in'] / recharge_list
                 start_process.loc[start_process['rchPerc']<0, 'rchPerc'] = 0
-                time_win = (start_process['time'])*start_process['rchPerc']     
-        
+                time_win = (start_process['time'])*start_process['rchPerc']
+
             start_process['time_win'] = time_win
             end_process['time_win'] = time_win
-            
+
             end_up = update_time(end_process, filt_time)
             end_up, keep_particles = update_locout(end_up, filt_seep, filt_inout)
             end_up = ensure_crs(end_up)
@@ -696,7 +697,7 @@ class Modpath:
             start_up, keep_particles = update_locout(start_up, filt_seep, filt_inout)
             start_up = ensure_crs(start_up)
             start_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            
+
             if self.pathlines_shp == True:
                 pathlines_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines.shp'))
                 if self.track_dir == 'forward':
@@ -713,10 +714,10 @@ class Modpath:
                     else:
                         with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
-                    pathlines_up = pathlines_up[pathlines_up['particleid'].isin(id_particles_random)]                    
+                    pathlines_up = pathlines_up[pathlines_up['particleid'].isin(id_particles_random)]
                 pathlines_up = ensure_crs(pathlines_up)
                 pathlines_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines_weighted.shp')
-            
+
             if self.particles_shp == True:
                 particles_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp'))
                 particles_up = update_time(particles_process, filt_time)
@@ -728,16 +729,16 @@ class Modpath:
                     else:
                         with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
                             id_particles_random = pickle.load(f)
-                    particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
+                    particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]
                 particles_up = ensure_crs(particles_up)
                 particles_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
-        
+
         #%% PLOT
-        
+
         if calc_rtd == True:
-            if self.track_dir == 'forward': 
+            if self.track_dir == 'forward':
                 end = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp'))
-            if self.track_dir == 'backward': 
+            if self.track_dir == 'backward':
                 end = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp'))
             try:
                 shp = gpd.read_file(self.geographic.watershed_shp)
@@ -748,12 +749,12 @@ class Modpath:
             end = end.dropna()
             try:
                 tau = np.average(end['time_win'], weights=end['rchPerc'])
-                def pdf_function(M, nbin, Weight):    
+                def pdf_function(M, nbin, Weight):
                     bin_min = np.quantile(M, 0.01)
                     bin_max = np.quantile(M, 0.99)
                     bins = np.logspace(np.log10(bin_min),np.log10(bin_max), nbin)
                     pdf, binEdges = np.histogram(M, bins=bins,density=True, weights=Weight)
-                    dx = np.diff(binEdges)  
+                    dx = np.diff(binEdges)
                     xh =  (binEdges[1:] + binEdges[:-1])/2
                     xh = np.array(xh)
                     return (xh, pdf)
@@ -775,7 +776,7 @@ class Modpath:
                 a, b, c, d, e = params
                 x_fit = np.linspace(min(x_log), max(x_log), 100)
                 y_fit = func(x_fit, a, b, c, d, e)
-                
+
                 fig = plt.figure(figsize=(6,4))
                 ax = fig.add_subplot(111)
                 ax.plot(xfil, yfil, '-', lw=2, c='red', label='Binning on particles')

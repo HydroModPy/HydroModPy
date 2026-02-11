@@ -14,6 +14,7 @@
 
 # Python
 import sys
+import logging
 import os
 from os.path import dirname, abspath
 import re

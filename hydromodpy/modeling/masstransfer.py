@@ -29,13 +29,13 @@ logger = get_logger(__name__)
 class Masstransfer:
     """
     Class for topographically-driven surface runoff of discharge outflows
-    from groundwater flow model 
+    from groundwater flow model
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  geographic: object,
-                 raw_rast_name: str, 
-                 trace_shp_name: str, 
+                 raw_rast_name: str,
+                 trace_shp_name: str,
                  mass_rast_name: str,
                  extraction_folder: str=None,
                  label: str="conc"):
@@ -59,37 +59,37 @@ class Masstransfer:
         self.geographic = geographic
         self.extraction_folder = extraction_folder
         label_suffix = f"_{label}" if label else ""
-               
+
         self.watershed_direc_surflow = geographic.watershed_direc
         self.watershed_buff_fill_surflow = geographic.watershed_buff_fill
-        
+
         try:
             self.watershed_direc_surflow = geographic.watershed_box_buff_direc # geographic.watershed_direc
             self.watershed_buff_fill_surflow = geographic.watershed_box_buff_fill # geographic.watershed_buff_fill
         except:
             pass
-        
+
         #### CHANGE HARD DISK ####
         # self.watershed_direc_surflow = self.watershed_direc_surflow.replace('G','I',1)
         # self.watershed_buff_fill_surflow = self.watershed_buff_fill_surflow.replace('G','I',1)
-        
+
         self.shp_folder = os.path.join(self.extraction_folder, '_temporary')
         toolbox.create_folder(self.shp_folder)
-        
+
         self.tifs_folder = os.path.join(self.extraction_folder, '_rasters')
         toolbox.create_folder(self.tifs_folder)
-        
+
         self.raw_rast_path = os.path.join(self.tifs_folder, raw_rast_name)
-        
+
         self.raw_pt_path = os.path.join(self.shp_folder, f'_rawpt{label_suffix}_t(xxx).shp')
         self.out_rast_path = os.path.join(self.shp_folder, f'_trace{label_suffix}_t(xxx).tif')
         self.out_pt_path = os.path.join(self.shp_folder, trace_shp_name)
-        
+
         self.load_rast_path = os.path.join(self.shp_folder, f'_load{label_suffix}_t(xxx).tif')
         self.eff_rast_path = os.path.join(self.shp_folder, f'_eff{label_suffix}_t(xxx).tif')
         self.abs_rast_path = os.path.join(self.shp_folder, f'_abs{label_suffix}_t(xxx).tif')
         self.mass_rast_path = os.path.join(self.tifs_folder, mass_rast_name)
-        
+
         # self.trace_downslope()
         # self.trace_cumulated()
 
@@ -142,6 +142,6 @@ class Masstransfer:
         # wbt.add_point_coordinates_to_table(self.out_pt_path)
         # wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
         logger.debug("Optional extras (add_point_coordinates_to_table, extract_raster_values_at_points) are available but disabled.")
-        
-        
+
+
 #%% NOTES

@@ -15,6 +15,7 @@
 # Python
 import sys
 import os
+import logging
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -41,13 +42,13 @@ class Subbasin:
     """
     Class to extract results in some subbasins inside the model domain (watershed).
     """
-    
+
     def __init__(self,
-                 geographic: object, 
-                 hydrometry: object, 
+                 geographic: object,
+                 hydrometry: object,
                  intermittency: object,
                  sub_snap_dist: int,
-                 add_path: str = None, 
+                 add_path: str = None,
                  out_path: str=os.path.dirname(os.path.dirname(__file__))+'\\output\\'):
         """
         Parameters
@@ -66,13 +67,13 @@ class Subbasin:
             Path of the HydroModPy outputs.
         """
         logger.info('Extracting subbasin definitions for watershed')
-        
+
         self.sub_snap_dist = sub_snap_dist
-        
+
         self.subbasin_path = os.path.join(out_path, 'results_stable/subbasin/')
         if not os.path.exists(self.subbasin_path):
             toolbox.create_folder(self.subbasin_path)
-                
+
         self.adddata_path = os.path.join(out_path, 'results_stable/add_data/')
         if not os.path.exists(self.adddata_path):
             toolbox.create_folder(self.adddata_path)
@@ -90,7 +91,7 @@ class Subbasin:
         except Exception as e:
             logger.debug('No hydrometry subbasin or problem: %s', e)
             pass
-        
+
         try:
             code_onde = intermittency.code_onde
             x_coord = intermittency.x_coord
@@ -104,20 +105,20 @@ class Subbasin:
         except Exception as e:
             logger.debug('No intermittency subbasin or problem: %s', e)
             pass
-        
+
         try:
             code_sub, x_coord, y_coord = self.add_coord_manual(add_path)
             for i in range(len(code_sub)):
                 sub_path = os.path.join(self.subbasin_path, 'subbasin_'+code_sub[i])
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)            
+                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
         except Exception as e:
             logger.debug('No personal subbasins or problem: %s', e)
             pass
 
     #%% SUB-CATCHMENT FROM STATIONS
-    
+
     # Extract sub-catchment from existing stations : hydrometry or intermittency
-    
+
     def extract_interest_zones(self, geographic, X, Y, outpath, sub_snap_dist):
         """
         Generate subassin from XY outlet with geospatial tools.
@@ -132,7 +133,7 @@ class Subbasin:
         # Path of subbasin
         if os.path.exists(outpath):
             shutil.rmtree(outpath)
-        toolbox.create_folder(outpath)        
+        toolbox.create_folder(outpath)
         # Coordinates
         outpath = outpath + '/'
         df = pd.DataFrame({'x': [X], 'y': [Y]})
@@ -155,7 +156,7 @@ class Subbasin:
                                  sub_snap_dist
                                  # geographic.snap_dist
                                  )
-        logger.debug('Using regional accumulation from: %s', 
+        logger.debug('Using regional accumulation from: %s',
                     os.path.join(geographic.reg_fold or geographic.reg_path, 'region_acc.tif'))
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
@@ -178,12 +179,12 @@ class Subbasin:
         wbt.polygons_to_lines(watershed_shp, watershed_contour_shp)
         # Clip buffer watershed DEM from watershed shapefile polygon
         watershed_dem = outpath + 'watershed_dem.tif'
-        wbt.clip_raster_to_polygon(geographic.watershed_buff_dem, watershed_shp, watershed_dem, maintain_dimensions=True)        
-    
+        wbt.clip_raster_to_polygon(geographic.watershed_buff_dem, watershed_shp, watershed_dem, maintain_dimensions=True)
+
     #%% SUB-CATCHMENT FROM XY POINT
-    
+
     # From a .csv file with x, y coordinates representing the outlet desired sub-catchments
-    
+
     def add_coord_manual(self, add_path):
         """
         Check files in folder and extract 'code_sub','x_outlet','y_outlet'
@@ -195,5 +196,5 @@ class Subbasin:
         x_coord = sub_list['x_outlet'].to_list()
         y_coord = sub_list['y_outlet'].to_list()
         return code_sub, x_coord, y_coord
-        
+
 #%% NOTES

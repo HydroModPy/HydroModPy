@@ -15,6 +15,10 @@ import sys
 import os
 import pickle
 import numpy as np
+# For compatibility with older versions of numpy (deepdish) - Temmporary fix
+if not hasattr(np, 'ComplexWarning'):
+    np.ComplexWarning = Warning
+
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt

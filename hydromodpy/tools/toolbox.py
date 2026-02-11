@@ -15,6 +15,7 @@
 import os
 import re
 import numbers
+import logging
 import datetime
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -219,18 +220,20 @@ def load_to_numpy(file, src_crs=None,
     else: # input file is a raster
         with rio.open(file, 'r') as data:
             data_profile = data.profile
-            if src_crs and not data_profile['crs'].is_valid:
+            if src_crs and (not data_profile['crs'] or not data_profile['crs'].is_valid):
                 data_profile['crs'] = src_crs
-                # print(f"The CRS of input data has been set to 'EPSG:{data_profile['crs'].to_epsg()}'.\n")
+                logging.debug(f"The CRS of input data has been set to 'EPSG:{data_profile['crs'].to_epsg()}'.")
             # data_crs = data.crs
             val = data.read(1) # data.read()[0] # extract the first layer
 
     # Reprojection:
     # if (crs_proj and (str(data_crs) != crs_proj)) or (base_profile and (data_profile != base_profile)):
+    # if (crs_proj and (str(data_crs) != crs_proj)) or (base_profile and (data_profile != base_profile)):
     if base_profile:
         # CRS initialization
-        if dst_crs and not base_profile['crs'].is_valid:
+        if dst_crs and (not base_profile['crs'] or not base_profile['crs'].is_valid):
             base_profile['crs'] = dst_crs
+
 
         if data_profile != base_profile:
             if not data_profile['crs'].is_valid:
@@ -367,7 +370,7 @@ def load_to_xarray(file, src_crs=None, main_var=None,
                     logger.error("No time unit metadata found in NetCDF dataset")
                     return
                 # Build back time scale:
-                # print(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
+                logging.debug(f"Time axis will be inferred from 'time' attributes: \"{ds.time.attrs['units']}\"...")
                 timeunit = ds.time.attrs['units'].split()[0].casefold()
                 if timeunit in ['month', 'months', 'mois']:
                     freq = 'MS'

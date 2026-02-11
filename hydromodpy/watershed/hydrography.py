@@ -14,6 +14,7 @@
 
 # Python
 import os
+import logging
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -30,8 +31,8 @@ logger = get_logger(__name__)
 class Hydrography:
     """
     Add hydrography data in the watershed object.
-    """    
-    
+    """
+
     def __init__(self, out_path: str,
                  types_obs: list, fields_obs: list,
                  geographic: object, hydro_path: str,
@@ -51,13 +52,13 @@ class Hydrography:
             Path of the folder with the hydrography data.
         """
         logger.info("Extracting hydrography data from %s", hydro_path)
-        
+
         data_folder = out_path + '/results_stable/hydrography/'
         if not os.path.exists(data_folder):
             os.makedirs(data_folder)
-        
-        self.hydro_path = hydro_path 
-        
+
+        self.hydro_path = hydro_path
+
         watershed_shp = geographic.watershed_shp # watershed_shp = geographic.watershed_box_shp
         watershed_dem = geographic.watershed_dem # watershed_dem = geographic.watershed_box_buff_dem
 
@@ -67,13 +68,13 @@ class Hydrography:
             except ValueError as e:
                 logger.error("Hydrography extraction failed for %s: %s", type_obs, e)
                 pass
-    
+
     #%% FUNCTIONS
-    
+
     def clip_observed(self, type_obs, field_obs, hydro_path, data_folder, watershed_shp, watershed_dem, streams_file):
         """
         Function to clip hydrogrpahic data at the watershed scale (or model domain).
-        
+
         Parameters
         ----------
         watershed_shp : str
@@ -83,7 +84,7 @@ class Hydrography:
         """
         streams = hydro_path + '/' +  type_obs +'.shp'
         self.streams = data_folder + type_obs +'.shp'
-        
+
         # First clip of the shape file at the watershed scale (classical GIS function performed here in geopandas)
         if isinstance(streams_file, gpd.GeoDataFrame):
             streams_file = streams_file
@@ -91,10 +92,10 @@ class Hydrography:
             streams_file = gpd.read_file(streams)
         watshd_file = gpd.read_file(watershed_shp)
         file_clipped = gpd.clip(streams_file, watshd_file) # wbt.clip(streams, watershed_shp, self.streams)
-        
+
         # Saves clipped file to the reuslts file structure
         file_clipped.to_file(self.streams)
-        
+
         # Transforms shapefile to raster file (.tif format)
         shp_base = gpd.read_file(self.streams)
         shp_type = shp_base.geometry.type[0] # forma = forma.geom_type[0]
@@ -104,7 +105,7 @@ class Hydrography:
         except:
             pass
         shp_base.to_file(self.streams)
-        
+
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
             logger.debug('Processing polygon geometry type: %s', shp_type)
             # e.g. wetlands and ponds
@@ -118,17 +119,17 @@ class Hydrography:
             logger.debug('Processing point geometry type: %s', shp_type)
             # e.g. landslides, sources, wells
             wbt.vector_points_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
-        
+
         wbt.set_nodata_value(
-                    self.tif_streams, 
-                    self.tif_streams, 
+                    self.tif_streams,
+                    self.tif_streams,
                     back_value=-32768)
 
         with rasterio.open(self.tif_streams) as dem_streams:
             self.streams_array = dem_streams.read(1).astype(float)
         self.streams_array[self.streams_array<0] = np.nan
-                
+
         pt_streams = data_folder + type_obs + '_pt.shp'
         wbt.raster_to_vector_points(self.tif_streams, pt_streams)
-        
+
 #%% NOTES

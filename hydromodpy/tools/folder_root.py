@@ -13,6 +13,7 @@
 #%% LIBRAIRIES
 
 import os
+import logging
 import sys as sys
 import time as time
 import pathlib
@@ -132,8 +133,8 @@ def update_root_folder_results(user_folder_path = None):
 #     def actualize(self,nb=1):
 #         self.time_inter_end=time.time()
 #         self.simul_current=self.simul_current+nb
-#         print('time elapsed = ', (self.time_inter_end - self.time_start)/3600, " heures")
-#         print('time remaining = ', (self.time_inter_end - self.time_start) * (self.simul_total/self.simul_current-1) / 3600, " heures")
+#         logging.info('time elapsed = %s %s', (self.time_inter_end - self.time_start)/3600, " heures")
+#         logging.info('time remaining = %s %s', (self.time_inter_end - self.time_start) * (self.simul_total/self.simul_current-1) / 3600, " heures")
 
 
 # def setup_path():
