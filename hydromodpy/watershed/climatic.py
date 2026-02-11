@@ -224,8 +224,37 @@ class Climatic:
             date_obj = pd.to_datetime(climatic.index, format="%d/%m/%Y")
 
         climatic.index = date_obj
-        
-        climatic = climatic[clim_mod+'_'+clim_sce]
+
+        # Supports both formats:
+        # - REC_REA_historic
+        # - REA_historic (when file already corresponds to REC)
+        candidates = [f'REC_{clim_mod}_{clim_sce}', f'{clim_mod}_{clim_sce}']
+        col = None
+        for c in candidates:
+            if c in climatic.columns:
+                col = c
+                break
+
+        # Fallback: same scenario with another model column, if requested model
+        # is unavailable (e.g. asking REAUP while only REA exists).
+        if col is None:
+            suffix = f'_{clim_sce}'
+            for c in climatic.columns:
+                if str(c).endswith(suffix):
+                    col = c
+                    logger.warning(
+                        "Recharge column for model '%s' not found. Using '%s' instead.",
+                        clim_mod, col
+                    )
+                    break
+
+        if col is None:
+            raise KeyError(
+                f"Column not found for REC/{clim_mod}/{clim_sce}. "
+                f"Available columns: {list(climatic.columns)}"
+            )
+
+        climatic = climatic[col]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.recharge = climatic # recharge in meters
         # self.recharge.index = self.recharge.asfreq(self.freq).index
@@ -270,8 +299,37 @@ class Climatic:
             date_obj = pd.to_datetime(climatic.index, format="%d/%m/%Y")
 
         climatic.index = date_obj
-        
-        climatic = climatic[clim_mod+'_'+clim_sce]
+
+        # Supports both formats:
+        # - RUN_REA_historic
+        # - REA_historic (when file already corresponds to RUN)
+        candidates = [f'RUN_{clim_mod}_{clim_sce}', f'{clim_mod}_{clim_sce}']
+        col = None
+        for c in candidates:
+            if c in climatic.columns:
+                col = c
+                break
+
+        # Fallback: same scenario with another model column, if requested model
+        # is unavailable (e.g. asking REAUP while only REA exists).
+        if col is None:
+            suffix = f'_{clim_sce}'
+            for c in climatic.columns:
+                if str(c).endswith(suffix):
+                    col = c
+                    logger.warning(
+                        "Runoff column for model '%s' not found. Using '%s' instead.",
+                        clim_mod, col
+                    )
+                    break
+
+        if col is None:
+            raise KeyError(
+                f"Column not found for RUN/{clim_mod}/{clim_sce}. "
+                f"Available columns: {list(climatic.columns)}"
+            )
+
+        climatic = climatic[col]
         climatic = climatic[(climatic.index.year >= first_year) & (climatic.index.year <= last_year)]
         self.runoff = climatic # recharge in meters
         # self.runoff.index = self.runoff.asfreq(self.freq).index

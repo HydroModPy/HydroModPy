@@ -42,6 +42,20 @@ Each release section includes the following standard categories:
 
 ---
 
+## [v0.3.4] - 2026-01-04
+### Added
+- Added `install/requirements-docker-light.txt` for pip-only Docker/server installs without IDE or visualization dependencies.
+- Added optional Dask handling in SIM2 (chunked xarray only when Dask is available).
+
+### Changed
+- HydroModPy now loads display modules only when display features are invoked.
+- Dockerfile updated for a light production flow using pip requirements.
+
+### Fixed
+- Improved PROJ database detection and fallback (including rasterio data dirs) to reduce `proj.db` layout errors in containers.
+
+---
+
 ## [v0.3.3] - 2025-12-03
 ### Added
 - Lightweight conda environment option (`env_hydromodpy_light.yml`) and matching light dependency set in `pyproject.toml` for setups without VTK or Jupyter kernels.
@@ -157,7 +171,8 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.2...dev
+[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.4...dev
+[v0.3.4]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.3...v0.3.4
 [v0.3.2]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.2.0...v0.3.0
