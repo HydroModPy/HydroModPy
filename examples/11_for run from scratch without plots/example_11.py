@@ -204,6 +204,7 @@ def run_hydromodpy(watershed_name='Test1',
 # ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
-    watertable_depth_output = run_hydromodpy()
+    DEM_name = os.getenv("HYDROMODPY_EXAMPLE11_DEM_NAME", "regional dem 2.tif")
+    watertable_depth_output = run_hydromodpy(DEM_name=DEM_name)
 
 # ---- NOTES
