@@ -25,12 +25,8 @@ import pickle
 import geopandas as gpd
 import rasterio
 import flopy.utils.postprocessing as pp
-import whitebox
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 # Root
 df = dirname(dirname(abspath(__file__)))
@@ -617,6 +613,33 @@ class Modpath:
             if gdf.crs is None and crs_for_write is not None:
                 return gdf.set_crs(crs_for_write, allow_override=True)
             return gdf
+
+        def sample_raster_values_at_points(raster_path, points_gdf):
+            """Sample raster at point locations without rewriting input shapefiles."""
+            sampled = np.full(len(points_gdf), np.nan, dtype=float)
+            if points_gdf.empty:
+                return sampled
+
+            coords = []
+            valid_idx = []
+            for idx, geom in enumerate(points_gdf.geometry):
+                if geom is None or geom.is_empty:
+                    continue
+                coords.append((geom.x, geom.y))
+                valid_idx.append(idx)
+
+            if len(coords) == 0:
+                return sampled
+
+            with rasterio.open(raster_path) as src:
+                values = np.array([val[0] for val in src.sample(coords)], dtype=float)
+                nodata = src.nodata
+
+            if nodata is not None:
+                values[values == nodata] = np.nan
+
+            sampled[np.asarray(valid_idx, dtype=int)] = values
+            return sampled
         
         # Create a new shapefile named '_weighted'
         if norm_flux == True:
@@ -646,32 +669,32 @@ class Modpath:
             drain_matrix      = Qz_drain[0,:,:]
             sflux = recharge_matrix - drain_matrix
             sflows = sflux/drow/dcol
-            
-            toolbox.export_tif(self.geographic.watershed_box_buff_dem,
-                               sflows,
-                               self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif',
-                               -9999)
-            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
-                                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp',
-                                                out_text=False)
-            wbt.extract_raster_values_at_points(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'sflows_weighted.tif', 
-                                                self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp',
-                                                out_text=False)
-            
-            start = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting.shp')
+
+            particles_dir = os.path.join(self.model_folder, model_name, '_postprocess', '_particles')
+            sflows_tif = os.path.join(particles_dir, 'sflows_weighted.tif')
+            start_shp = os.path.join(particles_dir, 'starting.shp')
+            end_shp = os.path.join(particles_dir, 'ending.shp')
+            start_weighted_shp = os.path.join(particles_dir, 'starting_weighted.shp')
+            end_weighted_shp = os.path.join(particles_dir, 'ending_weighted.shp')
+
+            toolbox.export_tif(self.geographic.watershed_box_buff_dem, sflows, sflows_tif, -9999)
+
+            start = gpd.read_file(start_shp)
             start = ensure_crs(start)
             start_weighted = start.copy()
-            start_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            
-            end = gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending.shp')
+            start_weighted['VALUE1'] = sample_raster_values_at_points(sflows_tif, start_weighted)
+            start_weighted.to_file(start_weighted_shp)
+
+            end = gpd.read_file(end_shp)
             end = ensure_crs(end)
             end_weighted = end.copy()
-            end_weighted.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            end_weighted['VALUE1'] = sample_raster_values_at_points(sflows_tif, end_weighted)
+            end_weighted.to_file(end_weighted_shp)
             
             recharge_list = np.ones(len(end))*recharge_raw.mean()
             
-            start_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp'))
-            end_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp'))
+            start_process = ensure_crs(gpd.read_file(start_weighted_shp))
+            end_process = ensure_crs(gpd.read_file(end_weighted_shp))
 
             if self.track_dir == 'forward':
                 end_process['VALUE1_in'] = start_weighted['VALUE1']
