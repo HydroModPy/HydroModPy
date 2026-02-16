@@ -76,7 +76,8 @@ regression_path = os.path.join(root_dir, "examples", "00_quick_test_of_wide_hydr
 data_path = os.path.join(regression_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
-out_path = os.path.join(root_dir, "examples", "results")
+out_path = os.getenv("HYDROMODPY_EXAMPLE00_OUT_PATH", os.path.join(root_dir, "examples", "results"))
+skip_plots = os.getenv("HYDROMODPY_EXAMPLE00_SKIP_PLOTS", "0").strip().lower() in {"1", "true", "yes"}
 # Or define it manually
 # out_path = 'D:/_HydroModPy/_results'
 
@@ -241,6 +242,10 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   intermittency_weekly=False, # only in transient
                                                   intermittency_daily=False, # only in transient
                                                   ) # or 'M' or None
+
+if skip_plots:
+    print("Skipping plotting sections (HYDROMODPY_EXAMPLE00_SKIP_PLOTS enabled).")
+    sys.exit(0)
 
 #%% ---- OPEN SIMULATED
 
