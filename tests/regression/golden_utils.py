@@ -1,4 +1,15 @@
-"""Shared helpers for regression tests based on golden JSON references."""
+"""
+Shared utilities for regression tests based on golden references.
+
+This module centralizes the common mechanics used by example-based regression
+tests:
+1) run an example script (regular or "legacy" script),
+2) collect compact signatures from generated outputs,
+3) compare signatures against golden JSON references, or refresh them.
+
+Keeping this logic in one place helps make individual tests short and focused
+on "what to validate" rather than "how to validate it".
+"""
 
 from __future__ import annotations
 
@@ -14,8 +25,10 @@ import numpy as np
 import pytest
 
 
+# Repository root used by tests that need stable relative paths.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# Most MODFLOW-based regression tests validate this common output subset.
 DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "watertable_elevation",
     "outflow_drain",
@@ -26,13 +39,32 @@ DEFAULT_MODFLOW_OUTPUT_NAMES = [
 
 
 def load_golden_reference(path: Path) -> dict:
-    """Read a golden JSON file."""
+    """
+    Load a golden reference JSON file.
+
+    Parameters
+    ----------
+    path:
+        Path to the golden JSON file.
+
+    Returns
+    -------
+    dict
+        Parsed JSON payload.
+    """
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
 
 
 def write_golden_reference(path: Path, payload: dict) -> None:
-    """Write a golden JSON file with stable formatting."""
+    """
+    Persist a golden reference JSON file using stable formatting.
+
+    Notes
+    -----
+    - Parent folders are created automatically.
+    - Pretty printing is kept stable to make diffs review-friendly.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
         json.dump(payload, stream, indent=2)
@@ -40,13 +72,25 @@ def write_golden_reference(path: Path, payload: dict) -> None:
 
 
 def load_npy_dict(path: Path) -> dict:
-    """Load a .npy file that stores a Python dict."""
+    """
+    Load a `.npy` file that contains a serialized Python dictionary.
+
+    Expected format in this project is typically:
+        {timestep_index: 2D_or_3D_array, ...}
+    """
     return np.load(path, allow_pickle=True).item()
 
 
 def array_stats(values) -> dict:
-    """Build stable summary stats while ignoring NaN/Inf values."""
+    """
+    Compute compact, stable statistics from a numeric array-like input.
+
+    The function explicitly ignores non-finite values (`NaN`, `+/-Inf`) so
+    signatures remain robust across minor runtime/environment differences.
+    """
     arr = np.asarray(values, dtype=float)
+    # Keep only finite values to avoid unstable statistics when outputs include
+    # masked cells or undefined values.
     finite = arr[np.isfinite(arr)]
     if finite.size == 0:
         return {"count": 0, "mean": None, "p50": None, "p95": None}
@@ -59,7 +103,12 @@ def array_stats(values) -> dict:
 
 
 def assert_stats(actual: dict, expected: dict) -> None:
-    """Compare stats with numerical tolerance."""
+    """
+    Compare two statistical signatures with a small numeric tolerance.
+
+    `count` must match exactly, while floating statistics are compared with
+    `pytest.approx` to tolerate tiny floating-point noise.
+    """
     assert actual["count"] == expected["count"]
     for key in ("mean", "p50", "p95"):
         if expected[key] is None:
@@ -69,10 +118,18 @@ def assert_stats(actual: dict, expected: dict) -> None:
 
 
 def modflow_signature(path: Path) -> dict:
-    """Build a compact signature from a MODFLOW .npy output on last timestep."""
+    """
+    Build a compact signature from a MODFLOW `.npy` output.
+
+    Convention used here:
+    - each file stores a dictionary `{timestep -> array}`,
+    - regression compares the *last* available timestep because that usually
+      captures accumulated model behavior.
+    """
     data = load_npy_dict(path)
     assert len(data) > 0
 
+    # Use the last timestep to summarize final model state.
     last_timestep = sorted(data.keys())[-1]
     arr = np.asarray(data[last_timestep], dtype=float)
 
@@ -90,7 +147,13 @@ def modflow_signature(path: Path) -> dict:
 
 
 def snapshot_signature(path: Path) -> dict:
-    """Build a MODPATH signature from a .dbf file using the 'time' column."""
+    """
+    Build a MODPATH signature from a `.dbf` snapshot file.
+
+    Only a compact subset is retained:
+    - row count,
+    - statistics of the `time` column.
+    """
     table = gpd.read_file(path)
     assert "time" in table.columns, f"Column 'time' not found in {path}"
     return {
@@ -100,17 +163,31 @@ def snapshot_signature(path: Path) -> dict:
 
 
 def collect_modflow_signatures(postprocess_dir: Path, names: list[str]) -> dict:
-    """Compute MODFLOW signatures for a list of output names."""
+    """
+    Collect MODFLOW signatures for a list of output base names.
+
+    Example
+    -------
+    If `name` is `watertable_elevation`, this function reads:
+    `<postprocess_dir>/watertable_elevation.npy`.
+    """
     return {name: modflow_signature(postprocess_dir / f"{name}.npy") for name in names}
 
 
 def collect_modpath_signatures(particles_dir: Path, filenames: list[str]) -> dict:
-    """Compute MODPATH signatures for a list of snapshot filenames."""
+    """
+    Collect MODPATH signatures for a list of particle snapshot filenames.
+    """
     return {name: snapshot_signature(particles_dir / name) for name in filenames}
 
 
 def assert_modflow_signatures(actual_by_name: dict, expected_by_name: dict) -> None:
-    """Compare MODFLOW signatures against golden expectations."""
+    """
+    Validate MODFLOW signatures against golden expectations.
+
+    Structure and available keys are checked first, then numeric values are
+    compared with tolerances.
+    """
     assert set(actual_by_name) == set(expected_by_name)
     for name, expected in expected_by_name.items():
         actual = actual_by_name[name]
@@ -127,7 +204,9 @@ def assert_modflow_signatures(actual_by_name: dict, expected_by_name: dict) -> N
 
 
 def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> None:
-    """Compare MODPATH .dbf time signatures against golden expectations."""
+    """
+    Validate MODPATH `.dbf` signatures against golden expectations.
+    """
     assert set(actual_by_name) == set(expected_by_name)
     for filename, expected in expected_by_name.items():
         actual = actual_by_name[filename]
@@ -136,7 +215,14 @@ def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> N
 
 
 def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
-    """Skip test when bundled MODFLOW/MODPATH executables are missing."""
+    """
+    Ensure bundled MODFLOW/MODPATH executables are available for this platform.
+
+    The function *skips* the test (instead of failing) when binaries are not
+    available, because this is an environment capability issue rather than a
+    model regression issue.
+    """
+    # Resolve executable names from OS-specific bundled folders.
     if platform.system() == "Windows":
         mf_exe = repo_root / "bin" / "win" / "mfnwt.exe"
         mp_exe = repo_root / "bin" / "win" / "mp6.exe"
@@ -163,24 +249,29 @@ def resolve_model_workspace(
     model_name_prefix: str | None = None,
 ) -> tuple[Path, Path, Path]:
     """
-    Resolve watershed/model folders and return workspace paths.
+    Resolve the generated workspace folders for a given example run.
 
     Returns
     -------
     tuple
         (model_ws, postprocess_dir, particles_dir)
     """
+    # 1) Resolve watershed folder.
     if watershed_name is None:
+        # Most tests produce exactly one watershed folder in `out_path`.
         watershed_dirs = sorted(p for p in out_path.iterdir() if p.is_dir())
         assert watershed_dirs, f"No watershed folder found in {out_path}"
         watershed_dir = watershed_dirs[0]
     else:
+        # Some tests prefer explicit watershed naming to avoid ambiguity.
         watershed_dir = out_path / watershed_name
         assert watershed_dir.is_dir(), f"Watershed folder not found: {watershed_dir}"
 
+    # 2) Resolve results folder (`results_simulations` or `results_calibration`).
     results_dir = watershed_dir / results_folder_name
     assert results_dir.is_dir(), f"Results folder not found: {results_dir}"
 
+    # 3) Resolve model folder (exact name or first matching folder).
     if model_name is not None:
         model_ws = results_dir / model_name
         assert model_ws.is_dir(), f"Model folder not found: {model_ws}"
@@ -194,6 +285,7 @@ def resolve_model_workspace(
         assert model_dirs, f"No model folder found in {results_dir}"
         model_ws = model_dirs[0]
 
+    # 4) Return canonical workspace paths used by most regression tests.
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
     return model_ws, postprocess_dir, particles_dir
@@ -204,7 +296,9 @@ def resolve_first_model_workspace(
     *,
     results_folder_name: str = "results_simulations",
 ) -> tuple[Path, Path, Path]:
-    """Backward-compatible wrapper around resolve_model_workspace."""
+    """
+    Backward-compatible wrapper that selects the first watershed/model folders.
+    """
     return resolve_model_workspace(out_path, results_folder_name=results_folder_name)
 
 
@@ -214,13 +308,26 @@ def update_or_assert_goldens(
     golden_reference_file: Path,
     update_goldens: bool,
 ) -> None:
-    """Write or validate golden references based on update mode."""
+    """
+    Either refresh golden references or assert current outputs against them.
+
+    Parameters
+    ----------
+    actual:
+        Runtime signature payload built by the test.
+    golden_reference_file:
+        Path to the JSON golden file.
+    update_goldens:
+        If True, overwrite the golden file with `actual`.
+    """
     if update_goldens:
         write_golden_reference(golden_reference_file, actual)
         return
 
     expected = load_golden_reference(golden_reference_file)
 
+    # Validate only sections present in `actual`, which keeps this helper
+    # usable for MODFLOW-only and MODFLOW+MODPATH tests.
     if "modflow_expected" in actual:
         assert "modflow_expected" in expected
         assert_modflow_signatures(actual["modflow_expected"], expected["modflow_expected"])
@@ -239,9 +346,16 @@ def run_example_script(
     timeout: int = 1200,
     cwd: Path = REPO_ROOT,
 ) -> None:
-    """Run a full example script and fail with full logs if it crashes."""
+    """
+    Run a regular example script as a subprocess.
+
+    This path is used for scripts that already expose an output-directory
+    environment variable and do not require monkeypatching.
+    """
     env = os.environ.copy()
+    # Redirect outputs into a pytest temporary directory.
     env[out_env_var] = str(out_path)
+    # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -277,8 +391,18 @@ def run_legacy_example_script(
     cwd: Path = REPO_ROOT,
     extra_env: dict | None = None,
 ) -> None:
-    """Run a legacy example script that hardcodes examples/results as output."""
+    """
+    Run a legacy example script that hardcodes `examples/results`.
+
+    Legacy scripts are executed through an inline wrapper that:
+    1) rewrites only the target `os.path.join(..., "examples", "results")`,
+    2) optionally patches notebook-only IPython calls,
+    3) monkeypatches one `Watershed` method to stop execution at a controlled
+       point (before heavy plotting/interactive sections).
+    """
     if expected_stop_calls is None:
+        # Keep backward compatibility with older tests using only
+        # `expected_netcdf_calls`.
         expected_stop_calls = expected_netcdf_calls
 
     wrapper = r"""
@@ -299,6 +423,7 @@ patch_ipython_inline = sys.argv[5] == "1"
 orig_join = os.path.join
 
 def patched_join(*parts):
+    # Redirect only the canonical hardcoded pattern, keep all other joins intact.
     if len(parts) == 3 and parts[1] == "examples" and parts[2] == "results":
         return str(out_path)
     return orig_join(*parts)
@@ -311,6 +436,7 @@ if patch_ipython_inline:
         class _DummyIPython:
             def run_line_magic(self, *args, **kwargs):
                 return None
+        # Some legacy scripts call IPython magic unconditionally.
         IPython.get_ipython = lambda: _DummyIPython()
     except Exception:
         pass
@@ -321,6 +447,7 @@ orig_method = getattr(Watershed, stop_method)
 stop_counter = {"calls": 0}
 
 def patched_stop_method(self, *args, **kwargs):
+    # Execute original behavior first, then interrupt after N calls.
     result = orig_method(self, *args, **kwargs)
     stop_counter["calls"] += 1
     if stop_counter["calls"] >= expected_stop_calls:
@@ -353,6 +480,7 @@ except SystemExit as exc:
         str(expected_stop_calls),
         "1" if patch_ipython_inline else "0",
     ]
+    # Capture logs so assertion messages include full context on failure.
     completed = subprocess.run(
         command,
         cwd=str(cwd),
