@@ -186,11 +186,18 @@ def run_legacy_example_script(
     script_path: Path,
     out_path: Path,
     expected_netcdf_calls: int = 1,
+    stop_method: str = "postprocessing_netcdf",
+    expected_stop_calls: int | None = None,
+    patch_ipython_inline: bool = False,
+    patch_geopy_reverse: bool = True,
     timeout: int = 1800,
     cwd: Path = REPO_ROOT,
     extra_env: dict | None = None,
 ) -> None:
     """Run a legacy example script that hardcodes examples/results as output."""
+    if expected_stop_calls is None:
+        expected_stop_calls = expected_netcdf_calls
+
     wrapper = r"""
 import os
 import runpy
@@ -202,7 +209,10 @@ matplotlib.use("Agg")
 
 script = Path(sys.argv[1]).resolve()
 out_path = Path(sys.argv[2]).resolve()
-expected_netcdf_calls = int(sys.argv[3])
+stop_method = sys.argv[3]
+expected_stop_calls = int(sys.argv[4])
+patch_ipython_inline = sys.argv[5] == "1"
+patch_geopy_reverse = sys.argv[6] == "1"
 
 orig_join = os.path.join
 
@@ -213,18 +223,40 @@ def patched_join(*parts):
 
 os.path.join = patched_join
 
-from hydromodpy.watershed_root import Watershed
-orig_postprocessing_netcdf = Watershed.postprocessing_netcdf
-netcdf_counter = {"calls": 0}
+if patch_ipython_inline:
+    try:
+        import IPython
+        class _DummyIPython:
+            def run_line_magic(self, *args, **kwargs):
+                return None
+        IPython.get_ipython = lambda: _DummyIPython()
+    except Exception:
+        pass
 
-def patched_postprocessing_netcdf(self, *args, **kwargs):
-    result = orig_postprocessing_netcdf(self, *args, **kwargs)
-    netcdf_counter["calls"] += 1
-    if netcdf_counter["calls"] >= expected_netcdf_calls:
+if patch_geopy_reverse:
+    try:
+        import geopy.geocoders
+        class _DummyLocation:
+            address = "Dummy City, 35000, Rennes, 35, France"
+        def _patched_reverse(self, *args, **kwargs):
+            return _DummyLocation()
+        geopy.geocoders.Nominatim.reverse = _patched_reverse
+    except Exception:
+        pass
+
+from hydromodpy.watershed_root import Watershed
+assert hasattr(Watershed, stop_method), f"Unknown Watershed method: {stop_method}"
+orig_method = getattr(Watershed, stop_method)
+stop_counter = {"calls": 0}
+
+def patched_stop_method(self, *args, **kwargs):
+    result = orig_method(self, *args, **kwargs)
+    stop_counter["calls"] += 1
+    if stop_counter["calls"] >= expected_stop_calls:
         raise SystemExit(0)
     return result
 
-Watershed.postprocessing_netcdf = patched_postprocessing_netcdf
+setattr(Watershed, stop_method, patched_stop_method)
 
 try:
     runpy.run_path(str(script), run_name="__main__")
@@ -246,7 +278,10 @@ except SystemExit as exc:
         wrapper,
         str(script_path),
         str(out_path),
-        str(expected_netcdf_calls),
+        str(stop_method),
+        str(expected_stop_calls),
+        "1" if patch_ipython_inline else "0",
+        "1" if patch_geopy_reverse else "0",
     ]
     completed = subprocess.run(
         command,
