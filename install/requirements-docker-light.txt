@@ -9,6 +9,7 @@ netCDF4
 numpy>=2.0
 pandas
 pytest
+pytest-xdist
 pyproj
 pyshp
 pysheds
