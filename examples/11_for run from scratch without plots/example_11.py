@@ -37,9 +37,9 @@ from hydromodpy import watershed_root
 # ---- FUNCTION LAUNCH
 
 def run_hydromodpy(watershed_name='Test1',
-                   DEM_name='regional dem.tif',
-                   X_coord=327816.965, # m
-                   Y_coord=6777886.670, # m
+                   DEM_name='regional dem 2.tif',
+                   X_coord=151181.608, # m
+                   Y_coord=6858078.268, # m
                    snap_dist=150, # m
                    buffer_area=10, # %
                    proj_coord='EPSG:2154',
@@ -201,23 +201,6 @@ def run_hydromodpy(watershed_name='Test1',
 # ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
-    watertable_depth_output = run_hydromodpy(watershed_name='Test1',
-                                             DEM_name='regional dem.tif',
-                                             X_coord=327816.965, # m
-                                             Y_coord=6777886.670, # m
-                                             snap_dist=150, # m
-                                             buffer_area=10, # %
-                                             proj_coord='EPSG:2154',
-                                             nlay=3, # -
-                                             lay_decay=1.25, # -
-                                             thick=50, # m
-                                             track_dir='backward',
-                                             sim_state='steady',
-                                             R=350, # mm/y
-                                             first_R='mean',
-                                             K=1e-5, # m/s
-                                             Sy=1, # %
-                                             Ss=1e-5 #
-                                             )
+    watertable_depth_output = run_hydromodpy()
 
 # ---- NOTES
