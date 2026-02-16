@@ -1,0 +1,122 @@
+{
+  "modflow_expected": {
+    "watertable_elevation": {
+      "count": 9344,
+      "mean": 113.37872458402424,
+      "p50": 112.84555435180664,
+      "p95": 133.80384216308593,
+      "shape": [
+        73,
+        128
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 1059410.8025131226
+    },
+    "watertable_depth": {
+      "count": 9344,
+      "mean": 7.343988404290317,
+      "p50": 6.712272644042969,
+      "p95": 17.335818481445312,
+      "shape": [
+        73,
+        128
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 68622.22764968872
+    },
+    "seepage_areas": {
+      "count": 9344,
+      "mean": 0.07395119863013698,
+      "p50": 0.0,
+      "p95": 1.0,
+      "shape": [
+        73,
+        128
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 691.0
+    },
+    "outflow_drain": {
+      "count": 9344,
+      "mean": 5.393842032112258,
+      "p50": 0.0,
+      "p95": 34.573313140869274,
+      "shape": [
+        73,
+        128
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 50400.059948056936
+    },
+    "groundwater_flux": {
+      "count": 9344,
+      "mean": 12.945766297295014,
+      "p50": 8.148719310760498,
+      "p95": 35.35897445678712,
+      "shape": [
+        73,
+        128
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 120965.2402819246
+    },
+    "groundwater_storage": {
+      "count": 9344,
+      "mean": 2399.400652258669,
+      "p50": 2434.9346637725826,
+      "p95": 2812.9001855850215,
+      "shape": [
+        73,
+        128
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 22419999.694705006
+    },
+    "accumulation_flux": {
+      "count": 9344,
+      "mean": 209.24498827306374,
+      "p50": 0.0,
+      "p95": 83.93421160578733,
+      "shape": [
+        73,
+        128
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 1955185.1704235077
+    }
+  },
+  "modpath_expected": {
+    "modpath_postprocessing_snapshot.npy": {
+      "source": "post_processing",
+      "track_dir": "backward",
+      "n_starting": 2073,
+      "n_ending": 2073,
+      "n_particles": 2073,
+      "time": {
+        "count": 2073,
+        "mean": 5993.350794757672,
+        "p50": 4858.8017578125,
+        "p95": 13978.7802734375
+      },
+      "time_win": {
+        "count": 0,
+        "mean": null,
+        "p50": null,
+        "p95": null
+      },
+      "rchPerc": {
+        "count": 0,
+        "mean": null,
+        "p50": null,
+        "p95": null
+      }
+    }
+  }
+}
