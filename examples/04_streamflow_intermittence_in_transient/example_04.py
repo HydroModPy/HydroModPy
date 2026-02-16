@@ -125,8 +125,8 @@ visualization_watershed.watershed_dem(BV)
 # Necessary to set model parameters
 BV.add_climatic()
 
-# clim_data_mode = 'local' # local climatic data
-clim_data_mode = 'SIM2' # SIM2 online climatic data (https://meteo.data.gouv.fr/datasets/6569b27598256cc583c917a7)
+clim_data_mode = 'local' # local climatic data
+# clim_data_mode = 'SIM2' # SIM2 online climatic data (https://meteo.data.gouv.fr/datasets/6569b27598256cc583c917a7)
 
 if clim_data_mode == 'SIM2':
     BV.climatic.update_sim2_reanalysis(var_list=['recharge', 'runoff',
