@@ -1,4 +1,4 @@
-"""End-to-end regression test for examples/example_00.py."""
+"""End-to-end regression test for examples/example_11.py."""
 
 from pathlib import Path
 
@@ -17,18 +17,18 @@ from tests.regression.golden_utils import (
 )
 
 
-EXAMPLE_00_SCRIPT = (
+EXAMPLE_11_SCRIPT = (
     REPO_ROOT
     / "examples"
-    / "00_quick_test_of_wide_hydromodpy_capabilities"
-    / "example_00.py"
+    / "11_for run from scratch without plots"
+    / "example_11.py"
 )
 
 GOLDEN_REFERENCE_FILE = (
     Path(__file__).resolve().parent
     / "reference"
     / "golden_references"
-    / "example_00_npy_signatures.json"
+    / "example_11_npy_signatures.json"
 )
 
 MODFLOW_OUTPUT_NAMES = [
@@ -43,25 +43,23 @@ MODFLOW_OUTPUT_NAMES = [
 
 MODPATH_SNAPSHOT_FILES = [
     "modpath_postprocessing_snapshot.npy",
-    "modpath_filtprocessing_snapshot.npy",
 ]
 
 
 @pytest.mark.regression
 @pytest.mark.slow
-def test_example_00_regression_on_npy_outputs(tmp_path, update_goldens):
-    """Run example_00, then compare (or refresh) its golden signatures."""
+def test_example_11_regression_on_npy_outputs(tmp_path, update_goldens):
+    """Run example_11, then compare (or refresh) its golden signatures."""
     assert_required_executables()
 
-    out_path = tmp_path / "example_00_outputs"
+    out_path = tmp_path / "example_11_outputs"
     run_example_script(
-        script_path=EXAMPLE_00_SCRIPT,
+        script_path=EXAMPLE_11_SCRIPT,
         out_path=out_path,
-        out_env_var="HYDROMODPY_EXAMPLE00_OUT_PATH",
-        extra_env={"HYDROMODPY_EXAMPLE00_SKIP_PLOTS": "1"},
+        out_env_var="HYDROMODPY_EXAMPLE11_OUT_PATH",
     )
 
-    model_ws = out_path / "Example_00_Aber" / "results_simulations" / "reg_0"
+    model_ws = out_path / "Example_11_Galaxy" / "results_simulations" / "Test_Galaxy_v0"
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
 
