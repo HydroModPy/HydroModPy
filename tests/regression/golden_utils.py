@@ -180,3 +180,87 @@ def run_example_script(
         f"Stderr:\n{completed.stderr}"
     )
 
+
+def run_legacy_example_script(
+    *,
+    script_path: Path,
+    out_path: Path,
+    expected_netcdf_calls: int = 1,
+    timeout: int = 1800,
+    cwd: Path = REPO_ROOT,
+    extra_env: dict | None = None,
+) -> None:
+    """Run a legacy example script that hardcodes examples/results as output."""
+    wrapper = r"""
+import os
+import runpy
+import sys
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+
+script = Path(sys.argv[1]).resolve()
+out_path = Path(sys.argv[2]).resolve()
+expected_netcdf_calls = int(sys.argv[3])
+
+orig_join = os.path.join
+
+def patched_join(*parts):
+    if len(parts) == 3 and parts[1] == "examples" and parts[2] == "results":
+        return str(out_path)
+    return orig_join(*parts)
+
+os.path.join = patched_join
+
+from hydromodpy.watershed_root import Watershed
+orig_postprocessing_netcdf = Watershed.postprocessing_netcdf
+netcdf_counter = {"calls": 0}
+
+def patched_postprocessing_netcdf(self, *args, **kwargs):
+    result = orig_postprocessing_netcdf(self, *args, **kwargs)
+    netcdf_counter["calls"] += 1
+    if netcdf_counter["calls"] >= expected_netcdf_calls:
+        raise SystemExit(0)
+    return result
+
+Watershed.postprocessing_netcdf = patched_postprocessing_netcdf
+
+try:
+    runpy.run_path(str(script), run_name="__main__")
+except SystemExit as exc:
+    code = exc.code if isinstance(exc.code, int) else 0
+    if code not in (0, None):
+        raise
+"""
+
+    env = os.environ.copy()
+    env.setdefault("MPLBACKEND", "Agg")
+    if extra_env:
+        for key, value in extra_env.items():
+            env[key] = str(value)
+
+    command = [
+        sys.executable,
+        "-c",
+        wrapper,
+        str(script_path),
+        str(out_path),
+        str(expected_netcdf_calls),
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=str(cwd),
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+    )
+
+    assert completed.returncode == 0, (
+        f"{script_path.name} failed.\n"
+        f"Command: {' '.join(command)}\n"
+        f"Stdout:\n{completed.stdout}\n"
+        f"Stderr:\n{completed.stderr}"
+    )
+
