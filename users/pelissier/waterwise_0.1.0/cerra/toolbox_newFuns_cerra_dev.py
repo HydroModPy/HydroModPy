@@ -1335,7 +1335,7 @@ class CERRA():
         return gdf, df
     
     def generate_pyHelp_file(self, gdf_helpGrid, df_helpGrid, var, 
-                             logger,
+                            #  logger,
                              rule = 'nearest', timestep = 'D',
                             verbose = False, save = False):   
 
@@ -1345,7 +1345,7 @@ class CERRA():
             self.dataset[var] = conversion_func(self.dataset[var])
         
         # define vprint accordingly to *verbose*
-        vprint = logger if verbose else lambda *a, **k: None
+        vprint = print if verbose else lambda *a, **k: None
         vprint(f'> generate_pyHelp_input {var} {timestep}')
     
         timeline = self.dataset['time'].values        
