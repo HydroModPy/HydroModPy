@@ -130,6 +130,73 @@ class Modpath:
         self.sel_random = sel_random
         self.sel_slice = sel_slice
 
+    @staticmethod
+    def _nan_percentile(values, q):
+        """Return percentile ignoring NaN values."""
+        arr = np.asarray(values, dtype=float)
+        finite = arr[np.isfinite(arr)]
+        if finite.size == 0:
+            return np.nan
+        return np.percentile(finite, q)
+
+    @staticmethod
+    def _nan_mean(values):
+        """Return mean ignoring NaN values."""
+        arr = np.asarray(values, dtype=float)
+        finite = arr[np.isfinite(arr)]
+        if finite.size == 0:
+            return np.nan
+        return np.mean(finite)
+
+    @staticmethod
+    def _column_as_float_array(gdf, column):
+        """Return a numeric numpy array for a dataframe column or NaNs if absent."""
+        if column not in gdf.columns:
+            return np.full(len(gdf), np.nan, dtype=float)
+        return np.asarray(gdf[column], dtype=float)
+
+    def _build_modpath_snapshot(self, gdf, source, n_starting, n_ending):
+        """Build a compact, stable MODPATH snapshot for non-regression checks."""
+        if 'particleid' in gdf.columns:
+            gdf = gdf.sort_values('particleid').reset_index(drop=True)
+            particleid = np.asarray(gdf['particleid'], dtype=np.int64)
+        else:
+            gdf = gdf.reset_index(drop=True)
+            particleid = np.arange(len(gdf), dtype=np.int64)
+
+        time = self._column_as_float_array(gdf, 'time')
+        time_win = self._column_as_float_array(gdf, 'time_win')
+        rch_perc = self._column_as_float_array(gdf, 'rchPerc')
+
+        snapshot = {
+            'source': source,
+            'track_dir': self.track_dir,
+            'n_starting': int(n_starting),
+            'n_ending': int(n_ending),
+            'n_particles': int(len(gdf)),
+            'particleid': particleid,
+            'time': time,
+            'time_win': time_win,
+            'rchPerc': rch_perc,
+            'stats': {
+                'time_mean': self._nan_mean(time),
+                'time_p50': self._nan_percentile(time, 50),
+                'time_p95': self._nan_percentile(time, 95),
+                'time_win_mean': self._nan_mean(time_win),
+                'time_win_p50': self._nan_percentile(time_win, 50),
+                'time_win_p95': self._nan_percentile(time_win, 95),
+                'rchPerc_mean': self._nan_mean(rch_perc),
+                'rchPerc_p50': self._nan_percentile(rch_perc, 50),
+                'rchPerc_p95': self._nan_percentile(rch_perc, 95),
+            },
+        }
+        return snapshot
+
+    def _save_modpath_snapshot(self, gdf, snapshot_path, source, n_starting, n_ending):
+        """Persist the MODPATH snapshot as .npy."""
+        snapshot = self._build_modpath_snapshot(gdf, source, n_starting, n_ending)
+        np.save(snapshot_path, snapshot)
+
     #%% PRE-PROCESSING
     
     def pre_processing(self):
@@ -561,6 +628,25 @@ class Modpath:
                                             mg=grid_model,
                                             crs=crs_for_write,
                                             verbose=False)
+
+        # Export compact snapshot for regression checks
+        start_shp = os.path.join(self.particles_file, 'starting.shp')
+        end_shp = os.path.join(self.particles_file, 'ending.shp')
+        if os.path.exists(start_shp) and os.path.exists(end_shp):
+            try:
+                start_snapshot = ensure_crs(gpd.read_file(start_shp))
+                end_snapshot = ensure_crs(gpd.read_file(end_shp))
+                snapshot_df = end_snapshot if self.track_dir == 'forward' else start_snapshot
+                snapshot_path = os.path.join(self.particles_file, 'modpath_postprocessing_snapshot.npy')
+                self._save_modpath_snapshot(
+                    snapshot_df,
+                    snapshot_path,
+                    source='post_processing',
+                    n_starting=len(start_snapshot),
+                    n_ending=len(end_snapshot),
+                )
+            except Exception as exc:
+                logger.warning('Unable to export MODPATH post-processing snapshot: %s', exc)
     
     def filt_processing(self,
                         model_modpath:object,
@@ -754,6 +840,17 @@ class Modpath:
                     particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
                 particles_up = ensure_crs(particles_up)
                 particles_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
+
+            # Export compact snapshot for regression checks
+            snapshot_df = end_up if self.track_dir == 'forward' else start_up
+            snapshot_path = os.path.join(self.particles_file, 'modpath_filtprocessing_snapshot.npy')
+            self._save_modpath_snapshot(
+                snapshot_df,
+                snapshot_path,
+                source='filt_processing',
+                n_starting=len(start_up),
+                n_ending=len(end_up),
+            )
         
         #%% PLOT
         

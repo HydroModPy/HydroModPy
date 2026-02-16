@@ -15,6 +15,7 @@ dependencies:
 - netcdf4
 - numpy>=2.0
 - pandas
+- pytest
 - plotly
 - pyshp
 - python>=3.11,<3.14
