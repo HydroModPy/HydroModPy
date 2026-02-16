@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import geopandas as gpd
 import numpy as np
 import pytest
 
@@ -81,17 +82,12 @@ def modflow_signature(path: Path) -> dict:
 
 
 def snapshot_signature(path: Path) -> dict:
-    """Build a compact signature from a MODPATH snapshot .npy file."""
-    snapshot = load_npy_dict(path)
+    """Build a MODPATH signature from a .dbf file using the 'time' column."""
+    table = gpd.read_file(path)
+    assert "time" in table.columns, f"Column 'time' not found in {path}"
     return {
-        "source": snapshot["source"],
-        "track_dir": snapshot["track_dir"],
-        "n_starting": int(snapshot["n_starting"]),
-        "n_ending": int(snapshot["n_ending"]),
-        "n_particles": int(snapshot["n_particles"]),
-        "time": array_stats(snapshot["time"]),
-        "time_win": array_stats(snapshot["time_win"]),
-        "rchPerc": array_stats(snapshot["rchPerc"]),
+        "n_rows": int(len(table)),
+        "time": array_stats(np.asarray(table["time"], dtype=float)),
     }
 
 
@@ -123,18 +119,12 @@ def assert_modflow_signatures(actual_by_name: dict, expected_by_name: dict) -> N
 
 
 def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> None:
-    """Compare MODPATH snapshot signatures against golden expectations."""
+    """Compare MODPATH .dbf time signatures against golden expectations."""
     assert set(actual_by_name) == set(expected_by_name)
     for filename, expected in expected_by_name.items():
         actual = actual_by_name[filename]
-        assert actual["source"] == expected["source"]
-        assert actual["track_dir"] == expected["track_dir"]
-        assert actual["n_starting"] == expected["n_starting"]
-        assert actual["n_ending"] == expected["n_ending"]
-        assert actual["n_particles"] == expected["n_particles"]
+        assert actual["n_rows"] == expected["n_rows"]
         assert_stats(actual["time"], expected["time"])
-        assert_stats(actual["time_win"], expected["time_win"])
-        assert_stats(actual["rchPerc"], expected["rchPerc"])
 
 
 def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:

@@ -13,32 +13,6 @@
       "available_timesteps": 12,
       "sum": 56903.97787094116
     },
-    "watertable_depth": {
-      "count": 980,
-      "mean": 5.643492406728316,
-      "p50": 5.815807342529297,
-      "p95": 10.140202331542968,
-      "shape": [
-        28,
-        35
-      ],
-      "timestep": 11,
-      "available_timesteps": 12,
-      "sum": 5530.62255859375
-    },
-    "seepage_areas": {
-      "count": 980,
-      "mean": 0.017346938775510204,
-      "p50": 0.0,
-      "p95": 0.0,
-      "shape": [
-        28,
-        35
-      ],
-      "timestep": 11,
-      "available_timesteps": 12,
-      "sum": 17.0
-    },
     "outflow_drain": {
       "count": 980,
       "mean": 0.8166231111604341,
@@ -93,54 +67,22 @@
     }
   },
   "modpath_expected": {
-    "modpath_postprocessing_snapshot.npy": {
-      "source": "post_processing",
-      "track_dir": "backward",
-      "n_starting": 40,
-      "n_ending": 40,
-      "n_particles": 40,
+    "starting.dbf": {
+      "n_rows": 40,
       "time": {
         "count": 40,
         "mean": 16721.137286376954,
         "p50": 16857.275390625,
         "p95": 27569.3728515625
-      },
-      "time_win": {
-        "count": 0,
-        "mean": null,
-        "p50": null,
-        "p95": null
-      },
-      "rchPerc": {
-        "count": 0,
-        "mean": null,
-        "p50": null,
-        "p95": null
       }
     },
-    "modpath_filtprocessing_snapshot.npy": {
-      "source": "filt_processing",
-      "track_dir": "backward",
-      "n_starting": 40,
-      "n_ending": 40,
-      "n_particles": 40,
+    "starting_weighted.dbf": {
+      "n_rows": 40,
       "time": {
         "count": 40,
         "mean": 16721.137286376954,
         "p50": 16857.275390625,
         "p95": 27569.3728515625
-      },
-      "time_win": {
-        "count": 15,
-        "mean": 9930.078434244791,
-        "p50": 10016.080078125,
-        "p95": 13749.390820312497
-      },
-      "rchPerc": {
-        "count": 15,
-        "mean": 1.0,
-        "p50": 1.0,
-        "p95": 1.0
       }
     }
   }

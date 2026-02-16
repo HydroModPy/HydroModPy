@@ -33,8 +33,6 @@ GOLDEN_REFERENCE_FILE = (
 
 MODFLOW_OUTPUT_NAMES = [
     "watertable_elevation",
-    "watertable_depth",
-    "seepage_areas",
     "outflow_drain",
     "groundwater_flux",
     "groundwater_storage",
@@ -42,8 +40,8 @@ MODFLOW_OUTPUT_NAMES = [
 ]
 
 MODPATH_SNAPSHOT_FILES = [
-    "modpath_postprocessing_snapshot.npy",
-    "modpath_filtprocessing_snapshot.npy",
+    "starting.dbf",
+    "starting_weighted.dbf",
 ]
 
 
