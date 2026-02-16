@@ -46,7 +46,7 @@ fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples", "03_hydrographic_network_in_steady_state/")
+example_path = os.path.join(root_dir, "examples", "03S_short/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
@@ -63,7 +63,7 @@ print('The results of the example will be saved here :', out_path)
 dem_path = os.path.join(data_path, 'regional dem.tif')
 # dem_path = 'C:/Users/ronan/OneDrive/UNINE/12_Data/_GIS/dem/BDALTI_fr_75m.tif'
 load = False
-watershed_name = 'Example_03_Canut'
+watershed_name = '03S_short'
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
@@ -171,7 +171,7 @@ cond_drain = None # or value of conductance
 sy = 10 / 100 # -
 
 ########## LOOP ##########
-list_hyd_cond = np.geomspace(1e-8,1e-3,10) * 24 * 3600 # m/day
+list_hyd_cond = np.geomspace(1e-6,1e-3,3) * 24 * 3600 # m/day
 
 # Boundary settings
 bc_left = None # or value
