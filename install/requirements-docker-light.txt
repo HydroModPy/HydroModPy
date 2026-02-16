@@ -8,6 +8,7 @@ h5py
 netCDF4
 numpy>=2.0
 pandas
+pytest
 pyproj
 pyshp
 pysheds

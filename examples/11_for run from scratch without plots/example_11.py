@@ -36,7 +36,24 @@ from hydromodpy import watershed_root
 
 # ---- FUNCTION LAUNCH
 
-def run_hydromodpy(watershed_name):
+def run_hydromodpy(watershed_name='Test1',
+                   DEM_name='regional dem 2.tif',
+                   X_coord=151181.608, # m
+                   Y_coord=6858078.268, # m
+                   snap_dist=150, # m
+                   buffer_area=10, # %
+                   proj_coord='EPSG:2154',
+                   nlay=3, # -
+                   lay_decay=1.25, # -
+                   thick=50, # m
+                   track_dir='backward',
+                   sim_state='steady',
+                   R=350, # mm/y
+                   first_R='mean',
+                   K=1e-5, # m/s
+                   Sy=1, # %
+                   Ss=1e-5 # -
+                   ):
 
     # ---- PERSONAL PATHS
 
@@ -44,7 +61,10 @@ def run_hydromodpy(watershed_name):
     data_path = os.path.join(example_path, "data/")
 
     # The folder out_path is created in the example_path root directory:
-    out_path = os.path.join(root_dir,'examples', 'results')
+    out_path = os.getenv(
+        "HYDROMODPY_EXAMPLE11_OUT_PATH",
+        os.path.join(root_dir, 'examples', 'results'),
+    )
     # Or define it manually
     # out_path = 'C:/Simulations/HydroModPy/'
 
@@ -57,10 +77,10 @@ def run_hydromodpy(watershed_name):
     print('##### '+watershed_name.upper()+' #####')
 
     # Regional DEM
-    dem_path = os.path.join(data_path, 'regional dem.tif')
+    dem_path = os.path.join(data_path, DEM_name)
 
     # Outlet coordinates of the catchment
-    from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154']
+    from_xyv = [X_coord, Y_coord, snap_dist, buffer_area , proj_coord]
 
     # Extract the catchment from a regional DEM
     BV = watershed_root.Watershed(dem_path=dem_path,
@@ -81,7 +101,7 @@ def run_hydromodpy(watershed_name):
     # ---- MODEL PARAMETRIZATION
 
     # Name of the model/simulation
-    model_name = 'Test_Galaxy_v0'
+    model_name = 'Model_Modflow_Test'
 
     # Import modules
     BV.add_settings()
@@ -92,21 +112,22 @@ def run_hydromodpy(watershed_name):
     BV.settings.update_model_name(model_name) # Name of the model/simulation
     BV.settings.update_box_model(True)
     BV.settings.update_sink_fill(False)
-    BV.settings.update_simulation_state('steady') # Transient
+    BV.settings.update_simulation_state(sim_state) # Transient
     BV.settings.update_check_model(plot_cross=False, check_grid=True)
     BV.settings.update_dis_perlen(dis_perlen=False)
 
     # Climatic settings
-    BV.climatic.update_recharge(350 / 1000 / 365, sim_state=BV.settings.sim_state)
-    BV.climatic.update_first_clim('mean') # or 'first or value
+    BV.climatic.update_recharge(R / 1000 / 365, sim_state=BV.settings.sim_state)
+    BV.climatic.update_first_clim(first_R) # or 'first or value
 
     # Hydraulic settings
-    BV.hydraulic.update_nlay(3)
-    BV.hydraulic.update_lay_decay(1) # 1 if not activated
+    BV.hydraulic.update_nlay(nlay)
+    BV.hydraulic.update_lay_decay(lay_decay) # 1 if not activated
     BV.hydraulic.update_bottom(None) # Set a value to set a flat bottom
-    BV.hydraulic.update_thick(50) # Not consider if bottom != of None
-    BV.hydraulic.update_hk(1e-5 * 24 * 3600) # m/d
-    BV.hydraulic.update_sy(1/100) # -
+    BV.hydraulic.update_thick(thick) # Not consider if bottom != of None
+    BV.hydraulic.update_hk(K * 24 * 3600) # m/d
+    BV.hydraulic.update_sy(Sy/100) # -
+    BV.hydraulic.update_ss(Ss) # -
     BV.hydraulic.update_hk_decay(0, min_value=None, log_transf=False) # Exponential decay with depth : 1/10 (about half decrease at 10m)
     BV.hydraulic.update_sy_decay(0, min_value=None, log_transf=False)
     BV.hydraulic.update_ss_decay(0, min_value=None, log_transf=False)
@@ -119,7 +140,7 @@ def run_hydromodpy(watershed_name):
 
     # Particle tracking settings
     BV.settings.update_input_particles(zone_partic = os.path.join(simulations_folder,model_name,'_postprocess/_rasters/seepage_areas_t(0).tif'),
-                                       track_dir = 'backward',
+                                       track_dir = track_dir,
                                        bore_depth = False,
                                        cell_div = 1, # 1
                                        )
@@ -183,6 +204,7 @@ def run_hydromodpy(watershed_name):
 # ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
-    watertable_depth_output = run_hydromodpy('Example_11_Galaxy') # watershed_name
+    DEM_name = os.getenv("HYDROMODPY_EXAMPLE11_DEM_NAME", "regional dem 2.tif")
+    watertable_depth_output = run_hydromodpy(DEM_name=DEM_name)
 
 # ---- NOTES

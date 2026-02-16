@@ -561,6 +561,7 @@ class Modpath:
                                             mg=grid_model,
                                             crs=crs_for_write,
                                             verbose=False)
+
     
     def filt_processing(self,
                         model_modpath:object,
@@ -754,6 +755,7 @@ class Modpath:
                     particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
                 particles_up = ensure_crs(particles_up)
                 particles_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
+
         
         #%% PLOT
         

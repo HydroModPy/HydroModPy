@@ -100,6 +100,11 @@ test_*/
 *.lst
 *.nam
 
+# Keep regression reference binaries/versioned inputs in tests
+!tests/regression/reference/**/*.hds
+!tests/regression/reference/**/*.cbc
+!tests/regression/reference/**/*.nam
+
 # Temporary files
 *.tmp
 *.bak
