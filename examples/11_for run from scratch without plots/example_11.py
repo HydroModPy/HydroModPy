@@ -61,7 +61,10 @@ def run_hydromodpy(watershed_name='Test1',
     data_path = os.path.join(example_path, "data/")
 
     # The folder out_path is created in the example_path root directory:
-    out_path = os.path.join(root_dir,'examples', 'results')
+    out_path = os.getenv(
+        "HYDROMODPY_EXAMPLE11_OUT_PATH",
+        os.path.join(root_dir, 'examples', 'results'),
+    )
     # Or define it manually
     # out_path = 'C:/Simulations/HydroModPy/'
 
@@ -201,6 +204,7 @@ def run_hydromodpy(watershed_name='Test1',
 # ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
-    watertable_depth_output = run_hydromodpy()
+    DEM_name = os.getenv("HYDROMODPY_EXAMPLE11_DEM_NAME", "regional dem 2.tif")
+    watertable_depth_output = run_hydromodpy(DEM_name=DEM_name)
 
 # ---- NOTES
