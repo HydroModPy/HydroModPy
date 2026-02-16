@@ -6,12 +6,11 @@ import pytest
 
 from tests.regression.golden_utils import (
     REPO_ROOT,
-    assert_modflow_signatures,
     assert_required_executables,
     collect_modflow_signatures,
-    load_golden_reference,
+    resolve_model_workspace,
     run_legacy_example_script,
-    write_golden_reference,
+    update_or_assert_goldens,
 )
 
 
@@ -52,16 +51,17 @@ def test_example_05_regression_on_npy_outputs(tmp_path, update_goldens):
         timeout=5400,
     )
 
-    model_ws = out_path / "Example_05_Gouville" / "results_simulations" / "default"
-    postprocess_dir = model_ws / "_postprocess"
+    _, postprocess_dir, _ = resolve_model_workspace(
+        out_path,
+        watershed_name="Example_05_Gouville",
+        model_name="default",
+    )
 
     actual = {
         "modflow_expected": collect_modflow_signatures(postprocess_dir, MODFLOW_OUTPUT_NAMES),
     }
-
-    if update_goldens:
-        write_golden_reference(GOLDEN_REFERENCE_FILE, actual)
-        return
-
-    expected = load_golden_reference(GOLDEN_REFERENCE_FILE)
-    assert_modflow_signatures(actual["modflow_expected"], expected["modflow_expected"])
+    update_or_assert_goldens(
+        actual=actual,
+        golden_reference_file=GOLDEN_REFERENCE_FILE,
+        update_goldens=update_goldens,
+    )

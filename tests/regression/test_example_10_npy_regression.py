@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 from tests.regression.golden_utils import (
+    DEFAULT_MODFLOW_OUTPUT_NAMES,
     REPO_ROOT,
-    assert_modflow_signatures,
     assert_required_executables,
     collect_modflow_signatures,
-    load_golden_reference,
+    resolve_model_workspace,
     run_legacy_example_script,
-    write_golden_reference,
+    update_or_assert_goldens,
 )
 
 
@@ -28,15 +28,6 @@ GOLDEN_REFERENCE_FILE = (
     / "golden_references"
     / "example_10_npy_signatures.json"
 )
-
-MODFLOW_OUTPUT_NAMES = [
-    "watertable_elevation",
-    "outflow_drain",
-    "groundwater_flux",
-    "groundwater_storage",
-    "accumulation_flux",
-]
-
 
 @pytest.mark.regression
 @pytest.mark.slow
@@ -56,20 +47,17 @@ def test_example_10_regression_on_npy_outputs(tmp_path, update_goldens):
         patch_ipython_inline=True,
         timeout=7200,
     )
-
-    calibration_dir = out_path / "Example_10_Urse" / "results_calibration"
-    model_dirs = sorted(p for p in calibration_dir.iterdir() if p.is_dir())
-    assert model_dirs, f"No calibration model folder found in {calibration_dir}"
-    model_ws = model_dirs[0]
-    postprocess_dir = model_ws / "_postprocess"
+    _, postprocess_dir, _ = resolve_model_workspace(
+        out_path,
+        watershed_name="Example_10_Urse",
+        results_folder_name="results_calibration",
+    )
 
     actual = {
-        "modflow_expected": collect_modflow_signatures(postprocess_dir, MODFLOW_OUTPUT_NAMES),
+        "modflow_expected": collect_modflow_signatures(postprocess_dir, DEFAULT_MODFLOW_OUTPUT_NAMES),
     }
-
-    if update_goldens:
-        write_golden_reference(GOLDEN_REFERENCE_FILE, actual)
-        return
-
-    expected = load_golden_reference(GOLDEN_REFERENCE_FILE)
-    assert_modflow_signatures(actual["modflow_expected"], expected["modflow_expected"])
+    update_or_assert_goldens(
+        actual=actual,
+        golden_reference_file=GOLDEN_REFERENCE_FILE,
+        update_goldens=update_goldens,
+    )

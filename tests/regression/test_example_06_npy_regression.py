@@ -5,15 +5,14 @@ from pathlib import Path
 import pytest
 
 from tests.regression.golden_utils import (
+    DEFAULT_MODFLOW_OUTPUT_NAMES,
     REPO_ROOT,
-    assert_modflow_signatures,
-    assert_modpath_signatures,
     assert_required_executables,
     collect_modflow_signatures,
     collect_modpath_signatures,
-    load_golden_reference,
+    resolve_model_workspace,
     run_legacy_example_script,
-    write_golden_reference,
+    update_or_assert_goldens,
 )
 
 
@@ -30,14 +29,6 @@ GOLDEN_REFERENCE_FILE = (
     / "golden_references"
     / "example_06_npy_signatures.json"
 )
-
-MODFLOW_OUTPUT_NAMES = [
-    "watertable_elevation",
-    "outflow_drain",
-    "groundwater_flux",
-    "groundwater_storage",
-    "accumulation_flux",
-]
 
 MODPATH_SNAPSHOT_FILES = [
     "starting_weighted.dbf",
@@ -59,20 +50,18 @@ def test_example_06_regression_on_npy_outputs(tmp_path, update_goldens):
         expected_stop_calls=1,
         timeout=5400,
     )
-
-    model_ws = out_path / "Example_06_Lasset" / "results_simulations" / "default"
-    postprocess_dir = model_ws / "_postprocess"
-    particles_dir = postprocess_dir / "_particles"
+    _, postprocess_dir, particles_dir = resolve_model_workspace(
+        out_path,
+        watershed_name="Example_06_Lasset",
+        model_name="default",
+    )
 
     actual = {
-        "modflow_expected": collect_modflow_signatures(postprocess_dir, MODFLOW_OUTPUT_NAMES),
+        "modflow_expected": collect_modflow_signatures(postprocess_dir, DEFAULT_MODFLOW_OUTPUT_NAMES),
         "modpath_expected": collect_modpath_signatures(particles_dir, MODPATH_SNAPSHOT_FILES),
     }
-
-    if update_goldens:
-        write_golden_reference(GOLDEN_REFERENCE_FILE, actual)
-        return
-
-    expected = load_golden_reference(GOLDEN_REFERENCE_FILE)
-    assert_modflow_signatures(actual["modflow_expected"], expected["modflow_expected"])
-    assert_modpath_signatures(actual["modpath_expected"], expected["modpath_expected"])
+    update_or_assert_goldens(
+        actual=actual,
+        golden_reference_file=GOLDEN_REFERENCE_FILE,
+        update_goldens=update_goldens,
+    )

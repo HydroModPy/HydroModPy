@@ -5,15 +5,14 @@ from pathlib import Path
 import pytest
 
 from tests.regression.golden_utils import (
+    DEFAULT_MODFLOW_OUTPUT_NAMES,
     REPO_ROOT,
-    assert_modflow_signatures,
-    assert_modpath_signatures,
     assert_required_executables,
     collect_modflow_signatures,
     collect_modpath_signatures,
-    load_golden_reference,
+    resolve_model_workspace,
     run_example_script,
-    write_golden_reference,
+    update_or_assert_goldens,
 )
 
 
@@ -30,14 +29,6 @@ GOLDEN_REFERENCE_FILE = (
     / "golden_references"
     / "example_00_npy_signatures.json"
 )
-
-MODFLOW_OUTPUT_NAMES = [
-    "watertable_elevation",
-    "outflow_drain",
-    "groundwater_flux",
-    "groundwater_storage",
-    "accumulation_flux",
-]
 
 MODPATH_SNAPSHOT_FILES = [
     "starting.dbf",
@@ -58,21 +49,19 @@ def test_example_00_regression_on_npy_outputs(tmp_path, update_goldens):
         out_env_var="HYDROMODPY_EXAMPLE00_OUT_PATH",
         extra_env={"HYDROMODPY_EXAMPLE00_SKIP_PLOTS": "1"},
     )
-
-    model_ws = out_path / "Example_00_Aber" / "results_simulations" / "reg_0"
-    postprocess_dir = model_ws / "_postprocess"
-    particles_dir = postprocess_dir / "_particles"
+    _, postprocess_dir, particles_dir = resolve_model_workspace(
+        out_path,
+        watershed_name="Example_00_Aber",
+        model_name="reg_0",
+    )
 
     actual = {
-        "modflow_expected": collect_modflow_signatures(postprocess_dir, MODFLOW_OUTPUT_NAMES),
+        "modflow_expected": collect_modflow_signatures(postprocess_dir, DEFAULT_MODFLOW_OUTPUT_NAMES),
         "modpath_expected": collect_modpath_signatures(particles_dir, MODPATH_SNAPSHOT_FILES),
     }
-
-    if update_goldens:
-        write_golden_reference(GOLDEN_REFERENCE_FILE, actual)
-        return
-
-    expected = load_golden_reference(GOLDEN_REFERENCE_FILE)
-    assert_modflow_signatures(actual["modflow_expected"], expected["modflow_expected"])
-    assert_modpath_signatures(actual["modpath_expected"], expected["modpath_expected"])
+    update_or_assert_goldens(
+        actual=actual,
+        golden_reference_file=GOLDEN_REFERENCE_FILE,
+        update_goldens=update_goldens,
+    )
 

@@ -16,6 +16,14 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+DEFAULT_MODFLOW_OUTPUT_NAMES = [
+    "watertable_elevation",
+    "outflow_drain",
+    "groundwater_flux",
+    "groundwater_storage",
+    "accumulation_flux",
+]
+
 
 def load_golden_reference(path: Path) -> dict:
     """Read a golden JSON file."""
@@ -146,6 +154,82 @@ def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
         pytest.skip(f"Required executables are missing: {missing}")
 
 
+def resolve_model_workspace(
+    out_path: Path,
+    *,
+    watershed_name: str | None = None,
+    results_folder_name: str = "results_simulations",
+    model_name: str | None = None,
+    model_name_prefix: str | None = None,
+) -> tuple[Path, Path, Path]:
+    """
+    Resolve watershed/model folders and return workspace paths.
+
+    Returns
+    -------
+    tuple
+        (model_ws, postprocess_dir, particles_dir)
+    """
+    if watershed_name is None:
+        watershed_dirs = sorted(p for p in out_path.iterdir() if p.is_dir())
+        assert watershed_dirs, f"No watershed folder found in {out_path}"
+        watershed_dir = watershed_dirs[0]
+    else:
+        watershed_dir = out_path / watershed_name
+        assert watershed_dir.is_dir(), f"Watershed folder not found: {watershed_dir}"
+
+    results_dir = watershed_dir / results_folder_name
+    assert results_dir.is_dir(), f"Results folder not found: {results_dir}"
+
+    if model_name is not None:
+        model_ws = results_dir / model_name
+        assert model_ws.is_dir(), f"Model folder not found: {model_ws}"
+    else:
+        model_dirs = sorted(
+            p for p in results_dir.iterdir()
+            if p.is_dir()
+            and not p.name.startswith("_")
+            and (model_name_prefix is None or p.name.startswith(model_name_prefix))
+        )
+        assert model_dirs, f"No model folder found in {results_dir}"
+        model_ws = model_dirs[0]
+
+    postprocess_dir = model_ws / "_postprocess"
+    particles_dir = postprocess_dir / "_particles"
+    return model_ws, postprocess_dir, particles_dir
+
+
+def resolve_first_model_workspace(
+    out_path: Path,
+    *,
+    results_folder_name: str = "results_simulations",
+) -> tuple[Path, Path, Path]:
+    """Backward-compatible wrapper around resolve_model_workspace."""
+    return resolve_model_workspace(out_path, results_folder_name=results_folder_name)
+
+
+def update_or_assert_goldens(
+    *,
+    actual: dict,
+    golden_reference_file: Path,
+    update_goldens: bool,
+) -> None:
+    """Write or validate golden references based on update mode."""
+    if update_goldens:
+        write_golden_reference(golden_reference_file, actual)
+        return
+
+    expected = load_golden_reference(golden_reference_file)
+
+    if "modflow_expected" in actual:
+        assert "modflow_expected" in expected
+        assert_modflow_signatures(actual["modflow_expected"], expected["modflow_expected"])
+
+    if "modpath_expected" in actual:
+        assert "modpath_expected" in expected
+        assert_modpath_signatures(actual["modpath_expected"], expected["modpath_expected"])
+
+
 def run_example_script(
     *,
     script_path: Path,
@@ -189,7 +273,6 @@ def run_legacy_example_script(
     stop_method: str = "postprocessing_netcdf",
     expected_stop_calls: int | None = None,
     patch_ipython_inline: bool = False,
-    patch_geopy_reverse: bool = True,
     timeout: int = 1800,
     cwd: Path = REPO_ROOT,
     extra_env: dict | None = None,
@@ -212,7 +295,6 @@ out_path = Path(sys.argv[2]).resolve()
 stop_method = sys.argv[3]
 expected_stop_calls = int(sys.argv[4])
 patch_ipython_inline = sys.argv[5] == "1"
-patch_geopy_reverse = sys.argv[6] == "1"
 
 orig_join = os.path.join
 
@@ -230,17 +312,6 @@ if patch_ipython_inline:
             def run_line_magic(self, *args, **kwargs):
                 return None
         IPython.get_ipython = lambda: _DummyIPython()
-    except Exception:
-        pass
-
-if patch_geopy_reverse:
-    try:
-        import geopy.geocoders
-        class _DummyLocation:
-            address = "Dummy City, 35000, Rennes, 35, France"
-        def _patched_reverse(self, *args, **kwargs):
-            return _DummyLocation()
-        geopy.geocoders.Nominatim.reverse = _patched_reverse
     except Exception:
         pass
 
@@ -281,7 +352,6 @@ except SystemExit as exc:
         str(stop_method),
         str(expected_stop_calls),
         "1" if patch_ipython_inline else "0",
-        "1" if patch_geopy_reverse else "0",
     ]
     completed = subprocess.run(
         command,

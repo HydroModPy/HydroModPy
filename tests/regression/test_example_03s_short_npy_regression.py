@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 from tests.regression.golden_utils import (
+    DEFAULT_MODFLOW_OUTPUT_NAMES,
     REPO_ROOT,
-    assert_modflow_signatures,
     assert_required_executables,
     collect_modflow_signatures,
-    load_golden_reference,
+    resolve_first_model_workspace,
     run_legacy_example_script,
-    write_golden_reference,
+    update_or_assert_goldens,
 )
 
 
@@ -29,15 +29,6 @@ GOLDEN_REFERENCE_FILE = (
     / "example_03s_short_npy_signatures.json"
 )
 
-MODFLOW_OUTPUT_NAMES = [
-    "watertable_elevation",
-    "outflow_drain",
-    "groundwater_flux",
-    "groundwater_storage",
-    "accumulation_flux",
-]
-
-
 @pytest.mark.regression
 @pytest.mark.fast
 def test_example_03s_short_regression_on_npy_outputs(tmp_path, update_goldens):
@@ -50,27 +41,13 @@ def test_example_03s_short_regression_on_npy_outputs(tmp_path, update_goldens):
         out_path=out_path,
         expected_netcdf_calls=3,
     )
-
-    watershed_dirs = sorted(p for p in out_path.iterdir() if p.is_dir())
-    assert watershed_dirs, f"No watershed folder found in {out_path}"
-    watershed_dir = watershed_dirs[0]
-
-    results_simulations_dir = watershed_dir / "results_simulations"
-    model_dirs = sorted(
-        p for p in results_simulations_dir.iterdir()
-        if p.is_dir() and not p.name.startswith("_")
-    )
-    assert model_dirs, f"No model folder found in {results_simulations_dir}"
-    model_ws = model_dirs[0]
-    postprocess_dir = model_ws / "_postprocess"
+    _, postprocess_dir, _ = resolve_first_model_workspace(out_path)
 
     actual = {
-        "modflow_expected": collect_modflow_signatures(postprocess_dir, MODFLOW_OUTPUT_NAMES),
+        "modflow_expected": collect_modflow_signatures(postprocess_dir, DEFAULT_MODFLOW_OUTPUT_NAMES),
     }
-
-    if update_goldens:
-        write_golden_reference(GOLDEN_REFERENCE_FILE, actual)
-        return
-
-    expected = load_golden_reference(GOLDEN_REFERENCE_FILE)
-    assert_modflow_signatures(actual["modflow_expected"], expected["modflow_expected"])
+    update_or_assert_goldens(
+        actual=actual,
+        golden_reference_file=GOLDEN_REFERENCE_FILE,
+        update_goldens=update_goldens,
+    )
