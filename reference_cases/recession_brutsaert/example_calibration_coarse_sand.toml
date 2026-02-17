@@ -1,0 +1,53 @@
+[chronicle]
+# Synthetic "true" coarse-sand recession parameters.
+Q0 = 0.35
+K = 2.0e-4
+Sy = 0.28
+solution = "boussinesq"
+A = 1.2e6
+ag = 0.7
+p = 0.346
+n_points = 50
+log_spacing = true
+t_min_days = 0.1
+error_fraction = 0.10
+random_seed = 12345
+
+[calibration]
+# Objective metric: "nse", "nse_log", or "kge"
+objective_metric = "kge"
+# Global method: "grid_search", "random_search", "nelder_mead", or "simplex"
+global_method = "random_search"
+do_local_refine = true
+
+[bounds]
+# Parameter bounds used during calibration.
+K = [1.0e-5, 1.0e-3]
+Sy = [0.20, 0.35]
+
+[optimization.grid_search]
+n_per_dim = [90, 90]
+log_scale_indices = [0]
+
+[optimization.random_search]
+n_samples = 9000
+seed = 2026
+log_scale_indices = [0]
+
+[optimization.nelder_mead]
+max_iter = 1200
+
+[optimization.simplex]
+max_iter = 1200
+xtol = 1.0e-10
+ftol = 1.0e-10
+
+[optimization.local_refine]
+method = "nelder_mead"
+max_iter = 1400
+
+[output]
+output_dir = "outputs"
+show_plot = true
+# Optional fixed figure name. If omitted, a name based on metric/method is used.
+# figure_name = "coarse_sand_calibration.png"
