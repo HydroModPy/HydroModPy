@@ -1,0 +1,50 @@
+
+def Q_brutsaert(rech, K, Sy):
+    """
+    Calculate Brutsaert flow based on time, hydraulic conductivity, and specific yield.
+    
+    Parameters:
+    rech (Pandas Series): Time and recharge values
+    K (float): Hydraulic conductivity
+    Sy (float): Specific yield
+    
+    Returns:
+    float: Q_brutsaert value
+    """
+    t = rech.index.values # Assuming rech is a Pandas Series with time as index
+    Q_brutsaert = (K * Sy) / t
+    return Q_brutsaert
+
+class Calibration:
+    """
+    Class to compute objective function values across a range of K and Sy parameters for a given recharge time series.
+    """
+    
+    def __init__(self, K_range, Sy_range, rech):
+        """
+        Initialize with parameter ranges and recharge and time values.
+        
+        Parameters:
+        K_range (array): Range of hydraulic conductivity values
+        Sy_range (array): Range of specific yield values
+        rech (Pandas Series): Time and recharge values
+        """
+        self.K_range = K_range
+        self.Sy_range = Sy_range
+        self.t = rech.index.values # Extract time values from the rech Series
+        self.Q_obs = Q_brutsaert(self.t, 1E-3, 0.05) # To be replaced by reference observable
+    
+    def explore(self):
+        """
+        Calculate Q_brutsaert for all combinations of K and Sy.
+        
+        Returns:
+        dict: Dictionary with parameter combinations and associated objective function values
+        """
+        results = {}
+        for K in self.K_range:
+            for Sy in self.Sy_range:
+                key = f"K={K}, Sy={Sy}"
+                Q_sim = Q_brutsaert(self.t, K, Sy) # To be replaced by simulated values from Solver.
+                results[key] = objective_function(obs=self.Q_obs, sim=Q_sim, metric='RMSE')
+        return results
