@@ -36,7 +36,7 @@ from hydromodpy import watershed_root
 
 # ---- FUNCTION LAUNCH
 
-def run_hydromodpy(watershed_name='Test1',
+def run_hydromodpy(watershed_name='11S_short',
                    DEM_name='regional dem 2.tif',
                    X_coord=151181.608, # m
                    Y_coord=6858078.268, # m
@@ -57,7 +57,7 @@ def run_hydromodpy(watershed_name='Test1',
 
     # ---- PERSONAL PATHS
 
-    example_path = os.path.join(root_dir, "examples", "11_for run from scratch without plots/")
+    example_path = os.path.join(root_dir, "examples", "11S_short/")
     data_path = os.path.join(example_path, "data/")
 
     # The folder out_path is created in the example_path root directory:
