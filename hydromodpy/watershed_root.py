@@ -16,7 +16,6 @@
 import sys
 import os
 import pickle
-import pandas as pd
 import geopandas as gpd
 import rasterio
 import whitebox
@@ -50,10 +49,10 @@ class Watershed:
                  out_path: str,
                  load: bool=False,
                  watershed_name: str='Default',
-                 from_lib: str=None, # os.path.join(root_dir,'watershed_library.csv')
                  from_dem: list=None, # [path, cell size]
                  from_shp: list=None, # [path, buffer size]
                  from_xyv: list=None, # [x, y, snap distance, buffer size]
+                 catch_def: str=None, # catchment definition mode ("dem", "txt", "xy" or "shp")
                  reg_fold: str=None,
                  bottom_path: str=None, # path
                  save_object: bool=True):
@@ -68,8 +67,6 @@ class Watershed:
             Load the existing watershed object. The default is False.
         watershed_name : str, optional
             Name of the watershed (name of folder results). The default is 'Default'.
-        from_lib : str, optional
-            Path of the library (.csv) with list of watershed to generate. The default is None.
         from_dem : list, optional
             List with two parameters: [path, cell_size]
             path: Path of the DEM
@@ -87,6 +84,17 @@ class Watershed:
             snap_dist: Maximum distance where the outlet can be moved.
             buffer_size: Buffer added to the generated watershed polygon (value in percent)
             The default is empty list.
+        catch_def : str, optional
+            Catchment definition mode.
+            Supported modes are:
+            - ``"dem"``: model domain defined directly from ``from_dem``.
+            - ``"txt"``: model domain built from an XYZ text file
+              (``dem_path`` ending with ``.txt``).
+            - ``"xy"``: watershed defined from outlet coordinates provided in
+              ``from_xyv``.
+            - ``"shp"``: watershed defined from a polygon shapefile provided in
+              ``from_shp``.
+            The default is None.
         reg_fold : str, None
             Path of the folder with regional data/results.
             If informed, the regional results will not be created, just loaded from folder.
@@ -105,10 +113,24 @@ class Watershed:
         self.out_path = out_path
         self.load = load
         self.watershed_name = watershed_name
-        self.from_lib = from_lib
         self.from_dem = from_dem
         self.from_shp = from_shp
         self.from_xyv = from_xyv
+        self.catch_def = catch_def
+        if (
+            self.catch_def is None
+            and isinstance(self.dem_path, str)
+            and self.dem_path.lower().endswith(".txt")
+        ):
+            self.catch_def = "txt"
+        if (
+            self.catch_def is None
+            and isinstance(self.from_dem, list)
+            and len(self.from_dem) > 0
+            and isinstance(self.from_dem[0], str)
+            and self.from_dem[0].lower().endswith(".txt")
+        ):
+            self.catch_def = "txt"
         self.reg_fold = reg_fold
         self.bottom_path = bottom_path
         self.bin_path = os.path.join(os.path.dirname(root_dir), 'bin')
@@ -251,19 +273,23 @@ class Watershed:
         -------
         None.
         """
-        if self.from_lib != None:
-            watershed_list = pd.read_csv(self.from_lib, delimiter=';')
-            watershed_info = watershed_list.loc[watershed_list['watershed_name'] == self.watershed_name]
-            self.dem_path = self.dem_path
+        if self.catch_def == "txt":
+            if self.from_dem is None:
+                raise ValueError(
+                    "catch_def='txt' requires from_dem=[path_to_txt, cell_size]"
+                )
+            self.dem_path = self.from_dem[0]
             self.bottom_path = self.bottom_path
-            self.cell_size = None
-            self.x_outlet = watershed_info.iloc[0]['x_outlet']
-            self.y_outlet = watershed_info.iloc[0]['y_outlet']
-            self.snap_dist = watershed_info.iloc[0]['snap_dist']
-            self.buff_percent = watershed_info.iloc[0]['buff_percent']
-            self.crs_proj = watershed_info.iloc[0]['crs_proj']
+            self.cell_size = self.from_dem[1]
+            self.x_outlet = None
+            self.y_outlet = None
+            self.snap_dist = None
+            self.buff_percent = None
+            self.crs_proj = None
 
-        if self.from_dem != None:
+        if self.catch_def == "dem":
+            if self.from_dem is None:
+                raise ValueError("catch_def='dem' requires from_dem to be provided")
             with rasterio.open(self.from_dem[0]) as dem_src:
                 src_crs = dem_src.crs
             self.dem_path = self.from_dem[0]
@@ -279,7 +305,9 @@ class Watershed:
             else:
                 self.crs_proj = None
 
-        if self.from_shp != None:
+        if self.catch_def == "shp":
+            if self.from_shp is None:
+                raise ValueError("catch_def='shp' requires from_shp to be provided")
             shp_file = gpd.read_file(self.from_shp[0])
             self.dem_path = self.dem_path
             self.bottom_path = self.bottom_path
@@ -291,7 +319,9 @@ class Watershed:
             # self.crs_proj = shp_file.crs.srs.upper()
             self.crs_proj = f"EPSG:{shp_file.crs.to_epsg()}"
 
-        if self.from_xyv != None:
+        if self.catch_def == "xy":
+            if self.from_xyv is None:
+                raise ValueError("catch_def='xy' requires from_xyv to be provided")
             self.dem_path = self.dem_path
             self.bottom_path = self.bottom_path
             self.cell_size = None
@@ -322,10 +352,10 @@ class Watershed:
                                                 self.stable_folder,
                                                 self.simulations_folder,
                                                 self.calibration_folder,
-                                                self.from_lib,
                                                 self.from_dem,
                                                 self.from_shp,
                                                 self.from_xyv,
+                                                self.catch_def,
                                                 self.reg_fold)
 
         self.elt_def.append('geographic')
