@@ -64,6 +64,7 @@ __pypackages__/
 # IDE / editor
 .vscode/
 .idea/
+.claude/
 .spyderproject
 .spyproject
 .ropeproject
@@ -72,6 +73,7 @@ __pypackages__/
 *~
 .DS_Store
 Thumbs.db
+CLAUDE.md
 
 # IPython
 profile_default/
