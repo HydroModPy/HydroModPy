@@ -70,10 +70,10 @@ print('The results of the example will be saved here :', out_path)
 dem_path = data_path + 'bdalti25m_naizin_regional_v0.tif'
 load = False
 watershed_name = 'Example_09_Naizin'
-from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
 from_xyv = [265545.208,6783317.640, 50, 20 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+catch_def = "xy"
 bottom_path = None # path
 save_object = True
 
@@ -86,10 +86,10 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
                               watershed_name=watershed_name,
-                              from_lib=from_lib, # os.path.join(root_dir,'watershed_library.csv')
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                              catch_def=catch_def, # watershed extraction definition mode
                               bottom_path=bottom_path, # path
                               save_object=save_object)
 
