@@ -1,4 +1,18 @@
-"""Calibration example for K and Sy on a noisy coarse-sand recession chronicle."""
+"""
+End-to-end calibration example for a noisy Brutsaert coarse-sand recession.
+
+This script demonstrates the full workflow used in this reference case:
+1. load scenario and method settings from TOML,
+2. generate a synthetic noisy chronicle from known parameters,
+3. calibrate unknown K and Sy,
+4. evaluate metrics and plot diagnostics.
+
+Configuration file:
+    `example_calibration_coarse_sand.toml`
+
+Run from repository root:
+    python reference_cases/recession_brutsaert/example_calibration_coarse_sand.py
+"""
 
 from pathlib import Path
 import tomllib
@@ -15,12 +29,28 @@ DEFAULT_CONFIG_FILE = "example_calibration_coarse_sand.toml"
 
 def load_calibration_config(config_path):
     """
-    Load calibration parameters from a TOML file.
+    Load and validate calibration configuration from TOML.
 
-    Required top-level sections:
-    - `chronicle`
-    - `calibration`
-    - `bounds`
+    Parameters
+    ----------
+    config_path : str or pathlib.Path
+        Path to a TOML file containing scenario and calibration settings.
+
+    Returns
+    -------
+    dict
+        Parsed TOML content.
+
+    Required sections
+    -----------------
+    - `chronicle`: synthetic data-generation parameters
+    - `calibration`: objective metric and method choices
+    - `bounds`: parameter bounds for K and Sy
+
+    Optional sections
+    -----------------
+    - `calibration_method`: method-specific hyperparameters
+    - `output`: output directory, plot display, optional fixed figure name
     """
     path = Path(config_path)
     with path.open("rb") as stream:
@@ -34,15 +64,32 @@ def load_calibration_config(config_path):
 
 def build_noisy_coarse_sand_chronicle(profile_params):
     """
-    Build synthetic coarse-sand chronicle from TOML profile parameters.
+    Generate synthetic analytical + noisy time series from profile parameters.
+
+    Parameters
+    ----------
+    profile_params : dict
+        Parameters forwarded to `generate_noisy_baseflow_profile(...)`.
+        Typical keys include:
+        `Q0`, `K`, `Sy`, `solution`, `A`/`L`, `ag`, `p`,
+        `n_points`, `log_spacing`, `t_min_days`, `error_fraction`, `random_seed`.
 
     Returns
     -------
     dict
-        Contains true parameters and generated time series:
-        - clean analytical recession (`q_true`)
-        - noisy synthetic observations (`q_obs`)
-        - per-point noise standard deviation (`sigma`)
+        Dictionary with:
+        - `params`: normalized generation parameters
+        - `t_seconds`, `t_days`: time vectors
+        - `q_true`: noise-free analytical chronicle
+        - `q_obs`: noisy synthetic chronicle
+        - `sigma`: pointwise noise standard deviations
+        - `tc_seconds`: characteristic time
+
+    Notes
+    -----
+    Two fields are explicitly cast for robust reproducibility:
+    - `error_fraction` -> `float`
+    - `random_seed` -> `int` if provided
     """
     params = dict(profile_params)
     if "error_fraction" in params:
@@ -50,7 +97,7 @@ def build_noisy_coarse_sand_chronicle(profile_params):
     if params.get("random_seed") is not None:
         params["random_seed"] = int(params["random_seed"])
 
-    # Generate both truth and noisy chronicle from the same baseflow model.
+    # Generate both analytical and noisy series from the same model setup.
     t_s, t_days, q_true, q_obs, tc_s, sigma = generate_noisy_baseflow_profile(**params)
     return {
         "params": params,
@@ -65,9 +112,18 @@ def build_noisy_coarse_sand_chronicle(profile_params):
 
 def calibrate_k_sy(chronicle, config):
     """
-    Calibrate K and Sy from noisy discharge chronicle using TOML settings.
+    Calibrate K and Sy from a noisy chronicle using TOML-driven settings.
 
-    Optimization methods available in `optimization_methods.py`:
+    Parameters
+    ----------
+    chronicle : dict
+        Output of `build_noisy_coarse_sand_chronicle(...)`.
+    config : dict
+        Parsed TOML content from `load_calibration_config(...)`.
+
+    Calibration methods
+    -------------------
+    Methods are implemented in `calibration_method.py` and selected via TOML:
     - `grid_search`
     - `random_search`
     - `nelder_mead`
@@ -76,25 +132,38 @@ def calibrate_k_sy(chronicle, config):
     Returns
     -------
     dict
-        Calibration object, raw optimizer outputs, calibrated series and
-        diagnostic metrics.
+        Dictionary containing:
+        - calibration object
+        - global/final method outputs
+        - best parameters (`k_hat`, `sy_hat`)
+        - calibrated discharge series (`q_calib`)
+        - diagnostic metrics (NSE, NSElog, KGE, r, alpha, beta)
+        - selected objective metric and global method names
+
+    Workflow
+    --------
+    1. Read objective and method options from TOML.
+    2. Build bounds and fixed model configuration.
+    3. Run global calibration method.
+    4. Optionally run local refinement initialized from global best point.
+    5. Convert best vector solution into named parameters and evaluate metrics.
     """
     params = chronicle["params"]
     calibration_cfg = config["calibration"]
-    optimization_cfg = config.get("optimization", {})
+    calibration_method_cfg = config.get("calibration_method", {})
 
     objective_metric = str(calibration_cfg.get("objective_metric", "kge"))
     global_method = str(calibration_cfg.get("global_method", "random_search"))
     do_local_refine = bool(calibration_cfg.get("do_local_refine", True))
 
-    # Bounds are read from TOML and passed as named parameters.
+    # Bounds are read from TOML and converted to float tuples.
     bounds_cfg = config["bounds"]
     bounds = {
         "K": tuple(float(v) for v in bounds_cfg["K"]),
         "Sy": tuple(float(v) for v in bounds_cfg["Sy"]),
     }
 
-    # Freeze fixed model settings so the simulator only depends on K and Sy.
+    # Freeze all non-calibrated settings; only K and Sy are calibrated.
     model_config = BaseflowConfig(
         Q0=float(params["Q0"]),
         solution=str(params["solution"]),
@@ -116,18 +185,21 @@ def calibrate_k_sy(chronicle, config):
         objective_metric=objective_metric,
     )
 
-    # Global exploration stage: method-specific kwargs come from [optimization.<method>].
-    global_kwargs = dict(optimization_cfg.get(global_method, {}))
+    # Global stage: kwargs come from [calibration_method.<global_method>].
+    global_kwargs = dict(calibration_method_cfg.get(global_method, {}))
     result_global = calibration_obj.calibrate(
         method=global_method,
         **global_kwargs,
     )
 
     result_final = result_global
-    # Optional local refinement stage initialized from global best point.
+
+    # Optional local refinement stage from [calibration_method.local_refine].
+    # We keep this block fault-tolerant so the example stays runnable even if
+    # an optional method is not available in the local environment.
     if do_local_refine:
         try:
-            local_cfg = dict(optimization_cfg.get("local_refine", {}))
+            local_cfg = dict(calibration_method_cfg.get("local_refine", {}))
             local_method = str(local_cfg.pop("method", "nelder_mead"))
             local_cfg.setdefault("x0", result_global["x_best"])
             result_local = calibration_obj.calibrate(
@@ -136,7 +208,6 @@ def calibrate_k_sy(chronicle, config):
             )
             result_final = result_local
         except Exception:
-            # Keep global result if local refinement is unavailable.
             pass
 
     # Convert vector solution to named parameters for easier interpretation.
@@ -169,11 +240,27 @@ def plot_calibration_result(
     show_plot=True,
 ):
     """
-    Plot noisy observations, truth, and calibrated series + scatter diagnostic.
+    Plot calibration diagnostics and save figure.
 
-    The figure has two panels:
-    - left: temporal evolution (log-log) to compare recession trajectories
-    - right: observed vs simulated scatter with 1:1 reference
+    Parameters
+    ----------
+    chronicle : dict
+        Synthetic chronicle dictionary.
+    calibration : dict
+        Output from `calibrate_k_sy(...)`.
+    objective_metric : str
+        Objective metric used for the calibration run.
+    global_method : str
+        Global method used for the calibration run.
+    output_png : str or pathlib.Path
+        Destination path for the PNG figure.
+    show_plot : bool
+        If True, display plot interactively after saving.
+
+    Figure layout
+    -------------
+    - Left panel: time-series comparison (true/noisy/calibrated)
+    - Right panel: observed-vs-simulated scatter with 1:1 reference
     """
     p = chronicle["params"]
     t_days = chronicle["t_days"]
@@ -187,8 +274,8 @@ def plot_calibration_result(
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=140)
     ax_ts, ax_sc = axes
 
-    # Left panel: time-series
-    # Guard for log-scale plotting: non-positive values are masked as NaN.
+    # Left panel: temporal dynamics.
+    # Guard log-scale plotting by masking non-positive values.
     q_obs_plot = np.where(q_obs > 0.0, q_obs, np.nan)
     q_calib_plot = np.where(q_calib > 0.0, q_calib, np.nan)
     ax_ts.plot(t_days, q_true, color="tab:blue", lw=2.0, label="True analytical")
@@ -202,9 +289,8 @@ def plot_calibration_result(
     ax_ts.grid(True, which="both", ls=":", alpha=0.45)
     ax_ts.legend(loc="best")
 
-    # Right panel: observed vs calibrated
+    # Right panel: consistency between observations and calibrated simulation.
     ax_sc.scatter(q_obs_plot, q_calib_plot, s=30, color="tab:purple", alpha=0.85, label="Pairs")
-    # Build symmetric plotting range from all finite values.
     finite_min = np.nanmin(np.r_[q_obs_plot, q_calib_plot])
     finite_max = np.nanmax(np.r_[q_obs_plot, q_calib_plot])
     ax_sc.plot([finite_min, finite_max], [finite_min, finite_max], color="0.25", ls="--", lw=1.2, label="1:1 line")
@@ -216,7 +302,7 @@ def plot_calibration_result(
     ax_sc.grid(True, which="both", ls=":", alpha=0.45)
     ax_sc.legend(loc="best")
 
-    # Compact textual summary rendered directly in the figure.
+    # Figure text summary for quick interpretation.
     txt = (
         f"Objective={objective_metric.upper()}  method={global_method}\n"
         f"K true={p['K']:.2e}  K hat={k_hat:.2e}\n"
@@ -241,7 +327,6 @@ def plot_calibration_result(
     )
     fig.tight_layout(rect=[0, 0.13, 1, 0.93])
 
-    # Save and display for both scripted and interactive use.
     output_png.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_png, bbox_inches="tight")
     if show_plot:
@@ -252,13 +337,13 @@ def plot_calibration_result(
 
 def main():
     """
-    Run end-to-end calibration demonstration on a coarse-sand synthetic case.
+    Run the full TOML-driven calibration example.
 
-    Workflow:
-    1. load parameters from TOML,
-    2. generate noisy observations from known K/Sy,
-    3. calibrate K/Sy from noisy discharge,
-    4. print diagnostics and show/save summary figure.
+    Steps:
+    1. Load configuration from `DEFAULT_CONFIG_FILE`.
+    2. Generate synthetic chronicle from `[chronicle]`.
+    3. Run calibration with `[calibration]` + `[calibration_method.*]`.
+    4. Print summary and generate the diagnostic figure.
     """
     config_path = Path(__file__).with_name(DEFAULT_CONFIG_FILE)
     config = load_calibration_config(config_path)
@@ -273,7 +358,7 @@ def main():
     p = chronicle["params"]
     m = calibration["metrics"]
 
-    # Console report complements the plot and is convenient in CI/log files.
+    # Console summary is useful for scripts/CI logs.
     print("Calibration summary")
     print(f"  objective metric : {objective_metric}")
     print(f"  global method    : {global_method}")

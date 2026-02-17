@@ -1,5 +1,5 @@
 """
-Optimization algorithms used by calibration workflows.
+Calibration search algorithms used by calibration workflows.
 
 Implemented families:
 - grid search: exhaustive global scan of a discretized parameter space,
@@ -25,7 +25,7 @@ def _normalize_bounds(bounds):
     Parameters
     ----------
     bounds : sequence[(low, high)]
-        Bounds provided in optimizer-agnostic format.
+        Bounds provided in method-agnostic format.
 
     Returns
     -------
@@ -44,7 +44,7 @@ def _clip_to_bounds(x, lower, upper):
     """
     Clip a parameter vector to valid bounds.
 
-    This helper is used to keep local optimizers numerically stable when they
+    This helper is used to keep local calibration methods numerically stable when they
     temporarily propose values outside the feasible hyper-rectangle.
     """
     return np.minimum(np.maximum(x, lower), upper)
@@ -52,7 +52,7 @@ def _clip_to_bounds(x, lower, upper):
 
 def _build_penalized_cost(objective_cost, lower, upper, penalty_weight=1e4):
     """
-    Build a bound-aware cost wrapper for unconstrained local optimizers.
+    Build a bound-aware cost wrapper for unconstrained local calibration methods.
 
     Parameters
     ----------
@@ -90,7 +90,7 @@ def _build_penalized_cost(objective_cost, lower, upper, penalty_weight=1e4):
     return _penalized_cost
 
 
-def grid_search_optimize(objective_cost, bounds, n_per_dim=40, log_scale_indices=None):
+def grid_search_calibrate(objective_cost, bounds, n_per_dim=40, log_scale_indices=None):
     """
     Brute-force grid search (global, robust, potentially expensive).
 
@@ -168,7 +168,7 @@ def grid_search_optimize(objective_cost, bounds, n_per_dim=40, log_scale_indices
     }
 
 
-def random_search_optimize(objective_cost, bounds, n_samples=6000, seed=42, log_scale_indices=None):
+def random_search_calibrate(objective_cost, bounds, n_samples=6000, seed=42, log_scale_indices=None):
     """
     Random search (global, simple, easy to parallelize).
 
@@ -227,9 +227,9 @@ def random_search_optimize(objective_cost, bounds, n_samples=6000, seed=42, log_
     }
 
 
-def nelder_mead_optimize(objective_cost, bounds, x0=None, max_iter=1200):
+def nelder_mead_calibrate(objective_cost, bounds, x0=None, max_iter=1200):
     """
-    Local derivative-free optimization using Nelder-Mead (SciPy).
+    Local derivative-free calibration using Nelder-Mead (SciPy).
 
     Notes
     -----
@@ -242,7 +242,7 @@ def nelder_mead_optimize(objective_cost, bounds, x0=None, max_iter=1200):
     Bound handling
     --------------
     `scipy.optimize.minimize(method="Nelder-Mead")` is unconstrained here.
-    We therefore optimize a penalized objective and clip points before true
+    We therefore calibrate on a penalized objective and clip points before true
     objective evaluation.
 
     Practical usage
@@ -256,7 +256,7 @@ def nelder_mead_optimize(objective_cost, bounds, x0=None, max_iter=1200):
         Best solution and SciPy convergence metadata.
     """
     if scipy_optimize is None:
-        raise ImportError("scipy is required for nelder_mead_optimize")
+        raise ImportError("scipy is required for nelder_mead_calibrate")
 
     lower, upper = _normalize_bounds(bounds)
     n_dim = len(lower)
@@ -295,7 +295,7 @@ def nelder_mead_optimize(objective_cost, bounds, x0=None, max_iter=1200):
     }
 
 
-def scipy_simplex_optimize(
+def scipy_simplex_calibrate(
     objective_cost,
     bounds,
     x0=None,
@@ -306,7 +306,7 @@ def scipy_simplex_optimize(
     disp=False,
 ):
     """
-    Classic simplex optimization via `scipy.optimize.fmin`.
+    Classic simplex calibration via `scipy.optimize.fmin`.
 
     This function is an explicit example of using a standard Python package
     solver "as is" (SciPy), while keeping this project's output dictionary
@@ -339,7 +339,7 @@ def scipy_simplex_optimize(
         `success`, `message`.
     """
     if scipy_optimize is None:
-        raise ImportError("scipy is required for scipy_simplex_optimize")
+        raise ImportError("scipy is required for scipy_simplex_calibrate")
 
     lower, upper = _normalize_bounds(bounds)
     n_dim = len(lower)
@@ -394,36 +394,82 @@ def scipy_simplex_optimize(
     }
 
 
-class OptimizationDispatcher:
+class CalibrationMethod:
     """
-    Extensible optimization dispatcher based on a method registry.
+    Registry and dispatcher for calibration methods.
 
-    This class is the primary optimization API used by calibration code.
-    It centralizes method routing and keeps extension simple via `register(...)`.
+    Purpose
+    -------
+    `CalibrationMethod` centralizes method selection (grid search, random
+    search, Nelder-Mead, etc.) so calibration code can call one stable API
+    without hard-coded `if/elif` switches.
+
+    Core idea
+    ---------
+    - The registry maps a method name (string) to a callable.
+    - Each callable follows a common signature:
+      `callable(objective_cost, bounds, **kwargs) -> dict`
+    - The dispatcher resolves the method name and forwards arguments.
 
     Typical lifecycle:
-    1. Build dispatcher with initial methods.
+    1. Build registry with initial methods.
     2. Add/override methods with `register(...)`.
-    3. Call `optimize(...)` with method name + common arguments.
+    3. Call `calibrate(...)` with method name + common arguments.
+
+    Examples
+    --------
+    Use default methods:
+    >>> methods = CalibrationMethod(
+    ...     methods={
+    ...         "random_search": random_search_calibrate,
+    ...         "nelder_mead": nelder_mead_calibrate,
+    ...     }
+    ... )
+    >>> out = methods.calibrate(
+    ...     objective_cost=my_cost,
+    ...     bounds=[(1e-5, 1e-3), (0.2, 0.35)],
+    ...     method="random_search",
+    ...     n_samples=2000,
+    ...     seed=2026,
+    ... )
+    >>> out["method"]
+    'random_search'
+
+    Register a custom method:
+    >>> def my_method(objective_cost, bounds, **kwargs):
+    ...     x0 = np.array([0.5 * (lo + hi) for lo, hi in bounds], dtype=float)
+    ...     return {"method": "my_method", "x_best": x0, "cost_best": float(objective_cost(x0))}
+    >>> methods.register("my_method", my_method)
+    >>> methods.calibrate(objective_cost=my_cost, bounds=[(0.0, 1.0)], method="my_method")
     """
 
     def __init__(self, methods=None):
         """
-        Initialize an optimization dispatcher with an optional method mapping.
+        Initialize a calibration-method registry with an optional method mapping.
 
         Parameters
         ----------
         methods : dict[str, callable] or None
             Optional initial registry where keys are method names and values
-            are optimizer callables.
+            are calibration-method callables.
+
+        Examples
+        --------
+        >>> cm = CalibrationMethod()
+        >>> cm.available_methods()
+        ()
+
+        >>> cm = CalibrationMethod({"random_search": random_search_calibrate})
+        >>> cm.available_methods()
+        ('random_search',)
         """
         # Registry structure:
-        #   canonical_method_name -> optimizer_callable
+        #   canonical_method_name -> calibrator_callable
         self._methods = {}
         if methods is not None:
             # Register through the public method so validation is shared.
-            for name, optimizer in methods.items():
-                self.register(name, optimizer)
+            for name, calibrator in methods.items():
+                self.register(name, calibrator)
 
     @staticmethod
     def _normalize_method_name(method):
@@ -435,37 +481,50 @@ class OptimizationDispatcher:
         # Canonicalization avoids duplicate registrations caused by case/spacing.
         return str(method).strip().lower()
 
-    def register(self, name, optimizer):
+    def register(self, name, calibrator):
         """
-        Register (or override) an optimization method.
+        Register (or override) a calibration method.
 
-        The optimizer callable must follow signature style:
-        `optimizer(objective_cost, bounds, **kwargs) -> dict`.
+        The calibrator callable must follow signature style:
+        `calibrator(objective_cost, bounds, **kwargs) -> dict`.
+
+        Examples
+        --------
+        >>> cm = CalibrationMethod()
+        >>> cm.register("random_search", random_search_calibrate)
+        >>> "random_search" in cm.available_methods()
+        True
         """
         key = self._normalize_method_name(name)
         if not key:
             raise ValueError("method name cannot be empty")
-        if not callable(optimizer):
-            raise TypeError("optimizer must be callable")
+        if not callable(calibrator):
+            raise TypeError("calibrator must be callable")
         # Overwrite is intentional: enables local experiments and hot-swapping.
-        self._methods[key] = optimizer
+        self._methods[key] = calibrator
         return self
 
     def available_methods(self):
         """
-        Return currently registered optimization method names.
+        Return currently registered calibration method names.
 
         Returns
         -------
         tuple[str, ...]
             Alphabetically sorted canonical method names.
+
+        Example
+        -------
+        >>> cm = CalibrationMethod({"b": random_search_calibrate, "a": grid_search_calibrate})
+        >>> cm.available_methods()
+        ('a', 'b')
         """
         # Sorted order makes logs/tests deterministic and easier to compare.
         return tuple(sorted(self._methods.keys()))
 
-    def optimize(self, objective_cost, bounds, method="random_search", **kwargs):
+    def calibrate(self, objective_cost, bounds, method="random_search", **kwargs):
         """
-        Run optimization using the selected method from the registry.
+        Run calibration using the selected method from the registry.
 
         Parameters
         ----------
@@ -475,23 +534,44 @@ class OptimizationDispatcher:
             Parameter bounds.
         method : str
             Registered method name.
+        **kwargs
+            Method-specific keyword arguments forwarded as-is to the selected
+            calibration callable.
+
+        Returns
+        -------
+        dict
+            Calibration result dictionary returned by the selected method.
+
+        Examples
+        --------
+        >>> cm = CalibrationMethod({"random_search": random_search_calibrate})
+        >>> out = cm.calibrate(
+        ...     objective_cost=my_cost,
+        ...     bounds=[(1e-5, 1e-3), (0.2, 0.35)],
+        ...     method="random_search",
+        ...     n_samples=1000,
+        ...     seed=42,
+        ... )
+        >>> sorted(out.keys())
+        ['cost_best', 'method', 'n_evaluations', 'x_best']
         """
         # 1) Normalize user-provided method key.
         key = self._normalize_method_name(method)
         # 2) Resolve callable in registry.
-        optimizer = self._methods.get(key)
-        if optimizer is None:
+        calibrator = self._methods.get(key)
+        if calibrator is None:
             available = ", ".join(self.available_methods()) or "<none>"
             raise ValueError(f"Unknown method '{method}'. Supported: {available}")
-        # 3) Delegate optimization run to selected implementation.
-        return optimizer(objective_cost=objective_cost, bounds=bounds, **kwargs)
+        # 3) Delegate calibration run to selected implementation.
+        return calibrator(objective_cost=objective_cost, bounds=bounds, **kwargs)
 
 
-DEFAULT_OPTIMIZATION_DISPATCHER = OptimizationDispatcher(
+DEFAULT_CALIBRATION_METHOD = CalibrationMethod(
     methods={
-        "grid_search": grid_search_optimize,
-        "random_search": random_search_optimize,
-        "nelder_mead": nelder_mead_optimize,
-        "simplex": scipy_simplex_optimize,
+        "grid_search": grid_search_calibrate,
+        "random_search": random_search_calibrate,
+        "nelder_mead": nelder_mead_calibrate,
+        "simplex": scipy_simplex_calibrate,
     }
 )

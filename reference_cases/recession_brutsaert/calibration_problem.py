@@ -5,8 +5,8 @@ from dataclasses import dataclass
 import numpy as np
 
 from baseflow import simulate_baseflow
-from hydrological_metrics import ObjectiveFunction
-from optimization_methods import DEFAULT_OPTIMIZATION_DISPATCHER
+from calibration_method import DEFAULT_CALIBRATION_METHOD
+from objective_fucntion import ObjectiveFunction
 
 
 def _as_1d_array(values, name):
@@ -91,7 +91,7 @@ def make_baseflow_simulator(t_seconds, model_config: BaseflowConfig):
 
 class Calibration:
     """
-    Generic calibration class with objective metric and optimization switch.
+    Generic calibration class with objective metric and calibration-method switch.
 
     Parameters
     ----------
@@ -107,15 +107,15 @@ class Calibration:
         Objective metric for score: "nse", "nse_log", or "kge" (aliases allowed).
     parameter_names : list[str] or None
         Optional explicit parameter order when bounds is not a dict.
-    optimizer : object or None
-        Optimization dispatcher exposing `optimize(...)`.
-        If None, the default dispatcher from `optimization_methods` is used.
+    calibration_method : object or None
+        Calibration-method registry exposing `calibrate(...)`.
+        If None, the default registry from `calibration_method` is used.
 
     Design
     ------
     The class is intentionally model-agnostic:
     - `simulator` maps parameter dictionaries to simulated series.
-    - this class handles metric evaluation and optimization orchestration.
+    - this class handles metric evaluation and calibration orchestration.
     - parameter naming/order are managed internally for stable vectorization.
     """
 
@@ -126,7 +126,7 @@ class Calibration:
         bounds,
         objective_metric="nse",
         parameter_names=None,
-        optimizer=None,
+        calibration_method=None,
     ):
         # Normalize once at construction so all later computations share the same
         # array convention and shape checks.
@@ -134,12 +134,14 @@ class Calibration:
         self.simulator = simulator
         self.objective = ObjectiveFunction(metric=objective_metric)
         self.parameter_names, self.bounds = self._normalize_bounds(bounds, parameter_names)
-        if optimizer is None:
-            optimizer = DEFAULT_OPTIMIZATION_DISPATCHER
-        # Any dispatcher implementing optimize(...) can be injected here.
-        if not hasattr(optimizer, "optimize") or not callable(optimizer.optimize):
-            raise TypeError("optimizer must expose a callable optimize(...) method")
-        self.optimizer = optimizer
+        if calibration_method is None:
+            calibration_method = DEFAULT_CALIBRATION_METHOD
+        # Any registry implementing calibrate(...) can be injected here.
+        if not hasattr(calibration_method, "calibrate") or not callable(calibration_method.calibrate):
+            raise TypeError(
+                "calibration_method must expose a callable calibrate(...) method"
+            )
+        self.calibration_method = calibration_method
         # Keep latest run for debugging/reproducibility in interactive workflows.
         self.last_result = None
 
@@ -189,7 +191,7 @@ class Calibration:
         """
         Convert params dict/vector into ordered 1D vector.
 
-        This method is the single conversion gate used by optimization methods,
+        This method is the single conversion gate used by calibration methods,
         so parameter order remains consistent across all evaluations.
         """
         if isinstance(params, dict):
@@ -207,7 +209,7 @@ class Calibration:
         Convert ordered parameter vector into a named parameter dictionary.
 
         Useful when model code expects semantic names (e.g. `K`, `Sy`)
-        instead of raw optimization vectors.
+        instead of raw calibration vectors.
         """
         vec = self.params_to_vector(vector)
         return {name: float(vec[i]) for i, name in enumerate(self.parameter_names)}
@@ -259,7 +261,7 @@ class Calibration:
         """
         Compute minimization cost = 1 - score.
 
-        Out-of-bounds parameter vectors return +inf so generic optimizers
+        Out-of-bounds parameter vectors return +inf so generic calibration methods
         can safely explore unconstrained proposals without extra wrappers.
         """
         vec = self.params_to_vector(params)
@@ -279,30 +281,30 @@ class Calibration:
 
     def calibrate(self, method="random_search", **kwargs):
         """
-        Calibrate parameters using the configured optimization dispatcher.
+        Calibrate parameters using the configured calibration-method registry.
 
         Notes
         -----
         Method-specific keyword arguments are forwarded to the selected
-        optimizer implementation through the dispatcher registry.
+        calibration implementation through the method registry.
 
         Returns
         -------
         dict
-            Optimizer result dictionary enriched with:
+            Calibration result dictionary enriched with:
             - `params_best`: named best parameters
             - `score_best`: objective score equivalent of `cost_best`
         """
-        # Delegate method selection to the dispatcher to keep this class focused
-        # on calibration logic instead of optimization registry details.
-        result = self.optimizer.optimize(
+        # Delegate method selection to the registry to keep this class focused
+        # on calibration logic instead of method-registry details.
+        result = self.calibration_method.calibrate(
             objective_cost=self.cost,
             bounds=self.bounds,
             method=method,
             **kwargs,
         )
 
-        # Add user-friendly fields on top of generic optimizer outputs.
+        # Add user-friendly fields on top of generic method outputs.
         result["params_best"] = self.vector_to_params(result["x_best"])
         result["score_best"] = 1.0 - float(result["cost_best"])
         self.last_result = result
