@@ -17,7 +17,7 @@ random_seed = 12345
 # Objective metric: "nse", "nse_log", or "kge"
 objective_metric = "kge"
 # Global method: "grid_search", "random_search", "nelder_mead", or "simplex"
-global_method = "random_search"
+global_method = "simplex"
 do_local_refine = true
 
 [bounds]
@@ -25,24 +25,24 @@ do_local_refine = true
 K = [1.0e-5, 1.0e-3]
 Sy = [0.20, 0.35]
 
-[optimization.grid_search]
+[calibration_method.grid_search]
 n_per_dim = [90, 90]
 log_scale_indices = [0]
 
-[optimization.random_search]
+[calibration_method.random_search]
 n_samples = 9000
 seed = 2026
 log_scale_indices = [0]
 
-[optimization.nelder_mead]
+[calibration_method.nelder_mead]
 max_iter = 1200
 
-[optimization.simplex]
-max_iter = 1200
+[calibration_method.simplex]
+max_iter = 2500
 xtol = 1.0e-10
 ftol = 1.0e-10
 
-[optimization.local_refine]
+[calibration_method.local_refine]
 method = "nelder_mead"
 max_iter = 1400
 

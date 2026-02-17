@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from example_coarse_sand_profile import build_coarse_sand_profile
-from hydrological_metrics import ObjectiveFunction
+from objective_fucntion import ObjectiveFunction
 
 
 def compute_metrics_for_coarse_sand():

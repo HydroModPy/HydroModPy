@@ -55,6 +55,36 @@ def _prepare_series(observed, simulated):
     return obs, sim
 
 
+def rmse(observed, simulated):
+    """
+    Root Mean Square Error (RMSE).
+
+    RMSE = sqrt(mean((sim - obs)^2))
+
+    Notes
+    -----
+    - Lower is better (0 means perfect fit).
+    - Uses finite-value masking through `_prepare_series`.
+    """
+    obs, sim = _prepare_series(observed, simulated)
+    return float(np.sqrt(np.mean((sim - obs) ** 2)))
+
+
+def mae(observed, simulated):
+    """
+    Mean Absolute Error (MAE).
+
+    MAE = mean(|sim - obs|)
+
+    Notes
+    -----
+    - Lower is better (0 means perfect fit).
+    - Uses finite-value masking through `_prepare_series`.
+    """
+    obs, sim = _prepare_series(observed, simulated)
+    return float(np.mean(np.abs(sim - obs)))
+
+
 def nse(observed, simulated):
     """
     Nash-Sutcliffe Efficiency (NSE).
@@ -124,6 +154,71 @@ def kge(observed, simulated, return_components=False):
     if return_components:
         return kge_value, {"r": r, "alpha": alpha, "beta": beta}
     return kge_value
+
+
+def objective_function(observed, simulated, metric="RMSE"):
+    """
+    Compatibility objective-function helper mirroring legacy API style.
+
+    Parameters
+    ----------
+    observed, simulated : array-like
+        Series to compare.
+    metric : str
+        Metric name. Supported values (case-insensitive):
+        - `"RMSE"`
+        - `"MAE"`
+        - `"NSE"`
+        - `"NSElog"` / `"NSE_log"`
+        - `"KGE"`
+
+    Returns
+    -------
+    float
+        Metric value.
+
+    Notes
+    -----
+    - RMSE and MAE are error metrics (to minimize).
+    - NSE, NSElog and KGE are efficiency metrics (to maximize).
+    """
+    key = str(metric).strip().lower()
+
+    if key == "rmse":
+        return rmse(observed, simulated)
+    if key == "mae":
+        return mae(observed, simulated)
+    if key in ("nse", "nash", "nash_sutcliffe"):
+        return float(nse(observed, simulated))
+    if key in ("nselog", "nse_log", "nse-log", "lognse"):
+        return float(nse_log(observed, simulated))
+    if key in ("kge", "kling_gupta", "kling-gupta"):
+        return float(kge(observed, simulated, return_components=False))
+
+    raise ValueError(
+        f"Unsupported metric: {metric}. "
+        "Choose from 'RMSE', 'MAE', 'NSE', 'NSElog', 'KGE'."
+    )
+
+
+def RMSE(observed, simulated):
+    """Legacy uppercase alias of `rmse`."""
+    return rmse(observed, simulated)
+
+
+def MAE(observed, simulated):
+    """Legacy uppercase alias of `mae`."""
+    return mae(observed, simulated)
+
+
+def NSE(observed, simulated):
+    """Legacy uppercase alias of `nse`."""
+    return float(nse(observed, simulated))
+
+
+def KGE(observed, simulated):
+    """Legacy uppercase alias of `kge` (value only, no components)."""
+    return float(kge(observed, simulated, return_components=False))
 
 
 class ObjectiveFunction:

@@ -14,7 +14,7 @@ Implemented functions in `baseflow.py`:
 - `add_proportional_gaussian_error(...)`
 - `generate_noisy_baseflow_profile(...)`
 
-Implemented functions in `hydrological_metrics.py`:
+Implemented functions in `objective_fucntion.py`:
 
 - `nse(observed, simulated)`
 - `nse_log(observed, simulated)`
@@ -26,13 +26,13 @@ Implemented calibration modules:
 - `calibration_problem.py`
   - `BaseflowConfig`
   - `make_baseflow_simulator(...)`
-  - `Calibration` (generic class delegating optimization to a dispatcher)
-- `optimization_methods.py`
-  - `OptimizationDispatcher` + `DEFAULT_OPTIMIZATION_DISPATCHER`
-  - `grid_search_optimize(...)`
-  - `random_search_optimize(...)`
-  - `nelder_mead_optimize(...)`
-  - `scipy_simplex_optimize(...)`
+  - `Calibration` (generic class delegating calibration to a method registry)
+- `calibration_method.py`
+  - `CalibrationMethod` + `DEFAULT_CALIBRATION_METHOD`
+  - `grid_search_calibrate(...)`
+  - `random_search_calibrate(...)`
+  - `nelder_mead_calibrate(...)`
+  - `scipy_simplex_calibrate(...)`
 
 Supported recession models:
 
@@ -307,7 +307,7 @@ Edit this file to change:
 
 - synthetic chronicle settings,
 - calibration objective/method,
-- optimization hyperparameters,
+- calibration-method hyperparameters,
 - output options.
 
 Optimization methods proposed and implemented:
@@ -320,7 +320,7 @@ Optimization methods proposed and implemented:
 Separation of concerns:
 
 - Generic calibration workflow and method switch are in `calibration_problem.py` (`Calibration`)
-- Optimization algorithms stay in `optimization_methods.py`
+- Optimization algorithms stay in `calibration_method.py`
 - End-to-end demonstration is in `example_calibration_coarse_sand.py`
 
 Run:
