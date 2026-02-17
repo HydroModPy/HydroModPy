@@ -58,7 +58,7 @@ def select_period(df, first, last):
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples", "07_analytical_solution_for_streamflow_recession/")
+example_path = os.path.join(root_dir, "examples", "07S_short")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
@@ -72,64 +72,63 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-case = 'Example_07_Hillslope'
+case = '07S_short'
 
-if case == 'Example_07_Hillslope':
-    dem_path_ref = data_path + 'hillslope_1D.tif'
+dem_path_ref = data_path + 'hillslope_1D.tif'
 
-    resamp_res = 20
-    dem_path_res = data_path + 'hillslope_1D_resampled'+str(resamp_res)+'.tif'
+resamp_res = 20
+dem_path_res = data_path + 'hillslope_1D_resampled'+str(resamp_res)+'.tif'
 
-    if not os.path.exists(dem_path_res):
-        # open reference file and get resolution
-        x_res = resamp_res
-        y_res = resamp_res  # make sure this value is positive
-        # specify input and output filenames
-        inputFile = dem_path_ref
-        outputFile = dem_path_res
-        # resample the raster to the desired resolution
-        with rio.open(inputFile) as src:
-            dst_transform = from_origin(
-                src.bounds.left,
-                src.bounds.top,
-                x_res,
-                y_res
-            )
-            dst_width = max(1, int(np.ceil((src.bounds.right - src.bounds.left) / x_res)))
-            dst_height = max(1, int(np.ceil((src.bounds.top - src.bounds.bottom) / y_res)))
-            dst_meta = src.meta.copy()
-            dst_meta.update({
-                "driver": "GTiff",
-                "transform": dst_transform,
-                "width": dst_width,
-                "height": dst_height
-            })
-            with rio.open(outputFile, "w", **dst_meta) as dst:
-                for band in range(1, src.count + 1):
-                    reproject(
-                        source=rio.band(src, band),
-                        destination=rio.band(dst, band),
-                        src_transform=src.transform,
-                        src_crs=src.crs,
-                        dst_transform=dst_transform,
-                        dst_crs=src.crs,
-                        resampling=Resampling.bilinear
-                    )
+if not os.path.exists(dem_path_res):
+    # open reference file and get resolution
+    x_res = resamp_res
+    y_res = resamp_res  # make sure this value is positive
+    # specify input and output filenames
+    inputFile = dem_path_ref
+    outputFile = dem_path_res
+    # resample the raster to the desired resolution
+    with rio.open(inputFile) as src:
+        dst_transform = from_origin(
+            src.bounds.left,
+            src.bounds.top,
+            x_res,
+            y_res
+        )
+        dst_width = max(1, int(np.ceil((src.bounds.right - src.bounds.left) / x_res)))
+        dst_height = max(1, int(np.ceil((src.bounds.top - src.bounds.bottom) / y_res)))
+        dst_meta = src.meta.copy()
+        dst_meta.update({
+            "driver": "GTiff",
+            "transform": dst_transform,
+            "width": dst_width,
+            "height": dst_height
+        })
+        with rio.open(outputFile, "w", **dst_meta) as dst:
+            for band in range(1, src.count + 1):
+                reproject(
+                    source=rio.band(src, band),
+                    destination=rio.band(dst, band),
+                    src_transform=src.transform,
+                    src_crs=src.crs,
+                    dst_transform=dst_transform,
+                    dst_crs=src.crs,
+                    resampling=Resampling.bilinear
+                )
 
-    x = imageio.imread(dem_path_res)
-    x = (x*0)+100
-    toolbox.export_tif(dem_path_res, x, data_path + 'hillslope_1D_userdefined.tif', -99999)
-    dem_path = data_path + 'hillslope_1D_userdefined.tif'
+x = imageio.imread(dem_path_res)
+x = (x*0)+100
+toolbox.export_tif(dem_path_res, x, data_path + 'hillslope_1D_userdefined.tif', -99999)
+dem_path = data_path + 'hillslope_1D_userdefined.tif'
 
-    load = False
-    watershed_name = case
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
-    from_dem = [dem_path, 10] # [path, cell size]
-    from_shp = None # [path, buffer size]
-    from_xyv = None # [x, y, snap distance, buffer size]
-    bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
-    save_object = True
+load = False
+watershed_name = case
+from_lib = None # os.path.join(root_dir,'watershed_library.csv')
+from_dem = [dem_path, 10] # [path, cell size]
+from_shp = None # [path, buffer size]
+from_xyv = None # [x, y, snap distance, buffer size]
+bottom_path = None # path
+modflow_path = os.path.join(root_dir,'bin/')
+save_object = True
 
 #%% GEOGRAPHIC
 
@@ -192,7 +191,7 @@ KR = 10 # hydraulic conductivity divided by recharge
 
 # Climatic settings
 rval = 33 / 1000 # 33 mm/day
-recharge = pd.Series(np.ones(1000)*0)
+recharge = pd.Series(np.ones(365)*0)
 recharge[:30] = rval
 first_clim = 'mean'
 

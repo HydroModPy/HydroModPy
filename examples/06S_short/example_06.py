@@ -51,7 +51,7 @@ fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 #%% PERSONAL
 
-example_path = os.path.join(root_dir, "examples", "06_particle_tracking_and_residence_times/")
+example_path = os.path.join(root_dir, "examples", "06S_short/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
@@ -67,7 +67,7 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-case = 'Example_06_Lasset'
+case = '06S_short'
 # case = 'Example_06_Hillslope_1D'
 # case = 'Example_06_Hillslope_2D'
 
@@ -95,17 +95,16 @@ if case == 'Example_06_Hillslope2D':
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
 
-if case == 'Example_06_Lasset':
-    dem_path = data_path + 'regional dem.tif'
-    load = True
-    watershed_name = case
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
-    from_dem = None # [path, cell size]
-    from_shp = None # [path, buffer size]
-    from_xyv = [601020,6193860,200,50,'EPSG:2154'] # [x, y, snap distance, buffer size]
-    bottom_path = None # path
-    modflow_path = os.path.join(root_dir,'bin/')
-    save_object = True
+dem_path = data_path + 'regional dem.tif'
+load = False
+watershed_name = case
+from_lib = None # os.path.join(root_dir,'watershed_library.csv')
+from_dem = None # [path, cell size]
+from_shp = None # [path, buffer size]
+from_xyv = [600452.813,6193303.516,200,50,'EPSG:2154'] # [x, y, snap distance, buffer size]
+bottom_path = None # path
+modflow_path = os.path.join(root_dir,'bin/')
+save_object = True
 
 #%% GEOGRAPHIC
 
@@ -246,11 +245,7 @@ wbt.clip_raster_to_polygon(
 # Prepare particle tracking from synthetic boreoles across the catchment
 bore = imageio.imread(BV.geographic.watershed_box_buff_dem)
 bore = bore*0
-bore[26,34] = 1
 bore[20,20] = 1
-bore[40,48] = 1
-bore[38,22] = 1
-bore[28,21] = 1
 particles_folder = os.path.join(BV.simulations_folder + '/' + model_name, '_postprocess', '_particles')
 toolbox.create_folder(particles_folder)
 toolbox.export_tif(BV.geographic.watershed_box_buff_dem,

@@ -78,7 +78,7 @@ from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 #%% PERSONAL
 
-data_path = os.path.join(DIR, "examples", "10_coupling_with_land_surface_model_pyhelp", "data")
+data_path = os.path.join(DIR, "examples", "10S_short", "data")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(DIR, "examples", "results")
@@ -89,7 +89,7 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-# cell_size = 100
+# cell_size = 500
 # wbt.resample(os.path.join(data_path, "ursa_RS3_rot0.tif"),
 #              os.path.join(data_path, "ursa_RS3_rot0_"+str(cell_size)+".tif"),
 #              cell_size)
@@ -98,7 +98,7 @@ print('The results of the example will be saved here :', out_path)
 dem_path_pyhelp = os.path.join(data_path, "ursa_RS3_rot0_250.tif")
 dem_path = os.path.join(data_path, "ursa_RS3_rot0.tif")
 
-watershed_name = "Example_10_Urse"
+watershed_name = "10S_short"
 # watershed_name ='Strengbach'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
