@@ -14,6 +14,7 @@
 # Libraries installed by default
 import sys
 import os
+import random
 import pandas as pd
 import numpy as np
 import matplotlib as mpl        # install automatically by geopandas
@@ -43,6 +44,11 @@ from hydromodpy import watershed_root
 from hydromodpy.display import export_vtuvtk, visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
+
+# Keep this example deterministic for regression checks.
+EXAMPLE_02_SEED = int(os.environ.get("HYDROMODPY_EXAMPLE02_SEED", "12345"))
+np.random.seed(EXAMPLE_02_SEED)
+random.seed(EXAMPLE_02_SEED)
 
 #%% ---- PATHS
 

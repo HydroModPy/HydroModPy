@@ -1,0 +1,89 @@
+{
+  "modflow_expected": {
+    "watertable_elevation": {
+      "count": 4489,
+      "mean": -4438.093633228964,
+      "p50": 59.319915771484375,
+      "p95": 85.08930511474608,
+      "shape": [
+        67,
+        67
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": -19922602.31956482
+    },
+    "outflow_drain": {
+      "count": 4489,
+      "mean": 5.192412320513665,
+      "p50": 0.0,
+      "p95": 38.46271591186494,
+      "shape": [
+        67,
+        67
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 23308.738906785846
+    },
+    "groundwater_flux": {
+      "count": 4489,
+      "mean": 8.022237311481872,
+      "p50": 7.254785537719727,
+      "p95": 24.573200988769504,
+      "shape": [
+        67,
+        67
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 36011.82329124212
+    },
+    "groundwater_storage": {
+      "count": 2478,
+      "mean": 85969.6308504294,
+      "p50": 88216.32671356201,
+      "p95": 99116.73982143402,
+      "shape": [
+        67,
+        67
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 213032745.24736404
+    },
+    "accumulation_flux": {
+      "count": 4489,
+      "mean": -44660.357861410455,
+      "p50": 0.0,
+      "p95": 166.38517322540164,
+      "shape": [
+        67,
+        67
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": -200480346.43987152
+    }
+  },
+  "modpath_expected": {
+    "starting.dbf": {
+      "n_rows": 2478,
+      "time": {
+        "count": 2478,
+        "mean": 12081.207929845199,
+        "p50": 648.9608459472656,
+        "p95": 4314.157812500001
+      }
+    },
+    "ending.dbf": {
+      "n_rows": 2478,
+      "time": {
+        "count": 2478,
+        "mean": 12081.207929845199,
+        "p50": 648.9608459472656,
+        "p95": 4314.157812500001
+      }
+    }
+  }
+}
