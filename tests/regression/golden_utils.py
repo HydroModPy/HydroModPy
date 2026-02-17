@@ -1,14 +1,25 @@
 """
 Shared utilities for regression tests based on golden references.
 
-This module centralizes the common mechanics used by example-based regression
-tests:
-1) run an example script (regular or "legacy" script),
-2) collect compact signatures from generated outputs,
-3) compare signatures against golden JSON references, or refresh them.
+Why this file exists
+--------------------
+Most regression tests follow the exact same pattern:
 
-Keeping this logic in one place helps make individual tests short and focused
-on "what to validate" rather than "how to validate it".
+1. run an example workflow,
+2. read a subset of generated outputs,
+3. compute compact numeric "signatures",
+4. compare them against a JSON golden reference.
+
+Without this module, each test file would duplicate process management,
+path-resolution logic, signature code, and comparison rules.
+
+Design principles
+-----------------
+- Keep individual tests short and readable.
+- Fail with explicit, actionable assertion messages.
+- Be robust to small floating-point noise.
+- Skip (instead of fail) when the environment is missing required binaries
+  or external network access.
 """
 
 from __future__ import annotations
@@ -26,10 +37,11 @@ import numpy as np
 import pytest
 
 
-# Repository root used by tests that need stable relative paths.
+# Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Most MODFLOW-based regression tests validate this common output subset.
+# Common MODFLOW outputs checked by many tests.
+# Individual tests can override this list when needed.
 DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "watertable_elevation",
     "outflow_drain",
@@ -78,6 +90,11 @@ def load_npy_dict(path: Path) -> dict:
 
     Expected format in this project is typically:
         {timestep_index: 2D_or_3D_array, ...}
+
+    Notes
+    -----
+    `allow_pickle=True` is required because HydroModPy stores dictionaries
+    directly in `.npy` files for several post-processing outputs.
     """
     return np.load(path, allow_pickle=True).item()
 
@@ -88,6 +105,12 @@ def array_stats(values) -> dict:
 
     The function explicitly ignores non-finite values (`NaN`, `+/-Inf`) so
     signatures remain robust across minor runtime/environment differences.
+
+    Returned metrics are intentionally small and interpretable:
+    - `count`: number of finite values,
+    - `mean`: arithmetic mean,
+    - `p50`: median,
+    - `p95`: upper-tail indicator.
     """
     arr = np.asarray(values, dtype=float)
     # Keep only finite values to avoid unstable statistics when outputs include
@@ -109,6 +132,9 @@ def assert_stats(actual: dict, expected: dict) -> None:
 
     `count` must match exactly, while floating statistics are compared with
     `pytest.approx` to tolerate tiny floating-point noise.
+
+    This keeps tests stable across platforms and BLAS implementations while
+    still detecting meaningful regressions.
     """
     assert actual["count"] == expected["count"]
     for key in ("mean", "p50", "p95"):
@@ -130,7 +156,7 @@ def modflow_signature(path: Path) -> dict:
     data = load_npy_dict(path)
     assert len(data) > 0
 
-    # Use the last timestep to summarize final model state.
+    # Use the final timestep to summarize the end state of the run.
     last_timestep = sorted(data.keys())[-1]
     arr = np.asarray(data[last_timestep], dtype=float)
 
@@ -154,6 +180,9 @@ def snapshot_signature(path: Path) -> dict:
     Only a compact subset is retained:
     - row count,
     - statistics of the `time` column.
+
+    This is intentionally lightweight: DBF row ordering can vary, but count
+    and time distribution are stable high-value indicators for regressions.
     """
     table = gpd.read_file(path)
     assert "time" in table.columns, f"Column 'time' not found in {path}"
@@ -167,10 +196,8 @@ def collect_modflow_signatures(postprocess_dir: Path, names: list[str]) -> dict:
     """
     Collect MODFLOW signatures for a list of output base names.
 
-    Example
-    -------
-    If `name` is `watertable_elevation`, this function reads:
-    `<postprocess_dir>/watertable_elevation.npy`.
+    Each name is a base filename (without extension). For example:
+    `watertable_elevation` -> `<postprocess_dir>/watertable_elevation.npy`.
     """
     return {name: modflow_signature(postprocess_dir / f"{name}.npy") for name in names}
 
@@ -186,8 +213,10 @@ def assert_modflow_signatures(actual_by_name: dict, expected_by_name: dict) -> N
     """
     Validate MODFLOW signatures against golden expectations.
 
-    Structure and available keys are checked first, then numeric values are
-    compared with tolerances.
+    Comparison strategy:
+    1. same set of outputs,
+    2. same structural metadata (`shape`, optionally timestep metadata),
+    3. same statistics within tolerance.
     """
     assert set(actual_by_name) == set(expected_by_name)
     for name, expected in expected_by_name.items():
@@ -207,6 +236,10 @@ def assert_modflow_signatures(actual_by_name: dict, expected_by_name: dict) -> N
 def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> None:
     """
     Validate MODPATH `.dbf` signatures against golden expectations.
+
+    We compare only the stable parts of the signature:
+    - number of rows,
+    - summary stats on `time`.
     """
     assert set(actual_by_name) == set(expected_by_name)
     for filename, expected in expected_by_name.items():
@@ -219,9 +252,9 @@ def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
     """
     Ensure bundled MODFLOW/MODPATH executables are available for this platform.
 
-    The function *skips* the test (instead of failing) when binaries are not
-    available, because this is an environment capability issue rather than a
-    model regression issue.
+    The function *skips* the test (instead of failing) when binaries are
+    missing, because this is an environment issue, not a model-regression
+    issue.
     """
     # Resolve executable names from OS-specific bundled folders.
     if platform.system() == "Windows":
@@ -247,6 +280,10 @@ def require_url_available(url: str, *, timeout: float = 15.0, attempts: int = 3)
 
     This keeps network-dependent regression tests stable in CI/environments
     where outbound internet connectivity is not guaranteed.
+
+    The helper is intentionally permissive:
+    - try a few times,
+    - skip instead of fail if the endpoint is unavailable.
     """
     try:
         import requests
@@ -274,7 +311,10 @@ def resolve_model_workspace(
     model_name_prefix: str | None = None,
 ) -> tuple[Path, Path, Path]:
     """
-    Resolve the generated workspace folders for a given example run.
+    Resolve generated workspace folders for a completed example run.
+
+    Typical structure:
+    `<out_path>/<watershed>/<results_folder>/<model>/_postprocess/...`
 
     Returns
     -------
@@ -322,7 +362,7 @@ def resolve_first_model_workspace(
     results_folder_name: str = "results_simulations",
 ) -> tuple[Path, Path, Path]:
     """
-    Backward-compatible wrapper that selects the first watershed/model folders.
+    Backward-compatible wrapper that selects first watershed/model folders.
     """
     return resolve_model_workspace(out_path, results_folder_name=results_folder_name)
 
@@ -345,14 +385,15 @@ def update_or_assert_goldens(
     update_goldens:
         If True, overwrite the golden file with `actual`.
     """
+    # Update mode is explicit (`--update-goldens`) and overwrites JSON files.
     if update_goldens:
         write_golden_reference(golden_reference_file, actual)
         return
 
     expected = load_golden_reference(golden_reference_file)
 
-    # Validate only sections present in `actual`, which keeps this helper
-    # usable for MODFLOW-only and MODFLOW+MODPATH tests.
+    # Validate only sections present in `actual`.
+    # This supports tests that check only MODFLOW, only MODPATH, or both.
     if "modflow_expected" in actual:
         assert "modflow_expected" in expected
         assert_modflow_signatures(actual["modflow_expected"], expected["modflow_expected"])
@@ -372,10 +413,11 @@ def run_example_script(
     cwd: Path = REPO_ROOT,
 ) -> None:
     """
-    Run a regular example script as a subprocess.
+    Run a "modern" example script as a subprocess.
 
-    This path is used for scripts that already expose an output-directory
-    environment variable and do not require monkeypatching.
+    Use this helper when the example already supports:
+    - output redirection through an environment variable,
+    - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
     # Redirect outputs into a pytest temporary directory.
@@ -420,11 +462,14 @@ def run_legacy_example_script(
     """
     Run a legacy example script that hardcodes `examples/results`.
 
-    Legacy scripts are executed through an inline wrapper that:
-    1) rewrites only the target `os.path.join(..., "examples", "results")`,
-    2) optionally patches notebook-only IPython calls,
-    3) monkeypatches one `Watershed` method to stop execution at a controlled
-       point (before heavy plotting/interactive sections).
+    Legacy scripts are executed through an inline wrapper. The wrapper:
+    1. redirects only the canonical hardcoded results path,
+    2. optionally patches notebook-oriented IPython calls,
+    3. monkeypatches one `Watershed` method and exits after N calls.
+
+    Why we stop early:
+    many legacy scripts include plotting, calibration loops, or manual
+    exploration sections that are not part of regression validation.
     """
     if expected_stop_calls is None:
         # Keep backward compatibility with older tests using only
@@ -441,6 +486,8 @@ def run_legacy_example_script(
             dst_data_dir.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(src_data_dir, dst_data_dir, dirs_exist_ok=True)
 
+    # Inline wrapper executed via `python -c`.
+    # Arguments are passed in fixed order through `sys.argv`.
     wrapper = r"""
 import os
 import runpy
