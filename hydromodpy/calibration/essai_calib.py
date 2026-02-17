@@ -1,5 +1,4 @@
 from hydromodpy.calibration import calibration_method
-
 import pandas as pd
 
 # Create a synthetic monthly recharge time series
@@ -8,4 +7,4 @@ rech = [40, 30, 25, 20, 18, 19, 22, 26, 31, 37, 40, 43]
 rech_ts = pd.Series(rech, index=time, name='rech')
 rech_ts.index.name = 'time'
 
-calibration_method = calibration_method.Calibration(K_range=[1e-4, 1e-3, 1e-2], Sy_range=[0.01, 0.05, 0.1], rech=rech_ts)
+calib = calibration_method.Calibration([1e-4, 1e-3, 1e-2], [0.01, 0.05, 0.1], rech_ts)

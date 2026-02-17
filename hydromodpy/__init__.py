@@ -251,6 +251,7 @@ from hydromodpy import watershed
 from hydromodpy import modeling
 from hydromodpy import tools
 from hydromodpy import pyhelp
+from hydromodpy import calibration
 
 __all__ = [
     "Watershed",
@@ -258,6 +259,7 @@ __all__ = [
     "modeling",
     "tools",
     "pyhelp",
+    "calibration",
     "log_manager",
     "__version__",
 ]

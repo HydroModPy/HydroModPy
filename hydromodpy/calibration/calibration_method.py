@@ -1,7 +1,6 @@
-
 from hydromodpy.calibration import objective_function as obj_f
 
-def Q_brutsaert(rech, K, Sy):
+def Q_brutsaert(K, Sy, rech):
     """
     Calculate Brutsaert flow based on time, hydraulic conductivity, and specific yield.
     
@@ -34,7 +33,7 @@ class Calibration:
         self.K_range = K_range
         self.Sy_range = Sy_range
         self.t = rech.index.values # Extract time values from the rech Series
-        self.Q_obs = Q_brutsaert(self.t, 1E-3, 0.05) # To be replaced by reference observable
+        self.Q_obs = Q_brutsaert(1E-3, 0.05, rech) # To be replaced by reference observable
     
     def explore(self):
         """
