@@ -8,6 +8,7 @@ from tests.regression.golden_utils import (
     REPO_ROOT,
     assert_required_executables,
     collect_modflow_signatures,
+    require_url_available,
     resolve_model_workspace,
     run_legacy_example_script,
     update_or_assert_goldens,
@@ -35,21 +36,41 @@ MODFLOW_OUTPUT_NAMES = [
     "groundwater_storage",
 ]
 
+HUBEAU_HEALTHCHECK_URL = (
+    "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations?size=1"
+)
+
 
 @pytest.mark.regression
 @pytest.mark.slow
 def test_example_05_regression_on_npy_outputs(tmp_path, update_goldens):
     """Run example_05, then compare (or refresh) its golden signatures."""
     assert_required_executables()
+    require_url_available(HUBEAU_HEALTHCHECK_URL)
 
     out_path = tmp_path / "example_05_outputs"
-    run_legacy_example_script(
-        script_path=EXAMPLE_05_SCRIPT,
-        out_path=out_path,
-        stop_method="postprocessing_netcdf",
-        expected_stop_calls=1,
-        timeout=5400,
-    )
+    try:
+        run_legacy_example_script(
+            script_path=EXAMPLE_05_SCRIPT,
+            out_path=out_path,
+            stop_method="postprocessing_modflow",
+            expected_stop_calls=1,
+            timeout=5400,
+        )
+    except AssertionError as exc:
+        # Example 05 downloads piezometry inputs from online services.
+        # Skip on transient HTTP/network failures, but keep all other failures.
+        message = str(exc)
+        network_markers = (
+            "requests.exceptions.ConnectionError",
+            "requests.exceptions.Timeout",
+            "requests.exceptions.ReadTimeout",
+            "urllib3.exceptions",
+            "ConnectionAbortedError",
+        )
+        if any(marker in message for marker in network_markers):
+            pytest.skip("Example 05 requires online piezometry APIs; network was unavailable.")
+        raise
 
     _, postprocess_dir, _ = resolve_model_workspace(
         out_path,
