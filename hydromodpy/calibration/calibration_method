@@ -1,4 +1,6 @@
 
+from hydromodpy.calibration import objective_function as obj_f
+
 def Q_brutsaert(rech, K, Sy):
     """
     Calculate Brutsaert flow based on time, hydraulic conductivity, and specific yield.
@@ -36,7 +38,7 @@ class Calibration:
     
     def explore(self):
         """
-        Calculate Q_brutsaert for all combinations of K and Sy.
+        Calculate objective function for all combinations of explored parameters.
         
         Returns:
         dict: Dictionary with parameter combinations and associated objective function values
@@ -46,5 +48,5 @@ class Calibration:
             for Sy in self.Sy_range:
                 key = f"K={K}, Sy={Sy}"
                 Q_sim = Q_brutsaert(self.t, K, Sy) # To be replaced by simulated values from Solver.
-                results[key] = objective_function(obs=self.Q_obs, sim=Q_sim, metric='RMSE')
+                results[key] = obj_f.objective_function(obs=self.Q_obs, sim=Q_sim, metric='RMSE')
         return results
