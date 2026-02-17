@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -240,6 +241,30 @@ def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
         pytest.skip(f"Required executables are missing: {missing}")
 
 
+def require_url_available(url: str, *, timeout: float = 15.0, attempts: int = 3) -> None:
+    """
+    Require an external HTTP endpoint to be reachable, otherwise skip the test.
+
+    This keeps network-dependent regression tests stable in CI/environments
+    where outbound internet connectivity is not guaranteed.
+    """
+    try:
+        import requests
+    except Exception as exc:  # pragma: no cover - import failure is environment-specific
+        pytest.skip(f"Cannot import 'requests' to probe network dependency: {exc}")
+
+    last_error = None
+    for _ in range(attempts):
+        try:
+            response = requests.get(url, timeout=timeout)
+            response.raise_for_status()
+            return
+        except Exception as exc:  # pragma: no cover - depends on network conditions
+            last_error = exc
+
+    pytest.skip(f"External service unavailable ({url}): {last_error}")
+
+
 def resolve_model_workspace(
     out_path: Path,
     *,
@@ -387,6 +412,7 @@ def run_legacy_example_script(
     stop_method: str = "postprocessing_netcdf",
     expected_stop_calls: int | None = None,
     patch_ipython_inline: bool = False,
+    mirror_example_data_dir: bool = False,
     timeout: int = 1800,
     cwd: Path = REPO_ROOT,
     extra_env: dict | None = None,
@@ -404,6 +430,16 @@ def run_legacy_example_script(
         # Keep backward compatibility with older tests using only
         # `expected_netcdf_calls`.
         expected_stop_calls = expected_netcdf_calls
+
+    if mirror_example_data_dir:
+        # Some legacy workflows derive input-data paths from the temporary
+        # output workspace parent (e.g., via `workdir.parents[3]`).
+        # Mirror `<example>/data` there so those path assumptions still hold.
+        src_data_dir = script_path.parent / "data"
+        dst_data_dir = out_path.parent / script_path.parent.name / "data"
+        if src_data_dir.is_dir():
+            dst_data_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(src_data_dir, dst_data_dir, dirs_exist_ok=True)
 
     wrapper = r"""
 import os
@@ -433,7 +469,18 @@ os.path.join = patched_join
 if patch_ipython_inline:
     try:
         import IPython
+        class _DummyEvents:
+            # Matplotlib may register post-execution hooks on this object.
+            def register(self, *args, **kwargs):
+                return None
+
+            def unregister(self, *args, **kwargs):
+                return None
+
         class _DummyIPython:
+            def __init__(self):
+                self.events = _DummyEvents()
+
             def run_line_magic(self, *args, **kwargs):
                 return None
         # Some legacy scripts call IPython magic unconditionally.
