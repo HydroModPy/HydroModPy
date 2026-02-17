@@ -49,7 +49,7 @@ fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 #%% PERSONAL PATHS
 
-example_path = os.path.join(root_dir, "examples", "05_piezometry_in_a_heterogeneous_coastal_aquifer/")
+example_path = os.path.join(root_dir, "examples", "05S_short/")
 data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
@@ -63,9 +63,9 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-dem_path = data_path + "MNT_gouville_25m.tif"
+dem_path = data_path + "MNT_gouville_75m.tif"
 
-watershed_name = 'Example_05_Gouville'
+watershed_name = '05S_short'
 from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = [data_path + 'model_area.shp', 10] # [path, buffer size]
@@ -103,7 +103,7 @@ visualization_watershed.watershed_local(dem_path, BV)
 # Clip specific data at the catchment scale
 oceanic_path = data_path
 BV.add_oceanic(oceanic_path) # import specific data of tide temporal dynamcis
-BV.add_piezometry() # download data on the web
+# BV.add_piezometry() # download data on the web
 
 # General plot of the study site
 visualization_watershed.watershed_dem(BV)
@@ -124,6 +124,7 @@ piezo_NGF_df.columns = [code]
 piezo_2016.index = pd.to_datetime(piezo_2016['Date'],format='%d/%m/%Y %H:%M:%S')
 piezo_2016 = piezo_2016.drop(['Date'], axis=1)
 piezo_2016 = piezo_2016[piezo_2016.index.year == 2016]
+piezo_2016 = piezo_2016.resample('M').mean()
 
 filename = 'piezometry_' + str.replace(code, '/', '') + '_363782_6897114_9.2_10' + '.csv' #check if needed
 piezo_add_path = os.path.join(stable_folder, 'add_data',  filename)
@@ -132,12 +133,12 @@ if not os.path.exists(os.path.join(stable_folder, 'add_data')):
 piezo_NGF_df.to_csv(piezo_add_path, sep = ';',)
 
 # BV.piezometry.add_data()
-BV.piezometry.display_data()
+# BV.piezometry.display_data()
 
 #%% RECHARGE
 
 first_clim = 'mean'
-freq_time = 'D'
+freq_time = 'M'
 
 BV.add_climatic()
 BV.climatic.update_first_clim(first_clim)
@@ -279,47 +280,9 @@ watertable_elevation = np.load(os.path.join(simulations_folder, 'default',
                                             '_postprocess', 'watertable_elevation.npy'),
                                allow_pickle=True).item()
 
-sim_piezo_elev = []
-for t in range(len(watertable_elevation)):
-    sim_piezo_elev.append(watertable_elevation[t][BV.piezometry.x_iloc,BV.piezometry.y_iloc][0])
-df_simobs_piezo_elev = piezo_2016.copy()
-df_simobs_piezo_elev.insert(1, "Sim", sim_piezo_elev)
-
 watertable_depth = np.load(os.path.join(simulations_folder, 'default',
                                             '_postprocess', 'watertable_depth.npy'),
                                allow_pickle=True).item()
-sim_piezo_depth = []
-for t in range(len(watertable_depth)):
-    sim_piezo_depth.append(watertable_depth[t][BV.piezometry.x_iloc,BV.piezometry.y_iloc][0])
-df_simobs_piezo_depth = piezo_2016.copy()
-df_simobs_piezo_depth.insert(1, "Sim", sim_piezo_depth)
-
-fig, axs = plt.subplots(2,1, figsize=(9,7), sharex=True)
-axs = axs.ravel()
-
-ax = axs[0]
-ax.plot(df_simobs_piezo_elev.NGF, label='Observed', color='k', lw=2)
-ax.plot(df_simobs_piezo_elev.Sim, label='Simulated', color='red', lw=2)
-years_maj = mdates.YearLocator()   # every year
-months_maj = mdates.MonthLocator()  # every x month
-ax.xaxis.set_major_locator(years_maj)
-ax.xaxis.set_minor_locator(months_maj)
-ax.legend(loc='upper right', fontsize=8)
-ax.set_ylabel('Elevation [masl]')
-ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
-ax.set_title('Calibration on the water table')
-
-ax = axs[1]
-# ax.axhline(dem_data[30,30], label='Topography', color='gold', lw=2)
-ax.plot(dem_data[BV.piezometry.x_iloc,BV.piezometry.y_iloc]-df_simobs_piezo_depth.NGF, label='Observed', color='k', lw=2)
-ax.plot(df_simobs_piezo_depth.Sim, label='Simulated', color='red', lw=2)
-years_maj = mdates.YearLocator()   # every year
-months_maj = mdates.MonthLocator()  # every x month
-ax.xaxis.set_major_locator(years_maj)
-ax.xaxis.set_minor_locator(months_maj)
-ax.legend(loc='lower right', fontsize=8)
-ax.set_ylabel('Depth from surface [m]')
-ax.set_xlim(pd.to_datetime('2016-01'), pd.to_datetime('2017-01'))
 
 fig, ax = plt.subplots(1,1, figsize=(10,3))
 watertable_depth[0][watertable_depth[0]<0] = 0

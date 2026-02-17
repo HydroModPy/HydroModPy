@@ -1,4 +1,4 @@
-"""End-to-end regression test for examples/example_01.py."""
+"""End-to-end regression test for examples/06.../example_06.py."""
 
 from pathlib import Path
 
@@ -16,42 +16,44 @@ from tests.regression.golden_utils import (
 )
 
 
-EXAMPLE_01_SCRIPT = (
+EXAMPLE_06_SCRIPT = (
     REPO_ROOT
     / "examples"
-    / "01_simplified_example_presented_in_the_paper"
-    / "example_01.py"
+    / "06_particle_tracking_and_residence_times"
+    / "example_06.py"
 )
 
 GOLDEN_REFERENCE_FILE = (
     Path(__file__).resolve().parent
     / "reference"
     / "golden_references"
-    / "example_01_npy_signatures.json"
+    / "example_06_npy_signatures.json"
 )
 
 MODPATH_SNAPSHOT_FILES = [
-    "starting.dbf",
-    "ending.dbf",
+    "starting_weighted.dbf",
+    "ending_weighted.dbf",
 ]
 
 
 @pytest.mark.regression
 @pytest.mark.slow
-def test_example_01_regression_on_npy_outputs(tmp_path, update_goldens):
-    """Run example_01, then compare (or refresh) its golden signatures."""
+def test_example_06_regression_on_npy_outputs(tmp_path, update_goldens):
+    """Run example_06, then compare (or refresh) its golden signatures."""
     assert_required_executables()
 
-    out_path = tmp_path / "example_01_outputs"
+    out_path = tmp_path / "example_06_outputs"
     run_legacy_example_script(
-        script_path=EXAMPLE_01_SCRIPT,
+        script_path=EXAMPLE_06_SCRIPT,
         out_path=out_path,
-        expected_netcdf_calls=1,
+        stop_method="filtprocessing_modpath",
+        expected_stop_calls=1,
+        timeout=5400,
     )
     _, postprocess_dir, particles_dir = resolve_model_workspace(
         out_path,
-        watershed_name="Example_01_Canut",
-        model_name="test_0",
+        watershed_name="Example_06_Lasset",
+        model_name="default",
     )
 
     actual = {
