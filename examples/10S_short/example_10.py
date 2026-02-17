@@ -100,11 +100,11 @@ dem_path = os.path.join(data_path, "ursa_RS3_rot0.tif")
 
 watershed_name = "10S_short"
 # watershed_name ='Strengbach'
-from_lib = None # os.path.join(root_dir,'watershed_library.csv')
 from_dem = None # [path, cell size]
 from_shp = [os.path.join(data_path, "watershed_urse_EPSG2056.shp"), 10]
 # from_xyv = [327816.965, 6777886.670, 150, 20 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
 from_xyv = [2798418.619, 1133789.585, 500, 20, 'EPSG:2056']
+catch_def = "shp"
 bottom_path = None # path
 save_object = True
 
@@ -118,10 +118,10 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
                               watershed_name=watershed_name,
-                              from_lib=from_lib, # os.path.join(root_dir,'watershed_library.csv')
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                              catch_def=catch_def, # watershed extraction definition mode
                               bottom_path=bottom_path, # path
                               save_object=save_object)
 
