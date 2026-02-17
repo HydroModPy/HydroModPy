@@ -133,10 +133,10 @@ if case == 'Example_08_Synthetic':
 
     load = False
     watershed_name = case
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = [dem_path, 10] # [path, cell size]
     from_shp = None # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
+    catch_def = "dem"
     bottom_path = None # path
     modflow_path = os.path.join(root_dir,'bin/')
     save_object = True
@@ -150,10 +150,10 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
                               watershed_name=watershed_name,
-                              from_lib=from_lib, # os.path.join(root_dir,'watershed_library.csv')
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                              catch_def=catch_def, # watershed extraction definition mode
                               bottom_path=bottom_path, # path
                               save_object=save_object)
 

@@ -90,8 +90,6 @@ class Geographic:
             Path of the simulation results from modeling operations.
         calibration_folder : str
             Path of the calibration results from modeling operations.
-        from_lib : str, optional
-            Path of the watershed librairies. If None : method not used. The default is None.
         from_dem : list, optional
             List with two parameters: [path, cell_size]
         from_shp : list, optional
@@ -117,7 +115,6 @@ class Geographic:
         self.stable_folder = stable_folder
         self.simulations_folder = simulations_folder
         self.calibration_folder = calibration_folder
-        self.from_lib = from_lib
         self.from_dem = from_dem
         self.from_shp = from_shp
         self.from_xyv = from_xyv
@@ -199,7 +196,7 @@ class Geographic:
         """
         Extract watershed from an outlet
         """
-        if (self.from_lib != None) or (self.from_xyv != None):
+        if self.from_xyv != None:
             # Create outlet shapefile from x and y coordinates
             df = pd.DataFrame({'x': [self.x_outlet], 'y': [self.y_outlet]})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs_proj)
