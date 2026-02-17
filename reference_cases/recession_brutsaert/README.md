@@ -11,6 +11,28 @@ Implemented functions in `baseflow.py`:
 - `compute_characteristic_time(...)`
 - `simulate_baseflow(...)`
 - `generate_baseflow_profile(...)`
+- `add_proportional_gaussian_error(...)`
+- `generate_noisy_baseflow_profile(...)`
+
+Implemented functions in `hydrological_metrics.py`:
+
+- `nse(observed, simulated)`
+- `nse_log(observed, simulated)`
+- `kge(observed, simulated, return_components=False)`
+- `ObjectiveFunction(metric="nse")` with alias-based metric switch
+
+Implemented calibration modules:
+
+- `calibration_problem.py`
+  - `BaseflowConfig`
+  - `make_baseflow_simulator(...)`
+  - `Calibration` (generic class delegating optimization to a dispatcher)
+- `optimization_methods.py`
+  - `OptimizationDispatcher` + `DEFAULT_OPTIMIZATION_DISPATCHER`
+  - `grid_search_optimize(...)`
+  - `random_search_optimize(...)`
+  - `nelder_mead_optimize(...)`
+  - `scipy_simplex_optimize(...)`
 
 Supported recession models:
 
@@ -57,6 +79,18 @@ This implementation provides two recession laws:
 
 - `solution="exponential"`: linear-reservoir form
 - `solution="boussinesq"`: nonlinear Brutsaert-type recession
+
+### Proportional Gaussian error model
+
+For an analytical discharge value `Q_i`, the noisy value is built as:
+
+```text
+epsilon_i ~ N(0, sigma_i^2)
+sigma_i = f * |Q_i|
+Q_noisy_i = Q_i + epsilon_i
+```
+
+where `f` is `error_fraction` (user parameter).
 
 ### 1) Exponential solution
 
@@ -196,3 +230,128 @@ t_s, t_days, q, tc = generate_baseflow_profile(
     A=10e6,
 )
 ```
+
+## Coarse-Sand Example (50 points + plot)
+
+A ready-to-run example is provided in:
+
+- `reference_cases/recession_brutsaert/example_coarse_sand_profile.py`
+
+The script uses a parameter set consistent with coarse-sand ranges:
+
+- `K = 2.0e-4 m/s` (within `1e-5` to `1e-3`)
+- `Sy = 0.28` (within `0.20` to `0.35`)
+- `Q0 = 0.35 m^3/s`
+- `A = 1.2e6 m^2`
+- `solution = "boussinesq"`
+- `n_points = 50`
+- `t_min_days = 0.1`
+- `error_fraction = 0.10` (Gaussian noise with pointwise proportional sigma)
+
+Run from repository root:
+
+```powershell
+python reference_cases/recession_brutsaert/example_coarse_sand_profile.py
+```
+
+Outputs are written to:
+
+- `reference_cases/recession_brutsaert/outputs/coarse_sand_recession_profile.png`
+- `reference_cases/recession_brutsaert/outputs/coarse_sand_recession_points.csv`
+
+The generated plot overlays:
+
+- analytical profile (without error)
+- noisy profile (with proportional Gaussian error)
+
+## Metrics Illustration on the Coarse-Sand Example
+
+A second script computes classical hydrological metrics on the previous example:
+
+- `reference_cases/recession_brutsaert/example_metrics_coarse_sand.py`
+
+Computed indicators:
+
+- NSE
+- NSElog
+- KGE (with `r`, `alpha`, `beta` components)
+
+Run:
+
+```powershell
+python reference_cases/recession_brutsaert/example_metrics_coarse_sand.py
+```
+
+Output figure:
+
+- `reference_cases/recession_brutsaert/outputs/coarse_sand_metrics_illustration.png`
+
+## K-Sy Calibration from a Noisy Coarse-Sand Chronicle
+
+Example script:
+
+- `reference_cases/recession_brutsaert/example_calibration_coarse_sand.py`
+- `reference_cases/recession_brutsaert/example_calibration_coarse_sand.toml`
+
+What it does:
+
+1. Fixes true coarse-sand parameters (`K`, `Sy`)
+2. Generates a noisy synthetic chronicle
+3. Calibrates unknown (`K`, `Sy`) by optimizing one objective metric:
+   - `NSE`
+   - `NSElog`
+   - `KGE`
+
+All calibration/example parameters are read from the TOML file.
+Edit this file to change:
+
+- synthetic chronicle settings,
+- calibration objective/method,
+- optimization hyperparameters,
+- output options.
+
+Optimization methods proposed and implemented:
+
+- `grid_search`: robust global scan
+- `random_search`: global Monte-Carlo style search
+- `nelder_mead`: local refinement (typically after global initialization)
+- `simplex`: classic SciPy simplex via `scipy.optimize.fmin`
+
+Separation of concerns:
+
+- Generic calibration workflow and method switch are in `calibration_problem.py` (`Calibration`)
+- Optimization algorithms stay in `optimization_methods.py`
+- End-to-end demonstration is in `example_calibration_coarse_sand.py`
+
+Run:
+
+```powershell
+python reference_cases/recession_brutsaert/example_calibration_coarse_sand.py
+```
+
+Output figure:
+
+- `reference_cases/recession_brutsaert/outputs/coarse_sand_calibration_<metric>_<method>.png`
+
+## Bibliography for Performance Indicators
+
+NSE:
+
+- Nash, J. E., and J. V. Sutcliffe (1970).
+  *River flow forecasting through conceptual models part I - A discussion of principles*.
+  Journal of Hydrology, 10(3), 282-290.
+  DOI: `10.1016/0022-1694(70)90255-6`
+
+NSElog usage (log-transform for low-flow sensitivity):
+
+- Krause, P., D. P. Boyle, and F. Base (2005).
+  *Comparison of different efficiency criteria for hydrological model assessment*.
+  Advances in Geosciences, 5, 89-97.
+  DOI: `10.5194/adgeo-5-89-2005`
+
+KGE (original 2009 form used here):
+
+- Gupta, H. V., H. Kling, K. K. Yilmaz, and G. F. Martinez (2009).
+  *Decomposition of the mean squared error and NSE performance criteria*.
+  Journal of Hydrology, 377(1-2), 80-91.
+  DOI: `10.1016/j.jhydrol.2009.08.003`
