@@ -44,13 +44,13 @@ logger = get_logger(__name__)
 
 #%% FUNCTIONS
 
-def build_regional_flow_products(
+def generate_regional_flow_rasters(
     dem_path: str,
     reg_path: str,
     wbt_tools,
 ) -> dict:
     """
-    Build regional flow rasters from an input DEM.
+    Generate regional flow rasters from an input DEM.
 
     Parameters
     ----------
@@ -227,7 +227,7 @@ class Geographic:
         """
         # if isinstance(self.regio_path, (str))==False:
         if self.reg_fold == None:
-            regional_products = build_regional_flow_products(
+            regional_products = generate_regional_flow_rasters(
                 dem_path=self.dem_path,
                 reg_path=self.reg_path,
                 wbt_tools=wbt,

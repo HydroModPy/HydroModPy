@@ -17,54 +17,45 @@ import numpy as np
 import rasterio
 # Flopy
 from flopy.discretization import StructuredGrid, UnstructuredGrid, VertexGrid
-from flopy.discretization.modeltime import ModelTime
 
 
 # %% CLASS
 
-class STGrid:
+class SGrid_Generator:
     """
-    Class for a spatio-temporal grid, i.e. a combination of a spatial grid and a temporal grid.
+    Class for creating a spatial grid.
     """
     
     # %%% INITIALIZATION
     # Initialization
     def __init__(self):
-        # Default values for spatial and temporal grids
-        self._sgrid       = None
-        self._tgrid       = None
         # Default parameter for choosing type of spatial grid to create
-        self._sgrid_type  = None
+        self._sgrid_type  = 'structured' #TODO: only structured implemented for now, but unstructured and vertex grid types will be implemented in the future
         # Default parameters for structured spatial grid creation
+        self._lenuni          = 'm'  #TODO: used to define master length unit for the model; for now, must also be the same length unit of the DEM (no conversion of length units for DEM implemented yet)
         self._top_path        = None
         self._crs             = None
-        self._lenuni          = None
         self._bot_path        = None
         self._thick           = None
+        self._genmtd_lay      = None
         self._lay_proportions = None
         self._lay_decay       = None
         self._nlay            = None
-        # Initialization of flags for checking if  parameters for spatial or temporal grid 
+        # Default advanced parameters for spatial grid creation
+        self._spatial_nodata  = -9999
+        # Initialization of flags for checking if  parameters for spatial grid 
         # creation have not been modified since last grid creation
         self._sgrid_created = False
-        self._tgrid_created = False
-        # Default parameters for no data value
-        self.nodata = -9999
+        # Initialization of storage of created spatial grid
+        self._sgrid       = None
+        
 
-    # %%% GETTERS FOR SPATIAL AND TEMPORAL GRIDS
-    # Getter for spatial grid
-    @property
-    def sgrid(self):
+    # %%% RUN SPATIAL GRID GENERATION
+    # Spatial grid generation
+    def run(self):
         if not self._sgrid_created:
             self._create_sgrid()
         return self._sgrid
-    
-    # Getter for temporal grid
-    @property
-    def tgrid(self):
-        if not self._tgrid_created:
-            self._create_tgrid()
-        return self._tgrid
 
     # %%% SETTERS AND GETTERS FOR PARAMETERS FOR SPATIAL GRID CREATION
     # Setter and getter for top_path
@@ -130,6 +121,15 @@ class STGrid:
         self._thick = value
         self._sgrid_created = False
 
+    # Setter and getter for genmtd_lay
+    @property
+    def genmtd_lay(self):
+        return self._genmtd_lay
+    @genmtd_lay.setter
+    def genmtd_lay(self, value):
+        self._genmtd_lay = value
+        self._sgrid_created = False
+
     # Setter and getter for lay_proportions
     @property
     def lay_proportions(self):
@@ -139,7 +139,14 @@ class STGrid:
         self._lay_proportions = value
         self._sgrid_created = False
 
-    # %%% SETTERS AND GETTERS FOR PARAMETERS FOR TEMPORAL GRID CREATION
+    # Setter and getter for spatial_nodata
+    @property
+    def spatial_nodata(self):
+        return self._spatial_nodata
+    @spatial_nodata.setter
+    def spatial_nodata(self, value):
+        self._spatial_nodata = value
+        self._sgrid_created = False
 
     # %%% SPATIAL GRID CREATION
     # Spatial grid creation according to sgrid_type parameter
@@ -157,6 +164,7 @@ class STGrid:
         elif self._sgrid_type == 'vertex':
             self._sgrid = self._create_sgrid_vertex()
         self._sgrid_created = True
+
     # %%%% STRUCTURED SPATIAL GRID CREATION
     # Creation methods for structured spatial grid
     def _create_sgrid_structured(self):
@@ -164,13 +172,13 @@ class STGrid:
         Create a structured spatial grid.
         """
         # longitudinal & latitudinal structured grid
-        top,delc,delr,surf,xoff,yoff,nrow,ncol = self._create_hgrid_structured()
+        top,delc,delr,xoff,yoff,nrow,ncol = self._create_hgrid_structured()
         # vertical structured grid
         botm,nlay = self._create_vgrid_structured(top)
         # formating and storage as StructuredGrid class from flopy
         sgrid = StructuredGrid(delc = delc,
                                delr = delr,
-                               top  = surf,
+                               top  = top,
                                botm = botm,
                                xoff = xoff,
                                yoff = yoff,
@@ -191,10 +199,10 @@ class STGrid:
         ncol = top.width
         delc = np.array([top.transform[0]]*nrow)
         delr = np.array([-top.transform[4]]*ncol)
-        surf = top.read(1)
         xoff = top.bounds.left
         yoff = top.bounds.bottom
-        return top,delc,delr,surf,xoff,yoff,nrow,ncol
+        top = top.read(1)
+        return top,delc,delr,xoff,yoff,nrow,ncol
     
     # vertical structured grid
     def _create_vgrid_structured(self,top):
@@ -202,35 +210,36 @@ class STGrid:
         Create the vertical grid for a structured spatial grid.
         """
         # Definition of the bottom layer of the domain
-        if self.bot_path is None:
-            bot = top - self.thick        # Matrix for constant thickness case
-            bot[top<=self.nodata]=self.nodata
-        else:
+        if self.bot_path is not None:
             bot = rasterio.open(self.bot_path)
-            bot[top<=self.nodata]=self.nodata
+            bot = bot.read(1)
+            bot[top<=self.spatial_nodata]=self.spatial_nodata
+        else:
+            bot = top - self.thick        # Matrix for constant thickness case
+            bot[top<=self.spatial_nodata]=self.spatial_nodata
         # Parameters for proportions of the thciknesses of all layers as a fraction of total domain thickness
-        if self.lay_proportions is not None:
+        if self.genmtd_lay == 'listed_thickness':
             # Case where the thicknesses of all layers (as a fraction of total domain thickness) 
             # are given as a list in the lay_proportions parameter
             nlay = len(self.lay_proportions)
             allp = np.cumsum(self.lay_proportions)
-        elif self.lay_decay is None or self.lay_decay <= 1:
+        elif self.genmtd_lay == 'constant_thickness':
             # Case where the thicknesses of all layers are constant (i.e. all layers have the 
             # same thickness, which is the total domain thickness divided by the number of layers)
             nlay = self.nlay
             allp = np.arange(1,nlay+1) / nlay
-        else:
+        elif self.genmtd_lay == 'decay_thickness':
             # Case where the thicknesses of the layers increase with depth
             nlay = self.nlay
             allp = np.zeros((nlay))
-            for i in range(1, self.nlay+1):
-                allp[i-1] = (1-self.lay_decay**i) / (1-self.lay_decay**self.nlay)
+            for i in range(1, nlay+1):
+                allp[i-1] = (1-self.lay_decay**i) / (1-self.lay_decay**nlay)
         # Bottom definition for each of the layers
-        botm = np.ones((self.nlay,len(top[:,0]),len(top[0,:]))) 
-        for i in range(1, self.nlay+1):
+        botm = np.ones((nlay,len(top[:,0]),len(top[0,:]))) 
+        for i in range(1, nlay+1):
             # Weighted formula to go from bottom layer (bot) to surface (top)
             botm[i-1] = top  - ((top - bot) * allp[i-1])
-            botm[i-1][top<=self.nodata]=self.nodata
+            botm[i-1][bot<=self.spatial_nodata]=self.spatial_nodata
         return botm,nlay   
 
     # %%%% UNSTRUCTURED SPATIAL GRID CREATION
@@ -239,7 +248,7 @@ class STGrid:
         """
         Create an unstructured spatial grid.
         """
-        print('Placeholder - Not implemented yet.')
+        print('Placeholder - Unstructured spatial grid not implemented yet.')
 
     # %%%% VERTEX SPATIAL GRID CREATION
     # Creation methods for vertex spatial grid
@@ -247,11 +256,8 @@ class STGrid:
         """
         Create a vertex spatial grid.
         """
-        print('Placeholder - Not implemented yet.')    
+        print('Placeholder - Vertex spatial grid not implemented yet.')    
      
-    # %%% TEMPORAL GRID CREATION
-    
-    
 #%% NOTES
 # TODO: DEM crs and length unit (as imported from .tif file) should be checked and 
 # reprojected if necessary
