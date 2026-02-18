@@ -33,6 +33,8 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODEULES
 from hydromodpy import watershed_root
+from hydromodpy.process import Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
+from hydromodpy.process import Flow
 
 # ---- FUNCTION LAUNCH
 
@@ -55,6 +57,12 @@ def run_hydromodpy(watershed_name='Test1',
                    Ss=1e-5 # -
                    ):
 
+    flow = Flow()
+    flow.add_parameter(Parameter(id='K', value=K*24*3600, description='Hydraulic conductivity', units='m/j', field_type='homogeneous'))
+    flow.add_parameter(Parameter(id='Sy', value=Sy, description='Specific yield', units='-', field_type='homogeneous'))
+    flow.add_parameter(Parameter(id='Ss', value=Ss, description='Specific storage', units='-', field_type='homogeneous'))
+    flow.add_sink_source(SinkSource(id='R', value=R/1000/365, description='Recharge rate', units='m/j'))
+    
     # ---- PERSONAL PATHS
 
     example_path = os.path.join(root_dir, "examples", "11_for run from scratch without plots/")
@@ -209,3 +217,4 @@ if __name__ == '__main__':
     watertable_depth_output = run_hydromodpy(DEM_name=DEM_name)
 
 # ---- NOTES
+
