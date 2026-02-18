@@ -32,6 +32,7 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
+from hydromodpy.process.flow import Flow
 
 logger = get_logger(__name__)
 

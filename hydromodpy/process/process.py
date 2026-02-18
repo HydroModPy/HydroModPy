@@ -9,91 +9,46 @@ from abc import ABC, abstractmethod
 from kiwisolver import Variable
 from pydantic import BaseModel, Field
 
-
 class Parameter(BaseModel):
-    id: str = Field(..., description="Symbole of the parameter (ex: K, R, Sy, etc.)")
+    id: str = Field(..., description="id of the parameter (ex: K, R, Sy, etc.)")
     value: float = Field(..., description="Value of the parameter")
     description: str = Field('', description="Description of the parameter")
     units: str = Field('', description="Units of the parameter")
     field_type: str = Field('homogeneous', description="Type of the field (e.g., 'homogeneous', 'heterogeneous')")
     link_data: list = Field(default_factory=list, description="List of the id of the data linked to this parameter")
-    
+    parameters: dict = Field(default_factory=dict, description="Dictionary of the parameters linked to this parameter")
+      
     def update_value(self, new_value: float):
         self.value = new_value
+    
+    def add_parameter(self, parameter: 'Parameter'):
+        self.parameters[parameter.id] = parameter
 
 class Variable(BaseModel):
-	"""
-        Variable class
-
-        Args:
-            id (str): Symbole of the variable (ex: h, etc.)
-            value (float): Value of the variable
-            description (str, optional): Description of the variable. Defaults to ''.
-            units (str, optional): Units of the variable. Defaults to ''.
-    """
-	id: str = Field(..., description="Symbole of the variable (ex: h, etc.)")
+	id: str = Field(..., description="id of the variable (ex: h, etc.)")
 	value: float = Field(..., description="Value of the variable")
 	description: str = Field('', description="Description of the variable")
 	units: str = Field('', description="Units of the variable")
 
 class InitialCondition(BaseModel):
-    
+	id: str = Field(..., description="id of the initial condition (ex: h0, etc.)")
+	value: float = Field(..., description="Value of the initial condition")
+	description: str = Field('', description="Description of the initial condition")
+	units: str = Field('', description="Units of the initial condition")
 
-class InitialCondition():
-    def __init__(self, id: str, value: float, description: str = '', units: str = ''):
-        """
-        InitialCondition class
+class BoundaryCondition(BaseModel):
+	id: str = Field(..., description="id of the boundary condition (ex: h_BC, etc.)")
+	value: float = Field(..., description="Value of the boundary condition")
+	description: str = Field('', description="Description of the boundary condition")
+	units: str = Field('', description="Units of the boundary condition")
+	type: str = Field('Dirichlet', description="Type of the boundary condition (e.g., 'Dirichlet', 'Neumann', 'Cauchy')")
 
-        Args:
-            id (str): Symbole of the initial condition (ex: h0, etc.)
-            value (float): Value of the initial condition
-            description (str, optional): Description of the initial condition. Defaults to ''.
-            units (str, optional): Units of the initial condition. Defaults to ''.
-        """
-        self.id = id # id of the initial condition
-        self.value = value # value of the initial condition
-        self.description = description # description of the initial condition
-        self.units = units # units of the initial condition
-
-class BoundaryCondition():
-    def __init__(self, id: str, value: float, description: str = '', units: str = '', type: str = ''):
-        """
-        BoundaryCondition class
-
-        Args:
-            id (str): Symbole of the boundary condition (ex: h_BC, etc.)
-            value (float): Value of the boundary condition
-            description (str, optional): Description of the boundary condition. Defaults to ''.
-            units (str, optional): Units of the boundary condition. Defaults to ''.
-            type (str, optional): Type of the boundary condition. Defaults to 'Dirichlet'.
-        """
-        _type_allowed = {"Dirichlet", "Neumann", "Cauchy"}
-        
-        self.id = id # id of the boundary condition
-        self.value = value # value of the boundary condition
-        self.description = description # description of the boundary condition
-        self.units = units # units of the boundary condition
-        if type not in _type_allowed:
-            raise ValueError(f"Type of boundary condition must be one of {_type_allowed}")
-        self.type = type # type of the boundary condition (e.g., 'Dirichlet', 'Neumann', 'Cauchy')
-
-class SinkSource():
-    def __init__(self, id: str, value: float, description: str = '', units: str = ''):
-        """
-        SinkSource class
-
-        Args:
-            id (str): Symbole of the sink/source (ex: Q_well, etc.)
-            value (float): Value of the sink/source
-            description (str, optional): Description of the sink/source. Defaults to ''.
-            units (str, optional): Units of the sink/source. Defaults to ''.
-        """
-        self.id = id # id of the sink/source
-        self.value = value # value of the sink/source
-        self.description = description # description of the sink/source
-        self.units = units # units of the sink/source
-        self.link_data = [] # list of the id of the data linked to this parameter
-
+class SinkSource(BaseModel):
+	id: str = Field(..., description="id of the sink/source (ex: Q_well, etc.)")
+	value: float = Field(..., description="Value of the sink/source")
+	description: str = Field('', description="Description of the sink/source")
+	units: str = Field('', description="Units of the sink/source")
+	link_data: list = Field(default_factory=list, description="List of the id of the data linked to this parameter")
 
 class Process(ABC):
 	"""
@@ -116,7 +71,7 @@ class Process(ABC):
 		"""
 		pass
 	
-	@abstractmethod
+	#@abstractmethod
 	def add_parameter(self, parameter: Parameter):
 		"""
  		Ajouter un paramètre au processus.
@@ -133,7 +88,7 @@ class Process(ABC):
 		"""
 		pass
 
-	@abstractmethod
+	#@abstractmethod
 	def add_variable(self, variable: Variable):
 		"""
  		Ajouter une variable au processus.
@@ -149,7 +104,7 @@ class Process(ABC):
 		"""
 		pass
 
-	@abstractmethod
+	#@abstractmethod
 	def add_initial_condition(self, initial_condition: InitialCondition):
 		"""
  		Ajouter une condition initiale au processus.
@@ -165,7 +120,7 @@ class Process(ABC):
 		"""
 		pass
 
-	@abstractmethod
+	#@abstractmethod
 	def add_boundary_condition(self, boundary_condition: BoundaryCondition):
 		"""
  		Ajouter une condition limite au processus.
@@ -181,7 +136,7 @@ class Process(ABC):
 		"""
 		pass
 	
-	@abstractmethod
+	#@abstractmethod
 	def add_sink_source(self, sink_source: SinkSource):
 		"""
  		Ajouter un terme puits/source au processus.
