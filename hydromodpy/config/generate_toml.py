@@ -1,44 +1,93 @@
 """Auto-generate commented TOML templates from Pydantic models.
 
-Reads field names, types, defaults, descriptions, and constraints
-directly from the Pydantic JSON schema. Zero manual duplication:
-add a Field to the model, the TOML template updates itself.
+Reads field names, types, defaults, descriptions, and ParamLevel metadata
+directly from Pydantic model_fields. Supports filtering by module and profile.
+
+Usage::
+
+    from hydromodpy.config.generate_toml import generate_toml
+    print(generate_toml(modules=["geographic"], profile="user"))
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args, get_origin
+
+from pydantic import BaseModel
+from pydantic.fields import FieldInfo
+
+from hydromodpy.watershed.geographic_config import ParamLevel
 
 
-def generate_toml(output_path: str | Path | None = None) -> str:
-    """Generate a fully commented TOML template from HydroModPyConfig.
+PROFILES = {"user": 0, "dev": 1, "expert": 2}
 
-    Every field gets:
-    - Description (from Field(description=...))
-    - Type, constraints (bounds, enums), default value
+# Registry of available config modules.
+# Each entry maps a TOML section name to its Pydantic model class.
+_MODULE_REGISTRY: dict[str, type[BaseModel]] | None = None
+
+
+def _get_registry() -> dict[str, type[BaseModel]]:
+    """Lazy-load the module registry to avoid circular imports."""
+    global _MODULE_REGISTRY
+    if _MODULE_REGISTRY is None:
+        from hydromodpy.watershed.geographic_config import GeographicConfig
+        _MODULE_REGISTRY = {
+            "geographic": GeographicConfig,
+        }
+    return _MODULE_REGISTRY
+
+
+def available_modules() -> list[str]:
+    """Return the list of registered config module names."""
+    return list(_get_registry().keys())
+
+
+def generate_toml(
+    output_path: str | Path | None = None,
+    modules: list[str] | None = None,
+    profile: str = "expert",
+) -> str:
+    """Generate a commented TOML template filtered by modules and profile.
 
     Parameters
     ----------
     output_path : str, Path, or None
         If provided, write the template to this file.
+    modules : list of str, or None
+        Module sections to include (e.g. ["geographic", "modflow"]).
+        None = all registered modules.
+    profile : str
+        Visibility profile: "user", "dev", or "expert".
+        Only fields with ParamLevel <= profile are included.
 
     Returns
     -------
     str
         The TOML content.
     """
-    from hydromodpy.config import HydroModPyConfig
+    if profile not in PROFILES:
+        raise ValueError(f"Unknown profile '{profile}'. Choose from: {', '.join(PROFILES)}")
 
-    schema = HydroModPyConfig.model_json_schema()
-    defs = schema.get("$defs", {})
+    registry = _get_registry()
 
-    lines = _header()
+    if modules is None:
+        selected = registry
+    else:
+        unknown = set(modules) - set(registry)
+        if unknown:
+            raise ValueError(
+                f"Unknown module(s): {', '.join(sorted(unknown))}. "
+                f"Available: {', '.join(sorted(registry))}"
+            )
+        selected = {k: registry[k] for k in modules}
 
-    for name, prop in schema.get("properties", {}).items():
-        resolved = _resolve(prop, defs)
-        if resolved.get("type") == "object" and "properties" in resolved:
-            lines.extend(_section(name, resolved, defs))
+    threshold = PROFILES[profile]
+
+    lines = _header(profile, list(selected.keys()))
+
+    for section_name, model_cls in selected.items():
+        lines.extend(_section(section_name, model_cls, threshold))
 
     content = "\n".join(lines) + "\n"
     if output_path:
@@ -50,17 +99,12 @@ def generate_toml(output_path: str | Path | None = None) -> str:
 # Internal helpers
 # =====================================================================
 
-def _resolve(schema: dict, defs: dict) -> dict:
-    """Follow $ref to get the actual schema definition."""
-    if "$ref" in schema:
-        name = schema["$ref"].split("/")[-1]
-        base = dict(defs.get(name, {}))
-        # Overlay keys from the original (default, description overrides)
-        for k, v in schema.items():
-            if k != "$ref":
-                base[k] = v
-        return base
-    return schema
+def _get_param_level(field_info: FieldInfo) -> str:
+    """Extract ParamLevel from Annotated metadata, default to 'user'."""
+    for meta in field_info.metadata:
+        if isinstance(meta, ParamLevel):
+            return meta.level
+    return "user"
 
 
 def _fmt(val: Any) -> str:
@@ -74,139 +118,66 @@ def _fmt(val: Any) -> str:
     return str(val)
 
 
-def _type_label(schema: dict, defs: dict) -> str:
-    """Human-readable type string."""
-    if "$ref" in schema:
-        r = _resolve(schema, defs)
-        return r.get("title", "object")
+def _type_label(field_info: FieldInfo) -> str:
+    """Human-readable type string from annotation."""
+    annotation = field_info.annotation
+    origin = get_origin(annotation)
 
-    if "anyOf" in schema or "oneOf" in schema:
-        variants = schema.get("anyOf") or schema.get("oneOf", [])
-        parts = []
-        nullable = False
-        for s in variants:
-            if s.get("type") == "null":
-                nullable = True
-            else:
-                parts.append(_type_label(s, defs))
-        label = " | ".join(parts) if parts else "any"
-        if nullable:
-            label += " or null"
-        return label
+    if origin is not None:
+        args = get_args(annotation)
+        if args:
+            inner = ", ".join(repr(a) if isinstance(a, str) else getattr(a, "__name__", str(a)) for a in args)
+            origin_name = getattr(origin, "__name__", str(origin))
+            return f"{origin_name}[{inner}]"
 
-    if "const" in schema:
-        return f'"{schema["const"]}"'
+    if hasattr(annotation, "__name__"):
+        type_map = {"str": "string", "int": "int", "float": "float", "bool": "bool"}
+        return type_map.get(annotation.__name__, annotation.__name__)
 
-    t = schema.get("type", "any")
-    type_map = {
-        "string": "string", "number": "float", "integer": "int",
-        "boolean": "bool", "array": "list",
-    }
-    return type_map[t] if t in type_map else t
+    return str(annotation)
 
 
-def _constraints(schema: dict) -> list[str]:
-    """Extract constraint strings from JSON schema."""
+def _constraints_from_field(field_info: FieldInfo) -> list[str]:
+    """Extract constraint strings from FieldInfo metadata."""
     parts = []
-    if "exclusiveMinimum" in schema:
-        parts.append(f"> {schema['exclusiveMinimum']}")
-    if "minimum" in schema:
-        parts.append(f">= {schema['minimum']}")
-    if "exclusiveMaximum" in schema:
-        parts.append(f"< {schema['exclusiveMaximum']}")
-    if "maximum" in schema:
-        parts.append(f"<= {schema['maximum']}")
-    if "enum" in schema:
-        opts = ", ".join(f'"{v}"' for v in schema["enum"])
-        parts.append(f"one of: {opts}")
+    for meta in field_info.metadata:
+        if isinstance(meta, ParamLevel):
+            continue
+        # Pydantic annotated constraints (Gt, Ge, Lt, Le)
+        cls_name = type(meta).__name__
+        if cls_name == "Gt":
+            parts.append(f"> {meta.gt}")
+        elif cls_name == "Ge":
+            parts.append(f">= {meta.ge}")
+        elif cls_name == "Lt":
+            parts.append(f"< {meta.lt}")
+        elif cls_name == "Le":
+            parts.append(f"<= {meta.le}")
+    # Enum values from Literal
+    annotation = field_info.annotation
+    origin = get_origin(annotation)
+    if origin is not None:
+        args = get_args(annotation)
+        if all(isinstance(a, str) for a in args):
+            opts = ", ".join(f'"{a}"' for a in args)
+            parts.append(f"one of: {opts}")
     return parts
 
 
-def _all_constraints(schema: dict) -> list[str]:
-    """Constraints from both top-level and inside anyOf variants."""
-    parts = _constraints(schema)
-    for s in schema.get("anyOf", []):
-        if s.get("type") != "null":
-            parts.extend(_constraints(s))
-    return parts
-
-
-def _meta_line(name: str, schema: dict, defs: dict, required: list) -> str:
-    """Build: 'Type: float | > 0 | Default: 8.64'"""
-    parts = [f"Type: {_type_label(schema, defs)}"]
-    parts.extend(_all_constraints(schema))
-
-    if "default" in schema:
-        d = schema["default"]
-        if d is None:
-            parts.append("Default: null")
-        elif isinstance(d, bool):
-            parts.append(f"Default: {'true' if d else 'false'}")
-        elif isinstance(d, str):
-            parts.append(f'Default: "{d}"')
-        elif isinstance(d, (dict, list)):
-            pass  # sub-object defaults are shown in their own section
-        else:
-            parts.append(f"Default: {d}")
-    elif name in required:
-        parts.append("REQUIRED")
-
-    return " | ".join(parts)
-
-
-def _default_value(schema: dict, defs: dict) -> Any:
-    """Default value suitable for TOML, or placeholder for required fields."""
-    if "default" in schema:
-        d = schema["default"]
-        if isinstance(d, (dict, list)):
-            return None  # handled as sub-table
-        return d
-    if "const" in schema:
-        return schema["const"]
-    if "enum" in schema:
-        return schema["enum"][0]
-    t = schema.get("type", "")
-    if t == "number":
-        return 0.0
-    if t == "integer":
-        return 0
-    if t == "boolean":
-        return False
-    if t == "string":
-        return ""
+def _default_value(field_info: FieldInfo) -> Any:
+    """Get default value or None if required."""
+    if field_info.default is not None:
+        from pydantic_core import PydanticUndefined
+        if field_info.default is not PydanticUndefined:
+            return field_info.default
     return None
 
 
-def _is_sub_object(schema: dict, defs: dict) -> bool:
-    r = _resolve(schema, defs)
-    return r.get("type") == "object" and "properties" in r
-
-
-def _field_lines(name: str, schema: dict, defs: dict, required: list) -> list[str]:
-    """Comment + value lines for a single scalar field."""
-    lines = []
-
-    desc = schema.get("description", "")
-    if desc:
-        lines.append(f"# {desc}")
-
-    lines.append(f"# {_meta_line(name, schema, defs, required)}")
-
-    val = _default_value(schema, defs)
-    if val is None:
-        lines.append(f"# {name} =")
-    else:
-        lines.append(f"{name} = {_fmt(val)}")
-
-    return lines
-
-
-# -- Structure builders -----------------------------------------------
-
-def _header() -> list[str]:
+def _header(profile: str, modules: list[str]) -> list[str]:
     return [
         "# " + "=" * 70,
         "# HydroModPy Configuration",
+        f"# Profile: {profile} | Modules: {', '.join(modules)}",
         "# Auto-generated from Pydantic models.",
         "# Edit values below. Comments describe each parameter.",
         "# " + "=" * 70,
@@ -214,162 +185,59 @@ def _header() -> list[str]:
     ]
 
 
-def _section(prefix: str, schema: dict, defs: dict) -> list[str]:
-    """Generate [prefix] with fields, then sub-tables."""
+def _section(section_name: str, model_cls: type[BaseModel], threshold: int) -> list[str]:
+    """Generate a [section] with filtered fields."""
     lines = []
-    props = schema.get("properties", {})
-    required = schema.get("required", [])
-    desc = schema.get("description", schema.get("title", prefix))
+    title = model_cls.__doc__ or section_name
+    title = title.strip().split("\n")[0]
 
-    # Section header
     lines.append("")
     lines.append("# " + "-" * 70)
-    lines.append(f"# {desc}")
+    lines.append(f"# {title}")
     lines.append("# " + "-" * 70)
     lines.append("")
-    lines.append(f"[{prefix}]")
+    lines.append(f"[{section_name}]")
 
-    # Separate simple fields from sub-objects
-    deferred = []
-
-    for name, prop in props.items():
-        # Discriminated union (oneOf with discriminator)
-        if "discriminator" in prop:
-            deferred.append((name, "union", prop))
+    has_fields = False
+    for name, field_info in model_cls.model_fields.items():
+        level = _get_param_level(field_info)
+        if PROFILES.get(level, 0) > threshold:
             continue
 
-        # Direct sub-object
-        if _is_sub_object(prop, defs):
-            deferred.append((name, "object", prop))
-            continue
+        has_fields = True
 
-        # anyOf / oneOf
-        if "anyOf" in prop or "oneOf" in prop:
-            variants = prop.get("anyOf") or prop.get("oneOf", [])
-            non_null = [s for s in variants if s.get("type") != "null"]
+        # Description
+        desc = field_info.description or ""
+        if desc:
+            for desc_line in desc.split(". "):
+                desc_line = desc_line.strip()
+                if desc_line:
+                    if not desc_line.endswith("."):
+                        desc_line += "."
+                    lines.append(f"# {desc_line}")
 
-            # Optional[sub-object]
-            if len(non_null) == 1 and _is_sub_object(non_null[0], defs):
-                deferred.append((name, "optional_object", prop))
-                continue
+        # Meta line: type, constraints, default
+        meta_parts = [f"Type: {_type_label(field_info)}"]
+        meta_parts.extend(_constraints_from_field(field_info))
 
-        # Array of objects
-        if prop.get("type") == "array" and "items" in prop:
-            items = _resolve(prop["items"], defs)
-            if items.get("type") == "object" and "properties" in items:
-                deferred.append((name, "array", prop))
-                continue
-
-        # Simple field
-        lines.extend(_field_lines(name, prop, defs, required))
-        lines.append("")
-
-    # Sub-tables
-    for name, kind, prop in deferred:
-        sub_prefix = f"{prefix}.{name}"
-
-        if kind == "union":
-            lines.extend(_union_section(sub_prefix, prop, defs))
-
-        elif kind == "object":
-            resolved = _resolve(prop, defs)
-            lines.extend(_section(sub_prefix, resolved, defs))
-
-        elif kind == "optional_object":
-            non_null = [s for s in prop["anyOf"] if s.get("type") != "null"]
-            resolved = _resolve(non_null[0], defs)
-            desc = prop.get("description", "")
-            lines.append("")
-            if desc:
-                lines.append(f"# {desc}")
-            lines.append(f"# Optional — uncomment to enable:")
-            lines.append(f"# [{sub_prefix}]")
-            for fname, fprop in resolved.get("properties", {}).items():
-                val = _default_value(fprop, defs)
-                lines.append(f"# {fname} = {_fmt(val)}")
-            lines.append("")
-
-        elif kind == "array":
-            lines.extend(_array_section(sub_prefix, prop, defs))
-
-    return lines
-
-
-def _union_section(prefix: str, schema: dict, defs: dict) -> list[str]:
-    """Discriminated union: first variant active, others commented."""
-    lines = []
-    variants = []
-    for s in schema.get("oneOf") or schema.get("anyOf", []):
-        if s.get("type") == "null":
-            continue
-        variants.append(_resolve(s, defs))
-
-    if not variants:
-        return lines
-
-    desc = schema.get("description", "")
-    if desc:
-        lines.append("")
-        lines.append(f"# {desc}")
-
-    # First variant (active)
-    first = variants[0]
-    first_props = first.get("properties", {})
-    first_required = first.get("required", [])
-    first_desc = first.get("description", "")
-
-    lines.append("")
-    if first_desc:
-        lines.append(f"# {first_desc}")
-    lines.append(f"[{prefix}]")
-
-    for fname, fprop in first_props.items():
-        lines.extend(_field_lines(fname, fprop, defs, first_required))
-        lines.append("")
-
-    # Other variants (commented)
-    for variant in variants[1:]:
-        title = variant.get("title", "?")
-        vdesc = variant.get("description", "")
-        v_props = variant.get("properties", {})
-
-        lines.append(f"# --- Alternative: {title} ---")
-        if vdesc:
-            lines.append(f"# {vdesc}")
-        lines.append(f"# [{prefix}]")
-        for fname, fprop in v_props.items():
-            val = _default_value(fprop, defs)
-            if val is None:
-                lines.append(f"# {fname} =")
-            else:
-                lines.append(f"# {fname} = {_fmt(val)}")
-        lines.append("")
-
-    return lines
-
-
-def _array_section(prefix: str, schema: dict, defs: dict) -> list[str]:
-    """Commented example for an array of objects (e.g. [[modflow.wells]])."""
-    lines = []
-    items = _resolve(schema.get("items", {}), defs)
-    item_props = items.get("properties", {})
-    desc = schema.get("description", items.get("description", items.get("title", "")))
-
-    lines.append("")
-    if desc:
-        lines.append(f"# {desc}")
-    lines.append("# Type: list of tables | Default: []")
-    lines.append(f"# Example (uncomment to add):")
-    lines.append(f"# [[{prefix}]]")
-    for fname, fprop in item_props.items():
-        d = fprop.get("description", "")
-        if d:
-            lines.append(f"#   # {d}")
-        val = _default_value(fprop, defs)
-        if val is None:
-            lines.append(f"#   {fname} = 0")
+        default = _default_value(field_info)
+        if default is not None:
+            meta_parts.append(f"Default: {_fmt(default)}")
         else:
-            lines.append(f"#   {fname} = {_fmt(val)}")
-    lines.append("")
+            meta_parts.append("REQUIRED")
+
+        lines.append(f"# {' | '.join(meta_parts)}")
+
+        # Value
+        if default is not None:
+            lines.append(f"{name} = {_fmt(default)}")
+        else:
+            lines.append(f"# {name} =")
+
+        lines.append("")
+
+    if not has_fields:
+        lines.append("# (no parameters at this profile level)")
+        lines.append("")
 
     return lines
