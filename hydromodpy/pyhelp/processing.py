@@ -65,14 +65,21 @@ def run_help_allcells(cellparams, ncore=None):
     calcul_progress = 0
     N = len(cellparams)
     pool = mp.get_context("spawn").Pool(ncore)
-    for cell in pool.imap_unordered(run_help_singlecell, cellparams.items()):
-        output[cell[0]] = cell[1]
-        calcul_progress += 1
-        if calcul_progress % 100 == 0 or calcul_progress == N:
-            progress_pct = calcul_progress/N*100
-            tpassed = time.perf_counter() - tstart
-            tremain = (100-progress_pct)*tpassed/progress_pct/60 if progress_pct > 0 else 0
-            logger.debug("HELP simulation in progress: %3.1f%% (%0.1f min remaining)", progress_pct, tremain)
+    try:
+        for cell in pool.imap_unordered(run_help_singlecell, cellparams.items()):
+            output[cell[0]] = cell[1]
+            calcul_progress += 1
+            if calcul_progress % 100 == 0 or calcul_progress == N:
+                progress_pct = calcul_progress/N*100
+                tpassed = time.perf_counter() - tstart
+                tremain = (100-progress_pct)*tpassed/progress_pct/60 if progress_pct > 0 else 0
+                logger.debug("HELP simulation in progress: %3.1f%% (%0.1f min remaining)", progress_pct, tremain)
+        pool.close()
+        pool.join()
+    except Exception:
+        pool.terminate()
+        pool.join()
+        raise
     calcul_time = (time.perf_counter() - tstart)
     logger.info("HELP simulation completed for %d cells in %0.2f sec", N, calcul_time)
 
