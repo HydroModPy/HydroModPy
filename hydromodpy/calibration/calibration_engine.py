@@ -1,9 +1,10 @@
 from hydromodpy.calibration import objective_function as obj_f
 import numpy as np
 
-def Q_brutsaert(K, Sy, rech):
+def Q_brutsaert(rech, K, Sy=0.05):
     """
     Calculate Brutsaert flow based on time, hydraulic conductivity, and specific yield.
+    Temporary function to be replaced by Hydromodpy Solver interactions.
     
     Parameters:
     rech (Pandas Series): Time and recharge values
@@ -22,7 +23,7 @@ class Calibration:
     Class to compute objective function values across a range of K and Sy parameters for a given recharge time series.
     """
     
-    def __init__(self, params_dict, max_sim_nb, rech, obj_func, calib_method):
+    def __init__(self, params_dict, max_sim_nb, rech, obj_func, calib_method, solver='Modflow'):
         """
         Initialize with parameter ranges, calibration options and recharge values.
         
@@ -38,18 +39,27 @@ class Calibration:
         self.list_params = list(self.params_dict.keys())
         self.nb_params = len(self.list_params)
         self.param_resolution = ceil(max_sim_nb**(1/self.nb_params))
+        self.log_spaced_params = ['K'] # List of parameters to be explored using log scale
         self.nb_sim = self.param_resolution ** self.nb_params
         self.rech = rech
         self.t = rech.index.values # Extract time values from the rech Series
-        self.Q_obs = Q_brutsaert(1E-3, 0.05, rech) # To be replaced by reference observable
+        self.Q_obs = Q_brutsaert(rech, 1E-3, 0.05) # To be replaced by reference observable
         print(self.Q_obs)
         self.obj_func = obj_func
         self.calib_method = calib_method
+        self.solver = solver
 
-        # if self.calib_method == 'explore':
-        #     calib_results_dict, calib_results_df = self.explore()
+        # Dictionnary allowing to check parameters vs solver consistency
+        # to be switched to a parameter file
+        solver_params_dict = {
+            'Modflow': ['K', 'Sy', 'Ss', 'Cd'],
+            'GR4J': ['X1', 'X2', 'X3', 'X4']}
+        
+        for param in self.list_params:
+            if param not in solver_params_dict[self.solver] and param != 'thick':
+                raise ValueError(f"Parameter {param} is not compatible with the chosen solver.")
 
-        # return (calib_results_dict, calib_results_df)
+
 
     
     def explore(self):
@@ -73,7 +83,7 @@ class Calibration:
         param_ranges = {}
         for param in self.list_params:
             p_start, p_stop = self.params_dict[param]
-            if param == 'K':
+            if param in self.log_spaced_params:
                 param_ranges[param] = np.logspace(np.log10(p_start), np.log10(p_stop), self.param_resolution)
             else:
                 param_ranges[param] = np.linspace(p_start, p_stop, self.param_resolution)
@@ -93,7 +103,11 @@ class Calibration:
                 yield from generate_combinations(params_list, ranges_dict, index + 1, current_combo)
 
         for param_combo in generate_combinations(self.list_params, param_ranges):
-            Q_sim = Q_brutsaert(param_combo['K'], param_combo['Sy'], self.rech)
+            print(param_combo)
+            if self.nb_params == 1:
+                Q_sim = Q_brutsaert(self.rech, param_combo[self.list_params[0]]) # to replace by several hydromodpy interactions
+            else:
+                Q_sim = Q_brutsaert(self.rech, param_combo['K'], param_combo['Sy']) # to replace by several hydromodpy interactions
             key = ", ".join([f"{p}={param_combo[p]:.6f}" for p in self.list_params])
             results_dict[key] = obj_f.objective_function(obs=self.Q_obs, sim=Q_sim, metric='RMSE')
             row = {p: param_combo[p] for p in self.list_params}
@@ -112,20 +126,31 @@ class Calibration:
     
     def print_results(self, results_df):
         """"
-        Print the results in a readable format.
+        Print visualizable results of obective function for 1, 2 or 3 parameter calibration.
         
         Parameters:
-        results_df (DataFrame): DataFrame containing parameter combinations and objective function values
+        results_df (DataFrame): DataFrame containing parameter combinations and associated objective function values
         """
 
         import matplotlib.pyplot as plt
+        # 1 parameter calibration result visualization
+        if len(self.list_params) == 1:
+            param_col = self.list_params[0]
+            obj_col = 'Objective_Function'
+            plt.figure(figsize=(10, 6))
+            plt.plot(results_df[param_col], results_df[obj_col], marker='o')
+            plt.xlabel(param_col)
+            plt.ylabel(obj_col)
+            plt.title(f'{obj_col} vs {param_col}')
+            plt.xscale('log' if param_col in self.log_spaced_params else 'linear')
+            plt.grid()
+            plt.show()
 
-        # Reshape data for 2D visualization
+        # 2 parameters 2D visualization
         param_cols = self.list_params
         obj_col = 'Objective_Function'
 
-        # Create pivot table if 2 parameters
-        if len(param_cols) == 2:
+        if len(param_cols) == 2: # Create pivot table if 2 parameters are calibrated
             pivot_data = results_df.pivot_table(
                 index=param_cols[0],
                 columns=param_cols[1],
