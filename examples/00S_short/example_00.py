@@ -11,75 +11,46 @@
 """
 
 #%% ---- LIBRAIRIES
-# PYTHON PACKAGES
 import sys
 import os
-import warnings
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import imageio.v2 as imageio
-import whitebox
 import rasterio
 import geopandas as gpd
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+import imageio.v2 as imageio
 
-try:
-    import hydromodpy
-except:
-    pass
-
-# ROOT DIRECTORY
+import hydromodpy
 from os.path import dirname, abspath
+
 try:
     root_dir = dirname(dirname(dirname(abspath(__file__))))
 except NameError:
     root_dir = os.getcwd()
 sys.path.append(root_dir)
 
-# HYDROMODPY MODULES
-from hydromodpy import watershed_root
 from hydromodpy.display import visualization_watershed, visualization_results
-from hydromodpy.tools import toolbox
-fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+from hydromodpy.tools.io_utils import (
+    setup_paths, load_raster, load_vector, load_csv,
+    load_simulation_results, make_timeseries_data, save_results, extract_watershed
+)
+from hydromodpy.tools.visualization import (
+    create_watershed_plot, create_map_plot, create_crosssection_plot, create_timeseries_plot
+)
 
-#%% ---- LOGGING CONFIGURATION (OPTIONAL)
-# By default, HydroModPy logs INFO messages to console and creates a debug log
-# file in the watershed output folder. You can customize this behavior:
-
-from hydromodpy import log_manager
-
-# Change console output level (default is "verbose")
-# log_manager.set_console_level("quiet")    # Only show warnings and errors
-# log_manager.set_console_level("verbose")  # Show info, warnings, and errors
-# log_manager.set_console_level("dev")      # Show everything including debug
-
-# Enable user log file in current directory (optional)
-# log_manager.enable_user_log()                           # Save to current directory
-# log_manager.enable_user_log("/path/to/your/folder")    # Save to specific path
-
-# Show logs from third-party libraries (fiona, rasterio, matplotlib, etc.)
-# By default, these libraries are muted to avoid cluttering the console
-# log_manager.show_library_logs(True)    # Show library warnings
-# log_manager.show_library_logs(False)   # Hide library logs (default)
-
-# Note: A complete debug log is automatically saved in the watershed output folder
-# at: out_path/watershed_name/hydromodpy_debug.log
 
 #%% ---- PERSONAL PATHS
 
-regression_path = os.path.join(root_dir, "examples", "00S_short/")
-data_path = os.path.join(regression_path, "data/")
+# Setup paths using generalized function
+paths = setup_paths(root_dir, '00S_short', env_var_name="HYDROMODPY_EXAMPLE00_OUT_PATH")
+regression_path = paths['regression']
+data_path = paths['data']
+out_path = paths['output']
 
-# The folder out_path is created in the example_path root directory:
-out_path = os.getenv("HYDROMODPY_EXAMPLE00_OUT_PATH", os.path.join(root_dir, "examples", "results"))
+# Skip plotting if environment variable is set
 skip_plots = os.getenv("HYDROMODPY_EXAMPLE00_SKIP_PLOTS", "0").strip().lower() in {"1", "true", "yes"}
-# Or define it manually
-# out_path = 'D:/_HydroModPy/_results'
 
 print('The results of the example will be saved here :', out_path)
 
@@ -94,23 +65,20 @@ dem_path = os.path.join(data_path, 'regional dem.tif')
 
 # Outlet coordinates of the catchment
 from_xyv = [150727.164, 6858066.520, 100, 10 , 'EPSG:2154']
-catch_def = "xy"
 
-# Extract the catchment from a regional DEM
-BV = watershed_root.Watershed(dem_path=dem_path,
-                              out_path=out_path,
-                              load=False,
-                              watershed_name=watershed_name,
-                              from_dem=None, # [path, cell size]
-                              from_shp=None, # [path, buffer size]
-                              from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              catch_def=catch_def, # watershed extraction definition mode
-                              bottom_path=None, # path
-                              save_object=True)
+# Extract watershed using generalized function
+BV = extract_watershed(dem_path=dem_path,
+                       out_path=out_path,
+                       watershed_name=watershed_name,
+                       from_xyv=from_xyv,
+                       catch_def="xy",
+                       bottom_path=None,
+                       load=False,
+                       save_object=True)
 
 # Paths necessary for the script
-stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
-simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+stable_folder = paths['stable']
+simulations_folder = paths['simulations']
 
 #%% ---- ADD DATA
 
@@ -137,9 +105,12 @@ BV.settings.update_check_model(plot_cross=True, check_grid=True)
 BV.settings.update_dis_perlen(dis_perlen=True)
 
 # Climatic settings
-time_index = pd.date_range(start='2017-01-01', end='2017-12-31', freq='ME') # datetime in months
-rch_series = pd.Series([10, 60, 40, 20, 10, 5, 4, 20, 10, 1, 0, 0]) / 1000 / 30 # recharge mm/month to in m/day
-recharge = pd.Series(rch_series.values, index=time_index)
+recharge = make_timeseries_data(start_date='2017-01-01',
+                                end_date='2017-12-31',
+                                freq='ME',
+                                values=[10, 60, 40, 20, 10, 5, 4, 20, 10, 1, 0, 0],
+                                name='recharge')
+recharge = recharge / 1000 / 30  # recharge mm/month to in m/day
 BV.climatic.update_recharge(recharge, sim_state=BV.settings.sim_state)
 BV.climatic.update_runoff(None, sim_state=BV.settings.sim_state)
 BV.climatic.update_first_clim('mean') # or 'first or value
@@ -147,8 +118,16 @@ BV.climatic.update_first_clim('mean') # or 'first or value
 # Well settings
 well_1_coords = [1-1,9-1,29-1] # [lay, row, col]
 well_2_coords = [1-1,17-1,29-1] # [lay, row, col]
-well_1_fluxes = pd.Series([-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0]) # [L3/T]
-well_2_fluxes = pd.Series([-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0]) # [L3/T]
+well_1_fluxes = make_timeseries_data(start_date='2017-01-01',
+                                     end_date='2017-12-31',
+                                     freq='ME',
+                                     values=[-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                     name='well_1')
+well_2_fluxes = make_timeseries_data(start_date='2017-01-01',
+                                     end_date='2017-12-31',
+                                     freq='ME',
+                                     values=[-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0],
+                                     name='well_2')
 BV.settings.update_well_pumping(well_coords=[well_1_coords, well_2_coords],
                                 well_fluxes=[well_1_fluxes, well_2_fluxes])
 
@@ -250,110 +229,38 @@ if skip_plots:
 
 #%% ---- OPEN SIMULATED
 
+# Load all simulation results at once
+results = load_simulation_results(simulations_folder, model_name)
+
+# Extract results from dictionary
 sim_contour = gpd.read_file(BV.geographic.watershed_shp)
-sim_dem_data = imageio.imread(BV.geographic.watershed_box_buff_dem)
-sim_wte_rio = rasterio.open(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/watertable_elevation_t(0).tif')
-sim_wte_data = sim_wte_rio.read(1)
-sim_wtd_rio = rasterio.open(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/watertable_depth_t(0).tif')
-sim_wtd_data = sim_wtd_rio.read(1) #.astype(np.float64)
-sim_seep_rio = rasterio.open(BV.simulations_folder+'/'+model_name+'/_postprocess/_rasters/seepage_areas_t(0).tif')
-sim_seep_data = np.ma.masked_where(sim_seep_rio.read(1)<=0, sim_seep_rio.read(1))
-sim_pathlines = gpd.read_file(BV.simulations_folder+'/'+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
-sim_timeseries = pd.read_csv(BV.simulations_folder+'/'+model_name+'/_postprocess/_timeseries/_simulated_timeseries.csv', sep=';', index_col=0, parse_dates=True)
+sim_dem_data = load_raster(BV.geographic.watershed_box_buff_dem)[0]
+sim_wte_data = results['wte_data']
+sim_wte_rio = results['wte_rio']
+sim_wtd_data = results['wtd_data']
+sim_wtd_rio = results['wtd_rio']
+sim_seep_data = results['seep_data']
+sim_seep_rio = results['seep_rio']
+sim_pathlines = results['pathlines']
+sim_timeseries = results['timeseries']
 
 #%% ---- PLOT WATERSHED
 
-print('PLOT: WATERSHED INFO')
-
-# General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
-visu = visualization_results.Visualization(BV, model_name)
-visu.visual2D(object_list = ['map','grid'], color_scale = [(None,None),(None,None)], lines=None)
+create_watershed_plot(dem_path, BV, model_name, visualization_watershed, visualization_results)
 
 #%% ---- PLOT MAPS
 
-print('PLOT: MAPS')
-
-fig, ax = plt.subplots(1,1, figsize=(8, 5), dpi=300)
-
-sim_wtd = rasterio.plot.show(sim_wtd_data, ax=ax,
-                             transform=sim_wtd_rio.transform,
-                             cmap='jet',
-                             # vmin=0, vmax=10,
-                             alpha=0.5, zorder=0,
-                             aspect="auto")
-rasterio.plot.show(sim_seep_data, ax=ax, transform=sim_seep_rio.transform,
-                   cmap=mpl.colors.ListedColormap(['k']), alpha=1, zorder=1, aspect="auto")
-sim_contour.plot(ax=ax, lw=3, ec='k', fc='None')
-sim_pathlines.plot(ax=ax, color='k')
-ax.set_title('SIMULATED: time 1/12')
-im = sim_wtd.get_images()[0]
-divider = make_axes_locatable(ax)
-# cax = divider.append_axes('right', size='5%', pad=0.5)
-# fig.colorbar(im, cax=cax)
-ax.axvline(x=ax.get_xlim()[0]+((29)*75), color='k', ls='--', lw=3)
-
-fig.suptitle('Seepage fed by pathlines and map of water table depth [m]', y=1.02, fontsize=12)
-fig.tight_layout()
+create_map_plot(sim_wtd_data, sim_wtd_rio, sim_seep_data, sim_seep_rio,
+                sim_contour, sim_pathlines, title='SIMULATED: time 1/12')
 
 #%% ---- PLOT CROSS-SECTION
 
-print('PLOT: CROSS-SECTION')
-
-fig, ax = plt.subplots(1,1, figsize=(7, 5), dpi=300)
-
-x_sim_wte = np.arange(0,sim_wte_data.shape[0],1)
-y_sim_wte = sim_wte_data[:,28:29]
-y_sim_wte = np.concatenate(y_sim_wte, axis=0)
-ax.fill_between(x_sim_wte, x_sim_wte*0, y_sim_wte, lw=0, alpha=0.3, color='dodgerblue')
-ax.plot(x_sim_wte, y_sim_wte, lw=3, color='blue', label='Water table')
-
-x_sim_dem = np.arange(0,sim_dem_data.shape[0],1)
-y_sim_dem = sim_dem_data[:,28:29]
-y_sim_dem = np.concatenate(y_sim_dem, axis=0)
-ax.fill_between(x_sim_dem, y_sim_wte, y_sim_dem, lw=0, alpha=0.3, color='saddlebrown')
-ax.plot(x_sim_dem, y_sim_dem, lw=3, color='saddlebrown', label='Topography')
-
-ax.set_xlim(0,27)
-ax.set_ylim(50,72)
-ax.legend(prop={'size': 12})
-ax.set_xlabel('X pixels [75 m resolution]')
-ax.set_ylabel('Elevation [m.a.s.l]')
-ax.set_title('SIMULATED: time 1/12')
-
-fig.suptitle('Cross-section of water table elevation [m] at X=152737 crossing 2 pumping wells', y=1.02, fontsize=12)
-fig.tight_layout()
+create_crosssection_plot(sim_wte_data, sim_dem_data, title='SIMULATED: time 1/12')
 
 #%% ---- PLOT GRAPHS
 
-print('PLOT: GRAPHS')
-
-well_1_fluxes_plot = well_1_fluxes.copy()
-well_1_fluxes_plot.index = sim_timeseries.index
-well_2_fluxes_plot = well_2_fluxes.copy()
-well_2_fluxes_plot.index = sim_timeseries.index
-well_all_fluxes_plot = well_1_fluxes_plot + well_2_fluxes_plot
-
-fig, ax = plt.subplots(1, 1, figsize=(8, 5), dpi=300)
-
-axb = ax.twinx()
-ax.step(sim_timeseries.index, sim_timeseries['recharge']*30*1000, lw=8, color='dodgerblue', label='Recharge total', where='pre', clip_on=False)
-ax.step(sim_timeseries.index, sim_timeseries['outflow_drain']*30*1000, lw=5, color='red', alpha=1, label='Outflow at outlet', where='pre', clip_on=False)
-ax.set_xlim(pd.to_datetime('2017-01'), pd.to_datetime('2018-01'))
-ax.set_ylabel('Output flow results [mm/month]')
-ax.set_ylim(0, 70)
-ax.xaxis.set_major_locator(mdates.YearLocator())
-ax.xaxis.set_minor_locator(mdates.MonthLocator())
-ax.xaxis.set_minor_formatter(mdates.DateFormatter('%m'))
-ax.legend(prop={'size': 12})
-axb.bar(sim_timeseries.index, well_all_fluxes_plot, clip_on=False, width=5, lw=0, color='darkorange', label='Water from wells')
-# axb.set_ylim(-110,0)
-axb.set_ylabel('Sum of pumping in wells [L$^3$/T]', rotation=270, labelpad=25)
-ax.set_title('SIMULATED: time 1/12')
-axb.legend(prop={'size': 12}, loc='lower left', facecolor='white')
-
-fig.suptitle('Date [Year 2017: monthly stress-period (12) with daily time step length (335 in total)]', y=1.02, fontsize=12)
-fig.tight_layout()
+create_timeseries_plot(sim_timeseries, well_1_fluxes, well_2_fluxes,
+                      title='SIMULATED: time 1/12')
 
 #%% ---- NOTES
 
