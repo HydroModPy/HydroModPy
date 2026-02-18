@@ -53,7 +53,7 @@ fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 #%% PATHS
 
-regression_path = os.path.join(root_dir, "examples", "09_transport_model_for_an_agricultural_catchment/")
+regression_path = os.path.join(root_dir, "examples", "09S_short/")
 data_path = os.path.join(regression_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
@@ -67,13 +67,13 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-dem_path = data_path + 'bdalti25m_naizin_regional_v0.tif'
+dem_path = data_path + 'regional dem.tif'
 load = False
-watershed_name = 'Example_09_Naizin'
-from_lib = None # os.path.join(root_dir,'watershed_library.csv')
+watershed_name = '09S_short'
 from_dem = None # [path, cell size]
 from_shp = None # [path, buffer size]
-from_xyv = [265545.208,6783317.640, 50, 20 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+from_xyv = [265611.933, 6784182.776, 50, 20 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+catch_def = "xy"
 bottom_path = None # path
 save_object = True
 
@@ -86,10 +86,10 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
                               watershed_name=watershed_name,
-                              from_lib=from_lib, # os.path.join(root_dir,'watershed_library.csv')
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                              catch_def=catch_def, # watershed extraction definition mode
                               bottom_path=bottom_path, # path
                               save_object=save_object)
 
@@ -128,17 +128,17 @@ BV.add_climatic()
 BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
                                         clim_mod='REA',
                                         clim_sce='historic',
-                                        first_year=2000,
-                                        last_year=2019,
-                                        time_step='W',
+                                        first_year=2003,
+                                        last_year=2003,
+                                        time_step='M',
                                         sim_state='transient')
 
 BV.climatic.update_runoff_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
                                       clim_mod='REA',
                                       clim_sce='historic',
-                                      first_year=2000,
-                                      last_year=2019,
-                                      time_step='W',
+                                      first_year=2003,
+                                      last_year=2003,
+                                      time_step='M',
                                       sim_state='transient')
 
 def select_period(df, first, last):
@@ -154,7 +154,7 @@ axs = axs.ravel()
 ax = axs[0]
 ax.plot(7*R_mm_day, label='Recharge', c='navy', lw=1)
 ax.fill_between(R_mm_day.index, 7*R_mm_day, (7*R_mm_day)+(7*r_mm_day), label='Recharge + Runoff', color='dodgerblue', lw=0.5, alpha=1)
-ax.set_ylabel('[mm/week]')
+ax.set_ylabel('[mm/month]')
 ax.legend(loc='upper right')
 ax.set_title('No log', fontsize=8)
 
@@ -175,7 +175,7 @@ R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
 
 fig, ax = plt.subplots(1,1, figsize=(8,3), sharex=True)
 ax.plot(7*R_mm_day_filt, label='Recharge', c='dodgerblue', lw=2)
-ax.set_title('Synthetic recharge [mm/week]')
+ax.set_title('Synthetic recharge [mm/month]')
 
 #%% ---- MODELING
 
@@ -452,7 +452,8 @@ BV.postprocessing_modflow(model_modflow,
                           watertable_depth = True,
                           groundwater_flux = False,
                           groundwater_storage = False,
-                          intermittency_weekly = True,
+                          intermittency_weekly = False,
+                          intermittency_monthly = True,
                           intermittency_yearly = False,
                           export_all_tif = False)
 
@@ -461,7 +462,8 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   model_mt3dms=None,
                                                   datetime_format=True,
                                                   subbasin_results=True,
-                                                  intermittency_weekly=True,
+                                                  intermittency_weekly=False,
+                                                  intermittency_monthly = True,
                                                   intermittency_yearly=False) # or None
 
 iter_results = MatchingStreams(BV, iteration_label=model_name, from_calib=True)
@@ -531,7 +533,7 @@ for i, simul in enumerate(simul_list[:]):
     ax.plot(Qmod, color='red', lw=2, label='Simulated: outflow')
     ax.plot(Rmod, color='dodgerblue', lw=2, ls='-', zorder=0, label='Recharge')
     ax.set_xlabel('Date')
-    ax.set_ylabel('Q / A [mm/week]')
+    ax.set_ylabel('Q / A [mm/month]')
     # ax.set_yscale('log')
     ax.xaxis.set_major_locator(mdates.YearLocator(1))
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
@@ -766,9 +768,9 @@ BV.transport.update_mt3dms_parameters(
                  spc_name='NO3',
                  sconc_init=sconc_init,          # array of (nlay, nrow, ncol)
                  sconc_input=sconc_input,         # dictionnray [time] with array of (nlay, nrow, ncol)
-                 disp_long=5,           # float, longitudinal dispersitvity in meters
-                 disp_transh=0.5,         # float, ratio of the horizontal transverse dispersivity to disp_long, usually 0.1*disp_long
-                 disp_transv=0.05,         # float, ratio of the vertical transverse dispersivity to disp_long, usually 0.01*disp_long
+                 disp_long=0,           # float, longitudinal dispersitvity in meters
+                 disp_transh=0,         # float, ratio of the horizontal transverse dispersivity to disp_long, usually 0.1*disp_long
+                 disp_transv=0,         # float, ratio of the vertical transverse dispersivity to disp_long, usually 0.01*disp_long
                  diffu_coeff=1e-10*3600*24,         # molecular diffusion in (L2T-1)
                  react_order=1,      # None: no-reaction, 0: zero-order, 1: first-order
                  rate_decay=rate_decay,          # array of (nlay, nrow, ncol), unit T-1
@@ -790,7 +792,8 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   suffix_name=scenario,
                                                   datetime_format=True,
                                                   subbasin_results=True,
-                                                  intermittency_weekly=True,
+                                                  intermittency_weekly=False,
+                                                  intermittency_monthly = True,
                                                   residence_times=True,
                                                   concentration_seepage=True,
                                                   mass_accumulated=True
@@ -940,7 +943,7 @@ for i in range(len(concobj_1c_fil_surf)):
 
     # Placer la recharge en arrière-plan du graphique
     axb.step(R_mm_day_filt.index, R_mm_day_filt * 7, lw=2, color='dodgerblue', zorder=0)
-    axb.set_ylabel('Recharge [mm/week]', color='dodgerblue')
+    axb.set_ylabel('Recharge [mm/month]', color='dodgerblue')
 
     ax[0].set_xlim(pd.to_datetime('01-2003'), pd.to_datetime('01-2004'))
 
@@ -961,7 +964,7 @@ for i in range(len(concobj_1c_fil_surf)):
     rasterio.plot.show(np.ma.masked_where(dem.read(1) < 0, xi),
                       ax=ax[1], transform=dem.transform,
                       cmap=color_camp, alpha=1, zorder=1,
-                      norm=norm
+                      # norm=norm
                       )
 
     # Ajouter les limites du bassin versant

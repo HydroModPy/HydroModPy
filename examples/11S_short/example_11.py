@@ -36,7 +36,7 @@ from hydromodpy import watershed_root
 
 # ---- FUNCTION LAUNCH
 
-def run_hydromodpy(watershed_name='Test1',
+def run_hydromodpy(watershed_name='11S_short',
                    DEM_name='regional dem 2.tif',
                    X_coord=151181.608, # m
                    Y_coord=6858078.268, # m
@@ -57,7 +57,7 @@ def run_hydromodpy(watershed_name='Test1',
 
     # ---- PERSONAL PATHS
 
-    example_path = os.path.join(root_dir, "examples", "11_for run from scratch without plots/")
+    example_path = os.path.join(root_dir, "examples", "11S_short/")
     data_path = os.path.join(example_path, "data/")
 
     # The folder out_path is created in the example_path root directory:
@@ -78,16 +78,17 @@ def run_hydromodpy(watershed_name='Test1',
 
     # Outlet coordinates of the catchment
     from_xyv = [X_coord, Y_coord, snap_dist, buffer_area , proj_coord]
+    catch_def = "xy"
 
     # Extract the catchment from a regional DEM
     BV = watershed_root.Watershed(dem_path=dem_path,
                                   out_path=out_path,
                                   load=False,
                                   watershed_name=watershed_name,
-                                  from_lib=None, # os.path.join(root_dir,'watershed_library.csv')
                                   from_dem=None, # [path, cell size]
                                   from_shp=None, # [path, buffer size]
                                   from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                                  catch_def=catch_def, # watershed extraction definition mode
                                   bottom_path=None, # path
                                   save_object=True)
 

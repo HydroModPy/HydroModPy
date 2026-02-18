@@ -94,16 +94,17 @@ dem_path = os.path.join(data_path, 'regional dem.tif')
 
 # Outlet coordinates of the catchment
 from_xyv = [150727.164, 6858066.520, 100, 10 , 'EPSG:2154']
+catch_def = "xy"
 
 # Extract the catchment from a regional DEM
 BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=False,
                               watershed_name=watershed_name,
-                              from_lib=None, # os.path.join(root_dir,'watershed_library.csv')
                               from_dem=None, # [path, cell size]
                               from_shp=None, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                              catch_def=catch_def, # watershed extraction definition mode
                               bottom_path=None, # path
                               save_object=True)
 
