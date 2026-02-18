@@ -14,6 +14,7 @@
 # Libraries installed by default
 import sys
 import os
+import random
 import pandas as pd
 import numpy as np
 import matplotlib as mpl        # install automatically by geopandas
@@ -44,6 +45,11 @@ from hydromodpy.display import export_vtuvtk, visualization_watershed, visualiza
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
+# Keep this example deterministic for regression checks.
+EXAMPLE_02_SEED = int(os.environ.get("HYDROMODPY_EXAMPLE02_SEED", "12345"))
+np.random.seed(EXAMPLE_02_SEED)
+random.seed(EXAMPLE_02_SEED)
+
 #%% ---- PATHS
 
 #%% PERSONAL
@@ -62,50 +68,39 @@ print('The results of the example will be saved here :', out_path)
 
 #%% OPTIONS
 
-### Choice of model domain initialization (shapefile, .csv library of coordinates, )
+### Choice of model domain initialization (shapefile, XY coordinates)
 # case = 'FromSHP'    # from a shapefile: clip a provided DEM
-# case = 'FromLIB'  # from a library of coordinates: extract the catchment from a DEM
 # case = 'FromXYV'  # from a XY coordinates: the catchment is extracted from outlet coordinates
 case = 'FromDEM'  # from a DEM: the model domain is directly the DEM provided
 ###
 
-if case == 'FromLIB':
-    dem_path = os.path.join(data_path, 'regional dem.tif')
-    # watershed_name = 'Example_02_Library'
-    from_lib = os.path.join(data_path,'watershed_library.csv')
-    from_dem = None # [path, cell size]
-    from_shp = None # [path, buffer size]
-    from_xyv = None # [x, y, snap distance, buffer size]
-    bottom_path = None # path
-    save_object = True
-
 if case == 'FromDEM':
     dem_path = os.path.join(data_path, 'conceptual dem.tif')
     # watershed_name = 'Example_02_Topography'
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = [dem_path, 100] # [path, cell size]
     from_shp = None # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
+    catch_def = "dem"
     bottom_path = None # path
     save_object = True
 
 if case == 'FromSHP':
     dem_path = os.path.join(data_path, 'regional dem.tif')
     # watershed_name = 'Example_02_Shapefile'
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = [data_path + '/' + 'conceptual shp.shp', 10] # [path, buffer size]
     from_xyv = None # [x, y, snap distance, buffer size]
+    catch_def = "shp"
     bottom_path = None # path
     save_object = True
 
 if case == 'FromXYV':
     dem_path = os.path.join(data_path, 'regional dem.tif')
     # watershed_name = 'Example_02_Coordinates'
-    from_lib = None # os.path.join(root_dir,'watershed_library.csv')
     from_dem = None # [path, cell size]
     from_shp = None # [path, buffer size]
     from_xyv = [127307.551 , 6835727.567 , 200 , 10 , 'EPSG:2154'] # [x, y, snap distance, buffer size, crs proj]
+    catch_def = "xy"
     bottom_path = None # path
     save_object = True
 
@@ -120,10 +115,10 @@ BV = watershed_root.Watershed(dem_path=dem_path,
                               out_path=out_path,
                               load=load,
                               watershed_name=watershed_name,
-                              from_lib=from_lib, # os.path.join(root_dir,'watershed_library.csv')
                               from_dem=from_dem, # [path, cell size]
                               from_shp=from_shp, # [path, buffer size]
                               from_xyv=from_xyv, # [x, y, snap distance, buffer size]
+                              catch_def=catch_def, # watershed extraction definition mode
                               bottom_path=bottom_path, # path
                               save_object=save_object)
 

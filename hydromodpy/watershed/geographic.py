@@ -42,6 +42,61 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 logger = get_logger(__name__)
 
+#%% FUNCTIONS
+
+def generate_regional_flow_rasters(
+    dem_path: str,
+    reg_path: str,
+    wbt_tools,
+) -> dict:
+    """
+    Generate regional flow rasters from an input DEM.
+
+    Parameters
+    ----------
+    dem_path : str
+        Path to the regional DEM used as hydrologic input.
+    reg_path : str
+        Folder where regional rasters are written.
+    wbt_tools :
+        WhiteboxTools instance used to run terrain and flow operations.
+
+    Returns
+    -------
+    dict
+        Dictionary with output paths:
+        ``{"fill": ..., "direc": ..., "acc": ..., "down": ...}``.
+    """
+    # Depression-corrected DEM.
+    fill = os.path.join(reg_path, "region_fill.tif")
+    wbt_tools.breach_depressions(dem_path, fill)
+
+    # D8 flow-direction raster.
+    direc = os.path.join(reg_path, "region_direc.tif")
+    wbt_tools.d8_pointer(fill, direc, esri_pntr=False)
+
+    # D8 flow-accumulation raster (log-scaled for visualization and stability).
+    acc = os.path.join(reg_path, "region_acc.tif")
+    wbt_tools.d8_flow_accumulation(fill, acc, log=True)
+
+    # Downslope flowpath length raster.
+    down = os.path.join(reg_path, "region_down.tif")
+    wbt_tools.downslope_flowpath_length(
+        direc,
+        down,
+        watersheds=None,
+        weights=None,
+        esri_pntr=False,
+    )
+
+    return {
+        "fill": fill,
+        "direc": direc,
+        "acc": acc,
+        "down": down,
+    }
+
+
 #%% CLASS
 
 class Geographic:
@@ -62,10 +117,10 @@ class Geographic:
                  stable_folder: int=None,
                  simulations_folder: int=None,
                  calibration_folder: int=None,
-                 from_lib: str=None,
                  from_dem: list=None,
                  from_shp: list=None,
                  from_xyv: list=None,
+                 catch_def: str=None,
                  reg_fold: str=None):
         """
         Parameters
@@ -94,14 +149,21 @@ class Geographic:
             Path of the simulation results from modeling operations.
         calibration_folder : str
             Path of the calibration results from modeling operations.
-        from_lib : str, optional
-            Path of the watershed librairies. If None : method not used. The default is None.
         from_dem : list, optional
             List with two parameters: [path, cell_size]
         from_shp : list, optional
             List of tow parameters: [path, buffer_size]
         from_xyv : list, optional
             List of four parameters: [x, y, snap_distance, buffer_size]
+        catch_def : str, optional
+            Catchment definition mode.
+            Supported modes are:
+            - ``"dem"``: model domain loaded directly from ``from_dem``.
+            - ``"txt"``: model domain built from an XYZ text file.
+            - ``"xy"``: watershed extracted from outlet coordinates provided
+              through ``from_xyv``.
+            - ``"shp"``: watershed loaded from a polygon shapefile provided
+              through ``from_shp``.
         reg_fold : str, None
             Path of the folder with regional data/results.
             If informed, the regional results will not be created, just loaded from folder.
@@ -121,13 +183,17 @@ class Geographic:
         self.stable_folder = stable_folder
         self.simulations_folder = simulations_folder
         self.calibration_folder = calibration_folder
-        self.from_lib = from_lib
         self.from_dem = from_dem
         self.from_shp = from_shp
         self.from_xyv = from_xyv
+        self.catch_def = catch_def
         self.reg_fold = reg_fold
 
-        if self.from_dem != None:
+        if self.catch_def in ("dem", "txt"):
+            if self.from_dem is None:
+                raise ValueError(
+                    f"catch_def='{self.catch_def}' requires from_dem to be provided"
+                )
             self.model_from_dem()
         else:
             self.processing()
@@ -161,27 +227,15 @@ class Geographic:
         """
         # if isinstance(self.regio_path, (str))==False:
         if self.reg_fold == None:
-            # Correction
-            fill =  os.path.join(self.reg_path, 'region_fill.tif')
-            # if not os.path.exists(fill):
-            wbt.breach_depressions(self.dem_path, fill) # wbt.fill_depressions(dem_path, fill) or wbt.breach_depressions(dem_path, fill, 2, 75*8)
-            # Flow direction
-            direc =  os.path.join(self.reg_path, 'region_direc.tif')
-            # if not os.path.exists(direc):
-            wbt.d8_pointer(fill, direc, esri_pntr=False)
-            # Flow accumulation
-            acc =  os.path.join(self.reg_path, 'region_acc.tif')
-            # if not os.path.exists(acc):
-            wbt.d8_flow_accumulation(fill, acc, log=True)
-            # Flow accumulation
-            down =  os.path.join(self.reg_path, 'region_down.tif')
-            # if not os.path.exists(down):
-            wbt.downslope_flowpath_length(
-                direc,
-                down,
-                watersheds=None,
-                weights=None,
-                esri_pntr=False)
+            regional_products = generate_regional_flow_rasters(
+                dem_path=self.dem_path,
+                reg_path=self.reg_path,
+                wbt_tools=wbt,
+            )
+            fill = regional_products["fill"]
+            direc = regional_products["direc"]
+            acc = regional_products["acc"]
+            down = regional_products["down"]
         else:
             hierarch_1 = os.path.join(self.reg_fold, 'region_breach.tif')
             hierarch_2 = os.path.join(self.reg_fold, 'region_breach_sec.tif')
@@ -204,7 +258,7 @@ class Geographic:
         """
         Extract watershed from an outlet
         """
-        if (self.from_lib != None) or (self.from_xyv != None):
+        if self.catch_def == "xy":
             # Create outlet shapefile from x and y coordinates
             df = pd.DataFrame({'x': [self.x_outlet], 'y': [self.y_outlet]})
             gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['x'], df['y']), crs=self.crs_proj)
@@ -219,7 +273,9 @@ class Geographic:
             # Create shapefile polygon of the watershed
             self.watershed_shp = os.path.join(self.gis_path, 'watershed.shp')
             wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
-        if self.from_shp != None:
+        if self.catch_def == "shp":
+            if self.from_shp is None:
+                raise ValueError("catch_def='shp' requires from_shp to be provided")
             self.watershed_shp = os.path.join(self.gis_path, 'watershed.shp')
             shp_file = gpd.read_file(self.from_shp[0])
             # Remove duplicate columns if any exist
@@ -470,7 +526,7 @@ class Geographic:
         self.gis_path = os.path.join(self.out_path, 'results_stable/geographic/')
         toolbox.create_folder(self.gis_path)
         # Generate tif from xyz file
-        if (self.dem_path[-3:]=='txt'):
+        if self.catch_def == "txt":
             x = pd.read_csv(self.dem_path, delim_whitespace=True, header=None)
             x.to_csv(self.gis_path+'transform_xyz'+'.csv', sep=';', index=False)
             wbt.csv_points_to_vector(self.gis_path+'transform_xyz'+'.csv',

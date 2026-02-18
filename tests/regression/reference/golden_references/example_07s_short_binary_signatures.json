@@ -1,0 +1,28 @@
+{
+  "head_signature": {
+    "shape": [
+      10,
+      1,
+      50
+    ],
+    "n_times": 365,
+    "last_time": 365.0,
+    "stats": {
+      "count": 500,
+      "mean": -42.42553610515594,
+      "p50": -100.0,
+      "p95": 46.66899318695068
+    },
+    "sum": -21212.768052577972
+  },
+  "budget_signature": {
+    "n_kstpkper": 365,
+    "last_kstpkper": [
+      0,
+      364
+    ],
+    "drains_sum": 0.0,
+    "constant_head_sum": -13.11249351502406,
+    "recharge_sum": 50.0
+  }
+}
