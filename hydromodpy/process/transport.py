@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from hydromodpy.process.process import Process
+
 class Transport(Process):
     def __init__(self):
         super().__init__()
