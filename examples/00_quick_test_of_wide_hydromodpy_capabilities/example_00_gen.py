@@ -20,9 +20,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import rasterio
 import geopandas as gpd
-import imageio.v2 as imageio
 
-import hydromodpy
 from os.path import dirname, abspath
 
 try:
@@ -33,19 +31,18 @@ sys.path.append(root_dir)
 
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools.io_utils import (
-    setup_paths, load_raster, load_vector, load_csv,
-    load_simulation_results, make_timeseries_data, save_results, extract_watershed
+    setup_paths, load_raster, load_csv,
+    load_simulation_results, make_timeseries_data, extract_watershed
 )
 from hydromodpy.tools.visualization import (
     create_watershed_plot, create_map_plot, create_crosssection_plot, create_timeseries_plot
 )
 
-
 #%% ---- PERSONAL PATHS
 
 # Setup paths using generalized function
-paths = setup_paths(root_dir, '00S_short', env_var_name="HYDROMODPY_EXAMPLE00_OUT_PATH")
-regression_path = paths['regression']
+example_dir = "00_quick_test_of_wide_hydromodpy_capabilities"
+paths = setup_paths(root_dir, example_dir, env_var_name="HYDROMODPY_EXAMPLE00_OUT_PATH")
 data_path = paths['data']
 out_path = paths['output']
 
@@ -56,8 +53,8 @@ print('The results of the example will be saved here :', out_path)
 
 #%% ---- EXTRACT CATCHMENT
 
-# Name of the study site
-watershed_name = '00S_short'
+# Name of the study site (determines results directory structure)
+watershed_name = 'Example_00_Aber'
 print('##### '+watershed_name.upper()+' #####')
 
 # Regional DEM
@@ -77,8 +74,9 @@ BV = extract_watershed(dem_path=dem_path,
                        save_object=True)
 
 # Paths necessary for the script
-stable_folder = paths['stable']
-simulations_folder = paths['simulations']
+# (Use watershed_name because it differs from example_dir in this case)
+stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
+simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
 
 #%% ---- ADD DATA
 
@@ -255,7 +253,8 @@ create_map_plot(sim_wtd_data, sim_wtd_rio, sim_seep_data, sim_seep_rio,
 
 #%% ---- PLOT CROSS-SECTION
 
-create_crosssection_plot(sim_wte_data, sim_dem_data, title='SIMULATED: time 1/12')
+create_crosssection_plot(sim_wte_data, sim_dem_data, wte_col=28,
+                         title='SIMULATED: time 1/12')
 
 #%% ---- PLOT GRAPHS
 

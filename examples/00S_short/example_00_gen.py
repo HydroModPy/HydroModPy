@@ -255,7 +255,8 @@ create_map_plot(sim_wtd_data, sim_wtd_rio, sim_seep_data, sim_seep_rio,
 
 #%% ---- PLOT CROSS-SECTION
 
-create_crosssection_plot(sim_wte_data, sim_dem_data, title='SIMULATED: time 1/12')
+create_crosssection_plot(sim_wte_data, sim_dem_data, wte_col=28,
+                         title='SIMULATED: time 1/12')
 
 #%% ---- PLOT GRAPHS
 
