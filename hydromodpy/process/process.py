@@ -21,34 +21,8 @@ class Parameter(BaseModel):
     def update_value(self, new_value: float):
         self.value = new_value
 
-'''
-class Parameter():
-    def __init__(self, id: str, value: float, description: str = '', units: str = '', field_type: str = 'homogeneous'):
-        """
-        Parameter class
-
-        Args:
-            id (str): Symbole of the parameter (ex: K, R, Sy, etc.)
-            value (float): Value of the parameter
-            description (str, optional): Description of the parameter. Defaults to ''.
-            units (str, optional): Units of the parameter. Defaults to ''.
-            field_type (str, optional): Type of the field (e.g., 'homogeneous', 'heterogeneous'). Defaults to 'homogeneous'.
-        """
-        
-        self.id = id # id of the parameter
-        self.value = value # value of the parameter
-        self.description = description # description of the parameter
-        self.units = units # units of the parameter
-        self.field_type = field_type # type of the field (e.g., 'homogeneous', 'heterogeneous')
-        self.link_data = [] # list of the id of the data linked to this parameter
-    
-    def update_value(self, new_value: float):
-        self.value = new_value
-'''
-
-class Variable():
-    def __init__(self, id: str, value: float, description: str = '', units: str = ''):
-        """
+class Variable(BaseModel):
+	"""
         Variable class
 
         Args:
@@ -56,11 +30,14 @@ class Variable():
             value (float): Value of the variable
             description (str, optional): Description of the variable. Defaults to ''.
             units (str, optional): Units of the variable. Defaults to ''.
-        """
-        self.id = id # id of the variable
-        self.value = value # value of the variable
-        self.description = description # description of the variable
-        self.units = units # units of the variable
+    """
+	id: str = Field(..., description="Symbole of the variable (ex: h, etc.)")
+	value: float = Field(..., description="Value of the variable")
+	description: str = Field('', description="Description of the variable")
+	units: str = Field('', description="Units of the variable")
+
+class InitialCondition(BaseModel):
+    
 
 class InitialCondition():
     def __init__(self, id: str, value: float, description: str = '', units: str = ''):
