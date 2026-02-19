@@ -6,7 +6,6 @@ Regroupe les paramètres, variables, conditions initiales, conditions limites, e
 """
 
 from abc import ABC, abstractmethod
-from kiwisolver import Variable
 from pydantic import BaseModel, Field
 
 class Parameter(BaseModel):
