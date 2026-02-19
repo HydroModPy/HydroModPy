@@ -31,8 +31,10 @@ def _get_registry() -> dict[str, type[BaseModel]]:
     """Lazy-load the module registry to avoid circular imports."""
     global _MODULE_REGISTRY
     if _MODULE_REGISTRY is None:
+        from hydromodpy.watershed.initializing_config import InitializingConfig
         from hydromodpy.watershed.geographic_config import GeographicConfig
         _MODULE_REGISTRY = {
+            "initializing": InitializingConfig,
             "geographic": GeographicConfig,
         }
     return _MODULE_REGISTRY
@@ -47,6 +49,7 @@ def generate_toml(
     output_path: str | Path | None = None,
     modules: list[str] | None = None,
     profile: str = "expert",
+    overrides: dict[str, dict] | None = None,
 ) -> str:
     """Generate a commented TOML template filtered by modules and profile.
 
@@ -60,6 +63,11 @@ def generate_toml(
     profile : str
         Visibility profile: "user", "dev", or "expert".
         Only fields with ParamLevel <= profile are included.
+    overrides : dict of {section_name: {field_name: value}}, or None
+        Concrete values to write instead of model defaults.
+        Fields present in overrides with a non-None value are written
+        uncommented; fields set to None follow the default commented-out
+        behaviour for optional fields.
 
     Returns
     -------
@@ -87,12 +95,60 @@ def generate_toml(
     lines = _header(profile, list(selected.keys()))
 
     for section_name, model_cls in selected.items():
-        lines.extend(_section(section_name, model_cls, threshold))
+        section_values = (overrides or {}).get(section_name)
+        lines.extend(_section(section_name, model_cls, threshold, values=section_values))
 
     content = "\n".join(lines) + "\n"
     if output_path:
         Path(output_path).write_text(content, encoding="utf-8")
     return content
+
+
+def generate_toml_from_instances(
+    instances: dict[str, "BaseModel"],
+    output_path: str | Path | None = None,
+    profile: str = "user",
+) -> str:
+    """Generate a fully-filled commented TOML from instantiated Pydantic models.
+
+    Each model's actual field values are written into the TOML alongside the
+    usual description and type comments.  Optional fields left as ``None`` are
+    commented out (same as the template behaviour).
+
+    Parameters
+    ----------
+    instances : dict of {section_name: model_instance}
+        E.g. ``{"initializing": init_cfg, "geographic": geo_cfg}``.
+    output_path : str, Path, or None
+        If provided, write the result to this file.
+    profile : str
+        Visibility profile controlling which fields are included.
+
+    Returns
+    -------
+    str
+        The TOML content.
+
+    Example
+    -------
+    ::
+
+        from hydromodpy.config.generate_toml import generate_toml_from_instances
+        content = generate_toml_from_instances(
+            {"initializing": init_cfg, "geographic": geo_cfg},
+            output_path="examples/01S_short/config.toml",
+        )
+    """
+    overrides = {
+        section: model.model_dump()
+        for section, model in instances.items()
+    }
+    return generate_toml(
+        output_path=output_path,
+        modules=list(instances.keys()),
+        profile=profile,
+        overrides=overrides,
+    )
 
 
 # =====================================================================
@@ -164,13 +220,59 @@ def _constraints_from_field(field_info: FieldInfo) -> list[str]:
     return parts
 
 
+_UNDEFINED = object()  # sentinel distinct from None
+
+
 def _default_value(field_info: FieldInfo) -> Any:
-    """Get default value or None if required."""
-    if field_info.default is not None:
-        from pydantic_core import PydanticUndefined
-        if field_info.default is not PydanticUndefined:
-            return field_info.default
-    return None
+    """Return the field default, or _UNDEFINED if the field is truly required."""
+    from pydantic_core import PydanticUndefined
+    if field_info.default is PydanticUndefined:
+        return _UNDEFINED
+    return field_info.default  # may be None (optional with no value)
+
+
+def _placeholder(field_info: FieldInfo) -> str:
+    """Return a TOML-safe placeholder value for a field with no set default.
+
+    For Literal types the first allowed value is used; for scalars a
+    zero-equivalent is returned; everything else falls back to ``""``.
+    """
+    annotation = field_info.annotation
+    origin = get_origin(annotation)
+
+    # Unwrap Optional[X] / Union[X, None] to get the inner type
+    inner = annotation
+    if origin is not None:
+        args = get_args(annotation)
+        non_none = [a for a in args if a is not type(None)]
+        if non_none:
+            inner = non_none[0]
+            inner_origin = get_origin(inner)
+            # Literal inside Optional
+            if inner_origin is not None:
+                inner_args = get_args(inner)
+                if inner_args and all(isinstance(a, (str, int, float)) for a in inner_args):
+                    return _fmt(inner_args[0])
+        else:
+            # Bare Literal at top level
+            if all(isinstance(a, (str, int, float)) for a in args):
+                return _fmt(args[0])
+
+    # Bare Literal at top level (origin is typing.Literal)
+    top_args = get_args(annotation)
+    if top_args and all(isinstance(a, (str, int, float)) for a in top_args):
+        return _fmt(top_args[0])
+
+    name = getattr(inner, "__name__", "")
+    if name == "str":
+        return '""'
+    if name == "int":
+        return "0"
+    if name == "float":
+        return "0.0"
+    if name == "bool":
+        return "false"
+    return '""'
 
 
 def _header(profile: str, modules: list[str]) -> list[str]:
@@ -185,8 +287,20 @@ def _header(profile: str, modules: list[str]) -> list[str]:
     ]
 
 
-def _section(section_name: str, model_cls: type[BaseModel], threshold: int) -> list[str]:
-    """Generate a [section] with filtered fields."""
+def _section(
+    section_name: str,
+    model_cls: type[BaseModel],
+    threshold: int,
+    values: dict | None = None,
+) -> list[str]:
+    """Generate a [section] with filtered fields.
+
+    Parameters
+    ----------
+    values : dict or None
+        When provided, these values override defaults for the value line.
+        A ``None`` entry means the field is left commented out.
+    """
     lines = []
     title = model_cls.__doc__ or section_name
     title = title.strip().split("\n")[0]
@@ -221,17 +335,28 @@ def _section(section_name: str, model_cls: type[BaseModel], threshold: int) -> l
         meta_parts.extend(_constraints_from_field(field_info))
 
         default = _default_value(field_info)
-        if default is not None:
-            meta_parts.append(f"Default: {_fmt(default)}")
-        else:
+        if default is _UNDEFINED:
             meta_parts.append("REQUIRED")
+        elif default is None:
+            meta_parts.append("Optional")
+        else:
+            meta_parts.append(f"Default: {_fmt(default)}")
 
         lines.append(f"# {' | '.join(meta_parts)}")
 
-        # Value
-        if default is not None:
+        # Value line — prefer override value when provided
+        if values is not None and name in values and values[name] is not None:
+            lines.append(f"{name} = {_fmt(values[name])}")
+        elif default is not _UNDEFINED and default is not None:
+            # Has a real non-None default: write it uncommented
             lines.append(f"{name} = {_fmt(default)}")
+        elif level == "user":
+            # User-level field with no concrete default (required or optional):
+            # show uncommented with a type-appropriate placeholder so the file
+            # is directly editable without manual uncommenting.
+            lines.append(f"{name} = {_placeholder(field_info)}")
         else:
+            # Dev / expert optional field: comment out (non-essential)
             lines.append(f"# {name} =")
 
         lines.append("")

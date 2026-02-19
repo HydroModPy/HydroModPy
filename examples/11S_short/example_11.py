@@ -33,15 +33,18 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODEULES
 from hydromodpy import watershed_root
-
+from hydromodpy.watershed import initializing, geographic
 # ---- FUNCTION LAUNCH
 
 def run_hydromodpy(watershed_name='11S_short',
+                   out_dir_path=os.path.join(root_dir,'examples','results'),
                    DEM_name='regional dem 2.tif',
                    X_coord=151181.608, # m
                    Y_coord=6858078.268, # m
+                   catch_def='from_outlet_coord',
+                   dem_correc_type='breach',
                    snap_dist=150, # m
-                   buffer_area=10, # %
+                   buff_area=10, # %
                    proj_coord='EPSG:2154',
                    nlay=3, # -
                    lay_decay=1.25, # -
@@ -56,45 +59,48 @@ def run_hydromodpy(watershed_name='11S_short',
                    ):
 
     # ---- PERSONAL PATHS
-
-    example_path = os.path.join(root_dir, "examples", "11S_short/")
-    data_path = os.path.join(example_path, "data/")
-
+    
     # The folder out_path is created in the example_path root directory:
-    out_path = os.path.join(root_dir,'examples', 'results')
-    # Or define it manually
-    # out_path = 'C:/Simulations/HydroModPy/'
 
-    print('The results of the example will be saved here :', out_path)
+    print('The results of the example will be saved here :', out_dir_path)
 
     # ---- EXTRACT CATCHMENT
+    
+    initializing_object = initializing.Initializing(catch_name=watershed_name,
+                                                    out_dir_path=out_dir_path)
+    
+    specific_path = os.path.join(root_dir, "examples", "11S_short/")
+    dem_path = os.path.join(specific_path, "data", DEM_name)
 
+    geographic_object = geographic.Geographic(
+                    # initializing_object: object=None,
+                     stable_folder = initializing_object.stable_folder,
+                     out_dir_path = initializing_object.catch_folder,
+                     catch_def = catch_def,
+                     dem_init_path = dem_path,
+                     x_outlet = X_coord,
+                     y_outlet = Y_coord,
+                     snap_dist = snap_dist,
+                     buff_area = buff_area,
+                     polyg_shp_path = None,
+                     dem_correc_type=dem_correc_type, # 'fill' or 'breach'
+                     # demflow_dir_path=None
+                     )
+    
     # Name of the study site
     watershed_name = watershed_name
     print('##### '+watershed_name.upper()+' #####')
 
-    # Regional DEM
-    dem_path = os.path.join(data_path, DEM_name)
-
-    # Outlet coordinates of the catchment
-    from_xyv = [X_coord, Y_coord, snap_dist, buffer_area , proj_coord]
-    catch_def = "xy"
-
     # Extract the catchment from a regional DEM
-    BV = watershed_root.Watershed(dem_path=dem_path,
-                                  out_path=out_path,
-                                  load=False,
-                                  watershed_name=watershed_name,
-                                  from_dem=None, # [path, cell size]
-                                  from_shp=None, # [path, buffer size]
-                                  from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                                  catch_def=catch_def, # watershed extraction definition mode
-                                  bottom_path=None, # path
-                                  save_object=True)
-
+    BV = watershed_root.Watershed(load=False,
+                                  initializing_object=initializing_object,
+                                  geographic_object=geographic_object,
+                                  save_object=True
+                                  )
+    
     # Paths necessary for the script
-    stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
-    simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+    stable_folder = os.path.join(out_dir_path, watershed_name, 'results_stable')
+    simulations_folder = os.path.join(out_dir_path, watershed_name, 'results_simulations')
 
     # ---- MODEL PARAMETRIZATION
 
@@ -198,6 +204,8 @@ def run_hydromodpy(watershed_name='11S_short',
     watertable_depth_output = timeseries_results.watertable_depth
 
     return watertable_depth_output
+
+    # return None
 
 # ---- RUN THE SCRIPT
 
