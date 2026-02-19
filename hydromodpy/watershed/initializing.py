@@ -32,6 +32,7 @@ sys.path.append(root_dir)
 # HydroModPy
 from hydromodpy.tools import toolbox
 from hydromodpy.tools import setup_simulation_log
+from hydromodpy.watershed.initializing_config import InitializingConfig
 
 logger = get_logger(__name__)
 
@@ -41,17 +42,17 @@ class Initializing:
     """
     XXX.
     """
-    
-    def __init__(self,
-                 catch_name: str='Default',
-                 out_dir_path: str=None,
-                 ):
+
+    def __init__(self, config: InitializingConfig):
         """
         Parameters
         ----------
-        catch_name : string
-            The default is 'Default'.
+        config : InitializingConfig
+            Pydantic config with catch_name and out_dir_path.
         """
+        catch_name   = config.catch_name
+        out_dir_path = config.out_dir_path
+
         self.catch_name = catch_name
         self.out_dir_path = out_dir_path
 
