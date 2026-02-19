@@ -10,6 +10,7 @@ Created on Fri Mar 21 10:39:38 2025
 # Libraries installed by default
 import sys
 import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -44,76 +45,41 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
 from hydromodpy.watershed import geographic, initializing
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingConfig, GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
-#%% PATHS
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 
-regression_path = os.path.join(root_dir, "examples", "12S_short/")
+out_path = cfg.initializing.out_dir_path
 
-# The folder out_path is created in the example_path root directory:
-out_path = os.path.join(root_dir,'examples', 'results')
-# Or define it manually
-# out_path = 'C:/Simulations/HydroModPy/'
+#%% ---- EXTRACT CATCHMENT
 
-print('The results of the example will be saved here :', out_path)
-
-#%% ---- WATERSHED
-
-#%% GEOGRAPHIC
-
-# ---- EXTRACT CATCHMENT
-
-watershed_name = '12S_short'
-DEM_name = 'regional dem.tif'
-catch_def = 'from_outlet_coord'
-dem_correc_type = 'breach'
-
-initializing_object = initializing.Initializing(catch_name=watershed_name,
-                                                out_dir_path=out_path)
-
-specific_path = os.path.join(root_dir, "examples", watershed_name)
-data_path = os.path.join(specific_path, "data/")
-dem_path = os.path.join(specific_path, "data", DEM_name)
-
-geographic_object = geographic.Geographic(
-                # initializing_object: object=None,
-                 stable_folder = initializing_object.stable_folder,
-                 out_dir_path = initializing_object.catch_folder,
-                 catch_def = catch_def,
-                 dem_init_path = dem_path,
-                 x_outlet = 265611.933,
-                 y_outlet = 6784182.776,
-                 snap_dist = 50,
-                 buff_area = 20,
-                 polyg_shp_path = None,
-                 dem_correc_type=dem_correc_type, # 'fill' or 'breach'
-                 # demflow_dir_path=None
-                 )
-
-# Name of the study site
-watershed_name = watershed_name
+watershed_name = cfg.initializing.catch_name
 print('##### '+watershed_name.upper()+' #####')
 
-# Extract the catchment from a regional DEM
+data_path = cfg.initializing.data_path
+
+initializing_object = initializing.Initializing(config=cfg.initializing)
+geographic_object   = geographic.Geographic(config=cfg.geographic,
+                                            initializing_object=initializing_object)
+
 BV = watershed_root.Watershed(load=False,
                               initializing_object=initializing_object,
                               geographic_object=geographic_object,
-                              save_object=True
-                              )
+                              save_object=True)
 
-# Paths generated automatically but necessary for plots
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/'
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/'
-calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/'
+stable_folder      = cfg.initializing.stable_folder
+simulations_folder = cfg.initializing.simulations_folder
+calibration_folder = initializing_object.calibration_folder # necessary for plots
 
 #%% DATA
 
 BV.add_hydrography(data_path , types_obs=['botopage2024_naizin_streams_perennial-intermittent'], fields_obs=['FID'])
 BV.add_subbasin(data_path, 50)
 
-visualization_watershed.watershed_local(dem_path, BV)
+visualization_watershed.watershed_local(cfg.geographic.dem_init_path, BV)
 visualization_watershed.watershed_dem(BV)
 
 area = BV.geographic.catch_area
@@ -135,7 +101,7 @@ BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 # Necessary to set model parameters
 BV.add_climatic()
 
-BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
+BV.climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                         clim_mod='REA',
                                         clim_sce='historic',
                                         first_year=2003,
@@ -143,7 +109,7 @@ BV.climatic.update_recharge_reanalysis(path_file=data_path+'_climate_REANALYSIS.
                                         time_step='ME',
                                         sim_state='transient')
 
-BV.climatic.update_runoff_reanalysis(path_file=data_path+'_climate_REANALYSIS.csv',
+BV.climatic.update_runoff_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                       clim_mod='REA',
                                       clim_sce='historic',
                                       first_year=2003,
@@ -346,10 +312,6 @@ BV = watershed_root.Watershed(load=True,
                               )
 area = BV.geographic.catch_area
 
-stable_folder = out_path+'/'+watershed_name+'/'+'results_stable/' # necessary for plots
-simulations_folder = out_path+'/'+watershed_name+'/'+'results_simulations/' # necessary for plots
-calibration_folder = out_path+'/'+watershed_name+'/'+'results_calibration/' # necessary for plots
-
 BV.calibration_folder = calibration_folder
 
 box = True # or False
@@ -466,7 +428,7 @@ list_model_modflow.append(model_modflow)
 dictio = {}
 dictio['list_model_name'] = list_model_name
 dictio['list_model_modflow'] = list_model_modflow
-pickle_file = BV.simulations_folder+'/'+model_name+'/'+'results_'+model_name+'.pkl'
+pickle_file = os.path.join(BV.simulations_folder, model_name, 'results_'+model_name+'.pkl')
 with open(pickle_file, 'wb') as f:
     pickle.dump(dictio, f)
 
@@ -528,8 +490,8 @@ indicator = sim/obs
 fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
 print(stable_folder)
 
-mask = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
-watertable_elevation = np.load(simulations_folder+'/'+model_name+'/_postprocess/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
+mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
+watertable_elevation = np.load(os.path.join(simulations_folder, model_name, '_postprocess', 'watertable_elevation.npy'), allow_pickle=True).item()
 
 dem_data = imageio.imread(BV.geographic.watershed_dem)
 wt_data = watertable_elevation[2]
@@ -573,7 +535,7 @@ plt.tight_layout()
 
 area = int(round(BV.geographic.catch_area))
 
-Qobs_path = data_path + 'Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt'
+Qobs_path = data_path / 'Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt'
 Qobs = pd.read_csv(Qobs_path, sep=';', header=None)
 date = pd.to_datetime(Qobs[0]+' '+Qobs[1], format="%d/%m/%Y %H:%M:%S")
 Qobs.index = date
@@ -651,7 +613,7 @@ for i, simul in enumerate(simul_list[:]):
     WTDmod = Smod['watertable_depth']
 
     fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(12,3.5), dpi=300)
-    
+
     ax = a0
     # ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='Observed')
     # ax.fill_between(Omod.index, Omod, Qmod, color='red', lw=1, label='Simualted : outflow + runoff', alpha=0.5)
@@ -677,7 +639,7 @@ for i, simul in enumerate(simul_list[:]):
 
 #%% B - MODPATH
 
-list_folder = glob.glob(BV.simulations_folder+'/'+vers+'*')
+list_folder = glob.glob(os.path.join(str(BV.simulations_folder), vers+'*'))
 
 model_name = list_folder[0].split(os.path.sep)[-1]
 
@@ -695,7 +657,7 @@ tif_seep = os.path.join(BV.simulations_folder, model_name, '_postprocess/_raster
 tif_seep_clip = os.path.join(BV.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
 wbt.clip_raster_to_polygon(
     tif_seep,
-    BV.stable_folder + '/geographic/watershed.shp',
+    os.path.join(BV.stable_folder, 'geographic', 'watershed.shp'),
     tif_seep_clip,
     maintain_dimensions=True)
 
@@ -735,10 +697,10 @@ BV.filtprocessing_modpath(model_modpath,
 
 #%% PLOT PATHLINES
 
-shp_pathlines = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/pathlines_weighted.shp')
-shp_endpoints = gpd.read_file(simulations_folder+model_name+'/_postprocess/_particles/starting_weighted.shp')
+shp_pathlines = gpd.read_file(os.path.join(simulations_folder, model_name, '_postprocess', '_particles', 'pathlines_weighted.shp'))
+shp_endpoints = gpd.read_file(os.path.join(simulations_folder, model_name, '_postprocess', '_particles', 'starting_weighted.shp'))
 
-line = gpd.read_file(stable_folder+'geographic/'+'watershed.shp')
+line = gpd.read_file(os.path.join(stable_folder, 'geographic', 'watershed.shp'))
 
 dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
 dem_data = dem_rio.read(1)
@@ -820,7 +782,7 @@ visu.visual3D(interactive=True, object_list=[
 
 #%% C - MT3DMS
 
-list_folder = glob.glob(BV.simulations_folder+'/'+vers+'*')
+list_folder = glob.glob(os.path.join(str(BV.simulations_folder), vers+'*'))
 
 model_name = list_folder[0].split(os.path.sep)[-1]
 
@@ -932,17 +894,17 @@ concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
 all_box_stats = []
 
 # Définir le répertoire de sauvegarde des images
-figures_dir = simulations_folder + '_figures/'
+figures_dir = os.path.join(str(simulations_folder), '_figures')
 if not os.path.exists(figures_dir):
     os.makedirs(figures_dir)
 
 mean_vals = []
 mean_times = []
 
-wbt.hillshade(stable_folder+'/geographic/watershed_dem.tif', stable_folder+'/geographic/watershed_hill.tif')
+wbt.hillshade(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'), os.path.join(stable_folder, 'geographic', 'watershed_hill.tif'))
 
-dem = rasterio.open(stable_folder+'/geographic/watershed_dem.tif')
-hill = rasterio.open(stable_folder+'/geographic/watershed_hill.tif')
+dem = rasterio.open(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
+hill = rasterio.open(os.path.join(stable_folder, 'geographic', 'watershed_hill.tif'))
 
 # Boucle sur chaque pas de temps
 for i in range(len(concobj_1c_fil_surf)):
@@ -1104,7 +1066,7 @@ import base64
 from io import BytesIO
 
 # Exemple : création de la liste des fichiers
-figures_dir = simulations_folder + '_figures/'
+figures_dir = os.path.join(str(simulations_folder), '_figures')
 begin_by = figures_dir + vers
 filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
 
