@@ -66,13 +66,13 @@ from_xyv = [150727.164, 6858066.520, 100, 10 , 'EPSG:2154']
 
 # Extract watershed using generalized function
 BV = extract_watershed(dem_path=dem_path,
-                       out_path=out_path,
-                       watershed_name=watershed_name,
-                       from_xyv=from_xyv,
-                       catch_def="xy",
-                       bottom_path=None,
-                       load=False,
-                       save_object=True)
+                    out_path=out_path,
+                    watershed_name=watershed_name,
+                    from_xyv=from_xyv,
+                    catch_def="xy",
+                    bottom_path=None,
+                    load=False,
+                    save_object=True)
 
 # Paths necessary for the script
 # (Use watershed_name because it differs from example_dir in this case)
@@ -118,15 +118,15 @@ BV.climatic.update_first_clim('mean') # or 'first or value
 well_1_coords = [1-1,9-1,29-1] # [lay, row, col]
 well_2_coords = [1-1,17-1,29-1] # [lay, row, col]
 well_1_fluxes = make_timeseries_data(start_date='2017-01-01',
-                                     end_date='2017-12-31',
-                                     freq='ME',
-                                     values=[-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                     name='well_1')
+                                    end_date='2017-12-31',
+                                    freq='ME',
+                                    values=[-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    name='well_1')
 well_2_fluxes = make_timeseries_data(start_date='2017-01-01',
-                                     end_date='2017-12-31',
-                                     freq='ME',
-                                     values=[-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0],
-                                     name='well_2')
+                                    end_date='2017-12-31',
+                                    freq='ME',
+                                    values=[-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0],
+                                    name='well_2')
 BV.settings.update_well_pumping(well_coords=[well_1_coords, well_2_coords],
                                 well_fluxes=[well_1_fluxes, well_2_fluxes])
 
@@ -216,21 +216,21 @@ success_modflow = model_modflow.processing(write_model=True, run_model=True, lin
 
 if success_modflow == True:
     model_modflow.post_processing(model_modflow,
-                                  watertable_elevation=True,
-                                  watertable_depth=True,
-                                  seepage_areas=True,
-                                  outflow_drain=True,
-                                  groundwater_flux=True,
-                                  groundwater_storage=True,
-                                  accumulation_flux=True,
-                                  persistency_index=True, # only in transient
-                                  intermittency_monthly=True, # only in transient
-                                  intermittency_weekly=False, # only in transient
-                                  intermittency_daily=False, # only in transient
-                                  export_all_tif=True)
+                                watertable_elevation=True,
+                                watertable_depth=True,
+                                seepage_areas=True,
+                                outflow_drain=True,
+                                groundwater_flux=True,
+                                groundwater_storage=True,
+                                accumulation_flux=True,
+                                persistency_index=True, # only in transient
+                                intermittency_monthly=True, # only in transient
+                                intermittency_weekly=False, # only in transient
+                                intermittency_daily=False, # only in transient
+                                export_all_tif=True)
 
 BV.postprocessing_netcdf(model_modflow,
-                         datetime_format=False)
+                        datetime_format=False)
 
 #%% ---- PARTICLE TRACKING RUN
 
@@ -243,31 +243,31 @@ success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_mod
 # Post-processing
 if success_modpath == True:
     BV.postprocessing_modpath(model_modpath,
-                              ending_point=True,
-                              starting_point=True,
-                              pathlines_shp=True,
-                              particles_shp=False,
-                              random_id=None) # None
+                            ending_point=True,
+                            starting_point=True,
+                            pathlines_shp=True,
+                            particles_shp=False,
+                            random_id=None) # None
 
     BV.filtprocessing_modpath(model_modpath,
-                              norm_flux=True, # for forward only
-                              filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
-                              filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
-                              filt_inout=True, # delete particles in and out in the same cell (first layer)
-                              calc_rtd=True, # compute residence time distribution
-                              random_id=None, # select randomly to keep
-                              ) # None
+                            norm_flux=True, # for forward only
+                            filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                            filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                            filt_inout=True, # delete particles in and out in the same cell (first layer)
+                            calc_rtd=True, # compute residence time distribution
+                            random_id=None, # select randomly to keep
+                            ) # None
 
 #%% ---- GENERATE TIMESERIES
 
 timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                  model_modpath=model_modpath,
-                                                  datetime_format=False,
-                                                  subbasin_results=True,
-                                                  intermittency_monthly=True, # only in transient
-                                                  intermittency_weekly=False, # only in transient
-                                                  intermittency_daily=False, # only in transient
-                                                  ) # or 'M' or None
+                                                model_modpath=model_modpath,
+                                                datetime_format=False,
+                                                subbasin_results=True,
+                                                intermittency_monthly=True, # only in transient
+                                                intermittency_weekly=False, # only in transient
+                                                intermittency_daily=False, # only in transient
+                                                ) # or 'M' or None
 
 if skip_plots:
     print("Skipping plotting sections (HYDROMODPY_EXAMPLE00_SKIP_PLOTS enabled).")
@@ -306,7 +306,7 @@ create_crosssection_plot(sim_wte_data, sim_dem_data, title='SIMULATED: time 1/12
 #%% ---- PLOT GRAPHS
 
 create_timeseries_plot(sim_timeseries, well_1_fluxes, well_2_fluxes,
-                      title='SIMULATED: time 1/12')
+                    title='SIMULATED: time 1/12')
 
 #%% ---- NOTES
 

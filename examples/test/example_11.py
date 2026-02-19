@@ -31,6 +31,10 @@ except NameError:
     root_dir = os.getcwd()
 sys.path.append(root_dir)
 
+# The folder out_path is created in the example_path root directory:
+out_path = os.getenv("HYDROMODPY_EXAMPLE11_OUT_PATH",
+        os.path.join(root_dir, 'examples', 'results'))
+
 # HYDROMODPY MODEULES
 from hydromodpy import watershed_root
 from hydromodpy.process import Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
@@ -38,7 +42,9 @@ from hydromodpy.process import Flow
 
 # ---- FUNCTION LAUNCH
 
-def run_hydromodpy(watershed_name='Test1',
+def run_hydromodpy(root_dir = root_dir,
+                   out_path = out_path,
+                   watershed_name='Test1',
                    DEM_name='regional dem 2.tif',
                    X_coord=151181.608, # m
                    Y_coord=6858078.268, # m
@@ -68,11 +74,6 @@ def run_hydromodpy(watershed_name='Test1',
     example_path = os.path.join(root_dir, "examples", "11_for run from scratch without plots/")
     data_path = os.path.join(example_path, "data/")
 
-    # The folder out_path is created in the example_path root directory:
-    out_path = os.getenv(
-        "HYDROMODPY_EXAMPLE11_OUT_PATH",
-        os.path.join(root_dir, 'examples', 'results'),
-    )
     # Or define it manually
     # out_path = 'C:/Simulations/HydroModPy/'
 
@@ -274,6 +275,9 @@ def run_hydromodpy(watershed_name='Test1',
     watertable_depth_output = timeseries_results.watertable_depth
 
     return watertable_depth_output
+
+# ---- RUN THE SCRIPT
+#run_hydromodpy()
 
 if __name__ == '__main__':
     DEM_name = os.getenv("HYDROMODPY_EXAMPLE11_DEM_NAME", "regional dem 2.tif")
