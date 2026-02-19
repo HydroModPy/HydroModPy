@@ -14,7 +14,7 @@ Implemented functions in `baseflow.py`:
 - `add_proportional_gaussian_error(...)`
 - `generate_noisy_baseflow_profile(...)`
 
-Implemented functions in `objective_fucntion.py`:
+Implemented functions in shared module `../objective_function.py`:
 
 - `nse(observed, simulated)`
 - `nse_log(observed, simulated)`
@@ -23,16 +23,21 @@ Implemented functions in `objective_fucntion.py`:
 
 Implemented calibration modules:
 
-- `calibration_problem.py`
-  - `BaseflowConfig`
-  - `make_baseflow_simulator(...)`
-  - `Calibration` (generic class delegating calibration to a method registry)
-- `calibration_method.py`
-  - `CalibrationMethod` + `DEFAULT_CALIBRATION_METHOD`
-  - `grid_search_calibrate(...)`
-  - `random_search_calibrate(...)`
-  - `nelder_mead_calibrate(...)`
-  - `scipy_simplex_calibrate(...)`
+- Shared generic modules in `../`:
+  - `calibration_problem.py`
+    - `Calibration` (generic class delegating calibration to a method registry)
+  - `calibration_method.py`
+    - `CalibrationMethod` + `DEFAULT_CALIBRATION_METHOD`
+    - `grid_search_calibrate(...)`
+    - `random_search_calibrate(...)`
+    - `nelder_mead_calibrate(...)`
+    - `scipy_simplex_calibrate(...)`
+  - `calibration_da_mh.py`
+    - `delayed_acceptance_gp_mh_calibrate(...)`
+- Brutsaert-specific adapter is defined in:
+  - `example_calibration_coarse_sand.py`
+    - `BaseflowConfig`
+    - `make_baseflow_simulator(...)`
 
 Supported recession models:
 
@@ -316,12 +321,13 @@ Optimization methods proposed and implemented:
 - `random_search`: global Monte-Carlo style search
 - `nelder_mead`: local refinement (typically after global initialization)
 - `simplex`: classic SciPy simplex via `scipy.optimize.fmin`
+- `da_mh_gp`: delayed-acceptance MH with GP surrogate and expensive-call cache
 
 Separation of concerns:
 
-- Generic calibration workflow and method switch are in `calibration_problem.py` (`Calibration`)
-- Optimization algorithms stay in `calibration_method.py`
-- End-to-end demonstration is in `example_calibration_coarse_sand.py`
+- Generic calibration workflow and method switch are in `../calibration_problem.py` (`Calibration`)
+- Optimization algorithms stay in `../calibration_method.py`
+- Brutsaert-specific simulator adapter and end-to-end demonstration are in `example_calibration_coarse_sand.py`
 
 Run:
 

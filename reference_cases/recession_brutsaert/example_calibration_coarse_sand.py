@@ -14,17 +14,68 @@ Run from repository root:
     python reference_cases/recession_brutsaert/example_calibration_coarse_sand.py
 """
 
+from dataclasses import dataclass
 from pathlib import Path
+import sys
 import tomllib
+
+# Ensure repository root is importable when script is launched directly.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from baseflow import generate_noisy_baseflow_profile
-from calibration_problem import BaseflowConfig, Calibration, make_baseflow_simulator
+from reference_cases.calibration_problem import Calibration, as_1d_array
+from reference_cases.recession_brutsaert.baseflow import generate_noisy_baseflow_profile, simulate_baseflow
 
 
 DEFAULT_CONFIG_FILE = "example_calibration_coarse_sand.toml"
+
+
+@dataclass
+class BaseflowConfig:
+    """
+    Fixed Brutsaert/baseflow model settings used by the simulator adapter.
+    """
+
+    Q0: float
+    solution: str = "boussinesq"
+    b: float | None = None
+    A: float | None = None
+    L: float | None = None
+    ag: float = 0.7
+    p: float = 0.346
+
+
+def make_baseflow_simulator(t_seconds, model_config: BaseflowConfig):
+    """
+    Build a baseflow simulator callable compatible with generic `Calibration`.
+
+    The returned callable expects named parameters in a dict:
+    - "K"
+    - "Sy"
+    """
+    t_seconds = as_1d_array(t_seconds, "t_seconds")
+
+    def _simulate(params):
+        k_val = float(params["K"])
+        sy_val = float(params["Sy"])
+        return simulate_baseflow(
+            t=t_seconds,
+            Q0=model_config.Q0,
+            K=k_val,
+            Sy=sy_val,
+            solution=model_config.solution,
+            b=model_config.b,
+            A=model_config.A,
+            L=model_config.L,
+            ag=model_config.ag,
+            p=model_config.p,
+        )
+
+    return _simulate
 
 
 def load_calibration_config(config_path):
@@ -123,18 +174,19 @@ def calibrate_k_sy(chronicle, config):
 
     Calibration methods
     -------------------
-    Methods are implemented in `calibration_method.py` and selected via TOML:
+    Methods are implemented in `reference_cases/calibration_method.py` and selected via TOML:
     - `grid_search`
     - `random_search`
     - `nelder_mead`
     - `simplex`
+    - `da_mh_gp` (Delayed-Acceptance Metropolis-Hastings with GP surrogate)
 
     Returns
     -------
     dict
         Dictionary containing:
         - calibration object
-        - global/final method outputs
+        - calibration result
         - best parameters (`k_hat`, `sy_hat`)
         - calibrated discharge series (`q_calib`)
         - diagnostic metrics (NSE, NSElog, KGE, r, alpha, beta)
@@ -144,17 +196,15 @@ def calibrate_k_sy(chronicle, config):
     --------
     1. Read objective and method options from TOML.
     2. Build bounds and fixed model configuration.
-    3. Run global calibration method.
-    4. Optionally run local refinement initialized from global best point.
-    5. Convert best vector solution into named parameters and evaluate metrics.
+    3. Run the selected calibration method.
+    4. Convert best vector solution into named parameters and evaluate metrics.
     """
     params = chronicle["params"]
     calibration_cfg = config["calibration"]
     calibration_method_cfg = config.get("calibration_method", {})
 
     objective_metric = str(calibration_cfg.get("objective_metric", "kge"))
-    global_method = str(calibration_cfg.get("global_method", "random_search"))
-    do_local_refine = bool(calibration_cfg.get("do_local_refine", True))
+    global_method = str(calibration_cfg.get("global_method", "simplex"))
 
     # Bounds are read from TOML and converted to float tuples.
     bounds_cfg = config["bounds"]
@@ -194,22 +244,6 @@ def calibrate_k_sy(chronicle, config):
 
     result_final = result_global
 
-    # Optional local refinement stage from [calibration_method.local_refine].
-    # We keep this block fault-tolerant so the example stays runnable even if
-    # an optional method is not available in the local environment.
-    if do_local_refine:
-        try:
-            local_cfg = dict(calibration_method_cfg.get("local_refine", {}))
-            local_method = str(local_cfg.pop("method", "nelder_mead"))
-            local_cfg.setdefault("x0", result_global["x_best"])
-            result_local = calibration_obj.calibrate(
-                method=local_method,
-                **local_cfg,
-            )
-            result_final = result_local
-        except Exception:
-            pass
-
     # Convert vector solution to named parameters for easier interpretation.
     best_params = calibration_obj.vector_to_params(result_final["x_best"])
     k_hat = best_params["K"]
@@ -229,6 +263,35 @@ def calibrate_k_sy(chronicle, config):
         "objective_metric": objective_metric,
         "global_method": global_method,
     }
+
+
+def select_representative_posterior_vectors(samples, n_vectors=10):
+    """
+    Select representative parameter vectors from posterior samples.
+
+    Samples are projected onto their first principal direction and sampled at
+    evenly spaced quantiles to keep a diverse subset of trajectories.
+    """
+    arr = np.asarray(samples, dtype=float)
+    if arr.ndim != 2 or arr.shape[0] == 0:
+        return np.empty((0, 0), dtype=float)
+
+    n_keep = int(min(max(1, n_vectors), arr.shape[0]))
+    if n_keep == arr.shape[0]:
+        return arr.copy()
+
+    centered = arr - np.mean(arr, axis=0, keepdims=True)
+    if np.allclose(centered, 0.0):
+        indices = np.linspace(0, arr.shape[0] - 1, n_keep, dtype=int)
+        return arr[indices]
+
+    _, _, vt = np.linalg.svd(centered, full_matrices=False)
+    axis_1 = vt[0]
+    scores = centered @ axis_1
+    order = np.argsort(scores)
+    quantile_idx = np.linspace(0, arr.shape[0] - 1, n_keep, dtype=int)
+    chosen = order[quantile_idx]
+    return arr[chosen]
 
 
 def plot_calibration_result(
@@ -270,9 +333,18 @@ def plot_calibration_result(
     k_hat = calibration["k_hat"]
     sy_hat = calibration["sy_hat"]
     metrics = calibration["metrics"]
+    result = calibration["result_final"]
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=140)
-    ax_ts, ax_sc = axes
+    posterior_samples = np.asarray(result.get("posterior_samples", np.empty((0, 0))), dtype=float)
+    has_posterior = posterior_samples.ndim == 2 and posterior_samples.shape[0] > 1
+
+    if has_posterior:
+        fig, axes = plt.subplots(1, 3, figsize=(16, 5), dpi=140)
+        ax_ts, ax_sc, ax_param = axes
+    else:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=140)
+        ax_ts, ax_sc = axes
+        ax_param = None
 
     # Left panel: temporal dynamics.
     # Guard log-scale plotting by masking non-positive values.
@@ -280,7 +352,16 @@ def plot_calibration_result(
     q_calib_plot = np.where(q_calib > 0.0, q_calib, np.nan)
     ax_ts.plot(t_days, q_true, color="tab:blue", lw=2.0, label="True analytical")
     ax_ts.scatter(t_days, q_obs_plot, s=24, color="tab:orange", alpha=0.85, label="Noisy observations")
-    ax_ts.plot(t_days, q_calib_plot, color="tab:green", lw=1.8, ls="--", label="Calibrated simulation")
+
+    if has_posterior:
+        representative = select_representative_posterior_vectors(posterior_samples, n_vectors=10)
+        for i, vec in enumerate(representative):
+            q_rep = calibration["calibration_obj"].simulate(vec)
+            q_rep_plot = np.where(q_rep > 0.0, q_rep, np.nan)
+            label = "Posterior trajectories (x10)" if i == 0 else None
+            ax_ts.plot(t_days, q_rep_plot, color="tab:green", lw=1.0, alpha=0.28, label=label)
+
+    ax_ts.plot(t_days, q_calib_plot, color="tab:green", lw=1.8, ls="--", label="Best/MAP simulation")
     ax_ts.set_xscale("log")
     ax_ts.set_yscale("log")
     ax_ts.set_xlabel("Time [days]")
@@ -302,16 +383,45 @@ def plot_calibration_result(
     ax_sc.grid(True, which="both", ls=":", alpha=0.45)
     ax_sc.legend(loc="best")
 
+    if has_posterior and ax_param is not None:
+        # Posterior parameter cloud (K, Sy) with true and best/MAP markers.
+        ax_param.scatter(
+            posterior_samples[:, 0],
+            posterior_samples[:, 1],
+            s=11,
+            alpha=0.25,
+            color="tab:gray",
+            label="Posterior samples",
+        )
+        ax_param.scatter([p["K"]], [p["Sy"]], s=55, color="tab:blue", label="True")
+        ax_param.scatter([k_hat], [sy_hat], s=55, color="tab:green", marker="x", label="Best/MAP")
+        ax_param.set_xscale("log")
+        ax_param.set_xlabel("K [m/s]")
+        ax_param.set_ylabel("Sy [-]")
+        ax_param.set_title("Parameter distribution")
+        ax_param.grid(True, which="both", ls=":", alpha=0.45)
+        ax_param.legend(loc="best")
+
+        k_q05, k_q50, k_q95 = np.quantile(posterior_samples[:, 0], [0.05, 0.50, 0.95])
+        sy_q05, sy_q50, sy_q95 = np.quantile(posterior_samples[:, 1], [0.05, 0.50, 0.95])
+        posterior_txt = (
+            f"K q05/q50/q95={k_q05:.2e}/{k_q50:.2e}/{k_q95:.2e}\n"
+            f"Sy q05/q50/q95={sy_q05:.3f}/{sy_q50:.3f}/{sy_q95:.3f}"
+        )
+    else:
+        posterior_txt = "No posterior sample distribution (deterministic method)."
+
     # Figure text summary for quick interpretation.
     txt = (
         f"Objective={objective_metric.upper()}  method={global_method}\n"
         f"K true={p['K']:.2e}  K hat={k_hat:.2e}\n"
         f"Sy true={p['Sy']:.3f}  Sy hat={sy_hat:.3f}\n"
-        f"NSE={metrics['NSE']:.4f}  NSElog={metrics['NSElog']:.4f}  KGE={metrics['KGE']:.4f}"
+        f"NSE={metrics['NSE']:.4f}  NSElog={metrics['NSElog']:.4f}  KGE={metrics['KGE']:.4f}\n"
+        f"{posterior_txt}"
     )
     fig.text(
         0.50,
-        0.05,
+        0.03,
         txt,
         fontsize=9,
         family="monospace",
@@ -325,7 +435,7 @@ def plot_calibration_result(
         ),
         fontsize=11,
     )
-    fig.tight_layout(rect=[0, 0.13, 1, 0.93])
+    fig.tight_layout(rect=[0, 0.12, 1, 0.93])
 
     output_png.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_png, bbox_inches="tight")
