@@ -6,11 +6,14 @@ Implemented families:
 - random search: global Monte Carlo sampling in bounded space,
 - Nelder-Mead: local simplex-based search via `scipy.optimize.minimize`,
 - simplex (classic): local simplex-based search via `scipy.optimize.fmin`.
+- delayed-acceptance GP-MH: Bayesian sampler with surrogate pre-screening.
 """
 
 from itertools import product
 
 import numpy as np
+
+from reference_cases.calibration_da_mh import delayed_acceptance_gp_mh_calibrate
 
 try:
     from scipy import optimize as scipy_optimize
@@ -522,7 +525,7 @@ class CalibrationMethod:
         # Sorted order makes logs/tests deterministic and easier to compare.
         return tuple(sorted(self._methods.keys()))
 
-    def calibrate(self, objective_cost, bounds, method="random_search", **kwargs):
+    def calibrate(self, objective_cost, bounds, method="simplex", **kwargs):
         """
         Run calibration using the selected method from the registry.
 
@@ -573,5 +576,7 @@ DEFAULT_CALIBRATION_METHOD = CalibrationMethod(
         "random_search": random_search_calibrate,
         "nelder_mead": nelder_mead_calibrate,
         "simplex": scipy_simplex_calibrate,
+        "da_mh_gp": delayed_acceptance_gp_mh_calibrate,
+        "delayed_acceptance_gp_mh": delayed_acceptance_gp_mh_calibrate,
     }
 )
