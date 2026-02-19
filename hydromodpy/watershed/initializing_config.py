@@ -12,17 +12,21 @@ class InitializingConfig(BaseModel):
     catch_name: Annotated[str, ParamLevel("user")] = Field(
         description="Name of the watershed/catchment (used as folder name)."
     )
-    out_dir_path: Annotated[str, ParamLevel("user")] = Field(
+    out_dir_path: Annotated[Path, ParamLevel("user")] = Field(
         description="Root output directory where all results will be stored."
     )
-    data_path: Annotated[str, ParamLevel("user")] = Field(
+    data_path: Annotated[Path, ParamLevel("user")] = Field(
         description="Path to the input data folder (observations, climate, GIS layers, etc.)."
     )
 
     @property
-    def stable_folder(self) -> str:
-        return str(Path(self.out_dir_path) / self.catch_name / "results_stable")
+    def stable_folder(self) -> Path:
+        return self.out_dir_path / self.catch_name / "results_stable"
 
     @property
-    def simulations_folder(self) -> str:
-        return str(Path(self.out_dir_path) / self.catch_name / "results_simulations")
+    def simulations_folder(self) -> Path:
+        return self.out_dir_path / self.catch_name / "results_simulations"
+
+    @property
+    def calibration_folder(self) -> Path:
+        return self.out_dir_path / self.catch_name / "results_calibration"

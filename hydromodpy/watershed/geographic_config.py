@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
@@ -27,7 +28,7 @@ class GeographicConfig(BaseModel):
         ),
     )
 
-    dem_init_path: Annotated[Optional[str], ParamLevel("user")] = Field(
+    dem_init_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None,
         description=(
             "Path to the DEM raster used as input. "
@@ -58,7 +59,7 @@ class GeographicConfig(BaseModel):
         gt=0,
         description="Buffer around the watershed polygon as a percentage of sqrt(area [km²]). Required for 'from_outlet_coord' and 'from_polyg_shp' modes.",
     )
-    polyg_shp_path: Annotated[Optional[str], ParamLevel("user")] = Field(
+    polyg_shp_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None,
         description="Path to the watershed polygon shapefile. Required for 'from_polyg_shp' mode.",
     )
@@ -70,11 +71,11 @@ class GeographicConfig(BaseModel):
         default="breach",
         description="DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.",
     )
-    bottom_path: Annotated[Optional[str], ParamLevel("user")] = Field(
+    bottom_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None,
         description="Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.",
     )
-    reg_fold: Annotated[Optional[str], ParamLevel("dev")] = Field(
+    reg_fold: Annotated[Optional[Path], ParamLevel("dev")] = Field(
         default=None,
         description="Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.",
     )
