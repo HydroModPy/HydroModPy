@@ -21,7 +21,7 @@ from flopy.discretization import StructuredGrid, UnstructuredGrid, VertexGrid
 
 # %% CLASS
 
-class SGrid_Generator:
+class SGrid_Generation:
     """
     Class for creating a spatial grid.
     """
@@ -29,25 +29,30 @@ class SGrid_Generator:
     # %%% INITIALIZATION
     # Initialization
     def __init__(self):
+        # --- PARAMETERS
         # Default parameter for choosing type of spatial grid to create
         self._sgrid_type  = 'structured' #TODO: only structured implemented for now, but unstructured and vertex grid types will be implemented in the future
         # Default parameters for structured spatial grid creation
-        self._lenuni          = 'm'  #TODO: used to define master length unit for the model; for now, must also be the same length unit of the DEM (no conversion of length units for DEM implemented yet)
-        self._top_path        = None
-        self._crs             = None
-        self._bot_path        = None
-        self._thick           = None
-        self._genmtd_lay      = None
-        self._lay_proportions = None
-        self._lay_decay       = None
-        self._nlay            = None
+        self._lenuni          = 'm'     # Master length unit for the model #TODO: for now, must also be the same length unit of the DEM (no conversion of length units for DEM implemented yet)
+        self._top_path        = None    # File path to .tif top surface of domain (= DEM)
+        self._crs             = None    # Coodinate Reference System; ex: 'EPSG:2154'
+        self._genmtd_bot      = None    # Method used to generate bottom surface of domain: 'filepath','raster','constant_thickness','constant_altitude'
+        self._bot_path        = None    # File path to .tif bottom surface of domain
+        self._bot_raster      = None    # Raster of bottom surface of domain (#TODO: ad-hoc solution for integration in modflow solver; must have the same dimensions as top surface; not checked here!)
+        self._thick           = None    # Total thickness of the domain
+        self._zbot            = None    # Altitude of the bottom of the domain
+        self._genmtd_lay      = None    # Method used to generate the vertical layering of the domain: 'constant','decay','list' 
+        self._lay_proportions = None    # List of lay thickness, expressed as fraction of total domain thickness
+        self._lay_decay       = None    # Exponent for power law increase of layer thickness with depth (>1)
+        self._nlay            = None    # Number of layers
         # Default advanced parameters for spatial grid creation
-        self._spatial_nodata  = -9999
+        self._nodata          = -9999
+        # --- INITIALIZATION
         # Initialization of flags for checking if  parameters for spatial grid 
         # creation have not been modified since last grid creation
         self._sgrid_created = False
         # Initialization of storage of created spatial grid
-        self._sgrid       = None
+        self._sgrid         = None
         
 
     # %%% RUN SPATIAL GRID GENERATION
@@ -58,6 +63,15 @@ class SGrid_Generator:
         return self._sgrid
 
     # %%% SETTERS AND GETTERS FOR PARAMETERS FOR SPATIAL GRID CREATION
+    # Setter and getter for lenuni
+    @property
+    def lenuni(self):
+        return self._lenuni
+    @lenuni.setter
+    def lenuni(self, value):
+        self._lenuni = value
+        self._sgrid_created = False
+
     # Setter and getter for top_path
     @property
     def top_path(self):
@@ -76,23 +90,14 @@ class SGrid_Generator:
         self._crs = value
         self._sgrid_created = False
 
-    # Setter and getter for lenuni
+    # Setter and getter for genmtd_bot
     @property
-    def lenuni(self):
-        return self._lenuni
-    @lenuni.setter
-    def lenuni(self, value):
-        self._lenuni = value
-        self._sgrid_created = False
-
-    # Setter and getter for lay_decay
-    @property
-    def lay_decay(self):
-        return self._lay_decay
-    @lay_decay.setter
-    def lay_decay(self, value):
-        self._lay_decay = value
-        self._sgrid_created = False
+    def genmtd_bot(self):
+        return self._genmtd_bot
+    @genmtd_bot.setter
+    def genmtd_bot(self, value):
+        self._genmtd_bot = value
+        self._sgrid_created = False    
 
     # Setter and getter for bot_path
     @property  
@@ -103,13 +108,13 @@ class SGrid_Generator:
         self._bot_path = value
         self._sgrid_created = False
 
-    # Setter and getter for nlay
+    # Setter and getter for bot_raster
     @property
-    def nlay(self):
-        return self._nlay
-    @nlay.setter
-    def nlay(self, value):
-        self._nlay = value
+    def bot_raster(self):
+        return self._bot_raster
+    @bot_raster.setter
+    def bot_raster(self, value):
+        self._bot_raster = value
         self._sgrid_created = False
 
     # Setter and getter for thick
@@ -119,6 +124,15 @@ class SGrid_Generator:
     @thick.setter
     def thick(self, value):
         self._thick = value
+        self._sgrid_created = False
+
+    # Setter and getter for zbot
+    @property
+    def zbot(self):
+        return self._zbot
+    @zbot.setter
+    def zbot(self, value):
+        self._zbot = value
         self._sgrid_created = False
 
     # Setter and getter for genmtd_lay
@@ -139,13 +153,31 @@ class SGrid_Generator:
         self._lay_proportions = value
         self._sgrid_created = False
 
-    # Setter and getter for spatial_nodata
+    # Setter and getter for lay_decay
     @property
-    def spatial_nodata(self):
-        return self._spatial_nodata
-    @spatial_nodata.setter
-    def spatial_nodata(self, value):
-        self._spatial_nodata = value
+    def lay_decay(self):
+        return self._lay_decay
+    @lay_decay.setter
+    def lay_decay(self, value):
+        self._lay_decay = value
+        self._sgrid_created = False
+        
+    # Setter and getter for nlay
+    @property
+    def nlay(self):
+        return self._nlay
+    @nlay.setter
+    def nlay(self, value):
+        self._nlay = value
+        self._sgrid_created = False
+
+    # Setter and getter for nodata
+    @property
+    def nodata(self):
+        return self._nodata
+    @nodata.setter
+    def nodata(self, value):
+        self._nodata = value
         self._sgrid_created = False
 
     # %%% SPATIAL GRID CREATION
@@ -201,7 +233,8 @@ class SGrid_Generator:
         delr = np.array([-top.transform[4]]*ncol)
         xoff = top.bounds.left
         yoff = top.bounds.bottom
-        top = top.read(1)
+        top  = top.read(1)
+        top[top <= self.nodata] = self.nodata
         return top,delc,delr,xoff,yoff,nrow,ncol
     
     # vertical structured grid
@@ -210,25 +243,31 @@ class SGrid_Generator:
         Create the vertical grid for a structured spatial grid.
         """
         # Definition of the bottom layer of the domain
-        if self.bot_path is not None:
+        if self.genmtd_bot == 'filepath':
             bot = rasterio.open(self.bot_path)
             bot = bot.read(1)
-            bot[top<=self.spatial_nodata]=self.spatial_nodata
-        else:
+            bot[top<=self.nodata]=self.nodata
+        if self.genmtd_bot == 'raster':
+            bot = self.bot_raster
+            bot[top<=self.nodata]=self.nodata
+        elif self.genmtd_bot == 'constant_thickness':
             bot = top - self.thick        # Matrix for constant thickness case
-            bot[top<=self.spatial_nodata]=self.spatial_nodata
+            bot[top<=self.nodata]=self.nodata
+        elif self.genmtd_bot == 'constant_altitude':
+            bot = top * 0 + self.zbot             # Matrix for constant altitude case
+            bot[top<=self.nodata]=self.nodata
         # Parameters for proportions of the thciknesses of all layers as a fraction of total domain thickness
-        if self.genmtd_lay == 'listed_thickness':
+        if self.genmtd_lay == 'list':
             # Case where the thicknesses of all layers (as a fraction of total domain thickness) 
             # are given as a list in the lay_proportions parameter
             nlay = len(self.lay_proportions)
             allp = np.cumsum(self.lay_proportions)
-        elif self.genmtd_lay == 'constant_thickness':
+        elif self.genmtd_lay == 'constant':
             # Case where the thicknesses of all layers are constant (i.e. all layers have the 
             # same thickness, which is the total domain thickness divided by the number of layers)
             nlay = self.nlay
             allp = np.arange(1,nlay+1) / nlay
-        elif self.genmtd_lay == 'decay_thickness':
+        elif self.genmtd_lay == 'decay':
             # Case where the thicknesses of the layers increase with depth
             nlay = self.nlay
             allp = np.zeros((nlay))
@@ -239,7 +278,7 @@ class SGrid_Generator:
         for i in range(1, nlay+1):
             # Weighted formula to go from bottom layer (bot) to surface (top)
             botm[i-1] = top  - ((top - bot) * allp[i-1])
-            botm[i-1][bot<=self.spatial_nodata]=self.spatial_nodata
+            botm[i-1][bot<=self.nodata]=self.nodata
         return botm,nlay   
 
     # %%%% UNSTRUCTURED SPATIAL GRID CREATION

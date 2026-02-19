@@ -33,6 +33,7 @@ sys.path.append(df)
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
 from hydromodpy.process.flow import Flow
+from hydromodpy.grid.sgrid_generation import SGrid_Generation
 
 logger = get_logger(__name__)
 
@@ -372,16 +373,88 @@ class Modflow:
             else:
                 self.zbot[i-1] = self.bottom_layer * p + self.dem * (1-p)
 
+        # ==== REFACTORING: Tristan - spatial grid ====
+        sgrid_generator = SGrid_Generation()
+        sgrid_generator.top_path = self.dem_watershed_path
+        sgrid_generator.nodata = -9999
+        sgrid_generator.lenuni = 'm'
+        sgrid_generator.crs = self.geographic.crs_proj
+        if self.bottom is None:
+            sgrid_generator.genmtd_bot = 'constant_thickness'
+            sgrid_generator.thick = self.thick
+        elif self.bottom is not None and isinstance(self.bottom,(int,float))==True:
+            sgrid_generator.genmtd_bot = 'constant_altitude'
+            sgrid_generator.zbot = self.bottom
+        elif self.bottom is not None and len(self.bottom.shape) == 2:
+            sgrid_generator.genmtd_bot = 'raster'
+            sgrid_generator.bot_raster = self.bottom
+
+        if self.lay_decay > 1.:
+            sgrid_generator.genmtd_lay = 'decay'
+            sgrid_generator.lay_decay = self.lay_decay
+            sgrid_generator.nlay = self.nlay
+        else:
+            sgrid_generator.genmtd_lay = 'constant'
+            sgrid_generator.nlay = self.nlay
+
+        sgrid = sgrid_generator.run()
+
         # Imposes discretization to modflow model through
         # ---- flopy.modflow.ModflowDis
+        # self.dis = flopy.modflow.ModflowDis(model  = self.mf, 
+        #                                     lenuni = sgrid.lenuni, 
+        #                                     nlay   = sgrid.nlay, 
+        #                                     nrow   = sgrid.nrow, 
+        #                                     ncol   = sgrid.ncol, 
+        #                                     delr   = sgrid.delr, 
+        #                                     delc   = sgrid.delc,
+        #                                     top    = sgrid.top, 
+        #                                     botm   = sgrid.botm, 
+        #                                     xul    = sgrid.xoffset, 
+        #                                     yul    = sgrid.extent[3],
+        #                                     itmuni=0, # itmuni = 0 ==> undefined
+        #                                     nper=self.nper,  
+        #                                     perlen=self.perlen, 
+        #                                     nstp=self.nstp,
+        #                                     steady=self.steady, 
+        #                                     start_datetime=self.start_datetime)
         self.dis = flopy.modflow.ModflowDis(self.mf,
+                                            # Spatial grid parameters
+                                            lenuni = sgrid.lenuni, 
+                                            nlay   = sgrid.nlay, 
+                                            nrow   = sgrid.nrow, 
+                                            ncol   = sgrid.ncol, 
+                                            delr   = self.resolution, 
+                                            delc   = self.resolution,
+                                            top    = sgrid.top, 
+                                            botm   = sgrid.botm,
+                                            xul    = sgrid.xoffset, 
+                                            yul    = sgrid.extent[3],
+                                            # Temporal grid parameters
                                             itmuni=0, # itmuni = 0 ==> undefined
-                                            lenuni=2, # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
-                                            nlay=self.nlay, nrow=self.nrow, ncol=self.ncol,
-                                            delr=self.resolution, delc=self.resolution,
-                                            top=self.dem, botm=self.zbot, xul=self.xul, yul=self.yul,
-                                            nper=self.nper, perlen=self.perlen, nstp=self.nstp,
-                                            steady=self.steady, start_datetime=self.start_datetime)
+                                            nper=self.nper, 
+                                            perlen=self.perlen, 
+                                            nstp=self.nstp,
+                                            steady=self.steady, 
+                                            start_datetime=self.start_datetime)
+
+        # self.dis = flopy.modflow.ModflowDis(self.mf,
+        #                                     itmuni=0, # itmuni = 0 ==> undefined
+        #                                     lenuni=2, # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
+        #                                     nlay=self.nlay, 
+        #                                     nrow=self.nrow, 
+        #                                     ncol=self.ncol,
+        #                                     delr=self.resolution, 
+        #                                     delc=self.resolution,
+        #                                     top=self.dem, 
+        #                                     botm=self.zbot, 
+        #                                     xul=self.xul, 
+        #                                     yul=self.yul,
+        #                                     nper=self.nper, 
+        #                                     perlen=self.perlen, 
+        #                                     nstp=self.nstp,
+        #                                     steady=self.steady, 
+        #                                     start_datetime=self.start_datetime)
 
         #%% Boundary conditions
 
