@@ -33,20 +33,18 @@ except:
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
-try:
-    root_dir = dirname(dirname(dirname(abspath(__file__))))
-except NameError:
-    root_dir = os.getcwd()
+# try:
+root_dir = dirname(dirname(dirname(abspath(__file__))))
+# except NameError:
+#     root_dir = os.getcwd()
 sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
+from hydromodpy.watershed import initializing, geographic
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
-
-example_path = os.path.join(root_dir, "examples", "01S_short/")
-data_path = os.path.join(example_path, "data/")
 
 # The folder out_path is created in the example_path root directory:
 out_path = os.path.join(root_dir,'examples', 'results')
@@ -61,23 +59,37 @@ print('The results of the example will be saved here :', out_path)
 watershed_name = '01S_short'
 print('##### '+watershed_name.upper()+' #####')
 
-# Regional DEM
-dem_path = os.path.join(data_path, 'regional dem.tif')
-
-# Outlet coordinates of the catchment
+# Regional DEM file name and outlet definition (same as before)
+dem_name = 'regional dem.tif'
 from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154']
-catch_def = "xy"
+catch_def = "from_outlet_coord"
 
-# Extract the catchment from a regional DEM
-BV = watershed_root.Watershed(dem_path=dem_path,
-                              out_path=out_path,
-                              load=False,
-                              watershed_name=watershed_name,
-                              from_dem=None, # [path, cell size]
-                              from_shp=None, # [path, buffer size]
-                              from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              catch_def=catch_def, # watershed extraction definition mode
-                              bottom_path=None, # path
+# build paths and initialisation objects exactly like example_11
+initializing_object = initializing.Initializing(catch_name=watershed_name,
+                                                out_dir_path=out_path)
+
+specific_path = os.path.join(root_dir, "examples", "01S_short/")
+data_path = os.path.join(specific_path, "data/")
+dem_path = os.path.join(specific_path, "data", dem_name)
+
+# geographic object uses the new Geographic class
+geographic_object = geographic.Geographic(
+                    stable_folder=initializing_object.stable_folder,
+                    out_dir_path=initializing_object.catch_folder,
+                    catch_def=catch_def,
+                    dem_init_path=dem_path,
+                    x_outlet=from_xyv[0],
+                    y_outlet=from_xyv[1],
+                    snap_dist=from_xyv[2],
+                    buff_area=from_xyv[3],
+                    polyg_shp_path=None,
+                    dem_correc_type='breach', # adjust as needed
+                    )
+
+# create watershed root from the two helper objects
+BV = watershed_root.Watershed(load=False,
+                              initializing_object=initializing_object,
+                              geographic_object=geographic_object,
                               save_object=True)
 
 # Paths necessary for the script
@@ -112,7 +124,7 @@ Qobs = Qobs.rename('Q')
 def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
-area = BV.geographic.area
+area = BV.geographic.catch_area
 first = 1990
 last = 2019
 Qobs = select_period(Qobs, first, last)
