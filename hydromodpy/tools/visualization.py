@@ -99,7 +99,7 @@ def create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio, sim_contour, sim_pat
     >>> fig, ax = create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio,
     ...                            sim_contour, sim_pathlines, title='Water Table Depth')
     >>> # Auto-detect vline_width (no parameters needed!)
-    >>> fig, ax = create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio, 
+    >>> fig, ax = create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio,
     ...                            sim_contour, sim_pathlines)
     """
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
@@ -125,7 +125,7 @@ def create_map_plot(wtd_data, wtd_rio, seep_data, seep_rio, sim_contour, sim_pat
     # Auto-detect vline_width if not provided (use middle of data)
     if vline_width is None:
         vline_width = wtd_data.shape[1] // 2
-    
+
     # Add vertical line
     if vline_pos is None:
         vline_pos = ax.get_xlim()[0] + (vline_width * pixel_res)
@@ -147,7 +147,7 @@ def create_crosssection_plot(wte_data, dem_data, wte_col=None,
 
     Extracts a vertical slice through the water table elevation and topography,
     showing the position of the water table within the subsurface.
-    
+
     Automatically detects optimal column and axis limits if not specified.
 
     Parameters:
@@ -180,10 +180,10 @@ def create_crosssection_plot(wte_data, dem_data, wte_col=None,
     ---------
     >>> # Auto-detect everything
     >>> fig, ax = create_crosssection_plot(wte_data, dem_data)
-    
+
     >>> # Custom column with auto xlim/ylim
     >>> fig, ax = create_crosssection_plot(wte_data, dem_data, wte_col=30)
-    
+
     >>> # Full control
     >>> fig, ax = create_crosssection_plot(wte_data, dem_data, wte_col=28,
     ...                                     xlim=(0, 30), ylim=(40, 150))
@@ -191,17 +191,17 @@ def create_crosssection_plot(wte_data, dem_data, wte_col=None,
     # Auto-detect wte_col if not provided (use middle of data)
     if wte_col is None:
         wte_col = wte_data.shape[1] // 2
-    
+
     # Auto-detect xlim if not provided (full row range)
     if xlim is None:
         xlim = (0, wte_data.shape[0])
-    
+
     # Auto-detect ylim if not provided (elevation range with 10m buffer)
     if ylim is None:
         dem_min = np.nanmin(dem_data)
         dem_max = np.nanmax(dem_data)
         ylim = (dem_min, dem_max + 10)
-    
+
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
 
     # Extract cross-section data
