@@ -5,7 +5,7 @@ Participants:  Alexandre C., Bastien, Jean-Raynald, Sarah, Théa, Ariane, Trista
 General discussions:
 --------------------------
 
-Article : Relancer (JR) pour avoir une réponse de HESS pour passer le papier en Technical Note. 
+Article : Relancer (JR) pour avoir une réponse de HESS pour passer le papier en Technical Note.
 
 Ozcar : Gestion de la ressource sur l'ensemble du cycle sur un territoire (type AquiFR). Service de modélisation. EcH2O modèle physique sur l'ensemble des compartiments. HydroModPy focus sur un compartiment.
 Ronan et JR: message pour se manifester sur notre intention de contribuer avec HydroModPy.
@@ -29,9 +29,9 @@ Ronan et JR: message pour se manifester sur notre intention de contribuer avec H
     - Bastien : Mise à jour de la version Python d'HydroModPy
     - Ronan : Présentation des résultats d'évolution des concentrations en nitrate à l'échelle d'un BV (Effet de la dégradation des nitrates sur les concentrations en cours d'eau)
     - Alexandre C. : Présentation de l'outil GEOP4TH (https://gitlab.com/AlexandreCoche/geop4th)
-    - Alexandre G. : Implémentation du code pour la prise en charge de Modflow 6. Présentation de la structure d'un maillage irrégulier. 
+    - Alexandre G. : Implémentation du code pour la prise en charge de Modflow 6. Présentation de la structure d'un maillage irrégulier.
 
-Prochaine date de réunion 25juin - 26juin - 3juillet 
+Prochaine date de réunion 25juin - 26juin - 3juillet
 
 --------------------------
 Date: 03/03/25 - 14h
@@ -47,10 +47,10 @@ Présentation HydroModPy aux stagiaires
 Création d'une branche spécifique par stage quitte à revenir après sur la branche dev
 Identifier ce qui va être fait
 Utilisation de slack
-Echange fin mars 
+Echange fin mars
 
 Gestion de la base de données HydroDataPy
-Possibilité CNRS 
+Possibilité CNRS
 - 200 Go sans contraint actuellement
 - Vital
 - A activer immédiatement
@@ -72,11 +72,11 @@ Intégration à l'échelle de l'Europe
 
 Perspectives Intégration ModFllow 6
 
-Ordre du Jour prochaine réunion 
+Ordre du Jour prochaine réunion
 Dates possibles
 2, 3 ou 4 avril après-midi 14:00 ou 16:00
 
-HydroModPy, présentation stagiaires (à solliciter): Ariane, Maeliss, Enzo, 
+HydroModPy, présentation stagiaires (à solliciter): Ariane, Maeliss, Enzo,
 1- Présentation des sujets de stage et des besoins HydroModPy
 2- Echange sur les capacités et les limites de la plateforme
 
@@ -127,10 +127,10 @@ Next meeting: 03/03/25 - 2pm
 - Think about the supervision of master internships.
 
 
-Recent commit/branch:  https://gitlab.com/Alex-Gauvain/HydroModPy/-/commits
+Recent commit/branch:  https://github.com/HydroModPy/HydroModPy/commits
 ---------------------
 
-Gitlab Open Issues: https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues
+GitHub Open Issues: https://github.com/HydroModPy/HydroModPy/issues
 -------------------
 
 - List of error messages clustering console #35 · created 1 month ago by Ronan Abhervé
@@ -157,7 +157,7 @@ Branch : master (branche utilisateur) - dev (branche centrale) - dev-features (b
 Actions:
 (1) Envoyer un mail sur la mail-list de prévention
 (2) Back-up de toutes les branches
-(3) Merge v0.1 vers master 
+(3) Merge v0.1 vers master
 (4) Tag de la branch master : v1.0.0 (majeurs.features.corrections)
 (5) Merge v0.1 vers dev0.1 /!\ Attention conflits
 (6) Supprimer la v0.1
@@ -176,7 +176,7 @@ Recap liste des branches à créer :
   AG & Martin:
     Branch old-calibration
   AC:
-    Branch dev-lakeres 
+    Branch dev-lakeres
     Branch dev-lakeres-warm-up
     Branch dev-sequential
     Branch dev-lakeres-sequential
@@ -189,19 +189,19 @@ Réunion HMP:
   - Faire un guide du dev HydroModPy: Branch par feature
   - Ajouter un fichier meeting.txt sur le git dev: rapport de réunion
 
-===========================================================================  
+===========================================================================
 Template
 ===========================================================================
-Date: 
-Participants: 
-  
+Date:
+Participants:
+
 General discussions:
 -------------------
 
-Recent commits:  https://gitlab.com/Alex-Gauvain/HydroModPy/-/commits
+Recent commits:  https://github.com/HydroModPy/HydroModPy/commits
 --------------
 
-Gitlab Issues: https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues
+GitHub Issues: https://github.com/HydroModPy/HydroModPy/issues
 -------------
 
 

@@ -1,8 +1,5 @@
 [build-system]
-requires = [
-    "setuptools>=65.0",
-    "wheel",
-]
+requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,14 +10,14 @@ readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = "EPL-2.0"
 authors = [
-    {name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com"},
-    {name = "Ronan Abhervé", email = "ronan.abherve@gmail.com"},
-    {name = "Jean-Raynald de Dreuzy", email = "jean-raynald.de-dreuzy@univ-rennes.fr"},
+    { name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com" },
+    { name = "Ronan Abhervé", email = "ronan.abherve@gmail.com" },
+    { name = "Jean-Raynald de Dreuzy", email = "jean-raynald.de-dreuzy@univ-rennes.fr" },
 ]
 maintainers = [
-    {name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com"},
-    {name = "Ronan Abhervé", email = "ronan.abherve@gmail.com"},
-    {name = "Bastien Boivin", email = "bastien.boivin@proton.me"},
+    { name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com" },
+    { name = "Ronan Abhervé", email = "ronan.abherve@gmail.com" },
+    { name = "Bastien Boivin", email = "bastien.boivin@proton.me" },
 ]
 keywords = [
     "hydrology",
@@ -48,7 +45,7 @@ dependencies = [
     "contextily",
     "flopy",
     "geopandas",
-    "h5py",  # Required by pyhelp module for HDF5 data files
+    "h5py",                # Required by pyhelp module for HDF5 data files
     "imageio",
     "ipykernel",
     "ipython",
@@ -87,16 +84,13 @@ docs = [
     "sphinx-tabs",
     "sphinx-multiversion",
 ]
-ide = [
-    "spyder>=6.0",
-    "jupyterlab>=4.0",
-]
+ide = ["spyder>=6.0", "jupyterlab>=4.0"]
 
 [project.urls]
-Homepage = "https://hydromod.readthedocs.io/"
-Documentation = "https://hydromod.readthedocs.io/"
-Repository = "https://gitlab.com/Alex-Gauvain/HydroModPy"
-Issues = "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues"
+Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
+Documentation = "https://hydromodpy-docs.readthedocs.io/en/latest/"
+Repository = "https://github.com/HydroModPy/HydroModPy"
+Issues = "https://github.com/HydroModPy/HydroModPy/issues"
 "Google Group" = "https://groups.google.com/g/hydromodpy"
 
 [tool.setuptools]

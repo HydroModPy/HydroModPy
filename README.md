@@ -1,8 +1,8 @@
-![logo](https://gitlab.com/Alex-Gauvain/HydroModPy/-/raw/master/docs/readthedocs/source/images/logoHydroModPy_long.png)
+![logo](https://raw.githubusercontent.com/HydroModPy/HydroModPy/main/docs/readthedocs/source/images/logoHydroModPy_long.png)
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-[![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=latest)](https://hydromodpy-docs.readthedocs.io/en/latest/?badge=latest)
 
 ## Presentation
 
@@ -29,8 +29,8 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le
 
 ## Links
 
-- GitLab Project: https://gitlab.com/Alex-Gauvain/HydroModPy/
-- Read the Docs: https://hydromod.readthedocs.io/
+- GitHub Project: https://github.com/HydroModPy/HydroModPy
+- Read the Docs: https://hydromodpy-docs.readthedocs.io/en/latest/
 - Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - Forum Group: https://groups.google.com/g/hydromodpy
 
@@ -88,14 +88,14 @@ conda activate hydromodpy-pkg
 
 To obtain the source code for development:
 
-**Option 1**: Download the `.zip` folder directly from the [GitLab project](https://gitlab.com/Alex-Gauvain/HydroModPy/)
+**Option 1**: Download the `.zip` folder directly from the [GitHub project](https://github.com/HydroModPy/HydroModPy)
 
 **Option 2**: Clone the repository using a Git management tool like GitHub Desktop
 
 **Option 3**: Use command line with classical Git functions:
 
 ```bash
-git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
+git clone https://github.com/HydroModPy/HydroModPy.git
 cd HydroModPy
 ```
 
