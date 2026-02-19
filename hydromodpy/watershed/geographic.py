@@ -39,6 +39,7 @@ sys.path.append(root_dir)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.watershed import initializing
+from hydromodpy.watershed.geographic_config import GeographicConfig
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 logger = get_logger(__name__)
@@ -67,7 +68,7 @@ def DEM_correcflow_analysis(dem_init_path: str,
         Dictionary with output paths:
         ``{"fill": ..., "direc": ..., "acc": ...}``.
     """
-    
+
     if dem_correc_type == 'fill':
         # Depression-corrected DEM.
         correc = os.path.join(dem_out_dir_path, "dem_fill.tif")
@@ -76,7 +77,7 @@ def DEM_correcflow_analysis(dem_init_path: str,
         # Depression-corrected DEM.
         correc = os.path.join(dem_out_dir_path, "dem_breach.tif")
         wbt.breach_depressions(dem_init_path, correc)
-        
+
     # D8 flow-direction raster.
     direc = os.path.join(dem_out_dir_path, "dem_direc.tif")
     wbt.d8_pointer(correc, direc, esri_pntr=False)
@@ -116,80 +117,30 @@ class Geographic:
     """
 
     def __init__(self,
-                 # initializing_object: object=None,
-                 stable_folder: str=None,
-                 out_dir_path: str=None,
-                 catch_def: str=None,
-                 dem_init_path: str=None,
-                 x_outlet: float=None,
-                 y_outlet: float=None,
-                 snap_dist: float=None,
-                 buff_area: float=None,
-                 polyg_shp_path: str=None,
-                 dem_correc_type: str=None, # 'fill' or 'breach'
-                 # demflow_dir_path: str=None
-                 # resamp_size: int=None,
+                 config: GeographicConfig,
+                 initializing_object,
                  ):
         """
         Parameters
         ----------
-        dem_path : str
-            Path of the initial Digital Elevation Model.
-        bottom_path : str, optional
-            Path of a raster representing the bottom elevation. The default is None.
-        cell_size:
-            Resolution of the DEM. To change the initial resolution
-        x_outlet:
-            x coordinate of the watershed outlet.
-        y_outlet:
-            y coordinate of the watershed outlet.
-        snap_dist:
-            Maximum distance where the outlet can be moved.
-        buffer_size:
-            buffer distance in percentage of the model domain (value in percent).
-        crs_proj : str
-            Projection label of the workflow (ex: 'EPSG:2454').
-        out_path : str
-            Path of the HydroModPy outputs.
-        stable_folder : str
-            Path of the stable results about the model domain or watershed.
-        simulations_folder : str
-            Path of the simulation results from modeling operations.
-        calibration_folder : str
-            Path of the calibration results from modeling operations.
-        from_dem : list, optional
-            List with two parameters: [path, cell_size]
-        from_shp : list, optional
-            List of tow parameters: [path, buffer_size]
-        from_xyv : list, optional
-            List of four parameters: [x, y, snap_distance, buffer_size]
-        catch_def : str, optional
-            Catchment definition mode.
-            Supported modes are:
-            - ``"dem"``: model domain loaded directly from ``from_dem``.
-            - ``"txt"``: model domain built from an XYZ text file.
-            - ``"xy"``: watershed extracted from outlet coordinates provided
-              through ``from_xyv``.
-            - ``"shp"``: watershed loaded from a polygon shapefile provided
-              through ``from_shp``.
-        reg_fold : str, None
-            Path of the folder with regional data/results.
-            If informed, the regional results will not be created, just loaded from folder.
-            The default is None.
+        config : GeographicConfig
+            Pydantic config with all geographic parameters.
+        initializing_object : Initializing
+            Initializing instance providing folder paths.
         """
         logger.info('Extracting geographic data for model area')
-        
-        self.stable_folder = stable_folder
-        self.out_dir_path = out_dir_path
-        self.catch_def = catch_def
-        self.dem_init_path = dem_init_path
-        self.x_outlet = x_outlet
-        self.y_outlet = y_outlet
-        self.snap_dist = snap_dist
-        self.buff_area = buff_area
-        self.polyg_shp_path = polyg_shp_path
-        self.dem_correc_type = dem_correc_type
-        # self.demflow_dir_path = demflow_dir_path
+
+        self.stable_folder   = initializing_object.stable_folder
+        self.out_dir_path    = initializing_object.catch_folder
+        self.catch_def       = config.catch_def
+        self.dem_init_path   = config.dem_init_path
+        self.x_outlet        = config.x_outlet
+        self.y_outlet        = config.y_outlet
+        self.snap_dist       = config.snap_dist
+        self.buff_area       = config.buff_area
+        self.polyg_shp_path  = config.polyg_shp_path
+        self.dem_correc_type = config.dem_correc_type
+        self._crs_project    = config.crs_project
 
         self.processing()
 
@@ -216,7 +167,7 @@ class Geographic:
         self.stable_folder = os.path.join(self.watershed_folder, 'results_stable')
         toolbox.create_folder(self.stable_folder)
         """
-        
+
         # Recall important folders
         self.stable_folder = os.path.join(self.out_dir_path, 'results_stable')
         self.simulations_folder = os.path.join(self.out_dir_path, 'results_simulations')
@@ -228,17 +179,20 @@ class Geographic:
         # Generate regional folder
         self.correcflow_path = os.path.join(self.out_dir_path, 'results_stable', 'demcorrecflow')
         toolbox.create_folder(self.correcflow_path)
-        
+
         """
         Raw init DEM
         """
-        
+
         self.epsg = rasterio.open(self.dem_init_path).crs.to_epsg()
         if self.epsg != None:
             self.crs_proj = 'EPSG:'+str(self.epsg)
         else:
             self.crs_proj = None
-        
+
+        if hasattr(self, '_crs_project') and self._crs_project is not None:
+            self.crs_proj = self._crs_project
+
         # if isinstance(self.demflow_dir_path, (str))==False:
         DEM_correcflow_analysis_files = DEM_correcflow_analysis(
                                         dem_init_path=self.dem_init_path,
@@ -257,7 +211,7 @@ class Geographic:
         _ensure_crs(correc, self.crs_proj)
         _ensure_crs(direc, self.crs_proj)
         _ensure_crs(acc, self.crs_proj)
-        
+
         """
         Extract watershed from an outlet
         """
@@ -280,7 +234,7 @@ class Geographic:
             self.watershed_shp = os.path.join(self.geographic_path, 'watershed.shp')
             wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
             _ensure_crs(self.watershed_shp, self.crs_proj)
-            
+
         if self.catch_def == "from_polyg_shp":
             self.watershed_shp = os.path.join(self.geographic_path, 'watershed.shp')
             polyg_shp_file = gpd.read_file(self.polyg_shp_path)
@@ -288,8 +242,8 @@ class Geographic:
             polyg_shp_file = polyg_shp_file.loc[:, ~polyg_shp_file.columns.duplicated()]
             polyg_shp_file.to_file(self.watershed_shp)
             _ensure_crs(self.watershed_shp, self.crs_proj)
-        
-        
+
+
         """
         Shapefile operations
         """
@@ -304,7 +258,7 @@ class Geographic:
             area = gpd.read_file(self.watershed_shp).area[0]/1000000
             self.catch_area = np.abs(area)
             pass
-        
+
         """
         Buffer distance operations
         """
@@ -326,7 +280,7 @@ class Geographic:
         buffer = os.path.join(self.geographic_path, 'watershed_buff.shp')
         site_polyg.to_file(buffer)
         _ensure_crs(buffer, self.crs_proj)
-        
+
         """
         Box extent operations
         """
@@ -348,7 +302,7 @@ class Geographic:
         site_bound = site_bound.loc[:, ~site_bound.columns.duplicated()]
         site_bound.to_file(self.box_buff)
         _ensure_crs(self.box_buff, self.crs_proj)
-        
+
         """
         Clip to reach box extent size
         """
@@ -410,7 +364,7 @@ class Geographic:
         wbt.clip_raster_to_polygon(direc, self.watershed_shp, self.watershed_direc,
                                    maintain_dimensions=False)
         _ensure_crs(self.watershed_direc, self.crs_proj)
-        
+
         """
         Create catchment surface contour in raster
         """
@@ -420,42 +374,42 @@ class Geographic:
                                    self.watershed_contour_tif,
                                    base = self.watershed_dem)
         _ensure_crs(self.watershed_contour_tif, self.crs_proj)
-        
+
         """
         Check grid shapes
         """
         with rasterio.open(self.watershed_box_buff_dem) as src1, \
             rasterio.open(self.watershed_buff_dem) as src2, \
             rasterio.open(self.watershed_dem) as src3:
-            
+
             print('YES', src1.read(1).shape,src2.read(1).shape,src3.read(1).shape)
-    
-            
+
+
             if src1.read(1).shape != src2.read(1).shape != src3.read(1).shape:
                 logger.debug('Reshaping rasters to match box buff watershed dimensions')
                 print('NO', src1.read(1).shape,src2.read(1).shape,src3.read(1).shape)
-                
+
                 with rasterio.open(self.watershed_box_buff_dem) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_dem, -9999)
                 with rasterio.open(self.watershed_box_buff_fill) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_fill, -9999)
                 with rasterio.open(self.watershed_box_buff_direc) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_direc, -32768)
-                
+
                 with rasterio.open(self.watershed_box_buff_dem) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_buff_dem, -9999)
                 with rasterio.open(self.watershed_box_buff_fill) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_buff_fill, -9999)
                 with rasterio.open(self.watershed_box_buff_direc) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_buff_direc, -32768)
-                
+
                 with rasterio.open(self.watershed_box_buff_dem) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_box_buff_dem, -9999)
                 with rasterio.open(self.watershed_box_buff_fill) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_box_buff_fill, -9999)
                 with rasterio.open(self.watershed_box_buff_direc) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_box_buff_direc, -32768)
-                    
+
     #%% DEM FEATURES
 
     def info_dem(self):
@@ -471,31 +425,31 @@ class Geographic:
         with rasterio.open(self.watershed_dem) as dem_src:
             self.dem_data = dem_src.read(1)
             self.nodata = dem_src.nodata
-        
+
         self.geodata = dem_src.transform.to_gdal()
-        
+
         # # Extract size characteristics
         self.x_pixel = self.dem_box_buff_data.shape[1] # columns
         self.y_pixel = self.dem_box_buff_data.shape[0] # rows
-        
+
         # # Extract resolution
         self.resolution_x = self.geodata[1] # pixelWidth: positive
         self.resolution_y = self.geodata[5] # pixelHeight: negative
         self.resolution = self.resolution_x
-        
+
         # Extract bounds size
         self.xmin = self.geodata[0] # originX
         self.ymax = self.geodata[3] # originY
         self.xmax = self.xmin + self.x_pixel * self.resolution_x
         self.ymin = self.ymax + self.y_pixel * self.resolution_y
-        
+
         # Generate coordinates
         self.x_coord = np.linspace(1,self.x_pixel, self.x_pixel)*(self.resolution_x) + self.xmin
         self.y_coord = self.ymax - np.linspace(1,self.y_pixel, self.y_pixel)*(self.resolution_x)
-        
+
         # Calculate centroids
         self.centroid = [self.xmin+((self.xmax-self.xmin)/2),self.ymin+((self.ymax-self.ymin)/2)]
-        
+
         # # Transform centroids to World Geodetic System 1984
         # try:
         #     transformer = Transformer.from_crs(self.crs_proj, "epsg:4326")
