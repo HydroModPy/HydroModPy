@@ -15,6 +15,9 @@ class InitializingConfig(BaseModel):
     out_dir_path: Annotated[str, ParamLevel("user")] = Field(
         description="Root output directory where all results will be stored."
     )
+    data_path: Annotated[str, ParamLevel("user")] = Field(
+        description="Path to the input data folder (observations, climate, GIS layers, etc.)."
+    )
 
     @property
     def stable_folder(self) -> str:
