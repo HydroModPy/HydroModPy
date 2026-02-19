@@ -28,9 +28,12 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.watershed import climatic, driasclimat, driaseau, geographic, geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
+from hydromodpy.watershed import climatic, driasclimat, driaseau, \
+    geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
 from hydromodpy.modeling import modflow, modpath, mt3dms, timeseries, netcdf
 from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.tools import setup_simulation_log
+
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 logger = get_logger(__name__)
@@ -45,17 +48,11 @@ class Watershed:
     """
 
     def __init__(self,
-                 dem_path: str,
-                 out_path: str,
                  load: bool=False,
-                 watershed_name: str='Default',
-                 from_dem: list=None, # [path, cell size]
-                 from_shp: list=None, # [path, buffer size]
-                 from_xyv: list=None, # [x, y, snap distance, buffer size]
-                 catch_def: str=None, # catchment definition mode ("dem", "txt", "xy" or "shp")
-                 reg_fold: str=None,
-                 bottom_path: str=None, # path
-                 save_object: bool=True):
+                 initializing_object: object=None,
+                 geographic_object: object=None,
+                 save_object: bool=True,
+                 ):
         """
         Parameters
         ----------
@@ -108,48 +105,23 @@ class Watershed:
         """
 
         toolbox.print_hydromodpy()
+                
+        self.watershed_name = initializing_object.catch_name
+        self.out_path = initializing_object.out_dir_path
 
-        self.dem_path = dem_path
-        self.out_path = out_path
         self.load = load
-        self.watershed_name = watershed_name
-        self.from_dem = from_dem
-        self.from_shp = from_shp
-        self.from_xyv = from_xyv
-        self.catch_def = catch_def
-        if (
-            self.catch_def is None
-            and isinstance(self.dem_path, str)
-            and self.dem_path.lower().endswith(".txt")
-        ):
-            self.catch_def = "txt"
-        if (
-            self.catch_def is None
-            and isinstance(self.from_dem, list)
-            and len(self.from_dem) > 0
-            and isinstance(self.from_dem[0], str)
-            and self.from_dem[0].lower().endswith(".txt")
-        ):
-            self.catch_def = "txt"
-        self.reg_fold = reg_fold
-        self.bottom_path = bottom_path
+
         self.bin_path = os.path.join(os.path.dirname(root_dir), 'bin')
 
-        self.watershed_folder = os.path.join(out_path, watershed_name)
+        self.watershed_folder = os.path.join(self.out_path, self.watershed_name)
         toolbox.create_folder(self.watershed_folder)
 
         # Setup simulation log in watershed folder
-        from hydromodpy.tools import setup_simulation_log
         setup_simulation_log(self.watershed_folder)
 
-        self.stable_folder = os.path.join(self.watershed_folder, 'results_stable')
-        toolbox.create_folder(self.stable_folder)
-
-        self.simulations_folder = os.path.join(self.watershed_folder, 'results_simulations')
-        toolbox.create_folder(self.simulations_folder)
-
-        self.calibration_folder = os.path.join(self.watershed_folder, 'results_calibration')
-        toolbox.create_folder(self.calibration_folder)
+        self.stable_folder = initializing_object.stable_folder
+        self.simulations_folder = initializing_object.simulations_folder
+        self.calibration_folder = initializing_object.calibration_folder
 
         self.add_data_folder = os.path.join(self.stable_folder, 'add_data')
         toolbox.create_folder(self.add_data_folder)
@@ -171,7 +143,7 @@ class Watershed:
                 # Definition of the watershed
                 self.__init_object()
                 # Creation of the watershed defined at the previous line
-                self.__create_object()
+                self.__create_object(geographic_object)
                 # Save object
                 if save_object == True:
                     self.save_object()
@@ -180,7 +152,7 @@ class Watershed:
             # Definition of the watershed
             self.__init_object()
             # Creation of the watershed defined at the previous line
-            self.__create_object()
+            self.__create_object(geographic_object)
             # Save object
             if save_object == True:
                 self.save_object()
@@ -273,65 +245,65 @@ class Watershed:
         -------
         None.
         """
-        if self.catch_def == "txt":
-            if self.from_dem is None:
-                raise ValueError(
-                    "catch_def='txt' requires from_dem=[path_to_txt, cell_size]"
-                )
-            self.dem_path = self.from_dem[0]
-            self.bottom_path = self.bottom_path
-            self.cell_size = self.from_dem[1]
-            self.x_outlet = None
-            self.y_outlet = None
-            self.snap_dist = None
-            self.buff_percent = None
-            self.crs_proj = None
+        # if self.catch_def == "txt":
+        #     if self.from_dem is None:
+        #         raise ValueError(
+        #             "catch_def='txt' requires from_dem=[path_to_txt, cell_size]"
+        #         )
+        #     self.dem_path = self.from_dem[0]
+        #     self.bottom_path = self.bottom_path
+        #     self.cell_size = self.from_dem[1]
+        #     self.x_outlet = None
+        #     self.y_outlet = None
+        #     self.snap_dist = None
+        #     self.buff_percent = None
+        #     self.crs_proj = None
 
-        if self.catch_def == "dem":
-            if self.from_dem is None:
-                raise ValueError("catch_def='dem' requires from_dem to be provided")
-            with rasterio.open(self.from_dem[0]) as dem_src:
-                src_crs = dem_src.crs
-            self.dem_path = self.from_dem[0]
-            self.bottom_path = self.bottom_path
-            self.cell_size = self.from_dem[1]
-            self.x_outlet = None
-            self.y_outlet = None
-            self.snap_dist = None
-            self.buff_percent = None
-            if src_crs:
-                epsg_code = src_crs.to_epsg()
-                self.crs_proj = f"EPSG:{epsg_code}" if epsg_code else src_crs.to_string()
-            else:
-                self.crs_proj = None
+        # if self.catch_def == "dem":
+        #     if self.from_dem is None:
+        #         raise ValueError("catch_def='dem' requires from_dem to be provided")
+        #     with rasterio.open(self.from_dem[0]) as dem_src:
+        #         src_crs = dem_src.crs
+        #     self.dem_path = self.from_dem[0]
+        #     self.bottom_path = self.bottom_path
+        #     self.cell_size = self.from_dem[1]
+        #     self.x_outlet = None
+        #     self.y_outlet = None
+        #     self.snap_dist = None
+        #     self.buff_percent = None
+        #     if src_crs:
+        #         epsg_code = src_crs.to_epsg()
+        #         self.crs_proj = f"EPSG:{epsg_code}" if epsg_code else src_crs.to_string()
+        #     else:
+        #         self.crs_proj = None
 
-        if self.catch_def == "shp":
-            if self.from_shp is None:
-                raise ValueError("catch_def='shp' requires from_shp to be provided")
-            shp_file = gpd.read_file(self.from_shp[0])
-            self.dem_path = self.dem_path
-            self.bottom_path = self.bottom_path
-            self.cell_size = None
-            self.x_outlet = None
-            self.y_outlet = None
-            self.snap_dist = None
-            self.buff_percent = self.from_shp[1]
-            # self.crs_proj = shp_file.crs.srs.upper()
-            self.crs_proj = f"EPSG:{shp_file.crs.to_epsg()}"
+        # if self.catch_def == "shp":
+        #     if self.from_shp is None:
+        #         raise ValueError("catch_def='shp' requires from_shp to be provided")
+        #     shp_file = gpd.read_file(self.from_shp[0])
+        #     self.dem_path = self.dem_path
+        #     self.bottom_path = self.bottom_path
+        #     self.cell_size = None
+        #     self.x_outlet = None
+        #     self.y_outlet = None
+        #     self.snap_dist = None
+        #     self.buff_percent = self.from_shp[1]
+        #     # self.crs_proj = shp_file.crs.srs.upper()
+        #     self.crs_proj = f"EPSG:{shp_file.crs.to_epsg()}"
 
-        if self.catch_def == "xy":
-            if self.from_xyv is None:
-                raise ValueError("catch_def='xy' requires from_xyv to be provided")
-            self.dem_path = self.dem_path
-            self.bottom_path = self.bottom_path
-            self.cell_size = None
-            self.x_outlet = self.from_xyv[0]
-            self.y_outlet = self.from_xyv[1]
-            self.snap_dist = self.from_xyv[2]
-            self.buff_percent = self.from_xyv[3]
-            self.crs_proj = self.from_xyv[4]
+        # if self.catch_def == "xy":
+        #     if self.from_xyv is None:
+        #         raise ValueError("catch_def='xy' requires from_xyv to be provided")
+        #     self.dem_path = self.dem_path
+        #     self.bottom_path = self.bottom_path
+        #     self.cell_size = None
+        #     self.x_outlet = self.from_xyv[0]
+        #     self.y_outlet = self.from_xyv[1]
+        #     self.snap_dist = self.from_xyv[2]
+        #     self.buff_percent = self.from_xyv[3]
+        #     self.crs_proj = self.from_xyv[4]
 
-    def __create_object(self):
+    def __create_object(self, geographic_object):
         """
         Private method to create geographic watershed.
 
@@ -340,23 +312,25 @@ class Watershed:
         None.
         """
         # Structure data
-        self.geographic = geographic.Geographic(self.dem_path,
-                                                self.bottom_path,
-                                                self.cell_size,
-                                                self.x_outlet,
-                                                self.y_outlet,
-                                                self.snap_dist,
-                                                self.buff_percent,
-                                                self.crs_proj,
-                                                self.watershed_folder,
-                                                self.stable_folder,
-                                                self.simulations_folder,
-                                                self.calibration_folder,
-                                                self.from_dem,
-                                                self.from_shp,
-                                                self.from_xyv,
-                                                self.catch_def,
-                                                self.reg_fold)
+        # self.geographic = geographic.Geographic(self.dem_path,
+        #                                         self.bottom_path,
+        #                                         self.cell_size,
+        #                                         self.x_outlet,
+        #                                         self.y_outlet,
+        #                                         self.snap_dist,
+        #                                         self.buff_percent,
+        #                                         self.crs_proj,
+        #                                         self.watershed_folder,
+        #                                         self.stable_folder,
+        #                                         self.simulations_folder,
+        #                                         self.calibration_folder,
+        #                                         self.from_dem,
+        #                                         self.from_shp,
+        #                                         self.from_xyv,
+        #                                         self.catch_def,
+        #                                         self.reg_fold)
+        
+        self.geographic = geographic_object
 
         self.elt_def.append('geographic')
 
@@ -658,6 +632,7 @@ class Watershed:
         self.save_object()
 
     #%% MODFLOW MODEL
+
     def preprocessing_modflow(self, for_calib: bool=False):
         """
         Public method to build the hydrogeological model.

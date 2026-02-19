@@ -262,7 +262,7 @@ class Hydraulic:
         Parameters
         ----------
         thick_exp_value : float
-            Exponential decay ratio of vertical layer mesh thickness increasing with depath.
+            Exponential decay ratio of vertical layer mesh thickness increasing with depth.
             The default value without decay is 1.
         """
         self.lay_decay = lay_decay_value

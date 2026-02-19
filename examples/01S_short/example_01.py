@@ -15,6 +15,7 @@
 # PYTHON PACKAGES
 import sys
 import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import flopy
@@ -33,61 +34,47 @@ except:
 
 # ROOT DIRECTORY
 from os.path import dirname, abspath
-try:
-    root_dir = dirname(dirname(dirname(abspath(__file__))))
-except NameError:
-    root_dir = os.getcwd()
+# try:
+root_dir = dirname(dirname(dirname(abspath(__file__))))
+# except NameError:
+#     root_dir = os.getcwd()
 sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
+from hydromodpy.watershed import initializing, geographic
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
-example_path = os.path.join(root_dir, "examples", "01S_short/")
-data_path = os.path.join(example_path, "data/")
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 
-# The folder out_path is created in the example_path root directory:
-out_path = os.path.join(root_dir,'examples', 'results')
-# Or define it manually
-# out_path = 'C:/Simulations/HydroModPy/'
-
-print('The results of the example will be saved here :', out_path)
+out_path = cfg.initializing.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
 
-# Name of the study site
-watershed_name = '01S_short'
+watershed_name = cfg.initializing.catch_name
 print('##### '+watershed_name.upper()+' #####')
 
-# Regional DEM
-dem_path = os.path.join(data_path, 'regional dem.tif')
+data_path = cfg.initializing.data_path
 
-# Outlet coordinates of the catchment
-from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154']
-catch_def = "xy"
+initializing_object = initializing.Initializing(config=cfg.initializing)
+geographic_object   = geographic.Geographic(config=cfg.geographic,
+                                            initializing_object=initializing_object)
 
-# Extract the catchment from a regional DEM
-BV = watershed_root.Watershed(dem_path=dem_path,
-                              out_path=out_path,
-                              load=False,
-                              watershed_name=watershed_name,
-                              from_dem=None, # [path, cell size]
-                              from_shp=None, # [path, buffer size]
-                              from_xyv=from_xyv, # [x, y, snap distance, buffer size]
-                              catch_def=catch_def, # watershed extraction definition mode
-                              bottom_path=None, # path
+BV = watershed_root.Watershed(load=False,
+                              initializing_object=initializing_object,
+                              geographic_object=geographic_object,
                               save_object=True)
 
-# Paths necessary for the script
-stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
-simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+stable_folder      = cfg.initializing.stable_folder
+simulations_folder = cfg.initializing.simulations_folder
 
 #%% ---- ADD DATA PLOT
 
 # General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
+visualization_watershed.watershed_local(cfg.geographic.dem_init_path, BV)
 
 # Clip specific data at the catchment scale
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
@@ -106,13 +93,13 @@ visualization_watershed.watershed_dem(BV)
 
 #%% ---- PLOT STREAMFLOW
 
-Qobs = pd.read_csv(data_path+'/'+'hydrometry catchment Canut.csv', sep=';', index_col=0, parse_dates=True)
+Qobs = pd.read_csv(data_path / 'hydrometry catchment Canut.csv', sep=';', index_col=0, parse_dates=True)
 Qobs = Qobs.squeeze()
 Qobs = Qobs.rename('Q')
 def select_period(df, first, last):
     df = df[(df.index.year>=first) & (df.index.year<=last)]
     return df
-area = BV.geographic.area
+area = BV.geographic.catch_area
 first = 1990
 last = 2019
 Qobs = select_period(Qobs, first, last)
@@ -274,7 +261,7 @@ netcdf_results = BV.postprocessing_netcdf(model_modflow,
 #%% RECHARGE SOURCE
 
 BV.add_climatic()
-BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
+BV.climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                        clim_mod='REA',
                                        clim_sce='historic',
                                        first_year=1990,
@@ -307,8 +294,8 @@ ax.set_title('Recharge [mm/d]', color='blue')
 
 #%% MESH DISCRETIZATION
 
-mf = flopy.modflow.Modflow.load(simulations_folder+'/'+model_name+'/'+model_name+'.nam')
-gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+mf = flopy.modflow.Modflow.load(simulations_folder / model_name / (model_name + '.nam'))
+gridname = simulations_folder / model_name / (model_name + '.dis')
 grid_model = mf.modelgrid
 hk_grid = mf.upw.hk
 sy_grid = mf.upw.sy
@@ -359,8 +346,8 @@ plt.tight_layout()
 fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
 print(stable_folder)
 
-mask = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
-watertable_elevation = np.load(simulations_folder+'/'+model_name+'/_postprocess/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
+mask = imageio.imread(stable_folder / 'geographic' / 'watershed_dem.tif')
+watertable_elevation = np.load(simulations_folder / model_name / '_postprocess' / 'watertable_elevation.npy', allow_pickle=True).item()
 
 dem_data = imageio.imread(BV.geographic.watershed_dem)
 wt_data = watertable_elevation[0]
