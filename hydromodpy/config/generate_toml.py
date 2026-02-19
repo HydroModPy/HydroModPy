@@ -164,13 +164,15 @@ def _constraints_from_field(field_info: FieldInfo) -> list[str]:
     return parts
 
 
+_UNDEFINED = object()  # sentinel distinct from None
+
+
 def _default_value(field_info: FieldInfo) -> Any:
-    """Get default value or None if required."""
-    if field_info.default is not None:
-        from pydantic_core import PydanticUndefined
-        if field_info.default is not PydanticUndefined:
-            return field_info.default
-    return None
+    """Return the field default, or _UNDEFINED if the field is truly required."""
+    from pydantic_core import PydanticUndefined
+    if field_info.default is PydanticUndefined:
+        return _UNDEFINED
+    return field_info.default  # may be None (optional with no value)
 
 
 def _header(profile: str, modules: list[str]) -> list[str]:
@@ -221,18 +223,25 @@ def _section(section_name: str, model_cls: type[BaseModel], threshold: int) -> l
         meta_parts.extend(_constraints_from_field(field_info))
 
         default = _default_value(field_info)
-        if default is not None:
-            meta_parts.append(f"Default: {_fmt(default)}")
-        else:
+        if default is _UNDEFINED:
             meta_parts.append("REQUIRED")
+        elif default is None:
+            meta_parts.append("Optional")
+        else:
+            meta_parts.append(f"Default: {_fmt(default)}")
 
         lines.append(f"# {' | '.join(meta_parts)}")
 
-        # Value
-        if default is not None:
-            lines.append(f"{name} = {_fmt(default)}")
-        else:
+        # Value line
+        if default is _UNDEFINED:
+            # Truly required: uncommented placeholder
             lines.append(f"# {name} =")
+        elif default is None:
+            # Optional with no default: commented out
+            lines.append(f"# {name} =")
+        else:
+            # Has a real default value: write it directly
+            lines.append(f"{name} = {_fmt(default)}")
 
         lines.append("")
 
