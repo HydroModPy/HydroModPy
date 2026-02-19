@@ -39,6 +39,7 @@ sys.path.append(root_dir)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.watershed import initializing
+from hydromodpy.watershed.geographic_config import GeographicConfig
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 logger = get_logger(__name__)
@@ -116,69 +117,32 @@ class Geographic:
     """
 
     def __init__(self,
-                 # initializing_object: object=None,
-                 stable_folder: str=None,
-                 out_dir_path: str=None,
-                 catch_def: str=None,
-                 dem_init_path: str=None,
-                 x_outlet: float=None,
-                 y_outlet: float=None,
-                 snap_dist: float=None,
-                 buff_area: float=None,
-                 polyg_shp_path: str=None,
-                 dem_correc_type: str=None, # 'fill' or 'breach'
-                 # demflow_dir_path: str=None
-                 # resamp_size: int=None,
+                 config: GeographicConfig,
+                 initializing_object,
                  ):
         """
         Parameters
         ----------
-        dem_path : str
-            Path of the initial Digital Elevation Model.
-        bottom_path : str, optional
-            Path of a raster representing the bottom elevation. The default is None.
-        cell_size:
-            Resolution of the DEM. To change the initial resolution
-        x_outlet:
-            x coordinate of the watershed outlet.
-        y_outlet:
-            y coordinate of the watershed outlet.
-        snap_dist:
-            Maximum distance where the outlet can be moved.
-        buffer_size:
-            buffer distance in percentage of the model domain (value in percent).
-        crs_proj : str
-            Projection label of the workflow (ex: 'EPSG:2454').
-        out_path : str
-            Path of the HydroModPy outputs.
-        stable_folder : str
-            Path of the stable results about the model domain or watershed.
-        simulations_folder : str
-            Path of the simulation results from modeling operations.
-        calibration_folder : str
-            Path of the calibration results from modeling operations.
-        from_dem : list, optional
-            List with two parameters: [path, cell_size]
-        from_shp : list, optional
-            List of tow parameters: [path, buffer_size]
-        from_xyv : list, optional
-            List of four parameters: [x, y, snap_distance, buffer_size]
-        catch_def : str, optional
-            Catchment definition mode.
-            Supported modes are:
-            - ``"dem"``: model domain loaded directly from ``from_dem``.
-            - ``"txt"``: model domain built from an XYZ text file.
-            - ``"xy"``: watershed extracted from outlet coordinates provided
-              through ``from_xyv``.
-            - ``"shp"``: watershed loaded from a polygon shapefile provided
-              through ``from_shp``.
-        reg_fold : str, None
-            Path of the folder with regional data/results.
-            If informed, the regional results will not be created, just loaded from folder.
-            The default is None.
+        config : GeographicConfig
+            Pydantic config with all geographic parameters.
+        initializing_object : Initializing
+            Initializing instance providing folder paths.
         """
         logger.info('Extracting geographic data for model area')
-        
+
+        _MODE_MAP = {"xy": "from_outlet_coord", "shp": "from_polyg_shp"}
+
+        stable_folder   = initializing_object.stable_folder
+        out_dir_path    = initializing_object.catch_folder
+        catch_def       = _MODE_MAP.get(config.catch_def, config.catch_def)
+        dem_init_path   = config.dem_path or config.from_dem
+        x_outlet        = config.x_outlet
+        y_outlet        = config.y_outlet
+        snap_dist       = config.snap_dist
+        buff_area       = config.buff_percent
+        polyg_shp_path  = config.from_shp
+        dem_correc_type = config.dem_correc_type
+
         self.stable_folder = stable_folder
         self.out_dir_path = out_dir_path
         self.catch_def = catch_def
@@ -189,7 +153,7 @@ class Geographic:
         self.buff_area = buff_area
         self.polyg_shp_path = polyg_shp_path
         self.dem_correc_type = dem_correc_type
-        # self.demflow_dir_path = demflow_dir_path
+        self._crs_project = config.crs_project
 
         self.processing()
 
@@ -238,7 +202,10 @@ class Geographic:
             self.crs_proj = 'EPSG:'+str(self.epsg)
         else:
             self.crs_proj = None
-        
+
+        if hasattr(self, '_crs_project') and self._crs_project is not None:
+            self.crs_proj = self._crs_project
+
         # if isinstance(self.demflow_dir_path, (str))==False:
         DEM_correcflow_analysis_files = DEM_correcflow_analysis(
                                         dem_init_path=self.dem_init_path,
