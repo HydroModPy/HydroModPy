@@ -377,7 +377,7 @@ class Geographic:
             self.geodata = dem_src.transform.to_gdal()
             dem_crs = dem_src.crs
         with rasterio.open(self.watershed_box_buff_dem) as dem_box_src:
-            self.dem_box_data = dem_box_src.read(1)
+            self.dem_box_buff_data = dem_box_src.read(1)
         with rasterio.open(self.watershed_dem) as src:
             # Read the data into a numpy array
             self.dem_clip = src.read(1)
@@ -395,8 +395,8 @@ class Geographic:
         else:
             crs = None
         # Extract size characteristics
-        self.x_pixel = self.dem_box_data.shape[1] # columns
-        self.y_pixel = self.dem_box_data.shape[0] # rows
+        self.x_pixel = self.dem_box_buff_data.shape[1] # columns
+        self.y_pixel = self.dem_box_buff_data.shape[0] # rows
         # Extract resolution
         self.resolution_x = self.geodata[1] # pixelWidth: positive
         self.resolution_y = self.geodata[5] # pixelHeight: negative

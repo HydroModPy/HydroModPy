@@ -537,10 +537,10 @@ class VTK():
                     y = values.geometry[0].xy[1][i]
                     xidx = (np.abs(geographic.x_coord- x)).argmin()
                     yidx = (np.abs(geographic.y_coord- y)).argmin()
-                    if geographic.dem_box_data[yidx,xidx] > 0:
+                    if geographic.dem_box_buff_data[yidx,xidx] > 0:
                         x_store.append(x)
                         y_store.append(y)
-                        z_store.append(geographic.dem_box_data[yidx,xidx])
+                        z_store.append(geographic.dem_box_buff_data[yidx,xidx])
                         nb_points += 1
             except:
                 for i in range (len(values.geometry.xy[0])):
@@ -548,10 +548,10 @@ class VTK():
                     y = values.geometry.xy[1][i]
                     xidx = (np.abs(geographic.x_coord- x)).argmin()
                     yidx = (np.abs(geographic.y_coord- y)).argmin()
-                    if geographic.dem_box_data[yidx,xidx] > 0:
+                    if geographic.dem_box_buff_data[yidx,xidx] > 0:
                         x_store.append(x)
                         y_store.append(y)
-                        z_store.append(geographic.dem_box_data[yidx,xidx])
+                        z_store.append(geographic.dem_box_buff_data[yidx,xidx])
                         nb_points += 1
             
         textoVtk = open(os.path.join(save_file,'watershed_contour.vtk'), 'w')
@@ -936,7 +936,7 @@ class VTK():
                 listSurfaceFlowCell = surface_area[time_step].flatten()
             except:
                 pass
-            listDem = geographic.dem_clip.flatten()
+            listDem = geographic.dem_data.flatten()
     
             listWaterTableQuadSequenceDef = []
             listWaterTableCellDef = []
