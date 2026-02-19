@@ -1,0 +1,25 @@
+from pathlib import Path
+from typing import Annotated
+
+from pydantic import BaseModel, Field
+
+from hydromodpy.watershed.geographic_config import ParamLevel
+
+
+class InitializingConfig(BaseModel):
+    """Initialization configuration for watershed project structure."""
+
+    catch_name: Annotated[str, ParamLevel("user")] = Field(
+        description="Name of the watershed/catchment (used as folder name)."
+    )
+    out_dir_path: Annotated[str, ParamLevel("user")] = Field(
+        description="Root output directory where all results will be stored."
+    )
+
+    @property
+    def stable_folder(self) -> str:
+        return str(Path(self.out_dir_path) / self.catch_name / "results_stable")
+
+    @property
+    def simulations_folder(self) -> str:
+        return str(Path(self.out_dir_path) / self.catch_name / "results_simulations")
