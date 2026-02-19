@@ -30,6 +30,7 @@ except NameError:
 sys.path.append(root_dir)
 
 from hydromodpy.display import visualization_watershed, visualization_results
+from hydromodpy.modeling.modflow import Modflow
 from hydromodpy.tools.io_utils import (
     setup_paths, load_raster, load_csv,
     load_simulation_results, make_timeseries_data, extract_watershed
@@ -160,26 +161,73 @@ BV.settings.update_input_particles(zone_partic = os.path.join(simulations_folder
 
 #%% ---- GROUNDWATER FLOW MODEL RUN
 
-# Pre-processing
-model_modflow = BV.preprocessing_modflow(for_calib=False)
+# FLOW MODEL
+for_calib = False
+if for_calib == False:
+    model_folder = BV.simulations_folder
+else:
+    model_folder = BV.calibration_folder
 
-# Processing
-success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+model_modflow = Modflow(BV.geographic,
+                        # Workflow settings
+                        model_folder=model_folder,
+                        model_name=BV.settings.model_name,
+                        bin_path=BV.bin_path,
+                        # Model settings
+                        box=BV.settings.box,
+                        sink_fill=BV.settings.sink_fill,
+                        sim_state=BV.settings.sim_state,
+                        dis_perlen=BV.settings.dis_perlen,
+                        # Well settings
+                        well_coords=BV.settings.well_coords,
+                        well_fluxes=BV.settings.well_fluxes,
+                        # Output settings
+                        plot_cross=BV.settings.plot_cross,
+                        cross_ylim=BV.settings.cross_ylim,
+                        check_grid=BV.settings.check_grid,
+                        # Boundary settings
+                        sea_level=BV.oceanic.MSL,
+                        bc_left=BV.settings.bc_left,
+                        bc_right=BV.settings.bc_right,
+                        # Climatic settings
+                        recharge=BV.climatic.recharge,
+                        runoff=BV.climatic.runoff,
+                        first_clim=BV.climatic.first_clim,
+                        # Hydraulic settings
+                        bottom=BV.hydraulic.bottom,
+                        thick=BV.hydraulic.thick,
+                        nlay=BV.hydraulic.nlay,
+                        lay_decay=BV.hydraulic.lay_decay,
+                        hk_value=BV.hydraulic.hk_value,
+                        sy_value=BV.hydraulic.sy_value,
+                        ss_value=BV.hydraulic.ss_value,
+                        hk_decay=BV.hydraulic.hk_decay,
+                        sy_decay=BV.hydraulic.sy_decay,
+                        ss_decay=BV.hydraulic.ss_decay,
+                        verti_hk=BV.hydraulic.verti_hk,
+                        verti_sy=BV.hydraulic.verti_sy,
+                        verti_ss=BV.hydraulic.verti_ss,
+                        cond_drain=BV.hydraulic.cond_drain,
+                        vka=BV.hydraulic.vka,
+                        exdp=BV.hydraulic.exdp)
 
-# Post-processing
-BV.postprocessing_modflow(model_modflow,
-                          watertable_elevation=True,
-                          watertable_depth=True,
-                          seepage_areas=True,
-                          outflow_drain=True,
-                          groundwater_flux=True,
-                          groundwater_storage=True,
-                          accumulation_flux=True,
-                          persistency_index=True, # only in transient
-                          intermittency_monthly=True, # only in transient
-                          intermittency_weekly=False, # only in transient
-                          intermittency_daily=False, # only in transient
-                          export_all_tif=True)
+model_modflow.pre_processing()
+success_modflow = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=False)
+
+if success_modflow == True:
+    model_modflow.post_processing(model_modflow,
+                                  watertable_elevation=True,
+                                  watertable_depth=True,
+                                  seepage_areas=True,
+                                  outflow_drain=True,
+                                  groundwater_flux=True,
+                                  groundwater_storage=True,
+                                  accumulation_flux=True,
+                                  persistency_index=True, # only in transient
+                                  intermittency_monthly=True, # only in transient
+                                  intermittency_weekly=False, # only in transient
+                                  intermittency_daily=False, # only in transient
+                                  export_all_tif=True)
 
 BV.postprocessing_netcdf(model_modflow,
                          datetime_format=False)

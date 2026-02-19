@@ -155,33 +155,98 @@ def run_hydromodpy(watershed_name='Test1',
                                        )
 
     # ---- FLOW MODEL
-
+    from hydromodpy.modeling.modflow import Modflow
+    for_calib = False
+    if for_calib == False:
+            model_folder = BV.simulations_folder
+    else:
+        model_folder = BV.calibration_folder
+    model_modflow = Modflow(BV.geographic,
+                            # Workflow settings
+                            model_folder=model_folder,   # self.simulations_folder
+                            model_name=BV.settings.model_name,
+                            bin_path=BV.bin_path,
+                            # Model settings
+                            box=BV.settings.box,
+                            sink_fill=BV.settings.sink_fill,
+                            sim_state=BV.settings.sim_state,
+                            dis_perlen=BV.settings.dis_perlen,
+                            # Well settings
+                            well_coords=BV.settings.well_coords,
+                            well_fluxes=BV.settings.well_fluxes,
+                            # Output settings
+                            plot_cross=BV.settings.plot_cross,
+                            cross_ylim=BV.settings.cross_ylim,
+                            check_grid=BV.settings.check_grid,
+                            # Boundary settings
+                            sea_level=BV.oceanic.MSL,
+                            bc_left=BV.settings.bc_left,
+                            bc_right=BV.settings.bc_right,
+                            # Climatic settings
+                            recharge=BV.climatic.recharge,
+                            runoff=BV.climatic.runoff,
+                            first_clim=BV.climatic.first_clim,
+                            # Hydraulic settings
+                            bottom=BV.hydraulic.bottom,
+                            thick=BV.hydraulic.thick,
+                            nlay=BV.hydraulic.nlay,
+                            lay_decay=BV.hydraulic.lay_decay,
+                            hk_value=BV.hydraulic.hk_value,
+                            sy_value=BV.hydraulic.sy_value,
+                            ss_value=BV.hydraulic.ss_value,
+                            hk_decay=BV.hydraulic.hk_decay,
+                            sy_decay=BV.hydraulic.sy_decay,
+                            ss_decay=BV.hydraulic.ss_decay,
+                            verti_hk=BV.hydraulic.verti_hk,
+                            verti_sy=BV.hydraulic.verti_sy,
+                            verti_ss=BV.hydraulic.verti_ss,
+                            cond_drain=BV.hydraulic.cond_drain,
+                            vka=BV.hydraulic.vka,
+                            exdp=BV.hydraulic.exdp)
+    model_modflow.pre_processing() # verbose
+    success_model = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=False)
+    
+    if success_model == True:
+        model_modflow.post_processing(model_modflow,
+                                    watertable_elevation=True,
+                                    watertable_depth=True,
+                                    seepage_areas=True,
+                                    outflow_drain=True,
+                                    groundwater_flux=True,
+                                    groundwater_storage=True,
+                                    accumulation_flux=True,
+                                    persistency_index=False, # only in transient
+                                    intermittency_monthly=False, # only in transient
+                                    intermittency_weekly=False, # only in transient
+                                    intermittency_daily=False, # only in transient
+                                    export_all_tif=False)
+    
     # Pre-processing
-    model_modflow = BV.preprocessing_modflow(for_calib=False)
+    #model_modflow = BV.preprocessing_modflow(for_calib=False)
 
     # Processing
-    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+    #success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
 
     # Post-processing
-    if success_modflow == True:
-        BV.postprocessing_modflow(model_modflow,
-                                  watertable_elevation=True,
-                                  watertable_depth=True,
-                                  seepage_areas=True,
-                                  outflow_drain=True,
-                                  groundwater_flux=True,
-                                  groundwater_storage=True,
-                                  accumulation_flux=True,
-                                  persistency_index=False, # only in transient
-                                  intermittency_monthly=False, # only in transient
-                                  intermittency_weekly=False, # only in transient
-                                  intermittency_daily=False, # only in transient
-                                  export_all_tif=False)
+    # if success_modflow == True:
+    #     BV.postprocessing_modflow(model_modflow,
+    #                               watertable_elevation=True,
+    #                               watertable_depth=True,
+    #                               seepage_areas=True,
+    #                               outflow_drain=True,
+    #                               groundwater_flux=True,
+    #                               groundwater_storage=True,
+    #                               accumulation_flux=True,
+    #                               persistency_index=False, # only in transient
+    #                               intermittency_monthly=False, # only in transient
+    #                               intermittency_weekly=False, # only in transient
+    #                               intermittency_daily=False, # only in transient
+    #                               export_all_tif=False)
 
     # ---- PARTICLE TRACKING
 
     # Pre-processing
-    if success_modflow == True:
+    if success_model == True:
         model_modpath = BV.preprocessing_modpath(model_modflow)
 
     # Processing
