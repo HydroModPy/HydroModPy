@@ -112,3 +112,10 @@ markers = [
     "fast: quick-running regression cases",
     "slow: long-running integration or regression tests",
 ]
+
+[tool.coverage.run]
+source = ["hydromodpy/watershed/",
+          "hydromodpy/tools/",
+          "hydromodpy/modeling/",
+          "hydromodpy/display/",
+          ]
