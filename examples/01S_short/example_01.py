@@ -48,7 +48,7 @@ from hydromodpy.display import visualization_watershed, visualization_results, e
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
-cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config_wrong.toml")
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 
 out_path = cfg.initializing.out_dir_path
 print('The results of the example will be saved here :', out_path)
