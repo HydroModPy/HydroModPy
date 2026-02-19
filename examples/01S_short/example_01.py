@@ -15,6 +15,7 @@
 # PYTHON PACKAGES
 import sys
 import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import flopy
@@ -42,59 +43,36 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
 from hydromodpy.watershed import initializing, geographic
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
-# The folder out_path is created in the example_path root directory:
-out_path = os.path.join(root_dir,'examples', 'results')
-# Or define it manually
-# out_path = 'C:/Simulations/HydroModPy/'
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 
+out_path = cfg.initializing.out_dir_path
 print('The results of the example will be saved here :', out_path)
 
 #%% ---- EXTRACT CATCHMENT
 
-# Name of the study site
-watershed_name = '01S_short'
+watershed_name = cfg.initializing.catch_name
 print('##### '+watershed_name.upper()+' #####')
-
-# Regional DEM file name and outlet definition (same as before)
-dem_name = 'regional dem.tif'
-from_xyv = [327816.965, 6777886.670, 150, 10 , 'EPSG:2154']
-catch_def = "from_outlet_coord"
-
-# build paths and initialisation objects exactly like example_11
-initializing_object = initializing.Initializing(catch_name=watershed_name,
-                                                out_dir_path=out_path)
 
 specific_path = os.path.join(root_dir, "examples", "01S_short/")
 data_path = os.path.join(specific_path, "data/")
-dem_path = os.path.join(specific_path, "data", dem_name)
+dem_path  = cfg.geographic.dem_path
 
-# geographic object uses the new Geographic class
-geographic_object = geographic.Geographic(
-                    stable_folder=initializing_object.stable_folder,
-                    out_dir_path=initializing_object.catch_folder,
-                    catch_def=catch_def,
-                    dem_init_path=dem_path,
-                    x_outlet=from_xyv[0],
-                    y_outlet=from_xyv[1],
-                    snap_dist=from_xyv[2],
-                    buff_area=from_xyv[3],
-                    polyg_shp_path=None,
-                    dem_correc_type='breach', # adjust as needed
-                    )
+initializing_object = initializing.Initializing(config=cfg.initializing)
+geographic_object   = geographic.Geographic(config=cfg.geographic,
+                                            initializing_object=initializing_object)
 
-# create watershed root from the two helper objects
 BV = watershed_root.Watershed(load=False,
                               initializing_object=initializing_object,
                               geographic_object=geographic_object,
                               save_object=True)
 
-# Paths necessary for the script
-stable_folder = os.path.join(out_path, watershed_name, 'results_stable')
-simulations_folder = os.path.join(out_path, watershed_name, 'results_simulations')
+stable_folder      = cfg.initializing.stable_folder
+simulations_folder = cfg.initializing.simulations_folder
 
 #%% ---- ADD DATA PLOT
 
