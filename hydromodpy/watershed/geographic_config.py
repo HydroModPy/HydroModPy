@@ -29,7 +29,7 @@ class GeographicConfig(BaseModel):
         default=None,
         description=(
             "Path to the regional DEM raster used for flow analysis. "
-            "Required for 'xy' and 'shp' modes."
+            "Required for 'from_outlet_coord' and 'from_polyg_shp' modes."
         ),
     )
 
@@ -42,6 +42,7 @@ class GeographicConfig(BaseModel):
     )
     cell_size: Annotated[Optional[float], ParamLevel("user")] = Field(
         default=None,
+        gt=0,
         description=(
             "Grid cell size in metres used to rasterise the XYZ point cloud. "
             "Required for 'txt' mode."
@@ -52,29 +53,31 @@ class GeographicConfig(BaseModel):
         default=None,
         description=(
             "X coordinate of the watershed outlet in the projected CRS. "
-            "Required for 'xy' mode."
+            "Required for 'from_outlet_coord' mode."
         ),
     )
     y_outlet: Annotated[Optional[float], ParamLevel("user")] = Field(
         default=None,
         description=(
             "Y coordinate of the watershed outlet in the projected CRS. "
-            "Required for 'xy' mode."
+            "Required for 'from_outlet_coord' mode."
         ),
     )
     snap_dist: Annotated[Optional[int], ParamLevel("user")] = Field(
         default=None,
+        gt=0,
         description=(
             "Maximum snapping distance (m) used to move the outlet point "
-            "to the nearest stream cell. Required for 'xy' mode."
+            "to the nearest stream cell. Required for 'from_outlet_coord' mode."
         ),
     )
 
     buff_percent: Annotated[Optional[float], ParamLevel("user")] = Field(
         default=None,
+        gt=0,
         description=(
             "Buffer added around the watershed polygon, expressed as a "
-            "percentage of sqrt(area [km²]). Required for 'xy' and 'shp' modes."
+            "percentage of sqrt(area [km²]). Required for 'from_outlet_coord' and 'from_polyg_shp' modes."
         ),
     )
 
@@ -102,7 +105,7 @@ class GeographicConfig(BaseModel):
             "'fill' raises sinks to the level of their pour point."
         ),
     )
-    bottom_path: Annotated[Optional[str], ParamLevel("dev")] = Field(
+    bottom_path: Annotated[Optional[str], ParamLevel("user")] = Field(
         default=None,
         description=(
             "Path to a raster representing the aquifer bottom elevation. "
