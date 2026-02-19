@@ -64,7 +64,7 @@ y_outlet = 6777886.670
 # Maximum snapping distance (m) used to move the outlet point to the nearest stream cell.
 # Required for 'xy' mode.
 # Type: Union[int, NoneType] | Optional
-snap_dist = 150
+snap_dist = -5
 
 # Buffer added around the watershed polygon, expressed as a percentage of sqrt(area [km²]).
 # Required for 'xy' and 'shp' modes.
