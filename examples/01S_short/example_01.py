@@ -58,8 +58,7 @@ print('The results of the example will be saved here :', out_path)
 watershed_name = cfg.initializing.catch_name
 print('##### '+watershed_name.upper()+' #####')
 
-specific_path = os.path.join(root_dir, "examples", "01S_short/")
-data_path = os.path.join(specific_path, "data/")
+data_path = cfg.initializing.data_path
 dem_path  = cfg.geographic.dem_path
 
 initializing_object = initializing.Initializing(config=cfg.initializing)
