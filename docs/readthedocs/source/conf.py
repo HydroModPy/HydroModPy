@@ -155,14 +155,14 @@ html_theme_options = {
     "icon_links_label": "HydroModPy Resources",
     "icon_links": [
         {
-            "name": "GitLab",
-            "url": "https://gitlab.com/Alex-Gauvain/HydroModPy",
-            "icon": "fa-brands fa-gitlab",
+            "name": "GitHub",
+            "url": "https://github.com/HydroModPy/HydroModPy",
+            "icon": "fa-brands fa-github",
             "type": "fontawesome",
         },
         {
             "name": "Issues",
-            "url": "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues",
+            "url": "https://github.com/HydroModPy/HydroModPy/issues",
             "icon": "fa-solid fa-circle-info",
             "type": "fontawesome",
         },
