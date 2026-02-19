@@ -106,7 +106,7 @@ Each release section includes the following standard categories:
 
 ### Added
 - Logging system with `LogManager` class (replaces all `print()` statements).
-- GitLab CI/CD pipeline for automated builds and PyPI publication.
+- GitHub Actions pipeline for automated builds and PyPI publication.
 - Single cross-platform conda environment file (`environment-conda.yml`) for Linux, macOS, and Windows.
 - Automatic download of HELP3O binaries on first use (no Fortran compiler needed).
 - `MANIFEST.in` for packaging executables, examples, and documentation.
@@ -171,10 +171,10 @@ Each release section includes the following standard categories:
 
 ---
 
-[Unreleased]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.4...dev
-[v0.3.4]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.3...v0.3.4
-[v0.3.2]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.1...v0.3.2
-[v0.3.1]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.3.0...v0.3.1
-[v0.3.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.2.0...v0.3.0
-[v0.2.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/compare/v0.1.0...v0.2.0
-[v0.1.0]: https://gitlab.com/Alex-Gauvain/HydroModPy/-/releases/v0.1.0
+[Unreleased]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.4...dev
+[v0.3.4]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.3...v0.3.4
+[v0.3.2]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.1...v0.3.2
+[v0.3.1]: https://github.com/HydroModPy/HydroModPy/compare/v0.3.0...v0.3.1
+[v0.3.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.2.0...v0.3.0
+[v0.2.0]: https://github.com/HydroModPy/HydroModPy/compare/v0.1.0...v0.2.0
+[v0.1.0]: https://github.com/HydroModPy/HydroModPy/releases/tag/v0.1.0
