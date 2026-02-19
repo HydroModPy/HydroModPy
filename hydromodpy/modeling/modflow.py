@@ -32,7 +32,6 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
-from hydromodpy.process.flow import Flow
 
 logger = get_logger(__name__)
 
@@ -171,7 +170,7 @@ class Modflow:
         #self.geographic.watershed_box_buff_dem = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif'
         #######################################################################
 
-        self.resolution = geographic.resolution
+        self.resolution = geographic.dem_res
         self.xul = geographic.xmin
         self.yul = geographic.ymax
         self.sink_fill = sink_fill
@@ -183,7 +182,7 @@ class Modflow:
         # Enlarges the modeled domain
         self.box = box
         if box == True:
-            self.dem = geographic.dem_box_data
+            self.dem = geographic.dem_box_buff_data
             self.dem_watershed_path = geographic.watershed_box_buff_dem
         else:
             self.dem = geographic.dem_data
