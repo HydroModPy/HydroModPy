@@ -22,4 +22,4 @@ class IObjectiveFunction(ABC):
         """Set the weight for different metrics."""
         pass
 
-    # Ajout d'une méthode ou paramètre dans les classes filles pour transformations (log, sqrt, etc.)
+    # Ajout d'une méthode ou paramètre dans les classes filles pour transformations (log, inv, sqrt, etc.)
