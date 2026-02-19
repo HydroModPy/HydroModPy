@@ -27,17 +27,23 @@ elif p==3:
 
 # Define maximum number of simulations to run within the calibration process.
 # The actual number of simulations will be determined by the number of parameters and the resolution of the parameter space exploration.
-max_nb_sim = 49
+max_nb_sim = 512
 
 # Define the objective function to use for evaluating the performance of each parameter combination.
-obj_func = 'RMSE'
+obj_func = 'NSE'
 
 # Define the calibration method to use.
-calib_method = 'method'
+calib_method = 'regular_exploration'
+
+# Visualization of results if number of parameters is 3 or less
+visualization = True
 
 #Proceed to calibration via clibration_engine
-calib = calibration_engine.Calibration(params_to_calibrate, max_nb_sim, rech_ts, obj_func, calib_method, solver='Modflow')
-calib_results_dict, calib_results_df = calib.Sobol_exploration()
-calib.print_results(calib_results_df)
+# calib = calibration_engine.Calibration(params_to_calibrate, max_nb_sim, rech_ts, obj_func, calib_method, solver='Modflow')
+# calib_results_dict, calib_results_df = calib.regular_exploration()
 # print(calib_results_df)
 # print(calib_results_dict)
+# calib.print_results(calib_results_df)
+
+calib_results_dict, calib_results_df = calibration_engine.Calibration(
+    params_to_calibrate, max_nb_sim, rech_ts, obj_func, calib_method, visualization, solver='Modflow')
