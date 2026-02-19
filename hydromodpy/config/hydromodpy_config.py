@@ -25,7 +25,7 @@ from hydromodpy.watershed.geographic_config import GeographicConfig
 
 # Path-type fields per TOML section that need relative-path resolution.
 _PATH_FIELDS: dict[str, list[str]] = {
-    "initializing": ["out_dir_path"],
+    "initializing": ["out_dir_path", "data_path"],
     "geographic":   ["dem_path", "from_dem", "from_shp", "bottom_path", "reg_fold"],
 }
 
