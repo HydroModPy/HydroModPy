@@ -29,7 +29,7 @@ Install with pip
 
       .. code-block:: bash
 
-         git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
+         git clone https://github.com/HydroModPy/HydroModPy.git
          cd HydroModPy
          python -m pip install --upgrade pip
          pip install -e .
@@ -101,7 +101,7 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
    .. code-block:: bash
 
       # Clone + runtime stack (scripts, notebooks)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
 
    .. code-block:: bash
 
@@ -111,7 +111,7 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
    .. code-block:: bash
 
       # Clone + editable stack (adds pip install -e ..)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
 
    .. code-block:: bash
 
@@ -137,12 +137,12 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
    .. code-block:: bash
 
       # Clone first (optional), then install from PyPI
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
 
    .. code-block:: bash
 
       # Clone first, then install in editable mode (pip install -e .)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
+      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
 
    Add ``"hydromodpy[ide]"`` at the end if you want Spyder and JupyterLab bundled.
 
@@ -213,7 +213,7 @@ Python 3.8 users
 ----------------
 
 If you must stay on Python 3.8.10, stick to release ``v0.2.0`` by cloning
-https://gitlab.com/Alex-Gauvain/HydroModPy/-/releases/v0.2.0 and following the
+https://github.com/HydroModPy/HydroModPy/releases/tag/v0.2.0 and following the
 conda recipe above. Later versions require Python 3.11+ and will not install on
 older interpreters.
 

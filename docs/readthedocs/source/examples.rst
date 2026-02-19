@@ -6,9 +6,9 @@ workflow in your IDE or on Read the Docs. Browse the gallery below to open the
 scenario you need.
 
 - **Pip installations** – the PyPI wheel does not include the `examples/`
-  directory. Download it separately from the master archive:
-  https://gitlab.com/Alex-Gauvain/HydroModPy/-/archive/master/HydroModPy-master.zip?path=examples
-  and unzip it where you run the project.
+  directory. Download the full archive from
+  https://github.com/HydroModPy/HydroModPy/archive/refs/heads/main.zip
+  and extract the `examples/` folder where you run the project.
 - **Conda / source installations** – the cloned repository already provides
   `examples/`, keep it in place so the relative paths used in the scripts remain valid.
 

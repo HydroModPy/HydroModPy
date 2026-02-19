@@ -1,7 +1,7 @@
 Contribute
 ==========
 
-HydroModPy welcomes pull requests for bug fixes, new workflows, documentation,
+HydroModPy welcomes contributions for bug fixes, new workflows, documentation,
 and example notebooks. This page summarises the expected workflow.
 
 Set up the environment
@@ -9,7 +9,7 @@ Set up the environment
 
 .. code-block:: bash
 
-   git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
+   git clone https://github.com/HydroModPy/HydroModPy.git
    cd HydroModPy
    pip install -e '.[docs]'
 
@@ -42,7 +42,7 @@ Submitting changes
 ------------------
 
 1. Ensure ``git status`` contains only the files related to your change.
-2. Push the branch to GitLab and open a merge request against ``dev``.
+2. Push the branch to GitHub and open a pull request against ``dev``.
 3. Mention reviewers if the change affects modelling outputs or user-visible
    workflows.
 
