@@ -45,7 +45,7 @@ dem_init_path = "data/regional dem.tif"
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.
 # Type: Union[float, NoneType] | > 0 | Optional
-cell_size = 0.0
+# cell_size = 0.0  # Not used for catch_def = "from_outlet_coord"
 
 # X coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
@@ -70,7 +70,7 @@ buff_area = 10.0
 # Path to the watershed polygon shapefile.
 # Required for 'from_polyg_shp' mode.
 # Type: Union[str, NoneType] | Optional
-polyg_shp_path = ""
+# polyg_shp_path = ""
 
 # Target projected CRS for all outputs (e.g.
 # 'EPSG:2154').
@@ -87,7 +87,7 @@ dem_correc_type = "breach"
 # Path to a raster representing the aquifer bottom elevation.
 # Must share the same grid as the model domain.
 # Type: Union[str, NoneType] | Optional
-bottom_path = ""
+# bottom_path = ""
 
 # Folder with pre-computed regional flow rasters.
 # When set, rasters are loaded instead of recomputed.

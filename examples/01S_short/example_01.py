@@ -51,7 +51,6 @@ fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 
 out_path = cfg.initializing.out_dir_path
-print('The results of the example will be saved here :', out_path)
 
 #%% ---- EXTRACT CATCHMENT
 
@@ -59,7 +58,6 @@ watershed_name = cfg.initializing.catch_name
 print('##### '+watershed_name.upper()+' #####')
 
 data_path = cfg.initializing.data_path
-dem_path  = cfg.geographic.dem_path
 
 initializing_object = initializing.Initializing(config=cfg.initializing)
 geographic_object   = geographic.Geographic(config=cfg.geographic,
@@ -76,7 +74,7 @@ simulations_folder = cfg.initializing.simulations_folder
 #%% ---- ADD DATA PLOT
 
 # General plot of the study site
-visualization_watershed.watershed_local(dem_path, BV)
+visualization_watershed.watershed_local(cfg.geographic.dem_init_path, BV)
 
 # Clip specific data at the catchment scale
 BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
@@ -95,7 +93,7 @@ visualization_watershed.watershed_dem(BV)
 
 #%% ---- PLOT STREAMFLOW
 
-Qobs = pd.read_csv(data_path+'/'+'hydrometry catchment Canut.csv', sep=';', index_col=0, parse_dates=True)
+Qobs = pd.read_csv(data_path / 'hydrometry catchment Canut.csv', sep=';', index_col=0, parse_dates=True)
 Qobs = Qobs.squeeze()
 Qobs = Qobs.rename('Q')
 def select_period(df, first, last):
@@ -263,7 +261,7 @@ netcdf_results = BV.postprocessing_netcdf(model_modflow,
 #%% RECHARGE SOURCE
 
 BV.add_climatic()
-BV.climatic.update_recharge_reanalysis(path_file=os.path.join(data_path,'_climate_REANALYSIS.csv'),
+BV.climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                        clim_mod='REA',
                                        clim_sce='historic',
                                        first_year=1990,
@@ -296,8 +294,8 @@ ax.set_title('Recharge [mm/d]', color='blue')
 
 #%% MESH DISCRETIZATION
 
-mf = flopy.modflow.Modflow.load(simulations_folder+'/'+model_name+'/'+model_name+'.nam')
-gridname = simulations_folder+model_name+'/'+model_name+'.dis'
+mf = flopy.modflow.Modflow.load(simulations_folder / model_name / (model_name + '.nam'))
+gridname = simulations_folder / model_name / (model_name + '.dis')
 grid_model = mf.modelgrid
 hk_grid = mf.upw.hk
 sy_grid = mf.upw.sy
@@ -348,8 +346,8 @@ plt.tight_layout()
 fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
 print(stable_folder)
 
-mask = imageio.imread(stable_folder+'/geographic/'+'watershed_dem.tif')
-watertable_elevation = np.load(simulations_folder+'/'+model_name+'/_postprocess/'+'watertable_elevation'+'.npy', allow_pickle=True).item()
+mask = imageio.imread(stable_folder / 'geographic' / 'watershed_dem.tif')
+watertable_elevation = np.load(simulations_folder / model_name / '_postprocess' / 'watertable_elevation.npy', allow_pickle=True).item()
 
 dem_data = imageio.imread(BV.geographic.watershed_dem)
 wt_data = watertable_elevation[0]
