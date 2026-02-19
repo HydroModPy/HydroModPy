@@ -28,10 +28,10 @@ out_dir_path = "../results"
 # Catchment definition mode.
 # 'dem' = model domain from a raster DEM (from_dem required).
 # 'txt' = model domain from an XYZ text file (from_dem, cell_size required).
-# 'xy'  = watershed from outlet coordinates (dem_path, x_outlet, y_outlet, snap_dist, buff_percent, crs_proj required).
-# 'shp' = watershed from a polygon shapefile (dem_path, from_shp, buff_percent required).
-# Type: Literal['dem', 'txt', 'xy', 'shp'] | one of: "dem", "txt", "xy", "shp" | REQUIRED
-catch_def = "xy"
+# 'from_outlet_coord' = watershed from outlet coordinates (dem_path, x_outlet, y_outlet, snap_dist, buff_percent required).
+# 'from_polyg_shp' = watershed from a polygon shapefile (dem_path, from_shp, buff_percent required).
+# Type: Literal['dem', 'txt', 'from_outlet_coord', 'from_polyg_shp'] | one of: "dem", "txt", "from_outlet_coord", "from_polyg_shp" | REQUIRED
+catch_def = "from_outlet_coord"
 
 # Path to the regional DEM raster used for flow analysis.
 # Required for 'xy' and 'shp' modes.

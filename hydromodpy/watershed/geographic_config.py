@@ -13,14 +13,14 @@ class ParamLevel:
 class GeographicConfig(BaseModel):
     """Geographic configuration for watershed delineation."""
 
-    catch_def: Annotated[Literal["dem", "txt", "xy", "shp"], ParamLevel("user")] = Field(
+    catch_def: Annotated[Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"], ParamLevel("user")] = Field(
         description=(
             "Catchment definition mode. "
             "'dem' = model domain from a raster DEM (from_dem required). "
             "'txt' = model domain from an XYZ text file (from_dem, cell_size required). "
-            "'xy'  = watershed from outlet coordinates "
-            "(dem_path, x_outlet, y_outlet, snap_dist, buff_percent, crs_proj required). "
-            "'shp' = watershed from a polygon shapefile "
+            "'from_outlet_coord' = watershed from outlet coordinates "
+            "(dem_path, x_outlet, y_outlet, snap_dist, buff_percent required). "
+            "'from_polyg_shp' = watershed from a polygon shapefile "
             "(dem_path, from_shp, buff_percent required)."
         ),
     )
@@ -134,7 +134,7 @@ class GeographicConfig(BaseModel):
                     "(grid resolution in metres)."
                 )
 
-        elif mode == "xy":
+        elif mode == "from_outlet_coord":
             missing = [
                 name
                 for name, val in [
@@ -148,10 +148,10 @@ class GeographicConfig(BaseModel):
             ]
             if missing:
                 raise ValueError(
-                    f"catch_def='xy' requires: {', '.join(missing)}."
+                    f"catch_def='from_outlet_coord' requires: {', '.join(missing)}."
                 )
 
-        elif mode == "shp":
+        elif mode == "from_polyg_shp":
             missing = [
                 name
                 for name, val in [
@@ -163,7 +163,7 @@ class GeographicConfig(BaseModel):
             ]
             if missing:
                 raise ValueError(
-                    f"catch_def='shp' requires: {', '.join(missing)}."
+                    f"catch_def='from_polyg_shp' requires: {', '.join(missing)}."
                 )
 
         return self

@@ -10,6 +10,7 @@ Usage::
 
     cfg = HydroModPyConfig.from_toml("examples/01S_short/config.toml")
     cfg.initializing.catch_name
+    cfg.geographic.catch_def
     cfg.geographic.dem_path
 """
 

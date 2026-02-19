@@ -130,11 +130,9 @@ class Geographic:
         """
         logger.info('Extracting geographic data for model area')
 
-        _MODE_MAP = {"xy": "from_outlet_coord", "shp": "from_polyg_shp"}
-
         stable_folder   = initializing_object.stable_folder
         out_dir_path    = initializing_object.catch_folder
-        catch_def       = _MODE_MAP.get(config.catch_def, config.catch_def)
+        catch_def       = config.catch_def
         dem_init_path   = config.dem_path or config.from_dem
         x_outlet        = config.x_outlet
         y_outlet        = config.y_outlet
