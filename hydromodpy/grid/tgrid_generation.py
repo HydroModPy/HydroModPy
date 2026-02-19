@@ -21,7 +21,7 @@ from flopy.discretization.modeltime import ModelTime
 
 # %% CLASS
 
-class TGrid_Generator:
+class TGrid_Generation:
     """
     Class for creating a temporal grid.
     """
