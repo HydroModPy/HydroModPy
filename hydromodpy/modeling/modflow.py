@@ -401,37 +401,20 @@ class Modflow:
 
         # Imposes discretization to modflow model through
         # ---- flopy.modflow.ModflowDis
-        # self.dis = flopy.modflow.ModflowDis(model  = self.mf, 
-        #                                     lenuni = sgrid.lenuni, 
-        #                                     nlay   = sgrid.nlay, 
-        #                                     nrow   = sgrid.nrow, 
-        #                                     ncol   = sgrid.ncol, 
-        #                                     delr   = sgrid.delr, 
-        #                                     delc   = sgrid.delc,
-        #                                     top    = sgrid.top, 
-        #                                     botm   = sgrid.botm, 
-        #                                     xul    = sgrid.xoffset, 
-        #                                     yul    = sgrid.extent[3],
-        #                                     itmuni=0, # itmuni = 0 ==> undefined
-        #                                     nper=self.nper,  
-        #                                     perlen=self.perlen, 
-        #                                     nstp=self.nstp,
-        #                                     steady=self.steady, 
-        #                                     start_datetime=self.start_datetime)
         self.dis = flopy.modflow.ModflowDis(self.mf,
                                             # Spatial grid parameters
                                             lenuni = sgrid.lenuni, 
                                             nlay   = sgrid.nlay, 
                                             nrow   = sgrid.nrow, 
                                             ncol   = sgrid.ncol, 
-                                            delr   = self.resolution, 
-                                            delc   = self.resolution,
+                                            delr   = sgrid.delr, 
+                                            delc   = sgrid.delc,
                                             top    = sgrid.top, 
                                             botm   = sgrid.botm,
                                             xul    = sgrid.xoffset, 
                                             yul    = sgrid.extent[3],
                                             # Temporal grid parameters
-                                            itmuni=0, # itmuni = 0 ==> undefined
+                                            itmuni=0,  # itmuni = 0 ==> undefined
                                             nper=self.nper, 
                                             perlen=self.perlen, 
                                             nstp=self.nstp,
