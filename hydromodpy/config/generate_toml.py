@@ -174,6 +174,12 @@ def _fmt(val: Any) -> str:
     return str(val)
 
 
+_FRIENDLY_TYPES = {
+    "str": "string", "int": "int", "float": "float",
+    "bool": "bool", "Path": "path",
+}
+
+
 def _type_label(field_info: FieldInfo) -> str:
     """Human-readable type string from annotation."""
     annotation = field_info.annotation
@@ -182,13 +188,23 @@ def _type_label(field_info: FieldInfo) -> str:
     if origin is not None:
         args = get_args(annotation)
         if args:
-            inner = ", ".join(repr(a) if isinstance(a, str) else getattr(a, "__name__", str(a)) for a in args)
+            non_none = [a for a in args if a is not type(None)]
+            has_none = type(None) in args
+            # Optional[X] -> "X (optional)" for common scalar/path types
+            if len(non_none) == 1 and has_none:
+                name = getattr(non_none[0], "__name__", str(non_none[0]))
+                friendly = _FRIENDLY_TYPES.get(name, name)
+                return f"{friendly} (optional)"
+            inner = ", ".join(
+                repr(a) if isinstance(a, str)
+                else getattr(a, "__name__", str(a))
+                for a in args
+            )
             origin_name = getattr(origin, "__name__", str(origin))
             return f"{origin_name}[{inner}]"
 
     if hasattr(annotation, "__name__"):
-        type_map = {"str": "string", "int": "int", "float": "float", "bool": "bool"}
-        return type_map.get(annotation.__name__, annotation.__name__)
+        return _FRIENDLY_TYPES.get(annotation.__name__, annotation.__name__)
 
     return str(annotation)
 
