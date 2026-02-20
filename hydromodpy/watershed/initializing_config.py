@@ -20,6 +20,10 @@ class InitializingConfig(BaseModel):
     )
 
     @property
+    def catch_folder(self) -> Path:
+        return self.out_dir_path / self.catch_name
+
+    @property
     def stable_folder(self) -> Path:
         return self.out_dir_path / self.catch_name / "results_stable"
 
