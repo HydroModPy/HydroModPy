@@ -23,6 +23,7 @@ dependencies:
 - python>=3.11,<3.14
 - rasterio
 - rioxarray
+- scikit-learn
 - selenium
 - spyder-kernels
 - spyder
