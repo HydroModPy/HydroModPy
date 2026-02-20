@@ -11,23 +11,23 @@ class MAE(ObjectiveFunction):
         """Initialize MAE with a weight parameter."""
         super().__init__(weight=weight)
 
-    def evaluate(self, obs, sim):
+    def evaluate(self, observed, simulated) -> float:
         """
         Calculate the Mean Absolute Error (MAE) between observed and simulated values.
         
         Args:
-            obs: Array of observed values
-            sim: Array of simulated values
+            observed: Array of observed values
+            simulated: Array of simulated values
         
         Returns:
             float: MAE value
         """
-        obs, sim = self.check_series_consistency(obs, sim)
-        mae = np.mean(np.abs(obs - sim))
+        observed, simulated = self.check_series_consistency(observed, simulated)
+        mae = np.mean(np.abs(observed - simulated))
         
         return mae
 
-    def normalize(self, obs, sim) -> float:
+    def normalize(self, observed, simulated) -> float:
         """
         Normalize MAE to [0, 1] range using inverse transformation.
         
@@ -36,6 +36,6 @@ class MAE(ObjectiveFunction):
         - MAE = 0 → performance = 1 (optimal)
         - MAE → ∞ → performance → 0 (worst)
         """
-        mae_value = self.evaluate(obs, sim)
+        mae_value = self.evaluate(observed, simulated)
         # Transform error metric to performance metric
         return 1.0 / (1.0 + mae_value)
