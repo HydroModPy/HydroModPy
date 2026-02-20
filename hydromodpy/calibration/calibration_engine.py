@@ -1,260 +1,58 @@
-from hydromodpy.calibration import objective_function as obj_f
-import numpy as np
+from hydromodpy.calibration import calibration_method
 import pandas as pd
 
-def Q_brutsaert(rech, K, Sy=0.05):
-    """
-    Calculate Brutsaert flow based on time, hydraulic conductivity, and specific yield.
-    Temporary function to be replaced by Hydromodpy Solver interactions.
-    
-    Parameters:
-    rech (Pandas Series): Time and recharge values
-    K (float): Hydraulic conductivity
-    Sy (float): Specific yield
-    
-    Returns:
-    float: Q_brutsaert value
-    """
-    t = rech.index.values # Assuming rech is a Pandas Series with time as index
-    Q_brutsaert = (np.log10(K) * Sy) #/ t
-    return Q_brutsaert
-
-def generate_combinations(params_list, ranges_dict, index=0, current_combo=None):
-    """
-    Generate nested loops dynamically. Used for n-dimension exploration methods
-
-    Args:
-        params_list (_type_): _description_
-        ranges_dict (_type_): _description_
-    """
-    if current_combo is None:
-        current_combo = {}
-    
-    if index == len(params_list):
-        yield current_combo.copy()
-        return
-    
-    param = params_list[index]
-    for value in ranges_dict[param]:
-        current_combo[param] = value
-        yield from generate_combinations(params_list, ranges_dict, index + 1, current_combo)
 
 
+# Create a synthetic monthly recharge time series
+# to replace by: user path or automatic data retrieving
+time = list(range(1, 13))  # 1 à 12
+rech = [40, 30, 25, 20, 18, 19, 22, 26, 31, 37, 40, 43]
+rech_ts = pd.Series(rech, index=time, name='rech')
+rech_ts.index.name = 'time'
 
-class Calibration:
-    """
-    Class to compute objective function values across a range of K and Sy parameters for a given recharge time series.
-    """
-    
-    def __init__(self, params_dict, max_sim_nb, rech, obj_func, calib_method, visualization, solver='Modflow'):
-        """
-        Initialize with parameter ranges, calibration options and recharge values.
-        
-        Parameters:
-        params_dict (dict): Dictionary with parameter names as keys and lists of parameter bounds to explore as values
-        max_sim_nb (int): Maximum number of simulations to run within calibration process
-        rech (Pandas Series): Time and recharge values
-        obj_func (str): Objective function to use for evaluating the performance of each parameter combination
-        calib_method (str): Calibration method to use
-        """
-        from math import ceil
-        self.params_dict = params_dict
-        self.list_params = list(self.params_dict.keys())
-        self.nb_params = len(self.list_params)
-        self.max_sim_nb = max_sim_nb
-        self.param_resolution = ceil(max_sim_nb**(1/self.nb_params)) # Number of samples in each dimension
-        self.nb_sim = self.param_resolution ** self.nb_params
-        self.rech = rech
-        self.t = rech.index.values # Extract time values from the rech Series
-        self.Q_obs = Q_brutsaert(rech, 1E-3, 0.05) # To be replaced by reference observable
-        print(self.Q_obs)
-        self.obj_func = obj_func
-        self.solver = solver
-
-        self.log_spaced_params = ['K'] # List of parameters to be explored using log scale
-
-        # Dictionnary allowing to check parameters vs solver consistency
-        # to be switched to a parameter file
-        solver_params_dict = {
-            'Modflow': ['K', 'Sy', 'Ss', 'Cd'],
-            'GR4J': ['X1', 'X2', 'X3', 'X4']}
-        
-        for param in self.list_params:
-            if param not in solver_params_dict[self.solver] and param != 'thick':
-                raise ValueError(f"Parameter {param} is not compatible with the chosen solver.")
-            
-        if calib_method == 'regular_exploration':
-            calib_results_dict, calib_results_df = self.regular_exploration()
-        elif calib_method == 'Sobol_exploration':
-            calib_results_dict, calib_results_df = self.Sobol_exploration()
-
-        if visualization:
-            self.print_results(calib_results_df)
-
-        return (calib_results_dict, calib_results_df)
+# Observable reference
+Q_obs = calibration_method.Q_brutsaert(rech_ts, 1E-3, 0.05) # To be replaced by reference observable
 
 
+# Define parameters to calibrate and their bounds using a dictionnary
+# each key is a parameter name and the value is a list with the lower and upper bounds of the parameter range to explore.
+p=2
+if p==1:
+    params_to_calibrate = {
+        'K': [1e-5, 1e-1]}
+elif p==2:
+    params_to_calibrate = {
+        'K': [1e-5, 1e-1],
+        'Sy': [0.03, 0.07]}
+elif p==3:
+    params_to_calibrate = {
+        'K': [1e-5, 1e-1],
+        'Sy': [0.03, 0.07],
+        'Ss': [1,5]}
 
-    def regular_exploration(self):
-        """
-        Calculate objective function for all combinations of explored parameters.
-        
-        Returns:
-        dict: Dictionary with parameter combinations and associated objective function values
-        """
+# Define maximum number of simulations to run within the calibration process.
+# The actual number of simulations will be determined by the number of parameters and the resolution of the parameter space exploration.
+max_nb_sim = 512
 
-        # Initialisation of results storage and check consistency of parameters to calibrate
-        results_dict = {}
-        results_df_cols = self.list_params + ['Objective_Function']
-        results_df = pd.DataFrame(columns=results_df_cols)
-        if len(self.list_params) == 0:
-            raise ValueError("Set at least 1 parameter to calibrate")
-                
-        # Create a dictionnary of parameter sets to explore
-        param_ranges = {}
-        for param in self.list_params:
-            p_start, p_stop = self.params_dict[param]
-            if param in self.log_spaced_params:
-                param_ranges[param] = np.logspace(np.log10(p_start), np.log10(p_stop), self.param_resolution)
-            else:
-                param_ranges[param] = np.linspace(p_start, p_stop, self.param_resolution)
+# Define the objective function to use for evaluating the performance of each parameter combination.
+obj_func = 'NSE'
 
-        # Parameter exploration through dynamically generated nested loops
-        for param_combo in generate_combinations(self.list_params, param_ranges):
-            # print(param_combo)
-            if self.nb_params == 1:
-                Q_sim = Q_brutsaert(self.rech, param_combo[self.list_params[0]]) # to replace by several hydromodpy interactions
-            else:
-                Q_sim = Q_brutsaert(self.rech, param_combo['K'], param_combo['Sy']) # to replace by several hydromodpy interactions
-            key = ", ".join([f"{p}={param_combo[p]:.6f}" for p in self.list_params])
-            results_dict[key] = obj_f.objective_function(obs=self.Q_obs, sim=Q_sim, metric='RMSE')
-            row = {p: param_combo[p] for p in self.list_params}
-            row['Objective_Function'] = results_dict[key]
-            results_df = pd.concat([results_df, pd.DataFrame([row])], ignore_index=True)
-       
-        return (results_dict, results_df)
-    
-    def Sobol_exploration(self):
-        """
-        Calculate objective function for Sobol sensitivity analysis.
-        
-        Returns:
-        dict: Dictionary with parameter combinations and associated objective function values
-        """
-        from scipy.stats.qmc import Sobol
-        from scipy.stats.qmc import scale
+# Define the calibration method to use.
+calib_method = 'regular_exploration'
 
-        def closest_sobol_n(max_nb_sim, d):
-            """
-            Retourne le plus grand n <= max_nb_sim tel que n^(1/d) est une puissance de 2.
-            """
-            import math
-            # La racine d-ième de n doit être une puissance de 2 : n^(1/d) = 2^k donc n = 2^(k*d)
-            # On cherche le plus grand k tel que 2^(k*d) <= max_nb_sim
-            k = int(math.log2(max_nb_sim) / d)  # floor implicite via int()
-            n = 2**(k * d)
-            return round(n**(1/d))
+#Proceed to calibration via clibration_engine and get results
+calib_resultats = calibration_method.Calibration_method(
+    params_to_calibrate,
+    max_nb_sim,
+    rech_ts,
+    Q_obs,
+    obj_func,
+    calib_method,
+    solver='Modflow')
 
+calib_resultats.print_results()
+my_results = calib_resultats.get_result()
 
-        # Initialisation of results storage and check consistency of parameters to calibrate
-        results_dict = {}
-        results_df_cols = self.list_params + ['Objective_Function']
-        results_df = pd.DataFrame(columns=results_df_cols)
-        if len(self.list_params) == 0:
-            raise ValueError("Set at least 1 parameter to calibrate")
-
-        # Create a dictionnary of parameter sets to explore
-        param_ranges = {}
-        sampler = Sobol(d=self.nb_params, scramble=True, seed=42)
-
-        n_samples = closest_sobol_n(self.max_sim_nb, self.nb_params)
-        print(n_samples)
-        samples = sampler.random(n=n_samples)
-        lower_bounds = [bounds[0] for bounds in self.params_dict.values()]
-        upper_bounds = [bounds[1] for bounds in self.params_dict.values()]
-        samples_scaled = scale(samples, lower_bounds, upper_bounds) # Array
-        print(samples_scaled[0])
-        param_ranges = dict(zip(self.list_params, samples_scaled.T)) # Array to dict (+transpose)
-        print(param_ranges)
-
-        # Parameter exploration through dynamically generated nested loops
-        for param_combo in generate_combinations(self.list_params, param_ranges):
-            # print(param_combo)
-            if self.nb_params == 1:
-                Q_sim = Q_brutsaert(self.rech, param_combo[self.list_params[0]]) # to replace by several hydromodpy interactions
-            else:
-                Q_sim = Q_brutsaert(self.rech, param_combo['K'], param_combo['Sy']) # to replace by several hydromodpy interactions
-            key = ", ".join([f"{p}={param_combo[p]:.6f}" for p in self.list_params])
-            results_dict[key] = obj_f.objective_function(obs=self.Q_obs, sim=Q_sim, metric='RMSE')
-            row = {p: param_combo[p] for p in self.list_params}
-            row['Objective_Function'] = results_dict[key]
-            results_df = pd.concat([results_df, pd.DataFrame([row])], ignore_index=True)
-       
-        return (results_dict, results_df)
-
-
-
-    def print_results(self, results_df):
-        """"
-        Print visualizable results of obective function for 1, 2 or 3 parameter calibration.
-        
-        Parameters:
-        results_df (DataFrame): DataFrame containing parameter combinations and associated objective function values
-        """
-        import matplotlib.pyplot as plt
-
-        param_cols = self.list_params
-        obj_col = 'Objective_Function'
-        
-        # 1 parameter calibration result visualization
-        if len(self.list_params) == 1:
-            plt.figure(figsize=(10, 6))
-            plt.plot(results_df[param_cols], results_df[obj_col], marker='o')
-            plt.xlabel(param_cols)
-            plt.ylabel(obj_col)
-            plt.title(f'{obj_col} vs {param_cols}')
-            plt.xscale('log' if param_cols[0] in self.log_spaced_params else 'linear')
-            plt.grid()
-            plt.show()
-
-        # 2 parameters 2D visualization
-        elif len(param_cols) == 2: # Create pivot table if 2 parameters are calibrated
-            print(results_df)
-            print(param_cols[0], param_cols[1], obj_col)
-            pivot_data = results_df.pivot(
-                index=param_cols[0],
-                columns=param_cols[1],
-                values=obj_col)
-            
-            plt.figure(figsize=(10, 6))
-            plt.imshow(pivot_data.values, aspect='auto', cmap='viridis', origin='lower')
-            plt.colorbar(label=self.obj_func)
-            plt.xlabel(param_cols[1])
-            plt.ylabel(param_cols[0])
-            plt.title(f'{obj_col} vs {param_cols[0]} and {param_cols[1]}')
-            plt.xticks(range(len(pivot_data.columns)), [f'{x:.4f}' for x in pivot_data.columns], rotation=45)
-            xtick_indices = np.linspace(0, len(pivot_data.columns) - 1, 5, dtype=int)
-            plt.xticks(xtick_indices, [f'{pivot_data.columns[i]:.4f}' for i in xtick_indices])
-            ytick_indices = np.linspace(0, len(pivot_data.index) - 1, 5, dtype=int)
-            plt.yticks(ytick_indices, [f'{pivot_data.index[i]:.4f}' for i in ytick_indices])
-            plt.tight_layout()
-            plt.show()
-
-        # 3 parameters 3D visualization
-        elif len(param_cols) == 3:
-            fig = plt.figure(figsize=(10, 8))
-            ax = fig.add_subplot(111, projection='3d')
-            x = results_df[param_cols[0]]
-            y = results_df[param_cols[1]]
-            z = results_df[param_cols[2]]
-            scatter = ax.scatter(x, y, z, c=results_df[obj_col], cmap='viridis')
-            ax.set_xlabel(param_cols[0])
-            ax.set_ylabel(param_cols[1])
-            ax.set_zlabel(param_cols[2])
-            plt.colorbar(scatter)
-            plt.title(f'{obj_col} vs {param_cols[0]}, {param_cols[1]}, and {param_cols[2]}')
-            plt.show()
-
-        else:
-            print(f"graphical visualization requires 3 or less parameters, found {len(param_cols)}")
-        
+# calib_resultats = calibration_engine.Calibration.simplex_calibration(calib_results)
+# print('here:')
+# print(calib_resultats)
