@@ -50,30 +50,27 @@ class Initializing:
         config : InitializingConfig
             Pydantic config with catch_name and out_dir_path.
         """
-        catch_name   = config.catch_name
-        out_dir_path = config.out_dir_path
+        self.catch_name = config.catch_name
+        self.out_dir_path = config.out_dir_path
 
-        self.catch_name = catch_name
-        self.out_dir_path = out_dir_path
-
-        self.catch_folder = os.path.join(out_dir_path, catch_name)
+        self.catch_folder = config.catch_folder
         toolbox.create_folder(self.catch_folder)
 
         setup_simulation_log(self.catch_folder)
 
-        self.stable_folder = os.path.join(self.catch_folder, 'results_stable')
+        self.stable_folder = config.stable_folder
         toolbox.create_folder(self.stable_folder)
 
-        self.simulations_folder = os.path.join(self.catch_folder, 'results_simulations')
+        self.simulations_folder = config.simulations_folder
         toolbox.create_folder(self.simulations_folder)
 
-        self.calibration_folder = os.path.join(self.catch_folder, 'results_calibration')
+        self.calibration_folder = config.calibration_folder
         toolbox.create_folder(self.calibration_folder)
 
-        self.add_data_folder = os.path.join(self.stable_folder, 'add_data')
+        self.add_data_folder = self.stable_folder / 'add_data'
         toolbox.create_folder(self.add_data_folder)
 
-        self.figure_folder = os.path.join(self.stable_folder, '_figures')
+        self.figure_folder = self.stable_folder / '_figures'
         toolbox.create_folder(self.figure_folder)
 
 #%% FUNCTIONS
