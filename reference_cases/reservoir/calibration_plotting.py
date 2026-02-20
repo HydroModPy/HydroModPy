@@ -27,6 +27,43 @@ def _parameter_summary_lines(params_true, params_best, parameter_names):
     return lines
 
 
+def _is_strictly_positive(values):
+    arr = np.asarray(values, dtype=float).ravel()
+    finite = arr[np.isfinite(arr)]
+    return bool(finite.size > 0 and np.all(finite > 0.0))
+
+
+def _apply_parameter_axis_scales(ax, sample_source, parameter_names, params_true, params_best):
+    """
+    Apply log scaling on parameter panel axes when supported by data.
+    """
+    arr = np.asarray(sample_source, dtype=float)
+    names = tuple(parameter_names)
+    if arr.ndim != 2 or arr.shape[1] != len(names) or len(names) == 0:
+        return
+
+    if len(names) == 1:
+        name = names[0]
+        values = [arr[:, 0], [params_true.get(name, np.nan)], [params_best.get(name, np.nan)]]
+        if _is_strictly_positive(np.concatenate([np.asarray(v, dtype=float).ravel() for v in values])):
+            ax.set_xscale("log")
+        return
+
+    if len(names) == 2:
+        x_name, y_name = names
+        x_values = [arr[:, 0], [params_true.get(x_name, np.nan)], [params_best.get(x_name, np.nan)]]
+        y_values = [arr[:, 1], [params_true.get(y_name, np.nan)], [params_best.get(y_name, np.nan)]]
+
+        if _is_strictly_positive(np.concatenate([np.asarray(v, dtype=float).ravel() for v in x_values])):
+            ax.set_xscale("log")
+        if _is_strictly_positive(np.concatenate([np.asarray(v, dtype=float).ravel() for v in y_values])):
+            ax.set_yscale("log")
+        return
+
+    if _is_strictly_positive(arr):
+        ax.set_yscale("log")
+
+
 def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     """
     Plot forcing, reservoir response and calibration diagnostics.
@@ -124,6 +161,13 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
             params_true=params_true,
             params_best=params_best,
             decimals=10,
+        )
+        _apply_parameter_axis_scales(
+            ax=ax3,
+            sample_source=sample_source,
+            parameter_names=parameter_names,
+            params_true=params_true,
+            params_best=params_best,
         )
 
     month_locator = mdates.MonthLocator(interval=1)
