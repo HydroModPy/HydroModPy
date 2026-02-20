@@ -36,8 +36,8 @@ class Geology:
         
     def __init__(self, 
                  result_data_path : str, # class initialization --> exemple 12 
-                 geographic : object,
-                 geological_data_source: str,
+                 geographic : object, # maybe changed
+                 geol_data_source: str,
                  geol_field_name : Optional[str] = None, 
                  longitude : Optional[int] = 0,  
                  latitude : Optional[int] = 1,  
@@ -50,7 +50,7 @@ class Geology:
             Path of the folder for geology output in the HydroModPy results.
         geographic : object
             Variable object of the model domain (catchment).
-        geological_data_source : str
+        geol_data_source : str
             Path of the data source for geology. It can be a shapefile (source : BRGM or other) or a CSV file.
         geol_field_name : str
             Field label of the geological data source. 
@@ -62,28 +62,27 @@ class Geology:
         crs : int
             crs code for coordinate system (optional, default: 4326 for WGS 84).
         """
-        # logger.info("Extracting geology data from %s", geological_data_source)
+        # logger.info("Extracting geology data from %s", geol_data_source)
         
         self.geol_output_folder = os.path.join(result_data_path,'geology')
         if not os.path.exists(self.geol_output_folder):
                 os.makedirs(self.geol_output_folder)
                 
         self.geographic = geographic
-        self.geol_data_source = geological_data_source
+        self.geol_data_source = geol_data_source
         self.geol_field_name = geol_field_name
         self.longitude = longitude
         self.latitude = latitude
         self.crs = crs
-        
-        self.__read_geological_data()
-        self.__generate_structure_dem()
-        self.__geology_array()
-        
         self.structure_dem_path =  os.path.join(self.geol_output_folder, 'GeoStructure.tif')
         self.structure_clip =  os.path.join(self.geol_output_folder, 'GeoStructure_clip.tif')
         
+        self._read_geological_data()
+        self._generate_structure_dem()
+        self._geology_array()
+        
     #%% FUNCTIONS
-    def __read_geological_data(self):
+    def _read_geological_data(self):
         """
         Read geological data from file based on its extension.
         Supports .shp (shapefile), .csv (comma-separated values) and .tif or .tiff (raster) files.
@@ -97,26 +96,26 @@ class Geology:
         try:
             if file_extension == '.shp':
                 # Read shapefile using GeoPandas
-                self.geology_data = gpd.read_file(self.geol_data_source)
+                self.geol_data = gpd.read_file(self.geol_data_source)
                 logger.info(f"Shapefile loaded: {self.geol_data_source}")
                 
             elif file_extension == '.csv':
                 # Read CSV file and convert to shapefile
-                geology_data = os.path.join(self.geol_output_folder, 'geology.shp')
+                geol_data = os.path.join(self.geol_output_folder, 'geology.shp')
                 wbt.csv_points_to_vector(i = self.geol_data_source, 
-                                         output = geology_data, 
+                                         output = geol_data, 
                                          x_field = self.longitude, 
                                          y_field = self.latitude, 
                                          epsg = self.crs) # The others fields in the CSV file will be added as attributes in the shapefile
-                self.geology_data = gpd.read_file(geology_data) 
-                logger.info(f"CSV file loaded and converted to shapefile: {self.geology_data_source}")
+                self.geol_data = gpd.read_file(geol_data) 
+                logger.info(f"CSV file loaded and converted to shapefile: {self.geol_data_source}")
                 
             elif file_extension == '.tif' or file_extension == '.tiff':
                 self.geol_field_name = 'VALUE' #!Vérifier si c'est bien le nom du champ pris par défaut dans les rasters
-                geology_data = os.path.join(self.geol_output_folder, 'geology.shp')
-                wbt.raster_to_vector_polygons(i=self.geology_data_source, output = geology_data)
-                self.geology_data = gpd.read_file(geology_data)
-                logger.info(f"Raster file load and converted to shapefile: {self.geology_data_source}")
+                geol_data = os.path.join(self.geol_output_folder, 'geology.shp')
+                wbt.raster_to_vector_polygons(i=self.geol_data_source, output = geol_data)
+                self.geol_data = gpd.read_file(geol_data)
+                logger.info(f"Raster file load and converted to shapefile: {self.geol_data_source}")
                 
             else:
                 raise ValueError(f"Unsupported file format: {file_extension}. "
@@ -128,7 +127,7 @@ class Geology:
         
         return self
     
-    def __generate_structure_dem(self):
+    def _generate_structure_dem(self):
         """
         Generate a DEM of geological structure from the geological data source.
         -------
@@ -147,7 +146,7 @@ class Geology:
         self.structure_clip
         return self
 
-    def __geology_array(self):
+    def _geology_array(self):
         """
         Create a 2D array of geological structure from the generated DEM.
         -------
@@ -156,9 +155,9 @@ class Geology:
         """
 
         with rasterio.open(self.structure_clip) as structure_clip:
-            self.geology_array_clip = structure_clip.read(1).astype(str)
-        self.geology_code_clip = np.unique(self.geology_array_clip)
-        self.geology_code = self.geology_code_clip[self.geology_code_clip>=0]
+            self.geol_array_clip = structure_clip.read(1).astype(str)
+        self.geol_code_clip = np.unique(self.geol_array_clip)
+        self.geol_code = self.geol_code_clip[self.geol_code_clip>=0]
         return self
 
     # def geo_to_K(self, K_geo_values):
@@ -173,9 +172,9 @@ class Geology:
     #     self
     #         Add some variable in Geology class self object.
     #     """
-    #     self.K_array = self.geology_array
-    #     for i in range(0,len(self.geology_code)):
-    #         self.K_array[self.geology_array==self.geology_code[i]] = K_geo_values[i]
+    #     self.K_array = self.geol_array
+    #     for i in range(0,len(self.geol_code)):
+    #         self.K_array[self.geol_array==self.geol_code[i]] = K_geo_values[i]
     #     """
     #     geology_array: 2D arrays - code of geology entities
     #     K_geo_values: 1D array (same size that geology code variable)
