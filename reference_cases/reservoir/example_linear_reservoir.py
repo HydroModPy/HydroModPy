@@ -11,7 +11,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from reservoir_equations import ReservoirModel
+from one_reservoir_equations import ReservoirModel
 
 
 def qin_sine(t):

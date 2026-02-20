@@ -237,7 +237,7 @@ def delayed_acceptance_gp_mh_calibrate(
     Parameters
     ----------
     objective_cost : callable
-        Cost function to minimize (kept for API compatibility).
+        Cost function to minimize.
     bounds : sequence[(low, high)]
         Parameter bounds.
     observed : array-like or None
@@ -287,7 +287,7 @@ def delayed_acceptance_gp_mh_calibrate(
     Returns
     -------
     dict
-        Calibration result with API-compatible fields (`x_best`, `cost_best`,
+        Calibration result with standard fields (`x_best`, `cost_best`,
         `method`, `n_evaluations`) and MCMC diagnostics/samples.
     """
     lower, upper = _normalize_bounds(bounds)

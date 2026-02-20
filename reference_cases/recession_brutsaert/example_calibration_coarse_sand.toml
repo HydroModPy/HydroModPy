@@ -21,6 +21,7 @@ global_method = "da_mh_gp"
 
 [bounds]
 # Parameter bounds used during calibration.
+# Bounds must include all model parameters (K and Sy).
 K = [1.0e-5, 1.0e-3]
 Sy = [0.20, 0.35]
 
@@ -46,6 +47,7 @@ n_init = 80
 n_samples = 4000
 burn_in = 800
 thin = 4
+# Vector options must be scalar or full model order [K, Sy].
 proposal_scale = [2.0e-5, 0.01]
 sigma_noise = 0.01
 prior_mean = [2.0e-4, 0.28]

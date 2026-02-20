@@ -10,39 +10,135 @@ from reference_cases.objective_function import ObjectiveFunction
 
 def as_1d_array(values, name):
     """
-    Convert an input sequence to a non-empty 1D float array.
+    Convert an input sequence to a validated 1D NumPy float array.
+
+    Purpose
+    -------
+    This helper function standardizes user inputs before numerical processing.
+    It ensures that the provided data:
+        - can be converted to a NumPy array,
+        - contains numeric (float) values,
+        - is one-dimensional,
+        - is not empty.
+
+    Parameters
+    ----------
+    values : array-like
+        Input data (list, tuple, NumPy array, pandas Series, etc.).
+    name : str
+        Name of the variable (used for informative error messages).
+
+    Returns
+    -------
+    np.ndarray
+        A 1D NumPy array of floats.
+
+    Examples
+    --------
+    >>> as_1d_array([1, 2, 3], "x")
+    array([1., 2., 3.])
+
+    >>> as_1d_array([[1, 2, 3]], "x")
+    array([1., 2., 3.])   # flattened to 1D
+
+    >>> as_1d_array([], "x")
+    ValueError: x cannot be empty
+
+    Notes
+    -----
+    - `.ravel()` flattens multi-dimensional inputs into 1D.
+    - `dtype=float` guarantees compatibility with numerical solvers.
     """
-    arr = np.asarray(values, dtype=float).ravel()
+
+    # Convert input to a NumPy array of floats.
+    # np.asarray:
+    #   - Leaves NumPy arrays unchanged
+    #   - Converts lists, tuples, pandas Series, etc.
+    # dtype=float:
+    #   - Ensures numerical consistency
+    #   - Prevents unexpected integer division or type issues
+    arr = np.asarray(values, dtype=float)
+
+    # Flatten the array to 1D.
+    # Example:
+    #   [[1, 2, 3]]  →  [1, 2, 3]
+    #   [[1], [2], [3]] → [1, 2, 3]
+    arr = arr.ravel()
+
+    # Validate non-empty input.
+    # Prevents silent downstream failures (e.g., solver crashes,
+    # invalid calibration, division by zero).
     if arr.size == 0:
         raise ValueError(f"{name} cannot be empty")
+
     return arr
-
-
-# Backward compatibility alias for older code.
-_as_1d_array = as_1d_array
-
 
 class Calibration:
     """
-    Generic calibration class with objective metric and method registry.
+    Generic parameter calibration engine for simulation models.
+
+    This class links:
+        - observed data (calibration target),
+        - a user-defined simulator (forward model),
+        - parameter bounds,
+        - an objective metric,
+        - and an optimization method.
+
+    It provides a unified interface to:
+        1) simulate model outputs for a parameter set,
+        2) compute performance metrics,
+        3) define a minimization cost,
+        4) run an optimization procedure.
 
     Parameters
     ----------
     observed : array-like
-        Observed series used as calibration target.
+        Target time series used for calibration.
+        Must be numeric and 1D. Represents the reference signal
+        the simulator should reproduce (e.g., observed discharge).
+
     simulator : callable
-        Callable receiving a named-parameter dictionary and returning a
-        simulated series with same shape as `observed`.
-    bounds : dict or sequence[(low, high)]
-        Parameter bounds.
-        If dict is provided, keys define parameter names/order.
-    objective_metric : str
-        Objective metric for score: "nse", "nse_log", or "kge" (aliases allowed).
+        Forward model with signature:
+            simulator(params_dict) -> simulated_series
+        where `params_dict` maps parameter names to numeric values.
+        The returned series must have the same shape as `observed`.
+
+    bounds : dict or sequence of (low, high)
+        Defines the admissible parameter space.
+        - If a dict is provided:
+              {"C": (10, 500), "k": (0.01, 1.0)}
+          keys define parameter names and order.
+        - If a sequence is provided:
+              [(10, 500), (0.01, 1.0)]
+          parameter_names must be given (or default names p1, p2, ... are used).
+
+        Each bound must satisfy: lower < upper.
+
+    objective_metric : str, default="nse"
+        Performance metric to maximize.
+        Supported examples: "nse", "nse_log", "kge".
+        Internally, optimization minimizes:
+            cost = 1 - score
+
     parameter_names : list[str] or None
-        Optional explicit parameter order when bounds is not a dict.
+        Explicit parameter ordering when `bounds` is not a dict.
+        Ensures consistent mapping between vectors and named parameters.
+
     calibration_method : object or None
-        Calibration-method registry exposing `calibrate(...)`.
-        If None, uses `DEFAULT_CALIBRATION_METHOD`.
+        Optimization-method registry exposing:
+
+            calibrate(objective_cost, bounds, method, **kwargs)
+
+        If None, DEFAULT_CALIBRATION_METHOD is used.
+        Allows plug-and-play integration of multiple search strategies
+        (grid search, simplex, random search, Bayesian methods, etc.).
+
+    Design philosophy
+    -----------------
+    - Model-agnostic: works with any simulator following the required interface.
+    - Metric-agnostic: objective function handled via a dedicated evaluator.
+    - Method-agnostic: optimization delegated to a registry.
+    - Clear separation between model evaluation and optimization logic.
     """
 
     def __init__(
