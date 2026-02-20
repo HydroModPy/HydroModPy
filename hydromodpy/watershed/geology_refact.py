@@ -93,7 +93,7 @@ class Geology:
         Supports .shp (shapefile), .csv (comma-separated values) and .tif or .tiff (raster) files.
         -------
         self
-            Stores the geological data in self.geology_data attribute.
+            Stores the geological data in self.geol_data attribute.
         """
         # Get file extension (last 4 characters or more if needed)
         file_extension = os.path.splitext(self.geol_data_source)[1].lower()
@@ -101,27 +101,27 @@ class Geology:
         if file_extension == '.shp':
             # Read shapefile using GeoPandas
             geol_data = gpd.read_file(self.geol_data_source)
-            self.geol_data = gpd.clip(gdf=geol_data, mask=self.geographic.box_buff) 
+            mask_gdf = gpd.read_file(self.geographic.box_buff)
+            self.geol_data = gpd.clip(gdf=geol_data, mask=mask_gdf) 
             logger.info(f"Shapefile loaded and clipped: {self.geol_data_source}")
             
         elif file_extension == '.csv':
             # Read CSV file using Pandas
             geol_data = pd.read_csv(self.geol_data_source)
-            geol_data = gpd.GeoDataFrame(geol_data,
-                                        geometry=gpd.points_from_xy(x = geol_data.iloc[:, self.longitude], 
-                                                                    y = geol_data.iloc[:, self.latitude], 
-                                                                    crs = self.crs)
-                                        )
-            self.geol_data = gpd.clip(gdf=geol_data, mask=self.geographic.box_buff) 
+            geol_data = gpd.GeoDataFrame(geol_data, 
+                            geometry=gpd.points_from_xy(x = geol_data.iloc[:, self.longitude], 
+                                                        y = geol_data.iloc[:, self.latitude], 
+                                                        crs = self.crs)
+                            )
+            mask_gdf = gpd.read_file(self.geographic.box_buff)
+            self.geol_data = gpd.clip(gdf=geol_data, mask=mask_gdf) 
             logger.info(f"CSV file loaded and clipped: {self.geol_data_source}")
 
-        elif file_extension == '.tif' or file_extension == '.tiff':
-            geol_data = os.path.join(self.geol_output_folder, 'geol_clip.tif')
+        elif file_extension in ('.tif', '.tiff'):
+            self.geol_data = os.path.join(self.geol_output_folder, 'geol_clip.tif')
             wbt.clip_raster_to_polygon(i=self.geol_data_source, 
                                     polygon=self.geographic.box_buff, 
-                                    output=geol_data)
-            # Read raster file using Rasterio
-            self.geol_data = rasterio.open(geol_data)
+                                    output=self.geol_data)
             logger.info(f"Raster file loaded and clipped: {self.geol_data_source}")
         else :
             raise ValueError(f"Unsupported file format: {file_extension}. "
@@ -135,7 +135,7 @@ class Geology:
     #     Supports .shp (shapefile), .csv (comma-separated values) and .tif or .tiff (raster) files.
     #     -------
     #     self
-    #         Stores the geological data in self.geology_data attribute.
+    #         Stores the geological data in self.geol_data attribute.
     #     """
     #     # Get file extension (last 4 characters or more if needed)
     #     file_extension = os.path.splitext(self.geol_data_source)[1].lower()
