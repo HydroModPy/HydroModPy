@@ -60,10 +60,12 @@ dependencies = [
     "pysheds",
     "rasterio",
     "rioxarray",
+    "scikit-learn",
     "selenium",
     "vedo",
     "whitebox",
     "xarray",
+    "pydantic>=2.0",
     "pyside6",
     "spyder-kernels",
 ]
@@ -83,6 +85,7 @@ docs = [
     "sphinx-togglebutton",
     "sphinx-tabs",
     "sphinx-multiversion",
+    "autodoc-pydantic>=2.0",
 ]
 ide = ["spyder>=6.0", "jupyterlab>=4.0"]
 
@@ -111,4 +114,12 @@ markers = [
     "regression: non-regression tests based on reference datasets",
     "fast: quick-running regression cases",
     "slow: long-running integration or regression tests",
+]
+
+[tool.coverage.run]
+source = [
+    "hydromodpy/watershed/",
+    "hydromodpy/tools/",
+    "hydromodpy/modeling/",
+    "hydromodpy/display/",
 ]

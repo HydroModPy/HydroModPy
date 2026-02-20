@@ -46,7 +46,7 @@ class Calibration:
     Class to compute objective function values across a range of K and Sy parameters for a given recharge time series.
     """
     
-    def __init__(self, params_dict, max_sim_nb, rech, obj_func, calib_method, solver='Modflow'):
+    def __init__(self, params_dict, max_sim_nb, rech, obj_func, calib_method, visualization, solver='Modflow'):
         """
         Initialize with parameter ranges, calibration options and recharge values.
         
@@ -72,7 +72,7 @@ class Calibration:
         self.solver = solver
 
         self.log_spaced_params = ['K'] # List of parameters to be explored using log scale
-        
+
         # Dictionnary allowing to check parameters vs solver consistency
         # to be switched to a parameter file
         solver_params_dict = {
@@ -82,6 +82,16 @@ class Calibration:
         for param in self.list_params:
             if param not in solver_params_dict[self.solver] and param != 'thick':
                 raise ValueError(f"Parameter {param} is not compatible with the chosen solver.")
+            
+        if calib_method == 'regular_exploration':
+            calib_results_dict, calib_results_df = self.regular_exploration()
+        elif calib_method == 'Sobol_exploration':
+            calib_results_dict, calib_results_df = self.Sobol_exploration()
+
+        if visualization:
+            self.print_results(calib_results_df)
+
+        return (calib_results_dict, calib_results_df)
 
 
 
@@ -108,7 +118,6 @@ class Calibration:
                 param_ranges[param] = np.logspace(np.log10(p_start), np.log10(p_stop), self.param_resolution)
             else:
                 param_ranges[param] = np.linspace(p_start, p_stop, self.param_resolution)
-        # print(param_ranges)
 
         # Parameter exploration through dynamically generated nested loops
         for param_combo in generate_combinations(self.list_params, param_ranges):
@@ -210,7 +219,9 @@ class Calibration:
 
         # 2 parameters 2D visualization
         elif len(param_cols) == 2: # Create pivot table if 2 parameters are calibrated
-            pivot_data = results_df.pivot_table(
+            print(results_df)
+            print(param_cols[0], param_cols[1], obj_col)
+            pivot_data = results_df.pivot(
                 index=param_cols[0],
                 columns=param_cols[1],
                 values=obj_col)
@@ -222,10 +233,28 @@ class Calibration:
             plt.ylabel(param_cols[0])
             plt.title(f'{obj_col} vs {param_cols[0]} and {param_cols[1]}')
             plt.xticks(range(len(pivot_data.columns)), [f'{x:.4f}' for x in pivot_data.columns], rotation=45)
-            plt.yticks(range(len(pivot_data.index)), [f'{x:.4f}' for x in pivot_data.index])
-            # plt.tight_layout()
+            xtick_indices = np.linspace(0, len(pivot_data.columns) - 1, 5, dtype=int)
+            plt.xticks(xtick_indices, [f'{pivot_data.columns[i]:.4f}' for i in xtick_indices])
+            ytick_indices = np.linspace(0, len(pivot_data.index) - 1, 5, dtype=int)
+            plt.yticks(ytick_indices, [f'{pivot_data.index[i]:.4f}' for i in ytick_indices])
+            plt.tight_layout()
             plt.show()
-        else:
-            print(f"2D visualization requires exactly 2 parameters, found {len(param_cols)}")
-        
 
+        # 3 parameters 3D visualization
+        elif len(param_cols) == 3:
+            fig = plt.figure(figsize=(10, 8))
+            ax = fig.add_subplot(111, projection='3d')
+            x = results_df[param_cols[0]]
+            y = results_df[param_cols[1]]
+            z = results_df[param_cols[2]]
+            scatter = ax.scatter(x, y, z, c=results_df[obj_col], cmap='viridis')
+            ax.set_xlabel(param_cols[0])
+            ax.set_ylabel(param_cols[1])
+            ax.set_zlabel(param_cols[2])
+            plt.colorbar(scatter)
+            plt.title(f'{obj_col} vs {param_cols[0]}, {param_cols[1]}, and {param_cols[2]}')
+            plt.show()
+
+        else:
+            print(f"graphical visualization requires 3 or less parameters, found {len(param_cols)}")
+        

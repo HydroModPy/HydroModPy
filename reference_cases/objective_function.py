@@ -1,25 +1,34 @@
-"""Classical hydrological performance metrics and objective-function switch.
-
-References
-----------
-NSE:
-  Nash, J. E., and J. V. Sutcliffe (1970).
-  River flow forecasting through conceptual models part I.
-  Journal of Hydrology, 10(3), 282-290.
-  doi:10.1016/0022-1694(70)90255-6
-
-NSElog (log-transformed NSE usage in model evaluation):
-  Krause, P., D. P. Boyle, and F. Base (2005).
-  Comparison of different efficiency criteria for hydrological model assessment.
-  Advances in Geosciences, 5, 89-97.
-  doi:10.5194/adgeo-5-89-2005
-
-KGE (2009 original form):
-  Gupta, H. V., H. Kling, K. K. Yilmaz, and G. F. Martinez (2009).
-  Decomposition of the mean squared error and NSE performance criteria.
-  Journal of Hydrology, 377(1-2), 80-91.
-  doi:10.1016/j.jhydrol.2009.08.003
 """
+Classical performance metrics and objective-function switch.
+
+Bibliographic references
+------------------------
+RMSE / MAE (forecast and model-error measures):
+- Hyndman, R. J., Koehler, A. B. (2006). Another look at measures of
+  forecast accuracy. International Journal of Forecasting, 22(4), 679-688.
+  DOI: 10.1016/j.ijforecast.2006.03.001
+
+NSE:
+- Nash, J. E., Sutcliffe, J. V. (1970). River flow forecasting through
+  conceptual models part I - A discussion of principles.
+  Journal of Hydrology, 10(3), 282-290.
+  DOI: 10.1016/0022-1694(70)90255-6
+
+NSElog usage in hydrological model assessment:
+- Krause, P., Boyle, D. P., Base, F. (2005). Comparison of different
+  efficiency criteria for hydrological model assessment.
+  Advances in Geosciences, 5, 89-97.
+  DOI: 10.5194/adgeo-5-89-2005
+
+KGE (2009 formulation used in this module):
+- Gupta, H. V., Kling, H., Yilmaz, K. K., Martinez, G. F. (2009).
+  Decomposition of the mean squared error and NSE performance criteria:
+  Implications for improving hydrological modelling.
+  Journal of Hydrology, 377(1-2), 80-91.
+  DOI: 10.1016/j.jhydrol.2009.08.003
+"""
+
+from __future__ import annotations
 
 import numpy as np
 
@@ -32,11 +41,6 @@ def _prepare_series(observed, simulated):
     -------
     tuple[np.ndarray, np.ndarray]
         (obs, sim) masked to finite pairs.
-
-    Notes
-    -----
-    - Keeps only paired finite values to avoid NaN/Inf propagation.
-    - Preserves 1-to-1 comparison after masking.
     """
     obs = np.asarray(observed, dtype=float)
     sim = np.asarray(simulated, dtype=float)
@@ -44,7 +48,6 @@ def _prepare_series(observed, simulated):
     if obs.shape != sim.shape:
         raise ValueError("observed and simulated must have the same shape")
 
-    # Keep only entries where both observed and simulated are finite.
     mask = np.isfinite(obs) & np.isfinite(sim)
     obs = obs[mask]
     sim = sim[mask]
@@ -57,14 +60,9 @@ def _prepare_series(observed, simulated):
 
 def rmse(observed, simulated):
     """
-    Root Mean Square Error (RMSE).
+    Root Mean Square Error (lower is better).
 
-    RMSE = sqrt(mean((sim - obs)^2))
-
-    Notes
-    -----
-    - Lower is better (0 means perfect fit).
-    - Uses finite-value masking through `_prepare_series`.
+    Reference: Hyndman and Koehler (2006), DOI: 10.1016/j.ijforecast.2006.03.001
     """
     obs, sim = _prepare_series(observed, simulated)
     return float(np.sqrt(np.mean((sim - obs) ** 2)))
@@ -72,14 +70,9 @@ def rmse(observed, simulated):
 
 def mae(observed, simulated):
     """
-    Mean Absolute Error (MAE).
+    Mean Absolute Error (lower is better).
 
-    MAE = mean(|sim - obs|)
-
-    Notes
-    -----
-    - Lower is better (0 means perfect fit).
-    - Uses finite-value masking through `_prepare_series`.
+    Reference: Hyndman and Koehler (2006), DOI: 10.1016/j.ijforecast.2006.03.001
     """
     obs, sim = _prepare_series(observed, simulated)
     return float(np.mean(np.abs(sim - obs)))
@@ -87,18 +80,11 @@ def mae(observed, simulated):
 
 def nse(observed, simulated):
     """
-    Nash-Sutcliffe Efficiency (NSE).
+    Nash-Sutcliffe Efficiency (higher is better, max=1).
 
-    NSE = 1 - sum((sim - obs)^2) / sum((obs - mean(obs))^2)
-
-    Interpretation
-    --------------
-    - 1.0 : perfect fit
-    - 0.0 : same skill as using mean(observed)
-    - < 0 : worse than mean(observed)
+    Reference: Nash and Sutcliffe (1970), DOI: 10.1016/0022-1694(70)90255-6
     """
     obs, sim = _prepare_series(observed, simulated)
-    # Denominator is total observed variance around its mean.
     denom = np.sum((obs - np.mean(obs)) ** 2)
     if denom == 0:
         raise ValueError("NSE undefined because observed series has zero variance")
@@ -107,31 +93,24 @@ def nse(observed, simulated):
 
 def nse_log(observed, simulated):
     """
-    Log-transformed Nash-Sutcliffe Efficiency (NSElog).
+    Log-transformed Nash-Sutcliffe Efficiency.
 
-    Computed on log(obs) and log(sim), therefore all values must be > 0.
-    This metric typically emphasizes low flows more than standard NSE.
+    Requires strictly positive observed and simulated values.
+
+    Reference for log-space efficiency usage:
+    Krause et al. (2005), DOI: 10.5194/adgeo-5-89-2005
     """
     obs, sim = _prepare_series(observed, simulated)
     if np.any(obs <= 0) or np.any(sim <= 0):
         raise ValueError("NSElog requires strictly positive observed and simulated values")
-    # Re-use NSE implementation on transformed series.
     return nse(np.log(obs), np.log(sim))
 
 
 def kge(observed, simulated, return_components=False):
     """
-    Kling-Gupta Efficiency (KGE, 2009 form).
+    Kling-Gupta Efficiency (2009 form).
 
-    KGE = 1 - sqrt((r-1)^2 + (alpha-1)^2 + (beta-1)^2)
-      where:
-        r     = correlation(sim, obs)
-        alpha = std(sim) / std(obs)
-        beta  = mean(sim) / mean(obs)
-
-    Notes
-    -----
-    KGE decomposes performance into correlation, variability ratio and bias ratio.
+    Reference: Gupta et al. (2009), DOI: 10.1016/j.jhydrol.2009.08.003
     """
     obs, sim = _prepare_series(observed, simulated)
 
@@ -145,7 +124,6 @@ def kge(observed, simulated, return_components=False):
     if obs_mean == 0:
         raise ValueError("KGE undefined because observed mean is zero")
 
-    # Decompose fit into correlation, spread ratio and bias ratio.
     r = np.corrcoef(obs, sim)[0, 1]
     alpha = sim_std / obs_std
     beta = sim_mean / obs_mean
@@ -156,31 +134,16 @@ def kge(observed, simulated, return_components=False):
     return kge_value
 
 
-def objective_function(observed, simulated, metric="RMSE"):
+def objective_function(observed, simulated, metric="rmse"):
     """
-    Compatibility objective-function helper mirroring legacy API style.
+    Direct helper for one-shot metric evaluation.
 
-    Parameters
-    ----------
-    observed, simulated : array-like
-        Series to compare.
-    metric : str
-        Metric name. Supported values (case-insensitive):
-        - `"RMSE"`
-        - `"MAE"`
-        - `"NSE"`
-        - `"NSElog"` / `"NSE_log"`
-        - `"KGE"`
-
-    Returns
-    -------
-    float
-        Metric value.
-
-    Notes
-    -----
-    - RMSE and MAE are error metrics (to minimize).
-    - NSE, NSElog and KGE are efficiency metrics (to maximize).
+    Supported names (case-insensitive):
+    - RMSE
+    - MAE
+    - NSE
+    - NSElog / NSE_log
+    - KGE
     """
     key = str(metric).strip().lower()
 
@@ -201,39 +164,14 @@ def objective_function(observed, simulated, metric="RMSE"):
     )
 
 
-def RMSE(observed, simulated):
-    """Legacy uppercase alias of `rmse`."""
-    return rmse(observed, simulated)
-
-
-def MAE(observed, simulated):
-    """Legacy uppercase alias of `mae`."""
-    return mae(observed, simulated)
-
-
-def NSE(observed, simulated):
-    """Legacy uppercase alias of `nse`."""
-    return float(nse(observed, simulated))
-
-
-def KGE(observed, simulated):
-    """Legacy uppercase alias of `kge` (value only, no components)."""
-    return float(kge(observed, simulated, return_components=False))
-
-
 class ObjectiveFunction:
     """
-    Objective-function style interface for hydrological metrics.
+    Objective-function interface for calibration workflows.
 
-    Supported canonical metric names:
+    Canonical metric names:
     - "nse"
     - "nse_log"
     - "kge"
-
-    Aliases are accepted (case-insensitive), e.g.:
-    - "NSE", "nash"
-    - "nselog", "lognse", "nse-log"
-    - "KGE", "kling_gupta"
     """
 
     _ALIASES = {
@@ -250,25 +188,11 @@ class ObjectiveFunction:
     }
 
     def __init__(self, metric="nse"):
-        """
-        Build an objective-function evaluator with a default metric.
-
-        Parameters
-        ----------
-        metric : str
-            Default metric name or alias used when `evaluate(...)` is called
-            without runtime override.
-        """
-        # Store canonical metric name at construction for predictable defaults.
         self.metric = self.resolve_metric_name(metric)
 
     @classmethod
     def resolve_metric_name(cls, metric):
-        """
-        Normalize metric name and validate supported aliases.
-
-        Returns canonical metric key used internally by evaluator methods.
-        """
+        """Normalize metric name and validate supported aliases."""
         key = str(metric).strip().lower()
         if key not in cls._ALIASES:
             valid = ", ".join(sorted(set(cls._ALIASES.values())))
@@ -277,27 +201,14 @@ class ObjectiveFunction:
 
     def evaluate(self, observed, simulated, metric=None, return_components=True):
         """
-        Evaluate a single metric with optional runtime switch.
-
-        Parameters
-        ----------
-        observed, simulated : array-like
-            Series to compare.
-        metric : str or None
-            Optional override metric name.
-        return_components : bool
-            If True and metric is KGE, return its components too.
+        Evaluate one metric.
 
         Returns
         -------
         dict
-            Always returns a dictionary with at least:
-            {"metric": <name>, "value": <float>}
-            and for KGE optionally:
-            {"components": {"r": ..., "alpha": ..., "beta": ...}}
+            At least {"metric": <name>, "value": <float>}.
+            For KGE and `return_components=True`, adds `components`.
         """
-        # Runtime override allows one ObjectiveFunction instance to evaluate
-        # several criteria without reconstruction.
         metric_name = self.metric if metric is None else self.resolve_metric_name(metric)
 
         if metric_name == "nse":
@@ -315,26 +226,12 @@ class ObjectiveFunction:
             value = float(kge(observed, simulated, return_components=False))
             return {"metric": metric_name, "value": value}
 
-        # Should not be reachable due to resolve_metric_name.
         raise RuntimeError(f"Unhandled metric '{metric_name}'")
 
     def evaluate_all(self, observed, simulated):
         """
         Evaluate NSE, NSElog and KGE in one call.
-
-        Returns
-        -------
-        dict
-            {
-              "NSE": ...,
-              "NSElog": ...,
-              "KGE": ...,
-              "r": ...,
-              "alpha": ...,
-              "beta": ...
-            }
         """
-        # Single-call summary useful for reporting and post-calibration diagnostics.
         nse_value = float(nse(observed, simulated))
         nse_log_value = float(nse_log(observed, simulated))
         kge_value, components = kge(observed, simulated, return_components=True)

@@ -714,56 +714,58 @@ class Modpath:
             end_up = update_time(end_process, filt_time)
             end_up, keep_particles = update_locout(end_up, filt_seep, filt_inout)
             end_up = ensure_crs(end_up)
-            end_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp')
+            end_up.to_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'ending_weighted.shp'))
 
             start_up = update_time(start_process, filt_time)
             start_up, keep_particles = update_locout(start_up, filt_seep, filt_inout)
             start_up = ensure_crs(start_up)
-            start_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp')
-            
+            start_up.to_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'starting_weighted.shp'))
+
             if self.pathlines_shp == True:
-                pathlines_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines.shp'))
+                pathlines_process = ensure_crs(gpd.read_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'pathlines.shp')))
                 if self.track_dir == 'forward':
                     pathlines_process['time_win'] = (end_process['time'])*end_process['rchPerc']
                 if self.track_dir == 'backward':
                     pathlines_process['time_win'] = (start_process['time'])*start_process['rchPerc']
                 pathlines_up = update_time(pathlines_process, filt_time)
                 pathlines_up = pathlines_up[pathlines_up['particleid'].isin(keep_particles)]
+                random_data_file = os.path.join(self.model_folder, '_id_particles_random.data')
                 if random_id != None:
-                    if not os.path.exists(self.model_folder+'/'+'_id_particles_random.data'):
+                    if not os.path.exists(random_data_file):
                         id_particles_random = random.sample(pathlines_up[:-1], random_id)
-                        with open(self.model_folder+'/'+'_id_particles_random.data', 'wb') as f:
+                        with open(random_data_file, 'wb') as f:
                             pickle.dump(id_particles_random, f)
                     else:
-                        with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
+                        with open(random_data_file, 'rb') as f:
                             id_particles_random = pickle.load(f)
-                    pathlines_up = pathlines_up[pathlines_up['particleid'].isin(id_particles_random)]                    
+                    pathlines_up = pathlines_up[pathlines_up['particleid'].isin(id_particles_random)]
                 pathlines_up = ensure_crs(pathlines_up)
-                pathlines_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'pathlines_weighted.shp')
-            
+                pathlines_up.to_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'pathlines_weighted.shp'))
+
             if self.particles_shp == True:
-                particles_process = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles.shp'))
+                particles_process = ensure_crs(gpd.read_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'particles.shp')))
                 particles_up = update_time(particles_process, filt_time)
+                random_data_file = os.path.join(self.model_folder, '_id_particles_random.data')
                 if random_id != None:
-                    if not os.path.exists(self.model_folder+'/'+'_id_particles_random.data'):
+                    if not os.path.exists(random_data_file):
                         id_particles_random = random.sample(particles_up[:-1], random_id)
-                        with open(self.model_folder+'/'+'_id_particles_random.data', 'wb') as f:
+                        with open(random_data_file, 'wb') as f:
                             pickle.dump(id_particles_random, f)
                     else:
-                        with open(self.model_folder+'/'+'_id_particles_random.data', 'rb') as f:
+                        with open(random_data_file, 'rb') as f:
                             id_particles_random = pickle.load(f)
-                    particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]                    
+                    particles_up = particles_up[particles_up['particleid'].isin(id_particles_random)]
                 particles_up = ensure_crs(particles_up)
-                particles_up.to_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'particles_weighted.shp')
+                particles_up.to_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'particles_weighted.shp'))
 
         
         #%% PLOT
         
         if calc_rtd == True:
-            if self.track_dir == 'forward': 
-                end = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'ending_weighted.shp'))
-            if self.track_dir == 'backward': 
-                end = ensure_crs(gpd.read_file(self.model_folder+'/'+model_name+'/'+'_postprocess/_particles/'+'starting_weighted.shp'))
+            if self.track_dir == 'forward':
+                end = ensure_crs(gpd.read_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'ending_weighted.shp')))
+            if self.track_dir == 'backward':
+                end = ensure_crs(gpd.read_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'starting_weighted.shp')))
             try:
                 shp = gpd.read_file(self.geographic.watershed_shp)
                 end = end.clip(shp)

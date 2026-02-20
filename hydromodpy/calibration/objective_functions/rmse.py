@@ -1,33 +1,41 @@
-from IObjectiveFunction import IObjectiveFunction
+from hydromodpy.calibration.ObjectiveFunction import ObjectiveFunction
 
 import numpy as np
-
-class RMSE(IObjectiveFunction):
+ 
+class RMSE(ObjectiveFunction):
     """
     Root Mean Square Error (RMSE) objective function for hydrological model calibration.
     """
 
-    def evaluate(obs, sim):
+    def __init__(self, weight: float = 1.0):
+        """Initialize RMSE with a weight parameter."""
+        super().__init__(weight=weight)
+
+    def evaluate(self, observed, simulated) -> float:
         """
         Calculate the Root Mean Square Error (RMSE) between observed and simulated values.
         
         Args:
-            obs: Array of observed values
-            sim: Array of simulated values
+            observed: Array of observed values
+            simulated: Array of simulated values
         
         Returns:
             float: RMSE value
         """
-        obs, sim = check_series_consistency(obs, sim)
-        rmse = np.sqrt(np.mean((obs - sim) ** 2))
+        observed, simulated = self.check_series_consistency(observed, simulated)
+        rmse = np.sqrt(np.mean((observed - simulated) ** 2))
 
         return rmse
 
-    def getweights(self) -> list[float]:
-        """RMSE does not use weights, so this method returns an empty list."""
-        return []
+    def normalize(self, observed, simulated) -> float:
+        """
+        Normalize RMSE to [0, 1] range using inverse transformation.
         
-
-    def set_weights(self, weights: list[float]) -> None:
-        """RMSE does not use weights, so this method does nothing."""
-        pass
+        RMSE ranges from 0 (optimal) to ∞ (worst).
+        Uses formula: performance = 1 / (1 + RMSE)
+        - RMSE = 0 → performance = 1 (optimal)
+        - RMSE → ∞ → performance → 0 (worst)
+        """
+        rmse_value = self.evaluate(observed, simulated)
+        # Transform error metric to performance metric
+        return 1.0 / (1.0 + rmse_value)
