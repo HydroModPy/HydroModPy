@@ -48,10 +48,10 @@ from hydromodpy.watershed import geographic, initializing
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingConfig, GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
+from hydromodpy.modeling.modflow import Modflow
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
-
 out_path = cfg.initializing.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
@@ -423,9 +423,56 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     BV.settings.update_model_name(model_name)
 
     BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
-
-    model_modflow = BV.preprocessing_modflow(for_calib=False) # BV.calibration_folder
-
+    
+    for_calib = False
+    if for_calib == False:
+            model_folder = BV.simulations_folder
+    else:
+        model_folder = BV.calibration_folder
+    model_modflow = Modflow(BV.geographic,
+                            # Workflow settings
+                            model_folder=model_folder,   # self.simulations_folder
+                            model_name=BV.settings.model_name,
+                            bin_path=BV.bin_path,
+                            # Model settings
+                            box=BV.settings.box,
+                            sink_fill=BV.settings.sink_fill,
+                            sim_state=BV.settings.sim_state,
+                            dis_perlen=BV.settings.dis_perlen,
+                            # Well settings
+                            well_coords=BV.settings.well_coords,
+                            well_fluxes=BV.settings.well_fluxes,
+                            # Output settings
+                            plot_cross=BV.settings.plot_cross,
+                            cross_ylim=BV.settings.cross_ylim,
+                            check_grid=BV.settings.check_grid,
+                            # Boundary settings
+                            sea_level=BV.oceanic.MSL,
+                            bc_left=BV.settings.bc_left,
+                            bc_right=BV.settings.bc_right,
+                            # Climatic settings
+                            recharge=BV.climatic.recharge,
+                            runoff=BV.climatic.runoff,
+                            first_clim=BV.climatic.first_clim,
+                            # Hydraulic settings
+                            bottom=BV.hydraulic.bottom,
+                            thick=BV.hydraulic.thick,
+                            nlay=BV.hydraulic.nlay,
+                            lay_decay=BV.hydraulic.lay_decay,
+                            hk_value=BV.hydraulic.hk_value,
+                            sy_value=BV.hydraulic.sy_value,
+                            ss_value=BV.hydraulic.ss_value,
+                            hk_decay=BV.hydraulic.hk_decay,
+                            sy_decay=BV.hydraulic.sy_decay,
+                            ss_decay=BV.hydraulic.ss_decay,
+                            verti_hk=BV.hydraulic.verti_hk,
+                            verti_sy=BV.hydraulic.verti_sy,
+                            verti_ss=BV.hydraulic.verti_ss,
+                            cond_drain=BV.hydraulic.cond_drain,
+                            vka=BV.hydraulic.vka,
+                            exdp=BV.hydraulic.exdp)
+    model_modflow.pre_processing() # verbose
+    
     list_model_name = []
     list_model_name.append(model_name)
     list_model_modflow = []
@@ -437,12 +484,13 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     pickle_file = os.path.join(BV.simulations_folder, model_name, 'results_'+model_name+'.pkl')
     with open(pickle_file, 'wb') as f:
         pickle.dump(dictio, f)
-
-    success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True, link_mt3dms=True)
-
+    
+    success_model = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=True)
+    
     prob_cells = model_modflow.prob_cells
-
-    BV.postprocessing_modflow(model_modflow,
+    
+    if success_model == True:
+        model_modflow.post_processing(model_modflow,
                             watertable_elevation = True,
                             seepage_areas = True,
                             outflow_drain = True,
