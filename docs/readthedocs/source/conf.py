@@ -90,11 +90,29 @@ extensions = [
     "sphinx_togglebutton",
     "sphinx_tabs.tabs",
     "sphinx_multiversion",
+    "sphinxcontrib.autodoc_pydantic",
 ]
 autoclass_content = 'both'
 autosummary_generate = True
 nbsphinx_allow_errors = True
 nbsphinx_execute = "never"
+
+# ---------------------------------------------------------------------------
+# autodoc-pydantic – configuration des modèles de paramètres
+# ---------------------------------------------------------------------------
+autodoc_pydantic_model_show_json = False
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_validator_summary = True
+autodoc_pydantic_model_show_field_list = True
+autodoc_pydantic_model_members = True
+autodoc_pydantic_model_undoc_members = True
+autodoc_pydantic_model_member_order = "bysource"
+autodoc_pydantic_field_show_constraints = True
+autodoc_pydantic_field_show_default = True
+autodoc_pydantic_field_show_alias = False
+autodoc_pydantic_field_list_validators = True
+autodoc_pydantic_settings_show_config_summary = False
+autodoc_pydantic_settings_show_json = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -257,10 +275,12 @@ texinfo_documents = [
 
 # -- Extension configuration -------------------------------------------------
 autodoc_mock_imports = [
+    "certifi",
     "contextily",
     "flopy",
     "geopandas",
     "gdal",
+    "geopy",
     "h5py",
     "imageio",
     "ipykernel",
@@ -269,6 +289,7 @@ autodoc_mock_imports = [
     "netCDF4",
     "osgeo",
     "plotly",
+    "pyhelp",
     "pyproj",
     "pyshp",
     "rasterio",
@@ -280,6 +301,7 @@ autodoc_mock_imports = [
     "vedo",
     "vtk",
     "whitebox",
+    "whitebox_workflows",
     "xarray",
     "pysheds",
 ]

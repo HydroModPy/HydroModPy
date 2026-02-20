@@ -10,18 +10,18 @@ p = 0.346
 n_points = 50
 log_spacing = true
 t_min_days = 0.1
-error_fraction = 0.10
+error_fraction = 0.15
 random_seed = 12345
 
 [calibration]
 # Objective metric: "nse", "nse_log", or "kge"
 objective_metric = "kge"
-# Global method: "grid_search", "random_search", "nelder_mead", or "simplex"
-global_method = "simplex"
-do_local_refine = true
+# Global method: "grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", or "da_mh_gp"
+global_method = "da_mh_gp"
 
 [bounds]
 # Parameter bounds used during calibration.
+# Bounds must include all model parameters (K and Sy).
 K = [1.0e-5, 1.0e-3]
 Sy = [0.20, 0.35]
 
@@ -42,9 +42,30 @@ max_iter = 2500
 xtol = 1.0e-10
 ftol = 1.0e-10
 
-[calibration_method.local_refine]
-method = "nelder_mead"
-max_iter = 1400
+[calibration_method.gp_mapping]
+seed = 42
+n_init = 120
+n_refine = 3
+batch_size = 25
+n_candidates = 4000
+kappa = 3.0
+alpha = 1.0e-6
+jitter = 1.0e-8
+n_posterior_pool = 200000
+n_posterior_samples = 20000
+log_transform = true
+
+[calibration_method.da_mh_gp]
+n_init = 80
+n_samples = 4000
+burn_in = 800
+thin = 4
+# Vector options must be scalar or full model order [K, Sy].
+proposal_scale = [2.0e-5, 0.01]
+sigma_noise = 0.01
+prior_mean = [2.0e-4, 0.28]
+prior_std = [2.0e-4, 0.06]
+retrain_interval = 20
 
 [output]
 output_dir = "outputs"

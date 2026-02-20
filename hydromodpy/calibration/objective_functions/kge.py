@@ -1,36 +1,43 @@
-from IObjectiveFunction import IObjectiveFunction
+from hydromodpy.calibration.ObjectiveFunction import ObjectiveFunction
 
 import numpy as np
-
-class KGE(IObjectiveFunction):
+ 
+class KGE(ObjectiveFunction):
     """
     Kling-Gupta Efficiency (KGE) objective function for hydrological model calibration.
     """
     
-    def evaluate(obs, sim):
+    def __init__(self, weight: float = 1.0):
+        """Initialize KGE with a weight parameter."""
+        super().__init__(weight=weight)
+    
+    def evaluate(self, observed, simulated) -> float:
         """
         Calculate the Kling-Gupta Efficiency (KGE) between observed and simulated values.
         
         Args:
-            obs: Array of observed values
-            sim: Array of simulated values
+            observed: Array of observed values
+            simulated: Array of simulated values
         
         Returns:
             float: KGE value
         """
-        obs, sim = check_series_consistency(obs, sim)
-        correlation = np.corrcoef(obs, sim)[0, 1]
-        bias = np.mean(sim) / np.mean(obs)
-        variability = (np.std(sim) / np.std(obs))
+        observed, simulated = self.check_series_consistency(observed, simulated)
+        correlation = np.corrcoef(observed, simulated)[0, 1]
+        bias = np.mean(simulated) / np.mean(observed)
+        variability = (np.std(simulated) / np.std(observed))
         kge = 1 - np.sqrt((correlation - 1) ** 2 + (bias - 1) ** 2 + (variability - 1) ** 2)
         
         return kge
 
-    def getweights(self) -> list[float]:
-        """KGE does not use weights, so this method returns an empty list."""
-        return []
+    def normalize(self, observed, simulated) -> float:
+        """
+        Normalize KGE to [0, 1] range.
         
-
-    def set_weights(self, weights: list[float]) -> None:
-        """KGE does not use weights, so this method does nothing."""
-        pass
+        KGE ranges from -∞ to 1, where 1 is optimal.
+        Values below 0 indicate poor performance.
+        This method clamps KGE to [0, 1] for combining with other objectives.
+        """
+        kge_value = self.evaluate(observed, simulated)
+        # Clamp to [0, 1]: values < 0 become 0, values > 1 become 1
+        return max(0.0, min(1.0, kge_value))
