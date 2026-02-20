@@ -60,6 +60,7 @@ dependencies = [
     "pysheds",
     "rasterio",
     "rioxarray",
+    "scikit-learn",
     "selenium",
     "vedo",
     "whitebox",

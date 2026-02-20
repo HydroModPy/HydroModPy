@@ -21,6 +21,7 @@ dependencies:
   - pyshp
   - rasterio
   - rioxarray
+  - scikit-learn
   - selenium
   - whitebox
   - xarray
