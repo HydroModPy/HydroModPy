@@ -19,10 +19,16 @@ The goal is to keep calibration logic generic and case physics isolated.
   - deterministic and stochastic optimizers
 - `calibration_da_mh.py`
   - delayed-acceptance Metropolis-Hastings with GP surrogate (`da_mh_gp`)
+- `calibration_gp_mapping.py`
+  - surrogate posterior mapping with Gaussian processes (`gp_mapping`)
 - `calibration_config.py`
-  - shared TOML parsing helpers for calibration settings (`bounds`, method kwargs, fixed parameters)
+  - shared TOML parsing helpers for calibration settings (`bounds`, method kwargs)
+  - enforces full-parameter calibration (subset/fixed-parameter calibration disabled)
+- `calibration_visualization.py`
+  - shared plotting helpers for posterior diagnostics and parameter distributions
 - `reservoir/`
-  - linear-reservoir examples (forward run + calibration), plus a two-reservoir split alternative
+  - unified one/two-reservoir examples (forward run + calibration)
+  - dedicated modules for chronicle generation, calibration orchestration, and plotting
 - `recession_brutsaert/`
   - analytical groundwater recession case (Brutsaert-Nieber style)
 
@@ -40,12 +46,21 @@ All cases follow the same pattern:
 
 This keeps case code focused on physics while optimization stays in shared modules.
 
+## TOML Calibration Convention
+
+- `[bounds]` must define every parameter of the selected model.
+- `[fixed_parameters]` is intentionally not supported.
+- Method-specific vectors (for example `proposal_scale`, `prior_mean`, `prior_std`) can be:
+  - scalar,
+  - model-dimension vectors in model parameter order.
+
 ## Available Calibration Methods
 
 - `grid_search`: exhaustive global scan (robust, expensive).
 - `random_search`: Monte-Carlo global search (simple baseline).
 - `nelder_mead`: local derivative-free refinement.
 - `simplex`: SciPy `fmin` simplex variant.
+- `gp_mapping`: GP surrogate posterior mapping with UCB refinement.
 - `da_mh_gp`: Bayesian delayed-acceptance MCMC with surrogate pre-screening.
 
 ## Notes About `da_mh_gp`

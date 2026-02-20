@@ -16,7 +16,7 @@ random_seed = 12345
 [calibration]
 # Objective metric: "nse", "nse_log", or "kge"
 objective_metric = "kge"
-# Global method: "grid_search", "random_search", "nelder_mead", "simplex", or "da_mh_gp"
+# Global method: "grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", or "da_mh_gp"
 global_method = "da_mh_gp"
 
 [bounds]
@@ -41,6 +41,19 @@ max_iter = 1200
 max_iter = 2500
 xtol = 1.0e-10
 ftol = 1.0e-10
+
+[calibration_method.gp_mapping]
+seed = 42
+n_init = 120
+n_refine = 3
+batch_size = 25
+n_candidates = 4000
+kappa = 3.0
+alpha = 1.0e-6
+jitter = 1.0e-8
+n_posterior_pool = 200000
+n_posterior_samples = 20000
+log_transform = true
 
 [calibration_method.da_mh_gp]
 n_init = 80

@@ -6,6 +6,7 @@ Implemented families:
 - random search: global Monte Carlo sampling in bounded space,
 - Nelder-Mead: local simplex-based search via `scipy.optimize.minimize`,
 - simplex (classic): local simplex-based search via `scipy.optimize.fmin`.
+- GP mapping: surrogate posterior mapping with Gaussian processes.
 - delayed-acceptance GP-MH: Bayesian sampler with surrogate pre-screening.
 """
 
@@ -14,6 +15,7 @@ from itertools import product
 import numpy as np
 
 from reference_cases.calibration_da_mh import delayed_acceptance_gp_mh_calibrate
+from reference_cases.calibration_gp_mapping import gp_mapping_calibrate
 
 try:
     from scipy import optimize as scipy_optimize
@@ -52,6 +54,10 @@ _METHOD_DISPLAY_INFO = {
         "local_refinement",
         "Classic simplex via scipy.optimize.fmin.",
     ),
+    "gp_mapping": (
+        "other",
+        "GP surrogate posterior mapping with UCB refinement and importance resampling.",
+    ),
     "da_mh_gp": (
         "bayesian_mcmc",
         "Delayed-acceptance Metropolis-Hastings with GP surrogate.",
@@ -60,6 +66,7 @@ _METHOD_DISPLAY_INFO = {
 
 _METHOD_CANONICAL = {
     "delayed_acceptance_gp_mh": "da_mh_gp",
+    "gp-mapping": "gp_mapping",
 }
 
 
@@ -711,6 +718,7 @@ DEFAULT_CALIBRATION_METHOD = CalibrationMethod(
         "random_search": random_search_calibrate,
         "nelder_mead": nelder_mead_calibrate,
         "simplex": scipy_simplex_calibrate,
+        "gp_mapping": gp_mapping_calibrate,
         "da_mh_gp": delayed_acceptance_gp_mh_calibrate,
         "delayed_acceptance_gp_mh": delayed_acceptance_gp_mh_calibrate,
     }
