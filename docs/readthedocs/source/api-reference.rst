@@ -7,6 +7,11 @@ the dedicated API section where classes, functions, and modules are documented.
 Module overview
 ---------------
 
+- :doc:`hydromodpy.config <api/hydromodpy-config>` – Pydantic parameter contracts
+  (:class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,
+  :class:`~hydromodpy.watershed.initializing_config.InitializingConfig`,
+  :class:`~hydromodpy.watershed.geographic_config.GeographicConfig`)
+  with validated fields, type constraints, and cross-field rules.
 - :doc:`hydromodpy.watershed <api/hydromodpy-watershed>` – watershed extraction,
   basin descriptors (geography, geology, hydraulics, climate, hydrography, etc.),
   and the main :class:`hydromodpy.watershed_root.Watershed` object.
@@ -27,6 +32,8 @@ Key entry points
 
 - :class:`hydromodpy.watershed_root.Watershed` – main object orchestrating every
   example (accessible via :mod:`hydromodpy.watershed_root`).
+- :class:`hydromodpy.config.HydroModPyConfig` – top-level Pydantic config loaded
+  from a TOML file.
 
 Detailed documentation
 ----------------------
@@ -34,6 +41,7 @@ Detailed documentation
 .. toctree::
    :maxdepth: 2
 
+   api/hydromodpy-config
    api/hydromodpy-watershed
    api/hydromodpy-modeling
    api/hydromodpy-display
