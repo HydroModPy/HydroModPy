@@ -55,18 +55,18 @@ def DEM_correcflow_analysis(dem_init_path: str,
 
     Parameters
     ----------
-    dem_path : str
+    dem_init_path : str
         Path to the regional DEM used as hydrologic input.
-    reg_path : str
+    dem_out_dir_path : str
         Folder where regional rasters are written.
-    wbt_tools :
-        WhiteboxTools instance used to run terrain and flow operations.
+    dem_correc_type : str
+        Type of DEM correction to apply ('fill' or 'breach').
 
     Returns
     -------
     dict
         Dictionary with output paths:
-        ``{"fill": ..., "direc": ..., "acc": ...}``.
+        ``{"correc": ..., "direc": ..., "acc": ...}``.
     """
 
     if dem_correc_type == 'fill':
@@ -100,6 +100,17 @@ def DEM_correcflow_analysis(dem_init_path: str,
 # def DEM_hydrological_analysis():
 
 def _ensure_crs(path, crs):
+    """
+    Ensures that a spatial file (raster or shapefile) has the specified CRS.
+
+    Parameters
+    ----------
+    path : str
+        Path to the raster (.tif) or shapefile (.shp) to update.
+    crs : str or None
+        The target Coordinate Reference System (e.g., 'EPSG:2154'). If None,
+        no operation is performed.
+    """
     if crs is None: return
     if path.lower().endswith(".tif"):
         with rasterio.open(path, "r+") as dst:
@@ -113,7 +124,11 @@ def _ensure_crs(path, crs):
 
 class Geographic:
     """
-    Class to initialize the model domain object (watershed).
+    Initializes the model domain (watershed) by performing geospatial operations.
+
+    This class handles operations such as DEM depression correction, flow accumulation,
+    snapping, buffering, and clipping to prepare the physical rasters and shapefiles
+    required for hydrologic modeling.
     """
 
     def __init__(self,
@@ -121,12 +136,14 @@ class Geographic:
                  initializing_object,
                  ):
         """
+        Initialize the geographic processing pipeline.
+
         Parameters
         ----------
         config : GeographicConfig
-            Pydantic config with all geographic parameters.
+            Configuration object containing geographic parameters.
         initializing_object : Initializing
-            Initializing instance providing folder paths.
+            Initializing instance providing base folder paths.
         """
         logger.info('Extracting geographic data for model area')
 
@@ -150,7 +167,11 @@ class Geographic:
 
     def processing(self):
         """
-        Prepare, initialize and generate files of the model domain from geospatial functions.
+        Prepares and generates the physical files defining the model domain.
+
+        This method executes a pipeline of geospatial functions like snapping the outlet,
+        delineating the watershed, creating buffers, and clipping the rasters to the
+        target extents based on the configuration mode.
         """
 
         """
@@ -414,7 +435,10 @@ class Geographic:
 
     def info_dem(self):
         """
-        Add and/or modify the projection of generated files.
+        Extracts metadata and spatial characteristics from the generated DEM rasters.
+
+        Loads the clipped raster data into memory arrays and computes grid
+        properties like resolution, extent, coordinates, and centroids.
         """
 
         # Open DEM used for modeling

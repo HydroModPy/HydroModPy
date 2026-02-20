@@ -20,7 +20,7 @@ precise message when a contract is violated.
 hydromodpy.config.hydromodpy\_config
 --------------------------------------
 
-.. automodule:: hydromodpy.config.hydromodpy_config
+.. autopydantic_model:: hydromodpy.config.hydromodpy_config.HydroModPyConfig
    :members:
    :undoc-members:
    :member-order: bysource
@@ -30,7 +30,7 @@ hydromodpy.config.hydromodpy\_config
 hydromodpy.watershed.initializing\_config
 ------------------------------------------
 
-.. automodule:: hydromodpy.watershed.initializing_config
+.. autopydantic_model:: hydromodpy.watershed.initializing_config.InitializingConfig
    :members:
    :undoc-members:
    :member-order: bysource
@@ -40,7 +40,7 @@ hydromodpy.watershed.initializing\_config
 hydromodpy.watershed.geographic\_config
 -----------------------------------------
 
-.. automodule:: hydromodpy.watershed.geographic_config
+.. autopydantic_model:: hydromodpy.watershed.geographic_config.GeographicConfig
    :members:
    :undoc-members:
    :member-order: bysource
