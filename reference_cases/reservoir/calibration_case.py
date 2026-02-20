@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 
 from reference_cases.calibration_config import resolve_calibration_settings
-from reference_cases.calibration_problem import Calibration
+from reference_cases.calibration_engine import CalibrationEngine
 from reference_cases.objective_function import kge, nse, nse_log
 from reference_cases.reservoir.hydrological_forcing import make_piecewise_constant_daily_qin
 from reference_cases.reservoir.one_reservoir_equations import (
@@ -96,7 +96,7 @@ def _true_model_parameters(cfg):
 
 def make_reservoir_simulator(forcing_mm_day, initial_state, model_name):
     """
-    Build simulator callable compatible with generic `Calibration`.
+    Build simulator callable compatible with generic `CalibrationEngine`.
     """
     forcing = np.asarray(forcing_mm_day, dtype=float).ravel()
     if forcing.size == 0:
@@ -160,8 +160,9 @@ def calibrate_reservoir_model(chronicle, config, model_name):
     )
     objective_metric = settings["objective_metric"]
     method = settings["method"]
+    parameter_set = settings["parameter_set"]
     bounds = settings["bounds"]
-    parameter_names = settings["parameter_names"]
+    parameter_names = parameter_set.names
 
     true_params_all = _true_model_parameters(chronicle["config"])
     simulator = make_reservoir_simulator(
@@ -169,19 +170,19 @@ def calibrate_reservoir_model(chronicle, config, model_name):
         initial_state=chronicle["config"].initial_state,
         model_name=model_name,
     )
-    calibration_obj = Calibration(
+    calibration_obj = CalibrationEngine(
         observed=chronicle["q_obs_mm_day"],
         simulator=simulator,
-        bounds=bounds,
+        parameter_set=parameter_set,
         objective_metric=objective_metric,
     )
 
     calibrate_kwargs = settings["method_kwargs"]
     result = calibration_obj.calibrate(method=method, **calibrate_kwargs)
 
-    params_best = calibration_obj.vector_to_params(result["x_best"])
+    params_best = dict(result.params_best)
     params_true = {name: float(true_params_all[name]) for name in parameter_names}
-    q_calib_mm_day = calibration_obj.simulate(result["x_best"])
+    q_calib_mm_day = calibration_obj.simulate(result.x_best)
 
     metrics = evaluate_metrics(
         observed=chronicle["q_obs_mm_day"],
@@ -200,5 +201,6 @@ def calibrate_reservoir_model(chronicle, config, model_name):
         "objective_metric": objective_metric,
         "method": method,
         "bounds": bounds,
+        "parameter_set": parameter_set,
         "model_name": model_name,
     }

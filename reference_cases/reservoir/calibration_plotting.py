@@ -89,8 +89,15 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     model_name = calibration["model_name"]
     model_display = get_model_display_name(model_name)
 
-    posterior_samples = np.asarray(result.get("posterior_samples", np.empty((0, 0))), dtype=float)
-    chain_samples = np.asarray(result.get("samples", np.empty((0, 0))), dtype=float)
+    posterior_samples = (
+        np.asarray(result.samples, dtype=float)
+        if result.samples is not None
+        else np.empty((0, len(parameter_names)), dtype=float)
+    )
+    chain_samples = np.asarray(
+        result.metadata.get("chain_samples", np.empty((0, len(parameter_names)))),
+        dtype=float,
+    )
     has_posterior = posterior_samples.ndim == 2 and posterior_samples.shape[0] > 1
     posterior_unique, _ = unique_rows_with_counts(posterior_samples)
     chain_unique, _ = unique_rows_with_counts(chain_samples)

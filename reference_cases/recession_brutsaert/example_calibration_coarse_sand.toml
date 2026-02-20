@@ -14,8 +14,9 @@ error_fraction = 0.15
 random_seed = 12345
 
 [calibration]
-# Objective metric: "nse", "nse_log", or "kge"
-objective_metric = "kge"
+# Objective metric: "nse", "nse_log", "kge", or "rmse"
+# For method "da_mh_gp", use "rmse".
+objective_metric = "rmse"
 # Global method: "grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", or "da_mh_gp"
 global_method = "da_mh_gp"
 
@@ -60,11 +61,11 @@ n_init = 80
 n_samples = 4000
 burn_in = 800
 thin = 4
-# Vector options must be scalar or full model order [K, Sy].
-proposal_scale = [2.0e-5, 0.01]
+# Per-parameter options can be given as explicit mappings {K=..., Sy=...}.
+proposal_scale = {K = 2.0e-5, Sy = 0.01}
 sigma_noise = 0.01
-prior_mean = [2.0e-4, 0.28]
-prior_std = [2.0e-4, 0.06]
+prior_mean = {K = 2.0e-4, Sy = 0.28}
+prior_std = {K = 2.0e-4, Sy = 0.06}
 retrain_interval = 20
 
 [output]
