@@ -116,8 +116,9 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["hydromodpy/watershed/",
-          "hydromodpy/tools/",
-          "hydromodpy/modeling/",
-          "hydromodpy/display/",
-          ]
+source = [
+    "hydromodpy/watershed/",
+    "hydromodpy/tools/",
+    "hydromodpy/modeling/",
+    "hydromodpy/display/",
+]
