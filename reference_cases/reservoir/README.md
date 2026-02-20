@@ -6,6 +6,11 @@ This folder demonstrates one- and two-reservoir linear models with:
 - noisy-observation creation,
 - end-to-end parameter calibration.
 
+Legacy files were removed in favor of a modular layout:
+- `reservoir_equations.py` -> `one_reservoir_equations.py`
+- `example_hydrological_daily_precipitation.py` / `example_hydrological_two_reservoirs.py`
+  -> `example_hydrological_reservoir.py`
+
 ## File Responsibilities
 
 - `one_reservoir_equations.py`
@@ -28,6 +33,7 @@ This folder demonstrates one- and two-reservoir linear models with:
 - `calibration_case.py`
   - shared calibration-case logic:
     - model registry/selection
+    - simulator adapter for generic calibration API
     - calibration orchestration and metrics
 - `reference_chronicle.py`
   - construction of synthetic reference chronicle:
@@ -65,9 +71,12 @@ python reference_cases/reservoir/example_calibration_reservoir.py
 Model/parameter selection for the unified script is done in:
 - `reference_cases/reservoir/example_hydrological_reservoir.toml`
 
+Model/parameter selection for calibration is done in:
+- `reference_cases/reservoir/example_calibration_reservoir.toml`
+
 ## Alternative Model: Two Reservoirs + Split
 
-Alternative to `one_reservoir_equations.py`, `two_reservoir_equations.py` implements:
+The alternative model implemented in `two_reservoir_equations.py` is:
 
 - `dSq/dt = a * P(t) - Sq / Kq`, `Qq = Sq / Kq`
 - `dSs/dt = (1 - a) * P(t) - Ss / Ks`, `Qs = Ss / Ks`
@@ -98,6 +107,13 @@ Main sections:
 - `[bounds]`: parameter bounds for all parameters of the selected model
 - `[calibration_method.<method>]`: method-specific hyperparameters
 - `[output]`: figure output settings
+
+For `gp_mapping`, key controls are:
+- `n_init`: initial design size (true model evaluations)
+- `n_refine`, `batch_size`: adaptive UCB refinement budget
+- `kappa`: exploration/exploitation balance in UCB
+- `n_posterior_pool`, `n_posterior_samples`: quality/cost of posterior approximation
+- `log_transform`: surrogate built in log-parameter space (recommended for positive parameters)
 
 For `da_mh_gp`, most sensitive settings are:
 - `sigma_noise`: controls likelihood sharpness (too small can freeze chain)

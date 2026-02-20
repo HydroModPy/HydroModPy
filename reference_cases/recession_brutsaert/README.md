@@ -65,6 +65,7 @@ Supported methods are the same as other cases:
 - `random_search`
 - `nelder_mead`
 - `simplex`
+- `gp_mapping`
 - `da_mh_gp`
 
 ## Run
