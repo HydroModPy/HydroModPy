@@ -26,7 +26,8 @@ error_seed = 12345
 [calibration]
 # Model choice: "one_reservoir" or "two_reservoir"
 model_name = "two_reservoir"
-# Objective metric: "nse", "nse_log", or "kge"
+# Objective metric: "nse", "nse_log", "kge", or "rmse"
+# For method "da_mh_gp", use "rmse".
 objective_metric = "kge"
 # Method: "grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", or "da_mh_gp"
 global_method = "gp_mapping"
@@ -74,14 +75,14 @@ n_init = 80
 n_samples = 6000
 burn_in = 1200
 thin = 2
-# Vector options must be scalar or full model order:
-# - one_reservoir: [C, k]
-# - two_reservoir: [a, Kq, Ks]
-proposal_scale = [0.05, 0.5, 5.0]
+# Per-parameter options can be given as explicit mappings:
+# - one_reservoir: {C=..., k=...}
+# - two_reservoir: {a=..., Kq=..., Ks=...}
+proposal_scale = {a = 0.05, Kq = 0.5, Ks = 5.0}
 # Important for chain mixing: larger values smooth the likelihood surface.
 sigma_noise = 0.30
-prior_mean = [0.35, 3.0, 45.0]
-prior_std = [0.20, 2.0, 20.0]
+prior_mean = {a = 0.35, Kq = 3.0, Ks = 45.0}
+prior_std = {a = 0.20, Kq = 2.0, Ks = 20.0}
 retrain_interval = 5
 full_mh_prob = 0.05
 seed = 42

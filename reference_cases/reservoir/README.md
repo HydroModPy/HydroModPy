@@ -94,8 +94,11 @@ Main properties:
 4. Calibrate all parameters of the selected model (`[bounds]`):
    - one reservoir: `C`, `k`
    - two reservoirs: `a`, `Kq`, `Ks`
+   Bounds are normalized into a shared `CalibrationParameterSet` object before
+   launching any calibration method.
    using shared calibration modules:
-   - `reference_cases/calibration_problem.py`
+   - `reference_cases/calibration_parameters.py`
+   - `reference_cases/calibration_engine.py`
    - `reference_cases/calibration_method.py`
    - `reference_cases/objective_function.py`
 
@@ -116,14 +119,17 @@ For `gp_mapping`, key controls are:
 - `log_transform`: surrogate built in log-parameter space (recommended for positive parameters)
 
 For `da_mh_gp`, most sensitive settings are:
+- `objective_metric = "rmse"` in `[calibration]` (required for DA-MH likelihood)
 - `sigma_noise`: controls likelihood sharpness (too small can freeze chain)
 - `proposal_scale`: random-walk proposal size for each parameter
 - `retrain_interval`: GP surrogate refresh cadence
 - `n_samples`, `burn_in`, `thin`: posterior sample quality and cost
+- Per-parameter settings can be written explicitly as mappings, e.g.
+  `proposal_scale = {a=0.05, Kq=0.5, Ks=5.0}`.
 
 ## Diagnosing MCMC Mixing
 
-`da_mh_gp` outputs diagnostics in result dict/figure summary:
+`da_mh_gp` outputs diagnostics in `CalibrationResults.metadata` and figure summary:
 - `stage1_accept_rate` (surrogate pre-filter acceptance)
 - `stage2_accept_rate` (true posterior acceptance)
 - number of unique parameter states in chain/posterior

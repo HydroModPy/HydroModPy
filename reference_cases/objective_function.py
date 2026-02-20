@@ -172,6 +172,7 @@ class ObjectiveFunction:
     - "nse"
     - "nse_log"
     - "kge"
+    - "rmse"
     """
 
     _ALIASES = {
@@ -185,7 +186,9 @@ class ObjectiveFunction:
         "kge": "kge",
         "kling_gupta": "kge",
         "kling-gupta": "kge",
+        "rmse": "rmse",
     }
+    _MAXIMIZE_METRICS = {"nse", "nse_log", "kge"}
 
     def __init__(self, metric="nse"):
         self.metric = self.resolve_metric_name(metric)
@@ -226,7 +229,29 @@ class ObjectiveFunction:
             value = float(kge(observed, simulated, return_components=False))
             return {"metric": metric_name, "value": value}
 
+        if metric_name == "rmse":
+            value = float(rmse(observed, simulated))
+            return {"metric": metric_name, "value": value}
+
         raise RuntimeError(f"Unhandled metric '{metric_name}'")
+
+    @classmethod
+    def metric_is_maximized(cls, metric):
+        """
+        Return True when the metric is defined as "higher is better".
+        """
+        metric_name = cls.resolve_metric_name(metric)
+        return metric_name in cls._MAXIMIZE_METRICS
+
+    def value_to_cost(self, value, metric=None):
+        """
+        Convert a metric value into a minimization cost.
+        """
+        metric_name = self.metric if metric is None else self.resolve_metric_name(metric)
+        value = float(value)
+        if self.metric_is_maximized(metric_name):
+            return 1.0 - value
+        return value
 
     def evaluate_all(self, observed, simulated):
         """

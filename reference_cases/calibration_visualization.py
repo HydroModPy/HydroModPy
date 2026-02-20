@@ -32,7 +32,7 @@ def select_representative_posterior_vectors(samples, n_vectors=10):
     Select representative parameter vectors from posterior samples.
 
     Samples are projected onto their first principal direction and sampled at
-    evenly spaced quantiles to keep a diverse subset of trajectories.
+    evenly spaced quantiles to keep a diverse set of trajectories.
     """
     arr = np.asarray(samples, dtype=float)
     if arr.ndim != 2 or arr.shape[0] == 0:

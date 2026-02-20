@@ -7,6 +7,14 @@ This module implements a two-stage MCMC sampler for expensive simulators:
 2) Stage 2 applies a correction with the true model so the Markov chain targets
    the exact posterior (delayed acceptance).
 
+Posterior convention
+--------------------
+This implementation assumes that `objective_cost(theta)` returns RMSE.
+The log-likelihood used by DA-MH is:
+    loglik(theta) = -0.5 * (RMSE(theta) / sigma_noise)^2
+and:
+    logposterior(theta) = loglik(theta) + logprior(theta)
+
 The implementation follows the calibration-method API:
     calibrator(objective_cost, bounds, **kwargs) -> dict
 """
@@ -200,11 +208,7 @@ def delayed_acceptance_gp_mh_calibrate(
     objective_cost,
     bounds,
     *,
-    observed=None,
-    simulator=None,
-    parameter_names=None,
-    vector_to_params=None,
-    sigma_noise=None,
+    sigma_noise=0.1,
     logprior_fn=None,
     prior_mean=None,
     prior_std=None,
@@ -226,32 +230,20 @@ def delayed_acceptance_gp_mh_calibrate(
 
     Posterior definition
     --------------------
-    If `observed` and `simulator` are provided:
-    - log-likelihood is Gaussian and based on RMSE:
-        loglik = -(n / (2 * sigma_noise^2)) * RMSE^2
-    - log-posterior = loglik + logprior
-
-    If they are not provided, the sampler falls back to:
-        log-posterior(theta) = -objective_cost(theta) + logprior(theta)
+    This sampler assumes:
+        objective_cost(theta) = RMSE(theta)
+    and builds:
+        loglik(theta) = -0.5 * (RMSE(theta) / sigma_noise)^2
+        logposterior(theta) = loglik(theta) + logprior(theta)
 
     Parameters
     ----------
     objective_cost : callable
-        Cost function to minimize.
+        RMSE cost function to minimize.
     bounds : sequence[(low, high)]
         Parameter bounds.
-    observed : array-like or None
-        Observed target series. Required for explicit RMSE likelihood.
-    simulator : callable or None
-        Simulator callable. If provided with `observed`, it is used by the
-        true log-likelihood. It may accept either parameter dicts or vectors.
-    parameter_names : sequence[str] or None
-        Parameter names used when converting vectors to simulator dict inputs.
-    vector_to_params : callable or None
-        Optional explicit vector->params mapper. If provided, it takes priority.
-    sigma_noise : float or None
-        Gaussian observation-noise std for likelihood. If None and explicit
-        likelihood is used, defaults to `0.1 * std(observed)` with floor.
+    sigma_noise : float
+        Scale parameter of the Gaussian RMSE likelihood.
     logprior_fn : callable or None
         Explicit log-prior function taking a parameter vector.
     prior_mean, prior_std : array-like or None
@@ -322,51 +314,23 @@ def delayed_acceptance_gp_mh_calibrate(
         prior_std=prior_std,
         n_dim=n_dim,
     )
+    sigma_noise = float(sigma_noise)
+    if sigma_noise <= 0.0:
+        raise ValueError("sigma_noise must be > 0")
+    inv_sigma2 = 1.0 / (sigma_noise**2)
 
-    use_explicit_likelihood = observed is not None and simulator is not None
-    if use_explicit_likelihood:
-        obs = np.asarray(observed, dtype=float).ravel()
-        if obs.size == 0:
-            raise ValueError("observed cannot be empty")
-        if sigma_noise is None:
-            sigma_noise = max(1e-6, 0.1 * float(np.std(obs)))
-        sigma_noise = float(sigma_noise)
-        if sigma_noise <= 0.0:
-            raise ValueError("sigma_noise must be > 0")
-
-        def _vector_to_sim_input(theta):
-            if vector_to_params is not None:
-                return vector_to_params(theta)
-            if parameter_names is not None:
-                if len(parameter_names) != n_dim:
-                    raise ValueError("parameter_names length must match bounds dimension")
-                return {name: float(theta[i]) for i, name in enumerate(parameter_names)}
-            return np.asarray(theta, dtype=float)
-
-        def _logposterior(theta):
-            theta = np.asarray(theta, dtype=float).ravel()
-            if not _in_bounds(theta, lower, upper):
-                return -np.inf
-            try:
-                y_pred = np.asarray(simulator(_vector_to_sim_input(theta)), dtype=float).ravel()
-            except Exception:
-                # Invalid model states/proposals are treated as impossible.
-                return -np.inf
-            if y_pred.shape != obs.shape:
-                raise ValueError("simulator output shape must match observed shape")
-            rmse_val = float(np.sqrt(np.mean((obs - y_pred) ** 2)))
-            n_obs = obs.size
-            loglik = -(n_obs / (2.0 * sigma_noise**2)) * (rmse_val**2)
-            return float(loglik + logprior(theta))
-
-    else:
-        sigma_noise = None
-
-        def _logposterior(theta):
-            theta = np.asarray(theta, dtype=float).ravel()
-            if not _in_bounds(theta, lower, upper):
-                return -np.inf
-            return float(-objective_cost(theta) + logprior(theta))
+    def _logposterior(theta):
+        theta = np.asarray(theta, dtype=float).ravel()
+        if not _in_bounds(theta, lower, upper):
+            return -np.inf
+        try:
+            rmse_value = float(objective_cost(theta))
+        except Exception:
+            return -np.inf
+        if not np.isfinite(rmse_value) or rmse_value < 0.0:
+            return -np.inf
+        loglik = -0.5 * inv_sigma2 * (rmse_value**2)
+        return float(loglik + logprior(theta))
 
     # Expensive-evaluation cache to avoid repeated full-model calls.
     cache = {}

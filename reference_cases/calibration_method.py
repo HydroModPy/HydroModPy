@@ -60,7 +60,7 @@ _METHOD_DISPLAY_INFO = {
     ),
     "da_mh_gp": (
         "bayesian_mcmc",
-        "Delayed-acceptance Metropolis-Hastings with GP surrogate.",
+        "Delayed-acceptance Metropolis-Hastings with GP surrogate (RMSE objective).",
     ),
 }
 

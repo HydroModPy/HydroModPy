@@ -52,7 +52,8 @@ If one of `A` or `L` is missing, geometric closure is used:
 ## Calibration Architecture
 
 This case reuses shared modules from `reference_cases/`:
-- `calibration_problem.py`
+- `calibration_parameters.py`
+- `calibration_engine.py`
 - `calibration_method.py`
 - `calibration_da_mh.py`
 - `objective_function.py`
@@ -67,6 +68,13 @@ Supported methods are the same as other cases:
 - `simplex`
 - `gp_mapping`
 - `da_mh_gp`
+
+For `da_mh_gp`, set:
+- `objective_metric = "rmse"` in TOML.
+
+For per-parameter method settings (for example `proposal_scale`, `prior_mean`,
+`prior_std`), TOML can use explicit mappings such as
+`proposal_scale = {K=2.0e-5, Sy=0.01}`.
 
 ## Run
 

@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import tomllib
+from typing import Mapping
+import warnings
 
 import numpy as np
+
+from reference_cases.calibration_parameters import CalibrationParameterSet
 
 
 _VECTOR_METHOD_KEYS = (
@@ -14,6 +18,56 @@ _VECTOR_METHOD_KEYS = (
     "prior_std",
     "gp_length_scale",
 )
+
+_METHOD_ALIASES = {
+    "delayed_acceptance_gp_mh": "da_mh_gp",
+}
+
+_METHOD_ALLOWED_KWARGS = {
+    "grid_search": {"n_per_dim", "log_scale_indices"},
+    "random_search": {"n_samples", "seed", "log_scale_indices"},
+    "nelder_mead": {"x0", "max_iter"},
+    "simplex": {"x0", "max_iter", "max_fun", "xtol", "ftol", "disp"},
+    "gp_mapping": {
+        "seed",
+        "n_init",
+        "n_refine",
+        "batch_size",
+        "n_candidates",
+        "kappa",
+        "alpha",
+        "jitter",
+        "n_posterior_pool",
+        "n_posterior_samples",
+        "log_transform",
+    },
+    "da_mh_gp": {
+        "sigma_noise",
+        "logprior_fn",
+        "prior_mean",
+        "prior_std",
+        "n_init",
+        "n_samples",
+        "burn_in",
+        "thin",
+        "proposal_scale",
+        "proposal_cov",
+        "retrain_interval",
+        "gp_length_scale",
+        "gp_noise",
+        "full_mh_prob",
+        "seed",
+        "cache_decimals",
+    },
+}
+
+
+def _canonical_method_key(method):
+    """
+    Normalize method key and resolve known aliases.
+    """
+    key = str(method).strip().lower()
+    return _METHOD_ALIASES.get(key, key)
 
 
 def parse_named_bounds(bounds_cfg, *, allowed_names=None):
@@ -48,150 +102,99 @@ def parse_named_bounds(bounds_cfg, *, allowed_names=None):
     return bounds
 
 
-def adapt_method_kwargs_to_subset(
+def normalize_format_method_kwargs(
     *,
     method,
     method_kwargs,
-    calibrated_parameter_names,
-    model_parameter_order,
+    parameter_names,
 ):
     """
-    Adapt method-specific keyword arguments from full model dimension
-    to the calibrated parameter subset dimension.
+    Validate and normalize method kwargs into one canonical format.
 
     Purpose
     -------
-    In many workflows, the full model may define N parameters,
-    but calibration may only involve a subset of them (dimension d ≤ N).
+    TOML inputs can represent per-parameter settings in different ways.
+    This helper makes them uniform before they are sent to calibration methods.
 
-    Method configuration values coming from TOML (e.g. proposal_scale,
-    prior_mean, n_per_dim, log_scale_indices) may therefore be specified:
+    Important distinction
+    ---------------------
+    `method_kwargs` are algorithm settings (not model parameter values).
+    Some settings are per calibration dimension (for example `proposal_scale`,
+    `prior_mean`, `prior_std`, `gp_length_scale`). For these,
+    `parameter_names` only defines axis order.
 
-    1) As a scalar → applied to all calibrated parameters.
-    2) In subset dimension (length = d).
-    3) In full model order (length = N).
+    For full-model calibration, these per-parameter kwargs must be:
+    1) a scalar, or
+    2) a mapping `{parameter_name: value}`.
 
-    This function transparently converts any of these formats into
-    the calibrated subset ordering.
-
-    Parameters
-    ----------
-    method : str
-        Name of the calibration method (e.g., "simplex", "da_mh_gp").
-        Some methods require special handling for vector parameters.
-
-    method_kwargs : dict
-        Dictionary of method-specific keyword arguments (typically
-        read from TOML).
-
-    calibrated_parameter_names : sequence[str]
-        Names of parameters being calibrated (subset).
-
-    model_parameter_order : sequence[str]
-        Full ordered list of model parameters.
-
-    Returns
-    -------
-    dict
-        A copy of `method_kwargs` where vector-like entries are
-        projected onto the calibrated subset dimension.
-
-    Examples
-    --------
-    Example 1 — Full model vector projected to subset
-
-    Full model parameters:
-        ["C", "k", "alpha", "beta"]
-
-    Calibrated subset:
-        ["C", "k"]
-
-    TOML specifies:
-        proposal_scale = [0.5, 0.01, 0.2, 0.3]
-
-    After adaptation:
-        proposal_scale = [0.5, 0.01]
-
-    Only the entries corresponding to calibrated parameters are kept.
-
-    Example 2 — Already in subset dimension
-
-        proposal_scale = [0.5, 0.01]
-
-    No modification is applied.
-
-    Example 3 — Scalar value
-
-        proposal_scale = 0.1
-
-    Interpreted as applying uniformly to all calibrated parameters.
-
-    Example 4 — log_scale_indices in full dimension
-
-    Full model:
-        ["C", "k", "alpha"]
-
-    Subset:
-        ["C", "k"]
-
-    TOML:
-        log_scale_indices = [0, 2]
-
-    Index 2 corresponds to "alpha", which is not calibrated.
-    After adaptation:
-        log_scale_indices = [0]
+    Validation/normalization performed
+    ----------------------------------
+    - Reject unknown kwargs for known built-in methods.
+    - Named mappings are reordered in `parameter_names` order.
+    - Scalars are cast to the expected type.
+    - Only DA-MH GP per-parameter keys are normalized here:
+      `proposal_scale`, `prior_mean`, `prior_std`, `gp_length_scale`.
 
     Notes
     -----
-    This mechanism ensures that method configuration remains flexible:
-    users can write TOML vectors either in full model dimension or
-    directly in calibrated subset dimension, without changing code.
-
-    Internally, projection is performed by mapping global indices
-    (full model order) to local subset indices.
+    This function does not change physical parameter values. It only normalizes
+    method-configuration formats (grid density, proposal scales, priors, etc.).
     """
-
-    names = tuple(calibrated_parameter_names)
-    model_order = tuple(model_parameter_order)
+    names = tuple(parameter_names)
     n_dim = len(names)
+    # Work on a copy to avoid mutating the input dict held by caller/config.
     adapted = dict(method_kwargs)
     if n_dim == 0:
         return adapted
+    method_key = _canonical_method_key(method)
 
-    order_index = {name: i for i, name in enumerate(model_order)}
-    subset_global_idx = np.array([order_index[name] for name in names], dtype=int)
+    allowed_keys = _METHOD_ALLOWED_KWARGS.get(method_key)
+    if allowed_keys is not None:
+        unknown = [key for key in adapted if key not in allowed_keys]
+        if unknown:
+            unknown_txt = ", ".join(sorted(unknown))
+            allowed_txt = ", ".join(sorted(allowed_keys))
+            raise ValueError(
+                f"Unsupported kwargs for method '{method_key}': {unknown_txt}. "
+                f"Allowed keys: {allowed_txt}"
+            )
 
-    def _subset_numeric_values(value, value_name, cast):
+    def _normalize_numeric_values(value, value_name, cast):
+        # Case C: explicit per-parameter mapping.
+        # Example: {a = 0.05, Kq = 0.5, Ks = 5.0}
+        if isinstance(value, Mapping):
+            provided_keys = tuple(str(k) for k in value.keys())
+            missing = [name for name in names if name not in value]
+            extra = [key for key in provided_keys if key not in names]
+            if missing or extra:
+                details = []
+                if missing:
+                    details.append(f"missing={missing}")
+                if extra:
+                    details.append(f"extra={extra}")
+                details_txt = ", ".join(details)
+                raise ValueError(
+                    f"{value_name} mapping keys must match model parameters "
+                    f"{names}. Problem: {details_txt}"
+                )
+            return [cast(value[name]) for name in names]
+
+        # Convert scalar-like input into a numeric array.
         arr = np.asarray(value, dtype=float).ravel()
+        # Case A: scalar -> single typed value.
         if arr.size == 1:
             return cast(arr[0])
-        if arr.size == n_dim:
-            return [cast(v) for v in arr]
-        if arr.size == len(model_order):
-            return [cast(v) for v in arr[subset_global_idx]]
+        # Positional vectors are intentionally rejected to avoid order ambiguity.
         raise ValueError(
-            f"{value_name} length must be 1, {n_dim}, or {len(model_order)} "
-            f"(full model order)."
+            f"{value_name} must be a scalar or a mapping keyed by model "
+            f"parameters {names}."
         )
 
-    if "n_per_dim" in adapted:
-        adapted["n_per_dim"] = _subset_numeric_values(adapted["n_per_dim"], "n_per_dim", int)
-
-    if "log_scale_indices" in adapted:
-        raw = [int(i) for i in adapted["log_scale_indices"]]
-        if any(i < 0 for i in raw):
-            raise ValueError("log_scale_indices must contain non-negative integers")
-        if all(i < n_dim for i in raw):
-            adapted["log_scale_indices"] = sorted(set(raw))
-        else:
-            global_to_local = {int(g): int(l) for l, g in enumerate(subset_global_idx)}
-            adapted["log_scale_indices"] = sorted({global_to_local[i] for i in raw if i in global_to_local})
-
-    method_key = str(method).strip().lower()
-    if method_key in ("da_mh_gp", "delayed_acceptance_gp_mh"):
+    # Method-specific per-parameter keys for delayed-acceptance GP-MH.
+    if method_key == "da_mh_gp":
         for key in _VECTOR_METHOD_KEYS:
             if key in adapted:
-                adapted[key] = _subset_numeric_values(adapted[key], key, float)
+                adapted[key] = _normalize_numeric_values(adapted[key], key, float)
 
     return adapted
 
@@ -231,7 +234,8 @@ def resolve_calibration_settings(
     - method
     - bounds
     - parameter_names
-    - method_kwargs (adapted in model parameter order)
+    - parameter_set
+    - method_kwargs (normalized in full model parameter order)
     """
     calibration_cfg = config["calibration"]
     method_cfg = config.get(method_section, {})
@@ -239,6 +243,7 @@ def resolve_calibration_settings(
 
     objective_metric = str(calibration_cfg.get("objective_metric", objective_default))
     method = str(calibration_cfg.get(method_key, method_default))
+    method_canonical = _canonical_method_key(method)
     bounds_raw = parse_named_bounds(config["bounds"], allowed_names=model_order)
     bound_names = tuple(bounds_raw.keys())
 
@@ -252,28 +257,48 @@ def resolve_calibration_settings(
             details.append(f"extra={extra}")
         details_txt = ", ".join(details)
         raise ValueError(
-            "Subset calibration is disabled: [bounds] must define all model "
-            f"parameters in {model_order}. Problem: {details_txt}"
+            "[bounds] must define all model parameters in "
+            f"{model_order}. Problem: {details_txt}"
         )
 
-    fixed_cfg = config.get("fixed_parameters", {})
-    if fixed_cfg:
+    if config.get("fixed_parameters", {}):
         raise ValueError(
-            "Subset calibration is disabled: [fixed_parameters] is not supported."
+            "[fixed_parameters] is not supported: full-model calibration is enforced."
         )
 
-    parameter_names = model_order
-    bounds = {name: bounds_raw[name] for name in model_order}
-    method_kwargs = adapt_method_kwargs_to_subset(
-        method=method,
-        method_kwargs=dict(method_cfg.get(method, {})),
-        calibrated_parameter_names=parameter_names,
-        model_parameter_order=model_order,
+    if method_canonical == "da_mh_gp":
+        metric_key = objective_metric.strip().lower()
+        if metric_key != "rmse":
+            warnings.warn(
+                "For method 'da_mh_gp', objective_metric is forced to 'rmse' "
+                "because the likelihood is defined from RMSE(theta).",
+                UserWarning,
+                stacklevel=2,
+            )
+            objective_metric = "rmse"
+
+    parameter_set = CalibrationParameterSet.from_bounds(
+        bounds_raw,
+        parameter_names=model_order,
+    )
+    parameter_names = parameter_set.names
+    bounds = parameter_set.as_bounds_dict()
+    method_kwargs_raw = {}
+    if method in method_cfg:
+        method_kwargs_raw = dict(method_cfg.get(method, {}))
+    elif method_canonical in method_cfg:
+        method_kwargs_raw = dict(method_cfg.get(method_canonical, {}))
+
+    method_kwargs = normalize_format_method_kwargs(
+        method=method_canonical,
+        method_kwargs=method_kwargs_raw,
+        parameter_names=parameter_names,
     )
     return {
         "objective_metric": objective_metric,
-        "method": method,
+        "method": method_canonical,
         "bounds": bounds,
         "parameter_names": parameter_names,
+        "parameter_set": parameter_set,
         "method_kwargs": method_kwargs,
     }

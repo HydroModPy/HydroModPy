@@ -23,13 +23,14 @@ from reference_cases.calibration_config import (
     load_calibration_toml,
     resolve_calibration_settings,
 )
-from reference_cases.calibration_problem import Calibration, as_1d_array
+from reference_cases.calibration_engine import CalibrationEngine, as_1d_array
 from reference_cases.calibration_visualization import (
     build_posterior_quantile_lines,
     plot_parameter_distribution,
     select_representative_posterior_vectors,
     unique_rows_with_counts,
 )
+from reference_cases.objective_function import ObjectiveFunction
 from reference_cases.recession_brutsaert.baseflow import (
     generate_noisy_baseflow_profile,
     simulate_baseflow,
@@ -83,7 +84,7 @@ def _true_baseflow_parameters(chronicle_params):
 
 def make_baseflow_simulator(t_seconds, model_config: BaseflowConfig):
     """
-    Build a baseflow simulator callable compatible with generic `Calibration`.
+    Build a baseflow simulator callable compatible with generic `CalibrationEngine`.
 
     """
     t_seconds = as_1d_array(t_seconds, "t_seconds")
@@ -125,8 +126,9 @@ def calibrate_k_sy(chronicle, config):
     )
     objective_metric = settings["objective_metric"]
     global_method = settings["method"]
+    parameter_set = settings["parameter_set"]
     bounds = settings["bounds"]
-    parameter_names = settings["parameter_names"]
+    parameter_names = parameter_set.names
 
     true_params_all = _true_baseflow_parameters(params)
 
@@ -144,20 +146,23 @@ def calibrate_k_sy(chronicle, config):
         t_seconds=chronicle["t_seconds"],
         model_config=model_config,
     )
-    calibration_obj = Calibration(
+    calibration_obj = CalibrationEngine(
         observed=chronicle["q_obs"],
         simulator=simulator,
-        bounds=bounds,
+        parameter_set=parameter_set,
         objective_metric=objective_metric,
     )
 
     global_kwargs = settings["method_kwargs"]
     result_final = calibration_obj.calibrate(method=global_method, **global_kwargs)
 
-    params_best = calibration_obj.vector_to_params(result_final["x_best"])
+    params_best = dict(result_final.params_best)
     params_true = {name: float(true_params_all[name]) for name in parameter_names}
-    q_calib = calibration_obj.simulate(result_final["x_best"])
-    all_metrics = calibration_obj.evaluate_all_metrics(result_final["x_best"])
+    q_calib = calibration_obj.simulate(result_final.x_best)
+    all_metrics = ObjectiveFunction(metric="kge").evaluate_all(
+        calibration_obj.observed,
+        q_calib,
+    )
 
     return {
         "calibration_obj": calibration_obj,
@@ -170,6 +175,7 @@ def calibrate_k_sy(chronicle, config):
         "metrics": all_metrics,
         "objective_metric": objective_metric,
         "global_method": global_method,
+        "parameter_set": parameter_set,
     }
 
 
@@ -222,8 +228,15 @@ def plot_calibration_result(
     metrics = calibration["metrics"]
     result = calibration["result_final"]
 
-    posterior_samples = np.asarray(result.get("posterior_samples", np.empty((0, 0))), dtype=float)
-    chain_samples = np.asarray(result.get("samples", np.empty((0, 0))), dtype=float)
+    posterior_samples = (
+        np.asarray(result.samples, dtype=float)
+        if result.samples is not None
+        else np.empty((0, len(parameter_names)), dtype=float)
+    )
+    chain_samples = np.asarray(
+        result.metadata.get("chain_samples", np.empty((0, len(parameter_names)))),
+        dtype=float,
+    )
     has_posterior = posterior_samples.ndim == 2 and posterior_samples.shape[0] > 1
     posterior_unique, _ = unique_rows_with_counts(posterior_samples)
     chain_unique, _ = unique_rows_with_counts(chain_samples)
