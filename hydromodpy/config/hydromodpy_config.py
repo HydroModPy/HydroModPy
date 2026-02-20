@@ -2,7 +2,8 @@
 
 Aggregates all sub-configs into a single hierarchical model.
 Relative paths in the TOML are resolved against the TOML file location;
-absolute paths are left as-is.
+absolute paths are left as-is.  Paths starting with ``~`` are expanded
+to the user's home directory.
 
 Usage::
 
@@ -18,6 +19,7 @@ import tomllib
 from pathlib import Path
 
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 
 from hydromodpy.watershed.initializing_config import InitializingConfig
 from hydromodpy.watershed.geographic_config import GeographicConfig
@@ -34,44 +36,27 @@ class HydroModPyConfig(BaseModel):
         """Load and validate configuration from a TOML file.
 
         Relative paths are resolved against the TOML file's directory.
-        Absolute paths are left unchanged.
+        Absolute paths are left unchanged.  Paths starting with ``~``
+        are expanded to the user's home directory.
 
         Path detection is automatic: any TOML key whose corresponding
-        Pydantic field is typed as ``Path`` will be resolved relative
-        to the TOML file location when its value is a non-empty,
-        non-absolute string.
+        Pydantic field is typed as ``Path`` (or ``Optional[Path]``) will
+        be resolved.
         """
-        toml_path = Path(toml_path)
+        toml_path = Path(toml_path).resolve()
         with open(toml_path, "rb") as f:
             raw = tomllib.load(f)
 
         base = toml_path.parent
 
-        # Resolve relative paths for each section based on the Pydantic
-        # model field types — no hand-maintained list needed.
         _section_models = {
             "initializing": InitializingConfig,
             "geographic": GeographicConfig,
         }
         for section_name, model_cls in _section_models.items():
             section_data = raw.get(section_name, {})
-            if not isinstance(section_data, dict):
-                continue
-            for field_name, field_info in model_cls.model_fields.items():
-                # Check if the field annotation is Path (or Optional[Path]).
-                annotation = field_info.annotation
-                is_path = annotation is Path or (
-                    getattr(annotation, "__origin__", None) is type(None)
-                    or _is_optional_path(annotation)
-                )
-                if not is_path:
-                    is_path = _is_optional_path(annotation) or annotation is Path
-
-                if not is_path:
-                    continue
-                value = section_data.get(field_name)
-                if isinstance(value, str) and value and not Path(value).is_absolute():
-                    section_data[field_name] = str((base / value).resolve())
+            if isinstance(section_data, dict):
+                _resolve_section_paths(section_data, model_cls, base)
 
         return cls(
             initializing=InitializingConfig(**raw["initializing"]),
@@ -79,12 +64,24 @@ class HydroModPyConfig(BaseModel):
         )
 
 
-def _is_optional_path(annotation) -> bool:
-    """Return True if *annotation* is ``Optional[Path]`` (i.e. ``Path | None``)."""
-    origin = getattr(annotation, "__origin__", None)
-    if origin is not None:
-        import typing
-        args = getattr(annotation, "__args__", ())
-        if origin is typing.Union:
-            return Path in args
-    return annotation is Path
+def _is_path_field(field_info: FieldInfo) -> bool:
+    """Return True if the field is typed as ``Path`` or ``Optional[Path]``."""
+    annotation = field_info.annotation
+    if annotation is Path:
+        return True
+    return Path in getattr(annotation, "__args__", ())
+
+
+def _resolve_section_paths(
+    data: dict, model_cls: type[BaseModel], base: Path
+) -> None:
+    """Resolve relative paths and ``~`` in a config section dict (in-place)."""
+    for field_name, field_info in model_cls.model_fields.items():
+        if not _is_path_field(field_info):
+            continue
+        value = data.get(field_name)
+        if isinstance(value, str) and value:
+            p = Path(value).expanduser()
+            if not p.is_absolute():
+                p = (base / p).resolve()
+            data[field_name] = str(p)
