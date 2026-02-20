@@ -40,15 +40,21 @@ logger = get_logger(__name__)
 
 class Initializing:
     """
-    XXX.
+    Initializes the basic folder structure for the watershed project.
+
+    This class handles the creation of the required directory hierarchy based
+    on the provided configuration, ensuring that all subsequent modules have
+    the necessary paths available.
     """
 
     def __init__(self, config: InitializingConfig):
         """
+        Initialize the folder creation process.
+
         Parameters
         ----------
         config : InitializingConfig
-            Pydantic config with catch_name and out_dir_path.
+            Configuration object containing root folder paths and catchment name.
         """
         self.catch_name = config.catch_name
         self.out_dir_path = config.out_dir_path
@@ -76,6 +82,6 @@ class Initializing:
 #%% FUNCTIONS
 
 
-        
+
 
 #%% NOTES
