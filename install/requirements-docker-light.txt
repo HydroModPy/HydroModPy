@@ -15,6 +15,7 @@ pyshp
 pysheds
 rasterio
 rioxarray
+scikit-learn
 whitebox
 xarray
 requests
