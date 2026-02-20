@@ -1,4 +1,32 @@
-"""Classical performance metrics and objective-function switch."""
+"""
+Classical performance metrics and objective-function switch.
+
+Bibliographic references
+------------------------
+RMSE / MAE (forecast and model-error measures):
+- Hyndman, R. J., Koehler, A. B. (2006). Another look at measures of
+  forecast accuracy. International Journal of Forecasting, 22(4), 679-688.
+  DOI: 10.1016/j.ijforecast.2006.03.001
+
+NSE:
+- Nash, J. E., Sutcliffe, J. V. (1970). River flow forecasting through
+  conceptual models part I - A discussion of principles.
+  Journal of Hydrology, 10(3), 282-290.
+  DOI: 10.1016/0022-1694(70)90255-6
+
+NSElog usage in hydrological model assessment:
+- Krause, P., Boyle, D. P., Base, F. (2005). Comparison of different
+  efficiency criteria for hydrological model assessment.
+  Advances in Geosciences, 5, 89-97.
+  DOI: 10.5194/adgeo-5-89-2005
+
+KGE (2009 formulation used in this module):
+- Gupta, H. V., Kling, H., Yilmaz, K. K., Martinez, G. F. (2009).
+  Decomposition of the mean squared error and NSE performance criteria:
+  Implications for improving hydrological modelling.
+  Journal of Hydrology, 377(1-2), 80-91.
+  DOI: 10.1016/j.jhydrol.2009.08.003
+"""
 
 from __future__ import annotations
 
@@ -31,13 +59,21 @@ def _prepare_series(observed, simulated):
 
 
 def rmse(observed, simulated):
-    """Root Mean Square Error (lower is better)."""
+    """
+    Root Mean Square Error (lower is better).
+
+    Reference: Hyndman and Koehler (2006), DOI: 10.1016/j.ijforecast.2006.03.001
+    """
     obs, sim = _prepare_series(observed, simulated)
     return float(np.sqrt(np.mean((sim - obs) ** 2)))
 
 
 def mae(observed, simulated):
-    """Mean Absolute Error (lower is better)."""
+    """
+    Mean Absolute Error (lower is better).
+
+    Reference: Hyndman and Koehler (2006), DOI: 10.1016/j.ijforecast.2006.03.001
+    """
     obs, sim = _prepare_series(observed, simulated)
     return float(np.mean(np.abs(sim - obs)))
 
@@ -45,6 +81,8 @@ def mae(observed, simulated):
 def nse(observed, simulated):
     """
     Nash-Sutcliffe Efficiency (higher is better, max=1).
+
+    Reference: Nash and Sutcliffe (1970), DOI: 10.1016/0022-1694(70)90255-6
     """
     obs, sim = _prepare_series(observed, simulated)
     denom = np.sum((obs - np.mean(obs)) ** 2)
@@ -58,6 +96,9 @@ def nse_log(observed, simulated):
     Log-transformed Nash-Sutcliffe Efficiency.
 
     Requires strictly positive observed and simulated values.
+
+    Reference for log-space efficiency usage:
+    Krause et al. (2005), DOI: 10.5194/adgeo-5-89-2005
     """
     obs, sim = _prepare_series(observed, simulated)
     if np.any(obs <= 0) or np.any(sim <= 0):
@@ -68,6 +109,8 @@ def nse_log(observed, simulated):
 def kge(observed, simulated, return_components=False):
     """
     Kling-Gupta Efficiency (2009 form).
+
+    Reference: Gupta et al. (2009), DOI: 10.1016/j.jhydrol.2009.08.003
     """
     obs, sim = _prepare_series(observed, simulated)
 
@@ -91,9 +134,9 @@ def kge(observed, simulated, return_components=False):
     return kge_value
 
 
-def objective_function(observed, simulated, metric="RMSE"):
+def objective_function(observed, simulated, metric="rmse"):
     """
-    Compatibility helper for direct metric evaluation.
+    Direct helper for one-shot metric evaluation.
 
     Supported names (case-insensitive):
     - RMSE
@@ -119,26 +162,6 @@ def objective_function(observed, simulated, metric="RMSE"):
         f"Unsupported metric: {metric}. "
         "Choose from 'RMSE', 'MAE', 'NSE', 'NSElog', 'KGE'."
     )
-
-
-def RMSE(observed, simulated):
-    """Legacy uppercase alias of `rmse`."""
-    return rmse(observed, simulated)
-
-
-def MAE(observed, simulated):
-    """Legacy uppercase alias of `mae`."""
-    return mae(observed, simulated)
-
-
-def NSE(observed, simulated):
-    """Legacy uppercase alias of `nse`."""
-    return float(nse(observed, simulated))
-
-
-def KGE(observed, simulated):
-    """Legacy uppercase alias of `kge`."""
-    return float(kge(observed, simulated, return_components=False))
 
 
 class ObjectiveFunction:
@@ -220,4 +243,3 @@ class ObjectiveFunction:
             "alpha": float(components["alpha"]),
             "beta": float(components["beta"]),
         }
-
