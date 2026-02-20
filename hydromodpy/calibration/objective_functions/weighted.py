@@ -129,7 +129,7 @@ class WeightedObjectiveFunction(ObjectiveFunction):
         """
         return self.objectives.copy()
     
-    def set_objective_weights(self, weights_update: dict) -> None:
+    def set_objective_weights(self, weights_update: dict[ObjectiveFunction, float]) -> None:
         """
         Update multiple objective function weights at once.
         
