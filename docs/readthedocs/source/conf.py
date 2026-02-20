@@ -257,10 +257,12 @@ texinfo_documents = [
 
 # -- Extension configuration -------------------------------------------------
 autodoc_mock_imports = [
+    "certifi",
     "contextily",
     "flopy",
     "geopandas",
     "gdal",
+    "geopy",
     "h5py",
     "imageio",
     "ipykernel",
@@ -269,6 +271,8 @@ autodoc_mock_imports = [
     "netCDF4",
     "osgeo",
     "plotly",
+    "pyhelp",
+    "pydantic",
     "pyproj",
     "pyshp",
     "rasterio",
@@ -280,6 +284,7 @@ autodoc_mock_imports = [
     "vedo",
     "vtk",
     "whitebox",
+    "whitebox_workflows",
     "xarray",
     "pysheds",
 ]
