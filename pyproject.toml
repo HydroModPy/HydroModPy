@@ -64,6 +64,7 @@ dependencies = [
     "vedo",
     "whitebox",
     "xarray",
+    "pydantic>=2.0",
     "pyside6",
     "spyder-kernels",
 ]
@@ -83,6 +84,7 @@ docs = [
     "sphinx-togglebutton",
     "sphinx-tabs",
     "sphinx-multiversion",
+    "autodoc-pydantic>=2.0",
 ]
 ide = ["spyder>=6.0", "jupyterlab>=4.0"]
 
@@ -114,8 +116,9 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["hydromodpy/watershed/",
-          "hydromodpy/tools/",
-          "hydromodpy/modeling/",
-          "hydromodpy/display/",
-          ]
+source = [
+    "hydromodpy/watershed/",
+    "hydromodpy/tools/",
+    "hydromodpy/modeling/",
+    "hydromodpy/display/",
+]
