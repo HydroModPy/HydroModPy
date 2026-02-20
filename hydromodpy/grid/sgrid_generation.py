@@ -34,6 +34,7 @@ class SGrid_Generation:
         self._sgrid_type  = 'structured' #TODO: only structured implemented for now, but unstructured and vertex grid types will be implemented in the future
         # Default parameters for structured spatial grid creation
         self._lenuni          = 'm'     # Master length unit for the model #TODO: for now, must also be the same length unit of the DEM (no conversion of length units for DEM implemented yet)
+        self._genmtd_top      = 'filepath'  # Method used to generate top surface of domain: 'filepath' (i.e. from a .tif file)
         self._top_path        = None    # File path to .tif top surface of domain (= DEM)
         self._crs             = None    # Coodinate Reference System; ex: 'EPSG:2154'
         self._genmtd_bot      = None    # Method used to generate bottom surface of domain: 'filepath','raster','constant_thickness','constant_altitude'
@@ -70,6 +71,15 @@ class SGrid_Generation:
     @lenuni.setter
     def lenuni(self, value):
         self._lenuni = value
+        self._sgrid_created = False
+
+    # Setter and getter for genmtd_top    
+    @property
+    def genmtd_top(self):
+        return self._genmtd_top
+    @genmtd_top.setter
+    def genmtd_top(self, value):
+        self._genmtd_top = value
         self._sgrid_created = False
 
     # Setter and getter for top_path
@@ -226,15 +236,17 @@ class SGrid_Generation:
         """
         Create the horizontal grid for a structured spatial grid.
         """
-        top  = rasterio.open(self.top_path)
-        nrow = top.height
-        ncol = top.width
-        delc = np.array([top.transform[0]]*nrow)
-        delr = np.array([-top.transform[4]]*ncol)
-        xoff = top.bounds.left
-        yoff = top.bounds.bottom
-        top  = top.read(1)
-        top[top <= self.nodata] = self.nodata
+        # Creates top layer from a .tif file
+        if self.genmtd_top == 'filepath':
+            top  = rasterio.open(self.top_path)
+            nrow = top.height
+            ncol = top.width
+            delc = np.array([top.transform[0]]*nrow)
+            delr = np.array([-top.transform[4]]*ncol)
+            xoff = top.bounds.left
+            yoff = top.bounds.bottom
+            top  = top.read(1)
+            top[top <= self.nodata] = self.nodata
         return top,delc,delr,xoff,yoff,nrow,ncol
     
     # vertical structured grid
