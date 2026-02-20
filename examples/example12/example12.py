@@ -55,7 +55,8 @@ cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 out_path = cfg.initializing.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
-def run_example12(out_path=out_path, display_plots=True):
+
+def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     
     cfg.initializing.out_dir_path = out_path
     watershed_name = cfg.initializing.catch_name
@@ -772,22 +773,25 @@ def run_example12(out_path=out_path, display_plots=True):
 
     #%% PLOT 3D
 
-    export_vtuvtk.VTK(BV, model_name)
-    visu = visualization_results.Visualization(BV, model_name)
-    if display_plots:
-        visu.visual3D(interactive=True, object_list=[
-                                                    'grid',
-                                                    'watertable',
-                                                    'watertable_depth',
-                                                    'surface_flow',
-                                                    'drain_flow',
-                                                    'pathlines'
-                                                    ],
-                                                    view='south-west',
-                                                    # view='north',
-                                                    lines=None,
-                                                    cloc=(0.7,0.1),
-                                                    z_scale=10)
+    if display_3D==True:
+
+        export_vtuvtk.VTK(BV, model_name)
+        visu = visualization_results.Visualization(BV, model_name)
+        if display_plots:
+            visu.visual3D(interactive=True, object_list=[
+                                                        'grid',
+                                                        'watertable',
+                                                        'watertable_depth',
+                                                        'surface_flow',
+                                                        'drain_flow',
+                                                        'pathlines'
+                                                        ],
+                                                        view='south-west',
+                                                        # view='north',
+                                                        lines=None,
+                                                        cloc=(0.7,0.1),
+                                                        z_scale=10)
+            
     #%% C - MT3DMS
 
     list_folder = glob.glob(os.path.join(str(BV.simulations_folder), vers+'*'))
@@ -851,6 +855,7 @@ def run_example12(out_path=out_path, display_plots=True):
                                                     ) # or None
 
     #%% PLOT CONCENTRATION
+    
     if display_plots:
         # Créer le GIF à la fin du processus
         vgif_name = vers
@@ -902,7 +907,7 @@ def run_example12(out_path=out_path, display_plots=True):
         all_box_stats = []
 
         # Définir le répertoire de sauvegarde des images
-        figures_dir = os.path.join(str(simulations_folder), '_figures')
+        figures_dir = os.path.join(str(simulations_folder), '_figures/')
         if not os.path.exists(figures_dir):
             os.makedirs(figures_dir)
 
@@ -1074,7 +1079,7 @@ def run_example12(out_path=out_path, display_plots=True):
         from io import BytesIO
 
         # Exemple : création de la liste des fichiers
-        figures_dir = os.path.join(str(simulations_folder), '_figures')
+        figures_dir = os.path.join(str(simulations_folder), '_figures/')
         begin_by = figures_dir + vers
         filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
 
@@ -1158,5 +1163,11 @@ def run_example12(out_path=out_path, display_plots=True):
         fig.update_yaxes(visible=False)
 
         fig.show("browser")
+        
 
-        #%% ---- NOTES
+#%% ---- RUN THE SCRIPT
+
+if __name__ == '__main__':
+    run_example12(out_path=out_path, display_plots=True, display_3D=False)
+
+#%% ---- NOTES
