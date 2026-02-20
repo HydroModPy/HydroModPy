@@ -6,16 +6,82 @@ Implemented families:
 - random search: global Monte Carlo sampling in bounded space,
 - Nelder-Mead: local simplex-based search via `scipy.optimize.minimize`,
 - simplex (classic): local simplex-based search via `scipy.optimize.fmin`.
+- GP mapping: surrogate posterior mapping with Gaussian processes.
+- delayed-acceptance GP-MH: Bayesian sampler with surrogate pre-screening.
 """
 
 from itertools import product
 
 import numpy as np
 
+from reference_cases.calibration_da_mh import delayed_acceptance_gp_mh_calibrate
+from reference_cases.calibration_gp_mapping import gp_mapping_calibrate
+
 try:
     from scipy import optimize as scipy_optimize
 except Exception:  # pragma: no cover - depends on local env
     scipy_optimize = None
+
+
+_DISPLAY_FAMILIES = (
+    "global_search",
+    "local_refinement",
+    "bayesian_mcmc",
+    "other",
+)
+
+_DISPLAY_LABELS = {
+    "global_search": "Global search",
+    "local_refinement": "Local refinement",
+    "bayesian_mcmc": "Bayesian MCMC",
+    "other": "Other",
+}
+
+_METHOD_DISPLAY_INFO = {
+    "grid_search": (
+        "global_search",
+        "Exhaustive parameter-grid scan (deterministic, robust, expensive).",
+    ),
+    "random_search": (
+        "global_search",
+        "Random bounded sampling (stochastic global baseline).",
+    ),
+    "nelder_mead": (
+        "local_refinement",
+        "Nelder-Mead local simplex via scipy.optimize.minimize.",
+    ),
+    "simplex": (
+        "local_refinement",
+        "Classic simplex via scipy.optimize.fmin.",
+    ),
+    "gp_mapping": (
+        "other",
+        "GP surrogate posterior mapping with UCB refinement and importance resampling.",
+    ),
+    "da_mh_gp": (
+        "bayesian_mcmc",
+        "Delayed-acceptance Metropolis-Hastings with GP surrogate.",
+    ),
+}
+
+_METHOD_CANONICAL = {
+    "delayed_acceptance_gp_mh": "da_mh_gp",
+    "gp-mapping": "gp_mapping",
+}
+
+
+def _first_docline(func):
+    """
+    Return the first non-empty line of a callable docstring.
+    """
+    doc = getattr(func, "__doc__", None)
+    if not doc:
+        return "Custom calibration method."
+    for raw in str(doc).splitlines():
+        line = raw.strip()
+        if line:
+            return line
+    return "Custom calibration method."
 
 
 def _normalize_bounds(bounds):
@@ -443,6 +509,13 @@ class CalibrationMethod:
     >>> methods.calibrate(objective_cost=my_cost, bounds=[(0.0, 1.0)], method="my_method")
     """
 
+    # Source layout (for IDE navigation):
+    # 1) Construction and key normalization
+    # 2) Registry management
+    # 3) Display and introspection
+    # 4) Calibration dispatcher
+
+    #region 1) Construction and Key Normalization
     def __init__(self, methods=None):
         """
         Initialize a calibration-method registry with an optional method mapping.
@@ -480,6 +553,9 @@ class CalibrationMethod:
         """
         # Canonicalization avoids duplicate registrations caused by case/spacing.
         return str(method).strip().lower()
+    #endregion
+
+    #region 2) Registry Management
 
     def register(self, name, calibrator):
         """
@@ -521,8 +597,76 @@ class CalibrationMethod:
         """
         # Sorted order makes logs/tests deterministic and easier to compare.
         return tuple(sorted(self._methods.keys()))
+    #endregion
 
-    def calibrate(self, objective_cost, bounds, method="random_search", **kwargs):
+    #region 3) Display and Introspection
+
+    def grouped_methods(self, include_aliases=True):
+        """
+        Return registered methods grouped by method family.
+
+        Parameters
+        ----------
+        include_aliases : bool
+            If False, keep only canonical names when aliases are registered.
+
+        Returns
+        -------
+        dict[str, tuple[tuple[str, str], ...]]
+            Mapping:
+            family -> tuple of (method_name, short_description).
+        """
+        include_aliases = bool(include_aliases)
+        grouped = {family: [] for family in _DISPLAY_FAMILIES}
+
+        for name in self.available_methods():
+            canonical = _METHOD_CANONICAL.get(name, name)
+            if not include_aliases and name != canonical:
+                continue
+
+            family, description = _METHOD_DISPLAY_INFO.get(canonical, ("other", None))
+            if description is None:
+                description = _first_docline(self._methods[name])
+
+            if name != canonical:
+                label = f"{name} (alias of {canonical})"
+            else:
+                label = name
+            grouped[family].append((label, description))
+
+        for family in grouped:
+            grouped[family] = tuple(grouped[family])
+        return grouped
+
+    def methods_overview(self, include_aliases=True):
+        """
+        Build a human-readable grouped summary of registered methods.
+
+        Parameters
+        ----------
+        include_aliases : bool
+            If False, hide alias rows.
+
+        Returns
+        -------
+        str
+            Multiline text overview.
+        """
+        grouped = self.grouped_methods(include_aliases=include_aliases)
+        lines = ["Available calibration methods:"]
+        for family in _DISPLAY_FAMILIES:
+            items = grouped.get(family, ())
+            if not items:
+                continue
+            lines.append(f"- {_DISPLAY_LABELS.get(family, family)}")
+            for method_name, description in items:
+                lines.append(f"  * {method_name}: {description}")
+        return "\n".join(lines)
+    #endregion
+
+    #region 4) Calibration Dispatcher
+
+    def calibrate(self, objective_cost, bounds, method="simplex", **kwargs):
         """
         Run calibration using the selected method from the registry.
 
@@ -565,6 +709,7 @@ class CalibrationMethod:
             raise ValueError(f"Unknown method '{method}'. Supported: {available}")
         # 3) Delegate calibration run to selected implementation.
         return calibrator(objective_cost=objective_cost, bounds=bounds, **kwargs)
+    #endregion
 
 
 DEFAULT_CALIBRATION_METHOD = CalibrationMethod(
@@ -573,5 +718,8 @@ DEFAULT_CALIBRATION_METHOD = CalibrationMethod(
         "random_search": random_search_calibrate,
         "nelder_mead": nelder_mead_calibrate,
         "simplex": scipy_simplex_calibrate,
+        "gp_mapping": gp_mapping_calibrate,
+        "da_mh_gp": delayed_acceptance_gp_mh_calibrate,
+        "delayed_acceptance_gp_mh": delayed_acceptance_gp_mh_calibrate,
     }
 )

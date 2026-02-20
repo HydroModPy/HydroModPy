@@ -8,12 +8,18 @@ and visualizes both time-domain and scatter diagnostics.
 """
 
 from pathlib import Path
+import sys
+
+# Ensure repository root is importable when script is launched directly.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from example_coarse_sand_profile import build_coarse_sand_profile
-from objective_fucntion import ObjectiveFunction
+from reference_cases.objective_function import ObjectiveFunction
+from reference_cases.recession_brutsaert.example_coarse_sand_profile import build_coarse_sand_profile
 
 
 def compute_metrics_for_coarse_sand():
