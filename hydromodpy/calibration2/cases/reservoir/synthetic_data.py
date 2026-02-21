@@ -9,6 +9,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from hydromodpy.calibration2.cases.reservoir.case_config import (
+    validate_reservoir_chronicle_config,
+)
 from hydromodpy.calibration2.cases.reservoir.workflow import MODEL_REGISTRY
 from hydromodpy.calibration2.cases.reservoir.forcing import (
     build_hydrological_year_dates,
@@ -61,6 +64,7 @@ def add_proportional_gaussian_error(
 
 def parse_chronicle_config(chronicle_cfg, model_name):
     """Parse chronicle section from TOML into a typed config dataclass."""
+    chronicle_cfg = validate_reservoir_chronicle_config(chronicle_cfg)
     model_data = MODEL_REGISTRY[model_name]
     parse_model = model_data["parse_chronicle_parameters"]
     true_params, initial_state = parse_model(chronicle_cfg)

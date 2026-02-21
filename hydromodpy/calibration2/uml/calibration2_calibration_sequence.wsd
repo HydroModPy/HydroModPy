@@ -1,0 +1,45 @@
+@startuml
+title Calibration2 - Calibration Sequence (Core + Runner)
+
+actor User
+participant "run_calibration.py" as Runner
+participant "engine_config" as EngineConfig
+participant "case_config" as CaseConfig
+participant "chronicle builder" as ChronicleBuilder
+participant "CalibrationEngine" as Engine
+participant "CalibrationMethod" as Dispatcher
+participant "Method Implementation" as MethodImpl
+participant "CalibrationResults" as Results
+
+User -> Runner: execute calibration script
+Runner -> EngineConfig: load_calibration_toml(config_path)
+EngineConfig -> EngineConfig: validate_calibration_config_data(...)
+EngineConfig --> Runner: validated config
+
+Runner -> CaseConfig: validate_*_chronicle_config(config["chronicle"])
+CaseConfig --> Runner: normalized chronicle params
+Runner -> ChronicleBuilder: build synthetic chronicle
+ChronicleBuilder --> Runner: observed + forcing + true params
+
+Runner -> EngineConfig: resolve_calibration_settings(config, model_parameter_order)
+EngineConfig --> Runner: objective_metric, method, parameter_set, method_kwargs
+
+Runner -> Engine: __init__(observed, simulator, parameter_set, objective_metric)
+Runner -> Engine: calibrate(method, **method_kwargs)
+Engine -> Dispatcher: calibrate(objective_cost, bounds, method, **kwargs)
+Dispatcher -> MethodImpl: method(objective_cost, bounds, **kwargs)
+
+loop expensive evaluations
+  MethodImpl -> Engine: objective_cost(x)
+  Engine -> Engine: cost(x) -> score(x) -> simulate(x)
+end
+
+MethodImpl --> Dispatcher: raw method output (dict)
+Dispatcher --> Engine: raw result
+Engine -> Results: from_method_output(raw, default_method)
+Engine -> Results: attach_context(vector_to_params, score_best)
+Results --> Engine: structured result
+Engine --> Runner: CalibrationResults
+
+Runner --> User: summary + figures
+@enduml

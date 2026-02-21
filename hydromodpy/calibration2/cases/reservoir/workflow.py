@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.calibration2.analysis.diagnostics import compute_performance_metrics
-from hydromodpy.calibration2.core.config import resolve_calibration_settings
+from hydromodpy.calibration2.core.engine_config import resolve_calibration_settings
 from hydromodpy.calibration2.core.engine import CalibrationEngine
 from hydromodpy.calibration2.cases.reservoir.forcing import make_piecewise_constant_daily_qin
 from hydromodpy.calibration2.cases.reservoir.models.one_reservoir import (
@@ -33,20 +33,6 @@ from hydromodpy.calibration2.cases.reservoir.models.two_reservoirs import (
 
 
 DEFAULT_MODEL_NAME = ONE_MODEL_NAME
-MODEL_ALIASES = {
-    "one_reservoir": ONE_MODEL_NAME,
-    "one-reservoir": ONE_MODEL_NAME,
-    "single_reservoir": ONE_MODEL_NAME,
-    "single-reservoir": ONE_MODEL_NAME,
-    "one": ONE_MODEL_NAME,
-    "1": ONE_MODEL_NAME,
-    "two_reservoir": TWO_MODEL_NAME,
-    "two-reservoir": TWO_MODEL_NAME,
-    "two_reservoirs": TWO_MODEL_NAME,
-    "two-reservoirs": TWO_MODEL_NAME,
-    "two": TWO_MODEL_NAME,
-    "2": TWO_MODEL_NAME,
-}
 MODEL_REGISTRY = {
     ONE_MODEL_NAME: {
         "display_name": ONE_MODEL_DISPLAY_NAME,
@@ -68,15 +54,15 @@ MODEL_REGISTRY = {
 
 
 def resolve_model_name(config):
-    """Resolve model selector from TOML and normalize aliases."""
+    """Resolve model selector from TOML using strict canonical names."""
     calibration_cfg = config.get("calibration", {})
     raw_value = str(calibration_cfg.get("model_name", DEFAULT_MODEL_NAME)).strip().lower()
-    if raw_value not in MODEL_ALIASES:
+    if raw_value not in MODEL_REGISTRY:
         allowed_txt = ", ".join(sorted(MODEL_REGISTRY))
         raise ValueError(
             f"Unknown model_name '{raw_value}'. Allowed canonical names: {allowed_txt}"
         )
-    return MODEL_ALIASES[raw_value]
+    return raw_value
 
 
 def get_model_display_name(model_name):
@@ -136,9 +122,6 @@ def calibrate_reservoir_model(chronicle, config, model_name):
     settings = resolve_calibration_settings(
         config,
         model_parameter_order=model_parameter_order,
-        objective_default="kge",
-        method_default="simplex",
-        method_key="global_method",
     )
     objective_metric = settings["objective_metric"]
     method = settings["method"]

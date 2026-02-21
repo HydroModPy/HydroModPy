@@ -30,15 +30,11 @@ MODEL_DISPLAY_NAME = "two-reservoir"
 PARAMETER_ORDER = ("a", "Kq", "Ks")
 
 
-def _get_float_value(config_section, keys, *, default=None):
-    """Read first available key among aliases and cast to float."""
-    for key in keys:
-        if key in config_section:
-            return float(config_section[key])
-    if default is not None:
-        return float(default)
-    aliases_txt = ", ".join(keys)
-    raise KeyError(f"Missing required chronicle key among: {aliases_txt}")
+def _require_float(config_section, key):
+    """Read one required float key from chronicle config."""
+    if key not in config_section:
+        raise KeyError(f"Missing required chronicle key: {key}")
+    return float(config_section[key])
 
 
 def parse_chronicle_parameters(chronicle_cfg):
@@ -46,13 +42,13 @@ def parse_chronicle_parameters(chronicle_cfg):
     Parse two-reservoir true parameters and initial state from chronicle config.
     """
     true_params = {
-        "a": _get_float_value(chronicle_cfg, ("a_true",)),
-        "Kq": _get_float_value(chronicle_cfg, ("kq_days_true", "Kq_days_true")),
-        "Ks": _get_float_value(chronicle_cfg, ("ks_days_true", "Ks_days_true")),
+        "a": _require_float(chronicle_cfg, "a_true"),
+        "Kq": _require_float(chronicle_cfg, "kq_days_true"),
+        "Ks": _require_float(chronicle_cfg, "ks_days_true"),
     }
     initial_state = {
-        "sq0": _get_float_value(chronicle_cfg, ("sq0_mm",), default=0.0),
-        "ss0": _get_float_value(chronicle_cfg, ("ss0_mm",), default=0.0),
+        "sq0": float(chronicle_cfg.get("sq0_mm", 0.0)),
+        "ss0": float(chronicle_cfg.get("ss0_mm", 0.0)),
     }
     return true_params, initial_state
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 End-to-end calibration example for a noisy Brutsaert coarse-sand recession.
 
 Run from repository root:
@@ -19,17 +19,22 @@ if str(REPO_ROOT) not in sys.path:
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.calibration2.core.config import (
+from hydromodpy.calibration2.core.engine_config import (
     load_calibration_toml,
     resolve_calibration_settings,
 )
 from hydromodpy.calibration2.analysis.diagnostics import (
+    build_calibration_result_view,
     compute_performance_metrics,
-    extract_result_samples,
 )
 from hydromodpy.calibration2.core.engine import CalibrationEngine, as_1d_array
+from hydromodpy.calibration2.cases.recession_brutsaert.case_config import (
+    validate_brutsaert_chronicle_config,
+)
 from hydromodpy.calibration2.analysis.plotting import (
-    build_posterior_quantile_lines,
+    apply_parameter_axis_scales,
+    build_parameter_summary_lines,
+    build_posterior_summary_lines,
     plot_parameter_distribution,
     select_representative_posterior_vectors,
 )
@@ -58,7 +63,7 @@ class BaseflowConfig:
 
 def build_noisy_coarse_sand_chronicle(profile_params):
     """Generate synthetic analytical + noisy chronicle."""
-    params = dict(profile_params)
+    params = validate_brutsaert_chronicle_config(profile_params)
     if "error_fraction" in params:
         params["error_fraction"] = float(params["error_fraction"])
     if params.get("random_seed") is not None:
@@ -122,9 +127,6 @@ def calibrate_k_sy(chronicle, config):
     settings = resolve_calibration_settings(
         config,
         model_parameter_order=MODEL_PARAMETER_ORDER,
-        objective_default="kge",
-        method_default="simplex",
-        method_key="global_method",
     )
     objective_metric = settings["objective_metric"]
     global_method = settings["method"]
@@ -182,28 +184,6 @@ def calibrate_k_sy(chronicle, config):
     }
 
 
-def _parameter_summary_lines(params_true, params_best, parameter_names):
-    lines = []
-    for name in parameter_names:
-        if name == "K":
-            lines.append(f"{name} true={params_true[name]:.2e}   {name} hat={params_best[name]:.2e}")
-        else:
-            lines.append(f"{name} true={params_true[name]:.4g}   {name} hat={params_best[name]:.4g}")
-    return lines
-
-
-def _apply_parameter_axis_scales(ax, parameter_names):
-    """Keep convenient log display for K when 1D or 2D."""
-    names = tuple(parameter_names)
-    if len(names) == 1 and names[0] == "K":
-        ax.set_xscale("log")
-    if len(names) == 2:
-        if names[0] == "K":
-            ax.set_xscale("log")
-        if names[1] == "K":
-            ax.set_yscale("log")
-
-
 def plot_calibration_result(
     chronicle,
     calibration,
@@ -231,18 +211,14 @@ def plot_calibration_result(
     metrics = calibration["metrics"]
     result = calibration["result_final"]
 
-    sample_views = extract_result_samples(
+    result_view = build_calibration_result_view(
         result,
-        n_params=len(parameter_names),
+        parameter_names=parameter_names,
         posterior_unique_threshold=10,
         rounding_decimals=10,
     )
-    posterior_samples = sample_views["posterior_samples"]
-    chain_samples = sample_views["chain_samples"]
-    has_posterior = sample_views["has_posterior"]
-    posterior_unique = sample_views["posterior_unique"]
-    chain_unique = sample_views["chain_unique"]
-    sample_source = sample_views["sample_source"]
+    has_posterior = result_view["has_posterior"]
+    sample_source = result_view["sample_source"]
 
     if has_posterior:
         fig, axes = plt.subplots(1, 3, figsize=(16, 5), dpi=140)
@@ -295,36 +271,39 @@ def plot_calibration_result(
             params_best=params_best,
             decimals=10,
         )
-        _apply_parameter_axis_scales(ax_param, parameter_names)
+        apply_parameter_axis_scales(
+            ax=ax_param,
+            sample_source=sample_source,
+            parameter_names=parameter_names,
+            params_true=params_true,
+            params_best=params_best,
+            force_log_parameter_names=("K",),
+            auto_log_if_positive=False,
+        )
 
     summary_lines = [
         f"Objective={objective_metric.upper()}  method={global_method}",
     ]
     summary_lines.extend(
-        _parameter_summary_lines(
+        build_parameter_summary_lines(
             params_true=params_true,
             params_best=params_best,
             parameter_names=parameter_names,
+            format_overrides={"K": ".2e"},
         )
     )
     summary_lines.append(
         f"NSE={metrics['NSE']:.4f}  NSElog={metrics['NSElog']:.4f}  KGE={metrics['KGE']:.4f}"
     )
 
-    if has_posterior:
-        summary_lines.append(
-            f"Unique states: posterior={posterior_unique.shape[0]}  chain={chain_unique.shape[0]}"
+    summary_lines.extend(
+        build_posterior_summary_lines(
+            result_view,
+            parameter_names=parameter_names,
+            quantiles=(0.05, 0.50, 0.95),
+            fmt=".3g",
         )
-        summary_lines.extend(
-            build_posterior_quantile_lines(
-                posterior_samples=posterior_samples,
-                parameter_names=parameter_names,
-                quantiles=(0.05, 0.50, 0.95),
-                fmt=".3g",
-            )
-        )
-    else:
-        summary_lines.append("No posterior sample distribution (deterministic method).")
+    )
 
     fig.text(
         0.50,

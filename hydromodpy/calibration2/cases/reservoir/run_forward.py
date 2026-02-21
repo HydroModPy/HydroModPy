@@ -35,26 +35,14 @@ from hydromodpy.calibration2.cases.reservoir.forcing import (
 )
 from hydromodpy.calibration2.cases.reservoir.models.one_reservoir import ReservoirModel as OneReservoirModel
 from hydromodpy.calibration2.cases.reservoir.models.two_reservoirs import TwoReservoirModel
+from hydromodpy.calibration2.cases.reservoir.workflow import (
+    DEFAULT_MODEL_NAME,
+    MODEL_REGISTRY,
+    get_model_display_name,
+)
 
 
 DEFAULT_CONFIG_FILE = "config_forward.toml"
-DEFAULT_MODEL_NAME = "one_reservoir"
-MODEL_ALIASES = {
-    "one_reservoir": "one_reservoir",
-    "one-reservoir": "one_reservoir",
-    "one": "one_reservoir",
-    "1": "one_reservoir",
-    "two_reservoir": "two_reservoir",
-    "two-reservoir": "two_reservoir",
-    "two_reservoirs": "two_reservoir",
-    "two-reservoirs": "two_reservoir",
-    "two": "two_reservoir",
-    "2": "two_reservoir",
-}
-MODEL_DISPLAY_NAMES = {
-    "one_reservoir": "one-reservoir",
-    "two_reservoir": "two-reservoir",
-}
 
 
 @dataclass
@@ -103,16 +91,16 @@ def load_example_config(config_path):
 
 
 def resolve_model_name(config, model_name_override=None):
-    """Resolve model selector from TOML or function override."""
+    """Resolve model selector from TOML or function override (strict names)."""
     if model_name_override is None:
         raw = str(config["model"].get("model_name", DEFAULT_MODEL_NAME)).strip().lower()
     else:
         raw = str(model_name_override).strip().lower()
 
-    if raw not in MODEL_ALIASES:
-        allowed_txt = ", ".join(sorted({"one_reservoir", "two_reservoir"}))
+    if raw not in MODEL_REGISTRY:
+        allowed_txt = ", ".join(sorted(MODEL_REGISTRY))
         raise ValueError(f"Unknown model_name '{raw}'. Allowed canonical names: {allowed_txt}")
-    return MODEL_ALIASES[raw]
+    return raw
 
 
 def parse_forcing_config(forcing_cfg):
@@ -341,9 +329,7 @@ def run_hydrological_example(config, model_name_override=None):
 
     if output_path is not None:
         print(f"Saved figure: {output_path}")
-    print(
-        f"Hydrological example completed with model={MODEL_DISPLAY_NAMES.get(model_name, model_name)}"
-    )
+    print(f"Hydrological example completed with model={get_model_display_name(model_name)}")
 
 
 def main(model_name_override=None):

@@ -114,7 +114,3 @@ def simplex_calibrate(
             "message": message,
         },
     )
-
-
-# Backward-compatible alias
-scipy_simplex_calibrate = simplex_calibrate

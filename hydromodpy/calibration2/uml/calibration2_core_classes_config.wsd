@@ -1,0 +1,69 @@
+@startuml
+title Calibration2 Core - Config Classes
+
+package "hydromodpy.calibration2.core.engine_config" {
+  class "engine_config.py" as EngineConfigModule <<module>> {
+    +validate_calibration_config_data(config_data)
+    +load_calibration_toml(config_path)
+    +resolve_calibration_settings(config, model_parameter_order)
+  }
+
+  class CalibrationSectionSchema <<pydantic>> {
+    +objective_metric: str
+    +global_method: str
+    +model_name: str | None
+  }
+
+  class CalibrationTomlSchema <<pydantic>> {
+    +chronicle: dict
+    +calibration: CalibrationSectionSchema
+    +bounds: dict
+    +calibration_method: dict
+    +output: dict
+  }
+}
+
+package "hydromodpy.calibration2.core.methods_config" {
+  class "methods_config.py" as MethodsConfigModule <<module>> {
+    +canonical_method_name(method)
+    +is_supported_method(method_name)
+    +validate_method_kwargs(method_name, kwargs)
+    +normalize_format_method_kwargs(method, method_kwargs, parameter_names)
+    +validate_calibration_method_section(section)
+  }
+
+  class GridSearchKwargs <<pydantic>>
+  class RandomSearchKwargs <<pydantic>>
+  class NelderMeadKwargs <<pydantic>>
+  class SimplexKwargs <<pydantic>>
+  class GpMappingKwargs <<pydantic>>
+  class DaMhGpKwargs <<pydantic>>
+}
+
+package "hydromodpy.calibration2.core.parameters" {
+  class CalibrationParameterSet
+}
+
+package "hydromodpy.calibration2.core.objective_function" {
+  class ObjectiveFunction
+}
+
+CalibrationTomlSchema --> CalibrationSectionSchema : contains
+CalibrationSectionSchema ..> ObjectiveFunction : validate objective_metric
+CalibrationTomlSchema ..> CalibrationParameterSet : build from bounds
+EngineConfigModule ..> CalibrationTomlSchema : uses for validation
+
+CalibrationTomlSchema ..> GridSearchKwargs : validate [calibration_method]
+CalibrationTomlSchema ..> RandomSearchKwargs
+CalibrationTomlSchema ..> NelderMeadKwargs
+CalibrationTomlSchema ..> SimplexKwargs
+CalibrationTomlSchema ..> GpMappingKwargs
+CalibrationTomlSchema ..> DaMhGpKwargs
+CalibrationTomlSchema ..> MethodsConfigModule : validate method kwargs
+EngineConfigModule ..> MethodsConfigModule : normalize kwargs
+
+note bottom
+  Focus: strict configuration schemas plus key config helper functions.
+end note
+
+@enduml

@@ -5,9 +5,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.calibration2.core.config import (
-    normalize_format_method_kwargs,
+from hydromodpy.calibration2.core.engine_config import (
     resolve_calibration_settings,
+)
+from hydromodpy.calibration2.core.methods_config import (
+    normalize_format_method_kwargs,
 )
 from hydromodpy.calibration2.core.engine import CalibrationEngine
 from hydromodpy.calibration2.core.methods_dispatcher import CalibrationMethod
@@ -31,14 +33,13 @@ def test_da_mh_forces_rmse_metric_with_warning():
         settings = resolve_calibration_settings(
             config,
             model_parameter_order=("a",),
-            method_key="global_method",
         )
     assert settings["objective_metric"] == "rmse"
 
 
 def test_unknown_method_kwargs_are_rejected():
     """Built-in methods reject unsupported TOML kwargs early."""
-    with pytest.raises(ValueError, match="Unsupported kwargs for method 'da_mh_gp'"):
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
         normalize_format_method_kwargs(
             method="da_mh_gp",
             method_kwargs={"foo": 1.0},

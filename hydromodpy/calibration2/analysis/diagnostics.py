@@ -87,3 +87,32 @@ def extract_result_samples(
         "chain_counts": chain_counts,
         "sample_source": sample_source,
     }
+
+
+def build_calibration_result_view(
+    result: CalibrationResults,
+    *,
+    parameter_names,
+    posterior_unique_threshold=10,
+    rounding_decimals=10,
+):
+    """
+    Build a generic plotting/reporting view from `CalibrationResults`.
+    """
+    names = tuple(parameter_names)
+    sample_views = extract_result_samples(
+        result,
+        n_params=len(names),
+        posterior_unique_threshold=posterior_unique_threshold,
+        rounding_decimals=rounding_decimals,
+    )
+    return {
+        "method": str(result.method),
+        "cost_best": float(result.cost_best),
+        "score_best": (
+            None if result.score_best is None else float(result.score_best)
+        ),
+        "n_evaluations": int(result.n_evaluations),
+        "parameter_names": names,
+        **sample_views,
+    }

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 End-to-end calibration example for one- and two-reservoir reference cases.
 
@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.calibration2.core.config import load_calibration_toml
+from hydromodpy.calibration2.core.engine_config import load_calibration_toml
 from hydromodpy.calibration2.cases.reservoir.workflow import (
     calibrate_reservoir_model,
     get_model_display_name,

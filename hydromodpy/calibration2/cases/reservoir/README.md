@@ -111,6 +111,11 @@ Main sections:
 - `[calibration_method.<method>]`: method-specific hyperparameters
 - `[output]`: figure output settings
 
+Strict naming convention:
+- `model_name` must be `one_reservoir` or `two_reservoir`
+- `objective_metric` must be one of `nse`, `nse_log`, `kge`, `rmse`
+- `global_method` must be one of the built-in method names listed below
+
 For `gp_mapping`, key controls are:
 - `n_init`: initial design size (true model evaluations)
 - `n_refine`, `batch_size`: adaptive UCB refinement budget
