@@ -11,7 +11,10 @@ scientific cases.
   - `results.py`: canonical `CalibrationResults`
   - `objective_function.py`: metrics (`NSE`, `NSElog`, `KGE`, `RMSE`, `MAE`) and
     `ObjectiveFunction`
-  - `config.py`: shared TOML parsing and method-kwargs normalization
+  - `engine_config.py`: pydantic config schema + TOML loading and settings
+    resolution helpers
+  - `methods_config.py`: pydantic schemas per calibration method kwargs + kwargs
+    normalization in parameter order
   - `methods_dispatcher.py`: calibration method registry (`CalibrationMethod`)
     and default dispatcher (`DEFAULT_CALIBRATION_METHOD`)
   - `methods/`
@@ -26,7 +29,9 @@ scientific cases.
   - `plotting.py`: shared plotting utilities for sample/posterior views
 - `cases/`
   - `reservoir/`: one/two-reservoir workflow and scripts
+  - `reservoir/case_config.py`: reservoir chronicle schema validation
   - `recession_brutsaert/`: Brutsaert recession workflow and scripts
+  - `recession_brutsaert/case_config.py`: Brutsaert chronicle schema validation
 
 ## Shared API
 
@@ -42,7 +47,10 @@ All cases follow the same flow:
 ## Calibration Convention
 
 - `[bounds]` must define all parameters of the selected model.
-- Partial calibration via `[fixed_parameters]` is intentionally not supported.
+- Config validation is strict:
+  - unknown top-level sections are rejected,
+  - unknown keys in `[calibration]` are rejected,
+  - `objective_metric` and `global_method` must use canonical names.
 - Unknown keys in `[calibration_method.<method>]` are rejected for built-in
   methods.
 - Per-parameter method settings can be passed as explicit mappings, e.g.
@@ -63,3 +71,11 @@ For `da_mh_gp`, `objective_metric = "rmse"` must be used.
 
 - `hydromodpy/calibration2/cases/reservoir/README.md`
 - `hydromodpy/calibration2/cases/recession_brutsaert/README.md`
+
+## UML
+
+- Calibration sequence (`.wsd`): `hydromodpy/calibration2/uml/calibration2_calibration_sequence.wsd`
+- Calibration activity (`.wsd`): `hydromodpy/calibration2/uml/calibration2_calibration_activity.wsd`
+- Sequence diagram (`.wsd`): `hydromodpy/calibration2/uml/calibration2_workflow.wsd`
+- Class diagram - config (+ key module functions) (`.wsd`): `hydromodpy/calibration2/uml/calibration2_core_classes_config.wsd`
+- Class diagram - main runtime (+ key module functions) (`.wsd`): `hydromodpy/calibration2/uml/calibration2_core_classes_main.wsd`

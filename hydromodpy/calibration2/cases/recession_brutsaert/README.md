@@ -72,6 +72,10 @@ Supported methods are the same as other cases:
 For `da_mh_gp`, set:
 - `objective_metric = "rmse"` in TOML.
 
+Strict naming convention in TOML:
+- `objective_metric` must be one of `nse`, `nse_log`, `kge`, `rmse`
+- `global_method` must be one of the built-in method names above
+
 For per-parameter method settings (for example `proposal_scale`, `prior_mean`,
 `prior_std`), TOML can use explicit mappings such as
 `proposal_scale = {K=2.0e-5, Sy=0.01}`.

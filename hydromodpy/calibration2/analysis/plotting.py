@@ -85,6 +85,145 @@ def build_posterior_quantile_lines(
     return lines
 
 
+def build_parameter_summary_lines(
+    params_true,
+    params_best,
+    parameter_names,
+    *,
+    default_fmt=".4g",
+    format_overrides=None,
+):
+    """
+    Format one summary line per calibrated parameter.
+    """
+    params_true = {} if params_true is None else dict(params_true)
+    params_best = {} if params_best is None else dict(params_best)
+    overrides = {} if format_overrides is None else dict(format_overrides)
+
+    lines = []
+    for name in tuple(parameter_names):
+        fmt = str(overrides.get(name, default_fmt))
+        true_value = float(params_true.get(name, np.nan))
+        best_value = float(params_best.get(name, np.nan))
+        lines.append(
+            f"{name} true={true_value:{fmt}}   {name} hat={best_value:{fmt}}"
+        )
+    return lines
+
+
+def build_posterior_summary_lines(
+    result_view,
+    *,
+    parameter_names,
+    quantiles=(0.05, 0.50, 0.95),
+    fmt=".4g",
+):
+    """
+    Build posterior/chain summary lines from a result-view dictionary.
+    """
+    if not result_view.get("has_posterior", False):
+        return ["No posterior sample distribution (deterministic method)."]
+
+    posterior_unique = np.asarray(
+        result_view.get("posterior_unique", np.empty((0, 0))),
+        dtype=float,
+    )
+    chain_unique = np.asarray(
+        result_view.get("chain_unique", np.empty((0, 0))),
+        dtype=float,
+    )
+    posterior_samples = np.asarray(
+        result_view.get("posterior_samples", np.empty((0, 0))),
+        dtype=float,
+    )
+
+    lines = [
+        f"Unique states: posterior={posterior_unique.shape[0]}  chain={chain_unique.shape[0]}"
+    ]
+    lines.extend(
+        build_posterior_quantile_lines(
+            posterior_samples=posterior_samples,
+            parameter_names=parameter_names,
+            quantiles=quantiles,
+            fmt=fmt,
+        )
+    )
+    return lines
+
+
+def _is_strictly_positive(values):
+    arr = np.asarray(values, dtype=float).ravel()
+    finite = arr[np.isfinite(arr)]
+    return bool(finite.size > 0 and np.all(finite > 0.0))
+
+
+def _concat_vectors(*items):
+    if not items:
+        return np.empty(0, dtype=float)
+    vectors = [np.asarray(item, dtype=float).ravel() for item in items]
+    if not vectors:
+        return np.empty(0, dtype=float)
+    return np.concatenate(vectors)
+
+
+def apply_parameter_axis_scales(
+    ax,
+    sample_source,
+    parameter_names,
+    *,
+    params_true=None,
+    params_best=None,
+    force_log_parameter_names=(),
+    auto_log_if_positive=True,
+):
+    """
+    Apply log scaling on parameter-panel axes when data supports it.
+
+    `force_log_parameter_names` can be used for known strictly-positive
+    parameters that should always be shown on log scale (example: `K`).
+    """
+    arr = np.asarray(sample_source, dtype=float)
+    names = tuple(parameter_names)
+    if arr.ndim != 2 or arr.shape[1] != len(names) or len(names) == 0:
+        return
+
+    true_map = {} if params_true is None else dict(params_true)
+    best_map = {} if params_best is None else dict(params_best)
+    force_log = {str(name) for name in tuple(force_log_parameter_names)}
+
+    def _axis_values(index, name):
+        return _concat_vectors(
+            arr[:, index],
+            [true_map.get(name, np.nan)],
+            [best_map.get(name, np.nan)],
+        )
+
+    def _should_use_log_scale(name, values):
+        return (name in force_log) or (
+            bool(auto_log_if_positive) and _is_strictly_positive(values)
+        )
+
+    if len(names) == 1:
+        name = names[0]
+        values = _axis_values(0, name)
+        if _should_use_log_scale(name, values):
+            ax.set_xscale("log")
+        return
+
+    if len(names) == 2:
+        x_name, y_name = names
+        x_values = _axis_values(0, x_name)
+        y_values = _axis_values(1, y_name)
+        if _should_use_log_scale(x_name, x_values):
+            ax.set_xscale("log")
+        if _should_use_log_scale(y_name, y_values):
+            ax.set_yscale("log")
+        return
+
+    if bool(auto_log_if_positive) and _is_strictly_positive(arr):
+        ax.set_yscale("log")
+
+
 def _vector_from_mapping(mapping, parameter_names):
     names = tuple(parameter_names)
     if mapping is None:

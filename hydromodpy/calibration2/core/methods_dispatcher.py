@@ -8,6 +8,7 @@ from hydromodpy.calibration2.core.methods.grid_search import grid_search_calibra
 from hydromodpy.calibration2.core.methods.nelder_mead import nelder_mead_calibrate
 from hydromodpy.calibration2.core.methods.random_search import random_search_calibrate
 from hydromodpy.calibration2.core.methods.simplex import simplex_calibrate
+from hydromodpy.calibration2.core.methods_config import SUPPORTED_METHOD_NAMES
 
 
 _DISPLAY_FAMILIES = (
@@ -51,10 +52,11 @@ _METHOD_DISPLAY_INFO = {
     ),
 }
 
-_METHOD_CANONICAL = {
-    "delayed_acceptance_gp_mh": "da_mh_gp",
-    "gp-mapping": "gp_mapping",
-}
+if tuple(sorted(_METHOD_DISPLAY_INFO)) != SUPPORTED_METHOD_NAMES:
+    raise RuntimeError(
+        "Built-in methods and method display info are inconsistent. "
+        f"Expected {SUPPORTED_METHOD_NAMES}, got {tuple(sorted(_METHOD_DISPLAY_INFO))}."
+    )
 
 
 def _first_docline(func):
@@ -94,31 +96,21 @@ class CalibrationMethod:
     def available_methods(self):
         return tuple(sorted(self._methods.keys()))
 
-    def grouped_methods(self, include_aliases=True):
-        include_aliases = bool(include_aliases)
+    def grouped_methods(self):
         grouped = {family: [] for family in _DISPLAY_FAMILIES}
 
         for name in self.available_methods():
-            canonical = _METHOD_CANONICAL.get(name, name)
-            if not include_aliases and name != canonical:
-                continue
-
-            family, description = _METHOD_DISPLAY_INFO.get(canonical, ("other", None))
+            family, description = _METHOD_DISPLAY_INFO.get(name, ("other", None))
             if description is None:
                 description = _first_docline(self._methods[name])
-
-            if name != canonical:
-                label = f"{name} (alias of {canonical})"
-            else:
-                label = name
-            grouped[family].append((label, description))
+            grouped[family].append((name, description))
 
         for family in grouped:
             grouped[family] = tuple(grouped[family])
         return grouped
 
-    def methods_overview(self, include_aliases=True):
-        grouped = self.grouped_methods(include_aliases=include_aliases)
+    def methods_overview(self):
+        grouped = self.grouped_methods()
         lines = ["Available calibration methods:"]
         for family in _DISPLAY_FAMILIES:
             items = grouped.get(family, ())
@@ -146,7 +138,6 @@ DEFAULT_CALIBRATION_METHOD = CalibrationMethod(
         "simplex": simplex_calibrate,
         "gp_mapping": gp_mapping_calibrate,
         "da_mh_gp": delayed_acceptance_gp_mh_calibrate,
-        "delayed_acceptance_gp_mh": delayed_acceptance_gp_mh_calibrate,
     }
 )
 

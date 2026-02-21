@@ -138,12 +138,12 @@ def objective_function(observed, simulated, metric="rmse"):
     """
     Direct helper for one-shot metric evaluation.
 
-    Supported names (case-insensitive):
-    - RMSE
-    - MAE
-    - NSE
-    - NSElog / NSE_log
-    - KGE
+    Supported canonical names (case-insensitive):
+    - rmse
+    - mae
+    - nse
+    - nse_log
+    - kge
     """
     key = str(metric).strip().lower()
 
@@ -151,16 +151,16 @@ def objective_function(observed, simulated, metric="rmse"):
         return rmse(observed, simulated)
     if key == "mae":
         return mae(observed, simulated)
-    if key in ("nse", "nash", "nash_sutcliffe"):
+    if key == "nse":
         return float(nse(observed, simulated))
-    if key in ("nselog", "nse_log", "nse-log", "lognse"):
+    if key == "nse_log":
         return float(nse_log(observed, simulated))
-    if key in ("kge", "kling_gupta", "kling-gupta"):
+    if key == "kge":
         return float(kge(observed, simulated, return_components=False))
 
     raise ValueError(
         f"Unsupported metric: {metric}. "
-        "Choose from 'RMSE', 'MAE', 'NSE', 'NSElog', 'KGE'."
+        "Choose from 'rmse', 'mae', 'nse', 'nse_log', 'kge'."
     )
 
 
@@ -175,19 +175,7 @@ class ObjectiveFunction:
     - "rmse"
     """
 
-    _ALIASES = {
-        "nse": "nse",
-        "nash": "nse",
-        "nash_sutcliffe": "nse",
-        "nse_log": "nse_log",
-        "nselog": "nse_log",
-        "lognse": "nse_log",
-        "nse-log": "nse_log",
-        "kge": "kge",
-        "kling_gupta": "kge",
-        "kling-gupta": "kge",
-        "rmse": "rmse",
-    }
+    _SUPPORTED_METRICS = {"nse", "nse_log", "kge", "rmse"}
     _MAXIMIZE_METRICS = {"nse", "nse_log", "kge"}
 
     def __init__(self, metric="nse"):
@@ -195,12 +183,12 @@ class ObjectiveFunction:
 
     @classmethod
     def resolve_metric_name(cls, metric):
-        """Normalize metric name and validate supported aliases."""
+        """Normalize metric name and validate supported canonical names."""
         key = str(metric).strip().lower()
-        if key not in cls._ALIASES:
-            valid = ", ".join(sorted(set(cls._ALIASES.values())))
+        if key not in cls._SUPPORTED_METRICS:
+            valid = ", ".join(sorted(cls._SUPPORTED_METRICS))
             raise ValueError(f"Unknown metric '{metric}'. Supported canonical metrics: {valid}")
-        return cls._ALIASES[key]
+        return key
 
     def evaluate(self, observed, simulated, metric=None, return_components=True):
         """

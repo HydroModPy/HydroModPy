@@ -118,9 +118,6 @@ class CalibrationEngine:
             parameter_names=parameter_names,
             parameter_set=parameter_set,
         )
-        # Backward-compatible public attributes used by existing examples.
-        self.parameter_names = list(self.parameter_set.names)
-        self.bounds = tuple(self.parameter_set.bounds)
 
         if calibration_method is None:
             calibration_method = DEFAULT_CALIBRATION_METHOD

@@ -17,15 +17,11 @@ MODEL_DISPLAY_NAME = "one-reservoir"
 PARAMETER_ORDER = ("C", "k")
 
 
-def _get_float_value(config_section, keys, *, default=None):
-    """Read first available key among aliases and cast to float."""
-    for key in keys:
-        if key in config_section:
-            return float(config_section[key])
-    if default is not None:
-        return float(default)
-    aliases_txt = ", ".join(keys)
-    raise KeyError(f"Missing required chronicle key among: {aliases_txt}")
+def _require_float(config_section, key):
+    """Read one required float key from chronicle config."""
+    if key not in config_section:
+        raise KeyError(f"Missing required chronicle key: {key}")
+    return float(config_section[key])
 
 
 def parse_chronicle_parameters(chronicle_cfg):
@@ -33,11 +29,11 @@ def parse_chronicle_parameters(chronicle_cfg):
     Parse one-reservoir true parameters and initial state from chronicle config.
     """
     true_params = {
-        "C": _get_float_value(chronicle_cfg, ("capacity_mm_true",)),
-        "k": _get_float_value(chronicle_cfg, ("k_per_day_true",)),
+        "C": _require_float(chronicle_cfg, "capacity_mm_true"),
+        "k": _require_float(chronicle_cfg, "k_per_day_true"),
     }
     initial_state = {
-        "s0": _get_float_value(chronicle_cfg, ("s0_mm",), default=0.0),
+        "s0": float(chronicle_cfg.get("s0_mm", 0.0)),
     }
     return true_params, initial_state
 
