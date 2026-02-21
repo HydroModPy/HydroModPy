@@ -1,8 +1,8 @@
-"""
+﻿"""
 End-to-end calibration example for a noisy Brutsaert coarse-sand recession.
 
 Run from repository root:
-    python reference_cases/recession_brutsaert/example_calibration_coarse_sand.py
+    python hydromodpy/calibration2/cases/recession_brutsaert/run_calibration.py
 """
 
 from __future__ import annotations
@@ -12,34 +12,34 @@ from pathlib import Path
 import sys
 
 # Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from reference_cases.calibration_config import (
+from hydromodpy.calibration2.core.config import (
     load_calibration_toml,
     resolve_calibration_settings,
 )
-from reference_cases.calibration_analysis import (
+from hydromodpy.calibration2.analysis.diagnostics import (
     compute_performance_metrics,
     extract_result_samples,
 )
-from reference_cases.calibration_engine import CalibrationEngine, as_1d_array
-from reference_cases.calibration_visualization import (
+from hydromodpy.calibration2.core.engine import CalibrationEngine, as_1d_array
+from hydromodpy.calibration2.analysis.plotting import (
     build_posterior_quantile_lines,
     plot_parameter_distribution,
     select_representative_posterior_vectors,
 )
-from reference_cases.recession_brutsaert.baseflow import (
+from hydromodpy.calibration2.cases.recession_brutsaert.model import (
     generate_noisy_baseflow_profile,
     simulate_baseflow,
 )
 
 
-DEFAULT_CONFIG_FILE = "example_calibration_coarse_sand.toml"
+DEFAULT_CONFIG_FILE = "config_calibration.toml"
 MODEL_PARAMETER_ORDER = ("K", "Sy")
 
 

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from reference_cases.calibration_results import CalibrationResults
+from hydromodpy.calibration2.core.results import CalibrationResults
 
 try:
     from scipy.stats import qmc as scipy_qmc

@@ -11,13 +11,13 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 
-from reference_cases.calibration_analysis import extract_result_samples
-from reference_cases.calibration_visualization import (
+from hydromodpy.calibration2.analysis.diagnostics import extract_result_samples
+from hydromodpy.calibration2.analysis.plotting import (
     build_posterior_quantile_lines,
     plot_parameter_distribution,
     select_representative_posterior_vectors,
 )
-from reference_cases.reservoir.calibration_case import get_model_display_name
+from hydromodpy.calibration2.cases.reservoir.workflow import get_model_display_name
 
 
 def _parameter_summary_lines(params_true, params_best, parameter_names):

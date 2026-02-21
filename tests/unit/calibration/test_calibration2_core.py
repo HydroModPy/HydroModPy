@@ -5,14 +5,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from reference_cases.calibration_config import (
+from hydromodpy.calibration2.core.config import (
     normalize_format_method_kwargs,
     resolve_calibration_settings,
 )
-from reference_cases.calibration_engine import CalibrationEngine
-from reference_cases.calibration_method import CalibrationMethod
-from reference_cases.calibration_results import CalibrationResults
-from reference_cases.objective_function import ObjectiveFunction
+from hydromodpy.calibration2.core.engine import CalibrationEngine
+from hydromodpy.calibration2.core.methods_dispatcher import CalibrationMethod
+from hydromodpy.calibration2.core.results import CalibrationResults
+from hydromodpy.calibration2.core.objective_function import ObjectiveFunction
 
 
 def test_da_mh_forces_rmse_metric_with_warning():

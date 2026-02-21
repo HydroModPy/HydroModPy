@@ -7,49 +7,49 @@ This folder demonstrates one- and two-reservoir linear models with:
 - end-to-end parameter calibration.
 
 Legacy files were removed in favor of a modular layout:
-- `reservoir_equations.py` -> `one_reservoir_equations.py`
+- `reservoir_equations.py` -> `one_reservoir.py`
 - `example_hydrological_daily_precipitation.py` / `example_hydrological_two_reservoirs.py`
-  -> `example_hydrological_reservoir.py`
+  -> `run_forward.py`
 
 ## File Responsibilities
 
-- `one_reservoir_equations.py`
+- `one_reservoir.py`
   - one linear reservoir equations and simulation routine
-- `two_reservoir_equations.py`
+- `two_reservoirs.py`
   - two linear reservoirs in parallel with precipitation split (`a`, `Kq`, `Ks`)
-- `hydrological_forcing.py`
+- `forcing.py`
   - shared forcing helpers:
     - synthetic daily precipitation chronicle
     - annual-total normalization
     - hydrological-year dates
     - precipitation-to-inflow conversion
     - piecewise-constant `Qin(t)` adapter
-- `example_linear_reservoir.py`
+- `run_linear_smoke.py`
   - minimal forward-run smoke example
-- `example_hydrological_reservoir.py`
+- `run_forward.py`
   - unified TOML-driven hydrological example for one/two reservoirs
-- `example_hydrological_reservoir.toml`
+- `config_forward.toml`
   - model choice (`model_name`) and associated forcing/parameter values
-- `calibration_case.py`
+- `workflow.py`
   - shared calibration-case logic:
     - model registry/selection
     - simulator adapter for generic calibration API
     - calibration orchestration and metrics
-- `reference_chronicle.py`
+- `synthetic_data.py`
   - construction of synthetic reference chronicle:
     - chronicle config parsing
     - forcing + true response generation
     - noisy-observation generation
-- `calibration_plotting.py`
+- `plotting.py`
   - plotting helpers for calibration diagnostics
-- `example_calibration_reservoir.py`
+- `run_calibration.py`
   - short orchestrator:
     - load TOML
-    - build chronicle via `reference_chronicle.py`
+    - build chronicle via `synthetic_data.py`
     - calibrate
     - print summary
-    - plot/save via `calibration_plotting.py`
-- `example_calibration_reservoir.toml`
+    - plot/save via `plotting.py`
+- `config_calibration.toml`
   - case and calibration configuration
 
 ## Units and Conventions
@@ -63,20 +63,20 @@ Legacy files were removed in favor of a modular layout:
 From repository root:
 
 ```bash
-python reference_cases/reservoir/example_linear_reservoir.py
-python reference_cases/reservoir/example_hydrological_reservoir.py
-python reference_cases/reservoir/example_calibration_reservoir.py
+python hydromodpy/calibration2/cases/reservoir/run_linear_smoke.py
+python hydromodpy/calibration2/cases/reservoir/run_forward.py
+python hydromodpy/calibration2/cases/reservoir/run_calibration.py
 ```
 
 Model/parameter selection for the unified script is done in:
-- `reference_cases/reservoir/example_hydrological_reservoir.toml`
+- `hydromodpy/calibration2/cases/reservoir/config_forward.toml`
 
 Model/parameter selection for calibration is done in:
-- `reference_cases/reservoir/example_calibration_reservoir.toml`
+- `hydromodpy/calibration2/cases/reservoir/config_calibration.toml`
 
 ## Alternative Model: Two Reservoirs + Split
 
-The alternative model implemented in `two_reservoir_equations.py` is:
+The alternative model implemented in `two_reservoirs.py` is:
 
 - `dSq/dt = a * P(t) - Sq / Kq`, `Qq = Sq / Kq`
 - `dSs/dt = (1 - a) * P(t) - Ss / Ks`, `Qs = Ss / Ks`
@@ -86,9 +86,9 @@ Main properties:
 - Advantage: captures floods and baseflow with only 3 parameters.
 - Limitation: no explicit losses and no storage upper bounds.
 
-## Calibration Workflow (`example_calibration_reservoir.py`)
+## Calibration Workflow (`run_calibration.py`)
 
-1. Generate synthetic precipitation (and derive `Qin` for one-reservoir mode) via `reference_chronicle.py`.
+1. Generate synthetic precipitation (and derive `Qin` for one-reservoir mode) via `synthetic_data.py`.
 2. Simulate a "true" response with known parameters of the selected model.
 3. Add proportional Gaussian noise to create pseudo-observations.
 4. Calibrate all parameters of the selected model (`[bounds]`):
@@ -97,12 +97,12 @@ Main properties:
    Bounds are normalized into a shared `CalibrationParameterSet` object before
    launching any calibration method.
    using shared calibration modules:
-   - `reference_cases/calibration_parameters.py`
-   - `reference_cases/calibration_engine.py`
-   - `reference_cases/calibration_method.py`
-   - `reference_cases/objective_function.py`
+   - `hydromodpy/calibration2/core/parameters.py`
+   - `hydromodpy/calibration2/core/engine.py`
+   - `hydromodpy/calibration2/core/methods_dispatcher.py`
+   - `hydromodpy/calibration2/core/objective_function.py`
 
-## TOML Guide (`example_calibration_reservoir.toml`)
+## TOML Guide (`config_calibration.toml`)
 
 Main sections:
 - `[chronicle]`: synthetic forcing and truth generation
@@ -139,7 +139,7 @@ mixing is poor.
 
 ## Forcing and Rainfall-Runoff References
 
-`hydrological_forcing.py` uses a pedagogical stochastic weather-generator style:
+`forcing.py` uses a pedagogical stochastic weather-generator style:
 - seasonal wet/dry occurrence,
 - Gamma-distributed event depths,
 - occasional heavy storms.

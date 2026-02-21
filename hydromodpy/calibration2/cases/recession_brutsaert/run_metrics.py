@@ -11,15 +11,15 @@ from pathlib import Path
 import sys
 
 # Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from reference_cases.objective_function import ObjectiveFunction
-from reference_cases.recession_brutsaert.example_coarse_sand_profile import build_coarse_sand_profile
+from hydromodpy.calibration2.core.objective_function import ObjectiveFunction
+from hydromodpy.calibration2.cases.recession_brutsaert.run_profile import build_coarse_sand_profile
 
 
 def compute_metrics_for_coarse_sand():

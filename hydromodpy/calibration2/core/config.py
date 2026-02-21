@@ -9,7 +9,7 @@ import warnings
 
 import numpy as np
 
-from reference_cases.calibration_parameters import CalibrationParameterSet
+from hydromodpy.calibration2.core.parameters import CalibrationParameterSet
 
 
 _VECTOR_METHOD_KEYS = (

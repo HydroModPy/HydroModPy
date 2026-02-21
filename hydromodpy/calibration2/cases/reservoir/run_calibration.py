@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 End-to-end calibration example for one- and two-reservoir reference cases.
 
 Run from repository root:
-    python reference_cases/reservoir/example_calibration_reservoir.py
+    python hydromodpy/calibration2/cases/reservoir/run_calibration.py
 """
 
 from __future__ import annotations
@@ -12,21 +12,21 @@ from pathlib import Path
 import sys
 
 # Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from reference_cases.calibration_config import load_calibration_toml
-from reference_cases.reservoir.calibration_case import (
+from hydromodpy.calibration2.core.config import load_calibration_toml
+from hydromodpy.calibration2.cases.reservoir.workflow import (
     calibrate_reservoir_model,
     get_model_display_name,
     resolve_model_name,
 )
-from reference_cases.reservoir.calibration_plotting import plot_calibration_result
-from reference_cases.reservoir.reference_chronicle import build_noisy_reservoir_chronicle
+from hydromodpy.calibration2.cases.reservoir.plotting import plot_calibration_result
+from hydromodpy.calibration2.cases.reservoir.synthetic_data import build_noisy_reservoir_chronicle
 
 
-DEFAULT_CONFIG_FILE = "example_calibration_reservoir.toml"
+DEFAULT_CONFIG_FILE = "config_calibration.toml"
 
 
 def _print_calibration_summary(calibration):

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from reference_cases.calibration_results import CalibrationResults
-from reference_cases.calibration_visualization import unique_rows_with_counts
-from reference_cases.objective_function import kge, nse, nse_log
+from hydromodpy.calibration2.core.results import CalibrationResults
+from hydromodpy.calibration2.analysis.plotting import unique_rows_with_counts
+from hydromodpy.calibration2.core.objective_function import kge, nse, nse_log
 
 
 def compute_performance_metrics(observed, simulated, *, nse_log_floor=None):
