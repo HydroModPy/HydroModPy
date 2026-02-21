@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from reference_cases.calibration_results import CalibrationResults
+
 try:
     from sklearn.gaussian_process import GaussianProcessRegressor
     from sklearn.gaussian_process.kernels import ConstantKernel, RBF
@@ -108,10 +110,8 @@ def gp_mapping_calibrate(
 
     Returns
     -------
-    dict
-        Mapping with:
-        `method`, `x_best`, `cost_best`, `n_evaluations`, `posterior_samples`,
-        `X_train`, `y_train`, `surrogate`.
+    CalibrationResults
+        Best point and approximate posterior samples.
     """
     if GaussianProcessRegressor is None or ConstantKernel is None or RBF is None:
         raise ImportError("scikit-learn is required for gp_mapping_calibrate")
@@ -237,13 +237,17 @@ def gp_mapping_calibrate(
     posterior_samples_t = x_pool_t[idx_resampled]
     posterior_samples = _to_original(posterior_samples_t)
 
-    return {
-        "method": "gp_mapping",
-        "x_best": x_best,
-        "cost_best": cost_best,
-        "n_evaluations": int(eval_count),
-        "posterior_samples": posterior_samples,
-        "X_train": x_train,
-        "y_train": y_train,
-        "surrogate": gp,
-    }
+    return CalibrationResults(
+        method="gp_mapping",
+        x_best=x_best,
+        params_best=None,
+        cost_best=cost_best,
+        score_best=None,
+        n_evaluations=int(eval_count),
+        samples=posterior_samples,
+        metadata={
+            "X_train": x_train,
+            "y_train": y_train,
+            "surrogate": gp,
+        },
+    )

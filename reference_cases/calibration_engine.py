@@ -214,10 +214,12 @@ class CalibrationEngine:
             method=method,
             **kwargs,
         )
-        score_best = float(self.score(raw_result["x_best"]))
         result = CalibrationResults.from_method_output(
             raw_result,
             default_method=method,
+        )
+        score_best = float(self.score(result.x_best))
+        result.attach_context(
             vector_to_params=self.vector_to_params,
             score_best=score_best,
         )

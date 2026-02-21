@@ -11,11 +11,11 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 
+from reference_cases.calibration_analysis import extract_result_samples
 from reference_cases.calibration_visualization import (
     build_posterior_quantile_lines,
     plot_parameter_distribution,
     select_representative_posterior_vectors,
-    unique_rows_with_counts,
 )
 from reference_cases.reservoir.calibration_case import get_model_display_name
 
@@ -89,25 +89,18 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     model_name = calibration["model_name"]
     model_display = get_model_display_name(model_name)
 
-    posterior_samples = (
-        np.asarray(result.samples, dtype=float)
-        if result.samples is not None
-        else np.empty((0, len(parameter_names)), dtype=float)
+    sample_views = extract_result_samples(
+        result,
+        n_params=len(parameter_names),
+        posterior_unique_threshold=10,
+        rounding_decimals=10,
     )
-    chain_samples = np.asarray(
-        result.metadata.get("chain_samples", np.empty((0, len(parameter_names)))),
-        dtype=float,
-    )
-    has_posterior = posterior_samples.ndim == 2 and posterior_samples.shape[0] > 1
-    posterior_unique, _ = unique_rows_with_counts(posterior_samples)
-    chain_unique, _ = unique_rows_with_counts(chain_samples)
-
-    if posterior_unique.shape[0] >= 10:
-        sample_source = posterior_samples
-    elif chain_unique.shape[0] > 0:
-        sample_source = chain_samples
-    else:
-        sample_source = posterior_samples
+    posterior_samples = sample_views["posterior_samples"]
+    chain_samples = sample_views["chain_samples"]
+    has_posterior = sample_views["has_posterior"]
+    posterior_unique = sample_views["posterior_unique"]
+    chain_unique = sample_views["chain_unique"]
+    sample_source = sample_views["sample_source"]
 
     if has_posterior:
         fig, axes = plt.subplots(2, 2, figsize=(13, 9), dpi=140)

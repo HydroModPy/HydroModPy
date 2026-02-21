@@ -63,12 +63,14 @@ def test_calibration_engine_da_mh_does_not_inject_legacy_context():
     def _fake_da_mh(objective_cost, bounds, **kwargs):
         captured.update(kwargs)
         x = np.array([0.5 * (lo + hi) for lo, hi in bounds], dtype=float)
-        return {
-            "method": "da_mh_gp",
-            "x_best": x,
-            "cost_best": float(objective_cost(x)),
-            "n_evaluations": 1,
-        }
+        return CalibrationResults(
+            method="da_mh_gp",
+            x_best=x,
+            params_best=None,
+            cost_best=float(objective_cost(x)),
+            score_best=None,
+            n_evaluations=1,
+        )
 
     methods = CalibrationMethod({"da_mh_gp": _fake_da_mh})
 
@@ -116,6 +118,8 @@ def test_calibration_results_prefers_posterior_samples_and_keeps_chain():
     result = CalibrationResults.from_method_output(
         raw,
         default_method="da_mh_gp",
+    )
+    result.attach_context(
         vector_to_params=lambda x: {"a": float(x[0]), "Kq": float(x[1])},
         score_best=0.9,
     )
@@ -124,3 +128,5 @@ def test_calibration_results_prefers_posterior_samples_and_keeps_chain():
     assert result.samples.shape == (2, 2)
     assert "chain_samples" in result.metadata
     assert result.metadata["chain_samples"].shape == (3, 2)
+    assert result.params_best == {"a": 0.3, "Kq": 3.0}
+    assert np.isclose(result.score_best, 0.9)
