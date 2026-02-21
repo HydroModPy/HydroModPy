@@ -2,21 +2,21 @@
 
 This folder provides an analytical groundwater-recession case used as:
 - a scientific reference implementation,
-- a calibration example built on shared `reference_cases` utilities.
+- a calibration example built on shared `hydromodpy/calibration2` utilities.
 
 ## File Responsibilities
 
-- `baseflow.py`
+- `model.py`
   - analytical recession equations
   - synthetic profile generation
   - proportional Gaussian noise model
-- `example_coarse_sand_profile.py`
+- `run_profile.py`
   - forward synthetic coarse-sand example
-- `example_metrics_coarse_sand.py`
+- `run_metrics.py`
   - metric illustration (`NSE`, `NSElog`, `KGE`)
-- `example_calibration_coarse_sand.py`
+- `run_calibration.py`
   - end-to-end `K`-`Sy` calibration
-- `example_calibration_coarse_sand.toml`
+- `config_calibration.toml`
   - calibration and output configuration
 
 ## Supported Recession Laws
@@ -51,15 +51,15 @@ If one of `A` or `L` is missing, geometric closure is used:
 
 ## Calibration Architecture
 
-This case reuses shared modules from `reference_cases/`:
-- `calibration_parameters.py`
-- `calibration_engine.py`
-- `calibration_method.py`
-- `calibration_da_mh.py`
-- `objective_function.py`
+This case reuses shared modules from `hydromodpy/calibration2/`:
+- `core/parameters.py`
+- `core/engine.py`
+- `core/methods_dispatcher.py`
+- `core/methods/da_mh_gp.py`
+- `core/objective_function.py`
 
 The Brutsaert-specific simulator adapter remains in
-`example_calibration_coarse_sand.py`.
+`run_calibration.py`.
 
 Supported methods are the same as other cases:
 - `grid_search`
@@ -81,15 +81,15 @@ For per-parameter method settings (for example `proposal_scale`, `prior_mean`,
 From repository root:
 
 ```bash
-python reference_cases/recession_brutsaert/example_coarse_sand_profile.py
-python reference_cases/recession_brutsaert/example_metrics_coarse_sand.py
-python reference_cases/recession_brutsaert/example_calibration_coarse_sand.py
+python hydromodpy/calibration2/cases/recession_brutsaert/run_profile.py
+python hydromodpy/calibration2/cases/recession_brutsaert/run_metrics.py
+python hydromodpy/calibration2/cases/recession_brutsaert/run_calibration.py
 ```
 
 ## Outputs
 
 Generated files are written under:
-- `reference_cases/recession_brutsaert/outputs/`
+- `hydromodpy/calibration2/cases/recession_brutsaert/outputs/`
 
 Typical outputs include:
 - synthetic profile plot/CSV,

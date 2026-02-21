@@ -9,8 +9,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from reference_cases.reservoir.calibration_case import MODEL_REGISTRY
-from reference_cases.reservoir.hydrological_forcing import (
+from hydromodpy.calibration2.cases.reservoir.workflow import MODEL_REGISTRY
+from hydromodpy.calibration2.cases.reservoir.forcing import (
     build_hydrological_year_dates,
     enforce_annual_precipitation_total,
     generate_daily_precipitation,

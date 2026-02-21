@@ -3,15 +3,23 @@
 Minimal example for the linear reservoir model.
 
 Run from repository root:
-    python reference_cases/reservoir/example_linear_reservoir.py
+    python hydromodpy/calibration2/cases/reservoir/run_linear_smoke.py
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 
-from one_reservoir_equations import ReservoirModel
+# Ensure repository root is importable when script is launched directly.
+REPO_ROOT = Path(__file__).resolve().parents[4]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from hydromodpy.calibration2.cases.reservoir.models.one_reservoir import ReservoirModel
 
 
 def qin_sine(t):

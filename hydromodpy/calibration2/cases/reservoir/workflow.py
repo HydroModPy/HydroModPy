@@ -12,18 +12,18 @@ from __future__ import annotations
 
 import numpy as np
 
-from reference_cases.calibration_analysis import compute_performance_metrics
-from reference_cases.calibration_config import resolve_calibration_settings
-from reference_cases.calibration_engine import CalibrationEngine
-from reference_cases.reservoir.hydrological_forcing import make_piecewise_constant_daily_qin
-from reference_cases.reservoir.one_reservoir_equations import (
+from hydromodpy.calibration2.analysis.diagnostics import compute_performance_metrics
+from hydromodpy.calibration2.core.config import resolve_calibration_settings
+from hydromodpy.calibration2.core.engine import CalibrationEngine
+from hydromodpy.calibration2.cases.reservoir.forcing import make_piecewise_constant_daily_qin
+from hydromodpy.calibration2.cases.reservoir.models.one_reservoir import (
     MODEL_DISPLAY_NAME as ONE_MODEL_DISPLAY_NAME,
     MODEL_NAME as ONE_MODEL_NAME,
     PARAMETER_ORDER as ONE_PARAMETER_ORDER,
     parse_chronicle_parameters as parse_one_chronicle_parameters,
     simulate_outflow as simulate_one_outflow,
 )
-from reference_cases.reservoir.two_reservoir_equations import (
+from hydromodpy.calibration2.cases.reservoir.models.two_reservoirs import (
     MODEL_DISPLAY_NAME as TWO_MODEL_DISPLAY_NAME,
     MODEL_NAME as TWO_MODEL_NAME,
     PARAMETER_ORDER as TWO_PARAMETER_ORDER,

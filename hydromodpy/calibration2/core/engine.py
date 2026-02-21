@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from reference_cases.calibration_parameters import CalibrationParameterSet
-from reference_cases.calibration_results import CalibrationResults
-from reference_cases.calibration_method import DEFAULT_CALIBRATION_METHOD
-from reference_cases.objective_function import ObjectiveFunction
+from hydromodpy.calibration2.core.parameters import CalibrationParameterSet
+from hydromodpy.calibration2.core.results import CalibrationResults
+from hydromodpy.calibration2.core.methods_dispatcher import DEFAULT_CALIBRATION_METHOD
+from hydromodpy.calibration2.core.objective_function import ObjectiveFunction
 
 
 def as_1d_array(values, name):

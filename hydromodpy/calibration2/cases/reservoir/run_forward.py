@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Unified hydrological reservoir example driven by TOML configuration.
 
 Run from repository root:
-    python reference_cases/reservoir/example_hydrological_reservoir.py
+    python hydromodpy/calibration2/cases/reservoir/run_forward.py
 
 This script supports:
 - one linear reservoir (`one_reservoir`),
@@ -22,22 +22,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from reference_cases.reservoir.hydrological_forcing import (
+from hydromodpy.calibration2.cases.reservoir.forcing import (
     build_hydrological_year_dates,
     enforce_annual_precipitation_total,
     generate_daily_precipitation,
     make_piecewise_constant_daily_qin,
     precipitation_to_inflow,
 )
-from reference_cases.reservoir.one_reservoir_equations import ReservoirModel as OneReservoirModel
-from reference_cases.reservoir.two_reservoir_equations import TwoReservoirModel
+from hydromodpy.calibration2.cases.reservoir.models.one_reservoir import ReservoirModel as OneReservoirModel
+from hydromodpy.calibration2.cases.reservoir.models.two_reservoirs import TwoReservoirModel
 
 
-DEFAULT_CONFIG_FILE = "example_hydrological_reservoir.toml"
+DEFAULT_CONFIG_FILE = "config_forward.toml"
 DEFAULT_MODEL_NAME = "one_reservoir"
 MODEL_ALIASES = {
     "one_reservoir": "one_reservoir",
