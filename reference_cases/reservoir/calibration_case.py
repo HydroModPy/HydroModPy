@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from reference_cases.calibration_analysis import compute_performance_metrics
 from reference_cases.calibration_config import resolve_calibration_settings
 from reference_cases.calibration_engine import CalibrationEngine
-from reference_cases.objective_function import kge, nse, nse_log
 from reference_cases.reservoir.hydrological_forcing import make_piecewise_constant_daily_qin
 from reference_cases.reservoir.one_reservoir_equations import (
     MODEL_DISPLAY_NAME as ONE_MODEL_DISPLAY_NAME,
@@ -121,29 +121,11 @@ def make_reservoir_simulator(forcing_mm_day, initial_state, model_name):
 
 def evaluate_metrics(observed, simulated, nse_log_floor=1e-8):
     """Evaluate NSE, NSElog and KGE."""
-    obs = np.asarray(observed, dtype=float).ravel()
-    sim = np.asarray(simulated, dtype=float).ravel()
-    if obs.shape != sim.shape:
-        raise ValueError("observed and simulated must have the same shape")
-
-    nse_value = float(nse(obs, sim))
-
-    floor = float(nse_log_floor)
-    if floor <= 0.0:
-        raise ValueError("nse_log_floor must be > 0")
-    obs_pos = np.maximum(obs, floor)
-    sim_pos = np.maximum(sim, floor)
-    nse_log_value = float(nse_log(obs_pos, sim_pos))
-
-    kge_value, components = kge(obs, sim, return_components=True)
-    return {
-        "NSE": nse_value,
-        "NSElog": nse_log_value,
-        "KGE": float(kge_value),
-        "r": float(components["r"]),
-        "alpha": float(components["alpha"]),
-        "beta": float(components["beta"]),
-    }
+    return compute_performance_metrics(
+        observed=observed,
+        simulated=simulated,
+        nse_log_floor=float(nse_log_floor),
+    )
 
 
 def calibrate_reservoir_model(chronicle, config, model_name):

@@ -16,6 +16,7 @@ import numpy as np
 
 from reference_cases.calibration_da_mh import delayed_acceptance_gp_mh_calibrate
 from reference_cases.calibration_gp_mapping import gp_mapping_calibrate
+from reference_cases.calibration_results import CalibrationResults
 
 try:
     from scipy import optimize as scipy_optimize
@@ -173,9 +174,8 @@ def grid_search_calibrate(objective_cost, bounds, n_per_dim=40, log_scale_indice
 
     Returns
     -------
-    dict
-        Best solution and metadata:
-        `method`, `x_best`, `cost_best`, `n_evaluations`.
+    CalibrationResults
+        Best solution and metadata.
 
     Algorithm
     ---------
@@ -226,12 +226,14 @@ def grid_search_calibrate(objective_cost, bounds, n_per_dim=40, log_scale_indice
             best_cost = cost
             best_x = x.copy()
 
-    return {
-        "method": "grid_search",
-        "x_best": best_x,
-        "cost_best": best_cost,
-        "n_evaluations": eval_count,
-    }
+    return CalibrationResults(
+        method="grid_search",
+        x_best=best_x,
+        params_best=None,
+        cost_best=best_cost,
+        score_best=None,
+        n_evaluations=eval_count,
+    )
 
 
 def random_search_calibrate(objective_cost, bounds, n_samples=6000, seed=42, log_scale_indices=None):
@@ -242,9 +244,8 @@ def random_search_calibrate(objective_cost, bounds, n_samples=6000, seed=42, log
 
     Returns
     -------
-    dict
-        Best solution and metadata:
-        `method`, `x_best`, `cost_best`, `n_evaluations`.
+    CalibrationResults
+        Best solution and metadata.
 
     Algorithm
     ---------
@@ -285,12 +286,14 @@ def random_search_calibrate(objective_cost, bounds, n_samples=6000, seed=42, log
             best_cost = cost
             best_x = x.copy()
 
-    return {
-        "method": "random_search",
-        "x_best": best_x,
-        "cost_best": best_cost,
-        "n_evaluations": int(n_samples),
-    }
+    return CalibrationResults(
+        method="random_search",
+        x_best=best_x,
+        params_best=None,
+        cost_best=best_cost,
+        score_best=None,
+        n_evaluations=int(n_samples),
+    )
 
 
 def nelder_mead_calibrate(objective_cost, bounds, x0=None, max_iter=1200):
@@ -318,7 +321,7 @@ def nelder_mead_calibrate(objective_cost, bounds, x0=None, max_iter=1200):
 
     Returns
     -------
-    dict
+    CalibrationResults
         Best solution and SciPy convergence metadata.
     """
     if scipy_optimize is None:
@@ -351,14 +354,18 @@ def nelder_mead_calibrate(objective_cost, bounds, x0=None, max_iter=1200):
     x_best = _clip_to_bounds(result.x, lower, upper)
     cost_best = float(objective_cost(x_best))
 
-    return {
-        "method": "nelder_mead",
-        "x_best": x_best,
-        "cost_best": cost_best,
-        "n_evaluations": int(result.nfev),
-        "success": bool(result.success),
-        "message": str(result.message),
-    }
+    return CalibrationResults(
+        method="nelder_mead",
+        x_best=x_best,
+        params_best=None,
+        cost_best=cost_best,
+        score_best=None,
+        n_evaluations=int(result.nfev),
+        metadata={
+            "success": bool(result.success),
+            "message": str(result.message),
+        },
+    )
 
 
 def scipy_simplex_calibrate(
@@ -399,10 +406,8 @@ def scipy_simplex_calibrate(
 
     Returns
     -------
-    dict
-        Best solution and convergence metadata:
-        `method`, `x_best`, `cost_best`, `n_evaluations`, `n_iterations`,
-        `success`, `message`.
+    CalibrationResults
+        Best solution and convergence metadata.
     """
     if scipy_optimize is None:
         raise ImportError("scipy is required for scipy_simplex_calibrate")
@@ -449,15 +454,19 @@ def scipy_simplex_calibrate(
         message = "Maximum number of iterations has been exceeded."
         success = False
 
-    return {
-        "method": "simplex",
-        "x_best": x_best,
-        "cost_best": cost_best,
-        "n_evaluations": int(n_func),
-        "n_iterations": int(n_iter),
-        "success": bool(success),
-        "message": message,
-    }
+    return CalibrationResults(
+        method="simplex",
+        x_best=x_best,
+        params_best=None,
+        cost_best=cost_best,
+        score_best=None,
+        n_evaluations=int(n_func),
+        metadata={
+            "n_iterations": int(n_iter),
+            "success": bool(success),
+            "message": message,
+        },
+    )
 
 
 class CalibrationMethod:
@@ -474,7 +483,7 @@ class CalibrationMethod:
     ---------
     - The registry maps a method name (string) to a callable.
     - Each callable follows a common signature:
-      `callable(objective_cost, bounds, **kwargs) -> dict`
+      `callable(objective_cost, bounds, **kwargs) -> CalibrationResults | dict`
     - The dispatcher resolves the method name and forwards arguments.
 
     Typical lifecycle:
@@ -498,13 +507,20 @@ class CalibrationMethod:
     ...     n_samples=2000,
     ...     seed=2026,
     ... )
-    >>> out["method"]
+    >>> out.method
     'random_search'
 
     Register a custom method:
     >>> def my_method(objective_cost, bounds, **kwargs):
     ...     x0 = np.array([0.5 * (lo + hi) for lo, hi in bounds], dtype=float)
-    ...     return {"method": "my_method", "x_best": x0, "cost_best": float(objective_cost(x0))}
+    ...     return CalibrationResults(
+    ...         method="my_method",
+    ...         x_best=x0,
+    ...         params_best=None,
+    ...         cost_best=float(objective_cost(x0)),
+    ...         score_best=None,
+    ...         n_evaluations=1,
+    ...     )
     >>> methods.register("my_method", my_method)
     >>> methods.calibrate(objective_cost=my_cost, bounds=[(0.0, 1.0)], method="my_method")
     """
@@ -562,7 +578,7 @@ class CalibrationMethod:
         Register (or override) a calibration method.
 
         The calibrator callable must follow signature style:
-        `calibrator(objective_cost, bounds, **kwargs) -> dict`.
+        `calibrator(objective_cost, bounds, **kwargs) -> CalibrationResults | dict`.
 
         Examples
         --------
@@ -684,8 +700,8 @@ class CalibrationMethod:
 
         Returns
         -------
-        dict
-            Calibration result dictionary returned by the selected method.
+        CalibrationResults | dict
+            Raw result returned by the selected method.
 
         Examples
         --------
@@ -697,8 +713,8 @@ class CalibrationMethod:
         ...     n_samples=1000,
         ...     seed=42,
         ... )
-        >>> sorted(out.keys())
-        ['cost_best', 'method', 'n_evaluations', 'x_best']
+        >>> out.method
+        'random_search'
         """
         # 1) Normalize user-provided method key.
         key = self._normalize_method_name(method)

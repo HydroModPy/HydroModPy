@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from reference_cases.calibration_results import CalibrationResults
+
 try:
     from scipy.stats import qmc as scipy_qmc
 except Exception:  # pragma: no cover - depends on local env
@@ -278,9 +280,8 @@ def delayed_acceptance_gp_mh_calibrate(
 
     Returns
     -------
-    dict
-        Calibration result with standard fields (`x_best`, `cost_best`,
-        `method`, `n_evaluations`) and MCMC diagnostics/samples.
+    CalibrationResults
+        MAP estimate, posterior samples and MCMC diagnostics.
     """
     lower, upper = _normalize_bounds(bounds)
     n_dim = lower.size
@@ -471,27 +472,31 @@ def delayed_acceptance_gp_mh_calibrate(
     else:
         posterior_mean = x_map.copy()
 
-    return {
-        "method": "da_mh_gp",
-        "x_best": x_map,
-        "cost_best": cost_best,
-        "n_evaluations": int(len(cache)),
-        "samples": samples,
-        "posterior_samples": posterior_samples,
-        "logposterior_trace": logposterior_trace,
-        "x_map": x_map,
-        "logpost_map": logpost_map,
-        "posterior_mean": posterior_mean,
-        "stage1_accept_rate": float(stage1_accept / n_samples),
-        "stage2_accept_rate": float(stage2_accept / n_samples),
-        "full_mh_prob": float(full_mh_prob),
-        "full_mh_trials": int(full_mh_trials),
-        "full_mh_accept_rate": (
-            float(full_mh_accept / full_mh_trials) if full_mh_trials > 0 else 0.0
-        ),
-        "n_init": int(n_init),
-        "n_samples": int(n_samples),
-        "burn_in": int(burn_in),
-        "thin": int(thin),
-        "sigma_noise": sigma_noise,
-    }
+    return CalibrationResults(
+        method="da_mh_gp",
+        x_best=x_map,
+        params_best=None,
+        cost_best=cost_best,
+        score_best=None,
+        n_evaluations=int(len(cache)),
+        samples=posterior_samples,
+        metadata={
+            "chain_samples": samples,
+            "logposterior_trace": logposterior_trace,
+            "x_map": x_map,
+            "logpost_map": logpost_map,
+            "posterior_mean": posterior_mean,
+            "stage1_accept_rate": float(stage1_accept / n_samples),
+            "stage2_accept_rate": float(stage2_accept / n_samples),
+            "full_mh_prob": float(full_mh_prob),
+            "full_mh_trials": int(full_mh_trials),
+            "full_mh_accept_rate": (
+                float(full_mh_accept / full_mh_trials) if full_mh_trials > 0 else 0.0
+            ),
+            "n_init": int(n_init),
+            "n_samples": int(n_samples),
+            "burn_in": int(burn_in),
+            "thin": int(thin),
+            "sigma_noise": sigma_noise,
+        },
+    )

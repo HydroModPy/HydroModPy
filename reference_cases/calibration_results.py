@@ -68,12 +68,12 @@ class CalibrationResults:
         Calibration method key.
     x_best : np.ndarray
         Best parameter vector found by the method.
-    params_best : dict[str, float]
-        Named best-parameter mapping in canonical parameter order.
+    params_best : dict[str, float] | None
+        Optional named best-parameter mapping in canonical parameter order.
     cost_best : float
         Best objective cost.
-    score_best : float
-        Objective score at `x_best`.
+    score_best : float | None
+        Optional objective score at `x_best`.
     n_evaluations : int
         Number of expensive objective evaluations.
     samples : np.ndarray | None
@@ -84,9 +84,9 @@ class CalibrationResults:
 
     method: str
     x_best: np.ndarray
-    params_best: dict[str, float]
+    params_best: dict[str, float] | None
     cost_best: float
-    score_best: float
+    score_best: float | None
     n_evaluations: int
     samples: np.ndarray | None = None
     metadata: dict[str, object] = field(default_factory=dict)
@@ -98,18 +98,22 @@ class CalibrationResults:
 
         self.x_best = _as_1d_float_array(self.x_best, "x_best")
         self.cost_best = float(self.cost_best)
-        self.score_best = float(self.score_best)
+        if self.score_best is not None:
+            self.score_best = float(self.score_best)
         self.n_evaluations = int(self.n_evaluations)
         if self.n_evaluations < 0:
             raise ValueError("n_evaluations must be >= 0")
 
-        named = dict(self.params_best)
-        if len(named) != self.x_best.size:
-            raise ValueError(
-                "params_best size must match x_best dimension "
-                f"({len(named)} vs {self.x_best.size})"
-            )
-        self.params_best = {str(k): float(v) for k, v in named.items()}
+        if self.params_best is None:
+            self.params_best = None
+        else:
+            named = dict(self.params_best)
+            if len(named) != self.x_best.size:
+                raise ValueError(
+                    "params_best size must match x_best dimension "
+                    f"({len(named)} vs {self.x_best.size})"
+                )
+            self.params_best = {str(k): float(v) for k, v in named.items()}
 
         self.samples = _as_samples_array(self.samples, self.x_best.size, "samples")
         self.metadata = dict(self.metadata)
@@ -132,12 +136,12 @@ class CalibrationResults:
         method_output,
         *,
         default_method,
-        vector_to_params,
-        score_best,
     ):
         """
-        Build a canonical result object from a method raw output dictionary.
+        Build a canonical result object from method output.
         """
+        if isinstance(method_output, cls):
+            return method_output
         if not isinstance(method_output, Mapping):
             raise TypeError("method output must be a mapping")
 
@@ -149,7 +153,6 @@ class CalibrationResults:
         if n_evaluations < 0:
             raise ValueError("method output must provide n_evaluations >= 0")
 
-        # Prefer post-processed posterior samples when available.
         samples = _as_samples_array(
             output.get("posterior_samples"),
             x_best.size,
@@ -168,7 +171,6 @@ class CalibrationResults:
             for key, value in output.items()
             if key not in _CORE_METHOD_OUTPUT_KEYS
         }
-        # Preserve full chain explicitly when posterior samples are also present.
         if (
             output.get("posterior_samples") is not None
             and chain_samples is not None
@@ -178,10 +180,26 @@ class CalibrationResults:
         return cls(
             method=method,
             x_best=x_best,
-            params_best=vector_to_params(x_best),
+            params_best=None,
             cost_best=cost_best,
-            score_best=float(score_best),
+            score_best=None,
             n_evaluations=n_evaluations,
             samples=samples,
             metadata=metadata,
         )
+
+    def attach_context(self, *, vector_to_params, score_best):
+        """
+        Attach engine-level context (`params_best`, `score_best`) in-place.
+        """
+        if self.params_best is None:
+            named = dict(vector_to_params(self.x_best))
+            if len(named) != self.x_best.size:
+                raise ValueError(
+                    "vector_to_params returned an inconsistent mapping size "
+                    f"({len(named)} vs {self.x_best.size})"
+                )
+            self.params_best = {str(k): float(v) for k, v in named.items()}
+        if self.score_best is None:
+            self.score_best = float(score_best)
+        return self

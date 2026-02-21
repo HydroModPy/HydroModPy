@@ -17,6 +17,8 @@ The goal is to keep calibration logic generic and case physics isolated.
 - `calibration_results.py`
   - canonical `CalibrationResults` object returned by `CalibrationEngine.calibrate(...)`
   - stores best solution + optional parameter-distribution samples
+- `calibration_analysis.py`
+  - shared metrics and sample-extraction helpers used by multiple examples
 - `calibration_parameters.py`
   - `CalibrationParameter` and `CalibrationParameterSet`
   - centralizes parameter order, bounds validation, and dict/vector conversions
@@ -94,6 +96,8 @@ Design intent:
 - `simplex`: SciPy `fmin` simplex variant.
 - `gp_mapping`: GP surrogate posterior mapping with UCB refinement.
 - `da_mh_gp`: Bayesian delayed-acceptance MCMC with surrogate pre-screening.
+
+Built-in methods now return `CalibrationResults` directly.
 
 ## Notes About `da_mh_gp`
 
