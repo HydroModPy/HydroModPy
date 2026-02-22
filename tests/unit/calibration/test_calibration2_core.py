@@ -93,6 +93,8 @@ def test_calibration_engine_da_mh_does_not_inject_legacy_context():
     assert "vector_to_params" not in captured
     assert isinstance(result, CalibrationResults)
     assert np.isclose(result.score_best, result.cost_best)
+    assert "calibration_time_seconds" in result.metadata
+    assert float(result.metadata["calibration_time_seconds"]) >= 0.0
 
 
 def test_objective_value_to_cost_respects_metric_direction():

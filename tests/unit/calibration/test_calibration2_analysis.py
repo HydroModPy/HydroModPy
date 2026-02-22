@@ -13,6 +13,7 @@ from hydromodpy.calibration2.analysis.diagnostics import (
 )
 from hydromodpy.calibration2.analysis.plotting import (
     apply_parameter_axis_scales,
+    build_calibration_performance_lines,
     build_parameter_summary_lines,
     build_posterior_summary_lines,
 )
@@ -44,6 +45,7 @@ def test_build_calibration_result_view_prefers_chain_when_posterior_not_diverse(
 
     assert view["method"] == "da_mh_gp"
     assert view["n_evaluations"] == 40
+    assert view["calibration_time_seconds"] is None
     assert np.array_equal(view["posterior_samples"], posterior_samples)
     assert np.array_equal(view["chain_samples"], chain_samples)
     assert np.array_equal(view["sample_source"], chain_samples)
@@ -112,3 +114,31 @@ def test_apply_parameter_axis_scales_supports_force_only_mode():
         assert ax.get_yscale() == "linear"
     finally:
         plt.close(fig)
+
+
+def test_build_calibration_performance_lines_with_elapsed_time():
+    """Performance lines should include both eval count and elapsed time."""
+    lines = build_calibration_performance_lines(
+        {"n_evaluations": 123, "calibration_time_seconds": 4.567},
+        time_fmt=".3f",
+    )
+    assert lines == ["Calibration performance: n_direct_sim=123  time=4.567 s"]
+
+
+def test_build_calibration_result_view_reads_elapsed_time_from_metadata():
+    """Result-view should expose engine timing when present in metadata."""
+    result = CalibrationResults(
+        method="simplex",
+        x_best=np.array([0.30, 2.00], dtype=float),
+        params_best={"a": 0.30, "Kq": 2.00},
+        cost_best=0.12,
+        score_best=0.88,
+        n_evaluations=40,
+        samples=None,
+        metadata={"calibration_time_seconds": 1.234},
+    )
+    view = build_calibration_result_view(
+        result,
+        parameter_names=("a", "Kq"),
+    )
+    assert view["calibration_time_seconds"] == 1.234

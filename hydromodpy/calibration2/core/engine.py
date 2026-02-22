@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import numpy as np
 
 from hydromodpy.calibration2.core.parameters import CalibrationParameterSet
@@ -205,16 +206,19 @@ class CalibrationEngine:
         """
         Calibrate parameters and return a `CalibrationResults` object.
         """
+        t_start = time.perf_counter()
         raw_result = self.calibration_method.calibrate(
             objective_cost=self.cost,
             bounds=self.parameter_set.bounds,
             method=method,
             **kwargs,
         )
+        calibration_time_seconds = float(time.perf_counter() - t_start)
         result = CalibrationResults.from_method_output(
             raw_result,
             default_method=method,
         )
+        result.metadata["calibration_time_seconds"] = calibration_time_seconds
         score_best = float(self.score(result.x_best))
         result.attach_context(
             vector_to_params=self.vector_to_params,

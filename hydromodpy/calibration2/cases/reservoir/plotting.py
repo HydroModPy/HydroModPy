@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 Plotting helpers for reservoir calibration examples.
+
+The plotting function is intentionally method-agnostic:
+- deterministic methods: 3-panel layout,
+- sampling-based methods: extra parameter-distribution panel.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ import numpy as np
 from hydromodpy.calibration2.analysis.diagnostics import build_calibration_result_view
 from hydromodpy.calibration2.analysis.plotting import (
     apply_parameter_axis_scales,
+    build_calibration_performance_lines,
     build_parameter_summary_lines,
     build_posterior_summary_lines,
     plot_parameter_distribution,
@@ -30,6 +35,17 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     - 1 parameter: histogram
     - 2 parameters: scatter cloud
     - >2 parameters: marginals boxplot
+
+    Parameters
+    ----------
+    chronicle : dict
+        Payload produced by `synthetic_data.build_noisy_reservoir_chronicle(...)`.
+    calibration : dict
+        Payload produced by `workflow.calibrate_reservoir_model(...)`.
+    output_png : pathlib.Path or str
+        Destination figure path.
+    show_plot : bool
+        If True, display figure in blocking mode.
     """
     cfg = chronicle["config"]
     dates = chronicle["dates"]
@@ -53,9 +69,11 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
         posterior_unique_threshold=10,
         rounding_decimals=10,
     )
+    # Centralized view allows one plotting flow for all calibration methods.
     has_posterior = result_view["has_posterior"]
     sample_source = result_view["sample_source"]
 
+    # Add one extra panel when posterior/chain samples are available.
     if has_posterior:
         fig, axes = plt.subplots(2, 2, figsize=(13, 9), dpi=140)
         ax0 = axes[0, 0]
@@ -67,6 +85,7 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
         ax0, ax1, ax2 = axes
         ax3 = None
 
+    # Panel 1: forcing chronicle.
     ax0.bar(dates, precip, width=1.0, color="tab:blue", alpha=0.70, label="P [mm/day]")
     if forcing_series.shape == precip.shape and not np.allclose(forcing_series, precip):
         ax0.plot(dates, forcing_series, color="tab:green", lw=1.5, label=forcing_label)
@@ -76,12 +95,14 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     ax0.grid(True, ls=":", alpha=0.40)
     ax0.legend(loc="upper right")
 
+    # Panel 2: hydrograph fit.
     ax1.plot(dates, q_true, color="tab:blue", lw=1.8, label="True Qout")
     ax1.scatter(dates, q_obs, s=13, color="tab:orange", alpha=0.70, label="Noisy observations")
     if has_posterior:
         representative = select_representative_posterior_vectors(sample_source, n_vectors=10)
         n_rep = representative.shape[0]
         for i, vec in enumerate(representative):
+            # Plot a small subset of trajectories to visualize uncertainty.
             q_rep = calibration["calibration_obj"].simulate(vec)
             label = f"Sampled trajectories (x{n_rep})" if i == 0 else None
             ax1.plot(dates, q_rep, color="tab:red", lw=1.0, alpha=0.25, label=label)
@@ -92,6 +113,7 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     ax1.grid(True, ls=":", alpha=0.40)
     ax1.legend(loc="upper right")
 
+    # Panel 3: observed vs calibrated scatter.
     ax2.scatter(q_obs, q_calib, s=24, color="tab:purple", alpha=0.75, label="Pairs")
     xy_min = float(np.min(np.r_[q_obs, q_calib]))
     xy_max = float(np.max(np.r_[q_obs, q_calib]))
@@ -108,6 +130,7 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     ax2.legend(loc="upper left")
 
     if has_posterior and ax3 is not None:
+        # Panel 4 (optional): parameter uncertainty view.
         plot_parameter_distribution(
             ax=ax3,
             sample_source=sample_source,
@@ -131,12 +154,19 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
         axis.xaxis.set_major_formatter(month_formatter)
     fig.autofmt_xdate()
 
+    # Bottom text block with setup, performance and diagnostics.
     summary_lines = [
         (
             f"Model={model_display}  Objective={calibration['objective_metric'].upper()}  "
             f"method={calibration['method']}"
         ),
     ]
+    summary_lines.extend(
+        build_calibration_performance_lines(
+            result_view,
+            time_fmt=".2f",
+        )
+    )
     summary_lines.extend(
         build_parameter_summary_lines(
             params_true=params_true,

@@ -1,4 +1,17 @@
-"""Pydantic schemas for calibration2 generic configuration payloads."""
+"""
+Pydantic schemas and helpers for calibration2 TOML payloads.
+
+How Pydantic is used in this module
+-----------------------------------
+1) Parse raw dictionaries with `model_validate(...)` into typed models.
+2) Enforce strict inputs with `ConfigDict(extra="forbid")` so unknown keys fail
+   fast instead of being silently ignored.
+3) Normalize values in `@field_validator` methods (for example canonical
+   method names and metric names).
+4) Convert validated models back to regular Python dictionaries with
+   `model_dump(mode="python")` so the rest of the calibration code stays
+   framework-agnostic.
+"""
 
 from __future__ import annotations
 
@@ -19,8 +32,14 @@ from hydromodpy.calibration2.core.methods_config import (
 
 
 class CalibrationSectionSchema(BaseModel):
-    """Generic `[calibration]` section used by calibration2 cases."""
+    """
+    Typed schema for the generic `[calibration]` TOML section.
 
+    Pydantic converts/coerces values to declared types and then validators
+    enforce domain rules (supported metric, supported method, non-empty names).
+    """
+
+    # Strict mode: any undeclared key in `[calibration]` raises an error.
     model_config = ConfigDict(extra="forbid")
 
     objective_metric: str = "kge"
@@ -60,8 +79,13 @@ class CalibrationSectionSchema(BaseModel):
 
 
 class CalibrationTomlSchema(BaseModel):
-    """Top-level TOML schema for calibration examples."""
+    """
+    Top-level schema shared by calibration examples.
 
+    This model validates common sections before case-specific logic runs.
+    """
+
+    # Strict mode at top level as well: unknown sections are rejected.
     model_config = ConfigDict(extra="forbid")
 
     chronicle: dict[str, Any]
@@ -107,7 +131,12 @@ def validate_calibration_config_data(
     required_sections: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """
-    Validate raw calibration config data and return a normalized dict payload.
+    Validate raw configuration and return a normalized Python dictionary.
+
+    Notes
+    -----
+    `CalibrationTomlSchema.model_validate(...)` is the main Pydantic entry
+    point. It applies type parsing and all validators declared above.
     """
     if not isinstance(config_data, Mapping):
         raise ValueError("configuration must be a mapping")
@@ -129,7 +158,10 @@ def load_calibration_toml(
     required_sections=("chronicle", "calibration", "bounds"),
 ):
     """
-    Load calibration TOML and validate/normalize top-level sections.
+    Load TOML file and run schema validation.
+
+    The returned payload is already normalized (typed values, canonical method
+    names, validated bounds) and safe to consume downstream.
     """
     path = Path(config_path)
     with path.open("rb") as stream:
@@ -150,7 +182,11 @@ def resolve_calibration_settings(
     model_parameter_order,
 ):
     """
-    Resolve common calibration settings from a validated TOML payload.
+    Resolve calibration settings from a validated configuration payload.
+
+    The input is expected to come from `load_calibration_toml(...)`, so this
+    function focuses on cross-section consistency checks and final adaptation
+    to engine-ready objects.
     """
     calibration_cfg = config["calibration"]
     method_cfg = config["calibration_method"]
@@ -182,8 +218,10 @@ def resolve_calibration_settings(
     parameter_names = parameter_set.names
     bounds = parameter_set.as_bounds_dict()
 
+    # Extract only the kwargs block for the selected method.
     method_kwargs_raw = dict(method_cfg.get(method, {}))
 
+    # Delegate method-specific schema validation and normalization.
     method_kwargs = normalize_format_method_kwargs(
         method=method,
         method_kwargs=method_kwargs_raw,

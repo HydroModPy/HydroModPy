@@ -99,6 +99,16 @@ def build_calibration_result_view(
     """
     Build a generic plotting/reporting view from `CalibrationResults`.
     """
+    calibration_time_seconds = result.metadata.get("calibration_time_seconds")
+    if calibration_time_seconds is not None:
+        try:
+            calibration_time_seconds = float(calibration_time_seconds)
+        except (TypeError, ValueError):
+            calibration_time_seconds = None
+        else:
+            if not np.isfinite(calibration_time_seconds) or calibration_time_seconds < 0.0:
+                calibration_time_seconds = None
+
     names = tuple(parameter_names)
     sample_views = extract_result_samples(
         result,
@@ -113,6 +123,7 @@ def build_calibration_result_view(
             None if result.score_best is None else float(result.score_best)
         ),
         "n_evaluations": int(result.n_evaluations),
+        "calibration_time_seconds": calibration_time_seconds,
         "parameter_names": names,
         **sample_views,
     }

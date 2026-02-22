@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 Reference-chronicle generation helpers for reservoir calibration examples.
+
+This module prepares synthetic data used as calibration targets:
+- forcing generation,
+- true-model simulation,
+- noise injection to create pseudo-observations.
 """
 
 from __future__ import annotations
@@ -24,7 +29,12 @@ from hydromodpy.calibration2.cases.reservoir.forcing import (
 
 @dataclass
 class ReservoirChronicleConfig:
-    """Fixed settings used to generate a synthetic reservoir chronicle."""
+    """
+    Fixed settings used to generate one synthetic reservoir chronicle.
+
+    `true_params` and `initial_state` are model-specific and come from the
+    selected model parser in `MODEL_REGISTRY`.
+    """
 
     model_name: str
     n_days: int
@@ -47,7 +57,12 @@ def add_proportional_gaussian_error(
     min_sigma=1e-8,
     min_value=1e-8,
 ):
-    """Add proportional Gaussian noise to a simulated chronicle."""
+    """
+    Add proportional Gaussian noise to a simulated time series.
+
+    Noise model:
+        epsilon_i ~ N(0, sigma_i^2), sigma_i = max(error_fraction * |x_i|, min_sigma)
+    """
     if error_fraction < 0.0:
         raise ValueError("error_fraction must be >= 0")
 
@@ -58,12 +73,19 @@ def add_proportional_gaussian_error(
     sigma = np.maximum(float(error_fraction) * np.abs(data), float(min_sigma))
     rng = np.random.default_rng(int(seed))
     noisy = data + rng.normal(loc=0.0, scale=sigma)
+    # Keep observed flow positive for downstream log-based metrics/plots.
     noisy = np.maximum(noisy, float(min_value))
     return noisy, sigma
 
 
 def parse_chronicle_config(chronicle_cfg, model_name):
-    """Parse chronicle section from TOML into a typed config dataclass."""
+    """
+    Parse chronicle section from TOML into a typed config dataclass.
+
+    This function combines:
+    - case-level validation (`case_config.py`),
+    - model-specific parameter extraction (`MODEL_REGISTRY` parser).
+    """
     chronicle_cfg = validate_reservoir_chronicle_config(chronicle_cfg)
     model_data = MODEL_REGISTRY[model_name]
     parse_model = model_data["parse_chronicle_parameters"]
@@ -86,10 +108,19 @@ def parse_chronicle_config(chronicle_cfg, model_name):
 
 
 def build_noisy_reservoir_chronicle(chronicle_cfg, model_name):
-    """Build synthetic forcing and target series used by calibration."""
+    """
+    Build synthetic forcing and noisy target series used by calibration.
+
+    Returns
+    -------
+    dict
+        Chronicle payload consumed by reservoir workflow and plotting helpers.
+    """
+    # Step 1: parse and validate chronicle configuration.
     cfg = parse_chronicle_config(chronicle_cfg, model_name=model_name)
     model_data = MODEL_REGISTRY[model_name]
 
+    # Step 2: generate forcing series over one hydrological year.
     dates = build_hydrological_year_dates(n_days=cfg.n_days, start_year=cfg.start_year)
     precip_raw = generate_daily_precipitation(n_days=cfg.n_days, seed=cfg.precip_seed)
     precip_mm_day = enforce_annual_precipitation_total(
@@ -104,6 +135,7 @@ def build_noisy_reservoir_chronicle(chronicle_cfg, model_name):
         losses_months=cfg.losses_months,
     )
 
+    # Step 3: choose the model forcing type (`Qin` for one-reservoir, `P` for two-reservoir).
     t_eval = np.arange(cfg.n_days, dtype=float)
     forcing_kind = model_data["forcing_kind"]
     if forcing_kind == "qin":
@@ -113,6 +145,7 @@ def build_noisy_reservoir_chronicle(chronicle_cfg, model_name):
     else:
         raise ValueError(f"Unsupported forcing kind '{forcing_kind}' for model '{model_name}'")
 
+    # Step 4: run the selected true model and collect noise-free outputs.
     forcing_func = make_piecewise_constant_daily_qin(forcing_mm_day)
     simulation = model_data["simulate_outflow"](
         params=cfg.true_params,
@@ -124,6 +157,7 @@ def build_noisy_reservoir_chronicle(chronicle_cfg, model_name):
     qout_true_mm_day = np.asarray(simulation["qout"], dtype=float)
     storage_true_mm = np.asarray(simulation["storage"], dtype=float)
 
+    # Step 5: perturb the true outflow to obtain pseudo-observations.
     q_obs_mm_day, sigma_mm_day = add_proportional_gaussian_error(
         values=qout_true_mm_day,
         error_fraction=cfg.error_fraction,

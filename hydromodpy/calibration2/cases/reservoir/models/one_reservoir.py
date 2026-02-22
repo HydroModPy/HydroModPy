@@ -2,8 +2,8 @@
 """
 One-reservoir equations for a linear storage-outflow model.
 
-This module contains only model equations and simulation logic.
-Plotting and demonstration scenarios are intentionally kept out of this file.
+This module only contains model equations and simulation logic.
+Plotting/demo concerns are intentionally kept outside this file.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ PARAMETER_ORDER = ("C", "k")
 
 
 def _require_float(config_section, key):
-    """Read one required float key from chronicle config."""
+    """Read one required float key from a chronicle config mapping."""
     if key not in config_section:
         raise KeyError(f"Missing required chronicle key: {key}")
     return float(config_section[key])
@@ -27,6 +27,13 @@ def _require_float(config_section, key):
 def parse_chronicle_parameters(chronicle_cfg):
     """
     Parse one-reservoir true parameters and initial state from chronicle config.
+
+    Returns
+    -------
+    tuple[dict[str, float], dict[str, float]]
+        `(true_params, initial_state)` where:
+        - `true_params = {"C": ..., "k": ...}`
+        - `initial_state = {"s0": ...}`
     """
     true_params = {
         "C": _require_float(chronicle_cfg, "capacity_mm_true"),
@@ -40,27 +47,22 @@ def parse_chronicle_parameters(chronicle_cfg):
 
 class ReservoirModel:
     """
-    Linear reservoir model with finite storage capacity (lame d'eau).
+    Linear reservoir model with finite storage capacity.
 
     Core mass balance with bounds
-    ------------------------------
-    The storage is physically constrained:
+    -----------------------------
+    Storage is physically constrained:
 
-        0 ≤ S(t) ≤ C
+        0 <= S(t) <= C
 
-    Governing equation (interior domain):
+    Interior dynamics:
 
         dS/dt = Qin(t) - k S(t)
         Qout(t) = k S(t)
 
-    Boundary conditions:
-
-    - If S(t) = 0 and Qin(t) - k S(t) < 0:
-        dS/dt = 0        (storage cannot become negative)
-
-    - If S(t) = C and Qin(t) - k S(t) > 0:
-        dS/dt = 0        (storage cannot exceed capacity)
-
+    Boundary guards:
+    - if `S=0` and derivative is negative, clamp derivative to 0,
+    - if `S=C` and derivative is positive, clamp derivative to 0.
     """
 
     def __init__(self, capacity: float, k: float):
@@ -68,9 +70,9 @@ class ReservoirModel:
         Parameters
         ----------
         capacity : float
-            Maximum storage C [mm].
+            Maximum storage `C` [mm], must be > 0.
         k : float
-            Linear outflow coefficient in Qout = k * S [1/time].
+            Linear outflow coefficient in `Qout = k * S` [1/time], must be >= 0.
         """
         capacity = float(capacity)
         k = float(k)
@@ -83,21 +85,21 @@ class ReservoirModel:
         self.k = k
 
     def qout(self, storage: float) -> float:
-        """Return outflow for a given storage S [mm]."""
+        """Return outflow for one storage value `S` [mm]."""
         return self.k * float(storage)
 
     def dynamics(self, t, state, qin_func):
         """
-        ODE right-hand side for solve_ivp.
+        ODE right-hand side for `solve_ivp`.
 
         Parameters
         ----------
         t : float
             Current time.
         state : sequence
-            Current state vector, expected as [S] with S in [mm].
+            Current state vector, expected as `[S]`.
         qin_func : callable
-            Inflow function Qin(t).
+            Inflow function `Qin(t)`.
         """
         storage = float(np.clip(state[0], 0.0, self.C))
         qin = float(qin_func(t))
@@ -105,7 +107,7 @@ class ReservoirModel:
 
         dstorage_dt = qin - qout
 
-        # Physical saturation guards.
+        # Enforce physical bounds through derivative guards.
         if storage <= 0.0 and dstorage_dt < 0.0:
             dstorage_dt = 0.0
         if storage >= self.C and dstorage_dt > 0.0:
@@ -120,40 +122,32 @@ class ReservoirModel:
         Parameters
         ----------
         qin_func : callable
-            Inflow function Qin(t).
+            Inflow function `Qin(t)`.
         s0 : float
             Initial storage [mm].
         t_span : tuple(float, float)
-            Time interval (t0, tf).
+            Integration interval `(t0, tf)`.
         t_eval : array-like
             Times where the solution is sampled.
 
         Returns
         -------
         tuple(np.ndarray, np.ndarray, np.ndarray)
-            (time, storage, qout) with storage in [mm] and flow in [mm/time].
+            `(time, storage, qout)`.
 
-        integrated using SciPy's `solve_ivp` with the explicit 
-        Runge–Kutta method "RK45" (Dormand–Prince 5(4)).
-
-            Key properties of RK45:
-            - Explicit embedded Runge–Kutta scheme
-            - Adaptive time stepping
-            - 5th-order solution with 4th-order error estimator
-            - Automatic step-size control based on local truncation error
-
-            Reasons for this choice:
-            - The reservoir equation is first-order and non-stiff.
-            - Adaptive stepping improves numerical accuracy without manual tuning.
-            - Robust handling of irregular forcing Qin(t).
-            - Avoids stability constraints associated with fixed-step Euler schemes.
-            - Well-tested and reliable implementation in SciPy.
+        Notes
+        -----
+        Integration uses SciPy `solve_ivp(..., method="RK45")`:
+        - explicit embedded Runge-Kutta method,
+        - adaptive step size control,
+        - suitable for this non-stiff first-order ODE.
         """
         s0 = float(s0)
         t_eval = np.asarray(t_eval, dtype=float)
         if t_eval.ndim != 1 or t_eval.size == 0:
             raise ValueError("t_eval must be a non-empty 1D array")
 
+        # Solve one-state ODE on requested sampling points.
         solution = solve_ivp(
             self.dynamics,
             t_span,
@@ -163,6 +157,7 @@ class ReservoirModel:
             method="RK45",
         )
 
+        # Final clipping protects against tiny numerical overshoots.
         storage = np.clip(solution.y[0], 0.0, self.C)
         qout = self.k * storage
         return solution.t, storage, qout
@@ -170,7 +165,7 @@ class ReservoirModel:
 
 def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
     """
-    Simulate one-reservoir outflow from model parameters and forcing callable.
+    Simulate one-reservoir outflow from parameters and forcing callable.
 
     Parameters
     ----------
@@ -179,9 +174,9 @@ def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
     initial_state : dict
         Must provide `s0`.
     forcing_func : callable
-        Qin(t) forcing [mm/time].
+        `Qin(t)` forcing [mm/time].
     t_span : tuple(float, float)
-        Integration time interval.
+        Integration interval.
     t_eval : array-like
         Sampling times.
 
@@ -190,6 +185,7 @@ def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
     dict
         `{"qout": qout, "storage": storage}`.
     """
+    # Normalize incoming mappings to plain float dictionaries.
     params_all = {str(k): float(v) for k, v in params.items()}
     missing = [name for name in PARAMETER_ORDER if name not in params_all]
     if missing:

@@ -1,4 +1,12 @@
-"""Brutsaert case-specific pydantic schemas for chronicle inputs."""
+"""
+Brutsaert case-specific Pydantic schemas for chronicle inputs.
+
+This module isolates case-level validation from simulation/calibration logic.
+The workflow is:
+1) parse raw `[chronicle]` dict with `model_validate(...)`,
+2) apply field validators for physical constraints,
+3) return a plain normalized dict with `model_dump(...)`.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +16,13 @@ from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 
 class BrutsaertChronicleSchema(BaseModel):
-    """Schema for `[chronicle]` in Brutsaert calibration workflow."""
+    """
+    Schema for `[chronicle]` in the Brutsaert calibration workflow.
 
+    `extra="forbid"` is used to catch unknown keys early.
+    """
+
+    # Reject undeclared keys to avoid silent TOML typos.
     model_config = ConfigDict(extra="forbid")
 
     Q0: float
@@ -70,9 +83,15 @@ class BrutsaertChronicleSchema(BaseModel):
 
 
 def validate_brutsaert_chronicle_config(chronicle_cfg: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate and normalize Brutsaert chronicle config."""
+    """
+    Validate and normalize Brutsaert chronicle config.
+
+    Returns a plain dictionary so downstream code does not depend on Pydantic.
+    """
     try:
+        # Main pydantic entry point: parse + validate according to schema.
         parsed = BrutsaertChronicleSchema.model_validate(dict(chronicle_cfg))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
+    # Convert validated model back to standard Python values.
     return parsed.model_dump(mode="python")
