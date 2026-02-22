@@ -123,6 +123,9 @@ def enforce_annual_precipitation_total(
 ) -> np.ndarray:
     """
     Rescale daily precipitation so cumulative annual rainfall matches target.
+
+    This operation preserves the temporal pattern but changes the global
+    amplitude to reach one prescribed annual total.
     """
     precip = np.asarray(precip_mm_day, dtype=float).ravel()
     if precip.size == 0:
@@ -142,6 +145,9 @@ def build_hydrological_year_dates(
 ) -> np.ndarray:
     """
     Build daily dates for one hydrological year starting on October 1st.
+
+    The hydrological year convention (Oct-Sep) is common in rainfall-runoff
+    studies because it better captures wet-season continuity than Jan-Dec.
     """
     start = date(int(start_year), 10, 1)
     return np.array([start + timedelta(days=i) for i in range(int(n_days))], dtype=object)
@@ -187,6 +193,9 @@ def precipitation_to_inflow(
 def make_piecewise_constant_daily_qin(qin_daily_mm_day: np.ndarray):
     """
     Build Qin(t) callable from daily values (piecewise constant by day).
+
+    This adapter allows ODE solvers to query forcing continuously in time while
+    the source data is stored on daily discrete steps.
     """
     qin_daily = np.asarray(qin_daily_mm_day, dtype=float).ravel()
     if qin_daily.size == 0:

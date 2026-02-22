@@ -111,6 +111,26 @@ def build_parameter_summary_lines(
     return lines
 
 
+def build_calibration_performance_lines(result_view, *, time_fmt=".2f"):
+    """
+    Format calibration performance lines from a result-view dictionary.
+    """
+    n_evaluations = int(result_view.get("n_evaluations", 0))
+    elapsed = result_view.get("calibration_time_seconds")
+    if elapsed is None:
+        return [f"Calibration performance: n_direct_sim={n_evaluations}"]
+
+    try:
+        elapsed_value = float(elapsed)
+    except (TypeError, ValueError):
+        return [f"Calibration performance: n_direct_sim={n_evaluations}"]
+    if not np.isfinite(elapsed_value) or elapsed_value < 0.0:
+        return [f"Calibration performance: n_direct_sim={n_evaluations}"]
+    return [
+        f"Calibration performance: n_direct_sim={n_evaluations}  time={elapsed_value:{time_fmt}} s"
+    ]
+
+
 def build_posterior_summary_lines(
     result_view,
     *,

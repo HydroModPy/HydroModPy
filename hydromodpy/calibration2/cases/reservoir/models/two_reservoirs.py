@@ -17,6 +17,9 @@ This formulation is intentionally minimal:
 - only 3 parameters,
 - no explicit losses,
 - no maximum storage bounds.
+
+The goal is pedagogical: keep a compact structure that can represent quickflow
+and baseflow behavior with few parameters.
 """
 
 from __future__ import annotations
@@ -40,6 +43,13 @@ def _require_float(config_section, key):
 def parse_chronicle_parameters(chronicle_cfg):
     """
     Parse two-reservoir true parameters and initial state from chronicle config.
+
+    Returns
+    -------
+    tuple[dict[str, float], dict[str, float]]
+        `(true_params, initial_state)` where:
+        - `true_params = {"a": ..., "Kq": ..., "Ks": ...}`
+        - `initial_state = {"sq0": ..., "ss0": ...}`
     """
     true_params = {
         "a": _require_float(chronicle_cfg, "a_true"),
@@ -104,10 +114,12 @@ class TwoReservoirModel:
         precip_func : callable
             Precipitation forcing P(t) [mm/time].
         """
+        # Keep storages and forcing non-negative for physical consistency.
         sq = max(float(state[0]), 0.0)
         ss = max(float(state[1]), 0.0)
         precip = max(float(precip_func(t)), 0.0)
 
+        # Parallel reservoirs fed by split precipitation.
         dsq_dt = self.a * precip - self.q_quick(sq)
         dss_dt = (1.0 - self.a) * precip - self.q_slow(ss)
         return [dsq_dt, dss_dt]
@@ -145,6 +157,7 @@ class TwoReservoirModel:
         if t_eval.ndim != 1 or t_eval.size == 0:
             raise ValueError("t_eval must be a non-empty 1D array")
 
+        # Solve two-state ODE system on requested time support.
         solution = solve_ivp(
             self.dynamics,
             t_span,
@@ -154,6 +167,7 @@ class TwoReservoirModel:
             method="RK45",
         )
 
+        # Numerical safety for small negative values from the integrator.
         sq = np.maximum(solution.y[0], 0.0)
         ss = np.maximum(solution.y[1], 0.0)
         qq = sq / self.Kq
@@ -184,6 +198,7 @@ def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
     dict
         `{"qout": q_total, "sq": sq, "ss": ss, "storage": sq + ss}`.
     """
+    # Normalize incoming mappings to plain float dictionaries.
     params_all = {str(k): float(v) for k, v in params.items()}
     missing = [name for name in PARAMETER_ORDER if name not in params_all]
     if missing:

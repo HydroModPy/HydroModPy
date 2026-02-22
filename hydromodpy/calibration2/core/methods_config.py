@@ -1,4 +1,19 @@
-"""Pydantic schemas for method-specific calibration kwargs."""
+"""
+Pydantic schemas for method-specific calibration kwargs.
+
+Design goals
+------------
+- Keep method configuration strict and explicit.
+- Validate TOML payloads before expensive calibration starts.
+- Normalize flexible user syntax into a canonical runtime format.
+
+Pydantic flow in this module
+----------------------------
+1) Select a schema class from `METHOD_KWARGS_MODELS`.
+2) Parse and validate with `model_validate(...)`.
+3) Export plain Python values with `model_dump(...)`.
+4) Apply final normalization for DA-MH per-parameter settings.
+"""
 
 from __future__ import annotations
 
@@ -31,15 +46,24 @@ def _iter_numeric_values(value: VectorLike):
 
 
 class _MethodKwargsBase(BaseModel):
-    """Base class for strict method-kwargs parsing."""
+    """
+    Base class for strict method kwargs parsing.
+
+    `extra="forbid"` means unknown keys are rejected, which avoids silent
+    misconfiguration due to TOML typos.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
 
 class GridSearchKwargs(_MethodKwargsBase):
+    """Schema for `[calibration_method.grid_search]`."""
+
     n_per_dim: int | list[int]
     log_scale_indices: list[int] = Field(default_factory=list)
 
+    # Field validators run after basic type coercion and must return the final
+    # normalized value for the field.
     @field_validator("log_scale_indices")
     @classmethod
     def _validate_log_scale_indices(cls, values):
@@ -64,6 +88,8 @@ class GridSearchKwargs(_MethodKwargsBase):
 
 
 class RandomSearchKwargs(_MethodKwargsBase):
+    """Schema for `[calibration_method.random_search]`."""
+
     n_samples: int
     seed: int
     log_scale_indices: list[int] = Field(default_factory=list)
@@ -90,6 +116,8 @@ class RandomSearchKwargs(_MethodKwargsBase):
 
 
 class NelderMeadKwargs(_MethodKwargsBase):
+    """Schema for `[calibration_method.nelder_mead]`."""
+
     x0: list[float] | None = None
     max_iter: int
 
@@ -102,6 +130,8 @@ class NelderMeadKwargs(_MethodKwargsBase):
 
 
 class SimplexKwargs(_MethodKwargsBase):
+    """Schema for `[calibration_method.simplex]`."""
+
     x0: list[float] | None = None
     max_iter: int
     max_fun: int | None = None
@@ -136,6 +166,8 @@ class SimplexKwargs(_MethodKwargsBase):
 
 
 class GpMappingKwargs(_MethodKwargsBase):
+    """Schema for `[calibration_method.gp_mapping]`."""
+
     seed: int
     n_init: int
     n_refine: int
@@ -189,6 +221,15 @@ class GpMappingKwargs(_MethodKwargsBase):
 
 
 class DaMhGpKwargs(_MethodKwargsBase):
+    """
+    Schema for `[calibration_method.da_mh_gp]`.
+
+    Some fields are declared as `VectorLike` on purpose:
+    - scalar: same value for all calibrated parameters
+    - mapping: one value per named model parameter
+    The final normalization to canonical parameter order is done later.
+    """
+
     sigma_noise: float | None = None
     logprior_fn: Any | None = None
     prior_mean: VectorLike | None = None
@@ -280,6 +321,8 @@ class DaMhGpKwargs(_MethodKwargsBase):
 
     @model_validator(mode="after")
     def _validate_prior_pair(self):
+        # Model-level validator: checks relation between two fields after all
+        # individual field validators already ran.
         has_mean = self.prior_mean is not None
         has_std = self.prior_std is not None
         if has_mean != has_std:
@@ -328,6 +371,7 @@ def _normalize_numeric_values(value, *, value_name, parameter_names, cast):
                 f"{value_name} mapping keys must match model parameters "
                 f"{parameter_names}. Problem: {details_txt}"
             )
+        # Canonical output order must match model parameter order.
         return [cast(named_values[name]) for name in parameter_names]
 
     arr = np.asarray(value, dtype=float).ravel()
@@ -353,7 +397,9 @@ def validate_method_kwargs(method_name: str, kwargs: Mapping[str, Any]) -> tuple
             f"Unsupported calibration method '{method_name}'. "
             f"Supported methods: {supported_txt}"
         )
+    # `model_validate` runs all pydantic field/model validators in the schema.
     parsed = model_cls.model_validate(dict(kwargs))
+    # `model_dump` returns regular Python values for downstream code.
     return canonical, parsed.model_dump(mode="python", exclude_unset=True)
 
 
@@ -369,11 +415,10 @@ def normalize_format_method_kwargs(
     parameter_names,
 ) -> dict[str, Any]:
     """
-    Validate method kwargs and normalize per-parameter settings to canonical format.
+    Validate method kwargs and normalize to canonical runtime format.
 
     This function validates `method_kwargs` with pydantic models, then resolves
-    per-parameter DA-MH settings in model-parameter
-    order.
+    DA-MH per-parameter settings in model-parameter order.
     """
     canonical, validated = validate_method_kwargs(method, method_kwargs)
     names = tuple(str(name) for name in parameter_names)

@@ -1,4 +1,10 @@
-"""Reservoir case-specific pydantic schemas for chronicle inputs."""
+"""
+Reservoir case-specific Pydantic schemas for chronicle inputs.
+
+This module keeps case-level input validation close to the reservoir case.
+It uses Pydantic to validate types/ranges and returns normalized plain
+dictionaries for the rest of the workflow.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +14,14 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 
 class ReservoirChronicleSchema(BaseModel):
-    """Schema for `[chronicle]` in reservoir calibration workflow."""
+    """
+    Schema for `[chronicle]` in reservoir calibration workflow.
 
+    The schema includes fields for both model variants (one- and two-reservoir);
+    each workflow then reads only the subset it needs.
+    """
+
+    # Strict mode: any unknown chronicle key is reported as a validation error.
     model_config = ConfigDict(extra="forbid")
 
     n_days: int = 365
@@ -100,9 +112,16 @@ class ReservoirChronicleSchema(BaseModel):
 
 
 def validate_reservoir_chronicle_config(chronicle_cfg: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate and normalize reservoir chronicle config."""
+    """
+    Validate and normalize reservoir chronicle config.
+
+    Returns a plain dictionary so simulation code can stay independent from
+    Pydantic internals.
+    """
     try:
+        # Parse/coerce inputs and run schema validators.
         parsed = ReservoirChronicleSchema.model_validate(dict(chronicle_cfg))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
+    # Export validated values as regular Python objects.
     return parsed.model_dump(mode="python")

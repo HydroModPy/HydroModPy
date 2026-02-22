@@ -1,5 +1,6 @@
 [chronicle]
 # Synthetic forcing and "true" model parameters.
+# This section controls how pseudo-observations are generated before calibration.
 n_days = 365
 start_year = 2000
 target_annual_precip_mm = 800.0
@@ -25,17 +26,20 @@ error_seed = 12345
 
 [calibration]
 # Model choice: "one_reservoir" or "two_reservoir"
+# This selects which model equations are used for both truth generation and
+# calibration.
 model_name = "two_reservoir"
 # Objective metric: "nse", "nse_log", "kge", or "rmse"
 # For method "da_mh_gp", use "rmse".
 objective_metric = "kge"
 # Method: "grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", or "da_mh_gp"
-global_method = "gp_mapping"
+global_method = "da_mh_gp"
 
 [bounds]
 # Bounds must include all parameters of the selected model.
 # - one_reservoir: C, k
 # - two_reservoir: a, Kq, Ks
+# Calibration explores only this box-constrained parameter space.
 a = [0.05, 0.95]
 Kq = [1.0, 10.0]
 Ks = [15.0, 120.0]
@@ -71,20 +75,32 @@ n_posterior_samples = 20000
 log_transform = true
 
 [calibration_method.da_mh_gp]
-n_init = 80
-n_samples = 6000
-burn_in = 1200
+# Initial expensive model evaluations used to build the first GP surrogate.
+n_init = 70
+# Number of MCMC iterations in the raw chain.
+n_samples = 4500
+# Number of first samples discarded before posterior extraction.
+burn_in = 900
+# Keep one sample every `thin` steps after burn-in.
 thin = 2
 # Per-parameter options can be given as explicit mappings:
 # - one_reservoir: {C=..., k=...}
 # - two_reservoir: {a=..., Kq=..., Ks=...}
+# Random-walk proposal scales in native parameter units.
 proposal_scale = {a = 0.05, Kq = 0.5, Ks = 5.0}
-# Important for chain mixing: larger values smooth the likelihood surface.
+# Likelihood noise scale (RMSE-based likelihood in DA-MH).
+# Larger values smooth posterior surface; smaller values make it sharper.
 sigma_noise = 0.30
+# Independent Normal prior mean per parameter.
 prior_mean = {a = 0.35, Kq = 3.0, Ks = 45.0}
+# Independent Normal prior standard deviation per parameter.
 prior_std = {a = 0.20, Kq = 2.0, Ks = 20.0}
-retrain_interval = 5
-full_mh_prob = 0.05
+# Retrain GP surrogate every N newly accepted expensive evaluations.
+retrain_interval = 30
+# Probability of doing one full MH step (without delayed acceptance).
+# Small non-zero values can improve chain mixing robustness.
+full_mh_prob = 0.03
+# Seed for reproducibility.
 seed = 42
 
 [output]

@@ -8,6 +8,14 @@ Run from repository root:
 This script supports:
 - one linear reservoir (`one_reservoir`),
 - two linear reservoirs with precipitation split (`two_reservoir`).
+
+Didactic workflow
+-----------------
+1) Read and validate the forward TOML configuration.
+2) Build one synthetic hydrological forcing chronicle.
+3) Run either one-reservoir or two-reservoir forward simulation.
+4) Plot forcing/response diagnostics.
+5) Save and optionally display the figure.
 """
 
 from __future__ import annotations
@@ -79,7 +87,12 @@ class TwoReservoirConfig:
 
 
 def load_example_config(config_path):
-    """Load and validate TOML configuration for the hydrological example."""
+    """
+    Load forward TOML configuration and check required sections.
+
+    This is a lightweight section-presence validation; value-level validation is
+    handled by parser functions below.
+    """
     path = Path(config_path)
     with path.open("rb") as stream:
         config = tomllib.load(stream)
@@ -91,7 +104,11 @@ def load_example_config(config_path):
 
 
 def resolve_model_name(config, model_name_override=None):
-    """Resolve model selector from TOML or function override (strict names)."""
+    """
+    Resolve model selector from TOML or optional function override.
+
+    Only canonical names registered in `MODEL_REGISTRY` are accepted.
+    """
     if model_name_override is None:
         raw = str(config["model"].get("model_name", DEFAULT_MODEL_NAME)).strip().lower()
     else:
@@ -137,12 +154,22 @@ def parse_two_reservoir_config(two_cfg):
 
 
 def build_hydrological_forcing(cfg: ForcingConfig):
-    """Generate forcing chronicle used by both model variants."""
+    """
+    Generate forcing chronicle shared by both model variants.
+
+    Returns
+    -------
+    tuple
+        `(dates, precip_mm_day, peff_mm_day, qin_mm_day)`.
+    """
+    # Build dates over one hydrological year.
     dates = build_hydrological_year_dates(n_days=cfg.n_days, start_year=cfg.start_year)
+    # Generate synthetic precipitation and enforce exact annual total.
     precip_mm_day = enforce_annual_precipitation_total(
         precip_mm_day=generate_daily_precipitation(n_days=cfg.n_days, seed=cfg.precip_seed),
         target_annual_mm=cfg.target_annual_precip_mm,
     )
+    # Convert precipitation to effective rainfall and inflow.
     peff_mm_day, qin_mm_day = precipitation_to_inflow(
         precip_mm_day=precip_mm_day,
         dates=dates,
@@ -258,7 +285,14 @@ def plot_two_reservoir_response(
 
 
 def _save_if_requested(fig, output_cfg, model_name):
-    """Save figure if requested in `[output]`."""
+    """
+    Save figure if requested in `[output]`.
+
+    Returns
+    -------
+    pathlib.Path | None
+        Saved path when `save_figure=true`, else `None`.
+    """
     save_figure = bool(output_cfg.get("save_figure", False))
     if not save_figure:
         return None
@@ -273,13 +307,20 @@ def _save_if_requested(fig, output_cfg, model_name):
 
 
 def run_hydrological_example(config, model_name_override=None):
-    """Run one/two-reservoir hydrological simulation based on TOML choice."""
+    """
+    Run one/two-reservoir hydrological simulation based on TOML choice.
+
+    This function contains the full forward workflow used by `main()`.
+    """
+    # Step 1: resolve model and forcing configuration.
     model_name = resolve_model_name(config, model_name_override=model_name_override)
     forcing_cfg = parse_forcing_config(config["forcing"])
+    # Step 2: build shared forcing chronicle.
     dates, precip_mm_day, peff_mm_day, qin_mm_day = build_hydrological_forcing(forcing_cfg)
     t_eval = np.arange(forcing_cfg.n_days, dtype=float)
 
     if model_name == "one_reservoir":
+        # Step 3a: one-reservoir forward simulation driven by Qin(t).
         one_cfg = parse_one_reservoir_config(config["one_reservoir"])
         qin_func = make_piecewise_constant_daily_qin(qin_mm_day)
         model = OneReservoirModel(capacity=one_cfg.capacity_mm, k=one_cfg.k_per_day)
@@ -299,6 +340,7 @@ def run_hydrological_example(config, model_name_override=None):
             capacity_mm=one_cfg.capacity_mm,
         )
     else:
+        # Step 3b: two-reservoir forward simulation driven by precipitation P(t).
         two_cfg = parse_two_reservoir_config(config["two_reservoir"])
         precip_func = make_piecewise_constant_daily_qin(precip_mm_day)
         model = TwoReservoirModel(a=two_cfg.a, kq=two_cfg.kq_days, ks=two_cfg.ks_days)
@@ -319,6 +361,7 @@ def run_hydrological_example(config, model_name_override=None):
             ss_mm=ss_mm,
         )
 
+    # Step 4: save and/or show figure according to `[output]`.
     output_cfg = config.get("output", {})
     output_path = _save_if_requested(fig, output_cfg, model_name=model_name)
     show_plot = bool(output_cfg.get("show_plot", True))
@@ -333,7 +376,8 @@ def run_hydrological_example(config, model_name_override=None):
 
 
 def main(model_name_override=None):
-    """Entry point for TOML-driven hydrological one/two reservoir example."""
+    """Entry point for the TOML-driven forward reservoir example."""
+    # Keep `main()` intentionally short: config load + workflow call.
     config_path = Path(__file__).with_name(DEFAULT_CONFIG_FILE)
     config = load_example_config(config_path)
     run_hydrological_example(config, model_name_override=model_name_override)
