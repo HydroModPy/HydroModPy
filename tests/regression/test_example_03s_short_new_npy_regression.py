@@ -1,4 +1,4 @@
-"""End-to-end regression test for examples/03S_short/example_03.py."""
+"""End-to-end regression test for examples/03S_short/example_03_new.py (NEW API)."""
 
 from pathlib import Path
 
@@ -15,7 +15,7 @@ from tests.regression.golden_utils import (
 )
 
 
-EXAMPLE_03S_SCRIPT = (
+EXAMPLE_03S_NEW_SCRIPT = (
     REPO_ROOT
     / "examples"
     / "03S_short"
@@ -26,18 +26,18 @@ GOLDEN_REFERENCE_FILE = (
     Path(__file__).resolve().parent
     / "reference"
     / "golden_references"
-    / "example_03s_short_npy_signatures.json"
+    / "example_03s_short_new_npy_signatures.json"
 )
 
 @pytest.mark.regression
 @pytest.mark.fast
-def test_example_03s_short_regression_on_npy_outputs(tmp_path, update_goldens):
-    """Run example_03S, then compare (or refresh) its golden signatures."""
+def test_example_03s_short_new_regression_on_npy_outputs(tmp_path, update_goldens):
+    """Run example_03S_new, then compare (or refresh) its golden signatures."""
     assert_required_executables()
 
-    out_path = tmp_path / "example_03s_short_outputs"
+    out_path = tmp_path / "example_03s_short_new_outputs"
     run_legacy_example_script(
-        script_path=EXAMPLE_03S_SCRIPT,
+        script_path=EXAMPLE_03S_NEW_SCRIPT,
         out_path=out_path,
         expected_netcdf_calls=3,
     )
