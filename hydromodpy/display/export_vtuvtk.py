@@ -23,6 +23,7 @@ import flopy.utils.binaryfile as bf
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.watershed import Initializing, Geographic, Hydrography, Piezometry
 
 logger = get_logger(__name__)
 
@@ -94,36 +95,38 @@ class VTK():
     Class to generate VTU/VTK files from MODFLOW/MODPATH postprocessing results.
     """
     
-    def __init__(self, watershed, modelname = None):
+    def __init__(self, initializing:Initializing, 
+                 geographic:Geographic, hydrography:Hydrography, piezometry:Piezometry = None, modelname = None):
         
         if modelname != None:
-            modelfolder= os.path.join(watershed.simulations_folder, modelname)
+            
+            modelfolder= os.path.join(initializing.simulations_folder, modelname)
             save_file = os.path.join(modelfolder, '_postprocess','_vtuvtk')
             toolbox.create_folder(save_file)
             logger.info("Exporting VTU/VTK grid mesh for model %s", modelname)
-            self.grid(modelname, modelfolder, save_file, watershed.geographic)
+            self.grid(modelname, modelfolder, save_file, geographic)
             logger.info("Exporting VTU/VTK water table surfaces for model %s", modelname)
-            self.watertable(modelname, modelfolder, save_file, watershed.geographic)
+            self.watertable(modelname, modelfolder, save_file, geographic)
             try:
                 logger.info("Exporting VTU/VTK watershed boundary for model %s", modelname)
-                self.watershed_boundary(save_file, watershed.geographic)
+                self.watershed_boundary(save_file, geographic)
             except Exception:
                 logger.exception("Failed to export VTU/VTK watershed boundary for model %s", modelname)
             try:
-                self.pathlines(modelname, modelfolder, save_file, watershed.geographic)
+                self.pathlines(modelname, modelfolder, save_file, geographic)
                 logger.info("Exported VTU/VTK pathlines for model %s", modelname)
             except Exception:
                 logger.exception("Failed to export VTU/VTK pathlines for model %s", modelname)
-            if hasattr(watershed, "piezometry"):
+            if piezometry != None:
                 try:
-                    self.piezometers(save_file, watershed.piezometry)
+                    self.piezometers(save_file, piezometry)
                     logger.info("Exported VTU/VTK piezometer set for model %s", modelname)
                 except Exception:
                     logger.exception("Failed to export VTU/VTK piezometers for model %s", modelname)
             else:
                 logger.info("No piezometry data found on watershed; skipping VTU/VTK piezometers for model %s", modelname)
             try:
-                self.streams(save_file, watershed.hydrography, watershed.geographic)
+                self.streams(save_file, hydrography, geographic)
                 logger.info("Exported VTU/VTK streams for model %s", modelname)
             except Exception:
                 logger.exception("Failed to export VTU/VTK streams for model %s", modelname)

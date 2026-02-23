@@ -32,6 +32,7 @@ except:
 
 # HydroModPy
 from hydromodpy.tools import toolbox
+from hydromodpy.watershed import Initializing, Geographic, Hydrography, Intermittency, Piezometry, Geology, Hydrometry
 
 #%% PLOT SETTINGS
 
@@ -86,23 +87,33 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% FUNCTIONS
 
-def watershed_dem(BV):
+def watershed_dem(initializing: Initializing, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Hydrometry=None):
     """
     Plot contour watershed and DEM.
 
     Parameters
     ----------
-    BV : object
-        Variable object of the model domain (watershed).
+    initializing : Initializing
+        Initializing object of the model domain (watershed).
+    geographic : Geographic
+        Geographic object of the model domain (watershed).
+    hydrography : Hydrography, optional
+        Hydrography object of the model domain (watershed).
+    piezometry : Piezometry, optional
+        Piezometry object of the model domain (watershed).
+    intermittency : Intermittency, optional
+        Intermittency object of the model domain (watershed).
+    hydrometry : Hydrometry, optional
+        Hydrometry object of the model domain (watershed).
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     try:
-        contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+        contour = gpd.read_file(geographic.watershed_contour_shp)
         bounds_shp = contour.geometry.total_bounds
     except:
         pass
-    dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
+    dem = rasterio.open(geographic.watershed_box_buff_dem)
     bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
@@ -119,7 +130,7 @@ def watershed_dem(BV):
           cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
     legend_handles = []
     try:
-        streams = gpd.read_file(BV.hydrography.streams)
+        streams = gpd.read_file(hydrography.streams)
         legend_handles += streams.plot(ax=ax, lw=1.5, color='navy', zorder=3, legend=True, label='Streams').get_legend_handles_labels()[0]
     except Exception:
         pass
@@ -129,45 +140,45 @@ def watershed_dem(BV):
     except Exception:
         pass
     try:
-        if os.path.exists(BV.piezometry.piezos_shp):
-            piezos = gpd.read_file(BV.piezometry.piezos_shp)
+        if os.path.exists(piezometry.piezos_shp):
+            piezos = gpd.read_file(piezometry.piezos_shp)
             h = piezos.plot(ax=ax, color='blue', marker='^', zorder=6,
                             edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
             legend_handles += h.get_legend_handles_labels()[0]
     except Exception:
         pass
     try:
-        if len(BV.piezometry.x_coord_discrete)>0:
-            h = ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
+        if len(piezometry.x_coord_discrete)>0:
+            h = ax.scatter(piezometry.x_coord_discrete, piezometry.y_coord_discrete, c='darkorange',
                         marker='^', zorder=5, label='Piezometers: discrete')
             legend_handles.append(h)
     except Exception:
         pass
     try:
-        if os.path.exists(BV.hydrometry.hydrometric_clip):
-            hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
+        if os.path.exists(hydrometry.hydrometric_clip):
+            hydromet = gpd.read_file(hydrometry.hydrometric_clip)
             h = hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
                           edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
             legend_handles += h.get_legend_handles_labels()[0]
     except Exception:
         pass
     try:
-        if os.path.exists(BV.intermittency.onde_clip):
-            intermit = gpd.read_file(BV.intermittency.onde_clip)
+        if os.path.exists(intermittency.onde_clip):
+            intermit = gpd.read_file(intermittency.onde_clip)
             h = intermit.plot(ax=ax, color='grey', zorder=8, marker='s',
                           edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
             legend_handles += h.get_legend_handles_labels()[0]
     except Exception:
         pass
     if legend_handles:
-        ax.legend(loc='lower right', title=BV.watershed_name, framealpha=0.8)
+        ax.legend(loc='lower right', title=initializing.catch_name, framealpha=0.8)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(size="4%",position='right', pad=0.05)
     fig.add_axes(cax)
     cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
     cbar.ax.get_ymajorticklabels()
     list(cbar.get_ticks())
-    val = np.ma.masked_where(BV.geographic.dem_box_buff_data < 0, BV.geographic.dem_box_buff_data)
+    val = np.ma.masked_where(geographic.dem_box_buff_data < 0, geographic.dem_box_buff_data)
     minVal =  int(round(np.min(val[np.nonzero(val)],0)))
     maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
     meanVal = int(round(minVal+((maxVal-minVal)/2),0))
@@ -180,15 +191,15 @@ def watershed_dem(BV):
     # cbar.set_label('Elevation (m)', size=12, rotation=270)
     fig.tight_layout()
     try:
-        fig.savefig(os.path.join(BV.figure_folder,'watershed_dem'+'_'+
-                    BV.hydrography.streams.split('/')[-1].split('.')[0]+'.png'), dpi=300, 
+        fig.savefig(os.path.join(initializing.figure_folder,'watershed_dem'+'_'+
+                    hydrography.streams.split('/')[-1].split('.')[0]+'.png'), dpi=300, 
                     bbox_inches='tight', transparent=False)
     except:
-        fig.savefig(os.path.join(BV.figure_folder,'watershed_dem'+'.png'), dpi=300, 
+        fig.savefig(os.path.join(initializing.figure_folder,'watershed_dem'+'.png'), dpi=300, 
                     bbox_inches='tight', transparent=False)
         pass
 
-def watershed_local(regional_dem_path, BV):
+def watershed_local(regional_dem_path, initializing: Initializing, geographic: Geographic):
     """
     Plot location of the watershed at the regional scale.
 
@@ -196,12 +207,14 @@ def watershed_local(regional_dem_path, BV):
     ----------
     regional_dem_path : str
         Initial path of the regional DEM.
-    BV : object
-        Variable object of the model domain (watershed).
+    initializing : Initializing
+        Initializing object of the model domain (watershed).
+    geographic : Geographic
+        Geographic object of the model domain (watershed).
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
-    shp = gpd.read_file(BV.geographic.watershed_shp)
+    shp = gpd.read_file(geographic.watershed_shp)
     dem = rasterio.open(regional_dem_path)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)  
@@ -224,24 +237,28 @@ def watershed_local(regional_dem_path, BV):
     ]
     ax.legend(handles=legend_elements, loc='lower right', framealpha=0.8)
     fig.tight_layout()
-    fig.savefig(os.path.join(BV.figure_folder,'watershed_local.png'), dpi=300, 
+    fig.savefig(os.path.join(initializing.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
     
-def watershed_geology(BV):
+def watershed_geology(initializing: Initializing, geographic: Geographic, geology: Geology, hydrography: Hydrography=None, piezometry: Piezometry=None):
     """
     Plot lithology of the watershed from specific geological map at FRance scale.
 
     Parameters
     ----------
-    BV : object
-        Variable object of the model domain (watershed).
+    initializing : Initializing
+        Initializing object of the model domain (watershed).
+    geographic : Geographic
+        Geographic object of the model domain (watershed).
+    geology : Geology
+        Geology object of the model domain (watershed).
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     ax = plt.gca()
-    dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
-    polyg = gpd.read_file(BV.geographic.watershed_shp)
-    contour = gpd.read_file(BV.geographic.watershed_contour_shp)
+    dem = rasterio.open(geographic.watershed_box_buff_dem)
+    polyg = gpd.read_file(geographic.watershed_shp)
+    contour = gpd.read_file(geographic.watershed_contour_shp)
     crs = contour.crs
     bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
@@ -252,11 +269,11 @@ def watershed_geology(BV):
     ax.get_yaxis().set_visible(False)
     ax.set(aspect='equal') 
     cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-    geol = gpd.read_file(BV.geology.geol_file)
+    geol = gpd.read_file(geology.geol_file)
     try:
         geol['hex']
     except:
-        geol = gpd.read_file(BV.geology.geol_file)
+        geol = gpd.read_file(geology.geol_file)
         geol['R_col'] = 255 * (1 - geol['C_FOND']/100) * (1 - geol['N_FOND']/100)
         geol['G_col'] = 255 * (1 - geol['M_FOND']/100) * (1 - geol['N_FOND']/100)
         geol['B_col'] = 255 * (1 - geol['J_FOND']/100) * (1 - geol['N_FOND']/100)
@@ -271,8 +288,8 @@ def watershed_geology(BV):
                                         geol.loc[i,'couleur'][1],
                                         geol.loc[i,'couleur'][2])
         geol = geol.drop(columns=['couleur'])
-        geol.to_file(BV.geology.geol_file)
-        geol = gpd.read_file(BV.geology.geol_file)
+        geol.to_file(geology.geol_file)
+        geol = gpd.read_file(geology.geol_file)
     color = []
     for i in list(geol['hex']):
         color.append(mpl.colors.to_rgb(i))
@@ -294,17 +311,17 @@ def watershed_geology(BV):
     leg = ax.get_legend()
     leg.set_bbox_to_anchor((1,1, 0, 0))
     try:
-        streams = gpd.read_file(BV.hydrography.streams)
+        streams = gpd.read_file(hydrography.streams)
         streams.plot(ax=ax, lw=1.5, color='navy', zorder=3,legend=True, label='Streams')
     except:
         pass
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4, legend=True, edgecolor='k', facecolor='None', label='Watershed')
     try:
-        if len(BV.piezometry.x_coord_discrete)>0:
-            piezod = ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete,  c='darkorange',
+        if len(piezometry.x_coord_discrete)>0:
+            piezod = ax.scatter(piezometry.x_coord_discrete, piezometry.y_coord_discrete,  c='darkorange',
                        marker='^', zorder=5, label='Piezometers: discrete')
-        if os.path.exists(BV.piezometry.piezos_shp):
-            piezos = gpd.read_file(BV.piezometry.piezos_shp)
+        if os.path.exists(piezometry.piezos_shp):
+            piezos = gpd.read_file(piezometry.piezos_shp)
             piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
                         edgecolor='k',legend=True, label='Piezometers: continue')
     except:
@@ -316,14 +333,14 @@ def watershed_geology(BV):
     l2 = None
     if legend_items:
         handles2, labels2 = zip(*legend_items)
-        l2 = ax.legend(handles2, labels2, loc='lower right', title=BV.watershed_name, framealpha=0.8)
+        l2 = ax.legend(handles2, labels2, loc='lower right', title=initializing.catch_name, framealpha=0.8)
     plt.gca().add_artist(l1)
     fig.tight_layout()
     try:
-        fig.savefig(os.path.join(BV.figure_folder,'watershed_geology'+'_'+
-                    BV.hydrography.streams.split('/')[-1].split('.')[0]+'.png'), dpi=300, bbox_inches='tight', transparent=False)
+        fig.savefig(os.path.join(initializing.figure_folder,'watershed_geology'+'_'+
+                    hydrography.streams.split('/')[-1].split('.')[0]+'.png'), dpi=300, bbox_inches='tight', transparent=False)
     except:
-        fig.savefig(os.path.join(BV.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
+        fig.savefig(os.path.join(initializing.figure_folder,'watershed_geology.png'), dpi=300, bbox_inches='tight', transparent=False)
         pass
 
 def watershed_zones(BV):

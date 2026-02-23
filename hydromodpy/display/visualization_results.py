@@ -31,6 +31,7 @@ from matplotlib import rcsetup
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.watershed import Initializing, Geographic, Hydrography
 
 logger = get_logger(__name__)
 
@@ -66,7 +67,7 @@ class Visualization():
     Class to plot results by default.
     """
     
-    def __init__(self, watershed, modelname):
+    def __init__(self, initializing: Initializing, geographic: Geographic, hydrography: Hydrography, modelname: str):
         """
         Parameters
         ----------
@@ -75,7 +76,9 @@ class Visualization():
         modelname : str
             Name of the model simulation.
         """
-        self.watershed = watershed
+        self.initializing = initializing
+        self.geographic = geographic
+        self.hydrography = hydrography
         self.modelname = modelname
 
     #%% 2D
@@ -123,24 +126,24 @@ class Visualization():
                 ax.remove()
             return axs[:N]
         
-        modelfolder = os.path.join(self.watershed.simulations_folder, self.modelname)
+        modelfolder = os.path.join(self.initializing.simulations_folder, self.modelname)
         fontprop = toolbox.plot_params(8,15,18,20)
         
         path_res = os.path.join(modelfolder,'_postprocess')
         
         try:
-            contour = gpd.read_file(self.watershed.geographic.watershed_contour_shp)
+            contour = gpd.read_file(self.geographic.watershed_contour_shp)
             crs = contour.crs
         except:
             pass
         
         try:
-            dem = rasterio.open(self.watershed.geographic.watershed_box_buff_dem)
+            dem = rasterio.open(self.geographic.watershed_box_buff_dem)
         except:
             pass
         
         try:
-            streams = gpd.read_file(self.watershed.hydrography.streams)
+            streams = gpd.read_file(self.hydrography.streams)
         except:
             pass
         
@@ -238,7 +241,7 @@ class Visualization():
                 # axs[i].set_title('Seepage rates, log(Q) [m/d]')
                 axs[i].set_title('Seepage outflow [m$^3$/d]')
                 # axs[i].set_title('Seepage outflow [m3/d]')
-                drain = np.ma.masked_where(self.watershed.geographic.dem_data<= 0, drain_area[time_step])
+                drain = np.ma.masked_where(self.geographic.dem_data<= 0, drain_area[time_step])
                 # image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, np.log10(drain)), 
                 #              cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 image_hidden = axs[i].imshow(np.ma.masked_where(drain<= 0, (drain)), 
@@ -262,7 +265,7 @@ class Visualization():
                 # axs[i].set_title('Cumulate seepage rates, log(Q) [m/d]')
                 axs[i].set_title('Accumulated outflow [m$^3$/d]')
                 # axs[i].set_title('Accumulated outflow [m3/d]')
-                surface = np.ma.masked_where(self.watershed.geographic.dem_data<= 0, surface_area[time_step])
+                surface = np.ma.masked_where(self.geographic.dem_data<= 0, surface_area[time_step])
                 # image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, np.log10(surface)), 
                 image_hidden = axs[i].imshow(np.ma.masked_where(surface_area[time_step]<= 0, (surface)), 
                               cmap='jet', vmin=color_scale[i][0], vmax=color_scale[i][1])
@@ -292,9 +295,9 @@ class Visualization():
                     random_indices = np.random.choice(len(pth_data), size=lines) # RANDOM LINES
                 if lines == None:
                     random_indices = np.arange(len(pth_data))
-                geotx_p = self.watershed.geographic.x_coord
-                geoty_p = self.watershed.geographic.y_coord
-                geot_p = self.watershed.geographic.geodata
+                geotx_p = self.geographic.x_coord
+                geoty_p = self.geographic.y_coord
+                geot_p = self.geographic.geodata
                 cols = geotx_p.shape[0]
                 rows = geoty_p.shape[0]
                 ext = []
@@ -343,13 +346,13 @@ class Visualization():
                     # res_time[e[j].i0,e[j].j0] = np.log10(e[j].time) # where infiltrated
                     res_time[e[j].i,e[j].j] = (e[j].time) /365 # where outputed
                 res_time = np.ma.masked_where(res_time <= 0, res_time)
-                image_hidden = axs[i].imshow(np.ma.masked_where(self.watershed.geographic.dem_data<= 0, res_time),
+                image_hidden = axs[i].imshow(np.ma.masked_where(self.geographic.dem_data<= 0, res_time),
                                              cmap='cool', vmin=color_scale[i][0], vmax=color_scale[i][1])
                 # show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=axs[i], 
                 #      transform=dem.transform, cmap='Greys', alpha=0.3, zorder=0, aspect="auto")
                 image.append(image_hidden)
                 basemap.append(0)
-                show(np.ma.masked_where(self.watershed.geographic.dem_data<= 0, res_time), ax=axs[i], 
+                show(np.ma.masked_where(self.geographic.dem_data<= 0, res_time), ax=axs[i], 
                      transform=dem.transform, cmap='cool', alpha=1, zorder=2, aspect="auto",
                      vmin=color_scale[i][0], vmax=color_scale[i][1])                
                 try:
@@ -495,7 +498,7 @@ class Visualization():
 
         # Load files
         try:
-            contour = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname,
+            contour = vedo.Mesh(os.path.join(self.initializing.simulations_folder, self.modelname,
                                              '_postprocess', '_vtuvtk','watershed_contour.vtk'))
             contour.scale([1,1,z_scale])
             contour.color('k').lw(2)
@@ -504,7 +507,7 @@ class Visualization():
             pass
             
         try:
-            stream = vedo.Mesh(os.path.join(self.watershed.simulations_folder, self.modelname,
+            stream = vedo.Mesh(os.path.join(self.initializing.simulations_folder, self.modelname,
                                             '_postprocess', '_vtuvtk','streams.vtk'))
             stream.scale([1,1,z_scale])
             stream.color('b').lw(5)
@@ -514,7 +517,7 @@ class Visualization():
             pass
         
         try:
-            grid = os.path.join(self.watershed.simulations_folder, self.modelname,
+            grid = os.path.join(self.initializing.simulations_folder, self.modelname,
                                 '_postprocess', '_vtuvtk', 'grid.vtu')
             grid_mesh = vedo.load(grid) #grid_mesh
             grid_wireframe = vedo.load(grid).wireframe() #grid_wireframe
@@ -544,7 +547,7 @@ class Visualization():
             logger.warning("VTU grid mesh missing for 3D visualization: %s", grid, exc_info=True)
             
         #try: 
-        watertable = os.path.join(self.watershed.simulations_folder, self.modelname,
+        watertable = os.path.join(self.initializing.simulations_folder, self.modelname,
                                   '_postprocess', '_vtuvtk', 'watertable_0.vtu')
         watertable_elev = vedo.load(watertable) # 1 Elevation
         watertable_depth = vedo.load(watertable) # 3 Depth
@@ -604,7 +607,7 @@ class Visualization():
                 logger.warning("VTK drain_flow mesh missing or failed to process for 3D visualization", exc_info=True)
             
         #try:
-        pathlines = os.path.join(self.watershed.simulations_folder, self.modelname,
+        pathlines = os.path.join(self.initializing.simulations_folder, self.modelname,
                                  '_postprocess', '_vtuvtk', 'pathlines.vtk')
         pathlines_mesh = vedo.Mesh(pathlines) #5
         #Pathlines
@@ -696,7 +699,7 @@ class Visualization():
             plt.close()
         else:
             plt += __doc__
-            plt.screenshot(os.path.join(self.watershed.simulations_folder, self.modelname,
+            plt.screenshot(os.path.join(self.initializing.simulations_folder, self.modelname,
                                         '_postprocess', '_figures', '3D_'+self.modelname+'.png')).close()
     
     #%% CROSS
@@ -770,7 +773,7 @@ class Visualization():
         
         # Plot contour
         try:
-            with rasterio.open(self.watershed.geographic.watershed_contour_tif) as src:
+            with rasterio.open(self.geographic.watershed_contour_tif) as src:
                 cont = src.read(1)
             main_ax.imshow(np.ma.masked_where(cont<0, cont), cmap=mpl.colors.ListedColormap(['k']), interpolation='none')
         except Exception:
@@ -896,7 +899,7 @@ class Visualization():
         
         # Save and display
         fig.savefig(os.path.join(
-            self.watershed.simulations_folder, self.modelname,
+            self.initializing.simulations_folder, self.modelname,
             '_postprocess','_figures',
             f'CROSS_{self.modelname}.png'
         ))
