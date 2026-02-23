@@ -1,4 +1,4 @@
-"""Unit tests for pydantic schemas used in calibration2 configuration."""
+﻿"""Unit tests for pydantic schemas used in calibration2 configuration."""
 
 from __future__ import annotations
 
@@ -7,15 +7,18 @@ import textwrap
 
 import pytest
 
-from hydromodpy.calibration2.core.engine_config import validate_calibration_config_data
-from hydromodpy.calibration2.cases.recession_brutsaert.case_config import (
+from hydromodpy.calibration.core.engine_config import validate_calibration_config_data
+from hydromodpy.calibration.cases.recession_brutsaert.case_config import (
     validate_brutsaert_chronicle_config,
 )
-from hydromodpy.calibration2.cases.reservoir.case_config import (
+from hydromodpy.calibration.cases.groundwater_1d.case_config import (
+    validate_groundwater_1d_chronicle_config,
+)
+from hydromodpy.calibration.cases.reservoir.case_config import (
     validate_reservoir_chronicle_config,
 )
-from hydromodpy.calibration2.core.methods_config import validate_method_kwargs
-from hydromodpy.calibration2.core.engine_config import load_calibration_toml
+from hydromodpy.calibration.core.methods_config import validate_method_kwargs
+from hydromodpy.calibration.core.engine_config import load_calibration_toml
 
 
 def _base_config():
@@ -162,6 +165,65 @@ def test_validate_brutsaert_chronicle_config_rejects_unknown_key():
         )
 
 
+def test_validate_groundwater_chronicle_config_rejects_invalid_interface():
+    with pytest.raises(ValueError, match="xi_true_m must satisfy 0 < xi_true_m < L_m"):
+        validate_groundwater_1d_chronicle_config(
+            {
+                "n_days": 10,
+                "dt_days": 1.0,
+                "L_m": 100.0,
+                "xi_true_m": 100.0,
+                "nx": 21,
+                "formulation_true": "boussinesq",
+                "H_linearized_m": 10.0,
+                "Kam_true_m_per_day": 2.0,
+                "Kav_true_m_per_day": 1.0,
+                "Syam_true": 0.2,
+                "Syav_true": 0.1,
+            }
+        )
+
+
+def test_validate_groundwater_chronicle_config_rejects_unknown_key():
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+        validate_groundwater_1d_chronicle_config(
+            {
+                "n_days": 10,
+                "dt_days": 1.0,
+                "L_m": 100.0,
+                "xi_true_m": 40.0,
+                "nx": 21,
+                "formulation_true": "linearized",
+                "H_linearized_m": 10.0,
+                "Kam_true_m_per_day": 2.0,
+                "Kav_true_m_per_day": 1.0,
+                "Syam_true": 0.2,
+                "Syav_true": 0.1,
+                "legacy_key": 1,
+            }
+        )
+
+
+def test_validate_groundwater_chronicle_config_rejects_invalid_recharge_mode():
+    with pytest.raises(ValueError, match="recharge_mode must be one of"):
+        validate_groundwater_1d_chronicle_config(
+            {
+                "n_days": 10,
+                "dt_days": 1.0,
+                "L_m": 100.0,
+                "xi_true_m": 40.0,
+                "nx": 21,
+                "formulation_true": "linearized",
+                "H_linearized_m": 10.0,
+                "Kam_true_m_per_day": 2.0,
+                "Kav_true_m_per_day": 1.0,
+                "Syam_true": 0.2,
+                "Syav_true": 0.1,
+                "recharge_mode": "sinusoidal",
+            }
+        )
+
+
 def test_load_calibration_toml_applies_schema_validation(tmp_path: Path):
     config_path = tmp_path / "config.toml"
     config_path.write_text(
@@ -189,3 +251,4 @@ def test_load_calibration_toml_applies_schema_validation(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="Invalid calibration configuration"):
         load_calibration_toml(config_path)
+

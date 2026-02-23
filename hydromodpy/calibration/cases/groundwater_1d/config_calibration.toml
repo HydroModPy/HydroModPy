@@ -1,0 +1,78 @@
+[chronicle]
+# Time discretization
+n_days = 120
+dt_days = 1.0
+
+# Domain and interface
+L_m = 500.0
+xi_true_m = 220.0
+nx = 101
+
+# Governing equation option: "linearized" or "boussinesq"
+formulation_true = "boussinesq"
+H_linearized_m = 12.0
+
+# True hydraulic properties (used to generate synthetic observations)
+Kam_true_m_per_day = 5.0
+Kav_true_m_per_day = 1.2
+Syam_true = 0.18
+Syav_true = 0.10
+
+# Upstream imposed head (constant in time).
+# Initial condition is automatically set to h(x,0)=h0 everywhere.
+h0_m = 6.0
+
+# Recharge forcing options:
+# - "hydro_step": seasonal step (wet/dry hydrological periods)
+# - "reservoir_chronicle": recharge derived from reservoir synthetic chronicle
+recharge_mode = "hydro_step"
+
+# Parameters for recharge_mode="hydro_step"
+recharge_wet_m_per_day = 0.0030
+recharge_dry_m_per_day = 0.0004
+recharge_wet_months = [10, 11, 12, 1, 2, 3]
+
+# Parameters for recharge_mode="reservoir_chronicle"
+start_year = 2000
+target_annual_precip_mm = 800.0
+precip_seed = 42
+runoff_coeff = 0.15
+losses_mm_day = 1.5
+losses_months = [4, 5, 6, 7, 8, 9]
+
+# Synthetic observations.
+# Empty list means automatic points at the middle of each zone.
+obs_x_m = []
+obs_t_stride = 2
+obs_noise_std_m = 0.03
+obs_seed = 123
+
+# Nonlinear Picard controls
+picard_max_iter = 40
+picard_tol = 1.0e-7
+picard_relaxation = 1.0
+head_floor_m = 1.0e-6
+
+[calibration]
+objective_metric = "rmse"
+global_method = "random_search"
+
+[bounds]
+Kam = [1.0, 10.0]
+Kav = [0.2, 5.0]
+Syam = [0.05, 0.35]
+Syav = [0.03, 0.30]
+xi = [50.0, 450.0]
+
+[calibration_method.random_search]
+n_samples = 250
+seed = 42
+log_scale_indices = []
+
+[output]
+output_dir = "outputs"
+show_plot = true
+figure_name = "groundwater_1d_calibration_rmse_random_search.png"
+show_objective_surface = false
+objective_surface_n_evaluations = 400
+objective_surface_seed = 42

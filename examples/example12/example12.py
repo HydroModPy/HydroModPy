@@ -12,6 +12,7 @@ import sys
 import os
 from pathlib import Path
 
+from flopy import run_model
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -44,11 +45,16 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
-from hydromodpy.watershed import geographic, initializing
+from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
+    Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, SafranSurfex, Subbasin, Transport
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingConfig, GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 from hydromodpy.modeling.modflow import Modflow
+from hydromodpy.modeling.modpath import Modpath
+from hydromodpy.modeling.mt3dms import Mt3dms
+from hydromodpy.modeling import timeseries, netcdf
+from hydromodpy.calibration.matching_stream import MatchingStreams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -64,47 +70,74 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     data_path = cfg.initializing.data_path
 
-    initializing_object = initializing.Initializing(config=cfg.initializing)
-    geographic_object   = geographic.Geographic(config=cfg.geographic,
-                                                initializing_object=initializing_object)
-
-    BV = watershed_root.Watershed(load=False,
-                                initializing_object=initializing_object,
-                                geographic_object=geographic_object,
-                                save_object=True)
-
+    initializing = Initializing(config=cfg.initializing)
+    geographic   = Geographic(config=cfg.geographic,
+                                                initializing=initializing)
+    setting = Settings()
+    hydraulic = Hydraulic(nrow=geographic.y_pixel,
+                                           ncol=geographic.x_pixel,
+                                           box_dem=geographic.watershed_box_buff_dem)
+    transport = Transport()
+    
+    #%% DATA
+    
+    hydrography = Hydrography(out_path=initializing.catch_folder,
+                                                   types_obs=['botopage2024_naizin_streams_perennial-intermittent'],
+                                                   fields_obs=['FID'],
+                                                   geographic=geographic,
+                                                   hydro_path=data_path,
+                                                   streams_file=None)
+    
+    subbasin = Subbasin(geographic=geographic,
+                                hydrometry=None,
+                                intermittency=None,
+                                add_path=data_path,
+                                out_path=initializing.catch_folder,
+                                sub_snap_dist=50)
+    
+    geology = Geology(out_path=initializing.catch_folder,
+                            geographic=geographic,
+                            geo_path = data_path,
+                            landsea=None,
+                            types_obs='GEO1M.shp',
+                            fields_obs= 'CODE_LEG',)
+    
+    hydrometry = Hydrometry(out_path=initializing.catch_folder,
+                                hydrometry_path=data_path,
+                                file_name='france hydrometric stations.shp',
+                                geographic=geographic)
+    
+    intermittency = Intermittency(out_path=initializing.catch_folder,
+                                        intermittency_path=data_path,
+                                        file_name='regional onde stations.shp',
+                                        geographic=geographic)
+    #%% Climatic
+    climatic = Climatic(out_path=initializing.catch_folder)
+    
+    oceanic = Oceanic()
+    #oceanic.extract_data(out_path=initializing.catch_folder,
+    #                              oceanic_path=data_path,
+    #                              geographic=geographic)
+    #%% WATERSHED OBJECT
     stable_folder      = cfg.initializing.stable_folder
     simulations_folder = cfg.initializing.simulations_folder
-    calibration_folder = initializing_object.calibration_folder # necessary for plots
+    calibration_folder = initializing.calibration_folder # necessary for plots
 
     #%% DATA
 
-    BV.add_hydrography(data_path , types_obs=['botopage2024_naizin_streams_perennial-intermittent'], fields_obs=['FID'])
-    BV.add_subbasin(data_path, 50)
+    visualization_watershed.watershed_local(cfg.geographic.dem_init_path, initializing, geographic)
+    visualization_watershed.watershed_dem(initializing=initializing, geographic=geographic, hydrography=hydrography, piezometry=None, intermittency=intermittency, hydrometry=hydrometry)
 
-    visualization_watershed.watershed_local(cfg.geographic.dem_init_path, BV)
-    visualization_watershed.watershed_dem(BV)
-
-    area = BV.geographic.catch_area
-
-    # Clip specific data at the catchment scale
-    BV.add_geology(data_path, types_obs='GEO1M.shp', fields_obs='CODE_LEG')
+    area = geographic.catch_area
+                                     
 
     # Add hydrological data
-    BV.add_hydrometry(data_path, 'france hydrometric stations.shp')
-    BV.add_intermittency(data_path, 'regional onde stations.shp')
-
-    # Extract a subbasin inside the study site
-    BV.add_subbasin(os.path.join(data_path, 'additional'), 150)
 
     #%% ---- RECHARGE
 
-    #%% CASES
-
     # Necessary to set model parameters
-    BV.add_climatic()
 
-    BV.climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
+    climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                             clim_mod='REA',
                                             clim_sce='historic',
                                             first_year=2003,
@@ -112,7 +145,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                             time_step='ME',
                                             sim_state='transient')
 
-    BV.climatic.update_runoff_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
+    climatic.update_runoff_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                         clim_mod='REA',
                                         clim_sce='historic',
                                         first_year=2003,
@@ -124,8 +157,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         df = df[(df.index.year>=first) & (df.index.year<=last)]
         return df
 
-    R_mm_day = BV.climatic.recharge
-    r_mm_day = BV.climatic.runoff
+    R_mm_day = climatic.recharge
+    r_mm_day = climatic.runoff
 
     R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
     R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
@@ -187,138 +220,9 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     #%% FUNCTION
 
-    class MatchingStreams:
-        """
-
-        Class for the calibration based on river occurency
-
-        Attributes
-        ----------
-
-        Methods
-        ----------
-
-        """
-
-        def __init__(self,
-                    watershed,
-                    iteration_label=None,
-                    from_calib=True):
-
-            self.geographic = watershed.geographic
-            self.hydrography = watershed.hydrography
-            if from_calib==True:
-                self.calibration_folder = watershed.calibration_folder
-            else:
-                self.calibration_folder = watershed.simulations_folder
-            self.iteration_label = iteration_label
-
-            self.watershed_shp = watershed.geographic.watershed_shp
-            self.watershed_fill = watershed.geographic.watershed_fill
-            self.watershed_direc = watershed.geographic.watershed_direc
-
-            self.prepare_files()
-            self.sim_to_obs()
-            self.obs_to_sim()
-            # self.get_indicator()
-
-        def prepare_files(self):
-            #files are necessary for whiteboxtool
-            self.results_folder=os.path.join(self.calibration_folder, self.iteration_label, '_postprocess')
-            toolbox.create_folder(self.results_folder)
-            # New folder results
-            self.dichotomy_folder = os.path.join(self.calibration_folder, self.iteration_label, '_matchingstreams')
-            toolbox.create_folder(self.dichotomy_folder)
-
-            # Observed buff data
-            self.buff_tif_obs = self.hydrography.tif_streams
-            # Mask observed
-            self.tif_obs = os.path.join(self.dichotomy_folder,'obs.tif')
-            toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, False)
-            # Obs to points
-            self.pt_obs = os.path.join(self.dichotomy_folder, 'obs_pt.shp')
-            wbt.raster_to_vector_points(self.tif_obs, self.pt_obs)
-            self.pt_obsf = os.path.join(self.dichotomy_folder, 'obs_ptf.shp')
-            wbt.raster_to_vector_points(self.tif_obs, self.pt_obsf)
-            # Trace downslope obs
-            self.obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.tif')
-            wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
-
-            # Mask simulated
-            tif_sim = os.path.join(self.results_folder,'_rasters','seepage_areas_t(0).tif')
-            self.tif_sim = os.path.join(self.dichotomy_folder,'sim.tif')
-            toolbox.clip_tif(tif_sim, self.watershed_shp, self.tif_sim, False)
-            # Sim to points
-            self.pt_sim = os.path.join(self.dichotomy_folder, 'sim_pt.shp')
-            wbt.raster_to_vector_points(self.tif_sim, self.pt_sim)
-            self.pt_simf = os.path.join(self.dichotomy_folder, 'sim_ptf.shp')
-            wbt.raster_to_vector_points(self.tif_sim, self.pt_simf)
-            # Trace downslope sim
-            self.sim_flow = os.path.join(self.dichotomy_folder, 'simflow.tif')
-            wbt.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)
-
-        def sim_to_obs(self):
-            # Simflow to points
-            self.pt_sim_flow = os.path.join(self.dichotomy_folder, 'simflow.shp')
-            wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)
-            self.pt_sim_flowf = os.path.join(self.dichotomy_folder, 'simflowf.shp')
-            wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flowf)
-
-            # Distance of dem to obs
-            self.dist_dem_obs = os.path.join(self.dichotomy_folder, 'dist_dem_obs.tif')
-            wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_obs, self.dist_dem_obs)
-
-            # Distance of dem to obsflow
-            self.dist_dem_obsflow = os.path.join(self.dichotomy_folder, 'dist_dem_obsflow.tif')
-            wbt.downslope_distance_to_stream(self.watershed_fill, self.obs_flow, self.dist_dem_obsflow)
-
-            # Sim to Obs and Obsflow
-            wbt.add_point_coordinates_to_table(self.pt_sim)
-            wbt.extract_raster_values_at_points(self.dist_dem_obs, self.pt_sim)
-            wbt.add_point_coordinates_to_table(self.pt_simf)
-            wbt.extract_raster_values_at_points(self.dist_dem_obsflow, self.pt_simf)
-            # Simflow to Obs and Obsflow
-            wbt.add_point_coordinates_to_table(self.pt_sim_flow)
-            wbt.extract_raster_values_at_points(self.dist_dem_obs, self.pt_sim_flow)
-            wbt.add_point_coordinates_to_table(self.pt_sim_flowf)
-            wbt.extract_raster_values_at_points(self.dist_dem_obsflow, self.pt_sim_flowf)
-
-        def obs_to_sim(self):
-            # Simflow to points
-            self.pt_obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.shp')
-            wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
-            self.pt_obs_flowf = os.path.join(self.dichotomy_folder, 'obsflowf.shp')
-            wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flowf)
-
-            # Distance of dem to sim
-            self.dist_dem_sim = os.path.join(self.dichotomy_folder, 'dist_dem_sim.tif')
-            wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_sim, self.dist_dem_sim)
-            # Distance of dem to simflow
-            self.dist_dem_simflow = os.path.join(self.dichotomy_folder, 'dist_dem_simflow.tif')
-            wbt.downslope_distance_to_stream(self.watershed_fill, self.sim_flow, self.dist_dem_simflow)
-
-            # Obs to Sim and Simflow
-            wbt.add_point_coordinates_to_table(self.pt_obs)
-            wbt.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs)
-            wbt.add_point_coordinates_to_table(self.pt_obsf)
-            wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obsf)
-            # Obsflow to Sim and Simflow
-            wbt.add_point_coordinates_to_table(self.pt_obs_flow)
-            wbt.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs_flow)
-            wbt.add_point_coordinates_to_table(self.pt_obs_flowf)
-            wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obs_flowf)
-
     #%% A - MODFLOW
 
-    # Extract the catchment from a regional DEM
-    BV = watershed_root.Watershed(load=True,
-                                initializing_object=initializing_object,
-                                geographic_object=geographic_object,
-                                save_object=True
-                                )
-    area = BV.geographic.catch_area
-
-    BV.calibration_folder = calibration_folder
+    initializing.calibration_folder = calibration_folder
 
     box = True # or False
     sink_fill = False # or True
@@ -342,7 +246,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     ss_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
     bc_left = None # or value
     bc_right = None # or value
-    sea_level = 'None' # or value based on specific data : BV.oceanic.MSL
+    sea_level = 'None' # or value based on specific data 
     zone_partic = 'domain' # or watershed
     vka = 1
     bottom = 0
@@ -350,68 +254,64 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     Klog_transf = False
 
     # Recharge
-    BV.add_climatic()
     rec = R_mm_day_filt[:] / 1000
     run = rec * 0.1
     first_clim = 'mean'
-    BV.climatic.update_first_clim(first_clim)
-    BV.climatic.update_recharge(rec, sim_state=sim_state)
-    BV.climatic.update_runoff(run, sim_state=sim_state)
+    climatic.update_first_clim(first_clim)
+    climatic.update_recharge(rec, sim_state=sim_state)
+    climatic.update_runoff(run, sim_state=sim_state)
 
     # Objects
-    BV.add_settings()
-    BV.add_hydraulic()
-    BV.add_oceanic(sea_level)
+    oceanic.update_MSL(sea_level)
 
     # Fixed
-    BV.settings.update_box_model(box)
-    BV.settings.update_sink_fill(sink_fill)
-    BV.settings.update_simulation_state(sim_state)
-    BV.hydraulic.update_nlay(nlay) # 1
-    BV.hydraulic.update_lay_decay(lay_decay) # 1
-    BV.hydraulic.update_cond_drain(cond_drain)
-    BV.hydraulic.update_sy(sy)
-    BV.hydraulic.update_sy_decay(sy_decay)
-    BV.hydraulic.update_ss(ss)
-    BV.hydraulic.update_ss_decay(ss_decay)
-    BV.hydraulic.update_vka(vka)
-    BV.hydraulic.update_hk_vertical(verti_hk) # here for lays [ [1e-5m/s, [0, 20m]]
-    BV.hydraulic.update_sy_vertical(verti_sy)
-    BV.hydraulic.update_ss_vertical(verti_ss)
-    BV.hydraulic.update_bottom(bottom)
-    BV.settings.update_dis_perlen(dis_perlen)
-    BV.settings.update_bc_sides(bc_left, bc_right)
-    BV.hydraulic.update_thick(thickness)
+    setting.update_box_model(box)
+    setting.update_sink_fill(sink_fill)
+    setting.update_simulation_state(sim_state)
+    hydraulic.update_nlay(nlay) # 1
+    hydraulic.update_lay_decay(lay_decay) # 1
+    hydraulic.update_cond_drain(cond_drain)
+    hydraulic.update_sy(sy)
+    hydraulic.update_sy_decay(sy_decay)
+    hydraulic.update_ss(ss)
+    hydraulic.update_ss_decay(ss_decay)
+    hydraulic.update_vka(vka)
+    hydraulic.update_hk_vertical(verti_hk) # here for lays [ [1e-5m/s, [0, 20m]]
+    hydraulic.update_sy_vertical(verti_sy)
+    hydraulic.update_ss_vertical(verti_ss)
+    hydraulic.update_bottom(bottom)
+    setting.update_dis_perlen(dis_perlen)
+    setting.update_bc_sides(bc_left, bc_right)
+    hydraulic.update_thick(thickness)
 
     # Well settings
     well_1_coords = [1-1,40-1,40-1] # [lay, row, col]
     well_2_coords = [1-1,65-1,65-1] # [lay, row, col]
     well_1_fluxes = pd.Series([-200, -1000, -100, 0, 0, 0, 0, 0, 0, 0, 0, -1000]) # [L3/T]
     well_2_fluxes = pd.Series([0, -1000, 0, -500, 0, 0, -500, 0, 0, 0, 0, -1000]) # [L3/T]
-    BV.settings.update_well_pumping(well_coords=[well_1_coords, well_2_coords],
+    setting.update_well_pumping(well_coords=[well_1_coords, well_2_coords],
                                     well_fluxes=[well_1_fluxes, well_2_fluxes])
-
 
     alpha = 15 # in m
     n_factor = 2
 
     the_K0 = 5e-5*24*3600
-    BV.hydraulic.update_hk(the_K0) # 3D
+    hydraulic.update_hk(the_K0) # 3D
     Kmin_for_hk_decay = 1e-8*24*3600
-    BV.hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
+    hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
 
     # the_sy0 = 0.1/100 #
     the_sy0 = 2/100 #
-    BV.hydraulic.update_sy(the_sy0)
+    hydraulic.update_sy(the_sy0)
     Symin_for_sy_decay = 0.1/100
-    BV.hydraulic.update_sy_decay((1/alpha)/n_factor, min_value=Symin_for_sy_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
-    # BV.hydraulic.update_sy_decay(0) # 0
+    hydraulic.update_sy_decay((1/alpha)/n_factor, min_value=Symin_for_sy_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
+    # hydraulic.update_sy_decay(0) # 0
 
     the_ss0 = 1e-10
-    BV.hydraulic.update_ss(the_ss0)
+    hydraulic.update_ss(the_ss0)
     # Ssmin_for_ss_decay = 1e-10
-    # BV.hydraulic.update_ss_decay((1/alpha)/n_factor, min_value=Ssmin_for_ss_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
-    BV.hydraulic.update_ss_decay(0) # 0
+    # hydraulic.update_ss_decay((1/alpha)/n_factor, min_value=Ssmin_for_ss_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
+    hydraulic.update_ss_decay(0) # 0
 
     compt = 0
 
@@ -420,57 +320,57 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     model_name = f"{vers}_{compt}_K{the_K0/24/3600:.1e}_a{alpha:.1f}_Sy{the_sy0*100:.1f}"
     print(model_name)
 
-    BV.settings.update_model_name(model_name)
+    setting.update_model_name(model_name)
 
-    BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
+    setting.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
 
     for_calib = False
     if for_calib == False:
-            model_folder = BV.simulations_folder
+            model_folder = initializing.simulations_folder
     else:
-        model_folder = BV.calibration_folder
-    model_modflow = Modflow(BV.geographic,
+        model_folder = initializing.calibration_folder
+    model_modflow = Modflow(geographic,
                             # Workflow settings
                             model_folder=model_folder,   # self.simulations_folder
-                            model_name=BV.settings.model_name,
-                            bin_path=BV.bin_path,
+                            model_name=setting.model_name,
+                            bin_path=initializing.bin_path,
                             # Model settings
-                            box=BV.settings.box,
-                            sink_fill=BV.settings.sink_fill,
-                            sim_state=BV.settings.sim_state,
-                            dis_perlen=BV.settings.dis_perlen,
+                            box=setting.box,
+                            sink_fill=setting.sink_fill,
+                            sim_state=setting.sim_state,
+                            dis_perlen=setting.dis_perlen,
                             # Well settings
-                            well_coords=BV.settings.well_coords,
-                            well_fluxes=BV.settings.well_fluxes,
+                            well_coords=setting.well_coords,
+                            well_fluxes=setting.well_fluxes,
                             # Output settings
-                            plot_cross=BV.settings.plot_cross,
-                            cross_ylim=BV.settings.cross_ylim,
-                            check_grid=BV.settings.check_grid,
+                            plot_cross=setting.plot_cross,
+                            cross_ylim=setting.cross_ylim,
+                            check_grid=setting.check_grid,
                             # Boundary settings
-                            sea_level=BV.oceanic.MSL,
-                            bc_left=BV.settings.bc_left,
-                            bc_right=BV.settings.bc_right,
+                            sea_level=oceanic.MSL,
+                            bc_left=setting.bc_left,
+                            bc_right=setting.bc_right,
                             # Climatic settings
-                            recharge=BV.climatic.recharge,
-                            runoff=BV.climatic.runoff,
-                            first_clim=BV.climatic.first_clim,
+                            recharge=climatic.recharge,
+                            runoff=climatic.runoff,
+                            first_clim=climatic.first_clim,
                             # Hydraulic settings
-                            bottom=BV.hydraulic.bottom,
-                            thick=BV.hydraulic.thick,
-                            nlay=BV.hydraulic.nlay,
-                            lay_decay=BV.hydraulic.lay_decay,
-                            hk_value=BV.hydraulic.hk_value,
-                            sy_value=BV.hydraulic.sy_value,
-                            ss_value=BV.hydraulic.ss_value,
-                            hk_decay=BV.hydraulic.hk_decay,
-                            sy_decay=BV.hydraulic.sy_decay,
-                            ss_decay=BV.hydraulic.ss_decay,
-                            verti_hk=BV.hydraulic.verti_hk,
-                            verti_sy=BV.hydraulic.verti_sy,
-                            verti_ss=BV.hydraulic.verti_ss,
-                            cond_drain=BV.hydraulic.cond_drain,
-                            vka=BV.hydraulic.vka,
-                            exdp=BV.hydraulic.exdp)
+                            bottom=hydraulic.bottom,
+                            thick=hydraulic.thick,
+                            nlay=hydraulic.nlay,
+                            lay_decay=hydraulic.lay_decay,
+                            hk_value=hydraulic.hk_value,
+                            sy_value=hydraulic.sy_value,
+                            ss_value=hydraulic.ss_value,
+                            hk_decay=hydraulic.hk_decay,
+                            sy_decay=hydraulic.sy_decay,
+                            ss_decay=hydraulic.ss_decay,
+                            verti_hk=hydraulic.verti_hk,
+                            verti_sy=hydraulic.verti_sy,
+                            verti_ss=hydraulic.verti_ss,
+                            cond_drain=hydraulic.cond_drain,
+                            vka=hydraulic.vka,
+                            exdp=hydraulic.exdp)
     model_modflow.pre_processing() # verbose
 
     list_model_name = []
@@ -481,7 +381,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     dictio = {}
     dictio['list_model_name'] = list_model_name
     dictio['list_model_modflow'] = list_model_modflow
-    pickle_file = os.path.join(BV.simulations_folder, model_name, 'results_'+model_name+'.pkl')
+    pickle_file = os.path.join(initializing.simulations_folder, model_name, 'results_'+model_name+'.pkl')
     with open(pickle_file, 'wb') as f:
         pickle.dump(dictio, f)
 
@@ -503,26 +403,27 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             intermittency_yearly = False,
                             export_all_tif = False)
 
-    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                    model_modpath=None,
-                                                    model_mt3dms=None,
-                                                    datetime_format=True,
-                                                    subbasin_results=True,
-                                                    intermittency_weekly=False,
-                                                    intermittency_monthly = True,
-                                                    intermittency_yearly=False) # or None
+    timeseries_results = timeseries.Timeseries(geographic,              
+                                            model_modflow=model_modflow,
+                                            model_modpath=None,
+                                            model_mt3dms=None,
+                                            datetime_format=True,
+                                            subbasin_results=True,
+                                            intermittency_weekly=False,
+                                            intermittency_monthly = True,
+                                            intermittency_yearly=False) # or None
 
-    iter_results = MatchingStreams(BV, iteration_label=model_name, from_calib=False)
+    iter_results = MatchingStreams(geographic, hydrography, initializing, iteration_label=model_name, from_calib=False)
 
-    # obs_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_pt.shp'))
-    # obs_to_simf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_ptf.shp'))
-    # obsf_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obsflow.shp'))
-    obsf_to_simf = gpd.read_file(os.path.join(BV.simulations_folder, model_name, '_matchingstreams','obsflowf.shp'))
+    # obs_to_sim = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','obs_pt.shp'))
+    # obs_to_simf = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','obs_ptf.shp'))
+    # obsf_to_sim = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','obsflow.shp'))
+    obsf_to_simf = gpd.read_file(os.path.join(initializing.simulations_folder, model_name, '_matchingstreams','obsflowf.shp'))
 
-    # sim_to_obs = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','sim_pt.shp'))
-    # sim_to_obsf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','sim_ptf.shp'))
-    # simf_to_obs = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','simflow.shp'))
-    simf_to_obsf = gpd.read_file(os.path.join(BV.simulations_folder, model_name, '_matchingstreams','simflowf.shp'))
+    # sim_to_obs = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','sim_pt.shp'))
+    # sim_to_obsf = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','sim_ptf.shp'))
+    # simf_to_obs = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','simflow.shp'))
+    simf_to_obsf = gpd.read_file(os.path.join(initializing.simulations_folder, model_name, '_matchingstreams','simflowf.shp'))
 
     # mean_obs_to_sim = np.nanmean(obs_to_sim[obs_to_sim['VALUE1']>=0]['VALUE1'])
     # mean_obs_to_simf = np.nanmean(obs_to_simf[obs_to_simf['VALUE1']>=0]['VALUE1'])
@@ -547,7 +448,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
         watertable_elevation = np.load(os.path.join(simulations_folder, model_name, '_postprocess', 'watertable_elevation.npy'), allow_pickle=True).item()
 
-        dem_data = imageio.imread(BV.geographic.watershed_dem)
+        dem_data = imageio.imread(geographic.watershed_dem)
         wt_data = watertable_elevation[2]
 
         xvalues = np.linspace(-1,1,dem_data.shape[1])
@@ -587,7 +488,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     #%% PLOT STREAMFLOW
 
-    area = int(round(BV.geographic.catch_area))
+    area = int(round(geographic.catch_area))
 
     Qobs_path = data_path / 'Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt'
     Qobs = pd.read_csv(Qobs_path, sep=';', header=None)
@@ -638,7 +539,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     #%% PLOT PIEZOMETRY
 
-    area = int(round(BV.geographic.catch_area))
+    area = int(round(geographic.catch_area))
 
     # Qobs_path = data_path + 'Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt'
     # Qobs = pd.read_csv(Qobs_path, sep=';', header=None)
@@ -694,7 +595,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     #%% B - MODPATH
 
-    list_folder = glob.glob(os.path.join(str(BV.simulations_folder), vers+'*'))
+    list_folder = glob.glob(os.path.join(str(initializing.simulations_folder), vers+'*'))
 
     model_name = list_folder[0].split(os.path.sep)[-1]
 
@@ -708,18 +609,17 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     model_modflow = list_flow_model[0]
 
     # Prepare particle tracking from seepage inside the catchment studied
-    tif_seep = os.path.join(BV.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
-    tif_seep_clip = os.path.join(BV.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
+    tif_seep = os.path.join(initializing.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
+    tif_seep_clip = os.path.join(initializing.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
     wbt.clip_raster_to_polygon(
         tif_seep,
-        os.path.join(BV.stable_folder, 'geographic', 'watershed.shp'),
+        os.path.join(initializing.stable_folder, 'geographic', 'watershed.shp'),
         tif_seep_clip,
         maintain_dimensions=True)
 
-    BV.add_settings()
-    BV.settings.update_input_particles(
+    setting.update_input_particles(
                                     # zone_partic = tif_file_clip,
-                                    # zone_partic = BV.geographic.watershed_box_buff_dem,
+                                    # zone_partic = geographic.watershed_box_buff_dem,
                                     zone_partic = tif_seep_clip,
                                     cell_div = 1, # 1
                                     zloc_div = False,  # or False, add cells at cell bottom
@@ -729,11 +629,31 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                     sel_random = None, # or int
                                     sel_slice = None, # or int
                                     )
+    
+    if for_calib == False:
+        model_folder = initializing.simulations_folder
+    else:
+        model_folder = initializing.calibration_folder
+    
+    model_modpath = Modpath(geographic,
+                                    model_modflow,
+                                    # Frame settings
+                                    model_folder = model_folder,
+                                    model_name = model_modflow.model_name,
+                                    bin_path = initializing.bin_path,
+                                    # Specific settings
+                                    zone_partic = setting.zone_partic,
+                                    cell_div = setting.cell_div,
+                                    zloc_div = setting.zloc_div,
+                                    bore_depth = setting.bore_depth,
+                                    track_dir = setting.track_dir,
+                                    sel_random = setting.sel_random,
+                                    sel_slice = setting.sel_slice)
 
-    model_modpath = BV.preprocessing_modpath(model_modflow, for_calib=False)
-    success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-
-    BV.postprocessing_modpath(model_modpath,
+    # Preprocessing Modflow
+    model_modpath.pre_processing() # verbose
+    success_model = model_modpath.processing(write_model=True, run_model=True)
+    model_modpath.post_processing(model_modpath,
                         ending_point=True,
                         starting_point=True,
                         pathlines_shp=True,
@@ -741,7 +661,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                         random_id=None, # select randomly to save (for pathlines and particles)
                         ) # None
 
-    BV.filtprocessing_modpath(model_modpath,
+    model_modpath.filt_processing(model_modpath,
                         norm_flux=True, # for forward only
                         filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
                         filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
@@ -757,7 +677,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     line = gpd.read_file(os.path.join(stable_folder, 'geographic', 'watershed.shp'))
 
-    dem_rio = rasterio.open(BV.geographic.watershed_box_buff_dem)
+    dem_rio = rasterio.open(geographic.watershed_box_buff_dem)
     dem_data = dem_rio.read(1)
     dem_data = np.ma.masked_where(dem_data < 0, dem_data)
 
@@ -795,7 +715,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     #%% PLOT 2D
 
-    visu = visualization_results.Visualization(BV, model_name)
+    visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
     if display_plots:
         visu.visual2D(object_list = [
                                     'map',
@@ -823,8 +743,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     if display_3D==True:
 
-        export_vtuvtk.VTK(BV, model_name)
-        visu = visualization_results.Visualization(BV, model_name)
+        export_vtuvtk.VTK(initializing,geographic, hydrography, model_name)
+        visu = visualization_results.Visualization(initializing,geographic, hydrography, model_name)
         if display_plots:
             visu.visual3D(interactive=True, object_list=[
                                                         'grid',
@@ -842,7 +762,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     #%% C - MT3DMS
 
-    list_folder = glob.glob(os.path.join(str(BV.simulations_folder), vers+'*'))
+    list_folder = glob.glob(os.path.join(str(initializing.simulations_folder), vers+'*'))
 
     model_name = list_folder[0].split(os.path.sep)[-1]
 
@@ -855,8 +775,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     model_modflow = list_flow_model[0]
 
-    BV.add_transport()
-
     nper = model_modflow.nper
     nlay = model_modflow.mf.nlay
     nrow = model_modflow.mf.nrow
@@ -867,7 +785,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     sconc_input = dict(islice(sconc_input.items(), 1, None))
     rate_decay = np.ones((nlay, nrow, ncol)) * (1/(2*365))
 
-    BV.transport.update_mt3dms_parameters(
+    transport.update_mt3dms_parameters(
                     spc_name='NO3',
                     sconc_init=sconc_init,          # array of (nlay, nrow, ncol)
                     sconc_input=sconc_input,         # dictionnray [time] with array of (nlay, nrow, ncol)
@@ -880,27 +798,55 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                     plot_conc=True)
 
     scenario = 's1'
-    model_mt3dms = BV.preprocessing_mt3dms(model_modflow, for_calib=False, suffix_name='_mt_'+scenario)
-    success_mt3dms = BV.processing_mt3dms(model_mt3dms, write_model=True, run_model=True, verbose=True)
+    
+    if for_calib == False:
+        model_folder = initializing.simulations_folder
+    else:
+        model_folder = initializing.calibration_folder
+    suffix_name = '_mt_'+scenario
+    model_mt3dms = Mt3dms(geographic,
+                        model_modflow,
+                        # Frame settings
+                        model_folder = model_folder,
+                        model_name = model_modflow.model_name,
+                        suffix_name = suffix_name,
+                        bin_path = initializing.bin_path,
+                        # Specific settings
+                        spc_name = transport.spc_name,
+                        sconc_init = transport.sconc_init,
+                        sconc_input = transport.sconc_input,
+                        disp_long = transport.disp_long,
+                        disp_transh = transport.disp_transh,
+                        disp_transv = transport.disp_transv,
+                        diffu_coeff = transport.diffu_coeff,
+                        react_order = transport.react_order,
+                        rate_decay = transport.rate_decay,
+                        plot_conc = transport.plot_conc,
+                            )
+    model_mt3dms.pre_processing() 
+    
+    
+    success_mt3dms = model_mt3dms.processing(write_model=True, run_model=True, verbose=True)
 
-    pp_model = BV.postprocessing_mt3dms(model_mt3dms,
+    pp_model = model_mt3dms.post_processing(model_mt3dms,
                             concentration_seepage=True,
                             mass_seepage=True,
                             mass_accumulated=True,
                             export_all_tif=True) # None
 
-    timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
-                                                    model_modpath=model_modpath,
-                                                    model_mt3dms=model_mt3dms,
-                                                    suffix_name=scenario,
-                                                    datetime_format=True,
-                                                    subbasin_results=True,
-                                                    intermittency_weekly=False,
-                                                    intermittency_monthly = True,
-                                                    residence_times=True,
-                                                    concentration_seepage=True,
-                                                    mass_accumulated=True
-                                                    ) # or None
+    timeseries_results = timeseries.Timeseries(geographic,     
+                                               model_modflow=model_modflow,
+                                                model_modpath=model_modpath,
+                                                model_mt3dms=model_mt3dms,
+                                                suffix_name=scenario,
+                                                datetime_format=True,
+                                                subbasin_results=True,
+                                                intermittency_weekly=False,
+                                                intermittency_monthly = True,
+                                                residence_times=True,
+                                                concentration_seepage=True,
+                                                mass_accumulated=True
+                                                ) # or None
 
     #%% PLOT CONCENTRATION
 
@@ -1072,8 +1018,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             )
 
             # Ajouter les limites du bassin versant
-            shp_bv = gpd.read_file(BV.geographic.watershed_shp)
-            shp_hydro = gpd.read_file(BV.hydrography.streams)
+            shp_bv = gpd.read_file(geographic.watershed_shp)
+            shp_hydro = gpd.read_file(hydrography.streams)
             shp_bv.plot(ax=ax[1], facecolor='None', lw=3, zorder=2)
             shp_hydro.plot(ax=ax[1], color='navy', lw=1, zorder=0)
 
@@ -1116,7 +1062,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','botopage2024_naizin_streams_perennial-intermittent.tif')) # river data
         watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data
         interactive = True
-        visu = visualization_results.Visualization(BV, model_name)
+        visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
         visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 
         #%% WEB ANIMATION
@@ -1215,6 +1161,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 #%% ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
-    run_example12(out_path=out_path, display_plots=True, display_3D=False)
+    run_example12(out_path=out_path, display_plots=True, display_3D=True)
 
 #%% ---- NOTES
