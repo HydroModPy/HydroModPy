@@ -133,7 +133,7 @@ class Geographic:
 
     def __init__(self,
                  config: GeographicConfig,
-                 initializing_object,
+                 initializing,
                  ):
         """
         Initialize the geographic processing pipeline.
@@ -147,8 +147,8 @@ class Geographic:
         """
         logger.info('Extracting geographic data for model area')
 
-        self.stable_folder   = initializing_object.stable_folder
-        self.out_dir_path    = initializing_object.catch_folder
+        self.stable_folder   = initializing.stable_folder
+        self.out_dir_path    = initializing.catch_folder
         self.catch_def       = config.catch_def
         self.dem_init_path   = config.dem_init_path
         self.x_outlet        = config.x_outlet
