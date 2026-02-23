@@ -8,10 +8,17 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.calibration2.core.case_orchestrator import run_calibration_case
 from hydromodpy.calibration2.core.results import CalibrationResults
-from hydromodpy.calibration2.cases.recession_brutsaert.run_calibration import (
+from hydromodpy.calibration2.cases.recession_brutsaert.case_implementation import (
+    CASE_IMPLEMENTATION as BRUTSAERT_CASE_IMPLEMENTATION,
+)
+from hydromodpy.calibration2.cases.recession_brutsaert.workflow import (
     build_noisy_coarse_sand_chronicle,
     calibrate_k_sy,
+)
+from hydromodpy.calibration2.cases.reservoir.case_implementation import (
+    CASE_IMPLEMENTATION as RESERVOIR_CASE_IMPLEMENTATION,
 )
 from hydromodpy.calibration2.cases.reservoir.workflow import (
     calibrate_reservoir_model,
@@ -257,6 +264,24 @@ def test_reservoir_workflow_random_search_smoke():
     assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
 
 
+def test_reservoir_case_orchestrator_random_search_smoke():
+    """Reservoir case implementation should run through generic case orchestrator."""
+    config = _reservoir_base_config(method="random_search")
+    calibration = run_calibration_case(
+        config_data=config,
+        case_implementation=RESERVOIR_CASE_IMPLEMENTATION,
+    )
+
+    result = calibration["result"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "random_search"
+    assert result.samples is None
+    assert result.params_best is not None
+    assert calibration["model_name"] == "one_reservoir"
+    assert calibration["chronicle"] is not None
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
 def test_brutsaert_workflow_random_search_smoke():
     """Brutsaert workflow should run end-to-end with structured calibration outputs."""
     config = _brutsaert_base_config(method="random_search")
@@ -268,6 +293,24 @@ def test_brutsaert_workflow_random_search_smoke():
     assert result.method == "random_search"
     assert result.samples is None
     assert result.params_best is not None
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
+def test_brutsaert_case_orchestrator_random_search_smoke():
+    """Brutsaert case implementation should run through generic case orchestrator."""
+    config = _brutsaert_base_config(method="random_search")
+    calibration = run_calibration_case(
+        config_data=config,
+        case_implementation=BRUTSAERT_CASE_IMPLEMENTATION,
+    )
+
+    result = calibration["result"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "random_search"
+    assert result.samples is None
+    assert result.params_best is not None
+    assert calibration["chronicle"] is not None
+    assert calibration["result_final"] is result
     assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
 
 

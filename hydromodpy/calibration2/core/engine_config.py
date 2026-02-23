@@ -20,7 +20,7 @@ import tomllib
 from typing import Any, Mapping
 import warnings
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.calibration2.core.parameters import CalibrationParameterSet
 from hydromodpy.calibration2.core.objective_function import ObjectiveFunction
@@ -78,6 +78,57 @@ class CalibrationSectionSchema(BaseModel):
         return text
 
 
+class OutputSectionSchema(BaseModel):
+    """
+    Typed schema for optional `[output]` plotting/reporting settings.
+
+    Objective-surface approximation is available only when calibrating:
+    - 1 parameter (line plot), or
+    - 2 parameters (2D colormap).
+    It is automatically disabled for 3+ parameters.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    output_dir: str = "outputs"
+    show_plot: bool = True
+    figure_name: str | None = None
+    show_objective_surface: bool = False
+    objective_surface_n_evaluations: int = 300
+    objective_surface_seed: int = 42
+
+    @field_validator("output_dir")
+    @classmethod
+    def _validate_output_dir(cls, value):
+        text = str(value).strip()
+        if not text:
+            raise ValueError("output_dir cannot be empty")
+        return text
+
+    @field_validator("figure_name")
+    @classmethod
+    def _validate_optional_figure_name(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            raise ValueError("figure_name cannot be empty when provided")
+        return text
+
+    @field_validator("objective_surface_n_evaluations")
+    @classmethod
+    def _validate_objective_surface_n_evaluations(cls, value):
+        out = int(value)
+        if out <= 0:
+            raise ValueError("objective_surface_n_evaluations must be > 0")
+        return out
+
+    @field_validator("objective_surface_seed")
+    @classmethod
+    def _validate_objective_surface_seed(cls, value):
+        return int(value)
+
+
 class CalibrationTomlSchema(BaseModel):
     """
     Top-level schema shared by calibration examples.
@@ -92,9 +143,9 @@ class CalibrationTomlSchema(BaseModel):
     calibration: CalibrationSectionSchema
     bounds: dict[str, tuple[float, float] | list[float]]
     calibration_method: dict[str, dict[str, Any]] = Field(default_factory=dict)
-    output: dict[str, Any] = Field(default_factory=dict)
+    output: OutputSectionSchema = Field(default_factory=OutputSectionSchema)
 
-    @field_validator("chronicle", "output")
+    @field_validator("chronicle")
     @classmethod
     def _validate_mapping_sections(cls, value):
         if not isinstance(value, Mapping):
@@ -123,6 +174,23 @@ class CalibrationTomlSchema(BaseModel):
     @classmethod
     def _validate_calibration_method_section(cls, value):
         return validate_calibration_method_section_or_raise(value)
+
+    @model_validator(mode="after")
+    def _normalize_output_objective_surface_by_dimension(self):
+        """
+        Disable objective-surface approximation for 3+ calibrated parameters.
+        """
+        n_params = len(self.bounds)
+        if self.output.show_objective_surface and n_params >= 3:
+            warnings.warn(
+                "output.show_objective_surface is disabled because objective "
+                "surface plotting is supported only for 1D/2D parameter spaces "
+                f"(got n_parameters={n_params}).",
+                UserWarning,
+                stacklevel=2,
+            )
+            self.output.show_objective_surface = False
+        return self
 
 
 def validate_calibration_config_data(

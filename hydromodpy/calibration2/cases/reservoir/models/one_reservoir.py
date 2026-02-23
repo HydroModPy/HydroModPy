@@ -15,6 +15,61 @@ from scipy.integrate import solve_ivp
 MODEL_NAME = "one_reservoir"
 MODEL_DISPLAY_NAME = "one-reservoir"
 PARAMETER_ORDER = ("C", "k")
+DEFAULT_SOLVER_BACKEND = "analytic"
+SUPPORTED_SOLVER_BACKENDS = ("analytic", "ode")
+
+
+def normalize_solver_backend(value):
+    """
+    Normalize and validate solver backend selector.
+
+    Supported values:
+    - ``analytic``: exact discrete update for piecewise-constant daily forcing.
+    - ``ode``: SciPy solve_ivp integration.
+    """
+    backend = str(value).strip().lower()
+    if not backend:
+        backend = DEFAULT_SOLVER_BACKEND
+    if backend not in SUPPORTED_SOLVER_BACKENDS:
+        allowed = ", ".join(SUPPORTED_SOLVER_BACKENDS)
+        raise ValueError(f"Unknown solver_backend '{value}'. Allowed: {allowed}")
+    return backend
+
+
+def _simulate_analytic_discrete(*, capacity, k, s0, qin_func, t_eval):
+    """
+    Exact discrete update with storage cap for piecewise-constant forcing.
+
+    For one interval ``[t_i, t_{i+1}]`` with constant inflow ``Qin_i``:
+        S*_{i+1} = S_i * exp(-k*dt) + Qin_i * (1 - exp(-k*dt)) / k   (k > 0)
+    then storage is clipped to ``[0, C]``.
+    """
+    t_eval = np.asarray(t_eval, dtype=float)
+    if t_eval.ndim != 1 or t_eval.size == 0:
+        raise ValueError("t_eval must be a non-empty 1D array")
+    if t_eval.size > 1 and np.any(np.diff(t_eval) <= 0.0):
+        raise ValueError("t_eval must be strictly increasing")
+
+    n_steps = int(t_eval.size)
+    storage = np.empty(n_steps, dtype=float)
+    capacity = float(capacity)
+    k = float(k)
+    storage[0] = float(np.clip(float(s0), 0.0, capacity))
+
+    for i in range(n_steps - 1):
+        dt = float(t_eval[i + 1] - t_eval[i])
+        qin = float(qin_func(float(t_eval[i])))
+
+        if k > 0.0:
+            decay = np.exp(-k * dt)
+            s_next = storage[i] * decay + qin * (1.0 - decay) / k
+        else:
+            s_next = storage[i] + qin * dt
+
+        storage[i + 1] = float(np.clip(s_next, 0.0, capacity))
+
+    qout = k * storage
+    return storage, qout
 
 
 def _require_float(config_section, key):
@@ -163,7 +218,14 @@ class ReservoirModel:
         return solution.t, storage, qout
 
 
-def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
+def simulate_outflow(
+    params,
+    initial_state,
+    forcing_func,
+    t_span,
+    t_eval,
+    solver_backend=DEFAULT_SOLVER_BACKEND,
+):
     """
     Simulate one-reservoir outflow from parameters and forcing callable.
 
@@ -179,6 +241,10 @@ def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
         Integration interval.
     t_eval : array-like
         Sampling times.
+    solver_backend : str, default="analytic"
+        Numerical backend:
+        - ``analytic``: exact discrete update for piecewise-constant forcing.
+        - ``ode``: ODE integration through SciPy `solve_ivp`.
 
     Returns
     -------
@@ -194,17 +260,29 @@ def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
     state = {str(k): float(v) for k, v in initial_state.items()}
     if "s0" not in state:
         raise ValueError("Missing initial state key 's0' for one_reservoir")
+    backend = normalize_solver_backend(solver_backend)
 
     model = ReservoirModel(
         capacity=float(params_all["C"]),
         k=float(params_all["k"]),
     )
-    _, storage, qout = model.simulate(
-        qin_func=forcing_func,
-        s0=float(state["s0"]),
-        t_span=t_span,
-        t_eval=t_eval,
-    )
+
+    if backend == "analytic":
+        storage, qout = _simulate_analytic_discrete(
+            capacity=model.C,
+            k=model.k,
+            s0=float(state["s0"]),
+            qin_func=forcing_func,
+            t_eval=t_eval,
+        )
+    else:
+        _, storage, qout = model.simulate(
+            qin_func=forcing_func,
+            s0=float(state["s0"]),
+            t_span=t_span,
+            t_eval=t_eval,
+        )
+
     return {
         "qout": qout,
         "storage": storage,

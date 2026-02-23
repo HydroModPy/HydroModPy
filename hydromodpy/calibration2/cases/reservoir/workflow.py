@@ -107,7 +107,12 @@ def _true_model_parameters(cfg):
     return dict(cfg.true_params)
 
 
-def make_reservoir_simulator(forcing_mm_day, initial_state, model_name):
+def make_reservoir_simulator(
+    forcing_mm_day,
+    initial_state,
+    model_name,
+    solver_backend="analytic",
+):
     """
     Build simulator callable compatible with generic `CalibrationEngine`.
 
@@ -119,6 +124,10 @@ def make_reservoir_simulator(forcing_mm_day, initial_state, model_name):
         Model initial state mapping.
     model_name : str
         Canonical model key in `MODEL_REGISTRY`.
+    solver_backend : str, default="analytic"
+        Numerical backend passed to model simulators:
+        - `analytic`: exact discrete update,
+        - `ode`: SciPy ODE integration.
 
     Returns
     -------
@@ -142,6 +151,7 @@ def make_reservoir_simulator(forcing_mm_day, initial_state, model_name):
             forcing_func=forcing_func,
             t_span=(0.0, forcing.size - 1.0),
             t_eval=t_eval,
+            solver_backend=solver_backend,
         )
         return np.asarray(simulation["qout"], dtype=float)
 
@@ -184,6 +194,7 @@ def calibrate_reservoir_model(chronicle, config, model_name):
         forcing_mm_day=chronicle["forcing_mm_day"],
         initial_state=chronicle["config"].initial_state,
         model_name=model_name,
+        solver_backend=getattr(chronicle["config"], "solver_backend", "analytic"),
     )
     calibration_obj = CalibrationEngine(
         observed=chronicle["q_obs_mm_day"],

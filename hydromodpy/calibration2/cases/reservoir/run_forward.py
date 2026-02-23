@@ -41,8 +41,12 @@ from hydromodpy.calibration2.cases.reservoir.forcing import (
     make_piecewise_constant_daily_qin,
     precipitation_to_inflow,
 )
-from hydromodpy.calibration2.cases.reservoir.models.one_reservoir import ReservoirModel as OneReservoirModel
-from hydromodpy.calibration2.cases.reservoir.models.two_reservoirs import TwoReservoirModel
+from hydromodpy.calibration2.cases.reservoir.models.one_reservoir import (
+    simulate_outflow as simulate_one_outflow,
+)
+from hydromodpy.calibration2.cases.reservoir.models.two_reservoirs import (
+    simulate_outflow as simulate_two_outflow,
+)
 from hydromodpy.calibration2.cases.reservoir.workflow import (
     DEFAULT_MODEL_NAME,
     MODEL_REGISTRY,
@@ -117,6 +121,20 @@ def resolve_model_name(config, model_name_override=None):
     if raw not in MODEL_REGISTRY:
         allowed_txt = ", ".join(sorted(MODEL_REGISTRY))
         raise ValueError(f"Unknown model_name '{raw}'. Allowed canonical names: {allowed_txt}")
+    return raw
+
+
+def resolve_solver_backend(model_cfg):
+    """
+    Resolve numerical backend from `[model]` section.
+
+    Supported values:
+    - ``analytic``: exact discrete update for piecewise-constant forcing.
+    - ``ode``: SciPy ODE integration.
+    """
+    raw = str(model_cfg.get("solver_backend", "analytic")).strip().lower()
+    if raw not in {"analytic", "ode"}:
+        raise ValueError("model.solver_backend must be 'analytic' or 'ode'")
     return raw
 
 
@@ -314,6 +332,7 @@ def run_hydrological_example(config, model_name_override=None):
     """
     # Step 1: resolve model and forcing configuration.
     model_name = resolve_model_name(config, model_name_override=model_name_override)
+    solver_backend = resolve_solver_backend(config["model"])
     forcing_cfg = parse_forcing_config(config["forcing"])
     # Step 2: build shared forcing chronicle.
     dates, precip_mm_day, peff_mm_day, qin_mm_day = build_hydrological_forcing(forcing_cfg)
@@ -323,13 +342,16 @@ def run_hydrological_example(config, model_name_override=None):
         # Step 3a: one-reservoir forward simulation driven by Qin(t).
         one_cfg = parse_one_reservoir_config(config["one_reservoir"])
         qin_func = make_piecewise_constant_daily_qin(qin_mm_day)
-        model = OneReservoirModel(capacity=one_cfg.capacity_mm, k=one_cfg.k_per_day)
-        _, storage_mm, qout_mm_day = model.simulate(
-            qin_func=qin_func,
-            s0=one_cfg.s0_mm,
+        simulation = simulate_one_outflow(
+            params={"C": one_cfg.capacity_mm, "k": one_cfg.k_per_day},
+            initial_state={"s0": one_cfg.s0_mm},
+            forcing_func=qin_func,
             t_span=(0.0, forcing_cfg.n_days - 1.0),
             t_eval=t_eval,
+            solver_backend=solver_backend,
         )
+        storage_mm = np.asarray(simulation["storage"], dtype=float)
+        qout_mm_day = np.asarray(simulation["qout"], dtype=float)
         fig = plot_one_reservoir_response(
             dates=dates,
             precip_mm_day=precip_mm_day,
@@ -343,14 +365,19 @@ def run_hydrological_example(config, model_name_override=None):
         # Step 3b: two-reservoir forward simulation driven by precipitation P(t).
         two_cfg = parse_two_reservoir_config(config["two_reservoir"])
         precip_func = make_piecewise_constant_daily_qin(precip_mm_day)
-        model = TwoReservoirModel(a=two_cfg.a, kq=two_cfg.kq_days, ks=two_cfg.ks_days)
-        _, sq_mm, ss_mm, qq_mm_day, qs_mm_day, q_total_mm_day = model.simulate(
-            precip_func=precip_func,
-            sq0=two_cfg.sq0_mm,
-            ss0=two_cfg.ss0_mm,
+        simulation = simulate_two_outflow(
+            params={"a": two_cfg.a, "Kq": two_cfg.kq_days, "Ks": two_cfg.ks_days},
+            initial_state={"sq0": two_cfg.sq0_mm, "ss0": two_cfg.ss0_mm},
+            forcing_func=precip_func,
             t_span=(0.0, forcing_cfg.n_days - 1.0),
             t_eval=t_eval,
+            solver_backend=solver_backend,
         )
+        sq_mm = np.asarray(simulation["sq"], dtype=float)
+        ss_mm = np.asarray(simulation["ss"], dtype=float)
+        qq_mm_day = sq_mm / float(two_cfg.kq_days)
+        qs_mm_day = ss_mm / float(two_cfg.ks_days)
+        q_total_mm_day = np.asarray(simulation["qout"], dtype=float)
         fig = plot_two_reservoir_response(
             dates=dates,
             precip_mm_day=precip_mm_day,

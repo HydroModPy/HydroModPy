@@ -4,6 +4,7 @@ End-to-end calibration example for one- and two-reservoir reference cases.
 
 Run from repository root:
     python hydromodpy/calibration2/cases/reservoir/run_calibration.py
+    python hydromodpy/calibration2/cases/reservoir/run_calibration.py --preset one_reservoir
 
 Didactic workflow
 -----------------
@@ -19,6 +20,7 @@ Didactic workflow
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import sys
 
@@ -27,17 +29,22 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.calibration2.core.engine_config import load_calibration_toml
-from hydromodpy.calibration2.cases.reservoir.workflow import (
-    calibrate_reservoir_model,
-    get_model_display_name,
-    resolve_model_name,
+from hydromodpy.calibration2.core.case_orchestrator import (
+    run_calibration_case_from_toml,
 )
+from hydromodpy.calibration2.cases.reservoir.case_implementation import (
+    CASE_IMPLEMENTATION,
+)
+from hydromodpy.calibration2.cases.reservoir.workflow import get_model_display_name
 from hydromodpy.calibration2.cases.reservoir.plotting import plot_calibration_result
-from hydromodpy.calibration2.cases.reservoir.synthetic_data import build_noisy_reservoir_chronicle
 
 
-DEFAULT_CONFIG_FILE = "config_calibration.toml"
+DEFAULT_CONFIG_FILE = "config_calibration_two_reservoir.toml"
+ONE_RESERVOIR_CONFIG_FILE = "config_calibration_one_reservoir.toml"
+CONFIG_PRESETS = {
+    "three_params": DEFAULT_CONFIG_FILE,
+    "one_reservoir": ONE_RESERVOIR_CONFIG_FILE,
+}
 
 
 def _print_calibration_summary(calibration):
@@ -77,31 +84,71 @@ def _print_calibration_summary(calibration):
     print(f"  r, alpha, beta   : {metrics['r']:.6f}, {metrics['alpha']:.6f}, {metrics['beta']:.6f}")
 
 
-def main():
+def _parse_args(argv=None):
+    """
+    Parse command-line options for calibration config selection.
+    """
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run reservoir calibration from TOML configuration. "
+            "By default uses the 3-parameter two-reservoir preset."
+        )
+    )
+    parser.add_argument(
+        "--preset",
+        choices=tuple(CONFIG_PRESETS.keys()),
+        default="three_params",
+        help=(
+            "Named configuration preset. "
+            "'three_params' (default) uses two_reservoir; "
+            "'one_reservoir' uses one_reservoir + objective surface."
+        ),
+    )
+    parser.add_argument(
+        "--config-file",
+        default=None,
+        help=(
+            "Optional explicit TOML filename or path. "
+            "If provided, it overrides --preset."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def _resolve_config_path(args):
+    """
+    Resolve selected TOML path from CLI arguments.
+    """
+    if args.config_file:
+        raw = Path(str(args.config_file))
+        if raw.is_absolute():
+            return raw
+        return (Path(__file__).resolve().parent / raw).resolve()
+    return Path(__file__).with_name(CONFIG_PRESETS[args.preset])
+
+
+def main(argv=None):
     """
     Run the complete TOML-driven reservoir calibration example.
     """
-    # Step 1: load and validate the global configuration.
-    config_path = Path(__file__).with_name(DEFAULT_CONFIG_FILE)
-    config = load_calibration_toml(config_path)
+    # Step 1: run case calibration through the generic case orchestrator.
+    args = _parse_args(argv)
+    config_path = _resolve_config_path(args)
+    print(f"Using config: {config_path}")
+    calibration = run_calibration_case_from_toml(
+        config_path=config_path,
+        case_implementation=CASE_IMPLEMENTATION,
+    )
 
-    # Step 2: resolve which reservoir structure is calibrated.
-    model_name = resolve_model_name(config)
-
-    # Step 3: build synthetic "truth" and noisy observations.
-    chronicle = build_noisy_reservoir_chronicle(config["chronicle"], model_name=model_name)
-
-    # Step 4: calibrate selected model parameters inside configured bounds.
-    calibration = calibrate_reservoir_model(chronicle, config, model_name=model_name)
-
-    # Step 5: report scalar diagnostics in terminal.
+    # Step 2: report scalar diagnostics in terminal.
     _print_calibration_summary(calibration)
 
-    # Step 6: resolve output figure settings.
-    output_cfg = config.get("output", {})
+    # Step 3: resolve output figure settings.
+    output_cfg = calibration["config"].get("output", {})
     out_subdir = str(output_cfg.get("output_dir", "outputs"))
     show_plot = bool(output_cfg.get("show_plot", True))
     out_dir = Path(__file__).resolve().parent / out_subdir
+    model_name = calibration["model_name"]
     default_name = (
         "reservoir_calibration_"
         f"{model_name}_{calibration['objective_metric']}_{calibration['method']}.png"
@@ -109,9 +156,9 @@ def main():
     figure_name = str(output_cfg.get("figure_name", default_name))
     output_png = out_dir / figure_name
 
-    # Step 7: render and save full diagnostic plot.
+    # Step 4: render and save full diagnostic plot.
     plot_calibration_result(
-        chronicle=chronicle,
+        chronicle=calibration["chronicle"],
         calibration=calibration,
         output_png=output_png,
         show_plot=show_plot,

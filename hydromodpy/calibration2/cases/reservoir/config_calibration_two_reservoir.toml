@@ -23,6 +23,10 @@ ss0_mm = 0.0
 
 error_fraction = 0.05
 error_seed = 12345
+# Numerical backend for direct model simulation:
+# - "analytic": exact discrete update (default, faster)
+# - "ode": scipy solve_ivp integration
+solver_backend = "analytic"
 
 [calibration]
 # Model choice: "one_reservoir" or "two_reservoir"
@@ -106,5 +110,13 @@ seed = 42
 [output]
 output_dir = "outputs"
 show_plot = true
+# Optional objective-cost surface panel (available only for 1D/2D calibrated
+# parameter spaces). For 3+ parameters this option is auto-disabled by schema
+# validation.
+show_objective_surface = false
+# Number of additional direct model evaluations used to build this surface.
+objective_surface_n_evaluations = 300
+# RNG seed for objective-surface sampling.
+objective_surface_seed = 42
 # Optional fixed figure name:
 # figure_name = "reservoir_calibration.png"

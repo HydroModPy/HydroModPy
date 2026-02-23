@@ -11,7 +11,7 @@ p = 0.346
 n_points = 50
 log_spacing = true
 t_min_days = 0.1
-error_fraction = 0.15
+error_fraction = 0.05
 random_seed = 12345
 
 [calibration]
@@ -20,7 +20,7 @@ random_seed = 12345
 objective_metric = "rmse"
 # Global method: "grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", or "da_mh_gp"
 # This selects the optimization/sampling algorithm used by CalibrationEngine.
-global_method = "simplex"
+global_method = "da_mh_gp"
 
 [bounds]
 # Parameter bounds used during calibration.
@@ -72,7 +72,7 @@ burn_in = 800
 thin = 4
 # Per-parameter options can be given as explicit mappings {K=..., Sy=...}.
 # Random-walk proposal scales in each parameter unit.
-proposal_scale = {K = 2.0e-5, Sy = 0.01}
+proposal_scale = {K = 1.6e-4, Sy = 0.08}
 # RMSE likelihood noise scale. Smaller values make posterior sharper.
 sigma_noise = 0.01
 # Independent Normal prior mean for each calibrated parameter.
@@ -80,11 +80,18 @@ prior_mean = {K = 2.0e-4, Sy = 0.28}
 # Independent Normal prior standard deviation for each parameter.
 prior_std = {K = 2.0e-4, Sy = 0.06}
 # Retrain GP surrogate every N newly accepted expensive evaluations.
-retrain_interval = 20
+retrain_interval = 100
 
 [output]
 output_dir = "outputs"
 # Keep `true` to inspect figures interactively (blocking display).
 show_plot = true
+# Optional objective-cost surface panel (1D/2D only).
+show_objective_surface = true
+# Number of additional direct model evaluations used to approximate the
+# objective surface drawn in the figure.
+objective_surface_n_evaluations = 300
+# RNG seed for objective-surface sampling.
+objective_surface_seed = 42
 # Optional fixed figure name. If omitted, a name based on metric/method is used.
 # figure_name = "coarse_sand_calibration.png"

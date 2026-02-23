@@ -14,8 +14,16 @@ This folder provides an analytical groundwater-recession case used as:
   - forward synthetic coarse-sand example
 - `run_metrics.py`
   - metric illustration (`NSE`, `NSElog`, `KGE`)
+- `workflow.py`
+  - shared Brutsaert calibration logic:
+    - chronicle generation
+    - simulator adapter
+    - calibration orchestration
+- `case_implementation.py`
+  - Brutsaert case implementation inheriting the abstract case interface
+  - consumed by `hydromodpy/calibration2/core/case_orchestrator.py`
 - `run_calibration.py`
-  - end-to-end `K`-`Sy` calibration
+  - end-to-end `K`-`Sy` calibration orchestrated by generic `case_orchestrator`
 - `config_calibration.toml`
   - calibration and output configuration
 
@@ -49,6 +57,38 @@ If one of `A` or `L` is missing, geometric closure is used:
 - `L = 1.4 * sqrt(A)`
 - `A = (L / 1.4)^2`
 
+## Forward Performance (Indicative)
+
+Measured on this development machine using direct simulator calls only
+(`make_baseflow_simulator(...)(params)`), without calibration/plotting:
+- warm-up: 10 calls
+- benchmark: 4000 to 5000 calls
+
+Reference parameterization:
+- `Q0 = 0.35`
+- `K = 2.0e-4`
+- `Sy = 0.28`
+- `solution = "boussinesq"`
+- `A = 1.2e6`
+- `ag = 0.7`
+- `p = 0.346`
+- `log_spacing = true`
+
+Timing:
+- `n_points = 50`
+  - median: `~0.0049 ms`
+  - mean: `~0.0060 ms`
+  - p95: `~0.0097 ms`
+- `n_points = 365`
+  - median: `~0.0097 ms`
+  - mean: `~0.0122 ms`
+  - p95: `~0.0161 ms`
+
+Notes:
+- these values are hardware/Python dependent;
+- Brutsaert forward equations are analytical and extremely cheap, so calibration
+  runtime is dominated by repeated evaluations and algorithm overhead.
+
 ## Calibration Architecture
 
 This case reuses shared modules from `hydromodpy/calibration2/`:
@@ -58,8 +98,8 @@ This case reuses shared modules from `hydromodpy/calibration2/`:
 - `core/methods/da_mh_gp.py`
 - `core/objective_function.py`
 
-The Brutsaert-specific simulator adapter remains in
-`run_calibration.py`.
+The Brutsaert-specific simulator adapter lives in `workflow.py` and is called
+through `case_implementation.py` when using the generic orchestrator.
 
 Supported methods are the same as other cases:
 - `grid_search`
@@ -99,6 +139,15 @@ Typical outputs include:
 - synthetic profile plot/CSV,
 - metrics illustration figure,
 - calibration summary figure.
+
+Optional objective-surface panel (in `config_calibration.toml`, `[output]`):
+- `show_objective_surface = true|false`
+- `objective_surface_n_evaluations = <int>`
+- `objective_surface_seed = <int>`
+
+When enabled and the calibrated space is 1D/2D, the calibration figure includes
+an approximated objective-cost map built from additional direct model
+evaluations.
 
 ## References
 

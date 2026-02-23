@@ -61,6 +61,43 @@ def test_validate_calibration_config_data_rejects_unknown_calibration_key():
         validate_calibration_config_data(config)
 
 
+def test_validate_calibration_config_data_rejects_unknown_output_key():
+    config = _base_config()
+    config["output"] = {"show_plot": True, "legacy_output_key": 1}
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+        validate_calibration_config_data(config)
+
+
+def test_output_objective_surface_auto_disabled_for_3plus_parameters():
+    config = _base_config()
+    config["bounds"] = {
+        "K": [1.0e-5, 1.0e-3],
+        "Sy": [0.2, 0.35],
+        "a": [0.1, 0.9],
+    }
+    config["output"] = {
+        "show_plot": False,
+        "show_objective_surface": True,
+        "objective_surface_n_evaluations": 200,
+    }
+    with pytest.warns(
+        UserWarning,
+        match="objective surface plotting is supported only for 1D/2D",
+    ):
+        validated = validate_calibration_config_data(config)
+    assert validated["output"]["show_objective_surface"] is False
+
+
+def test_output_objective_surface_n_evaluations_must_be_positive():
+    config = _base_config()
+    config["output"] = {
+        "show_objective_surface": True,
+        "objective_surface_n_evaluations": 0,
+    }
+    with pytest.raises(ValueError, match="objective_surface_n_evaluations must be > 0"):
+        validate_calibration_config_data(config)
+
+
 def test_validate_method_kwargs_rejects_legacy_alias():
     with pytest.raises(ValueError, match="Unsupported calibration method"):
         validate_method_kwargs(

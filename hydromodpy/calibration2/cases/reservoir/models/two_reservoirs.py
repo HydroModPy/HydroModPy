@@ -31,6 +31,60 @@ from scipy.integrate import solve_ivp
 MODEL_NAME = "two_reservoir"
 MODEL_DISPLAY_NAME = "two-reservoir"
 PARAMETER_ORDER = ("a", "Kq", "Ks")
+DEFAULT_SOLVER_BACKEND = "analytic"
+SUPPORTED_SOLVER_BACKENDS = ("analytic", "ode")
+
+
+def normalize_solver_backend(value):
+    """
+    Normalize and validate solver backend selector.
+
+    Supported values:
+    - ``analytic``: exact discrete update for piecewise-constant daily forcing.
+    - ``ode``: SciPy solve_ivp integration.
+    """
+    backend = str(value).strip().lower()
+    if not backend:
+        backend = DEFAULT_SOLVER_BACKEND
+    if backend not in SUPPORTED_SOLVER_BACKENDS:
+        allowed = ", ".join(SUPPORTED_SOLVER_BACKENDS)
+        raise ValueError(f"Unknown solver_backend '{value}'. Allowed: {allowed}")
+    return backend
+
+
+def _simulate_analytic_discrete(*, a, kq, ks, sq0, ss0, precip_func, t_eval):
+    """
+    Exact discrete update for piecewise-constant forcing over each time step.
+
+    For one interval ``[t_i, t_{i+1}]`` with constant precipitation ``P_i``:
+        Sq_{i+1} = Sq_i * exp(-dt/Kq) + a * P_i * Kq * (1 - exp(-dt/Kq))
+        Ss_{i+1} = Ss_i * exp(-dt/Ks) + (1-a) * P_i * Ks * (1 - exp(-dt/Ks))
+    """
+    t_eval = np.asarray(t_eval, dtype=float)
+    if t_eval.ndim != 1 or t_eval.size == 0:
+        raise ValueError("t_eval must be a non-empty 1D array")
+    if t_eval.size > 1 and np.any(np.diff(t_eval) <= 0.0):
+        raise ValueError("t_eval must be strictly increasing")
+
+    n_steps = int(t_eval.size)
+    sq = np.empty(n_steps, dtype=float)
+    ss = np.empty(n_steps, dtype=float)
+    sq[0] = max(float(sq0), 0.0)
+    ss[0] = max(float(ss0), 0.0)
+
+    for i in range(n_steps - 1):
+        dt = float(t_eval[i + 1] - t_eval[i])
+        p = max(float(precip_func(float(t_eval[i]))), 0.0)
+
+        exp_q = np.exp(-dt / float(kq))
+        exp_s = np.exp(-dt / float(ks))
+        sq[i + 1] = sq[i] * exp_q + float(a) * p * float(kq) * (1.0 - exp_q)
+        ss[i + 1] = ss[i] * exp_s + (1.0 - float(a)) * p * float(ks) * (1.0 - exp_s)
+
+    qq = sq / float(kq)
+    qs = ss / float(ks)
+    q_total = qq + qs
+    return sq, ss, qq, qs, q_total
 
 
 def _require_float(config_section, key):
@@ -176,7 +230,14 @@ class TwoReservoirModel:
         return solution.t, sq, ss, qq, qs, q_total
 
 
-def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
+def simulate_outflow(
+    params,
+    initial_state,
+    forcing_func,
+    t_span,
+    t_eval,
+    solver_backend=DEFAULT_SOLVER_BACKEND,
+):
     """
     Simulate two-reservoir total outflow from parameters and forcing callable.
 
@@ -192,6 +253,10 @@ def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
         Integration time interval.
     t_eval : array-like
         Sampling times.
+    solver_backend : str, default="analytic"
+        Numerical backend:
+        - ``analytic``: exact discrete update for piecewise-constant forcing.
+        - ``ode``: ODE integration through SciPy `solve_ivp`.
 
     Returns
     -------
@@ -207,19 +272,33 @@ def simulate_outflow(params, initial_state, forcing_func, t_span, t_eval):
     state = {str(k): float(v) for k, v in initial_state.items()}
     if "sq0" not in state or "ss0" not in state:
         raise ValueError("Missing initial state keys 'sq0'/'ss0' for two_reservoir")
+    backend = normalize_solver_backend(solver_backend)
 
     model = TwoReservoirModel(
         a=float(params_all["a"]),
         kq=float(params_all["Kq"]),
         ks=float(params_all["Ks"]),
     )
-    _, sq, ss, _, _, q_total = model.simulate(
-        precip_func=forcing_func,
-        sq0=float(state["sq0"]),
-        ss0=float(state["ss0"]),
-        t_span=t_span,
-        t_eval=t_eval,
-    )
+
+    if backend == "analytic":
+        sq, ss, _, _, q_total = _simulate_analytic_discrete(
+            a=model.a,
+            kq=model.Kq,
+            ks=model.Ks,
+            sq0=float(state["sq0"]),
+            ss0=float(state["ss0"]),
+            precip_func=forcing_func,
+            t_eval=t_eval,
+        )
+    else:
+        _, sq, ss, _, _, q_total = model.simulate(
+            precip_func=forcing_func,
+            sq0=float(state["sq0"]),
+            ss0=float(state["ss0"]),
+            t_span=t_span,
+            t_eval=t_eval,
+        )
+
     return {
         "qout": q_total,
         "sq": sq,

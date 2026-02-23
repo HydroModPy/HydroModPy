@@ -11,11 +11,15 @@ import matplotlib.pyplot as plt
 from hydromodpy.calibration2.analysis.diagnostics import (
     build_calibration_result_view,
 )
+from hydromodpy.calibration2.analysis.objective_surface import (
+    build_objective_surface_approximation,
+)
 from hydromodpy.calibration2.analysis.plotting import (
     apply_parameter_axis_scales,
     build_calibration_performance_lines,
     build_parameter_summary_lines,
     build_posterior_summary_lines,
+    plot_objective_surface,
 )
 from hydromodpy.calibration2.core.results import CalibrationResults
 
@@ -142,3 +146,79 @@ def test_build_calibration_result_view_reads_elapsed_time_from_metadata():
         parameter_names=("a", "Kq"),
     )
     assert view["calibration_time_seconds"] == 1.234
+
+
+class _DummyEngine:
+    """Small deterministic cost oracle for objective-surface tests."""
+
+    @staticmethod
+    def cost(vector):
+        x = np.asarray(vector, dtype=float).ravel()
+        if x.size == 1:
+            return float((x[0] - 0.4) ** 2)
+        if x.size == 2:
+            return float((x[0] - 0.3) ** 2 + 4.0 * (x[1] - 0.7) ** 2)
+        return float(np.sum(x**2))
+
+
+def test_build_objective_surface_approximation_1d():
+    surface = build_objective_surface_approximation(
+        _DummyEngine(),
+        parameter_names=("x",),
+        bounds={"x": (0.0, 1.0)},
+        n_evaluations=40,
+        random_seed=1,
+    )
+    assert surface["enabled"] is True
+    assert surface["n_parameters"] == 1
+    assert int(surface["n_direct_evaluations"]) == 40
+    assert np.asarray(surface["x_grid"]).ndim == 1
+    assert np.asarray(surface["cost_grid"]).ndim == 1
+
+
+def test_build_objective_surface_approximation_2d():
+    surface = build_objective_surface_approximation(
+        _DummyEngine(),
+        parameter_names=("x", "y"),
+        bounds={"x": (0.0, 1.0), "y": (0.0, 1.0)},
+        n_evaluations=80,
+        random_seed=1,
+    )
+    assert surface["enabled"] is True
+    assert surface["n_parameters"] == 2
+    z = np.asarray(surface["cost_grid"], dtype=float)
+    assert z.ndim == 2
+    assert z.shape[0] > 10 and z.shape[1] > 10
+
+
+def test_build_objective_surface_approximation_disabled_for_3d():
+    surface = build_objective_surface_approximation(
+        _DummyEngine(),
+        parameter_names=("x", "y", "z"),
+        bounds={"x": (0.0, 1.0), "y": (0.0, 1.0), "z": (0.0, 1.0)},
+        n_evaluations=50,
+        random_seed=1,
+    )
+    assert surface["enabled"] is False
+    assert surface["disabled_reason"] == "parameter_count_ge_3"
+
+
+def test_plot_objective_surface_smoke_2d():
+    surface = build_objective_surface_approximation(
+        _DummyEngine(),
+        parameter_names=("x", "y"),
+        bounds={"x": (0.0, 1.0), "y": (0.0, 1.0)},
+        n_evaluations=40,
+        random_seed=2,
+    )
+    fig, ax = plt.subplots()
+    try:
+        plot_objective_surface(
+            ax=ax,
+            objective_surface=surface,
+            params_true={"x": 0.3, "y": 0.7},
+            params_best={"x": 0.28, "y": 0.68},
+        )
+        assert "Objective surface" in ax.get_title()
+    finally:
+        plt.close(fig)

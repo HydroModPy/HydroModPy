@@ -360,3 +360,205 @@ def plot_parameter_distribution(
     ax.set_title("Parameter marginals (>2D)")
     ax.grid(True, axis="y", ls=":", alpha=0.35)
     ax.legend(loc="best")
+
+
+def plot_objective_surface(
+    ax,
+    objective_surface,
+    *,
+    params_true=None,
+    params_best=None,
+    solution_points=None,
+    solution_label="Solution states",
+    cmap="inferno",
+):
+    """
+    Plot approximated objective surface in 1D or 2D.
+
+    `objective_surface` is expected to be produced by
+    `analysis.objective_surface.build_objective_surface_approximation(...)`.
+    """
+    payload = {} if objective_surface is None else dict(objective_surface)
+    if not bool(payload.get("enabled", False)):
+        reason = str(payload.get("disabled_reason", "disabled"))
+        ax.set_title("Objective surface")
+        ax.text(
+            0.5,
+            0.5,
+            f"Unavailable ({reason})",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        return
+
+    names = tuple(payload.get("parameter_names", ()))
+    n_dim = int(payload.get("n_parameters", len(names)))
+    sample_points = np.asarray(payload.get("sample_points", np.empty((0, n_dim))), dtype=float)
+    sample_costs = np.asarray(payload.get("sample_costs", np.empty(0)), dtype=float)
+    n_direct = int(payload.get("n_direct_evaluations", sample_points.shape[0]))
+    solution_arr = np.asarray(solution_points, dtype=float)
+    has_solution_points = (
+        solution_arr.ndim == 2
+        and solution_arr.shape[0] > 0
+        and solution_arr.shape[1] == n_dim
+    )
+
+    if n_dim == 1 and sample_points.ndim == 2 and sample_points.shape[1] == 1:
+        x_grid = np.asarray(payload.get("x_grid", np.empty(0)), dtype=float).ravel()
+        cost_grid = np.asarray(payload.get("cost_grid", np.empty(0)), dtype=float).ravel()
+        if has_solution_points:
+            x_sol = solution_arr[:, 0]
+            if x_grid.size > 1 and cost_grid.size == x_grid.size:
+                y_sol = np.interp(x_sol, x_grid, cost_grid)
+            else:
+                y_sol = np.full_like(x_sol, np.nan, dtype=float)
+            ax.scatter(
+                x_sol,
+                y_sol,
+                s=18,
+                color="white",
+                edgecolors="black",
+                linewidths=0.35,
+                alpha=0.60,
+                label=str(solution_label),
+                zorder=2,
+            )
+        else:
+            x_samples = sample_points[:, 0]
+            ax.scatter(
+                x_samples,
+                sample_costs,
+                s=18,
+                color="tab:gray",
+                alpha=0.55,
+                label="Direct evaluations",
+                zorder=2,
+            )
+        if x_grid.size > 0 and cost_grid.size == x_grid.size:
+            ax.plot(
+                x_grid,
+                cost_grid,
+                color="tab:green",
+                lw=1.8,
+                label="Interpolated objective",
+                zorder=3,
+            )
+
+        name = names[0] if names else "param"
+        if params_true is not None and name in params_true:
+            ax.axvline(float(params_true[name]), color="tab:blue", lw=1.5, label="True")
+        if params_best is not None and name in params_best:
+            ax.axvline(float(params_best[name]), color="tab:red", lw=1.5, ls="--", label="Best/MAP")
+
+        ax.set_xlabel(name)
+        ax.set_ylabel("Objective cost")
+        ax.set_title(f"Objective surface (1D, n_direct={n_direct})")
+        if x_grid.size > 1:
+            ax.set_xlim(float(np.min(x_grid)), float(np.max(x_grid)))
+        ax.grid(True, ls=":", alpha=0.35)
+        apply_parameter_axis_scales(
+            ax=ax,
+            sample_source=solution_arr if has_solution_points else sample_points,
+            parameter_names=(name,),
+            params_true=params_true,
+            params_best=params_best,
+        )
+        ax.legend(loc="best")
+        return
+
+    if n_dim == 2 and sample_points.ndim == 2 and sample_points.shape[1] == 2:
+        x_grid = np.asarray(payload.get("x_grid", np.empty((0, 0))), dtype=float)
+        y_grid = np.asarray(payload.get("y_grid", np.empty((0, 0))), dtype=float)
+        z_grid = np.asarray(payload.get("cost_grid", np.empty((0, 0))), dtype=float)
+        if x_grid.shape == y_grid.shape == z_grid.shape and x_grid.size > 0:
+            mesh = ax.contourf(
+                x_grid,
+                y_grid,
+                z_grid,
+                levels=18,
+                cmap=str(cmap),
+                alpha=0.85,
+            )
+            ax.figure.colorbar(mesh, ax=ax, fraction=0.046, pad=0.04, label="Objective cost")
+
+        if has_solution_points:
+            points, counts = unique_rows_with_counts(solution_arr, decimals=8)
+            if points.shape[0] > 0:
+                size_scale = (
+                    18.0
+                    if counts.size == 0
+                    else 14.0 + 60.0 * (counts / np.max(counts)) ** 0.7
+                )
+                ax.scatter(
+                    points[:, 0],
+                    points[:, 1],
+                    s=size_scale,
+                    color="white",
+                    edgecolors="black",
+                    linewidths=0.35,
+                    alpha=0.60,
+                    label=str(solution_label),
+                    zorder=3,
+                )
+        else:
+            ax.scatter(
+                sample_points[:, 0],
+                sample_points[:, 1],
+                s=12,
+                color="white",
+                edgecolors="black",
+                linewidths=0.35,
+                alpha=0.55,
+                label="Direct evaluations",
+                zorder=3,
+            )
+        if params_true is not None and all(name in params_true for name in names):
+            ax.scatter(
+                [float(params_true[names[0]])],
+                [float(params_true[names[1]])],
+                s=75,
+                facecolors="none",
+                edgecolors="tab:blue",
+                linewidths=1.6,
+                label="True",
+                zorder=4,
+            )
+        if params_best is not None and all(name in params_best for name in names):
+            ax.scatter(
+                [float(params_best[names[0]])],
+                [float(params_best[names[1]])],
+                s=75,
+                color="tab:red",
+                marker="x",
+                linewidths=1.8,
+                label="Best/MAP",
+                zorder=4,
+            )
+
+        ax.set_xlabel(names[0])
+        ax.set_ylabel(names[1])
+        ax.set_title(f"Objective surface (2D, n_direct={n_direct})")
+        if x_grid.size > 0 and y_grid.size > 0:
+            ax.set_xlim(float(np.nanmin(x_grid)), float(np.nanmax(x_grid)))
+            ax.set_ylim(float(np.nanmin(y_grid)), float(np.nanmax(y_grid)))
+        ax.grid(True, ls=":", alpha=0.30)
+        apply_parameter_axis_scales(
+            ax=ax,
+            sample_source=solution_arr if has_solution_points else sample_points,
+            parameter_names=names,
+            params_true=params_true,
+            params_best=params_best,
+        )
+        ax.legend(loc="best")
+        return
+
+    ax.set_title("Objective surface")
+    ax.text(
+        0.5,
+        0.5,
+        "Invalid objective surface payload",
+        ha="center",
+        va="center",
+        transform=ax.transAxes,
+    )

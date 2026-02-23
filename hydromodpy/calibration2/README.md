@@ -15,6 +15,8 @@ hydromodpy/calibration2/
 |   |-- engine_config.py
 |   |-- methods_config.py
 |   |-- methods_dispatcher.py
+|   |-- case_interface.py
+|   |-- case_orchestrator.py
 |   `-- methods/
 |       |-- grid_search.py
 |       |-- random_search.py
@@ -25,10 +27,28 @@ hydromodpy/calibration2/
 |-- analysis/
 |   |-- diagnostics.py
 |   `-- plotting.py
+|-- devkit/
+|   |-- new_case.py
+|   |-- check_case.py
+|   |-- doctor.py
+|   |-- config_reference.py
+|   `-- templates/
+|       `-- case/
+|           |-- __init__.py.tmpl
+|           |-- README.md.tmpl
+|           |-- case_config.py.tmpl
+|           |-- workflow.py.tmpl
+|           |-- case_implementation.py.tmpl
+|           |-- run_calibration.py.tmpl
+|           `-- config_calibration.toml.tmpl
+|-- docs/
+|   |-- case_cookbook.md
+|   `-- config_reference.md
 |-- cases/
 |   |-- reservoir/
 |   |   |-- run_forward.py
 |   |   |-- run_calibration.py
+|   |   |-- case_implementation.py
 |   |   |-- workflow.py
 |   |   |-- synthetic_data.py
 |   |   |-- plotting.py
@@ -37,17 +57,20 @@ hydromodpy/calibration2/
 |   |       |-- one_reservoir.py
 |   |       `-- two_reservoirs.py
 |   `-- recession_brutsaert/
-|       |-- run_forward.py
+|       |-- run_profile.py
+|       |-- run_metrics.py
 |       |-- run_calibration.py
+|       |-- case_implementation.py
 |       |-- workflow.py
 |       `-- case_config.py
 `-- uml/
-    |-- calibration2_calibration_activity.wsd
-    |-- calibration2_calibration_sequence.wsd
-    |-- calibration2_reservoir_sequence.wsd
-    |-- calibration2_workflow.wsd
-    |-- calibration2_core_classes_config.wsd
-    `-- calibration2_core_classes_main.wsd
+    |-- calibration_activity.wsd
+    |-- calibration_sequence.wsd
+    |-- reservoir_sequence.wsd
+    |-- core_classes_config.wsd
+    |-- core_classes_main.wsd
+    |-- case_core_structure.wsd
+    `-- devkit_sequence.wsd
 ```
 
 ## Structure (What Goes Where)
@@ -55,6 +78,8 @@ hydromodpy/calibration2/
 - `core/`: generic calibration engine, parameter handling, method dispatch, and canonical result objects.
 - `core/methods/`: one file per calibration algorithm.
 - `analysis/`: shared diagnostics and plotting helpers reusable across cases.
+- `devkit/`: onboarding and maintenance helpers (new case scaffold, checks, doctor report, config-reference generation).
+- `docs/`: onboarding cookbook and generated schema reference.
 - `cases/`: runnable scientific examples with case-specific data generation and workflows.
 - `cases/reservoir/models/`: hydrological model equations and parameter order per reservoir variant.
 - `uml/`: PlantUML `.wsd` diagrams documenting architecture and execution flows.
@@ -121,11 +146,31 @@ What you get from `CalibrationResults`:
 
 Use this for reproducible runs in scripts/cases:
 - define `[chronicle]`, `[calibration]`, `[bounds]`, and `[calibration_method.<method>]`;
-- load and validate with `load_calibration_toml(...)`;
-- resolve engine-ready settings with `resolve_calibration_settings(...)`;
-- run `CalibrationEngine.calibrate(...)`.
+- optional `[output]` controls figures (including objective-surface panel);
+- implement one case class inheriting `AbstractCalibrationCase`;
+- execute through `run_calibration_case_from_toml(...)` in
+  `core/case_orchestrator.py`.
 
 This is the pattern used in `cases/reservoir/` and `cases/recession_brutsaert/`.
+
+### Option C: Devkit Helpers (No CLI)
+
+Use these helpers from Python to speed up onboarding:
+
+```python
+from hydromodpy.calibration2.devkit import (
+    scaffold_case,
+    check_case,
+    run_doctor,
+    format_doctor_report,
+    write_config_reference_markdown,
+)
+
+scaffold_case("my_new_case")
+print(check_case("my_new_case"))
+print(format_doctor_report(run_doctor()))
+write_config_reference_markdown()
+```
 
 ## Calibration Convention
 
@@ -138,6 +183,15 @@ This is the pattern used in `cases/reservoir/` and `cases/recession_brutsaert/`.
   methods.
 - Per-parameter method settings can be passed as explicit mappings, e.g.
   `proposal_scale = {a=0.05, Kq=0.5, Ks=5.0}`.
+- Optional objective-surface plotting:
+  - `output.show_objective_surface`
+  - `output.objective_surface_n_evaluations`
+  - auto-disabled by schema when calibrated parameter count is >= 3.
+  - sampling/interpolation defaults:
+    - 1D: regular sampling + GP interpolation (linear fallback),
+    - 2D: Sobol sampling + GP interpolation (IDW fallback),
+    - log-space sampling is auto-enabled per parameter when bounds span
+      multiple orders of magnitude.
 
 ## Available Methods
 
@@ -158,14 +212,21 @@ Minimal checklist:
 2. Implement your forward model wrapper:
    `simulator(params_dict) -> simulated_series` with output shape matching `observed`.
 3. Add case configuration validation in `case_config.py` (Pydantic model).
-4. Add a `workflow.py` that:
+4. Add a `case_implementation.py` class inheriting `AbstractCalibrationCase`
+   with:
+   - `validate_case_config(...)`
+   - `build_case(...)` returning `CalibrationCaseContext`
+   - optional `build_case_outputs(...)`
+5. Add a `workflow.py` that:
    - builds the simulator adapter,
-   - calls `resolve_calibration_settings(...)`,
-   - instantiates `CalibrationEngine`,
-   - returns a structured payload (`result`, diagnostics, calibrated series).
-5. Add a short `run_calibration.py` script that only orchestrates:
-   config loading, chronicle/data building, calibration, summary, and plotting.
-6. Add one `README.md` and one `config_calibration.toml` in the case folder.
+   - computes case-specific diagnostics and plotting payloads.
+6. Add a short `run_calibration.py` script that only orchestrates:
+   config loading, `run_calibration_case_from_toml(...)`, summary, and plotting.
+7. Add one `README.md` and at least one `config_calibration*.toml` file in the case folder.
+
+Shortcut:
+- `scaffold_case("<your_case>")` auto-generates this skeleton from templates.
+- `check_case("<your_case>")` validates required files + case contract.
 
 What usually stays unchanged:
 - `core/engine.py`, `core/parameters.py`, `core/results.py`, `core/objective_function.py`.
@@ -181,11 +242,17 @@ When you need a new calibration algorithm:
 - `hydromodpy/calibration2/cases/reservoir/README.md`
 - `hydromodpy/calibration2/cases/recession_brutsaert/README.md`
 
+## Onboarding Docs
+
+- Case cookbook: `hydromodpy/calibration2/docs/case_cookbook.md`
+- Config reference: `hydromodpy/calibration2/docs/config_reference.md`
+
 ## UML
 
-- Calibration sequence (`.wsd`): `hydromodpy/calibration2/uml/calibration2_calibration_sequence.wsd`
-- Calibration activity (`.wsd`): `hydromodpy/calibration2/uml/calibration2_calibration_activity.wsd`
-- Reservoir case sequence (`.wsd`): `hydromodpy/calibration2/uml/calibration2_reservoir_sequence.wsd`
-- Sequence diagram (`.wsd`): `hydromodpy/calibration2/uml/calibration2_workflow.wsd`
-- Class diagram - config (+ key module functions) (`.wsd`): `hydromodpy/calibration2/uml/calibration2_core_classes_config.wsd`
-- Class diagram - main runtime (+ key module functions) (`.wsd`): `hydromodpy/calibration2/uml/calibration2_core_classes_main.wsd`
+- Calibration sequence (`.wsd`): `hydromodpy/calibration2/uml/calibration_sequence.wsd`
+- Calibration activity (`.wsd`): `hydromodpy/calibration2/uml/calibration_activity.wsd`
+- Reservoir case sequence (`.wsd`): `hydromodpy/calibration2/uml/reservoir_sequence.wsd`
+- Class diagram - config (+ key module functions) (`.wsd`): `hydromodpy/calibration2/uml/core_classes_config.wsd`
+- Class diagram - main runtime (+ key module functions) (`.wsd`): `hydromodpy/calibration2/uml/core_classes_main.wsd`
+- Class diagram - case core contract/orchestration (`.wsd`): `hydromodpy/calibration2/uml/case_core_structure.wsd`
+- Sequence diagram - devkit onboarding flow (`.wsd`): `hydromodpy/calibration2/uml/devkit_sequence.wsd`

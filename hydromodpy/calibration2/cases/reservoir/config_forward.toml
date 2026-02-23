@@ -13,6 +13,10 @@ losses_months = [4, 5, 6, 7, 8, 9]
 # Model choice: "one_reservoir" or "two_reservoir"
 # The selected model controls which parameter section below is used.
 model_name = "two_reservoir"
+# Numerical backend:
+# - "analytic": exact discrete update (default, faster)
+# - "ode": scipy solve_ivp integration
+solver_backend = "analytic"
 
 [one_reservoir]
 # Parameters used only when `model_name = "one_reservoir"`.
