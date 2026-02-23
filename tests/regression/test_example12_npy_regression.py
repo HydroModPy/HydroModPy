@@ -43,6 +43,7 @@ MODPATH_SNAPSHOT_FILES = [
 
 @pytest.mark.regression
 @pytest.mark.slow
+@pytest.mark.coverage
 def test_example12_regression_on_npy_outputs(tmp_path, update_goldens):
     """Run example12, then compare (or refresh) its golden signatures."""
     assert_required_executables()
