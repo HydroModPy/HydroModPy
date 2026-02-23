@@ -58,7 +58,7 @@ def run_hydromodpy(watershed_name='Test1',
                    ):
 
     flow = Flow()
-    flow.add_parameter(Parameter(id='K', value=K*24*3600, description='Hydraulic conductivity', units='m/j', field_type='homogeneous'))
+    flow.add_parameter(Parameter(id='K', value=K*24*3600, description='Hydraulic conductivity', units='m/j', field_type='homogeneous',link_data=[]))
     flow.add_parameter(Parameter(id='Sy', value=Sy, description='Specific yield', units='-', field_type='homogeneous'))
     flow.add_parameter(Parameter(id='Ss', value=Ss, description='Specific storage', units='-', field_type='homogeneous'))
     flow.add_sink_source(SinkSource(id='R', value=R/1000/365, description='Recharge rate', units='m/j'))

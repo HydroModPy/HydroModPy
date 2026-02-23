@@ -78,6 +78,8 @@ class Initializing:
 
         self.figure_folder = self.stable_folder / '_figures'
         toolbox.create_folder(self.figure_folder)
+        
+        self.bin_path = os.path.join(os.path.dirname(df), 'bin')
 
 #%% FUNCTIONS
 
