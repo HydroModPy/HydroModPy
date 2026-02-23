@@ -49,7 +49,7 @@ except:
     pass
 
 from hydromodpy import watershed_root
-from hydromodpy.watershed import initializing, _;;;;;;;;;;;;;;;;;;;;;
+from hydromodpy.watershed import initializing, geographic
 from hydromodpy.watershed.initializing_config import InitializingConfig
 from hydromodpy.watershed.geographic_config import GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results
