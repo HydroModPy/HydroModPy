@@ -107,16 +107,22 @@ nbsphinx_execute = "never"
 # ---------------------------------------------------------------------------
 autodoc_pydantic_model_show_json = False
 autodoc_pydantic_model_show_config_summary = False
-autodoc_pydantic_model_show_validator_summary = True
-autodoc_pydantic_model_show_field_list = True
+autodoc_pydantic_model_show_validator_summary = False
+autodoc_pydantic_model_show_validator_members = False
+autodoc_pydantic_model_show_field_summary = False
+autodoc_pydantic_model_hide_paramlist = True
 autodoc_pydantic_model_members = True
-autodoc_pydantic_model_undoc_members = True
+autodoc_pydantic_model_undoc_members = False # Hide inherited BaseModel docstrings
 autodoc_pydantic_model_member_order = "bysource"
-autodoc_pydantic_field_show_constraints = True
+autodoc_pydantic_model_signature_prefix = "class"
+
+autodoc_pydantic_field_show_constraints = False
 autodoc_pydantic_field_show_default = True
 autodoc_pydantic_field_show_alias = False
-autodoc_pydantic_field_list_validators = True
+autodoc_pydantic_field_list_validators = False
 autodoc_pydantic_field_doc_policy = 'description'
+autodoc_pydantic_field_signature_prefix = ''
+autodoc_typehints = 'description'
 autodoc_pydantic_settings_show_config_summary = False
 autodoc_pydantic_settings_show_json = False
 
