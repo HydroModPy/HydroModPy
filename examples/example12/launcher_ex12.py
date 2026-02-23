@@ -49,10 +49,14 @@ from hydromodpy import watershed_root
 from hydromodpy.watershed import initializing, geographic
 from hydromodpy.watershed.initializing_config import InitializingConfig
 from hydromodpy.watershed.geographic_config import GeographicConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
 from hydromodpy.modeling_workflow import modflow, modpath, mt3dms, timeseries
 fontprop = toolbox.plot_params(8, 15, 18, 20)
+
+# Load configuration from config.toml (initializing and geographic)
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 
 
 
@@ -62,7 +66,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 
 CONFIG = {
     "example": "ex12",
-    "display_figures": False,  # False to avoid pop-ups
+    "display_figures": True,  # False to avoid pop-ups
     "sections": {
         "watershed": True,
         "data": True,
@@ -239,52 +243,50 @@ def select_period(df, first, last):
 
 
 def watershed(example_key="ex12"):
-    """Extract watershed for example 12"""
+    """Extract watershed for example 12 (loads config from config.toml)"""
     print("\n" + "="*70)
     print("EXAMPLE 12 - WATERSHED EXTRACTION".center(70))
     print("="*70)
 
     try:
+        # Load paths from PARAMS (for data directory reference)
         p = PARAMS[example_key]
         example_path = os.path.join(root_dir, p["base_path"])
         data_path = os.path.join(example_path, "data")
-        out_path = os.path.join(root_dir, "examples", "results")
-        dem_path = os.path.join(data_path, p["dem_filename"])
 
+        if not os.path.exists(data_path):
+            print(f"✗ Data path not found: {data_path}\n")
+            return None
+
+        print(f"\n  • Configuration loaded from: config.toml")
+        print(f"  • Data path: {data_path}")
+
+        # Convert config paths to Path objects (config.toml stores them as strings)
+        # Build full paths for out_dir and data
+        out_dir_path = Path(example_path) / cfg.initializing.out_dir_path
+
+        # Update cfg paths with proper Path objects
+        cfg.initializing.out_dir_path = out_dir_path
+        cfg.initializing.data_path = Path(data_path)
+
+        # Extract filename from dem_init_path (it may have "data/" prefix from config.toml)
+        dem_filename = Path(cfg.geographic.dem_init_path).name
+        cfg.geographic.dem_init_path = Path(data_path) / dem_filename
+
+        # Verify DEM path
+        dem_path = str(cfg.geographic.dem_init_path)
         if not os.path.exists(dem_path):
             print(f"✗ DEM not found: {dem_path}\n")
             return None
 
-        print(f"\n  • DEM: {dem_path}")
+        print(f"  • DEM: {dem_path}")
 
-        dem_coords = p["dem_coordinates"]
+        # Create Initializing object with config from config.toml
+        initializing_object = initializing.Initializing(config=cfg.initializing)
 
-        # Create InitializingConfig
-        config = InitializingConfig(
-            catch_name=p["watershed_name"],
-            out_dir_path=Path(out_path),
-            data_path=Path(data_path)
-        )
-
-        # Create Initializing object
-        initializing_object = initializing.Initializing(config)
-
-        # Create GeographicConfig
-        geo_config = GeographicConfig(
-            catch_def='from_outlet_coord',
-            dem_init_path=Path(dem_path),
-            x_outlet=dem_coords[0],
-            y_outlet=dem_coords[1],
-            snap_dist=dem_coords[2],
-            buff_area=dem_coords[3],
-            polyg_shp_path=None,
-            dem_correc_type='breach',
-            crs_project=dem_coords[4]
-        )
-
-        # Create Geographic object for watershed extraction
+        # Create Geographic object with config from config.toml
         geographic_object = geographic.Geographic(
-            config=geo_config,
+            config=cfg.geographic,
             initializing_object=initializing_object
         )
 
@@ -299,6 +301,13 @@ def watershed(example_key="ex12"):
         stable_folder = initializing_object.stable_folder
         simulations_folder = initializing_object.simulations_folder
         calibration_folder = initializing_object.calibration_folder
+        results_path = cfg.initializing.out_dir_path
+
+        # For example 12 (single model), use simulations_folder as calibration_folder
+        # This ensures MODFLOW outputs go to the correct location for MODPATH/MT3DMS
+        example_key = CONFIG["example"]
+        if MODELING_CONFIG.get(example_key, {}).get("type") == "single":
+            calibration_folder = simulations_folder
 
         # Assign calibration_folder to BV (required for modpath preprocessing)
         BV.calibration_folder = calibration_folder
@@ -310,7 +319,7 @@ def watershed(example_key="ex12"):
             'BV': BV,
             'example_key': example_key,
             'data_path': data_path,
-            'results_path': out_path,
+            'results_path': results_path,
             'stable_folder': stable_folder,
             'simulations_folder': simulations_folder,
             'calibration_folder': calibration_folder
@@ -713,17 +722,24 @@ def mt3dms_ex12(results):
         BV = results['BV']
         config = MODELING_CONFIG.get('ex12', {})
         scenario = 's1'
-        mt3dms_result = mt3dms(BV, results, scenario=scenario, for_calib=True)
+        mt3dms_result = mt3dms(BV, results, scenario=scenario, for_calib=False)
 
         results['model_mt3dms'] = mt3dms_result['model_mt3dms']
         results['success_mt3dms'] = mt3dms_result['success']
         results['BV'] = mt3dms_result['BV']
         results['scenario'] = scenario
 
-        print("  ✓ MT3DMS completed\n")
+        if results['success_mt3dms']:
+            print("  ✓ MT3DMS completed successfully\n")
+        else:
+            print("  ✗ MT3DMS failed\n")
+
         return results
     except Exception as e:
-        print(f"    ✗ MT3DMS error: {e}")
+        print(f"    ✗ MT3DMS error: {e}\n")
+        import traceback
+        traceback.print_exc()
+        results['success_mt3dms'] = False
         return results
 
 
@@ -1813,15 +1829,21 @@ def main():
     results = None
     step_counter = 1
 
+    # Initialize success flags
+    if results is None:
+        results = {'success_modflow': False, 'success_modpath': False, 'success_mt3dms': False}
+
     # STEP 1: Watershed extraction
     if sections.get("watershed"):
         print(f"[STEP {step_counter}] Executing: watershed()")
-        results = watershed(example_key)
-        step_counter += 1
-
-        if not results:
+        watershed_results = watershed(example_key)
+        if watershed_results:
+            # Merge watershed results with initialized success flags
+            results.update(watershed_results)
+        else:
             print("✗ Watershed extraction failed. Stopping.")
             return None
+        step_counter += 1
 
     # STEP 2: Data integration
     if results and sections.get("data"):
@@ -1865,10 +1887,23 @@ def main():
         print(f"\n[STEP {step_counter}] ⚠ Skipping modpath (MODFLOW failed)")
         step_counter += 1
 
+    # DEBUG: Check MT3DMS conditions
+    print(f"\n[DEBUG] Before MT3DMS:")
+    print(f"  results is not None: {results is not None}")
+    print(f"  sections.get('mt3dms'): {sections.get('mt3dms')}")
+    print(f"  results.get('success_modflow'): {results.get('success_modflow') if results else 'N/A'}")
+
     # STEP 8: MT3DMS
     if results and sections.get("mt3dms") and results.get('success_modflow'):
         print(f"\n[STEP {step_counter}] Executing: mt3dms_ex12()")
         results = mt3dms_ex12(results)
+
+        # Validate and report on MT3DMS execution
+        if results and results.get('success_mt3dms'):
+            print(f"  ✓ MT3DMS: {results.get('scenario', 'Success')}")
+        else:
+            print(f"  ✗ MT3DMS: Failed or skipped")
+
         step_counter += 1
     elif sections.get("mt3dms") and not results.get('success_modflow'):
         print(f"\n[STEP {step_counter}] ⚠ Skipping mt3dms (MODFLOW failed)")
