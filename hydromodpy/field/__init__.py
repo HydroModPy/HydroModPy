@@ -1,22 +1,31 @@
 """Field utilities (homogeneous/heterogeneous parameter handling)."""
 
-from hydromodpy.field.field import Field, FieldDiscretization
-from hydromodpy.field.field_mesh import (
+from hydromodpy.field.core import (
     BaseFieldMesh,
+    Field,
+    FieldDiscretization,
     FieldMesh,
+    FieldParam,
     MeshCell,
     MeshWithValues,
+    WeightedAverageFieldDiscretization,
+)
+from hydromodpy.field.cases.square import (
+    FieldMeshSquare,
+    FieldSquare,
     StructuredFieldMesh,
     TriangularStructuredFieldMesh,
     TriangularUnstructuredFieldMesh,
 )
-from hydromodpy.field.field_param import FieldParam
 
 __all__ = (
     "FieldParam",
     "Field",
+    "FieldSquare",
     "FieldDiscretization",
+    "WeightedAverageFieldDiscretization",
     "FieldMesh",
+    "FieldMeshSquare",
     "MeshCell",
     "MeshWithValues",
     "BaseFieldMesh",

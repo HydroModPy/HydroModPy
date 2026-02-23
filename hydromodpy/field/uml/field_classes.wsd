@@ -1,0 +1,126 @@
+@startuml
+title Field - Class Diagram (Core + Square Case)
+
+package "hydromodpy.field.core.field_mesh" {
+  class MeshCell {
+    +index: int
+    +kind: str
+    +node_indices: tuple[int, ...]
+    +vertices: np.ndarray
+    +centroid: tuple[float, float]
+  }
+
+  class MeshWithValues {
+    +mesh: BaseFieldMesh
+    +cell_values: np.ndarray
+    +label: str | None
+    +kind
+    +n_cells
+  }
+
+  abstract class BaseFieldMesh {
+    +kind
+    +shape
+    +n_nodes
+    +n_cells
+    +cells
+    +iter_cells()
+    +cell_centroids()
+    +to_cell_values(values)
+    +plot_cell_values(ax, cell_values, ...)
+    +attach_cell_values(values, label=None)
+  }
+
+  abstract class FieldMesh {
+    +from_unit_square(target_n_cells, mesh_kind="structured", seed=42)
+    +from_dict(config)
+    +from_toml(toml_path, section="mesh")
+  }
+}
+
+package "hydromodpy.field.core.field_spatial" {
+  abstract class Field {
+    +identifier: str
+    +on_mesh(mesh, **kwargs)
+    +from_dict(config)
+    +from_toml(toml_path, section="field")
+  }
+
+  abstract class FieldDiscretization {
+    +mesh: BaseFieldMesh
+    +field_id: str
+    +aggregation_name()
+    +aggregation
+    +weighted_components()
+  }
+}
+
+package "hydromodpy.field.core.field_spatial_weighted_discretization" {
+  class WeightedAverageFieldDiscretization {
+    +zone_keys: tuple[str, ...]
+    +fractions_by_zone: dict[str, np.ndarray]
+    +aggregation_name()
+    +weighted_components()
+  }
+}
+
+package "hydromodpy.field.core.field_param" {
+  class FieldParam {
+    +identifier: str
+    +kind: str
+    +value: float | None
+    +values_by_key: dict[str, float] | None
+    +field_spatial_id: str | None
+    +to_array(...)
+    +to_mesh_field(field_discretization=None, mesh=None, label=None)
+    +map_zone_ids(zone_ids)
+    +as_dict()
+    +from_dict(config)
+    +from_toml(toml_path, section="field")
+  }
+}
+
+package "hydromodpy.field.cases.square.field_mesh_square" {
+  class FieldMeshSquare {
+    +from_unit_square(target_n_cells, mesh_kind, seed)
+    +from_dict(config)
+  }
+  class StructuredFieldMesh
+  abstract class _TriangularBaseFieldMesh
+  class TriangularStructuredFieldMesh
+  class TriangularUnstructuredFieldMesh
+}
+
+package "hydromodpy.field.cases.square.field_spatial_square" {
+  class FieldSquare {
+    +line: str
+    +zone1_side: str
+    +zone1_name: str
+    +zone2_name: str
+    +zone_id(x, y)
+    +zone_display(n_plot=320)
+    +on_mesh(mesh, cell_samples_per_axis=10)
+    +from_dict(config)
+    +from_toml(toml_path, section="field")
+  }
+}
+
+BaseFieldMesh "1" *-- "0..*" MeshCell
+MeshWithValues --> BaseFieldMesh
+BaseFieldMesh --> MeshWithValues : attach_cell_values(...)
+
+FieldMesh <|.. FieldMeshSquare
+BaseFieldMesh <|-- StructuredFieldMesh
+BaseFieldMesh <|-- _TriangularBaseFieldMesh
+_TriangularBaseFieldMesh <|-- TriangularStructuredFieldMesh
+_TriangularBaseFieldMesh <|-- TriangularUnstructuredFieldMesh
+
+Field <|-- FieldSquare
+FieldDiscretization <|-- WeightedAverageFieldDiscretization
+FieldDiscretization --> BaseFieldMesh
+FieldSquare --> WeightedAverageFieldDiscretization : on_mesh(...)
+
+FieldParam ..> BaseFieldMesh : homogeneous mapping
+FieldParam ..> FieldDiscretization : heterogeneous mapping
+
+@enduml

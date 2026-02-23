@@ -1,4 +1,4 @@
-"""Unit tests for FieldMesh geometry and cell definitions."""
+"""Unit tests for square mesh geometry and cell definitions."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ import textwrap
 
 import numpy as np
 
-from hydromodpy.field.field_mesh import FieldMesh
+from hydromodpy.field.cases.square.field_mesh_square import FieldMeshSquare
 
 
 def test_structured_mesh_geometry_and_cells():
-    mesh = FieldMesh.from_unit_square(target_n_cells=9, mesh_kind="structured")
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=9, mesh_kind="structured")
 
     assert mesh.kind == "structured"
     assert mesh.shape == (4, 4)
@@ -29,7 +29,7 @@ def test_structured_mesh_geometry_and_cells():
 
 
 def test_triangular_mesh_geometry_and_cells():
-    mesh = FieldMesh.from_unit_square(target_n_cells=18, mesh_kind="triangular_structured")
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=18, mesh_kind="triangular_structured")
 
     assert mesh.kind == "triangular_structured"
     assert mesh.shape == (4, 4)
@@ -46,7 +46,7 @@ def test_triangular_mesh_geometry_and_cells():
 
 
 def test_to_grid_accepts_node_vector():
-    mesh = FieldMesh.from_unit_square(target_n_cells=32, mesh_kind="triangular_structured")
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=32, mesh_kind="triangular_structured")
     values = np.arange(mesh.n_nodes, dtype=float)
     as_grid = mesh.to_grid(values)
     assert as_grid.shape == mesh.shape
@@ -55,7 +55,7 @@ def test_to_grid_accepts_node_vector():
 
 
 def test_structured_cell_centroids_and_values():
-    mesh = FieldMesh.from_unit_square(target_n_cells=9, mesh_kind="structured")
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=9, mesh_kind="structured")
 
     cx, cy = mesh.cell_centroids()
     assert cx.shape == (3, 3)
@@ -71,7 +71,7 @@ def test_structured_cell_centroids_and_values():
 
 
 def test_triangular_cell_values_are_per_cell():
-    mesh = FieldMesh.from_unit_square(target_n_cells=18, mesh_kind="triangular_structured")
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=18, mesh_kind="triangular_structured")
     values_by_cell = np.arange(mesh.n_cells, dtype=float)
     as_cells = mesh.to_cell_values(values_by_cell)
     assert as_cells.shape == (mesh.n_cells,)
@@ -91,7 +91,7 @@ def test_mesh_from_toml(tmp_path: Path):
         ),
         encoding="utf-8",
     )
-    mesh = FieldMesh.from_toml(path, section="mesh")
+    mesh = FieldMeshSquare.from_toml(path, section="mesh")
     assert mesh.kind == "triangular_structured"
     assert mesh.shape == (6, 6)
     assert mesh.n_cells == 50
@@ -99,7 +99,7 @@ def test_mesh_from_toml(tmp_path: Path):
 
 def test_unstructured_triangular_mesh_has_approx_target_cell_count():
     target = 80
-    mesh = FieldMesh.from_unit_square(
+    mesh = FieldMeshSquare.from_unit_square(
         target_n_cells=target,
         mesh_kind="triangular_unstructured",
         seed=7,

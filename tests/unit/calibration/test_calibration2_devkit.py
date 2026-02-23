@@ -1,16 +1,16 @@
-"""Unit tests for calibration2 devkit helpers."""
+﻿"""Unit tests for calibration2 devkit helpers."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.calibration2.devkit.check_case import check_case
-from hydromodpy.calibration2.devkit.config_reference import (
+from hydromodpy.calibration.devkit.check_case import check_case
+from hydromodpy.calibration.devkit.config_reference import (
     build_config_reference_markdown,
     write_config_reference_markdown,
 )
-from hydromodpy.calibration2.devkit.doctor import format_doctor_report, run_doctor
-from hydromodpy.calibration2.devkit.new_case import scaffold_case
+from hydromodpy.calibration.devkit.doctor import format_doctor_report, run_doctor
+from hydromodpy.calibration.devkit.new_case import scaffold_case
 
 
 def test_scaffold_case_creates_expected_files(tmp_path: Path):
@@ -89,3 +89,4 @@ def test_config_reference_markdown_generation(tmp_path: Path):
     assert output.exists()
     content = output.read_text(encoding="utf-8")
     assert "Case Chronicle Schemas" in content
+

@@ -8,9 +8,13 @@ import textwrap
 import numpy as np
 import pytest
 
-from hydromodpy.field.field import Field
-from hydromodpy.field.field_mesh import FieldMesh
-from hydromodpy.field.field_param import FieldParam
+from hydromodpy.field.core.field_spatial import Field, FieldDiscretization
+from hydromodpy.field.cases.square.field_spatial_square import FieldSquare
+from hydromodpy.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.field.core.field_spatial_weighted_discretization import (
+    WeightedAverageFieldDiscretization,
+)
 
 
 def test_field_param_homogeneous_from_toml(tmp_path: Path):
@@ -19,6 +23,7 @@ def test_field_param_homogeneous_from_toml(tmp_path: Path):
         textwrap.dedent(
             """
             [field]
+            id = "K"
             kind = "homogeneous"
             value = 12.5
             """
@@ -28,21 +33,31 @@ def test_field_param_homogeneous_from_toml(tmp_path: Path):
 
     param = FieldParam.from_toml(path)
     assert param.is_homogeneous
+    assert param.identifier == "K"
     assert float(param.to_array()) == pytest.approx(12.5)
     arr = param.to_array(shape=(2, 3))
     assert arr.shape == (2, 3)
     assert np.allclose(arr, 12.5)
 
 
-def test_field_param_heterogeneous_from_toml():
-    param = FieldParam.from_toml(
-        "hydromodpy/field/example_field.toml",
-        section="field_heterogeneous",
-    )
-    assert param.is_heterogeneous
-    assert param.field_id == "field_square"
+def test_field_param_homogeneous_to_mesh_field_without_spatial_discretization():
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=12, mesh_kind="structured")
+    param = FieldParam(identifier="K", kind="homogeneous", value=7.25)
+    values_mesh = param.to_mesh_field(mesh=mesh)
+    values = np.asarray(values_mesh.cell_values, dtype=float)
 
-    field = Field(
+    assert values_mesh.n_cells == mesh.n_cells
+    assert values.shape == (3, 3)
+    assert np.allclose(values, 7.25)
+
+
+def test_field_param_heterogeneous_from_toml():
+    param = FieldParam.from_toml("hydromodpy/field/cases/square/field_param_config.toml")
+    assert param.is_heterogeneous
+    assert param.identifier == "K"
+    assert param.field_spatial_id == "field_square"
+
+    field = FieldSquare(
         line="diag_main",
         zone1_side="positive",
         identifier="field_square",
@@ -59,16 +74,28 @@ def test_field_param_heterogeneous_from_toml():
 
 def test_heterogeneous_requires_zone_ids():
     param = FieldParam(
+        identifier="K",
         kind="heterogeneous",
         values_by_key={"granite": 2.0, "micaschists": 5.0},
-        field_id="field_square",
+        field_spatial_id="field_square",
     )
     with pytest.raises(ValueError, match="requires 'zone_ids'"):
         _ = param.to_array()
 
 
+def test_heterogeneous_to_mesh_field_requires_discretization():
+    param = FieldParam(
+        identifier="K",
+        kind="heterogeneous",
+        values_by_key={"granite": 2.0, "micaschists": 5.0},
+        field_spatial_id="field_square",
+    )
+    with pytest.raises(ValueError, match="field_discretization"):
+        _ = param.to_mesh_field()
+
+
 def test_field_from_dict_with_family_orientation():
-    field = Field.from_dict(
+    field = FieldSquare.from_dict(
         {
             "id": "field_square",
             "line_family": "symmetry_axis",
@@ -100,7 +127,7 @@ def test_field_from_toml(tmp_path: Path):
         ),
         encoding="utf-8",
     )
-    field = Field.from_toml(path, section="field")
+    field = FieldSquare.from_toml(path, section="field")
     assert field.identifier == "field_square"
     assert field.line == "axis_vertical"
     assert field.zone1_side == "negative"
@@ -108,25 +135,63 @@ def test_field_from_toml(tmp_path: Path):
     assert field.zone2_name == "micaschists"
 
 
-def test_field_param_heterogeneous_requires_field_id(tmp_path: Path):
+def test_field_param_heterogeneous_requires_field_spatial_id(tmp_path: Path):
     path = tmp_path / "field_missing_id.toml"
     path.write_text(
         textwrap.dedent(
             """
             [field]
+            id = "K"
             kind = "heterogeneous"
             values = { granite = 1.0, micaschists = 3.0 }
             """
         ),
         encoding="utf-8",
     )
-    with pytest.raises(KeyError, match="field_id"):
+    with pytest.raises(KeyError, match="field_spatial_id"):
         _ = FieldParam.from_toml(path)
 
 
+def test_field_param_requires_identifier(tmp_path: Path):
+    path = tmp_path / "field_missing_identifier.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            kind = "homogeneous"
+            value = 1.0
+            """
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(KeyError, match="id"):
+        _ = FieldParam.from_toml(path)
+
+
+def test_field_param_selects_kind_from_base_section(tmp_path: Path):
+    path = tmp_path / "field_kind_select.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "Sy"
+            kind = "homogeneous"
+
+            [field_homogeneous]
+            value = 0.21
+            """
+        ),
+        encoding="utf-8",
+    )
+    param = FieldParam.from_toml(path)
+    assert param.identifier == "Sy"
+    assert param.is_homogeneous
+    assert float(param.value) == pytest.approx(0.21)
+
+
 def test_field_to_mesh_then_param_to_value_mesh():
-    mesh = FieldMesh.from_unit_square(target_n_cells=20, mesh_kind="triangular_structured")
-    field = Field(
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=20, mesh_kind="triangular_structured")
+    field = FieldSquare(
         line="diag_main",
         zone1_side="positive",
         identifier="field_square",
@@ -134,12 +199,14 @@ def test_field_to_mesh_then_param_to_value_mesh():
         zone2_name="micaschists",
     )
     param = FieldParam(
+        identifier="K",
         kind="heterogeneous",
         values_by_key={"granite": 10.0, "micaschists": 2.0},
-        field_id="field_square",
+        field_spatial_id="field_square",
     )
 
     field_discretization = field.on_mesh(mesh)
+    assert isinstance(field_discretization, WeightedAverageFieldDiscretization)
     values_mesh = param.to_mesh_field(field_discretization)
 
     assert field_discretization.aggregation == "weighted_average"
@@ -154,3 +221,14 @@ def test_field_to_mesh_then_param_to_value_mesh():
     value_arr = np.asarray(values_mesh.cell_values, dtype=float)
     assert float(np.min(value_arr)) >= 2.0 - 1e-12
     assert float(np.max(value_arr)) <= 10.0 + 1e-12
+
+
+def test_field_base_class_is_abstract():
+    with pytest.raises(TypeError):
+        _ = Field(identifier="abstract_only")
+
+
+def test_field_discretization_base_class_is_abstract():
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=9, mesh_kind="structured")
+    with pytest.raises(TypeError):
+        _ = FieldDiscretization(mesh=mesh, field_id="field_square")
