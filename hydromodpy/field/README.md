@@ -9,6 +9,7 @@
 hydromodpy/field/
 |-- core/
 |   |-- field_param.py
+|   |-- field_param_config.py
 |   |-- field_spatial.py
 |   |-- field_spatial_weighted_discretization.py
 |   `-- field_mesh.py
@@ -33,6 +34,8 @@ hydromodpy/field/
 
 - `core/`: generic interfaces and reusable implementations.
 - `core/field_param.py`: parameter values, config loading, and mapping rules.
+- `core/field_param_config.py`: Pydantic validation for field-parameter TOML
+  payloads.
 - `core/field_spatial.py`: abstract field geometry contract and abstract
   discretization contract.
 - `core/field_spatial_weighted_discretization.py`: weighted-fraction

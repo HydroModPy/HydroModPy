@@ -26,6 +26,11 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from hydromodpy.field.core.field_param_config import (
+    validate_field_param_toml_data,
+    validate_resolved_field_param_data,
+)
+
 try:  # Python 3.11+
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
@@ -447,6 +452,7 @@ class FieldParam:
         path = Path(toml_path).resolve()
         with path.open("rb") as stream:
             payload = tomllib.load(stream)
+        payload = validate_field_param_toml_data(payload)
         section_key = str(section).strip()
         section_cfg = _get_nested_section(payload, section_key)
 
@@ -502,4 +508,5 @@ class FieldParam:
                             merged.update(dict(specific_cfg))
                             break
 
-        return cls.from_dict(merged)
+        resolved = validate_resolved_field_param_data(merged)
+        return cls.from_dict(resolved)
