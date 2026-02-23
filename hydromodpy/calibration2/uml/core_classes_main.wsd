@@ -1,0 +1,129 @@
+@startuml
+title Calibration2 Core - Main Runtime Classes
+
+package "hydromodpy.calibration2.core.parameters" {
+  class CalibrationParameter {
+    +name: str
+    +lower: float
+    +upper: float
+  }
+
+  class CalibrationParameterSet {
+    +from_bounds(bounds, parameter_names=None)
+    +names
+    +bounds
+    +dimension
+    +vector_from(values)
+    +mapping_from(values)
+    +contains(values)
+    +clip(values)
+  }
+
+  CalibrationParameterSet "1" *-- "1..*" CalibrationParameter
+}
+
+package "hydromodpy.calibration2.core.objective_function" {
+  class "objective_function.py" as ObjectiveModule <<module>> {
+    +rmse(observed, simulated)
+    +mae(observed, simulated)
+    +nse(observed, simulated)
+    +nse_log(observed, simulated)
+    +kge(observed, simulated, return_components=False)
+    +objective_function(observed, simulated, metric=\"rmse\")
+  }
+
+  class ObjectiveFunction {
+    +metric: str
+    +resolve_metric_name(metric)
+    +evaluate(observed, simulated, metric=None, return_components=True)
+    +value_to_cost(value, metric=None)
+    +evaluate_all(observed, simulated)
+  }
+}
+
+package "hydromodpy.calibration2.core.results" {
+  class CalibrationResults {
+    +method: str
+    +x_best: np.ndarray
+    +params_best: dict[str, float] | None
+    +cost_best: float
+    +score_best: float | None
+    +n_evaluations: int
+    +samples: np.ndarray | None
+    +metadata: dict[str, object]
+    --
+    +from_method_output(method_output, default_method)
+    +attach_context(vector_to_params, score_best)
+    +has_samples
+    +n_samples
+  }
+}
+
+package "hydromodpy.calibration2.core.methods_dispatcher" {
+  class "methods_dispatcher.py" as DispatcherModule <<module>> {
+    +DEFAULT_CALIBRATION_METHOD
+    +_first_docline(func)
+  }
+
+  class CalibrationMethod {
+    +register(name, calibrator)
+    +available_methods()
+    +grouped_methods()
+    +methods_overview()
+    +calibrate(objective_cost, bounds, method=\"simplex\", **kwargs)
+  }
+}
+
+package "hydromodpy.calibration2.core.engine" {
+  class CalibrationEngine {
+    +observed: np.ndarray
+    +simulator: callable
+    +objective: ObjectiveFunction
+    +parameter_set: CalibrationParameterSet
+    +calibration_method: CalibrationMethod
+    +last_result: CalibrationResults | None
+    --
+    +params_to_vector(params)
+    +vector_to_params(vector)
+    +simulate(params)
+    +score(params, metric=None)
+    +cost(params, metric=None)
+    +calibrate(method=\"simplex\", **kwargs): CalibrationResults
+  }
+}
+
+package "hydromodpy.calibration2.core.methods" {
+  class "grid_search.py" as GridSearchModule <<module>> {
+    +grid_search_calibrate(objective_cost, bounds, ...)
+  }
+  class "random_search.py" as RandomSearchModule <<module>> {
+    +random_search_calibrate(objective_cost, bounds, ...)
+  }
+  class "nelder_mead.py" as NelderMeadModule <<module>> {
+    +nelder_mead_calibrate(objective_cost, bounds, ...)
+  }
+  class "simplex.py" as SimplexModule <<module>> {
+    +simplex_calibrate(objective_cost, bounds, ...)
+  }
+  class "gp_mapping.py" as GpMappingModule <<module>> {
+    +gp_mapping_calibrate(objective_cost, bounds, ...)
+  }
+  class "da_mh_gp.py" as DaMhGpModule <<module>> {
+    +delayed_acceptance_gp_mh_calibrate(objective_cost, bounds, ...)
+  }
+}
+
+CalibrationEngine --> ObjectiveFunction : uses
+CalibrationEngine --> CalibrationParameterSet : uses
+CalibrationEngine --> CalibrationMethod : delegates
+CalibrationEngine --> CalibrationResults : returns
+ObjectiveFunction ..> ObjectiveModule : wraps functions
+CalibrationMethod ..> DispatcherModule : defined in
+DispatcherModule ..> GridSearchModule : dispatch target
+DispatcherModule ..> RandomSearchModule : dispatch target
+DispatcherModule ..> NelderMeadModule : dispatch target
+DispatcherModule ..> SimplexModule : dispatch target
+DispatcherModule ..> GpMappingModule : dispatch target
+DispatcherModule ..> DaMhGpModule : dispatch target
+
+@enduml

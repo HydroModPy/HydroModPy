@@ -7,13 +7,23 @@ from pydantic import BaseModel, Field, model_validator
 
 @dataclass(frozen=True)
 class ParamLevel:
-    """Metadata tag for parameter visibility level (user, dev, expert)."""
+    """
+    Metadata tag for parameter visibility level (user, dev, expert).
+
+    This class wraps a string indicating the visibility/complexity level
+    of configuration fields for auto-generating interfaces or documentation.
+    """
 
     level: str
 
 
 class GeographicConfig(BaseModel):
-    """Geographic configuration for watershed delineation."""
+    """
+    Geographic configuration for watershed delineation.
+
+    This model stores parameters used to extract and prepare the physical domain
+    (watershed geometry and rasters) based on various possible input definitions.
+    """
 
     catch_def: Annotated[
         Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"], ParamLevel("user")
@@ -82,6 +92,19 @@ class GeographicConfig(BaseModel):
 
     @model_validator(mode="after")
     def _check_mode_requirements(self) -> "GeographicConfig":
+        """
+        Validates the configuration based on the selected catchment definition mode.
+
+        Returns
+        -------
+        GeographicConfig
+            The validated current instance.
+
+        Raises
+        ------
+        ValueError
+            If required parameters are missing for the selected mode.
+        """
         mode = self.catch_def
 
         if mode in ("dem", "txt"):

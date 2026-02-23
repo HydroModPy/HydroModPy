@@ -1,0 +1,43 @@
+@startuml
+title Calibration2 - Devkit Onboarding Sequence
+
+actor Developer
+participant "devkit.new_case" as NewCase
+participant "templates/case/*.tmpl" as Templates
+participant "cases/<new_case>/" as CaseFolder
+participant "devkit.check_case" as CheckCase
+participant "core.case_orchestrator" as Orchestrator
+participant "devkit.doctor" as Doctor
+participant "devkit.config_reference" as ConfigRef
+participant "docs/config_reference.md" as ConfigRefDoc
+
+Developer -> NewCase: scaffold_case("my_case")
+NewCase -> Templates: read templates
+Templates --> NewCase: template text
+NewCase -> CaseFolder: write skeleton files
+NewCase --> Developer: scaffold report
+
+Developer -> CaseFolder: edit workflow / config / implementation
+
+Developer -> CheckCase: check_case("my_case", run_smoke=False)
+CheckCase -> CheckCase: verify required files
+CheckCase -> CheckCase: import CASE_IMPLEMENTATION
+CheckCase -> CheckCase: validate config_calibration*.toml
+CheckCase --> Developer: structural report (ok/errors/warnings)
+
+alt optional smoke run
+  Developer -> CheckCase: check_case("my_case", run_smoke=True)
+  CheckCase -> Orchestrator: run_calibration_case_from_toml(...)
+  Orchestrator --> CheckCase: calibration payload
+  CheckCase --> Developer: smoke report + n_evaluations
+end
+
+Developer -> Doctor: run_doctor()
+Doctor -> Doctor: check dependencies + methods + discovered cases
+Doctor --> Developer: health report
+
+Developer -> ConfigRef: write_config_reference_markdown()
+ConfigRef -> ConfigRefDoc: generate schema reference
+ConfigRefDoc --> Developer: updated markdown
+
+@enduml
