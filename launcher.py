@@ -49,7 +49,7 @@ except:
     pass
 
 from hydromodpy import watershed_root
-from hydromodpy.watershed import initializing, geographic
+from hydromodpy.watershed import initializing, _;;;;;;;;;;;;;;;;;;;;;
 from hydromodpy.watershed.initializing_config import InitializingConfig
 from hydromodpy.watershed.geographic_config import GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results
@@ -1702,6 +1702,7 @@ def ex09_plot_concentration(results):
         calibration_folder = results.get('calibration_folder')
         stable_folder = results.get('stable_folder')
         R_mm_day_filt = results.get('R_mm_day_filt')
+        vers = results.get('vers', 'TRANS1')  # Get version for filename
 
         if model_mt3dms is None:
             print("      ⚠ MT3DMS results not available")
@@ -1747,7 +1748,7 @@ def ex09_plot_concentration(results):
             # Calculate boxplot statistics
             xi = concobj_1c_fil_surf[i].flatten()
             xi = xi[~np.isnan(xi)]
-            
+
             if xi.size > 0:
                 xpos = mdates.date2num(R_mm_day_filt.index[i])
                 q10 = np.nanmin(xi)
@@ -1764,7 +1765,7 @@ def ex09_plot_concentration(results):
                     'whishi': q90,
                     'fliers': []
                 }]
-                
+
                 mean_vals.append(mean)
                 mean_times.append(xpos)
                 all_box_stats.append((xpos, box_stats))
@@ -1775,7 +1776,7 @@ def ex09_plot_concentration(results):
         # Create figures with both boxplot and concentration map
         for i in range(len(concobj_1c_fil_surf)):
             conc_plt = concobj_1c_fil_surf[i]
-            
+
             fig, ax = plt.subplots(2, 1, figsize=(10, 12), dpi=300, gridspec_kw={'height_ratios': [1, 3]})
 
             # --- SUBPLOT 1: Boxplot with recharge ---
@@ -1835,7 +1836,7 @@ def ex09_plot_concentration(results):
             cbar = fig.colorbar(sm, cax=cax, orientation='horizontal', label='[NO3] mg/L')
             fig.tight_layout()
 
-            fig.savefig(os.path.join(figures_dir, f'conc_{i:03d}_{model_name}.png'), dpi=300, bbox_inches='tight')
+            fig.savefig(os.path.join(figures_dir, f'{vers}_{i}_{model_name}.png'), dpi=300, bbox_inches='tight')
 
             # Show first frame only to avoid too many pop-ups
             if i == 0 and CONFIG.get('display_figures', True):
@@ -1843,7 +1844,7 @@ def ex09_plot_concentration(results):
             plt.close(fig)
 
         print("      • Creating GIF...")
-        filenames = sorted(glob.glob(os.path.join(figures_dir, f'conc_*_{model_name}.png')))
+        filenames = sorted(glob.glob(os.path.join(figures_dir, f'{vers}*.png')))
         if len(filenames) > 1:
             images = [Image.open(img) for img in filenames]
             images[0].save(os.path.join(figures_dir, f'concentration_{model_name}.gif'),
@@ -1873,6 +1874,7 @@ def ex09_plot_animation_interactive(results):
     try:
         model_name = results.get('model_name')
         calibration_folder = results.get('calibration_folder')
+        vers = results.get('vers', 'TRANS1')  # Get version for filename pattern
 
         if model_name is None:
             print("      ⚠ model_name not found")
@@ -1880,11 +1882,12 @@ def ex09_plot_animation_interactive(results):
 
         # Collect PNG files from figures directory
         figures_dir = os.path.join(calibration_folder, '_figures')
-        # Search for concentration animation PNG files
-        filenames = sorted(glob.glob(os.path.join(figures_dir, f'conc_*_{model_name}.png')), key=os.path.getmtime)
+        # Search for concentration animation PNG files using pattern: TRANS1*.png
+        begin_by = os.path.join(figures_dir, vers)
+        filenames = sorted(glob.glob(begin_by + '*.png'), key=os.path.getmtime)
 
         if not filenames:
-            print(f"      ⚠ No PNG files found in {figures_dir}/conc_*_{model_name}.png")
+            print(f"      ⚠ No PNG files found matching {begin_by}*.png")
             return results
 
         print(f"      • Found {len(filenames)} frames...")
@@ -2007,10 +2010,13 @@ def ex09_plot_animation_interactive(results):
             frames=frames
         )
 
-        # Save to HTML instead of show
+        # Save to HTML and show in browser
         output_file = os.path.join(figures_dir, f'animation_{model_name}.html')
         fig.write_html(output_file)
         print(f"      ✓ Animation saved to: {output_file}")
+
+        # Open in browser
+        fig.show("browser")
 
         return results
 
@@ -2182,6 +2188,7 @@ def ex09_modeling(results):
 
         results['BV'] = BV
         results['model_name'] = model_name
+        results['vers'] = vers
         results['model_modflow'] = model_modflow
         results['success_modflow'] = success_modflow
         results['model_modpath'] = model_modpath
@@ -2210,16 +2217,16 @@ def ex09_plot(results):
         # Call all plot functions in sequence
         print("\n[PLOT 1] Streamflow and matching streams...")
         results = ex09_plot_streamflow(results)
-        
+
         print("\n[PLOT 2] Piezometry...")
         results = ex09_plot_piezometry(results)
-        
+
         print("\n[PLOT 3] Pathlines and residence times...")
         results = ex09_plot_pathlines(results)
-        
+
         print("\n[PLOT 4] Concentration animation...")
         results = ex09_plot_concentration(results)
-        
+
         print("\n[PLOT 5] Interactive web animation...")
         results = ex09_plot_animation_interactive(results)
 
