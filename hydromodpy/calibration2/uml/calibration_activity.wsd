@@ -1,0 +1,41 @@
+@startuml
+title Calibration2 - Calibration Activity Flow
+
+start
+
+:Load TOML config;
+:Validate global config\n(engine_config);
+if (Config valid?) then (yes)
+else (no)
+  :Raise validation error;
+  stop
+endif
+
+:Validate case chronicle config\n(case_config);
+if (Chronicle valid?) then (yes)
+else (no)
+  :Raise validation error;
+  stop
+endif
+
+:Build chronicle\n(observed, forcing, synthetic truth);
+:Resolve calibration settings\n(method, metric, bounds, kwargs);
+
+if (method == da_mh_gp and metric != rmse?) then (yes)
+  :Warn user;\nforce objective_metric = rmse;
+endif
+
+:Create CalibrationEngine;
+:Dispatch method through CalibrationMethod;
+
+repeat
+  :Evaluate objective cost on candidate vector;
+  :Run simulator and compute metric cost;
+repeat while (Stopping criterion not reached?)
+
+:Build CalibrationResults from method output;
+:Attach params_best and score_best context;
+:Compute diagnostics and produce plots;
+
+stop
+@enduml

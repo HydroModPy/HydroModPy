@@ -1,0 +1,398 @@
+"""Light integration tests for reference-case calibration workflows."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from hydromodpy.calibration2.core.case_orchestrator import run_calibration_case
+from hydromodpy.calibration2.core.results import CalibrationResults
+from hydromodpy.calibration2.cases.recession_brutsaert.case_implementation import (
+    CASE_IMPLEMENTATION as BRUTSAERT_CASE_IMPLEMENTATION,
+)
+from hydromodpy.calibration2.cases.recession_brutsaert.workflow import (
+    build_noisy_coarse_sand_chronicle,
+    calibrate_k_sy,
+)
+from hydromodpy.calibration2.cases.reservoir.case_implementation import (
+    CASE_IMPLEMENTATION as RESERVOIR_CASE_IMPLEMENTATION,
+)
+from hydromodpy.calibration2.cases.reservoir.workflow import (
+    calibrate_reservoir_model,
+    resolve_model_name,
+)
+from hydromodpy.calibration2.cases.reservoir.synthetic_data import build_noisy_reservoir_chronicle
+
+
+GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
+BRUTSAERT_METHODS_GOLDEN_FILE = GOLDEN_DIR / "calibration2_brutsaert_methods_golden.json"
+
+
+METHOD_ABS_TOL = {
+    "grid_search": 1e-10,
+    "random_search": 1e-10,
+    "nelder_mead": 2e-4,
+    "simplex": 2e-4,
+    "gp_mapping": 2e-2,
+    "da_mh_gp": 6e-2,
+}
+
+
+def _reservoir_base_config(*, method):
+    return {
+        "chronicle": {
+            "n_days": 40,
+            "start_year": 2000,
+            "target_annual_precip_mm": 400.0,
+            "precip_seed": 7,
+            "runoff_coeff": 0.20,
+            "losses_mm_day": 0.8,
+            "losses_months": [4, 5, 6, 7, 8, 9],
+            "capacity_mm_true": 10.0,
+            "k_per_day_true": 0.05,
+            "s0_mm": 0.0,
+            "error_fraction": 0.03,
+            "error_seed": 11,
+        },
+        "calibration": {
+            "model_name": "one_reservoir",
+            "objective_metric": "kge",
+            "global_method": method,
+        },
+        "bounds": {
+            "C": [2.0, 20.0],
+            "k": [0.01, 0.20],
+        },
+        "calibration_method": {
+            "random_search": {
+                "n_samples": 80,
+                "seed": 42,
+                "log_scale_indices": [],
+            },
+            "gp_mapping": {
+                "seed": 42,
+                "n_init": 16,
+                "n_refine": 1,
+                "batch_size": 6,
+                "n_candidates": 100,
+                "kappa": 2.5,
+                "alpha": 1.0e-6,
+                "jitter": 1.0e-8,
+                "n_posterior_pool": 800,
+                "n_posterior_samples": 120,
+                "log_transform": True,
+            },
+        },
+    }
+
+
+def _brutsaert_base_config(*, method):
+    return {
+        "chronicle": {
+            "Q0": 0.35,
+            "K": 2.0e-4,
+            "Sy": 0.28,
+            "solution": "boussinesq",
+            "A": 1.2e6,
+            "ag": 0.7,
+            "p": 0.346,
+            "n_points": 24,
+            "log_spacing": True,
+            "t_min_days": 0.1,
+            "error_fraction": 0.08,
+            "random_seed": 123,
+        },
+        "calibration": {
+            "objective_metric": "kge",
+            "global_method": method,
+        },
+        "bounds": {
+            "K": [1.0e-5, 1.0e-3],
+            "Sy": [0.20, 0.35],
+        },
+        "calibration_method": {
+            "grid_search": {
+                "n_per_dim": 5,
+                "log_scale_indices": [0],
+            },
+            "random_search": {
+                "n_samples": 80,
+                "seed": 7,
+                "log_scale_indices": [0],
+            },
+            "nelder_mead": {
+                "max_iter": 60,
+            },
+            "simplex": {
+                "max_iter": 60,
+                "max_fun": 120,
+                "disp": False,
+            },
+            "gp_mapping": {
+                "seed": 42,
+                "n_init": 10,
+                "n_refine": 1,
+                "batch_size": 5,
+                "n_candidates": 80,
+                "kappa": 2.5,
+                "alpha": 1.0e-6,
+                "jitter": 1.0e-8,
+                "n_posterior_pool": 600,
+                "n_posterior_samples": 80,
+                "log_transform": True,
+            },
+            "da_mh_gp": {
+                "sigma_noise": 0.20,
+                "n_init": 12,
+                "n_samples": 80,
+                "burn_in": 10,
+                "thin": 2,
+                "proposal_scale": 0.03,
+                "retrain_interval": 10,
+                "seed": 123,
+            },
+        },
+    }
+
+
+def _to_serializable(value):
+    if value is None:
+        return None
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, (np.floating, np.integer)):
+        return float(value)
+    if isinstance(value, (list, tuple)):
+        return [_to_serializable(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _to_serializable(v) for k, v in value.items()}
+    return value
+
+
+def _brutsaert_method_signature(calibration):
+    result = calibration["result_final"]
+    samples = result.samples
+    signature = {
+        "method": str(result.method),
+        "x_best": _to_serializable(result.x_best),
+        "cost_best": float(result.cost_best),
+        "score_best": None if result.score_best is None else float(result.score_best),
+        "n_evaluations": int(result.n_evaluations),
+        "metrics": {
+            "NSE": float(calibration["metrics"]["NSE"]),
+            "NSElog": float(calibration["metrics"]["NSElog"]),
+            "KGE": float(calibration["metrics"]["KGE"]),
+            "r": float(calibration["metrics"]["r"]),
+            "alpha": float(calibration["metrics"]["alpha"]),
+            "beta": float(calibration["metrics"]["beta"]),
+        },
+    }
+    if samples is not None:
+        arr = np.asarray(samples, dtype=float)
+        signature["samples"] = {
+            "count": int(arr.shape[0]),
+            "mean": _to_serializable(np.mean(arr, axis=0)),
+            "std": _to_serializable(np.std(arr, axis=0)),
+        }
+    return signature
+
+
+def _write_json(path, payload):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as stream:
+        json.dump(payload, stream, indent=2)
+        stream.write("\n")
+
+
+def _load_json(path):
+    with path.open("r", encoding="utf-8") as stream:
+        return json.load(stream)
+
+
+def _assert_vectors_close(actual, expected, abs_tol):
+    actual_arr = np.asarray(actual, dtype=float)
+    expected_arr = np.asarray(expected, dtype=float)
+    assert actual_arr.shape == expected_arr.shape
+    assert np.allclose(actual_arr, expected_arr, atol=abs_tol, rtol=0.0)
+
+
+def _assert_signature_close(actual, expected, abs_tol):
+    assert actual["method"] == expected["method"]
+    assert int(actual["n_evaluations"]) == int(expected["n_evaluations"])
+    _assert_vectors_close(actual["x_best"], expected["x_best"], abs_tol=abs_tol)
+    assert float(actual["cost_best"]) == pytest.approx(float(expected["cost_best"]), abs=abs_tol, rel=0.0)
+
+    if expected["score_best"] is None:
+        assert actual["score_best"] is None
+    else:
+        assert float(actual["score_best"]) == pytest.approx(float(expected["score_best"]), abs=abs_tol, rel=0.0)
+
+    for key in ("NSE", "NSElog", "KGE", "r", "alpha", "beta"):
+        assert float(actual["metrics"][key]) == pytest.approx(
+            float(expected["metrics"][key]),
+            abs=abs_tol,
+            rel=0.0,
+        )
+
+    actual_samples = actual.get("samples")
+    expected_samples = expected.get("samples")
+    if expected_samples is None:
+        assert actual_samples is None
+        return
+
+    assert actual_samples is not None
+    assert int(actual_samples["count"]) == int(expected_samples["count"])
+    _assert_vectors_close(actual_samples["mean"], expected_samples["mean"], abs_tol=abs_tol)
+    _assert_vectors_close(actual_samples["std"], expected_samples["std"], abs_tol=abs_tol)
+
+
+def test_reservoir_workflow_random_search_smoke():
+    """Reservoir workflow should run end-to-end and return structured results."""
+    config = _reservoir_base_config(method="random_search")
+    model_name = resolve_model_name(config)
+    chronicle = build_noisy_reservoir_chronicle(config["chronicle"], model_name=model_name)
+    calibration = calibrate_reservoir_model(chronicle, config, model_name=model_name)
+
+    result = calibration["result"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "random_search"
+    assert result.samples is None
+    assert result.params_best is not None
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
+def test_reservoir_case_orchestrator_random_search_smoke():
+    """Reservoir case implementation should run through generic case orchestrator."""
+    config = _reservoir_base_config(method="random_search")
+    calibration = run_calibration_case(
+        config_data=config,
+        case_implementation=RESERVOIR_CASE_IMPLEMENTATION,
+    )
+
+    result = calibration["result"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "random_search"
+    assert result.samples is None
+    assert result.params_best is not None
+    assert calibration["model_name"] == "one_reservoir"
+    assert calibration["chronicle"] is not None
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
+def test_brutsaert_workflow_random_search_smoke():
+    """Brutsaert workflow should run end-to-end with structured calibration outputs."""
+    config = _brutsaert_base_config(method="random_search")
+    chronicle = build_noisy_coarse_sand_chronicle(config["chronicle"])
+    calibration = calibrate_k_sy(chronicle, config)
+
+    result = calibration["result_final"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "random_search"
+    assert result.samples is None
+    assert result.params_best is not None
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
+def test_brutsaert_case_orchestrator_random_search_smoke():
+    """Brutsaert case implementation should run through generic case orchestrator."""
+    config = _brutsaert_base_config(method="random_search")
+    calibration = run_calibration_case(
+        config_data=config,
+        case_implementation=BRUTSAERT_CASE_IMPLEMENTATION,
+    )
+
+    result = calibration["result"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "random_search"
+    assert result.samples is None
+    assert result.params_best is not None
+    assert calibration["chronicle"] is not None
+    assert calibration["result_final"] is result
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
+def test_reservoir_workflow_gp_mapping_returns_samples():
+    """Reservoir workflow should expose posterior samples for gp_mapping."""
+    pytest.importorskip("sklearn")
+
+    config = _reservoir_base_config(method="gp_mapping")
+    model_name = resolve_model_name(config)
+    chronicle = build_noisy_reservoir_chronicle(config["chronicle"], model_name=model_name)
+    calibration = calibrate_reservoir_model(chronicle, config, model_name=model_name)
+
+    result = calibration["result"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "gp_mapping"
+    assert result.samples is not None
+    assert result.samples.shape[0] == 120
+    assert result.samples.shape[1] == 2
+
+
+@pytest.mark.parametrize(
+    "method",
+    ("grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", "da_mh_gp"),
+)
+def test_brutsaert_workflow_multiple_methods_smoke(method):
+    """Brutsaert workflow should run with multiple calibration methods."""
+    if method in ("nelder_mead", "simplex"):
+        pytest.importorskip("scipy")
+    if method == "gp_mapping":
+        pytest.importorskip("sklearn")
+
+    config = _brutsaert_base_config(method=method)
+    if method == "da_mh_gp":
+        config["calibration"]["objective_metric"] = "rmse"
+
+    chronicle = build_noisy_coarse_sand_chronicle(config["chronicle"])
+    calibration = calibrate_k_sy(chronicle, config)
+
+    result = calibration["result_final"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == method
+    assert result.params_best is not None
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
+@pytest.mark.parametrize(
+    "method",
+    ("grid_search", "random_search", "nelder_mead", "simplex", "gp_mapping", "da_mh_gp"),
+)
+def test_brutsaert_workflow_methods_golden(method, update_goldens):
+    """Non-regression check for Brutsaert calibration methods using golden values."""
+    if method in ("nelder_mead", "simplex"):
+        pytest.importorskip("scipy")
+    if method == "gp_mapping":
+        pytest.importorskip("sklearn")
+
+    config = _brutsaert_base_config(method=method)
+    if method == "da_mh_gp":
+        config["calibration"]["objective_metric"] = "rmse"
+
+    chronicle = build_noisy_coarse_sand_chronicle(config["chronicle"])
+    calibration = calibrate_k_sy(chronicle, config)
+    actual = _brutsaert_method_signature(calibration)
+
+    if update_goldens:
+        payload = {}
+        if BRUTSAERT_METHODS_GOLDEN_FILE.exists():
+            payload = _load_json(BRUTSAERT_METHODS_GOLDEN_FILE)
+        payload[str(method)] = actual
+        _write_json(BRUTSAERT_METHODS_GOLDEN_FILE, payload)
+        return
+
+    if not BRUTSAERT_METHODS_GOLDEN_FILE.exists():
+        pytest.fail(
+            f"Missing golden reference file: {BRUTSAERT_METHODS_GOLDEN_FILE}. "
+            "Run tests with --update-goldens to generate it."
+        )
+
+    expected_all = _load_json(BRUTSAERT_METHODS_GOLDEN_FILE)
+    assert method in expected_all, (
+        f"Missing golden entry for method '{method}' in {BRUTSAERT_METHODS_GOLDEN_FILE}. "
+        "Run tests with --update-goldens to refresh."
+    )
+    expected = expected_all[method]
+    _assert_signature_close(actual, expected, abs_tol=METHOD_ABS_TOL[method])

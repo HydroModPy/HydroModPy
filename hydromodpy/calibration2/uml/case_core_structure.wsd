@@ -1,0 +1,54 @@
+@startuml
+title Calibration2 - Case Core Structure
+
+package "hydromodpy.calibration2.core.case_interface" {
+  class CalibrationCaseContext {
+    +observed
+    +simulator
+    +parameter_order
+    +chronicle
+    +metadata
+  }
+
+  abstract class AbstractCalibrationCase {
+    +CASE_NAME: str
+    +validate_case_config(...)
+    +build_case(...): CalibrationCaseContext
+    +build_case_outputs(...): Mapping
+  }
+
+  class "case_interface.py" as CaseInterfaceModule <<module>> {
+    +normalize_case_name(name)
+    +validate_case_implementation(case_implementation)
+  }
+}
+
+package "hydromodpy.calibration2.core.case_orchestrator" {
+  class "case_orchestrator.py" as CaseOrchestratorModule <<module>> {
+    +run_calibration_case(config_data, case_implementation, method_override=None)
+    +run_calibration_case_from_toml(config_path, case_implementation, method_override=None)
+  }
+}
+
+package "hydromodpy.calibration2.cases.<case_name>" {
+  class "case_implementation.py" as CaseImplementationModule <<module>> {
+    +CASE_IMPLEMENTATION
+  }
+
+  class "ConcreteCase" as ConcreteCase
+}
+
+CaseOrchestratorModule ..> AbstractCalibrationCase : expects interface
+CaseOrchestratorModule ..> CalibrationCaseContext : consumes
+CaseOrchestratorModule ..> CaseInterfaceModule : validate_case_implementation()
+
+ConcreteCase --|> AbstractCalibrationCase
+CaseImplementationModule ..> ConcreteCase : defines instance
+CaseImplementationModule ..> CalibrationCaseContext : builds
+
+note bottom
+  This diagram shows the contract layer for case integration:
+  interface definition and orchestration entrypoints.
+end note
+
+@enduml

@@ -1,0 +1,43 @@
+[forcing]
+# Shared forcing used by one- and two-reservoir variants.
+# This section controls synthetic precipitation and effective rainfall settings.
+n_days = 365
+start_year = 2000
+target_annual_precip_mm = 800.0
+precip_seed = 42
+runoff_coeff = 0.15
+losses_mm_day = 1.5
+losses_months = [4, 5, 6, 7, 8, 9]
+
+[model]
+# Model choice: "one_reservoir" or "two_reservoir"
+# The selected model controls which parameter section below is used.
+model_name = "two_reservoir"
+# Numerical backend:
+# - "analytic": exact discrete update (default, faster)
+# - "ode": scipy solve_ivp integration
+solver_backend = "analytic"
+
+[one_reservoir]
+# Parameters used only when `model_name = "one_reservoir"`.
+capacity_mm = 10.0
+k_per_day = 0.04
+s0_mm = 0.0
+
+[two_reservoir]
+# Parameters used only when `model_name = "two_reservoir"`.
+a = 0.35
+kq_days = 3.0
+ks_days = 45.0
+sq0_mm = 0.0
+ss0_mm = 0.0
+
+[output]
+# Keep `show_plot = true` for interactive use, set to `false` for batch runs.
+show_plot = true
+save_figure = false
+output_dir = "outputs"
+# Optional fixed filename. If omitted, defaults to:
+# - hydrological_reservoir_one_reservoir.png
+# - hydrological_reservoir_two_reservoir.png
+# figure_name = "hydrological_reservoir.png"

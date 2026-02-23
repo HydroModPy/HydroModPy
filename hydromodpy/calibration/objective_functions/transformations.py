@@ -1,5 +1,7 @@
 """Data transformation strategies for objective functions."""
 
+from typing import Callable
+
 import numpy as np
 
 
@@ -86,7 +88,7 @@ class TransformationStrategy:
         return 1.0 / (data + epsilon)
     
     @staticmethod
-    def box_cox(data: np.ndarray, lambda_param: float = None) -> np.ndarray:
+    def box_cox(data: np.ndarray, lambda_param: float | None = None) -> np.ndarray:
         """
         Box-Cox transformation: (data^lambda - 1) / lambda
         
@@ -135,7 +137,7 @@ class TransformationStrategy:
         return np.asarray(data, dtype=float)
     
     # Registry: maps transformation names to their implementations
-    _TRANSFORMATIONS = {
+    _TRANSFORMATIONS: dict[str | None, Callable[[np.ndarray], np.ndarray]] = {
         'log': log,
         'sqrt': sqrt,
         'inverse': inverse,
@@ -145,7 +147,7 @@ class TransformationStrategy:
     }
     
     @classmethod
-    def get_transformation(cls, name: str | None):
+    def get_transformation(cls, name: str | None) -> Callable[[np.ndarray], np.ndarray]:
         """
         Retrieve a named transformation function.
         
@@ -178,7 +180,7 @@ class TransformationStrategy:
         return cls._TRANSFORMATIONS[name]
     
     @classmethod
-    def list_available_transformations(cls):
+    def list_available_transformations(cls) -> list[str]:
         """
         List all available Named transformations.
         

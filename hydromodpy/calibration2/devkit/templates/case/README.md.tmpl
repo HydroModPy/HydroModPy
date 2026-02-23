@@ -1,0 +1,19 @@
+# __CASE_TITLE__
+
+This case was generated from `hydromodpy/calibration2/devkit/templates/case/`.
+
+## Files
+
+- `case_config.py`: Pydantic validation of `[chronicle]`.
+- `workflow.py`: synthetic chronicle + simulator + metric helper.
+- `case_implementation.py`: integration with `AbstractCalibrationCase`.
+- `run_calibration.py`: short runnable script using TOML + orchestrator.
+- `config_calibration.toml`: default config.
+
+## Run
+
+From repository root:
+
+```bash
+python hydromodpy/calibration2/cases/__CASE_NAME__/run_calibration.py
+```

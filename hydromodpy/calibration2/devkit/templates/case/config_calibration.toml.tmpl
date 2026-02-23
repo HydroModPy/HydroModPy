@@ -1,0 +1,22 @@
+[chronicle]
+n_points = 60
+gain_true = 1.2
+bias_true = 0.1
+noise_fraction = 0.05
+seed = 42
+
+[calibration]
+objective_metric = "kge"
+global_method = "random_search"
+
+[bounds]
+gain = [0.5, 2.0]
+bias = [-0.5, 0.5]
+
+[calibration_method.random_search]
+n_samples = 200
+seed = 42
+log_scale_indices = []
+
+[output]
+show_plot = false

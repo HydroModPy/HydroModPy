@@ -55,8 +55,9 @@ cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 out_path = cfg.initializing.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
-def run_example12(out_path=out_path, display_plots=True):
-    
+
+def run_example12(out_path=out_path, display_plots=True, display_3D=False):
+
     cfg.initializing.out_dir_path = out_path
     watershed_name = cfg.initializing.catch_name
     print('##### '+watershed_name.upper()+' #####')
@@ -125,7 +126,7 @@ def run_example12(out_path=out_path, display_plots=True):
 
     R_mm_day = BV.climatic.recharge
     r_mm_day = BV.climatic.runoff
-    
+
     R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
     R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
     R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
@@ -133,7 +134,7 @@ def run_example12(out_path=out_path, display_plots=True):
     # plt.plot(R_mm_day_filt)
 
     R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
-    
+
     if display_plots:
         fig, axs = plt.subplots(3,1, figsize=(8,8), sharex=True)
         axs = axs.ravel()
@@ -152,7 +153,7 @@ def run_example12(out_path=out_path, display_plots=True):
         ax.set_title('Log', fontsize=8)
         ax.set_ylabel('R [mm/month]')
 
-        
+
 
         ax = axs[2]
         ax.plot(30*R_mm_day_filt, label='Recharge', c='dodgerblue', lw=2)
@@ -422,7 +423,7 @@ def run_example12(out_path=out_path, display_plots=True):
     BV.settings.update_model_name(model_name)
 
     BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
-    
+
     for_calib = False
     if for_calib == False:
             model_folder = BV.simulations_folder
@@ -471,7 +472,7 @@ def run_example12(out_path=out_path, display_plots=True):
                             vka=BV.hydraulic.vka,
                             exdp=BV.hydraulic.exdp)
     model_modflow.pre_processing() # verbose
-    
+
     list_model_name = []
     list_model_name.append(model_name)
     list_model_modflow = []
@@ -483,11 +484,11 @@ def run_example12(out_path=out_path, display_plots=True):
     pickle_file = os.path.join(BV.simulations_folder, model_name, 'results_'+model_name+'.pkl')
     with open(pickle_file, 'wb') as f:
         pickle.dump(dictio, f)
-    
+
     success_model = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=True)
-    
+
     prob_cells = model_modflow.prob_cells
-    
+
     if success_model == True:
         model_modflow.post_processing(model_modflow,
                             watertable_elevation = True,
@@ -512,7 +513,7 @@ def run_example12(out_path=out_path, display_plots=True):
                                                     intermittency_yearly=False) # or None
 
     iter_results = MatchingStreams(BV, iteration_label=model_name, from_calib=False)
-    
+
     # obs_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_pt.shp'))
     # obs_to_simf = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obs_ptf.shp'))
     # obsf_to_sim = gpd.read_file(os.path.join(BV.calibration_folder, model_name, '_matchingstreams','obsflow.shp'))
@@ -601,7 +602,7 @@ def run_example12(out_path=out_path, display_plots=True):
     Qobs = Qobs * 30 * 1000
 
     simul_list = sorted(glob.glob(os.path.join(simulations_folder,vers+'*')), key=os.path.getmtime)
-    
+
     if display_plots:
         for i, simul in enumerate(simul_list[:]):
 
@@ -763,7 +764,7 @@ def run_example12(out_path=out_path, display_plots=True):
     norm = mcolors.LogNorm(vmin=0.1, vmax=100)
     im = cm.ScalarMappable(cmap='jet', norm=norm)
     im.set_array([])
-    
+
     if display_plots:
         fig, ax = plt.subplots(1,1, figsize=(8,6))
 
@@ -820,22 +821,25 @@ def run_example12(out_path=out_path, display_plots=True):
 
     #%% PLOT 3D
 
-    export_vtuvtk.VTK(BV, model_name)
-    visu = visualization_results.Visualization(BV, model_name)
-    if display_plots:
-        visu.visual3D(interactive=True, object_list=[
-                                                    'grid',
-                                                    'watertable',
-                                                    'watertable_depth',
-                                                    'surface_flow',
-                                                    'drain_flow',
-                                                    'pathlines'
-                                                    ],
-                                                    view='south-west',
-                                                    # view='north',
-                                                    lines=None,
-                                                    cloc=(0.7,0.1),
-                                                    z_scale=10)
+    if display_3D==True:
+
+        export_vtuvtk.VTK(BV, model_name)
+        visu = visualization_results.Visualization(BV, model_name)
+        if display_plots:
+            visu.visual3D(interactive=True, object_list=[
+                                                        'grid',
+                                                        'watertable',
+                                                        'watertable_depth',
+                                                        'surface_flow',
+                                                        'drain_flow',
+                                                        'pathlines'
+                                                        ],
+                                                        view='south-west',
+                                                        # view='north',
+                                                        lines=None,
+                                                        cloc=(0.7,0.1),
+                                                        z_scale=10)
+
     #%% C - MT3DMS
 
     list_folder = glob.glob(os.path.join(str(BV.simulations_folder), vers+'*'))
@@ -899,6 +903,7 @@ def run_example12(out_path=out_path, display_plots=True):
                                                     ) # or None
 
     #%% PLOT CONCENTRATION
+
     if display_plots:
         # Créer le GIF à la fin du processus
         vgif_name = vers
@@ -950,7 +955,7 @@ def run_example12(out_path=out_path, display_plots=True):
         all_box_stats = []
 
         # Définir le répertoire de sauvegarde des images
-        figures_dir = os.path.join(str(simulations_folder), '_figures')
+        figures_dir = os.path.join(str(simulations_folder), '_figures/')
         if not os.path.exists(figures_dir):
             os.makedirs(figures_dir)
 
@@ -1117,12 +1122,11 @@ def run_example12(out_path=out_path, display_plots=True):
         #%% WEB ANIMATION
 
         import plotly.graph_objects as go
-        from PIL import Image
         import base64
         from io import BytesIO
 
         # Exemple : création de la liste des fichiers
-        figures_dir = os.path.join(str(simulations_folder), '_figures')
+        figures_dir = os.path.join(str(simulations_folder), '_figures/')
         begin_by = figures_dir + vers
         filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
 
@@ -1207,4 +1211,10 @@ def run_example12(out_path=out_path, display_plots=True):
 
         fig.show("browser")
 
-        #%% ---- NOTES
+
+#%% ---- RUN THE SCRIPT
+
+if __name__ == '__main__':
+    run_example12(out_path=out_path, display_plots=True, display_3D=False)
+
+#%% ---- NOTES

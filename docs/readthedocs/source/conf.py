@@ -44,8 +44,13 @@ except Exception:
                 "coordinates": args if args else kwargs.get("coordinates", (0, 0)),
             }
 
+    class _DummyPolygon:
+        def __init__(self, *args, **kwargs):
+            pass
+
     geometry_stub.mapping = _dummy_mapping
     geometry_stub.Point = _DummyPoint
+    geometry_stub.Polygon = _DummyPolygon
     shapely_stub.geometry = geometry_stub
 
     sys.modules["shapely"] = shapely_stub
@@ -111,6 +116,7 @@ autodoc_pydantic_field_show_constraints = True
 autodoc_pydantic_field_show_default = True
 autodoc_pydantic_field_show_alias = False
 autodoc_pydantic_field_list_validators = True
+autodoc_pydantic_field_doc_policy = 'description'
 autodoc_pydantic_settings_show_config_summary = False
 autodoc_pydantic_settings_show_json = False
 

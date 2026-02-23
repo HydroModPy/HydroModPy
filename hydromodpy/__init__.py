@@ -243,8 +243,20 @@ _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
 
-# Import main class
-from hydromodpy.watershed_root import Watershed
+# Import main class (optional dependency chain: geopandas/raster stack).
+try:
+    from hydromodpy.watershed_root import Watershed
+except ModuleNotFoundError as exc:  # pragma: no cover - depends on local env
+    _watershed_import_error = exc
+
+    class Watershed:  # type: ignore[no-redef]
+        """Placeholder raised when optional watershed dependencies are missing."""
+
+        def __init__(self, *args, **kwargs):
+            raise ModuleNotFoundError(
+                "Watershed requires optional dependencies that are not installed "
+                f"(original error: {_watershed_import_error})."
+            ) from _watershed_import_error
 
 # Import submodules for convenience
 from hydromodpy import watershed
