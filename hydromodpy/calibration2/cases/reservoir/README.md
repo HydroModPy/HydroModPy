@@ -6,7 +6,7 @@ This folder demonstrates one- and two-reservoir linear models with:
 - noisy-observation creation,
 - end-to-end parameter calibration.
 
-Legacy files were removed in favor of a modular layout:
+Modular layout:
 - `reservoir_equations.py` -> `one_reservoir.py`
 - `example_hydrological_daily_precipitation.py` / `example_hydrological_two_reservoirs.py`
   -> `run_forward.py`
@@ -29,12 +29,15 @@ Legacy files were removed in favor of a modular layout:
 - `run_forward.py`
   - unified TOML-driven hydrological example for one/two reservoirs
 - `config_forward.toml`
-  - model choice (`model_name`) and associated forcing/parameter values
+  - model choice (`model_name`), solver backend (`solver_backend`) and associated forcing/parameter values
 - `workflow.py`
   - shared calibration-case logic:
     - model registry/selection
     - simulator adapter for generic calibration API
     - calibration orchestration and metrics
+- `case_implementation.py`
+  - reservoir case implementation inheriting the abstract case interface
+  - consumed by `hydromodpy/calibration2/core/case_orchestrator.py`
 - `synthetic_data.py`
   - construction of synthetic reference chronicle:
     - chronicle config parsing
@@ -43,13 +46,12 @@ Legacy files were removed in favor of a modular layout:
 - `plotting.py`
   - plotting helpers for calibration diagnostics
 - `run_calibration.py`
-  - short orchestrator:
+  - short orchestration script around generic `case_orchestrator`:
     - load TOML
-    - build chronicle via `synthetic_data.py`
-    - calibrate
+    - execute case implementation
     - print summary
     - plot/save via `plotting.py`
-- `config_calibration.toml`
+- `config_calibration_two_reservoir.toml`
   - case and calibration configuration
 
 ## Units and Conventions
@@ -57,6 +59,50 @@ Legacy files were removed in favor of a modular layout:
 - storage and capacity (`S`, `C`): `[mm]`
 - inflow/outflow (`Qin`, `Qout`): `[mm/day]`
 - time in examples: daily resolution over one hydrological year (start Oct 1)
+
+## Forward Performance (Indicative)
+
+Measured on this development machine using direct simulator calls only
+(`make_reservoir_simulator(...)(params)`), without calibration/plotting:
+- warm-up: 5 calls
+- benchmark: 200 calls
+- chronicle length: `n_days = 365`
+
+One reservoir (`model_name="one_reservoir"`):
+- Parameters:
+  - `C = 10.0`
+  - `k = 0.04`
+  - `s0 = 0.0`
+- Chronicle settings:
+  - `target_annual_precip_mm = 800.0`
+  - `runoff_coeff = 0.15`
+  - `losses_mm_day = 1.5`
+  - `losses_months = [4, 5, 6, 7, 8, 9]`
+- Timing:
+  - median: `~48.8 ms`
+  - mean: `~50.3 ms`
+  - p95: `~65.3 ms`
+
+Two reservoirs (`model_name="two_reservoir"`):
+- Parameters:
+  - `a = 0.35`
+  - `Kq = 3.0`
+  - `Ks = 45.0`
+  - `sq0 = 0.0`
+  - `ss0 = 0.0`
+- Chronicle settings:
+  - `target_annual_precip_mm = 800.0`
+  - `runoff_coeff = 0.15`
+  - `losses_mm_day = 1.5`
+  - `losses_months = [4, 5, 6, 7, 8, 9]`
+- Timing:
+  - median: `~112.1 ms`
+  - mean: `~111.5 ms`
+  - p95: `~137.7 ms`
+
+Notes:
+- these values are hardware/Python/BLAS dependent;
+- direct simulation cost is only one component of calibration runtime.
 
 ## Run
 
@@ -66,13 +112,21 @@ From repository root:
 python hydromodpy/calibration2/cases/reservoir/run_linear_smoke.py
 python hydromodpy/calibration2/cases/reservoir/run_forward.py
 python hydromodpy/calibration2/cases/reservoir/run_calibration.py
+python hydromodpy/calibration2/cases/reservoir/run_calibration.py --preset one_reservoir
 ```
 
 Model/parameter selection for the unified script is done in:
 - `hydromodpy/calibration2/cases/reservoir/config_forward.toml`
 
 Model/parameter selection for calibration is done in:
-- `hydromodpy/calibration2/cases/reservoir/config_calibration.toml`
+- `hydromodpy/calibration2/cases/reservoir/config_calibration_two_reservoir.toml`
+  (default preset `three_params`, two-reservoir / 3 parameters)
+- `hydromodpy/calibration2/cases/reservoir/config_calibration_one_reservoir.toml`
+  (preset `one_reservoir`, one-reservoir / 2 parameters + objective surface enabled)
+
+`run_calibration.py` supports:
+- `--preset three_params|one_reservoir` (default: `three_params`)
+- `--config-file <path>` to use any explicit TOML file
 
 ## Alternative Model: Two Reservoirs + Split
 
@@ -102,17 +156,19 @@ Main properties:
    - `hydromodpy/calibration2/core/methods_dispatcher.py`
    - `hydromodpy/calibration2/core/objective_function.py`
 
-## TOML Guide (`config_calibration.toml`)
+## TOML Guide (`config_calibration_two_reservoir.toml`)
 
 Main sections:
 - `[chronicle]`: synthetic forcing and truth generation
+  - includes `solver_backend = "analytic" | "ode"` for direct-model integration
 - `[calibration]`: model selection + objective metric + method
 - `[bounds]`: parameter bounds for all parameters of the selected model
 - `[calibration_method.<method>]`: method-specific hyperparameters
-- `[output]`: figure output settings
+- `[output]`: figure output settings (including optional objective surface)
 
 Strict naming convention:
 - `model_name` must be `one_reservoir` or `two_reservoir`
+- `solver_backend` must be `analytic` or `ode`
 - `objective_metric` must be one of `nse`, `nse_log`, `kge`, `rmse`
 - `global_method` must be one of the built-in method names listed below
 
@@ -131,6 +187,22 @@ For `da_mh_gp`, most sensitive settings are:
 - `n_samples`, `burn_in`, `thin`: posterior sample quality and cost
 - Per-parameter settings can be written explicitly as mappings, e.g.
   `proposal_scale = {a=0.05, Kq=0.5, Ks=5.0}`.
+
+For optional objective-surface plotting:
+- `show_objective_surface = true|false`
+- `objective_surface_n_evaluations = <int>`
+- `objective_surface_seed = <int>`
+
+This panel is available only for 1D/2D calibrated spaces. For 3+ parameters,
+schema validation auto-disables `show_objective_surface`.
+
+Surface-construction details:
+- 1D: regular sampling + GP interpolation (linear fallback).
+- 2D: Sobol sampling + GP interpolation (IDW fallback).
+- For parameters spanning multiple orders of magnitude (strictly positive bounds),
+  sampling is automatically performed in log scale for those dimensions.
+- For sampling-based calibration methods, objective-surface scatter overlays
+  posterior/chain solution states (not direct-evaluation design points).
 
 ## Diagnosing MCMC Mixing
 

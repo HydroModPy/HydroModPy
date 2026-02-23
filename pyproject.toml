@@ -105,6 +105,7 @@ include = ["hydromodpy*"]
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*"]
 "hydromodpy.pyhelp" = ["*.FOR"]
+"hydromodpy.calibration2.devkit" = ["templates/case/*.tmpl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -33,6 +33,7 @@ class ReservoirChronicleSchema(BaseModel):
     losses_months: list[int] = Field(default_factory=lambda: [4, 5, 6, 7, 8, 9])
     error_fraction: float = 0.05
     error_seed: int = 12345
+    solver_backend: str = "analytic"
     capacity_mm_true: float | None = None
     k_per_day_true: float | None = None
     s0_mm: float = 0.0
@@ -99,6 +100,14 @@ class ReservoirChronicleSchema(BaseModel):
         if out < 0.0 or out > 1.0:
             raise ValueError("a_true must be in [0, 1]")
         return out
+
+    @field_validator("solver_backend")
+    @classmethod
+    def _validate_solver_backend(cls, value):
+        backend = str(value).strip().lower()
+        if backend not in {"analytic", "ode"}:
+            raise ValueError("solver_backend must be 'analytic' or 'ode'")
+        return backend
 
     @field_validator("losses_months")
     @classmethod

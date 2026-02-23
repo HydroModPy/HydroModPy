@@ -3,7 +3,7 @@
 Plotting helpers for reservoir calibration examples.
 
 The plotting function is intentionally method-agnostic:
-- deterministic methods: 3-panel layout,
+- deterministic methods: 2-panel layout,
 - sampling-based methods: extra parameter-distribution panel.
 """
 
@@ -16,11 +16,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from hydromodpy.calibration2.analysis.diagnostics import build_calibration_result_view
+from hydromodpy.calibration2.analysis.objective_surface import (
+    build_objective_surface_approximation,
+)
 from hydromodpy.calibration2.analysis.plotting import (
     apply_parameter_axis_scales,
     build_calibration_performance_lines,
     build_parameter_summary_lines,
     build_posterior_summary_lines,
+    plot_objective_surface,
     plot_parameter_distribution,
     select_representative_posterior_vectors,
 )
@@ -41,7 +45,10 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     chronicle : dict
         Payload produced by `synthetic_data.build_noisy_reservoir_chronicle(...)`.
     calibration : dict
-        Payload produced by `workflow.calibrate_reservoir_model(...)`.
+        Payload produced by reservoir calibration workflow
+        (`workflow.calibrate_reservoir_model(...)`) or by the generic
+        `core.case_orchestrator` through
+        `cases/reservoir/case_implementation.py`.
     output_png : pathlib.Path or str
         Destination figure path.
     show_plot : bool
@@ -73,17 +80,41 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     has_posterior = result_view["has_posterior"]
     sample_source = result_view["sample_source"]
 
-    # Add one extra panel when posterior/chain samples are available.
+    output_cfg = calibration.get("config", {}).get("output", {})
+    objective_surface_requested = bool(output_cfg.get("show_objective_surface", False))
+    objective_surface = None
+    if objective_surface_requested:
+        objective_surface = build_objective_surface_approximation(
+            calibration["calibration_obj"],
+            parameter_names=parameter_names,
+            bounds=calibration["bounds"],
+            n_evaluations=int(output_cfg.get("objective_surface_n_evaluations", 300)),
+            random_seed=int(output_cfg.get("objective_surface_seed", 42)),
+        )
+    has_objective_surface = bool(
+        objective_surface_requested
+        and objective_surface is not None
+        and objective_surface.get("enabled", False)
+    )
+
+    # Flexible panel layout: forcing, hydrograph, optional posterior,
+    # optional objective surface.
+    n_panels = 2 + int(has_posterior) + int(has_objective_surface)
+    n_cols = 2
+    n_rows = int(np.ceil(n_panels / n_cols))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(13, 4.5 * n_rows), dpi=140)
+    axes_flat = np.atleast_1d(axes).ravel()
+    ax0 = axes_flat[0]
+    ax1 = axes_flat[1]
+    panel_idx = 2
+    ax3 = axes_flat[panel_idx] if has_posterior else None
     if has_posterior:
-        fig, axes = plt.subplots(2, 2, figsize=(13, 9), dpi=140)
-        ax0 = axes[0, 0]
-        ax1 = axes[0, 1]
-        ax2 = axes[1, 0]
-        ax3 = axes[1, 1]
-    else:
-        fig, axes = plt.subplots(3, 1, figsize=(12, 9), dpi=140)
-        ax0, ax1, ax2 = axes
-        ax3 = None
+        panel_idx += 1
+    ax_obj = axes_flat[panel_idx] if has_objective_surface else None
+    if has_objective_surface:
+        panel_idx += 1
+    for extra_ax in axes_flat[panel_idx:]:
+        extra_ax.axis("off")
 
     # Panel 1: forcing chronicle.
     ax0.bar(dates, precip, width=1.0, color="tab:blue", alpha=0.70, label="P [mm/day]")
@@ -113,24 +144,8 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
     ax1.grid(True, ls=":", alpha=0.40)
     ax1.legend(loc="upper right")
 
-    # Panel 3: observed vs calibrated scatter.
-    ax2.scatter(q_obs, q_calib, s=24, color="tab:purple", alpha=0.75, label="Pairs")
-    xy_min = float(np.min(np.r_[q_obs, q_calib]))
-    xy_max = float(np.max(np.r_[q_obs, q_calib]))
-    ax2.plot([xy_min, xy_max], [xy_min, xy_max], color="0.25", ls="--", lw=1.2, label="1:1 line")
-    span = xy_max - xy_min
-    pad = 0.05 * span if span > 0.0 else 0.05 * max(abs(xy_max), 1.0)
-    ax2.set_xlim(xy_min - pad, xy_max + pad)
-    ax2.set_ylim(xy_min - pad, xy_max + pad)
-    ax2.set_aspect("equal", adjustable="box")
-    ax2.set_title("Observed vs calibrated outflow")
-    ax2.set_xlabel("Observed Qout [mm/day]")
-    ax2.set_ylabel("Calibrated Qout [mm/day]")
-    ax2.grid(True, ls=":", alpha=0.40)
-    ax2.legend(loc="upper left")
-
     if has_posterior and ax3 is not None:
-        # Panel 4 (optional): parameter uncertainty view.
+        # Panel 3 (optional): parameter uncertainty view.
         plot_parameter_distribution(
             ax=ax3,
             sample_source=sample_source,
@@ -142,6 +157,24 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
         apply_parameter_axis_scales(
             ax=ax3,
             sample_source=sample_source,
+            parameter_names=parameter_names,
+            params_true=params_true,
+            params_best=params_best,
+        )
+
+    if has_objective_surface and ax_obj is not None:
+        # Optional panel: approximated objective-cost surface from direct evaluations.
+        plot_objective_surface(
+            ax=ax_obj,
+            objective_surface=objective_surface,
+            params_true=params_true,
+            params_best=params_best,
+            solution_points=sample_source if has_posterior else None,
+        )
+        objective_domain_source = np.asarray(objective_surface["sample_points"], dtype=float)
+        apply_parameter_axis_scales(
+            ax=ax_obj,
+            sample_source=objective_domain_source,
             parameter_names=parameter_names,
             params_true=params_true,
             params_best=params_best,
@@ -186,6 +219,25 @@ def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):
             fmt=".4g",
         )
     )
+    if objective_surface_requested:
+        if has_objective_surface:
+            log_names = tuple(objective_surface.get("log_sampling_parameter_names", ()))
+            log_txt = ",".join(log_names) if log_names else "none"
+            summary_lines.append(
+                "Objective surface: "
+                f"n_direct_sim={int(objective_surface['n_direct_evaluations'])}  "
+                f"finite={int(objective_surface['n_finite_evaluations'])}  "
+                f"sampling={objective_surface.get('sampling_method', 'na')}  "
+                f"log_sampling={log_txt}  "
+                f"interp={objective_surface['interpolation_method']}"
+            )
+        else:
+            reason = (
+                "unavailable"
+                if objective_surface is None
+                else str(objective_surface.get("disabled_reason", "unavailable"))
+            )
+            summary_lines.append(f"Objective surface: disabled ({reason})")
 
     fig.text(
         0.50,

@@ -46,6 +46,7 @@ class ReservoirChronicleConfig:
     losses_months: tuple[int, ...]
     error_fraction: float
     error_seed: int
+    solver_backend: str
     true_params: dict[str, float]
     initial_state: dict[str, float]
 
@@ -102,6 +103,7 @@ def parse_chronicle_config(chronicle_cfg, model_name):
         losses_months=tuple(chronicle_cfg.get("losses_months", (4, 5, 6, 7, 8, 9))),
         error_fraction=float(chronicle_cfg.get("error_fraction", 0.05)),
         error_seed=int(chronicle_cfg.get("error_seed", 12345)),
+        solver_backend=str(chronicle_cfg.get("solver_backend", "analytic")),
         true_params=true_params,
         initial_state=initial_state,
     )
@@ -153,6 +155,7 @@ def build_noisy_reservoir_chronicle(chronicle_cfg, model_name):
         forcing_func=forcing_func,
         t_span=(0.0, cfg.n_days - 1.0),
         t_eval=t_eval,
+        solver_backend=cfg.solver_backend,
     )
     qout_true_mm_day = np.asarray(simulation["qout"], dtype=float)
     storage_true_mm = np.asarray(simulation["storage"], dtype=float)

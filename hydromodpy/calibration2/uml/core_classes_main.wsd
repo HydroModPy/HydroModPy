@@ -42,11 +42,6 @@ package "hydromodpy.calibration2.core.objective_function" {
 }
 
 package "hydromodpy.calibration2.core.results" {
-  class "results.py" as ResultsModule <<module>> {
-    +_as_1d_float_array(values, name)
-    +_as_samples_array(values, n_dim, name)
-  }
-
   class CalibrationResults {
     +method: str
     +x_best: np.ndarray
@@ -80,10 +75,6 @@ package "hydromodpy.calibration2.core.methods_dispatcher" {
 }
 
 package "hydromodpy.calibration2.core.engine" {
-  class "engine.py" as EngineModule <<module>> {
-    +as_1d_array(values, name)
-  }
-
   class CalibrationEngine {
     +observed: np.ndarray
     +simulator: callable
@@ -126,8 +117,6 @@ CalibrationEngine --> ObjectiveFunction : uses
 CalibrationEngine --> CalibrationParameterSet : uses
 CalibrationEngine --> CalibrationMethod : delegates
 CalibrationEngine --> CalibrationResults : returns
-CalibrationEngine ..> EngineModule : uses helper
-CalibrationResults ..> ResultsModule : uses helpers
 ObjectiveFunction ..> ObjectiveModule : wraps functions
 CalibrationMethod ..> DispatcherModule : defined in
 DispatcherModule ..> GridSearchModule : dispatch target
@@ -136,10 +125,5 @@ DispatcherModule ..> NelderMeadModule : dispatch target
 DispatcherModule ..> SimplexModule : dispatch target
 DispatcherModule ..> GpMappingModule : dispatch target
 DispatcherModule ..> DaMhGpModule : dispatch target
-
-note bottom
-  Focus: runtime calibration engine, parameter mapping,
-  method dispatch, canonical results, and key module-level functions.
-end note
 
 @enduml

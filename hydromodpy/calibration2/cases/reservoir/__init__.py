@@ -6,5 +6,6 @@ This package groups:
 - synthetic-data generation (`synthetic_data.py`),
 - calibration workflow and plotting (`workflow.py`, `run_calibration.py`,
   `plotting.py`),
+- generic case implementation adapter (`case_implementation.py`),
 - model equations (`models/`).
 """
