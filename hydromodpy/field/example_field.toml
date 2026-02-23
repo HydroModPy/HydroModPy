@@ -1,0 +1,21 @@
+# Example TOML for hydromodpy.field
+#
+# Read with:
+#   FieldParam.from_toml("hydromodpy/field/example_field.toml", section="field_homogeneous")
+#   FieldParam.from_toml("hydromodpy/field/example_field.toml", section="field_heterogeneous")
+#
+# Note:
+#   Field geometry and FieldMesh use dedicated TOML files:
+#   - hydromodpy/field/example_field_square.toml
+#   - hydromodpy/field/example_mesh.toml
+
+[field_homogeneous]
+kind = "homogeneous"
+value = 12.5
+
+[field_heterogeneous]
+kind = "heterogeneous"
+# Inline TOML dictionary (preferred compact syntax).
+values = { granite = 10.0, micaschists = 2.0 }
+# Must match the loaded field geometry id.
+field_id = "field_square"
