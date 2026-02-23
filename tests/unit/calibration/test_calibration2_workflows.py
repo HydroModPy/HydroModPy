@@ -1,4 +1,4 @@
-"""Light integration tests for reference-case calibration workflows."""
+﻿"""Light integration tests for reference-case calibration workflows."""
 
 from __future__ import annotations
 
@@ -8,27 +8,35 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.calibration2.core.case_orchestrator import run_calibration_case
-from hydromodpy.calibration2.core.results import CalibrationResults
-from hydromodpy.calibration2.cases.recession_brutsaert.case_implementation import (
+from hydromodpy.calibration.core.case_orchestrator import run_calibration_case
+from hydromodpy.calibration.core.results import CalibrationResults
+from hydromodpy.calibration.cases.recession_brutsaert.case_implementation import (
     CASE_IMPLEMENTATION as BRUTSAERT_CASE_IMPLEMENTATION,
 )
-from hydromodpy.calibration2.cases.recession_brutsaert.workflow import (
+from hydromodpy.calibration.cases.groundwater_1d.case_implementation import (
+    CASE_IMPLEMENTATION as GROUNDWATER_CASE_IMPLEMENTATION,
+)
+from hydromodpy.calibration.cases.recession_brutsaert.workflow import (
     build_noisy_coarse_sand_chronicle,
     calibrate_k_sy,
 )
-from hydromodpy.calibration2.cases.reservoir.case_implementation import (
+from hydromodpy.calibration.cases.groundwater_1d.workflow import (
+    build_noisy_groundwater_chronicle,
+    calibrate_groundwater_model,
+)
+from hydromodpy.calibration.cases.reservoir.case_implementation import (
     CASE_IMPLEMENTATION as RESERVOIR_CASE_IMPLEMENTATION,
 )
-from hydromodpy.calibration2.cases.reservoir.workflow import (
+from hydromodpy.calibration.cases.reservoir.workflow import (
     calibrate_reservoir_model,
     resolve_model_name,
 )
-from hydromodpy.calibration2.cases.reservoir.synthetic_data import build_noisy_reservoir_chronicle
+from hydromodpy.calibration.cases.reservoir.synthetic_data import build_noisy_reservoir_chronicle
 
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 BRUTSAERT_METHODS_GOLDEN_FILE = GOLDEN_DIR / "calibration2_brutsaert_methods_golden.json"
+RESERVOIR_METHODS_GOLDEN_FILE = GOLDEN_DIR / "calibration_reservoir_methods_golden.json"
 
 
 METHOD_ABS_TOL = {
@@ -41,34 +49,57 @@ METHOD_ABS_TOL = {
 }
 
 
-def _reservoir_base_config(*, method):
+def _reservoir_base_config(*, method, model_name="one_reservoir"):
+    chronicle = {
+        "n_days": 40,
+        "start_year": 2000,
+        "target_annual_precip_mm": 400.0,
+        "precip_seed": 7,
+        "runoff_coeff": 0.20,
+        "losses_mm_day": 0.8,
+        "losses_months": [4, 5, 6, 7, 8, 9],
+        "error_fraction": 0.03,
+        "error_seed": 11,
+        "solver_backend": "analytic",
+    }
+    if str(model_name) == "one_reservoir":
+        chronicle.update(
+            {
+                "capacity_mm_true": 10.0,
+                "k_per_day_true": 0.05,
+                "s0_mm": 0.0,
+            }
+        )
+        bounds = {
+            "C": [2.0, 20.0],
+            "k": [0.01, 0.20],
+        }
+    else:
+        chronicle.update(
+            {
+                "a_true": 0.35,
+                "kq_days_true": 3.0,
+                "ks_days_true": 45.0,
+                "sq0_mm": 0.0,
+                "ss0_mm": 0.0,
+            }
+        )
+        bounds = {
+            "a": [0.05, 0.95],
+            "Kq": [1.0, 10.0],
+            "Ks": [15.0, 120.0],
+        }
     return {
-        "chronicle": {
-            "n_days": 40,
-            "start_year": 2000,
-            "target_annual_precip_mm": 400.0,
-            "precip_seed": 7,
-            "runoff_coeff": 0.20,
-            "losses_mm_day": 0.8,
-            "losses_months": [4, 5, 6, 7, 8, 9],
-            "capacity_mm_true": 10.0,
-            "k_per_day_true": 0.05,
-            "s0_mm": 0.0,
-            "error_fraction": 0.03,
-            "error_seed": 11,
-        },
+        "chronicle": chronicle,
         "calibration": {
-            "model_name": "one_reservoir",
+            "model_name": model_name,
             "objective_metric": "kge",
             "global_method": method,
         },
-        "bounds": {
-            "C": [2.0, 20.0],
-            "k": [0.01, 0.20],
-        },
+        "bounds": bounds,
         "calibration_method": {
             "random_search": {
-                "n_samples": 80,
+                "n_samples": 90,
                 "seed": 42,
                 "log_scale_indices": [],
             },
@@ -158,6 +189,61 @@ def _brutsaert_base_config(*, method):
     }
 
 
+def _groundwater_base_config(*, method):
+    return {
+        "chronicle": {
+            "n_days": 24,
+            "dt_days": 1.0,
+            "L_m": 200.0,
+            "xi_true_m": 95.0,
+            "nx": 31,
+            "formulation_true": "linearized",
+            "H_linearized_m": 9.0,
+            "Kam_true_m_per_day": 3.0,
+            "Kav_true_m_per_day": 1.1,
+            "Syam_true": 0.16,
+            "Syav_true": 0.09,
+            "h0_m": 5.0,
+            "recharge_mode": "hydro_step",
+            "recharge_wet_m_per_day": 0.0018,
+            "recharge_dry_m_per_day": 0.0004,
+            "recharge_wet_months": [10, 11, 12, 1, 2, 3],
+            "start_year": 2000,
+            "target_annual_precip_mm": 600.0,
+            "precip_seed": 17,
+            "runoff_coeff": 0.15,
+            "losses_mm_day": 1.2,
+            "losses_months": [4, 5, 6, 7, 8, 9],
+            "obs_x_m": [40.0, 95.0, 150.0, 190.0],
+            "obs_t_stride": 2,
+            "obs_noise_std_m": 0.01,
+            "obs_seed": 77,
+            "picard_max_iter": 25,
+            "picard_tol": 1.0e-7,
+            "picard_relaxation": 1.0,
+            "head_floor_m": 1.0e-6,
+        },
+        "calibration": {
+            "objective_metric": "rmse",
+            "global_method": method,
+        },
+        "bounds": {
+            "Kam": [1.0, 5.0],
+            "Kav": [0.4, 2.5],
+            "Syam": [0.08, 0.30],
+            "Syav": [0.05, 0.20],
+            "xi": [20.0, 180.0],
+        },
+        "calibration_method": {
+            "random_search": {
+                "n_samples": 48,
+                "seed": 21,
+                "log_scale_indices": [],
+            },
+        },
+    }
+
+
 def _to_serializable(value):
     if value is None:
         return None
@@ -198,6 +284,39 @@ def _brutsaert_method_signature(calibration):
             "std": _to_serializable(np.std(arr, axis=0)),
         }
     return signature
+
+
+def _reservoir_method_signature(calibration):
+    result = calibration["result"]
+    samples = result.samples
+    signature = {
+        "model_name": str(calibration["model_name"]),
+        "method": str(result.method),
+        "x_best": _to_serializable(result.x_best),
+        "cost_best": float(result.cost_best),
+        "score_best": None if result.score_best is None else float(result.score_best),
+        "n_evaluations": int(result.n_evaluations),
+        "metrics": {
+            "NSE": float(calibration["metrics"]["NSE"]),
+            "NSElog": float(calibration["metrics"]["NSElog"]),
+            "KGE": float(calibration["metrics"]["KGE"]),
+            "r": float(calibration["metrics"]["r"]),
+            "alpha": float(calibration["metrics"]["alpha"]),
+            "beta": float(calibration["metrics"]["beta"]),
+        },
+    }
+    if samples is not None:
+        arr = np.asarray(samples, dtype=float)
+        signature["samples"] = {
+            "count": int(arr.shape[0]),
+            "mean": _to_serializable(np.mean(arr, axis=0)),
+            "std": _to_serializable(np.std(arr, axis=0)),
+        }
+    return signature
+
+
+def _reservoir_golden_key(*, model_name, method):
+    return f"{model_name}::{method}"
 
 
 def _write_json(path, payload):
@@ -314,6 +433,40 @@ def test_brutsaert_case_orchestrator_random_search_smoke():
     assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
 
 
+def test_groundwater_workflow_random_search_smoke():
+    """Groundwater workflow should run end-to-end with structured outputs."""
+    config = _groundwater_base_config(method="random_search")
+    chronicle = build_noisy_groundwater_chronicle(config["chronicle"])
+    calibration = calibrate_groundwater_model(chronicle, config)
+
+    result = calibration["result"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "random_search"
+    assert result.samples is None
+    assert result.params_best is not None
+    assert calibration["simulation_best"] is not None
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
+def test_groundwater_case_orchestrator_random_search_smoke():
+    """Groundwater case should run through generic case orchestrator."""
+    config = _groundwater_base_config(method="random_search")
+    calibration = run_calibration_case(
+        config_data=config,
+        case_implementation=GROUNDWATER_CASE_IMPLEMENTATION,
+    )
+
+    result = calibration["result"]
+    assert isinstance(result, CalibrationResults)
+    assert result.method == "random_search"
+    assert result.samples is None
+    assert result.params_best is not None
+    assert calibration["chronicle"] is not None
+    assert calibration["result_final"] is result
+    assert calibration["simulation_best"] is not None
+    assert {"NSE", "NSElog", "KGE", "r", "alpha", "beta"} <= set(calibration["metrics"])
+
+
 def test_reservoir_workflow_gp_mapping_returns_samples():
     """Reservoir workflow should expose posterior samples for gp_mapping."""
     pytest.importorskip("sklearn")
@@ -329,6 +482,53 @@ def test_reservoir_workflow_gp_mapping_returns_samples():
     assert result.samples is not None
     assert result.samples.shape[0] == 120
     assert result.samples.shape[1] == 2
+
+
+@pytest.mark.parametrize(
+    ("model_name", "method"),
+    (
+        ("one_reservoir", "random_search"),
+        ("two_reservoir", "random_search"),
+    ),
+)
+def test_reservoir_workflow_methods_golden(model_name, method, update_goldens):
+    """Non-regression check for reservoir calibration methods using golden values."""
+    config = _reservoir_base_config(method=method, model_name=model_name)
+    resolved_model_name = resolve_model_name(config)
+    chronicle = build_noisy_reservoir_chronicle(
+        config["chronicle"],
+        model_name=resolved_model_name,
+    )
+    calibration = calibrate_reservoir_model(
+        chronicle,
+        config,
+        model_name=resolved_model_name,
+    )
+    actual = _reservoir_method_signature(calibration)
+    key = _reservoir_golden_key(model_name=model_name, method=method)
+
+    if update_goldens:
+        payload = {}
+        if RESERVOIR_METHODS_GOLDEN_FILE.exists():
+            payload = _load_json(RESERVOIR_METHODS_GOLDEN_FILE)
+        payload[key] = actual
+        _write_json(RESERVOIR_METHODS_GOLDEN_FILE, payload)
+        return
+
+    if not RESERVOIR_METHODS_GOLDEN_FILE.exists():
+        pytest.fail(
+            f"Missing golden reference file: {RESERVOIR_METHODS_GOLDEN_FILE}. "
+            "Run tests with --update-goldens to generate it."
+        )
+
+    expected_all = _load_json(RESERVOIR_METHODS_GOLDEN_FILE)
+    assert key in expected_all, (
+        f"Missing golden entry '{key}' in {RESERVOIR_METHODS_GOLDEN_FILE}. "
+        "Run tests with --update-goldens to refresh."
+    )
+    expected = expected_all[key]
+    assert actual.get("model_name") == expected.get("model_name")
+    _assert_signature_close(actual, expected, abs_tol=METHOD_ABS_TOL[method])
 
 
 @pytest.mark.parametrize(
@@ -396,3 +596,4 @@ def test_brutsaert_workflow_methods_golden(method, update_goldens):
     )
     expected = expected_all[method]
     _assert_signature_close(actual, expected, abs_tol=METHOD_ABS_TOL[method])
+
