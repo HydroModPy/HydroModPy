@@ -18,7 +18,7 @@ EXAMPLE_09S_SCRIPT = (
     REPO_ROOT
     / "examples"
     / "09S_short"
-    / "example_09.py"
+    / "example_09_new.py"
 )
 
 GOLDEN_REFERENCE_FILE = (
