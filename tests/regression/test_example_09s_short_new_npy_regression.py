@@ -1,4 +1,4 @@
-"""End-to-end regression test for examples/09S_short/example_09.py."""
+"""End-to-end regression test for examples/09S_short/example_09_new.py (NEW API)."""
 
 from pathlib import Path
 
@@ -14,7 +14,7 @@ from tests.regression.golden_utils import (
 )
 
 
-EXAMPLE_09S_SCRIPT = (
+EXAMPLE_09S_NEW_SCRIPT = (
     REPO_ROOT
     / "examples"
     / "09S_short"
@@ -25,7 +25,7 @@ GOLDEN_REFERENCE_FILE = (
     Path(__file__).resolve().parent
     / "reference"
     / "golden_references"
-    / "example_09s_short_npy_signatures.json"
+    / "example_09s_short_new_npy_signatures.json"
 )
 
 MODFLOW_OUTPUT_NAMES = [
@@ -39,13 +39,13 @@ MODFLOW_OUTPUT_NAMES = [
 
 @pytest.mark.regression
 @pytest.mark.fast
-def test_example_09s_short_regression_on_npy_outputs(tmp_path, update_goldens):
-    """Run example_09S, then compare (or refresh) its golden signatures."""
+def test_example_09s_short_new_regression_on_npy_outputs(tmp_path, update_goldens):
+    """Run example_09S_new, then compare (or refresh) its golden signatures."""
     assert_required_executables()
 
-    out_path = tmp_path / "example_09s_short_outputs"
+    out_path = tmp_path / "example_09s_short_new_outputs"
     run_legacy_example_script(
-        script_path=EXAMPLE_09S_SCRIPT,
+        script_path=EXAMPLE_09S_NEW_SCRIPT,
         out_path=out_path,
         stop_method="postprocessing_timeseries",
         expected_stop_calls=1,
