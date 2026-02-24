@@ -17,11 +17,13 @@ from hydromodpy.field.cases.square import (
     TriangularStructuredFieldMesh,
     TriangularUnstructuredFieldMesh,
 )
+from hydromodpy.field.cases.geology import GeologyField
 
 __all__ = (
     "FieldParam",
     "Field",
     "FieldSquare",
+    "GeologyField",
     "FieldDiscretization",
     "WeightedAverageFieldDiscretization",
     "FieldMesh",
