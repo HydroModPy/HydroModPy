@@ -1,4 +1,4 @@
-"""
+﻿"""
 Geology spatial field for heterogeneous parameter mapping on simulation meshes.
 
 Purpose
@@ -392,7 +392,7 @@ class GeologyField(Field):
         field = GeologyField.from_dict(
             {
                 "id": "field_geology",
-                "source": {"path": "data/Brittany/dem/regional dem.tif", "kind": "raster"},
+                "source": {"path": "data/France/dem/regional dem.tif", "kind": "raster"},
             }
         )
         """
@@ -422,3 +422,4 @@ class GeologyField(Field):
         """
         cfg = load_geology_toml(toml_path, section=section)
         return cls.from_dict(cfg)
+
