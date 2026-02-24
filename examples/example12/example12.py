@@ -54,6 +54,7 @@ from hydromodpy.modeling.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
+from 
 from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
@@ -73,10 +74,15 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     initializing = Initializing(config=cfg.initializing)
     geographic   = Geographic(config=cfg.geographic,
                               initializing=initializing)
+    
+    
+    
     setting = Settings()
     hydraulic = Hydraulic(nrow=geographic.y_pixel,
                           ncol=geographic.x_pixel,
                           box_dem=geographic.watershed_box_buff_dem)
+    
+    
     transport = Transport()
     
     #%% DATA
