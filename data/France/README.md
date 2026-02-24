@@ -1,21 +1,21 @@
-# Brittany Data Layout
+﻿# Brittany Data Layout
 
 This directory is organized by data type to make datasets easier to discover
 and reuse across workflows.
 
 ## Structure
 
-- `data/Brittany/geology/`
+- `data/France/geology/`
   - geology layers for lithology classes (GEO1M.*)
-- `data/Brittany/dem/`
+- `data/France/dem/`
   - topography grids (current DEM: `regional dem.tif`)
-- `data/Brittany/climate/`
+- `data/France/climate/`
   - climate tabular inputs (`_climate_REANALYSIS.csv`)
-- `data/Brittany/hydrometry/`
+- `data/France/hydrometry/`
   - hydrometric stations
-- `data/Brittany/onde/`
+- `data/France/onde/`
   - ONDE/intermittency stations
-- `data/Brittany/docs/`
+- `data/France/docs/`
   - auxiliary notes/documentation
 
 ## Notes
@@ -24,5 +24,6 @@ and reuse across workflows.
   this new structure.
 - This layout is intentionally thematic-first (geology, dem, climate, etc.),
   not format-first (vector/raster/tabular).
-- If a legacy script expects files directly under `data/Brittany/`, update
+- If a legacy script expects files directly under `data/France/`, update
   paths to the thematic subdirectories above.
+
