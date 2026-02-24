@@ -9,8 +9,8 @@ from urllib.parse import parse_qs, urlparse
 import pandas as pd
 import pytest
 
-from hydromodpy.hydrometry.station_set import StationSet
-from hydromodpy.hydrometry import loaders_api as loaders_api_module
+from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.hydrometry import loaders_api as loaders_api_module
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 STATION_SET_LOADING_GOLDEN_FILE = GOLDEN_DIR / "station_set_loading_golden.json"

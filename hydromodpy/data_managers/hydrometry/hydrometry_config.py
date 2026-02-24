@@ -109,7 +109,7 @@ class OutputSectionSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = False
-    path: str = "hydromodpy/hydrometry/exports"
+    path: str = "hydromodpy/data_managers/hydrometry/exports"
     export_mode: Literal["lite", "full"] = "lite"
 
     @field_validator("path")

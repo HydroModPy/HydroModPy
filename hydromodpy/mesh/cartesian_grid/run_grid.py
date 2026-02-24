@@ -2,13 +2,13 @@
 Quick visual test for SGrid_Generation.
 
 This script uses the SGrid TOML/Pydantic interface directly:
-    - TOML:   hydromodpy/grid/sgrid_config.toml
-    - schema: hydromodpy/grid/sgrid_config.py
+    - TOML:   hydromodpy/mesh/cartesian_grid/sgrid_config.toml
+    - schema: hydromodpy/mesh/cartesian_grid/sgrid_config.py
 
 Run from repository root:
-    python hydromodpy/grid/Test_hmp_refac_grid.py
-    python hydromodpy/grid/Test_hmp_refac_grid.py --sgrid-config hydromodpy/grid/sgrid_config.toml
-    python -m hydromodpy.grid.Test_hmp_refac_grid
+    python hydromodpy/mesh/cartesian_grid/run_grid.py
+    python hydromodpy/mesh/cartesian_grid/run_grid.py --sgrid-config hydromodpy/mesh/cartesian_grid/sgrid_config.toml
+    python -m hydromodpy.mesh.cartesian_grid.run_grid
 """
 
 from __future__ import annotations

@@ -45,11 +45,11 @@ from typing import Any, Mapping
 import numpy as np
 from rasterio.transform import rowcol
 
-from hydromodpy.field.cases.geology.geology_config import (
+from hydromodpy.data_managers.geology.geology_config import (
     load_geology_toml,
     validate_geology_config_data,
 )
-from hydromodpy.field.cases.geology.geology_io import load_geology_encoded_grid
+from hydromodpy.data_managers.geology.geology_io import load_geology_encoded_grid
 from hydromodpy.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.field.core.field_spatial import Field
 from hydromodpy.field.core.field_spatial_weighted_discretization import (
@@ -117,7 +117,7 @@ class GeologyField(Field):
     Build from TOML and discretize on a mesh:
 
     >>> field = GeologyField.from_toml(
-    ...     "hydromodpy/field/cases/geology/geology_config.toml",
+    ...     "hydromodpy/data_managers/geology/geology_config.toml",
     ...     section="geology",
     ... )
     >>> discretization = field.on_mesh(mesh, cell_samples_per_axis=10)
@@ -416,7 +416,7 @@ class GeologyField(Field):
         Example
         -------
         field = GeologyField.from_toml(
-            "hydromodpy/field/cases/geology/geology_config.toml",
+            "hydromodpy/data_managers/geology/geology_config.toml",
             section="geology",
         )
         """

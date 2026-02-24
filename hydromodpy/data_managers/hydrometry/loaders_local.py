@@ -2,7 +2,7 @@
 
 The loader expects station CSV files plus optional reference tables produced by
 the ``StationSet`` full export mode (metadata, stations_info, sites_info).
-It normalizes rows into :class:`~hydromodpy.hydrometry.station.Station`
+It normalizes rows into :class:`~hydromodpy.data_managers.hydrometry.station.Station`
 instances and computes completeness diagnostics consistently with API mode.
 """
 

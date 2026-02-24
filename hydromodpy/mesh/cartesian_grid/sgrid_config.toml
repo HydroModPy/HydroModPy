@@ -1,8 +1,8 @@
 # Spatial grid configuration for `SGrid_Generation.from_toml(...)`.
 #
 # Example usage:
-#   from hydromodpy.grid.sgrid_generation import SGrid_Generation
-#   sgrid = SGrid_Generation.from_toml("hydromodpy/grid/sgrid_config.toml").run()
+#   from hydromodpy.mesh.cartesian_grid.sgrid_generation import SGrid_Generation
+#   sgrid = SGrid_Generation.from_toml("hydromodpy/mesh/cartesian_grid/sgrid_config.toml").run()
 
 [sgrid]
 sgrid_type = "structured"

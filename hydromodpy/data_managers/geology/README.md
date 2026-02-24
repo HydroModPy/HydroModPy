@@ -45,11 +45,11 @@ updated by optimization/calibration.
 ## Minimal Usage
 
 ```python
-from hydromodpy.field.cases.geology import GeologyField
+from hydromodpy.data_managers.geology import GeologyField
 from hydromodpy.field.core.field_param import FieldParam
 
 field = GeologyField.from_toml(
-    "hydromodpy/field/cases/geology/geology_config.toml",
+    "hydromodpy/data_managers/geology/geology_config.toml",
     section="geology",
 )
 
@@ -106,7 +106,7 @@ The shared Brittany dataset is now grouped by thematic data type:
 Run from repository root:
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_property_demo.py
+python hydromodpy/data_managers/geology/run_geology_property_demo.py
 ```
 
 This demo:
@@ -126,7 +126,7 @@ Default run uses one inland 10-km Brittany window (same preset as
 `run_geology_France.py`).
 
 Output behavior:
-- by default: `hydromodpy/field/cases/geology/outputs/geology_property_demo.png`
+- by default: `hydromodpy/data_managers/geology/outputs/geology_property_demo.png`
 - if `--output-file` is only a filename (for example `demo.png`), it is
   automatically saved in `outputs/demo.png`.
 
@@ -139,7 +139,7 @@ Useful options:
 You can run a standalone visual check of the geology case without any mesh:
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_France.py
+python hydromodpy/data_managers/geology/run_geology_France.py
 ```
 
 This generates one figure with the global geology map and prints checks in
@@ -152,7 +152,7 @@ Sea polygons are uniformized by default (`TERRE_MER == "M"` -> `"SEA"`).
 Disable it with:
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_France.py --no-uniform-sea
+python hydromodpy/data_managers/geology/run_geology_France.py --no-uniform-sea
 ```
 
 ### Local 10-km Window in Brittany
@@ -160,7 +160,7 @@ python hydromodpy/field/cases/geology/run_geology_France.py --no-uniform-sea
 Predefined Brittany window (10 km x 10 km):
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_France.py --bretagne-10km
+python hydromodpy/data_managers/geology/run_geology_France.py --bretagne-10km
 ```
 
 Equivalent explicit coordinates in EPSG:2154:
@@ -169,21 +169,21 @@ Equivalent explicit coordinates in EPSG:2154:
 Custom local window:
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_France.py --center-x 355000 --center-y 6715000 --window-km 10
+python hydromodpy/data_managers/geology/run_geology_France.py --center-x 355000 --center-y 6715000 --window-km 10
 ```
 
 The figure includes a legend mapping colors to geology names.
 On large maps, legend size is limited to keep readability. You can adjust:
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_France.py --max-legend-classes 50
+python hydromodpy/data_managers/geology/run_geology_France.py --max-legend-classes 50
 ```
 
 Legend labels use geology names from attribute `LITHOLOGIE` by default.
 You can choose another attribute:
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_France.py --legend-name-field LITHOLOGIE
+python hydromodpy/data_managers/geology/run_geology_France.py --legend-name-field LITHOLOGIE
 ```
 
 When a local window is used, the output figure contains two panels in the same
@@ -194,13 +194,13 @@ window:
 To save without opening the interactive window:
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_France.py --no-show-plot
+python hydromodpy/data_managers/geology/run_geology_France.py --no-show-plot
 ```
 
 Default output path:
-- `hydromodpy/field/cases/geology/outputs/geology_france_global.png`
+- `hydromodpy/data_managers/geology/outputs/geology_france_global.png`
 
 Output behavior for `--output-file` is the same as above:
 - bare filenames are redirected to `outputs/`,
-- relative paths are resolved from `hydromodpy/field/cases/geology/`.
+- relative paths are resolved from `hydromodpy/data_managers/geology/`.
 
