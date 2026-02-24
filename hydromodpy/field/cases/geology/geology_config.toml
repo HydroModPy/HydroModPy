@@ -1,4 +1,4 @@
-# Example geology field configuration (didactic version).
+﻿# Example geology field configuration (didactic version).
 #
 # Goal:
 # -----
@@ -20,7 +20,7 @@
 # Important:
 # ----------
 # Paths below are interpreted from your current working directory.
-# In repository-root usage, this file points to `data/Brittany/...`.
+# In repository-root usage, this file points to `data/France/...`.
 
 [geology]
 # Identifier used later by FieldParam.field_spatial_id.
@@ -36,7 +36,7 @@ cell_samples_per_axis = 8
 [geology.source]
 # Main geology source path.
 # Here: Brittany geology vector map.
-path = "data/Brittany/geology/GEO1M.shp"
+path = "data/France/geology/GEO1M.shp"
 
 # Source kind:
 # - "raster": read raster directly
@@ -46,7 +46,7 @@ kind = "vector"
 
 # For vector sources only (leave unset for raster):
 code_field = "CODE_LEG"
-reference_raster_path = "data/Brittany/dem/regional dem.tif"
+reference_raster_path = "data/France/dem/regional dem.tif"
 #
 # all_touched affects vector rasterization only:
 # - false: stricter polygon-to-pixel assignment
@@ -60,8 +60,9 @@ all_touched = false
 enabled = false
 
 # Example for coastal override:
-# path = "data/Brittany/landsea/Land_Sea.tif"
+# path = "data/France/landsea/Land_Sea.tif"
 # sea_value = 0
 # override_code = "1"
 sea_value = 0
 override_code = "1"
+

@@ -1,0 +1,64 @@
+{
+  "local_basic": {
+    "station_ids": [
+      "J111111101",
+      "J222222201"
+    ],
+    "total_rows": 5,
+    "total_missing_days": 1,
+    "stations": {
+      "J111111101": {
+        "n_rows": 3,
+        "sum_resultat_obs_elab": 33.0,
+        "first_date": "2024-01-01",
+        "last_date": "2024-01-03",
+        "expected_days": 3,
+        "actual_days": 3,
+        "missing_days": 0,
+        "completeness_pct": 100.0
+      },
+      "J222222201": {
+        "n_rows": 2,
+        "sum_resultat_obs_elab": 42.0,
+        "first_date": "2024-01-01",
+        "last_date": "2024-01-03",
+        "expected_days": 3,
+        "actual_days": 2,
+        "missing_days": 1,
+        "completeness_pct": 66.666667
+      }
+    }
+  },
+  "api_mocked_basic": {
+    "station_ids": [
+      "J736422001",
+      "J751301001"
+    ],
+    "total_rows": 5,
+    "total_missing_days": 1,
+    "stations": {
+      "J736422001": {
+        "n_rows": 3,
+        "sum_resultat_obs_elab": 3.3,
+        "first_date": "2024-01-01",
+        "last_date": "2024-01-03",
+        "sum_specific_discharge": 0.033,
+        "expected_days": 3,
+        "actual_days": 3,
+        "missing_days": 0,
+        "completeness_pct": 100.0
+      },
+      "J751301001": {
+        "n_rows": 2,
+        "sum_resultat_obs_elab": 4.2,
+        "first_date": "2024-01-01",
+        "last_date": "2024-01-03",
+        "sum_specific_discharge": 0.084,
+        "expected_days": 3,
+        "actual_days": 2,
+        "missing_days": 1,
+        "completeness_pct": 66.666667
+      }
+    }
+  }
+}
