@@ -260,7 +260,7 @@ def modpath(geographic, settings, model_modflow, initializing, results, for_cali
 # REFACTORED MT3DMS - Direct Mt3dms class
 # ============================================================================
 
-def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for_calib=True):
+def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for_calib=True, transport=None):
     """
     MT3DMS execution using direct Mt3dms class instantiation
 
@@ -274,6 +274,8 @@ def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for
         Scenario identifier
     for_calib : bool, default True
         Calibration mode
+    transport : Transport object, optional
+        Transport parameters object. If None, uses default hardcoded values
 
     Returns
     -------
@@ -294,11 +296,31 @@ def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for
 
         print(f"    Setting up concentration arrays (nlay={nlay}, nrow={nrow}, ncol={ncol}, nper={nper})...")
 
-        # Setup initial and input concentrations
-        sconc_init = np.ones((nlay, nrow, ncol)) * (100 / 1000)  # 100 mg/L
-        sconc_input = {i: np.ones((nrow, ncol)) * (50 / 1000) for i in range(nper)}  # 50 mg/L
-        sconc_input = dict(islice(sconc_input.items(), 1, None))  # Skip first period
-        rate_decay = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))  # Half-life 2 years
+        # Use transport object parameters if provided, otherwise use defaults
+        if transport is not None:
+            spc_name = transport.spc_name
+            sconc_init = transport.sconc_init
+            sconc_input = transport.sconc_input
+            disp_long = transport.disp_long
+            disp_transh = transport.disp_transh
+            disp_transv = transport.disp_transv
+            diffu_coeff = transport.diffu_coeff
+            react_order = transport.react_order
+            rate_decay = transport.rate_decay
+            plot_conc = transport.plot_conc
+        else:
+            # Default hardcoded values for backward compatibility
+            spc_name = 'NO3'
+            sconc_init = np.ones((nlay, nrow, ncol)) * (100 / 1000)  # 100 mg/L
+            sconc_input = {i: np.ones((nrow, ncol)) * (50 / 1000) for i in range(nper)}  # 50 mg/L
+            sconc_input = dict(islice(sconc_input.items(), 1, None))  # Skip first period
+            disp_long = 5
+            disp_transh = 0.5
+            disp_transv = 0.05
+            diffu_coeff = 1e-10 * 3600 * 24
+            react_order = 1
+            rate_decay = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))  # Half-life 2 years
+            plot_conc = True
 
         # Create Mt3dms instance directly (following example12.py pattern)
         print("    Creating MT3DMS model...")
@@ -312,15 +334,16 @@ def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for
                         suffix_name=suffix_name,
                         bin_path=initializing.bin_path,
                         # Specific settings
-                        spc_name='NO3',
+                        spc_name=spc_name,
                         sconc_init=sconc_init,
                         sconc_input=sconc_input,
-                        disp_long=5,        # Longitudinal dispersivity
-                        disp_transh=0.5,    # Transverse horizontal dispersivity
-                        disp_transv=0.05,   # Transverse vertical dispersivity
-                        diffu_coeff=1e-10 * 3600 * 24,  # Diffusion coefficient
-                        react_order=1,
-                        rate_decay=rate_decay
+                        disp_long=disp_long,
+                        disp_transh=disp_transh,
+                        disp_transv=disp_transv,
+                        diffu_coeff=diffu_coeff,
+                        react_order=react_order,
+                        rate_decay=rate_decay,
+                        plot_conc=plot_conc
         )
 
         # Preprocessing and processing

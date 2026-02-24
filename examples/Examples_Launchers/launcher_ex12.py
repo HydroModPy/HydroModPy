@@ -152,6 +152,17 @@ PARAMS = {
         "well_2_fluxes": [0, -1000, 0, -500, 0, 0, -500, 0, 0, 0, 0, -1000],  # [L3/T] for 12 stress periods
         # Vertical anisotropy exponent
         "exdp": 1.0,
+        # Transport (MT3DMS) settings
+        "spc_name": "NO3",
+        "disp_long": 0,  # Longitudinal dispersivity (m)
+        "disp_transh": 0,  # Transverse horizontal dispersivity
+        "disp_transv": 0,  # Transverse vertical dispersivity
+        "diffu_coeff": 1e-10 * 3600 * 24,  # Molecular diffusion (L2T-1)
+        "react_order": 1,  # 0: zero-order, 1: first-order
+        "sconc_init_value": 100,  # Initial concentration (mg/L)
+        "sconc_input_value": 50,  # Input concentration (mg/L)
+        "rate_decay_value": 1 / (2 * 365),  # Decay rate (T-1) - half-life 2 years
+        "plot_conc": True,
     }
 }
 
@@ -651,6 +662,30 @@ def parametrization(results):
         hydraulic_object.update_bottom(p["bottom"])
         hydraulic_object.update_exdp(p["exdp"])
 
+        # Configure Transport (like example12.py)
+        print("    • Transport...")
+        transport_object = results.get('transport')
+        if transport_object is None:
+            transport_object = Transport()
+            results['transport'] = transport_object
+
+        transport_object.update_mt3dms_parameters(
+            spc_name=p["spc_name"],
+            sconc_init=None,  # Will be set in MT3DMS based on model dimensions
+            sconc_input=None,  # Will be set in MT3DMS based on model dimensions
+            disp_long=p["disp_long"],
+            disp_transh=p["disp_transh"],
+            disp_transv=p["disp_transv"],
+            diffu_coeff=p["diffu_coeff"],
+            react_order=p["react_order"],
+            rate_decay=None,  # Will be set in MT3DMS based on model dimensions
+            plot_conc=p["plot_conc"]
+        )
+        # Store transport parameters as scalars for later use by mt3dms_ex12
+        transport_object.sconc_init_value = p["sconc_init_value"] / 1000  # Convert mg/L to kg/m3
+        transport_object.sconc_input_value = p["sconc_input_value"] / 1000
+        transport_object.rate_decay_value = p["rate_decay_value"]
+
         # Configure Climatic (like example12.py)
         print("    • Climatic...")
         climatic_object.update_first_clim('mean')
@@ -891,24 +926,50 @@ def modpath_ex12(results):
 
 
 def mt3dms_ex12(results):
-    """SPECIALIZED MT3DMS for Example 12 - calls generic mt3dms()"""
+    """SPECIALIZED MT3DMS for Example 12 - uses transport_object configuration"""
     print("\n  • Executing MT3DMS for Example 12...")
     try:
         # Get individual objects
         geographic_object = results['geographic']
-        climatic_object = results['climatic']
         model_modflow = results['model_modflow']
         initializing_object = results['initializing']
+        transport_object = results.get('transport')
 
-        config = MODELING_CONFIG.get('ex12', {})
+        if not model_modflow or not results.get('success_modflow'):
+            print("  ⚠ MODFLOW incomplete - skipping MT3DMS")
+            results['success_mt3dms'] = False
+            return results
+
+        if not transport_object:
+            print("  ⚠ Transport object not configured - skipping MT3DMS")
+            results['success_mt3dms'] = False
+            return results
+
+        # Setup concentration arrays based on model dimensions (like example12.py)
+        nper = model_modflow.nper
+        nlay = model_modflow.mf.nlay
+        nrow = model_modflow.mf.nrow
+        ncol = model_modflow.mf.ncol
+
+        sconc_init = np.ones((nlay, nrow, ncol)) * transport_object.sconc_init_value
+        sconc_input = {i: np.ones((nrow, ncol)) * transport_object.sconc_input_value for i in range(nper)}
+        sconc_input = dict(islice(sconc_input.items(), 1, None))  # Skip first period
+        rate_decay = np.ones((nlay, nrow, ncol)) * transport_object.rate_decay_value
+
+        # Update transport object with arrays
+        transport_object.sconc_init = sconc_init
+        transport_object.sconc_input = sconc_input
+        transport_object.rate_decay = rate_decay
+
         scenario = 's1'
 
         # Call refactored mt3dms with individual objects
         mt3dms_result = mt3dms(
             geographic=geographic_object,
-            climatic=climatic_object,
+            climatic=None,
             model_modflow=model_modflow,
             initializing=initializing_object,
+            transport=transport_object,
             scenario=scenario,
             for_calib=False
         )
