@@ -418,7 +418,7 @@ class Modpath(Solver):
         
         # ---- flflopy.modpath.Modpath6Basopy.modpath.mp6sim.StartingLocationsFile
         flopy.modpath.Modpath6Bas(self.mp,
-                                  hnoflo=self.model_modflow.bas_hnoflow,
+                                  hnoflo=self.model_modflow.bas_hnoflo,
                                   hdry=self.model_modflow.upw_hdry,
                                   # def_iface=[6, 6],
                                   def_face_ct=self.def_face_ct,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
