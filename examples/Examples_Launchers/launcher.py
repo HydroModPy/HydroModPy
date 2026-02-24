@@ -168,8 +168,17 @@ PARAMS = {
         "the_ss0": 1e-10,
         "Klog_transf": False,
         "vers": "TRANS1",
-
-    }
+        # Transport (MT3DMS) settings
+        "spc_name": "NO3",
+        "disp_long": 5,  # Longitudinal dispersivity (m)
+        "disp_transh": 0.5,  # Transverse horizontal dispersivity
+        "disp_transv": 0.05,  # Transverse vertical dispersivity
+        "diffu_coeff": 1e-10 * 3600 * 24,  # Molecular diffusion (L2T-1)
+        "react_order": 1,  # 0: zero-order, 1: first-order
+        "sconc_init_value": 100,  # Initial concentration (mg/L)
+        "sconc_input_value": 50,  # Input concentration (mg/L)
+        "rate_decay_value": 1 / (2 * 365),  # Decay rate (T-1) - half-life 2 years
+        "plot_conc": True,
 }
 
 # Configuration par défaut pour chaque exemple
@@ -822,18 +831,61 @@ def mt3dms_ex09(results):
     print("EXEMPLE 09 - MT3DMS (TRANSPORT MODEL)".center(70))
     print("="*70)
 
-    BV = results.get('BV')
-    scenario = 's1'
+    try:
+        BV = results.get('BV')
+        model_modflow = results.get('model_modflow')
+        p = PARAMS["ex09"]
+        scenario = 's1'
 
-    mt3dms_result = mt3dms(BV, results, scenario=scenario, for_calib=True)
+        if BV is None or model_modflow is None:
+            print("✗ BV or model_modflow not found\n")
+            results['success_mt3dms'] = False
+            return results
 
-    results['model_mt3dms'] = mt3dms_result['model_mt3dms']
-    results['success_mt3dms'] = mt3dms_result['success']
-    results['BV'] = mt3dms_result['BV']
-    results['scenario'] = scenario
+        # Setup transport parameters (like example_09.py)
+        print("  • Configuring transport parameters...")
+        BV.add_transport()
 
-    print("MT3DMS completed\n")
-    return results
+        nper = model_modflow.nper
+        nlay = model_modflow.mf.nlay
+        nrow = model_modflow.mf.nrow
+        ncol = model_modflow.mf.ncol
+
+        sconc_init = np.ones((nlay, nrow, ncol)) * (p["sconc_init_value"] / 1000)
+        sconc_input = {i: np.ones((nrow, ncol)) * (p["sconc_input_value"] / 1000) for i in range(nper)}
+        sconc_input = dict(islice(sconc_input.items(), 1, None))
+        rate_decay = np.ones((nlay, nrow, ncol)) * p["rate_decay_value"]
+
+        BV.transport.update_mt3dms_parameters(
+            spc_name=p["spc_name"],
+            sconc_init=sconc_init,
+            sconc_input=sconc_input,
+            disp_long=p["disp_long"],
+            disp_transh=p["disp_transh"],
+            disp_transv=p["disp_transv"],
+            diffu_coeff=p["diffu_coeff"],
+            react_order=p["react_order"],
+            rate_decay=rate_decay,
+            plot_conc=p["plot_conc"]
+        )
+
+        # Call generic mt3dms with transport object
+        mt3dms_result = mt3dms(BV, results, scenario=scenario, for_calib=True, transport=BV.transport)
+
+        results['model_mt3dms'] = mt3dms_result['model_mt3dms']
+        results['success_mt3dms'] = mt3dms_result['success']
+        results['BV'] = mt3dms_result['BV']
+        results['scenario'] = scenario
+
+        print("MT3DMS completed\n")
+        return results
+
+    except Exception as e:
+        print(f"✗ MT3DMS error: {e}\n")
+        import traceback
+        traceback.print_exc()
+        results['success_mt3dms'] = False
+        return results
 
 # ============================================================================
 # EXEMPLE 03 - HYDROGRAPHIC NETWORK (FONCTIONS SPÉCIFIQUES)

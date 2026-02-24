@@ -162,7 +162,7 @@ def modpath(BV, results, for_calib=True):
 
 
 
-def mt3dms(BV, results, scenario='s1', for_calib=True):
+def mt3dms(BV, results, scenario='s1', for_calib=True, transport=None):
     """
     GENERIC MT3DMS execution - reusable for all examples
 
@@ -180,6 +180,8 @@ def mt3dms(BV, results, scenario='s1', for_calib=True):
         Scenario identifier
     for_calib : bool, default True
         Calibration mode
+    transport : Transport object, optional
+        Transport parameters object. If None, uses default hardcoded values
 
     Returns
     -------
@@ -194,8 +196,10 @@ def mt3dms(BV, results, scenario='s1', for_calib=True):
         return {'model_mt3dms': None, 'success': False, 'BV': BV}
 
     try:
-        print("Adding transport module...")
-        BV.add_transport()
+        # Only add transport module if not using pre-configured transport object
+        if transport is None:
+            print("Adding transport module...")
+            BV.add_transport()
 
         nper = model_modflow.nper
         nlay = model_modflow.mf.nlay
@@ -203,16 +207,38 @@ def mt3dms(BV, results, scenario='s1', for_calib=True):
         ncol = model_modflow.mf.ncol
 
         print(f"Setting up concentration arrays (nlay={nlay}, nrow={nrow}, ncol={ncol}, nper={nper})...")
-        sconc_init = np.ones((nlay, nrow, ncol)) * (100 / 1000)
-        sconc_input = {i: np.ones((nrow, ncol)) * (50 / 1000) for i in range(nper)}
-        sconc_input = dict(islice(sconc_input.items(), 1, None))
-        rate_decay = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))
+
+        # Use transport object parameters if provided, otherwise use defaults
+        if transport is not None:
+            sconc_init = transport.sconc_init
+            sconc_input = transport.sconc_input
+            rate_decay = transport.rate_decay
+            spc_name = transport.spc_name
+            disp_long = transport.disp_long
+            disp_transh = transport.disp_transh
+            disp_transv = transport.disp_transv
+            diffu_coeff = transport.diffu_coeff
+            react_order = transport.react_order
+            plot_conc = transport.plot_conc
+        else:
+            # Default hardcoded values for backward compatibility
+            sconc_init = np.ones((nlay, nrow, ncol)) * (100 / 1000)
+            sconc_input = {i: np.ones((nrow, ncol)) * (50 / 1000) for i in range(nper)}
+            sconc_input = dict(islice(sconc_input.items(), 1, None))
+            rate_decay = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))
+            spc_name = 'NO3'
+            disp_long = 0
+            disp_transh = 0
+            disp_transv = 0
+            diffu_coeff = 1e-10 * 3600 * 24
+            react_order = 1
+            plot_conc = True
 
         print("Updating MT3DMS parameters...")
-        BV.transport.update_mt3dms_parameters(spc_name='NO3', sconc_init=sconc_init, sconc_input=sconc_input,
-                                             disp_long=0, disp_transh=0, disp_transv=0,
-                                             diffu_coeff=1e-10 * 3600 * 24, react_order=1,
-                                             rate_decay=rate_decay, plot_conc=True)
+        BV.transport.update_mt3dms_parameters(spc_name=spc_name, sconc_init=sconc_init, sconc_input=sconc_input,
+                                             disp_long=disp_long, disp_transh=disp_transh, disp_transv=disp_transv,
+                                             diffu_coeff=diffu_coeff, react_order=react_order,
+                                             rate_decay=rate_decay, plot_conc=plot_conc)
 
         print("Running MT3DMS preprocessing...")
         model_mt3dms = BV.preprocessing_mt3dms(model_modflow, for_calib=for_calib, suffix_name=f'_mt_{scenario}')
