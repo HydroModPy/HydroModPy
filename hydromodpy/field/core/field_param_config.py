@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, mo
 
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
+SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
 
 
 class FieldBaseSectionSchema(BaseModel):
@@ -110,18 +111,54 @@ class FieldHeterogeneousSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    values: dict[str, float]
+    values_source: str = "inline"
+    values: dict[str, float] | None = None
+    values_csv_file: str | None = None
+    csv_key_column: str = "zone_key"
+    csv_value_column: str = "value"
     field_spatial_id: str
+
+    @field_validator("values_source")
+    @classmethod
+    def _validate_values_source(cls, value):
+        key = str(value).strip().lower()
+        if key not in SUPPORTED_HETEROGENEOUS_VALUE_SOURCES:
+            allowed = ", ".join(SUPPORTED_HETEROGENEOUS_VALUE_SOURCES)
+            raise ValueError(
+                f"Unsupported field_heterogeneous.values_source '{value}'. "
+                f"Allowed: {allowed}"
+            )
+        return key
 
     @field_validator("values")
     @classmethod
     def _validate_values(cls, value):
+        if value is None:
+            return None
         values = {str(k): float(v) for k, v in dict(value).items()}
         if len(values) == 0:
             raise ValueError("field_heterogeneous.values cannot be empty")
         if any(str(key).strip() == "" for key in values):
             raise ValueError("field_heterogeneous.values cannot contain empty keys")
         return values
+
+    @field_validator("values_csv_file")
+    @classmethod
+    def _validate_values_csv_file(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        if text == "":
+            raise ValueError("field_heterogeneous.values_csv_file cannot be empty when provided")
+        return text
+
+    @field_validator("csv_key_column", "csv_value_column")
+    @classmethod
+    def _validate_csv_column_names(cls, value):
+        text = str(value).strip()
+        if text == "":
+            raise ValueError("CSV column name cannot be empty")
+        return text
 
     @field_validator("field_spatial_id")
     @classmethod
@@ -130,6 +167,24 @@ class FieldHeterogeneousSectionSchema(BaseModel):
         if not text:
             raise ValueError("field_heterogeneous.field_spatial_id cannot be empty")
         return text
+
+    @model_validator(mode="after")
+    def _validate_value_source_payload(self):
+        if self.values_source == "inline":
+            if self.values is None:
+                raise ValueError(
+                    "field_heterogeneous.values is required when values_source='inline'"
+                )
+            return self
+
+        if self.values_source == "csv":
+            if self.values_csv_file is None:
+                raise ValueError(
+                    "field_heterogeneous.values_csv_file is required when values_source='csv'"
+                )
+            return self
+
+        return self
 
 
 class FieldParamTomlSchema(BaseModel):
@@ -163,6 +218,10 @@ class ResolvedFieldParamSchema(BaseModel):
     value: float | None = None
     values: dict[str, float] | None = None
     field_spatial_id: str | None = None
+    values_source: str | None = None
+    values_csv_file: str | None = None
+    csv_key_column: str | None = None
+    csv_value_column: str | None = None
 
     @field_validator("id")
     @classmethod
@@ -196,6 +255,27 @@ class ResolvedFieldParamSchema(BaseModel):
         if any(str(key).strip() == "" for key in values):
             raise ValueError("values cannot contain empty keys")
         return values
+
+    @field_validator("values_source")
+    @classmethod
+    def _validate_optional_values_source(cls, value):
+        if value is None:
+            return None
+        key = str(value).strip().lower()
+        if key not in SUPPORTED_HETEROGENEOUS_VALUE_SOURCES:
+            allowed = ", ".join(SUPPORTED_HETEROGENEOUS_VALUE_SOURCES)
+            raise ValueError(f"Unsupported values_source '{value}'. Allowed: {allowed}")
+        return key
+
+    @field_validator("values_csv_file", "csv_key_column", "csv_value_column")
+    @classmethod
+    def _validate_optional_non_empty(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        if text == "":
+            raise ValueError("value cannot be empty when provided")
+        return text
 
     @field_validator("field_spatial_id")
     @classmethod

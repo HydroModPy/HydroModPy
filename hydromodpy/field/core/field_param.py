@@ -21,15 +21,22 @@ A field can be described in two ways:
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
 
-from hydromodpy.field.core.field_param_config import (
-    validate_field_param_toml_data,
-    validate_resolved_field_param_data,
-)
+try:
+    from hydromodpy.field.core.field_param_config import (
+        validate_field_param_toml_data,
+        validate_resolved_field_param_data,
+    )
+except ModuleNotFoundError:  # pragma: no cover - direct script fallback
+    from field_param_config import (  # type: ignore
+        validate_field_param_toml_data,
+        validate_resolved_field_param_data,
+    )
 
 try:  # Python 3.11+
     import tomllib
@@ -65,6 +72,80 @@ def _optional_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Ma
         return _get_nested_section(payload, dotted_path)
     except (KeyError, ValueError):
         return None
+
+
+def _resolve_relative_to(path_like: str | Path, *, base_dir: Path) -> Path:
+    """
+    Resolve one path relative to a base directory if not absolute.
+    """
+    raw = Path(str(path_like))
+    if raw.is_absolute():
+        return raw
+    return (base_dir / raw).resolve()
+
+
+def _load_values_mapping_csv(
+    csv_path: str | Path,
+    *,
+    key_column: str = "zone_key",
+    value_column: str = "value",
+) -> dict[str, float]:
+    """
+    Load one key->value mapping from CSV.
+
+    The CSV must contain at least two columns:
+    - one key column (`key_column`),
+    - one numeric value column (`value_column`).
+
+    Duplicate keys are rejected to avoid ambiguous parameter assignment.
+    """
+    key_col = str(key_column).strip()
+    val_col = str(value_column).strip()
+    if key_col == "" or val_col == "":
+        raise ValueError("CSV key/value column names cannot be empty")
+
+    path = Path(csv_path)
+    if not path.exists():
+        raise FileNotFoundError(f"CSV values file not found: {path}")
+
+    # `utf-8-sig` gracefully handles files saved with BOM.
+    with path.open("r", encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream)
+        headers = [str(h).strip() for h in (reader.fieldnames or [])]
+        if key_col not in headers:
+            raise KeyError(
+                f"CSV values file '{path}' is missing key column '{key_col}'. "
+                f"Available columns: {headers}"
+            )
+        if val_col not in headers:
+            raise KeyError(
+                f"CSV values file '{path}' is missing value column '{val_col}'. "
+                f"Available columns: {headers}"
+            )
+
+        values: dict[str, float] = {}
+        for i, row in enumerate(reader, start=2):  # 1=header
+            key_raw = row.get(key_col, "")
+            key = str(key_raw).strip()
+            if key == "":
+                continue
+            if key in values:
+                raise ValueError(
+                    f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}."
+                )
+            raw_value = row.get(val_col, "")
+            try:
+                value = float(raw_value)
+            except Exception as exc:
+                raise ValueError(
+                    f"Invalid numeric value in CSV mapping '{path}' line {i}: "
+                    f"column '{val_col}' -> {raw_value!r}"
+                ) from exc
+            values[key] = value
+
+    if len(values) == 0:
+        raise ValueError(f"CSV values file '{path}' does not define any key/value pair")
+    return values
 
 
 class FieldParam:
@@ -436,6 +517,18 @@ class FieldParam:
             values = { granite = 10.0, micaschists = 2.0 }
             field_spatial_id = "field_square"
 
+        Heterogeneous values from CSV (for long geology-property tables):
+            [field]
+            id = "K"
+            kind = "heterogeneous"
+
+            [field_heterogeneous]
+            values_source = "csv"
+            values_csv_file = "geology_property_values.csv"
+            csv_key_column = "zone_key"
+            csv_value_column = "property_value"
+            field_spatial_id = "field_geology"
+
         Common+specific workflow
         ------------------------
         The loader supports:
@@ -507,6 +600,37 @@ class FieldParam:
                         if specific_cfg is not None:
                             merged.update(dict(specific_cfg))
                             break
+
+        # Resolve heterogeneous values source:
+        # - inline: keep dictionary defined in TOML,
+        # - csv: load key/value mapping from a CSV file.
+        kind_raw = merged.get("kind")
+        if kind_raw is not None and str(kind_raw).strip().lower() == "heterogeneous":
+            value_source = str(merged.get("values_source", "inline")).strip().lower()
+            if value_source == "csv":
+                csv_file = merged.get("values_csv_file")
+                if csv_file is None or str(csv_file).strip() == "":
+                    raise KeyError(
+                        "Heterogeneous field with values_source='csv' requires 'values_csv_file'"
+                    )
+                csv_path = _resolve_relative_to(csv_file, base_dir=path.parent)
+                csv_key_column = str(merged.get("csv_key_column", "zone_key"))
+                csv_value_column = str(merged.get("csv_value_column", "value"))
+                merged["values"] = _load_values_mapping_csv(
+                    csv_path,
+                    key_column=csv_key_column,
+                    value_column=csv_value_column,
+                )
+
+        # Runtime-only helper keys are removed before schema validation and
+        # object construction.
+        for helper_key in (
+            "values_source",
+            "values_csv_file",
+            "csv_key_column",
+            "csv_value_column",
+        ):
+            merged.pop(helper_key, None)
 
         resolved = validate_resolved_field_param_data(merged)
         return cls.from_dict(resolved)

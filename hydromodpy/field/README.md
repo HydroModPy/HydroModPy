@@ -14,6 +14,18 @@ hydromodpy/field/
 |   |-- field_spatial_weighted_discretization.py
 |   `-- field_mesh.py
 |-- cases/
+|   |-- geology/
+|   |   |-- geology_field.py
+|   |   |-- geology_config.py
+|   |   |-- geology_io.py
+|   |   |-- geology_processing.py
+|   |   |-- geology_config.toml
+|   |   |-- field_param_config.toml
+|   |   |-- geology_property_values.csv
+|   |   |-- run_geology_France.py
+|   |   |-- run_geology_property_demo.py
+|   |   |-- outputs/
+|   |   `-- README.md
 |   `-- square/
 |       |-- field_param_config.toml
 |       |-- field_spatial_config.toml
@@ -44,6 +56,9 @@ hydromodpy/field/
   and generic containers (`MeshCell`, `MeshWithValues`).
 - `cases/square/`: concrete square geometry, concrete mesh factory, runnable
   demonstration, and example TOML files.
+- `cases/geology/`: geology-specific implementation of a generic spatial field
+  with validated configuration, source adapters (raster/vector), and processing
+  helpers.
 - `uml/`: PlantUML diagrams describing class structure and execution flows.
 
 ## Core Concepts
@@ -75,7 +90,9 @@ Output object:
 Field parameter file (`field_param_config.toml`):
 - `[field]`: `id`, `kind`
 - `[field_homogeneous]`: `value`
-- `[field_heterogeneous]`: `values`, `field_spatial_id`
+- `[field_heterogeneous]`: `field_spatial_id` + value source:
+  - inline: `values = {...}`
+  - csv: `values_source = "csv"` + `values_csv_file` + CSV column names
 
 Mesh file (`mesh_config.toml`):
 - `[mesh]`: `kind`, `target_n_cells`, optional `seed`
@@ -85,7 +102,7 @@ Spatial field file (`field_spatial_config.toml`):
 
 ## How To Run
 
-From repository root:
+From repository root (square case):
 
 ```bash
 python hydromodpy/field/cases/square/run_field_demo.py
@@ -99,6 +116,29 @@ python hydromodpy/field/cases/square/run_field_demo.py --no-show-plot
 
 Default output:
 - `hydromodpy/field/cases/square/outputs/field_demo.png`
+
+Standalone geology run (no external mesh):
+
+```bash
+python hydromodpy/field/cases/geology/run_geology_France.py
+```
+
+Default output:
+- `hydromodpy/field/cases/geology/outputs/geology_france_global.png`
+
+Geology-to-property transfer demo via `FieldParam`:
+
+```bash
+python hydromodpy/field/cases/geology/run_geology_property_demo.py
+```
+
+Default output:
+- `hydromodpy/field/cases/geology/outputs/geology_property_demo.png`
+
+In this geology demo:
+- value correspondence can be inline TOML or CSV (`values_source`),
+- CSV can include extra descriptive columns (for example `geology_name`),
+- figure layout follows square-case style with three panels.
 
 ## Tests
 
