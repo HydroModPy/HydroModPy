@@ -1,11 +1,11 @@
 ﻿# Grid
 
-`hydromodpy/grid/` contains utilities used to build model grids for HydroModPy.
+`hydromodpy/mesh/cartesian_grid/` contains utilities used to build model grids for HydroModPy.
 
 ## Directory Map
 
 ```text
-hydromodpy/grid/
+hydromodpy/mesh/cartesian_grid/
 |-- sgrid_generation.py
 |-- sgrid_config.py
 |-- sgrid_config.toml
@@ -65,7 +65,7 @@ Current limitation:
 ## Minimal Example (Spatial Grid)
 
 ```python
-from hydromodpy.grid.sgrid_generation import SGrid_Generation
+from hydromodpy.mesh.cartesian_grid.sgrid_generation import SGrid_Generation
 
 grid = SGrid_Generation()
 grid.top_path = "path/to/top_dem.tif"
@@ -88,16 +88,16 @@ print(sgrid.nlay, sgrid.nrow, sgrid.ncol)
 You can configure `SGrid_Generation` directly from TOML:
 
 ```python
-from hydromodpy.grid.sgrid_generation import SGrid_Generation
+from hydromodpy.mesh.cartesian_grid.sgrid_generation import SGrid_Generation
 
-sgrid = SGrid_Generation.from_toml("hydromodpy/grid/sgrid_config.toml").run()
+sgrid = SGrid_Generation.from_toml("hydromodpy/mesh/cartesian_grid/sgrid_config.toml").run()
 print(sgrid.nlay, sgrid.nrow, sgrid.ncol)
 ```
 
 Associated files:
 
-- `hydromodpy/grid/sgrid_config.py`: Pydantic schema + TOML loading helpers.
-- `hydromodpy/grid/sgrid_config.toml`: ready-to-run configuration example.
+- `hydromodpy/mesh/cartesian_grid/sgrid_config.py`: Pydantic schema + TOML loading helpers.
+- `hydromodpy/mesh/cartesian_grid/sgrid_config.toml`: ready-to-run configuration example.
 
 ## Returned Object
 

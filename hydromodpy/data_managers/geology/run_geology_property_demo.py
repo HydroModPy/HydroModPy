@@ -19,22 +19,22 @@ from rasterio.features import rasterize
 from rasterio.transform import from_bounds
 
 # Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.field.cases.geology.demo_common import (
+from hydromodpy.data_managers.geology.demo_common import (
     clip_square_window,
     format_axes_ticks_km,
     resolve_case_path,
     resolve_output_path,
     save_figure,
 )
-from hydromodpy.field.cases.geology.geology_field import GeologyField
-from hydromodpy.field.cases.geology.geology_config import load_geology_toml
-from hydromodpy.field.cases.geology.geology_io import load_vector_geology_dataframe
-from hydromodpy.field.cases.geology.geology_mesh import GeologyStructuredMesh
-from hydromodpy.field.cases.geology.geology_processing import (
+from hydromodpy.data_managers.geology.geology_field import GeologyField
+from hydromodpy.data_managers.geology.geology_config import load_geology_toml
+from hydromodpy.data_managers.geology.geology_io import load_vector_geology_dataframe
+from hydromodpy.data_managers.geology.geology_mesh import GeologyStructuredMesh
+from hydromodpy.data_managers.geology.geology_processing import (
     uniformize_sea_zone_on_dataframe,
 )
 from hydromodpy.field.core.field_param import FieldParam
@@ -87,7 +87,7 @@ def _parse_args(argv=None):
         default=DEFAULT_OUTPUT_FILE,
         help=(
             "Output figure path. Bare filenames are saved in outputs/. "
-            "Relative paths are resolved from hydromodpy/field/cases/geology/ "
+            "Relative paths are resolved from hydromodpy/data_managers/geology/ "
             f"(default: {DEFAULT_OUTPUT_FILE})."
         ),
     )

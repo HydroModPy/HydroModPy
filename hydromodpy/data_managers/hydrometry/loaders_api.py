@@ -4,7 +4,7 @@ This module isolates all Hub'Eau-specific loading logic:
 - station/site lookup in reference endpoints,
 - metadata normalization,
 - chunked observations download,
-- conversion to standardized :class:`~hydromodpy.hydrometry.station.Station`
+- conversion to standardized :class:`~hydromodpy.data_managers.hydrometry.station.Station`
   instances.
 """
 

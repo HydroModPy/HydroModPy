@@ -63,7 +63,7 @@ from rasterio.features import rasterize
 from rasterio.mask import mask as raster_mask
 from rasterio.warp import Resampling, reproject
 
-from hydromodpy.field.cases.geology.geology_processing import (
+from hydromodpy.data_managers.geology.geology_processing import (
     apply_landsea_override,
     encode_numeric_raster,
     normalize_zone_key,
@@ -110,7 +110,7 @@ def resolve_data_path(data_path: str, *, config_path: str | Path | None = None) 
     if raw.is_absolute():
         return str(raw)
 
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = Path(__file__).resolve().parents[3]
     candidate_repo = (repo_root / raw).resolve()
     if candidate_repo.exists():
         return str(candidate_repo)

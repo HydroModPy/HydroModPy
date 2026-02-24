@@ -8,7 +8,7 @@
 #
 # Usage:
 #   from hydromodpy.field.core.field_param import FieldParam
-#   p = FieldParam.from_toml("hydromodpy/field/cases/geology/field_param_config.toml")
+#   p = FieldParam.from_toml("hydromodpy/data_managers/geology/field_param_config.toml")
 
 [field]
 id = "K"

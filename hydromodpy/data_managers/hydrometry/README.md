@@ -1,6 +1,6 @@
 # Chronicles Module
 
-`hydromodpy.hydrometry` provides tools to load, inspect, and export hydrometric
+`hydromodpy.data_managers.hydrometry` provides tools to load, inspect, and export hydrometric
 time series as station-level datasets.
 
 ## Main Entry Point
@@ -34,8 +34,8 @@ Loaders are available directly in `hydrometry`:
 ## Minimal Example
 
 ```python
-from hydromodpy.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.hydrometry.station_set import StationSet
 
-stations = StationSet.from_toml("hydromodpy/hydrometry/hydrometry_config.toml")
+stations = StationSet.from_toml("hydromodpy/data_managers/hydrometry/hydrometry_config.toml")
 report = stations.get_missing_data_summary()
 ```

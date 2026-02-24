@@ -242,7 +242,7 @@ def load_geology_toml(config_path: str | Path, section: str = "geology") -> dict
     Example
     -------
     payload = load_geology_toml(
-        "hydromodpy/field/cases/geology/geology_config.toml",
+        "hydromodpy/data_managers/geology/geology_config.toml",
         section="geology",
     )
     """

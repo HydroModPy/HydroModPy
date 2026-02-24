@@ -32,7 +32,7 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
-from hydromodpy.grid.sgrid_generation import SGrid_Generation
+from hydromodpy.mesh.cartesian_grid.sgrid_generation import SGrid_Generation
 
 logger = get_logger(__name__)
 

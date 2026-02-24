@@ -96,6 +96,9 @@ docs/readthedocs/source/_generated/
 examples/results/
 test/results/
 test_*/
+hydromodpy/data_managers/geology/outputs/
+hydromodpy/data_managers/hydrometry/outputs/
+hydromodpy/mesh/cartesian_grid/output/
 *.chk
 *.hds
 *.cbc

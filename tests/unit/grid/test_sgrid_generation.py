@@ -1,4 +1,4 @@
-"""Unit tests for hydromodpy.grid.sgrid_generation."""
+"""Unit tests for hydromodpy.mesh.cartesian_grid.sgrid_generation."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.grid.sgrid_generation import SGrid_Generation
+from hydromodpy.mesh.cartesian_grid.sgrid_generation import SGrid_Generation
 
 
 def _write_tif(path: Path, arr: np.ndarray) -> None:
