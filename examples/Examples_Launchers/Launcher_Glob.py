@@ -69,7 +69,7 @@ postprocessing_timeseries = modeling_workflow_copy.postprocessing_timeseries
 fontprop = toolbox.plot_params(8, 15, 18, 20)
 
 # Load configuration from config.toml (initializing and geographic)
-cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config09.toml")
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config03.toml")
 
 
 
@@ -152,11 +152,11 @@ CONFIG_OPTIONS = {
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12)
 # ============================================================================
-EXAMPLE_TO_RUN = "ex09"  # ← CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex03"  # ← CHANGE THIS TO SWITCH EXAMPLES
 CONFIG = CONFIG_OPTIONS[EXAMPLE_TO_RUN]
 
 # Set matplotlib backend based on display_figures config
-if not CONFIG.get('display_figures', True):
+if not CONFIG.get('display_figures', False):
     mpl.use('Agg')
 
 
@@ -457,6 +457,17 @@ DATA_MODULES = {
         }
     },
     "ex03": {
+        "geology": {
+            "class_name": "Geology",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "geographic": ("geographic", True),
+                "geo_path": ("data_path", True),
+                "landsea": (None, False),
+                "types_obs": ("GEO1M.shp", False),
+                "fields_obs": ("CODE_LEG", False)
+            }
+        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
@@ -477,6 +488,24 @@ DATA_MODULES = {
                 "add_path": ("data_path", True),
                 "out_path": ("initializing.catch_folder", True),
                 "sub_snap_dist": (150, False)
+            }
+        },
+        "hydrometry": {
+            "class_name": "Hydrometry",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "hydrometry_path": ("data_path", True),
+                "file_name": ("france hydrometric stations.shp", False),
+                "geographic": ("geographic", True)
+            }
+        },
+        "intermittency": {
+            "class_name": "Intermittency",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "intermittency_path": ("data_path", True),
+                "file_name": ("regional onde stations.shp", False),
+                "geographic": ("geographic", True)
             }
         }
     }
@@ -798,36 +827,6 @@ MT3DMS_CONFIG = {
             "concentration_seepage": True,
             "mass_accumulated": True,
         }
-    },
-    "ex03": {
-        "preprocessing": {
-            "for_calib": False,
-            "spc_name": "NO3",
-            "disp_long": 0,
-            "disp_transh": 0,
-            "disp_transv": 0,
-            "diffu_coeff": 1e-10 * 3600 * 24,
-            "react_order": 1,
-            "plot_conc": False,
-        },
-        "processing": {
-            "write_model": False,
-            "run_model": False,
-            "verbose": False,
-        },
-        "post_processing": {
-            "concentration_seepage": False,
-            "mass_seepage": False,
-            "mass_accumulated": False,
-            "export_all_tif": False,
-        },
-        "timeseries": {
-            "datetime_format": False,
-            "subbasin_results": False,
-            "residence_times": False,
-            "concentration_seepage": False,
-            "mass_accumulated": False,
-        }
     }
 }
 
@@ -1109,7 +1108,7 @@ def recharge(results):
             first_year=p["recharge_first_year"],
             last_year=p["recharge_last_year"],
             time_step=p["recharge_time_step"],
-            sim_state='transient'
+            sim_state=p["sim_state"]
         )
 
         print("Update runoff (REANALYSIS)...")
@@ -1120,7 +1119,7 @@ def recharge(results):
             first_year=p["recharge_first_year"],
             last_year=p["recharge_last_year"],
             time_step=p["recharge_time_step"],
-            sim_state='transient'
+            sim_state=p["sim_state"]
         )
 
         print("Recharge and runoff loaded\n")
@@ -1210,29 +1209,30 @@ def parametrization(results):
         hydraulic_object.update_bottom(p["bottom"])
         hydraulic_object.update_exdp(p.get("exdp", 1.0))
 
-        # Configure Transport (like example12.py)
-        print("    • Transport...")
-        transport_object = results.get('transport')
-        if transport_object is None:
-            transport_object = Transport()
-            results['transport'] = transport_object
+        # Configure Transport (like example12.py) - ONLY for examples with MT3DMS
+        if example_key in ["ex12", "ex09"]:
+            print("    • Transport...")
+            transport_object = results.get('transport')
+            if transport_object is None:
+                transport_object = Transport()
+                results['transport'] = transport_object
 
-        transport_object.update_mt3dms_parameters(
-            spc_name=p["spc_name"],
-            sconc_init=None,  # Will be set in MT3DMS based on model dimensions
-            sconc_input=None,  # Will be set in MT3DMS based on model dimensions
-            disp_long=p["disp_long"],
-            disp_transh=p["disp_transh"],
-            disp_transv=p["disp_transv"],
-            diffu_coeff=p["diffu_coeff"],
-            react_order=p["react_order"],
-            rate_decay=None,  # Will be set in MT3DMS based on model dimensions
-            plot_conc=p["plot_conc"]
-        )
-        # Store transport parameters as scalars for later use by mt3dms_ex12
-        transport_object.sconc_init_value = p["sconc_init_value"] / 1000  # Convert mg/L to kg/m3
-        transport_object.sconc_input_value = p["sconc_input_value"] / 1000
-        transport_object.rate_decay_value = p["rate_decay_value"]
+            transport_object.update_mt3dms_parameters(
+                spc_name=p["spc_name"],
+                sconc_init=None,  # Will be set in MT3DMS based on model dimensions
+                sconc_input=None,  # Will be set in MT3DMS based on model dimensions
+                disp_long=p["disp_long"],
+                disp_transh=p["disp_transh"],
+                disp_transv=p["disp_transv"],
+                diffu_coeff=p["diffu_coeff"],
+                react_order=p["react_order"],
+                rate_decay=None,  # Will be set in MT3DMS based on model dimensions
+                plot_conc=p["plot_conc"]
+            )
+            # Store transport parameters as scalars for later use by mt3dms_ex12
+            transport_object.sconc_init_value = p["sconc_init_value"] / 1000  # Convert mg/L to kg/m3
+            transport_object.sconc_input_value = p["sconc_input_value"] / 1000
+            transport_object.rate_decay_value = p["rate_decay_value"]
 
         # Configure Climatic (like example12.py)
         print("    • Climatic...")
@@ -1249,6 +1249,11 @@ def parametrization(results):
             if config["climatic"].get("runoff_factor"):
                 runoff = recharge * config["climatic"]["runoff_factor"]
                 climatic_object.update_runoff(runoff, sim_state=p["sim_state"])
+
+        elif config["climatic"].get("recharge_from_params"):
+            # ex03: use monthly recharge values from PARAMS
+            recharge_monthly = p.get("recharge_monthly", [0]*12)
+            climatic_object.update_recharge(recharge_monthly, sim_state=p["sim_state"])
 
         # HYDRAULIC SPECIFIC
         print("  • Update hydraulic specific...")
@@ -1906,6 +1911,57 @@ WORKFLOW_DEFINITION = {
             "function": "ex12_plot_web_animation()",
             "requires": ["model_name", "simulations_folder", "model_modflow"],
             "provides": ["interactive_web_animation"]
+        }
+    ],
+    "ex03": [
+        {
+            "step": 1,
+            "section": "watershed",
+            "function": "watershed()",
+            "requires": [],
+            "provides": ["stable_folder", "simulations_folder", "data_path"]
+        },
+        {
+            "step": 2,
+            "section": "data",
+            "function": "data()",
+            "requires": [],
+            "provides": list(DATA_MODULES["ex03"].keys())
+        },
+        {
+            "step": 3,
+            "section": "recharge",
+            "function": "recharge()",
+            "requires": ["data_path"],
+            "provides": ["climatic", "recharge_data", "runoff_data"]
+        },
+        {
+            "step": 4,
+            "section": "parametrization",
+            "function": "parametrization()",
+            "requires": ["climatic"],
+            "provides": ["settings", "hydraulic_params"]
+        },
+        {
+            "step": 5,
+            "section": "modeling",
+            "function": "modeling()",
+            "requires": ["settings", "hydraulic_params"],
+            "provides": ["model_name", "success_modflow", "list_model_modflow"]
+        },
+        {
+            "step": 6,
+            "section": "modpath",
+            "function": "modpath_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
+            "provides": ["model_modpath", "success_modpath"]
+        },
+        {
+            "step": 7,
+            "section": "plot",
+            "function": "plot.py functions: plot_watertable, plot_groundwater_flux, plot_accumulation, plot_streamflow, plot_pathlines",
+            "requires": ["model_name", "success_modflow"],
+            "provides": ["visualizations"]
         }
     ]
 }

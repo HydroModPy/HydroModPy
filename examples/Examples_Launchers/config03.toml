@@ -13,7 +13,7 @@
 [initializing]
 # Name of the watershed/catchment (used as folder name).
 # Type: string | REQUIRED
-catch_name = "03S_short"
+catch_name = "Example_03_Canut"
 
 # Root output directory where all results will be stored.
 # Type: string | REQUIRED
@@ -50,22 +50,22 @@ dem_init_path = "data/regional dem.tif"
 # X coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
 # Type: Union[float, NoneType] | Optional
-x_outlet = 265611.933
+x_outlet = 327816.965
 
 # Y coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
 # Type: Union[float, NoneType] | Optional
-y_outlet = 6784182.776
+y_outlet = 6777886.670
 
 # Maximum snapping distance (m) to move the outlet to the nearest stream cell.
 # Required for 'from_outlet_coord' mode.
 # Type: Union[int, NoneType] | > 0 | Optional
-snap_dist = 50
+snap_dist = 150
 
 # Buffer around the watershed polygon as a percentage of sqrt(area [km²]).
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 # Type: Union[float, NoneType] | > 0 | Optional
-buff_area = 20.0
+buff_area = 10.0
 
 # Path to the watershed polygon shapefile.
 # Required for 'from_polyg_shp' mode.
