@@ -180,7 +180,7 @@ PARAMS = {
         "rate_decay_value": 1 / (2 * 365),  # Decay rate (T-1) - half-life 2 years
         "plot_conc": True,
 }
-
+}
 # Configuration par défaut pour chaque exemple
 DATA_CONFIGS = {
     "ex03": {
