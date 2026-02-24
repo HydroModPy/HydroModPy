@@ -1,4 +1,4 @@
-# Geology Case
+﻿# Geology Case
 
 This case adapts geology sources (raster or vector polygons) to the generic
 `Field` interface so they can be used with `FieldParam` in heterogeneous mode.
@@ -94,12 +94,12 @@ The CSV then contains the long correspondence list:
 ## Brittany Data Paths
 
 The shared Brittany dataset is now grouped by thematic data type:
-- geology: `data/Brittany/geology/`
-- DEM: `data/Brittany/dem/`
-- climate: `data/Brittany/climate/`
-- hydrometry stations: `data/Brittany/hydrometry/`
-- onde stations: `data/Brittany/onde/`
-- auxiliary notes: `data/Brittany/docs/`
+- geology: `data/France/geology/`
+- DEM: `data/France/dem/`
+- climate: `data/France/climate/`
+- hydrometry stations: `data/France/hydrometry/`
+- onde stations: `data/France/onde/`
+- auxiliary notes: `data/France/docs/`
 
 ## Property Transfer Demo (`FieldParam`)
 
@@ -203,3 +203,4 @@ Default output path:
 Output behavior for `--output-file` is the same as above:
 - bare filenames are redirected to `outputs/`,
 - relative paths are resolved from `hydromodpy/field/cases/geology/`.
+
