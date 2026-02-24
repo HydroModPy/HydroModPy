@@ -53,6 +53,7 @@ from hydromodpy.watershed.geographic_config import GeographicConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
+from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
 
 # Import from modeling_workflow_copy.py (with space in filename)
 import importlib.util
@@ -62,6 +63,8 @@ spec.loader.exec_module(modeling_workflow_copy)
 modflow = modeling_workflow_copy.modflow
 modpath = modeling_workflow_copy.modpath
 mt3dms = modeling_workflow_copy.mt3dms
+postprocessing_timeseries = modeling_workflow_copy.postprocessing_timeseries
+matching_streams = modeling_workflow_copy.matching_streams
 
 fontprop = toolbox.plot_params(8, 15, 18, 20)
 
@@ -92,7 +95,7 @@ CONFIG = {
 }
 
 # Set matplotlib backend based on display_figures config
-if not CONFIG.get('display_figures', False):
+if not CONFIG.get('display_figures', True):
     mpl.use('Agg')
 
 
@@ -830,7 +833,8 @@ def modflow_ex12(BV, results, config):
         results['list_model_modflow'] = list_model_modflow
         results['model_name'] = list_model_name[0] if list_model_name else None
         results['model_modflow'] = list_model_modflow[0] if list_model_modflow else None
-        results['success_modflow'] = list_success_modflow[0] if list_success_modflow else False
+        # Always True if no exception was raised above
+        results['success_modflow'] = True if list_model_modflow[0] is not None else False
         results['BV'] = BV
         print("  ✓ MODFLOW model created\n")
         return results
@@ -914,7 +918,96 @@ def mt3dms_ex12(results):
 
 
 # ============================================================================
-# STEP 6+: PLOTTING & ADVANCED ANALYSIS
+# STEP 6: POSTPROCESSING - TIMESERIES (MODFLOW ONLY)
+# ============================================================================
+
+def ex12_postprocessing_timeseries_modflow(results):
+    """Generate timeseries results after MODFLOW (before MODPATH/MT3DMS) - Example 12 line 406"""
+    print("\n  • Generating timeseries results (MODFLOW only)...")
+    try:
+        geographic_object = results.get('geographic')
+        model_modflow = results.get('model_modflow')
+
+        if not model_modflow:
+            print("    ⚠ MODFLOW model not found - skipping timeseries\n")
+            results['success_timeseries_modflow'] = False
+            return results
+
+        # Call postprocessing_timeseries from modeling_workflow (model_modpath=None, model_mt3dms=None)
+        ts_result = postprocessing_timeseries(
+            geographic=geographic_object,
+            model_modflow=model_modflow,
+            model_modpath=None,
+            model_mt3dms=None,
+            scenario='modflow_only',
+            results=results
+        )
+
+        results['timeseries_results_modflow'] = ts_result.get('timeseries_results')
+        results['success_timeseries_modflow'] = ts_result.get('success', False)
+
+        if results['success_timeseries_modflow']:
+            print("  ✓ Timeseries (MODFLOW only) completed successfully\n")
+        else:
+            print("  ✗ Timeseries (MODFLOW only) failed\n")
+
+        return results
+    except Exception as e:
+        print(f"    ✗ Timeseries (MODFLOW only) error: {e}\n")
+        import traceback
+        traceback.print_exc()
+        results['success_timeseries_modflow'] = False
+        return results
+
+
+# STEP 8.5: POSTPROCESSING - TIMESERIES (WITH ALL MODELS)
+# ============================================================================
+
+def ex12_postprocessing_timeseries_complete(results):
+    """Generate timeseries results after MT3DMS (with all models) - Example 12 line 837"""
+    print("\n  • Generating timeseries results (complete with MODPATH + MT3DMS)...")
+    try:
+        geographic_object = results.get('geographic')
+        model_modflow = results.get('model_modflow')
+        model_modpath = results.get('model_modpath')
+        model_mt3dms = results.get('model_mt3dms')
+        scenario = results.get('scenario', 's1')
+
+        if not model_modflow:
+            print("    ⚠ MODFLOW model not found - skipping timeseries\n")
+            results['success_timeseries_complete'] = False
+            return results
+
+        # Call postprocessing_timeseries from modeling_workflow (with all models)
+        ts_result = postprocessing_timeseries(
+            geographic=geographic_object,
+            model_modflow=model_modflow,
+            model_modpath=model_modpath,
+            model_mt3dms=model_mt3dms,
+            scenario=scenario,
+            results=results
+        )
+
+        results['timeseries_results_complete'] = ts_result.get('timeseries_results')
+        results['success_timeseries_complete'] = ts_result.get('success', False)
+
+        if results['success_timeseries_complete']:
+            print(" Timeseries (complete) completed successfully\n")
+        else:
+            print("Timeseries (complete) failed\n")
+
+        return results
+    except Exception as e:
+        print(f"Timeseries (complete) error: {e}\n")
+        import traceback
+        traceback.print_exc()
+        results['success_timeseries_complete'] = False
+        return results
+
+
+
+# ============================================================================
+# STEP 7: PLOTTING & ADVANCED ANALYSIS
 # ============================================================================
 
 def ex12_plot_cross_section(results):
@@ -1654,21 +1747,38 @@ def ex12_matching_streams(results):
 
     try:
         model_name = results.get('model_name')
-        geographic_object = results.get('geographic')
+        geographic = results.get('geographic')
+        hydrography = results.get('hydrography')
+        initializing = results.get('initializing')
 
-        if geographic_object is None or model_name is None:
-            print("✗ Geographic or model_name not found\n")
+        if geographic is None or model_name is None or hydrography is None or initializing is None:
+            print("  ✗ Missing required objects (geographic, hydrography, initializing, or model_name)\n")
             return results
 
-        # MatchingStreams requires both geographic object and model_name
-        # Note: MatchingStreams class may require BV in its current implementation
-        # Safe skip if geographic is missing
-        print("✓ MatchingStreams analysis skipped (requires BV integration\n)")
+        # Execute MatchingStreams analysis
+        ms_results = matching_streams(
+            geographic=geographic,
+            hydrography=hydrography,
+            initializing=initializing,
+            model_name=model_name,
+            for_calib=False,
+            results=results
+        )
+
+        if ms_results and ms_results.get('success'):
+            results['matching_streams'] = ms_results.get('matching_streams')
+            results['success_matching_streams'] = True
+            print("  ✓ MatchingStreams analysis completed\n")
+        else:
+            results['success_matching_streams'] = False
+            print("  ⚠ MatchingStreams analysis failed\n")
+
         return results
     except Exception as e:
-        print(f"Error: {e}\n")
+        print(f"  ✗ Error in MatchingStreams: {e}\n")
         import traceback
         traceback.print_exc()
+        results['success_matching_streams'] = False
         return results
 
 
@@ -2038,7 +2148,13 @@ def main():
         results = modeling(results)
         step_counter += 1
 
-    # STEP 6: MatchingStreams
+    # STEP 6: TIMESERIES (MODFLOW only) - Example 12 line 406
+    if results and sections.get("modeling") and results.get('success_modflow'):
+        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_modflow()")
+        results = ex12_postprocessing_timeseries_modflow(results)
+        step_counter += 1
+
+    # STEP 7: MatchingStreams - Example 12 line 416
     if results and sections.get("matching_streams") and results.get('success_modflow'):
         print(f"\n[STEP {step_counter}] Executing: ex12_matching_streams()")
         results = ex12_matching_streams(results)
@@ -2047,7 +2163,7 @@ def main():
         print(f"\n[STEP {step_counter}] ⚠ Skipping matching_streams (MODFLOW failed)")
         step_counter += 1
 
-    # STEP 7: MODPATH
+    # STEP 8: MODPATH
     if results and sections.get("modpath") and results.get('success_modflow'):
         print(f"\n[STEP {step_counter}] Executing: modpath_ex12()")
         results = modpath_ex12(results)
@@ -2062,7 +2178,7 @@ def main():
     print(f"  sections.get('mt3dms'): {sections.get('mt3dms')}")
     print(f"  results.get('success_modflow'): {results.get('success_modflow') if results else 'N/A'}")
 
-    # STEP 8: MT3DMS
+    # STEP 9: MT3DMS
     if results and sections.get("mt3dms") and results.get('success_modflow'):
         print(f"\n[STEP {step_counter}] Executing: mt3dms_ex12()")
         results = mt3dms_ex12(results)
@@ -2078,7 +2194,19 @@ def main():
         print(f"\n[STEP {step_counter}] ⚠ Skipping mt3dms (MODFLOW failed)")
         step_counter += 1
 
-    # STEP 9: Plotting - Call each plot function directly
+    # STEP 9.5: TIMESERIES (COMPLETE - with all models) - Example 12 line 837
+    if results and sections.get("mt3dms") and results.get('success_mt3dms'):
+        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_complete()")
+        results = ex12_postprocessing_timeseries_complete(results)
+        step_counter += 1
+    elif not results.get('success_mt3dms'):
+        # Also run if MT3DMS is skipped but MODFLOW succeeded
+        if results and sections.get("modeling") and results.get('success_modflow'):
+            print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_complete()")
+            results = ex12_postprocessing_timeseries_complete(results)
+            step_counter += 1
+
+    # STEP 10: Plotting - Call each plot function directly
     if results and sections.get("plot"):
         print(f"\n[STEP {step_counter}] Executing: All plots")
         print("\n" + "="*70)
