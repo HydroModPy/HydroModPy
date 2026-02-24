@@ -185,10 +185,9 @@ DATA_CONFIGS = {
         ],
         "visualizations": [
             {"name": "local", "method": "watershed_local",
-             "dem_param": True},
-            {"name": "geology", "method": "watershed_geology"},
-            {"name": "dem", "method": "watershed_dem"},
-            {"name": "zones", "method": "watershed_zones"}
+             "dem_param": True, "extended": False},
+            {"name": "dem", "method": "watershed_dem",
+             "dem_param": False, "extended": True}
         ],
         "dem_filename": PARAMS["ex12"]["dem_filename"]
     }
@@ -221,6 +220,17 @@ DATA_MODULES = {
                 "geographic": ("geographic", True),
                 "hydro_path": ("data_path", True),
                 "streams_file": (None, False)
+            }
+        },
+        "subbasin": {
+            "class_name": "Subbasin",
+            "constructor_args": {
+                "geographic": ("geographic", True),
+                "hydrometry": (None, False),
+                "intermittency": (None, False),
+                "add_path": ("data_path", True),
+                "out_path": ("initializing.catch_folder", True),
+                "sub_snap_dist": (50, False)
             }
         },
         "hydrometry": {
@@ -586,23 +596,36 @@ def data(results):
         config = DATA_CONFIGS.get(example_key, {})
         viz_list = config.get("visualizations", [])
         if viz_list:
-            print("\n   Creating watershed visualizations...")
+            print("\n  • Creating watershed visualizations...")
             for viz in viz_list:
                 try:
                     method_name = viz["method"]
                     if hasattr(visualization_watershed, method_name):
+                        print(f"    • {viz['name']}...", end="", flush=True)
+
                         if viz.get("dem_param"):
+                            # watershed_local requires dem_init_path as first parameter
                             dem_filename = config.get("dem_filename")
                             if dem_filename:
                                 dem_path = os.path.join(data_path, dem_filename)
                                 if os.path.exists(dem_path):
-                                    print(f"    • {viz['name']}...", end="", flush=True)
-                                    getattr(visualization_watershed, method_name)(dem_path, results.get('geographic'))
+                                    getattr(visualization_watershed, method_name)(dem_path, results.get('initializing'), results.get('geographic'))
                                     print(" ✓")
                                 else:
                                     print(f" ⚠ DEM not found: {dem_path}")
+                        elif viz.get("extended"):
+                            # watershed_dem requires initializing, geographic, hydrography, piezometry, intermittency, hydrometry
+                            getattr(visualization_watershed, method_name)(
+                                initializing=results.get('initializing'),
+                                geographic=results.get('geographic'),
+                                hydrography=results.get('hydrography'),
+                                piezometry=None,
+                                intermittency=results.get('intermittency'),
+                                hydrometry=results.get('hydrometry')
+                            )
+                            print(" ✓")
                         else:
-                            print(f"    • {viz['name']}...", end="", flush=True)
+                            # Simple method call with geographic only
                             getattr(visualization_watershed, method_name)(results.get('geographic'))
                             print(" ✓")
                 except Exception as e:
