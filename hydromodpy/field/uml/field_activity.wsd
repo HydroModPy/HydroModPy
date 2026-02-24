@@ -1,0 +1,33 @@
+@startuml
+title Field - Demo Activity Flow (Square Case)
+
+start
+
+:Parse CLI arguments;
+:Resolve config and output paths;
+:Load field parameters\nFieldParam.from_toml(...);
+:Load mesh\nFieldMeshSquare.from_toml(...);
+
+if (field_param.is_heterogeneous?) then (yes)
+  :Load spatial field\nFieldSquare.from_toml(...);
+  if (field_param.field_spatial_id == field.id?) then (yes)
+  else (no)
+    :Raise ValueError;
+    stop
+  endif
+  :Discretize field on mesh\nfield.on_mesh(mesh);
+  :Compute field values on mesh\nfield_param.to_mesh_field(discretization);
+else (no)
+  :Broadcast homogeneous value\nfield_param.to_mesh_field(mesh=mesh);
+endif
+
+:Create 3-panel figure;
+:Save figure in outputs directory;
+
+if (--no-show-plot?) then (yes)
+else (no)
+  :Display figure with plt.show();
+endif
+
+stop
+@enduml

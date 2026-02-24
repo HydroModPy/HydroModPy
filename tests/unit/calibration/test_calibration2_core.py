@@ -1,20 +1,20 @@
-"""Unit tests for refactored reference-case calibration core."""
+﻿"""Unit tests for refactored reference-case calibration core."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from hydromodpy.calibration2.core.engine_config import (
+from hydromodpy.calibration.core.engine_config import (
     resolve_calibration_settings,
 )
-from hydromodpy.calibration2.core.methods_config import (
+from hydromodpy.calibration.core.methods_config import (
     normalize_format_method_kwargs,
 )
-from hydromodpy.calibration2.core.engine import CalibrationEngine
-from hydromodpy.calibration2.core.methods_dispatcher import CalibrationMethod
-from hydromodpy.calibration2.core.results import CalibrationResults
-from hydromodpy.calibration2.core.objective_function import ObjectiveFunction
+from hydromodpy.calibration.core.engine import CalibrationEngine
+from hydromodpy.calibration.core.methods_dispatcher import CalibrationMethod
+from hydromodpy.calibration.core.results import CalibrationResults
+from hydromodpy.calibration.core.objective_function import ObjectiveFunction
 
 
 def test_da_mh_forces_rmse_metric_with_warning():
@@ -133,3 +133,4 @@ def test_calibration_results_prefers_posterior_samples_and_keeps_chain():
     assert result.metadata["chain_samples"].shape == (3, 2)
     assert result.params_best == {"a": 0.3, "Kq": 3.0}
     assert np.isclose(result.score_best, 0.9)
+
