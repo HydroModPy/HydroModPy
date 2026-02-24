@@ -171,7 +171,7 @@ class Modpath(Solver):
         self.filt_seep = True
         self.filt_inout = True
         self.calc_rtd = True 
-        random_id = None       
+        self.random_id = None       
     
     def pre_processing(self):
         """
@@ -418,8 +418,8 @@ class Modpath(Solver):
         
         # ---- flflopy.modpath.Modpath6Basopy.modpath.mp6sim.StartingLocationsFile
         flopy.modpath.Modpath6Bas(self.mp,
-                                  hnoflo=self.model_modflow.hnoflow,
-                                  hdry=self.model_modflow.hdry,
+                                  hnoflo=self.model_modflow.bas_hnoflow,
+                                  hdry=self.model_modflow.upw_hdry,
                                   # def_iface=[6, 6],
                                   def_face_ct=self.def_face_ct,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
                                   laytyp=laytype,
