@@ -154,15 +154,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                      
     # Add hydrological data
     
-    #%% CLIMATIC
-    
-    climatic = Climatic(out_path=initializing.catch_folder)
-    
-    oceanic = Oceanic()
-    #oceanic.extract_data(out_path=initializing.catch_folder,
-    #                              oceanic_path=data_path,
-    #                              geographic=geographic)
-
     #%% ---- RECHARGE
 
     # Necessary to set model parameters
