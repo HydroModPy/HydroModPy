@@ -29,6 +29,7 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox
+import requests
 
 logger = get_logger(__name__)
 
@@ -181,6 +182,53 @@ class Oceanic:
         xidx = find_idx[idx][0]
         yidx = find_idx[idx][1]
         return int(xidx), int(yidx)
+
+    def download_SHOM_data(self, geographic, start_date, end_date):
+        """
+        Download sea-level data from SHOM (Service Hydrographique et Océanographique de la Marine) website
+        Based on catchment centroid coordinates, the closest tide gauge station is identified and its data is downloaded.
+
+            Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+        start_date : str
+            Start date of the data to be downloaded (format: 'YYYY-MM-DD').
+        end_date : str
+            End date of the data to be downloaded (format: 'YYYY-MM-DD').
+        """
+        # Get the list of tide gauge stations from SHOM website
+        url = 'https://services.data.shom.fr/maregraphie/service/tidegauges'
+        tide_gauge_list = requests.get(url)
+        tide_gauge_list = tide_gauge_list.json()
+        self.tide_gauge_df = pd.DataFrame(tide_gauge_list)
+
+        # Identify the closest tide gauge station to the catchment centroid
+        self.tide_gauge_df['catchment_dist'] = np.sqrt((self.tide_gauge_df['longitude'] - geographic.centroid_long_lat[1])**2 + (self.tide_gauge_df['latitude'] - geographic.centroid_long_lat[0])**2)
+        self.closest_tg = self.tide_gauge_df.loc[self.tide_gauge_df['catchment_dist'].idxmin()]
+        print(f"Centroid coordinates: ({geographic.centroid_long_lat[0]}, {geographic.centroid_long_lat[1]})")
+        print(f"Closest tide gauge station: {self.closest_tg['name']} at ({self.closest_tg['latitude']}, {self.closest_tg['longitude']})")
+        closest_tg_id = self.closest_tg['shom_id']
+        url = f'https://services.data.shom.fr/maregraphie/service/completetidegauge/{closest_tg_id}'
+        tide_gauge_info = requests.get(url)
+        tide_gauge_info = tide_gauge_info.json()
+        zh_ref = float(tide_gauge_info['verticalRef']['zh_ref']) # Vertical reference of the tide gauge station
+
+        # Download sea-level data for the closest tide gauge station
+        sources = '3' # code to get validated data
+        interval = '60' # data interval in minutes
+        tg_id = str(closest_tg_id)
+        dtStart = f'{start_date}T00%3A00%3A00Z'
+        dtEnd = f'{end_date}T00%3A00%3A00Z'
+        url = f'https://services.data.shom.fr/maregraphie/observation/json/{tg_id}?sources={sources}&dtStart={dtStart}&dtEnd={dtEnd}&interval={interval}'
+        tg_data = requests.get(url)
+        tg_data = tg_data.json()
+        tg_df = pd.DataFrame(tg_data['data'])[['value', 'timestamp']]
+        # Convert vertical level from hydrographic to IGN reference
+        tg_df['value'] = pd.to_numeric(tg_df['value'], errors='coerce')
+        tg_df['value'] = tg_df['value'] + zh_ref # Convert vertical level from hydrographic to IGN reference
+        tg_df['timestamp'] = pd.to_datetime(tg_df['timestamp'])
+        self.SHOM_data = tg_df
 
     def display_data(self, values):
         """
