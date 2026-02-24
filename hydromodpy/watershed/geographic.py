@@ -474,37 +474,37 @@ class Geographic:
         # Calculate centroids
         self.centroid = [self.xmin+((self.xmax-self.xmin)/2),self.ymin+((self.ymax-self.ymin)/2)]
 
-        # # Transform centroids to World Geodetic System 1984
-        # try:
-        #     transformer = Transformer.from_crs(self.crs_proj, "epsg:4326")
-        #     self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
-        #     self.ur_long_lat = transformer.transform(self.xmax,self.ymax)
-        #     self.ul_long_lat = transformer.transform(self.xmin,self.ymax)
-        #     self.lr_long_lat = transformer.transform(self.xmax,self.ymin)
-        #     self.ll_long_lat = transformer.transform(self.xmin,self.ymin)
-        #     # Transform to longitude/latitude London Greenwich
-        #     self.centroid_long_lat_Greenwich = [self.centroid_long_lat[0], self.centroid_long_lat[1]]
-        #     if self.centroid_long_lat_Greenwich[1]<0:
-        #         self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
+        # Transform centroids to World Geodetic System 1984
+        try:
+            transformer = Transformer.from_crs(self.crs_proj, "epsg:4326")
+            self.centroid_long_lat = transformer.transform(self.centroid[0], self.centroid[1])
+            self.ur_long_lat = transformer.transform(self.xmax,self.ymax)
+            self.ul_long_lat = transformer.transform(self.xmin,self.ymax)
+            self.lr_long_lat = transformer.transform(self.xmax,self.ymin)
+            self.ll_long_lat = transformer.transform(self.xmin,self.ymin)
+            # Transform to longitude/latitude London Greenwich
+            self.centroid_long_lat_Greenwich = [self.centroid_long_lat[0], self.centroid_long_lat[1]]
+            if self.centroid_long_lat_Greenwich[1]<0:
+                self.centroid_long_lat_Greenwich[1] = self.centroid_long_lat_Greenwich[1] + 360
+        except:
+            pass
+        try:
+            locator = Nominatim(user_agent='google')
+            location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
+            try:
+                self.dep_code = int(location.address.split(',')[-2][0:3])
+            except:
+                pass
+        except OSError:
+            # In some cases, a SSL certificate error can occur. The next two
+            # lines modify the ssl_context
+            ctx = ssl.create_default_context(cafile=certifi.where())
+            geopy.geocoders.options.default_ssl_context = ctx
+            locator = Nominatim(user_agent='google')
+            location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
+            self.dep_code = int(location.address.split(',')[-2][0:3])
+        else:
         # except:
-        #     pass
-        # try:
-        #     locator = Nominatim(user_agent='google')
-        #     location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
-        #     try:
-        #         self.dep_code = int(location.address.split(',')[-2][0:3])
-        #     except:
-        #         pass
-        # except OSError:
-        #     # In some cases, a SSL certificate error can occur. The next two
-        #     # lines modify the ssl_context
-        #     ctx = ssl.create_default_context(cafile=certifi.where())
-        #     geopy.geocoders.options.default_ssl_context = ctx
-        #     locator = Nominatim(user_agent='google')
-        #     location = locator.reverse(str(self.centroid_long_lat_Greenwich[0]) +','+str(self.centroid_long_lat_Greenwich[1]), timeout=120)
-        #     self.dep_code = int(location.address.split(',')[-2][0:3])
-        # else:
-        # # except:
-        #     pass
+            pass
 
 #%% NOTES
