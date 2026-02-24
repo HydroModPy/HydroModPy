@@ -397,7 +397,7 @@ class Modflow:
             sgrid_generator.nlay = self.nlay
 
         sgrid = sgrid_generator.run()
-
+        
         # Imposes discretization to modflow model through
         # ---- flopy.modflow.ModflowDis
         self.dis = flopy.modflow.ModflowDis(self.mf,
