@@ -7,9 +7,15 @@ Used inside ``Annotated[...]`` on Pydantic config fields so that tooling
 from dataclasses import dataclass
 from typing import Literal
 
+#: Ordered mapping of profile names to their numeric threshold.
+#: A field is visible when ``PROFILES[field_level] <= PROFILES[requested_profile]``.
+PROFILES: dict[str, int] = {"user": 0, "dev": 1, "expert": 2}
+
+ProfileName = Literal["user", "dev", "expert"]
+
 
 @dataclass(frozen=True)
 class ParamLevel:
     """Metadata tag for parameter visibility level (user, dev, expert)."""
 
-    level: Literal["user", "dev", "expert"]
+    level: ProfileName
