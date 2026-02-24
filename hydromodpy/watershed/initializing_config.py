@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from hydromodpy.watershed.geographic_config import ParamLevel
+from hydromodpy.config.param_level import ParamLevel
 
 
 class InitializingConfig(BaseModel):
