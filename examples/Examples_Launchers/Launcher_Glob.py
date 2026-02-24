@@ -69,43 +69,91 @@ postprocessing_timeseries = modeling_workflow_copy.postprocessing_timeseries
 fontprop = toolbox.plot_params(8, 15, 18, 20)
 
 # Load configuration from config.toml (initializing and geographic)
-cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config09.toml")
 
 
 
 # ============================================================================
-# CONFIG - EXAMPLE 12
+# CONFIG - MULTIPLE EXAMPLES (ex03, ex09, ex12)
 # ============================================================================
 
-CONFIG = {
-    "example": "ex12",
-    "display_figures": True,  # False to avoid pop-ups
-    "sections": {
-        "watershed": True,
-        "data": True,
-        "recharge": True,
-        "parametrization": True,
-        "modeling": True,
-        "plot": True,
-        "matching_streams": True,
-        "modpath": True,
-        "mt3dms": True,
-        "plot_animation_interactive": False
+CONFIG_OPTIONS = {
+    "ex03": {
+        "example": "ex03",
+        "display_figures": True,
+        "sections": {
+            "watershed": True,
+            "data": True,
+            "recharge": True,
+            "parametrization": True,
+            "modeling": True,
+            "plot": False,  # No specific plotting for ex03 yet
+            "matching_streams": True,
+            "modpath": True,
+            "mt3dms": False
+        },
+        "plots": {
+            "plot_2d": False,
+            "plot_3d": False,
+            "web_animation": False
+        }
     },
-    # Individual plot selection
-    "plots": {
-        "recharge_runoff": True,
-        "streamflow": True,
-        "piezometry": True,
-        "cross_section": True,
-        "pathlines": True,
-        "concentration": True,
-        "interactive_cross_section": True,
-        "plot_2d": True,          # 2D visualization mapping
-        "plot_3d": True,          # 3D VTK/VTU visualization
-        "web_animation": True     # Interactive web animation
+    "ex09": {
+        "example": "ex09",
+        "display_figures": True,
+        "sections": {
+            "watershed": True,
+            "data": True,
+            "recharge": True,
+            "parametrization": True,
+            "modeling": True,
+            "plot": True,
+            "matching_streams": True,
+            "modpath": True,
+            "mt3dms": True,
+            "plot_animation_interactive": False
+        },
+        "plots": {
+            "plot_2d": False,
+            "plot_3d": False,
+            "web_animation": True
+        }
+    },
+    "ex12": {
+        "example": "ex12",
+        "display_figures": True,
+        "sections": {
+            "watershed": True,
+            "data": True,
+            "recharge": True,
+            "parametrization": True,
+            "modeling": True,
+            "plot": True,
+            "matching_streams": True,
+            "modpath": True,
+            "mt3dms": True,
+            "plot_animation_interactive": False
+        },
+        "plots": {
+            "recharge_runoff": True,
+            "streamflow": True,
+            "piezometry": True,
+            "cross_section": True,
+            "pathlines": True,
+            "concentration": True,
+            "interactive_cross_section": True,
+            "plot_2d": True,
+            "plot_3d": True,
+            "web_animation": True
+        }
     }
 }
+
+# ============================================================================
+# CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12)
+# ============================================================================
+EXAMPLE_TO_RUN = "ex09"  # ← CHANGE THIS TO SWITCH EXAMPLES
+CONFIG = CONFIG_OPTIONS[EXAMPLE_TO_RUN]
 
 # Set matplotlib backend based on display_figures config
 if not CONFIG.get('display_figures', True):
@@ -256,7 +304,46 @@ PARAMS = {
             "figsize_cross_section": (6, 4),
             "figsize_pathlines": (8, 6),
         },
-}
+    },
+    "ex03": {
+        "base_path": "examples/03S_short",
+        "dem_filename": "regional dem.tif",
+        "dem_coordinates": [327816.965, 6777886.670, 150, 10, 'EPSG:2154'],
+        "watershed_name": "Example_03_Canut",
+        "recharge_first_year": 1990,
+        "recharge_last_year": 2019,
+        "recharge_time_step": "D",
+        # Parametrization
+        "box": True,
+        "sink_fill": False,
+        "sim_state": "steady",
+        "plot_cross": False,
+        "check_grid": False,
+        "dis_perlen": False,
+        "recharge_monthly": [10, 20, 30, 40, 50, 60, 60, 50, 40, 30, 20, 10],
+        "nlay": 5,
+        "lay_decay": 1,
+        "bottom": None,
+        "thick": 50,
+        "sy": 10 / 100,
+        "cond_drain": None,
+        "bc_left": None,
+        "bc_right": None,
+        "sea_level": "None",
+        # Multiple models
+        "iD_set_simulations": "explorK_test1",
+        "list_hyd_cond": list(np.geomspace(1e-8, 1e-3, 10)),  # in m/s (10 values)
+        # Plotting parameters
+        "plot_params": {
+            "factor": 30,
+            "n_subplots": 2,
+            "figsize_recharge": (8, 5),
+            "figsize_streamflow": (12, 3.5),
+            "figsize_piezometry": (12, 3.5),
+            "figsize_cross_section": (6, 4),
+            "figsize_pathlines": (8, 6),
+        },
+    }
 }
 
 
@@ -368,7 +455,31 @@ DATA_MODULES = {
                 "sub_snap_dist": (50, False)
             }
         }
-}
+    },
+    "ex03": {
+        "hydrography": {
+            "class_name": "Hydrography",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "types_obs": (["regional stream network"], False),
+                "fields_obs": (["FID"], False),
+                "geographic": ("geographic", True),
+                "hydro_path": ("data_path", True),
+                "streams_file": (None, False)
+            }
+        },
+        "subbasin": {
+            "class_name": "Subbasin",
+            "constructor_args": {
+                "geographic": ("geographic", True),
+                "hydrometry": (None, False),
+                "intermittency": (None, False),
+                "add_path": ("data_path", True),
+                "out_path": ("initializing.catch_folder", True),
+                "sub_snap_dist": (150, False)
+            }
+        }
+    }
 }
 
 # ============================================================================
@@ -405,6 +516,20 @@ PARAM_CONFIG = {
             "sy_complex": True  # Sy avec decay
         },
         "particle_tracking": False
+    },
+    "ex03": {
+        "check_model": {"plot_cross": True, "check_grid": True},
+        "climatic": {
+            "recharge_from_params": True,
+            "runoff": None
+        },
+        "hydraulic_specific": {
+            "update_bottom": True,
+            "update_thick": True,
+            "update_sy_simple": True,
+            "decay_config": False
+        },
+        "particle_tracking": True
     }
 }
 
@@ -477,6 +602,29 @@ MODELING_CONFIG = {
             "check_grid": True,
             "cross_ylim": [0, 200]
         }
+    },
+    "ex03": {
+        "type": "multiple",
+        "preprocessing": {"for_calib": False},
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+            "link_mt3dms": False
+        },
+        "postprocessing_modflow": {
+            "watertable_elevation": True,
+            "watertable_depth": True,
+            "seepage_areas": True,
+            "outflow_drain": True,
+            "groundwater_flux": True,
+            "groundwater_storage": True,
+            "accumulation_flux": True
+        },
+        "postprocessing_timeseries": {
+            "datetime_format": False,
+            "subbasin_results": True
+        },
+        "postprocessing_netcdf": True
     }
 
 }
@@ -526,6 +674,36 @@ MODPATH_CONFIG = {
             "track_dir": "backward",
             "sel_random": None, # or int
             "sel_slice": None, # ot int
+        },
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+        },
+        "post_processing": {
+            "ending_point": True,
+            "starting_point": True,
+            "pathlines_shp": True,
+            "particles_shp": True,
+            "random_id": None,
+        },
+        "filt_processing": {
+            "norm_flux": True,
+            "filt_time": True,
+            "filt_seep": True,
+            "filt_inout": True,
+            "calc_rtd": False,
+            "random_id": None,
+        }
+    },
+    "ex03": {
+        "preprocessing": {
+            "zone_partic": "seepage_areas",
+            "cell_div": 1,
+            "zloc_div": False,
+            "bore_depth": None,
+            "track_dir": "backward",
+            "sel_random": None,
+            "sel_slice": None,
         },
         "processing": {
             "write_model": True,
@@ -619,6 +797,36 @@ MT3DMS_CONFIG = {
             "residence_times": True,
             "concentration_seepage": True,
             "mass_accumulated": True,
+        }
+    },
+    "ex03": {
+        "preprocessing": {
+            "for_calib": False,
+            "spc_name": "NO3",
+            "disp_long": 0,
+            "disp_transh": 0,
+            "disp_transv": 0,
+            "diffu_coeff": 1e-10 * 3600 * 24,
+            "react_order": 1,
+            "plot_conc": False,
+        },
+        "processing": {
+            "write_model": False,
+            "run_model": False,
+            "verbose": False,
+        },
+        "post_processing": {
+            "concentration_seepage": False,
+            "mass_seepage": False,
+            "mass_accumulated": False,
+            "export_all_tif": False,
+        },
+        "timeseries": {
+            "datetime_format": False,
+            "subbasin_results": False,
+            "residence_times": False,
+            "concentration_seepage": False,
+            "mass_accumulated": False,
         }
     }
 }
