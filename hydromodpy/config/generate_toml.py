@@ -17,7 +17,7 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.watershed.geographic_config import ParamLevel
+from hydromodpy.config.param_level import ParamLevel
 
 
 PROFILES = {"user": 0, "dev": 1, "expert": 2}
