@@ -68,6 +68,10 @@ dependencies = [
     "pydantic>=2.0",
     "pyside6",
     "spyder-kernels",
+    "pytest",
+    "pytest-xdist",
+    "dask",
+    "pydantic",
 ]
 
 [project.optional-dependencies]
@@ -124,4 +128,3 @@ source = [
     "hydromodpy/modeling/",
     "hydromodpy/display/",
 ]
-
