@@ -88,24 +88,12 @@ def plot_cross_section(geographic, stable_folder, simulations_folder, model_name
 
 
 # ============================================================================
-# PLOT STREAMFLOW - WITH DYNAMIC FACTOR PARAMETER
+# PLOT STREAMFLOW - EXACT FROM example12.py lines 506-549
 # ============================================================================
 
-def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
-    """Plot streamflow - with dynamic factor for different examples
-
-    Parameters:
-    -----------
-    factor : int, default=30
-        Scaling factor for data (30 for monthly ex12, 7 for weekly ex09)
-    """
+def plot_streamflow(geographic, data_path, simulations_folder, vers):
+    """Plot streamflow - EXACT from example12.py"""
     area = int(round(geographic.catch_area))
-
-    # Determine resampling frequency based on factor
-    if factor <= 10:
-        resample_freq = 'W'  # Weekly
-    else:
-        resample_freq = 'ME'  # Monthly
 
     # Try to load observed streamflow
     Qobs_path = os.path.join(data_path, 'Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt')
@@ -118,8 +106,8 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
             Qobs = Qobs[2].to_frame(name="Q")
             Qobs = Qobs / 1000  # L/d to m3/d
             Qobs = (Qobs / (area * 1000000))  # m3/d to m/day
-            Qobs = Qobs.resample(resample_freq).mean()
-            Qobs = Qobs * factor * 1000
+            Qobs = Qobs.resample('ME').mean()
+            Qobs = Qobs * 30 * 1000
         except Exception as e:
             print(f"  ⚠ Warning: Could not load observed streamflow: {e}")
             Qobs = None
@@ -153,10 +141,10 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
             plt.close(fig)
             continue
 
-        Rmod = Smod['recharge'] * factor * 1000
-        rmod = Smod['runoff'] * factor * 1000
+        Rmod = Smod['recharge'] * 30 * 1000
+        rmod = Smod['runoff'] * 30 * 1000
 
-        Omod = (Smod['outflow_drain'] * factor * 1000)
+        Omod = (Smod['outflow_drain'] * 30 * 1000)
         Qmod = Omod + rmod
 
         ax = a0
@@ -176,17 +164,11 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
 
 
 # ============================================================================
-# PLOT PIEZOMETRY - WITH DYNAMIC FACTOR PARAMETER
+# PLOT PIEZOMETRY - EXACT FROM example12.py lines 551-597
 # ============================================================================
 
-def plot_piezometry(geographic, simulations_folder, vers, factor=30):
-    """Plot piezometry - with dynamic factor for different examples
-
-    Parameters:
-    -----------
-    factor : int, default=30
-        Scaling factor for data (30 for monthly ex12, 7 for weekly ex09)
-    """
+def plot_piezometry(geographic, simulations_folder, vers):
+    """Plot piezometry - EXACT from example12.py"""
     area = int(round(geographic.catch_area))
 
     simul_list = sorted(glob.glob(os.path.join(simulations_folder, vers + '*')), key=os.path.getmtime)
@@ -214,7 +196,7 @@ def plot_piezometry(geographic, simulations_folder, vers, factor=30):
             print(f"  ⚠ Warning: Could not find timeseries file for {model_name}, skipping...")
             continue
 
-        Rmod = Smod['recharge'] * factor * 1000
+        Rmod = Smod['recharge'] * 30 * 1000
 
         WTEmod = Smod['watertable_elevation']
         WTDmod = Smod['watertable_depth']
@@ -293,13 +275,7 @@ def plot_pathlines(geographic, stable_folder, simulations_folder, model_name):
 
 def plot_concentration(geographic, hydrography, stable_folder, simulations_folder,
                       model_name, model_modflow, model_mt3dms, R_mm_day_filt, vers='TRANS1', factor=30):
-    """Plot concentration - with dynamic factor for different examples
-
-    Parameters:
-    -----------
-    factor : int, default=30
-        Scaling factor for data (30 for monthly ex12, 7 for weekly ex09)
-    """
+    """Plot concentration - EXACT from example12.py"""
 
     input_no3 = model_mt3dms.sconc_input[1].mean() * 1000
 
@@ -433,14 +409,9 @@ def plot_concentration(geographic, hydrography, stable_folder, simulations_folde
                         cmap=color_camp, alpha=1, zorder=1)
 
         shp_bv = gpd.read_file(geographic.watershed_shp)
+        shp_hydro = gpd.read_file(hydrography.streams)
         shp_bv.plot(ax=ax[1], facecolor='None', lw=3, zorder=2)
-
-        if hydrography is not None:
-            try:
-                shp_hydro = gpd.read_file(hydrography.streams)
-                shp_hydro.plot(ax=ax[1], color='navy', lw=1, zorder=0)
-            except Exception as e:
-                print(f"  ⚠ Warning: Could not plot hydrography: {e}")
+        shp_hydro.plot(ax=ax[1], color='navy', lw=1, zorder=0)
 
         divider = make_axes_locatable(ax[1])
         cax = divider.new_vertical(size='5%', pad=0.6, pack_start=True)
@@ -483,34 +454,28 @@ def plot_concentration(geographic, hydrography, stable_folder, simulations_folde
 
 def plot_2d(initializing, geographic, hydrography, model_name):
     """Plot 2D visualization - EXACT from example12.py"""
-    try:
-        if hydrography is None:
-            print("  ⚠ Warning: Hydrography data not available, skipping 2D visualization")
-            return
-        visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
-        visu.visual2D(object_list=[
-            'map',
-            'grid',
-            'watertable',
-            'watertable_depth',
-            'drain_flow',
-            'surface_flow',
-            'pathlines',
-            'residence_times'
-        ],
-        color_scale=[
-            (None, None),
-            (80, 150),
-            (80, 150),
-            (0, 10),
-            (0, 200),
-            (0, 30000),
-            (0, 3),
-            (0, 3),
-        ],
-        lines=1000)
-    except Exception as e:
-        print(f"  ⚠ Error in 2D visualization: {e}")
+    visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
+    visu.visual2D(object_list=[
+        'map',
+        'grid',
+        'watertable',
+        'watertable_depth',
+        'drain_flow',
+        'surface_flow',
+        'pathlines',
+        'residence_times'
+    ],
+    color_scale=[
+        (None, None),
+        (80, 150),
+        (80, 150),
+        (0, 10),
+        (0, 200),
+        (0, 30000),
+        (0, 3),
+        (0, 3),
+    ],
+    lines=1000)
 
 
 # ============================================================================
@@ -520,10 +485,6 @@ def plot_2d(initializing, geographic, hydrography, model_name):
 def plot_3d(initializing, geographic, hydrography, model_name):
     """Plot 3D visualization - EXACT from example12.py"""
     try:
-        if hydrography is None:
-            print("  ⚠ Warning: Hydrography data not available, skipping 3D visualization")
-            return
-
         # Check if VTU files exist before attempting visualization
         vtu_dir = os.path.join(str(initializing.simulation_folder), '_postprocess', '_vtuvtk')
         if not os.path.exists(vtu_dir) or not os.path.exists(os.path.join(vtu_dir, 'grid.vtu')):
@@ -556,10 +517,6 @@ def plot_interactive_cross_section(initializing, geographic, hydrography,
                                    stable_folder, simulations_folder, model_name):
     """Plot interactive cross-section - EXACT from example12.py"""
     try:
-        if hydrography is None:
-            print("  ⚠ Warning: Hydrography data not available, skipping interactive cross-section visualization")
-            return
-
         dem_path = os.path.join(stable_folder, 'geographic', 'watershed_box_buff_dem.tif')
         if not os.path.exists(dem_path):
             print(f"  ⚠ Warning: DEM file not found at {dem_path}, skipping interactive visualization")

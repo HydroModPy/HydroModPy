@@ -1889,7 +1889,9 @@ def main():
             step_counter += 1
 
     # STEP 10: Plotting - Call plot.py functions based on config
-    plots_config = config.get("plots", {})
+    plots_config = CONFIG.get("plots", {})
+    print(f"\n[DEBUG] results={results is not None}, sections.get('plot')={sections.get('plot')}, any(plots_config)={any(plots_config.values())}")
+    print(f"[DEBUG] success_modflow={results.get('success_modflow') if results else 'N/A'}")
     if results and sections.get("plot") and any(plots_config.values()):
         print(f"\n[STEP {step_counter}] Executing: Plots")
         print("\n" + "="*70)
@@ -1923,14 +1925,16 @@ def main():
                 plot_streamflow(results.get('geographic'),
                               results.get('data_path'),
                               results.get('simulations_folder'),
-                              vers)
+                              vers,
+                              factor=factor)
 
             # Plot piezometry
             if plots_config.get("piezometry", True):
                 print("  ✓ Plotting piezometry")
                 plot_piezometry(results.get('geographic'),
                               results.get('simulations_folder'),
-                              vers)
+                              vers,
+                              factor=factor)
 
             # Plot pathlines
             if plots_config.get("pathlines", True):
@@ -1955,7 +1959,7 @@ def main():
                                  factor=factor)
 
             # Plot 2D
-            if plots_config.get("plot_2d", True):
+            if plots_config.get("plot_2d", False):
                 print("  ✓ Plotting 2D visualization")
                 plot_2d(results.get('initializing'),
                        results.get('geographic'),
@@ -1963,7 +1967,7 @@ def main():
                        results.get('model_name'))
 
             # Plot 3D
-            if plots_config.get("plot_3d", True):
+            if plots_config.get("plot_3d", False):
                 print("  ✓ Plotting 3D visualization")
                 plot_3d(results.get('initializing'),
                        results.get('geographic'),
@@ -1979,33 +1983,6 @@ def main():
                                              results.get('stable_folder'),
                                              results.get('simulations_folder'),
                                              results.get('model_name'))
-
-            # Plot web animation
-            if plots_config.get("web_animation", True):
-                print("  ✓ Creating web animation")
-                plot_web_animation(results.get('simulations_folder'), vers)
-
-            # Plot interactive cross-section
-            if plots_config.get("interactive_cross_section", True) and results.get('initializing') is not None:
-                print("  ✓ Plotting interactive cross-section")
-                plot_interactive_cross_section(results['initializing'],
-                                             results.get('geographic'),
-                                             results.get('hydrography'),
-                                             results.get('stable_folder'),
-                                             results.get('simulations_folder'),
-                                             results.get('model_name'))
-
-            # Plot 2D visualization
-            if plots_config.get("plot_2d", False):
-                print("  ✓ Plotting 2D visualization")
-                plot_2d(results.get('model_name'),
-                       results.get('simulations_folder'))
-
-            # Plot 3D visualization
-            if plots_config.get("plot_3d", False):
-                print("  ✓ Plotting 3D visualization")
-                plot_3d(results.get('model_name'),
-                       display_plots=CONFIG.get('display_figures', False))
         else:
             print("  ⚠ Skipping plots (MODFLOW failed)")
 
@@ -2013,7 +1990,7 @@ def main():
         step_counter += 1
 
     # STEP 11: Web animation
-    plots_config = config.get("plots", {})
+    plots_config = CONFIG.get("plots", {})
     if results and plots_config.get("web_animation", False) and results.get('success_modflow'):
         print(f"\n[STEP {step_counter}] Executing: Web animation")
         from plot import plot_web_animation
