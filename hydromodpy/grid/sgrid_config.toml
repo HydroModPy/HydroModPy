@@ -1,0 +1,30 @@
+# Spatial grid configuration for `SGrid_Generation.from_toml(...)`.
+#
+# Example usage:
+#   from hydromodpy.grid.sgrid_generation import SGrid_Generation
+#   sgrid = SGrid_Generation.from_toml("hydromodpy/grid/sgrid_config.toml").run()
+
+[sgrid]
+sgrid_type = "structured"
+
+# Horizontal grid
+genmtd_top = "filepath"
+top_path = "watershed_box_buff_dem.tif"
+lenuni = "m"
+crs = "EPSG:2154"
+nodata = -9999
+
+# Bottom definition:
+# - "filepath" -> provide bot_path
+# - "constant_thickness" -> provide thick
+# - "constant_altitude" -> provide zbot
+genmtd_bot = "constant_thickness"
+thick = 200.0
+
+# Vertical layering:
+# - "constant" -> provide nlay
+# - "decay" -> provide nlay + lay_decay (>1)
+# - "list" -> provide lay_proportions summing to 1.0
+genmtd_lay = "decay"
+nlay = 5
+lay_decay = 2.0
