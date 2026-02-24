@@ -264,7 +264,7 @@ PARAM_CONFIG = {
 MODELING_CONFIG = {
     "ex12": {
         "type": "single",
-        "preprocessing": {"for_calib": True},
+        "preprocessing": {"for_calib": False},
         "processing": {
             "write_model": True,
             "run_model": True,
@@ -868,16 +868,16 @@ def modpath_ex12(results):
         initializing_object = results['initializing']
 
         config = MODELING_CONFIG.get('ex12', {})
+        preprocessing_params = config.get("preprocessing", {})
 
         # Call refactored modpath with individual objects
-        # For example12 (single model), MODFLOW outputs are in simulations_folder, so for_calib=False
         modpath_result = modpath(
             geographic=geographic_object,
             settings=settings_object,
             model_modflow=model_modflow,
             initializing=initializing_object,
             results=results,
-            for_calib=False
+            **preprocessing_params
         )
 
         results['model_modpath'] = modpath_result['model_modpath']
