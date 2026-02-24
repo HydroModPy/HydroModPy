@@ -35,12 +35,13 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 logger = get_logger(__name__)
-
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+from hydromodpy.solver import Solver
 
 #%% CLASS
 
-class Modpath:
+class Modpath(Solver):
     """
     Class Modpath.
     
@@ -103,7 +104,6 @@ class Modpath:
         #%% Initialisation
         
         self.geographic = geographic
-        
         self.model_modflow = model_modflow
         self.model_name = model_name
         self.model_folder = model_folder
@@ -123,12 +123,19 @@ class Modpath:
             self.zone_partic = geographic.watershed_box_buff_dem
         else:
             self.zone_partic = zone_partic
-        self.track_dir = track_dir
+        self.track_dir = track_dir #default forward
+        self.self.track = 1 #if track_dir=='forward'
+        self.zone_opt = 1 #if track_dir=='forward'
+        self.zone_inj = 1#if track_dir=='forward'
+        
         self.bore_depth = bore_depth
         self.cell_div = cell_div
         self.zloc_div = zloc_div
         self.sel_random = sel_random
         self.sel_slice = sel_slice
+        
+        self.verbose = False
+        self.check = False
 
     #%% PRE-PROCESSING
     
@@ -156,8 +163,8 @@ class Modpath:
         self.mf = flopy.modflow.Modflow.load(
             nam_file,
             model_ws=self.full_path,
-            verbose=False,
-            check=False,
+            verbose=self.verbose,
+            check=self.check,
             exe_name=getattr(self.model_modflow, "exe", None) or "mfnwt",
         )
         
@@ -200,9 +207,9 @@ class Modpath:
         #%% Specific parametrization
         
         if self.track_dir=='forward':
-            track = 1
-            zone_opt = 1
-            zone_inj = 1
+            self.track = 1
+            self.zone_opt = 1
+            self.zone_inj = 1
             
         if self.bore_depth==None:
             drn = np.ones((nrow, ncol))
@@ -224,16 +231,16 @@ class Modpath:
                     a[b >= 1] = 1
                 a[iboundData[i] == -1] = 1
                 szone.append(a)
-            zone_opt = 2
-            zone_inj = szone.copy()
+            self.zone_opt = 2
+            self.zone_inj = szone.copy()
 
         if self.track_dir=='backward':
-            track = 2
-            zone_opt = 1
-            zone_inj = 1
+            self.track = 2
+            self.zone_opt = 1
+            self.zone_inj = 1
 
         flags = option_flags=[2, # SimulationType : 1 = Endpoint simulation; 2 = Pathline simulation; 3 = Timeseries simulation
-                              track, # TrackingDirection : 1 = Forward tracking; 2 = Backward tracking
+                              self.track, # TrackingDirection : 1 = Forward tracking; 2 = Backward tracking
                               1, # WeakSinkOption : 1 = Allow particles to pass through cells that contain weak sinks; 2 = Stop particles when they enter cells that contain weak sinks.
                               1, # WeakSourceOption : 1 = Allow particles to pass through cells that contain weak sources; 2 = Stop particles when they enter cells that contain weak sources.
                               1, # ReferenceTimeOption : 1 = Specify a value for reference time; 2 = Specify a stress period, time step, and relative time position within the time step to use to compute the reference time.
@@ -241,10 +248,10 @@ class Modpath:
                               2, # ParticleGenerationOption : 1 = Specify information to automatically generate particles for a collection of cells. 2 = Read particle locations from a starting locations file.
                               1, # TimePointOption : 1 = Time points are not specified. 2 = A specified number of time points are calculated for a fixed time increment. 3 = An array of time point values is specified.
                               1, # BudgetOutputOption : 1 = No budget checking 2 = A summary of cell-by-cell budgets is printed in the Listing File 3 = A list of cells is specified for which detailed budget information is summarized in the Listing File 4 = Trace mode is in effect
-                              zone_opt, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
+                              self.zone_opt, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
                               1, # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations. 2 = An array of retardation factors is read and used in the velocity calculations.
                               1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.        
-        logger.debug('Modpath settings - track: %s, zone_opt: %s, zone_inj: %s', track, zone_opt, type(zone_inj))
+        logger.debug('Modpath settings - track: %s, zone_opt: %s, zone_inj: %s', self.track, self.zone_opt, type(self.zone_inj))
         
         # ---- flopy.modpath.Modpath6
         flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
@@ -300,7 +307,7 @@ class Modpath:
                                     stldata[compt]['yloc0'] = (c+0.5)/(pcol) # new method
                                     if k == 0:
                                         ztop = self.mf.dis.top.array[i,j]
-                                    else:
+                                    else:  
                                         ztop = self.mf.dis.botm.array[k-1, i, j]
                                     zbot = self.mf.dis.botm.array[k, i, j]
                                     thickness = ztop - zbot
