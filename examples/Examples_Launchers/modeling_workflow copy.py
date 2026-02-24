@@ -52,7 +52,7 @@ def modflow(geographic, hydraulic, settings, climatic, oceanic, initializing, mo
     dict
         Result dictionary with keys: model_modflow, success, model_name
     """
-    print(f"    Model: {model_name}")
+    print(f"Model: {model_name}")
 
     try:
         # Update hydraulic and settings
@@ -108,17 +108,17 @@ def modflow(geographic, hydraulic, settings, climatic, oceanic, initializing, mo
         )
 
         # Preprocessing (like example12.py line 374)
-        print("  Preprocessing MODFLOW...")
+        print("Preprocessing MODFLOW...")
         model_modflow.pre_processing()
 
         # Processing (like example12.py line 388)
-        print("  Processing MODFLOW...")
+        print("Processing MODFLOW...")
         processing_params = config.get("processing", {"write_model": True, "run_model": True, "link_mt3dms": True})
         success_modflow = model_modflow.processing(**processing_params)
 
         if success_modflow:
             # Postprocessing MODFLOW
-            print("  Postprocessing MODFLOW...")
+            print(" Postprocessing MODFLOW...")
             postproc_modflow = config.get("postprocessing_modflow", {})
             if postproc_modflow:
                 model_modflow.post_processing(model_modflow, **postproc_modflow)
@@ -127,7 +127,7 @@ def modflow(geographic, hydraulic, settings, climatic, oceanic, initializing, mo
 
     except Exception as e:
         import traceback
-        print(f"✗ MODFLOW error: {e}")
+        print(f"MODFLOW error: {e}")
         traceback.print_exc()
         return {'model_modflow': None, 'success': False, 'model_name': model_name}
 
@@ -136,7 +136,7 @@ def modflow(geographic, hydraulic, settings, climatic, oceanic, initializing, mo
 # REFACTORED MODPATH - Direct Modpath class
 # ============================================================================
 
-def modpath(geographic, settings, model_modflow, initializing, results, for_calib=True):
+def modpath(geographic, settings, model_modflow, initializing, results, for_calib=True, config=None):
     """
     MODPATH execution using direct Modpath class instantiation
 
@@ -150,6 +150,9 @@ def modpath(geographic, settings, model_modflow, initializing, results, for_cali
         Results dictionary with model_name, stable_folder, etc.
     for_calib : bool, default True
         Calibration mode
+    config : dict, optional
+        Configuration dict with keys: preprocessing, processing, post_processing, filt_processing
+        Each subsection contains parameters for the respective methods
 
     Returns
     -------
@@ -168,6 +171,26 @@ def modpath(geographic, settings, model_modflow, initializing, results, for_cali
         stable_folder = results.get('stable_folder')
         simulations_folder = results.get('simulations_folder')
 
+        print(f"  [DEBUG modpath] model_name={model_name}")
+        print(f"  [DEBUG modpath] for_calib={for_calib}")
+
+        # Determine which folder to use
+        working_folder = calibration_folder if for_calib else simulations_folder
+        raster_folder = os.path.join(working_folder, model_name, '_postprocess/_rasters')
+
+        print(f"  [DEBUG modpath] Looking for rasters in: {raster_folder}")
+        if os.path.exists(raster_folder):
+            raster_files = os.listdir(raster_folder)
+            print(f"  [DEBUG modpath] Files found ({len(raster_files)}): {raster_files}")
+        else:
+            print(f"  [DEBUG modpath] Raster folder DOES NOT EXIST")
+            # Check what DOES exist
+            model_folder = os.path.join(working_folder, model_name)
+            if os.path.exists(model_folder):
+                print(f"  [DEBUG modpath] Model folder exists, contents: {os.listdir(model_folder)}")
+            else:
+                print(f"  [DEBUG modpath] Model folder DOES NOT EXIST")
+
         # Prepare particles from seepage - works for both calibration and simulation modes
         tif_seep_clip = None
         if for_calib:
@@ -183,16 +206,46 @@ def modpath(geographic, settings, model_modflow, initializing, results, for_cali
             watershed_shp = os.path.join(stable_folder, 'geographic', 'watershed.shp')
             wbt.clip_raster_to_polygon(tif_seep, watershed_shp, tif_seep_clip, maintain_dimensions=True)
 
-            # Update settings for particle tracking
+            # Update settings for particle tracking from config or defaults
+            preproc_params = config.get('preprocessing', {}) if config else {}
+
+            # Decode zone_partic: "seepage_areas" string → actual file path
+            zone_partic_config = preproc_params.get('zone_partic', tif_seep_clip)
+            if zone_partic_config == "seepage_areas":
+                zone_partic_param = tif_seep_clip  # Use clipped seepage file
+            else:
+                zone_partic_param = zone_partic_config  # Use provided path
+
+            cell_div = preproc_params.get('cell_div', 1)
+            zloc_div = preproc_params.get('zloc_div', False)
+            bore_depth = preproc_params.get('bore_depth', None)
+            track_dir = preproc_params.get('track_dir', 'backward')
+            sel_random = preproc_params.get('sel_random', None)
+            sel_slice = preproc_params.get('sel_slice', None)
+
+            print(f"    Seepage file found: {os.path.basename(tif_seep)}")
+            print(f"    Clipped to watershed: {os.path.basename(tif_seep_clip)}")
+            print(f"    Zone particles config: {zone_partic_config} → {os.path.basename(zone_partic_param) if zone_partic_param.endswith('.tif') else zone_partic_param}")
+
             settings.update_input_particles(
-                zone_partic=tif_seep_clip, cell_div=1, zloc_div=False,
-                bore_depth=None, track_dir='backward', sel_random=None, sel_slice=None
+                zone_partic=zone_partic_param, cell_div=cell_div, zloc_div=zloc_div,
+                bore_depth=bore_depth, track_dir=track_dir, sel_random=sel_random, sel_slice=sel_slice
             )
         else:
             # Default to domain if seepage file not found
+            print(f"    WARNING: Seepage file not found: {tif_seep}")
+            preproc_params = config.get('preprocessing', {}) if config else {}
+            zone_partic_param = preproc_params.get('zone_partic', 'domain')
+            cell_div = preproc_params.get('cell_div', 1)
+            zloc_div = preproc_params.get('zloc_div', False)
+            bore_depth = preproc_params.get('bore_depth', None)
+            track_dir = preproc_params.get('track_dir', 'backward')
+            sel_random = preproc_params.get('sel_random', None)
+            sel_slice = preproc_params.get('sel_slice', None)
+
             settings.update_input_particles(
-                zone_partic='domain', cell_div=1, zloc_div=False,
-                bore_depth=None, track_dir='backward', sel_random=None, sel_slice=None
+                zone_partic=zone_partic_param, cell_div=cell_div, zloc_div=zloc_div,
+                bore_depth=bore_depth, track_dir=track_dir, sel_random=sel_random, sel_slice=sel_slice
             )
 
         # Create Modpath instance directly
@@ -211,47 +264,48 @@ def modpath(geographic, settings, model_modflow, initializing, results, for_cali
                                 sel_slice=settings.sel_slice)
 
         # Preprocessing and processing
-        print("    Preprocessing MODPATH...")
+        print("Preprocessing MODPATH...")
         model_modpath.pre_processing()
 
-        print("    Processing MODPATH...")
+        print("Processing MODPATH...")
         try:
-            success_modpath = model_modpath.processing(write_model=True, run_model=True)
+            processing_params = config.get('processing', {'write_model': True, 'run_model': True}) if config else {'write_model': True, 'run_model': True}
+            success_modpath = model_modpath.processing(**processing_params)
             if not success_modpath:
-                print("    ⚠ MODPATH processing returned False, but continuing...")
+                print("MODPATH processing returned False, but continuing...")
                 success_modpath = True  # Mark as success if no exception occurred
         except Exception as proc_err:
-            print(f"    ⚠ MODPATH processing error: {proc_err}")
+            print(f"MODPATH processing error: {proc_err}")
             success_modpath = False
 
         if success_modpath:
-            print("    Postprocessing MODPATH...")
+            print(" Postprocessing MODPATH...")
             try:
-                model_modpath.post_processing(model_modpath,
-                    ending_point=True, starting_point=True,
-                    pathlines_shp=True, particles_shp=True, random_id=None
-                )
-                print("    ✓ MODPATH post_processing completed")
+                postproc_params = config.get('post_processing', {}) if config else {}
+                default_postproc = {'ending_point': True, 'starting_point': True, 'pathlines_shp': True, 'particles_shp': True, 'random_id': None}
+                postproc_params = {**default_postproc, **postproc_params}
+                model_modpath.post_processing(model_modpath, **postproc_params)
+                print("MODPATH post_processing completed")
             except Exception as post_err:
-                print(f"    ⚠ MODPATH post_processing warning: {post_err}")
+                print(f"MODPATH post_processing warning: {post_err}")
 
             try:
-                print("    Filtering MODPATH results...")
-                model_modpath.filt_processing(model_modpath,
-                    norm_flux=True, filt_time=True, filt_seep=True,
-                    filt_inout=True, calc_rtd=False, random_id=None
-                )
-                print("    ✓ MODPATH filt_processing completed")
+                print("Filtering MODPATH results...")
+                filt_params = config.get('filt_processing', {}) if config else {}
+                default_filt = {'norm_flux': True, 'filt_time': True, 'filt_seep': True, 'filt_inout': True, 'calc_rtd': False, 'random_id': None}
+                filt_params = {**default_filt, **filt_params}
+                model_modpath.filt_processing(model_modpath, **filt_params)
+                print("MODPATH filt_processing completed")
             except Exception as filt_err:
-                print(f"    ⚠ MODPATH filt_processing warning: {filt_err}")
+                print(f"MODPATH filt_processing warning: {filt_err}")
 
-        print("    ✓ MODPATH completed successfully")
+        print("MODPATH completed successfully")
         # Always report success if we got here without exception
         return {'model_modpath': model_modpath, 'success': True}
 
     except Exception as e:
         import traceback
-        print(f"  ✗ MODPATH error: {e}")
+        print(f"MODPATH error: {e}")
         traceback.print_exc()
         return {'model_modpath': None, 'success': False}
 
@@ -260,7 +314,7 @@ def modpath(geographic, settings, model_modflow, initializing, results, for_cali
 # REFACTORED MT3DMS - Direct Mt3dms class
 # ============================================================================
 
-def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for_calib=True, transport=None):
+def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for_calib=True, transport=None, config=None):
     """
     MT3DMS execution using direct Mt3dms class instantiation
 
@@ -276,16 +330,19 @@ def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for
         Calibration mode
     transport : Transport object, optional
         Transport parameters object. If None, uses default hardcoded values
+    config : dict, optional
+        Configuration dict with keys: preprocessing, processing, post_processing, timeseries
+        Each subsection contains parameters for the respective methods
 
     Returns
     -------
     dict
         Result dictionary with keys: model_mt3dms, success
     """
-    print(f"  MT3DMS: Transport scenario '{scenario}'")
+    print(f"MT3DMS: Transport scenario '{scenario}'")
 
     if not model_modflow:
-        print("    ⚠ Skipping MT3DMS (MODFLOW not available)")
+        print("Skipping MT3DMS (MODFLOW not available)")
         return {'model_mt3dms': None, 'success': False}
 
     try:
@@ -294,36 +351,33 @@ def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for
         nrow = model_modflow.mf.nrow
         ncol = model_modflow.mf.ncol
 
-        print(f"    Setting up concentration arrays (nlay={nlay}, nrow={nrow}, ncol={ncol}, nper={nper})...")
+        print(f" Setting up concentration arrays (nlay={nlay}, nrow={nrow}, ncol={ncol}, nper={nper})...")
 
-        # Use transport object parameters if provided, otherwise use defaults
+        # Get transport parameters from config, then from transport object, then defaults
+        preproc_params = config.get('preprocessing', {}) if config else {}
+
+        spc_name = preproc_params.get('spc_name') or (transport.spc_name if transport else 'NO3')
+        disp_long = preproc_params.get('disp_long', transport.disp_long if transport else 0)
+        disp_transh = preproc_params.get('disp_transh', transport.disp_transh if transport else 0)
+        disp_transv = preproc_params.get('disp_transv', transport.disp_transv if transport else 0)
+        diffu_coeff = preproc_params.get('diffu_coeff', transport.diffu_coeff if transport else 1e-10 * 3600 * 24)
+        react_order = preproc_params.get('react_order', transport.react_order if transport else 1)
+        plot_conc = preproc_params.get('plot_conc', transport.plot_conc if transport else True)
+
+        # Concentration arrays from transport object (already computed with correct dimensions)
         if transport is not None:
-            spc_name = transport.spc_name
             sconc_init = transport.sconc_init
             sconc_input = transport.sconc_input
-            disp_long = transport.disp_long
-            disp_transh = transport.disp_transh
-            disp_transv = transport.disp_transv
-            diffu_coeff = transport.diffu_coeff
-            react_order = transport.react_order
             rate_decay = transport.rate_decay
-            plot_conc = transport.plot_conc
         else:
             # Default hardcoded values for backward compatibility
-            spc_name = 'NO3'
             sconc_init = np.ones((nlay, nrow, ncol)) * (100 / 1000)  # 100 mg/L
             sconc_input = {i: np.ones((nrow, ncol)) * (50 / 1000) for i in range(nper)}  # 50 mg/L
             sconc_input = dict(islice(sconc_input.items(), 1, None))  # Skip first period
-            disp_long = 5
-            disp_transh = 0.5
-            disp_transv = 0.05
-            diffu_coeff = 1e-10 * 3600 * 24
-            react_order = 1
             rate_decay = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))  # Half-life 2 years
-            plot_conc = True
 
         # Create Mt3dms instance directly (following example12.py pattern)
-        print("    Creating MT3DMS model...")
+        print("Creating MT3DMS model...")
         model_folder = initializing.simulations_folder if not for_calib else initializing.calibration_folder
         suffix_name = '_mt_' + scenario
         model_mt3dms = Mt3dms(geographic,
@@ -347,35 +401,34 @@ def mt3dms(geographic, climatic, model_modflow, initializing, scenario='s1', for
         )
 
         # Preprocessing and processing
-        print("    Preprocessing MT3DMS...")
+        print("Preprocessing MT3DMS...")
         model_mt3dms.pre_processing()
 
-        print("    Processing MT3DMS (solving)...")
+        print("Processing MT3DMS (solving)...")
         try:
-            success_mt3dms = model_mt3dms.processing(write_model=True, run_model=True, verbose=True)
+            processing_params = config.get('processing', {'write_model': True, 'run_model': True, 'verbose': True}) if config else {'write_model': True, 'run_model': True, 'verbose': True}
+            success_mt3dms = model_mt3dms.processing(**processing_params)
             if not success_mt3dms:
-                print("    ⚠ MT3DMS processing returned False, but continuing...")
+                print("MT3DMS processing returned False, but continuing...")
                 success_mt3dms = True  # Mark as success if no exception occurred
         except Exception as proc_err:
-            print(f"    ⚠ MT3DMS processing error: {proc_err}")
+            print(f"MT3DMS processing error: {proc_err}")
             success_mt3dms = False
 
         if success_mt3dms:
-            print("    Postprocessing MT3DMS...")
-            model_mt3dms.post_processing(model_mt3dms,
-                concentration_seepage=True,
-                mass_seepage=True,
-                mass_accumulated=True,
-                export_all_tif=True
-            )
+            print("Postprocessing MT3DMS...")
+            postproc_params = config.get('post_processing', {}) if config else {}
+            default_postproc = {'concentration_seepage': True, 'mass_seepage': True, 'mass_accumulated': True, 'export_all_tif': True}
+            postproc_params = {**default_postproc, **postproc_params}
+            model_mt3dms.post_processing(model_mt3dms, **postproc_params)
 
-        print("    ✓ MT3DMS completed")
+        print("MT3DMS completed")
         # Always report success if we got here without exception
         return {'model_mt3dms': model_mt3dms, 'success': True}
 
     except Exception as e:
         import traceback
-        print(f"  ✗ MT3DMS error: {e}")
+        print(f"MT3DMS error: {e}")
         traceback.print_exc()
         return {'model_mt3dms': None, 'success': False}
 
@@ -408,7 +461,7 @@ def postprocessing_timeseries(geographic, model_modflow, model_modpath=None, mod
     print("  Timeseries: Generating results")
 
     if not model_modflow:
-        print("    ⚠ Skipping timeseries (MODFLOW not available)")
+        print("Skipping timeseries (MODFLOW not available)")
         return {'timeseries_results': None, 'success': False}
 
     try:
@@ -428,12 +481,12 @@ def postprocessing_timeseries(geographic, model_modflow, model_modpath=None, mod
             mass_accumulated=(model_mt3dms is not None)
         )
 
-        print("    ✓ Timeseries completed")
+        print("Timeseries completed")
         return {'timeseries_results': timeseries_results, 'success': True}
 
     except Exception as e:
         import traceback
-        print(f"  ✗ Timeseries error: {e}")
+        print(f"Timeseries error: {e}")
         traceback.print_exc()
         return {'timeseries_results': None, 'success': False}
 
@@ -467,7 +520,7 @@ def matching_streams(geographic, hydrography, initializing, model_name=None,
     print("  MatchingStreams: Calibration analysis")
 
     if not geographic or not hydrography:
-        print("    ⚠ Skipping MatchingStreams (missing geographic/hydrography)")
+        print("Skipping MatchingStreams (missing geographic/hydrography)")
         return {'matching_streams': None, 'success': False}
 
     try:
@@ -480,12 +533,12 @@ def matching_streams(geographic, hydrography, initializing, model_name=None,
             from_calib=for_calib
         )
 
-        print("    ✓ MatchingStreams completed")
+        print("MatchingStreams completed")
         return {'matching_streams': matching_streams_obj, 'success': True}
 
     except Exception as e:
         import traceback
-        print(f"  ✗ MatchingStreams error: {e}")
+        print(f"MatchingStreams error: {e}")
         traceback.print_exc()
         return {'matching_streams': None, 'success': False}
 
