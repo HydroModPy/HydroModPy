@@ -1,4 +1,4 @@
-"""
+﻿"""
 Pydantic schemas and helpers for geology field case configuration.
 
 The goal is to validate geology-specific settings before creating a
@@ -61,16 +61,16 @@ class GeologySourceSchema(BaseModel):
     --------
     Raster source:
         source = {
-            "path": "data/Brittany/dem/regional dem.tif",
+            "path": "data/France/dem/regional dem.tif",
             "kind": "raster",
         }
 
     Vector source:
         source = {
-            "path": "data/Brittany/geology/GEO1M.shp",
+            "path": "data/France/geology/GEO1M.shp",
             "kind": "vector",
             "code_field": "CODE_LEG",
-            "reference_raster_path": "data/Brittany/dem/regional dem.tif",
+            "reference_raster_path": "data/France/dem/regional dem.tif",
         }
     """
 
@@ -177,7 +177,7 @@ class GeologyConfigSchema(BaseModel):
     Minimal example (raster source):
         {
             "id": "field_geology",
-            "source": {"path": "data/Brittany/dem/regional dem.tif", "kind": "raster"},
+            "source": {"path": "data/France/dem/regional dem.tif", "kind": "raster"},
         }
     """
 
@@ -247,10 +247,11 @@ def load_geology_toml(config_path: str | Path, section: str = "geology") -> dict
     )
     """
     path = Path(config_path)
-    with path.open("rb") as stream:
-        payload = tomllib.load(stream)
+    # Use utf-8-sig so files with a UTF-8 BOM remain parseable.
+    payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
     section_cfg = _get_nested_section(payload, section)
     try:
         return validate_geology_config_data(section_cfg)
     except ValueError as exc:
         raise ValueError(f"Invalid geology configuration in {path}: {exc}") from exc
+
