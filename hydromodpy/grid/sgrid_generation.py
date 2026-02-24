@@ -15,6 +15,8 @@
 # Python
 import numpy as np
 import rasterio
+from typing import Any, Mapping
+from pathlib import Path
 # Flopy
 from flopy.discretization import StructuredGrid, UnstructuredGrid, VertexGrid
 
@@ -63,7 +65,73 @@ class SGrid_Generation:
             self._create_sgrid()
         return self._sgrid
 
+    # %%% CONFIGURATION HELPERS
+    @classmethod
+    def from_config(cls, config_data: Mapping[str, Any]):
+        """
+        Build a configured SGrid_Generation instance from a dictionary payload.
+
+        Parameters
+        ----------
+        config_data : mapping
+            Configuration mapping. Accepts either:
+            - a flat mapping with SGrid keys, or
+            - a top-level mapping containing a ``"sgrid"`` section.
+        """
+        try:
+            from .sgrid_config import validate_sgrid_config_data
+        except ImportError:
+            from sgrid_config import validate_sgrid_config_data
+
+        cfg = validate_sgrid_config_data(config_data)
+        obj = cls()
+        obj.sgrid_type = cfg["sgrid_type"]
+        obj.lenuni = cfg["lenuni"]
+        obj.genmtd_top = cfg["genmtd_top"]
+        obj.top_path = cfg["top_path"]
+        obj.crs = cfg.get("crs")
+        obj.genmtd_bot = cfg["genmtd_bot"]
+        obj.genmtd_lay = cfg["genmtd_lay"]
+        obj.nodata = cfg["nodata"]
+
+        if cfg.get("bot_path") is not None:
+            obj.bot_path = cfg["bot_path"]
+        if cfg.get("thick") is not None:
+            obj.thick = cfg["thick"]
+        if cfg.get("zbot") is not None:
+            obj.zbot = cfg["zbot"]
+        if cfg.get("nlay") is not None:
+            obj.nlay = cfg["nlay"]
+        if cfg.get("lay_decay") is not None:
+            obj.lay_decay = cfg["lay_decay"]
+        if cfg.get("lay_proportions") is not None:
+            obj.lay_proportions = cfg["lay_proportions"]
+
+        return obj
+
+    @classmethod
+    def from_toml(cls, config_path):
+        """
+        Build a configured SGrid_Generation instance from a TOML file.
+        """
+        try:
+            from .sgrid_config import load_sgrid_toml
+        except ImportError:
+            from sgrid_config import load_sgrid_toml
+
+        cfg = load_sgrid_toml(config_path)
+        return cls.from_config(cfg)
+
     # %%% SETTERS AND GETTERS FOR PARAMETERS FOR SPATIAL GRID CREATION
+    # Setter and getter for sgrid_type
+    @property
+    def sgrid_type(self):
+        return self._sgrid_type
+    @sgrid_type.setter
+    def sgrid_type(self, value):
+        self._sgrid_type = value
+        self._sgrid_created = False
+
     # Setter and getter for lenuni
     @property
     def lenuni(self):
@@ -196,16 +264,100 @@ class SGrid_Generation:
         """
         Create the spatial grid.
         """
-        if self._sgrid_type is None:
-            print('Error: sgrid_type parameter for spatial grid creation has not been set and is required for spatial grid creation.')
-            return
-        elif self._sgrid_type == 'structured':
+        self._validate_runtime_configuration()
+        if self._sgrid_type == 'structured':
             self._sgrid = self._create_sgrid_structured()
         elif self._sgrid_type == 'unstructured':
             self._sgrid = self._create_sgrid_unstructured()
         elif self._sgrid_type == 'vertex':
             self._sgrid = self._create_sgrid_vertex()
         self._sgrid_created = True
+
+    def _validate_runtime_configuration(self):
+        """
+        Validate runtime configuration before spatial grid generation.
+
+        This path is used for direct Python configuration (setters), independently
+        from TOML/Pydantic validation.
+        """
+        if self._sgrid_type is None:
+            raise ValueError(
+                "sgrid_type is required for spatial grid creation."
+            )
+        if self._sgrid_type == 'unstructured':
+            raise NotImplementedError(
+                "Unstructured spatial grid is not implemented yet."
+            )
+        if self._sgrid_type == 'vertex':
+            raise NotImplementedError(
+                "Vertex spatial grid is not implemented yet."
+            )
+        if self._sgrid_type != 'structured':
+            raise ValueError(
+                f"Unsupported sgrid_type '{self._sgrid_type}'. "
+                "Allowed values are: structured, unstructured, vertex."
+            )
+
+        if self.genmtd_top != 'filepath':
+            raise ValueError(
+                f"Unsupported genmtd_top '{self.genmtd_top}'. "
+                "Only 'filepath' is currently implemented."
+            )
+        if self.top_path is None or str(self.top_path).strip() == "":
+            raise ValueError("top_path is required when genmtd_top='filepath'.")
+        top_path = Path(str(self.top_path)).expanduser()
+        if not top_path.exists():
+            raise FileNotFoundError(f"Top raster not found: {top_path}")
+
+        if not isinstance(self.nodata, (int, float, np.integer, np.floating)):
+            raise TypeError("nodata must be a numeric scalar.")
+
+        valid_bot_methods = {'filepath', 'raster', 'constant_thickness', 'constant_altitude'}
+        if self.genmtd_bot not in valid_bot_methods:
+            raise ValueError(
+                f"Unsupported genmtd_bot '{self.genmtd_bot}'. "
+                f"Allowed: {sorted(valid_bot_methods)}"
+            )
+        if self.genmtd_bot == 'filepath':
+            if self.bot_path is None or str(self.bot_path).strip() == "":
+                raise ValueError("bot_path is required when genmtd_bot='filepath'.")
+            bot_path = Path(str(self.bot_path)).expanduser()
+            if not bot_path.exists():
+                raise FileNotFoundError(f"Bottom raster not found: {bot_path}")
+        elif self.genmtd_bot == 'raster':
+            if self.bot_raster is None:
+                raise ValueError("bot_raster is required when genmtd_bot='raster'.")
+        elif self.genmtd_bot == 'constant_thickness':
+            if self.thick is None:
+                raise ValueError("thick is required when genmtd_bot='constant_thickness'.")
+        elif self.genmtd_bot == 'constant_altitude':
+            if self.zbot is None:
+                raise ValueError("zbot is required when genmtd_bot='constant_altitude'.")
+
+        valid_lay_methods = {'list', 'constant', 'decay'}
+        if self.genmtd_lay not in valid_lay_methods:
+            raise ValueError(
+                f"Unsupported genmtd_lay '{self.genmtd_lay}'. "
+                f"Allowed: {sorted(valid_lay_methods)}"
+            )
+        if self.genmtd_lay == 'list':
+            if self.lay_proportions is None:
+                raise ValueError("lay_proportions is required when genmtd_lay='list'.")
+            lay_prop = np.asarray(self.lay_proportions, dtype=float)
+            if lay_prop.ndim != 1 or lay_prop.size == 0:
+                raise ValueError("lay_proportions must be a non-empty 1D sequence.")
+            if np.any(lay_prop <= 0):
+                raise ValueError("lay_proportions values must be strictly positive.")
+            if not np.isclose(np.sum(lay_prop), 1.0, rtol=0.0, atol=1e-6):
+                raise ValueError("lay_proportions must sum to 1.0.")
+        elif self.genmtd_lay == 'constant':
+            if not isinstance(self.nlay, (int, np.integer)) or int(self.nlay) <= 0:
+                raise ValueError("nlay must be a strictly positive integer when genmtd_lay='constant'.")
+        elif self.genmtd_lay == 'decay':
+            if not isinstance(self.nlay, (int, np.integer)) or int(self.nlay) <= 0:
+                raise ValueError("nlay must be a strictly positive integer when genmtd_lay='decay'.")
+            if self.lay_decay is None or float(self.lay_decay) <= 1:
+                raise ValueError("lay_decay must be > 1 when genmtd_lay='decay'.")
 
     # %%%% STRUCTURED SPATIAL GRID CREATION
     # Creation methods for structured spatial grid
@@ -238,60 +390,118 @@ class SGrid_Generation:
         """
         # Creates top layer from a .tif file
         if self.genmtd_top == 'filepath':
-            top  = rasterio.open(self.top_path)
-            nrow = top.height
-            ncol = top.width
-            delc = np.array([top.transform[0]]*nrow)
-            delr = np.array([-top.transform[4]]*ncol)
-            xoff = top.bounds.left
-            yoff = top.bounds.bottom
-            top  = top.read(1)
+            with rasterio.open(self.top_path) as top_src:
+                nrow = top_src.height
+                ncol = top_src.width
+                delc = np.array([top_src.transform[0]] * nrow)
+                delr = np.array([-top_src.transform[4]] * ncol)
+                xoff = top_src.bounds.left
+                yoff = top_src.bounds.bottom
+                top = top_src.read(1)
             top[top <= self.nodata] = self.nodata
-        return top,delc,delr,xoff,yoff,nrow,ncol
+            return top, delc, delr, xoff, yoff, nrow, ncol
+        raise ValueError(
+            f"Unsupported genmtd_top '{self.genmtd_top}'. "
+            "Only 'filepath' is currently implemented."
+        )
     
     # vertical structured grid
     def _create_vgrid_structured(self,top):
         """
         Create the vertical grid for a structured spatial grid.
         """
-        # Definition of the bottom layer of the domain
-        if self.genmtd_bot == 'filepath':
-            bot = rasterio.open(self.bot_path)
-            bot = bot.read(1)
-            bot[top<=self.nodata]=self.nodata
-        if self.genmtd_bot == 'raster':
-            bot = self.bot_raster
-            bot[top<=self.nodata]=self.nodata
-        elif self.genmtd_bot == 'constant_thickness':
-            bot = top - self.thick        # Matrix for constant thickness case
-            bot[top<=self.nodata]=self.nodata
-        elif self.genmtd_bot == 'constant_altitude':
-            bot = top * 0 + self.zbot             # Matrix for constant altitude case
-            bot[top<=self.nodata]=self.nodata
-        # Parameters for proportions of the thciknesses of all layers as a fraction of total domain thickness
-        if self.genmtd_lay == 'list':
-            # Case where the thicknesses of all layers (as a fraction of total domain thickness) 
-            # are given as a list in the lay_proportions parameter
-            nlay = len(self.lay_proportions)
-            allp = np.cumsum(self.lay_proportions)
-        elif self.genmtd_lay == 'constant':
-            # Case where the thicknesses of all layers are constant (i.e. all layers have the 
-            # same thickness, which is the total domain thickness divided by the number of layers)
-            nlay = self.nlay
-            allp = np.arange(1,nlay+1) / nlay
-        elif self.genmtd_lay == 'decay':
-            # Case where the thicknesses of the layers increase with depth
-            nlay = self.nlay
-            allp = np.zeros((nlay))
-            for i in range(1, nlay+1):
-                allp[i-1] = (1-self.lay_decay**i) / (1-self.lay_decay**nlay)
-        # Bottom definition for each of the layers
-        botm = np.ones((nlay,len(top[:,0]),len(top[0,:]))) 
-        for i in range(1, nlay+1):
-            # Weighted formula to go from bottom layer (bot) to surface (top)
-            botm[i-1] = top  - ((top - bot) * allp[i-1])
-            botm[i-1][bot<=self.nodata]=self.nodata
-        return botm,nlay   
+        bot = self._compute_bottom_surface(
+            top=top,
+            nodata=self.nodata,
+            genmtd_bot=self.genmtd_bot,
+            bot_path=self.bot_path,
+            bot_raster=self.bot_raster,
+            thick=self.thick,
+            zbot=self.zbot,
+        )
+        allp, nlay = self._compute_layer_proportions(
+            genmtd_lay=self.genmtd_lay,
+            nlay=self.nlay,
+            lay_decay=self.lay_decay,
+            lay_proportions=self.lay_proportions,
+        )
+        botm = self._build_botm(top=top, bot=bot, nodata=self.nodata, allp=allp)
+        return botm, nlay
+
+    @staticmethod
+    def _compute_bottom_surface(
+        top,
+        nodata,
+        genmtd_bot,
+        bot_path=None,
+        bot_raster=None,
+        thick=None,
+        zbot=None,
+    ):
+        """
+        Compute the bottom surface array from selected bottom-generation method.
+        """
+        if genmtd_bot == 'filepath':
+            with rasterio.open(bot_path) as bot_src:
+                bot = bot_src.read(1)
+        elif genmtd_bot == 'raster':
+            bot = np.asarray(bot_raster)
+        elif genmtd_bot == 'constant_thickness':
+            bot = np.asarray(top, dtype=float) - float(thick)
+        elif genmtd_bot == 'constant_altitude':
+            bot = np.zeros_like(top, dtype=float) + float(zbot)
+        else:
+            raise ValueError(
+                f"Unsupported genmtd_bot '{genmtd_bot}'. "
+                "Allowed: filepath, raster, constant_thickness, constant_altitude."
+            )
+
+        bot = np.asarray(bot, dtype=float)
+        if bot.shape != top.shape:
+            raise ValueError(
+                f"Bottom surface shape mismatch: bot{bot.shape} != top{top.shape}."
+            )
+        bot[top <= nodata] = nodata
+        return bot
+
+    @staticmethod
+    def _compute_layer_proportions(genmtd_lay, nlay=None, lay_decay=None, lay_proportions=None):
+        """
+        Compute cumulative layer proportions (`allp`) and layer count (`nlay`).
+        """
+        if genmtd_lay == 'list':
+            arr = np.asarray(lay_proportions, dtype=float)
+            allp = np.cumsum(arr)
+            return allp, int(arr.size)
+        if genmtd_lay == 'constant':
+            nlay_int = int(nlay)
+            allp = np.arange(1, nlay_int + 1, dtype=float) / nlay_int
+            return allp, nlay_int
+        if genmtd_lay == 'decay':
+            nlay_int = int(nlay)
+            decay = float(lay_decay)
+            idx = np.arange(1, nlay_int + 1, dtype=float)
+            allp = (1 - decay**idx) / (1 - decay**nlay_int)
+            return allp, nlay_int
+        raise ValueError(
+            f"Unsupported genmtd_lay '{genmtd_lay}'. "
+            "Allowed: list, constant, decay."
+        )
+
+    @staticmethod
+    def _build_botm(top, bot, nodata, allp):
+        """
+        Build layer bottom elevations from top, bottom and cumulative proportions.
+        """
+        top = np.asarray(top, dtype=float)
+        bot = np.asarray(bot, dtype=float)
+        allp = np.asarray(allp, dtype=float)
+        if allp.ndim != 1 or allp.size == 0:
+            raise ValueError("allp must be a non-empty 1D array.")
+
+        botm = top[None, :, :] - ((top - bot)[None, :, :] * allp[:, None, None])
+        botm[:, bot <= nodata] = nodata
+        return botm
 
     # %%%% UNSTRUCTURED SPATIAL GRID CREATION
     # Creation methods for unstructured spatial grid
@@ -299,7 +509,7 @@ class SGrid_Generation:
         """
         Create an unstructured spatial grid.
         """
-        print('Placeholder - Unstructured spatial grid not implemented yet.')
+        raise NotImplementedError('Unstructured spatial grid not implemented yet.')
 
     # %%%% VERTEX SPATIAL GRID CREATION
     # Creation methods for vertex spatial grid
@@ -307,7 +517,7 @@ class SGrid_Generation:
         """
         Create a vertex spatial grid.
         """
-        print('Placeholder - Vertex spatial grid not implemented yet.')    
+        raise NotImplementedError('Vertex spatial grid not implemented yet.')    
      
 #%% NOTES
 # TODO: DEM crs and length unit (as imported from .tif file) should be checked and 
