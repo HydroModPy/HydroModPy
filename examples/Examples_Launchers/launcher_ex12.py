@@ -859,8 +859,7 @@ def modeling(results):
 # SPECIALIZED MODELING METHODS FOR EXAMPLE 12
 # ============================================================================
 
-def modflow_ex12(BV, results, config):
-    """SPECIALIZED MODFLOW for Example 12 - single model execution"""
+"""def modflow_ex12(BV, results, config):
     print("\n  • Executing MODFLOW for Example 12...")
     list_model_name = []
     list_success_modflow = []
@@ -889,7 +888,7 @@ def modflow_ex12(BV, results, config):
         return results
     except Exception as e:
         print(f"    ✗ MODFLOW error: {e}")
-        return results
+        return results """
 
 
 def modpath_ex12(results):
@@ -1860,7 +1859,7 @@ def ex12_matching_streams(results):
 
 
 
-#%% B - MODPATH (Example 12) - Version simplifiée
+#%% B - MODPATH (Example 12) -
 
 def ex12_modpath(results):
 
