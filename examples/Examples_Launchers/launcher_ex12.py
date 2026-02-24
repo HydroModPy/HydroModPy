@@ -289,7 +289,10 @@ MODELING_CONFIG = {
             "groundwater_flux": False,
             "groundwater_storage": False,
             "accumulation_flux": True,
-            "intermittency_weekly": True
+            "intermittency_weekly": False,
+            "intermittency_monthly": True,
+            "intermittency_yearly": False,
+            "export_all_tif": False
         },
         "postprocessing_timeseries": {
             "datetime_format": True,
@@ -301,6 +304,85 @@ MODELING_CONFIG = {
             "plot_cross": True,
             "check_grid": True,
             "cross_ylim": [0, 200]
+        }
+    }
+}
+
+
+# ============================================================================
+# MODPATH CONFIG - EXAMPLE 12
+# ============================================================================
+
+MODPATH_CONFIG = {
+    "ex12": {
+        "preprocessing": {
+            "zone_partic": "seepage_areas",
+            "cell_div": 1,
+            "zloc_div": False,
+            "bore_depth": None,
+            "track_dir": "backward",
+            "sel_random": None,
+            "sel_slice": None,
+        },
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+        },
+        "post_processing": {
+            "ending_point": True,
+            "starting_point": True,
+            "pathlines_shp": True,
+            "particles_shp": True,
+            "random_id": None,
+        },
+        "filt_processing": {
+            "norm_flux": True,
+            "filt_time": True,
+            "filt_seep": True,
+            "filt_inout": True,
+            "calc_rtd": False,
+            "random_id": None,
+        }
+    }
+}
+
+
+# ============================================================================
+# MT3DMS CONFIG - EXAMPLE 12
+# ============================================================================
+
+MT3DMS_CONFIG = {
+    "ex12": {
+        "preprocessing": {
+            "for_calib": False,
+            # Transport parameters (scalar values; arrays are computed at runtime)
+            "spc_name": "NO3",
+            "disp_long": 0,
+            "disp_transh": 0,
+            "disp_transv": 0,
+            "diffu_coeff": 1e-10 * 3600 * 24,
+            "react_order": 1,
+            "plot_conc": True,
+        },
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+            "verbose": True,
+        },
+        "post_processing": {
+            "concentration_seepage": True,
+            "mass_seepage": True,
+            "mass_accumulated": True,
+            "export_all_tif": True,
+        },
+        "timeseries": {
+            "datetime_format": True,
+            "subbasin_results": True,
+            "intermittency_weekly": False,
+            "intermittency_monthly": True,
+            "residence_times": True,
+            "concentration_seepage": True,
+            "mass_accumulated": True,
         }
     }
 }
@@ -860,35 +942,73 @@ def modeling(results):
 # ============================================================================
 
 def modpath_ex12(results):
-    """SPECIALIZED MODPATH for Example 12 - calls generic modpath()"""
+    """SPECIALIZED MODPATH for Example 12 - calls generic modpath() with MODPATH_CONFIG"""
     print("\n  • Executing MODPATH for Example 12...")
+
+    # Initialize success_modpath to False
+    results['success_modpath'] = False
+    results['model_modpath'] = None
+
     try:
         # Get individual objects
         geographic_object = results['geographic']
         settings_object = results['settings']
         model_modflow = results['model_modflow']
         initializing_object = results['initializing']
+        model_name = results['model_name']
 
-        config = MODELING_CONFIG.get('ex12', {})
-        preprocessing_params = config.get("preprocessing", {})
+        # CRITICAL: Ensure seepage_areas raster exists before MODPATH
+        # (it should have been created by MODFLOW postprocessing, but verify)
+        simulations_folder = results['simulations_folder']
+        raster_folder = os.path.join(simulations_folder, model_name, '_postprocess/_rasters')
+        seepage_tif = os.path.join(raster_folder, 'seepage_areas_t(0).tif')
 
-        # Call refactored modpath with individual objects
+        if not os.path.exists(seepage_tif):
+            print("    WARNING: seepage_areas_t(0).tif missing - regenerating from MODFLOW...")
+            try:
+                # Call MODFLOW postprocessing specifically to generate seepage_areas rasters
+                if model_modflow:
+                    print("    Re-running MODFLOW.post_processing()...")
+                    postproc_config = MODELING_CONFIG['ex12'].get('postprocessing_modflow', {})
+                    model_modflow.post_processing(model_modflow, **postproc_config)
+
+                    if os.path.exists(seepage_tif):
+                        print(f"    ✓ seepage_areas_t(0).tif regenerated successfully")
+                    else:
+                        print(f"    ⚠ seepage_areas_t(0).tif still not found after postprocessing")
+            except Exception as e:
+                print(f"    ⚠ Could not regenerate seepage_areas: {e}")
+
+        # Use MODPATH_CONFIG with all parameter subsections
+        config = MODPATH_CONFIG.get('ex12', {})
+
+        # Call refactored modpath with config
+        # for_calib=False because we're in simulations mode (not calibration)
         modpath_result = modpath(
             geographic=geographic_object,
             settings=settings_object,
             model_modflow=model_modflow,
             initializing=initializing_object,
             results=results,
-            **preprocessing_params
+            for_calib=False,
+            config=config
         )
 
-        results['model_modpath'] = modpath_result['model_modpath']
-        results['success_modpath'] = modpath_result['success']
+        results['model_modpath'] = modpath_result.get('model_modpath')
+        results['success_modpath'] = modpath_result.get('success', False)
 
-        print("  ✓ MODPATH completed\n")
+        if results['success_modpath']:
+            print("  ✓ MODPATH completed\n")
+        else:
+            print("  ⚠ MODPATH returned success=False\n")
+
         return results
     except Exception as e:
         print(f"    ✗ MODPATH error: {e}")
+        import traceback
+        traceback.print_exc()
+        results['success_modpath'] = False
+        results['model_modpath'] = None
         return results
 
 
@@ -930,7 +1050,10 @@ def mt3dms_ex12(results):
 
         scenario = 's1'
 
-        # Call refactored mt3dms with individual objects
+        # Use MT3DMS_CONFIG with all parameter subsections
+        config = MT3DMS_CONFIG.get('ex12', {})
+
+        # Call refactored mt3dms with config
         mt3dms_result = mt3dms(
             geographic=geographic_object,
             climatic=None,
@@ -938,7 +1061,8 @@ def mt3dms_ex12(results):
             initializing=initializing_object,
             transport=transport_object,
             scenario=scenario,
-            for_calib=False
+            for_calib=False,
+            config=config
         )
 
         results['model_mt3dms'] = mt3dms_result['model_mt3dms']
@@ -1934,28 +2058,22 @@ def main():
         step_counter += 1
 
     # STEP 7: MatchingStreams - Example 12 line 416
+    print(f"\n[STEP {step_counter}] MatchingStreams check - success_modflow={results.get('success_modflow') if results else None}, section={sections.get('matching_streams')}")
     if results and sections.get("matching_streams") and results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] Executing: ex12_matching_streams()")
+        print(f"  Executing: ex12_matching_streams()")
         results = ex12_matching_streams(results)
-        step_counter += 1
     elif sections.get("matching_streams") and not results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] ⚠ Skipping matching_streams (MODFLOW failed)")
-        step_counter += 1
+        print(f"  ⚠ Skipping matching_streams (MODFLOW failed)")
+    step_counter += 1
 
     # STEP 8: MODPATH
+    print(f"\n[STEP {step_counter}] MODPATH check - success_modflow={results.get('success_modflow') if results else None}, section={sections.get('modpath')}")
     if results and sections.get("modpath") and results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] Executing: modpath_ex12()")
+        print(f"  Executing: modpath_ex12()")
         results = modpath_ex12(results)
-        step_counter += 1
     elif sections.get("modpath") and not results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] ⚠ Skipping modpath (MODFLOW failed)")
-        step_counter += 1
-
-    # DEBUG: Check MT3DMS conditions
-    print(f"\n[DEBUG] Before MT3DMS:")
-    print(f"  results is not None: {results is not None}")
-    print(f"  sections.get('mt3dms'): {sections.get('mt3dms')}")
-    print(f"  results.get('success_modflow'): {results.get('success_modflow') if results else 'N/A'}")
+        print(f"  ⚠ Skipping modpath (MODFLOW failed)")
+    step_counter += 1
 
     # STEP 9: MT3DMS
     if results and sections.get("mt3dms") and results.get('success_modflow'):
