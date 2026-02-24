@@ -16,13 +16,17 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 import pandas as pd
 
 try:
+    from ..common.base_loaders import BaseLocalLoader
     from .station import Station
 except ImportError:
     import sys
 
+    _manager_root = Path(__file__).resolve().parents[1]
     _chronicles_dir = Path(__file__).resolve().parent
-    if str(_chronicles_dir) not in sys.path:
-        sys.path.insert(0, str(_chronicles_dir))
+    for _path in (str(_manager_root), str(_chronicles_dir)):
+        if _path not in sys.path:
+            sys.path.insert(0, _path)
+    from common.base_loaders import BaseLocalLoader
     from station import Station
 
 
@@ -54,7 +58,7 @@ class LocalLoadResult:
     stations: Dict[str, Station]
 
 
-class LocalStationLoader:
+class LocalStationLoader(BaseLocalLoader):
     """Load station series from local CSV exports."""
 
     def __init__(
@@ -175,10 +179,10 @@ class LocalStationLoader:
         sites_info_path = self.local_data_dir / "sites_info.csv"
         missing_path = self.local_data_dir / "missing_data_summary.csv"
 
-        metadata_df = pd.read_csv(metadata_path) if metadata_path.exists() else pd.DataFrame()
-        stations_info_df = pd.read_csv(stations_info_path) if stations_info_path.exists() else pd.DataFrame()
-        sites_info_df = pd.read_csv(sites_info_path) if sites_info_path.exists() else pd.DataFrame()
-        missing_df = pd.read_csv(missing_path) if missing_path.exists() else pd.DataFrame()
+        metadata_df = self._read_optional_csv(metadata_path)
+        stations_info_df = self._read_optional_csv(stations_info_path)
+        sites_info_df = self._read_optional_csv(sites_info_path)
+        missing_df = self._read_optional_csv(missing_path)
         return metadata_df, stations_info_df, sites_info_df, missing_df
 
     def _find_station_file(self, station_id: str) -> Optional[Path]:
@@ -201,21 +205,6 @@ class LocalStationLoader:
         if station_meta_row.empty:
             return {}
         return station_meta_row.iloc[0].to_dict()
-
-    @staticmethod
-    def _to_datetime_or_none(value):
-        """Parse a datetime-like value and return ``None`` on failure."""
-        if value is None or pd.isna(value):
-            return None
-        if isinstance(value, datetime):
-            return value
-        try:
-            parsed = pd.to_datetime(value, errors="coerce")
-        except Exception:
-            return None
-        if pd.isna(parsed):
-            return None
-        return parsed.to_pydatetime() if hasattr(parsed, "to_pydatetime") else parsed
 
     def _resolve_analysis_date_range(
         self,
@@ -289,9 +278,3 @@ class LocalStationLoader:
 
         return enriched
 
-    @staticmethod
-    def _filter_reference_by_station_id(df: pd.DataFrame, station_col: str, station_ids: Sequence[str]) -> pd.DataFrame:
-        """Filter a reference dataframe to requested station identifiers."""
-        if df.empty or station_col not in df.columns:
-            return df
-        return df[df[station_col].astype(str).isin([str(v) for v in station_ids])].copy()

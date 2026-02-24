@@ -26,6 +26,14 @@ Loaders are available directly in `hydrometry`:
 - `loaders_api.py`: API loading + normalization.
 - `loaders_local.py`: local CSV loading + normalization.
 
+## Shared Core
+
+Hydrometry now reuses shared components from `hydromodpy.data_managers.common`:
+
+- `BaseStation`: shared station-level parsing/completeness/georeferencing utilities.
+- `BaseStationSet`: shared geometry-mask and load-summary helpers.
+- `BaseApiLoader` / `BaseLocalLoader`: shared status/date/reference helper methods.
+
 ## Configuration
 
 - `hydrometry_config.toml`: example configuration file.

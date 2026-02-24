@@ -22,13 +22,17 @@ import pandas as pd
 import requests
 
 try:
+    from ..common.base_loaders import BaseApiLoader
     from .station import Station
 except ImportError:
     import sys
 
+    _manager_root = Path(__file__).resolve().parents[1]
     _chronicles_dir = Path(__file__).resolve().parent
-    if str(_chronicles_dir) not in sys.path:
-        sys.path.insert(0, str(_chronicles_dir))
+    for _path in (str(_manager_root), str(_chronicles_dir)):
+        if _path not in sys.path:
+            sys.path.insert(0, _path)
+    from common.base_loaders import BaseApiLoader
     from station import Station
 
 
@@ -73,8 +77,10 @@ class ApiLoadResult:
     stations: Dict[str, Station]
 
 
-class ApiStationLoader:
+class ApiStationLoader(BaseApiLoader):
     """Load hydrometric station series from Hub'Eau web services."""
+
+    STATUS_MESSAGES = STATUS_MESSAGES
 
     def __init__(
         self,
@@ -400,11 +406,3 @@ class ApiStationLoader:
             print(f"    JSON parsing error for {station_id}: {exc}")
             return pd.DataFrame()
 
-    @staticmethod
-    def _check_status_code(status_code: int) -> bool:
-        """Validate an HTTP status code against Hub'Eau success semantics."""
-        message = STATUS_MESSAGES.get(status_code, f"Unknown error {status_code}: Check the API documentation")
-        is_success = status_code in (200, 206)
-        if not is_success:
-            print(f"Error {status_code}: {message}")
-        return is_success

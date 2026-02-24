@@ -1,4 +1,4 @@
-"""Station object for single-station hydrometric time series operations."""
+"""Piezometer object for single-station piezometric time series operations."""
 
 from __future__ import annotations
 
@@ -19,21 +19,21 @@ except ImportError:
     from common.base_station import BaseStation
 
 
-class Station(BaseStation):
-    """Single station series with station-level operations."""
+class Piezometer(BaseStation):
+    """Single piezometer series with piezometer-level operations."""
 
     def __init__(
         self,
         *,
-        station_id: str,
-        variable: str,
+        piezometer_id: str,
+        measurement: str,
         data: Optional[pd.DataFrame] = None,
         metadata: Optional[Mapping[str, Any]] = None,
         station_position: Optional[Mapping[str, Any]] = None,
         georeferencing: Optional[Mapping[str, Any]] = None,
     ):
-        self.station_id = str(station_id)
-        self.variable = str(variable)
+        self.piezometer_id = str(piezometer_id)
+        self.measurement = str(measurement)
         self.metadata = dict(metadata) if metadata else {}
         inferred_position, inferred_georef = self.infer_spatial_info(self.metadata)
         self.station_position = dict(station_position) if station_position is not None else inferred_position
@@ -49,12 +49,23 @@ class Station(BaseStation):
 
     @staticmethod
     def _sanitize_loaded_data(df: pd.DataFrame) -> pd.DataFrame:
-        """Ensure standard dtypes and required columns for loaded station data."""
+        """Ensure standard dtypes and required columns for loaded piezometer data."""
         return BaseStation.sanitize_dataframe(
             df,
-            date_columns=["date_obs_elab"],
-            numeric_columns=["resultat_obs_elab"],
+            date_columns=["date_measure"],
+            numeric_columns=["groundwater_level_m", "groundwater_depth_m"],
         )
+
+    @staticmethod
+    def _parse_datetime_column(series: pd.Series) -> pd.Series:
+        """Parse datetime column supporting ISO strings and Unix timestamps in ms/s."""
+        numeric = pd.to_numeric(series, errors="coerce")
+        if numeric.notna().any():
+            dt_ms = pd.to_datetime(numeric, unit="ms", errors="coerce")
+            dt_s = pd.to_datetime(numeric, unit="s", errors="coerce")
+            out = dt_ms.where(dt_ms.notna(), dt_s)
+            return out.where(out.notna(), pd.to_datetime(series, errors="coerce"))
+        return pd.to_datetime(series, errors="coerce")
 
     @staticmethod
     def filter_by_date_range(
@@ -62,10 +73,10 @@ class Station(BaseStation):
         date_start: Optional[datetime] = None,
         date_end: Optional[datetime] = None,
     ) -> pd.DataFrame:
-        """Filter station dataframe using date range when possible."""
+        """Filter piezometer dataframe using date range when possible."""
         return BaseStation.filter_by_date_range(
             df,
-            date_column="date_obs_elab",
+            date_column="date_measure",
             date_start=date_start,
             date_end=date_end,
         )
@@ -74,31 +85,34 @@ class Station(BaseStation):
     def process_api_dataframe(
         df: pd.DataFrame,
         *,
-        variable: str,
-        station_id: str,
-        watershed_area: Optional[float] = None,
+        measurement: str,
+        piezometer_id: str,
     ) -> pd.DataFrame:
-        """Process and clean raw API dataframe for one station."""
-        base_columns = [
-            "date_obs_elab",
-            "resultat_obs_elab",
-            "grandeur_hydro_elab",
-            "libelle_qualification",
-        ]
-        available_columns = [col for col in base_columns if col in df.columns]
-        out = df[available_columns].copy()
+        """Process and clean raw API dataframe for one piezometer."""
+        out = pd.DataFrame()
+        if "date_measure" in df.columns:
+            out["date_measure"] = df["date_measure"]
+        elif "date_mesure" in df.columns:
+            out["date_measure"] = df["date_mesure"]
+        elif "timestamp_mesure" in df.columns:
+            out["date_measure"] = df["timestamp_mesure"]
+        else:
+            out["date_measure"] = pd.NaT
 
-        if variable in ["QmnJ", "QmM", "QINM", "QINnJ", "QixM", "QIXnJ"]:
-            out["resultat_obs_elab"] = pd.to_numeric(out["resultat_obs_elab"], errors="coerce") / 1000.0
-            if watershed_area and pd.notna(watershed_area) and watershed_area > 0:
-                out["specific_discharge"] = out["resultat_obs_elab"] / float(watershed_area)
-        elif variable in ["HIXM", "HIXnJ"]:
-            out["resultat_obs_elab"] = pd.to_numeric(out["resultat_obs_elab"], errors="coerce") / 1000.0
+        out["date_measure"] = Piezometer._parse_datetime_column(out["date_measure"])
+        out["groundwater_level_m"] = pd.to_numeric(df.get("niveau_nappe_eau"), errors="coerce")
+        out["groundwater_depth_m"] = pd.to_numeric(df.get("profondeur_nappe"), errors="coerce")
+        out["qualification"] = df.get("libelle_qualification")
+        out["piezometer_id"] = str(piezometer_id)
 
-        out["date_obs_elab"] = pd.to_datetime(out["date_obs_elab"], errors="coerce")
-        out["station_id"] = str(station_id)
-        out = out.dropna(subset=["date_obs_elab", "resultat_obs_elab"])
-        return out
+        out = out.dropna(subset=["date_measure"])
+        if measurement == "level":
+            out = out.dropna(subset=["groundwater_level_m"])
+        elif measurement == "depth":
+            out = out.dropna(subset=["groundwater_depth_m"])
+        else:
+            out = out.dropna(subset=["groundwater_level_m", "groundwater_depth_m"], how="all")
+        return out.sort_values("date_measure").reset_index(drop=True)
 
     @staticmethod
     def compute_missing_data(
@@ -106,17 +120,17 @@ class Station(BaseStation):
         *,
         start_date: datetime,
         end_date: datetime,
-        station_id: str,
+        piezometer_id: str,
         verbose: bool = True,
     ) -> dict:
-        """Compute missing data summary for one station within a date range."""
+        """Compute missing-data summary for one piezometer within a date range."""
         return BaseStation.compute_missing_data(
             df,
-            date_column="date_obs_elab",
+            date_column="date_measure",
             start_date=start_date,
             end_date=end_date,
-            id_field="station_id",
-            id_value=station_id,
+            id_field="piezometer_id",
+            id_value=piezometer_id,
             verbose=verbose,
         )
 
@@ -126,7 +140,7 @@ class Station(BaseStation):
         end_date: Optional[datetime] = None,
         verbose: bool = True,
     ) -> dict:
-        """Compute completeness summary for this station."""
+        """Compute completeness summary for this piezometer."""
         start = start_date
         end = end_date
 
@@ -137,8 +151,8 @@ class Station(BaseStation):
         start = self._to_datetime_or_none(start)
         end = self._to_datetime_or_none(end)
 
-        if (start is None or end is None) and not self.data.empty and "date_obs_elab" in self.data.columns:
-            dates = pd.to_datetime(self.data["date_obs_elab"], errors="coerce").dropna()
+        if (start is None or end is None) and not self.data.empty and "date_measure" in self.data.columns:
+            dates = pd.to_datetime(self.data["date_measure"], errors="coerce").dropna()
             if not dates.empty:
                 if start is None:
                     start = dates.min().to_pydatetime()
@@ -147,7 +161,7 @@ class Station(BaseStation):
 
         if start is None or end is None:
             return {
-                "station_id": self.station_id,
+                "piezometer_id": self.piezometer_id,
                 "expected_days": 0,
                 "actual_days": 0,
                 "missing_days": 0,
@@ -161,75 +175,71 @@ class Station(BaseStation):
             self.data,
             start_date=start,
             end_date=end,
-            station_id=self.station_id,
+            piezometer_id=self.piezometer_id,
             verbose=verbose,
         )
 
     def build_label(self) -> str:
-        """Build display label from station id and optional station name."""
+        """Build human-readable legend label."""
         station_name = self.metadata.get("station_name")
-        if station_name and pd.notna(station_name):
-            return f"{self.station_id} - {station_name}"
-        return self.station_id
+        if station_name and str(station_name).strip():
+            return f"{self.piezometer_id} - {station_name}"
+        return self.piezometer_id
 
     def plot(
         self,
+        *,
+        value: str | None = None,
         output_path: Optional[Union[str, Path]] = None,
         show: bool = True,
         block: bool = True,
         figsize: tuple = (12, 4),
     ):
-        """Plot this single-station series."""
+        """Plot one piezometer series."""
         if self.data.empty:
-            raise ValueError(f"No loaded station data available for station {self.station_id}.")
+            raise ValueError(f"No data to plot for piezometer {self.piezometer_id}.")
 
         try:
             import matplotlib.pyplot as plt
         except ImportError as exc:
             raise ImportError(
-                "Matplotlib is required to plot station data. "
+                "Matplotlib is required to plot piezometer data. "
                 "Install with: pip install matplotlib"
             ) from exc
 
-        if "date_obs_elab" not in self.data.columns or "resultat_obs_elab" not in self.data.columns:
-            raise ValueError(
-                "Expected columns 'date_obs_elab' and 'resultat_obs_elab' are missing "
-                "from loaded station data."
-            )
+        selected_value = value or ("depth" if self.measurement == "depth" else "level")
+        y_column = "groundwater_depth_m" if selected_value == "depth" else "groundwater_level_m"
+        y_label = "Depth to water table [m]" if selected_value == "depth" else "Groundwater level [m]"
 
-        plot_df = self.data.copy()
-        plot_df["date_obs_elab"] = pd.to_datetime(plot_df["date_obs_elab"], errors="coerce")
-        plot_df["resultat_obs_elab"] = pd.to_numeric(plot_df["resultat_obs_elab"], errors="coerce")
-        plot_df = plot_df.dropna(subset=["date_obs_elab", "resultat_obs_elab"]).sort_values("date_obs_elab")
-        if plot_df.empty:
-            raise ValueError(f"No valid station points available for station {self.station_id}.")
+        if y_column not in self.data.columns:
+            raise ValueError(f"Column '{y_column}' not available for piezometer {self.piezometer_id}.")
+
+        frame = self.data.copy()
+        frame["date_measure"] = pd.to_datetime(frame["date_measure"], errors="coerce")
+        frame[y_column] = pd.to_numeric(frame[y_column], errors="coerce")
+        frame = frame.dropna(subset=["date_measure", y_column]).sort_values("date_measure")
+        if frame.empty:
+            raise ValueError(f"No valid points to plot for piezometer {self.piezometer_id}.")
 
         fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=140)
         ax.plot(
-            plot_df["date_obs_elab"].to_numpy(),
-            plot_df["resultat_obs_elab"].to_numpy(dtype=float),
-            linewidth=1.2,
+            frame["date_measure"].to_numpy(),
+            frame[y_column].to_numpy(dtype=float),
+            linewidth=1.4,
             label=self.build_label(),
         )
-
-        y_label = "Observed value"
-        if self.variable in ["QmnJ", "QmM", "QINM", "QINnJ", "QixM", "QIXnJ"]:
-            y_label = "Discharge [m3/s]"
-        elif self.variable in ["HIXM", "HIXnJ"]:
-            y_label = "Water level [m]"
-
-        ax.set_title(f"Loaded station series - {self.variable}")
+        ax.set_title(f"Piezometer series - {self.piezometer_id}")
         ax.set_xlabel("Date")
         ax.set_ylabel(y_label)
         ax.grid(True, alpha=0.3)
-        ax.legend(loc="best", fontsize=9)
+        ax.legend(loc="best")
         fig.tight_layout()
 
         if output_path is not None:
             output_path = Path(output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             fig.savefig(output_path, bbox_inches="tight")
-            print(f"Station figure exported to: {output_path}")
+            print(f"Piezometer figure exported to: {output_path}")
 
         backend = plt.get_backend().lower()
         if show:
@@ -237,7 +247,7 @@ class Station(BaseStation):
                 print("Figure backend is non-interactive (Agg): closing figure without display.")
                 plt.close(fig)
             else:
-                plt.show(block=bool(block))
+                plt.show(block=block)
         else:
             plt.close(fig)
 

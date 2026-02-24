@@ -1,0 +1,46 @@
+# Piezometry station-set configuration
+#
+# Supported combinations:
+# 1) selection.mode = "stations" + source.mode = "api"
+# 2) selection.mode = "mask"     + source.mode = "api"
+# 3) selection.mode = "stations" + source.mode = "local"
+# 4) selection.mode = "mask"     + source.mode = "local"
+#
+# Notes for local mode:
+# - piezometer loading needs station CSV files in source.local_data_dir
+# - mask loading requires local reference tables:
+#   stations_info.csv (preferred) or metadata.csv with WGS84 coordinates
+
+[piezometry]
+# "level" (groundwater level), "depth" (depth to water table), or "both"
+measurement = "both"
+display = false
+# Optional date filter:
+date_start = "2024-01-01"
+date_end = "2025-12-31"
+
+[source]
+# "api" or "local"
+mode = "api"
+# Used when source.mode = "local"
+# local_data_dir = "exports"
+
+[selection]
+# "stations" or "mask"
+mode = "stations"
+
+# Used when selection.mode = "stations"
+# Example zone (central France) with >=2 piezometers with recent observations:
+# bbox ~ (2.90, 45.84, 3.46, 46.33) in EPSG:4326
+piezometer_ids = ["06932X0178/P10", "06216X0228/P30-10"]
+
+# Used when selection.mode = "mask"
+# mask_path = "../../data/France/geology/GEO1M.shp"
+
+[output]
+# Export loaded data again after loading (filtered subset):
+enabled = true
+path = "exports"
+# "lite" -> station CSVs only
+# "full" -> station CSVs + metadata/stations_info/missing_data_summary
+export_mode = "lite"
