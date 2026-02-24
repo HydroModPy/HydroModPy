@@ -54,7 +54,7 @@ from hydromodpy.modeling.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration.matching_stream import MatchingStreams
+from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -1162,6 +1162,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 #%% ---- RUN THE SCRIPT
 
 if __name__ == '__main__':
-    run_example12(out_path=out_path, display_plots=True, display_3D=True)
+    run_example12(out_path=out_path, display_plots=True, display_3D=False)
 
 #%% ---- NOTES
