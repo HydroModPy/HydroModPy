@@ -75,10 +75,15 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     initializing = Initializing(config=cfg.initializing)
     geographic   = Geographic(config=cfg.geographic,
                               initializing=initializing)
+    
+    
+    
     setting = Settings()
     hydraulic = Hydraulic(nrow=geographic.y_pixel,
                           ncol=geographic.x_pixel,
                           box_dem=geographic.watershed_box_buff_dem)
+    
+    
     transport = Transport()
     
     #%% DATA
@@ -91,11 +96,11 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                                    streams_file=None)
     
     subbasin = Subbasin(geographic=geographic,
-                                hydrometry=None,
-                                intermittency=None,
-                                add_path=data_path,
-                                out_path=initializing.catch_folder,
-                                sub_snap_dist=50)
+                        hydrometry=None,
+                        intermittency=None,
+                        add_path=data_path,
+                        out_path=initializing.catch_folder,
+                        sub_snap_dist=50)
     
     geology = Geology(out_path=initializing.catch_folder,
                             geographic=geographic,
@@ -105,14 +110,22 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             fields_obs= 'CODE_LEG')
     
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
-                                hydrometry_path=data_path,
-                                file_name='france hydrometric stations.shp',
-                                geographic=geographic)
+                            hydrometry_path=data_path,
+                            file_name='france hydrometric stations.shp',
+                            geographic=geographic)
     
     intermittency = Intermittency(out_path=initializing.catch_folder,
-                                        intermittency_path=data_path,
-                                        file_name='regional onde stations.shp',
-                                        geographic=geographic)
+                                  intermittency_path=data_path,
+                                  file_name='regional onde stations.shp',
+                                  geographic=geographic)
+                            
+    #%% Climatic
+    climatic = Climatic(out_path=initializing.catch_folder)
+    
+    oceanic = Oceanic()
+    oceanic.extract_data(out_path=initializing.catch_folder,
+                                 geographic=geographic,
+                                 oceanic_path=data_path)
     
     #%% WATERSHED OBJECT
     

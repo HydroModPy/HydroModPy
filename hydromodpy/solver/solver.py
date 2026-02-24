@@ -13,30 +13,6 @@ class Solver(ABC):
 	Définit l'interface commune pour tous les solveurs (prétraitement, calcul, post-traitement).
 	"""
 
-	def __init__(self, geographic: object, model_modflow: object = None, model_folder: str = 'HydroModPy_outputs', model_name: str = 'Default', **kwargs):
-		"""
-		Initialisation commune à tous les solveurs.
-
-		Parameters
-		----------
-		geographic : object
-			Objet géographique HydroModPy.
-		model_modflow : object, optional
-			Objet Modflow parent (pour les solveurs couplés).
-		model_folder : str, optional
-			Dossier de travail du modèle.
-		model_name : str, optional
-			Nom du modèle.
-		kwargs : dict
-			Paramètres spécifiques au solveur.
-		"""
-		self.geographic = geographic
-		self.model_modflow = model_modflow
-		self.model_folder = model_folder
-		self.model_name = model_name
-		self.full_path = None # Peut être défini dans les sous-classes
-		# Les sous-classes peuvent traiter kwargs pour leurs besoins spécifiques
-
 	@abstractmethod
 	def pre_processing(self):
 		"""
@@ -75,11 +51,3 @@ class Solver(ABC):
 			Paramètres spécifiques selon le solveur et le type de post-traitement.
 		"""
 		pass
-
-	# Optionnel : méthode de filtrage/traitement avancé (présente dans Modpath)
-	def filt_processing(self, *args, **kwargs):
-		"""
-		(Optionnel) Traitement ou filtrage avancé des résultats.
-		À surcharger dans les solveurs qui le nécessitent.
-		"""
-		raise NotImplementedError("Ce solveur n'implémente pas filt_processing.")

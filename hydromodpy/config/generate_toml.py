@@ -17,10 +17,7 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.watershed.geographic_config import ParamLevel
-
-
-PROFILES = {"user": 0, "dev": 1, "expert": 2}
+from hydromodpy.config.param_level import PROFILES, ParamLevel
 
 # Registry of available config modules.
 # Each entry maps a TOML section name to its Pydantic model class.
