@@ -1,5 +1,5 @@
 """
-Quick visual test for SGrid_Generation.
+Quick visual test for StructuredGridBuilder.
 
 This script uses the SGrid TOML/Pydantic interface directly:
     - TOML:   hydromodpy/mesh/cartesian_grid/sgrid_config.toml
@@ -28,11 +28,11 @@ if __package__ in (None, ""):
     GRID_DIR = os.path.dirname(os.path.realpath(__file__))
     if GRID_DIR not in sys.path:
         sys.path.insert(0, GRID_DIR)
-    from sgrid_generation import SGrid_Generation
-    from sgrid_config import load_sgrid_toml
+    from sgrid_generation import StructuredGridBuilder
+    from sgrid_config import SGridConfig
 else:
-    from .sgrid_generation import SGrid_Generation
-    from .sgrid_config import load_sgrid_toml
+    from .sgrid_generation import StructuredGridBuilder
+    from .sgrid_config import SGridConfig
 
 
 DEFAULT_SCENARIOS = [
@@ -137,10 +137,14 @@ def _build_scenario_grid(base_settings: dict, scenario: dict):
         "genmtd_top": base_settings["genmtd_top"],
         "top_path": base_settings["top_path"],
         "crs": base_settings.get("crs"),
+        "plan_discretization_mode": base_settings["plan_discretization_mode"],
+        "nx": base_settings.get("nx"),
+        "ny": base_settings.get("ny"),
         "nodata": base_settings["nodata"],
     }
     cfg.update({k: v for k, v in scenario.items() if k != "name"})
-    sgrid = SGrid_Generation.from_config(cfg).run()
+    sgrid_cfg = SGridConfig.from_mapping(cfg)
+    sgrid = StructuredGridBuilder().build(sgrid_cfg)
     return {
         "name": scenario["name"],
         "top": np.array(sgrid.top, copy=True),
@@ -283,7 +287,7 @@ def main():
     args = _parse_args(default_sgrid_config=cfolder / "sgrid_config.toml")
 
     sgrid_config_path = Path(args.sgrid_config).expanduser().resolve()
-    sgrid_cfg = load_sgrid_toml(sgrid_config_path)
+    sgrid_cfg = SGridConfig.from_toml(sgrid_config_path).model_dump(mode="python", exclude_none=True)
     config_dir = sgrid_config_path.parent
 
     output_dir = _resolve_path(args.output_dir, config_dir)
@@ -295,6 +299,9 @@ def main():
         "genmtd_top": sgrid_cfg["genmtd_top"],
         "top_path": sgrid_cfg["top_path"],
         "crs": sgrid_cfg.get("crs"),
+        "plan_discretization_mode": sgrid_cfg.get("plan_discretization_mode", "raster_native"),
+        "nx": sgrid_cfg.get("nx"),
+        "ny": sgrid_cfg.get("ny"),
         "nodata": float(sgrid_cfg["nodata"]),
     }
     scenarios = [_build_scenario_grid(base_settings, s) for s in DEFAULT_SCENARIOS]

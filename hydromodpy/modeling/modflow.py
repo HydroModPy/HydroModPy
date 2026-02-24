@@ -32,7 +32,8 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
-from hydromodpy.mesh.cartesian_grid.sgrid_generation import SGrid_Generation
+from hydromodpy.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.mesh.cartesian_grid.sgrid_config import SGridConfig
 
 logger = get_logger(__name__)
 
@@ -459,30 +460,34 @@ class Modflow:
                 self.zbot[i - 1] = self.bottom_layer * p + self.dem * (1 - p)
 
         # ==== REFACTORING: Tristan - spatial grid ====
-        sgrid_generator = SGrid_Generation()
-        sgrid_generator.top_path = self.dem_watershed_path
-        sgrid_generator.nodata = -9999
-        sgrid_generator.lenuni = "m"
-        sgrid_generator.crs = self.geographic.crs_proj
+        sgrid_payload = {
+            "sgrid_type": "structured",
+            "lenuni": "m",
+            "genmtd_top": "filepath",
+            "top_path": self.dem_watershed_path,
+            "crs": self.geographic.crs_proj,
+            "nodata": -9999,
+        }
         if self.bottom is None:
-            sgrid_generator.genmtd_bot = "constant_thickness"
-            sgrid_generator.thick = self.thick
+            sgrid_payload["genmtd_bot"] = "constant_thickness"
+            sgrid_payload["thick"] = self.thick
         elif self.bottom is not None and isinstance(self.bottom, (int, float)) == True:
-            sgrid_generator.genmtd_bot = "constant_altitude"
-            sgrid_generator.zbot = self.bottom
+            sgrid_payload["genmtd_bot"] = "constant_altitude"
+            sgrid_payload["zbot"] = self.bottom
         elif self.bottom is not None and len(self.bottom.shape) == 2:
-            sgrid_generator.genmtd_bot = "raster"
-            sgrid_generator.bot_raster = self.bottom
+            sgrid_payload["genmtd_bot"] = "raster"
+            sgrid_payload["bot_raster"] = self.bottom
 
         if self.lay_decay > 1.0:
-            sgrid_generator.genmtd_lay = "decay"
-            sgrid_generator.lay_decay = self.lay_decay
-            sgrid_generator.nlay = self.nlay
+            sgrid_payload["genmtd_lay"] = "decay"
+            sgrid_payload["lay_decay"] = self.lay_decay
+            sgrid_payload["nlay"] = self.nlay
         else:
-            sgrid_generator.genmtd_lay = "constant"
-            sgrid_generator.nlay = self.nlay
+            sgrid_payload["genmtd_lay"] = "constant"
+            sgrid_payload["nlay"] = self.nlay
 
-        sgrid = sgrid_generator.run()
+        sgrid_cfg = SGridConfig.model_validate(sgrid_payload)
+        sgrid = StructuredGridBuilder().build(sgrid_cfg)
         
         # Imposes discretization to modflow model through
         # ---- flopy.modflow.ModflowDis
