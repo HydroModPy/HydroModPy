@@ -1,0 +1,67 @@
+# Example geology field configuration (didactic version).
+#
+# Goal:
+# -----
+# Build one `GeologyField` compatible with the generic `Field` API.
+# The produced field can then be combined with:
+#
+#   FieldParam(kind="heterogeneous", values_by_key={...})
+#
+# to produce one value per mesh cell.
+#
+# Typical usage in Python:
+# ------------------------
+# from hydromodpy.field.cases.geology import GeologyField
+# field = GeologyField.from_toml(
+#     "hydromodpy/field/cases/geology/geology_config.toml",
+#     section="geology",
+# )
+#
+# Important:
+# ----------
+# Paths below are interpreted from your current working directory.
+# In repository-root usage, this file points to `data/Brittany/...`.
+
+[geology]
+# Identifier used later by FieldParam.field_spatial_id.
+# Example: if id="field_geology", then FieldParam must use
+# field_spatial_id="field_geology".
+id = "field_geology"
+
+# Number of sub-samples per cell axis for `on_mesh(...)`.
+# Larger values = better fractions on boundary cells, but slower.
+# Typical values: 6 to 12.
+cell_samples_per_axis = 8
+
+[geology.source]
+# Main geology source path.
+# Here: Brittany geology vector map.
+path = "data/Brittany/geology/GEO1M.shp"
+
+# Source kind:
+# - "raster": read raster directly
+# - "vector": rasterize polygons first
+# - "auto": infer from extension (.tif -> raster, .shp -> vector)
+kind = "vector"
+
+# For vector sources only (leave unset for raster):
+code_field = "CODE_LEG"
+reference_raster_path = "data/Brittany/dem/regional dem.tif"
+#
+# all_touched affects vector rasterization only:
+# - false: stricter polygon-to-pixel assignment
+# - true: include pixels touched by polygon edges
+all_touched = false
+
+[geology.landsea]
+# Optional sea-mask override (useful on coastal domains).
+# If enabled=true, cells equal to sea_value in the land/sea raster
+# are reassigned to override_code.
+enabled = false
+
+# Example for coastal override:
+# path = "data/Brittany/landsea/Land_Sea.tif"
+# sea_value = 0
+# override_code = "1"
+sea_value = 0
+override_code = "1"
