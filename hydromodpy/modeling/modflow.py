@@ -212,9 +212,6 @@ class Modflow:
         else:
             self.dem = geographic.dem_data
             self.dem_watershed_path = geographic.watershed_buff_dem
-            
-        self.hnoflow=-9999
-        self.hdry=-100
         
         self.dem[self.dem <= -9999] = -9999
         self.dem[self.dem >= 9999] = -9999
@@ -288,6 +285,52 @@ class Modflow:
         self.well_coords = well_coords
         self.well_fluxes = well_fluxes
 
+        # %% Flopy model parameters (currently hardcoded, will be driven by config)
+
+        self.mf_version = "mfnwt"
+        self.mf_listunit = 2
+        self.mf_verbose = False
+
+        # NWT solver parameters
+        self.nwt_headtol = 1e-4
+        self.nwt_fluxtol = 500
+        self.nwt_maxiterout = 5000
+        self.nwt_thickfact = 1e-05
+        self.nwt_linmeth = 1
+        self.nwt_iprnwt = 1
+        self.nwt_ibotav = 1
+        self.nwt_options = "COMPLEX"
+        self.nwt_continue = False
+        self.nwt_backflag = 0
+        self.nwt_stoptol = 1e-10
+
+        # DIS parameters
+        self.dis_itmuni = 0
+
+        # BAS parameters
+        self.bas_hnoflo = -9999
+
+        # UPW parameters
+        self.upw_iphdry = 1
+        self.upw_hdry = -100
+        self.upw_layvka = 1
+
+        # EVT parameters
+        self.evt_nevtop = 3
+        self.evt_ievt = 1
+        self.evt_ipakcb = 1
+
+        # OC parameters
+        self.oc_compact = True
+
+        # WEL parameters
+        self.wel_ipakcb = 1
+
+        # LMT parameters (MT3DMS coupling)
+        self.lmt_output_file_name = "mt3d_link.ftl"
+        self.lmt_extension = "lmt8"
+        self.lmt_output_format = "unformatted"
+
     # %% PRE-PROCESSING
 
     def pre_processing(self):
@@ -306,30 +349,28 @@ class Modflow:
         self.mf = flopy.modflow.Modflow(
             self.model_name,
             exe_name=self.exe,
-            version="mfnwt",
-            listunit=2,
-            verbose=False,
+            version=self.mf_version,
+            listunit=self.mf_listunit,
+            verbose=self.mf_verbose,
             model_ws=self.full_path,
-        )  # external_path=self.full_path
+        )
 
         # Uses Nwt for Modflow 2005, necessary for unconfined aquifers (improved interactions between surface and aquifer)
         # Sets up numerical parameters
         # ---- flopy.modflow.ModflowNwt
         self.nwt = flopy.modflow.ModflowNwt(
             self.mf,
-            # headtol=1e-5*(np.nanmax(self.dem)-np.nanmin(self.dem)), # 1e-4
-            # fluxtol=1e-3*np.nanmean(self.recharge)*self.resolution*self.resolution, # 500
-            headtol=1e-4,  # default 1e-4
-            fluxtol=500,  # default 500
-            maxiterout=5000,
-            thickfact=1e-05,
-            linmeth=1,
-            iprnwt=1,
-            ibotav=1,
-            options="COMPLEX",
-            Continue=False,
-            backflag=0,
-            stoptol=1e-10,  # 1e-10
+            headtol=self.nwt_headtol,
+            fluxtol=self.nwt_fluxtol,
+            maxiterout=self.nwt_maxiterout,
+            thickfact=self.nwt_thickfact,
+            linmeth=self.nwt_linmeth,
+            iprnwt=self.nwt_iprnwt,
+            ibotav=self.nwt_ibotav,
+            options=self.nwt_options,
+            Continue=self.nwt_continue,
+            backflag=self.nwt_backflag,
+            stoptol=self.nwt_stoptol,
         )
 
         # %% Discretization
@@ -459,7 +500,7 @@ class Modflow:
             xul=sgrid.xoffset,
             yul=sgrid.extent[3],
             # Temporal grid parameters
-            itmuni=0,  # itmuni = 0 ==> undefined
+            itmuni=self.dis_itmuni,
             nper=self.nper,
             perlen=self.perlen,
             nstp=self.nstp,
@@ -516,8 +557,7 @@ class Modflow:
 
         # ---- flopy.modflow.ModflowBas
         self.bas = flopy.modflow.ModflowBas(
-            self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=self.hnoflow
-        )
+            self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=self.bas_hnoflo)
 
         ### Initialze the top boundary condition of DRN package
 
@@ -744,11 +784,11 @@ class Modflow:
             sy=self.sy,
             ss=self.ss,
             vka=self.vka,
-            iphdry=1,
-            hdry=self.hdry,
-            layvka=1,  # 1: anisotropy ratio, 0: vertical hk in model unit
+            iphdry=self.upw_iphdry,
+            hdry=self.upw_hdry,
+            layvka=self.upw_layvka,
             extension="upw",
-            unitnumber=None,  # unitnumber=31
+            unitnumber=None,
             noparcheck=False,
         )
 
@@ -782,10 +822,10 @@ class Modflow:
                     self.mf,
                     evtr=self.evtData,
                     surf=self.dem,
-                    nevtop=3,  # 1 (top), 2 (layer), 3 (highest active) is default
-                    exdp=self.exdp,  # default is 1 (1m from surface)
-                    ievt=1,  # default: 1 (if layer) ==> activated only if nevtop = 2
-                    ipakcb=1,  # default: 0
+                    nevtop=self.evt_nevtop,
+                    exdp=self.exdp,
+                    ievt=self.evt_ievt,
+                    ipakcb=self.evt_ipakcb,
                 )
                 # Finally sets all negative of self.recharge to zero values for simulation
                 if not isinstance(self.recharge, (int, float)):
@@ -883,7 +923,7 @@ class Modflow:
 
             # ---- flopy.modflow.ModflowWel
             self.wel = flopy.modflow.ModflowWel(
-                self.mf, ipakcb=1, stress_period_data=self.lrcq
+                self.mf, ipakcb=self.wel_ipakcb, stress_period_data=self.lrcq
             )
 
         # %% Output control
@@ -898,8 +938,8 @@ class Modflow:
             self.mf,
             stress_period_data=stress_period_data,
             extension=["oc", "hds", "cbc"],
-            unitnumber=None,  # unitnumber=[14, 51, 52, 53, 0],
-            compact=True,
+            unitnumber=None,
+            compact=self.oc_compact,
         )
         self.oc.reset_budgetunit(fname=self.model_name + ".cbc")
 
@@ -1071,11 +1111,11 @@ class Modflow:
         if link_mt3dms == True:
             lmt = flopy.modflow.ModflowLmt(
                 self.mf,
-                output_file_name="mt3d_link.ftl",
-                extension="lmt8",
-                output_file_format="unformatted",
+                output_file_name=self.lmt_output_file_name,
+                extension=self.lmt_extension,
+                output_file_format=self.lmt_output_format,
                 unitnumber=None,
-            )  # unitnumber=30 (Luca)
+            )
 
         # Create modflow files
         if write_model == True:
