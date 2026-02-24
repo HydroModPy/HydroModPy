@@ -212,6 +212,10 @@ class Modflow:
         else:
             self.dem = geographic.dem_data
             self.dem_watershed_path = geographic.watershed_buff_dem
+            
+        self.hnoflow=-9999
+        self.hdry=-100
+        
         self.dem[self.dem <= -9999] = -9999
         self.dem[self.dem >= 9999] = -9999
 
@@ -512,7 +516,7 @@ class Modflow:
 
         # ---- flopy.modflow.ModflowBas
         self.bas = flopy.modflow.ModflowBas(
-            self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=-9999
+            self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=self.hnoflow
         )
 
         ### Initialze the top boundary condition of DRN package
@@ -741,7 +745,7 @@ class Modflow:
             ss=self.ss,
             vka=self.vka,
             iphdry=1,
-            hdry=-100,
+            hdry=self.hdry,
             layvka=1,  # 1: anisotropy ratio, 0: vertical hk in model unit
             extension="upw",
             unitnumber=None,  # unitnumber=31
