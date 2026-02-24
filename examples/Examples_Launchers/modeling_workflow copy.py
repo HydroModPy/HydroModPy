@@ -159,7 +159,7 @@ def modpath(geographic, settings, model_modflow, initializing, results, for_cali
     print("  MODPATH: Particle tracking")
 
     if not model_modflow or not results.get('success_modflow'):
-        print("    ⚠ Skipping MODPATH (MODFLOW not successful)")
+        print("kipping MODPATH (MODFLOW not successful)")
         return {'model_modpath': None, 'success': False}
 
     try:

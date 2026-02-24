@@ -145,6 +145,13 @@ PARAMS = {
         "the_ss0": 1e-10,
         "Klog_transf": False,
         "vers": "TRANS1",
+        # Well pumping settings
+        "well_1_coords": [0, 39, 39],  # [layer-1, row-1, col-1]
+        "well_2_coords": [0, 64, 64],  # [layer-1, row-1, col-1]
+        "well_1_fluxes": [-200, -1000, -100, 0, 0, 0, 0, 0, 0, 0, 0, -1000],  # [L3/T] for 12 stress periods
+        "well_2_fluxes": [0, -1000, 0, -500, 0, 0, -500, 0, 0, 0, 0, -1000],  # [L3/T] for 12 stress periods
+        # Vertical anisotropy exponent
+        "exdp": 1.0,
     }
 }
 
@@ -620,6 +627,12 @@ def parametrization(results):
         settings_object.update_bc_sides(p["bc_left"], p["bc_right"])
         settings_object.update_dis_perlen(dis_perlen=p["dis_perlen"])
 
+        # Configure well pumping
+        settings_object.update_well_pumping(
+            well_coords=[p["well_1_coords"], p["well_2_coords"]],
+            well_fluxes=[pd.Series(p["well_1_fluxes"]), pd.Series(p["well_2_fluxes"])]
+        )
+
         # Check model parameters
         plot_cross = config["check_model"].get("plot_cross", False)
         check_grid = config["check_model"].get("check_grid", False)
@@ -636,6 +649,7 @@ def parametrization(results):
         hydraulic_object.update_cond_drain(p["cond_drain"])
         hydraulic_object.update_lay_decay(p["lay_decay"])
         hydraulic_object.update_bottom(p["bottom"])
+        hydraulic_object.update_exdp(p["exdp"])
 
         # Configure Climatic (like example12.py)
         print("    • Climatic...")
