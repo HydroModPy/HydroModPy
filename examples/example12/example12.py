@@ -72,11 +72,11 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     initializing = Initializing(config=cfg.initializing)
     geographic   = Geographic(config=cfg.geographic,
-                                                initializing=initializing)
+                              initializing=initializing)
     setting = Settings()
     hydraulic = Hydraulic(nrow=geographic.y_pixel,
-                                           ncol=geographic.x_pixel,
-                                           box_dem=geographic.watershed_box_buff_dem)
+                          ncol=geographic.x_pixel,
+                          box_dem=geographic.watershed_box_buff_dem)
     transport = Transport()
     
     #%% DATA
@@ -100,7 +100,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             geo_path = data_path,
                             landsea=None,
                             types_obs='GEO1M.shp',
-                            fields_obs= 'CODE_LEG',)
+                            fields_obs= 'CODE_LEG')
     
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
                                 hydrometry_path=data_path,
@@ -111,6 +111,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                         intermittency_path=data_path,
                                         file_name='regional onde stations.shp',
                                         geographic=geographic)
+    
+                            
     #%% Climatic
     climatic = Climatic(out_path=initializing.catch_folder)
     
@@ -371,6 +373,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             cond_drain=hydraulic.cond_drain,
                             vka=hydraulic.vka,
                             exdp=hydraulic.exdp)
+    
     model_modflow.pre_processing() # verbose
 
     list_model_name = []
@@ -740,10 +743,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                     lines=1000)
 
     #%% PLOT 3D
-
+    export_vtuvtk.VTK(initializing,geographic, hydrography, model_name)
     if display_3D==True:
-
-        export_vtuvtk.VTK(initializing,geographic, hydrography, model_name)
         visu = visualization_results.Visualization(initializing,geographic, hydrography, model_name)
         if display_plots:
             visu.visual3D(interactive=True, object_list=[
