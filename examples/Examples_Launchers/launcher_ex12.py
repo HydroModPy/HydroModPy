@@ -53,7 +53,7 @@ from hydromodpy.watershed.geographic_config import GeographicConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.calibration_legacy.matching_stream import MatchingStreams as MatchingStreamsCalib
 
 # Import from modeling_workflow_copy.py (with space in filename)
 import importlib.util
@@ -64,7 +64,7 @@ modflow = modeling_workflow_copy.modflow
 modpath = modeling_workflow_copy.modpath
 mt3dms = modeling_workflow_copy.mt3dms
 postprocessing_timeseries = modeling_workflow_copy.postprocessing_timeseries
-matching_streams = modeling_workflow_copy.matching_streams
+
 
 fontprop = toolbox.plot_params(8, 15, 18, 20)
 
@@ -858,38 +858,6 @@ def modeling(results):
 # ============================================================================
 # SPECIALIZED MODELING METHODS FOR EXAMPLE 12
 # ============================================================================
-
-"""def modflow_ex12(BV, results, config):
-    print("\n  • Executing MODFLOW for Example 12...")
-    list_model_name = []
-    list_success_modflow = []
-    list_model_modflow = []
-
-    try:
-        p = PARAMS["ex12"]
-        # Créer le model_name comme dans modflow_ex09
-        the_K0_ms = p["the_K0"] / 24 / 3600
-        model_name = f"{p['vers']}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
-
-        result = modflow(BV, model_name, p["the_K0"], config)
-        list_model_name.append(result['model_name'])
-        list_success_modflow.append(result['success'])
-        list_model_modflow.append(result['model_modflow'])
-
-        results['list_model_name'] = list_model_name
-        results['list_success_modflow'] = list_success_modflow
-        results['list_model_modflow'] = list_model_modflow
-        results['model_name'] = list_model_name[0] if list_model_name else None
-        results['model_modflow'] = list_model_modflow[0] if list_model_modflow else None
-        # Always True if no exception was raised above
-        results['success_modflow'] = True if list_model_modflow[0] is not None else False
-        results['BV'] = BV
-        print("  ✓ MODFLOW model created\n")
-        return results
-    except Exception as e:
-        print(f"    ✗ MODFLOW error: {e}")
-        return results """
-
 
 def modpath_ex12(results):
     """SPECIALIZED MODPATH for Example 12 - calls generic modpath()"""
@@ -1709,112 +1677,8 @@ def ex12_plot_web_animation(results):
 # ============================================================================
 # EXEMPLE 09 - MATCHING STREAMS CLASS
 # ============================================================================
-
-class MatchingStreams:
-    """
-    Class for the calibration based on river occurency
-
-    Attributes
-    ----------
-    watershed : HydroModPy Watershed object
-    iteration_label : str, model name for calibration
-    from_calib : bool, whether to use calibration or simulations folder
-
-    Methods
-    -------
-    prepare_files() : setup GIS files for stream comparison
-    sim_to_obs() : distance from simulated to observed streams
-    obs_to_sim() : distance from observed to simulated streams
-    """
-
-    def __init__(self, watershed, iteration_label=None, from_calib=True):
-        self.geographic = watershed.geographic
-        # Check if hydrography exists, if not, raise informative error
-        if not hasattr(watershed, 'hydrography') or watershed.hydrography is None:
-            raise AttributeError(
-                "Watershed does not have hydrography data loaded. "
-                "Ensure 'regional stream network.shp' file exists in the data folder "
-                "and add_hydrography() was called successfully."
-            )
-        self.hydrography = watershed.hydrography
-        if from_calib:
-            self.calibration_folder = watershed.calibration_folder
-        else:
-            self.calibration_folder = watershed.simulations_folder
-        self.iteration_label = iteration_label
-
-        self.watershed_shp = watershed.geographic.watershed_shp
-        self.watershed_fill = watershed.geographic.watershed_fill
-        self.watershed_direc = watershed.geographic.watershed_direc
-
-        self.prepare_files()
-        self.sim_to_obs()
-        self.obs_to_sim()
-
-    def prepare_files(self):
-        """Prepare GIS files for whitebox analysis"""
-        self.results_folder = os.path.join(self.calibration_folder, self.iteration_label, '_postprocess')
-        toolbox.create_folder(self.results_folder)
-        self.dichotomy_folder = os.path.join(self.calibration_folder, self.iteration_label, '_matchingstreams')
-        toolbox.create_folder(self.dichotomy_folder)
-
-        # Observed streams
-        self.buff_tif_obs = self.hydrography.tif_streams
-        self.tif_obs = os.path.join(self.dichotomy_folder, 'obs.tif')
-        toolbox.clip_tif(self.buff_tif_obs, self.watershed_shp, self.tif_obs, False)
-        self.pt_obs = os.path.join(self.dichotomy_folder, 'obs_pt.shp')
-        wbt.raster_to_vector_points(self.tif_obs, self.pt_obs)
-        self.pt_obsf = os.path.join(self.dichotomy_folder, 'obs_ptf.shp')
-        wbt.raster_to_vector_points(self.tif_obs, self.pt_obsf)
-        self.obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.tif')
-        wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
-
-        # Simulated streams
-        tif_sim = os.path.join(self.results_folder, '_rasters', 'seepage_areas_t(0).tif')
-        self.tif_sim = os.path.join(self.dichotomy_folder, 'sim.tif')
-        toolbox.clip_tif(tif_sim, self.watershed_shp, self.tif_sim, False)
-        self.pt_sim = os.path.join(self.dichotomy_folder, 'sim_pt.shp')
-        wbt.raster_to_vector_points(self.tif_sim, self.pt_sim)
-        self.pt_simf = os.path.join(self.dichotomy_folder, 'sim_ptf.shp')
-        wbt.raster_to_vector_points(self.tif_sim, self.pt_simf)
-        self.sim_flow = os.path.join(self.dichotomy_folder, 'simflow.tif')
-        wbt.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)
-
-    def sim_to_obs(self):
-        """Calculate distance from simulated streams to observed"""
-        self.pt_sim_flow = os.path.join(self.dichotomy_folder, 'simflow.shp')
-        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)
-        self.dist_dem_obs = os.path.join(self.dichotomy_folder, 'dist_dem_obs.tif')
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_obs, self.dist_dem_obs)
-        self.dist_dem_obsflow = os.path.join(self.dichotomy_folder, 'dist_dem_obsflow.tif')
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.obs_flow, self.dist_dem_obsflow)
-
-        wbt.add_point_coordinates_to_table(self.pt_sim)
-        wbt.extract_raster_values_at_points(self.dist_dem_obs, self.pt_sim)
-        wbt.add_point_coordinates_to_table(self.pt_simf)
-        wbt.extract_raster_values_at_points(self.dist_dem_obsflow, self.pt_simf)
-        wbt.add_point_coordinates_to_table(self.pt_sim_flow)
-        wbt.extract_raster_values_at_points(self.dist_dem_obs, self.pt_sim_flow)
-
-    def obs_to_sim(self):
-        """Calculate distance from observed streams to simulated"""
-        self.pt_obs_flow = os.path.join(self.dichotomy_folder, 'obsflow.shp')
-        wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
-        self.dist_dem_sim = os.path.join(self.dichotomy_folder, 'dist_dem_sim.tif')
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_sim, self.dist_dem_sim)
-        self.dist_dem_simflow = os.path.join(self.dichotomy_folder, 'dist_dem_simflow.tif')
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.sim_flow, self.dist_dem_simflow)
-
-        wbt.add_point_coordinates_to_table(self.pt_obs)
-        wbt.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs)
-        wbt.add_point_coordinates_to_table(self.pt_obsf)
-        wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obsf)
-        wbt.add_point_coordinates_to_table(self.pt_obs_flow)
-        wbt.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs_flow)
-
-
 def ex12_matching_streams(results):
-    """MatchingStreams calibration analysis"""
+    """MatchingStreams calibration analysis - uses calibration_legacy module"""
     print("  Executing MatchingStreams analysis...")
     if not results:
         return None
@@ -1826,194 +1690,35 @@ def ex12_matching_streams(results):
         initializing = results.get('initializing')
 
         if geographic is None or model_name is None or hydrography is None or initializing is None:
-            print("  ✗ Missing required objects (geographic, hydrography, initializing, or model_name)\n")
+            print("Missing required objects (geographic, hydrography, initializing, or model_name)\n")
             return results
 
-        # Execute MatchingStreams analysis
-        ms_results = matching_streams(
+        # Instantiate MatchingStreams from calibration_legacy module
+        iteration_label = model_name
+        print(f"    • Creating MatchingStreams instance with iteration_label: {iteration_label}")
+
+        matching_streams_obj = MatchingStreamsCalib(
             geographic=geographic,
             hydrography=hydrography,
             initializing=initializing,
-            model_name=model_name,
-            for_calib=False,
-            results=results
+            iteration_label=iteration_label,
+            from_calib=False
         )
 
-        if ms_results and ms_results.get('success'):
-            results['matching_streams'] = ms_results.get('matching_streams')
-            results['success_matching_streams'] = True
-            print("  ✓ MatchingStreams analysis completed\n")
-        else:
-            results['success_matching_streams'] = False
-            print("  ⚠ MatchingStreams analysis failed\n")
+        # Store the object and mark as successful
+        results['matching_streams'] = matching_streams_obj
+        results['success_matching_streams'] = True
+        print("    • MatchingStreams methods executed (prepare_files, sim_to_obs, obs_to_sim)")
+        print(f"    • Results stored in: {matching_streams_obj.dichotomy_folder}")
+        print("MatchingStreams analysis completed\n")
 
         return results
     except Exception as e:
-        print(f"  ✗ Error in MatchingStreams: {e}\n")
+        print(f"Error in MatchingStreams: {e}\n")
         import traceback
         traceback.print_exc()
         results['success_matching_streams'] = False
         return results
-
-
-
-
-
-#%% B - MODPATH (Example 12) -
-
-def ex12_modpath(results):
-
-        print("\n  • MODPATH - Particle tracking analysis...")
-        try:
-            BV = results['BV']
-            model_modflow = results.get('model_modflow')
-            model_name = results.get('model_name')
-
-            if not model_modflow or not results.get('success_modflow'):
-                print("  ⚠ MODFLOW incomplete - skipping MODPATH")
-                results['success_modpath'] = False
-                return results
-
-            # Prepare particle tracking from seepage
-            calibration_folder = results.get('calibration_folder', BV.calibration_folder)
-            tif_seep = os.path.join(calibration_folder, model_name, '_postprocess/_rasters', 'seepage_areas_t(0).tif')
-            tif_seep_clip = os.path.join(calibration_folder, model_name, '_postprocess/_rasters', 'seepage_areas_t(0)_clip.tif')
-
-            wbt.clip_raster_to_polygon(
-                tif_seep,
-                os.path.join(BV.stable_folder, 'geographic', 'watershed.shp'),
-                tif_seep_clip,
-                maintain_dimensions=True
-            )
-
-            # Settings for particle tracking
-            BV.add_settings()
-            BV.settings.update_input_particles(
-                zone_partic=tif_seep_clip,
-                cell_div=1,
-                zloc_div=False,
-                bore_depth=None,
-                track_dir='backward',
-                sel_random=None,
-                sel_slice=None
-            )
-
-            # Run MODPATH
-            model_modpath = BV.preprocessing_modpath(model_modflow, for_calib=True)
-            success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-
-            # Postprocessing
-            BV.postprocessing_modpath(
-                model_modpath,
-                ending_point=True,
-                starting_point=True,
-                pathlines_shp=True,
-                particles_shp=True,
-                random_id=None
-            )
-
-            BV.filtprocessing_modpath(
-                model_modpath,
-                norm_flux=True,
-                filt_time=True,
-                filt_seep=True,
-                filt_inout=True,
-                calc_rtd=False,
-                random_id=None
-            )
-
-            print(f"    ✓ MODPATH completed")
-            results['model_modpath'] = model_modpath
-            results['success_modpath'] = success_modpath
-            results['BV'] = BV
-
-            return results
-        except Exception as e:
-            print(f"  ⚠ MODPATH error: {e}")
-            import traceback
-            traceback.print_exc()
-            results['success_modpath'] = False
-            return results
-
-
-def ex12_mt3dms(results):
-
-    print("\n  MT3DMS - Contaminant transport modeling...")
-    try:
-        BV = results['BV']
-        model_modflow = results.get('model_modflow')
-
-        if not model_modflow or not results.get('success_modflow'):
-            print("  ⚠ MODFLOW incomplete - skipping MT3DMS")
-            results['success_mt3dms'] = False
-            return results
-
-        # Add transport module
-        BV.add_transport()
-
-        # Setup MT3DMS parameters
-        nper = model_modflow.nper
-        nlay = model_modflow.mf.nlay
-        nrow = model_modflow.mf.nrow
-        ncol = model_modflow.mf.ncol
-
-        sconc_init = np.ones((nlay, nrow, ncol)) * (100 / 1000)  # 100 mg/L
-        sconc_input = {i: np.ones((nrow, ncol)) * (50 / 1000) for i in range(nper)}
-        sconc_input = dict(islice(sconc_input.items(), 1, None))
-        rate_decay = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))
-
-        BV.transport.update_mt3dms_parameters(
-            spc_name='NO3',
-            sconc_init=sconc_init,
-            sconc_input=sconc_input,
-            disp_long=0,
-            disp_transh=0,
-            disp_transv=0,
-            diffu_coeff=1e-10 * 3600 * 24,
-            react_order=1,
-            rate_decay=rate_decay,
-            plot_conc=True
-        )
-
-        # Run MT3DMS
-        scenario = 's1'
-        model_mt3dms = BV.preprocessing_mt3dms(model_modflow, for_calib=True, suffix_name='_mt_' + scenario)
-        success_mt3dms = BV.processing_mt3dms(model_mt3dms, write_model=True, run_model=True, verbose=True)
-
-        print(f"    Processing returned: {success_mt3dms}")
-
-        # Postprocessing
-        try:
-            pp_model = BV.postprocessing_mt3dms(
-                model_mt3dms,
-                concentration_seepage=True,
-                mass_seepage=True,
-                mass_accumulated=True,
-                export_all_tif=True
-            )
-            # If postprocessing succeeded, mark as success
-            if success_mt3dms is False:
-                print(f"    ⚠ Processing returned False but postprocessing succeeded")
-                success_mt3dms = True
-        except Exception as pp_err:
-            print(f"    ⚠ Postprocessing error: {pp_err}")
-
-        print(f"    ✓ MT3DMS completed (success={success_mt3dms})")
-        results['model_mt3dms'] = model_mt3dms
-        results['success_mt3dms'] = success_mt3dms
-        results['BV'] = BV
-        results['scenario'] = scenario
-
-        return results
-    except Exception as e:
-        print(f"  ⚠ MT3DMS error: {e}")
-        import traceback
-        traceback.print_exc()
-        results['success_mt3dms'] = False
-        return results
-
-
-
 
 
 # ============================================================================
