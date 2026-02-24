@@ -54,6 +54,7 @@ from hydromodpy.watershed.initializing_config import InitializingConfig
 from hydromodpy.watershed.geographic_config import GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
+from hydromodpy.modeling_workflow import modflow, modpath, mt3dms, timeseries
 fontprop = toolbox.plot_params(8, 15, 18, 20)
 
 
@@ -63,7 +64,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 
 CONFIG = {
     "example": "ex09",  # "ex03" ou "ex09" - CHOISIS UN SEUL EXEMPLE
-    "display_figures": True,  # Show matplotlib pop-ups when plotting
+    "display_figures": False,  # Show matplotlib pop-ups when plotting
     "sections": {
         # Ex03 and Ex09 shared sections
         "watershed": True,          # Extraction du bassin versant
@@ -312,6 +313,15 @@ def select_period(df, first, last):
 
 
 # ============================================================================
+# GENERIC METHODS - MODFLOW, MODPATH, MT3DMS (REUSABLE FOR ALL EXAMPLES)
+# ============================================================================
+# GENERIC MODELING METHODS - Imported from hydromodpy.modeling_workflow
+# ============================================================================
+# modflow(), modpath(), mt3dms() are now imported from modeling_workflow module
+# See hydromodpy/modeling_workflow.py for implementations
+
+
+# ============================================================================
 # FONCTIONS COMMUNES (GÉNÉRIQUES - Utiliser directement)
 # ============================================================================
 
@@ -330,10 +340,10 @@ def watershed(example_key):
         dem_path = os.path.join(data_path, p["dem_filename"])
 
         if not os.path.exists(dem_path):
-            print(f"✗ DEM not found: {dem_path}\n")
+            print(f"DEM not found: {dem_path}\n")
             return None
 
-        print(f"\n  • DEM: {dem_path}")
+        print(f"\nDEM: {dem_path}")
 
         # NEW API: Create Initializing and Geographic objects
         dem_coords = p["dem_coordinates"]  # [x, y, snap_dist, buffer, crs]
@@ -380,14 +390,14 @@ def watershed(example_key):
         # IMPORTANT: Assign calibration_folder to BV (required for modpath preprocessing)
         BV.calibration_folder = calibration_folder
 
-        print("✓ Watershed extracted\n")
+        print("Watershed extracted\n")
         return {
             'BV': BV, 'example_path': example_path, 'data_path': data_path,
             'out_path': out_path, 'stable_folder': stable_folder,
             'simulations_folder': simulations_folder, 'calibration_folder': calibration_folder
         }
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"Error: {e}\n")
         import traceback
         traceback.print_exc()
         return None
@@ -408,10 +418,10 @@ def recharge(results, example_key):
         BV = results['BV']
         data_path = results['data_path']
 
-        print("\n  • Add climatic...")
+        print("\n Add climatic...")
         BV.add_climatic()
 
-        print("  • Update recharge (REANALYSIS)...")
+        print("Update recharge (REANALYSIS)...")
         BV.climatic.update_recharge_reanalysis(
             path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
             clim_mod='REA',
@@ -422,7 +432,7 @@ def recharge(results, example_key):
             sim_state='transient'
         )
 
-        print("  • Update runoff (REANALYSIS)...")
+        print("Update runoff (REANALYSIS)...")
         BV.climatic.update_runoff_reanalysis(
             path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
             clim_mod='REA',
@@ -433,7 +443,7 @@ def recharge(results, example_key):
             sim_state='transient'
         )
 
-        print("✓ Recharge and runoff loaded\n")
+        print("Recharge and runoff loaded\n")
 
         # Ajoute les data de recharge et runoff aux results pour utilisation en parametrization
         results['R_mm_day'] = BV.climatic.recharge
@@ -462,11 +472,11 @@ def data(results):
         example_key = results.get('example_key', CONFIG["example"])
 
         if example_key not in DATA_CONFIGS:
-            print(f"  ⚠ No data configuration for {example_key}")
+            print(f"No data configuration for {example_key}")
             return results
 
         config = DATA_CONFIGS[example_key]
-        print(f"\n  • Adding data for {example_key.upper()}...")
+        print(f"\nAdding data for {example_key.upper()}...")
 
         # Ajout des modules
         for module in config.get("modules", []):
@@ -492,7 +502,7 @@ def data(results):
         # Visualisations
         viz_list = config.get("visualizations", [])
         if viz_list:
-            print("\n  • Creating watershed visualizations...")
+            print("\n Creating watershed visualizations...")
             for viz in viz_list:
                 try:
                     method_name = viz["method"]
@@ -503,23 +513,23 @@ def data(results):
                             if dem_filename:
                                 dem_path = os.path.join(data_path, dem_filename)
                                 if os.path.exists(dem_path):
-                                    print(f"    ✓ Creating {viz['name']}...")
+                                    print(f"Creating {viz['name']}...")
                                     getattr(visualization_watershed, method_name)(dem_path, BV)
                                 else:
-                                    print(f"    ⚠ DEM file not found: {dem_path}")
+                                    print(f"DEM file not found: {dem_path}")
                             else:
-                                print(f"    ⚠ dem_filename not configured for {method_name}")
+                                print(f"dem_filename not configured for {method_name}")
                         else:
-                            print(f"    ✓ Creating {viz['name']}...")
+                            print(f"Creating {viz['name']}...")
                             getattr(visualization_watershed, method_name)(BV)
                 except Exception as e:
-                    print(f"    ⚠ Error creating {viz['name']}: {e}")
+                    print(f"Error creating {viz['name']}: {e}")
 
-        print("✓ Data integration completed\n")
+        print("Data integration completed\n")
         return results
 
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"Error: {e}\n")
         return results
 
 
@@ -539,35 +549,40 @@ def parametrization(results):
         config = PARAM_CONFIG[example_key]
 
         # ÉTAPES COMMUNES
-        print("\n  • Import modules...")
+        print("\n Import modules...")
         BV.add_settings()
         BV.add_climatic()
         BV.add_hydraulic()
 
-        print("  • Update frame settings...")
+        print(" Update frame settings...")
         BV.settings.update_box_model(p["box"])
         BV.settings.update_sink_fill(p["sink_fill"])
         BV.settings.update_simulation_state(p["sim_state"])
 
-        if config["check_model"].get("plot_cross"):
-            BV.settings.update_check_model(
-                plot_cross=config["check_model"]["plot_cross"],
-                check_grid=config["check_model"]["check_grid"]
-            )
+        # Always set check_model parameters (needed by preprocessing_modflow)
+        plot_cross = config["check_model"].get("plot_cross", False)
+        check_grid = config["check_model"].get("check_grid", False)
+        cross_ylim = config["check_model"].get("cross_ylim", [0, 150])
 
-        print("  • Update boundary...")
+        BV.settings.update_check_model(
+            plot_cross=plot_cross,
+            check_grid=check_grid,
+            cross_ylim=cross_ylim
+        )
+
+        print(" Update boundary...")
         BV.settings.update_bc_sides(p["bc_left"], p["bc_right"])
         BV.settings.update_dis_perlen(dis_perlen=p["dis_perlen"])
         BV.add_oceanic(p["sea_level"])
 
-        print("  • Update hydraulic base...")
+        print(" Update hydraulic base...")
         BV.hydraulic.update_nlay(p["nlay"])
         BV.hydraulic.update_cond_drain(p["cond_drain"])
         BV.hydraulic.update_lay_decay(p["lay_decay"])
         BV.hydraulic.update_bottom(p["bottom"])
 
         # CLIMATIC
-        print("  • Setup climatic...")
+        print(" Setup climatic...")
         BV.climatic.update_first_clim('mean')
 
         if config["climatic"].get("recharge_from_params"):
@@ -587,7 +602,7 @@ def parametrization(results):
                 BV.climatic.update_runoff(runoff, sim_state=p["sim_state"])
 
         # HYDRAULIC SPECIFIQUE
-        print("  • Update hydraulic specific...")
+        print(" Update hydraulic specific...")
 
         if config["hydraulic_specific"].get("update_thick"):
             BV.hydraulic.update_thick(p.get("thick", p.get("thickness")))
@@ -647,7 +662,7 @@ def parametrization(results):
         return results
 
 def modeling(results):
-    """MODELING - Run MODFLOW and related modules"""
+    """MODELING - Run MODFLOW using generic workflow function"""
     print("\n" + "="*70)
     example_key = results.get('example_key', CONFIG["example"])
     print(f"EXEMPLE {example_key.upper()} - MODELING".center(70))
@@ -667,100 +682,55 @@ def modeling(results):
         list_success_modflow = []
         list_model_modflow = []
 
-        # Détermine les valeurs de conductivité hydraulique
+        # Détermine les valeurs de conductivité hydraulique et appelle la fonction générique
         if config["type"] == "multiple":
             hk_values = [h * 24 * 3600 for h in p["list_hyd_cond"]]
             base_name = p["iD_set_simulations"]
             model_names = [f"{base_name}_{round(h, 3)}" for h in hk_values]
             folder = results['simulations_folder']
+            save_file = os.path.join(folder, f'results_listing_{base_name}.pkl')
         else:  # single
             hk_values = [p["the_K0"]]
             the_K0 = p["the_K0"] / 24 / 3600
             model_names = [f"{p['vers']}_K{the_K0:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"]
             folder = results['calibration_folder']
 
-            # Check model si configuré
-            if "check_model" in config:
-                BV.settings.update_check_model(**config["check_model"])
-
-        # Crée et exécute chaque modèle
+        # Exécute chaque modèle via fonction générique modflow()
         for i, (hk_value, model_name) in enumerate(zip(hk_values, model_names)):
             print(f"    Model {i+1}/{len(hk_values)}: {model_name}")
 
-            # Met à jour la conductivité
-            BV.hydraulic.update_hk(hk_value)
-            BV.settings.update_model_name(model_name)
+            result = modflow(BV, model_name, hk_value, config)
+            list_model_name.append(result['model_name'])
+            list_success_modflow.append(result['success'])
+            list_model_modflow.append(result['model_modflow'])
 
-            # Preprocessing
-            model_modflow = BV.preprocessing_modflow(**config["preprocessing"])
-
-            # Sauvegarde
-            if config["type"] == "multiple":
-                save_dir = folder
-                save_file = os.path.join(save_dir, f'results_listing_{base_name}.pkl')
-            else:
-                save_dir = os.path.join(folder, model_name)
-                os.makedirs(save_dir, exist_ok=True)
-                save_file = os.path.join(save_dir, f'results_{model_name}.pkl')
-
-            # Processing (MODFLOW)
-            success_modflow = BV.processing_modflow(
-                model_modflow,
-                **config["processing"]
-            )
-
-            # Postprocessing si succès
-            if success_modflow:
-                BV.postprocessing_modflow(
-                    model_modflow,
-                    **config["postprocessing_modflow"]
-                )
-
-                BV.postprocessing_timeseries(
-                    model_modflow=model_modflow,
-                    model_modpath=None,
-                    model_mt3dms=None,
-                    **config["postprocessing_timeseries"]
-                )
-
-                if config.get("postprocessing_netcdf"):
-                    BV.postprocessing_netcdf(
-                        model_modflow,
-                        datetime_format=config["postprocessing_timeseries"].get("datetime_format", False)
-                    )
-
-            # Stockage
-            list_model_name.append(model_name)
-            list_success_modflow.append(success_modflow)
-            list_model_modflow.append(model_modflow)
-
-        # Sauvegarde finale - Ne pickler QUE les données sérialisables (pas les objets modèles)
+        # Sauvegarde pickle
         dictio = {
             'list_model_name': list_model_name,
             'list_success_modflow': list_success_modflow
-            # NOTE: list_model_modflow stays in memory via results[], not pickled
         }
+        import os
+        os.makedirs(os.path.dirname(save_file) if os.path.dirname(save_file) else '.', exist_ok=True)
         with open(save_file, 'wb') as f:
             pickle.dump(dictio, f)
 
-        # Met à jour results - Garde les objets modèles en mémoire
+        # Met à jour results
         if config["type"] == "multiple":
             results['list_model_name'] = list_model_name
             results['list_success_modflow'] = list_success_modflow
             results['list_model_modflow'] = list_model_modflow
             results['iD_set_simulations'] = p.get("iD_set_simulations", "")
-            # Pour compatibilité
             if list_model_name:
                 results['model_name'] = list_model_name[0]
                 results['model_modflow'] = list_model_modflow[0]
                 results['success_modflow'] = list_success_modflow[0]
         else:
-            results['model_name'] = list_model_name[0]
-            results['model_modflow'] = list_model_modflow[0]
-            results['success_modflow'] = list_success_modflow[0]
+            results['model_name'] = list_model_name[0] if list_model_name else None
+            results['model_modflow'] = list_model_modflow[0] if list_model_modflow else None
+            results['success_modflow'] = list_success_modflow[0] if list_success_modflow else None
 
         results['BV'] = BV
-        print("Modeling completed\n")
+        print("  ✓ MODFLOW modeling completed\n")
         return results
 
     except Exception as e:
@@ -768,6 +738,102 @@ def modeling(results):
         import traceback
         traceback.print_exc()
         return results
+
+
+# ============================================================================
+# SPECIALIZED METHODS - EX03, EX09 (USES GENERIC METHODS)
+# ============================================================================
+
+def modflow_ex03(BV, results, config):
+    """EXAMPLE 03 - MODFLOW with multiple HK values (calls generic modflow())"""
+    print("\n MODFLOW: Creating multiple models...")
+
+    p = PARAMS["ex03"]
+    list_model_name = []
+    list_success_modflow = []
+    list_model_modflow = []
+
+    hk_values = [h * 24 * 3600 for h in p["list_hyd_cond"]]
+    base_name = p["iD_set_simulations"]
+
+    for hk_value in hk_values:
+        model_name = base_name + '_' + str(round(hk_value, 3))
+        result = modflow(BV, model_name, hk_value, config)
+        list_model_name.append(model_name)
+        list_model_modflow.append(result['model_modflow'])
+        list_success_modflow.append(result['success'])
+
+    dictio = {'list_model_name': list_model_name, 'list_success_modflow': list_success_modflow}
+    pickle_file = os.path.join(results['simulations_folder'], f'results_listing_{base_name}.pkl')
+    with open(pickle_file, 'wb') as f:
+        pickle.dump(dictio, f)
+
+    results['list_model_name'] = list_model_name
+    results['list_success_modflow'] = list_success_modflow
+    results['list_model_modflow'] = list_model_modflow
+    if list_model_name:
+        results['model_name'] = list_model_name[0]
+        results['model_modflow'] = list_model_modflow[0]
+        results['success_modflow'] = list_success_modflow[0]
+
+    print("MODFLOW models created\n")
+    return results
+
+
+def modflow_ex09(BV, results, config):
+    """EXAMPLE 09 - MODFLOW single model (calls generic modflow())"""
+    print("\n MODFLOW: Creating single calibration model...")
+
+    p = PARAMS["ex09"]
+    the_K0_ms = p["the_K0"] / 24 / 3600
+    model_name = f"{p['vers']}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
+
+    result = modflow(BV, model_name, p["the_K0"], config)
+
+    results['model_name'] = model_name
+    results['model_modflow'] = result['model_modflow']
+    results['success_modflow'] = result['success']
+    results['vers'] = p['vers']
+
+    print("MODFLOW model created\n")
+    return results
+
+
+def modpath_ex09(results):
+    """EXAMPLE 09 - MODPATH (calls generic modpath())"""
+    print("\n" + "="*70)
+    print("EXEMPLE 09 - MODPATH (PARTICLE TRACKING)".center(70))
+    print("="*70)
+
+    BV = results.get('BV')
+    modpath_result = modpath(BV, results, for_calib=True)
+
+    results['model_modpath'] = modpath_result['model_modpath']
+    results['success_modpath'] = modpath_result['success']
+    results['BV'] = modpath_result['BV']
+
+    print("MODPATH completed\n")
+    return results
+
+
+def mt3dms_ex09(results):
+    """EXAMPLE 09 - MT3DMS (calls generic mt3dms())"""
+    print("\n" + "="*70)
+    print("EXEMPLE 09 - MT3DMS (TRANSPORT MODEL)".center(70))
+    print("="*70)
+
+    BV = results.get('BV')
+    scenario = 's1'
+
+    mt3dms_result = mt3dms(BV, results, scenario=scenario, for_calib=True)
+
+    results['model_mt3dms'] = mt3dms_result['model_mt3dms']
+    results['success_mt3dms'] = mt3dms_result['success']
+    results['BV'] = mt3dms_result['BV']
+    results['scenario'] = scenario
+
+    print("MT3DMS completed\n")
+    return results
 
 # ============================================================================
 # EXEMPLE 03 - HYDROGRAPHIC NETWORK (FONCTIONS SPÉCIFIQUES)
@@ -782,7 +848,7 @@ def ex03_recharge_plot(results):
         return None
 
     try:
-        print("\n  • Create plot (specific to Ex03)...")
+        print("\n Create plot (specific to Ex03)...")
         BV = results['BV']
 
         fig, ax = plt.subplots(1, 1, figsize=(6, 3))
@@ -799,10 +865,10 @@ def ex03_recharge_plot(results):
             plt.show()
         plt.close(fig)
 
-        print("✓ Recharge calculated\n")
+        print("Recharge calculated\n")
         return results
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f" Error: {e}\n")
         return results
 
 def ex03_modeling(results):
@@ -820,28 +886,25 @@ def ex03_modeling(results):
         simulations_folder = results['simulations_folder']
         out_path = results['out_path']
 
-        print("\n  • MODFLOW: create and run models...")
+        print("\n  MODFLOW: create and run models...")
         iD_set_simulations = p["iD_set_simulations"]
+        config = MODELING_CONFIG["ex03"]
         list_model_name = []
         list_success_modflow = []
         list_model_modflow = []
 
         for hyd_cond in p["list_hyd_cond"]:
             hyd_cond_day = hyd_cond * 24 * 3600
-            BV.hydraulic.update_hk(hyd_cond_day)
-
             model_name = iD_set_simulations + '_' + str(round(hyd_cond_day, 3))
-            BV.settings.update_model_name(model_name)
-            print(f"    • Model: {model_name}")
 
-            model_modflow = BV.preprocessing_modflow(for_calib=False)
-            success_modflow = BV.processing_modflow(model_modflow, write_model=True, run_model=True)
+            # Use generic modflow function from modeling_workflow
+            result = modflow(BV, model_name, hyd_cond_day, config)
 
-            list_model_name.append(model_name)
-            list_success_modflow.append(success_modflow)
-            list_model_modflow.append(model_modflow)
+            list_model_name.append(result['model_name'])
+            list_success_modflow.append(result['success'])
+            list_model_modflow.append(result['model_modflow'])
 
-        print("  • Save results...")
+        print(" Save results...")
         dictio = {
             'list_model_name': list_model_name,
             'list_success_modflow': list_success_modflow,
@@ -851,34 +914,8 @@ def ex03_modeling(results):
         with open(pickle_file, 'wb') as f:
             pickle.dump(dictio, f)
 
-        print("  • Postprocessing...")
-        for model_name, success_modflow, model_modflow in zip(list_model_name,
-                                                              list_success_modflow,
-                                                              list_model_modflow):
-            if success_modflow:
-                BV.postprocessing_modflow(
-                    model_modflow,
-                    watertable_elevation=True,
-                    watertable_depth=True,
-                    seepage_areas=True,
-                    outflow_drain=True,
-                    groundwater_flux=True,
-                    groundwater_storage=True,
-                    accumulation_flux=True,
-                    persistency_index=False,
-                    intermittency_monthly=False,
-                    intermittency_daily=False,
-                    export_all_tif=False
-                )
-
-                BV.postprocessing_timeseries(
-                    model_modflow=model_modflow,
-                    model_modpath=None,
-                    datetime_format=False,
-                    subbasin_results=True
-                )
-
-                BV.postprocessing_netcdf(model_modflow, datetime_format=False)
+        # Postprocessing is already handled by the generic modflow() function
+        # No additional postprocessing needed here
 
         results['list_model_name'] = list_model_name
         results['list_success_modflow'] = list_success_modflow
@@ -891,10 +928,10 @@ def ex03_modeling(results):
             results['model_modflow'] = list_model_modflow[0]
             results['success_modflow'] = list_success_modflow[0]
 
-        print("✓ Modeling completed\n")
+        print("Modeling completed\n")
         return results
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"Error: {e}\n")
         return results
 
 
@@ -921,10 +958,10 @@ def ex03_plot(results):
         list_model_modflow = results.get('list_model_modflow', [])
 
         if not list_model_name:
-            print("    ✓ No MODFLOW models to plot\n")
+            print("No MODFLOW models to plot\n")
             return results
 
-        print("\n  • Create CROSS section plots...")
+        print("\n Create CROSS section plots...")
         for i, (model_name, success, model) in enumerate(zip(list_model_name,
                                                               list_success_modflow,
                                                               list_model_modflow)):
@@ -971,7 +1008,7 @@ def ex03_plot(results):
                 plt.show()
             plt.close(fig)
 
-        print("  • Create MAP plots...")
+        print("Create MAP plots...")
         for model_name, success, model in zip(list_model_name,
                                               list_success_modflow,
                                               list_model_modflow):
@@ -1004,7 +1041,7 @@ def ex03_plot(results):
                 plt.show()
             plt.close(fig)
 
-        print("  • Create GRAPH plots...")
+        print("Create GRAPH plots...")
         fig, ax = plt.subplots(1, 1, figsize=(5, 4), dpi=300)
 
         for model_name in list_model_name:
@@ -1035,7 +1072,7 @@ def ex03_plot(results):
         plt.close(fig)
 
         # Create 2D visualization maps
-        print("  • Create 2D visualization maps...")
+        print("Create 2D visualization maps...")
         visu = visualization_results.Visualization(BV, list_model_name[0] if list_model_name else 'model')
         try:
             visu.visual2D(object_list=[
@@ -1055,14 +1092,14 @@ def ex03_plot(results):
                 (0, 30000)
             ],
             lines=1000)
-            print("    ✓ 2D visualization maps created")
+            print("2D visualization maps created")
         except Exception as e:
-            print(f"    ⚠ Warning: Could not create 2D visualizations: {e}")
+            print(f" Warning: Could not create 2D visualizations: {e}")
 
-        print("✓ Plots completed\n")
+        print("Plots completed\n")
         return results
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f" Error: {e}\n")
         return results
 
 
@@ -1184,17 +1221,17 @@ def ex09_matching_streams(results):
         model_name = results.get('model_name')
 
         if BV is None or model_name is None:
-            print("✗ BV or model_name not found\n")
+            print(" BV or model_name not found\n")
             return results
 
         print(f"\n  • Initialize MatchingStreams for {model_name}...")
         matching = MatchingStreams(BV, iteration_label=model_name, from_calib=True)
 
         results['matching_streams'] = matching
-        print("✓ Matching streams analysis completed\n")
+        print("Matching streams analysis completed\n")
         return results
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f" Error: {e}\n")
         import traceback
         traceback.print_exc()
         return results
@@ -1209,81 +1246,29 @@ def ex09_modpath(results):
     if not results:
         return None
 
-    success_modpath = False
-    model_modpath = None
     try:
         BV = results.get('BV')
         model_modflow = results.get('model_modflow')
         model_name = results.get('model_name')
-        calibration_folder = results.get('calibration_folder')
 
         if BV is None or model_modflow is None:
-            print("✗ BV or model_modflow not found\n")
+            print(" BV or model_modflow not found\n")
             results['success_modpath'] = False
             return results
 
-        print(f"\n  • Setup particle tracking for {model_name}...")
+        print(f"\n  Setup particle tracking for {model_name}...")
 
-        # Prepare particle tracking from seepage inside the catchment studied
-        # (match example_09_new.py: clip seepage raster to watershed boundary)
-        tif_seep = os.path.join(calibration_folder, model_name, '_postprocess/_rasters', 'seepage_areas_t(0).tif')
-        tif_seep_clip = os.path.join(calibration_folder, model_name, '_postprocess/_rasters', 'seepage_areas_t(0)_clip.tif')
-        stable_folder = results.get('stable_folder')
+        # MODPATH setup using generic workflow
+        modpath_result = modpath(BV, results, for_calib=True)
 
-        print("  • Clipping seepage raster to watershed boundary...")
-        wbt.clip_raster_to_polygon(
-            tif_seep,
-            os.path.join(str(stable_folder), 'geographic', 'watershed.shp'),
-            tif_seep_clip,
-            maintain_dimensions=True
-        )
+        results['model_modpath'] = modpath_result['model_modpath']
+        results['success_modpath'] = modpath_result['success']
+        results['BV'] = modpath_result['BV']
 
-        print("  • Configure particle input parameters...")
-        BV.add_settings()
-        BV.settings.update_input_particles(
-            zone_partic=tif_seep_clip,  # Use clipped seepage raster
-            cell_div=1,
-            zloc_div=False,
-            bore_depth=None,
-            track_dir='backward',
-            sel_random=None,
-            sel_slice=None
-        )
-
-        print("  • Preprocessing MODPATH...")
-        model_modpath = BV.preprocessing_modpath(model_modflow, for_calib=True)
-
-        print("  • Running MODPATH solver...")
-        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-
-        print("  • Postprocessing MODPATH...")
-        BV.postprocessing_modpath(
-            model_modpath,
-            ending_point=True,
-            starting_point=True,
-            pathlines_shp=True,
-            particles_shp=True,
-            random_id=None,
-        )
-
-        print("  • Filtprocessing MODPATH...")
-        BV.filtprocessing_modpath(
-            model_modpath,
-            norm_flux=True,
-            filt_time=True,
-            filt_seep=True,
-            filt_inout=True,
-            calc_rtd=False,
-            random_id=None,
-        )
-
-        results['model_modpath'] = model_modpath
-        results['success_modpath'] = success_modpath
-
-        print("✓ MODPATH completed\n")
+        print("MODPATH completed\n")
         return results
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"Error: {e}\n")
         import traceback
         traceback.print_exc()
         results['success_modpath'] = False
@@ -1299,9 +1284,6 @@ def ex09_mt3dms(results):
     if not results:
         return None
 
-    success_mt3dms = False
-    model_mt3dms = None
-
     try:
         BV = results.get('BV')
         model_modflow = results.get('model_modflow')
@@ -1312,82 +1294,34 @@ def ex09_mt3dms(results):
             results['success_mt3dms'] = False
             return results
 
-        print(f"\n  • Setup MT3DMS transport for {model_name}...")
-        BV.add_transport()
-
-        nper = model_modflow.nper
-        nlay = model_modflow.mf.nlay
-        nrow = model_modflow.mf.nrow
-        ncol = model_modflow.mf.ncol
-
-        # Initial and boundary concentrations
-        sconc_init = np.ones((nlay, nrow, ncol)) * (100 / 1000)  # 100 mg/L
-        sconc_input = {i: np.ones((nrow, ncol)) * (50 / 1000) for i in range(nper)}
-        sconc_input = dict(islice(sconc_input.items(), 1, None))
-        rate_decay = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))  # 2-year half-life
-
-        print("  • Configure MT3DMS parameters...")
-        BV.transport.update_mt3dms_parameters(
-            spc_name='NO3',
-            sconc_init=sconc_init,
-            sconc_input=sconc_input,
-            disp_long=5,           # longitudinal dispersivity [m]
-            disp_transh=0.5,       # horizontal transverse
-            disp_transv=0.05,      # vertical transverse
-            diffu_coeff=1e-10 * 3600 * 24,
-            react_order=1,
-            rate_decay=rate_decay,
-            plot_conc=True
-        )
-
-        print("  • Preprocessing MT3DMS...")
+        # MT3DMS setup using generic workflow
         scenario = 's1'
-        model_mt3dms = BV.preprocessing_mt3dms(model_modflow, for_calib=True, suffix_name=f'_mt_{scenario}')
+        print(f"\n  • Setup MT3DMS transport for {model_name} - scenario {scenario}...")
+        mt3dms_result = mt3dms(BV, results, scenario=scenario, for_calib=True)
 
-        print("  • Running MT3DMS solver...")
-        success_mt3dms = BV.processing_mt3dms(
-            model_mt3dms,
-            write_model=True,
-            run_model=True,
-            verbose=True
-        )
-
-        print("  • Postprocessing MT3DMS...")
-        BV.postprocessing_mt3dms(
-            model_mt3dms,
-            concentration_seepage=True,
-            mass_seepage=True,
-            mass_accumulated=True,
-            export_all_tif=True
-        )
-
-        print("  • Postprocessing timeseries...")
-        timeseries_results = BV.postprocessing_timeseries(
-            model_modflow=model_modflow,
-            model_modpath=results.get('model_modpath'),
-            model_mt3dms=model_mt3dms,
-            suffix_name=scenario,
-            datetime_format=True,
-            subbasin_results=True,
-            intermittency_weekly=False,
-            intermittency_monthly=True,
-            residence_times=True,
-            concentration_seepage=True,
-            mass_accumulated=True
-        )
-
-        # Set success_mt3dms to True since postprocessing completed without error
-        success_mt3dms = True
-
-        results['model_mt3dms'] = model_mt3dms
-        results['success_mt3dms'] = success_mt3dms
+        results['model_mt3dms'] = mt3dms_result['model_mt3dms']
+        results['success_mt3dms'] = mt3dms_result['success']
+        results['BV'] = mt3dms_result['BV']
         results['scenario'] = scenario
 
-        print("✓ MT3DMS completed\n")
+        # Timeseries postprocessing with configuration
+        timeseries_config = {
+            'suffix_name': scenario,
+            'datetime_format': True,
+            'subbasin_results': True,
+            'intermittency_weekly': False,
+            'intermittency_monthly': True,
+            'residence_times': True,
+            'concentration_seepage': True,
+            'mass_accumulated': True
+        }
+        timeseries(BV, results, timeseries_config=timeseries_config)
+
+        print("MT3DMS completed\n")
         return results
 
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"Error: {e}\n")
         import traceback
         traceback.print_exc()
         results['success_mt3dms'] = False
@@ -1396,7 +1330,7 @@ def ex09_mt3dms(results):
 
 def ex09_plot_streamflow(results):
     """EXEMPLE 09 - PLOT STREAMFLOW: Match observed vs simulated"""
-    print("\n  • Create streamflow plots...")
+    print("\n  Create streamflow plots...")
 
     if not results:
         return results
@@ -1417,7 +1351,7 @@ def ex09_plot_streamflow(results):
             try:
                 area = int(round(BV.geographic.area))
             except AttributeError:
-                print("      ⚠ Could not determine catchment area, skipping streamflow plots")
+                print(" Could not determine catchment area, skipping streamflow plots")
                 return results
 
         vers = PARAMS["ex09"]["vers"]
@@ -1425,7 +1359,7 @@ def ex09_plot_streamflow(results):
         # Read observed streamflow
         Qobs_path = os.path.join(data_path, 'Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt')
         if not os.path.exists(Qobs_path):
-            print(f"      ✗ Streamflow file not found: {Qobs_path}")
+            print(f"Streamflow file not found: {Qobs_path}")
             return results
 
         Qobs = pd.read_csv(Qobs_path, sep=';', header=None)
@@ -1486,17 +1420,17 @@ def ex09_plot_streamflow(results):
                 plt.show()
             plt.close(fig)
 
-        print("      ✓ Streamflow plots created")
+        print("Streamflow plots created")
         return results
 
     except Exception as e:
-        print(f"      ✗ Error: {e}")
+        print(f" Error: {e}")
         return results
 
 
 def ex09_plot_piezometry(results):
     """EXEMPLE 09 - PLOT PIEZOMETRY: Watertable depth evolution"""
-    print("\n  • Create piezometry plots...")
+    print("\n Create piezometry plots...")
 
     if not results:
         return results
@@ -1557,17 +1491,17 @@ def ex09_plot_piezometry(results):
                 plt.show()
             plt.close(fig)
 
-        print("      ✓ Piezometry plots created")
+        print(" Piezometry plots created")
         return results
 
     except Exception as e:
-        print(f"      ✗ Error: {e}")
+        print(f"Error: {e}")
         return results
 
 
 def ex09_plot_pathlines(results):
     """EXEMPLE 09 - PLOT PATHLINES: Residence time visualization"""
-    print("\n  • Create pathlines plots...")
+    print("\n Create pathlines plots...")
 
     if not results:
         return results
@@ -1579,11 +1513,11 @@ def ex09_plot_pathlines(results):
         success_modpath = results.get('success_modpath', False)
 
         if not success_modpath:
-            print("      ⚠ MODPATH execution was not successful, skipping pathlines")
+            print(" MODPATH execution was not successful, skipping pathlines")
             return results
 
         if BV is None:
-            print("      ⚠ BV not available")
+            print("BV not available")
             return results
 
         model_name = results.get('model_name')
@@ -1602,13 +1536,13 @@ def ex09_plot_pathlines(results):
             shp_pathlines = gpd.read_file(shp_pathlines_path)
             shp_endpoints = gpd.read_file(shp_endpoints_path)
         except Exception as e:
-            print(f"      ⚠ Could not read shapefiles: {e}")
+            print(f" Could not read shapefiles: {e}")
             return results
 
         # Check watershed shapefile exists
         watershed_shp_path = os.path.join(stable_folder, 'geographic', 'watershed.shp')
         if not os.path.exists(watershed_shp_path):
-            print(f"      ⚠ Watershed shapefile not found: {watershed_shp_path}")
+            print(f"Watershed shapefile not found: {watershed_shp_path}")
             return results
 
         line = gpd.read_file(watershed_shp_path)
@@ -1631,7 +1565,7 @@ def ex09_plot_pathlines(results):
                 break
 
         if time_col is None:
-            print(f"      ⚠ No time column found in pathlines. Available: {shp_pathlines.columns.tolist()}")
+            print(f"No time column found in pathlines. Available: {shp_pathlines.columns.tolist()}")
             # Use a default visualization without time coloring
             time_col = None
 
@@ -2082,7 +2016,7 @@ def ex09_recharge_plot(results):
 
 
 def ex09_modeling(results):
-    """EXEMPLE 09 - MODELING: MODFLOW + MODPATH + POSTPROCESSING"""
+    """EXEMPLE 09 - MODELING: MODFLOW + MODPATH + MT3DMS"""
     print("\n" + "="*70)
     print("EXEMPLE 09 - MODELING".center(70))
     print("="*70)
@@ -2093,106 +2027,32 @@ def ex09_modeling(results):
     try:
         p = PARAMS["ex09"]
         BV = results['BV']
-        calibration_folder = results['calibration_folder']
+        config = MODELING_CONFIG.get('ex09', {})
 
-        print("   Create MODFLOW model...")
         vers = p["vers"]
         model_name = (
-            f"{vers}_0_K{p['the_K0'] / 24 / 3600:.1e}_"
+            f"{vers}_K{p['the_K0'] / 24 / 3600:.1e}_"
             f"a{p['alpha']:.1f}_Sy{p['the_sy0'] * 100:.1f}"
         )
         print(f"Model: {model_name}")
 
-        BV.settings.update_model_name(model_name)
-        BV.settings.update_check_model(
-            plot_cross=p["plot_cross"],
-            check_grid=p["check_grid"],
-            cross_ylim=[0, 200]
-        )
+        # Use generic modflow function from modeling_workflow
+        print("   Create and run MODFLOW model...")
+        modflow_result = modflow(BV, model_name, p['the_K0'], config)
 
-        print("Preprocessing MODFLOW...")
-        model_modflow = BV.preprocessing_modflow(for_calib=True)
+        # Use generic modpath function from modeling_workflow
+        print("   Create and run MODPATH model...")
+        modflow_result['BV'] = BV
+        modpath_result = modpath(BV, modflow_result, for_calib=True)
 
-        print("  Save model info...")
-        dictio = {'list_model_name': [model_name], 'list_model_modflow': [model_modflow]}
-        pickle_file = os.path.join(BV.calibration_folder, model_name, 'results_' + model_name + '.pkl')
-        with open(pickle_file, 'wb') as f:
-            pickle.dump(dictio, f)
-
-        print(" Running MODFLOW solver...")
-        success_modflow = BV.processing_modflow(
-            model_modflow,
-            write_model=True,
-            run_model=True,
-            link_mt3dms=True
-        )
-
-        print("Postprocessing MODFLOW...")
-        BV.postprocessing_modflow(
-            model_modflow,
-            watertable_elevation=True,
-            seepage_areas=True,
-            outflow_drain=True,
-            accumulation_flux=True,
-            watertable_depth=True,
-            groundwater_flux=False,
-            groundwater_storage=False,
-            intermittency_weekly=True,
-            intermittency_yearly=False,
-            export_all_tif=False
-        )
-
-        # MODPATH execution
-        print("Preprocessing MODPATH...")
-        model_modpath = BV.preprocessing_modpath(model_modflow, for_calib=True)
-
-        print("Running MODPATH solver...")
-        success_modpath = BV.processing_modpath(model_modpath, write_model=True, run_model=True)
-
-        if not success_modpath:
-            print("✗ MODPATH execution failed!")
-            print(f"  Check MODPATH output folder: {os.path.join(BV.calibration_folder, model_name)}")
-        else:
-            print("✓ MODPATH executed successfully")
-
-        print("Postprocessing MODPATH...")
-        BV.postprocessing_modpath(
-            model_modpath,
-            ending_point=True,
-            starting_point=True,
-            pathlines_shp=True,
-            particles_shp=True,
-            random_id=None,
-        )
-
-        print("Filtprocessing MODPATH...")
-        BV.filtprocessing_modpath(
-            model_modpath,
-            norm_flux=True,
-            filt_time=True,
-            filt_seep=True,
-            filt_inout=True,
-            calc_rtd=False,
-            random_id=None,
-        )
-
-        BV.postprocessing_timeseries(
-            model_modflow=model_modflow,
-            model_modpath=model_modpath,
-            model_mt3dms=None,
-            datetime_format=True,
-            subbasin_results=True,
-            intermittency_weekly=True,
-            intermittency_yearly=False
-        )
-
-        results['BV'] = BV
+        # Update results with modeling results
+        results['BV'] = modpath_result['BV']
         results['model_name'] = model_name
         results['vers'] = vers
-        results['model_modflow'] = model_modflow
-        results['success_modflow'] = success_modflow
-        results['model_modpath'] = model_modpath
-        results['success_modpath'] = success_modpath
+        results['model_modflow'] = modflow_result['model_modflow']
+        results['success_modflow'] = modflow_result['success']
+        results['model_modpath'] = modpath_result['model_modpath']
+        results['success_modpath'] = modpath_result['success']
 
         print("✓ Modeling completed\n")
         return results
@@ -2555,13 +2415,14 @@ def main():
     if results and sections.get("modeling"):
         current_example = results.get('example_key', CONFIG["example"])
         print(f"\n[STEP {step_counter}] Executing: modeling() for {current_example}")
-        results = modeling(results)
+
+        if current_example == "ex03":
+            results = modflow_ex03(results['BV'], results, MODELING_CONFIG["ex03"])
+        elif current_example == "ex09":
+            results = modflow_ex09(results['BV'], results, MODELING_CONFIG["ex09"])
+
         if results:
-            validate_results_state(
-                results,
-                ["BV", "model_name", "success_modflow"],
-                "modeling"
-            )
+            validate_results_state(results, ["BV", "model_name", "success_modflow"], "modeling")
             if results.get('success_modflow'):
                 print(f"     MODFLOW successful: {results['model_name']}")
             else:
@@ -2581,8 +2442,9 @@ def main():
 
         # STEP 7: MODPATH
         if sections.get("modpath") and results.get('success_modflow'):
-            print(f"\n[STEP {step_counter}] Executing: ex09_modpath()")
-            results = ex09_modpath(results)
+            print(f"\n[STEP {step_counter}] Executing: modpath()")
+            results = modpath_ex09(results)
+
             if results:
                 validate_results_state(results, ["model_modpath", "success_modpath"], "modpath")
             step_counter += 1
@@ -2592,8 +2454,8 @@ def main():
 
         # STEP 8: MT3DMS
         if sections.get("mt3dms") and results.get('success_modflow'):
-            print(f"\n[STEP {step_counter}] Executing: ex09_mt3dms()")
-            results = ex09_mt3dms(results)
+            print(f"\n[STEP {step_counter}] Executing: mt3dms()")
+            results = mt3dms_ex09(results)
             if results:
                 validate_results_state(results, ["model_mt3dms", "success_mt3dms"], "mt3dms")
             step_counter += 1
