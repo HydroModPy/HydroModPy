@@ -8,8 +8,18 @@ from typing import Any, Mapping, Optional, Tuple, Union
 
 import pandas as pd
 
+try:
+    from ..common.base_station import BaseStation
+except ImportError:
+    import sys
 
-class Station:
+    _manager_root = Path(__file__).resolve().parents[1]
+    if str(_manager_root) not in sys.path:
+        sys.path.insert(0, str(_manager_root))
+    from common.base_station import BaseStation
+
+
+class Station(BaseStation):
     """Single station series with station-level operations."""
 
     def __init__(
@@ -35,50 +45,16 @@ class Station:
     @staticmethod
     def infer_spatial_info(metadata: Mapping[str, Any]) -> Tuple[dict, dict]:
         """Infer station coordinates and georeferencing flags from metadata."""
-        x_wgs84 = Station._as_float_or_none(
-            metadata.get("x_wgs84", metadata.get("longitude_station", metadata.get("lon")))
-        )
-        y_wgs84 = Station._as_float_or_none(
-            metadata.get("y_wgs84", metadata.get("latitude_station", metadata.get("lat")))
-        )
-        x_l93 = Station._as_float_or_none(
-            metadata.get("x_l93", metadata.get("coordonnee_x_station"))
-        )
-        y_l93 = Station._as_float_or_none(
-            metadata.get("y_l93", metadata.get("coordonnee_y_station"))
-        )
-
-        available_crs = []
-        if x_wgs84 is not None and y_wgs84 is not None:
-            available_crs.append("EPSG:4326")
-        if x_l93 is not None and y_l93 is not None:
-            available_crs.append("EPSG:2154")
-
-        georeferencing = {
-            "is_georeferenced": bool(available_crs),
-            "available_crs": available_crs,
-            "preferred_crs": (
-                "EPSG:4326"
-                if "EPSG:4326" in available_crs
-                else "EPSG:2154" if "EPSG:2154" in available_crs else None
-            ),
-        }
-
-        station_position = {
-            "wgs84": {"x": x_wgs84, "y": y_wgs84},
-            "l93": {"x": x_l93, "y": y_l93},
-        }
-        return station_position, georeferencing
+        return BaseStation.infer_spatial_info(metadata)
 
     @staticmethod
     def _sanitize_loaded_data(df: pd.DataFrame) -> pd.DataFrame:
         """Ensure standard dtypes and required columns for loaded station data."""
-        out = df.copy()
-        if "date_obs_elab" in out.columns:
-            out["date_obs_elab"] = pd.to_datetime(out["date_obs_elab"], errors="coerce")
-        if "resultat_obs_elab" in out.columns:
-            out["resultat_obs_elab"] = pd.to_numeric(out["resultat_obs_elab"], errors="coerce")
-        return out
+        return BaseStation.sanitize_dataframe(
+            df,
+            date_columns=["date_obs_elab"],
+            numeric_columns=["resultat_obs_elab"],
+        )
 
     @staticmethod
     def filter_by_date_range(
@@ -87,17 +63,12 @@ class Station:
         date_end: Optional[datetime] = None,
     ) -> pd.DataFrame:
         """Filter station dataframe using date range when possible."""
-        if "date_obs_elab" not in df.columns:
-            return df
-
-        out = df.copy()
-        out["date_obs_elab"] = pd.to_datetime(out["date_obs_elab"], errors="coerce")
-        out = out.dropna(subset=["date_obs_elab"])
-        if date_start is not None:
-            out = out[out["date_obs_elab"] >= date_start]
-        if date_end is not None:
-            out = out[out["date_obs_elab"] <= date_end]
-        return out
+        return BaseStation.filter_by_date_range(
+            df,
+            date_column="date_obs_elab",
+            date_start=date_start,
+            date_end=date_end,
+        )
 
     @staticmethod
     def process_api_dataframe(
@@ -139,71 +110,15 @@ class Station:
         verbose: bool = True,
     ) -> dict:
         """Compute missing data summary for one station within a date range."""
-        sid = str(station_id)
-        if start_date is None or end_date is None:
-            return {
-                "station_id": sid,
-                "expected_days": 0,
-                "actual_days": 0,
-                "missing_days": 0,
-                "completeness_pct": 0.0,
-                "first_date": None,
-                "last_date": None,
-                "gaps_detected": 0,
-            }
-
-        if df.empty or "date_obs_elab" not in df.columns:
-            total_expected = (end_date - start_date).days + 1
-            return {
-                "station_id": sid,
-                "expected_days": total_expected,
-                "actual_days": 0,
-                "missing_days": total_expected,
-                "completeness_pct": 0.0,
-                "first_date": None,
-                "last_date": None,
-                "gaps_detected": 0,
-            }
-
-        work = df.copy()
-        work["date_obs_elab"] = pd.to_datetime(work["date_obs_elab"], errors="coerce")
-        work = work.dropna(subset=["date_obs_elab"])
-
-        expected_dates = pd.date_range(start=start_date, end=end_date, freq="D")
-        actual_dates = work["date_obs_elab"].dt.normalize().unique()
-        missing_dates = set(expected_dates) - set(pd.to_datetime(actual_dates))
-
-        if missing_dates:
-            missing_sorted = sorted(missing_dates)
-            gaps = 1
-            for idx in range(1, len(missing_sorted)):
-                if (missing_sorted[idx] - missing_sorted[idx - 1]).days > 1:
-                    gaps += 1
-        else:
-            gaps = 0
-
-        missing_info = {
-            "station_id": sid,
-            "expected_days": len(expected_dates),
-            "actual_days": len(actual_dates),
-            "missing_days": len(missing_dates),
-            "completeness_pct": (len(actual_dates) / len(expected_dates)) * 100 if len(expected_dates) else 0.0,
-            "first_date": work["date_obs_elab"].min() if not work.empty else None,
-            "last_date": work["date_obs_elab"].max() if not work.empty else None,
-            "gaps_detected": gaps,
-        }
-
-        if verbose:
-            if len(missing_dates) > 0:
-                print(
-                    f"  Missing data: {len(missing_dates)} days "
-                    f"({missing_info['completeness_pct']:.1f}% complete)"
-                )
-                print(f"  Gaps detected: {gaps}")
-            else:
-                print(f"  Complete data: 100% ({len(actual_dates)} days)")
-
-        return missing_info
+        return BaseStation.compute_missing_data(
+            df,
+            date_column="date_obs_elab",
+            start_date=start_date,
+            end_date=end_date,
+            id_field="station_id",
+            id_value=station_id,
+            verbose=verbose,
+        )
 
     def completeness(
         self,
@@ -249,31 +164,6 @@ class Station:
             station_id=self.station_id,
             verbose=verbose,
         )
-
-    @staticmethod
-    def _to_datetime_or_none(value: Any) -> Optional[datetime]:
-        """Convert input to datetime when possible."""
-        if value is None:
-            return None
-        if isinstance(value, datetime):
-            return value
-        parsed = pd.to_datetime(value, errors="coerce")
-        if pd.isna(parsed):
-            return None
-        return parsed.to_pydatetime() if hasattr(parsed, "to_pydatetime") else parsed
-
-    @staticmethod
-    def _as_float_or_none(value: Any) -> Optional[float]:
-        """Convert numeric-like values to float; return None when unavailable."""
-        if value is None:
-            return None
-        try:
-            parsed = pd.to_numeric(value, errors="coerce")
-        except Exception:
-            return None
-        if pd.isna(parsed):
-            return None
-        return float(parsed)
 
     def build_label(self) -> str:
         """Build display label from station id and optional station name."""

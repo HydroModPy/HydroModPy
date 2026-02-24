@@ -13,14 +13,18 @@ from typing import Dict, List, Union, Optional, Mapping, Any
 from pathlib import Path
 
 try:
+   from ..common.base_station_set import BaseStationSet
    from .station import Station
    from .loaders_api import ApiStationLoader
    from .loaders_local import LocalStationLoader
 except ImportError:
    import sys
+   _manager_root = Path(__file__).resolve().parents[1]
    _this_dir = Path(__file__).resolve().parent
-   if str(_this_dir) not in sys.path:
-       sys.path.insert(0, str(_this_dir))
+   for _path in (str(_manager_root), str(_this_dir)):
+       if _path not in sys.path:
+           sys.path.insert(0, _path)
+   from common.base_station_set import BaseStationSet
    from station import Station
    from loaders_api import ApiStationLoader
    from loaders_local import LocalStationLoader
@@ -50,7 +54,7 @@ STATUS_MESSAGES = {
 }
 
 #%% Class definition
-class StationSet:
+class StationSet(BaseStationSet):
    """Container orchestrating multi-station hydrometric series.
 
    The class centralizes:
@@ -226,12 +230,7 @@ class StationSet:
        tuple
            ``(geopandas_module, shapely.geometry.Point)``.
        """
-       try:
-           import geopandas as gpd
-           from shapely.geometry import Point
-           return gpd, Point
-       except ImportError:
-           raise ImportError("Geographic functionality requires geopandas and shapely. Install with: pip install geopandas")
+       return super()._load_geographic_libraries()
 
    def _load_raster_libraries(self):
        """Import optional raster dependencies on demand.
@@ -241,18 +240,11 @@ class StationSet:
        tuple
            ``(rasterio_module, rasterio.features.shapes, shapely.shape)``.
        """
-       try:
-           import rasterio
-           from rasterio.features import shapes
-           from shapely.geometry import shape
-           return rasterio, shapes, shape
-       except ImportError:
-           raise ImportError("Raster functionality requires rasterio. Install with: pip install rasterio")
+       return super()._load_raster_libraries()
 
    def _is_raster_file(self, file_path):
        """Return ``True`` when the mask path looks like a raster dataset."""
-       raster_extensions = {'.tif', '.tiff', '.img', '.nc', '.grd', '.asc', '.bil', '.hdr'}
-       return Path(file_path).suffix.lower() in raster_extensions
+       return super()._is_raster_file(file_path)
 
    def _get_stations_from_mask(self, mask_path):
        """Select stations located inside a mask geometry.
@@ -270,24 +262,11 @@ class StationSet:
 
    def _load_mask_geometry(self, mask_path):
        """Load mask geometry from vector or raster path in EPSG:4326."""
-       if self._is_raster_file(mask_path):
-           return self._load_mask_from_raster(mask_path)
-       return self._load_mask_from_vector(mask_path)
+       return super()._load_mask_geometry(mask_path)
 
    def _load_mask_from_vector(self, mask_path):
        """Read a vector mask and reproject it to WGS84 (EPSG:4326)."""
-       gpd, Point = self._load_geographic_libraries()
-
-       try:
-           # Load and reproject mask
-           mask_gdf = gpd.read_file(mask_path)
-           if mask_gdf.crs != 'EPSG:4326':
-               mask_gdf = mask_gdf.to_crs('EPSG:4326')
-
-           return mask_gdf
-
-       except Exception as e:
-           raise ValueError(f"Failed to load vector file {mask_path}: {e}")
+       return super()._load_mask_from_vector(mask_path)
 
    def _load_mask_from_raster(self, mask_path):
        """Convert a raster mask to polygons in WGS84 (EPSG:4326).
@@ -295,52 +274,7 @@ class StationSet:
        Non-zero and non-nodata pixels are vectorized, dissolved into one
        geometry layer, then returned as a GeoDataFrame.
        """
-       rasterio, shapes, shape = self._load_raster_libraries()
-       gpd, Point = self._load_geographic_libraries()
-
-       try:
-           # Read raster
-           with rasterio.open(mask_path) as src:
-               print(f"Raster info: {src.width}x{src.height}, CRS: {src.crs}")
-
-               # Read the data
-               data = src.read(1)  # Read first band
-               transform = src.transform
-               crs = src.crs
-
-               # Create mask for non-zero/non-null values
-               # Adjust this condition based on your raster values
-               mask = (data != 0) & (~pd.isna(data)) & (data != src.nodata)
-
-               if not mask.any():
-                   raise ValueError("No valid (non-zero) pixels found in raster")
-
-               print(f"Found {mask.sum()} valid pixels in raster")
-
-               # Convert raster to vector polygons
-               geoms = []
-               for geom, value in shapes(data, mask=mask, transform=transform):
-                   geoms.append(shape(geom))
-
-               if not geoms:
-                   raise ValueError("No geometries could be extracted from raster")
-
-               # Create GeoDataFrame
-               mask_gdf = gpd.GeoDataFrame(geometry=geoms, crs=crs)
-
-               # Reproject to WGS84 if needed
-               if mask_gdf.crs != 'EPSG:4326':
-                   mask_gdf = mask_gdf.to_crs('EPSG:4326')
-
-               # Dissolve all geometries into one
-               mask_gdf = mask_gdf.dissolve()
-
-               print(f"Created mask geometry with {len(mask_gdf)} polygon(s)")
-
-               return mask_gdf
-
-       except Exception as e:
-           raise ValueError(f"Failed to process raster file {mask_path}: {e}")
+       return super()._load_mask_from_raster(mask_path)
 
    def _filter_stations_with_geometry_api(self, mask_gdf):
        """Filter Hub'Eau stations intersecting the provided mask geometry.
@@ -552,23 +486,11 @@ class StationSet:
 
    def _apply_load_result(self, result: Any):
        """Copy normalized loader payload into instance attributes."""
-       self.stations_info = result.stations_info
-       self.sites_info = result.sites_info
-       self.metadata = result.metadata
-       self.data = result.data
-       self.missing_data_summary = result.missing_data_summary
-       self.stations = result.stations
+       super()._apply_load_result(result)
 
    def _print_load_summary(self, *, header: str, **extra_values):
        """Print a standardized loading summary block."""
-       print(f"\n=== {header} ===")
-       for key, value in extra_values.items():
-           label = key.replace("_", " ").capitalize()
-           print(f"{label}: {value}")
-       print(f"Total observations: {len(self.data)}")
-       if not self.missing_data_summary.empty and "missing_days" in self.missing_data_summary.columns:
-           total_missing = self.missing_data_summary["missing_days"].sum()
-           print(f"Total missing days across all stations: {total_missing}")
+       super()._print_load_summary(header=header, **extra_values)
 
 
    def __check_status_code(self, status_code) -> bool:
