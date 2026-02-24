@@ -55,6 +55,10 @@ from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
+
+from hydromodpy.process import Flow
+from hydromodpy.process import Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
+
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -74,6 +78,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     geographic   = Geographic(config=cfg.geographic,
                               initializing=initializing)
     
+    flow = Flow()
     
     
     setting = Settings()
@@ -87,11 +92,10 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     #%% DATA
     
     hydrography = Hydrography(out_path=initializing.catch_folder,
-                                                   types_obs=['botopage2024_naizin_streams_perennial-intermittent'],
-                                                   fields_obs=['FID'],
-                                                   geographic=geographic,
-                                                   hydro_path=data_path,
-                                                   streams_file=None)
+                              types_obs=['botopage2024_naizin_streams_perennial-intermittent'],fields_obs=['FID'],
+                              geographic=geographic,
+                              hydro_path=data_path,
+                              streams_file=None)
     
     subbasin = Subbasin(geographic=geographic,
                         hydrometry=None,
@@ -101,11 +105,11 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                         sub_snap_dist=50)
     
     geology = Geology(out_path=initializing.catch_folder,
-                            geographic=geographic,
-                            geo_path = data_path,
-                            landsea=None,
-                            types_obs='GEO1M.shp',
-                            fields_obs= 'CODE_LEG')
+                      geographic=geographic,
+                      geo_path = data_path,
+                      landsea=None,
+                      types_obs='GEO1M.shp',
+                      fields_obs= 'CODE_LEG')
     
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
                             hydrometry_path=data_path,
