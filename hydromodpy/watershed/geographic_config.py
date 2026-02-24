@@ -1,20 +1,9 @@
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
-@dataclass(frozen=True)
-class ParamLevel:
-    """
-    Metadata tag for parameter visibility level (user, dev, expert).
-
-    This class wraps a string indicating the visibility/complexity level
-    of configuration fields for auto-generating interfaces or documentation.
-    """
-
-    level: str
+from hydromodpy.config.param_level import ParamLevel
 
 
 class GeographicConfig(BaseModel):

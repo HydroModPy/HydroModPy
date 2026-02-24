@@ -92,7 +92,7 @@ class Oceanic:
         ram_path : str
             Path of the tide sea level stations data in a shapefile.
         """
-        ram_path = oceanic_path+"/RAM_2020.shp"
+        ram_path = os.path.join(oceanic_path, "RAM_2020.shp")
         if not os.path.exists(ram_path):
             ram_path = None
             return ram_path
@@ -110,7 +110,7 @@ class Oceanic:
         """
         Extract future sea level projections under different greenhouse gas emission scenarios.
         """
-        xidx, yidx = self.idx_from_global_map(oceanic_path+'/rsl_ts_26.nc',geographic)
+        xidx, yidx = self.idx_from_global_map(os.path.join(oceanic_path, 'rsl_ts_26.nc'),geographic)
         scenarios = ['RCP2.6','RCP4.5','RCP8.5']
         rsl_name = {'RCP2.6':'rsl_ts_26.nc',
                     'RCP4.5':'rsl_ts_45.nc',
@@ -118,7 +118,7 @@ class Oceanic:
         self.RSL = {}
         self.RMSL = {}
         for sce in scenarios:
-            nc = Dataset(oceanic_path+'/'+rsl_name[sce], "r", format="NETCDF4")
+            nc = Dataset(os.path.join(oceanic_path, rsl_name[sce]), "r", format="NETCDF4")
             date = np.array(nc.variables['time'][:])
             df = pd.DataFrame(date, columns=["date"])
             df.index = pd.to_datetime(df['date'],format='%Y')
@@ -192,12 +192,12 @@ class Oceanic:
             Type of plot required : 'RMSL' or 'RSL'.
         """
         values_list = ['RMSL','RSL']
-        if values not in values_list:
-            logger.error('Unsupported oceanic display value: %s', values)
         if values == 'RMSL':
             oceanic_display_data(self.RMSL, self.figure_folder+'RMSL', values)
-        if values == 'RSL':
+        elif values == 'RSL':
             oceanic_display_data(self.RSL, self.figure_folder+'RSL', values)
+        else:
+            logger.error('Unsupported oceanic display value: %s', values)
 
 #%% DISPLAY
 

@@ -117,9 +117,10 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     climatic = Climatic(out_path=initializing.catch_folder)
     
     oceanic = Oceanic()
-    #oceanic.extract_data(out_path=initializing.catch_folder,
-    #                              oceanic_path=data_path,
-    #                              geographic=geographic)
+    oceanic.extract_data(out_path=initializing.catch_folder,
+                                 geographic=geographic,
+                                 oceanic_path=data_path)
+    
     #%% WATERSHED OBJECT
     stable_folder      = cfg.initializing.stable_folder
     simulations_folder = cfg.initializing.simulations_folder

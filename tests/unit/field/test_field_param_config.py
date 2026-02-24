@@ -67,3 +67,49 @@ def test_validate_resolved_field_param_data_accepts_homogeneous_payload():
     assert payload["kind"] == "homogeneous"
     assert float(payload["value"]) == pytest.approx(3.5)
     assert "values" not in payload
+
+
+def test_load_field_param_toml_accepts_csv_values_source(tmp_path: Path):
+    path = tmp_path / "field_param_csv.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "heterogeneous"
+
+            [field_heterogeneous]
+            values_source = "csv"
+            values_csv_file = "mapping.csv"
+            csv_key_column = "zone_key"
+            csv_value_column = "value"
+            field_spatial_id = "field_geology"
+            """
+        ),
+        encoding="utf-8",
+    )
+    payload = load_field_param_toml(path)
+    hetero = payload["field_heterogeneous"]
+    assert hetero["values_source"] == "csv"
+    assert hetero["values_csv_file"] == "mapping.csv"
+    assert hetero["field_spatial_id"] == "field_geology"
+
+
+def test_load_field_param_toml_rejects_csv_source_without_file(tmp_path: Path):
+    path = tmp_path / "field_param_csv_invalid.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "heterogeneous"
+
+            [field_heterogeneous]
+            values_source = "csv"
+            field_spatial_id = "field_geology"
+            """
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="values_csv_file"):
+        _ = load_field_param_toml(path)
