@@ -154,6 +154,187 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                      
     # Add hydrological data
     
+    #%% ---- PYHELP
+    
+    pyhelp_activated = False
+    if pyhelp_activated == True:
+    
+        #%% INIT
+    
+        print("test")
+    
+        pyhelp_workdir = Path(cfg.initializing.out_dir_path) / watershed_name / "results_pyhelp"
+        pyhelp_workdir.mkdir(parents=True, exist_ok=True)
+    
+        era5_file_precip = # ton netcdf propre, mettre celui de poschqivo dqns "data"
+        era5_file_temp = # ton netcdf propre
+        era5_file_sr = # ton netcdf propre
+        
+        sim2_file_precip = # ton netcdf propre, mettre celui de poschqivo dqns "data"
+        sim2_file_temp = # ton netcdf propre
+        sim2_file_sr = # ton netcdf propre
+        
+        # Peut-être ajouter à config.toml 
+        
+        dem_path_modflow = geographic.watershed_box_buff_dem # pqth du dem modflow
+        dem_path_pyhelp = os.path.join(initializing.stable_folder, "geographic", "watershed_box_buff_dem_250.tif")
+    
+        wbt.resample(dem_path_modflow, dem_path_pyhelp, 250)
+        shapefile_path = geographic.watershed_shp
+    
+        # Ready climatic CSVs
+        ready_csvs = [
+            os.path.join(era5_folder, "precip_input_data.csv"),
+            os.path.join(era5_folder, "airtemp_input_data.csv"),
+            os.path.join(era5_folder, "solrad_input_data.csv")
+        ]
+    
+        #### If already completed grid:
+        grid_base_csv = Path(data_path, "_init_input_grid_base1", "input_grid_base1.csv")
+        
+        #%% PATH
+    
+        pyhelp_workdir = os.path.join(out_path, watershed_name, "results_pyhelp")
+        era5_folder = os.path.join(data_path)
+    
+        ### If already completed grid:
+        grid_base_csv = data_path+"/"+"_init_input_grid_base1/"+"input_grid_base1.csv"
+    
+        ready_csvs = [
+            os.path.join(era5_folder, "precip_input_data.csv"),
+            os.path.join(era5_folder, "airtemp_input_data.csv"),
+            os.path.join(era5_folder, "solrad_input_data.csv")
+        ]
+    
+        #%% RUN
+    
+        option = '3'
+    
+        k = round(k, 5)
+    
+        grid_kwargs = dict(
+                           growth_start=140,
+                           growth_end=280,
+                           wind=2.5,
+                           hum1=60, hum2=65, hum3=70, hum4=70,
+                           LAI=2.4,
+                           EZD=44.5,
+                           CN=55,
+                           nlayer=1,
+                           lay_type1=1,
+                           thick1=100,
+                           poro1=0.45,
+                           fc1=0.23,
+                           wp1=0.116,
+                           ksat1=k,
+                           dist_dr1=50,
+                           slope1=35
+                           )
+    
+        # cid                             Unique cell ID
+        # lat_dd                          Decimal degrees Latitude of the cell centroid
+        # lon_dd                          Decimal degrees Longitude of the cell centroid
+    
+        # wind            km/h            Average annual wind speed
+        # hum1            %               Average quarterly relative humidity (Jan to Mar)
+        # hum2            %               Average quarterly relative humidity (Apr to Jun)
+        # hum3            %               Average quarterly relative humidity (Jul to Sep)
+        # hum4            %               Average quarterly relative humidity (Oct to Dec)
+        # growth_start    julian day      First day of the growing season
+        # growth_end      julian day      Last day of the growing season
+        # LAI             –               Maximum leaf area index
+        # EZD             cm              Evaporative zone depth
+        # CN              –               Curve Number
+        # nlayer          –               Number of hydrostratigraphic layers at cell cid
+        # lay_type{i}     –               Type of HELP layer of the ith soil layer
+        # thick{i}        cm              Thickness of the ith soil layer
+        # poro{i}         m3/m3           Total porosity of the ith soil layer
+        # fc{i}           m3/m3           Field capacity of the ith soil layer
+        # wp{i}           m3/m3           Wilting point of the ith soil layer
+        # ksat            cm/s            Saturated hydraulic conductivity of the ith soil layer
+        # dist_dr         m               Distance to discharge
+        # slope           %               Average slope
+    
+        # run             –               Identify cells to be run with the HELP model
+        # context         –               Identify cells by context:
+        #     0 - Water cell
+        #     1 - Normal cell
+        #     2 - Stream edge with superficial hypodermic runoff
+        #     3 - River edge with deep hypodermic runoff
+        #     4 - Urban cell
+        #     5 - Cell not mapped
+    
+        sim_name = f"_sim_{k}"
+        sim_dir = pyhelp_workdir / sim_name
+        sim_dir.mkdir(parents=True, exist_ok=True)
+    
+        # if option == '1':
+    
+        #     #---- Input climatic ready - Input grid updated:
+        #     nc = preprocessing_pyhelp(
+        #         workdir = os.path.join(pyhelp_workdir, f"_sim_{k}"),
+        #         outpath = os.path.join(pyhelp_workdir, f"_sim_{k}"),
+        #         ready_csvs = ready_csvs,
+        #         grid_kwargs = grid_kwargs,
+        #         dem = dem_path_pyhelp,
+        #         shapefile = from_shp[0],
+        #     )
+        #     # print("NetCDF :", nc)
+    
+        # if option == '2':
+    
+        #     #---- Input climatic ready - Input grid ready:
+    
+        #     nc = preprocessing_pyhelp(
+        #         workdir = pyhelp_workdir,
+        #         outpath = simulations_folder,
+        #         grid_csv = grid_base_csv,
+        #         ready_csvs = ready_csvs,
+        #     )
+        #     # print("NetCDF :", nc)
+      
+        if option == '3':
+    
+            #---- Input climatic updated - Input grid updated:
+            nc = preprocessing_pyhelp(
+                workdir = pyhelp_workdir,
+                outpath = simulations_folder,
+                dem = dem_path_pyhelp,
+                era5_folder = era5_folder,
+                grid_kwargs = grid_kwargs,
+                conda_env   = "pyhelp_env",
+            )
+            # print("NetCDF :", nc)
+    
+        #%% FORMATING
+    
+        name_sim = sim_name
+    
+        csv_path = pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean.csv"
+    
+        df = pd.read_csv(csv_path)
+        df = df.rename(columns={df.columns[0]: "time"})
+        formatted_csv_path =  pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean_formatted.csv"
+        df.to_csv(formatted_csv_path, index=False)
+    
+        #%% SCALING
+    
+        nc_path  = pyhelp_workdir + '/' + name_sim + "/_pyhelp_outputs_grid.nc"
+        dem_path = stable_folder + "/geographic/watershed_box_buff_dem.tif"
+    
+        ds  = xr.open_dataset(nc_path)
+        dem = rxr.open_rasterio(dem_path)
+    
+        R = ds["rechg"]
+        R = R.rio.write_crs(dem.rio.crs)
+    
+        Rt   = R.rio.reproject_match(dem, nodata=0.0)
+        cube = Rt.values / 1000
+    
+        recharge_dict = {i: cube[i] for i in range(cube.shape[0])}
+        
+        rech_dict = "ton netcdf importe"
+    
     #%% ---- RECHARGE
 
     # Necessary to set model parameters
@@ -197,8 +378,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         ax.set_yscale('log')
         ax.set_title('Log', fontsize=8)
         ax.set_ylabel('R [mm/month]')
-
-
 
         ax = axs[2]
         ax.plot(30*R_mm_day, label='Recharge', c='dodgerblue', lw=2)
