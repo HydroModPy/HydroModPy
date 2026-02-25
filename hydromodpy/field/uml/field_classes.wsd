@@ -41,7 +41,7 @@ package "hydromodpy.field.core.field_mesh" {
 package "hydromodpy.field.core.field_spatial" {
   abstract class Field {
     +identifier: str
-    +on_mesh(mesh, **kwargs)
+    +on_mesh(mesh, cell_samples_per_axis=10)
     +from_dict(config)
     +from_toml(toml_path, section="field")
   }

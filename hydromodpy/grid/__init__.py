@@ -1,2 +1,0 @@
-from .sgrid_generation import SGrid_Generation
-from .tgrid_generation import TGrid_Generation
