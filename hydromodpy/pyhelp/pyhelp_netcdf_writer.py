@@ -93,10 +93,10 @@ def pyhelp_outputs_rasterized_netcdf(
         return None
 
     # Lire géométrie du DEM
-    dem_raster = rxr.open_rasterio(dem_fp, masked=True)
-    H, W = dem_raster.rio.height, dem_raster.rio.width
-    T = dem_raster.rio.transform()
-    crs = dem_raster.rio.crs
+    with rxr.open_rasterio(dem_fp, masked=True) as dem_raster:
+        H, W = dem_raster.rio.height, dem_raster.rio.width
+        T = dem_raster.rio.transform()
+        crs = dem_raster.rio.crs
 
     # coords points to ndarray
     xs_arr = np.asarray(xs, dtype=float)
@@ -159,6 +159,11 @@ def pyhelp_outputs_rasterized_netcdf(
     enc = {v: {"zlib": True, "complevel": compress_level} for v in ("runoff", "evapo", "rechg")}
     enc["spatial_ref"] = {"zlib": False}
     ds_grid.to_netcdf(nc_grid, format="NETCDF4", encoding=enc)
+
+    ds_grid.close()
+    del ds_grid
+    
+    
 
     logger.info("NetCDF grid export complete: %s", nc_grid)
 
