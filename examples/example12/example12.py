@@ -47,8 +47,9 @@ root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
+import hydromodpy as hmp
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
+from hydromodpy.watershed import Climatic, Driasclimat, Driaseau, \
     Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
 from hydromodpy.watershed import surfaces
@@ -77,8 +78,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     data_path = cfg.initializing.data_path
 
-    initializing = Initializing(config=cfg.initializing)
-    geographic   = Geographic(config=cfg.geographic,
+    initializing = hmp.Initializing(config=cfg.initializing)
+    geographic   = hmp.Geographic(config=cfg.geographic,
                               initializing=initializing)
 
 
