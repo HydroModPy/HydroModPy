@@ -93,6 +93,10 @@ Field parameter file (`field_param_config.toml`):
 - `[field_heterogeneous]`: `field_spatial_id` + value source:
   - inline: `values = {...}`
   - csv: `values_source = "csv"` + `values_csv_file` + CSV column names
+- optional `[field_vertical_profile]`: depth dependency shared over whole domain
+  - `mode = "none"` (default)
+  - `mode = "exponential"` + `characteristic_depth` with factor `exp(-z/characteristic_depth)`
+  - `mode = "tabulated"` + `depths` + `factors` (+ `interpolation = "linear"|"step"`)
 
 Mesh file (`mesh_config.toml`):
 - `[mesh]`: `kind`, `target_n_cells`, optional `seed`

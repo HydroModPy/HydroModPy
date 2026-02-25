@@ -30,6 +30,7 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox
 import requests
+from datetime import datetime, timedelta
 
 logger = get_logger(__name__)
 
@@ -64,7 +65,7 @@ class Oceanic:
         """
         self.MSL = value
     
-    def extract_data(self, out_path, geographic, oceanic_path=None):
+    def extract_local_data(self, out_path, geographic, oceanic_path=None):
         """
         Clip data at the model_domain (watershed) scale.
         
@@ -183,7 +184,7 @@ class Oceanic:
         yidx = find_idx[idx][1]
         return int(xidx), int(yidx)
 
-    def download_SHOM_data(self, geographic, start_date, end_date):
+    def download_SHOM_data(self, geographic, start_date, end_date, write=True):
         """
         Download sea-level data from SHOM (Service Hydrographique et Océanographique de la Marine) website
         Based on catchment centroid coordinates, the closest tide gauge station is identified and its data is downloaded.
@@ -215,20 +216,42 @@ class Oceanic:
         zh_ref = float(tide_gauge_info['verticalRef']['zh_ref']) # Vertical reference of the tide gauge station
 
         # Download sea-level data for the closest tide gauge station
+        # iterates over 31-day periods to avoid data download issues for long time series
         sources = '3' # code to get validated data
         interval = '60' # data interval in minutes
         tg_id = str(closest_tg_id)
-        dtStart = f'{start_date}T00%3A00%3A00Z'
-        dtEnd = f'{end_date}T00%3A00%3A00Z'
-        url = f'https://services.data.shom.fr/maregraphie/observation/json/{tg_id}?sources={sources}&dtStart={dtStart}&dtEnd={dtEnd}&interval={interval}'
-        tg_data = requests.get(url)
-        tg_data = tg_data.json()
-        tg_df = pd.DataFrame(tg_data['data'])[['value', 'timestamp']]
-        # Convert vertical level from hydrographic to IGN reference
+
+        start_date_temp = datetime.strptime(start_date, '%Y-%m-%d')
+        end_date_temp = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=31)
+        i=0
+        while end_date_temp < datetime.strptime(end_date, '%Y-%m-%d') or i==0:
+            if i!=0:
+                start_date_temp = end_date_temp + timedelta(days=1)
+                end_date_temp = start_date_temp + timedelta(days=31)
+            dtStart = f'{start_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
+            dtEnd = f'{end_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
+            url = f'https://services.data.shom.fr/maregraphie/observation/json/{tg_id}?sources={sources}&dtStart={dtStart}&dtEnd={dtEnd}&interval={interval}'
+            tg_data = requests.get(url)
+            tg_data = tg_data.json()
+            if i==0:
+                tg_df = pd.DataFrame(tg_data['data'])[['timestamp', 'value']]
+            else:
+                tg_df = pd.concat([tg_df, pd.DataFrame(tg_data['data'])[['timestamp', 'value']]], ignore_index=True)
+            i+=1
+               
+        # Process the downloaded data
         tg_df['value'] = pd.to_numeric(tg_df['value'], errors='coerce')
         tg_df['value'] = tg_df['value'] + zh_ref # Convert vertical level from hydrographic to IGN reference
         tg_df['timestamp'] = pd.to_datetime(tg_df['timestamp'])
+        tg_df = tg_df[tg_df['timestamp'] <= datetime.strptime(end_date, '%Y-%m-%d')] # Keep only data until the specified end date
         self.SHOM_data = tg_df
+
+        # Optionally, write the data to a CSV file
+        if write:
+            output_path = os.path.join(geographic.stable_folder, 'oceanic', f'sea-level-shom_{tg_id}_{start_date}_{end_date}.csv')
+            if not os.path.exists(os.path.dirname(output_path)):
+                os.makedirs(os.path.dirname(output_path))
+            tg_df.to_csv(output_path, index=False)
 
     def display_data(self, values):
         """
