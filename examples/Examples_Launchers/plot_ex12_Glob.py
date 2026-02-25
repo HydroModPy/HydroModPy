@@ -485,13 +485,10 @@ def plot_2d(initializing, geographic, hydrography, model_name):
 def plot_3d(initializing, geographic, hydrography, model_name):
     """Plot 3D visualization - EXACT from example12.py"""
     try:
-        # Check if VTU files exist before attempting visualization
-        vtu_dir = os.path.join(str(initializing.simulation_folder), '_postprocess', '_vtuvtk')
-        if not os.path.exists(vtu_dir) or not os.path.exists(os.path.join(vtu_dir, 'grid.vtu')):
-            print(f"  ⚠ Warning: VTU files not found in {vtu_dir}, skipping 3D visualization")
-            return
-
+        # Create VTU files first (they will be generated if not present)
         export_vtuvtk.VTK(initializing, geographic, hydrography, model_name)
+
+        # Then create visualization object and display
         visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
         visu.visual3D(interactive=True, object_list=[
             'grid',
