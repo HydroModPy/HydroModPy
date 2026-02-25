@@ -45,6 +45,8 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for older Python
 
 
 SUPPORTED_KINDS = ("homogeneous", "heterogeneous")
+SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
+SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
 
 
 def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
@@ -165,6 +167,12 @@ class FieldParam:
     field_spatial_id : str | None
         Identifier of the geometry field this heterogeneous parameter set must
         be mapped on (example: "field_square").
+    vertical_profile : mapping | None
+        Optional depth dependency shared across the full domain.
+        Values defined in `value`/`values_by_key` are interpreted at surface
+        (depth = 0). The vertical profile provides a multiplicative factor:
+
+        `value(x, y, z) = value_surface(x, y) * f(z)`
 
     Examples
     --------
@@ -193,6 +201,7 @@ class FieldParam:
         value: float | None = None,
         values_by_key: Mapping[str, float] | None = None,
         field_spatial_id: str | None = None,
+        vertical_profile: Mapping[str, Any] | None = None,
     ):
         ident = str(identifier).strip()
         if ident == "":
@@ -214,6 +223,7 @@ class FieldParam:
             self.value = float(value)
             self.values_by_key = None
             self.field_spatial_id = None
+            self.vertical_profile = self._normalize_vertical_profile(vertical_profile)
             return
 
         # Heterogeneous case: dictionary key -> value is required.
@@ -227,6 +237,7 @@ class FieldParam:
         self.value = None
         self.values_by_key = values
         self.field_spatial_id = str(field_spatial_id).strip()
+        self.vertical_profile = self._normalize_vertical_profile(vertical_profile)
 
     @property
     def is_homogeneous(self):
@@ -236,6 +247,142 @@ class FieldParam:
     def is_heterogeneous(self):
         return self.kind == "heterogeneous"
 
+    @property
+    def has_vertical_variation(self):
+        return str(self.vertical_profile.get("mode", "none")) != "none"
+
+    @staticmethod
+    def _normalize_vertical_profile(vertical_profile: Mapping[str, Any] | None) -> dict[str, Any]:
+        if vertical_profile is None:
+            return {"mode": "none"}
+        if not isinstance(vertical_profile, Mapping):
+            raise TypeError("vertical_profile must be a mapping when provided")
+
+        mode = str(vertical_profile.get("mode", "none")).strip().lower()
+        if mode not in SUPPORTED_VERTICAL_PROFILE_MODES:
+            allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_MODES)
+            raise ValueError(f"Unsupported vertical profile mode '{mode}'. Allowed: {allowed}")
+
+        if mode == "none":
+            return {"mode": "none"}
+
+        if mode == "exponential":
+            if "characteristic_depth" not in vertical_profile:
+                raise KeyError(
+                    "vertical_profile mode='exponential' requires 'characteristic_depth'"
+                )
+            characteristic_depth = float(vertical_profile["characteristic_depth"])
+            if not np.isfinite(characteristic_depth) or characteristic_depth <= 0.0:
+                raise ValueError("vertical_profile.characteristic_depth must be > 0")
+            return {
+                "mode": "exponential",
+                "characteristic_depth": characteristic_depth,
+            }
+
+        if mode == "tabulated":
+            if "depths" not in vertical_profile:
+                raise KeyError("vertical_profile mode='tabulated' requires 'depths'")
+            if "factors" not in vertical_profile:
+                raise KeyError("vertical_profile mode='tabulated' requires 'factors'")
+
+            depths = np.asarray(vertical_profile["depths"], dtype=float).reshape(-1)
+            factors = np.asarray(vertical_profile["factors"], dtype=float).reshape(-1)
+            if depths.size == 0 or factors.size == 0:
+                raise ValueError("vertical_profile tabulated depths/factors cannot be empty")
+            if depths.size != factors.size:
+                raise ValueError(
+                    "vertical_profile tabulated depths/factors must have the same length"
+                )
+            if np.any(~np.isfinite(depths)) or np.any(~np.isfinite(factors)):
+                raise ValueError("vertical_profile tabulated depths/factors must be finite")
+            if np.any(depths < 0.0):
+                raise ValueError("vertical_profile depths must be >= 0")
+            if np.any(np.diff(depths) <= 0.0):
+                raise ValueError("vertical_profile depths must be strictly increasing")
+            if not np.isclose(float(depths[0]), 0.0):
+                raise ValueError("vertical_profile tabulated first depth must be 0.0")
+            if not np.isclose(float(factors[0]), 1.0):
+                raise ValueError("vertical_profile tabulated factor at depth 0.0 must be 1.0")
+
+            interpolation = str(vertical_profile.get("interpolation", "linear")).strip().lower()
+            if interpolation not in SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS:
+                allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS)
+                raise ValueError(
+                    "Unsupported vertical_profile interpolation "
+                    f"'{interpolation}'. Allowed: {allowed}"
+                )
+
+            return {
+                "mode": "tabulated",
+                "depths": depths.tolist(),
+                "factors": factors.tolist(),
+                "interpolation": interpolation,
+            }
+
+        raise ValueError(f"Unsupported vertical profile mode '{mode}'")
+
+    @staticmethod
+    def _normalize_depth(depth):
+        depth_arr = np.asarray(0.0 if depth is None else depth, dtype=float)
+        if np.any(~np.isfinite(depth_arr)):
+            raise ValueError("depth must contain only finite numeric values")
+        if np.any(depth_arr < 0.0):
+            raise ValueError("depth values must be >= 0 (0 at surface, positive downward)")
+        return depth_arr
+
+    def vertical_factor(self, depth=0.0):
+        depth_arr = self._normalize_depth(depth)
+        mode = str(self.vertical_profile.get("mode", "none"))
+
+        if mode == "none":
+            out = np.ones_like(depth_arr, dtype=float)
+        elif mode == "exponential":
+            characteristic_depth = float(self.vertical_profile["characteristic_depth"])
+            out = np.exp(-depth_arr / characteristic_depth)
+        elif mode == "tabulated":
+            depths = np.asarray(self.vertical_profile["depths"], dtype=float)
+            factors = np.asarray(self.vertical_profile["factors"], dtype=float)
+            interpolation = str(self.vertical_profile.get("interpolation", "linear"))
+            if interpolation == "linear":
+                out = np.interp(
+                    depth_arr,
+                    depths,
+                    factors,
+                    left=float(factors[0]),
+                    right=float(factors[-1]),
+                )
+            else:
+                indices = np.searchsorted(depths, depth_arr, side="right") - 1
+                indices = np.clip(indices, 0, depths.size - 1)
+                out = factors[indices]
+        else:  # pragma: no cover - protected by validation in constructor
+            raise ValueError(f"Unsupported vertical profile mode '{mode}'")
+
+        if np.ndim(depth_arr) == 0:
+            return float(np.asarray(out, dtype=float))
+        return np.asarray(out, dtype=float)
+
+    def _apply_vertical_profile(self, surface_values, *, depth=0.0):
+        factor = self.vertical_factor(depth)
+        if np.ndim(factor) == 0:
+            scalar_factor = float(factor)
+            values_arr = np.asarray(surface_values, dtype=float)
+            if values_arr.ndim == 0:
+                return float(values_arr) * scalar_factor
+            return values_arr * scalar_factor
+        try:
+            return np.asarray(surface_values, dtype=float) * np.asarray(factor, dtype=float)
+        except ValueError as exc:
+            raise ValueError(
+                "Depth shape is not broadcastable with surface values shape"
+            ) from exc
+
+    def _mesh_vertical_factor(self, mesh, *, depth=0.0):
+        factor = self.vertical_factor(depth)
+        if np.ndim(factor) == 0:
+            return float(factor)
+        return np.asarray(mesh.to_cell_values(factor), dtype=float)
+
     def to_array(
         self,
         *,
@@ -244,6 +391,7 @@ class FieldParam:
         y=None,
         zone_ids=None,
         zone_field=None,
+        depth=0.0,
     ):
         """
         Materialize field values as a numeric array.
@@ -257,6 +405,7 @@ class FieldParam:
         For heterogeneous fields:
         - requires `zone_ids`,
         - maps each zone id to its configured value.
+        - optional `depth` applies vertical profile factors.
 
         Practical rule
         --------------
@@ -272,15 +421,18 @@ class FieldParam:
                 y_arr = np.asarray(y, dtype=float)
                 if x_arr.shape != y_arr.shape:
                     raise ValueError("x and y must have the same shape")
-                return np.full(x_arr.shape, float(self.value), dtype=float)
+                surface_values = np.full(x_arr.shape, float(self.value), dtype=float)
+                return self._apply_vertical_profile(surface_values, depth=depth)
             if zone_ids is not None:
                 zone_arr = np.asarray(zone_ids)
-                return np.full(zone_arr.shape, float(self.value), dtype=float)
+                surface_values = np.full(zone_arr.shape, float(self.value), dtype=float)
+                return self._apply_vertical_profile(surface_values, depth=depth)
             if shape is not None:
                 shape_tuple = tuple(int(v) for v in shape)
-                return np.full(shape_tuple, float(self.value), dtype=float)
+                surface_values = np.full(shape_tuple, float(self.value), dtype=float)
+                return self._apply_vertical_profile(surface_values, depth=depth)
             # No shape requested: return scalar.
-            return float(self.value)
+            return self._apply_vertical_profile(float(self.value), depth=depth)
 
         # Heterogeneous values are mapped independently from geometry.
         if zone_field is not None:
@@ -289,7 +441,8 @@ class FieldParam:
             zone_ids = zone_field.cell_values
         if zone_ids is None:
             raise ValueError("Heterogeneous field requires 'zone_ids'")
-        return self.map_zone_ids(zone_ids)
+        surface_values = self.map_zone_ids(zone_ids)
+        return self._apply_vertical_profile(surface_values, depth=depth)
 
     def to_mesh_field(
         self,
@@ -297,6 +450,7 @@ class FieldParam:
         *,
         mesh=None,
         label: str | None = None,
+        depth=0.0,
     ):
         """
         Convert parameter values into one value per mesh cell.
@@ -311,6 +465,9 @@ class FieldParam:
             `field_discretization` is provided.
         label : str | None
             Optional label for the returned value field.
+        depth :
+            Depth coordinate(s) where values are materialized.
+            `0` corresponds to surface and positive values go downward.
         """
         if self.is_homogeneous:
             # Homogeneous mode does not require any spatial field split:
@@ -324,6 +481,9 @@ class FieldParam:
                     "(or a field_discretization exposing '.mesh')"
                 )
             values = np.full(int(target_mesh.n_cells), float(self.value), dtype=float)
+            values = np.asarray(target_mesh.to_cell_values(values), dtype=float)
+            vertical_factor = self._mesh_vertical_factor(target_mesh, depth=depth)
+            values = values * vertical_factor
             return target_mesh.attach_cell_values(
                 values,
                 label=label if label is not None else "homogeneous_value",
@@ -368,6 +528,8 @@ class FieldParam:
             raise ValueError("Discretization did not produce any weighted contribution")
 
         values = np.asarray(mesh.to_cell_values(weighted), dtype=float)
+        vertical_factor = self._mesh_vertical_factor(mesh, depth=depth)
+        values = values * vertical_factor
         return mesh.attach_cell_values(
             values,
             label=label if label is not None else "heterogeneous_values",
@@ -435,6 +597,8 @@ class FieldParam:
                 "values": dict(self.values_by_key),
                 "field_spatial_id": str(self.field_spatial_id),
             }
+        if self.has_vertical_variation:
+            payload["vertical_profile"] = dict(self.vertical_profile)
         return payload
 
     @classmethod
@@ -451,6 +615,7 @@ class FieldParam:
         - `kind` or `mode` for field mode,
         - `values` or `values_by_key` for heterogeneous values.
         - `field_spatial_id` for the target spatial field identifier.
+        - `vertical_profile` for depth-dependent global factor.
         """
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping")
@@ -463,6 +628,10 @@ class FieldParam:
         if kind is None:
             raise KeyError("Missing required key 'kind' (or alias 'mode')")
         kind_key = str(kind).strip().lower()
+        vertical_profile = config.get(
+            "vertical_profile",
+            config.get("field_vertical_profile"),
+        )
 
         if kind_key == "homogeneous":
             if "value" not in config:
@@ -471,6 +640,7 @@ class FieldParam:
                 identifier=str(identifier),
                 kind=kind_key,
                 value=float(config["value"]),
+                vertical_profile=vertical_profile,
             )
 
         values_cfg = config.get("values", config.get("values_by_key"))
@@ -483,6 +653,7 @@ class FieldParam:
             kind=kind_key,
             values_by_key=values_cfg,
             field_spatial_id=str(config["field_spatial_id"]),
+            vertical_profile=vertical_profile,
         )
 
     @classmethod
@@ -516,6 +687,10 @@ class FieldParam:
             [field_heterogeneous]
             values = { granite = 10.0, micaschists = 2.0 }
             field_spatial_id = "field_square"
+
+            [field_vertical_profile]
+            mode = "exponential"
+            characteristic_depth = 30.0
 
         Heterogeneous values from CSV (for long geology-property tables):
             [field]
@@ -600,6 +775,26 @@ class FieldParam:
                         if specific_cfg is not None:
                             merged.update(dict(specific_cfg))
                             break
+
+        # Optional vertical profile section:
+        # - root: [field_vertical_profile] or [vertical_profile],
+        # - parent-scoped for dotted sections.
+        if leaf not in ("field_vertical_profile", "vertical_profile"):
+            candidate_sections: list[str] = []
+            if "." in section_key:
+                parent = section_key.rsplit(".", 1)[0]
+                candidate_sections.extend(
+                    [
+                        f"{parent}.field_vertical_profile",
+                        f"{parent}.vertical_profile",
+                    ]
+                )
+            candidate_sections.extend(("field_vertical_profile", "vertical_profile"))
+            for candidate in candidate_sections:
+                vertical_cfg = _optional_nested_section(payload, candidate)
+                if vertical_cfg is not None:
+                    merged["vertical_profile"] = dict(vertical_cfg)
+                    break
 
         # Resolve heterogeneous values source:
         # - inline: keep dictionary defined in TOML,

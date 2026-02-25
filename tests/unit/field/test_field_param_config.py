@@ -113,3 +113,65 @@ def test_load_field_param_toml_rejects_csv_source_without_file(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="values_csv_file"):
         _ = load_field_param_toml(path)
+
+
+def test_load_field_param_toml_accepts_vertical_profile_exponential(tmp_path: Path):
+    path = tmp_path / "field_param_vertical_exp.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "homogeneous"
+            value = 10.0
+
+            [field_vertical_profile]
+            mode = "exponential"
+            characteristic_depth = 30.0
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    payload = load_field_param_toml(path)
+    vertical = payload["field_vertical_profile"]
+    assert vertical["mode"] == "exponential"
+    assert float(vertical["characteristic_depth"]) == pytest.approx(30.0)
+
+
+def test_load_field_param_toml_rejects_vertical_profile_exponential_without_depth(tmp_path: Path):
+    path = tmp_path / "field_param_vertical_exp_invalid.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "homogeneous"
+            value = 10.0
+
+            [field_vertical_profile]
+            mode = "exponential"
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="characteristic_depth"):
+        _ = load_field_param_toml(path)
+
+
+def test_validate_resolved_field_param_data_accepts_vertical_profile_alias():
+    payload = validate_resolved_field_param_data(
+        {
+            "id": "K",
+            "kind": "homogeneous",
+            "value": 3.5,
+            "field_vertical_profile": {
+                "mode": "exponential",
+                "characteristic_depth": 50.0,
+            },
+        }
+    )
+
+    assert payload["vertical_profile"]["mode"] == "exponential"
+    assert float(payload["vertical_profile"]["characteristic_depth"]) == pytest.approx(50.0)
