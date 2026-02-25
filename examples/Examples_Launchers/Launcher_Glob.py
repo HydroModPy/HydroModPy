@@ -93,15 +93,18 @@ CONFIG_OPTIONS = {
             "recharge": True,
             "parametrization": True,
             "modeling": True,
-            "plot": False,  # No specific plotting for ex03 yet
-            "matching_streams": True,
+            "plot": False,
+            "plot_cross_section": True,
+            "plot_map": True,
+            "plot_graph": True,
+            "matching_streams": False,
             "modpath": True,
             "mt3dms": False
         },
         "plots": {
-            "plot_2d": False,
-            "plot_3d": False,
-            "web_animation": False
+            "plot_cross_section": True,
+            "plot_map": True,
+            "plot_graph": True
         }
     },
     "ex09": {
@@ -151,6 +154,28 @@ CONFIG_OPTIONS = {
             "plot_2d": True,
             "plot_3d": True,
             "web_animation": True
+        }
+    },
+    "ex00": {
+        "example": "ex00",
+        "display_figures": False,
+        "sections": {
+            "watershed": True,
+            "data": True,
+            "recharge": True,
+            "parametrization": True,
+            "modeling": True,
+            "plot": False,
+            "plot_cross_section": False,
+            "plot_map": False,
+            "plot_graph": False,
+            "modpath": True,
+            "mt3dms": False
+        },
+        "plots": {
+            "plot_cross_section": False,
+            "plot_map": False,
+            "plot_graph": False
         }
     }
 }
@@ -347,37 +372,71 @@ PARAMS = {
             "figsize_piezometry": (12, 3.5),
             "figsize_cross_section": (6, 4),
             "figsize_pathlines": (8, 6),
+        }
         },
+
+    "ex00": {
+        "base_path": "examples/00S_short",
+        "dem_filename": "regional dem.tif",
+        "dem_coordinates": [150727.164, 6858066.520, 100, 10, 'EPSG:2154'],
+        "watershed_name": "00S_short",
+        "recharge_first_year": 2017,
+        "recharge_last_year": 2017,
+        "recharge_time_step": "D",
+        # Frame settings
+        "box": True,
+        "sink_fill": False,
+        "sim_state": "transient",
+        "dis_perlen": True,  # Auto-calculated from monthly stress periods
+        # Check model
+        "plot_cross": True,
+        "check_grid": True,
+        # Hydraulic parameters
+        "verti_hk": None,
+        "verti_sy": None,
+        "verti_ss": None,
+        "sy": 1 / 100,
+        "sy_decay": 0,
+        "ss": 1e-5,
+        "ss_decay": 0,
+        "vka": 1,
+        "bottom": None,
+        "thickness": 50,
+        "cond_drain": None,
+        "bc_left": None,
+        "bc_right": None,
+        "sea_level": "None",
+        "nlay": 1,
+        "lay_decay": 1,
+        # Complex K/Sy parameters (for potential use)
+        "alpha": 15,
+        "n_factor": 2,
+        "the_K0": 1e-5,  # in m/s (from example_00.py: 1e-5 m/s = 0.864 m/d)
+        "Kmin_for_hk_decay": 1e-8 * 24 * 3600,
+        "the_sy0": 2 / 100,
+        "Symin_for_sy_decay": 0.1 / 100,
+        "the_ss0": 1e-10,
+        "Klog_transf": False,
+        "vers": "TRANS1",
+        # Recharge data
+        "recharge_monthly": [10, 60, 40, 20, 10, 5, 4, 20, 10, 1, 0, 0],  # mm/month for 2017
+        # Well pumping settings
+        "well_1_coords": [0, 8, 28],  # [layer-1, row-1, col-1]
+        "well_2_coords": [0, 16, 28],  # [layer-1, row-1, col-1]
+        "well_1_fluxes": [-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # [L3/T] for 12 stress periods
+        "well_2_fluxes": [-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0],  # [L3/T] for 12 stress periods
+        # Plotting parameters
+        "plot_params": {
+            "factor": 30,
+            "n_subplots": 2,
+            "figsize_recharge": (8, 5),
+            "figsize_streamflow": (12, 3.5),
+            "figsize_piezometry": (12, 3.5),
+            "figsize_cross_section": (6, 4),
+            "figsize_pathlines": (8, 6),
+        }
     }
 }
-
-
-# ============================================================================
-# DATA CONFIGS - EXAMPLE 12
-# ============================================================================
-
-"""DATA_CONFIGS = {
-    "ex12": {
-        "modules": [
-            {"name": "geology", "method": "add_geology",
-             "args": [('types_obs', 'GEO1M.shp'), ('fields_obs', 'CODE_LEG')]},
-            {"name": "hydrography", "method": "add_hydrography",
-             "args": [('types_obs', ['regional stream network']), ('fields_obs', ['FID'])]},
-            {"name": "hydrometry", "method": "add_hydrometry",
-             "args": [('file_name', 'france hydrometric stations.shp')]},
-            {"name": "intermittency", "method": "add_intermittency",
-             "args": [('file_name', 'regional onde stations.shp')]},
-        ],
-        "visualizations": [
-            {"name": "local", "method": "watershed_local",
-             "dem_param": True, "extended": False},
-            {"name": "dem", "method": "watershed_dem",
-             "dem_param": False, "extended": True}
-        ],
-        "dem_filename": PARAMS["ex12"]["dem_filename"]
-    }
-}"""
-
 
 # ============================================================================
 # DATA MODULES - EXAMPLE 12 (Approach 4: Pure Configuration)
@@ -513,6 +572,19 @@ DATA_MODULES = {
                 "geographic": ("geographic", True)
             }
         }
+    },
+    "ex00": {
+        "hydrography": {
+            "class_name": "Hydrography",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "types_obs": (["regional stream network"], False),
+                "fields_obs": (["FID"], False),
+                "geographic": ("geographic", True),
+                "hydro_path": ("data_path", True),
+                "streams_file": (None, False)
+            }
+        }
     }
 }
 
@@ -536,7 +608,7 @@ PARAM_CONFIG = {
         },
         "particle_tracking": False
     },
-       "ex09": {
+    "ex09": {
         "check_model": {"plot_cross": False, "check_grid": False},
         "climatic": {
             "recharge_from_results": True,  # Utilise results['R_mm_day']
@@ -564,6 +636,18 @@ PARAM_CONFIG = {
             "decay_config": False
         },
         "particle_tracking": True
+    },
+    "ex00": {
+        "check_model": {"plot_cross": False, "check_grid": False},
+        "climatic": {
+            "recharge_from_params": True,
+            "runoff": None
+        },
+        "hydraulic_specific": {
+            "update_sy_simple": True,
+            "decay_config": False
+        },
+        "particle_tracking": False
     }
 }
 
@@ -659,6 +743,40 @@ MODELING_CONFIG = {
             "subbasin_results": True
         },
         "postprocessing_netcdf": True
+    },
+    "ex00": {
+        "type": "single",
+        "preprocessing": {"for_calib": False},
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+            "link_mt3dms": False
+        },
+        "postprocessing_modflow": {
+            "watertable_elevation": True,
+            "watertable_depth": True,
+            "seepage_areas": True,
+            "outflow_drain": True,
+            "groundwater_flux": True,
+            "groundwater_storage": True,
+            "accumulation_flux": True,
+            "persistency_index": True,
+            "intermittency_monthly": True,
+            "intermittency_weekly": False,
+            "intermittency_daily": False,
+            "export_all_tif": True
+        },
+        "postprocessing_timeseries": {
+            "datetime_format": False,
+            "subbasin_results": False
+        },
+        "postprocessing_netcdf": {
+            "datetime_format": False
+        },
+        "check_model": {
+            "plot_cross": True,
+            "check_grid": True
+        }
     }
 
 }
@@ -756,6 +874,36 @@ MODPATH_CONFIG = {
             "filt_seep": True,
             "filt_inout": True,
             "calc_rtd": False,
+            "random_id": None,
+        }
+    },
+    "ex00": {
+        "preprocessing": {
+            "zone_partic": "seepage_areas",
+            "cell_div": 1,
+            "zloc_div": False,
+            "bore_depth": None,
+            "track_dir": "backward",
+            "sel_random": None,
+            "sel_slice": None,
+        },
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+        },
+        "post_processing": {
+            "ending_point": True,
+            "starting_point": True,
+            "pathlines_shp": True,
+            "particles_shp": False,
+            "random_id": None,
+        },
+        "filt_processing": {
+            "norm_flux": True,
+            "filt_time": True,
+            "filt_seep": True,
+            "filt_inout": True,
+            "calc_rtd": True,
             "random_id": None,
         }
     }
@@ -1105,6 +1253,23 @@ def recharge(results):
             climatic_object = Climatic(out_path=initializing_object.catch_folder)
             results['climatic'] = climatic_object
 
+        # FOR EX00: Create recharge manually from monthly data (like example_00.py)
+        if example_key == "ex00":
+            print("Creating recharge series from monthly data (ex00)...")
+            time_index = pd.date_range(start='2017-01-01', end='2017-12-31', freq='ME')
+            rch_series = pd.Series(p.get("recharge_monthly", [0]*12)) / 1000 / 30  # mm/month to m/day
+            recharge = pd.Series(rch_series.values, index=time_index)
+            climatic_object.update_recharge(recharge, sim_state=p["sim_state"])
+            climatic_object.update_runoff(None, sim_state=p["sim_state"])
+            climatic_object.update_first_clim('mean')
+
+            results['R_mm_day'] = climatic_object.recharge
+            results['runoff'] = climatic_object.runoff
+            results['climatic'] = climatic_object
+            print("Recharge and runoff created\n")
+            return results
+
+        # FOR OTHER EXAMPLES: Read from REANALYSIS file
         print("Update recharge (REANALYSIS)...")
         climatic_object.update_recharge_reanalysis(
             path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
@@ -1242,7 +1407,12 @@ def parametrization(results):
         print("    • Climatic...")
         climatic_object.update_first_clim('mean')
 
-        if config["climatic"].get("recharge_from_results"):
+        # Handle recharge based on example type
+        if example_key == "ex00":
+            # ex00: recharge already created in recharge() function, skip here
+            pass
+
+        elif config["climatic"].get("recharge_from_results"):
             R_mm_day = results.get('R_mm_day')
             if R_mm_day is not None:
                 recharge = R_mm_day[:] / 1000
@@ -1963,10 +2133,89 @@ WORKFLOW_DEFINITION = {
         },
         {
             "step": 7,
-            "section": "plot",
-            "function": "plot.py functions: plot_watertable, plot_groundwater_flux, plot_accumulation, plot_streamflow, plot_pathlines",
-            "requires": ["model_name", "success_modflow"],
-            "provides": ["visualizations"]
+            "section": "plot_cross_section",
+            "function": "plot_cross_section_ex03()",
+            "requires": ["geographic", "list_model_modflow"],
+            "provides": ["cross_section_plots"]
+        },
+        {
+            "step": 8,
+            "section": "plot_map",
+            "function": "plot_map_ex03()",
+            "requires": ["geographic", "list_model_modflow"],
+            "provides": ["map_plots"]
+        },
+        {
+            "step": 9,
+            "section": "plot_graph",
+            "function": "plot_graph_ex03()",
+            "requires": ["list_model_modflow"],
+            "provides": ["graph_plots"]
+        }
+    ],
+    "ex00": [
+        {
+            "step": 1,
+            "section": "watershed",
+            "function": "watershed()",
+            "requires": [],
+            "provides": ["stable_folder", "simulations_folder", "data_path"]
+        },
+        {
+            "step": 2,
+            "section": "data",
+            "function": "data()",
+            "requires": [],
+            "provides": list(DATA_MODULES["ex00"].keys())
+        },
+        {
+            "step": 3,
+            "section": "recharge",
+            "function": "recharge()",
+            "requires": ["data_path"],
+            "provides": ["climatic", "recharge_data", "runoff_data"]
+        },
+        {
+            "step": 4,
+            "section": "parametrization",
+            "function": "parametrization()",
+            "requires": ["climatic"],
+            "provides": ["settings", "hydraulic_params"]
+        },
+        {
+            "step": 5,
+            "section": "modeling",
+            "function": "modeling()",
+            "requires": ["settings", "hydraulic_params"],
+            "provides": ["model_name", "success_modflow", "model_modflow"]
+        },
+        {
+            "step": 6,
+            "section": "modpath",
+            "function": "modpath_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
+            "provides": ["model_modpath", "success_modpath"]
+        },
+        {
+            "step": 7,
+            "section": "plot_cross_section",
+            "function": "plot_cross_section_ex03()",
+            "requires": ["geographic", "model_modflow"],
+            "provides": ["cross_section_plots"]
+        },
+        {
+            "step": 8,
+            "section": "plot_map",
+            "function": "plot_map_ex03()",
+            "requires": ["geographic", "model_modflow"],
+            "provides": ["map_plots"]
+        },
+        {
+            "step": 9,
+            "section": "plot_graph",
+            "function": "plot_graph_ex03()",
+            "requires": ["model_modflow"],
+            "provides": ["graph_plots"]
         }
     ]
 }
@@ -2043,6 +2292,9 @@ def trace_workflow_execution(sections):
 # FUNCTION MAPPING FOR WORKFLOW
 # ============================================================================
 # Maps workflow section names to their corresponding functions
+# Import plot_ex03 functions
+from plot_ex03 import plot_cross_section_ex03, plot_map_ex03, plot_graph_ex03
+
 FUNCTION_MAPPING = {
     "watershed": watershed,
     "data": data,
@@ -2052,6 +2304,9 @@ FUNCTION_MAPPING = {
     "matching_streams": ex12_matching_streams,
     "modpath": modpath_ex12,
     "mt3dms": mt3dms_ex12,
+    "plot_cross_section": plot_cross_section_ex03,
+    "plot_map": plot_map_ex03,
+    "plot_graph": plot_graph_ex03,
 }
 
 # ============================================================================
@@ -2131,11 +2386,12 @@ def main():
         results = ex12_postprocessing_timeseries_complete(results)
         step_counter += 1
 
-    # STEP 10: Plotting - Call plot.py functions based on config
+    # STEP 10: Plotting - EX12/EX09 only (use monolithic plot_ex12 module)
     plots_config = CONFIG.get("plots", {})
-    print(f"\n[DEBUG] results={results is not None}, sections.get('plot')={sections.get('plot')}, any(plots_config)={any(plots_config.values())}")
-    print(f"[DEBUG] success_modflow={results.get('success_modflow') if results else 'N/A'}")
-    if results and sections.get("plot") and any(plots_config.values()):
+    example_key = results.get('example_key', CONFIG["example"]) if results else CONFIG["example"]
+
+    # Only use monolithic plot block for ex12 and ex09
+    if example_key in ["ex12", "ex09"] and results and sections.get("plot") and any(plots_config.values()):
         print(f"\n[STEP {step_counter}] Executing: Plots")
         print("\n" + "="*70)
         print("EXAMPLE 12 - PLOTTING".center(70))
