@@ -154,6 +154,21 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     # Add hydrological data
     
+    #%% ---- ATMOSPHERE
+    
+    # Necessary to set model parameters
+
+    climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
+                                           nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+                                           first_year=2003,
+                                           last_year=2003,
+                                           time_step='ME',
+                                           sim_state='transient',
+                                           spatial_mean=True,
+                                           geographic=geographic,
+                                           disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
+                                                                    # can be a shapefile path or a flag: 'watershed' or False
+    
     #%% ---- PYHELP
     
     pyhelp_activated = False
@@ -339,7 +354,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     # Necessary to set model parameters
 
-    climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'etp', 'runoff', 'recharge'],
+    climatic.update_sim2_reanalysis(var_list=['runoff', 'recharge'],
                                            nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
                                            first_year=2003,
                                            last_year=2003,
@@ -351,9 +366,9 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                                                     # can be a shapefile path or a flag: 'watershed' or False
 
     # # # # Units
-    climatic.t = climatic.t / 1000 # from mm to m
-    climatic.precip = climatic.precip / 1000 # from mm to m
-    climatic.etp = climatic.etp / 1000 # from mm to m
+    # climatic.t = climatic.t / 1000 # from mm to m
+    # climatic.precip = climatic.precip / 1000 # from mm to m
+    # climatic.etp = climatic.etp / 1000 # from mm to m
     climatic.runoff = climatic.runoff / 1000 # from mm to m
     climatic.recharge = climatic.recharge / 1000 # from mm to m
 
