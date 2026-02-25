@@ -629,7 +629,90 @@ def hydrological_mean(data, accuracy=15):
 
     return avg
 
+#%% CREATE RECHARGE METHODS 
 
+def update_recharge_synthetic(self, rech, shape, years, start_date="2020-08",
+                                time_step=None, dis='normal'):
+    """
+    Create synthetic recharge values from mathematical function.
+
+    Parameters
+    ----------
+    rech : float
+        Total annual recharge requested by the user.
+    shape : float
+        Value to build the mathematical function.
+    years : float
+        Number of years to generate.
+    start_date : str
+        Year and month for the beginning. The default is "2020-08".
+    freq : str
+        Inform the time step requested ('D','M','Y'). The default is None.
+    dis : str
+        Distribution of the mathematical function. The default is 'normal'.
+    """
+    self.freq = time_step
+    days = years*365
+    date = pd.date_range(start_date, periods=days)
+    t = np.linspace(1,365,365)
+    time = []
+    for y in range(0,years):
+        time = np.concatenate((time,t))
+    mean = 180
+    if dis == 'inverse-gaussian':
+        pdf = (((mean*shape)/(2*np.pi*time**3))**0.5*np.exp(-(shape*(time-mean)**2)/(2*mean*time)))*rech
+    if dis == 'normal':
+        pdf = ((1/(shape*np.sqrt(2*np.pi)))*np.exp(-((time-mean)**2/(2*shape**2))))*rech
+    if dis == 'uniform':
+        pdf = np.zeros(len(time))
+        pdf[(time >= (mean-(shape/2))) & (time < ((shape/2)+mean))] = rech/shape
+    self.recharge = pd.Series(data = pdf, index=date)
+    if self.freq != None:
+        self.recharge = self.recharge.resample(self.freq).mean()
+
+def update_recharge_sinusoid(self, serie, period, amplitude, offset, omega, phase):
+    """
+    Create synthetic recharge values from sinusoidal function.
+
+    Parameters
+    ----------
+    serie
+        Pandas series of the initial recharge values.
+    period : str
+        Inform the time step requested ('D','M').
+    amplitude : float
+        Control the mxaimal value of the sinusoidal function.
+    offset : float
+        Control the vertical shift of the sinusoidal function.
+    omega : float
+        Control the number of cycles of the sinusoidal function.
+    phase : TYPE
+        Control the horizontal shift of the sinusoidal function.
+    """
+    def sinusoid(x, A , offset, omega, phase):
+        return A*np.sin(omega*x+phase) + offset
+    def get_p0(Y, T):
+        A0 = (max(Y[0:T]) - min(Y[0:T]))/2
+        offset0 = Y[0]
+        phase0 = 0
+        omega0 = 2.*np.pi/T
+        return [A0, offset0, omega0, phase0]
+    if period=='D':
+        T=365
+    if period=='M':
+        T=12
+    date = serie.index
+    serie = serie.reset_index(drop=True)
+    X = serie.index
+    Y = serie.values
+    param, covariance = curve_fit(sinusoid, X, Y, p0=get_p0(Y, T))
+    param[0] = param[0] * amplitude # Amplitude : max
+    param[1] = param[1] * offset # Offset : shift v
+    param[2] = param[2] * omega # Omega : cycles
+    param[3] = param[3] * phase # Phase : shift h
+    sinus = sinusoid(X, *param)
+    self.recharge = pd.Series(data = sinus, index=date)
+    self.recharge[self.recharge < 0] = 0
 #%% PLOT SETTINGS
 
 def plot_params(small,interm,medium,large):

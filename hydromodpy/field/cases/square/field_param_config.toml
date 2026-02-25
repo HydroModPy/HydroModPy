@@ -33,3 +33,10 @@ value = 12.5
 values = { granite = 10.0, micaschists = 2.0 }
 # Must match the loaded field geometry id.
 field_spatial_id = "field_square"
+
+# Optional vertical dependency applied identically over the domain:
+# surface value is multiplied by f(depth), depth in meters (0 at surface).
+[field_vertical_profile]
+mode = "none"
+# mode = "exponential"
+# characteristic_depth = 30.0

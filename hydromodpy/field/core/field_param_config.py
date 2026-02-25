@@ -4,12 +4,14 @@ Pydantic schemas and helpers for field parameter TOML payloads.
 This module validates the structure used by `field_param_config.toml`:
 - base section: `[field]` (id, kind),
 - optional mode sections: `[field_homogeneous]`, `[field_heterogeneous]`,
+- optional vertical section: `[field_vertical_profile]`,
 - optional compatibility section: `[field_common]`.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+import math
 import tomllib
 from typing import Any, Mapping
 
@@ -18,6 +20,8 @@ from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, mo
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
+SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
+SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
 
 
 class FieldBaseSectionSchema(BaseModel):
@@ -187,6 +191,94 @@ class FieldHeterogeneousSectionSchema(BaseModel):
         return self
 
 
+class FieldVerticalProfileSectionSchema(BaseModel):
+    """
+    Schema for `[field_vertical_profile]`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: str = "none"
+    characteristic_depth: float | None = None
+    depths: list[float] | None = None
+    factors: list[float] | None = None
+    interpolation: str = "linear"
+
+    @field_validator("mode")
+    @classmethod
+    def _validate_mode(cls, value):
+        key = str(value).strip().lower()
+        if key not in SUPPORTED_VERTICAL_PROFILE_MODES:
+            allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_MODES)
+            raise ValueError(
+                f"Unsupported field_vertical_profile.mode '{value}'. Allowed: {allowed}"
+            )
+        return key
+
+    @field_validator("characteristic_depth")
+    @classmethod
+    def _validate_characteristic_depth(cls, value):
+        if value is None:
+            return None
+        numeric = float(value)
+        if numeric <= 0.0:
+            raise ValueError("field_vertical_profile.characteristic_depth must be > 0")
+        return numeric
+
+    @field_validator("depths", "factors")
+    @classmethod
+    def _validate_optional_non_empty_float_list(cls, value):
+        if value is None:
+            return None
+        arr = [float(v) for v in value]
+        if len(arr) == 0:
+            raise ValueError("field_vertical_profile list cannot be empty")
+        return arr
+
+    @field_validator("interpolation")
+    @classmethod
+    def _validate_interpolation(cls, value):
+        key = str(value).strip().lower()
+        if key not in SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS:
+            allowed = ", ".join(SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS)
+            raise ValueError(
+                f"Unsupported field_vertical_profile.interpolation '{value}'. "
+                f"Allowed: {allowed}"
+            )
+        return key
+
+    @model_validator(mode="after")
+    def _validate_mode_payload(self):
+        if self.mode == "none":
+            return self
+
+        if self.mode == "exponential":
+            if self.characteristic_depth is None:
+                raise ValueError(
+                    "field_vertical_profile.characteristic_depth is required when mode='exponential'"
+                )
+            return self
+
+        if self.mode == "tabulated":
+            if self.depths is None:
+                raise ValueError("field_vertical_profile.depths is required when mode='tabulated'")
+            if self.factors is None:
+                raise ValueError("field_vertical_profile.factors is required when mode='tabulated'")
+            if len(self.depths) != len(self.factors):
+                raise ValueError("field_vertical_profile.depths and factors must have same length")
+            if any(v < 0.0 for v in self.depths):
+                raise ValueError("field_vertical_profile.depths must be >= 0")
+            if any(self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))):
+                raise ValueError("field_vertical_profile.depths must be strictly increasing")
+            if not math.isclose(float(self.depths[0]), 0.0, rel_tol=0.0, abs_tol=1e-12):
+                raise ValueError("field_vertical_profile tabulated first depth must be 0.0")
+            if not math.isclose(float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12):
+                raise ValueError("field_vertical_profile tabulated factor at depth 0.0 must be 1.0")
+            return self
+
+        return self
+
+
 class FieldParamTomlSchema(BaseModel):
     """
     Top-level schema for field-parameter TOML files.
@@ -202,6 +294,7 @@ class FieldParamTomlSchema(BaseModel):
     field_common: FieldCommonSectionSchema | None = None
     field_homogeneous: FieldHomogeneousSectionSchema | None = None
     field_heterogeneous: FieldHeterogeneousSectionSchema | None = None
+    field_vertical_profile: FieldVerticalProfileSectionSchema | None = None
 
 
 class ResolvedFieldParamSchema(BaseModel):
@@ -222,6 +315,7 @@ class ResolvedFieldParamSchema(BaseModel):
     values_csv_file: str | None = None
     csv_key_column: str | None = None
     csv_value_column: str | None = None
+    vertical_profile: FieldVerticalProfileSectionSchema | None = None
 
     @field_validator("id")
     @classmethod
@@ -346,6 +440,8 @@ def validate_resolved_field_param_data(config_data: Mapping[str, Any]) -> dict[s
         payload["kind"] = payload["mode"]
     if "values" not in payload and "values_by_key" in payload:
         payload["values"] = payload["values_by_key"]
+    if "vertical_profile" not in payload and "field_vertical_profile" in payload:
+        payload["vertical_profile"] = payload["field_vertical_profile"]
 
     if payload.get("id") is None:
         raise KeyError("Missing required key 'id' (or alias 'identifier')")
