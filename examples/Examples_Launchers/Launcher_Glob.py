@@ -68,8 +68,14 @@ postprocessing_timeseries = modeling_workflow_copy.postprocessing_timeseries
 
 fontprop = toolbox.plot_params(8, 15, 18, 20)
 
-# Load configuration from config.toml (initializing and geographic)
-cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config03.toml")
+# ============================================================================
+# CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
+# ============================================================================
+EXAMPLE_TO_RUN = "ex03"  # ← CHANGE THIS TO SWITCH EXAMPLES
+
+# Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
+config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / f"config{config_number}.toml")
 
 
 
@@ -150,9 +156,8 @@ CONFIG_OPTIONS = {
 }
 
 # ============================================================================
-# CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12)
+# CONFIG SELECTION (uses EXAMPLE_TO_RUN defined above)
 # ============================================================================
-EXAMPLE_TO_RUN = "ex03"  # ← CHANGE THIS TO SWITCH EXAMPLES
 CONFIG = CONFIG_OPTIONS[EXAMPLE_TO_RUN]
 
 # Set matplotlib backend based on display_figures config
@@ -1209,30 +1214,29 @@ def parametrization(results):
         hydraulic_object.update_bottom(p["bottom"])
         hydraulic_object.update_exdp(p.get("exdp", 1.0))
 
-        # Configure Transport (like example12.py) - ONLY for examples with MT3DMS
-        if example_key in ["ex12", "ex09"]:
-            print("    • Transport...")
-            transport_object = results.get('transport')
-            if transport_object is None:
-                transport_object = Transport()
-                results['transport'] = transport_object
+        # Configure Transport (created for all, configured as needed)
+        print("    • Transport...")
+        transport_object = results.get('transport')
+        if transport_object is None:
+            transport_object = Transport()
+            results['transport'] = transport_object
 
-            transport_object.update_mt3dms_parameters(
-                spc_name=p["spc_name"],
-                sconc_init=None,  # Will be set in MT3DMS based on model dimensions
-                sconc_input=None,  # Will be set in MT3DMS based on model dimensions
-                disp_long=p["disp_long"],
-                disp_transh=p["disp_transh"],
-                disp_transv=p["disp_transv"],
-                diffu_coeff=p["diffu_coeff"],
-                react_order=p["react_order"],
-                rate_decay=None,  # Will be set in MT3DMS based on model dimensions
-                plot_conc=p["plot_conc"]
-            )
-            # Store transport parameters as scalars for later use by mt3dms_ex12
-            transport_object.sconc_init_value = p["sconc_init_value"] / 1000  # Convert mg/L to kg/m3
-            transport_object.sconc_input_value = p["sconc_input_value"] / 1000
-            transport_object.rate_decay_value = p["rate_decay_value"]
+        transport_object.update_mt3dms_parameters(
+            spc_name=p.get("spc_name"),
+            sconc_init=None,  # Will be set in MT3DMS based on model dimensions
+            sconc_input=None,  # Will be set in MT3DMS based on model dimensions
+            disp_long=p.get("disp_long"),
+            disp_transh=p.get("disp_transh"),
+            disp_transv=p.get("disp_transv"),
+            diffu_coeff=p.get("diffu_coeff"),
+            react_order=p.get("react_order"),
+            rate_decay=None,  # Will be set in MT3DMS based on model dimensions
+            plot_conc=p.get("plot_conc")
+        )
+        # Store transport parameters as scalars for later use by mt3dms_ex12
+        transport_object.sconc_init_value = p.get("sconc_init_value", 0) / 1000  # Convert mg/L to kg/m3
+        transport_object.sconc_input_value = p.get("sconc_input_value", 0) / 1000
+        transport_object.rate_decay_value = p.get("rate_decay_value", 0)
 
         # Configure Climatic (like example12.py)
         print("    • Climatic...")
@@ -2035,122 +2039,95 @@ def trace_workflow_execution(sections):
 
 
 # ============================================================================
+# FUNCTION MAPPING FOR WORKFLOW
+# ============================================================================
+# Maps workflow section names to their corresponding functions
+FUNCTION_MAPPING = {
+    "watershed": watershed,
+    "data": data,
+    "recharge": recharge,
+    "parametrization": parametrization,
+    "modeling": modeling,
+    "matching_streams": ex12_matching_streams,
+    "modpath": modpath_ex12,
+    "mt3dms": mt3dms_ex12,
+}
+
+# ============================================================================
 # MAIN
 # ============================================================================
 
 
 def main():
-    """Main execution orchestrator"""
-    print("\n" + "="*70)
-    print("HYDROMODPY - EXAMPLE 12 LAUNCHER".center(70))
-    print("="*70)
-
+    """Main execution orchestrator using WORKFLOW_DEFINITION"""
     config = CONFIG
     example_key = config["example"]
     sections = config.get("sections", {})
+    workflow = WORKFLOW_DEFINITION.get(example_key, [])
 
+    print("\n" + "="*70)
+    print(f"HYDROMODPY - EXAMPLE {example_key.upper()} LAUNCHER".center(70))
+    print("="*70)
     print(f"\nEnabled sections: {[s for s, v in sections.items() if v]}\n")
 
-    results = None
+    results = {'success_modflow': False, 'success_modpath': False, 'success_mt3dms': False}
     step_counter = 1
 
-    # Initialize success flags
-    if results is None:
-        results = {'success_modflow': False, 'success_modpath': False, 'success_mt3dms': False}
+    # Execute workflow steps defined in WORKFLOW_DEFINITION
+    for step in workflow:
+        section = step["section"]
+        function_name = step["function"]
 
-    # STEP 1: Watershed extraction
-    if sections.get("watershed"):
-        print(f"[STEP {step_counter}] Executing: watershed()")
-        watershed_results = watershed(example_key)
-        if watershed_results:
-            # Merge watershed results with initialized success flags
-            results.update(watershed_results)
+        # Check if section is enabled in CONFIG
+        if not sections.get(section):
+            continue
+
+        # Check dependencies
+        if section in ["matching_streams", "modpath", "mt3dms"] and not results.get('success_modflow'):
+            print(f"\n[STEP {step_counter}] ⚠ Skipping {section} (MODFLOW failed)")
+            step_counter += 1
+            continue
+
+        print(f"\n[STEP {step_counter}] Executing: {function_name}")
+
+        # Get function from mapping
+        func = FUNCTION_MAPPING.get(section)
+        if func is None:
+            print(f"  ✗ Function not found for section {section}")
+            step_counter += 1
+            continue
+
+        # Watershed is special - takes example_key, others take results
+        if section == "watershed":
+            results_temp = func(example_key)
+            if results_temp:
+                results.update(results_temp)
+            else:
+                print("✗ Watershed extraction failed. Stopping.")
+                return None
         else:
-            print("✗ Watershed extraction failed. Stopping.")
-            return None
-        step_counter += 1
-
-    # STEP 2: Data integration
-    if results and sections.get("data"):
-        print(f"\n[STEP {step_counter}] Executing: data()")
-        results = data(results)
-        step_counter += 1
-
-    # STEP 3: Recharge calculation
-    if results and sections.get("recharge"):
-        print(f"\n[STEP {step_counter}] Executing: recharge()")
-        results = recharge(results)
-        step_counter += 1
-
-    # STEP 4: Parametrization
-    if results and sections.get("parametrization"):
-        print(f"\n[STEP {step_counter}] Executing: parametrization()")
-        results = parametrization(results)
-        step_counter += 1
-
-    # STEP 5: Modeling (MODFLOW)
-    if results and sections.get("modeling"):
-        print(f"\n[STEP {step_counter}] Executing: modeling()")
-        results = modeling(results)
-        step_counter += 1
-
-    # STEP 6: TIMESERIES (MODFLOW only) - Example 12 line 406
-    if results and sections.get("modeling") and results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_modflow()")
-        results = ex12_postprocessing_timeseries_modflow(results)
-        step_counter += 1
-
-    # STEP 7: MatchingStreams - Example 12 line 416
-    print(f"\n[STEP {step_counter}] MatchingStreams check - success_modflow={results.get('success_modflow') if results else None}, section={sections.get('matching_streams')}")
-    if results and sections.get("matching_streams") and results.get('success_modflow'):
-        print(f"  Executing: ex12_matching_streams()")
-        results = ex12_matching_streams(results)
-    elif sections.get("matching_streams") and not results.get('success_modflow'):
-        print(f"  ⚠ Skipping matching_streams (MODFLOW failed)")
-    step_counter += 1
-
-    # STEP 8: MODPATH
-    print(f"\n[STEP {step_counter}] MODPATH check - success_modflow={results.get('success_modflow') if results else None}, section={sections.get('modpath')}")
-    if results and sections.get("modpath") and results.get('success_modflow'):
-        print(f"  Executing: modpath_ex12()")
-        results = modpath_ex12(results)
-    elif sections.get("modpath") and not results.get('success_modflow'):
-        print(f"  ⚠ Skipping modpath (MODFLOW failed)")
-    step_counter += 1
-
-    # STEP 9: MT3DMS
-    if results and sections.get("mt3dms") and results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] Executing: mt3dms_ex12()")
-        results = mt3dms_ex12(results)
-
-        # Validate and report on MT3DMS execution
-        if results and results.get('success_mt3dms'):
-            print(f"  ✓ MT3DMS: {results.get('scenario', 'Success')}")
-        else:
-            print(f"  ✗ MT3DMS: Failed or skipped")
+            if results:
+                results = func(results)
 
         step_counter += 1
-    elif sections.get("mt3dms") and not results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] ⚠ Skipping mt3dms (MODFLOW failed)")
-        step_counter += 1
 
-    # STEP 9.5: PREPARE CONCENTRATION DATA (for plotting)
+    # Additional processing steps (not in WORKFLOW_DEFINITION)
+    # STEP: PREPARE CONCENTRATION DATA (for plotting)
     if results and results.get('success_mt3dms'):
         print(f"\n[STEP {step_counter}] Executing: ex12_prepare_concentration_data()")
         results = ex12_prepare_concentration_data(results)
         step_counter += 1
 
-    # STEP 9.6: TIMESERIES (COMPLETE - with all models) - Example 12 line 837
-    if results and sections.get("mt3dms") and results.get('success_mt3dms'):
-        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_complete()")
-        results = ex12_postprocessing_timeseries_complete(results)
-        step_counter += 1
-    elif not results.get('success_mt3dms'):
-        # Also run if MT3DMS is skipped but MODFLOW succeeded
-        if results and sections.get("modeling") and results.get('success_modflow'):
+    # STEP: TIMESERIES (COMPLETE or MODFLOW only)
+    if results and results.get('success_modflow'):
+        if sections.get("mt3dms") and results.get('success_mt3dms'):
             print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_complete()")
             results = ex12_postprocessing_timeseries_complete(results)
-            step_counter += 1
+        elif sections.get("modeling"):
+            # Run timeseries if modeling enabled but MT3DMS not enabled or failed
+            print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_modflow()")
+            results = ex12_postprocessing_timeseries_modflow(results)
+        step_counter += 1
 
     # STEP 10: Plotting - Call plot.py functions based on config
     plots_config = CONFIG.get("plots", {})
