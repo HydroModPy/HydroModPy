@@ -375,14 +375,14 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     # Use SIM2 reanalysis data directly (no synthetic data)
     R_mm_day = climatic.recharge
     r_mm_day = climatic.runoff
-
+    
     if display_plots:
         fig, axs = plt.subplots(3,1, figsize=(8,8), sharex=True)
         axs = axs.ravel()
 
         ax = axs[0]
         ax.plot(30*R_mm_day, label='Recharge', c='navy', lw=1)
-        ax.fill_between(R_mm_day.index, 30*R_mm_day, (7*R_mm_day)+(30*r_mm_day), label='Recharge + Runoff', color='dodgerblue', lw=0.5, alpha=1)
+        ax.fill_between(R_mm_day.index, 30*R_mm_day, (30*R_mm_day)+(30*r_mm_day), label='Recharge + Runoff', color='dodgerblue', lw=0.5, alpha=1)
         ax.set_ylabel('R [mm/month]')
         ax.legend(loc='upper right')
         ax.set_title('No log', fontsize=8)
