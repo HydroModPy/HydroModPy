@@ -402,6 +402,10 @@ def update_or_assert_goldens(
         assert "modpath_expected" in expected
         assert_modpath_signatures(actual["modpath_expected"], expected["modpath_expected"])
 
+    if "mt3dms_expected" in actual:
+        assert "mt3dms_expected" in expected
+        assert_modflow_signatures(actual["mt3dms_expected"], expected["mt3dms_expected"])
+
 
 def run_example_script(
     *,
