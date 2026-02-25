@@ -71,7 +71,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
 # ============================================================================
-EXAMPLE_TO_RUN = "ex03"  # ← CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex12"  # ← CHANGE THIS TO SWITCH EXAMPLES
 
 # Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
 config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
@@ -1525,8 +1525,9 @@ def mt3dms_ex12(results):
 
         scenario = 's1'
 
-        # Use MT3DMS_CONFIG with all parameter subsections
-        config = MT3DMS_CONFIG.get('ex12', {})
+        # Use MT3DMS_CONFIG with all parameter subsections (dynamic based on example)
+        example_key = CONFIG.get("example", "ex12")
+        config = MT3DMS_CONFIG.get(example_key, {})
 
         # Call refactored mt3dms with config
         mt3dms_result = mt3dms(
@@ -1580,7 +1581,7 @@ def ex12_postprocessing_timeseries_modflow(results):
             model_modflow=model_modflow,
             model_modpath=None,
             model_mt3dms=None,
-            scenario='modflow_only',
+            scenario=None,
             results=results
         )
 
@@ -2118,15 +2119,16 @@ def main():
         results = ex12_prepare_concentration_data(results)
         step_counter += 1
 
-    # STEP: TIMESERIES (COMPLETE or MODFLOW only)
-    if results and results.get('success_modflow'):
-        if sections.get("mt3dms") and results.get('success_mt3dms'):
-            print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_complete()")
-            results = ex12_postprocessing_timeseries_complete(results)
-        elif sections.get("modeling"):
-            # Run timeseries if modeling enabled but MT3DMS not enabled or failed
-            print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_modflow()")
-            results = ex12_postprocessing_timeseries_modflow(results)
+    # STEP: TIMESERIES - MODFLOW ONLY (first generation: MODFLOW without transport)
+    if results and results.get('success_modflow') and sections.get("modeling"):
+        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_modflow()")
+        results = ex12_postprocessing_timeseries_modflow(results)
+        step_counter += 1
+
+    # STEP: TIMESERIES - COMPLETE (second generation: MODFLOW with MT3DMS, only if transport enabled and successful)
+    if results and results.get('success_modflow') and sections.get("mt3dms") and results.get('success_mt3dms'):
+        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_complete()")
+        results = ex12_postprocessing_timeseries_complete(results)
         step_counter += 1
 
     # STEP 10: Plotting - Call plot.py functions based on config
