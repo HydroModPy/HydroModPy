@@ -71,7 +71,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
 # ============================================================================
-EXAMPLE_TO_RUN = "ex12"  # ← CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex01"  # ← CHANGE THIS TO SWITCH EXAMPLES
 
 # Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
 config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
@@ -176,6 +176,28 @@ CONFIG_OPTIONS = {
             "plot_cross_section": False,
             "plot_map": False,
             "plot_graph": False
+        }
+    },
+    "ex01": {
+        "example": "ex01",
+        "display_figures": True,
+        "sections": {
+            "watershed": True,
+            "data": True,
+            "recharge": True,
+            "parametrization": True,
+            "modeling": True,
+            "plot": False,
+            "plot_cross_section": False,
+            "plot_map": False,
+            "plot_graph": False,
+            "modpath": True,
+            "mt3dms": False
+        },
+        "plots": {
+            "plot_cross_section": True,
+            "plot_map": True,
+            "plot_graph": True
         }
     }
 }
@@ -435,6 +457,75 @@ PARAMS = {
             "figsize_cross_section": (6, 4),
             "figsize_pathlines": (8, 6),
         }
+    },
+
+    "ex01": {
+        "base_path": "examples/01S_short",
+        "dem_filename": "regional dem.tif",
+        "dem_coordinates": [327816.965, 6777886.670, 150, 10.0, 'EPSG:2154'],
+        "watershed_name": "01S_short",
+        "recharge_first_year": 1990,
+        "recharge_last_year": 2019,
+        "recharge_time_step": "D",
+        # Frame settings
+        "box": True,
+        "sink_fill": False,
+        "sim_state": "steady",
+        "dis_perlen": False,
+        # Check model
+        "plot_cross": False,
+        "check_grid": True,
+        # Hydraulic parameters
+        "verti_hk": None,
+        "verti_sy": None,
+        "verti_ss": None,
+        "sy": 1 / 100,
+        "sy_decay": 1 / 20,
+        "ss": None,
+        "ss_decay": 1 / 20,
+        "vka": None,
+        "bottom": None,
+        "thickness": 50,
+        "cond_drain": None,
+        "bc_left": None,
+        "bc_right": None,
+        "sea_level": "None",
+        "nlay": 5,
+        "lay_decay": 1.5,
+        # Conduct HK
+        "hk": 2e-5 * 24 * 3600,  # m/d
+        "hk_decay": 1 / 20,
+        "Kmin_for_hk_decay": None,
+        "Klog_transf": False,
+        # Complex K/Sy parameters (not used in ex01)
+        "alpha": None,
+        "n_factor": None,
+        "the_K0": None,
+        "the_sy0": None,
+        "Symin_for_sy_decay": None,
+        "the_ss0": None,
+        "vers": None,
+        # Recharge data
+        "recharge": 350 / 1000 / 365,  # Scalar for steady state
+        "recharge_monthly": None,
+        # Well pumping settings (not used in ex01)
+        "well_1_coords": None,
+        "well_2_coords": None,
+        "well_1_fluxes": None,
+        "well_2_fluxes": None,
+        # Model identification
+        "iD_set_simulations": None,
+        "list_hyd_cond": None,
+        # Plotting parameters
+        "plot_params": {
+            "factor": 30,
+            "n_subplots": 2,
+            "figsize_recharge": (8, 5),
+            "figsize_streamflow": (12, 3.5),
+            "figsize_piezometry": (12, 3.5),
+            "figsize_cross_section": (6, 4),
+            "figsize_pathlines": (8, 6),
+        }
     }
 }
 
@@ -585,6 +676,59 @@ DATA_MODULES = {
                 "streams_file": (None, False)
             }
         }
+    },
+    "ex01": {
+        "geology": {
+            "class_name": "Geology",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "geographic": ("geographic", True),
+                "geo_path": ("data_path", True),
+                "landsea": (None, False),
+                "types_obs": ("GEO1M.shp", False),
+                "fields_obs": ("CODE_LEG", False)
+            }
+        },
+        "hydrography": {
+            "class_name": "Hydrography",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "types_obs": (["regional stream network"], False),
+                "fields_obs": (["FID"], False),
+                "geographic": ("geographic", True),
+                "hydro_path": ("data_path", True),
+                "streams_file": (None, False)
+            }
+        },
+        "hydrometry": {
+            "class_name": "Hydrometry",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "hydrometry_path": ("data_path", True),
+                "file_name": ("france hydrometric stations.shp", False),
+                "geographic": ("geographic", True)
+            }
+        },
+        "intermittency": {
+            "class_name": "Intermittency",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "intermittency_path": ("data_path", True),
+                "file_name": ("regional onde stations.shp", False),
+                "geographic": ("geographic", True)
+            }
+        },
+        "subbasin": {
+            "class_name": "Subbasin",
+            "constructor_args": {
+                "geographic": ("geographic", True),
+                "hydrometry": (None, False),
+                "intermittency": (None, False),
+                "add_path": ("data_path", True),
+                "out_path": ("initializing.catch_folder", True),
+                "sub_snap_dist": (150, False)
+            }
+        }
     }
 }
 
@@ -648,6 +792,24 @@ PARAM_CONFIG = {
             "decay_config": False
         },
         "particle_tracking": False
+    },
+    "ex01": {
+        "check_model": {"plot_cross": False, "check_grid": True},
+        "climatic": {
+            "recharge_from_results": True,
+            "runoff_factor": None
+        },
+        "hydraulic_specific": {
+            "update_hk": True,
+            "update_hk_decay": True,
+            "update_sy_simple": True,
+            "update_ss": False,
+            "update_vka": False,
+            "update_hk_vertical": False,
+            "update_decay": True,
+            "decay_config": True
+        },
+        "particle_tracking": True
     }
 }
 
@@ -777,8 +939,41 @@ MODELING_CONFIG = {
             "plot_cross": True,
             "check_grid": True
         }
+    },
+    "ex01": {
+        "type": "single",
+        "preprocessing": {"for_calib": False},
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+            "link_mt3dms": False
+        },
+        "postprocessing_modflow": {
+            "watertable_elevation": True,
+            "watertable_depth": True,
+            "seepage_areas": True,
+            "outflow_drain": True,
+            "groundwater_flux": True,
+            "groundwater_storage": True,
+            "accumulation_flux": True,
+            "persistency_index": False,
+            "intermittency_monthly": False,
+            "intermittency_weekly": False,
+            "intermittency_daily": False,
+            "export_all_tif": False
+        },
+        "postprocessing_timeseries": {
+            "datetime_format": False,
+            "subbasin_results": True
+        },
+        "postprocessing_netcdf": {
+            "datetime_format": False
+        },
+        "check_model": {
+            "plot_cross": False,
+            "check_grid": True
+        }
     }
-
 }
 
 
@@ -906,10 +1101,38 @@ MODPATH_CONFIG = {
             "calc_rtd": True,
             "random_id": None,
         }
+    },
+    "ex01": {
+        "preprocessing": {
+            "zone_partic": "seepage_areas",
+            "cell_div": 1,
+            "zloc_div": False,
+            "bore_depth": None,
+            "track_dir": "backward",
+            "sel_random": None,
+            "sel_slice": None,
+        },
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+        },
+        "post_processing": {
+            "ending_point": True,
+            "starting_point": True,
+            "pathlines_shp": True,
+            "particles_shp": False,
+            "random_id": None,
+        },
+        "filt_processing": {
+            "norm_flux": True,
+            "filt_time": True,
+            "filt_seep": True,
+            "filt_inout": True,
+            "calc_rtd": True,
+            "random_id": None,
+        }
     }
 }
-
-
 # ============================================================================
 # MT3DMS CONFIG - EXAMPLE 12
 # ============================================================================
@@ -1415,7 +1638,11 @@ def parametrization(results):
         elif config["climatic"].get("recharge_from_results"):
             R_mm_day = results.get('R_mm_day')
             if R_mm_day is not None:
-                recharge = R_mm_day[:] / 1000
+                # Handle both pandas Series (ex00, ex09, ex12) and scalar (ex01)
+                if isinstance(R_mm_day, pd.Series):
+                    recharge = R_mm_day / 1000
+                else:  # scalar value
+                    recharge = R_mm_day / 1000
             else:
                 recharge = pd.Series([0.1] * 365) / 1000
             climatic_object.update_recharge(recharge, sim_state=p["sim_state"])
@@ -1432,6 +1659,9 @@ def parametrization(results):
         # HYDRAULIC SPECIFIC
         print("  • Update hydraulic specific...")
 
+        if config["hydraulic_specific"].get("update_hk"):
+            hydraulic_object.update_hk(p["hk"])
+
         if config["hydraulic_specific"].get("update_sy_simple"):
             hydraulic_object.update_sy(p["sy"])
 
@@ -1441,7 +1671,12 @@ def parametrization(results):
         if config["hydraulic_specific"].get("update_vka"):
             hydraulic_object.update_vka(p["vka"])
 
+        if config["hydraulic_specific"].get("update_hk_vertical"):
+            hydraulic_object.update_hk_vertical(p["verti_hk"])
+
         if config["hydraulic_specific"].get("update_decay"):
+            if config["hydraulic_specific"].get("update_hk_decay"):
+                hydraulic_object.update_hk_decay(p["hk_decay"], min_value=p.get("Kmin_for_hk_decay"), log_transf=p.get("Klog_transf"))
             hydraulic_object.update_sy_decay(p["sy_decay"])
             hydraulic_object.update_ss_decay(p["ss_decay"])
 
@@ -1508,10 +1743,16 @@ def modeling(results):
         # For single model execution (example 12 uses "single" type)
         if config["type"] == "single":
             # Generate model name
-            the_K0_ms = p["the_K0"] / 24 / 3600
-            model_name = f"{p['vers']}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
+            the_K0 = p.get("the_K0")
+            if the_K0 is not None:
+                the_K0_ms = the_K0 / 24 / 3600
+                model_name = f"{p['vers']}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
+            else:
+                # ex01: use hk from PARAMS, no version/alpha naming
+                model_name = f"{example_key}_hk{p['hk']:.1e}"
 
             # Call refactored modflow function with individual objects
+            hk_value = p.get("the_K0") if p.get("the_K0") is not None else p.get("hk")
             result = modflow(
                 geographic=geographic_object,
                 hydraulic=hydraulic_object,
@@ -1520,7 +1761,7 @@ def modeling(results):
                 oceanic=oceanic_object,
                 initializing=initializing_object,
                 model_name=model_name,
-                hk_value=p["the_K0"],
+                hk_value=hk_value,
                 bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
                 config=config
             )
@@ -2167,6 +2408,71 @@ WORKFLOW_DEFINITION = {
             "function": "data()",
             "requires": [],
             "provides": list(DATA_MODULES["ex00"].keys())
+        },
+        {
+            "step": 3,
+            "section": "recharge",
+            "function": "recharge()",
+            "requires": ["data_path"],
+            "provides": ["climatic", "recharge_data", "runoff_data"]
+        },
+        {
+            "step": 4,
+            "section": "parametrization",
+            "function": "parametrization()",
+            "requires": ["climatic"],
+            "provides": ["settings", "hydraulic_params"]
+        },
+        {
+            "step": 5,
+            "section": "modeling",
+            "function": "modeling()",
+            "requires": ["settings", "hydraulic_params"],
+            "provides": ["model_name", "success_modflow", "model_modflow"]
+        },
+        {
+            "step": 6,
+            "section": "modpath",
+            "function": "modpath_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
+            "provides": ["model_modpath", "success_modpath"]
+        },
+        {
+            "step": 7,
+            "section": "plot_cross_section",
+            "function": "plot_cross_section_ex03()",
+            "requires": ["geographic", "model_modflow"],
+            "provides": ["cross_section_plots"]
+        },
+        {
+            "step": 8,
+            "section": "plot_map",
+            "function": "plot_map_ex03()",
+            "requires": ["geographic", "model_modflow"],
+            "provides": ["map_plots"]
+        },
+        {
+            "step": 9,
+            "section": "plot_graph",
+            "function": "plot_graph_ex03()",
+            "requires": ["model_modflow"],
+            "provides": ["graph_plots"]
+        }
+    ],
+    "ex01": [
+        {
+            "step": 1,
+            "section": "watershed",
+            "function": "watershed()",
+            "requires": [],
+            "provides": ["stable_folder", "simulations_folder", "data_path"]
+        },
+        {
+            "step": 2,
+            "section": "data",
+            "function": "data()",
+            "requires": [],
+            "provides": list(DATA_MODULES["ex01"].keys())
         },
         {
             "step": 3,
