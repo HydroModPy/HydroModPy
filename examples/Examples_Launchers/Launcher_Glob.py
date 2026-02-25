@@ -71,7 +71,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
 # ============================================================================
-EXAMPLE_TO_RUN = "ex12"  # ← CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex04"  # ← CHANGE THIS TO SWITCH EXAMPLES
 
 # Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
 config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
@@ -84,6 +84,26 @@ cfg = HydroModPyConfig.from_toml(Path(__file__).parent / f"config{config_number}
 # ============================================================================
 
 CONFIG_OPTIONS = {
+    "ex04": {
+        "example": "ex04",
+        "display_figures": False,
+        "sections": {
+            "watershed": True,
+            "data": True,
+            "recharge": True,
+            "parametrization": True,
+            "modeling": True,
+            "plot": False,
+            "matching_streams": False,
+            "modpath": False,
+            "mt3dms": False
+        },
+        "plots": {
+            "plot_2d": False,
+            "plot_3d": False,
+            "web_animation": False
+        }
+    },
     "ex03": {
         "example": "ex03",
         "display_figures": True,
@@ -357,6 +377,45 @@ PARAMS = {
             "figsize_pathlines": (8, 6),
         },
     },
+    "ex04": {
+        "base_path": "examples/04S_short",
+        "dem_filename": "regional dem.tif",
+        "dem_coordinates": [391502.195, 6821197.683, 150, 10, 'EPSG:2154'],
+        "watershed_name": "04S_short",
+        "recharge_first_year": 2000,
+        "recharge_last_year": 2001,
+        "recharge_time_step": "M",
+        # Frame settings
+        "box": True,
+        "sink_fill": False,
+        "sim_state": "transient",
+        "dis_perlen": True,
+        "plot_cross": False,
+        "check_grid": False,
+        # Hydraulic parameters
+        "nlay": 1,
+        "lay_decay": 1,
+        "bottom": None,
+        "thickness": 30,
+        "hk": 5e-5 * 24 * 3600,  # m/day
+        "cond_drain": None,
+        "bc_left": None,
+        "bc_right": None,
+        "sea_level": "None",
+        # Looping over porosity (Sy)
+        "iD_set_simulations": "explorSy_test1",
+        "list_porosity": [0.5, 5],  # in percent
+        # Plotting parameters
+        "plot_params": {
+            "factor": 30,
+            "n_subplots": 2,
+            "figsize_recharge": (6, 3),
+            "figsize_streamflow": (10, 3),
+            "figsize_piezometry": (12, 3.5),
+            "figsize_cross_section": (6, 4),
+            "figsize_pathlines": (8, 6),
+        }
+    },
     "ex03": {
         "base_path": "examples/03S_short",
         "dem_filename": "regional dem.tif",
@@ -611,6 +670,59 @@ DATA_MODULES = {
             }
         }
     },
+    "ex04": {
+        "geology": {
+            "class_name": "Geology",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "geographic": ("geographic", True),
+                "geo_path": ("data_path", True),
+                "landsea": (None, False),
+                "types_obs": ("GEO1M.shp", False),
+                "fields_obs": ("CODE_LEG", False)
+            }
+        },
+        "hydrography": {
+            "class_name": "Hydrography",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "types_obs": (["regional stream network"], False),
+                "fields_obs": (["FID"], False),
+                "geographic": ("geographic", True),
+                "hydro_path": ("data_path", True),
+                "streams_file": (None, False)
+            }
+        },
+        "hydrometry": {
+            "class_name": "Hydrometry",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "hydrometry_path": ("data_path", True),
+                "file_name": ("france hydrometric stations.shp", False),
+                "geographic": ("geographic", True)
+            }
+        },
+        "intermittency": {
+            "class_name": "Intermittency",
+            "constructor_args": {
+                "out_path": ("initializing.catch_folder", True),
+                "intermittency_path": ("data_path", True),
+                "file_name": ("regional onde stations.shp", False),
+                "geographic": ("geographic", True)
+            }
+        },
+        "subbasin": {
+            "class_name": "Subbasin",
+            "constructor_args": {
+                "geographic": ("geographic", True),
+                "hydrometry": (None, False),
+                "intermittency": (None, False),
+                "add_path": ("data_path", True),
+                "out_path": ("initializing.catch_folder", True),
+                "sub_snap_dist": (150, False)
+            }
+        }
+    },
     "ex03": {
         "geology": {
             "class_name": "Geology",
@@ -767,6 +879,21 @@ PARAM_CONFIG = {
         },
         "particle_tracking": False
     },
+    "ex04": {
+        "check_model": {"plot_cross": False, "check_grid": False},
+        "climatic": {
+            "recharge_from_results": True,
+            "runoff_factor": 0.1
+        },
+        "hydraulic_specific": {
+            "update_ss": False,
+            "update_vka": False,
+            "update_vertical": False,
+            "update_decay": False,
+            "sy_complex": False
+        },
+        "particle_tracking": True
+    },
     "ex03": {
         "check_model": {"plot_cross": True, "check_grid": True},
         "climatic": {
@@ -881,6 +1008,37 @@ MODELING_CONFIG = {
             "plot_cross": True,
             "check_grid": True,
             "cross_ylim": [0, 200]
+        }
+    },
+    "ex04": {
+        "type": "multiple",
+        "preprocessing": {"for_calib": False},
+        "processing": {
+            "write_model": True,
+            "run_model": True,
+            "link_mt3dms": False
+        },
+        "postprocessing_modflow": {
+            "watertable_elevation": True,
+            "watertable_depth": True,
+            "seepage_areas": True,
+            "outflow_drain": True,
+            "groundwater_flux": True,
+            "groundwater_storage": True,
+            "accumulation_flux": True,
+            "persistency_index": True,
+            "intermittency_monthly": True,
+            "intermittency_daily": False,
+            "export_all_tif": False
+        },
+        "postprocessing_timeseries": {
+            "datetime_format": True,
+            "subbasin_results": True
+        },
+        "postprocessing_netcdf": True,
+        "check_model": {
+            "plot_cross": False,
+            "check_grid": False
         }
     },
     "ex03": {
@@ -1773,35 +1931,66 @@ def modeling(results):
             print("MODFLOW model created\n")
             return results
 
-        # For multiple models (example 03 uses "multiple" type)
+        # For multiple models (example 03 uses "multiple" type OR example 04 loops over Sy)
         else:
-            hk_values = [h * 24 * 3600 for h in p["list_hyd_cond"]]
             base_name = p["iD_set_simulations"]
-            model_names = [f"{base_name}_{round(h, 3)}" for h in hk_values]
-            folder = results['simulations_folder']
-
             list_model_name = []
             list_success_modflow = []
             list_model_modflow = []
 
-            for i, (hk_value, model_name) in enumerate(zip(hk_values, model_names)):
-                print(f"    Model {i+1}/{len(hk_values)}: {model_name}")
+            # Check if this is ex03 (loops over HK) or ex04 (loops over Sy/porosity)
+            if example_key == "ex03" and p.get("list_hyd_cond"):
+                # EX03: Loop over hydraulic conductivity
+                hk_values = [h * 24 * 3600 for h in p["list_hyd_cond"]]
+                model_names = [f"{base_name}_{round(h, 3)}" for h in hk_values]
 
-                result = modflow(
-                    geographic=geographic_object,
-                    hydraulic=hydraulic_object,
-                    settings=settings_object,
-                    climatic=climatic_object,
-                    oceanic=oceanic_object,
-                    initializing=initializing_object,
-                    model_name=model_name,
-                    hk_value=hk_value,
-                    bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
-                    config=config
-                )
-                list_model_name.append(result['model_name'])
-                list_success_modflow.append(result['success'])
-                list_model_modflow.append(result['model_modflow'])
+                for i, (hk_value, model_name) in enumerate(zip(hk_values, model_names)):
+                    print(f"    Model {i+1}/{len(hk_values)}: {model_name}")
+
+                    result = modflow(
+                        geographic=geographic_object,
+                        hydraulic=hydraulic_object,
+                        settings=settings_object,
+                        climatic=climatic_object,
+                        oceanic=oceanic_object,
+                        initializing=initializing_object,
+                        model_name=model_name,
+                        hk_value=hk_value,
+                        bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
+                        config=config
+                    )
+                    list_model_name.append(result['model_name'])
+                    list_success_modflow.append(result['success'])
+                    list_model_modflow.append(result['model_modflow'])
+
+            elif example_key == "ex04" and p.get("list_porosity"):
+                # EX04: Loop over porosity (Sy)
+                sy_values = [s / 100 for s in p["list_porosity"]]  # Convert percent to fraction
+                hk_fixed = p["hk"]  # Fixed HK value for ex04
+
+                for i, sy_value in enumerate(sy_values):
+                    model_name = f"{base_name}_{i}_{round(sy_value, 3)}"
+                    print(f"    Model {i+1}/{len(sy_values)}: {model_name}")
+
+                    # Update Sy for this iteration (like example_04.py line 275)
+                    hydraulic_object.update_sy(sy_value)
+                    settings_object.update_model_name(model_name)
+
+                    result = modflow(
+                        geographic=geographic_object,
+                        hydraulic=hydraulic_object,
+                        settings=settings_object,
+                        climatic=climatic_object,
+                        oceanic=oceanic_object,
+                        initializing=initializing_object,
+                        model_name=model_name,
+                        hk_value=hk_fixed,  # Use fixed HK for ex04
+                        bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
+                        config=config
+                    )
+                    list_model_name.append(result['model_name'])
+                    list_success_modflow.append(result['success'])
+                    list_model_modflow.append(result['model_modflow'])
 
             results['list_model_name'] = list_model_name
             results['list_success_modflow'] = list_success_modflow
@@ -2392,6 +2581,50 @@ WORKFLOW_DEFINITION = {
             "function": "plot_graph_ex03()",
             "requires": ["list_model_modflow"],
             "provides": ["graph_plots"]
+        }
+    ],
+    "ex04": [
+        {
+            "step": 1,
+            "section": "watershed",
+            "function": "watershed()",
+            "requires": [],
+            "provides": ["stable_folder", "simulations_folder", "data_path"]
+        },
+        {
+            "step": 2,
+            "section": "data",
+            "function": "data()",
+            "requires": [],
+            "provides": list(DATA_MODULES["ex04"].keys())
+        },
+        {
+            "step": 3,
+            "section": "recharge",
+            "function": "recharge()",
+            "requires": ["data_path"],
+            "provides": ["climatic", "recharge_data", "runoff_data"]
+        },
+        {
+            "step": 4,
+            "section": "parametrization",
+            "function": "parametrization()",
+            "requires": ["climatic"],
+            "provides": ["settings", "hydraulic_params"]
+        },
+        {
+            "step": 5,
+            "section": "modeling",
+            "function": "modeling()",
+            "requires": ["settings", "hydraulic_params"],
+            "provides": ["model_name", "success_modflow", "list_model_modflow"]
+        },
+        {
+            "step": 6,
+            "section": "plot",
+            "function": "plot_streamflow_saturation_ex04()",
+            "requires": ["list_model_modflow"],
+            "provides": ["plots"]
         }
     ],
     "ex00": [
