@@ -119,6 +119,7 @@ markers = [
     "regression: non-regression tests based on reference datasets",
     "fast: quick-running regression cases",
     "slow: long-running integration or regression tests",
+    "coverage: long-running coverage tests",
 ]
 
 [tool.coverage.run]
