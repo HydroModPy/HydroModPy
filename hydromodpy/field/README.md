@@ -120,20 +120,20 @@ Default output:
 Standalone geology run (no external mesh):
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_France.py
+python hydromodpy/data_managers/geology/run_geology_France.py
 ```
 
 Default output:
-- `hydromodpy/field/cases/geology/outputs/geology_france_global.png`
+- `hydromodpy/data_managers/geology/outputs/geology_france_global.png`
 
 Geology-to-property transfer demo via `FieldParam`:
 
 ```bash
-python hydromodpy/field/cases/geology/run_geology_property_demo.py
+python hydromodpy/data_managers/geology/run_geology_property_demo.py
 ```
 
 Default output:
-- `hydromodpy/field/cases/geology/outputs/geology_property_demo.png`
+- `hydromodpy/data_managers/geology/outputs/geology_property_demo.png`
 
 In this geology demo:
 - value correspondence can be inline TOML or CSV (`values_source`),
