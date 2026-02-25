@@ -160,36 +160,27 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     # Necessary to set model parameters
 
-    climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
-                                            clim_mod='REA',
-                                            clim_sce='historic',
-                                            first_year=2003,
-                                            last_year=2003,
-                                            time_step='ME',
-                                            sim_state='transient')
+    climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'etp', 'runoff', 'recharge'],
+                                           nc_data_path=data_path,
+                                           first_year=2003,
+                                           last_year=2003,
+                                           time_step='ME',
+                                           sim_state='transient',
+                                           spatial_mean=True,
+                                           geographic=geographic,
+                                           disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
+                                                                    # can be a shapefile path or a flag: 'watershed' or False
+                                                                    
+    # # # # Units
+    climatic.t = climatic.t / 1000 # from mm to m
+    climatic.precip = climatic.precip / 1000 # from mm to m
+    climatic.etp = climatic.etp / 1000 # from mm to m
+    climatic.runoff = climatic.runoff / 1000 # from mm to m
+    climatic.recharge = climatic.recharge / 1000 # from mm to m
 
-    climatic.update_runoff_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
-                                        clim_mod='REA',
-                                        clim_sce='historic',
-                                        first_year=2003,
-                                        last_year=2003,
-                                        time_step='ME',
-                                        sim_state='transient')
-
-    def select_period(df, first, last):
-        df = df[(df.index.year>=first) & (df.index.year<=last)]
-        return df
-
+    # Use SIM2 reanalysis data directly (no synthetic data)
     R_mm_day = climatic.recharge
     r_mm_day = climatic.runoff
-
-    R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
-    R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
-    R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
-    R_mm_day_filt[R_mm_day_filt.index.month.isin([7])] = -1
-    # plt.plot(R_mm_day_filt)
-
-    R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
 
     if display_plots:
         fig, axs = plt.subplots(3,1, figsize=(8,8), sharex=True)
@@ -212,8 +203,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
 
         ax = axs[2]
-        ax.plot(30*R_mm_day_filt, label='Recharge', c='dodgerblue', lw=2)
-        ax.set_title('Synthetic', fontsize=8)
+        ax.plot(30*R_mm_day, label='Recharge', c='dodgerblue', lw=2)
+        ax.set_title('SIM2 Reanalysis', fontsize=8)
         ax.set_ylabel('R [mm/month]')
 
         ax.set_xlabel('Date')
@@ -275,8 +266,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     Klog_transf = False
 
     # Recharge
-    rec = R_mm_day_filt[:] / 1000
-    run = rec * 0.1
+    rec = R_mm_day
+    run = r_mm_day
     first_clim = 'mean'
     climatic.update_first_clim(first_clim)
     climatic.update_recharge(rec, sim_state=sim_state)
@@ -529,7 +520,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     if display_plots:
         for i, simul in enumerate(simul_list[:]):
 
-            fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(12,3.5), dpi=300)
+            fig, (a0) = plt.subplots(1, 1, figsize=(12,3.5), dpi=300)
 
             model_name = os.path.split(simul)[-1]
 
@@ -588,7 +579,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
             WTEmod = Smod['watertable_elevation']
             WTDmod = Smod['watertable_depth']
 
-            fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(12,3.5), dpi=300)
+            fig, (a0) = plt.subplots(1, 1, figsize=(12,3.5), dpi=300)
 
             ax = a0
             # ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='Observed')
@@ -941,7 +932,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
             xi = conc_plt.flatten()
             xi = xi[~np.isnan(xi)]
 
-            xpos = mdates.date2num(R_mm_day_filt.index[i])
+            xpos = mdates.date2num(R_mm_day.index[i])
 
             if xi.size == 0:
                 continue
@@ -1011,7 +1002,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
             ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)
 
             # Placer la recharge en arrière-plan du graphique
-            axb.step(R_mm_day_filt.index, R_mm_day_filt * 30, lw=2, color='dodgerblue', zorder=0)
+            axb.step(R_mm_day.index, R_mm_day * 30, lw=2, color='dodgerblue', zorder=0)
             axb.set_ylabel('Recharge [mm/month]', color='dodgerblue')
 
             ax[0].set_xlim(pd.to_datetime('01-2003'), pd.to_datetime('01-2004'))
