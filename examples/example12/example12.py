@@ -123,13 +123,12 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     climatic = Climatic(out_path=initializing.catch_folder)
     
     oceanic = Oceanic()
-    oceanic.extract_data(out_path=initializing.catch_folder,
+    oceanic.extract_local_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
                                  oceanic_path=data_path)
-    # oceanic.display_data(values='RMSL')
     oceanic.download_SHOM_data(geographic=geographic,
                                 start_date='2003-01-01',
-                                end_date='2003-02-01') # Add spam loop to download data in chunks of 1 month for long periods
+                                end_date='2003-06-01')
     
     #%% WATERSHED OBJECT
     
