@@ -88,6 +88,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     
     #%% DATA
     
+    area = int(round(geographic.catch_area))
+
     hydrography = Hydrography(out_path=initializing.catch_folder,
                                                    types_obs=['botopage2024_naizin_streams_perennial-intermittent'],
                                                    fields_obs=['FID'],
@@ -100,7 +102,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                         intermittency=None,
                         add_path=data_path,
                         out_path=initializing.catch_folder,
-                        sub_snap_dist=50)
+                        sub_snap_dist=150)
     
     geology = Geology(out_path=initializing.catch_folder,
                             geographic=geographic,
@@ -119,19 +121,21 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                   file_name='regional onde stations.shp',
                                   geographic=geographic)
                             
-    #%% Climatic
+    #%% CLIMATIC
+    
     climatic = Climatic(out_path=initializing.catch_folder)
     
     oceanic = Oceanic()
     oceanic.extract_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
                                  oceanic_path=data_path)
+    
     # oceanic.display_data(values='RMSL')
     oceanic.download_SHOM_data(geographic=geographic,
                                 start_date='2003-01-01',
                                 end_date='2003-02-01') # Add spam loop to download data in chunks of 1 month for long periods
-    
-    #%% WATERSHED OBJECT
+   
+    #%% WATERSHED
     
     stable_folder      = cfg.initializing.stable_folder
     simulations_folder = cfg.initializing.simulations_folder
@@ -145,12 +149,10 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     aquifer_top = surfaces_object.aquifer_top
     aquifer_bottom = surfaces_object.aquifer_bottom
 
-    #%% DATA
+    #%% VISUALIZATION
 
     visualization_watershed.watershed_local(cfg.geographic.dem_init_path, initializing, geographic)
     visualization_watershed.watershed_dem(initializing=initializing, geographic=geographic, hydrography=hydrography, piezometry=None, intermittency=intermittency, hydrometry=hydrometry)
-
-    area = geographic.catch_area
                                      
     # Add hydrological data
     
@@ -559,8 +561,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     #%% PLOT PIEZOMETRY
 
-    area = int(round(geographic.catch_area))
-
     # Qobs_path = data_path + 'Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt'
     # Qobs = pd.read_csv(Qobs_path, sep=';', header=None)
     # date = pd.to_datetime(Qobs[0]+' '+Qobs[1], format="%d/%m/%Y %H:%M:%S")
@@ -749,15 +749,16 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                     ],
                     color_scale = [
                                     (None,None),
-                                    (80,150),
-                                    (80,150),
+                                    (None,None),
+                                    (None,None),
+                                    (None,None),
+                                    (None,None),
+                                    (None,None),
                                     (0,10),
-                                    (0,200),
-                                    (0,30000),
-                                    (0,3),
-                                    (0,3),
+                                    (0,10),
                                     ],
-                                    lines=1000)
+                                    lines=1000                
+                                    )
 
     #%% PLOT 3D
     export_vtuvtk.VTK(initializing,geographic, hydrography, model_name)
@@ -1174,7 +1175,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         fig.update_yaxes(visible=False)
 
         fig.show("browser")
-
 
 #%% ---- RUN THE SCRIPT
 
