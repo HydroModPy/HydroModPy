@@ -31,8 +31,6 @@ import pickle
 
 import imageio.v2 as imageio
 import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 # Add
 import flopy.utils.binaryfile as bf
@@ -70,7 +68,16 @@ out_path = cfg.initializing.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
 
-def run_example12(out_path=out_path, display_plots=True, display_3D=False):
+if __name__ == '__main__':
+
+    # Test overrides via env vars
+    if os.environ.get("HYDROMODPY_OUT_PATH"):
+        out_path = Path(os.environ["HYDROMODPY_OUT_PATH"])
+    display_plots = os.environ.get("HYDROMODPY_NO_DISPLAY") != "1"
+    display_3D = display_plots
+
+    wbt = whitebox.WhiteboxTools()
+    wbt.verbose = False
 
     cfg.initializing.out_dir_path = out_path
     watershed_name = cfg.initializing.catch_name
@@ -135,10 +142,14 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     oceanic.extract_local_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
                                  oceanic_path=data_path)
-    oceanic.download_SHOM_data(geographic=geographic,
-                                start_date='2003-01-01',
-                                end_date='2003-01-30')
-    oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+    try:
+        oceanic.download_SHOM_data(geographic=geographic,
+                                    start_date='2003-01-01',
+                                    end_date='2003-01-30')
+        oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+    except Exception as _shom_exc:
+        print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
+        oceanic.update_MSL(0.0)
 
     
     #%% WATERSHED OBJECT
@@ -1357,9 +1368,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
         fig.show("browser")
 
-#%% ---- RUN THE SCRIPT
-
-if __name__ == '__main__':
-    run_example12(out_path=out_path, display_plots=True, display_3D=True)
+#%% ---- END OF SCRIPT
 
 #%% ---- NOTES
