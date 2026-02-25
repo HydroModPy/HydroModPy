@@ -403,12 +403,11 @@ class Geographic:
             rasterio.open(self.watershed_buff_dem) as src2, \
             rasterio.open(self.watershed_dem) as src3:
 
-            print('YES', src1.read(1).shape,src2.read(1).shape,src3.read(1).shape)
-
+            # print('YES', src1.read(1).shape,src2.read(1).shape,src3.read(1).shape)
 
             if src1.read(1).shape != src2.read(1).shape != src3.read(1).shape:
                 logger.debug('Reshaping rasters to match box buff watershed dimensions')
-                print('NO', src1.read(1).shape,src2.read(1).shape,src3.read(1).shape)
+                # print('NO', src1.read(1).shape,src2.read(1).shape,src3.read(1).shape)
 
                 with rasterio.open(self.watershed_box_buff_dem) as src:
                     toolbox.export_tif(self.watershed_box_buff_dem, src.read(1), self.watershed_dem, -9999)
