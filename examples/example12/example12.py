@@ -75,19 +75,19 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     initializing = Initializing(config=cfg.initializing)
     geographic   = Geographic(config=cfg.geographic,
                               initializing=initializing)
-    
-    
-    
+
+
+
     setting = Settings()
     hydraulic = Hydraulic(nrow=geographic.y_pixel,
                           ncol=geographic.x_pixel,
                           box_dem=geographic.watershed_box_buff_dem)
-    
-    
+
+
     transport = Transport()
-    
+
     #%% DATA
-    
+
     area = int(round(geographic.catch_area))
 
     hydrography = Hydrography(out_path=initializing.catch_folder,
@@ -96,35 +96,35 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                                    geographic=geographic,
                                                    hydro_path=data_path,
                                                    streams_file=None)
-    
+
     subbasin = Subbasin(geographic=geographic,
                         hydrometry=None,
                         intermittency=None,
                         add_path=data_path,
                         out_path=initializing.catch_folder,
                         sub_snap_dist=150)
-    
+
     geology = Geology(out_path=initializing.catch_folder,
                             geographic=geographic,
                             geo_path = data_path,
                             landsea=None,
                             types_obs='GEO1M.shp',
                             fields_obs= 'CODE_LEG')
-    
+
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
                             hydrometry_path=data_path,
                             file_name='france hydrometric stations.shp',
                             geographic=geographic)
-    
+
     intermittency = Intermittency(out_path=initializing.catch_folder,
                                   intermittency_path=data_path,
                                   file_name='regional onde stations.shp',
                                   geographic=geographic)
-                            
+
     #%% CLIMATIC
-    
+
     climatic = Climatic(out_path=initializing.catch_folder)
-    
+
     oceanic = Oceanic()
     oceanic.extract_local_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
@@ -132,15 +132,15 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     oceanic.download_SHOM_data(geographic=geographic,
                                 start_date='2003-01-01',
                                 end_date='2003-06-01')
-    
+
     #%% WATERSHED OBJECT
-    
+
     stable_folder      = cfg.initializing.stable_folder
     simulations_folder = cfg.initializing.simulations_folder
     calibration_folder = initializing.calibration_folder # necessary for plots
 
     #%% SURFACE
-    
+
     thickness = 50
     surfaces_object = surfaces.Surfaces(aquifer_top = geographic.dem_box_buff_data,
                                         aquifer_bottom = geographic.dem_box_buff_data - thickness)
@@ -151,7 +151,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     visualization_watershed.watershed_local(cfg.geographic.dem_init_path, initializing, geographic)
     visualization_watershed.watershed_dem(initializing=initializing, geographic=geographic, hydrography=hydrography, piezometry=None, intermittency=intermittency, hydrometry=hydrometry)
-                                     
+
     # Add hydrological data
     
     #%% ---- PYHELP
@@ -340,7 +340,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     # Necessary to set model parameters
 
     climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'etp', 'runoff', 'recharge'],
-                                           nc_data_path=data_path,
+                                           nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
                                            first_year=2003,
                                            last_year=2003,
                                            time_step='ME',
@@ -349,7 +349,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                            geographic=geographic,
                                            disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
                                                                     # can be a shapefile path or a flag: 'watershed' or False
-                                                                    
+
     # # # # Units
     climatic.t = climatic.t / 1000 # from mm to m
     climatic.precip = climatic.precip / 1000 # from mm to m
@@ -435,7 +435,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     ss_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
     bc_left = None # or value
     bc_right = None # or value
-    sea_level = 'None' # or value based on specific data 
+    sea_level = 'None' # or value based on specific data
     zone_partic = 'domain' # or watershed
     vka = 1
     bottom = 0
@@ -560,7 +560,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             cond_drain=hydraulic.cond_drain,
                             vka=hydraulic.vka,
                             exdp=hydraulic.exdp)
-    
+
     model_modflow.pre_processing() # verbose
 
     list_model_name = []
@@ -593,7 +593,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             intermittency_yearly = False,
                             export_all_tif = False)
 
-    timeseries_results = timeseries.Timeseries(geographic,              
+    timeseries_results = timeseries.Timeseries(geographic,
                                             model_modflow=model_modflow,
                                             model_modpath=None,
                                             model_mt3dms=None,
@@ -817,12 +817,12 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                     sel_random = None, # or int
                                     sel_slice = None, # or int
                                     )
-    
+
     if for_calib == False:
         model_folder = initializing.simulations_folder
     else:
         model_folder = initializing.calibration_folder
-    
+
     model_modpath = Modpath(geographic,
                                     model_modflow,
                                     # Frame settings
@@ -925,7 +925,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                     (0,10),
                                     (0,10),
                                     ],
-                                    lines=1000                
+                                    lines=1000
                                     )
 
     #%% PLOT 3D
@@ -985,7 +985,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                     plot_conc=True)
 
     scenario = 's1'
-    
+
     if for_calib == False:
         model_folder = initializing.simulations_folder
     else:
@@ -1010,9 +1010,9 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                         rate_decay = transport.rate_decay,
                         plot_conc = transport.plot_conc,
                             )
-    model_mt3dms.pre_processing() 
-    
-    
+    model_mt3dms.pre_processing()
+
+
     success_mt3dms = model_mt3dms.processing(write_model=True, run_model=True, verbose=True)
 
     pp_model = model_mt3dms.post_processing(model_mt3dms,
@@ -1021,7 +1021,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             mass_accumulated=True,
                             export_all_tif=True) # None
 
-    timeseries_results = timeseries.Timeseries(geographic,     
+    timeseries_results = timeseries.Timeseries(geographic,
                                                model_modflow=model_modflow,
                                                 model_modpath=model_modpath,
                                                 model_mt3dms=model_mt3dms,
