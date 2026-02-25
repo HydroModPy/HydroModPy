@@ -136,8 +136,10 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                  oceanic_path=data_path)
     oceanic.download_SHOM_data(geographic=geographic,
                                 start_date='2003-01-01',
-                                end_date='2003-06-01')
+                                end_date='2003-01-30')
+    oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
 
+    
     #%% WATERSHED OBJECT
 
     stable_folder      = cfg.initializing.stable_folder
@@ -449,7 +451,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     ss_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
     bc_left = None # or value
     bc_right = None # or value
-    sea_level = 'None' # or value based on specific data
     zone_partic = 'domain' # or watershed
     vka = 1
     bottom = 0
@@ -463,9 +464,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     climatic.update_first_clim(first_clim)
     climatic.update_recharge(rec, sim_state=sim_state)
     climatic.update_runoff(run, sim_state=sim_state)
-
-    # Objects
-    oceanic.update_MSL(sea_level)
 
     # Fixed
     setting.update_box_model(box)

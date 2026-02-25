@@ -113,7 +113,7 @@ class Oceanic:
         Extract future sea level projections under different greenhouse gas emission scenarios.
         """
         xidx, yidx = self.idx_from_global_map(os.path.join(oceanic_path, 'rsl_ts_26.nc'),geographic)
-        scenarios = ['RCP2.6','RCP4.5','RCP8.5']
+        scenarios = ['RCP2.6'] #,'RCP4.5','RCP8.5']
         rsl_name = {'RCP2.6':'rsl_ts_26.nc',
                     'RCP4.5':'rsl_ts_45.nc',
                     'RCP8.5':'rsl_ts_85.nc'}
