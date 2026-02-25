@@ -70,6 +70,7 @@ dependencies = [
     "spyder-kernels",
     "pytest",
     "pytest-xdist",
+    "pytest-cov",
     "dask",
     "pydantic",
 ]
@@ -129,3 +130,8 @@ source = [
     "hydromodpy/modeling/",
     "hydromodpy/display/",
 ]
+parallel = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
