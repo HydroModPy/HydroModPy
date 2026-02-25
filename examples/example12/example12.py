@@ -25,6 +25,9 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from itertools import islice
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import xarray as xr
+import rioxarray as rxr
+import pickle
 
 import imageio.v2 as imageio
 import whitebox
@@ -57,6 +60,8 @@ from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -181,13 +186,9 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         pyhelp_workdir = Path(cfg.initializing.out_dir_path) / watershed_name / "results_pyhelp"
         pyhelp_workdir.mkdir(parents=True, exist_ok=True)
     
-        era5_file_precip = # ton netcdf propre, mettre celui de poschqivo dqns "data"
-        era5_file_temp = # ton netcdf propre
-        era5_file_sr = # ton netcdf propre
-        
-        sim2_file_precip = # ton netcdf propre, mettre celui de poschqivo dqns "data"
-        sim2_file_temp = # ton netcdf propre
-        sim2_file_sr = # ton netcdf propre
+        sim2_file_precip = 'x' # ton netcdf propre, mettre celui de poschqivo dqns "data"
+        sim2_file_temp = 'x' # ton netcdf propre
+        sim2_file_sr = 'x' # ton netcdf propre
         
         # Peut-être ajouter à config.toml 
         
@@ -198,11 +199,11 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         shapefile_path = geographic.watershed_shp
     
         # Ready climatic CSVs
-        ready_csvs = [
-            os.path.join(era5_folder, "precip_input_data.csv"),
-            os.path.join(era5_folder, "airtemp_input_data.csv"),
-            os.path.join(era5_folder, "solrad_input_data.csv")
-        ]
+        # ready_csvs = [
+        #     os.path.join(era5_folder, "precip_input_data.csv"),
+        #     os.path.join(era5_folder, "airtemp_input_data.csv"),
+        #     os.path.join(era5_folder, "solrad_input_data.csv")
+        # ]
     
         #### If already completed grid:
         grid_base_csv = Path(data_path, "_init_input_grid_base1", "input_grid_base1.csv")
@@ -224,9 +225,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         #%% RUN
     
         option = '3'
-    
-        k = round(k, 5)
-    
+        
         grid_kwargs = dict(
                            growth_start=140,
                            growth_end=280,
@@ -241,7 +240,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                            poro1=0.45,
                            fc1=0.23,
                            wp1=0.116,
-                           ksat1=k,
+                           ksat1=0.1,
                            dist_dr1=50,
                            slope1=35
                            )
@@ -279,7 +278,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         #     4 - Urban cell
         #     5 - Cell not mapped
     
-        sim_name = f"_sim_{k}"
+        sim_name = "_sim_"
         sim_dir = pyhelp_workdir / sim_name
         sim_dir.mkdir(parents=True, exist_ok=True)
     
