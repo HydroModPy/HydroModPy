@@ -46,7 +46,9 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
-    Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, SafranSurfex, Subbasin, Transport
+    Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
+    SafranSurfex, Subbasin, Transport
+from hydromodpy.watershed import surfaces
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingConfig, GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
@@ -54,7 +56,7 @@ from hydromodpy.modeling.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration.matching_stream import MatchingStreams
+from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -72,11 +74,16 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     initializing = Initializing(config=cfg.initializing)
     geographic   = Geographic(config=cfg.geographic,
-                                                initializing=initializing)
+                              initializing=initializing)
+    
+    
+    
     setting = Settings()
     hydraulic = Hydraulic(nrow=geographic.y_pixel,
-                                           ncol=geographic.x_pixel,
-                                           box_dem=geographic.watershed_box_buff_dem)
+                          ncol=geographic.x_pixel,
+                          box_dem=geographic.watershed_box_buff_dem)
+    
+    
     transport = Transport()
     
     #%% DATA
@@ -89,39 +96,54 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                                    streams_file=None)
     
     subbasin = Subbasin(geographic=geographic,
-                                hydrometry=None,
-                                intermittency=None,
-                                add_path=data_path,
-                                out_path=initializing.catch_folder,
-                                sub_snap_dist=50)
+                        hydrometry=None,
+                        intermittency=None,
+                        add_path=data_path,
+                        out_path=initializing.catch_folder,
+                        sub_snap_dist=50)
     
     geology = Geology(out_path=initializing.catch_folder,
                             geographic=geographic,
                             geo_path = data_path,
                             landsea=None,
                             types_obs='GEO1M.shp',
-                            fields_obs= 'CODE_LEG',)
+                            fields_obs= 'CODE_LEG')
     
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
-                                hydrometry_path=data_path,
-                                file_name='france hydrometric stations.shp',
-                                geographic=geographic)
+                            hydrometry_path=data_path,
+                            file_name='france hydrometric stations.shp',
+                            geographic=geographic)
     
     intermittency = Intermittency(out_path=initializing.catch_folder,
-                                        intermittency_path=data_path,
-                                        file_name='regional onde stations.shp',
-                                        geographic=geographic)
+                                  intermittency_path=data_path,
+                                  file_name='regional onde stations.shp',
+                                  geographic=geographic)
+                            
     #%% Climatic
     climatic = Climatic(out_path=initializing.catch_folder)
     
     oceanic = Oceanic()
-    #oceanic.extract_data(out_path=initializing.catch_folder,
-    #                              oceanic_path=data_path,
-    #                              geographic=geographic)
+    oceanic.extract_data(out_path=initializing.catch_folder,
+                                 geographic=geographic,
+                                 oceanic_path=data_path)
+    # oceanic.display_data(values='RMSL')
+    oceanic.download_SHOM_data(geographic=geographic,
+                                start_date='2003-01-01',
+                                end_date='2003-02-01') # Add spam loop to download data in chunks of 1 month for long periods
+    
     #%% WATERSHED OBJECT
+    
     stable_folder      = cfg.initializing.stable_folder
     simulations_folder = cfg.initializing.simulations_folder
     calibration_folder = initializing.calibration_folder # necessary for plots
+
+    #%% SURFACE
+    
+    thickness = 50
+    surfaces_object = surfaces.Surfaces(aquifer_top = geographic.dem_box_buff_data,
+                                        aquifer_bottom = geographic.dem_box_buff_data - thickness)
+    aquifer_top = surfaces_object.aquifer_top
+    aquifer_bottom = surfaces_object.aquifer_bottom
 
     #%% DATA
 
@@ -130,9 +152,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     area = geographic.catch_area
                                      
-
     # Add hydrological data
-
+    
     #%% ---- RECHARGE
 
     # Necessary to set model parameters
@@ -217,8 +238,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     # model_name = list_model_name[0]
     # model_modflow = list_model_modflow[0]
-
-    #%% FUNCTION
 
     #%% A - MODFLOW
 
@@ -371,6 +390,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             cond_drain=hydraulic.cond_drain,
                             vka=hydraulic.vka,
                             exdp=hydraulic.exdp)
+    
     model_modflow.pre_processing() # verbose
 
     list_model_name = []
@@ -740,10 +760,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                     lines=1000)
 
     #%% PLOT 3D
-
+    export_vtuvtk.VTK(initializing,geographic, hydrography, model_name)
     if display_3D==True:
-
-        export_vtuvtk.VTK(initializing,geographic, hydrography, model_name)
         visu = visualization_results.Visualization(initializing,geographic, hydrography, model_name)
         if display_plots:
             visu.visual3D(interactive=True, object_list=[

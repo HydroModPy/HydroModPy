@@ -15,7 +15,10 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from hydromodpy.field.core.field_mesh import BaseFieldMesh
+try:
+    from hydromodpy.field.core.field_mesh import BaseFieldMesh
+except ModuleNotFoundError:  # pragma: no cover - direct script fallback
+    from field_mesh import BaseFieldMesh  # type: ignore
 
 try:  # Python 3.11+
     import tomllib
@@ -51,7 +54,7 @@ class Field(ABC):
         self.identifier = ident
 
     @abstractmethod
-    def on_mesh(self, mesh: BaseFieldMesh, **kwargs):
+    def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
         """
         Project this field geometry on a mesh and return a discretization map.
         """

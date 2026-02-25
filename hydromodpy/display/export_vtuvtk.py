@@ -51,8 +51,11 @@ class Functions:
             finalbreaker = initbreaker+1+math.ceil(celldim/10)
             #append to list all items
             for linea in range(initbreaker+1,finalbreaker,1):
-                listaitem = [float(item) for item in disLines[linea].split()]
-                for item in listaitem: anyLines.append(item)
+                try:
+                    listaitem = [float(item) for item in disLines[linea].split()]
+                    for item in listaitem: anyLines.append(item)
+                except:
+                    pass
         else:
             anylines = []
         return np.asarray(anyLines)
@@ -96,10 +99,9 @@ class VTK():
     """
     
     def __init__(self, initializing:Initializing, 
-                 geographic:Geographic, hydrography:Hydrography, piezometry:Piezometry = None, modelname = None):
+                 geographic:Geographic, hydrography:Hydrography, modelname = None, piezometry:Piezometry = None):
         
         if modelname != None:
-            
             modelfolder= os.path.join(initializing.simulations_folder, modelname)
             save_file = os.path.join(modelfolder, '_postprocess','_vtuvtk')
             toolbox.create_folder(save_file)
@@ -164,13 +166,14 @@ class VTK():
                 yarr.reverse()
             return ext
         
+        print(os.path.join(modelfolder,modelname+'.nam'))
         mf1 = flopy.modflow.Modflow.load(os.path.join(modelfolder,modelname+'.nam'), verbose=False, check=False, load_only=['upw', 'dis'])
         hk = mf1.upw.hk
         ext = GetExtent(geographic.geodata,geographic.x_coord,geographic.y_coord, geographic.x_pixel, geographic.y_pixel)
         
         # change directory to the script path
         os.chdir(modelfolder)  # use your own path
-    
+        print(os.path.join(modelfolder,modelname+'.dis'))
         # open the DIS, BAS files
         disLines = open(os.path.join(modelfolder,modelname+'.dis')).readlines()  # discretization data
         basLines = open(os.path.join(modelfolder,modelname+'.bas')).readlines()  # active / inactive data
@@ -220,7 +223,6 @@ class VTK():
                         vertexLay += 1
     
         # ### Get the DEL Info
-    
         modDis['DELR'] = Functions.getListFromDEL(modDis['disBreakers']['DELR'], disLines, modDis['cellCols'])
         modDis['DELC'] = Functions.getListFromDEL(modDis['disBreakers']['DELC'], disLines, modDis['cellRows'])
     

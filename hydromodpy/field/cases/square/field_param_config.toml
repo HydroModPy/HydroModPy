@@ -22,7 +22,21 @@ kind = "heterogeneous"
 value = 12.5
 
 [field_heterogeneous]
-# Inline TOML dictionary (preferred compact syntax).
+# Value source options:
+# - inline dictionary (used below),
+# - CSV table via:
+#     values_source = "csv"
+#     values_csv_file = "my_values.csv"
+#     csv_key_column = "zone_key"
+#     csv_value_column = "value"
+# Inline TOML dictionary (compact syntax for short lists).
 values = { granite = 10.0, micaschists = 2.0 }
 # Must match the loaded field geometry id.
 field_spatial_id = "field_square"
+
+# Optional vertical dependency applied identically over the domain:
+# surface value is multiplied by f(depth), depth in meters (0 at surface).
+[field_vertical_profile]
+mode = "none"
+# mode = "exponential"
+# characteristic_depth = 30.0

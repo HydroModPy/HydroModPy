@@ -51,6 +51,21 @@ def test_field_param_homogeneous_to_mesh_field_without_spatial_discretization():
     assert np.allclose(values, 7.25)
 
 
+def test_field_param_homogeneous_with_vertical_profile_exponential():
+    param = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        value=10.0,
+        vertical_profile={"mode": "exponential", "characteristic_depth": 20.0},
+    )
+
+    assert float(param.vertical_factor(0.0)) == pytest.approx(1.0)
+    assert float(param.to_array(depth=20.0)) == pytest.approx(10.0 * np.exp(-1.0))
+    arr = param.to_array(shape=(2, 2), depth=10.0)
+    assert arr.shape == (2, 2)
+    assert np.allclose(arr, 10.0 * np.exp(-0.5))
+
+
 def test_field_param_heterogeneous_from_toml():
     param = FieldParam.from_toml("hydromodpy/field/cases/square/field_param_config.toml")
     assert param.is_heterogeneous
@@ -70,6 +85,25 @@ def test_field_param_heterogeneous_from_toml():
     arr = param.to_array(zone_ids=zones)
     assert arr.shape == (2, 2)
     assert np.allclose(arr, np.array([[10.0, 2.0], [10.0, 10.0]]))
+
+
+def test_field_param_heterogeneous_with_vertical_profile_tabulated():
+    param = FieldParam(
+        identifier="K",
+        kind="heterogeneous",
+        values_by_key={"granite": 10.0, "micaschists": 4.0},
+        field_spatial_id="field_square",
+        vertical_profile={
+            "mode": "tabulated",
+            "depths": [0.0, 20.0, 40.0],
+            "factors": [1.0, 0.5, 0.25],
+            "interpolation": "linear",
+        },
+    )
+
+    zones = np.array(["granite", "micaschists", "granite"], dtype=object)
+    values = param.to_array(zone_ids=zones, depth=10.0)
+    assert np.allclose(values, np.array([7.5, 3.0, 7.5], dtype=float))
 
 
 def test_heterogeneous_requires_zone_ids():
@@ -187,6 +221,124 @@ def test_field_param_selects_kind_from_base_section(tmp_path: Path):
     assert param.identifier == "Sy"
     assert param.is_homogeneous
     assert float(param.value) == pytest.approx(0.21)
+
+
+def test_field_param_from_toml_with_vertical_profile_exponential(tmp_path: Path):
+    path = tmp_path / "field_vertical_exp.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "homogeneous"
+            value = 12.0
+
+            [field_vertical_profile]
+            mode = "exponential"
+            characteristic_depth = 30.0
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    param = FieldParam.from_toml(path)
+    assert param.is_homogeneous
+    assert param.has_vertical_variation
+    assert float(param.to_array(depth=30.0)) == pytest.approx(12.0 * np.exp(-1.0))
+
+
+def test_field_param_heterogeneous_from_toml_with_csv_values(tmp_path: Path):
+    csv_path = tmp_path / "geology_values.csv"
+    csv_path.write_text(
+        textwrap.dedent(
+            """
+            zone_key,property_value
+            2141,12.0
+            1501,8.5
+            SEA,1.0
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    toml_path = tmp_path / "field_param_csv.toml"
+    toml_path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "heterogeneous"
+
+            [field_heterogeneous]
+            values_source = "csv"
+            values_csv_file = "geology_values.csv"
+            csv_key_column = "zone_key"
+            csv_value_column = "property_value"
+            field_spatial_id = "field_geology"
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    param = FieldParam.from_toml(toml_path)
+    assert param.is_heterogeneous
+    assert param.field_spatial_id == "field_geology"
+    assert param.values_by_key == {"2141": 12.0, "1501": 8.5, "SEA": 1.0}
+
+    zones = np.array(["1501", "2141", "SEA"], dtype=object)
+    values = param.to_array(zone_ids=zones)
+    assert np.allclose(values, np.array([8.5, 12.0, 1.0], dtype=float))
+
+
+def test_field_param_from_toml_with_csv_rejects_duplicate_key(tmp_path: Path):
+    csv_path = tmp_path / "dup.csv"
+    csv_path.write_text(
+        textwrap.dedent(
+            """
+            zone_key,value
+            2141,1.0
+            2141,2.0
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    toml_path = tmp_path / "field_param_dup.toml"
+    toml_path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "heterogeneous"
+
+            [field_heterogeneous]
+            values_source = "csv"
+            values_csv_file = "dup.csv"
+            csv_key_column = "zone_key"
+            csv_value_column = "value"
+            field_spatial_id = "field_geology"
+            """
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Duplicate key"):
+        _ = FieldParam.from_toml(toml_path)
+
+
+def test_field_param_to_mesh_field_applies_vertical_profile():
+    mesh = FieldMeshSquare.from_unit_square(target_n_cells=12, mesh_kind="structured")
+    param = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        value=7.25,
+        vertical_profile={"mode": "exponential", "characteristic_depth": 30.0},
+    )
+
+    values_mesh = param.to_mesh_field(mesh=mesh, depth=30.0)
+    values = np.asarray(values_mesh.cell_values, dtype=float)
+    assert values.shape == (3, 3)
+    assert np.allclose(values, 7.25 * np.exp(-1.0))
 
 
 def test_field_to_mesh_then_param_to_value_mesh():

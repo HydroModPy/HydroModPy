@@ -29,6 +29,8 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox
+import requests
+from datetime import datetime, timedelta
 
 logger = get_logger(__name__)
 
@@ -92,7 +94,7 @@ class Oceanic:
         ram_path : str
             Path of the tide sea level stations data in a shapefile.
         """
-        ram_path = oceanic_path+"/RAM_2020.shp"
+        ram_path = os.path.join(oceanic_path, "RAM_2020.shp")
         if not os.path.exists(ram_path):
             ram_path = None
             return ram_path
@@ -110,7 +112,7 @@ class Oceanic:
         """
         Extract future sea level projections under different greenhouse gas emission scenarios.
         """
-        xidx, yidx = self.idx_from_global_map(oceanic_path+'/rsl_ts_26.nc',geographic)
+        xidx, yidx = self.idx_from_global_map(os.path.join(oceanic_path, 'rsl_ts_26.nc'),geographic)
         scenarios = ['RCP2.6','RCP4.5','RCP8.5']
         rsl_name = {'RCP2.6':'rsl_ts_26.nc',
                     'RCP4.5':'rsl_ts_45.nc',
@@ -118,7 +120,7 @@ class Oceanic:
         self.RSL = {}
         self.RMSL = {}
         for sce in scenarios:
-            nc = Dataset(oceanic_path+'/'+rsl_name[sce], "r", format="NETCDF4")
+            nc = Dataset(os.path.join(oceanic_path, rsl_name[sce]), "r", format="NETCDF4")
             date = np.array(nc.variables['time'][:])
             df = pd.DataFrame(date, columns=["date"])
             df.index = pd.to_datetime(df['date'],format='%Y')
@@ -182,6 +184,67 @@ class Oceanic:
         yidx = find_idx[idx][1]
         return int(xidx), int(yidx)
 
+    def download_SHOM_data(self, geographic, start_date, end_date):
+        """
+        Download sea-level data from SHOM (Service Hydrographique et Océanographique de la Marine) website
+        Based on catchment centroid coordinates, the closest tide gauge station is identified and its data is downloaded.
+
+            Parameters
+        ----------
+        geographic : object
+            Variable object of the model domain (watershed).
+        start_date : str
+            Start date of the data to be downloaded (format: 'YYYY-MM-DD').
+        end_date : str
+            End date of the data to be downloaded (format: 'YYYY-MM-DD').
+        """
+        # Get the list of tide gauge stations from SHOM website
+        url = 'https://services.data.shom.fr/maregraphie/service/tidegauges'
+        tide_gauge_list = requests.get(url)
+        tide_gauge_list = tide_gauge_list.json()
+        self.tide_gauge_df = pd.DataFrame(tide_gauge_list)
+
+        # Identify the closest tide gauge station to the catchment centroid
+        self.tide_gauge_df['catchment_dist'] = np.sqrt((self.tide_gauge_df['longitude'] - geographic.centroid_long_lat[1])**2 + (self.tide_gauge_df['latitude'] - geographic.centroid_long_lat[0])**2)
+        self.closest_tg = self.tide_gauge_df.loc[self.tide_gauge_df['catchment_dist'].idxmin()]
+        print(f"Centroid coordinates: ({geographic.centroid_long_lat[0]}, {geographic.centroid_long_lat[1]})")
+        print(f"Closest tide gauge station: {self.closest_tg['name']} at ({self.closest_tg['latitude']}, {self.closest_tg['longitude']})")
+        closest_tg_id = self.closest_tg['shom_id']
+        url = f'https://services.data.shom.fr/maregraphie/service/completetidegauge/{closest_tg_id}'
+        tide_gauge_info = requests.get(url)
+        tide_gauge_info = tide_gauge_info.json()
+        zh_ref = float(tide_gauge_info['verticalRef']['zh_ref']) # Vertical reference of the tide gauge station
+
+        # Download sea-level data for the closest tide gauge station
+        # iterates over 31-day periods to avoid data download issues for long time series
+        sources = '3' # code to get validated data
+        interval = '60' # data interval in minutes
+        tg_id = str(closest_tg_id)
+
+        start_date_temp = datetime.strptime(start_date, '%Y-%m-%d')
+        end_date_temp = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=31)
+        i=0
+        while end_date_temp < datetime.strptime(end_date, '%Y-%m-%d') or i==0:
+            if i!=0:
+                start_date_temp = end_date_temp + timedelta(days=1)
+                end_date_temp = start_date_temp + timedelta(days=31)
+            dtStart = f'{start_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
+            dtEnd = f'{end_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
+            url = f'https://services.data.shom.fr/maregraphie/observation/json/{tg_id}?sources={sources}&dtStart={dtStart}&dtEnd={dtEnd}&interval={interval}'
+            tg_data = requests.get(url)
+            tg_data = tg_data.json()
+            if i==0:
+                tg_df = pd.DataFrame(tg_data['data'])[['timestamp', 'value']]
+            else:
+                tg_df = pd.concat([tg_df, pd.DataFrame(tg_data['data'])[['timestamp', 'value']]], ignore_index=True)
+            i+=1
+               
+        tg_df['value'] = pd.to_numeric(tg_df['value'], errors='coerce')
+        tg_df['value'] = tg_df['value'] + zh_ref # Convert vertical level from hydrographic to IGN reference
+        tg_df['timestamp'] = pd.to_datetime(tg_df['timestamp'])
+        tg_df = tg_df[tg_df['timestamp'] <= datetime.strptime(end_date, '%Y-%m-%d')] # Keep only data until the specified end date
+        self.SHOM_data = tg_df
+
     def display_data(self, values):
         """
         Function to activate plots.
@@ -192,12 +255,12 @@ class Oceanic:
             Type of plot required : 'RMSL' or 'RSL'.
         """
         values_list = ['RMSL','RSL']
-        if values not in values_list:
-            logger.error('Unsupported oceanic display value: %s', values)
         if values == 'RMSL':
             oceanic_display_data(self.RMSL, self.figure_folder+'RMSL', values)
-        if values == 'RSL':
+        elif values == 'RSL':
             oceanic_display_data(self.RSL, self.figure_folder+'RSL', values)
+        else:
+            logger.error('Unsupported oceanic display value: %s', values)
 
 #%% DISPLAY
 

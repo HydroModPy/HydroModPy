@@ -35,12 +35,13 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 logger = get_logger(__name__)
-
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+
+from hydromodpy.solver import Solver
 
 #%% CLASS
 
-class Modpath:
+class Modpath(Solver):
     """
     Class Modpath.
     
@@ -100,10 +101,8 @@ class Modpath:
             Select with slicing value where particles.
         """
         
-        #%% Initialisation
-        
+        # Initialisation
         self.geographic = geographic
-        
         self.model_modflow = model_modflow
         self.model_name = model_name
         self.model_folder = model_folder
@@ -123,18 +122,60 @@ class Modpath:
             self.zone_partic = geographic.watershed_box_buff_dem
         else:
             self.zone_partic = zone_partic
-        self.track_dir = track_dir
+        
         self.bore_depth = bore_depth
         self.cell_div = cell_div
         self.zloc_div = zloc_div
         self.sel_random = sel_random
         self.sel_slice = sel_slice
-
-    #%% PRE-PROCESSING
+        
+        self.verbose = False
+        self.check = False
+        
+        self.simfile_ext = 'mpsim'
+        self.namefile_ext = 'mpnam'
+        self.version = 'modpath'
+        
+        self.track_dir = track_dir #default forward, can be "backward" or "custom"
+        self.track = 1 #if track_dir=='custom'
+        self.zone_opt = 1 #if track_dir=='custom'
+        self.zone_inj = 1 #if track_dir=='custom'
+        
+        self.simulation_type = 2 # SimulationType : 1 = Endpoint simulation; 2 = Pathline simulation; 3 = Timeseries simulation
+        self.weak_sink_option = 1 # WeakSinkOption : 1 = Allow particles to pass through cells that contain weak sinks; 2 = Stop particles when they enter cells that contain weak sinks.
+        self.weak_source_option = 1 # WeakSourceOption : 1 = Allow particles to pass through cells that contain weak sources; 2 = Stop particles when they enter cells that contain weak sources.
+        self.reference_time_option = 1 # ReferenceTimeOption : 1 = Specify a value for reference time; 2 = Specify a stress period, time step, and relative time position within the time step to use to compute the reference time.
+        self.stop_option = 2 # StopOption : 1 = For forward tracking simulations, stop at the end of the MODFLOW simulation. For backward tracking simulations, stop at the beginning of the MODFLOW simulation. 2 = Extend the initial or final steady-state MODFLOW time step as far as necessary to track all particles through to their termination points. For forward tracking simulations, this option would have an effect whenever the final MODFLOW stress period is steady-state. For backward tracking simulations, this option would have an effect whenever the first MODFLOW stress period is steady-state. If all MODFLOW stress periods are transient, option 2 produces the same result as option 1. 3 = Specify a value of tracking time at which to stop the particle-tracking computation.
+        self.particle_generation_option = 2 # ParticleGenerationOption : 1 = Specify information to automatically generate particles for a collection of cells. 2 = Read particle locations from a starting locations file.
+        self.time_point_option = 1 # TimePointOption : 1 = Time points are not specified. 2 = A specified number of time points are calculated for a fixed time increment. 3 = An array of time point values is specified.
+        self.budget_output_option = 1 # BudgetOutputOption : 1 = No budget checking 2 = A summary of cell-by-cell budgets is printed in the Listing File 3 = A list of cells is specified for which detailed budget information is summarized in the Listing File 4 = Trace mode is in effect
+        self.retardation_option = 1 # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations
+        self.advective_observations_option = 1 # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.
+        
+        self.group_placement = [[1, 1, 1, 0, 1, 1]]
+        self.stop_zone = 1
+        
+        self.input_style = 1
+        
+        self.def_face_ct = 0 # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
+        
+        # Post-processing settings
+        self.starting_point = True
+        self.ending_point = True
+        self.pathlines_shp = True
+        self.particles_shp = True
+        
+        # Filtering processing settings
+        self.norm_flux = False
+        self.filt_time = True
+        self.filt_seep = True
+        self.filt_inout = True
+        self.calc_rtd = True 
+        self.random_id = None       
     
     def pre_processing(self):
         """
-        Pre-processing to build the partickle tracking.
+        Pre-processing to build the particle tracking.
 
         Returns
         -------
@@ -142,8 +183,7 @@ class Modpath:
 
         """
         
-        #%% Load and import
-        
+        # Load and import
         prefix = os.path.join(self.full_path, self.model_name)
         nam_file = '{}.nam'.format(prefix)
         dis_file = '{}.dis'.format(prefix)
@@ -152,12 +192,11 @@ class Modpath:
         bas_file = '{}.bas'.format(prefix)
         lpf_file = '{}.upw'.format(prefix)
         
-        # ---- flopy.modflow.Modflow.load
         self.mf = flopy.modflow.Modflow.load(
             nam_file,
             model_ws=self.full_path,
-            verbose=False,
-            check=False,
+            verbose=self.verbose,
+            check=self.check,
             exe_name=getattr(self.model_modflow, "exe", None) or "mfnwt",
         )
         
@@ -177,9 +216,9 @@ class Modpath:
         # ---- flopy.modpath.Modpath6
         self.mp = flopy.modpath.Modpath6(modelname=self.mf.name,
                                          model_ws=self.full_path,
-                                         simfile_ext='mpsim',
-                                         namefile_ext='mpnam',
-                                         version='modpath',
+                                         simfile_ext=self.simfile_ext,
+                                         namefile_ext=self.namefile_ext,
+                                         version=self.version,
                                          exe_name=self.exe,
                                          modflowmodel=self.mf,
                                          head_file=head_file,
@@ -192,7 +231,6 @@ class Modpath:
         # cbb.list_records()
         rec_drn = cbb.get_data(kstpkper=(0, 0), text='DRAINS')
         rec_rch = cbb.get_data(kstpkper=(0, 0), text='RECHARGE')
-        
         self.mp.dis_file = dis_file
         self.mp.head_file = head_file
         self.mp.budget_file = bud_file
@@ -200,9 +238,9 @@ class Modpath:
         #%% Specific parametrization
         
         if self.track_dir=='forward':
-            track = 1
-            zone_opt = 1
-            zone_inj = 1
+            self.track = 1
+            self.zone_opt = 1
+            self.zone_inj = 1
             
         if self.bore_depth==None:
             drn = np.ones((nrow, ncol))
@@ -224,37 +262,40 @@ class Modpath:
                     a[b >= 1] = 1
                 a[iboundData[i] == -1] = 1
                 szone.append(a)
-            zone_opt = 2
-            zone_inj = szone.copy()
+            self.zone_opt = 2
+            self.zone_inj = szone.copy()
 
         if self.track_dir=='backward':
-            track = 2
-            zone_opt = 1
-            zone_inj = 1
+            self.track = 2
+            self.zone_opt = 1
+            self.zone_inj = 1
 
-        flags = option_flags=[2, # SimulationType : 1 = Endpoint simulation; 2 = Pathline simulation; 3 = Timeseries simulation
-                              track, # TrackingDirection : 1 = Forward tracking; 2 = Backward tracking
-                              1, # WeakSinkOption : 1 = Allow particles to pass through cells that contain weak sinks; 2 = Stop particles when they enter cells that contain weak sinks.
-                              1, # WeakSourceOption : 1 = Allow particles to pass through cells that contain weak sources; 2 = Stop particles when they enter cells that contain weak sources.
-                              1, # ReferenceTimeOption : 1 = Specify a value for reference time; 2 = Specify a stress period, time step, and relative time position within the time step to use to compute the reference time.
-                              2, # StopOption : 1 = For forward tracking simulations, stop at the end of the MODFLOW simulation. For backward tracking simulations, stop at the beginning of the MODFLOW simulation. 2 = Extend the initial or final steady-state MODFLOW time step as far as necessary to track all particles through to their termination points. For forward tracking simulations, this option would have an effect whenever the final MODFLOW stress period is steady-state. For backward tracking simulations, this option would have an effect whenever the first MODFLOW stress period is steady-state. If all MODFLOW stress periods are transient, option 2 produces the same result as option 1. 3 = Specify a value of tracking time at which to stop the particle-tracking computation.
-                              2, # ParticleGenerationOption : 1 = Specify information to automatically generate particles for a collection of cells. 2 = Read particle locations from a starting locations file.
-                              1, # TimePointOption : 1 = Time points are not specified. 2 = A specified number of time points are calculated for a fixed time increment. 3 = An array of time point values is specified.
-                              1, # BudgetOutputOption : 1 = No budget checking 2 = A summary of cell-by-cell budgets is printed in the Listing File 3 = A list of cells is specified for which detailed budget information is summarized in the Listing File 4 = Trace mode is in effect
-                              zone_opt, # ZoneArrayOption : 1 = No zone data are read. 2 = Zone data are read.
-                              1, # RetardationOption : 1 = Retardataion factors are not read or used in the velocity calculations. 2 = An array of retardation factors is read and used in the velocity calculations.
-                              1] # AdvectiveObservationsOption : 1 = Advective observations are not computed or saved. 2 = Advective observations are computed and saved for all time points. 3 = Advective observations are computed and saved only for the final time point.        
-        logger.debug('Modpath settings - track: %s, zone_opt: %s, zone_inj: %s', track, zone_opt, type(zone_inj))
+        option_flags=[self.simulation_type,
+                      self.track,
+                      self.weak_sink_option, 
+                      self.weak_source_option, 
+                      self.reference_time_option, 
+                      self.stop_option,
+                      self.particle_generation_option, 
+                      self.time_point_option, 
+                      self.budget_output_option,
+                      self.zone_opt, 
+                      self.retardation_option, 
+                      self.advective_observations_option] 
+        print('Option flags:', option_flags)
+              
+        logger.debug('Modpath settings - track: %s, zone_opt: %s, zone_inj: %s', self.track, self.zone_opt, type(self.zone_inj))
         
         # ---- flopy.modpath.Modpath6
-        flopy.modpath.Modpath6Sim(model=self.mp, option_flags=flags,
-                                  group_placement=[[1, 1, 1, 0, 1, 1]], stop_zone=1, zone=zone_inj) # szone
+        flopy.modpath.Modpath6Sim(model=self.mp, option_flags=option_flags,
+                                  group_placement=self.group_placement, 
+                                  stop_zone=self.stop_zone, zone=self.zone_inj) # szone
 
         with rasterio.open(self.zone_partic) as src:
             mask_dem = src.read(1)
 
         # ---- flopy.modpath.mp6sim.StartingLocationsFile
-        stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=1)
+        stl = flopy.modpath.mp6sim.StartingLocationsFile(model=self.mp, inputstyle=self.input_style)
         
         prow = self.cell_div
         pcol = self.cell_div
@@ -300,7 +341,7 @@ class Modpath:
                                     stldata[compt]['yloc0'] = (c+0.5)/(pcol) # new method
                                     if k == 0:
                                         ztop = self.mf.dis.top.array[i,j]
-                                    else:
+                                    else:  
                                         ztop = self.mf.dis.botm.array[k-1, i, j]
                                     zbot = self.mf.dis.botm.array[k, i, j]
                                     thickness = ztop - zbot
@@ -377,10 +418,10 @@ class Modpath:
         
         # ---- flflopy.modpath.Modpath6Basopy.modpath.mp6sim.StartingLocationsFile
         flopy.modpath.Modpath6Bas(self.mp,
-                                  hnoflo=-9999,
-                                  hdry=-100,
+                                  hnoflo=self.model_modflow.bas_hnoflo,
+                                  hdry=self.model_modflow.upw_hdry,
                                   # def_iface=[6, 6],
-                                  def_face_ct=0,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
+                                  def_face_ct=self.def_face_ct,    # ifaces = [6]  # top face:6 ; bottom face:5 ; row face:3-4 ; column face:1-2
                                   laytyp=laytype,
                                   ibound=iboundData,
                                   prsity=self.poro_modpath,
@@ -423,7 +464,7 @@ class Modpath:
         # Run modflow files
         success_model = False
         if run_model == True:
-            verbose = True
+            verbose = self.verbose
             success_model, tempo = self.mp.run_model(silent=not verbose) # True without msg
         
         return success_model
