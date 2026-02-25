@@ -55,15 +55,13 @@ from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
 from hydromodpy.calibration_legacy.matching_stream import MatchingStreams as MatchingStreamsCalib
 
-# Import from modeling_workflow_copy.py (with space in filename)
-import importlib.util
-spec = importlib.util.spec_from_file_location("modeling_workflow_copy", Path(__file__).parent / "modeling_workflow copy.py")
-modeling_workflow_copy = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(modeling_workflow_copy)
-modflow = modeling_workflow_copy.modflow
-modpath = modeling_workflow_copy.modpath
-mt3dms = modeling_workflow_copy.mt3dms
-postprocessing_timeseries = modeling_workflow_copy.postprocessing_timeseries
+# Import complete workflow functions from modeling_workflow_complete.py
+from modeling_workflow_complete import (
+    complete_modflow,
+    complete_modpath,
+    complete_mt3dms,
+    complete_timeseries
+)
 
 
 fontprop = toolbox.plot_params(8, 15, 18, 20)
@@ -71,7 +69,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
 # ============================================================================
-EXAMPLE_TO_RUN = "ex04"  # ← CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex12"  # ← CHANGE THIS TO SWITCH EXAMPLES
 
 # Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
 config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
@@ -1572,7 +1570,7 @@ def data(results):
 
                         if viz.get("dem_param"):
                             # watershed_local requires dem_init_path as first parameter
-                            dem_filename = config.get("dem_filename")
+                            dem_filename = PARAMS[example_key].get("dem_filename", "watershed_dem.tif")
                             if dem_filename:
                                 dem_path = os.path.join(data_path, dem_filename)
                                 if os.path.exists(dem_path):
@@ -1909,9 +1907,9 @@ def modeling(results):
                 # ex01: use hk from PARAMS, no version/alpha naming
                 model_name = f"{example_key}_hk{p['hk']:.1e}"
 
-            # Call refactored modflow function with individual objects
+            # Call refactored complete_modflow function with individual objects
             hk_value = p.get("the_K0") if p.get("the_K0") is not None else p.get("hk")
-            result = modflow(
+            result = complete_modflow(
                 geographic=geographic_object,
                 hydraulic=hydraulic_object,
                 settings=settings_object,
@@ -1947,7 +1945,7 @@ def modeling(results):
                 for i, (hk_value, model_name) in enumerate(zip(hk_values, model_names)):
                     print(f"    Model {i+1}/{len(hk_values)}: {model_name}")
 
-                    result = modflow(
+                    result = complete_modflow(
                         geographic=geographic_object,
                         hydraulic=hydraulic_object,
                         settings=settings_object,
@@ -1976,7 +1974,7 @@ def modeling(results):
                     hydraulic_object.update_sy(sy_value)
                     settings_object.update_model_name(model_name)
 
-                    result = modflow(
+                    result = complete_modflow(
                         geographic=geographic_object,
                         hydraulic=hydraulic_object,
                         settings=settings_object,
@@ -2057,14 +2055,14 @@ def modpath_ex12(results):
         # Use MODPATH_CONFIG with all parameter subsections
         config = MODPATH_CONFIG.get('ex12', {})
 
-        # Call refactored modpath with config
+        # Call refactored complete_modpath with config
         # for_calib=False because we're in simulations mode (not calibration)
-        modpath_result = modpath(
+        modpath_result = complete_modpath(
             geographic=geographic_object,
             settings=settings_object,
             model_modflow=model_modflow,
             initializing=initializing_object,
-            results=results,
+            model_name=model_name,
             for_calib=False,
             config=config
         )
@@ -2095,6 +2093,7 @@ def mt3dms_ex12(results):
         geographic_object = results['geographic']
         model_modflow = results['model_modflow']
         initializing_object = results['initializing']
+        model_name = results['model_name']
         transport_object = results.get('transport')
 
         if not model_modflow or not results.get('success_modflow'):
@@ -2129,15 +2128,16 @@ def mt3dms_ex12(results):
         example_key = CONFIG.get("example", "ex12")
         config = MT3DMS_CONFIG.get(example_key, {})
 
-        # Call refactored mt3dms with config
-        mt3dms_result = mt3dms(
+        # Call refactored complete_mt3dms with config
+        mt3dms_result = complete_mt3dms(
             geographic=geographic_object,
             climatic=None,
             model_modflow=model_modflow,
             initializing=initializing_object,
-            transport=transport_object,
+            model_name=model_name,
             scenario=scenario,
             for_calib=False,
+            transport=transport_object,
             config=config
         )
 
@@ -2175,14 +2175,15 @@ def ex12_postprocessing_timeseries_modflow(results):
             results['success_timeseries_modflow'] = False
             return results
 
-        # Call postprocessing_timeseries from modeling_workflow (model_modpath=None, model_mt3dms=None)
-        ts_result = postprocessing_timeseries(
+        # Call complete_timeseries from modeling_workflow (model_modpath=None, model_mt3dms=None)
+        # scenario=None for MODFLOW-only → creates _simulated_timeseries.csv (without suffix)
+        ts_result = complete_timeseries(
             geographic=geographic_object,
             model_modflow=model_modflow,
             model_modpath=None,
             model_mt3dms=None,
             scenario=None,
-            results=results
+            config=None
         )
 
         results['timeseries_results_modflow'] = ts_result.get('timeseries_results')
@@ -2220,14 +2221,14 @@ def ex12_postprocessing_timeseries_complete(results):
             results['success_timeseries_complete'] = False
             return results
 
-        # Call postprocessing_timeseries from modeling_workflow (with all models)
-        ts_result = postprocessing_timeseries(
+        # Call complete_timeseries from modeling_workflow (with all models)
+        ts_result = complete_timeseries(
             geographic=geographic_object,
             model_modflow=model_modflow,
             model_modpath=model_modpath,
             model_mt3dms=model_mt3dms,
             scenario=scenario,
-            results=results
+            config=None
         )
 
         results['timeseries_results_complete'] = ts_result.get('timeseries_results')
