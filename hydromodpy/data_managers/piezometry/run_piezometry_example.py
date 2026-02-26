@@ -6,15 +6,19 @@ per station.
 """
 
 from pathlib import Path
+import sys
+
+_MANAGER_ROOT = Path(__file__).resolve().parents[1]
+_THIS_DIR = Path(__file__).resolve().parent
+for _path in (str(_MANAGER_ROOT), str(_THIS_DIR)):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 try:
     from ..common.utils import safe_file_token
     from .piezometer_set import PiezometerSet
 except ImportError:
-    try:
-        from common.utils import safe_file_token
-    except ImportError:
-        from hydromodpy.data_managers.common.utils import safe_file_token
+    from common.utils import safe_file_token
     from piezometer_set import PiezometerSet
 
 

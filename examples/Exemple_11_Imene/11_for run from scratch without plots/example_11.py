@@ -34,7 +34,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODEULES
 from hydromodpy import watershed_root
 from hydromodpy.process import Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
-from hydromodpy.process.flow_imene import FlowImene
+from hydromodpy.process.flow import FlowImene
 
 # ---- HELPER FUNCTION
 

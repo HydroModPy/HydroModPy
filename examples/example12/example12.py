@@ -47,20 +47,20 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 import hydromodpy as hmp
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Climatic, Driasclimat, Driaseau, \
-    Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
+from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
+    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
-from hydromodpy.watershed import surfaces
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingConfig, GeographicConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.modeling.modflow import Modflow
+from hydromodpy.domain import Domain, Surfaces
+from hydromodpy.process import Flow
+from hydromodpy.solver.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
-
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -88,8 +88,11 @@ if __name__ == '__main__':
     initializing = hmp.Initializing(config=cfg.initializing)
     geographic   = hmp.Geographic(config=cfg.geographic,
                               initializing=initializing)
-
-
+    domain = Domain(
+        config=cfg.domain,
+        geographic=geographic,
+    )
+    flow = Flow(config=cfg.flow)
 
     setting = Settings()
     hydraulic = Hydraulic(nrow=geographic.y_pixel,
@@ -115,15 +118,7 @@ if __name__ == '__main__':
                         intermittency=None,
                         add_path=data_path,
                         out_path=initializing.catch_folder,
-                        sub_snap_dist=150)
-
-    geology = Geology(out_path=initializing.catch_folder,
-                            geographic=geographic,
-                            geo_path = data_path,
-                            landsea=None,
-                            types_obs='GEO1M.shp',
-                            fields_obs= 'CODE_LEG')
-
+                        sub_snap_dist=50)
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
                             hydrometry_path=data_path,
                             file_name='france hydrometric stations.shp',
@@ -161,8 +156,8 @@ if __name__ == '__main__':
     #%% SURFACE
 
     thickness = 50
-    surfaces_object = surfaces.Surfaces(aquifer_top = geographic.dem_box_buff_data,
-                                        aquifer_bottom = geographic.dem_box_buff_data - thickness)
+    surfaces_object = Surfaces(aquifer_top = geographic.dem_box_buff_data,
+                               aquifer_bottom = geographic.dem_box_buff_data - thickness)
     aquifer_top = surfaces_object.aquifer_top
     aquifer_bottom = surfaces_object.aquifer_bottom
 
@@ -543,6 +538,8 @@ if __name__ == '__main__':
     else:
         model_folder = initializing.calibration_folder
     model_modflow = Modflow(geographic,
+                            flow=flow,
+                            domain=domain,
                             # Workflow settings
                             model_folder=model_folder,   # self.simulations_folder
                             model_name=setting.model_name,

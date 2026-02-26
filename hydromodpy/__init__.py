@@ -266,6 +266,7 @@ from hydromodpy import tools
 from hydromodpy import pyhelp
 from hydromodpy import calibration
 from hydromodpy import data_managers
+from hydromodpy import domain
 
 _LAZY_IMPORTS = {
     # watershed classes
@@ -313,6 +314,7 @@ __all__ = [
     "pyhelp",
     "calibration",
     "data_managers",
+    "domain",
     "log_manager",
     "__version__",
     *_LAZY_IMPORTS,
