@@ -11,7 +11,7 @@ Class overview
    :nosignatures:
    :toctree: generated/modeling
 
-   ~hydromodpy.solver.modflow.modflow.Modflow
-   ~hydromodpy.modeling.modpath.Modpath
+   ~hydromodpy.solver.modflow_nwt.modflow.Modflow
+   ~hydromodpy.solver.modflow_nwt.modpath.Modpath
    ~hydromodpy.modeling.timeseries.Timeseries
    ~hydromodpy.modeling.masstransfer.Masstransfer
