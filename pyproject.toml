@@ -125,10 +125,10 @@ markers = [
 
 [tool.coverage.run]
 source = [
-    "hydromodpy/watershed/",
-    "hydromodpy/tools/",
-    "hydromodpy/modeling/",
-    "hydromodpy/display/",
+    "hydromodpy.watershed",
+    "hydromodpy.tools",
+    "hydromodpy.modeling",
+    "hydromodpy.display",
 ]
 parallel = true
 
