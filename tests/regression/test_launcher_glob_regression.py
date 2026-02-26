@@ -48,7 +48,7 @@ def run_launcher_glob_regression_test(
 ):
     """
     Generic regression test helper for any Launcher_Glob example.
-
+    
     Parameters:
     -----------
     example_key : str
@@ -66,14 +66,14 @@ def run_launcher_glob_regression_test(
     """
     # Ensure required tools are available
     assert_required_executables()
-
+    
     # Use default output names if not specified
     if modflow_output_names is None:
         modflow_output_names = DEFAULT_MODFLOW_OUTPUT_NAMES
-
+    
     # Create output directory for this test
     out_path = tmp_path / f"launcher_glob_{example_key}_outputs"
-
+    
     # STEP 1: Execute Launcher_Glob with this example
     print(f"\n[REGRESSION TEST] Running Launcher_Glob with example_key='{example_key}'")
     run_launcher_glob(
@@ -81,7 +81,7 @@ def run_launcher_glob_regression_test(
         out_path=str(out_path),
         display_plots=False
     )
-
+    
     # STEP 2: Locate the MODFLOW postprocessing directory
     _, postprocess_dir, _ = resolve_model_workspace(
         out_path,
@@ -89,13 +89,13 @@ def run_launcher_glob_regression_test(
         results_folder_name=results_folder_name,
         model_name_prefix=model_name_prefix,
     )
-
+    
     # STEP 3: Collect output file signatures (hashes)
     print(f"[REGRESSION TEST] Collecting MODFLOW output signatures from: {postprocess_dir}")
     actual_signatures = collect_modflow_signatures(postprocess_dir, modflow_output_names)
-
+    
     actual = {"modflow_expected": actual_signatures}
-
+    
     # STEP 4: Compare with golden reference file
     print(f"[REGRESSION TEST] Comparing with golden reference: {golden_reference_file}")
     update_or_assert_goldens(
@@ -103,7 +103,7 @@ def run_launcher_glob_regression_test(
         golden_reference_file=golden_reference_file,
         update_goldens=update_goldens,
     )
-
+    
     print(f"✓ REGRESSION TEST PASSED for {example_key}")
 
 
@@ -124,7 +124,7 @@ GOLDEN_EX00 = (
 def test_launcher_glob_ex00_regression(tmp_path, update_goldens):
     """
     Regression test for Example 00 (simple hydrological model).
-
+    
     Verifies: Launcher_Glob(ex00) produces identical MODFLOW outputs to example_00.py
     Expected files: watertable_elevation, watertable_depth, seepage_areas, etc.
     """
@@ -155,7 +155,7 @@ GOLDEN_EX01 = (
 def test_launcher_glob_ex01_regression(tmp_path, update_goldens):
     """
     Regression test for Example 01 (simplified example from paper).
-
+    
     Verifies: Launcher_Glob(ex01) produces identical MODFLOW outputs to example_01.py
     """
     run_launcher_glob_regression_test(
@@ -185,7 +185,7 @@ GOLDEN_EX03 = (
 def test_launcher_glob_ex03_regression(tmp_path, update_goldens):
     """
     Regression test for Example 03 (hydrographic network).
-
+    
     Verifies: Launcher_Glob(ex03) produces identical MODFLOW outputs to example_03.py
     """
     run_launcher_glob_regression_test(
@@ -223,7 +223,7 @@ MODFLOW_OUTPUTS_EX04 = [
 def test_launcher_glob_ex04_regression(tmp_path, update_goldens):
     """
     Regression test for Example 04 (streamflow intermittence with porosity loop).
-
+    
     Verifies: Launcher_Glob(ex04) loops over multiple porosity values and produces
               identical MODFLOW outputs to example_04.py for each iteration
     """
@@ -263,7 +263,7 @@ MODFLOW_OUTPUTS_EX09 = [
 def test_launcher_glob_ex09_regression(tmp_path, update_goldens):
     """
     Regression test for Example 09 (transport + calibration).
-
+    
     Verifies: Launcher_Glob(ex09) with calibration setup produces identical
               MODFLOW outputs to example_09.py
     Note: Results stored in "results_calibration" folder with model prefix
@@ -305,7 +305,7 @@ MODFLOW_OUTPUTS_EX12 = [
 def test_launcher_glob_ex12_regression(tmp_path, update_goldens):
     """
     Regression test for Example 12 (complete workflow: MODFLOW + MODPATH + MT3DMS).
-
+    
     Verifies: Launcher_Glob(ex12) with transport and particle tracking produces
               identical MODFLOW outputs to example_12.py
     Note: This is the most comprehensive test, including all post-processing options
