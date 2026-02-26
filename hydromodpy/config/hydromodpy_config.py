@@ -15,6 +15,7 @@ Usage::
     cfg.geographic.dem_init_path
     cfg.domain.zone_ids
     cfg.flow.param["K"]
+    cfg.modflow.vka
 """
 
 import tomllib
@@ -27,6 +28,7 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.solver.modflow_nwt.modflow_config import ModflowConfig
 from hydromodpy.watershed.geology_config import GeologyConfig
 from hydromodpy.watershed.geographic_config import GeographicConfig
 from hydromodpy.watershed.initializing_config import InitializingConfig
@@ -36,7 +38,8 @@ class HydroModPyConfig(BaseModel):
     """
     Top-level configuration for HydroModPy.
 
-    Aggregates sub-components (initializing, geographic, domain, flow) into a centralized,
+    Aggregates sub-components (initializing, geographic, domain, flow, modflow)
+    into a centralized,
     hierarchical model and validates optional flow parameters as
     `FieldParamConfig` dictionaries.
     """
@@ -61,6 +64,12 @@ class HydroModPyConfig(BaseModel):
         description=(
             "Flow process configuration with parameter payloads validated "
             "from [flow.param.<id>] TOML sections."
+        ),
+    )
+    modflow: ModflowConfig = Field(
+        default_factory=ModflowConfig,
+        description=(
+            "Expert MODFLOW-NWT package configuration loaded from [modflow]."
         ),
     )
 
@@ -95,6 +104,7 @@ class HydroModPyConfig(BaseModel):
             "geographic": ({}, lambda data, b: _load_standard_section(data, GeographicConfig, b)),
             "domain": ({}, lambda data, b: _load_domain_section(data, b, geology_data)),
             "flow": ({}, _load_flow_section),
+            "modflow": ({}, lambda data, b: _load_standard_section(data, ModflowConfig, b)),
         }
 
         parsed_sections: dict[str, Any] = {}

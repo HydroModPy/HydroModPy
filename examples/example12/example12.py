@@ -489,7 +489,6 @@ if __name__ == '__main__':
     bc_left = None # or value
     bc_right = None # or value
     zone_partic = 'domain' # or watershed
-    vka = 1
     bottom = 0
     thickness = 100
     Klog_transf = False
@@ -515,7 +514,6 @@ if __name__ == '__main__':
     hydraulic.update_sy_decay(sy_decay)
     hydraulic.update_ss(ss)
     hydraulic.update_ss_decay(ss_decay)
-    hydraulic.update_vka(vka)
     hydraulic.update_hk_vertical(verti_hk) # here for lays [ [1e-5m/s, [0, 20m]]
     hydraulic.update_sy_vertical(verti_sy)
     hydraulic.update_ss_vertical(verti_ss)
@@ -601,18 +599,9 @@ if __name__ == '__main__':
                             thick=hydraulic.thick,
                             nlay=hydraulic.nlay,
                             lay_decay=hydraulic.lay_decay,
-                            hk_value=hydraulic.hk_value,
-                            sy_value=hydraulic.sy_value,
-                            ss_value=hydraulic.ss_value,
-                            hk_decay=hydraulic.hk_decay,
-                            sy_decay=hydraulic.sy_decay,
-                            ss_decay=hydraulic.ss_decay,
-                            verti_hk=hydraulic.verti_hk,
-                            verti_sy=hydraulic.verti_sy,
-                            verti_ss=hydraulic.verti_ss,
+                            modflow_config=cfg.modflow,
                             cond_drain=hydraulic.cond_drain,
-                            vka=hydraulic.vka,
-                            exdp=hydraulic.exdp)
+                            )
 
     model_modflow.pre_processing() # verbose
 

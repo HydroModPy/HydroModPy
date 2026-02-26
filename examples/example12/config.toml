@@ -1,6 +1,6 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: expert | Modules: initializing, geographic, domain, flow
+# Profile: expert | Modules: initializing, geographic, domain, flow, modflow
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
 # ======================================================================
@@ -180,7 +180,7 @@ unit = "m/s"
 
 [flow.param.K.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-value = 5e-5
+value = 4.32
 
 [flow.param.K.field_heterogeneous]
 # Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
@@ -303,3 +303,77 @@ mode = "none"
 # factors = [1.0, 0.8, 0.5]
 # Interpolation strategy for tabulated mode: "linear" or "step".
 # interpolation = "linear"
+
+
+# ----------------------------------------------------------------------
+# MODFLOW expert configuration
+# ----------------------------------------------------------------------
+
+[modflow]
+# MODFLOW executable/version identifier passed to FloPy.
+mf_version = "mfnwt"
+# Fortran unit number used for the MODFLOW list file.
+mf_listunit = 2
+# Enable verbose FloPy logging for model setup.
+mf_verbose = false
+
+# Head closure criterion for the NWT nonlinear solver.
+nwt_headtol = 1e-4
+# Flux closure criterion for the NWT nonlinear solver.
+nwt_fluxtol = 500.0
+# Maximum outer nonlinear iterations in the NWT solver.
+nwt_maxiterout = 5000
+# NWT wetting/thickness factor controlling nonlinear updates.
+nwt_thickfact = 1e-5
+# Linear solver choice for NWT.
+nwt_linmeth = 1
+# NWT print flag controlling iteration diagnostics in listing outputs.
+nwt_iprnwt = 1
+# NWT option for averaging saturated thickness at the cell bottom.
+nwt_ibotav = 1
+# NWT nonlinear option keyword.
+nwt_options = "COMPLEX"
+# If true, continue NWT iterations on partially converged stress periods.
+nwt_continue = false
+# NWT backtracking activation flag.
+nwt_backflag = 0
+# NWT backtracking stopping tolerance.
+nwt_stoptol = 1e-10
+
+# DIS time unit code used by MODFLOW (ITMUNI).
+dis_itmuni = 0
+
+# BAS no-flow head sentinel value (HNOFLO).
+bas_hnoflo = -9999.0
+
+# UPW dry-cell head output flag (IPHDRY).
+upw_iphdry = 1
+# UPW dry-cell head value (HDRY).
+upw_hdry = -100.0
+# UPW flag controlling VKA interpretation per layer (LAYVKA).
+upw_layvka = 1
+
+# EVT option code that defines how ET extinction depth is applied (NEVTOP).
+evt_nevtop = 3
+# EVT integer array selector used when NEVTOP requires layer indices (IEVT).
+evt_ievt = 1
+# EVT cell-by-cell budget output flag (IPAKCB).
+evt_ipakcb = 1
+
+# Enable compact budget format in OC outputs.
+oc_compact = true
+
+# WEL cell-by-cell budget output flag (IPAKCB).
+wel_ipakcb = 1
+
+# LMT output filename used to couple MODFLOW to MT3DMS.
+lmt_output_file_name = "mt3d_link.ftl"
+# LMT package filename extension.
+lmt_extension = "lmt8"
+# LMT file format.
+lmt_output_format = "unformatted"
+
+# Vertical hydraulic conductivity control passed to the UPW package (VKA).
+vka = 1.0
+# Extinction depth used by the EVT package (EXDP).
+exdp = 1.0
