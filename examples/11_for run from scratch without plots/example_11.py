@@ -191,18 +191,8 @@ def run_hydromodpy(watershed_name='Test1',
                             thick=BV.hydraulic.thick,
                             nlay=BV.hydraulic.nlay,
                             lay_decay=BV.hydraulic.lay_decay,
-                            hk_value=BV.hydraulic.hk_value,
-                            sy_value=BV.hydraulic.sy_value,
-                            ss_value=BV.hydraulic.ss_value,
-                            hk_decay=BV.hydraulic.hk_decay,
-                            sy_decay=BV.hydraulic.sy_decay,
-                            ss_decay=BV.hydraulic.ss_decay,
-                            verti_hk=BV.hydraulic.verti_hk,
-                            verti_sy=BV.hydraulic.verti_sy,
-                            verti_ss=BV.hydraulic.verti_ss,
                             cond_drain=BV.hydraulic.cond_drain,
-                            vka=BV.hydraulic.vka,
-                            exdp=BV.hydraulic.exdp)
+                            )
     model_modflow.pre_processing() # verbose
     success_model = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=False)
     
