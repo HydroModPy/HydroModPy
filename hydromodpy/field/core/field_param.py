@@ -455,6 +455,18 @@ class FieldParam:
         """
         Convert parameter values into one value per mesh cell.
 
+        Important shape contract
+        ------------------------
+        This method always returns values on the provided mesh support
+        (`MeshWithValues.cell_values`), i.e. one scalar per mesh cell.
+        For the current structured SGrid bridge, that support is planar
+        `(nrow, ncol)` and **not** a volumetric `(nlay, nrow, ncol)` tensor.
+
+        In other words, depth-dependent correction is applied *on that 2D mesh*
+        for the provided `depth` argument. A caller that needs a 3D tensor must
+        call this method multiple times (for example one call per layer-depth)
+        and stack the returned 2D maps.
+
         Parameters
         ----------
         field_discretization :
@@ -704,18 +716,12 @@ class FieldParam:
             csv_value_column = "property_value"
             field_spatial_id = "field_geology"
 
-        Common+specific workflow
-        ------------------------
-        The loader supports:
-        - a shared common section (`[field_common]`),
+        Loader workflow
+        ---------------
+        The loader uses:
         - a base section (`[field]`) with `kind`,
-        - mode-specific sections (`[field_homogeneous]`, `[field_heterogeneous]`).
-
-        Data is merged as:
-
-        1) optional common mapping,
-        2) selected section mapping,
-        3) optional mode-specific mapping selected from `kind`.
+        - mode-specific sections (`[field_homogeneous]`, `[field_heterogeneous]`),
+        - optional vertical section (`[field_vertical_profile]`).
         """
         path = Path(toml_path).resolve()
         with path.open("rb") as stream:
@@ -726,20 +732,20 @@ class FieldParam:
 
         merged: dict[str, Any] = {}
 
-        # Shared common section at root level.
-        common_root = _optional_nested_section(payload, "field_common")
-        if common_root is not None and section_key != "field_common":
-            merged.update(dict(common_root))
-
-        # Optional parent-scoped common section for dotted paths.
-        # Example: section="my_case.field_homogeneous" and
-        # "my_case.field_common" or "my_case.common".
         if "." in section_key:
             parent = section_key.rsplit(".", 1)[0]
-            for suffix in ("field_common", "common"):
-                common_parent = _optional_nested_section(payload, f"{parent}.{suffix}")
-                if common_parent is not None and f"{parent}.{suffix}" != section_key:
-                    merged.update(dict(common_parent))
+            common_parent = _optional_nested_section(payload, f"{parent}.field_common")
+            if common_parent is not None:
+                raise ValueError(
+                    f"TOML section '{parent}.field_common' is no longer supported. "
+                    f"Move shared keys to '{parent}.field'."
+                )
+        common_root = _optional_nested_section(payload, "field_common")
+        if common_root is not None:
+            raise ValueError(
+                "TOML section 'field_common' is no longer supported. "
+                "Move shared keys to 'field'."
+            )
 
         # Backward-compatible root [field] common block (only when another
         # section is explicitly requested).

@@ -1,6 +1,6 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: expert | Modules: initializing, geographic
+# Profile: expert | Modules: initializing, geographic, domain, flow
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
 # ======================================================================
@@ -93,3 +93,155 @@ dem_correc_type = "breach"
 # When set, rasters are loaded instead of recomputed.
 # Type: Union[str, NoneType] | Optional
 # reg_fold =
+
+
+# ----------------------------------------------------------------------
+# Domain configuration.
+# ----------------------------------------------------------------------
+
+[domain]
+# Ordered list of zone identifiers loaded in the domain.
+# Supported values currently include: 'geology'.
+# Type: list[str] | Default: []
+zone_ids = ["geology"]
+
+
+# ----------------------------------------------------------------------
+# Geology configuration nested under domain.
+# ----------------------------------------------------------------------
+
+[domain.geology]
+# Identifier of the geology spatial field.
+# Type: string | Default: "field_geology"
+id = "field_geology"
+
+# Path to the geology data directory.
+# Type: path | Default: "data/France/geology"
+geo_path = "../../data/France/geology"
+
+# Geology shapefile name inside `geo_path`.
+# Type: string | Default: "GEO1M.shp"
+types_obs = "GEO1M.shp"
+
+# Attribute field used to encode geology classes.
+# Type: string | Default: "CODE_LEG"
+fields_obs = "CODE_LEG"
+
+# Sub-sampling density passed to geology_field.on_mesh(...).
+# Higher values improve interface resolution but increase runtime.
+# Type: int | >= 2 | Default: 8
+cell_samples_per_axis = 8
+
+# Optional land/sea activation flag used by the legacy geology workflow.
+# Set to true to enable sea-specific processing.
+# Type: bool (optional) | Optional
+# landsea =
+
+
+# ----------------------------------------------------------------------
+# Flow configuration
+# ----------------------------------------------------------------------
+
+# Structure identique a field_param_config:
+# - [flow.param.<id>.field]
+# - [flow.param.<id>.field_homogeneous] ou [flow.param.<id>.field_heterogeneous]
+# - [flow.param.<id>.field_vertical_profile] (optionnel)
+#
+# Descriptions (Pydantic):
+# - field.id: identifiant du parametre (ex: K, Sy, S).
+# - field.kind: type de champ ("homogeneous" ou "heterogeneous").
+# - field_homogeneous.value: valeur scalaire de surface.
+# - field_heterogeneous.values_source: "inline" ou "csv".
+# - field_heterogeneous.values: mapping cle->valeur (si values_source="inline").
+# - field_heterogeneous.values_csv_file: chemin CSV (si values_source="csv").
+# - field_heterogeneous.csv_key_column: colonne CSV des cles de zone.
+# - field_heterogeneous.csv_value_column: colonne CSV des valeurs numeriques.
+# - field_heterogeneous.field_spatial_id: id du champ spatial de correspondance.
+# - field_vertical_profile.mode: "none" | "exponential" | "tabulated".
+# - field_vertical_profile.characteristic_depth: profondeur caracteristique
+#   pour exp(-depth/characteristic_depth) en mode exponential.
+# - field_vertical_profile.depths/factors/interpolation:
+#   profile tabule (mode tabulated), interpolation "linear" ou "step".
+
+# ----------------------------------------------------------------------
+# K
+# ----------------------------------------------------------------------
+
+[flow.param.K.field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
+id = "K"
+# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
+kind = "heterogeneous"
+
+[flow.param.K.field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
+# value = 12.5
+
+[flow.param.K.field_heterogeneous]
+# Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
+values_source = "csv"
+# Inline key/value mapping used when values_source='inline'.
+# values = { granite = 10.0, micaschists = 2.0 }
+# Path to CSV mapping file used when values_source='csv'. Relative paths are resolved from TOML directory.
+# Full France correspondence table used by GeologyField demo:
+# one entry per GEO1M class (plus SEA), columns: zone_key, K_value, geology_name.
+# WARNING: dummy/demo dataset only (not a calibrated/authoritative hydrogeologic reference).
+values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
+# CSV column name containing zone/material keys.
+csv_key_column = "zone_key"
+# CSV column name containing numeric parameter values.
+csv_value_column = "K_value"
+# Identifier of the spatial field used to map heterogeneous values.
+field_spatial_id = "field_geology"
+
+[flow.param.K.field_vertical_profile]
+# Depth dependency mode shared over the full domain.
+mode = "none"
+# Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
+# characteristic_depth = 30.0
+# Depth nodes for tabulated mode (first value must be 0).
+# depths = [0.0, 10.0, 30.0]
+# Multiplicative factors aligned with depths (first value must be 1 at depth 0).
+# factors = [1.0, 0.8, 0.5]
+# Interpolation strategy for tabulated mode: "linear" or "step".
+# interpolation = "linear"
+
+# ----------------------------------------------------------------------
+# S
+# ----------------------------------------------------------------------
+
+[flow.param.S.field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
+id = "S"
+# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
+kind = "homogeneous"
+
+[flow.param.S.field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
+value = 0.15
+
+[flow.param.S.field_heterogeneous]
+# Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
+# values_source = "inline"
+# Inline key/value mapping used when values_source='inline'.
+# values = { zone1 = 0.15, zone2 = 0.08 }
+# Path to CSV mapping file used when values_source='csv'. Relative paths are resolved from TOML directory.
+# values_csv_file = "s_values.csv"
+# CSV column name containing zone/material keys.
+# csv_key_column = "zone_key"
+# CSV column name containing numeric parameter values.
+# csv_value_column = "value"
+# Identifier of the spatial field used to map heterogeneous values.
+# field_spatial_id = "field_square"
+
+[flow.param.S.field_vertical_profile]
+# Depth dependency mode shared over the full domain.
+mode = "none"
+# Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
+# characteristic_depth = 30.0
+# Depth nodes for tabulated mode (first value must be 0).
+# depths = [0.0, 10.0, 30.0]
+# Multiplicative factors aligned with depths (first value must be 1 at depth 0).
+# factors = [1.0, 0.8, 0.5]
+# Interpolation strategy for tabulated mode: "linear" or "step".
+# interpolation = "linear"

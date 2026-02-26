@@ -1,0 +1,49 @@
+# Spatial grid configuration for `SGridConfig.from_toml(...)`.
+#
+# Example usage:
+#   from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
+#   from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+#   cfg = SGridConfig.from_toml("hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo_config.toml")
+#   sgrid = StructuredGridBuilder().build(cfg)
+
+[sgrid]
+# Grid family. Only "structured" is currently implemented.
+sgrid_type = "structured"
+
+# Horizontal grid
+# Top-surface method. For now: "filepath" only.
+genmtd_top = "filepath"
+# Path to top DEM raster.
+top_path = "watershed_box_buff_dem.tif"
+# Length unit label stored in grid metadata.
+lenuni = "m"
+# Optional coordinate reference system identifier.
+crs = "EPSG:2154"
+# Planar discretization:
+# - "raster_native" -> keep top raster native shape
+# - "shape" -> resample to (ny, nx)
+plan_discretization_mode = "shape"
+# Target columns/rows when using plan_discretization_mode = "shape".
+nx = 150
+ny = 150
+# No-data sentinel used to mask invalid raster cells.
+nodata = -9999
+
+# Bottom definition:
+# - "filepath" -> provide bot_path
+# - "raster" -> provide bot_raster from Python (not TOML-friendly)
+# - "constant_thickness" -> provide thick
+# - "constant_altitude" -> provide zbot
+genmtd_bot = "constant_thickness"
+# Domain thickness (used with constant_thickness).
+thick = 200.0
+
+# Vertical layering:
+# - "constant" -> provide nlay
+# - "decay" -> provide nlay + lay_decay (>1)
+# - "list" -> provide lay_proportions summing to 1.0
+genmtd_lay = "decay"
+# Number of model layers for constant/decay modes.
+nlay = 5
+# Exponent controlling layer-thickness increase with depth.
+lay_decay = 2.0
