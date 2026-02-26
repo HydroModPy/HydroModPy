@@ -4,19 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "0.3.4"
+version = "0.3.5"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = "EPL-2.0"
 authors = [
     { name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com" },
-    { name = "Ronan AbhervÃ©", email = "ronan.abherve@gmail.com" },
+    { name = "Ronan Abherve", email = "ronan.abherve@gmail.com" },
     { name = "Jean-Raynald de Dreuzy", email = "jean-raynald.de-dreuzy@univ-rennes.fr" },
 ]
 maintainers = [
     { name = "Alexandre Gauvain", email = "alexandre.gauvain.ag@gmail.com" },
-    { name = "Ronan AbhervÃ©", email = "ronan.abherve@gmail.com" },
+    { name = "Ronan Abherve", email = "ronan.abherve@gmail.com" },
     { name = "Bastien Boivin", email = "bastien.boivin@proton.me" },
 ]
 keywords = [
@@ -70,9 +70,7 @@ dependencies = [
     "spyder-kernels",
     "pytest",
     "pytest-xdist",
-    "pytest-cov",
     "dask",
-    "pydantic",
 ]
 
 [project.optional-dependencies]
@@ -131,7 +129,21 @@ source = [
     "hydromodpy.display",
 ]
 parallel = true
+omit = [
+    "hydromodpy/*/cases/*/run_*.py",
+    "hydromodpy/*/cases/*/plotting.py",
+    "hydromodpy/*/examples/*/run_*.py",
+    "hydromodpy/calibration_legacy/*",
+    "hydromodpy/calibration2/*",
+]
 
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]

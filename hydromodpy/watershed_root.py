@@ -30,7 +30,7 @@ sys.path.append(root_dir)
 # HydroModPy
 from hydromodpy.watershed.geographic import Geographic
 from hydromodpy.watershed import climatic, driasclimat, driaseau, \
-    geology, hydraulic, hydrography, hydrometry, intermittency, oceanic, piezometry, settings, safransurfex, subbasin, transport
+    geology, hydraulic, hydrography, hydrometry, intermittency, oceanic_old, piezometry, settings, safransurfex, subbasin, transport
 from hydromodpy.modeling import modpath, mt3dms, timeseries, netcdf
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.tools import setup_simulation_log
