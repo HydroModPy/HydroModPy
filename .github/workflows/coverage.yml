@@ -1,4 +1,4 @@
-name: Coverage (example12)
+name: pytest
 
 on:
   push:
@@ -23,16 +23,38 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[docs]"
-          pip install pytest-cov
+          pip install coverage
+
+      - name: Remove coverage .pth file (breaks numpy C extensions)
+        run: |
+          python -c "
+          import sysconfig, pathlib, glob
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+              print(f'Removed {pth}')
+          "
 
       - name: Make MODFLOW binaries executable
         run: chmod +x bin/linux/*
 
-      - name: Run coverage test
+      - name: Run tests
+        env:
+          HYDROMODPY_COVERAGE: "1"
         run: |
-          python -m pytest tests/regression/test_example12_npy_regression.py \
-            -v \
-            --cov=hydromodpy --cov-report=term-missing --cov-report=xml
+          python -m pytest \
+            tests/regression/test_example12_npy_regression.py -v
+
+      - name: Combine and report coverage
+        if: always()
+        run: |
+          coverage combine
+          coverage report --show-missing
+          coverage xml
+
+      - name: Debug coverage files
+        if: always()
+        run: ls -la .coverage* || echo "No .coverage files found"
 
       - name: Upload to Codecov
         if: always()
