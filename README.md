@@ -1,4 +1,4 @@
-![logo](https://raw.githubusercontent.com/HydroModPy/HydroModPy/main/docs/readthedocs/source/images/logoHydroModPy_long.png)
+![logo](https://github.com/HydroModPy/HydroModPy/blob/61d654ca738c488480fd22aa01c2b1002984eac9/docs/readthedocs/source/images/logoHydroModPy_long.png)
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
