@@ -95,7 +95,7 @@ The CSV then contains the long correspondence list:
 
 The shared Brittany dataset is now grouped by thematic data type:
 - geology: `data/France/geology/`
-- DEM: `data/France/dem/`
+- DEM: `data/Brittany/dem/`
 - climate: `data/France/climate/`
 - hydrometry stations: `data/France/hydrometry/`
 - onde stations: `data/France/onde/`
@@ -203,4 +203,5 @@ Default output path:
 Output behavior for `--output-file` is the same as above:
 - bare filenames are redirected to `outputs/`,
 - relative paths are resolved from `hydromodpy/data_managers/geology/`.
+
 

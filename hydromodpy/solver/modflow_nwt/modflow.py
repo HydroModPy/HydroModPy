@@ -34,8 +34,9 @@ from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
-    discretize_fieldparam_on_sgrid,
+from hydromodpy.solver.modflow_nwt.modflow_utils import (
+    build_flow_domain_property_snapshot,
+    compare_and_log_property_arrays,
 )
 
 logger = get_logger(__name__)
@@ -349,142 +350,6 @@ class Modflow:
         self.lmt_extension = "lmt8"
         self.lmt_output_format = "unformatted"
 
-    @staticmethod
-    def _coerce_geology_field(zone_obj):
-        """Return a geology field object exposing `on_mesh(...)`."""
-        if zone_obj is None:
-            raise ValueError("Missing geology zone object in domain")
-
-        if not hasattr(zone_obj, "on_mesh"):
-            raise TypeError(
-                "Domain geology zone must expose 'on_mesh(...)'. "
-                "Expected a GeologyField-compatible object."
-            )
-        if not hasattr(zone_obj, "identifier"):
-            raise TypeError(
-                "Domain geology zone must expose 'identifier'. "
-                "Expected a GeologyField-compatible object."
-            )
-        return zone_obj
-
-    def _build_property_from_flow_domain(
-        self,
-        *,
-        sgrid,
-        flow_param_candidates,
-        target_3d_attr: str,
-        target_surface_attr: str,
-        property_label: str,
-    ) -> None:
-        """Map one Flow parameter to one MODFLOW property array on SGrid.
-
-        Design intent
-        -------------
-        Keep the call site compact, while keeping behavior explicit:
-        - one helper call per property (K, Sy, Ss),
-        - deterministic output arrays (`target_3d_attr`, `target_surface_attr`),
-        - strict contract (no fallback, no silent skip).
-
-        Practical examples
-        ------------------
-        Example A (hydraulic conductivity):
-        - input aliases: `("K", "k")`
-        - output attrs: `target_3d_attr="hk"`, `target_surface_attr="hk_value"`
-        - expected result:
-          `self.hk.shape == (nlay, nrow, ncol)` and
-          `self.hk_value.shape == (nrow, ncol)`
-
-        Example B (specific yield):
-        - input aliases: `("Sy", "SY", "sy", "S", "s")`
-        - output attrs: `target_3d_attr="sy"`, `target_surface_attr="sy_value"`
-
-        Strict behavior (important)
-        ---------------------------
-        If one prerequisite is missing (parameter, geology zone, spatial-id
-        compatibility), this method raises immediately. In mapping mode, there
-        is intentionally no historical fallback.
-        """
-        # 1) Validate object contracts early (fail fast, explicit error message).
-        if self.flow is None or not hasattr(self.flow, "parameters"):
-            raise ValueError("Missing flow object or flow.parameters for property mapping")
-        if self.domain is None or not hasattr(self.domain, "zones"):
-            raise ValueError("Missing domain object or domain.zones for property mapping")
-
-        # 2) Read the Flow parameter registry and pick the first matching alias.
-        #    Example: with aliases ("K", "k"), prefer "K" if both exist.
-        parameters = getattr(self.flow, "parameters", {})
-        if not isinstance(parameters, dict):
-            raise TypeError("flow.parameters must be a dictionary")
-
-        param_obj = None
-        selected_name = None
-        for candidate in flow_param_candidates:
-            if candidate in parameters:
-                param_obj = parameters.get(candidate)
-                selected_name = str(candidate)
-                break
-        if param_obj is None:
-            aliases = ", ".join([str(v) for v in flow_param_candidates])
-            raise ValueError(
-                f"Cannot map {property_label}: missing flow parameter among ({aliases})"
-            )
-        if not hasattr(param_obj, "to_mesh_field"):
-            raise TypeError(
-                f"Cannot map {property_label}: selected parameter '{selected_name}' "
-                "does not expose to_mesh_field(...)"
-            )
-
-        # 3) Resolve geology support from Domain.
-        #    This must expose at least:
-        #    - identifier (for heterogeneous consistency checks),
-        #    - on_mesh(...) (for zone-fraction projection on the 2D support).
-        zones = getattr(self.domain, "zones", {})
-        if not isinstance(zones, dict):
-            raise TypeError("domain.zones must be a dictionary")
-        geology_zone = zones.get("geology")
-        if geology_zone is None:
-            raise ValueError("Cannot map property: domain.zones['geology'] is missing")
-        geology_field = self._coerce_geology_field(geology_zone)
-
-        # 4) For heterogeneous parameters, enforce field spatial-id consistency.
-        #    Example:
-        #    - param_obj.field_spatial_id == "field_geology"
-        #    - geology_field.identifier == "field_geology"
-        #    If they differ, mapping is refused to avoid mixing unrelated supports.
-        if getattr(param_obj, "is_heterogeneous", False):
-            required_field_id = str(getattr(param_obj, "field_spatial_id", "")).strip()
-            geology_field_id = str(getattr(geology_field, "identifier", "")).strip()
-            if required_field_id and geology_field_id and required_field_id != geology_field_id:
-                raise ValueError(
-                    f"Cannot map {property_label}: field_spatial_id mismatch "
-                    f"('{required_field_id}' != '{geology_field_id}')"
-                )
-
-        # 5) Core discretization call:
-        #    - geology_field.on_mesh(...) creates the planar support;
-        #    - field_param.to_mesh_field(..., depth=...) is evaluated over layers;
-        #    - returned object contains both surface map and full 3D tensor.
-        discretized = discretize_fieldparam_on_sgrid(
-            geology_field=geology_field,
-            field_param=param_obj,
-            sgrid=sgrid,
-            cell_samples_per_axis=None,
-            depth=0.0,
-            strict_field_spatial_id_match=True,
-        )
-
-        # 6) Persist outputs on MODFLOW instance:
-        #    - solver-ready 3D tensor (`hk`, `sy`, `ss`),
-        #    - surface 2D view kept for legacy logs/plots.
-        setattr(self, target_3d_attr, np.asarray(discretized.values_3d, dtype=float))
-        setattr(self, target_surface_attr, np.asarray(discretized.values_2d, dtype=float))
-
-        logger.info(
-            "%s mapped from flow.%s on domain geology",
-            property_label,
-            selected_name,
-        )
-
     # %% PRE-PROCESSING
 
     def pre_processing(self):
@@ -783,37 +648,40 @@ class Modflow:
             result[result <= 0] = val_max
             return result
 
-        if self.use_flow_domain_fieldparam_mapping:
-            # Compact mapping table for Flow -> MODFLOW properties.
-            #
-            # Tuple format:
-            #   (accepted_flow_keys, target_3d_attr, target_surface_attr, human_label)
-            #
-            # Example:
-            #   (("K", "k"), "hk", "hk_value", "Hydraulic conductivity")
-            # means:
-            #   - read flow.parameters["K"] or flow.parameters["k"],
-            #   - compute one 3D tensor into self.hk,
-            #   - keep one 2D surface map into self.hk_value.
-            mapping_specs = [
-                (("K", "k"), "hk", "hk_value", "Hydraulic conductivity"),
-                (("Sy", "SY", "sy", "S", "s"), "sy", "sy_value", "Specific yield"),
-                (("Ss", "SS", "ss"), "ss", "ss_value", "Specific storage"),
-            ]
-            # No try/except here by design:
-            # if one mapping is invalid/incomplete, raise immediately.
-            for aliases, target_3d_attr, target_surface_attr, label in mapping_specs:
-                self._build_property_from_flow_domain(
-                    sgrid=sgrid,
-                    flow_param_candidates=aliases,
-                    target_3d_attr=target_3d_attr,
-                    target_surface_attr=target_surface_attr,
-                    property_label=label,
-                )
-        else:
+        # Compact mapping table for Flow -> MODFLOW properties.
+        #
+        # Tuple format:
+        #   (accepted_flow_keys, target_3d_attr, target_surface_attr, human_label)
+        mapping_specs = [
+            (("K", "k"), "hk", "hk_value", "Hydraulic conductivity"),
+            (("Sy", "SY", "sy", "S", "s"), "sy", "sy_value", "Specific yield"),
+            (("Ss", "SS", "ss"), "ss", "ss_value", "Specific storage"),
+        ]
+        mapped_flow_domain_snapshot = {}
+        has_flow_domain_inputs = (
+            self.flow is not None
+            and hasattr(self.flow, "parameters")
+            and self.domain is not None
+            and hasattr(self.domain, "zones")
+        )
+        if has_flow_domain_inputs:
+            mapped_flow_domain_snapshot = build_flow_domain_property_snapshot(
+                model=self,
+                sgrid=sgrid,
+                mapping_specs=mapping_specs,
+                strict=False,
+            )
+        elif self.use_flow_domain_fieldparam_mapping:
+            logger.warning(
+                "Flow/domain mapping comparison requested but missing flow/domain inputs."
+            )
+
+        # Historical constructor remains the reference used by MODFLOW inputs.
+        use_historical_parameter_constructor = True
+        if use_historical_parameter_constructor:
             logger.debug(
-                "Flow/domain parameter mapping is disabled. "
-                "Using historical hk/sy/ss parametrization by default."
+                "Using historical hk/sy/ss parametrization as solver reference. "
+                "Flow/domain mapping is only used for diagnostics."
             )
 
             ### Hydraulic conductivty
@@ -965,6 +833,19 @@ class Modflow:
                         mask = (self.zbot[i] <= ss_d1) & (self.zbot[i] >= ss_d2)
                         self.ss[i][mask] = ss_val
                         logger.debug("Applied ss_val=%s", ss_val)
+
+        # Diagnostic report: compare historical arrays (used downstream) against
+        # Flow/Domain mapped arrays built on SGrid.
+        if mapped_flow_domain_snapshot:
+            for _, target_3d_attr, _, label in mapping_specs:
+                mapped_values = mapped_flow_domain_snapshot.get(target_3d_attr)
+                if mapped_values is None:
+                    continue
+                compare_and_log_property_arrays(
+                    property_label=label,
+                    historical_3d=getattr(self, target_3d_attr),
+                    mapped_3d=mapped_values,
+                )
 
         # ---- flopy.modflow.ModflowUpw
         self.upw = flopy.modflow.ModflowUpw(

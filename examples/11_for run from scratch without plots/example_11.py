@@ -155,7 +155,7 @@ def run_hydromodpy(watershed_name='Test1',
                                        )
 
     # ---- FLOW MODEL
-    from hydromodpy.solver.modflow import Modflow
+    from hydromodpy.solver.modflow_nwt import Modflow
     for_calib = False
     if for_calib == False:
             model_folder = BV.simulations_folder

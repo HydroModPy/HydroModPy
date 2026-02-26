@@ -22,6 +22,46 @@ SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
 SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
 SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
+SUPPORTED_PARAMETER_UNITS = ("-", "m/s", "m/day", "cm/s", "cm/day", "m-1", "cm-1")
+
+_UNIT_ALIASES = {
+    "-": "-",
+    "1": "-",
+    "none": "-",
+    "dimensionless": "-",
+    "unitless": "-",
+    "m/s": "m/s",
+    "m.s-1": "m/s",
+    "m*s-1": "m/s",
+    "m*s^-1": "m/s",
+    "m/day": "m/day",
+    "m/d": "m/day",
+    "cm/s": "cm/s",
+    "cm.s-1": "cm/s",
+    "cm*s-1": "cm/s",
+    "cm*s^-1": "cm/s",
+    "cm/day": "cm/day",
+    "cm/d": "cm/day",
+    "m-1": "m-1",
+    "1/m": "m-1",
+    "m^-1": "m-1",
+    "cm-1": "cm-1",
+    "1/cm": "cm-1",
+    "cm^-1": "cm-1",
+}
+
+
+def _normalize_unit_token(value: str | None) -> str | None:
+    """Normalize one user unit token to canonical representation."""
+    if value is None:
+        return None
+    token = str(value).strip().lower().replace(" ", "")
+    if token == "":
+        raise ValueError("field.unit cannot be empty when provided")
+    if token not in _UNIT_ALIASES:
+        allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
+        raise ValueError(f"Unsupported field.unit '{value}'. Allowed: {allowed}")
+    return _UNIT_ALIASES[token]
 
 
 class FieldBaseSectionSchema(BaseModel):
@@ -49,6 +89,13 @@ class FieldBaseSectionSchema(BaseModel):
             "Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."
         ),
     )
+    unit: str | None = Field(
+        default=None,
+        description=(
+            "Unit of parameter values. "
+            "Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
+        ),
+    )
 
     @field_validator("id")
     @classmethod
@@ -70,6 +117,11 @@ class FieldBaseSectionSchema(BaseModel):
             allowed = ", ".join(SUPPORTED_FIELD_KINDS)
             raise ValueError(f"Unsupported field.kind '{value}'. Allowed: {allowed}")
         return kind
+
+    @field_validator("unit")
+    @classmethod
+    def _validate_unit(cls, value):
+        return _normalize_unit_token(value)
 
 
 class FieldHomogeneousSectionSchema(BaseModel):
@@ -248,6 +300,13 @@ class FieldVerticalProfileSectionSchema(BaseModel):
             "Vertical factor is exp(-depth/characteristic_depth)."
         ),
     )
+    min_factor: float | None = Field(
+        default=None,
+        description=(
+            "Optional floor factor for exponential mode. "
+            "If provided, factor is max(exp(-depth/characteristic_depth), min_factor)."
+        ),
+    )
     depths: list[float] | None = Field(
         default=None,
         description="Depth nodes for tabulated mode (meters, first value must be 0).",
@@ -286,6 +345,16 @@ class FieldVerticalProfileSectionSchema(BaseModel):
         numeric = float(value)
         if numeric <= 0.0:
             raise ValueError("field_vertical_profile.characteristic_depth must be > 0")
+        return numeric
+
+    @field_validator("min_factor")
+    @classmethod
+    def _validate_min_factor(cls, value):
+        if value is None:
+            return None
+        numeric = float(value)
+        if numeric < 0.0 or numeric > 1.0:
+            raise ValueError("field_vertical_profile.min_factor must be in [0, 1]")
         return numeric
 
     @field_validator("depths", "factors")
@@ -398,6 +467,10 @@ class ResolvedFieldParamSchema(BaseModel):
         default=None,
         description="Resolved parameter kind: homogeneous or heterogeneous.",
     )
+    unit: str | None = Field(
+        default=None,
+        description="Resolved parameter unit (canonical token).",
+    )
     value: float | None = Field(
         default=None,
         description="Resolved scalar value for homogeneous kind.",
@@ -451,6 +524,11 @@ class ResolvedFieldParamSchema(BaseModel):
             allowed = ", ".join(SUPPORTED_FIELD_KINDS)
             raise ValueError(f"Unsupported kind '{value}'. Allowed: {allowed}")
         return kind
+
+    @field_validator("unit")
+    @classmethod
+    def _validate_unit(cls, value):
+        return _normalize_unit_token(value)
 
     @field_validator("values")
     @classmethod
@@ -688,6 +766,8 @@ def validate_resolved_field_param_data(config_data: Mapping[str, Any]) -> dict[s
         payload["id"] = payload["identifier"]
     if "kind" not in payload and "mode" in payload:
         payload["kind"] = payload["mode"]
+    if "unit" not in payload and "units" in payload:
+        payload["unit"] = payload["units"]
     if "values" not in payload and "values_by_key" in payload:
         payload["values"] = payload["values_by_key"]
     if "vertical_profile" not in payload and "field_vertical_profile" in payload:
@@ -697,6 +777,7 @@ def validate_resolved_field_param_data(config_data: Mapping[str, Any]) -> dict[s
     # (`extra="forbid"`) does not reject legacy/alternate names.
     payload.pop("identifier", None)
     payload.pop("mode", None)
+    payload.pop("units", None)
     payload.pop("values_by_key", None)
     payload.pop("field_vertical_profile", None)
 

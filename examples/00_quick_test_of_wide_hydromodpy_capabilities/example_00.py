@@ -44,7 +44,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
 from hydromodpy.display import visualization_watershed, visualization_results
-from hydromodpy.solver.modflow import Modflow
+from hydromodpy.solver.modflow_nwt import Modflow
 from hydromodpy.tools.io_utils import (
     setup_paths, load_raster, load_csv,
     load_simulation_results, make_timeseries_data, extract_watershed
