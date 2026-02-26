@@ -130,8 +130,9 @@ source = [
 ]
 parallel = true
 omit = [
-    "hydromodpy/*/cases/*",
-    "hydromodpy/*/examples/*",
+    "hydromodpy/*/cases/*/run_*.py",
+    "hydromodpy/*/cases/*/plotting.py",
+    "hydromodpy/*/examples/*/run_*.py",
     "hydromodpy/calibration_legacy/*",
     "hydromodpy/calibration2/*",
 ]
