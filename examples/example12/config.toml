@@ -248,7 +248,7 @@ value = 0.02
 # Depth dependency mode shared over the full domain.
 mode = "exponential"
 # Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
-characteristic_depth = 7.5
+characteristic_depth = 30
 # Optional minimum factor floor for exponential mode:
 # factor = max(exp(-depth/characteristic_depth), min_factor)
 min_factor = 5e-2
