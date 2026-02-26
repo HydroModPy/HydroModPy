@@ -432,7 +432,15 @@ def run_example_script(
         for key, value in extra_env.items():
             env[key] = str(value)
 
-    command = [sys.executable, str(script_path)]
+    # When pytest-cov is active, run the subprocess under coverage so that
+    # executed lines are recorded and merged back (parallel = true).
+    if "COV_CORE_SOURCE" in env:
+        command = [
+            sys.executable, "-m", "coverage", "run",
+            "--parallel-mode", str(script_path),
+        ]
+    else:
+        command = [sys.executable, str(script_path)]
     completed = subprocess.run(
         command,
         cwd=str(cwd),

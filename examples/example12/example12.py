@@ -172,16 +172,16 @@ if __name__ == '__main__':
     
     # Necessary to set model parameters
 
-    climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
-                                           nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
-                                           first_year=2003,
-                                           last_year=2003,
-                                           time_step='ME',
-                                           sim_state='transient',
-                                           spatial_mean=True,
-                                           geographic=geographic,
-                                           disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
-                                                                    # can be a shapefile path or a flag: 'watershed' or False
+    # climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
+    #                                        nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+    #                                        first_year=2003,
+    #                                        last_year=2003,
+    #                                        time_step='ME',
+    #                                        sim_state='transient',
+    #                                        spatial_mean=True,
+    #                                        geographic=geographic,
+    #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
+    #                                                                 # can be a shapefile path or a flag: 'watershed' or False
     
     #%% ---- PYHELP
     
@@ -358,31 +358,61 @@ if __name__ == '__main__':
         
         rech_dict = "ton netcdf importe"
     
-    #%% ---- RECHARGE
+    #%% ---- DATA SIM2
 
-    # Necessary to set model parameters
-
-    climatic.update_sim2_reanalysis(var_list=['runoff', 'recharge'],
-                                           nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
-                                           first_year=2003,
-                                           last_year=2003,
-                                           time_step='ME',
-                                           sim_state='transient',
-                                           spatial_mean=True,
-                                           geographic=geographic,
-                                           disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
-                                                                    # can be a shapefile path or a flag: 'watershed' or False
+    # climatic.update_sim2_reanalysis(var_list=['runoff', 'recharge'],
+    #                                        nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+    #                                        first_year=2003,
+    #                                        last_year=2003,
+    #                                        time_step='ME',
+    #                                        sim_state='transient',
+    #                                        spatial_mean=True,
+    #                                        geographic=geographic,
+    #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
+    #                                                                 # can be a shapefile path or a flag: 'watershed' or False
 
     # # # # Units
     # climatic.t = climatic.t / 1000 # from mm to m
     # climatic.precip = climatic.precip / 1000 # from mm to m
     # climatic.etp = climatic.etp / 1000 # from mm to m
-    climatic.runoff = climatic.runoff / 1000 # from mm to m
-    climatic.recharge = climatic.recharge / 1000 # from mm to m
+    # climatic.runoff = climatic.runoff / 1000 # from mm to m
+    # climatic.recharge = climatic.recharge / 1000 # from mm to m
+    
+    # R_mm_day = climatic.recharge
+    # r_mm_day = climatic.runoff
 
-    # Use SIM2 reanalysis data directly (no synthetic data)
+    #%% ---- DATA SAFRAN-ISBA
+
+    climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
+                                        clim_mod='REA',
+                                        clim_sce='historic',
+                                        first_year=2003,
+                                        last_year=2003,
+                                        time_step='ME',
+                                        sim_state='transient')
+
+    climatic.update_runoff_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
+                                        clim_mod='REA',
+                                        clim_sce='historic',
+                                        first_year=2003,
+                                        last_year=2003,
+                                        time_step='ME',
+                                        sim_state='transient')
+
+    def select_period(df, first, last):
+        df = df[(df.index.year>=first) & (df.index.year<=last)]
+        return df
+
     R_mm_day = climatic.recharge
     r_mm_day = climatic.runoff
+
+    R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
+    R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
+    R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
+    R_mm_day_filt[R_mm_day_filt.index.month.isin([7])] = -1
+    # plt.plot(R_mm_day_filt)
+
+    R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
     
     if display_plots:
         fig, axs = plt.subplots(3,1, figsize=(8,8), sharex=True)
@@ -403,8 +433,10 @@ if __name__ == '__main__':
         ax.set_ylabel('R [mm/month]')
 
         ax = axs[2]
-        ax.plot(30*R_mm_day, label='Recharge', c='dodgerblue', lw=2)
-        ax.set_title('SIM2 Reanalysis', fontsize=8)
+        # ax.plot(30*R_mm_day, label='Recharge', c='dodgerblue', lw=2)
+        # ax.set_title('SIM2 Reanalysis', fontsize=8)
+        ax.plot(30*R_mm_day_filt, label='Recharge', c='dodgerblue', lw=2)
+        ax.set_title('SAFRAN-ISBA', fontsize=8)
         ax.set_ylabel('R [mm/month]')
 
         ax.set_xlabel('Date')
@@ -465,8 +497,10 @@ if __name__ == '__main__':
     Klog_transf = False
 
     # Recharge
-    rec = R_mm_day
-    run = r_mm_day
+    # rec = R_mm_day
+    # run = r_mm_day    
+    rec = R_mm_day_filt[:] / 1000
+    run = rec * 0.1
     first_clim = 'mean'
     climatic.update_first_clim(first_clim)
     climatic.update_recharge(rec, sim_state=sim_state)
@@ -1130,8 +1164,9 @@ if __name__ == '__main__':
             xi = conc_plt.flatten()
             xi = xi[~np.isnan(xi)]
 
-            xpos = mdates.date2num(R_mm_day.index[i])
-
+            # xpos = mdates.date2num(R_mm_day.index[i])
+            xpos = mdates.date2num(R_mm_day_filt.index[i])
+            
             if xi.size == 0:
                 continue
 
@@ -1200,7 +1235,8 @@ if __name__ == '__main__':
             ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)
 
             # Placer la recharge en arrière-plan du graphique
-            axb.step(R_mm_day.index, R_mm_day * 30, lw=2, color='dodgerblue', zorder=0)
+            # axb.step(R_mm_day.index, R_mm_day * 30, lw=2, color='dodgerblue', zorder=0)
+            axb.step(R_mm_day_filt.index, R_mm_day_filt * 30, lw=2, color='dodgerblue', zorder=0)
             axb.set_ylabel('Recharge [mm/month]', color='dodgerblue')
 
             ax[0].set_xlim(pd.to_datetime('01-2003'), pd.to_datetime('01-2004'))
