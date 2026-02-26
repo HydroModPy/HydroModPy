@@ -1,0 +1,105 @@
+2026-02-26 08:30:01,721 [INFO] [hydromodpy.watershed_root] [watershed_root:183] Initializing watershed object from scratch as requested
+2026-02-26 08:33:04,791 [INFO] [hydromodpy.watershed_root] [watershed_root:183] Initializing watershed object from scratch as requested
+2026-02-26 08:33:05,159 [INFO] [hydromodpy.watershed.geographic] [geographic:114] Extracting geographic data for model area
+2026-02-26 08:33:21,150 [INFO] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:164] Updating PyHELP grid geometry before run
+2026-02-26 08:33:21,159 [ERROR] [hydromodpy.tools.toolbox] [toolbox:880] Failed to load CSV file C:\Users\mathi\Downloads\10_coupling_with_land_surface_model_pyhelp\data\input_grid_base.csv
+Traceback (most recent call last):
+  File "c:\users\mathi\dev2\hydromodpy\hydromodpy\tools\toolbox.py", line 878, in load_csv
+    return pd.read_csv(file_path)
+           ~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ~~~~~~~~~~^
+        f,
+        ^^
+    ...<6 lines>...
+        storage_options=self.options.get("storage_options", None),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\common.py", line 873, in get_handle
+    handle = open(
+        handle,
+    ...<3 lines>...
+        newline="",
+    )
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\mathi\\Downloads\\10_coupling_with_land_surface_model_pyhelp\\data\\input_grid_base.csv'
+2026-02-26 08:33:21,175 [ERROR] [hydromodpy.pyhelp.pyhelp_grid] [pyhelp_grid:46] Base grid CSV C:\Users\mathi\Downloads\10_coupling_with_land_surface_model_pyhelp\data\input_grid_base.csv is empty or missing
+2026-02-26 08:33:21,176 [ERROR] [hydromodpy.pyhelp.pyhelp_grid] [pyhelp_grid:90] Base CSV is empty; cannot update grid parameters
+2026-02-26 08:33:21,241 [INFO] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:212] Executing pyHELP CLI workflow
+2026-02-26 08:33:21,242 [DEBUG] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:213] pyHELP CLI command: C:\Users\mathi\anaconda3\envs\hydromodpy\python.exe c:\users\mathi\dev2\hydromodpy\hydromodpy\pyhelp\help_example_cli.py --workdir C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037 --grid_csv C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\input_grid_base1.csv --precip C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\precip_input_data.csv --tair C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\airtemp_input_data.csv --solrad C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\solrad_input_data.csv
+2026-02-26 08:33:56,582 [INFO] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:164] Updating PyHELP grid geometry before run
+2026-02-26 08:33:56,584 [ERROR] [hydromodpy.tools.toolbox] [toolbox:880] Failed to load CSV file C:\Users\mathi\Downloads\10_coupling_with_land_surface_model_pyhelp\data\input_grid_base.csv
+Traceback (most recent call last):
+  File "c:\users\mathi\dev2\hydromodpy\hydromodpy\tools\toolbox.py", line 878, in load_csv
+    return pd.read_csv(file_path)
+           ~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ~~~~~~~~~~^
+        f,
+        ^^
+    ...<6 lines>...
+        storage_options=self.options.get("storage_options", None),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\common.py", line 873, in get_handle
+    handle = open(
+        handle,
+    ...<3 lines>...
+        newline="",
+    )
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\mathi\\Downloads\\10_coupling_with_land_surface_model_pyhelp\\data\\input_grid_base.csv'
+2026-02-26 08:33:56,589 [ERROR] [hydromodpy.pyhelp.pyhelp_grid] [pyhelp_grid:46] Base grid CSV C:\Users\mathi\Downloads\10_coupling_with_land_surface_model_pyhelp\data\input_grid_base.csv is empty or missing
+2026-02-26 08:33:56,591 [ERROR] [hydromodpy.pyhelp.pyhelp_grid] [pyhelp_grid:90] Base CSV is empty; cannot update grid parameters
+2026-02-26 08:33:56,603 [INFO] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:212] Executing pyHELP CLI workflow
+2026-02-26 08:33:56,604 [DEBUG] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:213] pyHELP CLI command: C:\Users\mathi\anaconda3\envs\hydromodpy\python.exe c:\users\mathi\dev2\hydromodpy\hydromodpy\pyhelp\help_example_cli.py --workdir C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037 --grid_csv C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\input_grid_base1.csv --precip C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\precip_input_data.csv --tair C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\airtemp_input_data.csv --solrad C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\solrad_input_data.csv
+2026-02-26 08:35:56,993 [INFO] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:164] Updating PyHELP grid geometry before run
+2026-02-26 08:35:56,996 [ERROR] [hydromodpy.tools.toolbox] [toolbox:880] Failed to load CSV file C:\Users\mathi\Downloads\10_coupling_with_land_surface_model_pyhelp\data\input_grid_base.csv
+Traceback (most recent call last):
+  File "c:\users\mathi\dev2\hydromodpy\hydromodpy\tools\toolbox.py", line 878, in load_csv
+    return pd.read_csv(file_path)
+           ~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\parsers\readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ~~~~~~~~~~^
+        f,
+        ^^
+    ...<6 lines>...
+        storage_options=self.options.get("storage_options", None),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\mathi\anaconda3\envs\hydromodpy\Lib\site-packages\pandas\io\common.py", line 873, in get_handle
+    handle = open(
+        handle,
+    ...<3 lines>...
+        newline="",
+    )
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\mathi\\Downloads\\10_coupling_with_land_surface_model_pyhelp\\data\\input_grid_base.csv'
+2026-02-26 08:35:57,000 [ERROR] [hydromodpy.pyhelp.pyhelp_grid] [pyhelp_grid:46] Base grid CSV C:\Users\mathi\Downloads\10_coupling_with_land_surface_model_pyhelp\data\input_grid_base.csv is empty or missing
+2026-02-26 08:35:57,001 [ERROR] [hydromodpy.pyhelp.pyhelp_grid] [pyhelp_grid:90] Base CSV is empty; cannot update grid parameters
+2026-02-26 08:35:57,012 [INFO] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:212] Executing pyHELP CLI workflow
+2026-02-26 08:35:57,014 [DEBUG] [hydromodpy.pyhelp.pyhelp_netcdf] [pyhelp_netcdf:213] pyHELP CLI command: C:\Users\mathi\anaconda3\envs\hydromodpy\python.exe c:\users\mathi\dev2\hydromodpy\hydromodpy\pyhelp\help_example_cli.py --workdir C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037 --grid_csv C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\input_grid_base1.csv --precip C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\precip_input_data.csv --tair C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\airtemp_input_data.csv --solrad C:\Users\mathi\Downloads\results_intermittency\Example_10_Urse\results_pyhelp\_sim_0.0037\solrad_input_data.csv

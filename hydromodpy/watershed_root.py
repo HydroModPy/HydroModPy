@@ -39,7 +39,7 @@ fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 #<<<<<<< HEAD:src/watershed_root.py
 #pyhelp
 
-from src.pyhelp import pyhelp_netcdf
+from hydromodpy.pyhelp import pyhelp_netcdf
 
 
 try: 

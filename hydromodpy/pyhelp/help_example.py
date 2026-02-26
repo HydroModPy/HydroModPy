@@ -114,7 +114,7 @@ if __name__ == '__main__':
     
     # Read observed yearly total and base streamflow (in mm/year).
     obs_qflow = pd.read_csv(
-        osp.join(workdir.parents[3], "10_coupling_with_land_surface_model_pyhelp", "data", "obs_yearly_river_flow_urse.csv"),
+        osp.join(workdir.parents[3], "results_intermittency", "Example_10_Urse", "data", "obs_yearly_river_flow_urse.csv"),
         index_col=0)
     
     # Calcul simulated early total and base streamflow (in mm/year).
