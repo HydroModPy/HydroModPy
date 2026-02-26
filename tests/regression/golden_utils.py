@@ -424,6 +424,12 @@ def run_example_script(
     - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
+    # Enable coverage tracking in subprocess when pytest-cov is active.
+    if "COV_CORE_SOURCE" in env:
+        env.setdefault(
+            "COVERAGE_PROCESS_START",
+            str(Path(__file__).resolve().parents[2] / "pyproject.toml"),
+        )
     # Redirect outputs into a pytest temporary directory.
     env[out_env_var] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
