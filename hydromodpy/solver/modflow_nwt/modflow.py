@@ -33,6 +33,7 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
+from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.solver.modflow_nwt.modflow_utils import (
@@ -51,7 +52,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 # %% CLASS
 
 
-class Modflow:
+class Modflow(Solver):
     """
     Class Modflow.
 
@@ -359,9 +360,7 @@ class Modflow:
             self.steady = np.zeros(
                 len(self.recharge), dtype=bool
             )  # Vector of booleans (transient state at each time step)
-            self.steady[0] = (
-                True  # Steady state for the first time step (initialization of head values by a steady state)
-            )
+            self.steady[0] =True  # Steady state for the first time step (initialization of head values by a steady state)
             self.nstp = np.ones(len(self.recharge))  # One step per time step
             self.nper = len(self.recharge)
             # Definition of period duration (forcing is constant on a period)
@@ -474,8 +473,7 @@ class Modflow:
             perlen=self.perlen,
             nstp=self.nstp,
             steady=self.steady,
-            start_datetime=self.start_datetime,
-        )
+            start_datetime=self.start_datetime)
 
         # self.dis = flopy.modflow.ModflowDis(self.mf,
         #                                     itmuni=0, # itmuni = 0 ==> undefined
