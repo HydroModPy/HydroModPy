@@ -25,11 +25,12 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from itertools import islice
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import xarray as xr
+import rioxarray as rxr
+import pickle
 
 import imageio.v2 as imageio
 import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 # Add
 import flopy.utils.binaryfile as bf
@@ -44,19 +45,22 @@ root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
+import hydromodpy as hmp
 from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
-    Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
+    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
-from hydromodpy.watershed import surfaces
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingConfig, GeographicConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.modeling.modflow import Modflow
+from hydromodpy.domain import Domain, Surfaces
+from hydromodpy.process import Flow
+from hydromodpy.solver.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -64,7 +68,16 @@ out_path = cfg.initializing.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
 
-def run_example12(out_path=out_path, display_plots=True, display_3D=False):
+if __name__ == '__main__':
+
+    # Test overrides via env vars
+    if os.environ.get("HYDROMODPY_OUT_PATH"):
+        out_path = Path(os.environ["HYDROMODPY_OUT_PATH"])
+    display_plots = os.environ.get("HYDROMODPY_NO_DISPLAY") != "1"
+    display_3D = display_plots
+
+    wbt = whitebox.WhiteboxTools()
+    wbt.verbose = False
 
     cfg.initializing.out_dir_path = out_path
     watershed_name = cfg.initializing.catch_name
@@ -72,22 +85,25 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     data_path = cfg.initializing.data_path
 
-    initializing = Initializing(config=cfg.initializing)
-    geographic   = Geographic(config=cfg.geographic,
+    initializing = hmp.Initializing(config=cfg.initializing)
+    geographic   = hmp.Geographic(config=cfg.geographic,
                               initializing=initializing)
-    
-    
-    
+    domain = Domain(
+        config=cfg.domain,
+        geographic=geographic,
+    )
+    flow = Flow(config=cfg.flow)
+
     setting = Settings()
     hydraulic = Hydraulic(nrow=geographic.y_pixel,
                           ncol=geographic.x_pixel,
                           box_dem=geographic.watershed_box_buff_dem)
-    
-    
+
+
     transport = Transport()
-    
+
     #%% DATA
-    
+
     area = int(round(geographic.catch_area))
 
     hydrography = Hydrography(out_path=initializing.catch_folder,
@@ -96,56 +112,52 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                                    geographic=geographic,
                                                    hydro_path=data_path,
                                                    streams_file=None)
-    
+
     subbasin = Subbasin(geographic=geographic,
                         hydrometry=None,
                         intermittency=None,
                         add_path=data_path,
                         out_path=initializing.catch_folder,
-                        sub_snap_dist=150)
-    
-    geology = Geology(out_path=initializing.catch_folder,
-                            geographic=geographic,
-                            geo_path = data_path,
-                            landsea=None,
-                            types_obs='GEO1M.shp',
-                            fields_obs= 'CODE_LEG')
-    
+                        sub_snap_dist=50)
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
                             hydrometry_path=data_path,
                             file_name='france hydrometric stations.shp',
                             geographic=geographic)
-    
+
     intermittency = Intermittency(out_path=initializing.catch_folder,
                                   intermittency_path=data_path,
                                   file_name='regional onde stations.shp',
                                   geographic=geographic)
-                            
+
     #%% CLIMATIC
-    
+
     climatic = Climatic(out_path=initializing.catch_folder)
-    
+
     oceanic = Oceanic()
-    oceanic.extract_data(out_path=initializing.catch_folder,
+    oceanic.extract_local_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
                                  oceanic_path=data_path)
+    try:
+        oceanic.download_SHOM_data(geographic=geographic,
+                                    start_date='2003-01-01',
+                                    end_date='2003-01-30')
+        oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+    except Exception as _shom_exc:
+        print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
+        oceanic.update_MSL(0.0)
+
     
-    # oceanic.display_data(values='RMSL')
-    oceanic.download_SHOM_data(geographic=geographic,
-                                start_date='2003-01-01',
-                                end_date='2003-02-01') # Add spam loop to download data in chunks of 1 month for long periods
-   
-    #%% WATERSHED
-    
+    #%% WATERSHED OBJECT
+
     stable_folder      = cfg.initializing.stable_folder
     simulations_folder = cfg.initializing.simulations_folder
     calibration_folder = initializing.calibration_folder # necessary for plots
 
     #%% SURFACE
-    
+
     thickness = 50
-    surfaces_object = surfaces.Surfaces(aquifer_top = geographic.dem_box_buff_data,
-                                        aquifer_bottom = geographic.dem_box_buff_data - thickness)
+    surfaces_object = Surfaces(aquifer_top = geographic.dem_box_buff_data,
+                               aquifer_bottom = geographic.dem_box_buff_data - thickness)
     aquifer_top = surfaces_object.aquifer_top
     aquifer_bottom = surfaces_object.aquifer_bottom
 
@@ -153,51 +165,232 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     visualization_watershed.watershed_local(cfg.geographic.dem_init_path, initializing, geographic)
     visualization_watershed.watershed_dem(initializing=initializing, geographic=geographic, hydrography=hydrography, piezometry=None, intermittency=intermittency, hydrometry=hydrometry)
-                                     
+
     # Add hydrological data
+    
+    #%% ---- ATMOSPHERE
+    
+    # Necessary to set model parameters
+
+    climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
+                                           nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+                                           first_year=2003,
+                                           last_year=2003,
+                                           time_step='ME',
+                                           sim_state='transient',
+                                           spatial_mean=True,
+                                           geographic=geographic,
+                                           disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
+                                                                    # can be a shapefile path or a flag: 'watershed' or False
+    
+    #%% ---- PYHELP
+    
+    pyhelp_activated = False
+    if pyhelp_activated == True:
+    
+        #%% INIT
+    
+        print("test")
+    
+        pyhelp_workdir = Path(cfg.initializing.out_dir_path) / watershed_name / "results_pyhelp"
+        pyhelp_workdir.mkdir(parents=True, exist_ok=True)
+    
+        sim2_file_precip = 'x' # ton netcdf propre, mettre celui de poschqivo dqns "data"
+        sim2_file_temp = 'x' # ton netcdf propre
+        sim2_file_sr = 'x' # ton netcdf propre
+        
+        # Peut-être ajouter à config.toml 
+        
+        dem_path_modflow = geographic.watershed_box_buff_dem # pqth du dem modflow
+        dem_path_pyhelp = os.path.join(initializing.stable_folder, "geographic", "watershed_box_buff_dem_250.tif")
+    
+        wbt.resample(dem_path_modflow, dem_path_pyhelp, 250)
+        shapefile_path = geographic.watershed_shp
+    
+        # Ready climatic CSVs
+        # ready_csvs = [
+        #     os.path.join(era5_folder, "precip_input_data.csv"),
+        #     os.path.join(era5_folder, "airtemp_input_data.csv"),
+        #     os.path.join(era5_folder, "solrad_input_data.csv")
+        # ]
+    
+        #### If already completed grid:
+        grid_base_csv = Path(data_path, "_init_input_grid_base1", "input_grid_base1.csv")
+        
+        #%% PATH
+    
+        pyhelp_workdir = os.path.join(out_path, watershed_name, "results_pyhelp")
+        era5_folder = os.path.join(data_path)
+    
+        ### If already completed grid:
+        grid_base_csv = data_path+"/"+"_init_input_grid_base1/"+"input_grid_base1.csv"
+    
+        ready_csvs = [
+            os.path.join(era5_folder, "precip_input_data.csv"),
+            os.path.join(era5_folder, "airtemp_input_data.csv"),
+            os.path.join(era5_folder, "solrad_input_data.csv")
+        ]
+    
+        #%% RUN
+    
+        option = '3'
+        
+        grid_kwargs = dict(
+                           growth_start=140,
+                           growth_end=280,
+                           wind=2.5,
+                           hum1=60, hum2=65, hum3=70, hum4=70,
+                           LAI=2.4,
+                           EZD=44.5,
+                           CN=55,
+                           nlayer=1,
+                           lay_type1=1,
+                           thick1=100,
+                           poro1=0.45,
+                           fc1=0.23,
+                           wp1=0.116,
+                           ksat1=0.1,
+                           dist_dr1=50,
+                           slope1=35
+                           )
+    
+        # cid                             Unique cell ID
+        # lat_dd                          Decimal degrees Latitude of the cell centroid
+        # lon_dd                          Decimal degrees Longitude of the cell centroid
+    
+        # wind            km/h            Average annual wind speed
+        # hum1            %               Average quarterly relative humidity (Jan to Mar)
+        # hum2            %               Average quarterly relative humidity (Apr to Jun)
+        # hum3            %               Average quarterly relative humidity (Jul to Sep)
+        # hum4            %               Average quarterly relative humidity (Oct to Dec)
+        # growth_start    julian day      First day of the growing season
+        # growth_end      julian day      Last day of the growing season
+        # LAI             –               Maximum leaf area index
+        # EZD             cm              Evaporative zone depth
+        # CN              –               Curve Number
+        # nlayer          –               Number of hydrostratigraphic layers at cell cid
+        # lay_type{i}     –               Type of HELP layer of the ith soil layer
+        # thick{i}        cm              Thickness of the ith soil layer
+        # poro{i}         m3/m3           Total porosity of the ith soil layer
+        # fc{i}           m3/m3           Field capacity of the ith soil layer
+        # wp{i}           m3/m3           Wilting point of the ith soil layer
+        # ksat            cm/s            Saturated hydraulic conductivity of the ith soil layer
+        # dist_dr         m               Distance to discharge
+        # slope           %               Average slope
+    
+        # run             –               Identify cells to be run with the HELP model
+        # context         –               Identify cells by context:
+        #     0 - Water cell
+        #     1 - Normal cell
+        #     2 - Stream edge with superficial hypodermic runoff
+        #     3 - River edge with deep hypodermic runoff
+        #     4 - Urban cell
+        #     5 - Cell not mapped
+    
+        sim_name = "_sim_"
+        sim_dir = pyhelp_workdir / sim_name
+        sim_dir.mkdir(parents=True, exist_ok=True)
+    
+        # if option == '1':
+    
+        #     #---- Input climatic ready - Input grid updated:
+        #     nc = preprocessing_pyhelp(
+        #         workdir = os.path.join(pyhelp_workdir, f"_sim_{k}"),
+        #         outpath = os.path.join(pyhelp_workdir, f"_sim_{k}"),
+        #         ready_csvs = ready_csvs,
+        #         grid_kwargs = grid_kwargs,
+        #         dem = dem_path_pyhelp,
+        #         shapefile = from_shp[0],
+        #     )
+        #     # print("NetCDF :", nc)
+    
+        # if option == '2':
+    
+        #     #---- Input climatic ready - Input grid ready:
+    
+        #     nc = preprocessing_pyhelp(
+        #         workdir = pyhelp_workdir,
+        #         outpath = simulations_folder,
+        #         grid_csv = grid_base_csv,
+        #         ready_csvs = ready_csvs,
+        #     )
+        #     # print("NetCDF :", nc)
+      
+        if option == '3':
+    
+            #---- Input climatic updated - Input grid updated:
+            nc = preprocessing_pyhelp(
+                workdir = pyhelp_workdir,
+                outpath = simulations_folder,
+                dem = dem_path_pyhelp,
+                era5_folder = era5_folder,
+                grid_kwargs = grid_kwargs,
+                conda_env   = "pyhelp_env",
+            )
+            # print("NetCDF :", nc)
+    
+        #%% FORMATING
+    
+        name_sim = sim_name
+    
+        csv_path = pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean.csv"
+    
+        df = pd.read_csv(csv_path)
+        df = df.rename(columns={df.columns[0]: "time"})
+        formatted_csv_path =  pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean_formatted.csv"
+        df.to_csv(formatted_csv_path, index=False)
+    
+        #%% SCALING
+    
+        nc_path  = pyhelp_workdir + '/' + name_sim + "/_pyhelp_outputs_grid.nc"
+        dem_path = stable_folder + "/geographic/watershed_box_buff_dem.tif"
+    
+        ds  = xr.open_dataset(nc_path)
+        dem = rxr.open_rasterio(dem_path)
+    
+        R = ds["rechg"]
+        R = R.rio.write_crs(dem.rio.crs)
+    
+        Rt   = R.rio.reproject_match(dem, nodata=0.0)
+        cube = Rt.values / 1000
+    
+        recharge_dict = {i: cube[i] for i in range(cube.shape[0])}
+        
+        rech_dict = "ton netcdf importe"
     
     #%% ---- RECHARGE
 
     # Necessary to set model parameters
 
-    climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
-                                            clim_mod='REA',
-                                            clim_sce='historic',
-                                            first_year=2003,
-                                            last_year=2003,
-                                            time_step='ME',
-                                            sim_state='transient')
+    climatic.update_sim2_reanalysis(var_list=['runoff', 'recharge'],
+                                           nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+                                           first_year=2003,
+                                           last_year=2003,
+                                           time_step='ME',
+                                           sim_state='transient',
+                                           spatial_mean=True,
+                                           geographic=geographic,
+                                           disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
+                                                                    # can be a shapefile path or a flag: 'watershed' or False
 
-    climatic.update_runoff_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
-                                        clim_mod='REA',
-                                        clim_sce='historic',
-                                        first_year=2003,
-                                        last_year=2003,
-                                        time_step='ME',
-                                        sim_state='transient')
+    # # # # Units
+    # climatic.t = climatic.t / 1000 # from mm to m
+    # climatic.precip = climatic.precip / 1000 # from mm to m
+    # climatic.etp = climatic.etp / 1000 # from mm to m
+    climatic.runoff = climatic.runoff / 1000 # from mm to m
+    climatic.recharge = climatic.recharge / 1000 # from mm to m
 
-    def select_period(df, first, last):
-        df = df[(df.index.year>=first) & (df.index.year<=last)]
-        return df
-
+    # Use SIM2 reanalysis data directly (no synthetic data)
     R_mm_day = climatic.recharge
     r_mm_day = climatic.runoff
-
-    R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
-    R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
-    R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
-    R_mm_day_filt[R_mm_day_filt.index.month.isin([7])] = -1
-    # plt.plot(R_mm_day_filt)
-
-    R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
-
+    
     if display_plots:
         fig, axs = plt.subplots(3,1, figsize=(8,8), sharex=True)
         axs = axs.ravel()
 
         ax = axs[0]
         ax.plot(30*R_mm_day, label='Recharge', c='navy', lw=1)
-        ax.fill_between(R_mm_day.index, 30*R_mm_day, (7*R_mm_day)+(30*r_mm_day), label='Recharge + Runoff', color='dodgerblue', lw=0.5, alpha=1)
+        ax.fill_between(R_mm_day.index, 30*R_mm_day, (30*R_mm_day)+(30*r_mm_day), label='Recharge + Runoff', color='dodgerblue', lw=0.5, alpha=1)
         ax.set_ylabel('R [mm/month]')
         ax.legend(loc='upper right')
         ax.set_title('No log', fontsize=8)
@@ -209,11 +402,9 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
         ax.set_title('Log', fontsize=8)
         ax.set_ylabel('R [mm/month]')
 
-
-
         ax = axs[2]
-        ax.plot(30*R_mm_day_filt, label='Recharge', c='dodgerblue', lw=2)
-        ax.set_title('Synthetic', fontsize=8)
+        ax.plot(30*R_mm_day, label='Recharge', c='dodgerblue', lw=2)
+        ax.set_title('SIM2 Reanalysis', fontsize=8)
         ax.set_ylabel('R [mm/month]')
 
         ax.set_xlabel('Date')
@@ -267,7 +458,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     ss_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
     bc_left = None # or value
     bc_right = None # or value
-    sea_level = 'None' # or value based on specific data 
     zone_partic = 'domain' # or watershed
     vka = 1
     bottom = 0
@@ -275,15 +465,12 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     Klog_transf = False
 
     # Recharge
-    rec = R_mm_day_filt[:] / 1000
-    run = rec * 0.1
+    rec = R_mm_day
+    run = r_mm_day
     first_clim = 'mean'
     climatic.update_first_clim(first_clim)
     climatic.update_recharge(rec, sim_state=sim_state)
     climatic.update_runoff(run, sim_state=sim_state)
-
-    # Objects
-    oceanic.update_MSL(sea_level)
 
     # Fixed
     setting.update_box_model(box)
@@ -351,6 +538,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     else:
         model_folder = initializing.calibration_folder
     model_modflow = Modflow(geographic,
+                            flow=flow,
+                            domain=domain,
                             # Workflow settings
                             model_folder=model_folder,   # self.simulations_folder
                             model_name=setting.model_name,
@@ -392,7 +581,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             cond_drain=hydraulic.cond_drain,
                             vka=hydraulic.vka,
                             exdp=hydraulic.exdp)
-    
+
     model_modflow.pre_processing() # verbose
 
     list_model_name = []
@@ -425,7 +614,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             intermittency_yearly = False,
                             export_all_tif = False)
 
-    timeseries_results = timeseries.Timeseries(geographic,              
+    timeseries_results = timeseries.Timeseries(geographic,
                                             model_modflow=model_modflow,
                                             model_modpath=None,
                                             model_mt3dms=None,
@@ -529,7 +718,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     if display_plots:
         for i, simul in enumerate(simul_list[:]):
 
-            fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(12,3.5), dpi=300)
+            fig, (a0) = plt.subplots(1, 1, figsize=(12,3.5), dpi=300)
 
             model_name = os.path.split(simul)[-1]
 
@@ -588,7 +777,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
             WTEmod = Smod['watertable_elevation']
             WTDmod = Smod['watertable_depth']
 
-            fig, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(12,3.5), dpi=300)
+            fig, (a0) = plt.subplots(1, 1, figsize=(12,3.5), dpi=300)
 
             ax = a0
             # ax.plot(Qobs, color='k', lw=2, ls='-', zorder=0, label='Observed')
@@ -649,12 +838,12 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                     sel_random = None, # or int
                                     sel_slice = None, # or int
                                     )
-    
+
     if for_calib == False:
         model_folder = initializing.simulations_folder
     else:
         model_folder = initializing.calibration_folder
-    
+
     model_modpath = Modpath(geographic,
                                     model_modflow,
                                     # Frame settings
@@ -757,7 +946,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                                     (0,10),
                                     (0,10),
                                     ],
-                                    lines=1000                
+                                    lines=1000
                                     )
 
     #%% PLOT 3D
@@ -817,7 +1006,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                     plot_conc=True)
 
     scenario = 's1'
-    
+
     if for_calib == False:
         model_folder = initializing.simulations_folder
     else:
@@ -842,9 +1031,9 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                         rate_decay = transport.rate_decay,
                         plot_conc = transport.plot_conc,
                             )
-    model_mt3dms.pre_processing() 
-    
-    
+    model_mt3dms.pre_processing()
+
+
     success_mt3dms = model_mt3dms.processing(write_model=True, run_model=True, verbose=True)
 
     pp_model = model_mt3dms.post_processing(model_mt3dms,
@@ -853,7 +1042,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                             mass_accumulated=True,
                             export_all_tif=True) # None
 
-    timeseries_results = timeseries.Timeseries(geographic,     
+    timeseries_results = timeseries.Timeseries(geographic,
                                                model_modflow=model_modflow,
                                                 model_modpath=model_modpath,
                                                 model_mt3dms=model_mt3dms,
@@ -941,7 +1130,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
             xi = conc_plt.flatten()
             xi = xi[~np.isnan(xi)]
 
-            xpos = mdates.date2num(R_mm_day_filt.index[i])
+            xpos = mdates.date2num(R_mm_day.index[i])
 
             if xi.size == 0:
                 continue
@@ -1011,7 +1200,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
             ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)
 
             # Placer la recharge en arrière-plan du graphique
-            axb.step(R_mm_day_filt.index, R_mm_day_filt * 30, lw=2, color='dodgerblue', zorder=0)
+            axb.step(R_mm_day.index, R_mm_day * 30, lw=2, color='dodgerblue', zorder=0)
             axb.set_ylabel('Recharge [mm/month]', color='dodgerblue')
 
             ax[0].set_xlim(pd.to_datetime('01-2003'), pd.to_datetime('01-2004'))
@@ -1176,9 +1365,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
         fig.show("browser")
 
-#%% ---- RUN THE SCRIPT
-
-if __name__ == '__main__':
-    run_example12(out_path=out_path, display_plots=True, display_3D=True)
+#%% ---- END OF SCRIPT
 
 #%% ---- NOTES

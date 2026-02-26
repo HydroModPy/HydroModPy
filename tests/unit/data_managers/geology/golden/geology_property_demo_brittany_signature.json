@@ -1,0 +1,38 @@
+{
+  "field_id": "field_geology",
+  "field_param_id": "K",
+  "n_polygons": 23,
+  "n_unique_zones": 13,
+  "zone_keys_sorted": [
+    "1",
+    "1241",
+    "1501",
+    "161",
+    "1741",
+    "1901",
+    "1981",
+    "2141",
+    "2201",
+    "2221",
+    "2381",
+    "301",
+    "401"
+  ],
+  "n_mesh_cells": 400,
+  "mesh_shape": [
+    21,
+    21
+  ],
+  "property_min": 2e-06,
+  "property_max": 7.205e-05,
+  "property_mean": 1.6749473e-05,
+  "property_sum": 0.006699789139,
+  "sea_info": {
+    "enabled": false,
+    "sea_zone_key": "SEA",
+    "sea_value": "M",
+    "sea_field": "TERRE_MER",
+    "n_sea_polygons": 0,
+    "n_reassigned_polygons": 0
+  }
+}
