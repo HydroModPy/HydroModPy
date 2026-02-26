@@ -91,10 +91,10 @@ geo_config = GeographicConfig(
     dem_correc_type='breach'
 )
 
-# Create Geographic object with config and initializing_object
+# Create Geographic object with config and initializing object
 geographic_object = geographic.Geographic(
     config=geo_config,
-    initializing_object=initializing_object
+    initializing=initializing_object
 )
 
 # Extract the catchment from a regional DEM
@@ -116,7 +116,7 @@ print("✓ Watershed extracted\n")
 BV.add_hydrography(data_path , types_obs=['botopage2024_naizin_streams_perennial-intermittent'], fields_obs=['FID'])
 BV.add_subbasin(data_path, 50)
 
-visualization_watershed.watershed_local(dem_path, BV)
+visualization_watershed.watershed_local(dem_path, BV.initializing, BV.geographic)
 visualization_watershed.watershed_dem(BV)
 
 area = BV.geographic.catch_area
@@ -360,7 +360,7 @@ geo_config = GeographicConfig(
 
 geographic_object = geographic.Geographic(
     config=geo_config,
-    initializing_object=initializing_object
+    initializing=initializing_object
 )
 
 BV = watershed_root.Watershed(load=True,
