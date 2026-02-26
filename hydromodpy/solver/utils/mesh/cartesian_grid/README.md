@@ -38,7 +38,7 @@ hydromodpy/solver/utils/mesh/cartesian_grid/
 - one vertical layering strategy.
 
 It is used by the MODFLOW workflow in
-`hydromodpy/solver/modflow/modflow.py` to feed `flopy.modflow.ModflowDis`.
+`hydromodpy/solver/modflow_nwt/modflow.py` to feed `flopy.modflow.ModflowDis`.
 
 Supported bottom generation methods:
 

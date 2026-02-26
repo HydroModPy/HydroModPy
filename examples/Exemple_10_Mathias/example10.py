@@ -57,8 +57,7 @@ from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingCo
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 from hydromodpy.modeling.modflow import Modflow
-from hydromodpy.modeling.modpath import Modpath
-from hydromodpy.modeling.mt3dms import Mt3dms
+from hydromodpy.solver.modflow_nwt import Modpath, Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 # from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
@@ -606,18 +605,8 @@ model_modflow = Modflow(geographic,
                         thick=hydraulic.thick,
                         nlay=hydraulic.nlay,
                         lay_decay=hydraulic.lay_decay,
-                        hk_value=hydraulic.hk_value,
-                        sy_value=hydraulic.sy_value,
-                        ss_value=hydraulic.ss_value,
-                        hk_decay=hydraulic.hk_decay,
-                        sy_decay=hydraulic.sy_decay,
-                        ss_decay=hydraulic.ss_decay,
-                        verti_hk=hydraulic.verti_hk,
-                        verti_sy=hydraulic.verti_sy,
-                        verti_ss=hydraulic.verti_ss,
                         cond_drain=hydraulic.cond_drain,
-                        vka=hydraulic.vka,
-                        exdp=hydraulic.exdp)
+                        )
 
 model_modflow.pre_processing() # verbose
 

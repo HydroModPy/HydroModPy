@@ -15,6 +15,8 @@
 id = "K"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "heterogeneous"
+# Unit of parameter values. Typical examples: "m/s" (K), "-" (Sy), "m-1" (Ss).
+unit = "m/s"
 
 [field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
@@ -39,6 +41,9 @@ field_spatial_id = "field_geology"
 mode = "none"
 # Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
 # characteristic_depth = 30.0
+# Optional minimum factor floor for exponential mode:
+# factor = max(exp(-depth/characteristic_depth), min_factor)
+# min_factor = 1e-3
 # Depth nodes for tabulated mode (first value must be 0).
 # depths = [0.0, 10.0, 30.0]
 # Multiplicative factors aligned with depths (first value must be 1 at depth 0).
