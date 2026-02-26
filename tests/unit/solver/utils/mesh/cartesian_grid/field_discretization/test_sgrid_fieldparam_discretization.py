@@ -300,6 +300,26 @@ def test_discretize_fieldparam_on_sgrid_exponential_profile_for_varied_discretiz
     assert np.all(np.diff(layer_means) < 0.0)
 
 
+def test_discretize_fieldparam_on_sgrid_exponential_profile_respects_min_factor(tmp_path: Path):
+    result, sgrid = _run_case(
+        tmp_path,
+        nlay=8,
+        nx=7,
+        ny=6,
+        vertical_profile={
+            "mode": "exponential",
+            "characteristic_depth": 6.0,
+            "min_factor": 0.2,
+        },
+    )
+
+    depth_center = _compute_layer_center_depths(sgrid)
+    expected_factor = np.maximum(np.exp(-depth_center / 6.0), 0.2)
+    expected_3d = np.asarray(result.values_2d, dtype=float)[None, :, :] * expected_factor
+    assert np.allclose(result.values_3d, expected_3d)
+    assert np.min(expected_factor) == pytest.approx(0.2)
+
+
 def test_discretize_fieldparam_on_sgrid_rejects_mismatching_spatial_id(tmp_path: Path):
     top = np.full((4, 4), 10.0, dtype=float)
     geology = np.array(

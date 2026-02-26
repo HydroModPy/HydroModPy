@@ -99,18 +99,7 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
             thick=hydraulic.thick,
             nlay=hydraulic.nlay,
             lay_decay=hydraulic.lay_decay,
-            hk_value=hydraulic.hk_value,
-            sy_value=hydraulic.sy_value,
-            ss_value=hydraulic.ss_value,
-            hk_decay=hydraulic.hk_decay,
-            sy_decay=hydraulic.sy_decay,
-            ss_decay=hydraulic.ss_decay,
-            verti_hk=hydraulic.verti_hk,
-            verti_sy=hydraulic.verti_sy,
-            verti_ss=hydraulic.verti_ss,
             cond_drain=hydraulic.cond_drain,
-            vka=hydraulic.vka,
-            exdp=hydraulic.exdp
         )
 
         # Preprocessing

@@ -1,6 +1,6 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: expert | Modules: initializing, geographic, domain, flow
+# Profile: expert | Modules: initializing, geographic, domain, flow, modflow
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
 # ======================================================================
@@ -148,8 +148,9 @@ cell_samples_per_axis = 8
 # - [flow.param.<id>.field_vertical_profile] (optionnel)
 #
 # Descriptions (Pydantic):
-# - field.id: identifiant du parametre (ex: K, Sy, S).
+# - field.id: identifiant du parametre (ex: K, Sy, Ss).
 # - field.kind: type de champ ("homogeneous" ou "heterogeneous").
+# - field.unit: unite des valeurs de parametre (ex: "m/s", "-", "m-1").
 # - field_homogeneous.value: valeur scalaire de surface.
 # - field_heterogeneous.values_source: "inline" ou "csv".
 # - field_heterogeneous.values: mapping cle->valeur (si values_source="inline").
@@ -160,6 +161,8 @@ cell_samples_per_axis = 8
 # - field_vertical_profile.mode: "none" | "exponential" | "tabulated".
 # - field_vertical_profile.characteristic_depth: profondeur caracteristique
 #   pour exp(-depth/characteristic_depth) en mode exponential.
+# - field_vertical_profile.min_factor: facteur plancher optionnel en mode
+#   exponential (factor = max(exp(-depth/characteristic_depth), min_factor)).
 # - field_vertical_profile.depths/factors/interpolation:
 #   profile tabule (mode tabulated), interpolation "linear" ou "step".
 
@@ -171,34 +174,39 @@ cell_samples_per_axis = 8
 # Parameter identifier used in outputs and logs (for example 'K', 'Sy').
 id = "K"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
-kind = "heterogeneous"
+kind = "homogeneous"
+# Unit of parameter values. Typical examples: "m/s" (K), "-" (Sy), "m-1" (Ss).
+unit = "m/s"
 
 [flow.param.K.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-# value = 12.5
+value = 4.32
 
 [flow.param.K.field_heterogeneous]
 # Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
-values_source = "csv"
+# values_source = "csv"
 # Inline key/value mapping used when values_source='inline'.
 # values = { granite = 10.0, micaschists = 2.0 }
 # Path to CSV mapping file used when values_source='csv'. Relative paths are resolved from TOML directory.
 # Full France correspondence table used by GeologyField demo:
 # one entry per GEO1M class (plus SEA), columns: zone_key, K_value, geology_name.
 # WARNING: dummy/demo dataset only (not a calibrated/authoritative hydrogeologic reference).
-values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
+# values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
 # CSV column name containing zone/material keys.
-csv_key_column = "zone_key"
+# csv_key_column = "zone_key"
 # CSV column name containing numeric parameter values.
-csv_value_column = "K_value"
+# csv_value_column = "K_value"
 # Identifier of the spatial field used to map heterogeneous values.
-field_spatial_id = "field_geology"
+# field_spatial_id = "field_geology"
 
 [flow.param.K.field_vertical_profile]
 # Depth dependency mode shared over the full domain.
-mode = "none"
+mode = "exponential"
 # Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
-# characteristic_depth = 30.0
+characteristic_depth = 15.0
+# Optional minimum factor floor for exponential mode:
+# factor = max(exp(-depth/characteristic_depth), min_factor)
+min_factor = 2e-4
 # Depth nodes for tabulated mode (first value must be 0).
 # depths = [0.0, 10.0, 30.0]
 # Multiplicative factors aligned with depths (first value must be 1 at depth 0).
@@ -207,20 +215,22 @@ mode = "none"
 # interpolation = "linear"
 
 # ----------------------------------------------------------------------
-# S
+# Sy
 # ----------------------------------------------------------------------
 
-[flow.param.S.field]
+[flow.param.Sy.field]
 # Parameter identifier used in outputs and logs (for example 'K', 'Sy').
-id = "S"
+id = "Sy"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
+# Unit of parameter values. Typical examples: "m/s" (K), "-" (Sy), "m-1" (Ss).
+unit = "-"
 
-[flow.param.S.field_homogeneous]
+[flow.param.Sy.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-value = 0.15
+value = 0.02
 
-[flow.param.S.field_heterogeneous]
+[flow.param.Sy.field_heterogeneous]
 # Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
 # values_source = "inline"
 # Inline key/value mapping used when values_source='inline'.
@@ -234,14 +244,136 @@ value = 0.15
 # Identifier of the spatial field used to map heterogeneous values.
 # field_spatial_id = "field_square"
 
-[flow.param.S.field_vertical_profile]
+[flow.param.Sy.field_vertical_profile]
 # Depth dependency mode shared over the full domain.
-mode = "none"
+mode = "exponential"
 # Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
-# characteristic_depth = 30.0
+characteristic_depth = 7.5
+# Optional minimum factor floor for exponential mode:
+# factor = max(exp(-depth/characteristic_depth), min_factor)
+min_factor = 5e-2
 # Depth nodes for tabulated mode (first value must be 0).
 # depths = [0.0, 10.0, 30.0]
 # Multiplicative factors aligned with depths (first value must be 1 at depth 0).
 # factors = [1.0, 0.8, 0.5]
 # Interpolation strategy for tabulated mode: "linear" or "step".
 # interpolation = "linear"
+
+# ----------------------------------------------------------------------
+# Ss
+# ----------------------------------------------------------------------
+
+[flow.param.Ss.field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
+id = "Ss"
+# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
+kind = "homogeneous"
+# Unit of parameter values. Typical examples: "m/s" (K), "-" (Sy), "m-1" (Ss).
+unit = "m-1"
+
+[flow.param.Ss.field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
+value = 1e-10
+
+[flow.param.Ss.field_heterogeneous]
+# Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
+# values_source = "inline"
+# Inline key/value mapping used when values_source='inline'.
+# values = { zone1 = 1e-10, zone2 = 5e-11 }
+# Path to CSV mapping file used when values_source='csv'. Relative paths are resolved from TOML directory.
+# values_csv_file = "ss_values.csv"
+# CSV column name containing zone/material keys.
+# csv_key_column = "zone_key"
+# CSV column name containing numeric parameter values.
+# csv_value_column = "value"
+# Identifier of the spatial field used to map heterogeneous values.
+# field_spatial_id = "field_square"
+
+[flow.param.Ss.field_vertical_profile]
+# Depth dependency mode shared over the full domain.
+mode = "none"
+# Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
+# characteristic_depth = 30.0
+# Optional minimum factor floor for exponential mode:
+# factor = max(exp(-depth/characteristic_depth), min_factor)
+# min_factor = 1e-3
+# Depth nodes for tabulated mode (first value must be 0).
+# depths = [0.0, 10.0, 30.0]
+# Multiplicative factors aligned with depths (first value must be 1 at depth 0).
+# factors = [1.0, 0.8, 0.5]
+# Interpolation strategy for tabulated mode: "linear" or "step".
+# interpolation = "linear"
+
+
+# ----------------------------------------------------------------------
+# MODFLOW expert configuration
+# ----------------------------------------------------------------------
+
+[modflow]
+# MODFLOW executable/version identifier passed to FloPy.
+mf_version = "mfnwt"
+# Fortran unit number used for the MODFLOW list file.
+mf_listunit = 2
+# Enable verbose FloPy logging for model setup.
+mf_verbose = false
+
+# Head closure criterion for the NWT nonlinear solver.
+nwt_headtol = 1e-4
+# Flux closure criterion for the NWT nonlinear solver.
+nwt_fluxtol = 500.0
+# Maximum outer nonlinear iterations in the NWT solver.
+nwt_maxiterout = 5000
+# NWT wetting/thickness factor controlling nonlinear updates.
+nwt_thickfact = 1e-5
+# Linear solver choice for NWT.
+nwt_linmeth = 1
+# NWT print flag controlling iteration diagnostics in listing outputs.
+nwt_iprnwt = 1
+# NWT option for averaging saturated thickness at the cell bottom.
+nwt_ibotav = 1
+# NWT nonlinear option keyword.
+nwt_options = "COMPLEX"
+# If true, continue NWT iterations on partially converged stress periods.
+nwt_continue = false
+# NWT backtracking activation flag.
+nwt_backflag = 0
+# NWT backtracking stopping tolerance.
+nwt_stoptol = 1e-10
+
+# DIS time unit code used by MODFLOW (ITMUNI).
+dis_itmuni = 0
+
+# BAS no-flow head sentinel value (HNOFLO).
+bas_hnoflo = -9999.0
+
+# UPW dry-cell head output flag (IPHDRY).
+upw_iphdry = 1
+# UPW dry-cell head value (HDRY).
+upw_hdry = -100.0
+# UPW flag controlling VKA interpretation per layer (LAYVKA).
+upw_layvka = 1
+
+# EVT option code that defines how ET extinction depth is applied (NEVTOP).
+evt_nevtop = 3
+# EVT integer array selector used when NEVTOP requires layer indices (IEVT).
+evt_ievt = 1
+# EVT cell-by-cell budget output flag (IPAKCB).
+evt_ipakcb = 1
+
+# Enable compact budget format in OC outputs.
+oc_compact = true
+
+# WEL cell-by-cell budget output flag (IPAKCB).
+wel_ipakcb = 1
+
+# LMT output filename used to couple MODFLOW to MT3DMS.
+lmt_output_file_name = "mt3d_link.ftl"
+# LMT package filename extension.
+lmt_extension = "lmt8"
+# LMT file format.
+lmt_output_format = "unformatted"
+
+# Vertical hydraulic conductivity control passed to the UPW package (VKA).
+vka = 1.0
+# Extinction depth used by the EVT package (EXDP).
+exdp = 1.0
