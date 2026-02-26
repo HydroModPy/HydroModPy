@@ -28,11 +28,17 @@ def _get_registry() -> dict[str, type[BaseModel]]:
     """Lazy-load the module registry to avoid circular imports."""
     global _MODULE_REGISTRY
     if _MODULE_REGISTRY is None:
+        from hydromodpy.domain.domain_config import DomainConfig
+        from hydromodpy.process.flow.flow_config import FlowConfig
+        from hydromodpy.watershed.geology_config import GeologyConfig
         from hydromodpy.watershed.initializing_config import InitializingConfig
         from hydromodpy.watershed.geographic_config import GeographicConfig
         _MODULE_REGISTRY = {
             "initializing": InitializingConfig,
             "geographic": GeographicConfig,
+            "domain": DomainConfig,
+            "geology": GeologyConfig,
+            "flow": FlowConfig,
         }
     return _MODULE_REGISTRY
 

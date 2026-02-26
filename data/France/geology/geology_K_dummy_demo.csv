@@ -1,0 +1,162 @@
+﻿zone_key,K_value,geology_name,dataset_note,source_doc
+1,7.205e-05,"sables, argiles, graviers, galets",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+11,4.932e-05,"sables, argiles, graviers",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+21,7.205e-05,"argiles, sables, graviers, galets",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+41,4.932e-05,"sables, argiles, graviers",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+51,2.885e-05,"sables, cailloutis, vases",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+61,2.621e-05,"basanites, hawaïtes, benmoréites, téphrites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+81,1.682e-05,"trachytes, mugéarites, phonolites, pyroclastites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+101,4.909e-05,"sables, cailloutis, galets,argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+121,1.682e-05,"sables, argiles, vases, conglomérats",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+131,1.682e-05,"sables, argiles, vases, conglomérats",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+141,2.885e-05,"sables, cailloutis, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+151,4.932e-06,"calcaires, marnes, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+161,2.885e-05,"argiles, cailloutis, sables",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+181,2.621e-05,"basanites, hawaïtes, benmoréites, téphrites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+201,1.682e-05,"trachytes, mugéarites, phonolites, pyroclastites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+221,2.885e-05,"argiles, cailloutis, sables",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+231,1.876e-05,"sables, argiles, marnes, grès, conglomérats",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+241,3.337e-05,"marnes, conglomérats, grès, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+251,8.635e-06,"calcaires, marnes, argiles, évaporites, conglomérats",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+271,3.000e-05,"andésites, adakites, basaltes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+281,2.885e-05,"sables, cailloutis, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+301,1.480e-05,"marnes, argiles, calcaires, conglomérats",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+311,8.747e-05,"calcaires, grès, sables",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+321,1.000e-05,non documenté,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+341,2.621e-05,"basanites, hawaïtes, téphrites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+361,2.000e-05,"mugéarites, trachytes, phonolites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+381,3.000e-06,"granodiorites, quartzdiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+401,9.405e-06,"calcaires, sables, gypse, marnes, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+411,1.051e-05,"calcaires, grès, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+421,2.639e-05,"grès, conglomérats, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+441,2.621e-05,"basanites, hawaïtes, téphrites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+461,2.000e-05,"mugéarites, trachytes, phonolites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+481,6.694e-06,"sables, argiles, marnes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+491,1.265e-04,"sables, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+501,2.885e-05,"sables, cailloutis, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+521,2.621e-05,"basanites, hawaïtes, téphrites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+541,2.000e-05,"mugéarites, trachytes, phonolites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+561,9.542e-06,"argiles, conglomérats, grès, marnes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+571,1.245e-05,"sables, marnes, argiles, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+581,1.000e-05,non documenté,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+591,1.051e-05,"calcaires, grès, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+601,2.885e-05,"sables, cailloutis, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+621,3.203e-05,"craies, calcaires, marnes, tuffeaux, sables",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+631,7.268e-05,"craies, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+641,3.000e-05,"basaltes, dolérites, basanites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+661,6.214e-06,"marnes, calcschistes, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+681,2.621e-05,"basanites, hawaïtes, téphrites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+701,7.344e-06,"marnes, grès, schistes, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+711,1.414e-05,"sables, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+721,2.639e-05,"schistes, calcschistes, conglomérats, grès",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+741,1.000e-05,non documenté,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+761,6.214e-06,"marnes, schistes noirs, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+771,1.051e-05,"calcaires, grès, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+781,1.265e-05,"calcschistes, calcaires, prasinites, micaschistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+801,6.214e-06,"calcaires, calcschistes, marnes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+811,4.932e-06,"calcaires, marnes, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+821,6.214e-06,"marnes, calcschistes, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+841,2.000e-06,"calcschistes éclogitiques, marbres, amphibolites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+861,7.746e-06,"schistes bleus, métabasaltes, métagabbros, prasinites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+881,1.000e-05,"métapéridotites, serpentinites, ultrabasites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+901,6.024e-06,"calcaires, marnes, grès, argiles, dolomies",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+911,1.051e-05,"argiles, grès, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+921,1.095e-05,"calcaires, marnes, dolomies",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+931,1.051e-05,"argiles, grès, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+941,2.000e-06,"schistes noirs, brèches, calcschistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+961,2.141e-06,"marnes, argiles, grès, dolomies",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+981,2.141e-06,"marnes, dolomies, grès, argiles",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1001,1.414e-06,"dolomies, cargneules, évaporites, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1021,1.000e-05,"dolérites, ophites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1041,1.474e-04,"grès, conglomérats, quartzites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1061,1.225e-06,"marnes, évaporites, cargneules, dolomies",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1071,2.885e-05,"argiles, cailloutis, sables",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1081,8.944e-06,"dolomies, évaporites, cargneules, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1101,2.639e-05,"grès, conglomérats, schistes, charbons",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1121,2.639e-05,"grès, conglomérats, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1141,1.000e-05,non documenté,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1151,1.036e-05,"schistes, argiles, grès, conglomérats",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1161,1.000e-05,"granitoïdes alcalins, volcanites acides",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1181,2.639e-05,"grès, conglomérats, charbons, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1191,1.474e-04,"grès, conglomérats, charbons",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1201,2.639e-05,"grès, conglomérats, charbons, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1221,1.000e-05,non documenté,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1231,3.000e-06,"monzogranites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1241,4.309e-06,"schistes, grès, wackes, charbons",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1261,2.639e-05,"schistes, grès, charbons, conglomérats",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1281,2.639e-05,"schistes, conglomérats, porphyroïdes, grès",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1301,3.000e-06,leucogranites peralumineux,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1321,3.000e-06,leucogranites peralumineux,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1331,3.000e-06,leucogranites peralumineux,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1341,3.000e-06,"monzogranites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1371,3.000e-06,leucogranites peralumineux,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1381,1.386e-05,"schistes, calcaires, grès, ampélites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1401,1.386e-05,"schistes, calcaires, lydiennes, grès",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1421,3.000e-06,"monzogranites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1441,3.000e-06,"monzogranites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1471,3.000e-06,"monzogranites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1481,1.386e-05,"calcaires, grès, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1501,2.639e-05,"schistes, wackes, conglomérats, grès",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1511,2.639e-05,"schistes, wackes, conglomérats, grès",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1521,3.000e-06,"monzogranites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1531,1.000e-05,"gabbros, diorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1541,1.000e-05,orthogneiss granitiques,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1551,1.000e-05,granitoïdes indifférenciés,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1561,1.386e-05,"schistes, grès, quartzites, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1581,1.386e-05,"schistes, grès, calcaires, wackes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1591,1.386e-05,"schistes, grès, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1601,1.386e-05,"schistes, grès, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1611,2.639e-05,"schistes, wackes, conglomérats, grès",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1621,4.309e-06,"schistes, ampélites, quartzites, grès",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1631,4.309e-06,"schistes, grès, ampélites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1641,2.000e-06,"schistes, quartzites, ampélites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1651,1.265e-05,"schistes, quartzites, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1661,1.386e-05,"grès, quartzites, schistes, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1681,4.309e-06,"quartzites, grès, arkoses, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1701,4.309e-06,"quartzites, grès, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1711,1.386e-05,"schistes, grès, calcaires, tuffites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1721,1.265e-05,"schistes, quartzites, calcaires, tuffites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1731,2.000e-06,"schistes, quartzites, ampélites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1741,4.309e-06,"schistes, grès, quartzites, phtanites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1751,4.309e-06,"schistes, grès, quartzites, phtanites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1761,1.000e-05,orthogneiss granitiques,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1781,1.000e-05,orthogneiss granitiques,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1801,3.000e-06,"monzogranites, métagranites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1821,3.000e-06,"microgranites, granophyres",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1841,1.386e-05,"schistes, grès, arkoses, calcaires",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1851,1.386e-05,"schistes, grès, calcaires, arkoses",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1861,1.000e-05,migmatites paradérivées,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1871,1.474e-04,"grès, conglomérats, arkoses",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1891,1.000e-05,"paragneiss, amphibolites, leptynites, orthogneiss",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1901,1.000e-05,"leptynites, amphibolites, éclogites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1921,1.000e-05,non documenté,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1941,2.000e-06,"micaschistes, leptynites, amphibolites, paragneiss",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1961,3.000e-06,"leucogranites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1971,3.000e-06,"microgranites, apligranites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+1981,1.000e-05,orthogneiss granitiques,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2011,1.000e-05,orthogneiss granitiques,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2021,4.309e-06,"schistes, grès, wackes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2041,4.309e-06,"wackes, grès, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2051,4.309e-06,"wackes, grès, schistes",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2061,3.000e-06,"monzogranites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2081,1.000e-05,orthogneiss granitiques,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2101,4.309e-06,"schistes, grès, tuffites, phtanites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2121,1.000e-05,orthogneiss indifférenciés,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2141,2.000e-06,"schistes, métawackes, phtanites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2151,2.000e-05,"wackes, tuffites, phtanites, grès",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2161,1.000e-05,granitoïdes indifférenciés,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2191,3.000e-06,"quartzdiorites, tonalites, granodiorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2201,1.000e-05,"paragneiss, leptynites, amphibolites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2211,1.000e-05,"migmatites, amphibolites, anatexites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2221,2.000e-06,"micaschistes, paragneiss",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2231,2.000e-06,"micaschistes, paragneiss",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2241,2.000e-06,"micaschistes éclogitiques, paragneiss éclogitiques",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2271,1.000e-05,métamorphites indifférenciées,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2281,1.000e-05,"gabbros, diorites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2301,1.000e-05,orthogneiss indifférenciés,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2311,1.000e-05,orthogneiss indifférenciés,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2331,1.000e-05,"sédiments, granitoïdes, métamorphites indifférenciées",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2341,1.000e-05,impactite,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2371,1.000e-05,"ultrabasites, péridotites, serpentinites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+2381,1.000e-05,"ultrabasites, péridotites, serpentinites",dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
+SEA,1.000e-06,Mer,dummy_demo_not_for_scientific_use,geology_K_dummy_demo_sources.md
