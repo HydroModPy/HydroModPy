@@ -256,7 +256,9 @@ PARAMS = {
         "watershed_name": "example12",
         "recharge_first_year": 2003,
         "recharge_last_year": 2003,
-        "recharge_time_step": "M",
+        "recharge_time_step": "ME",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
         # Parametrization
         "box": True,
         "sink_fill": False,
@@ -308,6 +310,9 @@ PARAMS = {
         "sconc_input_value": 50,  # Input concentration (mg/L)
         "rate_decay_value": 1 / (2 * 365),  # Decay rate (T-1) - half-life 2 years
         "plot_conc": True,
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
+        "var_list_sim2":['runoff', 'recharge'],
         # Plotting parameters (ex12 uses monthly data)
         "plot_params": {
             "factor": 30,  # Monthly data
@@ -326,7 +331,10 @@ PARAMS = {
         "watershed_name": "09S_short",
         "recharge_first_year": 2003,       # ← 09S_short SHORT version
         "recharge_last_year": 2003,        # ← Single year for speed
-        "recharge_time_step": "M",         # ← Monthly (not Weekly)
+        "recharge_time_step": "ME",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Modeling
         "box": True,
         "sink_fill": False,
@@ -378,6 +386,8 @@ PARAMS = {
         "sconc_input_value": 50,  # Input concentration (mg/L)
         "rate_decay_value": 1 / (2 * 365),  # Decay rate (T-1) - half-life 2 years
         "plot_conc": True,
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters (ex09 uses weekly-like scaling, different subplot layout)
         "plot_params": {
             "factor": 7,  # Weekly-like scaling
@@ -396,7 +406,10 @@ PARAMS = {
         "watershed_name": "04S_short",
         "recharge_first_year": 2000,
         "recharge_last_year": 2001,
-        "recharge_time_step": "M",
+        "recharge_time_step": "ME",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Frame settings
         "box": True,
         "sink_fill": False,
@@ -417,6 +430,8 @@ PARAMS = {
         # Looping over porosity (Sy)
         "iD_set_simulations": "explorSy_test1",
         "list_porosity": [0.5, 5],  # in percent
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters
         "plot_params": {
             "factor": 30,
@@ -436,6 +451,9 @@ PARAMS = {
         "recharge_first_year": 1990,
         "recharge_last_year": 2019,
         "recharge_time_step": "D",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Parametrization
         "box": True,
         "sink_fill": False,
@@ -455,7 +473,9 @@ PARAMS = {
         "sea_level": "None",
         # Multiple models
         "iD_set_simulations": "explorK_test1",
-        "list_hyd_cond": list(np.geomspace(1e-8, 1e-3, 10)),  # in m/s (10 values)
+        "list_hyd_cond": list(np.geomspace(1e-8, 1e-3, 10)),  # in m/s (10 values),
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters
         "plot_params": {
             "factor": 30,
@@ -476,6 +496,9 @@ PARAMS = {
         "recharge_first_year": 2017,
         "recharge_last_year": 2017,
         "recharge_time_step": "D",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Frame settings
         "box": True,
         "sink_fill": False,
@@ -518,6 +541,8 @@ PARAMS = {
         "well_2_coords": [0, 16, 28],  # [layer-1, row-1, col-1]
         "well_1_fluxes": [-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # [L3/T] for 12 stress periods
         "well_2_fluxes": [-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0],  # [L3/T] for 12 stress periods
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters
         "plot_params": {
             "factor": 30,
@@ -538,6 +563,9 @@ PARAMS = {
         "recharge_first_year": 1990,
         "recharge_last_year": 2019,
         "recharge_time_step": "D",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Frame settings
         "box": True,
         "sink_fill": False,
@@ -587,6 +615,8 @@ PARAMS = {
         # Model identification
         "iD_set_simulations": None,
         "list_hyd_cond": None,
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters
         "plot_params": {
             "factor": 30,
@@ -1383,14 +1413,12 @@ def select_period(df, first, last):
 
 
 
-def watershed(example_key):
-    example_key = CONFIG.get(example_key)
-    """Extract watershed for {example_key} (loads config from config.toml)"""
-    print("\n" + "="*70)
-    print(f"EXAMPLE {example_key} - WATERSHED EXTRACTION".center(70))
-    print("="*70)
-
+def watershed(example_id): # On l'appelle id pour être sûr que c'est le texte "ex12"
+    print(f"\n EXAMPLE {example_id} - WATERSHED EXTRACTION ")
+    exmp=example_id
     try:
+        # On utilise le texte "ex12" pour chercher dans PARAMS
+        p = PARAMS[example_id]
         # Load paths from PARAMS (for data directory reference)
         #example_key = results.get('example_key', CONFIG["example"])
 
@@ -1483,7 +1511,7 @@ def watershed(example_key):
             'oceanic': oceanic_object,
             'climatic': climatic_object,
             'transport': transport_object,
-            'example_key': example_key,
+            'example_key': exmp,
             'data_path': data_path,
             'out_dir_path': out_dir_path,
             'results_path': results_path,
@@ -1637,6 +1665,46 @@ def surfaces(results):
     except Exception as e:
         print(f"Error in surfaces for {example_key}: {e}")
         return results
+
+def atmosphere(results):  # sourcery skip: extract-method
+    """Update climatic data (reanalysis)"""
+    print("\n" + "="*70)
+    print("ATMOSPHERE - CLIMATIC DATA UPDATE".center(70))
+    print("="*70)
+
+    if not results:
+        return None
+
+    try:
+        example_id = results.get('example_key')
+        example_key = results.get('example_key', CONFIG["example"])
+        p = PARAMS[example_key]
+        data_path = results['data_path']
+        climatic = results.get('climatic')
+        geographic = results.get('geographic')
+        initializing = results.get('initializing')
+
+        print(f"Updating reanalysis for {example_id} ")
+
+        # Appel de la méthode
+        climatic.update_sim2_reanalysis(
+            var_list=p.get("var_list",[]),
+            nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+            first_year=p.get("first_year"),
+            last_year=p.get("last_year"),
+            time_step=p.get("recharge_time_step"),
+            sim_state=p.get("sim_state"),
+            spatial_mean=True,
+            geographic=geographic,
+            disk_clip=geographic.watershed_shp
+        )
+
+        print("Atmosphere updated")
+        return results
+
+    except Exception as e:
+        print(f"Error in atmosphere: {e}")
+        return results
 # ============================================================================
 # STEP 3: RECHARGE CALCULATION
 # ============================================================================
@@ -1683,8 +1751,8 @@ def recharge(results):
         print("Update recharge (REANALYSIS)...")
         climatic_object.update_recharge_reanalysis(
             path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
-            clim_mod='REA',
-            clim_sce='historic',
+            clim_mod=p["clim_mod"],
+            clim_sce=p["clim_sce"],
             first_year=p["recharge_first_year"],
             last_year=p["recharge_last_year"],
             time_step=p["recharge_time_step"],
@@ -1694,8 +1762,8 @@ def recharge(results):
         print("Update runoff (REANALYSIS)...")
         climatic_object.update_runoff_reanalysis(
             path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
-            clim_mod='REA',
-            clim_sce='historic',
+            clim_mod=p["clim_mod"],
+            clim_sce=p["clim_sce"],
             first_year=p["recharge_first_year"],
             last_year=p["recharge_last_year"],
             time_step=p["recharge_time_step"],
@@ -1716,7 +1784,53 @@ def recharge(results):
         traceback.print_exc()
         return results
 
+def recharge_sim2(results):
+    """Calculate recharge from climatic data using SIM2 method"""
+    print("\n" + "="*70)
+    print("RECHARGE SIM2 - CLIMATIC DATA UPDATE".center(70))
+    print("="*70)
 
+    if not results:
+        return None
+
+    try:
+        example_key = results.get('example_key', CONFIG["example"])
+        p = PARAMS[example_key]
+        data_path = results['data_path']
+        climatic = results.get('climatic')
+        geographic = results.get('geographic')
+        initializing = results.get('initializing')
+
+        print(f"Updating recharge with SIM2 for {example_key} ")
+
+        # Appel de la méthode
+        climatic.update_sim2_reanalysis(
+            var_list=p.get("var_list_sim2",[]),
+            nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+            first_year=p.get("first_year"),
+            last_year=p.get("last_year"),
+            time_step=p.get("recharge_time_step"),
+            sim_state=p.get("sim_state"),
+            geographic=geographic,
+            disk_clip=geographic.watershed_shp
+        )
+        print("Converting units (mm to m)...")
+        for attr in ['t', 'precip', 'etp', 'runoff', 'recharge']:
+            val = getattr(climatic, attr, None)
+            if val is not None:
+                setattr(climatic, attr, val / 1000.0)
+
+        # Mise à jour des résultats finaux
+        results['R_mm_day'] = climatic.recharge
+        results['runoff']   = climatic.runoff
+        results['climatic'] = climatic # On renvoie l'objet mis à jour
+
+        print("Recharge SIM2 updated")
+        return results
+
+    except Exception as e:
+        print(f"Error in recharge_sim2: {e}")
+        return results
 # ============================================================================
 # STEP 4: PARAMETRIZATION
 # ============================================================================
