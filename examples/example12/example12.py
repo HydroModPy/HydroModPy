@@ -55,9 +55,7 @@ from hydromodpy.display import visualization_watershed, visualization_results, e
 from hydromodpy.tools import toolbox
 from hydromodpy.domain import Domain, Surfaces
 from hydromodpy.process import Flow
-from hydromodpy.solver.modflow import Modflow
-from hydromodpy.modeling.modpath import Modpath
-from hydromodpy.modeling.mt3dms import Mt3dms
+from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
