@@ -66,6 +66,69 @@ def test_field_param_homogeneous_with_vertical_profile_exponential():
     assert np.allclose(arr, 10.0 * np.exp(-0.5))
 
 
+def test_field_param_homogeneous_with_vertical_profile_exponential_min_factor():
+    param = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        value=10.0,
+        vertical_profile={
+            "mode": "exponential",
+            "characteristic_depth": 5.0,
+            "min_factor": 0.2,
+        },
+    )
+
+    assert float(param.vertical_factor(0.0)) == pytest.approx(1.0)
+    assert float(param.vertical_factor(1000.0)) == pytest.approx(0.2)
+    assert float(param.to_array(depth=1000.0)) == pytest.approx(2.0)
+
+
+def test_field_param_exponential_profile_rejects_invalid_min_factor():
+    with pytest.raises(ValueError, match="min_factor"):
+        _ = FieldParam(
+            identifier="K",
+            kind="homogeneous",
+            value=10.0,
+            vertical_profile={
+                "mode": "exponential",
+                "characteristic_depth": 10.0,
+                "min_factor": 1.2,
+            },
+        )
+
+
+def test_field_param_converts_k_from_m_per_day_to_si():
+    param = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        unit="m/day",
+        value=8.64,
+    )
+    assert param.unit == "m/s"
+    assert float(param.value) == pytest.approx(1e-4)
+
+
+def test_field_param_converts_ss_from_cm_inverse_to_m_inverse():
+    param = FieldParam(
+        identifier="Ss",
+        kind="homogeneous",
+        unit="cm-1",
+        value=1e-6,
+    )
+    assert param.unit == "m-1"
+    assert float(param.value) == pytest.approx(1e-4)
+
+
+def test_field_param_rejects_incompatible_unit_family():
+    with pytest.raises(ValueError, match="Expected SI family"):
+        _ = FieldParam(
+            identifier="K",
+            kind="homogeneous",
+            unit="m-1",
+            value=1.0,
+        )
+
+
 def test_field_param_heterogeneous_from_toml():
     param = FieldParam.from_toml("hydromodpy/field/cases/square/field_param_config.toml")
     assert param.is_heterogeneous

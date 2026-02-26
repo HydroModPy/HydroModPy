@@ -61,7 +61,7 @@ class GeologySourceSchema(BaseModel):
     --------
     Raster source:
         source = {
-            "path": "data/France/dem/regional dem.tif",
+            "path": "data/Brittany/dem/regional dem.tif",
             "kind": "raster",
         }
 
@@ -70,7 +70,7 @@ class GeologySourceSchema(BaseModel):
             "path": "data/France/geology/GEO1M.shp",
             "kind": "vector",
             "code_field": "CODE_LEG",
-            "reference_raster_path": "data/France/dem/regional dem.tif",
+            "reference_raster_path": "data/Brittany/dem/regional dem.tif",
         }
     """
 
@@ -177,7 +177,7 @@ class GeologyConfigSchema(BaseModel):
     Minimal example (raster source):
         {
             "id": "field_geology",
-            "source": {"path": "data/France/dem/regional dem.tif", "kind": "raster"},
+            "source": {"path": "data/Brittany/dem/regional dem.tif", "kind": "raster"},
         }
     """
 
@@ -254,4 +254,5 @@ def load_geology_toml(config_path: str | Path, section: str = "geology") -> dict
         return validate_geology_config_data(section_cfg)
     except ValueError as exc:
         raise ValueError(f"Invalid geology configuration in {path}: {exc}") from exc
+
 
