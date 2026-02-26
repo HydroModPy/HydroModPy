@@ -102,7 +102,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
 # ============================================================================
-EXAMPLE_TO_RUN = "ex01"  # ← CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex12"  # ← CHANGE THIS TO SWITCH EXAMPLES
 
 # Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
 config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
@@ -282,6 +282,8 @@ PARAMS = {
         # Parametrization
         "box": True,
         "compt": 0,
+        "sy": 1 / 100,
+        "ss": 1e-5,
         "sink_fill": False,
         "sim_state": "transient",
         "plot_cross": True,
@@ -290,15 +292,6 @@ PARAMS = {
         "dis_perlen": True,
         "nlay": 10,
         "lay_decay": 1.2,
-        "verti_hk": None,
-        "verti_sy": None,
-        "verti_ss": None,
-        "sy": 1 / 100,
-        "sy_decay": 0,
-        "ss": 1e-5,
-        "ss_decay": 0,
-        "hk_decay": 0,
-        "vka": 1,
         "bottom": 0,
         "thickness": 100,
         "cond_drain": None,
@@ -320,7 +313,6 @@ PARAMS = {
         "well_1_fluxes": [-200, -1000, -100, 0, 0, 0, 0, 0, 0, 0, 0, -1000],  # [L3/T] for 12 stress periods
         "well_2_fluxes": [0, -1000, 0, -500, 0, 0, -500, 0, 0, 0, 0, -1000],  # [L3/T] for 12 stress periods
         # Vertical anisotropy exponent
-        "exdp": 1.0,
         # Transport (MT3DMS) settings
         "spc_name": "NO3",
         "disp_long": 0,  # Longitudinal dispersivity (m)
@@ -367,16 +359,7 @@ PARAMS = {
         "dis_perlen": True,
         "nlay": 10,                       # ← 10 couches = long calcul
         "lay_decay": 1.2,
-        "verti_hk": None,
-        "verti_sy": None,
-        "verti_ss": None,
         "cond_drain": None,
-        "sy": 1 / 100,
-        "sy_decay": 0,
-        "hk_decay": 0,
-        "ss": 1e-5,
-        "ss_decay": 0,
-        "vka": 1,
         "bottom": 0,
         "thickness": 100,
         "bc_left": None,
@@ -397,7 +380,6 @@ PARAMS = {
         "well_1_fluxes": [],
         "well_2_fluxes": [],
         # Vertical anisotropy exponent
-        "exdp": 1.0,
         # Transport (MT3DMS) settings
         "spc_name": "NO3",
         "disp_long": 0,  # Longitudinal dispersivity (m)
@@ -489,12 +471,11 @@ PARAMS = {
         "lay_decay": 1,
         "bottom": None,
         "thick": 50,
-        "sy": 10 / 100,
         "cond_drain": None,
         "bc_left": None,
         "bc_right": None,
         "sea_level": "None",
-        "hk_decay": 0,
+
         # Multiple models
         "iD_set_simulations": "explorK_test1",
         "list_hyd_cond": list(np.geomspace(1e-8, 1e-3, 10)),  # in m/s (10 values),
@@ -533,15 +514,6 @@ PARAMS = {
         "plot_cross": True,
         "check_grid": True,
         # Hydraulic parameters
-        "verti_hk": None,
-        "verti_sy": None,
-        "verti_ss": None,
-        "sy": 1 / 100,
-        "sy_decay": 0,
-        "ss": 1e-5,
-        "ss_decay": 0,
-        "hk_decay": 0,
-        "vka": 1,
         "bottom": None,
         "thickness": 50,
         "cond_drain": None,
@@ -601,14 +573,6 @@ PARAMS = {
         "plot_cross": False,
         "check_grid": True,
         # Hydraulic parameters
-        "verti_hk": None,
-        "verti_sy": None,
-        "verti_ss": None,
-        "sy": 1 / 100,
-        "sy_decay": 1 / 20,
-        "ss": None,
-        "ss_decay": 1 / 20,
-        "vka": None,
         "bottom": None,
         "thickness": 50,
         "cond_drain": None,
@@ -619,7 +583,6 @@ PARAMS = {
         "lay_decay": 1.5,
         # Conduct HK
         "hk": 2e-5 * 24 * 3600,  # m/d
-        "hk_decay": 1 / 20,
         "Kmin_for_hk_decay": None,
         "Klog_transf": False,
         # Complex K/Sy parameters (not used in ex01)
@@ -880,11 +843,11 @@ PARAM_CONFIG = {
             "runoff_factor": 0.1
         },
         "hydraulic_specific": {
-            "update_ss": True,
-            "update_vka": True,
+            "update_ss": False,
+            "update_vka": False,
             "update_vertical": False,
-            "update_decay": True,
-            "sy_complex": True
+            "update_decay": False,
+            "sy_complex": False
         },
         "particle_tracking": False
     },
@@ -895,11 +858,11 @@ PARAM_CONFIG = {
             "runoff_factor": 0.1
         },
         "hydraulic_specific": {
-            "update_ss": True,
-            "update_vka": True,
-            "update_vertical": True,
-            "update_decay": True,
-            "sy_complex": True  # Sy avec decay
+            "update_ss": False,
+            "update_vka": False,
+            "update_vertical": False,
+            "update_decay": False,
+            "sy_complex": False  # Sy avec decay
         },
         "particle_tracking": False
     },
@@ -927,7 +890,7 @@ PARAM_CONFIG = {
         "hydraulic_specific": {
             "update_bottom": True,
             "update_thick": True,
-            "update_sy_simple": True,
+            "update_sy_simple": False,
             "decay_config": False
         },
         "particle_tracking": True
@@ -939,7 +902,7 @@ PARAM_CONFIG = {
             "runoff": None
         },
         "hydraulic_specific": {
-            "update_sy_simple": True,
+            "update_sy_simple": False,
             "decay_config": False
         },
         "particle_tracking": False
@@ -951,14 +914,14 @@ PARAM_CONFIG = {
             "runoff_factor": None
         },
         "hydraulic_specific": {
-            "update_hk": True,
-            "update_hk_decay": True,
-            "update_sy_simple": True,
+            "update_hk": False,
+            "update_hk_decay": False,
+            "update_sy_simple": False,
             "update_ss": False,
             "update_vka": False,
             "update_hk_vertical": False,
-            "update_decay": True,
-            "decay_config": True
+            "update_decay": False,
+            "decay_config": False
         },
         "particle_tracking": True
     }
@@ -1936,44 +1899,26 @@ def parametrization(results):
         if config["hydraulic_specific"].get("update_hk"):
             hydraulic_object.update_hk(p["hk"])
 
-        if config["hydraulic_specific"].get("update_sy_simple"):
-            hydraulic_object.update_sy(p["sy"])
-
-        if config["hydraulic_specific"].get("update_ss"):
-            hydraulic_object.update_ss(p["ss"])
-
-        if config["hydraulic_specific"].get("update_vka"):
-            hydraulic_object.update_vka(p["vka"])
-
-        if config["hydraulic_specific"].get("update_hk_vertical"):
-            hydraulic_object.update_hk_vertical(p["verti_hk"])
-
-        if config["hydraulic_specific"].get("update_decay"):
-            if config["hydraulic_specific"].get("update_hk_decay"):
-                hydraulic_object.update_hk_decay(p["hk_decay"], min_value=p.get("Kmin_for_hk_decay"), log_transf=p.get("Klog_transf"))
-            hydraulic_object.update_sy_decay(p["sy_decay"])
-            hydraulic_object.update_ss_decay(p["ss_decay"])
 
         # COMPLEX: sy_complex
-        if config["hydraulic_specific"].get("sy_complex"):
-            hydraulic_object.update_hk(p["the_K0"])
-            hydraulic_object.update_hk_decay(
+        #if config["hydraulic_specific"].get("sy_complex"):
+          #  hydraulic_object.update_hk(p["the_K0"])
+           # hydraulic_object.update_sy(p["the_sy0"])
+            """ hydraulic_object.update_hk_decay(
                 1 / p["alpha"],
                 min_value=p["Kmin_for_hk_decay"],
                 log_transf=p["Klog_transf"],
                 grad_elev=[93, 136, -20]
-            )
-
-            hydraulic_object.update_sy(p["the_sy0"])
-            hydraulic_object.update_sy_decay(
+            )"""
+            """hydraulic_object.update_sy_decay(
                 (1 / p["alpha"]) / p["n_factor"],
                 min_value=p["Symin_for_sy_decay"],
                 log_transf=p["Klog_transf"],
                 grad_elev=[93, 136, -20]
-            )
+            )"
 
             hydraulic_object.update_ss(p["the_ss0"])
-            hydraulic_object.update_ss_decay(0)
+            hydraulic_object.update_ss_decay(0)"""
 
         print("Parametrization completed\n")
         return results
@@ -2003,8 +1948,8 @@ def modeling(results):
     try:
         # Get individual objects created in watershed(), recharge(), and parametrization()
         geographic_object = results['geographic']
-        flow_object = results.get('flow'),
-        domain_object = results.get('domain'),
+        flow_object = results.get('flow')
+        domain_object = results.get('domain')
         hydraulic_object = results['hydraulic']
         settings_object = results['settings']
         climatic_object = results['climatic']
@@ -2013,6 +1958,7 @@ def modeling(results):
 
         p = PARAMS[example_key]
         config = MODELING_CONFIG[example_key]
+
         # --- AJOUT 3 : GESTION DYNAMIQUE DU DOSSIER ---
         for_calib = config.get("preprocessing", {}).get("for_calib", False)
         if for_calib:
@@ -2035,7 +1981,6 @@ def modeling(results):
                 model_name = f"{example_key}_hk{p['hk']:.1e}"
 
             # Call refactored complete_modflow function with individual objects
-            hk_value = p.get("the_K0") if p.get("the_K0") is not None else p.get("hk")
             result = complete_modflow(
                 geographic=geographic_object,
                 flow=flow_object,
@@ -2046,9 +1991,9 @@ def modeling(results):
                 oceanic=oceanic_object,
                 initializing=initializing_object,
                 model_name=model_name,
-                hk_value=hk_value,
                 bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
                 config=config,
+                cfg=cfg,
             )
 
             results['model_name'] = result['model_name']
@@ -2084,7 +2029,8 @@ def modeling(results):
                         model_name=model_name,
                         hk_value=hk_value,
                         bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
-                        config=config
+                        config=config,
+                        cfg=cfg,
                     )
                     list_model_name.append(result['model_name'])
                     list_success_modflow.append(result['success'])
@@ -2551,7 +2497,7 @@ WORKFLOW_DEFINITION = {
             "step": 7,
             "section": "modpath",
             "function": "ex12_modpath()",
-            "requires": ["BV", "model_modflow", "success_modflow"],
+            "requires": [ "model_modflow", "success_modflow"],
             "provides": ["model_modpath", "success_modpath"]
         },
         {
