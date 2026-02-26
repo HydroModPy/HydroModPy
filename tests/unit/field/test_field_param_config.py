@@ -35,6 +35,30 @@ def test_load_field_param_toml_validates_sections(tmp_path: Path):
     assert payload["field_heterogeneous"]["field_spatial_id"] == "field_square"
 
 
+def test_load_field_param_toml_accepts_empty_inactive_mode_sections(tmp_path: Path):
+    path = tmp_path / "field_param_with_empty_inactive_sections.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "heterogeneous"
+
+            [field_homogeneous]
+
+            [field_heterogeneous]
+            values = { granite = 10.0, micaschists = 2.0 }
+            field_spatial_id = "field_square"
+            """
+        ),
+        encoding="utf-8",
+    )
+    payload = load_field_param_toml(path)
+    assert payload["field"]["kind"] == "heterogeneous"
+    assert payload["field_heterogeneous"]["field_spatial_id"] == "field_square"
+    assert payload["field_homogeneous"] == {}
+
+
 def test_load_field_param_toml_rejects_unknown_field_homogeneous_key(tmp_path: Path):
     path = tmp_path / "field_param_invalid.toml"
     path.write_text(
@@ -52,6 +76,28 @@ def test_load_field_param_toml_rejects_unknown_field_homogeneous_key(tmp_path: P
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="field_homogeneous"):
+        _ = load_field_param_toml(path)
+
+
+def test_load_field_param_toml_rejects_field_common_section(tmp_path: Path):
+    path = tmp_path / "field_param_with_common.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "homogeneous"
+
+            [field_common]
+            id = "K"
+
+            [field_homogeneous]
+            value = 12.5
+            """
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="field_common"):
         _ = load_field_param_toml(path)
 
 

@@ -1,42 +1,50 @@
-# Example TOML for hydromodpy.field.
-#
-# Read once with:
-#   FieldParam.from_toml("hydromodpy/field/cases/square/field_param_config.toml")
-#
-# Note:
-#   Field geometry and FieldMesh use dedicated TOML files:
-#   - hydromodpy/field/cases/square/field_spatial_config.toml
-#   - hydromodpy/field/cases/square/mesh_config.toml
+# ======================================================================
+# Field Parameter Configuration (FieldParam)
+# Auto-documented from Pydantic schema descriptions.
+# ======================================================================
 
-# Active field choice for the launcher:
-# - set kind = "homogeneous"  -> use [field_homogeneous]
-# - set kind = "heterogeneous" -> use [field_heterogeneous]
+# Structure:
+# - [field]
+# - [field_homogeneous] or [field_heterogeneous]
+# - [field_vertical_profile] (optional)
+#
+# Notes:
+# - Surface value definition is in homogeneous/heterogeneous sections.
+# - Vertical dependency (if any) is defined separately and applied over
+#   the whole domain with the same profile.
+
 [field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
 id = "K"
-# Allowed kinds are strictly:
-# - "homogeneous"
-# - "heterogeneous"
+# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "heterogeneous"
 
 [field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
 value = 12.5
 
 [field_heterogeneous]
-# Value source options:
-# - inline dictionary (used below),
-# - CSV table via:
-#     values_source = "csv"
-#     values_csv_file = "my_values.csv"
-#     csv_key_column = "zone_key"
-#     csv_value_column = "value"
-# Inline TOML dictionary (compact syntax for short lists).
+# Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
+values_source = "inline"
+# Inline key/value mapping used when values_source='inline'.
 values = { granite = 10.0, micaschists = 2.0 }
-# Must match the loaded field geometry id.
+# Path to CSV mapping file used when values_source='csv'. Relative paths are resolved from TOML directory.
+# values_csv_file = "my_values.csv"
+# CSV column name containing zone/material keys.
+csv_key_column = "zone_key"
+# CSV column name containing numeric parameter values.
+csv_value_column = "value"
+# Identifier of the spatial field used to map heterogeneous values.
 field_spatial_id = "field_square"
 
-# Optional vertical dependency applied identically over the domain:
-# surface value is multiplied by f(depth), depth in meters (0 at surface).
 [field_vertical_profile]
+# Depth dependency mode shared over the full domain.
 mode = "none"
-# mode = "exponential"
+# Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
 # characteristic_depth = 30.0
+# Depth nodes for tabulated mode (first value must be 0).
+# depths = [0.0, 10.0, 30.0]
+# Multiplicative factors aligned with depths (first value must be 1 at depth 0).
+# factors = [1.0, 0.8, 0.5]
+# Interpolation strategy for tabulated mode: "linear" or "step".
+# interpolation = "linear"
