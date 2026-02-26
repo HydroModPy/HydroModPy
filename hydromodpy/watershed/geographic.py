@@ -157,7 +157,7 @@ class Geographic:
         self.buff_area       = config.buff_area
         self.polyg_shp_path  = config.polyg_shp_path
         self.dem_correc_type = config.dem_correc_type
-        self.crsproject      = config.crs_project
+        self.crs_project     = config.crs_project
 
         self.processing()
 
