@@ -31,8 +31,6 @@ import pickle
 
 import imageio.v2 as imageio
 import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 # Add
 import flopy.utils.binaryfile as bf
@@ -47,24 +45,22 @@ root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
+import hydromodpy as hmp
 from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
-    Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
+    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
-from hydromodpy.watershed import surfaces
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingConfig, GeographicConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.modeling.modflow import Modflow
+from hydromodpy.domain import Domain, Surfaces
+from hydromodpy.process import Flow
+from hydromodpy.solver.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
-
-from hydromodpy.process import Flow
-from hydromodpy.process import Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
-
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -72,7 +68,16 @@ out_path = cfg.initializing.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
 
-def run_example12(out_path=out_path, display_plots=True, display_3D=False):
+if __name__ == '__main__':
+
+    # Test overrides via env vars
+    if os.environ.get("HYDROMODPY_OUT_PATH"):
+        out_path = Path(os.environ["HYDROMODPY_OUT_PATH"])
+    display_plots = os.environ.get("HYDROMODPY_NO_DISPLAY") != "1"
+    display_3D = display_plots
+
+    wbt = whitebox.WhiteboxTools()
+    wbt.verbose = False
 
     cfg.initializing.out_dir_path = out_path
     watershed_name = cfg.initializing.catch_name
@@ -80,13 +85,15 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
     data_path = cfg.initializing.data_path
 
-    initializing = Initializing(config=cfg.initializing)
-    geographic   = Geographic(config=cfg.geographic,
+    initializing = hmp.Initializing(config=cfg.initializing)
+    geographic   = hmp.Geographic(config=cfg.geographic,
                               initializing=initializing)
-    
-    flow = Flow()
-    
-    
+    domain = Domain(
+        config=cfg.domain,
+        geographic=geographic,
+    )
+    flow = Flow(config=cfg.flow)
+
     setting = Settings()
     hydraulic = Hydraulic(nrow=geographic.y_pixel,
                           ncol=geographic.x_pixel,
@@ -111,15 +118,7 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
                         intermittency=None,
                         add_path=data_path,
                         out_path=initializing.catch_folder,
-                        sub_snap_dist=150)
-
-    geology = Geology(out_path=initializing.catch_folder,
-                            geographic=geographic,
-                            geo_path = data_path,
-                            landsea=None,
-                            types_obs='GEO1M.shp',
-                            fields_obs= 'CODE_LEG')
-
+                        sub_snap_dist=50)
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
                             hydrometry_path=data_path,
                             file_name='france hydrometric stations.shp',
@@ -138,10 +137,14 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     oceanic.extract_local_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
                                  oceanic_path=data_path)
-    oceanic.download_SHOM_data(geographic=geographic,
-                                start_date='2003-01-01',
-                                end_date='2003-01-30')
-    oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+    try:
+        oceanic.download_SHOM_data(geographic=geographic,
+                                    start_date='2003-01-01',
+                                    end_date='2003-01-30')
+        oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+    except Exception as _shom_exc:
+        print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
+        oceanic.update_MSL(0.0)
 
     
     #%% WATERSHED OBJECT
@@ -153,8 +156,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     #%% SURFACE
 
     thickness = 50
-    surfaces_object = surfaces.Surfaces(aquifer_top = geographic.dem_box_buff_data,
-                                        aquifer_bottom = geographic.dem_box_buff_data - thickness)
+    surfaces_object = Surfaces(aquifer_top = geographic.dem_box_buff_data,
+                               aquifer_bottom = geographic.dem_box_buff_data - thickness)
     aquifer_top = surfaces_object.aquifer_top
     aquifer_bottom = surfaces_object.aquifer_bottom
 
@@ -535,6 +538,8 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
     else:
         model_folder = initializing.calibration_folder
     model_modflow = Modflow(geographic,
+                            flow=flow,
+                            domain=domain,
                             # Workflow settings
                             model_folder=model_folder,   # self.simulations_folder
                             model_name=setting.model_name,
@@ -1360,9 +1365,6 @@ def run_example12(out_path=out_path, display_plots=True, display_3D=False):
 
         fig.show("browser")
 
-#%% ---- RUN THE SCRIPT
-
-if __name__ == '__main__':
-    run_example12(out_path=out_path, display_plots=True, display_3D=True)
+#%% ---- END OF SCRIPT
 
 #%% ---- NOTES

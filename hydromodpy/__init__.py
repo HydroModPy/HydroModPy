@@ -1,5 +1,6 @@
 """Public entry points for HydroModPy."""
 
+import importlib
 import logging
 import os
 import re
@@ -265,6 +266,45 @@ from hydromodpy import tools
 from hydromodpy import pyhelp
 from hydromodpy import calibration
 from hydromodpy import data_managers
+from hydromodpy import domain
+
+_LAZY_IMPORTS = {
+    # watershed classes
+    "Climatic": "hydromodpy.watershed.climatic",
+    "Driasclimat": "hydromodpy.watershed.driasclimat",
+    "Driaseau": "hydromodpy.watershed.driaseau",
+    "Geographic": "hydromodpy.watershed.geographic",
+    "Geology": "hydromodpy.watershed.geology",
+    "Hydraulic": "hydromodpy.watershed.hydraulic",
+    "Hydrography": "hydromodpy.watershed.hydrography",
+    "Hydrometry": "hydromodpy.watershed.hydrometry",
+    "Initializing": "hydromodpy.watershed.initializing",
+    "Intermittency": "hydromodpy.watershed.intermittency",
+    "Oceanic": "hydromodpy.watershed.oceanic",
+    "Piezometry": "hydromodpy.watershed.piezometry",
+    "SafranSurfex": "hydromodpy.watershed.safransurfex",
+    "Settings": "hydromodpy.watershed.settings",
+    "Subbasin": "hydromodpy.watershed.subbasin",
+    "Transport": "hydromodpy.watershed.transport",
+    # config
+    "HydroModPyConfig": "hydromodpy.config.hydromodpy_config",
+    "InitializingConfig": "hydromodpy.watershed.initializing_config",
+    "GeographicConfig": "hydromodpy.watershed.geographic_config",
+    # modeling
+    "Modflow": "hydromodpy.modeling.modflow",
+    "Modpath": "hydromodpy.modeling.modpath",
+    "Mt3dms": "hydromodpy.modeling.mt3dms",
+}
+
+
+def __getattr__(name):
+    if name in _LAZY_IMPORTS:
+        module = importlib.import_module(_LAZY_IMPORTS[name])
+        attr = getattr(module, name)
+        globals()[name] = attr  # cache for subsequent accesses
+        return attr
+    raise AttributeError(f"module 'hydromodpy' has no attribute {name!r}")
+
 
 __all__ = [
     "Watershed",
@@ -274,6 +314,8 @@ __all__ = [
     "pyhelp",
     "calibration",
     "data_managers",
+    "domain",
     "log_manager",
     "__version__",
+    *_LAZY_IMPORTS,
 ]
