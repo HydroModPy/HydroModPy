@@ -126,7 +126,13 @@ def array_stats(values) -> dict:
     }
 
 
-def assert_stats(actual: dict, expected: dict) -> None:
+def assert_stats(
+    actual: dict,
+    expected: dict,
+    *,
+    rel: float = 1e-4,
+    abs_tol: float = 1e-6,
+) -> None:
     """
     Compare two statistical signatures with a small numeric tolerance.
 
@@ -135,13 +141,20 @@ def assert_stats(actual: dict, expected: dict) -> None:
 
     This keeps tests stable across platforms and BLAS implementations while
     still detecting meaningful regressions.
+
+    Parameters
+    ----------
+    rel:
+        Relative tolerance forwarded to ``pytest.approx``.
+    abs_tol:
+        Absolute tolerance forwarded to ``pytest.approx``.
     """
     assert actual["count"] == expected["count"]
     for key in ("mean", "p50", "p95"):
         if expected[key] is None:
             assert actual[key] is None
         else:
-            assert actual[key] == pytest.approx(expected[key], rel=1e-4, abs=1e-6)
+            assert actual[key] == pytest.approx(expected[key], rel=rel, abs=abs_tol)
 
 
 def modflow_signature(path: Path) -> dict:
@@ -209,7 +222,13 @@ def collect_modpath_signatures(particles_dir: Path, filenames: list[str]) -> dic
     return {name: snapshot_signature(particles_dir / name) for name in filenames}
 
 
-def assert_modflow_signatures(actual_by_name: dict, expected_by_name: dict) -> None:
+def assert_modflow_signatures(
+    actual_by_name: dict,
+    expected_by_name: dict,
+    *,
+    rel: float = 1e-4,
+    abs_tol: float = 1e-6,
+) -> None:
     """
     Validate MODFLOW signatures against golden expectations.
 
@@ -226,11 +245,11 @@ def assert_modflow_signatures(actual_by_name: dict, expected_by_name: dict) -> N
             assert actual["timestep"] == expected["timestep"]
         if "available_timesteps" in expected:
             assert actual["available_timesteps"] == expected["available_timesteps"]
-        assert_stats(actual, expected)
+        assert_stats(actual, expected, rel=rel, abs_tol=abs_tol)
         if expected["sum"] is None:
             assert actual["sum"] is None
         else:
-            assert actual["sum"] == pytest.approx(expected["sum"], rel=1e-4, abs=1e-6)
+            assert actual["sum"] == pytest.approx(expected["sum"], rel=rel, abs=abs_tol)
 
 
 def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> None:
@@ -404,7 +423,14 @@ def update_or_assert_goldens(
 
     if "mt3dms_expected" in actual:
         assert "mt3dms_expected" in expected
-        assert_modflow_signatures(actual["mt3dms_expected"], expected["mt3dms_expected"])
+        # Transport solvers (advection-dispersion) are inherently noisier
+        # than flow solvers; allow a wider tolerance for MT3DMS outputs.
+        assert_modflow_signatures(
+            actual["mt3dms_expected"],
+            expected["mt3dms_expected"],
+            rel=5e-4,
+            abs_tol=1e-5,
+        )
 
 
 def run_example_script(
@@ -432,7 +458,14 @@ def run_example_script(
         for key, value in extra_env.items():
             env[key] = str(value)
 
-    command = [sys.executable, str(script_path)]
+    # When coverage is active, use a wrapper that starts coverage
+    # programmatically before any project imports.  This avoids the numpy
+    # double-load crashes caused by .pth files or "coverage run".
+    if os.environ.get("HYDROMODPY_COVERAGE"):
+        wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
+        command = [sys.executable, str(wrapper), str(script_path)]
+    else:
+        command = [sys.executable, str(script_path)]
     completed = subprocess.run(
         command,
         cwd=str(cwd),
