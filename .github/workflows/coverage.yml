@@ -1,0 +1,43 @@
+name: Coverage (example12)
+
+on:
+  push:
+    branches: [master, dev-refact]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+          pip install pytest-cov
+
+      - name: Make MODFLOW binaries executable
+        run: chmod +x bin/linux/*
+
+      - name: Run coverage test
+        run: |
+          python -m pytest tests/regression/test_example12_npy_regression.py \
+            -v \
+            --cov=hydromodpy --cov-report=term-missing --cov-report=xml
+
+      - name: Upload to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
