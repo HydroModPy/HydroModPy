@@ -8,7 +8,56 @@ on:
   workflow_dispatch:
 
 jobs:
-  coverage:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+          pip install coverage
+
+      - name: Remove coverage .pth file (breaks numpy C extensions)
+        run: |
+          python -c "
+          import sysconfig, pathlib, glob
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+              print(f'Removed {pth}')
+          "
+
+      - name: Run unit tests
+        env:
+          HYDROMODPY_COVERAGE: "1"
+        run: |
+          python -m pytest tests/unit/ -v
+
+      - name: Combine and report coverage
+        if: always()
+        run: |
+          coverage combine
+          coverage report --show-missing
+          coverage xml
+
+      - name: Upload to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: unit
+          fail_ci_if_error: false
+
+  regression:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -38,7 +87,7 @@ jobs:
       - name: Make MODFLOW binaries executable
         run: chmod +x bin/linux/*
 
-      - name: Run tests
+      - name: Run regression tests
         env:
           HYDROMODPY_COVERAGE: "1"
         run: |
@@ -62,4 +111,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
+          flags: regression
           fail_ci_if_error: false
