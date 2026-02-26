@@ -35,16 +35,14 @@ jobs:
               print(f'Removed {pth}')
           "
 
-      - name: Run unit tests
-        env:
-          HYDROMODPY_COVERAGE: "1"
+      - name: Run unit tests with coverage
         run: |
-          python -m pytest tests/unit/ -v
+          coverage run --source=hydromodpy --data-file=.coverage \
+            -m pytest tests/unit/ -v
 
-      - name: Combine and report coverage
+      - name: Report coverage
         if: always()
         run: |
-          coverage combine
           coverage report --show-missing
           coverage xml
 
