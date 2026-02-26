@@ -50,7 +50,7 @@ from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
     Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
-from hydromodpy.data_managers.oceanic import oceanic
+from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
@@ -132,7 +132,7 @@ if __name__ == '__main__':
 
     climatic = Climatic(out_path=initializing.catch_folder)
 
-    oceanic = oceanic()
+    oceanic = Oceanic()
     oceanic.extract_local_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
                                  oceanic_path=data_path)
