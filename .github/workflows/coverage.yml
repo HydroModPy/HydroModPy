@@ -37,14 +37,21 @@ jobs:
 
       - name: Run unit tests with coverage
         run: |
-          coverage run --source=hydromodpy --data-file=.coverage \
+          coverage run --data-file=.coverage \
+            --include="hydromodpy/*" \
             -m pytest tests/unit/ -v
+
+      - name: Debug coverage data
+        if: always()
+        run: |
+          ls -la .coverage* || echo "No .coverage files"
+          coverage debug data || true
 
       - name: Report coverage
         if: always()
         run: |
-          coverage report --show-missing
-          coverage xml
+          coverage report --show-missing --include="hydromodpy/*"
+          coverage xml --include="hydromodpy/*"
 
       - name: Upload to Codecov
         if: always()
