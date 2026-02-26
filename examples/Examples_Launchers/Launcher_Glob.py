@@ -6,6 +6,7 @@
 """
 
 import sys
+import hydromodpy as hmp
 import os
 import pickle
 import numpy as np
@@ -50,6 +51,8 @@ from hydromodpy.watershed import initializing, geographic
 from hydromodpy.watershed import Geographic, Initializing, Climatic, Geology, Hydrography, Hydrometry, Intermittency, Settings, Hydraulic, Oceanic, Transport,Subbasin
 from hydromodpy.watershed.initializing_config import InitializingConfig
 from hydromodpy.watershed.geographic_config import GeographicConfig
+from hydromodpy.domain import Domain, Surfaces
+from hydromodpy.process import Flow
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
@@ -273,7 +276,7 @@ PARAMS = {
         "ss_decay": 0,
         "vka": 1,
         "bottom": 0,
-        "thickness": 100,
+        "thickness": 50,
         "cond_drain": None,
         "bc_left": None,
         "bc_right": None,
@@ -603,17 +606,6 @@ PARAMS = {
 
 DATA_MODULES = {
     "ex12": {
-        "geology": {
-            "class_name": "Geology",
-            "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
-                "geographic": ("geographic", True),
-                "geo_path": ("data_path", True),
-                "landsea": (None, False),
-                "types_obs": ("GEO1M.shp", False),
-                "fields_obs": ("CODE_LEG", False)
-            }
-        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
@@ -1392,17 +1384,21 @@ def select_period(df, first, last):
 
 
 def watershed(example_key):
-    """Extract watershed for example 12 (loads config from config.toml)"""
+    example_key = CONFIG.get(example_key)
+    """Extract watershed for {example_key} (loads config from config.toml)"""
     print("\n" + "="*70)
-    print("EXAMPLE 12 - WATERSHED EXTRACTION".center(70))
+    print(f"EXAMPLE {example_key} - WATERSHED EXTRACTION".center(70))
     print("="*70)
 
     try:
         # Load paths from PARAMS (for data directory reference)
         #example_key = results.get('example_key', CONFIG["example"])
+
+        wbt = whitebox.WhiteboxTools()
+        wbt.verbose = False
         p = PARAMS[example_key]
-        example_path = os.path.join(root_dir, p["base_path"])
-        data_path = os.path.join(example_path, "data")
+        data_path =cfg.initializing.data_path
+        out_dir_path = cfg.initializing.out_dir_path
 
         if not os.path.exists(data_path):
             print(f"Data path not found: {data_path}\n")
@@ -1414,15 +1410,12 @@ def watershed(example_key):
         # Update cfg paths with proper Path objects
         # If out_dir_path is already an absolute path (set by run_launcher_glob for tests),
         # keep it as is. Otherwise, combine with example_path.
-        out_dir_path = Path(cfg.initializing.out_dir_path)
+        """out_dir_path = Path(cfg.initializing.out_dir_path)
         if not out_dir_path.is_absolute():
-            out_dir_path = Path(example_path) / out_dir_path
-
-        cfg.initializing.out_dir_path = out_dir_path
-        cfg.initializing.data_path = Path(data_path)
+            out_dir_path = Path(example_path) / out_dir_path"""
 
         # Extract filename from dem_init_path (it may have "data/" prefix from config.toml)
-        dem_filename = Path(cfg.geographic.dem_init_path).name
+        """dem_filename = Path(cfg.geographic.dem_init_path).name
         cfg.geographic.dem_init_path = Path(data_path) / dem_filename
 
         # Verify DEM path
@@ -1431,15 +1424,18 @@ def watershed(example_key):
             print(f"DEM not found: {dem_path}\n")
             return None
 
-        print(f"DEM: {dem_path}")
+        print(f"DEM: {dem_path}")"""
 
         # Create Initializing object with config from config.toml
-        initializing_object = initializing.Initializing(config=cfg.initializing)
+        initializing_object = hmp.Initializing(config=cfg.initializing)
 
         # Create Geographic object with config from config.toml
-        geographic_object = Geographic(config=cfg.geographic,
+        geographic_object = hmp.Geographic(config=cfg.geographic,
                         initializing=initializing_object)
-
+        #create Domaine object with config from config.toml
+        domain = Domain (config=cfg.domain,
+                         geographic=geographic_object)
+        flow = Flow(config=cfg.flow)
         # Create individual objects (like example12.py) - NOT via BV
         print("Creating individual objects (Settings, Hydraulic, Oceanic)...")
         settings_object = Settings()
@@ -1448,8 +1444,21 @@ def watershed(example_key):
             ncol=geographic_object.x_pixel,
             box_dem=geographic_object.watershed_box_buff_dem
         )
-        oceanic_object = Oceanic()
         transport_object = Transport()
+        climatic_object = Climatic(out_path=initializing_object.catch_folder)
+        oceanic_object = Oceanic()
+        oceanic_object.extract_local_data(out_path=initializing_object.catch_folder,
+                                 geographic=geographic_object,
+                                 oceanic_path=data_path)
+        try:
+            oceanic_object.download_SHOM_data(geographic=geographic_object,
+                                        start_date='2003-01-01',
+                                        end_date='2003-01-30')
+            oceanic_object.update_MSL(oceanic_object.SHOM_data['value'].mean())
+        except Exception as _shom_exc:
+            print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
+            oceanic_object.update_MSL(0.0)
+
 
         stable_folder = initializing_object.stable_folder
         simulations_folder = initializing_object.simulations_folder
@@ -1458,22 +1467,25 @@ def watershed(example_key):
 
         # For example 12 (single model), use simulations_folder as calibration_folder
         # This ensures MODFLOW outputs go to the correct location for MODPATH/MT3DMS
-        example_key = CONFIG["example"]
         if MODELING_CONFIG.get(example_key, {}).get("type") == "single":
             calibration_folder = simulations_folder
 
         print("Watershed extracted\n")
 
-        # Prepare results dictionary with individual objects (NOT BV)
+        # Prepare results dictionary with individual objects
         results = {
             'initializing': initializing_object,
             'geographic': geographic_object,
             'settings': settings_object,
             'hydraulic': hydraulic_object,
+            'domain': domain,
+             'flow': flow,
             'oceanic': oceanic_object,
+            'climatic': climatic_object,
             'transport': transport_object,
             'example_key': example_key,
             'data_path': data_path,
+            'out_dir_path': out_dir_path,
             'results_path': results_path,
             'stable_folder': stable_folder,
             'simulations_folder': simulations_folder,
@@ -1511,10 +1523,8 @@ def _resolve_reference(ref_str, results):
             return None
 
     return obj
-
-
 # ============================================================================
-# STEP 2: DATA INTEGRATION
+# STEP 2: DATA INTEGRATION + surface
 # ============================================================================
 
 def data(results):
@@ -1527,98 +1537,106 @@ def data(results):
         return None
 
     try:
-        example_key = results.get('example_key', CONFIG["example"])
-        data_path = results.get('data_path')
+        example_key = results.get('example_key')
+        module_config = DATA_MODULES.get(example_key, {})
 
-        # Check if configuration exists for this example
-        if example_key not in DATA_MODULES:
-            print(f"No data configuration for {example_key}")
-            return results
-
-        module_config = DATA_MODULES[example_key]
-        print(f"\nInstantiating data modules for {example_key.upper()}...")
-
-        # Iterate through each module in configuration
+        # 1. Instanciation des modules (Hydrography, Geology, etc.)
         for module_name, module_info in module_config.items():
             try:
                 class_name = module_info["class_name"]
                 constructor_args = module_info["constructor_args"]
-
-                # Resolve all constructor arguments
                 resolved_kwargs = {}
                 for arg_name, (arg_value, is_reference) in constructor_args.items():
-                    if is_reference:
-                        # Resolve reference from results dict
-                        resolved_value = _resolve_reference(arg_value, results)
-                        resolved_kwargs[arg_name] = resolved_value
+                    if is_reference and arg_value:
+                        resolved_kwargs[arg_name] = _resolve_reference(arg_value, results)
                     else:
-                        # Use static value directly
                         resolved_kwargs[arg_name] = arg_value
 
-                # Get class from globals (imported in launcher)
                 module_class = globals()[class_name]
-
-                # Instantiate the module
-                print(f"{module_name}...", end="", flush=True)
-                module_instance = module_class(**resolved_kwargs)
-
-                # Store in results
-                results[module_name] = module_instance
-                print("True")
-
-            except KeyError as e:
-                print(f"Missing class: {e}")
+                results[module_name] = module_class(**resolved_kwargs)
+                print(f" Module {module_name}: OK")
             except Exception as e:
-                print(f"Error: {e}")
+                print(f" Error module {module_name}: {e}")
 
-        # Visualizations (using available DATA_MODULES configuration)
-        viz_list = []  # Placeholder for future visualization enhancements using DATA_MODULES
-        if viz_list:
-            print("\n Creating watershed visualizations...")
-            for viz in viz_list:
-                try:
-                    method_name = viz["method"]
-                    if hasattr(visualization_watershed, method_name):
-                        print(f" {viz['name']}...", end="", flush=True)
+        # --- AJOUT ICI : Calcul de l'Area ---
+        geographic = results.get('geographic')
+        if geographic:
+            # On stocke l'entier arrondi dans results['area']
+            results['area'] = int(round(geographic.catch_area))
+            print(f" Catchment Area: {results['area']}")
+        # ------------------------------------
 
-                        if viz.get("dem_param"):
-                            # watershed_local requires dem_init_path as first parameter
-                            dem_filename = PARAMS[example_key].get("dem_filename", "watershed_dem.tif")
-                            if dem_filename:
-                                dem_path = os.path.join(data_path, dem_filename)
-                                if os.path.exists(dem_path):
-                                    getattr(visualization_watershed, method_name)(dem_path, results.get('initializing'), results.get('geographic'))
-                                    print(" True")
-                                else:
-                                    print(f"DEM not found: {dem_path}")
-                        elif viz.get("extended"):
-                            # watershed_dem requires initializing, geographic, hydrography, piezometry, intermittency, hydrometry
-                            getattr(visualization_watershed, method_name)(
-                                initializing=results.get('initializing'),
-                                geographic=results.get('geographic'),
-                                hydrography=results.get('hydrography'),
-                                piezometry=None,
-                                intermittency=results.get('intermittency'),
-                                hydrometry=results.get('hydrometry')
-                            )
-                            print(" True")
-                        else:
-                            # Simple method call with geographic only
-                            getattr(visualization_watershed, method_name)(results.get('geographic'))
-                            print(" True")
-                except Exception as e:
-                    print(f"Error: {e}")
+        # 2. Visualisations
+        print("\nCreating watershed visualizations...")
+        try:
+            # Utilise le chemin DEM depuis la config globale
+            dem_path = cfg.geographic.dem_init_path
 
-        print("Data integration completed\n")
+            visualization_watershed.watershed_local(
+                dem_path,
+                results.get('initializing'),
+                results.get('geographic')
+            )
+
+            visualization_watershed.watershed_dem(
+                initializing=results.get('initializing'),
+                geographic=results.get('geographic'),
+                hydrography=results.get('hydrography'),
+                piezometry=None,
+                intermittency=results.get('intermittency'),
+                hydrometry=results.get('hydrometry')
+            )
+            print(" Visualizations: OK")
+        except Exception as e:
+            print(f" Visualization Error: {e}")
+
         return results
 
     except Exception as e:
-        print(f"Error: {e}\n")
-        import traceback
-        traceback.print_exc()
+        print(f"Error: {e}")
         return results
 
+def surfaces(results):
+    """Define aquifer surfaces using thickness from PARAMS"""
+    print("\n" + "="*70)
+    print("SURFACES - GEOMETRY DEFINITION".center(70))
+    print("="*70)
 
+    if not results:
+        return None
+
+    try:
+        # 1. Récupérer la clé de l'exemple (ex: "ex12")
+        example_key = results.get('example_key')
+
+        # 2. Récupérer le paramètre thickness spécifique à cet exemple
+        # On cherche dans PARAMS["ex12"]["thickness"]
+        # On met 50 par défaut si jamais le paramètre est oublié dans config.toml
+        thickness = PARAMS.get(example_key, {}).get("thickness", 50)
+
+        geographic = results.get('geographic')
+
+        print(f"Example: {example_key}")
+        print(f"Applying thickness from PARAMS: {thickness}m")
+
+        # 3. Création de l'objet Surfaces
+        surfaces_object = Surfaces(
+            aquifer_top = geographic.dem_box_buff_data,
+            aquifer_bottom = geographic.dem_box_buff_data - thickness
+        )
+
+        # 4. Stockage dans le dictionnaire de résultats
+        results['surfaces'] = surfaces_object
+        results['aquifer_top'] = surfaces_object.aquifer_top
+        results['aquifer_bottom'] = surfaces_object.aquifer_bottom
+        results['thickness'] = thickness # Optionnel : pour mémoire
+
+        print("Surfaces created successfully")
+        return results
+
+    except Exception as e:
+        print(f"Error in surfaces for {example_key}: {e}")
+        return results
 # ============================================================================
 # STEP 3: RECHARGE CALCULATION
 # ============================================================================
