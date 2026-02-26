@@ -1428,10 +1428,10 @@ def watershed(example_key):
         # Verify DEM path
         dem_path = str(cfg.geographic.dem_init_path)
         if not os.path.exists(dem_path):
-            print(f"✗ DEM not found: {dem_path}\n")
+            print(f"DEM not found: {dem_path}\n")
             return None
 
-        print(f"  • DEM: {dem_path}")
+        print(f"DEM: {dem_path}")
 
         # Create Initializing object with config from config.toml
         initializing_object = initializing.Initializing(config=cfg.initializing)
@@ -1441,7 +1441,7 @@ def watershed(example_key):
                         initializing=initializing_object)
 
         # Create individual objects (like example12.py) - NOT via BV
-        print("  • Creating individual objects (Settings, Hydraulic, Oceanic)...")
+        print("Creating individual objects (Settings, Hydraulic, Oceanic)...")
         settings_object = Settings()
         hydraulic_object = Hydraulic(
             nrow=geographic_object.y_pixel,
@@ -1462,7 +1462,7 @@ def watershed(example_key):
         if MODELING_CONFIG.get(example_key, {}).get("type") == "single":
             calibration_folder = simulations_folder
 
-        print("✓ Watershed extracted\n")
+        print("Watershed extracted\n")
 
         # Prepare results dictionary with individual objects (NOT BV)
         results = {
@@ -1483,7 +1483,7 @@ def watershed(example_key):
         return results
 
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"Error: {e}\n")
         import traceback
         traceback.print_exc()
         return None
@@ -1532,11 +1532,11 @@ def data(results):
 
         # Check if configuration exists for this example
         if example_key not in DATA_MODULES:
-            print(f"  ⚠ No data configuration for {example_key}")
+            print(f"No data configuration for {example_key}")
             return results
 
         module_config = DATA_MODULES[example_key]
-        print(f"\n  • Instantiating data modules for {example_key.upper()}...")
+        print(f"\nInstantiating data modules for {example_key.upper()}...")
 
         # Iterate through each module in configuration
         for module_name, module_info in module_config.items():
@@ -1559,17 +1559,17 @@ def data(results):
                 module_class = globals()[class_name]
 
                 # Instantiate the module
-                print(f"    • {module_name}...", end="", flush=True)
+                print(f"{module_name}...", end="", flush=True)
                 module_instance = module_class(**resolved_kwargs)
 
                 # Store in results
                 results[module_name] = module_instance
-                print(" ✓")
+                print("True")
 
             except KeyError as e:
-                print(f" ✗ Missing class: {e}")
+                print(f"Missing class: {e}")
             except Exception as e:
-                print(f" ✗ Error: {e}")
+                print(f"Error: {e}")
 
         # Visualizations (using available DATA_MODULES configuration)
         viz_list = []  # Placeholder for future visualization enhancements using DATA_MODULES
@@ -1613,7 +1613,7 @@ def data(results):
         return results
 
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"Error: {e}\n")
         import traceback
         traceback.print_exc()
         return results
@@ -1764,7 +1764,7 @@ def parametrization(results):
         )
 
         # Configure Hydraulic (like example12.py)
-        print("    • Hydraulic...")
+        print("Hydraulic...")
         hydraulic_object.update_nlay(p["nlay"])
         hydraulic_object.update_cond_drain(p["cond_drain"])
         hydraulic_object.update_lay_decay(p["lay_decay"])
@@ -1772,7 +1772,7 @@ def parametrization(results):
         hydraulic_object.update_exdp(p.get("exdp", 1.0))
 
         # Configure Transport (created for all, configured as needed)
-        print("    • Transport...")
+        print("Transport...")
         transport_object = results.get('transport')
         if transport_object is None:
             transport_object = Transport()
@@ -1796,7 +1796,7 @@ def parametrization(results):
         transport_object.rate_decay_value = p.get("rate_decay_value", 0)
 
         # Configure Climatic (like example12.py)
-        print("    • Climatic...")
+        print(" Climatic...")
         climatic_object.update_first_clim('mean')
 
         # Handle recharge based on example type
@@ -1826,7 +1826,7 @@ def parametrization(results):
             climatic_object.update_recharge(recharge_monthly, sim_state=p["sim_state"])
 
         # HYDRAULIC SPECIFIC
-        print("  • Update hydraulic specific...")
+        print("Update hydraulic specific...")
 
         if config["hydraulic_specific"].get("update_hk"):
             hydraulic_object.update_hk(p["hk"])
@@ -1870,11 +1870,11 @@ def parametrization(results):
             hydraulic_object.update_ss(p["the_ss0"])
             hydraulic_object.update_ss_decay(0)
 
-        print("✓ Parametrization completed\n")
+        print("Parametrization completed\n")
         return results
 
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"Error: {e}\n")
         import traceback
         traceback.print_exc()
         return results
@@ -1956,7 +1956,7 @@ def modeling(results):
                 model_names = [f"{base_name}_{round(h, 3)}" for h in hk_values]
 
                 for i, (hk_value, model_name) in enumerate(zip(hk_values, model_names)):
-                    print(f"    Model {i+1}/{len(hk_values)}: {model_name}")
+                    print(f" Model {i+1}/{len(hk_values)}: {model_name}")
 
                     result = complete_modflow(
                         geographic=geographic_object,
@@ -1981,7 +1981,7 @@ def modeling(results):
 
                 for i, sy_value in enumerate(sy_values):
                     model_name = f"{base_name}_{i}_{round(sy_value, 3)}"
-                    print(f"    Model {i+1}/{len(sy_values)}: {model_name}")
+                    print(f"Model {i+1}/{len(sy_values)}: {model_name}")
 
                     # Update Sy for this iteration (like example_04.py line 275)
                     hydraulic_object.update_sy(sy_value)
@@ -2029,7 +2029,7 @@ def modeling(results):
 
 def modpath_ex12(results):
     """SPECIALIZED MODPATH for Example 12 - calls generic modpath() with MODPATH_CONFIG"""
-    print("\n  • Executing MODPATH for Example 12...")
+    print("\n Executing MODPATH for Example 12...")
 
     # Initialize success_modpath to False
     results['success_modpath'] = False
@@ -2050,20 +2050,20 @@ def modpath_ex12(results):
         seepage_tif = os.path.join(raster_folder, 'seepage_areas_t(0).tif')
 
         if not os.path.exists(seepage_tif):
-            print("    WARNING: seepage_areas_t(0).tif missing - regenerating from MODFLOW...")
+            print(" WARNING: seepage_areas_t(0).tif missing - regenerating from MODFLOW...")
             try:
                 # Call MODFLOW postprocessing specifically to generate seepage_areas rasters
                 if model_modflow:
-                    print("    Re-running MODFLOW.post_processing()...")
+                    print("Re-running MODFLOW.post_processing()...")
                     postproc_config = MODELING_CONFIG['ex12'].get('postprocessing_modflow', {})
                     model_modflow.post_processing(model_modflow, **postproc_config)
 
                     if os.path.exists(seepage_tif):
-                        print(f"    ✓ seepage_areas_t(0).tif regenerated successfully")
+                        print(f"seepage_areas_t(0).tif regenerated successfully")
                     else:
-                        print(f"    ⚠ seepage_areas_t(0).tif still not found after postprocessing")
+                        print(f"seepage_areas_t(0).tif still not found after postprocessing")
             except Exception as e:
-                print(f"    ⚠ Could not regenerate seepage_areas: {e}")
+                print(f"Could not regenerate seepage_areas: {e}")
 
         # Use MODPATH_CONFIG with all parameter subsections
         config = MODPATH_CONFIG.get('ex12', {})
@@ -2084,13 +2084,13 @@ def modpath_ex12(results):
         results['success_modpath'] = modpath_result.get('success', False)
 
         if results['success_modpath']:
-            print("  ✓ MODPATH completed\n")
+            print("MODPATH completed\n")
         else:
-            print("  ⚠ MODPATH returned success=False\n")
+            print("MODPATH returned success=False\n")
 
         return results
     except Exception as e:
-        print(f"    ✗ MODPATH error: {e}")
+        print(f" MODPATH error: {e}")
         import traceback
         traceback.print_exc()
         results['success_modpath'] = False
@@ -2115,7 +2115,7 @@ def mt3dms_ex12(results):
             return results
 
         if not transport_object:
-            print("  ⚠ Transport object not configured - skipping MT3DMS")
+            print("ransport object not configured - skipping MT3DMS")
             results['success_mt3dms'] = False
             return results
 
@@ -2159,13 +2159,13 @@ def mt3dms_ex12(results):
         results['scenario'] = scenario
 
         if results['success_mt3dms']:
-            print("  ✓ MT3DMS completed successfully\n")
+            print("MT3DMS completed successfully\n")
         else:
-            print("  ✗ MT3DMS failed\n")
+            print("MT3DMS failed\n")
 
         return results
     except Exception as e:
-        print(f"    ✗ MT3DMS error: {e}\n")
+        print(f"MT3DMS error: {e}\n")
         import traceback
         traceback.print_exc()
         results['success_mt3dms'] = False
@@ -2178,13 +2178,13 @@ def mt3dms_ex12(results):
 
 def ex12_postprocessing_timeseries_modflow(results):
     """Generate timeseries results after MODFLOW (before MODPATH/MT3DMS) - Example 12 line 406"""
-    print("\n  • Generating timeseries results (MODFLOW only)...")
+    print("\n Generating timeseries results (MODFLOW only)...")
     try:
         geographic_object = results.get('geographic')
         model_modflow = results.get('model_modflow')
 
         if not model_modflow:
-            print("    ⚠ MODFLOW model not found - skipping timeseries\n")
+            print("MODFLOW model not found - skipping timeseries\n")
             results['success_timeseries_modflow'] = False
             return results
 
@@ -2203,13 +2203,13 @@ def ex12_postprocessing_timeseries_modflow(results):
         results['success_timeseries_modflow'] = ts_result.get('success', False)
 
         if results['success_timeseries_modflow']:
-            print("  ✓ Timeseries (MODFLOW only) completed successfully\n")
+            print(" Timeseries (MODFLOW only) completed successfully\n")
         else:
-            print("  ✗ Timeseries (MODFLOW only) failed\n")
+            print(" Timeseries (MODFLOW only) failed\n")
 
         return results
     except Exception as e:
-        print(f"    ✗ Timeseries (MODFLOW only) error: {e}\n")
+        print(f" Timeseries (MODFLOW only) error: {e}\n")
         import traceback
         traceback.print_exc()
         results['success_timeseries_modflow'] = False
@@ -2221,7 +2221,7 @@ def ex12_postprocessing_timeseries_modflow(results):
 
 def ex12_postprocessing_timeseries_complete(results):
     """Generate timeseries results after MT3DMS (with all models) - Example 12 line 837"""
-    print("\n  • Generating timeseries results (complete with MODPATH + MT3DMS)...")
+    print("\n Generating timeseries results (complete with MODPATH + MT3DMS)...")
     try:
         geographic_object = results.get('geographic')
         model_modflow = results.get('model_modflow')
@@ -2230,7 +2230,7 @@ def ex12_postprocessing_timeseries_complete(results):
         scenario = results.get('scenario', 's1')
 
         if not model_modflow:
-            print("    ⚠ MODFLOW model not found - skipping timeseries\n")
+            print(" MODFLOW model not found - skipping timeseries\n")
             results['success_timeseries_complete'] = False
             return results
 
@@ -2267,19 +2267,19 @@ def ex12_postprocessing_timeseries_complete(results):
 
 def ex12_prepare_concentration_data(results):
     """Load UCN file and prepare concentration data for plotting (like example12.py)"""
-    print("\n  • Preparing concentration data...")
+    print("\n Preparing concentration data...")
     try:
         model_modflow = results.get('model_modflow')
         model_mt3dms = results.get('model_mt3dms')
         stable_folder = results.get('stable_folder')
 
         if not model_mt3dms or not results.get('success_mt3dms'):
-            print("  ⚠ MT3DMS not available - skipping concentration data preparation")
+            print(" MT3DMS not available - skipping concentration data preparation")
             results['concobj_1c_fil_surf'] = None
             return results
 
         if not model_modflow:
-            print("  ⚠ MODFLOW model not available")
+            print("MODFLOW model not available")
             results['concobj_1c_fil_surf'] = None
             return results
 
@@ -2316,15 +2316,15 @@ def ex12_prepare_concentration_data(results):
 
         # Store in results
         results['concobj_1c_fil_surf'] = concobj_1c_fil_surf
-        print(f"  ✓ Concentration data prepared ({len(concobj_1c_fil_surf)} time steps)")
+        print(f"Concentration data prepared ({len(concobj_1c_fil_surf)} time steps)")
 
         return results
     except FileNotFoundError as e:
-        print(f"  ⚠ Concentration data error - file not found: {e}")
+        print(f"Concentration data error - file not found: {e}")
         results['concobj_1c_fil_surf'] = None
         return results
     except Exception as e:
-        print(f"  ⚠ Concentration data error: {e}")
+        print(f" Concentration data error: {e}")
         import traceback
         traceback.print_exc()
         results['concobj_1c_fil_surf'] = None
@@ -2357,7 +2357,7 @@ def ex12_matching_streams(results):
 
         # Instantiate MatchingStreams from calibration_legacy module
         iteration_label = model_name
-        print(f"    • Creating MatchingStreams instance with iteration_label: {iteration_label}")
+        print(f" Creating MatchingStreams instance with iteration_label: {iteration_label}")
 
         matching_streams_obj = MatchingStreamsCalib(
             geographic=geographic,
@@ -2370,8 +2370,8 @@ def ex12_matching_streams(results):
         # Store the object and mark as successful
         results['matching_streams'] = matching_streams_obj
         results['success_matching_streams'] = True
-        print("    • MatchingStreams methods executed (prepare_files, sim_to_obs, obs_to_sim)")
-        print(f"    • Results stored in: {matching_streams_obj.dichotomy_folder}")
+        print("MatchingStreams methods executed (prepare_files, sim_to_obs, obs_to_sim)")
+        print(f"Results stored in: {matching_streams_obj.dichotomy_folder}")
         print("MatchingStreams analysis completed\n")
 
         return results
@@ -2777,18 +2777,19 @@ WORKFLOW_DEFINITION = {
 
 
 def print_workflow_definition():
+    config = CONFIG
+    example_key = config["example"]
+    workflow = WORKFLOW_DEFINITION.get(example_key, [])
     """Affiche la définition du workflow"""
     print("\n" + "="*70)
-    print("WORKFLOW DEFINITION - EXAMPLE 12".center(70))
+    print("WORKFLOW DEFINITION - {workflow}".center(70))
     print("="*70)
-
-    workflow = WORKFLOW_DEFINITION.get("ex12", [])
 
     for step in workflow:
         print(f"\n  Step {step['step']}: {step['section'].upper()}")
-        print(f"  └─ Fonction: {step['function']}")
-        print(f"  └─ Requiert: {', '.join(step['requires']) if step['requires'] else 'Rien'}")
-        print(f"  └─ Fournit: {', '.join(step['provides'])}")
+        print(f" Fonction: {step['function']}")
+        print(f"Requiert: {', '.join(step['requires']) if step['requires'] else 'Rien'}")
+        print(f" Fournit: {', '.join(step['provides'])}")
 
 
 def trace_workflow_execution(sections):
@@ -2799,7 +2800,7 @@ def trace_workflow_execution(sections):
 
     workflow = WORKFLOW_DEFINITION.get("ex12", [])
 
-    print(f"\n  Example: EX12")
+    print(f"\n  Example: {workflow}")
     print(f"  Sections activées: {[k for k, v in sections.items() if v]}\n")
 
     enabled_steps = []
@@ -2824,19 +2825,19 @@ def trace_workflow_execution(sections):
         missing = [k for k in step['requires'] if k not in accumulated_keys]
 
         if missing:
-            print(f"     ✗ {step['section']}: Manque {missing}")
+            print(f" {step['section']}: Manque {missing}")
             valid = False
         else:
-            print(f"     ✓ {step['section']}: Dépendances satisfaites")
+            print(f"{step['section']}: Dépendances satisfaites")
 
         for key in step['provides']:
             if key not in accumulated_keys:
                 accumulated_keys.append(key)
 
     if valid:
-        print("\n   Toutes les dépendances sont satisfaites - Workflow VALIDE")
+        print("\n Toutes les dépendances sont satisfaites - Workflow VALIDE")
     else:
-        print("\n   Certaines dépendances manquent - Vérifiez la configuration")
+        print("\n Certaines dépendances manquent - Vérifiez la configuration")
 
     return valid, enabled_steps
 
@@ -2908,7 +2909,7 @@ def main():
 
         # Check dependencies
         if section in ["matching_streams", "modpath", "mt3dms"] and not results.get('success_modflow'):
-            print(f"\n[STEP {step_counter}] ⚠ Skipping {section} (MODFLOW failed)")
+            print(f"\n[STEP {step_counter}]Skipping {section} (MODFLOW failed)")
             step_counter += 1
             continue
 
@@ -2917,7 +2918,7 @@ def main():
         # Get function from mapping
         func = FUNCTION_MAPPING.get(section)
         if func is None:
-            print(f"  ✗ Function not found for section {section}")
+            print(f" Function not found for section {section}")
             step_counter += 1
             continue
 
@@ -2927,7 +2928,7 @@ def main():
             if results_temp:
                 results.update(results_temp)
             else:
-                print("✗ Watershed extraction failed. Stopping.")
+                print("Watershed extraction failed. Stopping.")
                 return None
         else:
             if results:
@@ -2962,7 +2963,7 @@ def main():
     if example_key in ["ex12", "ex09"] and results and sections.get("plot") and any(plots_config.values()):
         print(f"\n[STEP {step_counter}] Executing: Plots")
         print("\n" + "="*70)
-        print("EXAMPLE 12 - PLOTTING".center(70))
+        print(f"{example_key} - PLOTTING".center(70))
         print("="*70)
 
         if results.get('success_modflow'):
@@ -2997,7 +2998,7 @@ def main():
 
             # Plot cross-section
             if plots_config.get("cross_section", True):
-                print("  ✓ Plotting cross-section")
+                print("Plotting cross-section")
                 plot_cross_section(results.get('geographic'),
                                  results.get('stable_folder'),
                                  results.get('simulations_folder'),
@@ -3005,7 +3006,7 @@ def main():
 
             # Plot streamflow
             if plots_config.get("streamflow", True):
-                print("  ✓ Plotting streamflow")
+                print("Plotting streamflow")
                 plot_streamflow(results.get('geographic'),
                               results.get('data_path'),
                               results.get('simulations_folder'),
@@ -3014,7 +3015,7 @@ def main():
 
             # Plot piezometry
             if plots_config.get("piezometry", True):
-                print("  ✓ Plotting piezometry")
+                print("Plotting piezometry")
                 plot_piezometry(results.get('geographic'),
                               results.get('simulations_folder'),
                               vers,
@@ -3022,7 +3023,7 @@ def main():
 
             # Plot pathlines
             if plots_config.get("pathlines", True):
-                print("  ✓ Plotting pathlines")
+                print(" Plotting pathlines")
                 plot_pathlines(results.get('geographic'),
                              results.get('stable_folder'),
                              results.get('simulations_folder'),
@@ -3030,7 +3031,7 @@ def main():
 
             # Plot concentration
             if plots_config.get("concentration", True) and results.get('concobj_1c_fil_surf') is not None:
-                print("  ✓ Plotting concentration")
+                print("Plotting concentration")
                 plot_concentration(results.get('geographic'),
                                  results.get('hydrography'),
                                  results.get('stable_folder'),
@@ -3044,7 +3045,7 @@ def main():
 
             # Plot 2D
             if plots_config.get("plot_2d", False):
-                print("  ✓ Plotting 2D visualization")
+                print("Plotting 2D visualization")
                 plot_2d(results.get('initializing'),
                        results.get('geographic'),
                        results.get('hydrography'),
@@ -3052,7 +3053,7 @@ def main():
 
             # Plot 3D
             if plots_config.get("plot_3d", False):
-                print("  ✓ Plotting 3D visualization")
+                print(" Plotting 3D visualization")
                 plot_3d(results.get('initializing'),
                        results.get('geographic'),
                        results.get('hydrography'),
@@ -3060,7 +3061,7 @@ def main():
 
             # Plot interactive cross-section
             if plots_config.get("interactive_cross_section", True):
-                print("  ✓ Plotting interactive cross-section")
+                print("Plotting interactive cross-section")
                 plot_interactive_cross_section(results.get('initializing'),
                                              results.get('geographic'),
                                              results.get('hydrography'),
@@ -3068,9 +3069,9 @@ def main():
                                              results.get('simulations_folder'),
                                              results.get('model_name'))
         else:
-            print("  ⚠ Skipping plots (MODFLOW failed)")
+            print("Skipping plots (MODFLOW failed)")
 
-        print("\n  ✓ All requested plots completed\n")
+        print("\n All requested plots completed\n")
         step_counter += 1
 
     # STEP 11: Web animation
@@ -3088,7 +3089,7 @@ def main():
                              results.get('model_name'),
                              vers='TRANS1', figsize=(1600, 900))
         except FileNotFoundError as e:
-            print(f"  ⚠ Web animation skipped: {e}")
+            print(f"Web animation skipped: {e}")
         step_counter += 1
     elif plots_config.get("web_animation", False) and not results.get('success_modflow'):
         print(f"\n[STEP {step_counter}] ⚠ Skipping animation (MODFLOW failed)")
