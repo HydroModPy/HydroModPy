@@ -46,7 +46,7 @@ kind = "vector"
 
 # For vector sources only (leave unset for raster):
 code_field = "CODE_LEG"
-reference_raster_path = "data/France/dem/regional dem.tif"
+reference_raster_path = "data/Brittany/dem/regional dem.tif"
 #
 # all_touched affects vector rasterization only:
 # - false: stricter polygon-to-pixel assignment
@@ -65,4 +65,5 @@ enabled = false
 # override_code = "1"
 sea_value = 0
 override_code = "1"
+
 

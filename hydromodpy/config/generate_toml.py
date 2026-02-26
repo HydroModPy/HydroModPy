@@ -30,6 +30,7 @@ def _get_registry() -> dict[str, type[BaseModel]]:
     if _MODULE_REGISTRY is None:
         from hydromodpy.domain.domain_config import DomainConfig
         from hydromodpy.process.flow.flow_config import FlowConfig
+        from hydromodpy.solver.modflow_nwt.modflow_config import ModflowConfig
         from hydromodpy.watershed.geology_config import GeologyConfig
         from hydromodpy.watershed.initializing_config import InitializingConfig
         from hydromodpy.watershed.geographic_config import GeographicConfig
@@ -39,6 +40,7 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             "domain": DomainConfig,
             "geology": GeologyConfig,
             "flow": FlowConfig,
+            "modflow": ModflowConfig,
         }
     return _MODULE_REGISTRY
 
