@@ -207,51 +207,60 @@ class Oceanic:
         # Identify the closest tide gauge station to the catchment centroid
         self.tide_gauge_df['catchment_dist'] = np.sqrt((self.tide_gauge_df['longitude'] - geographic.centroid_long_lat[1])**2 + (self.tide_gauge_df['latitude'] - geographic.centroid_long_lat[0])**2)
         self.closest_tg = self.tide_gauge_df.loc[self.tide_gauge_df['catchment_dist'].idxmin()]
-        print(f"Centroid coordinates: ({geographic.centroid_long_lat[0]}, {geographic.centroid_long_lat[1]})")
-        print(f"Closest tide gauge station: {self.closest_tg['name']} at ({self.closest_tg['latitude']}, {self.closest_tg['longitude']})")
         closest_tg_id = self.closest_tg['shom_id']
-        url = f'https://services.data.shom.fr/maregraphie/service/completetidegauge/{closest_tg_id}'
-        tide_gauge_info = requests.get(url)
-        tide_gauge_info = tide_gauge_info.json()
-        zh_ref = float(tide_gauge_info['verticalRef']['zh_ref']) # Vertical reference of the tide gauge station
-
-        # Download sea-level data for the closest tide gauge station
-        # iterates over 31-day periods to avoid data download issues for long time series
-        sources = '3' # code to get validated data
-        interval = '60' # data interval in minutes
         tg_id = str(closest_tg_id)
 
-        start_date_temp = datetime.strptime(start_date, '%Y-%m-%d')
-        end_date_temp = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=31)
-        i=0
-        while end_date_temp < datetime.strptime(end_date, '%Y-%m-%d') or i==0:
-            if i!=0:
-                start_date_temp = end_date_temp + timedelta(days=1)
-                end_date_temp = start_date_temp + timedelta(days=31)
-            dtStart = f'{start_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
-            dtEnd = f'{end_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
-            url = f'https://services.data.shom.fr/maregraphie/observation/json/{tg_id}?sources={sources}&dtStart={dtStart}&dtEnd={dtEnd}&interval={interval}'
-            tg_data = requests.get(url)
-            tg_data = tg_data.json()
-            if i==0:
-                tg_df = pd.DataFrame(tg_data['data'])[['timestamp', 'value']]
-            else:
-                tg_df = pd.concat([tg_df, pd.DataFrame(tg_data['data'])[['timestamp', 'value']]], ignore_index=True)
-            i+=1
-               
-        # Process the downloaded data
-        tg_df['value'] = pd.to_numeric(tg_df['value'], errors='coerce')
-        tg_df['value'] = tg_df['value'] + zh_ref # Convert vertical level from hydrographic to IGN reference
-        tg_df['timestamp'] = pd.to_datetime(tg_df['timestamp'])
-        tg_df = tg_df[tg_df['timestamp'] <= datetime.strptime(end_date, '%Y-%m-%d')] # Keep only data until the specified end date
-        self.SHOM_data = tg_df
+        # Check if data is already downloaded
+        output_folder = os.path.join(geographic.stable_folder, 'oceanic')
+        output_filename = f'sea-level-shom_{tg_id}_{start_date}_{end_date}.csv'
+        if os.path.exists(os.path.join(output_folder, output_filename)):
+            print(f"Data for tide gauge station {self.closest_tg['name']} already downloaded. Loading from file.")
+            self.SHOM_data = pd.read_csv(os.path.join(output_folder, output_filename), parse_dates=['timestamp'])
+            
+        else:
+            
+            # Get the vertical reference of the closest tide gauge station
+            print(f"Closest tide gauge station: {self.closest_tg['name']} at ({self.closest_tg['latitude']}, {self.closest_tg['longitude']})")
+            url = f'https://services.data.shom.fr/maregraphie/service/completetidegauge/{closest_tg_id}'
+            tide_gauge_info = requests.get(url)
+            tide_gauge_info = tide_gauge_info.json()
+            zh_ref = float(tide_gauge_info['verticalRef']['zh_ref']) # Vertical reference of the tide gauge station
 
-        # Optionally, write the data to a CSV file
-        if write:
-            output_path = os.path.join(geographic.stable_folder, 'oceanic', f'sea-level-shom_{tg_id}_{start_date}_{end_date}.csv')
-            if not os.path.exists(os.path.dirname(output_path)):
-                os.makedirs(os.path.dirname(output_path))
-            tg_df.to_csv(output_path, index=False)
+            # Download sea-level data for the closest tide gauge station
+            # iterates over 31-day periods to avoid data download issues for long time series
+            sources = '3' # code to get validated data
+            interval = '60' # data interval in minutes
+            start_date_temp = datetime.strptime(start_date, '%Y-%m-%d')
+            end_date_temp = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=31)
+            i=0
+            while end_date_temp < datetime.strptime(end_date, '%Y-%m-%d') or i==0:
+                if i!=0:
+                    start_date_temp = end_date_temp + timedelta(days=1)
+                    end_date_temp = start_date_temp + timedelta(days=31)
+                dtStart = f'{start_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
+                dtEnd = f'{end_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
+                url = f'https://services.data.shom.fr/maregraphie/observation/json/{tg_id}?sources={sources}&dtStart={dtStart}&dtEnd={dtEnd}&interval={interval}'
+                tg_data = requests.get(url)
+                tg_data = tg_data.json()
+                if i==0:
+                    tg_df = pd.DataFrame(tg_data['data'])[['timestamp', 'value']]
+                else:
+                    tg_df = pd.concat([tg_df, pd.DataFrame(tg_data['data'])[['timestamp', 'value']]], ignore_index=True)
+                i+=1
+                
+            # Process the downloaded data
+            tg_df['value'] = pd.to_numeric(tg_df['value'], errors='coerce')
+            tg_df['value'] = tg_df['value'] + zh_ref # Convert vertical level from hydrographic to IGN reference
+            tg_df['timestamp'] = pd.to_datetime(tg_df['timestamp'])
+            tg_df = tg_df[tg_df['timestamp'] <= datetime.strptime(end_date, '%Y-%m-%d')] # Keep only data until the specified end date
+            self.SHOM_data = tg_df
+
+            # Optionally, write the data to a CSV file
+            if write:
+                output_path = os.path.join(output_folder, output_filename)
+                if not os.path.exists(os.path.dirname(output_path)):
+                    os.makedirs(os.path.dirname(output_path))
+                tg_df.to_csv(output_path, index=False)
 
     def display_data(self, values):
         """
