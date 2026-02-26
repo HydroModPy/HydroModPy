@@ -25,14 +25,6 @@ jobs:
           pip install -e ".[docs]"
           pip install pytest-cov
 
-      - name: Enable coverage subprocess tracking
-        run: |
-          python -c "
-          import sysconfig, pathlib
-          pth = pathlib.Path(sysconfig.get_path('purelib')) / 'coverage_subprocess.pth'
-          pth.write_text('import coverage; coverage.process_startup()')
-          "
-
       - name: Make MODFLOW binaries executable
         run: chmod +x bin/linux/*
 
