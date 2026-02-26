@@ -1,37 +1,39 @@
 name: hydromodpy-dev
 channels:
-- conda-forge
+  - conda-forge
 dependencies:
-- colormap
-- contextily
-- flopy
-- geopandas
-- h5py
-- imageio
-- ipykernel
-- ipython
-- matplotlib
-- matplotlib-scalebar
-- netcdf4
-- numpy>=2.0
-- pandas
-- pydantic
-- pytest
-- pytest-xdist
-- plotly
-- pyshp
-- python>=3.11,<3.14
-- rasterio
-- rioxarray
-- scikit-learn
-- selenium
-- spyder-kernels
-- spyder
-- vedo
-- whitebox
-- xarray
-- pyside6
-- pysheds
-- pip
-- pip:
-  - -e ..
+  - colormap
+  - contextily
+  - flopy
+  - geopandas
+  - h5py
+  - imageio
+  - ipykernel
+  - ipython
+  - matplotlib
+  - matplotlib-scalebar
+  - netcdf4
+  - numpy>=2.0
+  - pandas<3.0
+  - dask
+  - pydantic
+  - pytest
+  - pytest-xdist
+  - plotly
+  - pyproj
+  - pyshp
+  - python>=3.11,<3.14
+  - rasterio
+  - rioxarray
+  - scikit-learn
+  - selenium
+  - spyder-kernels
+  - spyder
+  - vedo
+  - whitebox
+  - xarray
+  - pyside6
+  - pysheds
+  - pip
+  - pip:
+      - -e ..
