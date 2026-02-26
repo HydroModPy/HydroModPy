@@ -813,7 +813,6 @@ class Modflow:
         else:
             logger.debug(
                 "Flow/domain parameter mapping is disabled. "
-                "Using historical hk/sy/ss parametrization by default."
             )
 
             ### Hydraulic conductivty
