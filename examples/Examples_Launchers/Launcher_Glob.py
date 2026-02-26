@@ -56,7 +56,26 @@ from hydromodpy.process import Flow
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams as MatchingStreamsCalib
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.process import Flow
+from hydromodpy.domain import Domain, Surfaces
+# HYDROMODPY MODULES
+import hydromodpy as hmp
+from hydromodpy import watershed_root
+from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
+    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
+    SafranSurfex, Subbasin, Transport
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
+from hydromodpy.tools import toolbox
+from hydromodpy.domain import Domain, Surfaces
+from hydromodpy.process import Flow
+from hydromodpy.solver.modflow import Modflow
+from hydromodpy.modeling.modpath import Modpath
+from hydromodpy.modeling.mt3dms import Mt3dms
+from hydromodpy.modeling import timeseries, netcdf
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 # Import complete workflow functions from modeling_workflow_complete.py (relative import)
 try:
@@ -83,7 +102,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
 # ============================================================================
-EXAMPLE_TO_RUN = "ex12"  # ← CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex01"  # ← CHANGE THIS TO SWITCH EXAMPLES
 
 # Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
 config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
@@ -259,8 +278,10 @@ PARAMS = {
         "recharge_time_step": "ME",
         "clim_mod":"REA",
         "clim_sce": "historic",
+        "first_clim":"mean",
         # Parametrization
         "box": True,
+        "compt": 0,
         "sink_fill": False,
         "sim_state": "transient",
         "plot_cross": True,
@@ -276,9 +297,10 @@ PARAMS = {
         "sy_decay": 0,
         "ss": 1e-5,
         "ss_decay": 0,
+        "hk_decay": 0,
         "vka": 1,
         "bottom": 0,
-        "thickness": 50,
+        "thickness": 100,
         "cond_drain": None,
         "bc_left": None,
         "bc_right": None,
@@ -351,6 +373,7 @@ PARAMS = {
         "cond_drain": None,
         "sy": 1 / 100,
         "sy_decay": 0,
+        "hk_decay": 0,
         "ss": 1e-5,
         "ss_decay": 0,
         "vka": 1,
@@ -471,6 +494,7 @@ PARAMS = {
         "bc_left": None,
         "bc_right": None,
         "sea_level": "None",
+        "hk_decay": 0,
         # Multiple models
         "iD_set_simulations": "explorK_test1",
         "list_hyd_cond": list(np.geomspace(1e-8, 1e-3, 10)),  # in m/s (10 values),
@@ -501,6 +525,7 @@ PARAMS = {
         "var_list_sim2":['runoff', 'recharge'],
         # Frame settings
         "box": True,
+        "hk_decay": 0,
         "sink_fill": False,
         "sim_state": "transient",
         "dis_perlen": True,  # Auto-calculated from monthly stress periods
@@ -515,6 +540,7 @@ PARAMS = {
         "sy_decay": 0,
         "ss": 1e-5,
         "ss_decay": 0,
+        "hk_decay": 0,
         "vka": 1,
         "bottom": None,
         "thickness": 50,
@@ -702,17 +728,6 @@ DATA_MODULES = {
         }
     },
     "ex04": {
-        "geology": {
-            "class_name": "Geology",
-            "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
-                "geographic": ("geographic", True),
-                "geo_path": ("data_path", True),
-                "landsea": (None, False),
-                "types_obs": ("GEO1M.shp", False),
-                "fields_obs": ("CODE_LEG", False)
-            }
-        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
@@ -755,17 +770,6 @@ DATA_MODULES = {
         }
     },
     "ex03": {
-        "geology": {
-            "class_name": "Geology",
-            "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
-                "geographic": ("geographic", True),
-                "geo_path": ("data_path", True),
-                "landsea": (None, False),
-                "types_obs": ("GEO1M.shp", False),
-                "fields_obs": ("CODE_LEG", False)
-            }
-        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
@@ -821,17 +825,6 @@ DATA_MODULES = {
         }
     },
     "ex01": {
-        "geology": {
-            "class_name": "Geology",
-            "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
-                "geographic": ("geographic", True),
-                "geo_path": ("data_path", True),
-                "landsea": (None, False),
-                "types_obs": ("GEO1M.shp", False),
-                "fields_obs": ("CODE_LEG", False)
-            }
-        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
@@ -1173,6 +1166,7 @@ MODELING_CONFIG = {
 MODPATH_CONFIG = {
     "ex12": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1203,6 +1197,7 @@ MODPATH_CONFIG = {
     },
      "ex09": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1233,6 +1228,7 @@ MODPATH_CONFIG = {
     },
     "ex03": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1263,6 +1259,7 @@ MODPATH_CONFIG = {
     },
     "ex00": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1293,6 +1290,7 @@ MODPATH_CONFIG = {
     },
     "ex01": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1413,58 +1411,40 @@ def select_period(df, first, last):
 
 
 
-def watershed(example_id): # On l'appelle id pour être sûr que c'est le texte "ex12"
+def watershed(example_id):
     print(f"\n EXAMPLE {example_id} - WATERSHED EXTRACTION ")
-    exmp=example_id
+
     try:
-        # On utilise le texte "ex12" pour chercher dans PARAMS
+        # 1. Récupérer les paramètres de l'exemple
         p = PARAMS[example_id]
-        # Load paths from PARAMS (for data directory reference)
-        #example_key = results.get('example_key', CONFIG["example"])
 
-        wbt = whitebox.WhiteboxTools()
-        wbt.verbose = False
-        p = PARAMS[example_key]
-        data_path =cfg.initializing.data_path
-        out_dir_path = cfg.initializing.out_dir_path
+        # 2. RECONSTRUIRE LE CHEMIN ABSOLU (C'est ce qui manquait !)
+        # root_dir doit être défini globalement (le chemin vers la racine du projet)
+        example_path = os.path.join(root_dir, p["base_path"])
+        absolute_data_path = os.path.join(example_path, "data")
 
-        if not os.path.exists(data_path):
-            print(f"Data path not found: {data_path}\n")
+        # 3. METTRE À JOUR LA CONFIGURATION AVEC LES BONS CHEMINS
+        # On dit aux objets HMP où chercher réellement
+        cfg.initializing.data_path = Path(absolute_data_path)
+
+        # Très important : mettre à jour le chemin du DEM
+        dem_filename = Path(cfg.geographic.dem_init_path).name
+        cfg.geographic.dem_init_path = Path(absolute_data_path) / dem_filename
+
+        if not os.path.exists(absolute_data_path):
+            print(f"✗ Data path not found: {absolute_data_path}\n")
             return None
 
-        print(f"\n Configuration loaded from: config.toml")
-        print(f" Data path: {data_path}")
+        print(f"Configuration loaded. Data path: {absolute_data_path}")
+        print(f"DEM path: {cfg.geographic.dem_init_path}")
 
-        # Update cfg paths with proper Path objects
-        # If out_dir_path is already an absolute path (set by run_launcher_glob for tests),
-        # keep it as is. Otherwise, combine with example_path.
-        """out_dir_path = Path(cfg.initializing.out_dir_path)
-        if not out_dir_path.is_absolute():
-            out_dir_path = Path(example_path) / out_dir_path"""
-
-        # Extract filename from dem_init_path (it may have "data/" prefix from config.toml)
-        """dem_filename = Path(cfg.geographic.dem_init_path).name
-        cfg.geographic.dem_init_path = Path(data_path) / dem_filename
-
-        # Verify DEM path
-        dem_path = str(cfg.geographic.dem_init_path)
-        if not os.path.exists(dem_path):
-            print(f"DEM not found: {dem_path}\n")
-            return None
-
-        print(f"DEM: {dem_path}")"""
-
-        # Create Initializing object with config from config.toml
+        # 4. Créer les objets HMP (ils vont maintenant trouver les fichiers)
         initializing_object = hmp.Initializing(config=cfg.initializing)
+        geographic_object = hmp.Geographic(config=cfg.geographic, initializing=initializing_object)
 
-        # Create Geographic object with config from config.toml
-        geographic_object = hmp.Geographic(config=cfg.geographic,
-                        initializing=initializing_object)
-        #create Domaine object with config from config.toml
-        domain = Domain (config=cfg.domain,
-                         geographic=geographic_object)
+        domain = Domain(config=cfg.domain, geographic=geographic_object)
         flow = Flow(config=cfg.flow)
-        # Create individual objects (like example12.py) - NOT via BV
+
         print("Creating individual objects (Settings, Hydraulic, Oceanic)...")
         settings_object = Settings()
         hydraulic_object = Hydraulic(
@@ -1473,48 +1453,40 @@ def watershed(example_id): # On l'appelle id pour être sûr que c'est le texte 
             box_dem=geographic_object.watershed_box_buff_dem
         )
         transport_object = Transport()
+
+        # 5. Climatic et Oceanic
         climatic_object = Climatic(out_path=initializing_object.catch_folder)
         oceanic_object = Oceanic()
-        oceanic_object.extract_local_data(out_path=initializing_object.catch_folder,
-                                 geographic=geographic_object,
-                                 oceanic_path=data_path)
-        try:
-            oceanic_object.download_SHOM_data(geographic=geographic_object,
-                                        start_date='2003-01-01',
-                                        end_date='2003-01-30')
-            oceanic_object.update_MSL(oceanic_object.SHOM_data['value'].mean())
-        except Exception as _shom_exc:
-            print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
-            oceanic_object.update_MSL(0.0)
+        oceanic_object.extract_local_data(
+            out_path=initializing_object.catch_folder,
+            geographic=geographic_object,
+            oceanic_path=str(absolute_data_path) # Utilise le chemin absolu
+        )
 
+        # ... (ton bloc SHOM ici) ...
 
+        # 6. Gestion des dossiers de sortie
         stable_folder = initializing_object.stable_folder
         simulations_folder = initializing_object.simulations_folder
         calibration_folder = initializing_object.calibration_folder
-        results_path = cfg.initializing.out_dir_path
 
-        # For example 12 (single model), use simulations_folder as calibration_folder
-        # This ensures MODFLOW outputs go to the correct location for MODPATH/MT3DMS
-        if MODELING_CONFIG.get(example_key, {}).get("type") == "single":
+        # Correction : utilise example_id (le texte "ex12")
+        if MODELING_CONFIG.get(example_id, {}).get("type") == "single":
             calibration_folder = simulations_folder
 
-        print("Watershed extracted\n")
-
-        # Prepare results dictionary with individual objects
+        # 7. Retourner les résultats
         results = {
             'initializing': initializing_object,
             'geographic': geographic_object,
             'settings': settings_object,
             'hydraulic': hydraulic_object,
             'domain': domain,
-             'flow': flow,
+            'flow': flow,
             'oceanic': oceanic_object,
             'climatic': climatic_object,
             'transport': transport_object,
-            'example_key': exmp,
-            'data_path': data_path,
-            'out_dir_path': out_dir_path,
-            'results_path': results_path,
+            'example_key': example_id,
+            'data_path': absolute_data_path, # On renvoie le chemin absolu
             'stable_folder': stable_folder,
             'simulations_folder': simulations_folder,
             'calibration_folder': calibration_folder
@@ -1523,11 +1495,10 @@ def watershed(example_id): # On l'appelle id pour être sûr que c'est le texte 
         return results
 
     except Exception as e:
-        print(f"Error: {e}\n")
+        print(f"Error in watershed: {e}")
         import traceback
         traceback.print_exc()
         return None
-
 
 # ============================================================================
 # HELPER: Resolve References for DATA_MODULES
@@ -1739,7 +1710,8 @@ def recharge(results):
             recharge = pd.Series(rch_series.values, index=time_index)
             climatic_object.update_recharge(recharge, sim_state=p["sim_state"])
             climatic_object.update_runoff(None, sim_state=p["sim_state"])
-            climatic_object.update_first_clim('mean')
+            first_clim= p.get("first_clim")
+            climatic_object.update_first_clim(first_clim)
 
             results['R_mm_day'] = climatic_object.recharge
             results['runoff'] = climatic_object.runoff
@@ -1901,7 +1873,7 @@ def parametrization(results):
         hydraulic_object.update_cond_drain(p["cond_drain"])
         hydraulic_object.update_lay_decay(p["lay_decay"])
         hydraulic_object.update_bottom(p["bottom"])
-        hydraulic_object.update_exdp(p.get("exdp", 1.0))
+        #hydraulic_object.update_exdp(p.get("exdp", 1.0))
 
         # Configure Transport (created for all, configured as needed)
         print("Transport...")
@@ -1926,10 +1898,11 @@ def parametrization(results):
         transport_object.sconc_init_value = p.get("sconc_init_value", 0) / 1000  # Convert mg/L to kg/m3
         transport_object.sconc_input_value = p.get("sconc_input_value", 0) / 1000
         transport_object.rate_decay_value = p.get("rate_decay_value", 0)
+        first_clim = p.get("first_clim")
 
         # Configure Climatic (like example12.py)
         print(" Climatic...")
-        climatic_object.update_first_clim('mean')
+        climatic_object.update_first_clim(first_clim)
 
         # Handle recharge based on example type
         if example_key == "ex00":
@@ -2030,6 +2003,8 @@ def modeling(results):
     try:
         # Get individual objects created in watershed(), recharge(), and parametrization()
         geographic_object = results['geographic']
+        flow_object = results.get('flow'),
+        domain_object = results.get('domain'),
         hydraulic_object = results['hydraulic']
         settings_object = results['settings']
         climatic_object = results['climatic']
@@ -2038,6 +2013,13 @@ def modeling(results):
 
         p = PARAMS[example_key]
         config = MODELING_CONFIG[example_key]
+        # --- AJOUT 3 : GESTION DYNAMIQUE DU DOSSIER ---
+        for_calib = config.get("preprocessing", {}).get("for_calib", False)
+        if for_calib:
+            model_folder = initializing_object.calibration_folder
+        else:
+            model_folder = initializing_object.simulations_folder
+
 
         print(f"\n  Running MODFLOW for {example_key}...")
 
@@ -2047,7 +2029,7 @@ def modeling(results):
             the_K0 = p.get("the_K0")
             if the_K0 is not None:
                 the_K0_ms = the_K0 / 24 / 3600
-                model_name = f"{p['vers']}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
+                model_name = f"{p['vers']}_{p.get('compt', 0)}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
             else:
                 # ex01: use hk from PARAMS, no version/alpha naming
                 model_name = f"{example_key}_hk{p['hk']:.1e}"
@@ -2056,6 +2038,8 @@ def modeling(results):
             hk_value = p.get("the_K0") if p.get("the_K0") is not None else p.get("hk")
             result = complete_modflow(
                 geographic=geographic_object,
+                flow=flow_object,
+                domain=domain_object,
                 hydraulic=hydraulic_object,
                 settings=settings_object,
                 climatic=climatic_object,
@@ -2064,7 +2048,7 @@ def modeling(results):
                 model_name=model_name,
                 hk_value=hk_value,
                 bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
-                config=config
+                config=config,
             )
 
             results['model_name'] = result['model_name']

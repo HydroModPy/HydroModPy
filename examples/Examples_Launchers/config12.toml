@@ -21,7 +21,7 @@ out_dir_path = "../results"
 
 # Path to the input data folder (observations, climate, GIS layers, etc.).
 # Type: string | REQUIRED
-data_path = "data/"
+data_path = "/example12/data/"
 
 
 # ----------------------------------------------------------------------
