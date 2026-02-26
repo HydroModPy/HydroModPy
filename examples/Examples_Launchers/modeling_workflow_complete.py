@@ -44,7 +44,7 @@ wbt.verbose = False
 # ============================================================================
 
 def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, oceanic, initializing,
-                    model_name, hk_value, bin_path, config):
+                    model_name, bin_path, config,cfg):
     """
     Complete MODFLOW workflow: Pre-processing → Processing → Post-processing
 
@@ -80,7 +80,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, ocea
 
     try:
         # Update hydraulic and settings
-        hydraulic.update_hk(hk_value)
+        #hydraulic.update_hk(hk_value)
         settings.update_model_name(model_name)
         settings.update_check_model(
             plot_cross = config.get("postprocessing_modflow", {}).get("plot_cross", True),
@@ -124,6 +124,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, ocea
             thick=hydraulic.thick,
             nlay=hydraulic.nlay,
             lay_decay=hydraulic.lay_decay,
+            modflow_config=cfg.modflow,
             cond_drain=hydraulic.cond_drain,
         )
 
