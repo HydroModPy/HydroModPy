@@ -1,4 +1,4 @@
-name: Coverage (example12)
+name: pytest
 
 on:
   push:
@@ -8,7 +8,55 @@ on:
   workflow_dispatch:
 
 jobs:
-  coverage:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+          pip install coverage
+
+      - name: Remove coverage .pth file (breaks numpy C extensions)
+        run: |
+          python -c "
+          import sysconfig, pathlib, glob
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+              print(f'Removed {pth}')
+          "
+
+      - name: Run unit tests with coverage
+        run: |
+          coverage run --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            -m pytest tests/unit/ -v
+
+      - name: Report coverage
+        if: always()
+        run: |
+          coverage report --rcfile=/dev/null --show-missing --include="hydromodpy/*"
+          coverage xml --rcfile=/dev/null --include="hydromodpy/*"
+
+      - name: Upload to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: unit
+          fail_ci_if_error: false
+
+  regression:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -23,24 +71,38 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[docs]"
-          pip install pytest-cov
+          pip install coverage
 
-      - name: Enable coverage subprocess tracking
+      - name: Remove coverage .pth file (breaks numpy C extensions)
         run: |
           python -c "
-          import sysconfig, pathlib
-          pth = pathlib.Path(sysconfig.get_path('purelib')) / 'coverage_subprocess.pth'
-          pth.write_text('import coverage; coverage.process_startup()')
+          import sysconfig, pathlib, glob
+          site = pathlib.Path(sysconfig.get_path('purelib'))
+          for pth in site.glob('*coverage*.pth'):
+              pth.unlink()
+              print(f'Removed {pth}')
           "
 
       - name: Make MODFLOW binaries executable
         run: chmod +x bin/linux/*
 
-      - name: Run coverage test
+      - name: Run regression tests
+        env:
+          HYDROMODPY_COVERAGE: "1"
         run: |
-          python -m pytest tests/regression/test_example12_npy_regression.py \
-            -v \
-            --cov=hydromodpy --cov-report=term-missing --cov-report=xml
+          python -m pytest \
+            tests/regression/test_example12_npy_regression.py -v
+
+      - name: Combine and report coverage
+        if: always()
+        run: |
+          coverage combine
+          coverage report --show-missing
+          coverage xml
+
+      - name: Debug coverage files
+        if: always()
+        run: ls -la .coverage* || echo "No .coverage files found"
 
       - name: Upload to Codecov
         if: always()
@@ -48,4 +110,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
+          flags: regression
           fail_ci_if_error: false

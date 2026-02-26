@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydromodpy"
-version = "0.3.4"
+version = "0.3.5"
 description = "A Python toolbox for deploying catchment-scale shallow groundwater models"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -70,7 +70,6 @@ dependencies = [
     "spyder-kernels",
     "pytest",
     "pytest-xdist",
-    "pytest-cov",
     "dask",
     "pydantic",
 ]
