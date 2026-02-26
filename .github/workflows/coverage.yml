@@ -37,8 +37,6 @@ jobs:
         run: chmod +x bin/linux/*
 
       - name: Run coverage test
-        env:
-          COVERAGE_PROCESS_START: pyproject.toml
         run: |
           python -m pytest tests/regression/test_example12_npy_regression.py \
             -v \
