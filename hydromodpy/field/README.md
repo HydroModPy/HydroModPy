@@ -88,7 +88,7 @@ Output object:
 ## TOML Convention
 
 Field parameter file (`field_param_config.toml`):
-- `[field]`: `id`, `kind`
+- `[field]`: `id`, `kind`, `unit`
 - `[field_homogeneous]`: `value`
 - `[field_heterogeneous]`: `field_spatial_id` + value source:
   - inline: `values = {...}`
@@ -96,7 +96,15 @@ Field parameter file (`field_param_config.toml`):
 - optional `[field_vertical_profile]`: depth dependency shared over whole domain
   - `mode = "none"` (default)
   - `mode = "exponential"` + `characteristic_depth` with factor `exp(-z/characteristic_depth)`
+    and optional floor `min_factor`:
+    `max(exp(-z/characteristic_depth), min_factor)`
   - `mode = "tabulated"` + `depths` + `factors` (+ `interpolation = "linear"|"step"`)
+
+Unit notes:
+- `K`: use `m/s` (other accepted inputs: `m/day`, `cm/s`, `cm/day`).
+- `Sy`: use `-` (dimensionless standard).
+- `Ss`: use `m-1` (also accepts `cm-1`).
+- Internally, `FieldParam` stores values converted to SI units.
 
 Mesh file (`mesh_config.toml`):
 - `[mesh]`: `kind`, `target_n_cells`, optional `seed`
