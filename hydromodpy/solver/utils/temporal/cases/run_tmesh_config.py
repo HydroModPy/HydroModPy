@@ -75,8 +75,9 @@ class TMeshCasesConfig(BaseModel):
 
     scenarios: list[TMeshCaseScenarioConfig] = Field(default_factory=list)
     output_summary_json: Path | None = None
+    output_figures_dir: Path | None = None
 
-    @field_validator("output_summary_json", mode="before")
+    @field_validator("output_summary_json", "output_figures_dir", mode="before")
     @classmethod
     def _expand_output_path(cls, value):
         if value is None:
@@ -107,6 +108,11 @@ class TMeshCasesConfig(BaseModel):
         if section_cfg.get("output_summary_json") is not None:
             section_cfg["output_summary_json"] = _resolve_path(
                 section_cfg["output_summary_json"],
+                base,
+            )
+        if section_cfg.get("output_figures_dir") is not None:
+            section_cfg["output_figures_dir"] = _resolve_path(
+                section_cfg["output_figures_dir"],
                 base,
             )
 
