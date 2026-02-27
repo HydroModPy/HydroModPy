@@ -351,6 +351,36 @@ mode = "none"
 
 
 # ----------------------------------------------------------------------
+# Flow boundary conditions (Robin / DRN)
+# ----------------------------------------------------------------------
+
+[flow.bc.robin.drainage]
+# Domain of application on the model domain boundaries/surfaces.
+# Allowed values: "top", "north side", "west side", "east side", "south side".
+application_domain = "top"
+# Boundary-condition type.
+type = "robin"
+# Robin/DRN value (conductance-like coefficient).
+value = 1.0
+
+[flow.bc.dirichlet.ocean]
+application_domain = "top"
+#Boundary-condition type.
+type = "dirichlet"
+#Robin/DRN value (conductance-like coefficient).
+value = 1.0
+data_value = True  # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
+
+[flow.bc.dirichlet.stream]
+application_domain = "top"
+# Boundary-condition type.
+type = "dirichlet"
+# Robin/DRN value (conductance-like coefficient).
+value = 1.0
+
+
+
+# ----------------------------------------------------------------------
 # MODFLOW expert configuration
 # ----------------------------------------------------------------------
 
