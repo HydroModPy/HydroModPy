@@ -574,3 +574,35 @@ nlay = 10
 lay_decay = 1.2
 # No-data sentinel value used to mask invalid raster cells.
 nodata = -9999.0
+
+[modflow.tgrid]
+# Time unit label propagated to FloPy (for example 'd').
+itmuni = "d"
+# Temporal simulation mode ("steady" or "transient").
+sim_state = "steady"
+# Temporal mesh generation method ("synthetic_regular" or "from_chron").
+genmtd = "synthetic_regular"
+# Number of stress periods.
+nper = 10
+# Length of each stress period when genmtd = "synthetic_regular".
+lenper = 1.0
+# Chronicle file path used when genmtd = "from_chron".
+chron_path = "data/recharge_chronicle.tsv"
+# Datetime format used to parse the chronicle time column.
+chron_dateformat = "%Y-%m-%d %H:%M:%S"
+# Column separator used in the chronicle file.
+chron_colsep = "\t"
+# Time-column name in the chronicle file.
+chron_time_col = "Date"
+# Optional explicit start datetime (leave commented to keep default None).
+# start_datetime = "2020-01-01 00:00:00"
+# Optional explicit end datetime (leave commented to keep default None).
+# end_datetime = "2020-12-31 00:00:00"
+# Keep first stress period in steady state when relevant.
+firstpersteady = true
+# Time-step multiplier per period (scalar or list).
+tsmult = 1.0
+# Number of time steps per period (scalar or list).
+ntsp = 1
+# No-data sentinel used for temporal arrays.
+temporal_nodata = -9999.0
