@@ -32,9 +32,7 @@ except ImportError:  # pragma: no cover
 
 
 API_PZ_URL = "https://hubeau.eaufrance.fr/api/v1/qualite_nappes/analyses"
-API_PZ_STATIONS_URL = "https://hubeau.eaufrance.fr/api/v1/qualite_nappes/stations"
 API_RIVER_URL = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/analyse_pc"
-API_RIVER_STATIONS_URL = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/stations"
 
 STATUS_MESSAGES = {
     200: "Success: All results present in the response",
@@ -131,10 +129,10 @@ class ApiWaterQualityLoader(BaseApiLoader):
         # the appropriate stations endpoint depending on `site_type`.
         site_id = str(site_id)
         if self.site_type.startswith("river"):
-            url = API_RIVER_STATIONS_URL
+            url = API_RIVER_URL
             params = {"size": 20, "format": "json", "code_station": site_id}
         else:
-            url = API_PZ_STATIONS_URL
+            url = API_PZ_URL
             params = {"size": 20, "format": "json"}
             # prefer the short code when available
             if "/" in site_id:
