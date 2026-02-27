@@ -901,6 +901,115 @@ class StationSet(BaseStationSet):
            raise KeyError(f"Station {sid} not found in loaded stations. Available: {available}")
        return self.stations[sid]
 
+   def _infer_frequency(self, data: pd.DataFrame) -> str:
+       """Infer data frequency from timestamp differences.
+
+       Parameters
+       ----------
+       data : pd.DataFrame
+           DataFrame with 'timestamp' column (or similar date index)
+
+       Returns
+       -------
+       str
+           Frequency code: 'D' (daily), 'M' (monthly), 'Y' (yearly), etc.
+       """
+       if data.empty:
+           return "U"  # Unknown
+       
+       # Try to find timestamp column or index
+       date_col = None
+       if 'timestamp' in data.columns:
+           date_col = 'timestamp'
+       elif 'date' in data.columns:
+           date_col = 'date'
+       elif hasattr(data.index, 'name') and 'date' in str(data.index.name).lower():
+           date_col = data.index
+       else:
+           # Try first datetime column
+           for col in data.columns:
+               if pd.api.types.is_datetime64_any_dtype(data[col]):
+                   date_col = col
+                   break
+       
+       if date_col is None:
+           return "U"  # Unknown
+       
+       # Get dates
+       if isinstance(date_col, str):
+           dates = pd.to_datetime(data[date_col]).sort_values()
+       else:
+           dates = pd.to_datetime(date_col).sort_values()
+       
+       if len(dates) < 2:
+           return "U"
+       
+       # Calculate median interval
+       deltas = dates.diff().dropna()
+       if len(deltas) == 0:
+           return "U"
+       
+       median_delta = deltas.median()
+       days = median_delta.days
+       
+       # Map intervals to frequency codes
+       if days < 2:
+           return "D"  # Daily
+       elif 20 <= days <= 35:
+           return "ME"  # Monthly
+       elif 80 <= days <= 100:
+           return "Q"  # Quarterly
+       elif 350 <= days <= 370:
+           return "YE"  # Yearly
+       else:
+           return "U"  # Unknown
+
+   def _build_standardized_filename(self, station_id: str, station_data: pd.DataFrame) -> str:
+       """Build standardized filename: hydrometry_{nomapi}_{id}_{startdate}_{enddate}_{freq}.csv
+
+       Parameters
+       ----------
+       station_id : str
+           Station identifier
+       station_data : pd.DataFrame
+           Station data with timestamps
+
+       Returns
+       -------
+       str
+           Standardized CSV filename
+       """
+       # Determine API name
+       api_name = "HUBEAU" if self.source_mode == "api" else "custom"
+       
+       # Get frequency
+       freq = self._infer_frequency(station_data)
+       
+       # Get date range from data
+       date_col = None
+       if 'timestamp' in station_data.columns:
+           date_col = 'timestamp'
+       elif 'date' in station_data.columns:
+           date_col = 'date'
+       else:
+           # Try first datetime column
+           for col in station_data.columns:
+               if pd.api.types.is_datetime64_any_dtype(station_data[col]):
+                   date_col = col
+                   break
+       
+       if date_col is not None:
+           dates = pd.to_datetime(station_data[date_col])
+           start_date = dates.min().strftime("%Y%m%d")
+           end_date = dates.max().strftime("%Y%m%d")
+       else:
+           start_date = "00000000"
+           end_date = "00000000"
+       
+       # Build filename
+       filename = f"hydrometry_{api_name}_{station_id}_{start_date}_{end_date}_{freq}.csv"
+       return filename
+
    def _export_data(self):
        """Export loaded dataframes and station CSV files to disk.
 
@@ -922,7 +1031,7 @@ class StationSet(BaseStationSet):
 
        print(f"\n=== EXPORTING DATA ===")
        print(f"Export mode: {'Full' if full_mode else 'Lite'}")
-       print(f"Export path: {export_path}")
+       print(f"Export path: {export_path.resolve()}")  # Show absolute path
        metadata_available = (not self.metadata.empty and "station_id" in self.metadata.columns)
 
        # Export individual station data
@@ -930,15 +1039,8 @@ class StationSet(BaseStationSet):
            for station_id in self.data['station_id'].unique():
                station_data = self.data[self.data['station_id'] == station_id].copy()
 
-               # Get station name for filename
-               filename = f"{station_id}.csv"
-               if metadata_available:
-                   station_meta = self.metadata[self.metadata['station_id'].astype(str) == str(station_id)]
-                   if not station_meta.empty:
-                       station_name = station_meta.iloc[0].get('station_name', station_id)
-                       # Clean filename
-                       safe_name = "".join(c for c in str(station_name) if c.isalnum() or c in (' ', '-', '_')).rstrip()
-                       filename = f"{station_id}_{safe_name}.csv"
+               # Use standardized filename format
+               filename = self._build_standardized_filename(station_id, station_data)
 
                # Remove station_id column for export
                export_data = station_data.drop('station_id', axis=1, errors='ignore')

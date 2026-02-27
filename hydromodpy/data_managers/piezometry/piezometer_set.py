@@ -822,6 +822,97 @@ class PiezometerSet(BaseStationSet):
         """Normalize values used in export filenames."""
         return safe_file_token(value)
 
+    def _infer_frequency(self, data: pd.DataFrame) -> str:
+        """Infer data frequency from timestamp differences.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            DataFrame with 'date_measure' column (or similar date column)
+
+        Returns
+        -------
+        str
+            Frequency code: 'D' (daily), 'M' (monthly), 'Y' (yearly), etc.
+        """
+        if data.empty:
+            return "U"  # Unknown
+        
+        # Try to find date column
+        date_col = None
+        for col in ['date_measure', 'timestamp', 'date']:
+            if col in data.columns:
+                date_col = col
+                break
+        
+        if date_col is None:
+            return "U"
+        
+        dates = pd.to_datetime(data[date_col]).sort_values()
+        
+        if len(dates) < 2:
+            return "U"
+        
+        # Calculate median interval
+        deltas = dates.diff().dropna()
+        if len(deltas) == 0:
+            return "U"
+        
+        median_delta = deltas.median()
+        days = median_delta.days
+        
+        # Map intervals to frequency codes
+        if days < 2:
+            return "D"  # Daily
+        elif 20 <= days <= 35:
+            return "M"  # Monthly
+        elif 80 <= days <= 100:
+            return "Q"  # Quarterly
+        elif 350 <= days <= 370:
+            return "Y"  # Yearly
+        else:
+            return "U"  # Unknown
+
+    def _build_standardized_filename(self, piezometer_id: str, piezo_data: pd.DataFrame) -> str:
+        """Build standardized filename: piezometry_{nomapi}_{id}_{startdate}_{enddate}_{freq}.csv
+
+        Parameters
+        ----------
+        piezometer_id : str
+            Piezometer identifier
+        piezo_data : pd.DataFrame
+            Piezometer data with date_measure column
+
+        Returns
+        -------
+        str
+            Standardized CSV filename
+        """
+        # Determine API name
+        api_name = "HUBEAU" if self.source_mode == "api" else "custom"
+        
+        # Get frequency
+        freq = self._infer_frequency(piezo_data)
+        
+        # Get date range from data
+        date_col = None
+        for col in ['date_measure', 'timestamp', 'date']:
+            if col in piezo_data.columns:
+                date_col = col
+                break
+        
+        if date_col is not None:
+            dates = pd.to_datetime(piezo_data[date_col])
+            start_date = dates.min().strftime("%Y%m%d")
+            end_date = dates.max().strftime("%Y%m%d")
+        else:
+            start_date = "00000000"
+            end_date = "00000000"
+        
+        # Build filename
+        filename = f"piezometry_{api_name}_{piezometer_id}_{start_date}_{end_date}_{freq}.csv"
+        return filename
+
     def _export_data(self):
         """Export loaded dataframes and piezometer CSV files to disk."""
         if not self.output:
@@ -838,20 +929,15 @@ class PiezometerSet(BaseStationSet):
 
         print("\n=== EXPORTING DATA ===")
         print(f"Export mode: {'Full' if full_mode else 'Lite'}")
-        print(f"Export path: {export_path}")
+        print(f"Export path: {export_path.resolve()}")  # Show absolute path
         metadata_available = not self.metadata.empty and "piezometer_id" in self.metadata.columns
 
         if not self.data.empty:
             for piezometer_id in self.data["piezometer_id"].astype(str).unique():
                 piezo_data = self.data[self.data["piezometer_id"].astype(str) == str(piezometer_id)].copy()
-                safe_id = self._safe_file_token(piezometer_id)
-                filename = f"{safe_id}.csv"
-                if metadata_available:
-                    station_meta = self.metadata[self.metadata["piezometer_id"].astype(str) == str(piezometer_id)]
-                    if not station_meta.empty:
-                        station_name = station_meta.iloc[0].get("station_name", piezometer_id)
-                        safe_name = self._safe_file_token(station_name)
-                        filename = f"{safe_id}_{safe_name}.csv"
+                
+                # Use standardized filename format
+                filename = self._build_standardized_filename(piezometer_id, piezo_data)
 
                 export_data = piezo_data.drop("piezometer_id", axis=1, errors="ignore")
                 export_data.to_csv(export_path / filename, index=False)
@@ -886,21 +972,14 @@ class PiezometerSet(BaseStationSet):
             toc_content.append("")
 
         toc_content.append("# Piezometer Data Files:")
-        metadata_available = not self.metadata.empty and "piezometer_id" in self.metadata.columns
         if not self.data.empty:
             for piezometer_id in self.data["piezometer_id"].astype(str).unique():
-                safe_id = self._safe_file_token(piezometer_id)
-                filename = f"{safe_id}.csv"
-                if metadata_available:
-                    station_meta = self.metadata[self.metadata["piezometer_id"].astype(str) == str(piezometer_id)]
-                    if not station_meta.empty:
-                        station_name = station_meta.iloc[0].get("station_name", piezometer_id)
-                        filename = f"{safe_id}_{self._safe_file_token(station_name)}.csv"
-
-                station_data = self.data[self.data["piezometer_id"].astype(str) == str(piezometer_id)]
-                record_count = len(station_data)
-                if not station_data.empty and "date_measure" in station_data.columns:
-                    date_range = f"{station_data['date_measure'].min()} to {station_data['date_measure'].max()}"
+                piezo_data = self.data[self.data["piezometer_id"].astype(str) == str(piezometer_id)]
+                filename = self._build_standardized_filename(piezometer_id, piezo_data)
+                
+                record_count = len(piezo_data)
+                if not piezo_data.empty and "date_measure" in piezo_data.columns:
+                    date_range = f"{piezo_data['date_measure'].min()} to {piezo_data['date_measure'].max()}"
                 else:
                     date_range = "No data"
                 toc_content.append(f"# {filename}: {record_count} records, {date_range}")
