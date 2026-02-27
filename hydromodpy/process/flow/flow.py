@@ -210,7 +210,7 @@ class Flow(Process):
 			raise ValueError(f"flow.bc.dirichlet.{bc_id}.value is required")
 
 		if payload["data_value"]:
-			pass
+			pass # Link to oceanic data
 		else:
 			value = payload["value"]
 			if not isinstance(value, Real):
