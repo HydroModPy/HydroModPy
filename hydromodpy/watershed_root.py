@@ -48,7 +48,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.watershed.geographic import Geographic
+from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.watershed import climatic, driasclimat, driaseau, \
     geology, hydraulic, hydrography, hydrometry, intermittency, oceanic_old, piezometry, settings, safransurfex, subbasin, transport
 from hydromodpy.modeling import modpath, mt3dms, timeseries, netcdf
