@@ -27,7 +27,6 @@ from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.domain import Domain, Surfaces
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
@@ -43,7 +42,7 @@ wbt.verbose = False
 # COMPLETE MODFLOW - Enchaîne: preprocessing → processing → postprocessing
 # ============================================================================
 
-def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, oceanic, initializing,
+def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, initializing,
                     model_name, bin_path, config,cfg):
     """
     Complete MODFLOW workflow: Pre-processing → Processing → Post-processing
