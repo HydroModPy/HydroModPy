@@ -41,7 +41,7 @@ Some examples above
 
         geology_BRGM1M_level1.tif
 
-        hydrometry_HUBEAU_LOC.csv #file needed csv type to link with location
+        hydrometry_HUBEAU_LOC.csv # csv file needed to link measurement points to their locations
         hydrometry_HUBEAU_J7214001_20010131_20031231_ME.csv      
         hydrometry_HUBEAU_J7214002_20010131_20031231_ME.csv
 
