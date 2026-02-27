@@ -119,6 +119,7 @@ if __name__ == '__main__':
                         add_path=data_path,
                         out_path=initializing.catch_folder,
                         sub_snap_dist=50)
+    
     hydrometry = Hydrometry(out_path=initializing.catch_folder,
                             hydrometry_path=data_path,
                             file_name='france hydrometric stations.shp',
@@ -540,13 +541,17 @@ if __name__ == '__main__':
     the_K0 = 5e-5*24*3600
     hydraulic.update_hk(the_K0) # 3D
     Kmin_for_hk_decay = 1e-8*24*3600
-    hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
+    hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay,
+                              log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
 
     # the_sy0 = 0.1/100 #
     the_sy0 = 2/100 #
     hydraulic.update_sy(the_sy0)
     Symin_for_sy_decay = 0.1/100
-    hydraulic.update_sy_decay((1/alpha)/n_factor, min_value=Symin_for_sy_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
+    hydraulic.update_sy_decay((1/alpha)/n_factor, # change in : (1/alpha/n_factor)
+                              min_value=Symin_for_sy_decay,
+                              log_transf=Klog_transf,
+                              grad_elev=[93,136,-20]) # 0
     # hydraulic.update_sy_decay(0) # 0
 
     the_ss0 = 1e-10
