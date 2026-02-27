@@ -209,10 +209,9 @@ class Flow(Process):
 		if "value" not in payload:
 			raise ValueError(f"flow.bc.dirichlet.{bc_id}.value is required")
 
-		if payload["data_value"]:
-			pass
-		else:
-			value = payload["value"]
+		value = payload["value"]
+		data_value_flag = payload.get("data_value", False)
+		if not data_value_flag:
 			if not isinstance(value, Real):
 				raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
 
@@ -240,9 +239,8 @@ class Flow(Process):
 
 		self.boundary_condition_application_domains[bc_id] = application_domain
 
-		data_value = bool(payload.get("data_value", False))
 		description = f"Dirichlet boundary condition '{bc_id}' on {application_domain}"
-		if data_value:
+		if data_value_flag:
 			description += " (data_value=True)"
 
 		return BoundaryCondition(
@@ -255,7 +253,7 @@ class Flow(Process):
 
 	def set_sinks_sources(self, wells_sources: dict):
 		self.sinks_sources.update(wells_sources)
-  
+
 if __name__ == "__main__":
     test = Flow()
     Sy = Parameter(id='Sy', value=0.1, description='Specific yield', units='-', field_type='homogeneous')
@@ -279,4 +277,4 @@ if __name__ == "__main__":
     test.set_initial_conditions({h0.id: h0})
     test.set_boundary_conditions({h_ocean.id: h_ocean, drain.id: drain})
     test.set_sinks_sources({well1.id: well1})
-    
+
