@@ -34,7 +34,7 @@ import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import rasterio
 import geopandas as gpd
-import os, glob, np
+import os, glob
 from PIL import Image
 try:
     import plotly.graph_objects as go
@@ -60,10 +60,10 @@ def plot_cross_section(stable_folder, simulations_folder, model_name, geographic
         fig, ax = plt.subplots(1, 1, figsize=(6,4), dpi=300)
         print(stable_folder)
 
-        mask = imageio.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
+        mask = imageio.v2.imread(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
         watertable_elevation = np.load(os.path.join(simulations_folder, model_name, '_postprocess', 'watertable_elevation.npy'), allow_pickle=True).item()
 
-        dem_data = imageio.imread(geographic.watershed_dem)
+        dem_data = imageio.v2.imread(geographic.watershed_dem)
         wt_data = watertable_elevation[2]
 
         xvalues = np.linspace(-1,1,dem_data.shape[1])
@@ -98,6 +98,7 @@ def plot_cross_section(stable_folder, simulations_folder, model_name, geographic
         ax.set_ylabel('Elevation [m]')
 
         plt.tight_layout()
+        plt.show()
 
 # ============================================================================
 # PLOT STREAMFLOW - WITH DYNAMIC FACTOR PARAMETER
@@ -133,7 +134,7 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
             Qobs = Qobs.resample(resample_freq).mean()
             Qobs = Qobs * factor * 1000
         except Exception as e:
-            print(f"  ⚠ Warning: Could not load observed streamflow: {e}")
+            print(f" Warning: Could not load observed streamflow: {e}")
             Qobs = None
 
     simul_list = sorted(glob.glob(os.path.join(simulations_folder, vers + '*')), key=os.path.getmtime)
@@ -161,7 +162,7 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
                     continue
 
         if Smod is None:
-            print(f"  ⚠ Warning: Could not find timeseries file for {model_name}, skipping...")
+            print(f"Warning: Could not find timeseries file for {model_name}, skipping...")
             plt.close(fig)
             continue
 
@@ -185,6 +186,7 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
         ax.legend(loc='upper left')
         ax.set_title(model_name.upper(), fontsize=10)
         ax.set_ylim(-5, 100)
+        plt.show()
 
 
 # ============================================================================
@@ -252,6 +254,7 @@ def plot_piezometry(geographic, simulations_folder, vers, factor=30):
         axb.invert_yaxis()
         axb.set_yticklabels([0, 100])
         axb.legend(loc='upper right')
+        plt.show()
 
 
 # ============================================================================
@@ -272,18 +275,17 @@ def plot_pathlines( simulations_folder, model_name, stable_folder, geographic):
     im = cm.ScalarMappable(cmap='jet', norm=norm)
     im.set_array([])
 
-    if display_plots:
-        fig, ax = plt.subplots(1,1, figsize=(8,6))
-        rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, cmap='Greys', alpha=0.7, zorder=-10)
-        shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=1, norm=norm, zorder=1)
-        shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5, markersize=20, legend=False, norm=norm, zorder=2, edgecolor='k')
-        line.plot(ax=ax, facecolor='None', edgecolor='k', lw=2, zorder=-1)
-        ax.set_title('Residence times - backward from seepage [y]', fontsize=10)
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
-        fig.colorbar(im, cax=cax, orientation='vertical')
-        fig.tight_layout()
-
+    fig, ax = plt.subplots(1,1, figsize=(8,6))
+    rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform, cmap='Greys', alpha=0.7, zorder=-10)
+    shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=1, norm=norm, zorder=1)
+    shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5, markersize=20, legend=False, norm=norm, zorder=2, edgecolor='k')
+    line.plot(ax=ax, facecolor='None', edgecolor='k', lw=2, zorder=-1)
+    ax.set_title('Residence times - backward from seepage [y]', fontsize=10)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    fig.colorbar(im, cax=cax, orientation='vertical')
+    fig.tight_layout()
+    plt.show()
 
 # ============================================================================
 # PLOT CONCENTRATION - EXACT FROM example12.py lines 851-1050
@@ -306,7 +308,7 @@ def plot_concentration( vers, model_mt3dms, model_modflow, simulations_folder, s
 
     for i in range((model_mt3dms.model_modflow.nper)):
         the_time = i
-        seep = imageio.imread(os.path.join(model_modflow.full_path, f'_postprocess/_rasters/outflow_drain_t({int(the_time)}).tif'))
+        seep = imageio.v2.imread(os.path.join(model_modflow.full_path, f'_postprocess/_rasters/outflow_drain_t({int(the_time)}).tif'))
         concobj_1c_fil_surf[the_time] = concobj_1c_fil[the_time+1][0]
         concobj_1c_fil_surf[the_time] = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf[the_time])
         the_mins.append(np.nanmin(concobj_1c_fil_surf[the_time]))
@@ -367,16 +369,16 @@ def plot_concentration( vers, model_mt3dms, model_modflow, simulations_folder, s
         fig.colorbar(sm, cax=cax, orientation='horizontal', label='[NO3]')
         fig.savefig(figures_dir+vgif_name+'_'+str(i)+'_'+model_modflow.model_name+'.png', dpi=300, bbox_inches='tight')
         plt.close(fig)
-
+        plt.show()
     if plot_gif:
         filenames = sorted(glob.glob(figures_dir + vgif_name + '*.png'), key=os.path.getmtime)
         images = [Image.open(img) for img in filenames]
         images[0].save(figures_dir + '_' + gif_name, save_all=True, append_images=images[1:], duration=200, loop=0)
 
     # PLOT INTERACTIVE
-    dem_data_int = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif'))
-    stream_data_int = imageio.imread(os.path.join(stable_folder,'hydrography','botopage2024_naizin_streams_perennial-intermittent.tif'))
-    watertable_data_int = imageio.imread(os.path.join(simulations_folder,model_modflow.model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif'))
+    dem_data_int = imageio.v2.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif'))
+    stream_data_int = imageio.v2.imread(os.path.join(stable_folder,'hydrography','botopage2024_naizin_streams_perennial-intermittent.tif'))
+    watertable_data_int = imageio.v2.imread(os.path.join(simulations_folder,model_modflow.model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif'))
     from hydromodpy.viz import visualization_results
     visu = visualization_results.Visualization(initializing, geographic, hydrography, model_modflow.model_name)
     visu.interactive_cross_section(dem_data_int, watertable_data_int, stream_data_int, True)
@@ -388,7 +390,7 @@ def plot_2d(initializing, geographic, hydrography, model_name):
     """Plot 2D visualization - EXACT from example12.py"""
     try:
         if hydrography is None:
-            print("  ⚠ Warning: Hydrography data not available, skipping 2D visualization")
+            print(" Warning: Hydrography data not available, skipping 2D visualization")
             return
         visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
         visu.visual2D(object_list=[
@@ -413,7 +415,7 @@ def plot_2d(initializing, geographic, hydrography, model_name):
         ],
         lines=1000)
     except Exception as e:
-        print(f"  ⚠ Error in 2D visualization: {e}")
+        print(f" Error in 2D visualization: {e}")
 
 
 # ============================================================================
@@ -424,7 +426,7 @@ def plot_3d(initializing, geographic, hydrography, model_name):
     """Plot 3D visualization - EXACT from example12.py"""
     try:
         if hydrography is None:
-            print("  ⚠ Warning: Hydrography data not available, skipping 3D visualization")
+            print(" Warning: Hydrography data not available, skipping 3D visualization")
             return
 
         # Create VTU files first (they will be generated if not present)
@@ -566,6 +568,7 @@ def plot_recharge_summary(R_mm_day, r_mm_day, R_mm_day_filt, title="Recharge Ana
     axs[2].set_xlabel('Date')
 
     plt.tight_layout()
+    plt.show()
     if save_path:
         plt.savefig(save_path, dpi=300)
     return fig, axs
