@@ -165,6 +165,8 @@ class Flow(Process):
 		payload = dict(raw_payload)
 		payload.setdefault("id", bc_id)
 		payload.setdefault("description", "")
+		if "units" not in payload and "unit" in payload:
+			payload["units"] = payload["unit"]
 		payload.setdefault("units", "")
 		payload.setdefault("type", "Dirichlet")
 		payload.setdefault("data_value", False)
@@ -211,7 +213,8 @@ class Flow(Process):
 			)
 
 		data_value = bool(drainage_payload.get("data_value", False))
-		units = str(drainage_payload.get("units", "m2/s"))
+		unit = drainage_payload.get("unit", drainage_payload.get("units", "m2/s"))
+		units = str(unit)
 
 		self.boundary_condition_application_domains["drainage"] = application_domain
 
@@ -267,7 +270,8 @@ class Flow(Process):
 		self.boundary_condition_application_domains[bc_id] = application_domain
 
 		data_value = bool(payload.get("data_value", False))
-		units = str(payload.get("units", "m"))
+		unit = payload.get("unit", payload.get("units", "m"))
+		units = str(unit)
 		description = f"Dirichlet boundary condition '{bc_id}' on {application_domain}"
 		if data_value_flag:
 			description += " (data_value=True)"

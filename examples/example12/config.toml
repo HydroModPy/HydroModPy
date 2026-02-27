@@ -363,7 +363,7 @@ type = "cauchy"
 # Conductance value for drainage (Cauchy condition).
 value = 1.0
 # Unit of conductance.
-units = "m2/s"
+unit = "m2/s"
 # Optional flag to use data-derived values instead of fixed value.
 data_value = false
 
@@ -374,7 +374,7 @@ type = "dirichlet"
 # Head value for Dirichlet condition.
 value = 1.0
 # Unit of head.
-units = "m"
+unit = "m"
 data_value = true  # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
 
 [flow.bc.dirichlet.stream]
@@ -384,7 +384,7 @@ type = "dirichlet"
 # Head value for Dirichlet condition.
 value = 1.0
 # Unit of head.
-units = "m"
+unit = "m"
 # Optional flag to use data-derived values instead of fixed value.
 data_value = false
 
