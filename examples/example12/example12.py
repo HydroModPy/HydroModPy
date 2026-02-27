@@ -152,6 +152,15 @@ if __name__ == '__main__':
         "output": hydro_section.get("output", {}),
     }
 
+    # Resolve relative hydrometry export path from config location for portability.
+    output_path = hydro_cfg["output"].get("path")
+    if output_path:
+        output_path_obj = Path(str(output_path)).expanduser()
+        if not output_path_obj.is_absolute():
+            hydro_cfg["output"]["path"] = str(
+                (config_path.parent / output_path_obj).resolve()
+            )
+
     # Inject watershed shapefile created by Geographic as mask for station selection
     selection_mode = hydro_cfg["selection"].get("mode", "mask")
     if selection_mode == "mask":
@@ -623,8 +632,6 @@ if __name__ == '__main__':
                             cross_ylim=setting.cross_ylim,
                             check_grid=setting.check_grid,
                             # Boundary settings
-                            bc_left=setting.bc_left,
-                            bc_right=setting.bc_right,
                             # Climatic settings
                             recharge=climatic.recharge,
                             runoff=climatic.runoff,
@@ -635,7 +642,6 @@ if __name__ == '__main__':
                             nlay=hydraulic.nlay,
                             lay_decay=hydraulic.lay_decay,
                             modflow_config=cfg.modflow,
-                            cond_drain=hydraulic.cond_drain,
                             )
 
     model_modflow.pre_processing() # verbose
