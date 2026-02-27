@@ -38,6 +38,7 @@ from hydromodpy.domain.surface import Surface
 from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
 from hydromodpy.solver.modflow_nwt.modflow_utils import (
     build_flow_domain_property_snapshot,
 )
@@ -142,7 +143,8 @@ class Modflow(Solver):
             Constant aquifer thickness of the the tickness of the model (if bottom is None). The default is 100.
         modflow_config : ModflowConfig | Mapping | None, optional
             Expert MODFLOW-NWT package parameters loaded from
-            `[modflow.runtime]`, `[modflow.process_specific]`, and `[modflow.sgrid]` in TOML.
+            `[modflow.runtime]`, `[modflow.process_specific]`,
+            `[modflow.sgrid]`, and `[modflow.tgrid]` in TOML.
             If None, internal defaults from ModflowConfig are used.
         wells_coord : list
             Inform the outlet coordinates of wells [lay,row,col].
@@ -266,7 +268,9 @@ class Modflow(Solver):
 
         runtime_params = specif_params.runtime
         process_specific_params = specif_params.process_specific
-        self.sgrid_params: dict[str, object] | None = specif_params.sgrid
+        self.sgrid_config: VerticalGridConfig | None = specif_params.sgrid
+        self.tgrid_config = specif_params.tgrid
+        self.tgrid = None
 
         self.mf_version = runtime_params.mf_version
         self.mf_listunit = runtime_params.mf_listunit
@@ -305,22 +309,27 @@ class Modflow(Solver):
         self.vka = process_specific_params.vka
         self.exdp = process_specific_params.exdp
 
-        # Optional early synchronization from modflow.sgrid overrides.
-        if self.sgrid_params is not None:
-            sgrid_nlay = self.sgrid_params.get("nlay")
-            if sgrid_nlay is not None:
-                self.nlay = int(sgrid_nlay)
-            genmtd_lay = self.sgrid_params.get("genmtd_lay")
-            if genmtd_lay == "decay" and self.sgrid_params.get("lay_decay") is not None:
-                self.lay_decay = float(self.sgrid_params.get("lay_decay"))
-            elif genmtd_lay == "constant":
+        # Optional early synchronization from typed [modflow.sgrid].
+        if self.sgrid_config is not None:
+            if self.sgrid_config.nlay is not None:
+                self.nlay = int(self.sgrid_config.nlay)
+            if (
+                self.sgrid_config.genmtd_lay == "decay"
+                and self.sgrid_config.lay_decay is not None
+            ):
+                self.lay_decay = float(self.sgrid_config.lay_decay)
+            elif self.sgrid_config.genmtd_lay == "constant":
                 self.lay_decay = 1.0
-            # Backward compatibility for legacy bottom overrides in [modflow.sgrid].
-            if self.sgrid_params.get("thick") is not None:
-                self.bottom = None
-                self.thick = float(self.sgrid_params.get("thick"))
-            if self.sgrid_params.get("zbot") is not None:
-                self.bottom = float(self.sgrid_params.get("zbot"))
+
+        # Optional synchronization from typed [modflow.tgrid].
+        if self.tgrid_config is not None:
+            if str(sim_state) != str(self.tgrid_config.sim_state):
+                logger.info(
+                    "Overriding sim_state=%s with modflow.tgrid.sim_state=%s",
+                    sim_state,
+                    self.tgrid_config.sim_state,
+                )
+            self.sim_state = str(self.tgrid_config.sim_state)
 
     # %% PRE-PROCESSING
 
@@ -442,8 +451,11 @@ class Modflow(Solver):
 
     def _build_vertical_grid_config(self) -> VerticalGridConfig:
         """
-        Build vertical-grid settings from constructor values and [modflow.sgrid].
+        Build vertical-grid settings, preferring typed [modflow.sgrid] when provided.
         """
+        if self.sgrid_config is not None:
+            return self.sgrid_config
+
         payload: dict[str, object] = {
             "lenuni": "m",
             "nodata": -9999.0,
@@ -455,18 +467,6 @@ class Modflow(Solver):
         else:
             payload["genmtd_lay"] = "constant"
 
-        if self.sgrid_params is not None:
-            for key in (
-                "genmtd_lay",
-                "nlay",
-                "lay_decay",
-                "lay_proportions",
-                "nodata",
-                "lenuni",
-            ):
-                if key in self.sgrid_params:
-                    payload[key] = self.sgrid_params[key]
-
         genmtd_lay = payload.get("genmtd_lay")
         if genmtd_lay != "decay":
             payload.pop("lay_decay", None)
@@ -476,6 +476,41 @@ class Modflow(Solver):
             payload.pop("nlay", None)
 
         return VerticalGridConfig.from_mapping(payload)
+
+    def _build_temporal_grid_config(self):
+        """
+        Build temporal-grid settings, preferring typed [modflow.tgrid] when provided.
+        """
+        if self.tgrid_config is None:
+            return None
+        builder = TMesh_Generation(**self.tgrid_config.to_builder_kwargs())
+        return builder.run()
+
+    def _sync_runtime_time_from_tgrid(self, tgrid) -> None:
+        """
+        Align runtime temporal arrays with the effective TGrid/ModelTime payload.
+        """
+        perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
+        nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
+        steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
+        if perlen.size == 0:
+            raise ValueError("modflow.tgrid produced an empty perlen vector.")
+        if nstp.size != perlen.size:
+            raise ValueError(
+                "modflow.tgrid produced inconsistent nstp/perlen sizes "
+                f"({nstp.size} != {perlen.size})."
+            )
+        if steady.size != perlen.size:
+            raise ValueError(
+                "modflow.tgrid produced inconsistent steady/perlen sizes "
+                f"({steady.size} != {perlen.size})."
+            )
+        self.dis_itmuni = getattr(tgrid, "time_units", self.dis_itmuni)
+        self.nper = int(perlen.size)
+        self.perlen = perlen
+        self.nstp = nstp
+        self.steady = steady
+        self.start_datetime = getattr(tgrid, "start_datetime", None)
 
     def _sync_runtime_grid_from_sgrid(self, sgrid) -> None:
         """
@@ -538,64 +573,82 @@ class Modflow(Solver):
         # %% Discretization
 
         ### Temporal: time step is driven by recharge
+        if self.tgrid_config is None:
+            # Steady state
+            if self.sim_state == "steady":
+                self.nper = 1  # Number of forcing periods (recharge)
+                self.perlen = 1  # Length of period
+                self.nstp = [1]  # Steps in a given period (not used here)
+                self.steady = True  # Steady state
+                self.start_datetime = None
 
-        # Steady state
-        if self.sim_state == "steady":
-            self.nper = 1  # Number of forcing periods (recharge)
-            self.perlen = 1  # Length of period
-            self.nstp = [1]  # Steps in a given period (not used here)
-            self.steady = True  # Steady state
-            self.start_datetime = None
-
-        # Transient state
-        if self.sim_state == "transient":
-            if isinstance(self.recharge, (dict)) == True:
-                self.start_datetime = 0
-            else:
-                self.start_datetime = self.recharge.index[0]  # First date of recharge
-            self.steady = np.zeros(
-                len(self.recharge), dtype=bool
-            )  # Vector of booleans (transient state at each time step)
-            self.steady[0] =True  # Steady state for the first time step (initialization of head values by a steady state)
-            self.nstp = np.ones(len(self.recharge))  # One step per time step
-            self.nper = len(self.recharge)
-            # Definition of period duration (forcing is constant on a period)
-            #       As many periods as recharge values
-            #       Extracts from climatic data the time steps (self.perlen)
-            if self.dis_perlen == True:
-                if isinstance(self.recharge, pd.core.series.Series):
-                    if isinstance(self.recharge.index[0], datetime.datetime):
-                        self.perlen = (
-                            self.recharge.index.to_series()
-                            .diff()
-                            .dt.total_seconds()
-                            .values
-                            / 86400
-                        )  # values converted into float days
-                    else:
-                        self.perlen = self.recharge.index.to_series().diff().values
-            if isinstance(self.dis_perlen, list) == True:
-                self.perlen = self.dis_perlen
-            if self.dis_perlen == False:
-                self.perlen = np.ones(len(self.recharge))
-            if isinstance(self.recharge, (dict)) == True:
-                self.perlen = np.ones(len(self.recharge))
-            # First timestep is steady state:
-            self.perlen[0] = 1
+            # Transient state
+            if self.sim_state == "transient":
+                if isinstance(self.recharge, (dict)) == True:
+                    self.start_datetime = 0
+                else:
+                    self.start_datetime = self.recharge.index[0]  # First date of recharge
+                self.steady = np.zeros(
+                    len(self.recharge), dtype=bool
+                )  # Vector of booleans (transient state at each time step)
+                self.steady[0] =True  # Steady state for the first time step (initialization of head values by a steady state)
+                self.nstp = np.ones(len(self.recharge))  # One step per time step
+                self.nper = len(self.recharge)
+                # Definition of period duration (forcing is constant on a period)
+                #       As many periods as recharge values
+                #       Extracts from climatic data the time steps (self.perlen)
+                if self.dis_perlen == True:
+                    if isinstance(self.recharge, pd.core.series.Series):
+                        if isinstance(self.recharge.index[0], datetime.datetime):
+                            self.perlen = (
+                                self.recharge.index.to_series()
+                                .diff()
+                                .dt.total_seconds()
+                                .values
+                                / 86400
+                            )  # values converted into float days
+                        else:
+                            self.perlen = self.recharge.index.to_series().diff().values
+                if isinstance(self.dis_perlen, list) == True:
+                    self.perlen = self.dis_perlen
+                if self.dis_perlen == False:
+                    self.perlen = np.ones(len(self.recharge))
+                if isinstance(self.recharge, (dict)) == True:
+                    self.perlen = np.ones(len(self.recharge))
+                # First timestep is steady state:
+                self.perlen[0] = 1
 
         ### Sptial: model domain definition and discretization
 
-        top_surface, bottom_surface = self._build_solver_surfaces()
-        self.dem = np.asarray(top_surface.as_array(), dtype=float)
-        self.nrow = self.dem.shape[0]
-        self.ncol = self.dem.shape[1]
+        # Prefer explicit Domain surfaces when available
+        if (
+            self.domain is not None
+            and getattr(self.domain, "surface_topo", None) is not None
+            and getattr(self.domain, "substratum", None) is not None
+        ):
+            top_surface = self.domain.surface_topo
+            bottom_surface = self.domain.substratum
+            top_surface.assert_same_geographic_domain(bottom_surface)
+        else:
+            top_surface, bottom_surface = self._build_solver_surfaces()
 
-        vertical_cfg = self._build_vertical_grid_config()
+        self.dem = np.asarray(top_surface.as_array(), dtype=float)
+        self.nrow, self.ncol = self.dem.shape
+
+        vertical_cfg = (
+            self.modflow_config.sgrid
+            if self.modflow_config.sgrid is not None
+            else self._build_vertical_grid_config()
+        )
         sgrid = StructuredGridBuilder().build_from_surfaces(
             top_surface=top_surface,
             bottom_surface=bottom_surface,
             vertical_config=vertical_cfg,
         )
+        if self.tgrid_config is not None:
+            tgrid = self._build_temporal_grid_config()
+            self.tgrid = tgrid
+            self._sync_runtime_time_from_tgrid(tgrid)
         self._sync_runtime_grid_from_sgrid(sgrid)
         
         # Imposes discretization to modflow model through
