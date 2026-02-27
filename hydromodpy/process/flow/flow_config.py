@@ -150,6 +150,8 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
             if not isinstance(item, Mapping):
                 raise ValueError(f"flow.bc.dirichlet.{key} must be a mapping")
             normalized_item = dict(item)
+            if "units" not in normalized_item and "unit" in normalized_item:
+                normalized_item["units"] = normalized_item["unit"]
             normalized_item.setdefault("data_value", False)
             normalized_item.setdefault("units", "m")
             parsed_dirichlet[key] = normalized_item
@@ -168,6 +170,8 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
             if not isinstance(drainage_item, Mapping):
                 raise ValueError("flow.bc.cauchy.drainage must be a mapping")
             normalized_drainage = dict(drainage_item)
+            if "units" not in normalized_drainage and "unit" in normalized_drainage:
+                normalized_drainage["units"] = normalized_drainage["unit"]
             normalized_drainage.setdefault("data_value", False)
             normalized_drainage.setdefault("units", "m2/s")
             normalized_drainage.setdefault("type", "cauchy")
@@ -187,6 +191,8 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
             if not isinstance(drainage_item, Mapping):
                 raise ValueError("flow.bc.robin.drainage must be a mapping")
             normalized_drainage = dict(drainage_item)
+            if "units" not in normalized_drainage and "unit" in normalized_drainage:
+                normalized_drainage["units"] = normalized_drainage["unit"]
             normalized_drainage.setdefault("data_value", False)
             normalized_drainage.setdefault("units", "m2/s")
             normalized_drainage.setdefault("type", "robin")
@@ -198,6 +204,8 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
     legacy_drainage = bc_cfg.get("drainage")
     if "cauchy" not in parsed and "robin" not in parsed and isinstance(legacy_drainage, Mapping):
         normalized_legacy_drainage = dict(legacy_drainage)
+        if "units" not in normalized_legacy_drainage and "unit" in normalized_legacy_drainage:
+            normalized_legacy_drainage["units"] = normalized_legacy_drainage["unit"]
         normalized_legacy_drainage.setdefault("data_value", False)
         normalized_legacy_drainage.setdefault("units", "m2/s")
         normalized_legacy_drainage.setdefault("type", "cauchy")
