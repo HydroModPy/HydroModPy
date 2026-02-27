@@ -48,7 +48,8 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 import hydromodpy as hmp
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
+from hydromodpy.watershed import Geographic, Initializing, Climatic, \
+    Driasclimat, Driaseau, Hydrometry, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
@@ -228,10 +229,10 @@ subbasin = Subbasin(geographic=geographic,
 
 #%% HYDROMETRY
 
-# hydrometry = Hydrometry(out_path=initializing.catch_folder,
-#                         hydrometry_path=data_path,
-#                         file_name='france hydrometric stations.shp',
-#                         geographic=geographic)
+hydrometry_old = Hydrometry(out_path=initializing.catch_folder,
+                        hydrometry_path=data_path,
+                        file_name='france hydrometric stations.shp',
+                        geographic=geographic)
 
 # Extract hydrometry configuration from raw_toml
 hydro_section = raw_toml.get("hydrometry_stations", {})
@@ -280,6 +281,12 @@ except Exception as _shom_exc:
     print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
     oceanic.update_MSL(0.0)
 
+#%% PIEZOMETRY
+
+#%% LAND COVER
+
+#%% WATER USE
+
 #%% GEOCHEMISTRY
 
 
@@ -297,7 +304,7 @@ visualization_watershed.watershed_dem(initializing=initializing, geographic=geog
 
 # CLICK on the map to select a cross-section !
 dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
-stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','botopage2024_naizin_streams_perennial-intermittent.tif')) # river data
+stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
 interactive = True
 visu = visualization_results.Visualization(initializing,
                                            geographic,

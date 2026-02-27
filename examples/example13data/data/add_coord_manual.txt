@@ -1,2 +1,2 @@
 code_sub;x_outlet;y_outlet
-GhostStation1;161081.680;6851822.504
+GhostStation1;129604.127;6837406.475
