@@ -293,7 +293,7 @@ value = 0.02
 # Depth dependency mode shared over the full domain.
 mode = "exponential"
 # Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
-characteristic_depth = 7.5
+characteristic_depth = 30
 # Optional minimum factor floor for exponential mode:
 # factor = max(exp(-depth/characteristic_depth), min_factor)
 min_factor = 5e-2
@@ -348,6 +348,46 @@ mode = "none"
 # factors = [1.0, 0.8, 0.5]
 # Interpolation strategy for tabulated mode: "linear" or "step".
 # interpolation = "linear"
+
+
+# ----------------------------------------------------------------------
+# Flow boundary conditions (Cauchy/Dirichlet)
+# ----------------------------------------------------------------------
+
+[flow.bc.cauchy.drainage]
+# Domain of application on the model domain boundaries/surfaces.
+# Allowed values: "top", "north side", "west side", "east side", "south side".
+application_domain = "top"
+# Boundary-condition type.
+type = "cauchy"
+# Conductance value for drainage (Cauchy condition).
+value = 1.0
+# Unit of conductance.
+units = "m2/s"
+# Optional flag to use data-derived values instead of fixed value.
+data_value = false
+
+[flow.bc.dirichlet.ocean]
+application_domain = "top"
+#Boundary-condition type.
+type = "dirichlet"
+# Head value for Dirichlet condition.
+value = 1.0
+# Unit of head.
+units = "m"
+data_value = true  # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
+
+[flow.bc.dirichlet.stream]
+application_domain = "top"
+# Boundary-condition type.
+type = "dirichlet"
+# Head value for Dirichlet condition.
+value = 1.0
+# Unit of head.
+units = "m"
+# Optional flag to use data-derived values instead of fixed value.
+data_value = false
+
 
 
 # ----------------------------------------------------------------------
