@@ -161,6 +161,8 @@ if __name__ == '__main__':
 
     climatic = Climatic(out_path=initializing.catch_folder)
 
+    #%% OCEANIC
+
     oceanic = Oceanic()
     oceanic.extract_local_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
@@ -173,6 +175,8 @@ if __name__ == '__main__':
     except Exception as _shom_exc:
         print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
         oceanic.update_MSL(0.0)
+
+    flow.boundary_conditions["ocean"].value = oceanic.MSL
 
     
     #%% WATERSHED OBJECT
@@ -621,7 +625,6 @@ if __name__ == '__main__':
                             cross_ylim=setting.cross_ylim,
                             check_grid=setting.check_grid,
                             # Boundary settings
-                            sea_level=oceanic.MSL,
                             bc_left=setting.bc_left,
                             bc_right=setting.bc_right,
                             # Climatic settings
