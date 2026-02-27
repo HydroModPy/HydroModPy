@@ -6,10 +6,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.config.param_level import ParamLevel
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 
 
 class ModflowRuntimeConfig(BaseModel):
@@ -163,31 +164,20 @@ class ModflowConfig(BaseModel):
         default_factory=ModflowProcessSpecificConfig,
         description="Process-specific package controls (currently UPW/EVT knobs).",
     )
-    sgrid: Annotated[dict[str, object] | None, ParamLevel("user")] = Field(
+    sgrid: Annotated[VerticalGridConfig | None, ParamLevel("user")] = Field(
         default=None,
         description=(
-            "Optional VerticalGridConfig-keyed overrides for structured-grid "
-            "vertical discretization (`genmtd_lay`, `nlay`, `lay_decay`, "
-            "`lay_proportions`, `nodata`, `lenuni`)."
+            "Optional vertical discretization payload as one validated "
+            "`VerticalGridConfig` model."
         ),
     )
-
-    @field_validator("sgrid")
-    @classmethod
-    def _validate_sgrid_override_keys(cls, value):
-        if value is None:
-            return None
-        if not isinstance(value, Mapping):
-            raise ValueError("modflow.sgrid must be a mapping of overrides")
-        payload = dict(value)
-        allowed = set(VerticalGridConfig.model_fields)
-        unknown = sorted(set(payload) - allowed)
-        if unknown:
-            raise ValueError(
-                f"Unknown modflow.sgrid key(s): {', '.join(unknown)}. "
-                f"Allowed keys are: {', '.join(sorted(allowed))}"
-            )
-        return payload
+    tgrid: Annotated[TMeshConfigModel | None, ParamLevel("user")] = Field(
+        default=None,
+        description=(
+            "Optional temporal discretization payload as one validated "
+            "`TMeshConfigModel` model."
+        ),
+    )
 
 def _coerce_modflow_config(
     config: ModflowConfig | Mapping[str, object] | None = None,
@@ -265,7 +255,8 @@ class ModflowSpecifParams:
 
     runtime: ModflowRuntimeParams = ModflowRuntimeParams()
     process_specific: ModflowProcessSpecificParams = ModflowProcessSpecificParams()
-    sgrid: dict[str, object] | None = None
+    sgrid: VerticalGridConfig | None = None
+    tgrid: TMeshConfigModel | None = None
 
     @classmethod
     def from_config(
@@ -279,5 +270,6 @@ class ModflowSpecifParams:
             process_specific=ModflowProcessSpecificParams(
                 **validated.process_specific.model_dump()
             ),
-            sgrid=(dict(validated.sgrid) if validated.sgrid is not None else None),
+            sgrid=validated.sgrid,
+            tgrid=validated.tgrid,
         )
