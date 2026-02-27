@@ -1,16 +1,16 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: expert | Modules: initializing, geographic, domain, flow, modflow
+# Profile: expert | Modules: workspace, geographic, domain, data, flow, modflow
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
 # ======================================================================
 
 
 # ----------------------------------------------------------------------
-# Initialization configuration for watershed project structure.
+# Workspace configuration for watershed project structure.
 # ----------------------------------------------------------------------
 
-[initializing]
+[workspace]
 # Name of the watershed/catchment (used as folder name).
 # Type: string | REQUIRED
 catch_name = "example12"
@@ -40,7 +40,7 @@ catch_def = "from_outlet_coord"
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
 # Type: Union[str, NoneType] | Optional
-dem_init_path = "data/regional dem.tif"
+dem_init_path = "../../data/Brittany/dem/regional dem.tif"
 
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.
@@ -108,10 +108,43 @@ zone_ids = ["geology"]
 
 
 # ----------------------------------------------------------------------
-# Geology configuration nested under domain.
+# Domain vertical model configuration.
 # ----------------------------------------------------------------------
 
-[domain.geology]
+[domain.depth_model]
+# Depth-model type selector.
+# Use 'constant_thickness' to define bottom as top-thickness.
+# Type: Literal['constant_thickness', 'flat_substratum'] | one of: "constant_thickness", "flat_substratum" | Default: "constant_thickness"
+type = "constant_thickness"
+
+# Constant aquifer thickness (m) applied below topography.
+# Used when type="constant_thickness".
+# Type: float | > 0.0 | Default: 50.0
+thickness = 50.0
+
+# Flat substratum elevation (m) applied over the full domain.
+# Used when type="flat_substratum".
+# Must be strictly below topography on all DEM cells.
+# Type: float | Default: 0.0
+# substratum_elevation = 0.0
+
+
+# ----------------------------------------------------------------------
+# Data managers configuration.
+# ----------------------------------------------------------------------
+
+[data]
+# Ordered list of active data-manager types.
+# Allowed values: "geology", "hydrography", "hydrometry",
+# "intermittency", "oceanic", "piezometry".
+types = ["geology"]
+
+
+# ----------------------------------------------------------------------
+# Geology configuration (nested under [data.geology]).
+# ----------------------------------------------------------------------
+
+[data.geology]
 # Identifier of the geology spatial field.
 # Type: string | Default: "field_geology"
 id = "field_geology"
@@ -351,7 +384,7 @@ mode = "none"
 
 
 # ----------------------------------------------------------------------
-# Flow boundary conditions (Cauchy/Dirichlet)
+# Flow boundary conditions (Cauchy/Dirichlet/Neumann)
 # ----------------------------------------------------------------------
 
 [flow.bc.cauchy.drainage]
@@ -360,8 +393,9 @@ mode = "none"
 application_domain = "top"
 # Boundary-condition type.
 type = "cauchy"
-# Conductance value for drainage (Cauchy condition).
-value = 1.0
+# Conductance value for drainage (Cauchy condition). 
+# if value = 0, conductance is related to hydraulic conductivity 
+value = 0
 # Unit of conductance.
 unit = "m2/s"
 # Optional flag to use data-derived values instead of fixed value.
@@ -375,7 +409,8 @@ type = "dirichlet"
 value = 1.0
 # Unit of head.
 unit = "m"
-data_value = true  # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
+# Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
+data_value = true
 
 [flow.bc.dirichlet.stream]
 application_domain = "top"
@@ -390,11 +425,13 @@ data_value = false
 
 
 
+
+
 # ----------------------------------------------------------------------
 # MODFLOW expert configuration
 # ----------------------------------------------------------------------
 
-[modflow]
+[modflow.runtime]
 # MODFLOW executable/version identifier passed to FloPy.
 mf_version = "mfnwt"
 # Fortran unit number used for the MODFLOW list file.
@@ -458,7 +495,20 @@ lmt_extension = "lmt8"
 # LMT file format.
 lmt_output_format = "unformatted"
 
+[modflow.process_specific]
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 vka = 1.0
 # Extinction depth used by the EVT package (EXDP).
 exdp = 1.0
+
+[modflow.sgrid]
+# Length unit label propagated to FloPy (for example 'm').
+lenuni = "m"
+# Vertical-layering method.
+genmtd_lay = "decay"
+# Number of model layers for constant/decay layering.
+nlay = 10
+# Decay exponent (>1) for progressively thicker layers with depth.
+lay_decay = 1.2
+# No-data sentinel value used to mask invalid raster cells.
+nodata = -9999.0
