@@ -283,6 +283,8 @@ except Exception as _shom_exc:
 
 #%% PIEZOMETRY
 
+
+
 #%% LAND COVER
 
 #%% WATER USE
@@ -306,11 +308,44 @@ visualization_watershed.watershed_dem(initializing=initializing, geographic=geog
 dem_data = imageio.imread(os.path.join(stable_folder,'geographic','watershed_box_buff_dem.tif')) # dem data
 stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','regional stream network.tif')) # river data
 interactive = True
-visu = visualization_results.Visualization(initializing,
-                                           geographic,
-                                           hydrography,
-                                           )
-visu.interactive_cross_section(dem_data,
-                               interactive)
+# visu = visualization_results.Visualization(initializing,
+#                                            geographic,
+#                                            hydrography,
+#                                            )
+# visu.interactive_cross_section(dem_data,
+#                                interactive)
+
+#%% ---- SQL
+
+import sqlite3
+
+# Créer / connecter à la base
+conn = sqlite3.connect("ma_base.db")
+cursor = conn.cursor()
+
+# Créer une table
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS utilisateurs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT,
+    age INTEGER
+)
+""")
+
+conn.commit()
+
+# Ajouter des données
+cursor.execute("INSERT INTO utilisateurs (nom, age) VALUES (?, ?)", ("Alice", 25))
+cursor.execute("INSERT INTO utilisateurs (nom, age) VALUES (?, ?)", ("Bob", 30))
+
+conn.commit()
+
+cursor.execute("SELECT * FROM utilisateurs")
+resultats = cursor.fetchall()
+
+for ligne in resultats:
+    print(ligne)
+
+conn.close()
 
 #%% ---- NOTES
