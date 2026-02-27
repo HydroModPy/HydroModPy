@@ -80,7 +80,7 @@ with config_path.open('rb') as f:
 if __name__ == '__main__':
 
     # Test overrides via env vars
-    if os.environ.get("HYDROMODPY_OUT_PATH")
+    if os.environ.get("HYDROMODPY_OUT_PATH"):
         out_path = Path(os.environ["HYDROMODPY_OUT_PATH"])
     display_plots = os.environ.get("HYDROMODPY_NO_DISPLAY") != "1"
     display_3D = display_plots
