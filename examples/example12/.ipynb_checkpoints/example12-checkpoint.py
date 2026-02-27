@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Fri Mar 21 10:39:38 2025
 
@@ -10,7 +10,6 @@ Created on Fri Mar 21 10:39:38 2025
 # Libraries installed by default
 import sys
 import os
-import tomllib
 from pathlib import Path
 
 from flopy import run_model
@@ -48,39 +47,31 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 import hydromodpy as hmp
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Geographic, Workspace, Climatic, Driasclimat, Driaseau, \
-    Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
+from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
+    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
-from hydromodpy.data_managers.hydrometry.station_set import StationSet
-from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.domain import (
-    Domain,
-)
-from hydromodpy.data_managers import DataManagers
-from hydromodpy.data_managers.geology.geology_field import GeologyField
+from hydromodpy.domain import Domain, Surfaces
 from hydromodpy.process import Flow
-from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
+from hydromodpy.solver.modflow import Modflow
+from hydromodpy.modeling.modpath import Modpath
+from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
-config_path = Path(__file__).parent / "config.toml"
-cfg = HydroModPyConfig.from_toml(config_path)
-out_path = cfg.workspace.out_dir_path
-
-with config_path.open('rb') as f:
-    raw_toml = tomllib.load(f)
+cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
+out_path = cfg.initializing.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
 
 if __name__ == '__main__':
 
     # Test overrides via env vars
-    if os.environ.get("HYDROMODPY_OUT_PATH"):
+    if os.environ.get("HYDROMODPY_OUT_PATH")
         out_path = Path(os.environ["HYDROMODPY_OUT_PATH"])
     display_plots = os.environ.get("HYDROMODPY_NO_DISPLAY") != "1"
     display_3D = display_plots
@@ -88,26 +79,19 @@ if __name__ == '__main__':
     wbt = whitebox.WhiteboxTools()
     wbt.verbose = False
 
-    cfg.workspace.out_dir_path = out_path
-    watershed_name = cfg.workspace.catch_name
+    cfg.initializing.out_dir_path = out_path
+    watershed_name = cfg.initializing.catch_name
     print('##### '+watershed_name.upper()+' #####')
 
-    data_path = cfg.workspace.data_path
+    data_path = cfg.initializing.data_path
 
-    workspace = hmp.Workspace(config=cfg.workspace)
-    geographic = hmp.Geographic(cfg.geographic, workspace)
-    surface_topo = geographic.get_domain_surface_topo()
+    initializing = hmp.Initializing(config=cfg.initializing)
+    geographic   = hmp.Geographic(config=cfg.geographic,
+                              initializing=initializing)
     domain = Domain(
         config=cfg.domain,
-        surface_topo=surface_topo,
+        geographic=geographic,
     )
-    data_managers = DataManagers.from_config(cfg.data)
-    if "geology" in data_managers.types:
-        geology = GeologyField.from_watershed_config(
-            cfg.data.geology,
-            raster_support=surface_topo.support,
-        )
-        domain.set_zone("geology", geology)
     flow = Flow(config=cfg.flow)
 
     setting = Settings()
@@ -122,7 +106,7 @@ if __name__ == '__main__':
 
     area = int(round(geographic.catch_area))
 
-    hydrography = Hydrography(out_path=workspace.catch_folder,
+    hydrography = Hydrography(out_path=initializing.catch_folder,
                                                    types_obs=['botopage2024_naizin_streams_perennial-intermittent'],
                                                    fields_obs=['FID'],
                                                    geographic=geographic,
@@ -133,52 +117,24 @@ if __name__ == '__main__':
                         hydrometry=None,
                         intermittency=None,
                         add_path=data_path,
-                        out_path=workspace.catch_folder,
+                        out_path=initializing.catch_folder,
                         sub_snap_dist=50)
+    hydrometry = Hydrometry(out_path=initializing.catch_folder,
+                            hydrometry_path=data_path,
+                            file_name='france hydrometric stations.shp',
+                            geographic=geographic)
 
-    # hydrometry = Hydrometry(out_path=workspace.catch_folder,
-    #                         hydrometry_path=data_path,
-    #                         file_name='france hydrometric stations.shp',
-    #                         geographic=geographic)
-
-    # Extract hydrometry configuration from raw_toml
-    hydro_section = raw_toml.get("hydrometry_stations", {})
-
-    hydro_cfg = {
-        "hydrometry": {k: v for k, v in hydro_section.items()
-                    if k not in ["source", "selection", "output"]},
-        "source": hydro_section.get("source", {}),
-        "selection": hydro_section.get("selection", {}),
-        "output": hydro_section.get("output", {}),
-    }
-
-    # Inject watershed shapefile created by Geographic as mask for station selection
-    selection_mode = hydro_cfg["selection"].get("mode", "mask")
-    if selection_mode == "mask":
-        hydro_cfg["selection"]["mask_path"] = geographic.watershed_shp
-        print(f"Hydrometry: Loading stations from watershed mask: {geographic.watershed_shp}")
-
-    # Load stations with error handling
-    try:
-        hydrometry = StationSet.from_config(hydro_cfg)
-    except ValueError as e:
-        print(f"Warning: Hydrometry loading failed - {e}")
-        print("Continuing without hydrometric stations...")
-        hydrometry = None
-
-    intermittency = Intermittency(out_path=workspace.catch_folder,
+    intermittency = Intermittency(out_path=initializing.catch_folder,
                                   intermittency_path=data_path,
                                   file_name='regional onde stations.shp',
                                   geographic=geographic)
 
     #%% CLIMATIC
 
-    climatic = Climatic(out_path=workspace.catch_folder)
-
-    #%% OCEANIC
+    climatic = Climatic(out_path=initializing.catch_folder)
 
     oceanic = Oceanic()
-    oceanic.extract_local_data(out_path=workspace.catch_folder,
+    oceanic.extract_local_data(out_path=initializing.catch_folder,
                                  geographic=geographic,
                                  oceanic_path=data_path)
     try:
@@ -190,42 +146,34 @@ if __name__ == '__main__':
         print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
         oceanic.update_MSL(0.0)
 
-    flow.boundary_conditions["ocean"].value = oceanic.MSL
-
+    
     #%% WATERSHED OBJECT
 
-    stable_folder      = cfg.workspace.stable_folder
-    simulations_folder = cfg.workspace.simulations_folder
-    calibration_folder = workspace.calibration_folder # necessary for plots
+    stable_folder      = cfg.initializing.stable_folder
+    simulations_folder = cfg.initializing.simulations_folder
+    calibration_folder = initializing.calibration_folder # necessary for plots
+
+    #%% SURFACE
+
+    thickness = 50
+    surfaces_object = Surfaces(aquifer_top = geographic.dem_box_buff_data,
+                               aquifer_bottom = geographic.dem_box_buff_data - thickness)
+    aquifer_top = surfaces_object.aquifer_top
+    aquifer_bottom = surfaces_object.aquifer_bottom
 
     #%% VISUALIZATION
 
-    visualization_watershed.watershed_local(cfg.geographic.dem_init_path, workspace, geographic)
-    visualization_watershed.watershed_dem(
-        workspace,
-        geographic,
-        hydrography=hydrography,
-        piezometry=None,
-        intermittency=intermittency,
-        hydrometry=hydrometry,
-    )
+    visualization_watershed.watershed_local(cfg.geographic.dem_init_path, initializing, geographic)
+    visualization_watershed.watershed_dem(initializing=initializing, geographic=geographic, hydrography=hydrography, piezometry=None, intermittency=intermittency, hydrometry=hydrometry)
 
     # Add hydrological data
-
+    
     #%% ---- ATMOSPHERE
-
-
-    #%% ---- PYHELP
-
-    pyhelp_activated = False
-    if pyhelp_activated == True:
-
-        #%% INIT
-
-        # ATMOSPHERE : Necessary to set model parameters
+    
+    # Necessary to set model parameters
 
     # climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
-    #                                        nc_data_path=Path(workspace.catch_folder) / 'results_stable' / 'climatic',
+    #                                        nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
     #                                        first_year=2003,
     #                                        last_year=2003,
     #                                        time_step='ME',
@@ -234,56 +182,59 @@ if __name__ == '__main__':
     #                                        geographic=geographic,
     #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
     #                                                                 # can be a shapefile path or a flag: 'watershed' or False
-
+    
     #%% ---- PYHELP
-
+    
+    pyhelp_activated = False
+    if pyhelp_activated == True:
+    
         #%% INIT
-
+    
         print("test")
-
-        pyhelp_workdir = Path(cfg.workspace.out_dir_path) / watershed_name / "results_pyhelp"
+    
+        pyhelp_workdir = Path(cfg.initializing.out_dir_path) / watershed_name / "results_pyhelp"
         pyhelp_workdir.mkdir(parents=True, exist_ok=True)
-
+    
         sim2_file_precip = 'x' # ton netcdf propre, mettre celui de poschqivo dqns "data"
         sim2_file_temp = 'x' # ton netcdf propre
         sim2_file_sr = 'x' # ton netcdf propre
-
-        # Peut-Ãªtre ajouter Ã  config.toml
-
+        
+        # Peut-être ajouter à config.toml 
+        
         dem_path_modflow = geographic.watershed_box_buff_dem # pqth du dem modflow
-        dem_path_pyhelp = os.path.join(workspace.stable_folder, "geographic", "watershed_box_buff_dem_250.tif")
-
+        dem_path_pyhelp = os.path.join(initializing.stable_folder, "geographic", "watershed_box_buff_dem_250.tif")
+    
         wbt.resample(dem_path_modflow, dem_path_pyhelp, 250)
         shapefile_path = geographic.watershed_shp
-
+    
         # Ready climatic CSVs
         # ready_csvs = [
         #     os.path.join(era5_folder, "precip_input_data.csv"),
         #     os.path.join(era5_folder, "airtemp_input_data.csv"),
         #     os.path.join(era5_folder, "solrad_input_data.csv")
         # ]
-
+    
         #### If already completed grid:
         grid_base_csv = Path(data_path, "_init_input_grid_base1", "input_grid_base1.csv")
-
+        
         #%% PATH
-
+    
         pyhelp_workdir = os.path.join(out_path, watershed_name, "results_pyhelp")
         era5_folder = os.path.join(data_path)
-
+    
         ### If already completed grid:
         grid_base_csv = data_path+"/"+"_init_input_grid_base1/"+"input_grid_base1.csv"
-
+    
         ready_csvs = [
             os.path.join(era5_folder, "precip_input_data.csv"),
             os.path.join(era5_folder, "airtemp_input_data.csv"),
             os.path.join(era5_folder, "solrad_input_data.csv")
         ]
-
+    
         #%% RUN
-
+    
         option = '3'
-
+        
         grid_kwargs = dict(
                            growth_start=140,
                            growth_end=280,
@@ -302,11 +253,11 @@ if __name__ == '__main__':
                            dist_dr1=50,
                            slope1=35
                            )
-
+    
         # cid                             Unique cell ID
         # lat_dd                          Decimal degrees Latitude of the cell centroid
         # lon_dd                          Decimal degrees Longitude of the cell centroid
-
+    
         # wind            km/h            Average annual wind speed
         # hum1            %               Average quarterly relative humidity (Jan to Mar)
         # hum2            %               Average quarterly relative humidity (Apr to Jun)
@@ -314,11 +265,11 @@ if __name__ == '__main__':
         # hum4            %               Average quarterly relative humidity (Oct to Dec)
         # growth_start    julian day      First day of the growing season
         # growth_end      julian day      Last day of the growing season
-        # LAI             â€“               Maximum leaf area index
+        # LAI             –               Maximum leaf area index
         # EZD             cm              Evaporative zone depth
-        # CN              â€“               Curve Number
-        # nlayer          â€“               Number of hydrostratigraphic layers at cell cid
-        # lay_type{i}     â€“               Type of HELP layer of the ith soil layer
+        # CN              –               Curve Number
+        # nlayer          –               Number of hydrostratigraphic layers at cell cid
+        # lay_type{i}     –               Type of HELP layer of the ith soil layer
         # thick{i}        cm              Thickness of the ith soil layer
         # poro{i}         m3/m3           Total porosity of the ith soil layer
         # fc{i}           m3/m3           Field capacity of the ith soil layer
@@ -326,22 +277,22 @@ if __name__ == '__main__':
         # ksat            cm/s            Saturated hydraulic conductivity of the ith soil layer
         # dist_dr         m               Distance to discharge
         # slope           %               Average slope
-
-        # run             â€“               Identify cells to be run with the HELP model
-        # context         â€“               Identify cells by context:
+    
+        # run             –               Identify cells to be run with the HELP model
+        # context         –               Identify cells by context:
         #     0 - Water cell
         #     1 - Normal cell
         #     2 - Stream edge with superficial hypodermic runoff
         #     3 - River edge with deep hypodermic runoff
         #     4 - Urban cell
         #     5 - Cell not mapped
-
+    
         sim_name = "_sim_"
         sim_dir = pyhelp_workdir / sim_name
         sim_dir.mkdir(parents=True, exist_ok=True)
-
+    
         # if option == '1':
-
+    
         #     #---- Input climatic ready - Input grid updated:
         #     nc = preprocessing_pyhelp(
         #         workdir = os.path.join(pyhelp_workdir, f"_sim_{k}"),
@@ -352,11 +303,11 @@ if __name__ == '__main__':
         #         shapefile = from_shp[0],
         #     )
         #     # print("NetCDF :", nc)
-
+    
         # if option == '2':
-
+    
         #     #---- Input climatic ready - Input grid ready:
-
+    
         #     nc = preprocessing_pyhelp(
         #         workdir = pyhelp_workdir,
         #         outpath = simulations_folder,
@@ -364,9 +315,9 @@ if __name__ == '__main__':
         #         ready_csvs = ready_csvs,
         #     )
         #     # print("NetCDF :", nc)
-
+      
         if option == '3':
-
+    
             #---- Input climatic updated - Input grid updated:
             nc = preprocessing_pyhelp(
                 workdir = pyhelp_workdir,
@@ -377,39 +328,60 @@ if __name__ == '__main__':
                 conda_env   = "pyhelp_env",
             )
             # print("NetCDF :", nc)
-
+    
         #%% FORMATING
-
+    
         name_sim = sim_name
-
+    
         csv_path = pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean.csv"
-
+    
         df = pd.read_csv(csv_path)
         df = df.rename(columns={df.columns[0]: "time"})
         formatted_csv_path =  pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean_formatted.csv"
         df.to_csv(formatted_csv_path, index=False)
-
+    
         #%% SCALING
-
+    
         nc_path  = pyhelp_workdir + '/' + name_sim + "/_pyhelp_outputs_grid.nc"
         dem_path = stable_folder + "/geographic/watershed_box_buff_dem.tif"
-
+    
         ds  = xr.open_dataset(nc_path)
         dem = rxr.open_rasterio(dem_path)
-
+    
         R = ds["rechg"]
         R = R.rio.write_crs(dem.rio.crs)
-
+    
         Rt   = R.rio.reproject_match(dem, nodata=0.0)
         cube = Rt.values / 1000
-
+    
         recharge_dict = {i: cube[i] for i in range(cube.shape[0])}
-
+        
         rech_dict = "ton netcdf importe"
+    
+    #%% ---- DATA SIM2
 
-    #%% ---- RECHARGE
+    # climatic.update_sim2_reanalysis(var_list=['runoff', 'recharge'],
+    #                                        nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+    #                                        first_year=2003,
+    #                                        last_year=2003,
+    #                                        time_step='ME',
+    #                                        sim_state='transient',
+    #                                        spatial_mean=True,
+    #                                        geographic=geographic,
+    #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
+    #                                                                 # can be a shapefile path or a flag: 'watershed' or False
 
-    #%% DATA SAFRAN-ISBA
+    # # # # Units
+    # climatic.t = climatic.t / 1000 # from mm to m
+    # climatic.precip = climatic.precip / 1000 # from mm to m
+    # climatic.etp = climatic.etp / 1000 # from mm to m
+    # climatic.runoff = climatic.runoff / 1000 # from mm to m
+    # climatic.recharge = climatic.recharge / 1000 # from mm to m
+    
+    # R_mm_day = climatic.recharge
+    # r_mm_day = climatic.runoff
+
+    #%% ---- DATA SAFRAN-ISBA
 
     climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                         clim_mod='REA',
@@ -434,8 +406,6 @@ if __name__ == '__main__':
     R_mm_day = climatic.recharge
     r_mm_day = climatic.runoff
 
-    #%% SYNTHETIC RECHARGE
-
     R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
     R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
     R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
@@ -443,7 +413,7 @@ if __name__ == '__main__':
     # plt.plot(R_mm_day_filt)
 
     R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
-
+    
     if display_plots:
         fig, axs = plt.subplots(3,1, figsize=(8,8), sharex=True)
         axs = axs.ravel()
@@ -496,7 +466,7 @@ if __name__ == '__main__':
 
     #%% A - MODFLOW
 
-    workspace.calibration_folder = calibration_folder
+    initializing.calibration_folder = calibration_folder
 
     box = True # or False
     sink_fill = False # or True
@@ -521,13 +491,14 @@ if __name__ == '__main__':
     bc_left = None # or value
     bc_right = None # or value
     zone_partic = 'domain' # or watershed
+    vka = 1
     bottom = 0
     thickness = 100
     Klog_transf = False
 
     # Recharge
     # rec = R_mm_day
-    # run = r_mm_day
+    # run = r_mm_day    
     rec = R_mm_day_filt[:] / 1000
     run = rec * 0.1
     first_clim = 'mean'
@@ -546,6 +517,7 @@ if __name__ == '__main__':
     hydraulic.update_sy_decay(sy_decay)
     hydraulic.update_ss(ss)
     hydraulic.update_ss_decay(ss_decay)
+    hydraulic.update_vka(vka)
     hydraulic.update_hk_vertical(verti_hk) # here for lays [ [1e-5m/s, [0, 20m]]
     hydraulic.update_sy_vertical(verti_sy)
     hydraulic.update_ss_vertical(verti_ss)
@@ -568,17 +540,13 @@ if __name__ == '__main__':
     the_K0 = 5e-5*24*3600
     hydraulic.update_hk(the_K0) # 3D
     Kmin_for_hk_decay = 1e-8*24*3600
-    hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay,
-                              log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
+    hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
 
     # the_sy0 = 0.1/100 #
     the_sy0 = 2/100 #
     hydraulic.update_sy(the_sy0)
     Symin_for_sy_decay = 0.1/100
-    hydraulic.update_sy_decay((1/alpha)/n_factor, # change in : (1/alpha/n_factor)
-                              min_value=Symin_for_sy_decay,
-                              log_transf=Klog_transf,
-                              grad_elev=[93,136,-20]) # 0
+    hydraulic.update_sy_decay((1/alpha)/n_factor, min_value=Symin_for_sy_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
     # hydraulic.update_sy_decay(0) # 0
 
     the_ss0 = 1e-10
@@ -600,16 +568,16 @@ if __name__ == '__main__':
 
     for_calib = False
     if for_calib == False:
-            model_folder = workspace.simulations_folder
+            model_folder = initializing.simulations_folder
     else:
-        model_folder = workspace.calibration_folder
+        model_folder = initializing.calibration_folder
     model_modflow = Modflow(geographic,
                             flow=flow,
                             domain=domain,
                             # Workflow settings
                             model_folder=model_folder,   # self.simulations_folder
                             model_name=setting.model_name,
-                            bin_path=workspace.bin_path,
+                            bin_path=initializing.bin_path,
                             # Model settings
                             box=setting.box,
                             sink_fill=setting.sink_fill,
@@ -623,6 +591,7 @@ if __name__ == '__main__':
                             cross_ylim=setting.cross_ylim,
                             check_grid=setting.check_grid,
                             # Boundary settings
+                            sea_level=oceanic.MSL,
                             bc_left=setting.bc_left,
                             bc_right=setting.bc_right,
                             # Climatic settings
@@ -634,9 +603,18 @@ if __name__ == '__main__':
                             thick=hydraulic.thick,
                             nlay=hydraulic.nlay,
                             lay_decay=hydraulic.lay_decay,
-                            modflow_config=cfg.modflow,
+                            hk_value=hydraulic.hk_value,
+                            sy_value=hydraulic.sy_value,
+                            ss_value=hydraulic.ss_value,
+                            hk_decay=hydraulic.hk_decay,
+                            sy_decay=hydraulic.sy_decay,
+                            ss_decay=hydraulic.ss_decay,
+                            verti_hk=hydraulic.verti_hk,
+                            verti_sy=hydraulic.verti_sy,
+                            verti_ss=hydraulic.verti_ss,
                             cond_drain=hydraulic.cond_drain,
-                            )
+                            vka=hydraulic.vka,
+                            exdp=hydraulic.exdp)
 
     model_modflow.pre_processing() # verbose
 
@@ -648,7 +626,7 @@ if __name__ == '__main__':
     dictio = {}
     dictio['list_model_name'] = list_model_name
     dictio['list_model_modflow'] = list_model_modflow
-    pickle_file = os.path.join(workspace.simulations_folder, model_name, 'results_'+model_name+'.pkl')
+    pickle_file = os.path.join(initializing.simulations_folder, model_name, 'results_'+model_name+'.pkl')
     with open(pickle_file, 'wb') as f:
         pickle.dump(dictio, f)
 
@@ -680,17 +658,17 @@ if __name__ == '__main__':
                                             intermittency_monthly = True,
                                             intermittency_yearly=False) # or None
 
-    iter_results = MatchingStreams(geographic, hydrography, workspace, iteration_label=model_name, from_calib=False)
+    iter_results = MatchingStreams(geographic, hydrography, initializing, iteration_label=model_name, from_calib=False)
 
-    # obs_to_sim = gpd.read_file(os.path.join(workspace.calibration_folder, model_name, '_matchingstreams','obs_pt.shp'))
-    # obs_to_simf = gpd.read_file(os.path.join(workspace.calibration_folder, model_name, '_matchingstreams','obs_ptf.shp'))
-    # obsf_to_sim = gpd.read_file(os.path.join(workspace.calibration_folder, model_name, '_matchingstreams','obsflow.shp'))
-    obsf_to_simf = gpd.read_file(os.path.join(workspace.simulations_folder, model_name, '_matchingstreams','obsflowf.shp'))
+    # obs_to_sim = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','obs_pt.shp'))
+    # obs_to_simf = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','obs_ptf.shp'))
+    # obsf_to_sim = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','obsflow.shp'))
+    obsf_to_simf = gpd.read_file(os.path.join(initializing.simulations_folder, model_name, '_matchingstreams','obsflowf.shp'))
 
-    # sim_to_obs = gpd.read_file(os.path.join(workspace.calibration_folder, model_name, '_matchingstreams','sim_pt.shp'))
-    # sim_to_obsf = gpd.read_file(os.path.join(workspace.calibration_folder, model_name, '_matchingstreams','sim_ptf.shp'))
-    # simf_to_obs = gpd.read_file(os.path.join(workspace.calibration_folder, model_name, '_matchingstreams','simflow.shp'))
-    simf_to_obsf = gpd.read_file(os.path.join(workspace.simulations_folder, model_name, '_matchingstreams','simflowf.shp'))
+    # sim_to_obs = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','sim_pt.shp'))
+    # sim_to_obsf = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','sim_ptf.shp'))
+    # simf_to_obs = gpd.read_file(os.path.join(initializing.calibration_folder, model_name, '_matchingstreams','simflow.shp'))
+    simf_to_obsf = gpd.read_file(os.path.join(initializing.simulations_folder, model_name, '_matchingstreams','simflowf.shp'))
 
     # mean_obs_to_sim = np.nanmean(obs_to_sim[obs_to_sim['VALUE1']>=0]['VALUE1'])
     # mean_obs_to_simf = np.nanmean(obs_to_simf[obs_to_simf['VALUE1']>=0]['VALUE1'])
@@ -860,7 +838,7 @@ if __name__ == '__main__':
 
     #%% B - MODPATH
 
-    list_folder = glob.glob(os.path.join(str(workspace.simulations_folder), vers+'*'))
+    list_folder = glob.glob(os.path.join(str(initializing.simulations_folder), vers+'*'))
 
     model_name = list_folder[0].split(os.path.sep)[-1]
 
@@ -874,11 +852,11 @@ if __name__ == '__main__':
     model_modflow = list_flow_model[0]
 
     # Prepare particle tracking from seepage inside the catchment studied
-    tif_seep = os.path.join(workspace.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
-    tif_seep_clip = os.path.join(workspace.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
+    tif_seep = os.path.join(initializing.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
+    tif_seep_clip = os.path.join(initializing.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
     wbt.clip_raster_to_polygon(
         tif_seep,
-        os.path.join(workspace.stable_folder, 'geographic', 'watershed.shp'),
+        os.path.join(initializing.stable_folder, 'geographic', 'watershed.shp'),
         tif_seep_clip,
         maintain_dimensions=True)
 
@@ -896,16 +874,16 @@ if __name__ == '__main__':
                                     )
 
     if for_calib == False:
-        model_folder = workspace.simulations_folder
+        model_folder = initializing.simulations_folder
     else:
-        model_folder = workspace.calibration_folder
+        model_folder = initializing.calibration_folder
 
     model_modpath = Modpath(geographic,
                                     model_modflow,
                                     # Frame settings
                                     model_folder = model_folder,
                                     model_name = model_modflow.model_name,
-                                    bin_path = workspace.bin_path,
+                                    bin_path = initializing.bin_path,
                                     # Specific settings
                                     zone_partic = setting.zone_partic,
                                     cell_div = setting.cell_div,
@@ -980,7 +958,7 @@ if __name__ == '__main__':
 
     #%% PLOT 2D
 
-    visu = visualization_results.Visualization(workspace, geographic, hydrography, model_name)
+    visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
     if display_plots:
         visu.visual2D(object_list = [
                                     'map',
@@ -1006,9 +984,9 @@ if __name__ == '__main__':
                                     )
 
     #%% PLOT 3D
-    export_vtuvtk.VTK(workspace,geographic, hydrography, model_name)
+    export_vtuvtk.VTK(initializing,geographic, hydrography, model_name)
     if display_3D==True:
-        visu = visualization_results.Visualization(workspace,geographic, hydrography, model_name)
+        visu = visualization_results.Visualization(initializing,geographic, hydrography, model_name)
         if display_plots:
             visu.visual3D(interactive=True, object_list=[
                                                         'grid',
@@ -1026,7 +1004,7 @@ if __name__ == '__main__':
 
     #%% C - MT3DMS
 
-    list_folder = glob.glob(os.path.join(str(workspace.simulations_folder), vers+'*'))
+    list_folder = glob.glob(os.path.join(str(initializing.simulations_folder), vers+'*'))
 
     model_name = list_folder[0].split(os.path.sep)[-1]
 
@@ -1064,9 +1042,9 @@ if __name__ == '__main__':
     scenario = 's1'
 
     if for_calib == False:
-        model_folder = workspace.simulations_folder
+        model_folder = initializing.simulations_folder
     else:
-        model_folder = workspace.calibration_folder
+        model_folder = initializing.calibration_folder
     suffix_name = '_mt_'+scenario
     model_mt3dms = Mt3dms(geographic,
                         model_modflow,
@@ -1074,7 +1052,7 @@ if __name__ == '__main__':
                         model_folder = model_folder,
                         model_name = model_modflow.model_name,
                         suffix_name = suffix_name,
-                        bin_path = workspace.bin_path,
+                        bin_path = initializing.bin_path,
                         # Specific settings
                         spc_name = transport.spc_name,
                         sconc_init = transport.sconc_init,
@@ -1115,7 +1093,7 @@ if __name__ == '__main__':
     #%% PLOT CONCENTRATION
 
     if display_plots:
-        # CrÃ©er le GIF Ã  la fin du processus
+        # Créer le GIF à la fin du processus
         vgif_name = vers
         gif_name = vgif_name+'.gif'
 
@@ -1161,10 +1139,10 @@ if __name__ == '__main__':
 
         concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
 
-        # Liste pour accumuler les boxplots prÃ©cÃ©dents
+        # Liste pour accumuler les boxplots précédents
         all_box_stats = []
 
-        # DÃ©finir le rÃ©pertoire de sauvegarde des images
+        # Définir le répertoire de sauvegarde des images
         figures_dir = os.path.join(str(simulations_folder), '_figures/')
         if not os.path.exists(figures_dir):
             os.makedirs(figures_dir)
@@ -1188,7 +1166,7 @@ if __name__ == '__main__':
 
             # xpos = mdates.date2num(R_mm_day.index[i])
             xpos = mdates.date2num(R_mm_day_filt.index[i])
-
+            
             if xi.size == 0:
                 continue
 
@@ -1210,10 +1188,10 @@ if __name__ == '__main__':
             mean_vals.append(mean)
             mean_times.append(xpos)
 
-            # Ajouter les boxplots cumulÃ©s Ã  chaque itÃ©ration
-            all_box_stats.append((xpos, box_stats))  # Conserver les rÃ©sultats des boxplots prÃ©cÃ©dents
+            # Ajouter les boxplots cumulés à chaque itération
+            all_box_stats.append((xpos, box_stats))  # Conserver les résultats des boxplots précédents
 
-            # CrÃ©er une nouvelle figure et des axes Ã  chaque itÃ©ration
+            # Créer une nouvelle figure et des axes à chaque itération
             fig, axs = plt.subplots(2, 1, figsize=(8, 12), dpi=300, gridspec_kw={'height_ratios': [1, 3]})
             ax = axs.ravel()
 
@@ -1224,7 +1202,7 @@ if __name__ == '__main__':
             axb.zorder = 0 # fills in back
             ax[0].patch.set_visible(False)
 
-            # Ajouter les boxplots prÃ©cÃ©dents et actuels Ã  la figure
+            # Ajouter les boxplots précédents et actuels à la figure
             for xpos, box_stat in all_box_stats:
                 ax[0].bxp(box_stat, positions=[xpos], widths=5, showfliers=False,
                         showmeans=True, meanline=False,
@@ -1233,19 +1211,19 @@ if __name__ == '__main__':
                         meanprops=dict(marker='o', markerfacecolor='k', markeredgecolor='k', markersize=5),
                         whiskerprops=dict(linestyle='-', linewidth=0),
                         capprops=dict(linewidth=0),
-                        zorder=1)  # low zorder â†’ in background
+                        zorder=1)  # low zorder → in background
 
-            # Mettre Ã  jour la ligne verticale du premier graphique
+            # Mettre à jour la ligne verticale du premier graphique
             ax[0].axvline(x=xpos, color='black', linestyle='--', lw=0.5, zorder=-1)
 
             ax[0].axhline(y=input_no3, color='darkorange', linestyle='-', lw=1, zorder=-1,
-                        label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans h., 0.05 m trans v. \nDiffusion: 10$^{-10}$ mÂ²/s',
+                        label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans h., 0.05 m trans v. \nDiffusion: 10$^{-10}$ m²/s',
                         )
 
             # if i==0:
             ax[0].legend(loc='upper center', frameon=False)
 
-            # RÃ©glages pour le graphique de concentration
+            # Réglages pour le graphique de concentration
             ax[0].set_ylabel('[NO3] mg/L', color='forestgreen')
             ax[0].set_title('Synthetic drought year - Initial: mean recharge and aquifer at 100 mg/L', fontsize=10)
             ax[0].xaxis.set_major_locator(mdates.MonthLocator(bymonthday=1))
@@ -1256,7 +1234,7 @@ if __name__ == '__main__':
             # Line connectant les moyennes
             ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)
 
-            # Placer la recharge en arriÃ¨re-plan du graphique
+            # Placer la recharge en arrière-plan du graphique
             # axb.step(R_mm_day.index, R_mm_day * 30, lw=2, color='dodgerblue', zorder=0)
             axb.step(R_mm_day_filt.index, R_mm_day_filt * 30, lw=2, color='dodgerblue', zorder=0)
             axb.set_ylabel('Recharge [mm/month]', color='dodgerblue')
@@ -1266,7 +1244,7 @@ if __name__ == '__main__':
             # New xi
             xi = conc_plt.copy()
 
-            # CrÃ©er un graphique avec la carte
+            # Créer un graphique avec la carte
             norm = mcolors.LogNorm(vmin=30, vmax=100)
             color_camp = 'turbo'
             sm = cm.ScalarMappable(cmap=color_camp, norm=norm)
@@ -1301,14 +1279,14 @@ if __name__ == '__main__':
             fig.tight_layout()
             fig.savefig(figures_dir+vgif_name+'_'+str(i)+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
-            # Fermer la figure pour Ã©conomiser de la mÃ©moire
+            # Fermer la figure pour économiser de la mémoire
             if i < (len(concobj_1c_fil_surf)-1):
                 plt.close(fig)
             else:
                 plt.show()
 
         if plot_gif == True:
-            # CrÃ©er le GIF Ã  partir des images enregistrÃ©es
+            # Créer le GIF à partir des images enregistrées
             begin_by = figures_dir + vgif_name
             filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
             images = []
@@ -1328,7 +1306,7 @@ if __name__ == '__main__':
         stream_data = imageio.imread(os.path.join(stable_folder,'hydrography','botopage2024_naizin_streams_perennial-intermittent.tif')) # river data
         watertable_data = imageio.imread(os.path.join(simulations_folder,model_name,'_postprocess/_rasters/','watertable_elevation_t(0).tif')) # watertable data
         interactive = True
-        visu = visualization_results.Visualization(workspace, geographic, hydrography, model_name)
+        visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
         visu.interactive_cross_section(dem_data, watertable_data, stream_data, interactive)
 
         #%% WEB ANIMATION
@@ -1337,7 +1315,7 @@ if __name__ == '__main__':
         import base64
         from io import BytesIO
 
-        # Exemple : crÃ©ation de la liste des fichiers
+        # Exemple : création de la liste des fichiers
         figures_dir = os.path.join(str(simulations_folder), '_figures/')
         begin_by = figures_dir + vers
         filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
@@ -1375,7 +1353,7 @@ if __name__ == '__main__':
             for i, src in enumerate(image_sources)
         ]
 
-        # PremiÃ¨re image (affichÃ©e par dÃ©faut)
+        # Première image (affichée par défaut)
         fig = go.Figure(
             layout=go.Layout(
                 title="Slider to navigate between images",
@@ -1426,5 +1404,3 @@ if __name__ == '__main__':
 #%% ---- END OF SCRIPT
 
 #%% ---- NOTES
-
-
