@@ -384,7 +384,7 @@ mode = "none"
 
 
 # ----------------------------------------------------------------------
-# Flow boundary conditions (Cauchy/Dirichlet)
+# Flow boundary conditions (Cauchy/Dirichlet/Neumann)
 # ----------------------------------------------------------------------
 
 [flow.bc.cauchy.drainage]
@@ -393,8 +393,9 @@ mode = "none"
 application_domain = "top"
 # Boundary-condition type.
 type = "cauchy"
-# Conductance value for drainage (Cauchy condition).
-value = 1.0
+# Conductance value for drainage (Cauchy condition). 
+# if value = 0, conductance is related to hydraulic conductivity 
+value = 0
 # Unit of conductance.
 unit = "m2/s"
 # Optional flag to use data-derived values instead of fixed value.
@@ -408,7 +409,8 @@ type = "dirichlet"
 value = 1.0
 # Unit of head.
 unit = "m"
-data_value = true  # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
+# Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
+data_value = true
 
 [flow.bc.dirichlet.stream]
 application_domain = "top"
@@ -420,6 +422,8 @@ value = 1.0
 unit = "m"
 # Optional flag to use data-derived values instead of fixed value.
 data_value = false
+
+
 
 
 

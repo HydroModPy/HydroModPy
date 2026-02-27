@@ -191,7 +191,6 @@ if __name__ == '__main__':
         oceanic.update_MSL(0.0)
 
     flow.boundary_conditions["ocean"].value = oceanic.MSL
-
     
     #%% WATERSHED OBJECT
 
@@ -215,7 +214,15 @@ if __name__ == '__main__':
     
     #%% ---- ATMOSPHERE
     
-    # Necessary to set model parameters
+
+    #%% ---- PYHELP
+    
+    pyhelp_activated = False
+    if pyhelp_activated == True:
+    
+        #%% INIT
+        
+        # ATMOSPHERE : Necessary to set model parameters
 
     # climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
     #                                        nc_data_path=Path(workspace.catch_folder) / 'results_stable' / 'climatic',
@@ -403,31 +410,10 @@ if __name__ == '__main__':
         
         rech_dict = "ton netcdf importe"
     
-    #%% ---- DATA SIM2
-
-    # climatic.update_sim2_reanalysis(var_list=['runoff', 'recharge'],
-    #                                        nc_data_path=Path(workspace.catch_folder) / 'results_stable' / 'climatic',
-    #                                        first_year=2003,
-    #                                        last_year=2003,
-    #                                        time_step='ME',
-    #                                        sim_state='transient',
-    #                                        spatial_mean=True,
-    #                                        geographic=geographic,
-    #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
-    #                                                                 # can be a shapefile path or a flag: 'watershed' or False
-
-    # # # # Units
-    # climatic.t = climatic.t / 1000 # from mm to m
-    # climatic.precip = climatic.precip / 1000 # from mm to m
-    # climatic.etp = climatic.etp / 1000 # from mm to m
-    # climatic.runoff = climatic.runoff / 1000 # from mm to m
-    # climatic.recharge = climatic.recharge / 1000 # from mm to m
+    #%% ---- RECHARGE
     
-    # R_mm_day = climatic.recharge
-    # r_mm_day = climatic.runoff
-
-    #%% ---- DATA SAFRAN-ISBA
-
+    #%% DATA SAFRAN-ISBA
+    
     climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                         clim_mod='REA',
                                         clim_sce='historic',
@@ -450,6 +436,8 @@ if __name__ == '__main__':
 
     R_mm_day = climatic.recharge
     r_mm_day = climatic.runoff
+
+    #%% SYNTHETIC RECHARGE
 
     R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
     R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0

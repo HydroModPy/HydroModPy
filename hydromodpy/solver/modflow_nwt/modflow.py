@@ -849,42 +849,39 @@ class Modflow(Solver):
         # %% Drain package
 
         # DRN is applied to all the surface of the model: enables seepage on the top layer
-
-        self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
-        compt = 0
-        self.drnData[:, 0] = 0  # First value (0): layer
-        for i in range(0, self.nrow):
-            for j in range(0, self.ncol):
-                if self.drain_array[i, j] == 1:
-                    self.drnData[compt, 1] = i  # Second value (1): row number
-                    self.drnData[compt, 2] = j  # Third value (2): column number
-                    self.drnData[compt, 3] = self.dem[
-                        i, j
-                    ]  # Fourth value (3): altitude
-                    # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
-                    if self.sink_fill == False:
-                        if self.cond_drain != None:
-                            self.drnData[compt, 4] = self.cond_drain
-                        else:
-                            self.drnData[compt, 4] = (
-                                self.hk[0, i, j] * self.resolution**2
-                            )
-                    else:
-                        if self.sink[i, j] > 0:
-                            self.drnData[compt, 4] = 0
-                        else:
-                            if self.cond_drain != None:
-                                self.drnData[compt, 4] = self.cond_drain
+        
+        if 'drainage' in self.flow.boundary_conditions.keys():
+            self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
+            compt = 0
+            self.drnData[:, 0] = 0  # First value (0): layer
+            for i in range(0, self.nrow):
+                for j in range(0, self.ncol):
+                    if self.drain_array[i, j] == 1:
+                        self.drnData[compt, 1] = i  # Second value (1): row number
+                        self.drnData[compt, 2] = j  # Third value (2): column number
+                        self.drnData[compt, 3] = self.dem[i, j]  # Fourth value (3): altitude
+                        # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
+                        if self.sink_fill == False:
+                            if self.flow.boundary_conditions['drainage'].value > 0:
+                                self.drnData[compt, 4] = self.flow.boundary_conditions['drainage'].value
                             else:
-                                self.drnData[compt, 4] = (
-                                    self.hk[0, i, j] * self.resolution**2
-                                )
-                    compt += 1
+                                self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution**2)
+                        else:
+                            if self.sink[i, j] > 0:
+                                self.drnData[compt, 4] = 0
+                            else:
+                                if self.flow.boundary_conditions['drainage'].value > 0:
+                                    self.drnData[compt, 4] = self.flow.boundary_conditions['drainage'].value
+                                else:
+                                    self.drnData[compt, 4] = (
+                                        self.hk[0, i, j] * self.resolution**2
+                                    )
+                        compt += 1
 
-        # Imposes DRN condition to Modflow through flopy
-        lrcec = {0: self.drnData}
-        # ---- flopy.modflow.ModflowDrn
-        self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
+            # Imposes DRN condition to Modflow through flopy
+            lrcec = {0: self.drnData}
+            # ---- flopy.modflow.ModflowDrn
+            self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
 
         # %% Well package
 
