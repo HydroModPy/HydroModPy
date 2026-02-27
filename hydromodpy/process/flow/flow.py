@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from collections.abc import Mapping
+from numbers import Real
 
 from hydromodpy.field.core.field_param import FieldParam
 from hydromodpy.field.core.field_param_config import (
@@ -15,6 +16,7 @@ class Flow(Process):
 	def __init__(self, config: FlowConfig | Mapping[str, object] | None = None):
 		super().__init__()
 		self.config: FlowConfig | None = None
+		self.boundary_condition_application_domains: dict[str, str] = {}
 		if config is not None:
 			self.set_config(config)
 
@@ -25,12 +27,24 @@ class Flow(Process):
 			if "param" in config:
 				flow_cfg = FlowConfig.model_validate(dict(config))
 			else:
-				flow_cfg = FlowConfig(param=dict(config))
+				shorthand_param: dict[str, dict[str, object]] = {}
+				for raw_key, raw_payload in config.items():
+					param_id = str(raw_key).strip()
+					if param_id == "":
+						raise ValueError("Flow shorthand config cannot contain empty parameter ids")
+					if not isinstance(raw_payload, Mapping):
+						raise TypeError(
+							"Flow shorthand config values must be mapping payloads "
+							f"(got {type(raw_payload).__name__} for '{param_id}')"
+						)
+					shorthand_param[param_id] = dict(raw_payload)
+				flow_cfg = FlowConfig(param=shorthand_param)
 		else:
 			raise TypeError("Flow config must be a FlowConfig instance or a mapping")
 
 		self.config = flow_cfg
 		self.set_parameters(cfg_flowparam=flow_cfg.param)
+		self.set_boundary_conditions(flow_cfg.bc)
 
 	def _build_field_param(self, *, param_id: str, raw_cfg: object) -> FieldParam:
 		if isinstance(raw_cfg, Mapping):
@@ -86,8 +100,152 @@ class Flow(Process):
 	def set_initial_conditions(self, initial_conditions: dict):
 		self.initial_conditions.update(initial_conditions)
 
-	def set_boundary_conditions(self, boundary_conditions: dict):
-		self.boundary_conditions.update(boundary_conditions)
+	def set_boundary_conditions(self, boundary_conditions: Mapping[str, object] | None = None):
+		if boundary_conditions is None:
+			return
+		if not isinstance(boundary_conditions, Mapping):
+			raise TypeError("boundary_conditions must be a mapping")
+
+		parsed_boundary_conditions: dict[str, object] = {}
+		for raw_id, raw_payload in boundary_conditions.items():
+			bc_id = str(raw_id).strip()
+			if bc_id == "":
+				raise ValueError("boundary_conditions cannot contain empty ids")
+			parsed_boundary_conditions[bc_id] = self._coerce_boundary_condition_entry(
+				bc_id=bc_id,
+				raw_payload=raw_payload,
+			)
+
+		robin_payload = boundary_conditions.get("robin")
+		if isinstance(robin_payload, Mapping):
+			drainage_payload = robin_payload.get("drainage")
+			if isinstance(drainage_payload, Mapping):
+				parsed_boundary_conditions["drainage"] = self._build_robin_drainage_boundary_condition(
+					drainage_payload
+				)
+				parsed_boundary_conditions.pop("robin", None)
+
+		dirichlet_payload = boundary_conditions.get("dirichlet")
+		if isinstance(dirichlet_payload, Mapping):
+			for bc_id in ("ocean", "stream"):
+				sub_payload = dirichlet_payload.get(bc_id)
+				if isinstance(sub_payload, Mapping):
+					parsed_boundary_conditions[bc_id] = self._build_dirichlet_boundary_condition(
+						bc_id=bc_id,
+						payload=sub_payload,
+					)
+			parsed_boundary_conditions.pop("dirichlet", None)
+
+		self.boundary_conditions.update(parsed_boundary_conditions)
+
+	def _coerce_boundary_condition_entry(self, *, bc_id: str, raw_payload: object) -> object:
+		if isinstance(raw_payload, BoundaryCondition):
+			return raw_payload
+		if not isinstance(raw_payload, Mapping):
+			return raw_payload
+		if "value" not in raw_payload:
+			return dict(raw_payload)
+
+		payload = dict(raw_payload)
+		payload.setdefault("id", bc_id)
+		payload.setdefault("description", "")
+		payload.setdefault("units", "")
+		payload.setdefault("type", "Dirichlet")
+		return BoundaryCondition.model_validate(payload)
+
+	def _build_robin_drainage_boundary_condition(
+		self,
+		drainage_payload: Mapping[str, object],
+	) -> BoundaryCondition:
+		if "value" not in drainage_payload:
+			raise ValueError("flow.bc.robin.drainage.value is required")
+
+		value = drainage_payload["value"]
+		if not isinstance(value, Real):
+			raise TypeError("flow.bc.robin.drainage.value must be a numeric value")
+
+		raw_application_domain = drainage_payload.get("application_domain")
+		if not isinstance(raw_application_domain, str):
+			raise TypeError(
+				"flow.bc.robin.drainage.application_domain must be a string"
+			)
+		application_domain = raw_application_domain.strip()
+		if application_domain == "":
+			raise ValueError("flow.bc.robin.drainage.application_domain cannot be empty")
+
+		allowed_domains = {"top", "north side", "west side", "east side", "south side"}
+		if application_domain not in allowed_domains:
+			raise ValueError(
+				"flow.bc.robin.drainage.application_domain contains an invalid value: "
+				+ application_domain
+			)
+
+		raw_type = drainage_payload.get("type", "robin")
+		if str(raw_type).lower() != "robin":
+			raise ValueError("flow.bc.robin.drainage.type must be 'robin'")
+
+		self.boundary_condition_application_domains["drainage"] = application_domain
+
+		return BoundaryCondition(
+			id="drainage",
+			value=float(value),
+			description=(
+				"Robin drainage boundary condition on "
+				+ application_domain
+			),
+			units="-",
+			type="robin",
+		)
+
+	def _build_dirichlet_boundary_condition(
+		self,
+		*,
+		bc_id: str,
+		payload: Mapping[str, object],
+	) -> BoundaryCondition:
+		if "value" not in payload:
+			raise ValueError(f"flow.bc.dirichlet.{bc_id}.value is required")
+
+		value = payload["value"]
+		if not isinstance(value, Real):
+			raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
+
+		raw_type = payload.get("type", "dirichlet")
+		if str(raw_type).lower() != "dirichlet":
+			raise ValueError(f"flow.bc.dirichlet.{bc_id}.type must be 'dirichlet'")
+
+		raw_application_domain = payload.get("application_domain")
+		if not isinstance(raw_application_domain, str):
+			raise TypeError(
+				f"flow.bc.dirichlet.{bc_id}.application_domain must be a string"
+			)
+		application_domain = raw_application_domain.strip()
+		if application_domain == "":
+			raise ValueError(
+				f"flow.bc.dirichlet.{bc_id}.application_domain cannot be empty"
+			)
+
+		allowed_domains = {"top", "north side", "west side", "east side", "south side"}
+		if application_domain not in allowed_domains:
+			raise ValueError(
+				f"flow.bc.dirichlet.{bc_id}.application_domain contains an invalid value: "
+				+ application_domain
+			)
+
+		self.boundary_condition_application_domains[bc_id] = application_domain
+
+		data_value = bool(payload.get("data_value", False))
+		description = f"Dirichlet boundary condition '{bc_id}' on {application_domain}"
+		if data_value:
+			description += " (data_value=True)"
+
+		return BoundaryCondition(
+			id=bc_id,
+			value=float(value),
+			description=description,
+			units="-",
+			type="dirichlet",
+		)
 
 	def set_sinks_sources(self, wells_sources: dict):
 		self.sinks_sources.update(wells_sources)
