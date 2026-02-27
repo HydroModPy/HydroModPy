@@ -3,6 +3,7 @@
 
 from collections.abc import Mapping
 from numbers import Real
+from typing import Literal, cast
 
 from hydromodpy.field.core.field_param import FieldParam
 from hydromodpy.field.core.field_param_config import (
@@ -17,6 +18,7 @@ class Flow(Process):
 		super().__init__()
 		self.config: FlowConfig | None = None
 		self.boundary_condition_application_domains: dict[str, str] = {}
+		self.initial_condition_types: dict[str, str] = {}
 		if config is not None:
 			self.set_config(config)
 
@@ -44,6 +46,7 @@ class Flow(Process):
 
 		self.config = flow_cfg
 		self.set_parameters(cfg_flowparam=flow_cfg.param)
+		self.set_initial_conditions(flow_cfg.ic)
 		self.set_boundary_conditions(flow_cfg.bc)
 
 	def _build_field_param(self, *, param_id: str, raw_cfg: object) -> FieldParam:
@@ -97,8 +100,78 @@ class Flow(Process):
 	def set_variables(self, variables: dict):
 		self.variables.update(variables)
 
-	def set_initial_conditions(self, initial_conditions: dict):
-		self.initial_conditions.update(initial_conditions)
+	def set_initial_conditions(self, initial_conditions: Mapping[str, object] | None):
+		if initial_conditions is None:
+			return
+		if not isinstance(initial_conditions, Mapping):
+			raise TypeError("initial_conditions must be a mapping")
+
+		parsed_initial_conditions: dict[str, InitialCondition] = {}
+		parsed_initial_condition_types: dict[str, str] = {}
+		for raw_id, raw_payload in initial_conditions.items():
+			ic_id = str(raw_id).strip()
+			if ic_id == "":
+				raise ValueError("initial_conditions cannot contain empty ids")
+
+			if isinstance(raw_payload, InitialCondition):
+				parsed_initial_conditions[ic_id] = raw_payload
+				parsed_initial_condition_types[ic_id] = raw_payload.type
+				continue
+
+			if isinstance(raw_payload, Mapping):
+				payload = dict(raw_payload)
+				raw_type = payload.get("type", "custom")
+				ic_type_raw = str(raw_type).strip().lower()
+				if ic_type_raw not in {"top", "bot", "custom"}:
+					raise ValueError(
+						f"flow.ic.{ic_id}.type must be one of: 'top', 'bot', 'custom'"
+					)
+				ic_type = cast(Literal["top", "bot", "custom"], ic_type_raw)
+
+				if ic_type == "custom":
+					if "value" not in payload:
+						raise ValueError(f"flow.ic.{ic_id}.value is required when type='custom'")
+					raw_value = payload["value"]
+					if not isinstance(raw_value, Real):
+						raise TypeError(f"flow.ic.{ic_id}.value must be a numeric value")
+					numeric_value = float(raw_value)
+				else:
+					raw_value = payload.get("value", 0.0)
+					if not isinstance(raw_value, Real):
+						raise TypeError(
+							f"flow.ic.{ic_id}.value must be a numeric value when provided"
+						)
+					numeric_value = float(raw_value)
+
+				description = str(payload.get("description", f"Initial condition '{ic_id}'"))
+				units = str(payload.get("units", payload.get("unit", "m")))
+				parsed_initial_conditions[ic_id] = InitialCondition(
+					id=ic_id,
+					type=ic_type,
+					value=numeric_value,
+					description=description,
+					units=units,
+				)
+				parsed_initial_condition_types[ic_id] = ic_type
+				continue
+
+			if isinstance(raw_payload, Real):
+				parsed_initial_conditions[ic_id] = InitialCondition(
+					id=ic_id,
+					type="custom",
+					value=float(raw_payload),
+					description=f"Initial condition '{ic_id}'",
+					units="m",
+				)
+				parsed_initial_condition_types[ic_id] = "custom"
+				continue
+
+			raise TypeError(
+				f"flow.ic.{ic_id} must be an InitialCondition, mapping, or numeric value"
+			)
+
+		self.initial_conditions.update(parsed_initial_conditions)
+		self.initial_condition_types.update(parsed_initial_condition_types)
 
 	def set_boundary_conditions(self, boundary_conditions: Mapping[str, object] | None = None):
 		if boundary_conditions is None:
@@ -241,9 +314,9 @@ class Flow(Process):
 
 		value = payload["value"]
 		data_value_flag = payload.get("data_value", False)
-		if not data_value_flag:
-			if not isinstance(value, Real):
-				raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
+		if not isinstance(value, Real):
+			raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
+		numeric_value = float(value)
 
 		raw_type = payload.get("type", "dirichlet")
 		if str(raw_type).lower() != "dirichlet":
@@ -278,7 +351,7 @@ class Flow(Process):
 
 		return BoundaryCondition(
 			id=bc_id,
-			value=float(value),
+			value=numeric_value,
 			description=description,
 			units=units,
 			type="dirichlet",
@@ -292,8 +365,8 @@ if __name__ == "__main__":
     test = Flow()
     Sy = Parameter(id='Sy', value=0.1, description='Specific yield', units='-', field_type='homogeneous')
     h = Variable(id='h', value=0, description='Hydraulic head', units='m')
-    q = Variable(id='q', value=0, description='Flow rate', units='m3/s')
-    h0 = InitialCondition(id='h0', value=10, description='Initial hydraulic head', units='m')
+    q = Variable(id='q', value=0, description='Flow rate', units='m3/s') 
+    h0 = InitialCondition(id='h0', type='custom', value=10, description='Initial hydraulic head', units='m')
     h_ocean = BoundaryCondition(id='h_ocean', value=0, description='Ocean boundary condition', units='m', type='Dirichlet', data_value=False)
     drain = BoundaryCondition(id='drain', value=0, description='Drain boundary condition', units='m', type='Cauchy', data_value=False)
     recharge = SinkSource(id='R', value=1e-8, description='Recharge rate', units='m/s')
