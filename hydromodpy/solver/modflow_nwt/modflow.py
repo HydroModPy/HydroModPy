@@ -14,6 +14,7 @@
 
 # Python
 from collections.abc import Mapping
+from numbers import Real
 import flopy
 import numpy as np
 import os
@@ -79,10 +80,7 @@ class Modflow(Solver):
         # Climatic settings
         recharge=0.001,
         first_clim: str = "mean",
-        dis_perlen: bool = False,
-        # Well settings
-        well_coords: list = [],
-        well_fluxes: list = []):
+        dis_perlen: bool = False):
         """
         Initialize method.
 
@@ -121,12 +119,6 @@ class Modflow(Solver):
             Expert MODFLOW-NWT package parameters loaded from
             `[modflow.runtime]`, `[modflow.process_specific]`, and `[modflow.sgrid]` in TOML.
             If None, internal defaults from ModflowConfig are used.
-        wells_coord : list
-            Inform the outlet coordinates of wells [lay,row,col].
-            Example for 2 wells: [ [1,20,30], [1,15,15] ]
-        wells_fluxes : list
-            Inform the fluxes [L3/T] for each stress-periods, for different wells.
-            Example for 2 wells and 5 stress-periods: [ [-100,0,-100,0,-100], [-100,0,-100,0,-100] ]
         """
 
         # %% Initialization paths
@@ -191,11 +183,6 @@ class Modflow(Solver):
         self.plot_cross = plot_cross
         self.cross_ylim = cross_ylim
         self.check_grid = check_grid
-
-        # %% Well settings
-
-        self.well_coords = well_coords
-        self.well_fluxes = well_fluxes
 
         # %% Flopy model parameters driven by expert config
         specif_params = ModflowSpecifParams.from_config(modflow_config)
@@ -302,6 +289,105 @@ class Modflow(Solver):
         if flow_regime_text not in {"steady", "transient"}:
             raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
         return flow_regime_text
+
+    def _build_well_stress_period_data(self, n_stress_periods: int) -> dict[int, list[list[float]]]:
+        """Build MODFLOW WEL stress-period payload from flow.sinks_sources.wells."""
+        if n_stress_periods <= 0 or self.flow is None:
+            return {}
+
+        sinks_sources = getattr(self.flow, "sinks_sources", {})
+        if not isinstance(sinks_sources, Mapping):
+            return {}
+
+        wells = sinks_sources.get("wells", {})
+        if wells is None:
+            return {}
+        if not isinstance(wells, Mapping):
+            raise TypeError(
+                "flow.sinks_sources['wells'] must be a mapping of well ids to payloads."
+            )
+        if len(wells) == 0:
+            return {}
+
+        normalized_wells: list[tuple[str, tuple[int, int, int], np.ndarray]] = []
+        for raw_well_id, raw_well_payload in wells.items():
+            well_id = str(raw_well_id).strip()
+            if well_id == "":
+                raise ValueError("flow.sinks_sources.wells cannot contain empty ids.")
+
+            if isinstance(raw_well_payload, Mapping):
+                cell_payload = raw_well_payload.get("cell")
+                flux_payload = raw_well_payload.get("flux")
+            else:
+                cell_payload = getattr(raw_well_payload, "cell", None)
+                flux_payload = getattr(raw_well_payload, "flux", None)
+
+            if cell_payload is None:
+                raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell is required")
+            if flux_payload is None:
+                raise ValueError(f"flow.sinks_sources.wells.{well_id}.flux is required")
+
+            if isinstance(cell_payload, Mapping):
+                cell_seq = [
+                    cell_payload.get("lay"),
+                    cell_payload.get("row"),
+                    cell_payload.get("col"),
+                ]
+            else:
+                cell_seq = list(cell_payload)
+            if len(cell_seq) != 3:
+                raise ValueError(
+                    f"flow.sinks_sources.wells.{well_id}.cell must contain 3 values: [lay,row,col]"
+                )
+
+            cell_parsed: list[int] = []
+            for axis, raw_index in zip(("lay", "row", "col"), cell_seq):
+                if isinstance(raw_index, bool) or not isinstance(raw_index, Real):
+                    raise TypeError(
+                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be numeric"
+                    )
+                numeric_index = float(raw_index)
+                if not numeric_index.is_integer():
+                    raise TypeError(
+                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be an integer"
+                    )
+                int_index = int(numeric_index)
+                if int_index < 0:
+                    raise ValueError(
+                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be >= 0"
+                    )
+                cell_parsed.append(int_index)
+            cell = (cell_parsed[0], cell_parsed[1], cell_parsed[2])
+
+            if isinstance(flux_payload, bool):
+                raise TypeError(
+                    f"flow.sinks_sources.wells.{well_id}.flux must be numeric or list of numeric values"
+                )
+            if isinstance(flux_payload, Real):
+                flux_vector = np.full(n_stress_periods, float(flux_payload), dtype=float)
+            else:
+                flux_vector = np.asarray(flux_payload, dtype=float).reshape(-1)
+                if flux_vector.size == 0:
+                    raise ValueError(
+                        f"flow.sinks_sources.wells.{well_id}.flux cannot be empty"
+                    )
+                if flux_vector.size == 1:
+                    flux_vector = np.full(n_stress_periods, float(flux_vector[0]), dtype=float)
+                elif flux_vector.size != n_stress_periods:
+                    raise ValueError(
+                        f"flow.sinks_sources.wells.{well_id}.flux length ({flux_vector.size}) "
+                        f"must be 1 or match nper ({n_stress_periods})"
+                    )
+
+            normalized_wells.append((well_id, cell, flux_vector))
+
+        lrcq: dict[int, list[list[float]]] = {}
+        for t in range(n_stress_periods):
+            lrcq[t] = [
+                [cell[0], cell[1], cell[2], float(flux_vector[t])]
+                for _, cell, flux_vector in normalized_wells
+            ]
+        return lrcq
 
     def pre_processing(self):
         """
@@ -684,23 +770,8 @@ class Modflow(Solver):
 
         # %% Well package
 
-        if (self.well_coords != []) or (len(self.well_coords) > 0):
-
-            # Number of stress periods
-            n_stress_periods = len(self.recharge)
-            n_wells = len(self.well_coords)
-
-            # Initialize the dictionary
-            self.lrcq = {}
-
-            # Populate the dictionary with well data for each stress period
-            for t in range(n_stress_periods):
-                list_t = []
-                for n in range(n_wells):
-                    list_t.append([*self.well_coords[n], self.well_fluxes[n][t]])
-                self.lrcq[t] = list_t
-
-            # ---- flopy.modflow.ModflowWel
+        self.lrcq = self._build_well_stress_period_data(n_stress_periods=int(self.nper))
+        if self.lrcq:
             self.wel = flopy.modflow.ModflowWel(
                 self.mf, ipakcb=self.wel_ipakcb, stress_period_data=self.lrcq
             )

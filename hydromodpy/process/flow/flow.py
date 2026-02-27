@@ -10,7 +10,11 @@ from hydromodpy.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
 )
-from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.process.flow.flow_config import (
+	FlowConfig,
+	FlowSinksSourcesConfig,
+	FlowWellConfig,
+)
 from hydromodpy.process.process import Process, Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
 
 class Flow(Process):
@@ -50,6 +54,7 @@ class Flow(Process):
 		self.set_parameters(cfg_flowparam=flow_cfg.param)
 		self.set_initial_conditions(flow_cfg.ic)
 		self.set_boundary_conditions(flow_cfg.bc)
+		self.set_sinks_sources(flow_cfg.sinks_sources)
 
 	def _build_field_param(self, *, param_id: str, raw_cfg: object) -> FieldParam:
 		if isinstance(raw_cfg, Mapping):
@@ -367,8 +372,44 @@ class Flow(Process):
 			data_value=data_value,
 		)
 
-	def set_sinks_sources(self, wells_sources: dict):
-		self.sinks_sources.update(wells_sources)
+	def set_sinks_sources(
+		self,
+		sinks_sources: FlowSinksSourcesConfig | Mapping[str, object] | None = None,
+	):
+		if sinks_sources is None:
+			return
+
+		if isinstance(sinks_sources, FlowSinksSourcesConfig):
+			self.sinks_sources["wells"] = dict(sinks_sources.wells)
+			return
+
+		if not isinstance(sinks_sources, Mapping):
+			raise TypeError(
+				"sinks_sources must be a FlowSinksSourcesConfig or a mapping payload"
+			)
+
+		raw_wells = sinks_sources.get("wells", sinks_sources)
+		if raw_wells is None:
+			self.sinks_sources["wells"] = {}
+			return
+		if not isinstance(raw_wells, Mapping):
+			raise TypeError("sinks_sources.wells must be a mapping of well ids to payloads")
+
+		parsed_wells: dict[str, FlowWellConfig] = {}
+		for raw_id, raw_payload in raw_wells.items():
+			well_id = str(raw_id).strip()
+			if well_id == "":
+				raise ValueError("sinks_sources.wells cannot contain empty ids")
+			if isinstance(raw_payload, FlowWellConfig):
+				parsed_wells[well_id] = raw_payload
+			elif isinstance(raw_payload, Mapping):
+				parsed_wells[well_id] = FlowWellConfig.model_validate(dict(raw_payload))
+			else:
+				raise TypeError(
+					f"sinks_sources.wells['{well_id}'] must be a FlowWellConfig or mapping"
+				)
+
+		self.sinks_sources["wells"] = parsed_wells
 
 if __name__ == "__main__":
     test = Flow()
