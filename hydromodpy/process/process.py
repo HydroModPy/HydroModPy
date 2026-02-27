@@ -41,6 +41,7 @@ class BoundaryCondition(BaseModel):
 	description: str = Field('', description="Description of the boundary condition")
 	units: str = Field('', description="Units of the boundary condition")
 	type: str = Field('Dirichlet', description="Type of the boundary condition (e.g., 'Dirichlet', 'Neumann', 'Cauchy')")
+	data_value: bool = Field(False, description="If True, boundary condition value is sourced from data")
 
 class SinkSource(BaseModel):
 	id: str = Field(..., description="id of the sink/source (ex: Q_well, etc.)")
