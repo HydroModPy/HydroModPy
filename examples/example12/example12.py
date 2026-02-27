@@ -121,41 +121,6 @@ if __name__ == '__main__':
                         add_path=data_path,
                         out_path=initializing.catch_folder,
                         sub_snap_dist=50)
-    
-    # hydrometry = Hydrometry(out_path=initializing.catch_folder,
-    #                         hydrometry_path=data_path,
-    #                         file_name='france hydrometric stations.shp',
-    #                         geographic=geographic)
-
-    # Extract hydrometry configuration from raw_toml
-    hydro_section = raw_toml.get("hydrometry_stations", {})
-
-    hydro_cfg = {
-        "hydrometry": {k: v for k, v in hydro_section.items() 
-                    if k not in ["source", "selection", "output"]},
-        "source": hydro_section.get("source", {}),
-        "selection": hydro_section.get("selection", {}),
-        "output": hydro_section.get("output", {}),
-    }
-
-    # Inject watershed shapefile created by Geographic as mask for station selection
-    selection_mode = hydro_cfg["selection"].get("mode", "mask")
-    if selection_mode == "mask":
-        hydro_cfg["selection"]["mask_path"] = geographic.watershed_shp
-        print(f"Hydrometry: Loading stations from watershed mask: {geographic.watershed_shp}")
-
-    # Load stations with error handling
-    try:
-        hydrometry = StationSet.from_config(hydro_cfg)
-    except ValueError as e:
-        print(f"Warning: Hydrometry loading failed - {e}")
-        print("Continuing without hydrometric stations...")
-        hydrometry = None
-
-    intermittency = Intermittency(out_path=initializing.catch_folder,
-                                  intermittency_path=data_path,
-                                  file_name='regional onde stations.shp',
-                                  geographic=geographic)
 
     #%% CLIMATIC
 
@@ -177,7 +142,6 @@ if __name__ == '__main__':
         oceanic.update_MSL(0.0)
 
     flow.boundary_conditions["ocean"].value = oceanic.MSL
-
     
     #%% WATERSHED OBJECT
 
@@ -196,32 +160,35 @@ if __name__ == '__main__':
     #%% VISUALIZATION
 
     visualization_watershed.watershed_local(cfg.geographic.dem_init_path, initializing, geographic)
-    visualization_watershed.watershed_dem(initializing=initializing, geographic=geographic, hydrography=hydrography, piezometry=None, intermittency=intermittency, hydrometry=hydrometry)
-
-    # Add hydrological data
+    visualization_watershed.watershed_dem(initializing=initializing,
+                                          geographic=geographic,
+                                          hydrography=hydrography,
+                                          piezometry=None,
+                                          )
     
     #%% ---- ATMOSPHERE
     
-    # Necessary to set model parameters
 
-    # climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
-    #                                        nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
-    #                                        first_year=2003,
-    #                                        last_year=2003,
-    #                                        time_step='ME',
-    #                                        sim_state='transient',
-    #                                        spatial_mean=True,
-    #                                        geographic=geographic,
-    #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
-    #                                                                 # can be a shapefile path or a flag: 'watershed' or False
-    
     #%% ---- PYHELP
     
     pyhelp_activated = False
     if pyhelp_activated == True:
     
         #%% INIT
-    
+        
+        # ATMOSPHERE : Necessary to set model parameters
+
+        # climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
+        #                                        nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
+        #                                        first_year=2003,
+        #                                        last_year=2003,
+        #                                        time_step='ME',
+        #                                        sim_state='transient',
+        #                                        spatial_mean=True,
+        #                                        geographic=geographic,
+        #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
+        #                                                                 # can be a shapefile path or a flag: 'watershed' or False        
+        
         print("test")
     
         pyhelp_workdir = Path(cfg.initializing.out_dir_path) / watershed_name / "results_pyhelp"
@@ -390,31 +357,10 @@ if __name__ == '__main__':
         
         rech_dict = "ton netcdf importe"
     
-    #%% ---- DATA SIM2
-
-    # climatic.update_sim2_reanalysis(var_list=['runoff', 'recharge'],
-    #                                        nc_data_path=Path(initializing.catch_folder) / 'results_stable' / 'climatic',
-    #                                        first_year=2003,
-    #                                        last_year=2003,
-    #                                        time_step='ME',
-    #                                        sim_state='transient',
-    #                                        spatial_mean=True,
-    #                                        geographic=geographic,
-    #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
-    #                                                                 # can be a shapefile path or a flag: 'watershed' or False
-
-    # # # # Units
-    # climatic.t = climatic.t / 1000 # from mm to m
-    # climatic.precip = climatic.precip / 1000 # from mm to m
-    # climatic.etp = climatic.etp / 1000 # from mm to m
-    # climatic.runoff = climatic.runoff / 1000 # from mm to m
-    # climatic.recharge = climatic.recharge / 1000 # from mm to m
+    #%% ---- RECHARGE
     
-    # R_mm_day = climatic.recharge
-    # r_mm_day = climatic.runoff
-
-    #%% ---- DATA SAFRAN-ISBA
-
+    #%% DATA SAFRAN-ISBA
+    
     climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                         clim_mod='REA',
                                         clim_sce='historic',
@@ -437,6 +383,8 @@ if __name__ == '__main__':
 
     R_mm_day = climatic.recharge
     r_mm_day = climatic.runoff
+
+    #%% SYNTHETIC RECHARGE
 
     R_mm_day_filt = select_period(R_mm_day, 2003, 2003)*0
     R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
