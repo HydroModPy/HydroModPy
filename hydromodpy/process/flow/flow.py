@@ -206,9 +206,12 @@ class Flow(Process):
 		if "value" not in payload:
 			raise ValueError(f"flow.bc.dirichlet.{bc_id}.value is required")
 
-		value = payload["value"]
-		if not isinstance(value, Real):
-			raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
+		if payload["data_value"]:
+			pass
+		else:
+			value = payload["value"]
+			if not isinstance(value, Real):
+				raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
 
 		raw_type = payload.get("type", "dirichlet")
 		if str(raw_type).lower() != "dirichlet":
