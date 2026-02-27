@@ -313,7 +313,7 @@ class Modpath(Solver):
               
         hds_1c = fpu.HeadFile(head_file)
         # head_1c = hds_1c.get_alldata(mflay=None)
-        head_1c = hds_1c.get_data(totim=1)        
+        head_1c = hds_1c.get_data(totim=hds_1c.get_times()[0])        
         wt = pp.get_water_table(head_1c, -100) # -9999
         # wt = np.ones((nrow, ncol)) * wt
                 

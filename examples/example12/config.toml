@@ -577,7 +577,7 @@ nodata = -9999.0
 
 [modflow.tgrid]
 # Time unit label propagated to FloPy (for example 'd').
-itmuni = "d"
+itmuni = "days"
 # Temporal simulation mode ("steady" or "transient").
 sim_state = "transient"
 # Temporal mesh generation method ("synthetic_regular" or "from_chron").
@@ -597,7 +597,7 @@ chron_time_col = "Date"
 # Optional explicit start datetime (leave commented to keep default None).
 start_datetime = "2003-01-01 00:00:00"
 # Optional explicit end datetime (leave commented to keep default None).
-# end_datetime = "2020-12-31 00:00:00"
+end_datetime = "2020-12-31 00:00:00"
 # Keep first stress period in steady state when relevant.
 firstpersteady = true
 # Time-step multiplier per period (scalar or list).
