@@ -32,7 +32,7 @@ except:
 
 # HydroModPy
 from hydromodpy.tools import toolbox
-from hydromodpy.watershed import Initializing, Geographic, Hydrography, Intermittency, Piezometry, Geology, Hydrometry
+from hydromodpy.watershed import Workspace, Geographic, Hydrography, Intermittency, Piezometry, Geology, Hydrometry
 
 #%% PLOT SETTINGS
 
@@ -87,14 +87,14 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% FUNCTIONS
 
-def watershed_dem(initializing: Initializing, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Hydrometry=None):
+def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Hydrometry=None):
     """
     Plot contour watershed and DEM.
 
     Parameters
     ----------
-    initializing : Initializing
-        Initializing object of the model domain (watershed).
+    initializing : Workspace
+        Workspace object of the model domain (watershed).
     geographic : Geographic
         Geographic object of the model domain (watershed).
     hydrography : Hydrography, optional
@@ -199,7 +199,7 @@ def watershed_dem(initializing: Initializing, geographic: Geographic, hydrograph
                     bbox_inches='tight', transparent=False)
         pass
 
-def watershed_local(regional_dem_path, initializing: Initializing, geographic: Geographic):
+def watershed_local(regional_dem_path, initializing: Workspace, geographic: Geographic):
     """
     Plot location of the watershed at the regional scale.
 
@@ -207,8 +207,8 @@ def watershed_local(regional_dem_path, initializing: Initializing, geographic: G
     ----------
     regional_dem_path : str
         Initial path of the regional DEM.
-    initializing : Initializing
-        Initializing object of the model domain (watershed).
+    initializing : Workspace
+        Workspace object of the model domain (watershed).
     geographic : Geographic
         Geographic object of the model domain (watershed).
     """
@@ -240,14 +240,14 @@ def watershed_local(regional_dem_path, initializing: Initializing, geographic: G
     fig.savefig(os.path.join(initializing.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
     
-def watershed_geology(initializing: Initializing, geographic: Geographic, geology: Geology, hydrography: Hydrography=None, piezometry: Piezometry=None):
+def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Geology, hydrography: Hydrography=None, piezometry: Piezometry=None):
     """
     Plot lithology of the watershed from specific geological map at FRance scale.
 
     Parameters
     ----------
-    initializing : Initializing
-        Initializing object of the model domain (watershed).
+    initializing : Workspace
+        Workspace object of the model domain (watershed).
     geographic : Geographic
         Geographic object of the model domain (watershed).
     geology : Geology
