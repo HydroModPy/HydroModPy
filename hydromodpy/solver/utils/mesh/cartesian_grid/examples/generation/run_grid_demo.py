@@ -1,14 +1,11 @@
 """
-Quick visual test for StructuredGridBuilder.
+Quick visual test for surface-driven StructuredGrid generation.
 
-This script uses the SGrid TOML/Pydantic interface directly:
-    - TOML:   hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo_config.toml
-    - schema: hydromodpy/solver/utils/mesh/cartesian_grid/sgrid_config.py
-
-Run from repository root:
-    python hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo.py
-    python hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo.py --sgrid-config hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo_config.toml
-    python -m hydromodpy.solver.utils.mesh.cartesian_grid.examples.generation.run_grid_demo
+This demo now prepares horizontal surfaces directly in code:
+- read topography raster,
+- optionally re-discretize in XY via Surface,
+- build bottom surface in absolute elevation,
+- run vertical discretization in StructuredGridBuilder.
 """
 
 from __future__ import annotations
@@ -23,29 +20,42 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import numpy as np
 
-# Import local modules without forcing `hydromodpy.__init__` on direct run.
+# Allow running this file directly without installing the package.
+# (python hydromodpy/.../run_grid_demo.py)
 if __package__ in (None, ""):
-    GRID_DIR = str(Path(__file__).resolve().parents[2])
-    if GRID_DIR not in sys.path:
-        sys.path.insert(0, GRID_DIR)
-    from sgrid_generation import StructuredGridBuilder
-    from sgrid_config import SGridConfig
-else:
-    from ...sgrid_generation import StructuredGridBuilder
-    from ...sgrid_config import SGridConfig
+    _THIS_FILE = Path(__file__).resolve()
+    _PROJECT_ROOT = _THIS_FILE.parents[7]
+    if str(_PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(_PROJECT_ROOT))
 
+from hydromodpy.domain.raster_support import RasterSupport
+from hydromodpy.domain.surface import Surface
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.utils.raster_grid_reader import (
+    RasterGridReader,
+)
+
+
+DEFAULT_TOP_PATH = "watershed_box_buff_dem.tif"
+DEFAULT_CRS = "EPSG:2154"
+DEFAULT_PLAN_DISCRETIZATION_MODE = "shape"
+DEFAULT_NX = 150
+DEFAULT_NY = 150
+DEFAULT_LENUNI = "m"
+DEFAULT_NODATA = -9999.0
 
 DEFAULT_SCENARIOS = [
     {
         "name": "constant_altitude + constant",
-        "genmtd_bot": "constant_altitude",
+        "bottom_mode": "constant_altitude",
         "zbot": -30.0,
         "genmtd_lay": "constant",
         "nlay": 5,
     },
     {
         "name": "constant_thickness + decay",
-        "genmtd_bot": "constant_thickness",
+        "bottom_mode": "constant_thickness",
         "thick": 200.0,
         "genmtd_lay": "decay",
         "nlay": 5,
@@ -53,14 +63,14 @@ DEFAULT_SCENARIOS = [
     },
     {
         "name": "constant_thickness + constant",
-        "genmtd_bot": "constant_thickness",
+        "bottom_mode": "constant_thickness",
         "thick": 200.0,
         "genmtd_lay": "constant",
         "nlay": 5,
     },
     {
         "name": "constant_thickness + list",
-        "genmtd_bot": "constant_thickness",
+        "bottom_mode": "constant_thickness",
         "thick": 200.0,
         "genmtd_lay": "list",
         "lay_proportions": [0.1, 0.2, 0.3, 0.4],
@@ -68,21 +78,21 @@ DEFAULT_SCENARIOS = [
 ]
 
 
-def _parse_args(default_sgrid_config: Path) -> argparse.Namespace:
+def _parse_args(default_top_path: Path) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate and visualize structured grid scenarios."
+        description="Generate and visualize structured grid scenarios from explicit surfaces."
     )
     parser.add_argument(
-        "--sgrid-config",
+        "--top-path",
         type=str,
-        default=str(default_sgrid_config),
-        help="Path to SGrid TOML configuration file.",
+        default=str(default_top_path),
+        help="Path to top DEM raster.",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default="output",
-        help="Output directory for generated PNG files (relative to TOML directory if relative).",
+        help="Output directory for generated PNG files (relative to this demo folder if relative).",
     )
     parser.add_argument(
         "--dpi",
@@ -105,12 +115,12 @@ def _resolve_path(path_value: str, base_dir: Path) -> Path:
     return path
 
 
-def _masked(arr, nodata=-9999):
+def _masked(arr, nodata=DEFAULT_NODATA):
     """Return a masked array that hides no-data cells."""
     return np.ma.masked_where(arr <= nodata, arr)
 
 
-def _to_nan(arr, nodata=-9999):
+def _to_nan(arr, nodata=DEFAULT_NODATA):
     """Convert no-data cells to NaN for 3D plotting."""
     out = np.array(arr, dtype=float, copy=True)
     out[out <= nodata] = np.nan
@@ -129,22 +139,94 @@ def _legend_style(n_items):
     return fontsize, ncol
 
 
-def _build_scenario_grid(base_settings: dict, scenario: dict):
-    """Build one structured grid scenario."""
-    cfg = {
-        "sgrid_type": base_settings["sgrid_type"],
-        "lenuni": base_settings["lenuni"],
-        "genmtd_top": base_settings["genmtd_top"],
-        "top_path": base_settings["top_path"],
-        "crs": base_settings.get("crs"),
-        "plan_discretization_mode": base_settings["plan_discretization_mode"],
-        "nx": base_settings.get("nx"),
-        "ny": base_settings.get("ny"),
-        "nodata": base_settings["nodata"],
+def _build_top_surface(
+    top_path: Path,
+    *,
+    crs: str | None,
+    plan_mode: str,
+    nx: int,
+    ny: int,
+    nodata: float,
+) -> Surface:
+    reader = RasterGridReader()
+    top_grid = reader.read_top_grid(str(top_path))
+    xmin, ymin, xmax, ymax = (float(v) for v in top_grid.bounds)
+    nrows = int(top_grid.nrow)
+    ncols = int(top_grid.ncol)
+    dx = (xmax - xmin) / ncols
+    dy = (ymax - ymin) / nrows
+    support = RasterSupport(
+        crs=(crs if crs is not None else str(top_grid.crs)),
+        dx=dx,
+        dy=dy,
+        xmin=xmin,
+        xmax=xmax,
+        ymin=ymin,
+        ymax=ymax,
+        nrows=nrows,
+        ncols=ncols,
+        nodata=float(nodata),
+    )
+    top_surface = Surface.from_geographic_dem(
+        top_grid.top,
+        support=support,
+        name="surface_topo",
+    )
+    if plan_mode == "raster_native":
+        return top_surface
+    if plan_mode != "shape":
+        raise ValueError(
+            f"Unsupported plan_discretization_mode '{plan_mode}'. Allowed: raster_native, shape."
+        )
+    return top_surface.resample_to_shape(
+        int(ny),
+        int(nx),
+        nodata=float(nodata),
+        resampling="bilinear",
+    )
+
+
+def _build_bottom_surface(top_surface: Surface, scenario: dict) -> Surface:
+    top = np.asarray(top_surface.as_array(), dtype=float)
+    nodata = float(top_surface.support.nodata if top_surface.support is not None else DEFAULT_NODATA)
+
+    mode = scenario["bottom_mode"]
+    if mode == "constant_thickness":
+        bottom = top - float(scenario["thick"])
+    elif mode == "constant_altitude":
+        bottom = np.full_like(top, float(scenario["zbot"]), dtype=float)
+    else:
+        raise ValueError(f"Unsupported bottom_mode '{mode}'.")
+
+    bottom[top <= nodata] = nodata
+    return Surface(
+        name="substratum",
+        values=bottom,
+        support=top_surface.support,
+    )
+
+
+def _build_vertical_config(scenario: dict) -> VerticalGridConfig:
+    payload = {
+        "lenuni": DEFAULT_LENUNI,
+        "nodata": DEFAULT_NODATA,
+        "genmtd_lay": scenario["genmtd_lay"],
     }
-    cfg.update({k: v for k, v in scenario.items() if k != "name"})
-    sgrid_cfg = SGridConfig.from_mapping(cfg)
-    sgrid = StructuredGridBuilder().build(sgrid_cfg)
+    for key in ("nlay", "lay_decay", "lay_proportions"):
+        if key in scenario:
+            payload[key] = scenario[key]
+    return VerticalGridConfig.from_mapping(payload)
+
+
+def _build_scenario_grid(top_surface: Surface, scenario: dict):
+    """Build one structured grid scenario from explicit top/bottom surfaces."""
+    bottom_surface = _build_bottom_surface(top_surface, scenario)
+    vertical_cfg = _build_vertical_config(scenario)
+    sgrid = StructuredGridBuilder().build_from_surfaces(
+        top_surface=top_surface,
+        bottom_surface=bottom_surface,
+        vertical_config=vertical_cfg,
+    )
     return {
         "name": scenario["name"],
         "top": np.array(sgrid.top, copy=True),
@@ -284,27 +366,22 @@ def _plot_scenarios(scenarios, output_dir, show_plots=True, figure_size=(15.8, 5
 
 def main():
     cfolder = Path(os.path.dirname(os.path.realpath(__file__)))
-    args = _parse_args(default_sgrid_config=cfolder / "run_grid_demo_config.toml")
+    args = _parse_args(default_top_path=cfolder / DEFAULT_TOP_PATH)
 
-    sgrid_config_path = Path(args.sgrid_config).expanduser().resolve()
-    sgrid_cfg = SGridConfig.from_toml(sgrid_config_path).model_dump(mode="python", exclude_none=True)
-    config_dir = sgrid_config_path.parent
+    top_path = _resolve_path(args.top_path, cfolder)
+    top_surface = _build_top_surface(
+        top_path=top_path,
+        crs=DEFAULT_CRS,
+        plan_mode=DEFAULT_PLAN_DISCRETIZATION_MODE,
+        nx=DEFAULT_NX,
+        ny=DEFAULT_NY,
+        nodata=DEFAULT_NODATA,
+    )
 
-    output_dir = _resolve_path(args.output_dir, config_dir)
+    output_dir = _resolve_path(args.output_dir, cfolder)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    base_settings = {
-        "sgrid_type": sgrid_cfg["sgrid_type"],
-        "lenuni": sgrid_cfg["lenuni"],
-        "genmtd_top": sgrid_cfg["genmtd_top"],
-        "top_path": sgrid_cfg["top_path"],
-        "crs": sgrid_cfg.get("crs"),
-        "plan_discretization_mode": sgrid_cfg.get("plan_discretization_mode", "raster_native"),
-        "nx": sgrid_cfg.get("nx"),
-        "ny": sgrid_cfg.get("ny"),
-        "nodata": float(sgrid_cfg["nodata"]),
-    }
-    scenarios = [_build_scenario_grid(base_settings, s) for s in DEFAULT_SCENARIOS]
+    scenarios = [_build_scenario_grid(top_surface, s) for s in DEFAULT_SCENARIOS]
 
     _plot_scenarios(
         scenarios,

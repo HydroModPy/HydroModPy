@@ -6,84 +6,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 
 
-@dataclass(frozen=True)
-class ModflowSpecifParams:
-    """Runtime container for MODFLOW-NWT expert parameters."""
-
-    # Core MODFLOW object
-    mf_version: str = "mfnwt"
-    mf_listunit: int = 2
-    mf_verbose: bool = False
-
-    # NWT solver
-    nwt_headtol: float = 1e-4
-    nwt_fluxtol: float = 500.0
-    nwt_maxiterout: int = 5000
-    nwt_thickfact: float = 1e-5
-    nwt_linmeth: int = 1
-    nwt_iprnwt: int = 1
-    nwt_ibotav: int = 1
-    nwt_options: str = "COMPLEX"
-    nwt_continue: bool = False
-    nwt_backflag: int = 0
-    nwt_stoptol: float = 1e-10
-
-    # DIS
-    dis_itmuni: int = 0
-
-    # BAS
-    bas_hnoflo: float = -9999.0
-
-    # UPW
-    upw_iphdry: int = 1
-    upw_hdry: float = -100.0
-    upw_layvka: int = 1
-
-    # EVT
-    evt_nevtop: int = 3
-    evt_ievt: int = 1
-    evt_ipakcb: int = 1
-
-    # OC
-    oc_compact: bool = True
-
-    # WEL
-    wel_ipakcb: int = 1
-
-    # LMT (MT3DMS coupling)
-    lmt_output_file_name: str = "mt3d_link.ftl"
-    lmt_extension: str = "lmt8"
-    lmt_output_format: str = "unformatted"
-
-    # Additional hydraulic package parameters now driven by config
-    vka: float = 1.0
-    exdp: float = 1.0
-
-    @classmethod
-    def from_config(
-        cls,
-        config: ModflowConfig | Mapping[str, object] | None = None,
-    ) -> "ModflowSpecifParams":
-        """Build runtime params from a validated Pydantic config or raw mapping."""
-        if config is None:
-            return cls()
-        if isinstance(config, ModflowConfig):
-            return cls(**config.model_dump())
-        if isinstance(config, Mapping):
-            validated = ModflowConfig(**dict(config))
-            return cls(**validated.model_dump())
-        raise TypeError(
-            "modflow_config must be None, ModflowConfig, or a mapping of values"
-        )
-
-
-class ModflowConfig(BaseModel):
-    """Expert-level configuration for MODFLOW-NWT package parameters."""
+class ModflowRuntimeConfig(BaseModel):
+    """Expert runtime settings used to build and solve MODFLOW-NWT packages."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -204,6 +134,12 @@ class ModflowConfig(BaseModel):
         description="LMT file format (typically 'formatted' or 'unformatted').",
     )
 
+
+class ModflowProcessSpecificConfig(BaseModel):
+    """Process-specific parameters used by selected MODFLOW packages."""
+
+    model_config = ConfigDict(extra="forbid")
+
     vka: Annotated[float, ParamLevel("expert")] = Field(
         default=1.0,
         description="Vertical hydraulic conductivity control passed to the UPW package (VKA).",
@@ -212,3 +148,136 @@ class ModflowConfig(BaseModel):
         default=1.0,
         description="Extinction depth [L] used by the EVT package (EXDP).",
     )
+
+
+class ModflowConfig(BaseModel):
+    """Expert-level MODFLOW configuration organized by concern."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    runtime: Annotated[ModflowRuntimeConfig, ParamLevel("expert")] = Field(
+        default_factory=ModflowRuntimeConfig,
+        description="MODFLOW runtime package options (NWT/DIS/BAS/UPW/EVT/OC/WEL/LMT).",
+    )
+    process_specific: Annotated[ModflowProcessSpecificConfig, ParamLevel("expert")] = Field(
+        default_factory=ModflowProcessSpecificConfig,
+        description="Process-specific package controls (currently UPW/EVT knobs).",
+    )
+    sgrid: Annotated[dict[str, object] | None, ParamLevel("user")] = Field(
+        default=None,
+        description=(
+            "Optional VerticalGridConfig-keyed overrides for structured-grid "
+            "vertical discretization (`genmtd_lay`, `nlay`, `lay_decay`, "
+            "`lay_proportions`, `nodata`, `lenuni`)."
+        ),
+    )
+
+    @field_validator("sgrid")
+    @classmethod
+    def _validate_sgrid_override_keys(cls, value):
+        if value is None:
+            return None
+        if not isinstance(value, Mapping):
+            raise ValueError("modflow.sgrid must be a mapping of overrides")
+        payload = dict(value)
+        allowed = set(VerticalGridConfig.model_fields)
+        unknown = sorted(set(payload) - allowed)
+        if unknown:
+            raise ValueError(
+                f"Unknown modflow.sgrid key(s): {', '.join(unknown)}. "
+                f"Allowed keys are: {', '.join(sorted(allowed))}"
+            )
+        return payload
+
+def _coerce_modflow_config(
+    config: ModflowConfig | Mapping[str, object] | None = None,
+) -> ModflowConfig:
+    if config is None:
+        return ModflowConfig()
+    if isinstance(config, ModflowConfig):
+        return config
+    if isinstance(config, Mapping):
+        return ModflowConfig.model_validate(dict(config))
+    raise TypeError("modflow_config must be None, ModflowConfig, or a mapping of values")
+
+
+@dataclass(frozen=True)
+class ModflowRuntimeParams:
+    """Runtime container for MODFLOW-NWT package settings."""
+
+    # Core MODFLOW object
+    mf_version: str = "mfnwt"
+    mf_listunit: int = 2
+    mf_verbose: bool = False
+
+    # NWT solver
+    nwt_headtol: float = 1e-4
+    nwt_fluxtol: float = 500.0
+    nwt_maxiterout: int = 5000
+    nwt_thickfact: float = 1e-5
+    nwt_linmeth: int = 1
+    nwt_iprnwt: int = 1
+    nwt_ibotav: int = 1
+    nwt_options: str = "COMPLEX"
+    nwt_continue: bool = False
+    nwt_backflag: int = 0
+    nwt_stoptol: float = 1e-10
+
+    # DIS
+    dis_itmuni: int = 0
+
+    # BAS
+    bas_hnoflo: float = -9999.0
+
+    # UPW
+    upw_iphdry: int = 1
+    upw_hdry: float = -100.0
+    upw_layvka: int = 1
+
+    # EVT
+    evt_nevtop: int = 3
+    evt_ievt: int = 1
+    evt_ipakcb: int = 1
+
+    # OC
+    oc_compact: bool = True
+
+    # WEL
+    wel_ipakcb: int = 1
+
+    # LMT (MT3DMS coupling)
+    lmt_output_file_name: str = "mt3d_link.ftl"
+    lmt_extension: str = "lmt8"
+    lmt_output_format: str = "unformatted"
+
+
+@dataclass(frozen=True)
+class ModflowProcessSpecificParams:
+    """Runtime container for process-specific package settings."""
+
+    vka: float = 1.0
+    exdp: float = 1.0
+
+
+@dataclass(frozen=True)
+class ModflowSpecifParams:
+    """Runtime container grouped by configuration section."""
+
+    runtime: ModflowRuntimeParams = ModflowRuntimeParams()
+    process_specific: ModflowProcessSpecificParams = ModflowProcessSpecificParams()
+    sgrid: dict[str, object] | None = None
+
+    @classmethod
+    def from_config(
+        cls,
+        config: ModflowConfig | Mapping[str, object] | None = None,
+    ) -> "ModflowSpecifParams":
+        """Build runtime params from validated Pydantic config or raw mapping."""
+        validated = _coerce_modflow_config(config)
+        return cls(
+            runtime=ModflowRuntimeParams(**validated.runtime.model_dump()),
+            process_specific=ModflowProcessSpecificParams(
+                **validated.process_specific.model_dump()
+            ),
+            sgrid=(dict(validated.sgrid) if validated.sgrid is not None else None),
+        )
