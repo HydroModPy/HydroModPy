@@ -1,7 +1,7 @@
 from .sgrid_generation import StructuredGridBuilder
 from .utils.raster_grid_reader import RasterGridReader, TopRasterGrid
 from .utils.planar_discretizer import PlanarDiscretizer
-from .sgrid_config import SGridConfig
+from .sgrid_config import SGridConfig, VerticalGridConfig
 from .sgrid_config import load_sgrid_toml, validate_sgrid_config_data
 from .sgrid_mesh_adapter import build_field_mesh_from_sgrid, extract_structured_vertices
 from .sgrid_fieldparam_discretization import (
@@ -11,6 +11,7 @@ from .sgrid_fieldparam_discretization import (
 
 __all__ = [
     "StructuredGridBuilder",
+    "VerticalGridConfig",
     "RasterGridReader",
     "TopRasterGrid",
     "PlanarDiscretizer",
