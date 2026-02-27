@@ -1,7 +1,7 @@
 """Pydantic configuration model for flow-process parameter definitions.
 
-This module validates and normalizes the `[flow.param.<id>]` payloads from TOML
-into resolved dictionaries consumable by `Flow`.
+This module validates and normalizes the `[flow.param.<id>]` and `[flow.bc]`
+payloads from TOML into dictionaries consumable by `Flow`.
 """
 
 from __future__ import annotations
@@ -90,7 +90,8 @@ class FlowConfig(BaseModel):
             raise ValueError("TOML section 'flow.bc' must be a mapping when provided")
 
         parsed_param = _parse_flow_param_sections(raw_param, base_dir=base_dir)
-        return cls(param=parsed_param, bc=dict(raw_bc))
+        parsed_bc = _parse_flow_bc_sections(raw_bc)
+        return cls(param=parsed_param, bc=parsed_bc)
 
 
 def _parse_flow_param_sections(
@@ -124,3 +125,62 @@ def _field_param_config_from_flow_payload(
         base_dir=base_dir,
         section_label=f"flow.param.{param_id}",
     )
+
+
+def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
+    """Parse and normalize `[flow.bc]` entries.
+
+    Normalized structure:
+    - `bc["dirichlet"]`: mapping with optional `ocean` and `stream` payloads
+    - `bc["robin"]`: mapping with optional `drainage` payload
+    """
+    parsed: dict[str, object] = {}
+
+    dirichlet_payload = bc_cfg.get("dirichlet")
+    if dirichlet_payload is not None:
+        if not isinstance(dirichlet_payload, Mapping):
+            raise ValueError("flow.bc.dirichlet must be a mapping when provided")
+
+        parsed_dirichlet: dict[str, dict[str, object]] = {}
+        for key in ("ocean", "stream"):
+            item = dirichlet_payload.get(key)
+            if item is None:
+                continue
+            if not isinstance(item, Mapping):
+                raise ValueError(f"flow.bc.dirichlet.{key} must be a mapping")
+            parsed_dirichlet[key] = dict(item)
+
+        if parsed_dirichlet:
+            parsed["dirichlet"] = parsed_dirichlet
+
+    robin_payload = bc_cfg.get("robin")
+    if robin_payload is not None:
+        if not isinstance(robin_payload, Mapping):
+            raise ValueError("flow.bc.robin must be a mapping when provided")
+
+        parsed_robin: dict[str, dict[str, object]] = {}
+        drainage_item = robin_payload.get("drainage")
+        if drainage_item is not None:
+            if not isinstance(drainage_item, Mapping):
+                raise ValueError("flow.bc.robin.drainage must be a mapping")
+            parsed_robin["drainage"] = dict(drainage_item)
+
+        if parsed_robin:
+            parsed["robin"] = parsed_robin
+
+    legacy_drainage = bc_cfg.get("drainage")
+    if "robin" not in parsed and isinstance(legacy_drainage, Mapping):
+        parsed["robin"] = {"drainage": dict(legacy_drainage)}
+
+    for raw_key, raw_payload in bc_cfg.items():
+        key = str(raw_key).strip()
+        if key == "":
+            raise ValueError("flow.bc cannot contain empty keys")
+        if key in {"dirichlet", "robin", "drainage"}:
+            continue
+        if isinstance(raw_payload, Mapping):
+            parsed[key] = dict(raw_payload)
+        else:
+            parsed[key] = raw_payload
+
+    return parsed
