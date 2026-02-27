@@ -351,32 +351,42 @@ mode = "none"
 
 
 # ----------------------------------------------------------------------
-# Flow boundary conditions (Robin / DRN)
+# Flow boundary conditions (Cauchy/Dirichlet)
 # ----------------------------------------------------------------------
 
-[flow.bc.robin.drainage]
+[flow.bc.cauchy.drainage]
 # Domain of application on the model domain boundaries/surfaces.
 # Allowed values: "top", "north side", "west side", "east side", "south side".
 application_domain = "top"
 # Boundary-condition type.
-type = "robin"
-# Robin/DRN value (conductance-like coefficient).
+type = "cauchy"
+# Conductance value for drainage (Cauchy condition).
 value = 1.0
+# Unit of conductance.
+unit = "m2/s"
+# Optional flag to use data-derived values instead of fixed value.
+data_value = false
 
 [flow.bc.dirichlet.ocean]
 application_domain = "top"
 #Boundary-condition type.
 type = "dirichlet"
-#Robin/DRN value (conductance-like coefficient).
+# Head value for Dirichlet condition.
 value = 1.0
+# Unit of head.
+unit = "m"
 data_value = true  # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
 
 [flow.bc.dirichlet.stream]
 application_domain = "top"
 # Boundary-condition type.
 type = "dirichlet"
-# Robin/DRN value (conductance-like coefficient).
+# Head value for Dirichlet condition.
 value = 1.0
+# Unit of head.
+unit = "m"
+# Optional flag to use data-derived values instead of fixed value.
+data_value = false
 
 
 
