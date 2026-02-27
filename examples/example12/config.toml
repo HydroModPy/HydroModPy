@@ -517,13 +517,13 @@ nodata = -9999.0
 # Time unit label propagated to FloPy (for example 'd').
 itmuni = "d"
 # Temporal simulation mode ("steady" or "transient").
-sim_state = "steady"
+sim_state = "transient"
 # Temporal mesh generation method ("synthetic_regular" or "from_chron").
 genmtd = "synthetic_regular"
 # Number of stress periods.
-nper = 10
+nper = 12
 # Length of each stress period when genmtd = "synthetic_regular".
-lenper = 1.0
+lenper = 30.0
 # Chronicle file path used when genmtd = "from_chron".
 chron_path = "data/recharge_chronicle.tsv"
 # Datetime format used to parse the chronicle time column.
@@ -533,7 +533,7 @@ chron_colsep = "\t"
 # Time-column name in the chronicle file.
 chron_time_col = "Date"
 # Optional explicit start datetime (leave commented to keep default None).
-# start_datetime = "2020-01-01 00:00:00"
+start_datetime = "2003-01-01 00:00:00"
 # Optional explicit end datetime (leave commented to keep default None).
 # end_datetime = "2020-12-31 00:00:00"
 # Keep first stress period in steady state when relevant.
