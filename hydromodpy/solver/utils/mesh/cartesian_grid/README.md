@@ -383,7 +383,7 @@ Behavior:
 
 Temporal discretization is now separated from cartesian mesh tools and lives in:
 
-- `hydromodpy/solver/utils/temporal/tgrid_generation.py`
+- `hydromodpy/solver/utils/temporal/tmesh_generation.py`
 
 ## Minimal Example (Spatial Grid)
 
