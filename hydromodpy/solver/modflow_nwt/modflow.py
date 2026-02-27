@@ -92,8 +92,7 @@ class Modflow(Solver):
         cond_drain: float = None,
         sea_level=None,
         bc_left: float = None,
-        bc_right: float = None,
-    ):
+        bc_right: float = None):
         """
         Initialize method.
 
@@ -214,7 +213,6 @@ class Modflow(Solver):
         self.ncol = self.dem.shape[1]
 
         # %% Boundary conditions
-
         self.bc_left = bc_left
         self.bc_right = bc_right
         self.sea_level = sea_level
