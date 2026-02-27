@@ -107,11 +107,11 @@ class PiezometerSet(BaseStationSet):
         bbox: Optional[tuple[float, float, float, float]] = None,
         mask_path: Optional[Union[str, Path]] = None,
         center_point: Optional[tuple[float, float]] = None,
-        fallback_if_empty: bool = False,
+        fallback_search_radius_km: float = 25.0,
         require_observations: bool = False,
         date_start: Optional[str] = None,
         date_end: Optional[str] = None,
-        max_ids: int = 20,
+        max_ids: Optional[int] = 20,
         timeout: int = 30,
     ) -> List[str]:
         """
@@ -127,18 +127,19 @@ class PiezometerSet(BaseStationSet):
         center_point : tuple(float, float), optional
             Center point as (lon, lat). When provided, results are automatically
             sorted by distance to this point (or mask centroid if no center_point).
-        fallback_if_empty : bool, default False
-            If True and no piezometers found in the initial search area,
-            automatically search beyond the area and return closest piezometers
-            sorted by distance to center_point (or mask centroid).
+        fallback_search_radius_km : float, default 25.0
+            If no piezometers found in the initial area and this value > 0,
+            automatically search in a buffered area around the zone.
+            Results are sorted by distance to the reference point.
+            Default 10 km. User can adjust this value (e.g., 5, 20, 50 km).
         require_observations : bool, default False
             If True, keep only IDs with at least one chronicle observation in
             ``[date_start, date_end]``.
         date_start, date_end : str, optional
             Date filters used when ``require_observations=True``.
             Format: ``YYYY-MM-DD``.
-        max_ids : int, default 20
-            Maximum number of IDs returned.
+        max_ids : int or None, default 20
+            Maximum number of IDs returned. If None, returns all discovered IDs.
         timeout : int, default 30
             HTTP timeout in seconds.
 
@@ -148,8 +149,8 @@ class PiezometerSet(BaseStationSet):
             Discovered valid ``code_bss`` identifiers, sorted by distance if
             center_point or mask_path provided.
         """
-        if max_ids < 1:
-            raise ValueError("max_ids must be >= 1")
+        if max_ids is not None and max_ids < 1:
+            raise ValueError("max_ids must be None or >= 1")
 
         helper = object.__new__(cls)
         mask_gdf = None
@@ -176,18 +177,25 @@ class PiezometerSet(BaseStationSet):
             bounds = mask_gdf.total_bounds
             reference_point = ((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)
 
-        # Première recherche dans la zone définie
+        # Recherche dans la zone définie
         candidate_data = cls._search_piezometers_in_bbox(
             minx, miny, maxx, maxy, 
             mask_gdf, 
             timeout
         )
 
-        # Fallback si la zone est vide
-        if not candidate_data and fallback_if_empty and reference_point is not None:
-            print(f"No piezometers found in the initial search area. Searching for closest piezometers beyond the area...")
-            # Créer une bbox beaucoup plus grande (France entière environ)
-            fallback_bbox = (-5.0, 41.0, 8.0, 51.0)
+        # Fallback si la zone est vide : chercher avec un buffer
+        if not candidate_data and fallback_search_radius_km > 0 and reference_point is not None:
+            print(f"No piezometers found in the initial search area.")
+            print(f"Searching in a {fallback_search_radius_km} km buffer around the area...")
+            # Convertir buffer en degrés (approximation : 1 degré ≈ 111 km à l'équateur)
+            buffer_deg = fallback_search_radius_km / 111.0
+            fallback_bbox = (
+                minx - buffer_deg,
+                miny - buffer_deg,
+                maxx + buffer_deg,
+                maxy + buffer_deg,
+            )
             candidate_data = cls._search_piezometers_in_bbox(
                 fallback_bbox[0], fallback_bbox[1], 
                 fallback_bbox[2], fallback_bbox[3],
@@ -195,7 +203,7 @@ class PiezometerSet(BaseStationSet):
                 timeout
             )
             if candidate_data:
-                print(f"Found {len(candidate_data)} piezometers in extended search area.")
+                print(f"Found {len(candidate_data)} piezometers in buffered search area.")
 
         # Appliquer le tri par distance automatiquement si reference_point est disponible
         if reference_point is not None and candidate_data and all(d["coords"] is not None for d in candidate_data):
@@ -469,7 +477,7 @@ class PiezometerSet(BaseStationSet):
         candidate_ids: List[str],
         date_start: Optional[str],
         date_end: Optional[str],
-        max_ids: int,
+        max_ids: Optional[int],
         timeout: int,
     ) -> List[str]:
         """
@@ -481,8 +489,8 @@ class PiezometerSet(BaseStationSet):
             List of piezometer IDs to filter
         date_start, date_end : str, optional
             Date range for observations (YYYY-MM-DD format)
-        max_ids : int
-            Maximum number of IDs to return
+        max_ids : int or None
+            Maximum number of IDs to return. If None, returns all valid IDs.
         timeout : int
             HTTP timeout in seconds
 
@@ -513,17 +521,17 @@ class PiezometerSet(BaseStationSet):
             count = int(payload.get("count", 0) or 0)
             if count > 0:
                 discovered.append(sid)
-                if len(discovered) >= max_ids:
+                if max_ids is not None and len(discovered) >= max_ids:
                     break
 
         return discovered
 
-    def _get_piezometers_from_mask(self, mask_path):
+    def _get_piezometers_from_mask(self, mask_path, fallback_search_radius_km: float = 25.0):
         """Select piezometers located inside a mask geometry."""
         print(f"Loading geographic mask from: {mask_path}")
         mask_gdf = self._load_mask_geometry(mask_path)
         if self.source_mode == "api":
-            return self._filter_piezometers_with_geometry_api(mask_gdf)
+            return self._filter_piezometers_with_geometry_api(mask_gdf, fallback_search_radius_km)
         if self.source_mode == "local":
             return self._filter_piezometers_with_geometry_local(mask_gdf)
         raise ValueError(f"Unsupported source_mode: {self.source_mode}")
@@ -540,44 +548,123 @@ class PiezometerSet(BaseStationSet):
         """Convert a raster mask to polygons in WGS84 (EPSG:4326)."""
         return super()._load_mask_from_raster(mask_path)
 
-    def _filter_piezometers_with_geometry_api(self, mask_gdf):
-        """Filter API piezometers intersecting the provided mask geometry."""
+    def _filter_piezometers_with_geometry_api(self, mask_gdf, fallback_search_radius_km: float = 25.0):
+        """Filter API piezometers intersecting the provided mask geometry with automatic fallback."""
         gpd, Point = self._load_geographic_libraries()
 
+        # Get bounding box
         bounds = mask_gdf.total_bounds
+        print(f"Searching piezometers in bounding box: {bounds}")
+
+        # Query piezometers within bounding box
+        url = f"{API_BASE_URL}stations"
         params = {
             "bbox": f"{bounds[0]},{bounds[1]},{bounds[2]},{bounds[3]}",
             "size": 10000,
             "format": "json",
         }
-        response = requests.get(f"{API_BASE_URL}stations", params=params, timeout=30)
+
+        response = requests.get(url, params=params, timeout=30)
         if not self.__check_status_code(response.status_code):
             raise RuntimeError("Failed to retrieve piezometers from API")
 
         stations_data = response.json().get("data", [])
+
         if not stations_data:
-            raise ValueError("No piezometers found in the specified geographic area")
+            print("No piezometers found in bounding box area")
+            stations_gdf = gpd.GeoDataFrame([], geometry=[], crs='EPSG:4326')
+            stations_in_mask = stations_gdf
+        else:
+            print(f"Found {len(stations_data)} piezometers in bounding box")
 
-        points = []
-        rows = []
-        for row in stations_data:
-            xy = self._extract_wgs84_coordinates(row)
-            if xy is None:
-                continue
-            rows.append(row)
-            points.append(Point(float(xy[0]), float(xy[1])))
+            # Create GeoDataFrame from piezometers
+            points = []
+            rows = []
+            for row in stations_data:
+                xy = self._extract_wgs84_coordinates(row)
+                if xy is None:
+                    continue
+                rows.append(row)
+                points.append(Point(float(xy[0]), float(xy[1])))
 
-        if not rows:
-            raise ValueError("No georeferenced piezometers found in API response.")
+            if not rows:
+                stations_gdf = gpd.GeoDataFrame([], geometry=[], crs='EPSG:4326')
+                stations_in_mask = stations_gdf
+            else:
+                stations_gdf = gpd.GeoDataFrame(rows, geometry=points, crs="EPSG:4326")
+                
+                # Filter piezometers within mask geometry (spatial join with polygon)
+                try:
+                    stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="within")
+                except Exception as e:
+                    print(f"Warning: Spatial join failed ({e}), using intersection instead")
+                    stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="intersects")
 
-        stations_gdf = gpd.GeoDataFrame(rows, geometry=points, crs="EPSG:4326")
-        try:
-            stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="within")
-        except Exception:
-            stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="intersects")
-
+        # Fallback: if no piezometers found after spatial join, search in buffer radius
         if stations_in_mask.empty:
-            raise ValueError("No piezometers found within the specified geographic mask.")
+            print("No piezometers found within the mask polygon.")
+            print(f"Activating automatic fallback search: {fallback_search_radius_km} km radius buffer...")
+            
+            from math import radians, cos
+            
+            # Calculate centroid and create buffer
+            centroid = mask_gdf.unary_union.centroid
+            ref_lon, ref_lat = centroid.x, centroid.y
+            
+            # Convert radius to degrees (1 deg ≈ 111 km at equator)
+            lat_offset = fallback_search_radius_km / 111.0
+            lon_offset = fallback_search_radius_km / (111.0 * cos(radians(ref_lat)))
+            
+            fallback_bbox = (
+                ref_lon - lon_offset,
+                ref_lat - lat_offset,
+                ref_lon + lon_offset,
+                ref_lat + lat_offset
+            )
+            
+            # Query API with fallback bbox
+            fallback_params = {
+                'bbox': f"{fallback_bbox[0]},{fallback_bbox[1]},{fallback_bbox[2]},{fallback_bbox[3]}",
+                'size': 10000,
+                'format': 'json'
+            }
+            fallback_response = requests.get(url, params=fallback_params, timeout=30)
+            fallback_stations = fallback_response.json().get('data', [])
+            
+            if fallback_stations:
+                print(f"Found {len(fallback_stations)} piezometers in fallback area")
+                # Distance sort: keep all piezometers sorted by distance
+                distances = []
+                for station in fallback_stations:
+                    try:
+                        xy = self._extract_wgs84_coordinates(station)
+                        if xy is not None:
+                            lon, lat = xy
+                            dist = self._haversine_distance(ref_lon, ref_lat, lon, lat)
+                            distances.append((station, dist))
+                    except (ValueError, TypeError):
+                        continue
+                
+                # Sort by distance and keep ALL piezometers (no limit)
+                distances.sort(key=lambda x: x[1])
+                fallback_stations = [s for s, _ in distances]  # Keep all piezometers
+                
+                # Rebuild stations_gdf with fallback data
+                points_fallback = []
+                for station in fallback_stations:
+                    xy = self._extract_wgs84_coordinates(station)
+                    if xy is not None:
+                        points_fallback.append(Point(float(xy[0]), float(xy[1])))
+                
+                stations_gdf = gpd.GeoDataFrame(
+                    fallback_stations,
+                    geometry=points_fallback,
+                    crs='EPSG:4326'
+                )
+                print(f"Using all {len(fallback_stations)} piezometers from fallback search (sorted by distance)")
+                stations_in_mask = stations_gdf  # Include all fallback piezometers
+            else:
+                raise ValueError(f"No piezometers found within the specified geographic mask or in {fallback_search_radius_km} km fallback radius")
 
         ids = sorted(stations_in_mask["code_bss"].astype(str).unique().tolist())
         print(f"Found {len(ids)} piezometers within geographic mask")
