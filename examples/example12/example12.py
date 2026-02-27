@@ -93,10 +93,7 @@ if __name__ == '__main__':
     initializing = hmp.Initializing(config=cfg.initializing)
     geographic   = hmp.Geographic(config=cfg.geographic,
                               initializing=initializing)
-    domain = Domain(
-        config=cfg.domain,
-        geographic=geographic,
-    )
+    domain = Domain(config=cfg.domain,geographic=geographic)
     flow = Flow(config=cfg.flow)
 
     setting = Settings()

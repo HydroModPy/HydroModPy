@@ -107,23 +107,6 @@ class Flow(Process):
 			raise TypeError("boundary_conditions must be a mapping")
 
 		parsed_boundary_conditions: dict[str, object] = {}
-		for raw_id, raw_payload in boundary_conditions.items():
-			bc_id = str(raw_id).strip()
-			if bc_id == "":
-				raise ValueError("boundary_conditions cannot contain empty ids")
-			parsed_boundary_conditions[bc_id] = self._coerce_boundary_condition_entry(
-				bc_id=bc_id,
-				raw_payload=raw_payload,
-			)
-
-		robin_payload = boundary_conditions.get("robin")
-		if isinstance(robin_payload, Mapping):
-			drainage_payload = robin_payload.get("drainage")
-			if isinstance(drainage_payload, Mapping):
-				parsed_boundary_conditions["drainage"] = self._build_robin_drainage_boundary_condition(
-					drainage_payload
-				)
-				parsed_boundary_conditions.pop("robin", None)
 
 		dirichlet_payload = boundary_conditions.get("dirichlet")
 		if isinstance(dirichlet_payload, Mapping):
@@ -134,7 +117,27 @@ class Flow(Process):
 						bc_id=bc_id,
 						payload=sub_payload,
 					)
-			parsed_boundary_conditions.pop("dirichlet", None)
+
+		robin_payload = boundary_conditions.get("robin")
+		if isinstance(robin_payload, Mapping):
+			drainage_payload = robin_payload.get("drainage")
+			if isinstance(drainage_payload, Mapping):
+				parsed_boundary_conditions["drainage"] = self._build_robin_drainage_boundary_condition(
+					drainage_payload
+				)
+
+		for raw_id, raw_payload in boundary_conditions.items():
+			bc_id = str(raw_id).strip()
+			if bc_id == "":
+				raise ValueError("boundary_conditions cannot contain empty ids")
+			if bc_id in {"dirichlet", "robin"}:
+				continue
+			if bc_id == "drainage" and "drainage" in parsed_boundary_conditions:
+				continue
+			parsed_boundary_conditions[bc_id] = self._coerce_boundary_condition_entry(
+				bc_id=bc_id,
+				raw_payload=raw_payload,
+			)
 
 		self.boundary_conditions.update(parsed_boundary_conditions)
 
