@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.watershed.geology_config import GeologyConfig
+from hydromodpy.domain.depth_model import ConstantThicknessDepthModel, DepthModelConfig
 
 
 class DomainConfig(BaseModel):
@@ -15,6 +15,8 @@ class DomainConfig(BaseModel):
     Controls which zone providers are loaded in `Domain`.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     zone_ids: Annotated[list[str], ParamLevel("user")] = Field(
         default_factory=list,
         description=(
@@ -22,11 +24,11 @@ class DomainConfig(BaseModel):
             "Supported values currently include: 'geology'."
         ),
     )
-    geology: Annotated[GeologyConfig, ParamLevel("user")] = Field(
-        default_factory=GeologyConfig,
+    depth_model: Annotated[DepthModelConfig, ParamLevel("user")] = Field(
+        default_factory=ConstantThicknessDepthModel,
         description=(
-            "Geology configuration used internally by Domain to build "
-            "the 'geology' zone field."
+            "Vertical domain model configuration. "
+            "Use 'constant_thickness' or 'flat_substratum'."
         ),
     )
 
