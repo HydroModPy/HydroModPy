@@ -183,7 +183,14 @@ class Flow(Process):
 
 		dirichlet_payload = boundary_conditions.get("dirichlet")
 		if isinstance(dirichlet_payload, Mapping):
-			for bc_id in ("ocean", "stream"):
+			for bc_id in (
+				"ocean",
+				"stream",
+				"north_boundary",
+				"south_boundary",
+				"east_boundary",
+				"west_boundary",
+			):
 				sub_payload = dirichlet_payload.get(bc_id)
 				if isinstance(sub_payload, Mapping):
 					parsed_boundary_conditions[bc_id] = self._build_dirichlet_boundary_condition(
