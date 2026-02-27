@@ -21,14 +21,15 @@ import datetime
 import pandas as pd
 import sys
 import rasterio
-from os.path import dirname, abspath
+from pathlib import Path
 import matplotlib.pyplot as plt
 import flopy.utils.binaryfile as fpu
 import flopy.utils.postprocessing as pp
 
 # Root
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
+repo_root = Path(__file__).resolve().parents[3]
+if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
@@ -38,7 +39,10 @@ from hydromodpy.domain.surface import Surface
 from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
-from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
+from hydromodpy.solver.utils.temporal.tmesh_generation import (
+    TMeshConfig,
+    TMesh_Generation,
+)
 from hydromodpy.solver.modflow_nwt.modflow_utils import (
     build_flow_domain_property_snapshot,
 )
@@ -483,7 +487,8 @@ class Modflow(Solver):
         """
         if self.tgrid_config is None:
             return None
-        builder = TMesh_Generation(**self.tgrid_config.to_builder_kwargs())
+        tmesh_config = TMeshConfig(**self.tgrid_config.to_builder_kwargs())
+        builder = TMesh_Generation(config=tmesh_config)
         return builder.run()
 
     def _sync_runtime_time_from_tgrid(self, tgrid) -> None:
@@ -492,6 +497,7 @@ class Modflow(Solver):
         """
         perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
         nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
+        tsmult = np.asarray(getattr(tgrid, "tsmult", []), dtype=float)
         steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
         if perlen.size == 0:
             raise ValueError("modflow.tgrid produced an empty perlen vector.")
@@ -499,6 +505,11 @@ class Modflow(Solver):
             raise ValueError(
                 "modflow.tgrid produced inconsistent nstp/perlen sizes "
                 f"({nstp.size} != {perlen.size})."
+            )
+        if tsmult.size != perlen.size:
+            raise ValueError(
+                "modflow.tgrid produced inconsistent tsmult/perlen sizes "
+                f"({tsmult.size} != {perlen.size})."
             )
         if steady.size != perlen.size:
             raise ValueError(
@@ -509,8 +520,150 @@ class Modflow(Solver):
         self.nper = int(perlen.size)
         self.perlen = perlen
         self.nstp = nstp
+        self.tsmult = tsmult
         self.steady = steady
         self.start_datetime = getattr(tgrid, "start_datetime", None)
+
+    def _log_tgrid_self_comparison(self, tgrid) -> None:
+        """
+        Log one explicit comparison between tgrid values and synchronized self values.
+        """
+        unit_code = {
+            "undefined": 0,
+            "seconds": 1,
+            "minutes": 2,
+            "hours": 3,
+            "days": 4,
+            "years": 5,
+        }
+
+        def _normalize_unit(value):
+            if value is None:
+                return None
+            if isinstance(value, (int, np.integer)):
+                ivalue = int(value)
+                for key, code in unit_code.items():
+                    if code == ivalue:
+                        return key
+                return str(ivalue)
+            text = str(value).strip().lower()
+            aliases = {
+                "0": "undefined",
+                "1": "seconds",
+                "2": "minutes",
+                "3": "hours",
+                "4": "days",
+                "5": "years",
+                "u": "undefined",
+                "s": "seconds",
+                "sec": "seconds",
+                "second": "seconds",
+                "seconds": "seconds",
+                "m": "minutes",
+                "min": "minutes",
+                "minute": "minutes",
+                "minutes": "minutes",
+                "h": "hours",
+                "hr": "hours",
+                "hour": "hours",
+                "hours": "hours",
+                "d": "days",
+                "day": "days",
+                "days": "days",
+                "y": "years",
+                "yr": "years",
+                "year": "years",
+                "years": "years",
+            }
+            return aliases.get(text, text)
+
+        def _preview(values):
+            arr = np.asarray(values).reshape(-1)
+            if arr.size <= 6:
+                return arr.tolist()
+            return arr[:3].tolist() + ["..."] + arr[-2:].tolist()
+
+        tgrid_time_units = getattr(tgrid, "time_units", None)
+        tgrid_nper = int(getattr(tgrid, "nper", 0))
+        tgrid_perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
+        tgrid_nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
+        tgrid_tsmult = np.asarray(getattr(tgrid, "tsmult", []), dtype=float)
+        tgrid_steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
+        tgrid_start_datetime = getattr(tgrid, "start_datetime", None)
+
+        self_perlen = np.asarray(self.perlen, dtype=float).reshape(-1)
+        self_nstp = np.asarray(self.nstp, dtype=int).reshape(-1)
+        self_tsmult = np.asarray(getattr(self, "tsmult", []), dtype=float).reshape(-1)
+        self_steady = np.asarray(self.steady, dtype=bool).reshape(-1)
+
+        tgrid_unit_name = _normalize_unit(tgrid_time_units)
+        self_unit_name = _normalize_unit(self.dis_itmuni)
+        tgrid_unit_code = unit_code.get(tgrid_unit_name, None)
+        self_unit_code = unit_code.get(self_unit_name, None)
+        itmuni_match = tgrid_unit_name == self_unit_name
+        nper_match = int(tgrid_nper) == int(self.nper)
+        perlen_match = (
+            tgrid_perlen.shape == self_perlen.shape
+            and np.allclose(tgrid_perlen, self_perlen, equal_nan=True)
+        )
+        nstp_match = np.array_equal(tgrid_nstp, self_nstp)
+        tsmult_match = (
+            tgrid_tsmult.shape == self_tsmult.shape
+            and np.allclose(tgrid_tsmult, self_tsmult, equal_nan=True)
+        )
+        steady_match = np.array_equal(tgrid_steady, self_steady)
+        start_datetime_match = str(tgrid_start_datetime) == str(self.start_datetime)
+
+        logger.info(
+            "[Temporal compare] units | tgrid=%s(code=%s) | self=%s(code=%s) | match=%s",
+            tgrid_unit_name,
+            tgrid_unit_code,
+            self_unit_name,
+            self_unit_code,
+            itmuni_match,
+        )
+        logger.info(
+            "[Temporal compare] itmuni raw | tgrid=%s | self=%s | match=%s",
+            tgrid_time_units,
+            self.dis_itmuni,
+            itmuni_match,
+        )
+        logger.info(
+            "[Temporal compare] nper | tgrid=%s | self=%s | match=%s",
+            tgrid_nper,
+            self.nper,
+            nper_match,
+        )
+        logger.info(
+            "[Temporal compare] perlen | tgrid=%s | self=%s | match=%s",
+            _preview(tgrid_perlen),
+            _preview(self_perlen),
+            perlen_match,
+        )
+        logger.info(
+            "[Temporal compare] nstp | tgrid=%s | self=%s | match=%s",
+            _preview(tgrid_nstp),
+            _preview(self_nstp),
+            nstp_match,
+        )
+        logger.info(
+            "[Temporal compare] tsmult | tgrid=%s | self=%s | match=%s",
+            _preview(tgrid_tsmult),
+            _preview(self_tsmult),
+            tsmult_match,
+        )
+        logger.info(
+            "[Temporal compare] steady | tgrid=%s | self=%s | match=%s",
+            _preview(tgrid_steady),
+            _preview(self_steady),
+            steady_match,
+        )
+        logger.info(
+            "[Temporal compare] start_datetime | tgrid=%s | self=%s | match=%s",
+            tgrid_start_datetime,
+            self.start_datetime,
+            start_datetime_match,
+        )
 
     def _sync_runtime_grid_from_sgrid(self, sgrid) -> None:
         """
@@ -617,6 +770,7 @@ class Modflow(Solver):
                     self.perlen = np.ones(len(self.recharge))
                 # First timestep is steady state:
                 self.perlen[0] = 1
+            self.tsmult = np.ones(int(self.nper), dtype=float)
 
         ### Sptial: model domain definition and discretization
 
@@ -646,9 +800,12 @@ class Modflow(Solver):
             vertical_config=vertical_cfg,
         )
         if self.tgrid_config is not None:
-            tgrid = self._build_temporal_grid_config()
+            tmesh_config = TMeshConfig(**self.modflow_config.tgrid.to_builder_kwargs())
+            tmesh_generator = TMesh_Generation(config=tmesh_config)
+            tgrid = tmesh_generator.run()
             self.tgrid = tgrid
             self._sync_runtime_time_from_tgrid(tgrid)
+            self._log_tgrid_self_comparison(tgrid)
         self._sync_runtime_grid_from_sgrid(sgrid)
         
         # Imposes discretization to modflow model through
@@ -667,12 +824,12 @@ class Modflow(Solver):
             xul=sgrid.xoffset,
             yul=sgrid.extent[3],
             # Temporal grid parameters
-            itmuni=self.dis_itmuni,
-            nper=self.nper,
-            perlen=self.perlen,
-            nstp=self.nstp,
-            steady=self.steady,
-            start_datetime=self.start_datetime)
+            itmuni=tgrid.time_units,
+            nper=tgrid.nper,
+            perlen=tgrid.perlen,
+            nstp=tgrid.nstp,
+            steady=tgrid.steady_state,
+            start_datetime=tgrid.start_datetime)
 
         # self.dis = flopy.modflow.ModflowDis(self.mf,
         #                                     itmuni=0, # itmuni = 0 ==> undefined
