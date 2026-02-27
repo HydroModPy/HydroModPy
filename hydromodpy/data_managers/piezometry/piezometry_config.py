@@ -70,8 +70,8 @@ class SelectionSectionSchema(BaseModel):
         if value is None:
             return None
         ids = [str(v).strip() for v in list(value)]
-        if len(ids) == 0:
-            raise ValueError("selection.piezometer_ids cannot be empty")
+        # Allow empty list [] to trigger automatic discovery
+        # but reject lists with empty string values like [""]
         if any(not item for item in ids):
             raise ValueError("selection.piezometer_ids cannot contain empty values")
         return ids
@@ -88,8 +88,10 @@ class SelectionSectionSchema(BaseModel):
 
     @model_validator(mode="after")
     def _validate_selection_payload(self):
-        if self.mode == "stations" and self.piezometer_ids is None:
-            raise ValueError("selection.piezometer_ids is required when selection.mode='stations'")
+        if self.mode == "stations":
+            if self.piezometer_ids is None:
+                raise ValueError("selection.piezometer_ids is required when selection.mode='stations'")
+            # Allow empty list [] to trigger automatic discovery
         if self.mode == "mask" and self.mask_path is None:
             raise ValueError("selection.mask_path is required when selection.mode='mask'")
         return self
