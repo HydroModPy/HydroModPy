@@ -135,7 +135,7 @@ if __name__ == '__main__':
                         add_path=data_path,
                         out_path=workspace.catch_folder,
                         sub_snap_dist=50)
-    
+
     # hydrometry = Hydrometry(out_path=workspace.catch_folder,
     #                         hydrometry_path=data_path,
     #                         file_name='france hydrometric stations.shp',
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     hydro_section = raw_toml.get("hydrometry_stations", {})
 
     hydro_cfg = {
-        "hydrometry": {k: v for k, v in hydro_section.items() 
+        "hydrometry": {k: v for k, v in hydro_section.items()
                     if k not in ["source", "selection", "output"]},
         "source": hydro_section.get("source", {}),
         "selection": hydro_section.get("selection", {}),
@@ -191,7 +191,7 @@ if __name__ == '__main__':
         oceanic.update_MSL(0.0)
 
     flow.boundary_conditions["ocean"].value = oceanic.MSL
-    
+
     #%% WATERSHED OBJECT
 
     stable_folder      = cfg.workspace.stable_folder
@@ -211,17 +211,17 @@ if __name__ == '__main__':
     )
 
     # Add hydrological data
-    
+
     #%% ---- ATMOSPHERE
-    
+
 
     #%% ---- PYHELP
-    
+
     pyhelp_activated = False
     if pyhelp_activated == True:
-    
+
         #%% INIT
-        
+
         # ATMOSPHERE : Necessary to set model parameters
 
     # climatic.update_sim2_reanalysis(var_list=['t', 'precip', 'dli'],
@@ -234,59 +234,56 @@ if __name__ == '__main__':
     #                                        geographic=geographic,
     #                                        disk_clip=geographic.watershed_shp) # for clipping the netcdf files saved on disk
     #                                                                 # can be a shapefile path or a flag: 'watershed' or False
-    
+
     #%% ---- PYHELP
-    
-    pyhelp_activated = False
-    if pyhelp_activated == True:
-    
+
         #%% INIT
-    
+
         print("test")
-    
+
         pyhelp_workdir = Path(cfg.workspace.out_dir_path) / watershed_name / "results_pyhelp"
         pyhelp_workdir.mkdir(parents=True, exist_ok=True)
-    
+
         sim2_file_precip = 'x' # ton netcdf propre, mettre celui de poschqivo dqns "data"
         sim2_file_temp = 'x' # ton netcdf propre
         sim2_file_sr = 'x' # ton netcdf propre
-        
-        # Peut-Ãªtre ajouter Ã  config.toml 
-        
+
+        # Peut-Ãªtre ajouter Ã  config.toml
+
         dem_path_modflow = geographic.watershed_box_buff_dem # pqth du dem modflow
         dem_path_pyhelp = os.path.join(workspace.stable_folder, "geographic", "watershed_box_buff_dem_250.tif")
-    
+
         wbt.resample(dem_path_modflow, dem_path_pyhelp, 250)
         shapefile_path = geographic.watershed_shp
-    
+
         # Ready climatic CSVs
         # ready_csvs = [
         #     os.path.join(era5_folder, "precip_input_data.csv"),
         #     os.path.join(era5_folder, "airtemp_input_data.csv"),
         #     os.path.join(era5_folder, "solrad_input_data.csv")
         # ]
-    
+
         #### If already completed grid:
         grid_base_csv = Path(data_path, "_init_input_grid_base1", "input_grid_base1.csv")
-        
+
         #%% PATH
-    
+
         pyhelp_workdir = os.path.join(out_path, watershed_name, "results_pyhelp")
         era5_folder = os.path.join(data_path)
-    
+
         ### If already completed grid:
         grid_base_csv = data_path+"/"+"_init_input_grid_base1/"+"input_grid_base1.csv"
-    
+
         ready_csvs = [
             os.path.join(era5_folder, "precip_input_data.csv"),
             os.path.join(era5_folder, "airtemp_input_data.csv"),
             os.path.join(era5_folder, "solrad_input_data.csv")
         ]
-    
+
         #%% RUN
-    
+
         option = '3'
-        
+
         grid_kwargs = dict(
                            growth_start=140,
                            growth_end=280,
@@ -305,11 +302,11 @@ if __name__ == '__main__':
                            dist_dr1=50,
                            slope1=35
                            )
-    
+
         # cid                             Unique cell ID
         # lat_dd                          Decimal degrees Latitude of the cell centroid
         # lon_dd                          Decimal degrees Longitude of the cell centroid
-    
+
         # wind            km/h            Average annual wind speed
         # hum1            %               Average quarterly relative humidity (Jan to Mar)
         # hum2            %               Average quarterly relative humidity (Apr to Jun)
@@ -329,7 +326,7 @@ if __name__ == '__main__':
         # ksat            cm/s            Saturated hydraulic conductivity of the ith soil layer
         # dist_dr         m               Distance to discharge
         # slope           %               Average slope
-    
+
         # run             â€“               Identify cells to be run with the HELP model
         # context         â€“               Identify cells by context:
         #     0 - Water cell
@@ -338,13 +335,13 @@ if __name__ == '__main__':
         #     3 - River edge with deep hypodermic runoff
         #     4 - Urban cell
         #     5 - Cell not mapped
-    
+
         sim_name = "_sim_"
         sim_dir = pyhelp_workdir / sim_name
         sim_dir.mkdir(parents=True, exist_ok=True)
-    
+
         # if option == '1':
-    
+
         #     #---- Input climatic ready - Input grid updated:
         #     nc = preprocessing_pyhelp(
         #         workdir = os.path.join(pyhelp_workdir, f"_sim_{k}"),
@@ -355,11 +352,11 @@ if __name__ == '__main__':
         #         shapefile = from_shp[0],
         #     )
         #     # print("NetCDF :", nc)
-    
+
         # if option == '2':
-    
+
         #     #---- Input climatic ready - Input grid ready:
-    
+
         #     nc = preprocessing_pyhelp(
         #         workdir = pyhelp_workdir,
         #         outpath = simulations_folder,
@@ -367,9 +364,9 @@ if __name__ == '__main__':
         #         ready_csvs = ready_csvs,
         #     )
         #     # print("NetCDF :", nc)
-      
+
         if option == '3':
-    
+
             #---- Input climatic updated - Input grid updated:
             nc = preprocessing_pyhelp(
                 workdir = pyhelp_workdir,
@@ -380,40 +377,40 @@ if __name__ == '__main__':
                 conda_env   = "pyhelp_env",
             )
             # print("NetCDF :", nc)
-    
+
         #%% FORMATING
-    
+
         name_sim = sim_name
-    
+
         csv_path = pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean.csv"
-    
+
         df = pd.read_csv(csv_path)
         df = df.rename(columns={df.columns[0]: "time"})
         formatted_csv_path =  pyhelp_workdir + '/' + name_sim + "/help_example_daily_mean_formatted.csv"
         df.to_csv(formatted_csv_path, index=False)
-    
+
         #%% SCALING
-    
+
         nc_path  = pyhelp_workdir + '/' + name_sim + "/_pyhelp_outputs_grid.nc"
         dem_path = stable_folder + "/geographic/watershed_box_buff_dem.tif"
-    
+
         ds  = xr.open_dataset(nc_path)
         dem = rxr.open_rasterio(dem_path)
-    
+
         R = ds["rechg"]
         R = R.rio.write_crs(dem.rio.crs)
-    
+
         Rt   = R.rio.reproject_match(dem, nodata=0.0)
         cube = Rt.values / 1000
-    
+
         recharge_dict = {i: cube[i] for i in range(cube.shape[0])}
-        
+
         rech_dict = "ton netcdf importe"
-    
+
     #%% ---- RECHARGE
-    
+
     #%% DATA SAFRAN-ISBA
-    
+
     climatic.update_recharge_reanalysis(path_file=data_path / '_climate_REANALYSIS.csv',
                                         clim_mod='REA',
                                         clim_sce='historic',
@@ -446,7 +443,7 @@ if __name__ == '__main__':
     # plt.plot(R_mm_day_filt)
 
     R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
-    
+
     if display_plots:
         fig, axs = plt.subplots(3,1, figsize=(8,8), sharex=True)
         axs = axs.ravel()
@@ -530,7 +527,7 @@ if __name__ == '__main__':
 
     # Recharge
     # rec = R_mm_day
-    # run = r_mm_day    
+    # run = r_mm_day
     rec = R_mm_day_filt[:] / 1000
     run = rec * 0.1
     first_clim = 'mean'
@@ -1191,7 +1188,7 @@ if __name__ == '__main__':
 
             # xpos = mdates.date2num(R_mm_day.index[i])
             xpos = mdates.date2num(R_mm_day_filt.index[i])
-            
+
             if xi.size == 0:
                 continue
 
