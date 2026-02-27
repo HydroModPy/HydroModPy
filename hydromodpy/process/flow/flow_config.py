@@ -30,6 +30,10 @@ class FlowConfig(BaseModel):
             "payloads."
         ),
     )
+    bc: dict[str, object] = Field(
+        default_factory=dict,
+        description="Mapping of flow boundary-condition payloads.",
+    )
 
     @field_validator("param", mode="before")
     @classmethod
@@ -51,6 +55,15 @@ class FlowConfig(BaseModel):
             out[param_id] = dict(raw_payload)
         return out
 
+    @field_validator("bc", mode="before")
+    @classmethod
+    def _validate_bc(cls, value):
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.bc must be a mapping payload")
+        return dict(value)
+
     @classmethod
     def from_toml_section(
         cls,
@@ -70,8 +83,14 @@ class FlowConfig(BaseModel):
         if not isinstance(raw_param, Mapping):
             raise ValueError("TOML section 'flow.param' must be a mapping when provided")
 
+        raw_bc = flow_section.get("bc", {})
+        if raw_bc is None:
+            raw_bc = {}
+        if not isinstance(raw_bc, Mapping):
+            raise ValueError("TOML section 'flow.bc' must be a mapping when provided")
+
         parsed_param = _parse_flow_param_sections(raw_param, base_dir=base_dir)
-        return cls(param=parsed_param)
+        return cls(param=parsed_param, bc=dict(raw_bc))
 
 
 def _parse_flow_param_sections(
