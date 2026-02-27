@@ -53,7 +53,7 @@ from hydromodpy.watershed.geographic_config import GeographicConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams as MatchingStreamsCalib
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams as MatchingStreamsCalib
 
 # Import complete workflow functions from modeling_workflow_complete.py (relative import)
 try:

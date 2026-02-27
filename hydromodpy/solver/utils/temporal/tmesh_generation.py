@@ -10,8 +10,6 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -142,7 +140,12 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
     else:  # pragma: no cover - unreachable due to _validate_config
         raise ValueError(f"Unsupported genmtd={config.genmtd!r}.")
 
-    perlen = np.asarray(pd.to_timedelta(deltat).total_seconds(), dtype=float) / 86400.0
+    delta_values = pd.to_timedelta(deltat)
+    if isinstance(delta_values, pd.Series):
+        seconds = delta_values.dt.total_seconds().to_numpy(dtype=float)
+    else:
+        seconds = np.asarray(delta_values.total_seconds(), dtype=float)
+    perlen = seconds / 86400.0
     if perlen.size == 0:
         raise ValueError("Temporal mesh requires at least one stress period.")
     if not np.all(np.isfinite(perlen)) or np.any(perlen <= 0):

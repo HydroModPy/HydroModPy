@@ -39,13 +39,18 @@ jobs:
         run: |
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
+            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*" \
             -m pytest tests/unit/ -v
 
       - name: Report coverage
         if: always()
         run: |
-          coverage report --rcfile=/dev/null --show-missing --include="hydromodpy/*"
-          coverage xml --rcfile=/dev/null --include="hydromodpy/*"
+          coverage report --rcfile=/dev/null --show-missing \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
+          coverage xml --rcfile=/dev/null \
+            --include="hydromodpy/*" \
+            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
 
       - name: Upload to Codecov
         if: always()
