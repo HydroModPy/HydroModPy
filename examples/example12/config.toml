@@ -494,6 +494,24 @@ data_value = true
 # data_value = false
 
 # ----------------------------------------------------------------------
+# Flow sinks/sources (wells)
+# ----------------------------------------------------------------------
+
+[flow.sinks_sources.wells.W1]
+# Cell indices [lay, row, col] (0-based).
+cell = [0, 39, 39]
+# Pumping/injection rates per stress period [L3/T].
+flux = [-200.0, -1000.0, -100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1000.0]
+units = "m3/day"
+
+[flow.sinks_sources.wells.W2]
+# Cell indices [lay, row, col] (0-based).
+cell = [0, 64, 64]
+# Pumping/injection rates per stress period [L3/T].
+flux = [0.0, -1000.0, 0.0, -500.0, 0.0, 0.0, -500.0, 0.0, 0.0, 0.0, 0.0, -1000.0]
+units = "m3/day"
+
+# ----------------------------------------------------------------------
 # MODFLOW expert configuration
 # ----------------------------------------------------------------------
 

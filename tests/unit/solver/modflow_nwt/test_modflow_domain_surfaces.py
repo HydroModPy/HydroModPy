@@ -31,7 +31,6 @@ def test_modflow_requires_domain_object_for_spatial_geometry():
 
     model = Modflow(
         geographic=geo,
-        domain=None,
         model_folder=".",
     )
     with pytest.raises(ValueError, match="domain-only: a Domain object is required"):
@@ -44,7 +43,8 @@ def test_modflow_domain_surfaces_are_required():
     domain = _build_domain_from_dem(dem)
 
     domain.substratum = None
-    model = Modflow(geographic=geo, domain=domain, model_folder=".")
+    model = Modflow(geographic=geo, model_folder=".")
+    model.domain = domain
     with pytest.raises(
         ValueError,
         match="domain.surface_topo and domain.substratum are required",
@@ -59,9 +59,9 @@ def test_modflow_validates_domain_shape_match_on_surface_build():
 
     model = Modflow(
         geographic=geo,
-        domain=wrong_domain,
         model_folder=".",
     )
+    model.domain = wrong_domain
 
     with pytest.raises(ValueError, match="Domain surface shape must match active DEM"):
         model._get_domain_surfaces()
