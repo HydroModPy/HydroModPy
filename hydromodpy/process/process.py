@@ -6,6 +6,7 @@ Regroupe les paramètres, variables, conditions initiales, conditions limites, e
 """
 
 from abc import ABC, abstractmethod
+from typing import Literal
 from pydantic import BaseModel, Field
 
 class Parameter(BaseModel):
@@ -31,6 +32,10 @@ class Variable(BaseModel):
 
 class InitialCondition(BaseModel):
 	id: str = Field(..., description="id of the initial condition (ex: h0, etc.)")
+	type: Literal['top', 'bot', 'custom'] = Field(
+		'custom',
+		description="Type of initial condition ('top', 'bot', or 'custom')",
+	)
 	value: float = Field(..., description="Value of the initial condition")
 	description: str = Field('', description="Description of the initial condition")
 	units: str = Field('', description="Units of the initial condition")

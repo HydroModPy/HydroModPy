@@ -1,12 +1,13 @@
-"""Pydantic configuration model for flow-process parameter definitions.
+"""Pydantic configuration model for flow-process definitions.
 
-This module validates and normalizes the `[flow.param.<id>]` and `[flow.bc]`
-payloads from TOML into dictionaries consumable by `Flow`.
+This module validates and normalizes the `[flow.param.<id>]`, `[flow.ic]` and
+`[flow.bc]` payloads from TOML into dictionaries consumable by `Flow`.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from numbers import Real
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
@@ -33,6 +34,10 @@ class FlowConfig(BaseModel):
     bc: dict[str, object] = Field(
         default_factory=dict,
         description="Mapping of flow boundary-condition payloads.",
+    )
+    ic: dict[str, dict[str, object]] = Field(
+        default_factory=dict,
+        description="Mapping of flow initial-condition payloads.",
     )
 
     @field_validator("param", mode="before")
@@ -64,6 +69,26 @@ class FlowConfig(BaseModel):
             raise ValueError("flow.bc must be a mapping payload")
         return dict(value)
 
+    @field_validator("ic", mode="before")
+    @classmethod
+    def _validate_ic(cls, value):
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.ic must be a mapping payload")
+
+        out: dict[str, dict[str, object]] = {}
+        for raw_key, raw_payload in value.items():
+            ic_id = str(raw_key).strip()
+            if ic_id == "":
+                raise ValueError("flow.ic cannot contain empty condition ids")
+            if not isinstance(raw_payload, Mapping):
+                raise ValueError(
+                    f"flow.ic['{ic_id}'] must be a mapping payload"
+                )
+            out[ic_id] = dict(raw_payload)
+        return out
+
     @classmethod
     def from_toml_section(
         cls,
@@ -89,9 +114,16 @@ class FlowConfig(BaseModel):
         if not isinstance(raw_bc, Mapping):
             raise ValueError("TOML section 'flow.bc' must be a mapping when provided")
 
+        raw_ic = flow_section.get("ic", {})
+        if raw_ic is None:
+            raw_ic = {}
+        if not isinstance(raw_ic, Mapping):
+            raise ValueError("TOML section 'flow.ic' must be a mapping when provided")
+
         parsed_param = _parse_flow_param_sections(raw_param, base_dir=base_dir)
+        parsed_ic = _parse_flow_ic_sections(raw_ic)
         parsed_bc = _parse_flow_bc_sections(raw_bc)
-        return cls(param=parsed_param, bc=parsed_bc)
+        return cls(param=parsed_param, ic=parsed_ic, bc=parsed_bc)
 
 
 def _parse_flow_param_sections(
@@ -221,5 +253,63 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
             parsed[key] = dict(raw_payload)
         else:
             parsed[key] = raw_payload
+
+    return parsed
+
+
+def _parse_flow_ic_sections(ic_cfg: Mapping[str, object]) -> dict[str, dict[str, object]]:
+    """Parse and normalize `[flow.ic.<id>]` entries.
+
+    Expected shape:
+    - `flow.ic.<id>.type` in {"top", "bot", "custom"} (default: "custom")
+    - `flow.ic.<id>.value` (required only when type="custom")
+    - optional `unit` or `units` (default: "m")
+    - optional `description`
+    """
+    parsed: dict[str, dict[str, object]] = {}
+
+    for raw_key, raw_payload in ic_cfg.items():
+        ic_id = str(raw_key).strip()
+        if ic_id == "":
+            raise ValueError("flow.ic cannot contain empty condition ids")
+
+        if isinstance(raw_payload, Real):
+            payload_dict: dict[str, object] = {"type": "custom", "value": float(raw_payload)}
+        elif isinstance(raw_payload, Mapping):
+            payload_dict = dict(raw_payload)
+        else:
+            raise TypeError(
+                f"flow.ic.{ic_id} must be a mapping or numeric value"
+            )
+
+        raw_type = payload_dict.get("type", "custom")
+        ic_type = str(raw_type).strip().lower()
+        if ic_type not in {"top", "bot", "custom"}:
+            raise ValueError(
+                f"flow.ic.{ic_id}.type must be one of: 'top', 'bot', 'custom'"
+            )
+
+        if ic_type == "custom":
+            if "value" not in payload_dict:
+                raise ValueError(f"flow.ic.{ic_id}.value is required when type='custom'")
+            if not isinstance(payload_dict["value"], Real):
+                raise TypeError(f"flow.ic.{ic_id}.value must be a numeric value")
+            value = float(payload_dict["value"])
+        else:
+            raw_value = payload_dict.get("value", 0.0)
+            if not isinstance(raw_value, Real):
+                raise TypeError(f"flow.ic.{ic_id}.value must be a numeric value when provided")
+            value = float(raw_value)
+
+        if "units" not in payload_dict and "unit" in payload_dict:
+            payload_dict["units"] = payload_dict["unit"]
+        payload_dict.setdefault("units", "m")
+        payload_dict.setdefault(
+            "description",
+            f"Initial condition '{ic_id}'",
+        )
+        payload_dict["type"] = ic_type
+        payload_dict["value"] = value
+        parsed[ic_id] = payload_dict
 
     return parsed

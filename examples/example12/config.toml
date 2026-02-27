@@ -351,6 +351,21 @@ mode = "none"
 
 
 # ----------------------------------------------------------------------
+# Flow initial conditions
+# ----------------------------------------------------------------------
+
+[flow.ic.h]
+# Initial-condition type: "top", "bot" or "custom".
+type = "top"
+# Initial groundwater head value if type="custom".
+value = 1.0
+# Unit of initial head.
+unit = "m"
+# Optional human-readable description.
+description = "Initial groundwater head"
+
+
+# ----------------------------------------------------------------------
 # Flow boundary conditions (Cauchy/Dirichlet/Neumann)
 # ----------------------------------------------------------------------
 
@@ -389,6 +404,7 @@ value = 1.0
 unit = "m"
 # Optional flag to use data-derived values instead of fixed value.
 data_value = false
+
 
 
 

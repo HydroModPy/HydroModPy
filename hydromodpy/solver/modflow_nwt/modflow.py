@@ -502,7 +502,12 @@ class Modflow(Solver):
         # iboundData=-1: Values imposed at the value of strtData
 
         # Free surface level is set to the surface (altitude of DEM)
-        self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.dem
+        if self.flow.initial_conditions["h"].type == "top":
+            self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.dem
+        if self.flow.initial_conditions["h"].type == "bot":
+            self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.bottom_layer
+        if self.flow.initial_conditions["h"].type == "custom":
+            self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.flow.initial_conditions["h"].value
 
         # Fixed head on the left (better for square domain)
         if isinstance(self.bc_left, (int, float)) == True:
