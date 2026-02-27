@@ -125,6 +125,17 @@ class Flow(Process):
 				)
 				parsed_boundary_conditions.pop("robin", None)
 
+		dirichlet_payload = boundary_conditions.get("dirichlet")
+		if isinstance(dirichlet_payload, Mapping):
+			for bc_id in ("ocean", "stream"):
+				sub_payload = dirichlet_payload.get(bc_id)
+				if isinstance(sub_payload, Mapping):
+					parsed_boundary_conditions[bc_id] = self._build_dirichlet_boundary_condition(
+						bc_id=bc_id,
+						payload=sub_payload,
+					)
+			parsed_boundary_conditions.pop("dirichlet", None)
+
 		self.boundary_conditions.update(parsed_boundary_conditions)
 
 	def _coerce_boundary_condition_entry(self, *, bc_id: str, raw_payload: object) -> object:
@@ -184,6 +195,56 @@ class Flow(Process):
 			),
 			units="-",
 			type="robin",
+		)
+
+	def _build_dirichlet_boundary_condition(
+		self,
+		*,
+		bc_id: str,
+		payload: Mapping[str, object],
+	) -> BoundaryCondition:
+		if "value" not in payload:
+			raise ValueError(f"flow.bc.dirichlet.{bc_id}.value is required")
+
+		value = payload["value"]
+		if not isinstance(value, Real):
+			raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
+
+		raw_type = payload.get("type", "dirichlet")
+		if str(raw_type).lower() != "dirichlet":
+			raise ValueError(f"flow.bc.dirichlet.{bc_id}.type must be 'dirichlet'")
+
+		raw_application_domain = payload.get("application_domain")
+		if not isinstance(raw_application_domain, str):
+			raise TypeError(
+				f"flow.bc.dirichlet.{bc_id}.application_domain must be a string"
+			)
+		application_domain = raw_application_domain.strip()
+		if application_domain == "":
+			raise ValueError(
+				f"flow.bc.dirichlet.{bc_id}.application_domain cannot be empty"
+			)
+
+		allowed_domains = {"top", "north side", "west side", "east side", "south side"}
+		if application_domain not in allowed_domains:
+			raise ValueError(
+				f"flow.bc.dirichlet.{bc_id}.application_domain contains an invalid value: "
+				+ application_domain
+			)
+
+		self.boundary_condition_application_domains[bc_id] = application_domain
+
+		data_value = bool(payload.get("data_value", False))
+		description = f"Dirichlet boundary condition '{bc_id}' on {application_domain}"
+		if data_value:
+			description += " (data_value=True)"
+
+		return BoundaryCondition(
+			id=bc_id,
+			value=float(value),
+			description=description,
+			units="-",
+			type="dirichlet",
 		)
 
 	def set_sinks_sources(self, wells_sources: dict):
