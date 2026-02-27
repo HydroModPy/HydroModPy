@@ -207,9 +207,6 @@ model_modflow = Modflow(BV.geographic,
                         box=BV.settings.box,
                         sink_fill=BV.settings.sink_fill,
                         dis_perlen=BV.settings.dis_perlen,
-                        # Well settings
-                        well_coords=BV.settings.well_coords,
-                        well_fluxes=BV.settings.well_fluxes,
                         # Output settings
                         plot_cross=BV.settings.plot_cross,
                         cross_ylim=BV.settings.cross_ylim,
