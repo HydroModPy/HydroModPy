@@ -52,18 +52,21 @@ class _FakeTMeshGeneration:
                 .to_numpy(dtype=float)
                 / 86400.0
             )
-            start_datetime = dates.iloc[0]
+            start_datetime = pd.Timestamp(dates.iloc[0])
         else:
             nper = int(self.kwargs.get("nper", 1))
             lenper = float(self.kwargs.get("lenper", 1.0))
             perlen = np.full(nper, lenper, dtype=float)
-            start_datetime = self.kwargs.get("start_datetime")
+            raw_start = self.kwargs.get("start_datetime")
+            start_datetime = pd.Timestamp("1970-01-01 00:00:00") if raw_start is None else pd.Timestamp(raw_start)
 
         nper_actual = int(len(perlen))
         raw_ntsp = self.kwargs.get("ntsp", 1)
         raw_tsmult = self.kwargs.get("tsmult", 1.0)
         nstp = np.full(nper_actual, int(raw_ntsp), dtype=int) if np.isscalar(raw_ntsp) else np.asarray(raw_ntsp, dtype=int)
         tsmult = np.full(nper_actual, float(raw_tsmult), dtype=float) if np.isscalar(raw_tsmult) else np.asarray(raw_tsmult, dtype=float)
+        totim = np.cumsum(perlen).astype(float)
+        datetimes = [start_datetime + pd.to_timedelta(float(t), unit="D") for t in totim]
 
         if sim_state == "steady":
             steady = np.ones(nper_actual, dtype=bool)
@@ -78,6 +81,8 @@ class _FakeTMeshGeneration:
             tsmult=tsmult,
             steady_state=steady,
             start_datetime=start_datetime,
+            totim=totim,
+            datetimes=datetimes,
         )
 
 
@@ -90,6 +95,7 @@ def test_load_tmesh_cases_toml_resolves_relative_paths(tmp_path: Path):
     toml_path.write_text(
         "[case]\n"
         "output_summary_json = \"outputs/summary.json\"\n"
+        "output_figures_dir = \"outputs/figures\"\n"
         "[[case.scenarios]]\n"
         "id = \"chron_case\"\n"
         "genmtd = \"from_chron\"\n"
@@ -103,7 +109,9 @@ def test_load_tmesh_cases_toml_resolves_relative_paths(tmp_path: Path):
 
     cfg = cfg_module.load_tmesh_cases_toml(toml_path)
     assert cfg.output_summary_json is not None
+    assert cfg.output_figures_dir is not None
     assert cfg.output_summary_json.resolve() == (tmp_path / "outputs" / "summary.json").resolve()
+    assert cfg.output_figures_dir.resolve() == (tmp_path / "outputs" / "figures").resolve()
     assert Path(cfg.scenarios[0].chron_path).resolve() == chron.resolve()
 
 
@@ -124,6 +132,7 @@ def test_run_tmesh_cases_from_toml_builds_summaries_and_writes_json(tmp_path: Pa
     toml_path.write_text(
         "[case]\n"
         "output_summary_json = \"outputs/summary.json\"\n"
+        "output_figures_dir = \"outputs/figures\"\n"
         "[[case.scenarios]]\n"
         "id = \"steady_synth\"\n"
         "sim_state = \"steady\"\n"
@@ -148,15 +157,20 @@ def test_run_tmesh_cases_from_toml_builds_summaries_and_writes_json(tmp_path: Pa
     assert steady["nper"] == 3
     assert steady["perlen_days"] == [2.0, 2.0, 2.0]
     assert steady["steady_state"] == [True, True, True]
+    assert steady["datetime_vector_size"] == 3
+    assert steady["figure"] is not None
 
     chron_summary = summaries["chron_trans"]
     assert chron_summary["nper"] == 2
     assert chron_summary["perlen_days"] == [2.0, 3.0]
     assert chron_summary["steady_state"] == [True, False]
+    assert chron_summary["datetime_vector_size"] == 2
+    assert chron_summary["figure"] is not None
 
     out_json = tmp_path / "outputs" / "summary.json"
     assert out_json.exists()
+    assert (tmp_path / "outputs" / "figures" / "steady_synth_modeltime_datetimes.png").exists()
+    assert (tmp_path / "outputs" / "figures" / "chron_trans_modeltime_datetimes.png").exists()
     payload = json.loads(out_json.read_text(encoding="utf-8"))
     assert "steady_synth" in payload
     assert "chron_trans" in payload
-
