@@ -90,7 +90,6 @@ class Modflow(Solver):
         well_fluxes: list = [],
         # Boundary settings
         cond_drain: float = None,
-        sea_level=None,
         bc_left: float = None,
         bc_right: float = None):
         """
@@ -150,8 +149,6 @@ class Modflow(Solver):
             Example for 2 wells and 5 stress-periods: [ [-100,0,-100,0,-100], [-100,0,-100,0,-100] ]
         cond_drain : float, optional
             Fix the conductance value of the drai (DRN) package. The default is None.
-        sea_level : float, optional
-            Fix head on each cell below this value. The default is None.
         bc_left : float, optional
             Fix head on the left border of the domain. The default is None.
         bc_right : float, optional
@@ -215,12 +212,13 @@ class Modflow(Solver):
         # %% Boundary conditions
         self.bc_left = bc_left
         self.bc_right = bc_right
-        self.sea_level = sea_level
-        try:
-            if self.sea_level == None:
-                self.dem[(self.dem < 0) & (self.dem > -200)] = 0
-        except:
-            pass
+
+        # commented on 2026-02-27: lines do not seem relevant
+        # try:
+        #     if self.flow.boundary_conditions["ocean"].value == None:
+        #         self.dem[(self.dem < 0) & (self.dem > -200)] = 0
+        # except:
+        #     pass
 
         # %% Input and discretization termes
 
@@ -493,6 +491,9 @@ class Modflow(Solver):
 
         # %% Boundary conditions
 
+        ### Initialze the top boundary condition of DRN package
+        self.drain_array = np.ones((self.nrow, self.ncol))
+
         ### Constant head boundary conditions of no flow (sides of domain)
 
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
@@ -513,51 +514,51 @@ class Modflow(Solver):
             self.iboundData[:, :, -1] = -1
             self.strtData[:, :, -1] = self.bc_right
 
-        # No flow boundary conditions
         for i in range(self.nlay):
-            if isinstance(self.sea_level, (int, float)) == True:
-                self.iboundData[i][self.dem <= self.sea_level] = -1
-                self.strtData[self.iboundData == -1] = self.sea_level
             self.iboundData[i][self.dem < -1000] = 0  # 0 is for NO FLOW
+
+        if "ocean" in self.flow.boundary_conditions.keys():
+
+            # No flow boundary conditions
+            for i in range(self.nlay):
+                if isinstance(self.flow.boundary_conditions["ocean"].value, (int, float)) == True:
+                    self.iboundData[i][self.dem <= self.flow.boundary_conditions["ocean"].value] = -1
+                    self.strtData[self.iboundData == -1] = self.flow.boundary_conditions["ocean"].value
+                
+
+            ### Constant head boundary conditions of no f : specific for sea level
+            if isinstance(self.flow.boundary_conditions["ocean"].value, (int, float, pd.Series, list)) == True:
+                package = np.zeros((self.nper, self.nrow, self.ncol))
+                if isinstance(self.flow.boundary_conditions["ocean"].value, (int, float)) == False:
+                    self.chData = {}
+                    for kper in range(0, self.nper):
+                        chdKper = []
+                        for i in range(0, self.nrow):
+                            for j in range(0, self.ncol):
+                                if self.dem[i, j] < np.max(self.flow.boundary_conditions["ocean"].value):
+                                    if (
+                                        self.iboundData[0, i, j] != 0
+                                    ):  # no-flow cells cannot be converted to specified head cells
+                                        self.drain_array[i, j] = 0
+                                        package[kper, i, j] = 1
+                                        chdKper.append(
+                                            [
+                                                0,
+                                                i,
+                                                j,
+                                                self.flow.boundary_conditions["ocean"].value[kper],
+                                                self.flow.boundary_conditions["ocean"].value[kper],
+                                            ]
+                                        )
+                                self.chData[kper] = chdKper
+                    # ---- flopy.modflow.ModflowChd
+                    self.chd = flopy.modflow.ModflowChd(
+                        self.mf, stress_period_data=self.chData
+                    )
 
         # ---- flopy.modflow.ModflowBas
         self.bas = flopy.modflow.ModflowBas(
             self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=self.bas_hnoflo)
-
-        ### Initialze the top boundary condition of DRN package
-
-        self.drain_array = np.ones((self.nrow, self.ncol))
-
-        ### Constant head boundary conditions of no f : specific for sea level
-
-        if isinstance(self.sea_level, (int, float, pd.Series, list)) == True:
-            package = np.zeros((self.nper, self.nrow, self.ncol))
-            if isinstance(self.sea_level, (int, float)) == False:
-                self.chData = {}
-                for kper in range(0, self.nper):
-                    chdKper = []
-                    for i in range(0, self.nrow):
-                        for j in range(0, self.ncol):
-                            if self.dem[i, j] < np.max(self.sea_level):
-                                if (
-                                    self.iboundData[0, i, j] != 0
-                                ):  # no-flow cells cannot be converted to specified head cells
-                                    self.drain_array[i, j] = 0
-                                    package[kper, i, j] = 1
-                                    chdKper.append(
-                                        [
-                                            0,
-                                            i,
-                                            j,
-                                            self.sea_level[kper],
-                                            self.sea_level[kper],
-                                        ]
-                                    )
-                            self.chData[kper] = chdKper
-                # ---- flopy.modflow.ModflowChd
-                self.chd = flopy.modflow.ModflowChd(
-                    self.mf, stress_period_data=self.chData
-                )
 
         # %% Parametrization
 
