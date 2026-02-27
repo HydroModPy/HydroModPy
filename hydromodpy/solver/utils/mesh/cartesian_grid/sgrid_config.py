@@ -14,9 +14,123 @@ from __future__ import annotations
 from math import isclose
 from pathlib import Path
 import tomllib
+import warnings
 from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+
+def _require_positive_int(value, *, name: str) -> int:
+    """
+    Validate and return one strictly positive integer.
+
+    Floats representing exact integers (for example 5.0) are accepted.
+    """
+    if value is None:
+        raise ValueError(f"{name} is required.")
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer >= 1, got bool.")
+    if isinstance(value, int):
+        out = value
+    elif isinstance(value, float):
+        if not float(value).is_integer():
+            raise ValueError(f"{name} must be an integer value, got {value!r}.")
+        out = int(value)
+    else:
+        raise ValueError(f"{name} must be an integer value, got {type(value)!r}.")
+    if out < 1:
+        raise ValueError(f"{name} must be >= 1.")
+    return out
+
+
+class VerticalGridConfig(BaseModel):
+    """
+    Single source of truth for vertical-grid validation.
+
+    This model is used by surface-driven SGrid generation:
+    - layering strategy (`genmtd_lay`),
+    - layer count or proportions,
+    - nodata/lenuni metadata.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    genmtd_lay: Literal["constant", "decay", "list"] = Field(
+        default="constant",
+        description="Vertical-layering strategy.",
+    )
+    nlay: int | None = Field(
+        default=1,
+        description="Number of layers (required for constant/decay, ignored for list).",
+    )
+    lay_decay: float | None = Field(
+        default=None,
+        description="Decay exponent (>1) for decay layering.",
+    )
+    lay_proportions: list[float] | None = Field(
+        default=None,
+        description="Explicit layer fractions when genmtd_lay='list' (must sum to 1).",
+    )
+    nodata: float = Field(
+        default=-9999.0,
+        description="No-data sentinel value.",
+    )
+    lenuni: str = Field(
+        default="m",
+        description="Length unit label propagated to FloPy.",
+    )
+
+    @field_validator("lenuni")
+    @classmethod
+    def _validate_lenuni(cls, value):
+        text = str(value).strip()
+        if not text:
+            raise ValueError("lenuni cannot be empty")
+        return text
+
+    @field_validator("lay_proportions")
+    @classmethod
+    def _validate_lay_proportions(cls, value):
+        if value is None:
+            return None
+        arr = [float(v) for v in list(value)]
+        if len(arr) == 0:
+            raise ValueError("lay_proportions cannot be empty")
+        if any(v <= 0 for v in arr):
+            raise ValueError("lay_proportions values must be strictly positive")
+        if not isclose(sum(arr), 1.0, rel_tol=0.0, abs_tol=1e-6):
+            raise ValueError("lay_proportions must sum to 1.0")
+        return arr
+
+    @model_validator(mode="after")
+    def _validate_cross_fields(self):
+        if self.genmtd_lay in ("constant", "decay"):
+            self.nlay = _require_positive_int(self.nlay, name="nlay")
+        if self.genmtd_lay == "decay":
+            if self.lay_decay is None:
+                raise ValueError("lay_decay is required when genmtd_lay='decay'")
+            self.lay_decay = float(self.lay_decay)
+            if self.lay_decay <= 1.0:
+                raise ValueError("lay_decay must be > 1.0 when genmtd_lay='decay'")
+
+        if self.genmtd_lay == "list":
+            if self.lay_proportions is None:
+                raise ValueError("lay_proportions is required when genmtd_lay='list'")
+            if self.nlay is not None:
+                warnings.warn(
+                    "nlay must not be provided when genmtd_lay='list' "
+                    "(it is derived from lay_proportions). "
+                    "Provided nlay will be ignored.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            self.nlay = None
+        return self
+
+    @classmethod
+    def from_mapping(cls, config_data: Mapping[str, Any]):
+        payload = dict(config_data.get("sgrid", config_data))
+        return cls.model_validate(payload)
 
 
 class SGridConfig(BaseModel):
