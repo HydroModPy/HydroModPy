@@ -44,7 +44,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
 from hydromodpy.display import visualization_watershed, visualization_results
-from hydromodpy.solver.modflow import Modflow
+from hydromodpy.solver.modflow_nwt import Modflow
 from hydromodpy.tools.io_utils import (
     setup_paths, load_raster, load_csv,
     load_simulation_results, make_timeseries_data, extract_watershed
@@ -228,18 +228,8 @@ model_modflow = Modflow(BV.geographic,
                         thick=BV.hydraulic.thick,
                         nlay=BV.hydraulic.nlay,
                         lay_decay=BV.hydraulic.lay_decay,
-                        hk_value=BV.hydraulic.hk_value,
-                        sy_value=BV.hydraulic.sy_value,
-                        ss_value=BV.hydraulic.ss_value,
-                        hk_decay=BV.hydraulic.hk_decay,
-                        sy_decay=BV.hydraulic.sy_decay,
-                        ss_decay=BV.hydraulic.ss_decay,
-                        verti_hk=BV.hydraulic.verti_hk,
-                        verti_sy=BV.hydraulic.verti_sy,
-                        verti_ss=BV.hydraulic.verti_ss,
                         cond_drain=BV.hydraulic.cond_drain,
-                        vka=BV.hydraulic.vka,
-                        exdp=BV.hydraulic.exdp)
+                        )
 
 model_modflow.pre_processing()
 success_modflow = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=False)

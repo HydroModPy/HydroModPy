@@ -10,6 +10,7 @@ Created on Fri Mar 21 10:39:38 2025
 # Libraries installed by default
 import sys
 import os
+import tomllib
 from pathlib import Path
 
 from flopy import run_model
@@ -48,23 +49,27 @@ sys.path.append(root_dir)
 import hydromodpy as hmp
 from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
-    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
+    Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
+from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 from hydromodpy.domain import Domain, Surfaces
 from hydromodpy.process import Flow
-from hydromodpy.solver.modflow import Modflow
-from hydromodpy.modeling.modpath import Modpath
-from hydromodpy.modeling.mt3dms import Mt3dms
+from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
-cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
+config_path = Path(__file__).parent / "config.toml"
+cfg = HydroModPyConfig.from_toml(config_path)
 out_path = cfg.initializing.out_dir_path
+
+with config_path.open('rb') as f:
+    raw_toml = tomllib.load(f)
 
 #%% ---- EXTRACT CATCHMENT
 
@@ -88,10 +93,7 @@ if __name__ == '__main__':
     initializing = hmp.Initializing(config=cfg.initializing)
     geographic   = hmp.Geographic(config=cfg.geographic,
                               initializing=initializing)
-    domain = Domain(
-        config=cfg.domain,
-        geographic=geographic,
-    )
+    domain = Domain(config=cfg.domain,geographic=geographic)
     flow = Flow(config=cfg.flow)
 
     setting = Settings()
@@ -120,10 +122,35 @@ if __name__ == '__main__':
                         out_path=initializing.catch_folder,
                         sub_snap_dist=50)
     
-    hydrometry = Hydrometry(out_path=initializing.catch_folder,
-                            hydrometry_path=data_path,
-                            file_name='france hydrometric stations.shp',
-                            geographic=geographic)
+    # hydrometry = Hydrometry(out_path=initializing.catch_folder,
+    #                         hydrometry_path=data_path,
+    #                         file_name='france hydrometric stations.shp',
+    #                         geographic=geographic)
+
+    # Extract hydrometry configuration from raw_toml
+    hydro_section = raw_toml.get("hydrometry_stations", {})
+
+    hydro_cfg = {
+        "hydrometry": {k: v for k, v in hydro_section.items() 
+                    if k not in ["source", "selection", "output"]},
+        "source": hydro_section.get("source", {}),
+        "selection": hydro_section.get("selection", {}),
+        "output": hydro_section.get("output", {}),
+    }
+
+    # Inject watershed shapefile created by Geographic as mask for station selection
+    selection_mode = hydro_cfg["selection"].get("mode", "mask")
+    if selection_mode == "mask":
+        hydro_cfg["selection"]["mask_path"] = geographic.watershed_shp
+        print(f"Hydrometry: Loading stations from watershed mask: {geographic.watershed_shp}")
+
+    # Load stations with error handling
+    try:
+        hydrometry = StationSet.from_config(hydro_cfg)
+    except ValueError as e:
+        print(f"Warning: Hydrometry loading failed - {e}")
+        print("Continuing without hydrometric stations...")
+        hydrometry = None
 
     intermittency = Intermittency(out_path=initializing.catch_folder,
                                   intermittency_path=data_path,
@@ -492,7 +519,6 @@ if __name__ == '__main__':
     bc_left = None # or value
     bc_right = None # or value
     zone_partic = 'domain' # or watershed
-    vka = 1
     bottom = 0
     thickness = 100
     Klog_transf = False
@@ -518,7 +544,6 @@ if __name__ == '__main__':
     hydraulic.update_sy_decay(sy_decay)
     hydraulic.update_ss(ss)
     hydraulic.update_ss_decay(ss_decay)
-    hydraulic.update_vka(vka)
     hydraulic.update_hk_vertical(verti_hk) # here for lays [ [1e-5m/s, [0, 20m]]
     hydraulic.update_sy_vertical(verti_sy)
     hydraulic.update_ss_vertical(verti_ss)
@@ -608,18 +633,9 @@ if __name__ == '__main__':
                             thick=hydraulic.thick,
                             nlay=hydraulic.nlay,
                             lay_decay=hydraulic.lay_decay,
-                            hk_value=hydraulic.hk_value,
-                            sy_value=hydraulic.sy_value,
-                            ss_value=hydraulic.ss_value,
-                            hk_decay=hydraulic.hk_decay,
-                            sy_decay=hydraulic.sy_decay,
-                            ss_decay=hydraulic.ss_decay,
-                            verti_hk=hydraulic.verti_hk,
-                            verti_sy=hydraulic.verti_sy,
-                            verti_ss=hydraulic.verti_ss,
+                            modflow_config=cfg.modflow,
                             cond_drain=hydraulic.cond_drain,
-                            vka=hydraulic.vka,
-                            exdp=hydraulic.exdp)
+                            )
 
     model_modflow.pre_processing() # verbose
 
