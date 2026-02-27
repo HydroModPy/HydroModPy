@@ -78,9 +78,6 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
             box=settings.box,
             sink_fill=settings.sink_fill,
             dis_perlen=settings.dis_perlen,
-            # Well settings
-            well_coords=settings.well_coords,
-            well_fluxes=settings.well_fluxes,
             # Output settings
             plot_cross=settings.plot_cross,
             cross_ylim=settings.cross_ylim,

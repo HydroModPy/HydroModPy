@@ -62,7 +62,14 @@ from hydromodpy.domain import (
 from hydromodpy.data_managers import DataManagers
 from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.process import Flow
-from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
+from hydromodpy.solver.modflow_nwt import (
+    Modflow,
+    ModflowPostprocessOptions,
+    ModflowPreprocessOptions,
+    ModflowRunOptions,
+    Modpath,
+    Mt3dms,
+)
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
@@ -524,20 +531,6 @@ if __name__ == '__main__':
     setting.update_box_model(box)
     setting.update_sink_fill(sink_fill)
 
-    # Well settings
-    well_1_coords = [1-1,40-1,40-1] # [lay, row, col]
-    well_2_coords = [1-1,65-1,65-1] # [lay, row, col]
-    well_1_fluxes = pd.Series([-200, -1000, -100, 0, 0, 0, 0, 0, 0, 0, 0, -1000]) # [L3/T]
-    well_2_fluxes = pd.Series([0, -1000, 0, -500, 0, 0, -500, 0, 0, 0, 0, -1000]) # [L3/T]
-    flow.set_sinks_sources(
-        {
-            "wells": {
-                "W1": {"cell": well_1_coords, "flux": well_1_fluxes.tolist(), "units": "m3/day"},
-                "W2": {"cell": well_2_coords, "flux": well_2_fluxes.tolist(), "units": "m3/day"},
-            }
-        }
-    )
-
     alpha = 15 # in m
     the_K0 = 5e-5*24*3600
     the_sy0 = 2/100
@@ -554,28 +547,26 @@ if __name__ == '__main__':
     setting.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
 
     model_folder = workspace.simulations_folder
-    model_modflow = Modflow(geographic,
-                            flow=flow,
-                            domain=domain,
-                            # Workflow settings
-                            model_folder=model_folder,   # self.simulations_folder
-                            model_name=setting.model_name,
-                            bin_path=workspace.bin_path,
-                            # Model settings
-                            box=setting.box,
-                            sink_fill=setting.sink_fill,
-                            # Output settings
-                            plot_cross=setting.plot_cross,
-                            cross_ylim=setting.cross_ylim,
-                            check_grid=setting.check_grid,
-                            # Boundary settings
-                            # Climatic settings
-                            recharge=climatic.recharge,
-                            first_clim=climatic.first_clim,
-                            modflow_config=cfg.modflow,
-                            )
+    preprocess_options = ModflowPreprocessOptions(
+        box=setting.box,
+        sink_fill=setting.sink_fill,
+        recharge=climatic.recharge,
+        first_clim=climatic.first_clim,
+        check_grid=setting.check_grid,
+        plot_cross=setting.plot_cross,
+        cross_ylim=tuple(setting.cross_ylim) if setting.cross_ylim else None,
+    )
+    model_modflow = Modflow(
+        geographic,
+        # Workflow settings
+        model_folder=model_folder,   # self.simulations_folder
+        model_name=setting.model_name,
+        bin_path=workspace.bin_path,
+        modflow_config=cfg.modflow,
+        preprocess_options=preprocess_options,
+    )
 
-    model_modflow.pre_processing() # verbose
+    model_modflow.pre_processing(flow=flow, domain=domain) # verbose
 
     list_model_name = []
     list_model_name.append(model_name)
@@ -589,23 +580,32 @@ if __name__ == '__main__':
     with open(pickle_file, 'wb') as f:
         pickle.dump(dictio, f)
 
-    success_model = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=True)
+    success_model = model_modflow.processing(
+        options=ModflowRunOptions(
+            write_model=True,
+            run_model=True,
+            link_mt3dms=True,
+        )
+    )
 
     prob_cells = model_modflow.prob_cells
 
     if success_model == True:
-        model_modflow.post_processing(model_modflow,
-                            watertable_elevation = True,
-                            seepage_areas = True,
-                            outflow_drain = True,
-                            accumulation_flux = True,
-                            watertable_depth = True,
-                            groundwater_flux = False,
-                            groundwater_storage = False,
-                            intermittency_weekly = False,
-                            intermittency_monthly = True,
-                            intermittency_yearly = False,
-                            export_all_tif = False)
+        model_modflow.post_processing(
+            options=ModflowPostprocessOptions(
+                watertable_elevation=True,
+                seepage_areas=True,
+                outflow_drain=True,
+                accumulation_flux=True,
+                watertable_depth=True,
+                groundwater_flux=False,
+                groundwater_storage=False,
+                intermittency_weekly=False,
+                intermittency_monthly=True,
+                intermittency_yearly=False,
+                export_all_tif=False,
+            )
+        )
 
     timeseries_results = timeseries.Timeseries(geographic,
                                             model_modflow=model_modflow,

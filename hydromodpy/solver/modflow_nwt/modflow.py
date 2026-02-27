@@ -47,6 +47,11 @@ from hydromodpy.solver.modflow_nwt.modflow_config import (
     ModflowConfig,
     ModflowSpecifParams,
 )
+from hydromodpy.solver.modflow_nwt.modflow_options import (
+    ModflowPostprocessOptions,
+    ModflowPreprocessOptions,
+    ModflowRunOptions,
+)
 
 logger = get_logger(__name__)
 
@@ -65,22 +70,13 @@ class Modflow(Solver):
     def __init__(
         self,
         geographic: object,
-        flow: object = None,
-        domain: object = None,
         modflow_config: ModflowConfig | Mapping[str, object] | None = None,
         # Worflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default",
         bin_path: str = "bin",
-        box: bool = True,
-        sink_fill: bool = False,
-        plot_cross: bool = True,
-        cross_ylim: list | None = None,
-        check_grid: bool = True,
-        # Climatic settings
-        recharge=0.001,
-        first_clim: str = "mean",
-        dis_perlen: bool = False):
+        preprocess_options: ModflowPreprocessOptions | None = None,
+    ):
         """
         Initialize method.
 
@@ -88,37 +84,18 @@ class Modflow(Solver):
         ----------
         geographic : object
             Object geographic build by HydroModPy.
-        flow : object, optional
-            Flow-process object carrying K/Sy/Ss parameters.
-            Required by pre_processing() for property mapping on SGrid.
-        domain : object, optional
-            Domain object carrying zones (including geology support).
-            Required by pre_processing() for property mapping on SGrid.
         model_folder : str, optional
             Path where the model will be store. The default is 'HydroModPy_outputs'.
         model_name : str, optional
             Name of the model. The default is 'Default'.
         bin_path : str, optional
             Location folder of the modflow executables. The default is 'bin'.
-        box : bool, optional
-            True if you want run the model on the square area of the watershed. The default is True.
-        sink_fill : bool, optional
-            If True, package drain is desactivate on pit. The watertable can create lake on pit. The default is False.
-        plot_cross : bool, optional
-            If True, display a cross section of the model. The default is True.
-        check_grid : bool, optional
-            If True, check if the water connectivity is respected with the meshgrid. The default is True.
-        recharge : float or list, optional
-            Recharge [L/T] as input of the model. The default is 0.001.
-        first_clim : str, optional
-            If 'mean': the first recharge value is the mean of the chronicle.
-            If 'first': the first recharge value is the first value of the timeseries.
-            If a 'float' : the first recharge is the fixed value.
-            The default is 'mean'.
         modflow_config : ModflowConfig | Mapping | None, optional
             Expert MODFLOW-NWT package parameters loaded from
             `[modflow.runtime]`, `[modflow.process_specific]`, and `[modflow.sgrid]` in TOML.
             If None, internal defaults from ModflowConfig are used.
+        preprocess_options : ModflowPreprocessOptions | None
+            Optional typed options for pre_processing stage.
         """
 
         # %% Initialization paths
@@ -140,49 +117,23 @@ class Modflow(Solver):
 
         # %% Domain definition
 
-        # General
         self.geographic = geographic
-        self.flow = flow
-        self.domain = domain
+        self.flow = None
+        self.domain = None
+        self.flow_regime: str | None = None
 
         self.resolution = geographic.dem_res
         self.xul = geographic.xmin
         self.yul = geographic.ymax
-        self.sink_fill = sink_fill
         try:
             self.sink = geographic.depressions_data
         except AttributeError:
             pass
 
-        # Enlarges the modeled domain
-        self.box = box
-        if box:
-            self.dem = geographic.dem_box_buff_data
-            self.dem_watershed_path = geographic.watershed_box_buff_dem
-        else:
-            self.dem = geographic.dem_data
-            self.dem_watershed_path = geographic.watershed_buff_dem
-        
-        self.dem[self.dem <= -9999] = -9999
-        self.dem[self.dem >= 9999] = -9999
-
-        # Discretization: by default, the number of rows and columns is the DEM discretization
-        self.nrow = self.dem.shape[0]
-        self.ncol = self.dem.shape[1]
-
-        # %% Input and discretization termes
-
-        self.recharge = recharge
-
-        self.flow_regime = self._resolve_flow_regime()
-        self.first_clim = first_clim
-        self.dis_perlen = dis_perlen
-
-        # %% Plot things
-
-        self.plot_cross = plot_cross
-        self.cross_ylim = [] if cross_ylim is None else list(cross_ylim)
-        self.check_grid = check_grid
+        if preprocess_options is None:
+            preprocess_options = ModflowPreprocessOptions()
+        self.preprocess_options = preprocess_options
+        self._apply_preprocess_options(preprocess_options)
 
         # %% Flopy model parameters driven by expert config
         specif_params = ModflowSpecifParams.from_config(modflow_config)
@@ -234,6 +185,42 @@ class Modflow(Solver):
 
         self.vka = process_specific_params.vka
         self.exdp = process_specific_params.exdp
+
+    def _select_active_dem(self, box: bool) -> None:
+        """Select and normalize the active DEM support for the simulation."""
+        if box:
+            dem_source = self.geographic.dem_box_buff_data
+            self.dem_watershed_path = self.geographic.watershed_box_buff_dem
+        else:
+            dem_source = self.geographic.dem_data
+            self.dem_watershed_path = self.geographic.watershed_buff_dem
+
+        self.box = bool(box)
+        dem = np.asarray(dem_source, dtype=float).copy()
+        dem[(dem <= -9999) | (dem >= 9999)] = -9999
+        self.dem = dem
+        self.nrow = int(dem.shape[0])
+        self.ncol = int(dem.shape[1])
+
+    def _apply_preprocess_options(
+        self, options: ModflowPreprocessOptions | None = None
+    ) -> None:
+        """Apply pre-processing options on model state."""
+        if options is None:
+            options = self.preprocess_options
+        if not isinstance(options, ModflowPreprocessOptions):
+            raise TypeError(
+                "pre_processing options must be a ModflowPreprocessOptions instance."
+            )
+
+        self.preprocess_options = options
+        self.sink_fill = bool(options.sink_fill)
+        self.recharge = options.recharge
+        self.first_clim = options.first_clim
+        self.plot_cross = bool(options.plot_cross)
+        self.cross_ylim = [] if options.cross_ylim is None else list(options.cross_ylim)
+        self.check_grid = bool(options.check_grid)
+        self._select_active_dem(box=bool(options.box))
 
     # %% PRE-PROCESSING
 
@@ -525,15 +512,34 @@ class Modflow(Solver):
             start_datetime=temporal_dis["start_datetime"],
         )
 
-    def pre_processing(self):
+    def pre_processing(
+        self,
+        flow: object,
+        domain: object,
+        options: ModflowPreprocessOptions | None = None,
+    ):
         """
         Pre-processing to build the hydrologic model.
+
+        Parameters
+        ----------
+        flow : object
+            Flow object for this preprocessing run.
+        domain : object
+            Domain object for this preprocessing run.
+        options : ModflowPreprocessOptions, optional
+            Optional typed pre-processing options.
 
         Returns
         -------
         None.
 
         """
+        self.flow = flow
+        self.domain = domain
+        active_options = self.preprocess_options if options is None else options
+        self._apply_preprocess_options(active_options)
+
         self._validate_pre_processing_inputs()
         self._initialize_solver_packages()
         temporal_dis = self._build_temporal_discretization()
@@ -880,7 +886,7 @@ class Modflow(Solver):
 
             return problematic_cells
 
-        if self.check_grid:
+        if active_options.check_grid:
             grid_to_check = self.mf.modelgrid.top_botm
             problematic_cells = check_water_flow_connectivity(grid_to_check)
             if not problematic_cells:
@@ -894,7 +900,7 @@ class Modflow(Solver):
                 self.prob_cells = len(problematic_cells)
 
         # CrossSection figure
-        if self.plot_cross:
+        if active_options.plot_cross:
 
             fig, axs = plt.subplots(1, 2, figsize=(14, 4), dpi=300)
             axs = axs.ravel()
@@ -916,13 +922,15 @@ class Modflow(Solver):
             )
             # modelxsect1.plot_grid(ax=axs[0])
             axs[0].set_title("West-East (Row), K [m/s]", fontsize=12)
-            if not self.cross_ylim:
+            if active_options.cross_ylim is None:
                 axs[0].set_ylim(
                     np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                     np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)),
                 )
             else:
-                axs[0].set_ylim(self.cross_ylim[0], self.cross_ylim[1])
+                axs[0].set_ylim(
+                    active_options.cross_ylim[0], active_options.cross_ylim[1]
+                )
             axs[0].set_xlabel("Distance [m]")
             axs[0].set_ylabel("Elevation [m]")
             # divider = make_axes_locatable(axs[0])
@@ -945,13 +953,15 @@ class Modflow(Solver):
             )
             # modelxsect2.plot_grid(ax=axs[1])
             axs[1].set_title("North-South (Column), Sy [%]", fontsize=12)
-            if not self.cross_ylim:
+            if active_options.cross_ylim is None:
                 axs[1].set_ylim(
                     np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
                     np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)),
                 )
             else:
-                axs[1].set_ylim(self.cross_ylim[0], self.cross_ylim[1])
+                axs[1].set_ylim(
+                    active_options.cross_ylim[0], active_options.cross_ylim[1]
+                )
             axs[1].set_xlabel("Distance [m]")
             axs[1].set_ylabel("Elevation [m]")
             # divider = make_axes_locatable(axs[1])
@@ -966,19 +976,15 @@ class Modflow(Solver):
 
     def processing(
         self,
-        write_model: bool = True,
-        run_model: bool = False,
-        link_mt3dms: bool = False,
+        options: ModflowRunOptions | None = None,
     ):
         """
         Run the hydrologic model.
 
         Parameters
         ----------
-        write_model : bool, optional
-            Flag to write input files or not. The default is True.
-        run_model : bool, optional
-            Flag to run model or not. The default is False.
+        options : ModflowRunOptions, optional
+            Optional typed run options.
 
         Returns
         -------
@@ -987,7 +993,12 @@ class Modflow(Solver):
 
         """
 
-        if link_mt3dms:
+        if options is None:
+            options = ModflowRunOptions()
+        elif not isinstance(options, ModflowRunOptions):
+            raise TypeError("processing options must be a ModflowRunOptions instance.")
+
+        if options.link_mt3dms:
             lmt = flopy.modflow.ModflowLmt(
                 self.mf,
                 output_file_name=self.lmt_output_file_name,
@@ -997,16 +1008,15 @@ class Modflow(Solver):
             )
 
         # Create modflow files
-        if write_model:
+        if options.write_model:
             # Write input files
             self.mf.write_input()
 
         # Run modflow files
         success_model = False
-        if run_model:
-            verbose = True
+        if options.run_model:
             success_model, tempo = self.mf.run_model(
-                silent=not verbose
+                silent=not options.verbose
             )  # True without msg
 
         return success_model
@@ -1015,53 +1025,23 @@ class Modflow(Solver):
 
     def post_processing(
         self,
-        model_modflow: object,
-        watertable_elevation: bool = True,
-        watertable_depth: bool = True,
-        seepage_areas: bool = True,
-        outflow_drain: bool = True,
-        groundwater_flux: bool = True,
-        groundwater_storage: bool = True,
-        accumulation_flux: bool = True,
-        persistency_index: bool = False,
-        intermittency_yearly: bool = False,
-        intermittency_monthly: bool = False,
-        intermittency_weekly: bool = False,
-        intermittency_daily: bool = False,
-        export_all_tif: bool = False,
+        options: ModflowPostprocessOptions | None = None,
     ):
         """
         Create outputs files.
 
         Parameters
         ----------
-        model_modflow : object
-            MODFLOW Python object.
-        watertable_elevation : bool, optional
-            Write watertable elevation outputs. The default is True.
-        watertable_depth : bool, optional
-            Write watertable depth outputs. The default is True.
-        seepage_areas : bool, optional
-            Write seepage areas outputs. The default is True.
-        outflow_drain : bool, optional
-            Write outflow drain outputs. The default is True.
-        groundwater_flux : bool, optional
-            Write groundwater flux outputs. The default is True.
-        groundwater_storage : bool, optional
-            Write groundwater storage outputs. The default is True.
-        accumulation_flux : bool, optional
-            Write accumulation flux outputs. The default is True.
-        persistency_index : bool, optional
-            Write persistency index outputs. The default is False.
-        intermittency_monthly : bool, optional
-            Write intermittency monthly outputs. The default is False.
-        intermittency_weekly : bool, optional
-            Write intermittency weekly outputs. The default is False.
-        intermittency_daily : bool, optional
-            Write intermittency daily outputs. The default is False.
-        export_all_tif : bool, optional
-            Write all files .tif at each time step. The default is False.
+        options : ModflowPostprocessOptions, optional
+            Optional typed post-processing options.
         """
+        if options is None:
+            options = ModflowPostprocessOptions()
+        elif not isinstance(options, ModflowPostprocessOptions):
+            raise TypeError(
+                "post_processing options must be a ModflowPostprocessOptions instance."
+            )
+
         # Create folders
         self.save_file = os.path.join(self.full_path, "_postprocess")
         toolbox.create_folder(self.save_file)
@@ -1140,7 +1120,7 @@ class Modflow(Solver):
             lead_numb = str(item)
 
             export_tif = True
-            if not export_all_tif:
+            if not options.export_all_tif:
                 if item > 0:
                     export_tif = False
 
@@ -1163,7 +1143,7 @@ class Modflow(Solver):
                 #                 break
                 # self.head_data = head_final.copy()
 
-            if watertable_elevation:
+            if options.watertable_elevation:
                 ### Watertable elevation
                 self.wt_elev = self.head_data.copy()
                 self.wt_elev[self.dem_mask] = -9999
@@ -1176,7 +1156,7 @@ class Modflow(Solver):
                     )
                 self.dict_watertable_elevation[item] = self.wt_elev
 
-            if watertable_depth:
+            if options.watertable_depth:
                 ### Watertable depth
                 self.wt_depth = self.dem - self.wt_elev.copy()
                 self.wt_depth[self.dem_mask] = -9999
@@ -1189,7 +1169,7 @@ class Modflow(Solver):
                     )
                 self.dict_watertable_depth[item] = self.wt_depth
 
-            if seepage_areas:
+            if options.seepage_areas:
                 ### Seepage areas
                 self.seep_area = self.dem - self.wt_elev.copy()
                 self.seep_area[self.seep_area >= 0] = 0
@@ -1202,7 +1182,7 @@ class Modflow(Solver):
                     )
                 self.dict_seepage_areas[item] = self.seep_area
 
-            if outflow_drain:
+            if options.outflow_drain:
                 ### Outflow drain
                 self.drain = self.cbb.get_data(
                     text="DRAINS", kstpkper=self.kstpkper, totim=time
@@ -1218,7 +1198,7 @@ class Modflow(Solver):
                 self.out_drn = self.out_all[0]
                 self.out_drn[self.dem_mask] = -9999
                 output_path = self.tifs_file + "/outflow_drain_t(" + lead_numb + ").tif"
-                if accumulation_flux:
+                if options.accumulation_flux:
                     toolbox.export_tif(
                         self.dem_watershed_path, self.out_drn, output_path, -9999
                     )
@@ -1229,7 +1209,7 @@ class Modflow(Solver):
                         )
                 self.dict_outflow_drain[item] = self.out_drn
 
-            if groundwater_flux:
+            if options.groundwater_flux:
                 ### Groundwater flux
                 self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
                 self.frf = self.cbb.get_data(
@@ -1258,7 +1238,7 @@ class Modflow(Solver):
                     )
                 self.dict_groundwater_flux[item] = self.flux_top
 
-            if groundwater_storage:
+            if options.groundwater_storage:
                 ### Groundwater storage
                 self.wt_sto = self.wt_elev.copy()
                 self.wt_sto[self.dem < 0] = np.nan
@@ -1276,7 +1256,7 @@ class Modflow(Solver):
                     )
                 self.dict_groundwater_storage[item] = self.wt_sto
 
-            if accumulation_flux:
+            if options.accumulation_flux:
                 ### Accumulation flux
                 accumulated_flow = masstransfer.Masstransfer(
                     self.geographic,
@@ -1293,33 +1273,33 @@ class Modflow(Solver):
                     self.dict_accumulation_flux[item] = src.read(1)
 
         ### Save dictionaries to npy
-        if watertable_elevation:
+        if options.watertable_elevation:
             logger.info("Exporting watertable elevation time series")
             np.save(
                 self.save_file + "/watertable_elevation", self.dict_watertable_elevation
             )
-        if watertable_depth:
+        if options.watertable_depth:
             logger.info("Exporting watertable depth time series")
             np.save(self.save_file + "/watertable_depth", self.dict_watertable_depth)
-        if seepage_areas:
+        if options.seepage_areas:
             logger.info("Exporting seepage areas time series")
             np.save(self.save_file + "/seepage_areas", self.dict_seepage_areas)
-        if outflow_drain:
+        if options.outflow_drain:
             logger.info("Exporting outflow drain time series")
             np.save(self.save_file + "/outflow_drain", self.dict_outflow_drain)
-        if groundwater_flux:
+        if options.groundwater_flux:
             logger.info("Exporting groundwater flux time series")
             np.save(self.save_file + "/groundwater_flux", self.dict_groundwater_flux)
-        if groundwater_storage:
+        if options.groundwater_storage:
             logger.info("Exporting groundwater storage time series")
             np.save(
                 self.save_file + "/groundwater_storage", self.dict_groundwater_storage
             )
-        if accumulation_flux:
+        if options.accumulation_flux:
             logger.info("Exporting accumulation flux time series")
             np.save(self.save_file + "/accumulation_flux", self.dict_accumulation_flux)
 
-        if persistency_index:
+        if options.persistency_index:
             ### Persistency index
             logger.info("Exporting persistency index maps")
             acc_npy_raw = np.load(
@@ -1346,7 +1326,7 @@ class Modflow(Solver):
 
             np.save(self.save_file + "/persistency_index", self.dict_persistency_index)
 
-        if intermittency_daily:
+        if options.intermittency_daily:
             ### Intermittency daily
             logger.info("Exporting daily intermittency maps")
             acc_npy_raw = np.load(
@@ -1404,7 +1384,7 @@ class Modflow(Solver):
                 self.save_file + "/intermittency_daily", self.dict_intermittency_daily
             )
 
-        if intermittency_weekly:
+        if options.intermittency_weekly:
             logger.info("Exporting weekly intermittency maps")
             acc_npy_raw = np.load(
                 os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
@@ -1461,7 +1441,7 @@ class Modflow(Solver):
                 self.save_file + "/intermittency_weekly", self.dict_intermittency_weekly
             )
 
-        if intermittency_monthly:
+        if options.intermittency_monthly:
             ### Intermittency monthly
             logger.info("Exporting monthly intermittency maps")
             acc_npy_raw = np.load(
@@ -1519,7 +1499,7 @@ class Modflow(Solver):
                 self.dict_intermittency_monthly,
             )
 
-        if intermittency_yearly:
+        if options.intermittency_yearly:
             ### Intermittency monthly
             logger.info("Exporting yearly intermittency maps")
             acc_npy_raw = np.load(
