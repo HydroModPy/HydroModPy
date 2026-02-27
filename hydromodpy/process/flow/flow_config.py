@@ -132,7 +132,8 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
 
     Normalized structure:
     - `bc["dirichlet"]`: mapping with optional `ocean` and `stream` payloads
-    - `bc["robin"]`: mapping with optional `drainage` payload
+    - `bc["cauchy"]`: mapping with optional `drainage` payload
+    - `bc["robin"]`: legacy alias accepted for `cauchy`
     """
     parsed: dict[str, object] = {}
 
@@ -148,10 +149,32 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
                 continue
             if not isinstance(item, Mapping):
                 raise ValueError(f"flow.bc.dirichlet.{key} must be a mapping")
-            parsed_dirichlet[key] = dict(item)
+            normalized_item = dict(item)
+            normalized_item.setdefault("data_value", False)
+            normalized_item.setdefault("units", "m")
+            parsed_dirichlet[key] = normalized_item
 
         if parsed_dirichlet:
             parsed["dirichlet"] = parsed_dirichlet
+
+    cauchy_payload = bc_cfg.get("cauchy")
+    if cauchy_payload is not None:
+        if not isinstance(cauchy_payload, Mapping):
+            raise ValueError("flow.bc.cauchy must be a mapping when provided")
+
+        parsed_cauchy: dict[str, dict[str, object]] = {}
+        drainage_item = cauchy_payload.get("drainage")
+        if drainage_item is not None:
+            if not isinstance(drainage_item, Mapping):
+                raise ValueError("flow.bc.cauchy.drainage must be a mapping")
+            normalized_drainage = dict(drainage_item)
+            normalized_drainage.setdefault("data_value", False)
+            normalized_drainage.setdefault("units", "m2/s")
+            normalized_drainage.setdefault("type", "cauchy")
+            parsed_cauchy["drainage"] = normalized_drainage
+
+        if parsed_cauchy:
+            parsed["cauchy"] = parsed_cauchy
 
     robin_payload = bc_cfg.get("robin")
     if robin_payload is not None:
@@ -163,20 +186,28 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
         if drainage_item is not None:
             if not isinstance(drainage_item, Mapping):
                 raise ValueError("flow.bc.robin.drainage must be a mapping")
-            parsed_robin["drainage"] = dict(drainage_item)
+            normalized_drainage = dict(drainage_item)
+            normalized_drainage.setdefault("data_value", False)
+            normalized_drainage.setdefault("units", "m2/s")
+            normalized_drainage.setdefault("type", "robin")
+            parsed_robin["drainage"] = normalized_drainage
 
-        if parsed_robin:
+        if parsed_robin and "cauchy" not in parsed:
             parsed["robin"] = parsed_robin
 
     legacy_drainage = bc_cfg.get("drainage")
-    if "robin" not in parsed and isinstance(legacy_drainage, Mapping):
-        parsed["robin"] = {"drainage": dict(legacy_drainage)}
+    if "cauchy" not in parsed and "robin" not in parsed and isinstance(legacy_drainage, Mapping):
+        normalized_legacy_drainage = dict(legacy_drainage)
+        normalized_legacy_drainage.setdefault("data_value", False)
+        normalized_legacy_drainage.setdefault("units", "m2/s")
+        normalized_legacy_drainage.setdefault("type", "cauchy")
+        parsed["robin"] = {"drainage": normalized_legacy_drainage}
 
     for raw_key, raw_payload in bc_cfg.items():
         key = str(raw_key).strip()
         if key == "":
             raise ValueError("flow.bc cannot contain empty keys")
-        if key in {"dirichlet", "robin", "drainage"}:
+        if key in {"dirichlet", "cauchy", "robin", "drainage"}:
             continue
         if isinstance(raw_payload, Mapping):
             parsed[key] = dict(raw_payload)

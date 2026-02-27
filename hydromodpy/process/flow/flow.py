@@ -119,18 +119,31 @@ class Flow(Process):
 					)
 
 		robin_payload = boundary_conditions.get("robin")
+		cauchy_payload = boundary_conditions.get("cauchy")
+		if isinstance(cauchy_payload, Mapping):
+			drainage_payload = cauchy_payload.get("drainage")
+			if isinstance(drainage_payload, Mapping):
+				parsed_boundary_conditions["drainage"] = self._build_drainage_boundary_condition(
+					drainage_payload,
+					expected_section="cauchy",
+				)
+
 		if isinstance(robin_payload, Mapping):
 			drainage_payload = robin_payload.get("drainage")
 			if isinstance(drainage_payload, Mapping):
-				parsed_boundary_conditions["drainage"] = self._build_robin_drainage_boundary_condition(
-					drainage_payload
+				parsed_boundary_conditions.setdefault(
+					"drainage",
+					self._build_drainage_boundary_condition(
+						drainage_payload,
+						expected_section="robin",
+					),
 				)
 
 		for raw_id, raw_payload in boundary_conditions.items():
 			bc_id = str(raw_id).strip()
 			if bc_id == "":
 				raise ValueError("boundary_conditions cannot contain empty ids")
-			if bc_id in {"dirichlet", "robin"}:
+			if bc_id in {"dirichlet", "robin", "cauchy"}:
 				continue
 			if bc_id == "drainage" and "drainage" in parsed_boundary_conditions:
 				continue
@@ -154,38 +167,51 @@ class Flow(Process):
 		payload.setdefault("description", "")
 		payload.setdefault("units", "")
 		payload.setdefault("type", "Dirichlet")
+		payload.setdefault("data_value", False)
 		return BoundaryCondition.model_validate(payload)
 
-	def _build_robin_drainage_boundary_condition(
+	def _build_drainage_boundary_condition(
 		self,
 		drainage_payload: Mapping[str, object],
+		*,
+		expected_section: str,
 	) -> BoundaryCondition:
 		if "value" not in drainage_payload:
-			raise ValueError("flow.bc.robin.drainage.value is required")
+			raise ValueError(f"flow.bc.{expected_section}.drainage.value is required")
 
 		value = drainage_payload["value"]
 		if not isinstance(value, Real):
-			raise TypeError("flow.bc.robin.drainage.value must be a numeric value")
+			raise TypeError(
+				f"flow.bc.{expected_section}.drainage.value must be a numeric value"
+			)
 
 		raw_application_domain = drainage_payload.get("application_domain")
 		if not isinstance(raw_application_domain, str):
 			raise TypeError(
-				"flow.bc.robin.drainage.application_domain must be a string"
+				f"flow.bc.{expected_section}.drainage.application_domain must be a string"
 			)
 		application_domain = raw_application_domain.strip()
 		if application_domain == "":
-			raise ValueError("flow.bc.robin.drainage.application_domain cannot be empty")
+			raise ValueError(
+				f"flow.bc.{expected_section}.drainage.application_domain cannot be empty"
+			)
 
 		allowed_domains = {"top", "north side", "west side", "east side", "south side"}
 		if application_domain not in allowed_domains:
 			raise ValueError(
-				"flow.bc.robin.drainage.application_domain contains an invalid value: "
+				f"flow.bc.{expected_section}.drainage.application_domain contains an invalid value: "
 				+ application_domain
 			)
 
-		raw_type = drainage_payload.get("type", "robin")
-		if str(raw_type).lower() != "robin":
-			raise ValueError("flow.bc.robin.drainage.type must be 'robin'")
+		raw_type = drainage_payload.get("type", "cauchy")
+		bc_type = str(raw_type).lower()
+		if bc_type not in {"cauchy", "robin"}:
+			raise ValueError(
+				f"flow.bc.{expected_section}.drainage.type must be 'cauchy' or 'robin'"
+			)
+
+		data_value = bool(drainage_payload.get("data_value", False))
+		units = str(drainage_payload.get("units", "m2/s"))
 
 		self.boundary_condition_application_domains["drainage"] = application_domain
 
@@ -193,11 +219,12 @@ class Flow(Process):
 			id="drainage",
 			value=float(value),
 			description=(
-				"Robin drainage boundary condition on "
+				f"{bc_type.capitalize()} drainage boundary condition on "
 				+ application_domain
 			),
-			units="-",
-			type="robin",
+			units=units,
+			type=bc_type,
+			data_value=data_value,
 		)
 
 	def _build_dirichlet_boundary_condition(
@@ -209,10 +236,9 @@ class Flow(Process):
 		if "value" not in payload:
 			raise ValueError(f"flow.bc.dirichlet.{bc_id}.value is required")
 
-		if payload["data_value"]:
-			pass # Link to oceanic data
-		else:
-			value = payload["value"]
+		value = payload["value"]
+		data_value_flag = payload.get("data_value", False)
+		if not data_value_flag:
 			if not isinstance(value, Real):
 				raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
 
@@ -241,29 +267,31 @@ class Flow(Process):
 		self.boundary_condition_application_domains[bc_id] = application_domain
 
 		data_value = bool(payload.get("data_value", False))
+		units = str(payload.get("units", "m"))
 		description = f"Dirichlet boundary condition '{bc_id}' on {application_domain}"
-		if data_value:
+		if data_value_flag:
 			description += " (data_value=True)"
 
 		return BoundaryCondition(
 			id=bc_id,
 			value=float(value),
 			description=description,
-			units="-",
+			units=units,
 			type="dirichlet",
+			data_value=data_value,
 		)
 
 	def set_sinks_sources(self, wells_sources: dict):
 		self.sinks_sources.update(wells_sources)
-  
+
 if __name__ == "__main__":
     test = Flow()
     Sy = Parameter(id='Sy', value=0.1, description='Specific yield', units='-', field_type='homogeneous')
     h = Variable(id='h', value=0, description='Hydraulic head', units='m')
     q = Variable(id='q', value=0, description='Flow rate', units='m3/s')
     h0 = InitialCondition(id='h0', value=10, description='Initial hydraulic head', units='m')
-    h_ocean = BoundaryCondition(id='h_ocean', value=0, description='Ocean boundary condition', units='m', type='Dirichlet')
-    drain = BoundaryCondition(id='drain', value=0, description='Drain boundary condition', units='m', type='Cauchy')
+    h_ocean = BoundaryCondition(id='h_ocean', value=0, description='Ocean boundary condition', units='m', type='Dirichlet', data_value=False)
+    drain = BoundaryCondition(id='drain', value=0, description='Drain boundary condition', units='m', type='Cauchy', data_value=False)
     recharge = SinkSource(id='R', value=1e-8, description='Recharge rate', units='m/s')
     well1 = SinkSource(id='W1', value=-1e-4, description='Pumping well', units='m3/s')
     test.set_parameters(
@@ -279,4 +307,4 @@ if __name__ == "__main__":
     test.set_initial_conditions({h0.id: h0})
     test.set_boundary_conditions({h_ocean.id: h_ocean, drain.id: drain})
     test.set_sinks_sources({well1.id: well1})
-    
+
