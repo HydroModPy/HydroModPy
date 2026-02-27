@@ -267,17 +267,19 @@ from hydromodpy import pyhelp
 from hydromodpy import calibration
 from hydromodpy import data_managers
 from hydromodpy import domain
+from hydromodpy import geographic
 
 _LAZY_IMPORTS = {
     # watershed classes
     "Climatic": "hydromodpy.watershed.climatic",
     "Driasclimat": "hydromodpy.watershed.driasclimat",
     "Driaseau": "hydromodpy.watershed.driaseau",
-    "Geographic": "hydromodpy.watershed.geographic",
+    "Geographic": "hydromodpy.geographic.geographic",
     "Geology": "hydromodpy.watershed.geology",
     "Hydraulic": "hydromodpy.watershed.hydraulic",
     "Hydrography": "hydromodpy.watershed.hydrography",
     "Hydrometry": "hydromodpy.watershed.hydrometry",
+    "Workspace": "hydromodpy.watershed.workspace",
     "Initializing": "hydromodpy.watershed.initializing",
     "Intermittency": "hydromodpy.watershed.intermittency",
     "Oceanic": "hydromodpy.watershed.oceanic",
@@ -288,10 +290,11 @@ _LAZY_IMPORTS = {
     "Transport": "hydromodpy.watershed.transport",
     # config
     "HydroModPyConfig": "hydromodpy.config.hydromodpy_config",
+    "WorkspaceConfig": "hydromodpy.watershed.workspace_config",
     "InitializingConfig": "hydromodpy.watershed.initializing_config",
-    "GeographicConfig": "hydromodpy.watershed.geographic_config",
+    "GeographicConfig": "hydromodpy.geographic.geographic_config",
     # modeling
-    "Modflow": "hydromodpy.modeling.modflow",
+    "Modflow": "hydromodpy.solver.modflow",
     "Modpath": "hydromodpy.modeling.modpath",
     "Mt3dms": "hydromodpy.modeling.mt3dms",
 }
@@ -315,6 +318,7 @@ __all__ = [
     "calibration",
     "data_managers",
     "domain",
+    "geographic",
     "log_manager",
     "__version__",
     *_LAZY_IMPORTS,

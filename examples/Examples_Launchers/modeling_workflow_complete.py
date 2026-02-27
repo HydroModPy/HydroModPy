@@ -12,11 +12,11 @@ from itertools import islice
 from pathlib import Path
 
 # Direct class imports (like example12.py)
-from hydromodpy.modeling.modflow import Modflow
+from hydromodpy.solver.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
@@ -99,18 +99,7 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
             thick=hydraulic.thick,
             nlay=hydraulic.nlay,
             lay_decay=hydraulic.lay_decay,
-            hk_value=hydraulic.hk_value,
-            sy_value=hydraulic.sy_value,
-            ss_value=hydraulic.ss_value,
-            hk_decay=hydraulic.hk_decay,
-            sy_decay=hydraulic.sy_decay,
-            ss_decay=hydraulic.ss_decay,
-            verti_hk=hydraulic.verti_hk,
-            verti_sy=hydraulic.verti_sy,
-            verti_ss=hydraulic.verti_ss,
             cond_drain=hydraulic.cond_drain,
-            vka=hydraulic.vka,
-            exdp=hydraulic.exdp
         )
 
         # Preprocessing

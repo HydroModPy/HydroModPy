@@ -1,0 +1,18 @@
+{
+  "base": {
+    "catchment_area_km2": 1.594375,
+    "mean_elevation_catchment_m": 120.90086240689925
+  },
+  "canut": {
+    "catchment_area_km2": 24.91875,
+    "mean_elevation_catchment_m": 122.21354675292969
+  },
+  "nancon": {
+    "catchment_area_km2": 64.636875,
+    "mean_elevation_catchment_m": 155.57791137695312
+  },
+  "aber": {
+    "catchment_area_km2": 2.39625,
+    "mean_elevation_catchment_m": 63.27356719970703
+  }
+}

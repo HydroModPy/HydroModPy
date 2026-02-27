@@ -48,6 +48,59 @@ SUPPORTED_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
 SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
 
+# Unit conventions and conversion factors to SI.
+# Values in this class are always stored in SI internally.
+SUPPORTED_PARAM_UNITS = ("-", "m/s", "m/day", "cm/s", "cm/day", "m-1", "cm-1")
+_UNIT_ALIASES = {
+    "-": "-",
+    "1": "-",
+    "none": "-",
+    "dimensionless": "-",
+    "unitless": "-",
+    "m/s": "m/s",
+    "m.s-1": "m/s",
+    "m*s-1": "m/s",
+    "m*s^-1": "m/s",
+    "m/day": "m/day",
+    "m/d": "m/day",
+    "cm/s": "cm/s",
+    "cm.s-1": "cm/s",
+    "cm*s-1": "cm/s",
+    "cm*s^-1": "cm/s",
+    "cm/day": "cm/day",
+    "cm/d": "cm/day",
+    "m-1": "m-1",
+    "1/m": "m-1",
+    "m^-1": "m-1",
+    "cm-1": "cm-1",
+    "1/cm": "cm-1",
+    "cm^-1": "cm-1",
+}
+_UNIT_TO_SI_UNIT = {
+    "-": "-",
+    "m/s": "m/s",
+    "m/day": "m/s",
+    "cm/s": "m/s",
+    "cm/day": "m/s",
+    "m-1": "m-1",
+    "cm-1": "m-1",
+}
+_UNIT_TO_SI_FACTOR = {
+    "-": 1.0,
+    "m/s": 1.0,
+    "m/day": 1.0 / 86400.0,
+    "cm/s": 1.0e-2,
+    "cm/day": 1.0e-2 / 86400.0,
+    "m-1": 1.0,
+    "cm-1": 100.0,
+}
+_DEFAULT_SI_UNIT_BY_PARAM_ID = {
+    "k": "m/s",
+    "sy": "-",
+    "s": "-",
+    "ss": "m-1",
+}
+
 
 def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
     """
@@ -160,6 +213,12 @@ class FieldParam:
         Logical parameter identifier (examples: `"K"`, `"Sy"`).
     kind : str
         Either `"homogeneous"` or `"heterogeneous"`.
+    unit : str | None
+        Unit of provided values. Values are converted to SI internally.
+        Typical units:
+        - `K`: `"m/s"` (also supports `"m/day"`, `"cm/s"`, `"cm/day"`),
+        - `Sy`: `"-"` (dimensionless),
+        - `Ss`: `"m-1"` (also supports `"cm-1"`).
     value : float | None
         Single scalar value for homogeneous fields.
     values_by_key : mapping | None
@@ -173,6 +232,11 @@ class FieldParam:
         (depth = 0). The vertical profile provides a multiplicative factor:
 
         `value(x, y, z) = value_surface(x, y) * f(z)`
+
+        For exponential mode, an optional `min_factor` can be provided to cap
+        the decay floor:
+
+        `f(z) = max(exp(-z/characteristic_depth), min_factor)`
 
     Examples
     --------
@@ -193,11 +257,62 @@ class FieldParam:
         array([ 4., 12.])
     """
 
+    @staticmethod
+    def _normalize_unit(unit: str | None) -> str:
+        """Normalize a unit token to a canonical representation."""
+        if unit is None:
+            return "-"
+        token = str(unit).strip().lower().replace(" ", "")
+        if token == "":
+            raise ValueError("unit cannot be empty when provided")
+        if token not in _UNIT_ALIASES:
+            allowed = ", ".join(SUPPORTED_PARAM_UNITS)
+            raise ValueError(f"Unsupported unit '{unit}'. Allowed units: {allowed}")
+        return _UNIT_ALIASES[token]
+
+    @staticmethod
+    def _expected_si_unit_for_identifier(identifier: str) -> str | None:
+        """Return default SI unit expected for known parameter identifiers."""
+        return _DEFAULT_SI_UNIT_BY_PARAM_ID.get(str(identifier).strip().lower())
+
+    @classmethod
+    def _resolve_unit_system(
+        cls,
+        *,
+        identifier: str,
+        unit: str | None,
+    ) -> tuple[str, str, float]:
+        """
+        Resolve input unit and SI conversion.
+
+        Returns
+        -------
+        input_unit : str
+            Canonical unit provided by user (or inferred default).
+        si_unit : str
+            SI unit used internally for storage.
+        factor_to_si : float
+            Multiplicative conversion factor from input unit to SI unit.
+        """
+        expected_si = cls._expected_si_unit_for_identifier(identifier)
+        input_unit = cls._normalize_unit(unit) if unit is not None else (expected_si or "-")
+        if input_unit not in _UNIT_TO_SI_UNIT:
+            allowed = ", ".join(SUPPORTED_PARAM_UNITS)
+            raise ValueError(f"Unsupported unit '{input_unit}'. Allowed units: {allowed}")
+        si_unit = _UNIT_TO_SI_UNIT[input_unit]
+        if expected_si is not None and si_unit != expected_si:
+            raise ValueError(
+                f"Unit '{input_unit}' is inconsistent with parameter '{identifier}'. "
+                f"Expected SI family '{expected_si}'."
+            )
+        return input_unit, si_unit, float(_UNIT_TO_SI_FACTOR[input_unit])
+
     def __init__(
         self,
         *,
         identifier: str,
         kind: str,
+        unit: str | None = None,
         value: float | None = None,
         values_by_key: Mapping[str, float] | None = None,
         field_spatial_id: str | None = None,
@@ -215,12 +330,17 @@ class FieldParam:
             raise ValueError(f"Unsupported field kind '{kind}'. Allowed: {allowed}")
 
         self.kind = kind_key
+        (
+            self.input_unit,
+            self.unit,
+            self._unit_factor_to_si,
+        ) = self._resolve_unit_system(identifier=self.identifier, unit=unit)
 
         if self.kind == "homogeneous":
             # Homogeneous case: exactly one scalar value is required.
             if value is None:
                 raise ValueError("Homogeneous field requires 'value'")
-            self.value = float(value)
+            self.value = float(value) * self._unit_factor_to_si
             self.values_by_key = None
             self.field_spatial_id = None
             self.vertical_profile = self._normalize_vertical_profile(vertical_profile)
@@ -229,7 +349,10 @@ class FieldParam:
         # Heterogeneous case: dictionary key -> value is required.
         if values_by_key is None:
             raise ValueError("Heterogeneous field requires 'values_by_key'")
-        values = {str(k): float(v) for k, v in dict(values_by_key).items()}
+        values = {
+            str(k): float(v) * self._unit_factor_to_si
+            for k, v in dict(values_by_key).items()
+        }
         if len(values) == 0:
             raise ValueError("'values_by_key' cannot be empty")
         if field_spatial_id is None or str(field_spatial_id).strip() == "":
@@ -274,10 +397,22 @@ class FieldParam:
             characteristic_depth = float(vertical_profile["characteristic_depth"])
             if not np.isfinite(characteristic_depth) or characteristic_depth <= 0.0:
                 raise ValueError("vertical_profile.characteristic_depth must be > 0")
-            return {
+
+            min_factor = vertical_profile.get("min_factor")
+            if min_factor is not None:
+                min_factor = float(min_factor)
+                if not np.isfinite(min_factor):
+                    raise ValueError("vertical_profile.min_factor must be finite when provided")
+                if min_factor < 0.0 or min_factor > 1.0:
+                    raise ValueError("vertical_profile.min_factor must be in [0, 1]")
+
+            normalized = {
                 "mode": "exponential",
                 "characteristic_depth": characteristic_depth,
             }
+            if min_factor is not None:
+                normalized["min_factor"] = float(min_factor)
+            return normalized
 
         if mode == "tabulated":
             if "depths" not in vertical_profile:
@@ -339,6 +474,9 @@ class FieldParam:
         elif mode == "exponential":
             characteristic_depth = float(self.vertical_profile["characteristic_depth"])
             out = np.exp(-depth_arr / characteristic_depth)
+            min_factor = self.vertical_profile.get("min_factor")
+            if min_factor is not None:
+                out = np.maximum(out, float(min_factor))
         elif mode == "tabulated":
             depths = np.asarray(self.vertical_profile["depths"], dtype=float)
             factors = np.asarray(self.vertical_profile["factors"], dtype=float)
@@ -600,12 +738,14 @@ class FieldParam:
             payload = {
                 "id": str(self.identifier),
                 "kind": self.kind,
+                "unit": str(self.unit),
                 "value": float(self.value),
             }
         else:
             payload = {
                 "id": str(self.identifier),
                 "kind": self.kind,
+                "unit": str(self.unit),
                 "values": dict(self.values_by_key),
                 "field_spatial_id": str(self.field_spatial_id),
             }
@@ -625,6 +765,7 @@ class FieldParam:
         ----------------
         - `id` or `identifier` for parameter id,
         - `kind` or `mode` for field mode,
+        - `unit` or `units` for parameter unit,
         - `values` or `values_by_key` for heterogeneous values.
         - `field_spatial_id` for the target spatial field identifier.
         - `vertical_profile` for depth-dependent global factor.
@@ -640,6 +781,7 @@ class FieldParam:
         if kind is None:
             raise KeyError("Missing required key 'kind' (or alias 'mode')")
         kind_key = str(kind).strip().lower()
+        unit = config.get("unit", config.get("units"))
         vertical_profile = config.get(
             "vertical_profile",
             config.get("field_vertical_profile"),
@@ -651,6 +793,7 @@ class FieldParam:
             return cls(
                 identifier=str(identifier),
                 kind=kind_key,
+                unit=unit,
                 value=float(config["value"]),
                 vertical_profile=vertical_profile,
             )
@@ -663,6 +806,7 @@ class FieldParam:
         return cls(
             identifier=str(identifier),
             kind=kind_key,
+            unit=unit,
             values_by_key=values_cfg,
             field_spatial_id=str(config["field_spatial_id"]),
             vertical_profile=vertical_profile,
@@ -679,12 +823,14 @@ class FieldParam:
             [field]
             id = "K"
             kind = "homogeneous"
+            unit = "m/s"
             value = 10.0
 
         Single-section heterogeneous:
             [field]
             id = "S"
             kind = "heterogeneous"
+            unit = "-"
             values = { granite = 10.0, micaschists = 3.5 }
             field_spatial_id = "field_square"
 
@@ -692,6 +838,7 @@ class FieldParam:
             [field]
             id = "K"
             kind = "heterogeneous"
+            unit = "m/s"
 
             [field_homogeneous]
             value = 12.5
@@ -703,6 +850,8 @@ class FieldParam:
             [field_vertical_profile]
             mode = "exponential"
             characteristic_depth = 30.0
+            # optional exponential floor
+            # min_factor = 1e-3
 
         Heterogeneous values from CSV (for long geology-property tables):
             [field]

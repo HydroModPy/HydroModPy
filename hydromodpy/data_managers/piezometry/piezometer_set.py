@@ -106,6 +106,8 @@ class PiezometerSet(BaseStationSet):
         *,
         bbox: Optional[tuple[float, float, float, float]] = None,
         mask_path: Optional[Union[str, Path]] = None,
+        center_point: Optional[tuple[float, float]] = None,
+        fallback_if_empty: bool = False,
         require_observations: bool = False,
         date_start: Optional[str] = None,
         date_end: Optional[str] = None,
@@ -122,6 +124,13 @@ class PiezometerSet(BaseStationSet):
         mask_path : str or Path, optional
             Optional vector/raster mask. When provided, bounds are derived from
             this mask and candidates are spatially filtered by geometry.
+        center_point : tuple(float, float), optional
+            Center point as (lon, lat). When provided, results are automatically
+            sorted by distance to this point (or mask centroid if no center_point).
+        fallback_if_empty : bool, default False
+            If True and no piezometers found in the initial search area,
+            automatically search beyond the area and return closest piezometers
+            sorted by distance to center_point (or mask centroid).
         require_observations : bool, default False
             If True, keep only IDs with at least one chronicle observation in
             ``[date_start, date_end]``.
@@ -136,13 +145,16 @@ class PiezometerSet(BaseStationSet):
         Returns
         -------
         list[str]
-            Discovered valid ``code_bss`` identifiers.
+            Discovered valid ``code_bss`` identifiers, sorted by distance if
+            center_point or mask_path provided.
         """
         if max_ids < 1:
             raise ValueError("max_ids must be >= 1")
 
         helper = object.__new__(cls)
         mask_gdf = None
+        original_bbox = bbox  # Sauvegarder la bbox originale pour fallback
+        
         if mask_path is not None:
             mask_gdf = helper._load_mask_geometry(mask_path)
             bounds = mask_gdf.total_bounds
@@ -158,83 +170,72 @@ class PiezometerSet(BaseStationSet):
         if minx >= maxx or miny >= maxy:
             raise ValueError("Invalid bbox values: require minx < maxx and miny < maxy.")
 
-        params = {
-            "bbox": f"{minx},{miny},{maxx},{maxy}",
-            "size": 10000,
-            "format": "json",
-        }
-        try:
-            response = requests.get(f"{API_BASE_URL}stations", params=params, timeout=timeout)
-        except requests.exceptions.RequestException as exc:
-            print(f"Warning: station discovery request failed: {exc}")
-            return []
-        if response.status_code not in (200, 206):
-            message = STATUS_MESSAGES.get(response.status_code, "Unknown API error")
-            print(f"Error {response.status_code}: {message}")
-            return []
+        # Déterminer le point de référence pour le tri par distance
+        reference_point = center_point
+        if reference_point is None and mask_gdf is not None:
+            bounds = mask_gdf.total_bounds
+            reference_point = ((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)
 
-        station_rows = response.json().get("data", [])
-        if not station_rows:
-            return []
+        # Première recherche dans la zone définie
+        candidate_data = cls._search_piezometers_in_bbox(
+            minx, miny, maxx, maxy, 
+            mask_gdf, 
+            timeout
+        )
 
-        if mask_gdf is not None:
-            gpd, Point = helper._load_geographic_libraries()
-            points = []
-            valid_rows = []
-            for row in station_rows:
-                xy = cls._extract_wgs84_coordinates(row)
-                if xy is None:
-                    continue
-                valid_rows.append(row)
-                points.append(Point(float(xy[0]), float(xy[1])))
+        # Fallback si la zone est vide
+        if not candidate_data and fallback_if_empty and reference_point is not None:
+            print(f"No piezometers found in the initial search area. Searching for closest piezometers beyond the area...")
+            # Créer une bbox beaucoup plus grande (France entière environ)
+            fallback_bbox = (-5.0, 41.0, 8.0, 51.0)
+            candidate_data = cls._search_piezometers_in_bbox(
+                fallback_bbox[0], fallback_bbox[1], 
+                fallback_bbox[2], fallback_bbox[3],
+                None,  # Pas de mask pour le fallback
+                timeout
+            )
+            if candidate_data:
+                print(f"Found {len(candidate_data)} piezometers in extended search area.")
 
-            if valid_rows:
-                stations_gdf = gpd.GeoDataFrame(valid_rows, geometry=points, crs="EPSG:4326")
-                try:
-                    in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="within")
-                except Exception:
-                    in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="intersects")
-                station_rows = in_mask.to_dict("records") if not in_mask.empty else []
-            else:
-                station_rows = []
+        # Appliquer le tri par distance automatiquement si reference_point est disponible
+        if reference_point is not None and candidate_data and all(d["coords"] is not None for d in candidate_data):
+            try:
+                ref_lon, ref_lat = reference_point
+                distances = []
+                for item in candidate_data:
+                    if item["coords"] is not None:
+                        lon, lat = item["coords"]
+                        dist = cls._haversine_distance(ref_lon, ref_lat, lon, lat)
+                        distances.append((item["id"], dist))
+                distances.sort(key=lambda x: x[1])
+                candidate_ids = [cid for cid, _ in distances[:max_ids]]
+                print(f"Discovered {len(candidate_ids)} closest piezometers sorted by distance to reference point")
+                
+                # Appliquer le filtre require_observations si nécessaire
+                if require_observations:
+                    return cls._filter_by_observations(
+                        candidate_ids, 
+                        date_start, 
+                        date_end, 
+                        max_ids, 
+                        timeout
+                    )
+                return candidate_ids
+            except Exception as exc:
+                print(f"Warning: distance sorting failed: {exc}. Returning unsorted results.")
 
-        seen = set()
-        candidate_ids: List[str] = []
-        for row in station_rows:
-            sid = str(row.get("code_bss", "")).strip()
-            if sid and sid not in seen:
-                seen.add(sid)
-                candidate_ids.append(sid)
+        candidate_ids = [item["id"] for item in candidate_data]
 
         if not require_observations:
             return candidate_ids[:max_ids]
 
-        start = cls._normalize_api_date(date_start, default="1900-01-01")
-        end = cls._normalize_api_date(date_end, default=datetime.now().strftime("%Y-%m-%d"))
-        discovered: List[str] = []
-
-        for sid in candidate_ids:
-            chrono_params = {
-                "code_bss": sid,
-                "date_debut_mesure": start,
-                "date_fin_mesure": end,
-                "size": 1,
-                "format": "json",
-            }
-            try:
-                resp = requests.get(f"{API_BASE_URL}chroniques", params=chrono_params, timeout=timeout)
-            except requests.exceptions.RequestException:
-                continue
-            if resp.status_code not in (200, 206):
-                continue
-            payload = resp.json()
-            count = int(payload.get("count", 0) or 0)
-            if count > 0:
-                discovered.append(sid)
-                if len(discovered) >= max_ids:
-                    break
-
-        return discovered
+        return cls._filter_by_observations(
+            candidate_ids, 
+            date_start, 
+            date_end, 
+            max_ids, 
+            timeout
+        )
 
     def __init__(
         self,
@@ -352,6 +353,170 @@ class PiezometerSet(BaseStationSet):
             return float(x), float(y)
         except Exception:
             return None
+
+    @staticmethod
+    def _haversine_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+        """
+        Calculate distance in km between two points using Haversine formula.
+
+        Parameters
+        ----------
+        lon1, lat1 : float
+            Longitude and latitude of first point in degrees
+        lon2, lat2 : float
+            Longitude and latitude of second point in degrees
+
+        Returns
+        -------
+        float
+            Distance in kilometers
+        """
+        from math import radians, cos, sin, asin, sqrt
+
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+        c = 2 * asin(sqrt(a))
+        r = 6371  # Earth radius in kilometers
+        return c * r
+
+    @classmethod
+    def _search_piezometers_in_bbox(
+        cls,
+        minx: float,
+        miny: float,
+        maxx: float,
+        maxy: float,
+        mask_gdf: Optional[Any] = None,
+        timeout: int = 30,
+    ) -> List[dict]:
+        """
+        Search for piezometers in a bounding box, optionally filtered by mask geometry.
+
+        Parameters
+        ----------
+        minx, miny, maxx, maxy : float
+            Bounding box coordinates in EPSG:4326
+        mask_gdf : GeoDataFrame, optional
+            Optional mask geometry to filter results (within/intersects)
+        timeout : int, default 30
+            HTTP timeout in seconds
+
+        Returns
+        -------
+        list[dict]
+            List of dicts with keys: 'id', 'coords', 'row'
+        """
+        params = {
+            "bbox": f"{minx},{miny},{maxx},{maxy}",
+            "size": 10000,
+            "format": "json",
+        }
+        try:
+            response = requests.get(f"{API_BASE_URL}stations", params=params, timeout=timeout)
+        except requests.exceptions.RequestException as exc:
+            print(f"Warning: station discovery request failed: {exc}")
+            return []
+        
+        if response.status_code not in (200, 206):
+            message = STATUS_MESSAGES.get(response.status_code, "Unknown API error")
+            print(f"Error {response.status_code}: {message}")
+            return []
+
+        station_rows = response.json().get("data", [])
+        if not station_rows:
+            return []
+
+        # Apply mask filtering if provided
+        if mask_gdf is not None:
+            glib = object.__new__(cls)
+            gpd, Point = glib._load_geographic_libraries()
+            points = []
+            valid_rows = []
+            for row in station_rows:
+                xy = cls._extract_wgs84_coordinates(row)
+                if xy is None:
+                    continue
+                valid_rows.append(row)
+                points.append(Point(float(xy[0]), float(xy[1])))
+
+            if valid_rows:
+                stations_gdf = gpd.GeoDataFrame(valid_rows, geometry=points, crs="EPSG:4326")
+                try:
+                    in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="within")
+                except Exception:
+                    in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="intersects")
+                station_rows = in_mask.to_dict("records") if not in_mask.empty else []
+            else:
+                station_rows = []
+
+        # Build candidate data list
+        seen = set()
+        candidate_data: List[dict] = []
+        for row in station_rows:
+            sid = str(row.get("code_bss", "")).strip()
+            if sid and sid not in seen:
+                seen.add(sid)
+                xy = cls._extract_wgs84_coordinates(row)
+                candidate_data.append({"id": sid, "coords": xy, "row": row})
+
+        return candidate_data
+
+    @classmethod
+    def _filter_by_observations(
+        cls,
+        candidate_ids: List[str],
+        date_start: Optional[str],
+        date_end: Optional[str],
+        max_ids: int,
+        timeout: int,
+    ) -> List[str]:
+        """
+        Filter piezometer IDs by observation availability in date range.
+
+        Parameters
+        ----------
+        candidate_ids : list[str]
+            List of piezometer IDs to filter
+        date_start, date_end : str, optional
+            Date range for observations (YYYY-MM-DD format)
+        max_ids : int
+            Maximum number of IDs to return
+        timeout : int
+            HTTP timeout in seconds
+
+        Returns
+        -------
+        list[str]
+            Filtered IDs with available observations
+        """
+        start = cls._normalize_api_date(date_start, default="1900-01-01")
+        end = cls._normalize_api_date(date_end, default=datetime.now().strftime("%Y-%m-%d"))
+        discovered: List[str] = []
+
+        for sid in candidate_ids:
+            chrono_params = {
+                "code_bss": sid,
+                "date_debut_mesure": start,
+                "date_fin_mesure": end,
+                "size": 1,
+                "format": "json",
+            }
+            try:
+                resp = requests.get(f"{API_BASE_URL}chroniques", params=chrono_params, timeout=timeout)
+            except requests.exceptions.RequestException:
+                continue
+            if resp.status_code not in (200, 206):
+                continue
+            payload = resp.json()
+            count = int(payload.get("count", 0) or 0)
+            if count > 0:
+                discovered.append(sid)
+                if len(discovered) >= max_ids:
+                    break
+
+        return discovered
 
     def _get_piezometers_from_mask(self, mask_path):
         """Select piezometers located inside a mask geometry."""

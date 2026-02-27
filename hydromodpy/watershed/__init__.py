@@ -7,7 +7,7 @@ from hydromodpy.watershed.hydraulic import Hydraulic
 from hydromodpy.watershed.hydrography import Hydrography
 from hydromodpy.watershed.hydrometry import Hydrometry
 from hydromodpy.watershed.intermittency import Intermittency
-from hydromodpy.watershed.oceanic import Oceanic
+from hydromodpy.watershed.oceanic_old import Oceanic
 from hydromodpy.watershed.piezometry import Piezometry
 from hydromodpy.watershed.settings import Settings
 from hydromodpy.watershed.safransurfex import SafranSurfex
@@ -15,6 +15,7 @@ from hydromodpy.watershed.subbasin import Subbasin
 from hydromodpy.watershed.transport import Transport 
 
 from hydromodpy.watershed.geographic import Geographic
+from hydromodpy.watershed.workspace import Workspace
 from hydromodpy.watershed.initializing import Initializing
 
-__all__ = ['Climatic', 'Driasclimat', 'Driaseau', 'Geology', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Hydrometry', 'Intermittency', 'Oceanic', 'Piezometry', 'Settings', 'SafranSurfex', 'Subbasin', 'Transport', 'Geographic', 'Initializing']
+__all__ = ['Climatic', 'Driasclimat', 'Driaseau', 'Geology', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Hydrometry', 'Intermittency', 'Oceanic', 'Piezometry', 'Settings', 'SafranSurfex', 'Subbasin', 'Transport', 'Geographic', 'Workspace', 'Initializing']
