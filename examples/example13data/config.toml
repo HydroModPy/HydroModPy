@@ -50,12 +50,12 @@ dem_init_path = "data/regional dem.tif"
 # X coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
 # Type: Union[float, NoneType] | Optional
-x_outlet = 149627.454
+x_outlet = 127348.427
 
 # Y coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
 # Type: Union[float, NoneType] | Optional
-y_outlet = 6856126.226
+y_outlet = 6835802.564
 
 # Maximum snapping distance (m) to move the outlet to the nearest stream cell.
 # Required for 'from_outlet_coord' mode.
