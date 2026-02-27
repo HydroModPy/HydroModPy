@@ -12,11 +12,11 @@ from itertools import islice
 from pathlib import Path
 
 # Direct class imports (like example12.py)
-from hydromodpy.modeling.modflow import Modflow
+from hydromodpy.solver.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
