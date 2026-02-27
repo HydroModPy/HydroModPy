@@ -17,6 +17,7 @@ class Flow(Process):
 	def __init__(self, config: FlowConfig | Mapping[str, object] | None = None):
 		super().__init__()
 		self.config: FlowConfig | None = None
+		self.flow_regime: str = "transient"
 		self.boundary_condition_application_domains: dict[str, str] = {}
 		self.initial_condition_types: dict[str, str] = {}
 		if config is not None:
@@ -45,6 +46,7 @@ class Flow(Process):
 			raise TypeError("Flow config must be a FlowConfig instance or a mapping")
 
 		self.config = flow_cfg
+		self.flow_regime = flow_cfg.flow_regime
 		self.set_parameters(cfg_flowparam=flow_cfg.param)
 		self.set_initial_conditions(flow_cfg.ic)
 		self.set_boundary_conditions(flow_cfg.bc)

@@ -169,7 +169,6 @@ def run_hydromodpy(watershed_name='Test1',
                             # Model settings
                             box=BV.settings.box,
                             sink_fill=BV.settings.sink_fill,
-                            sim_state=BV.settings.sim_state,
                             dis_perlen=BV.settings.dis_perlen,
                             # Well settings
                             well_coords=BV.settings.well_coords,
@@ -180,18 +179,9 @@ def run_hydromodpy(watershed_name='Test1',
                             check_grid=BV.settings.check_grid,
                             # Boundary settings
                             sea_level=BV.oceanic.MSL,
-                            bc_left=BV.settings.bc_left,
-                            bc_right=BV.settings.bc_right,
                             # Climatic settings
                             recharge=BV.climatic.recharge,
-                            runoff=BV.climatic.runoff,
                             first_clim=BV.climatic.first_clim,
-                            # Hydraulic settings
-                            bottom=BV.hydraulic.bottom,
-                            thick=BV.hydraulic.thick,
-                            nlay=BV.hydraulic.nlay,
-                            lay_decay=BV.hydraulic.lay_decay,
-                            cond_drain=BV.hydraulic.cond_drain,
                             )
     model_modflow.pre_processing() # verbose
     success_model = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=False)

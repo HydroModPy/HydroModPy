@@ -12,7 +12,7 @@ tmesh_generator = TMesh_Generation()
 
 tmesh_generator.genmtd = 'synthetic_regular'
 tmesh_generator.itmuni     = 'd'
-tmesh_generator.sim_state  = 'steady'
+tmesh_generator.flow_regime  = 'steady'
 tmesh_generator.nper       = 10
 tmesh_generator.lenper     = 1
 tmesh_generator.chron_path = os.path.join(cfolder,'rech_chronicles.csv')
@@ -26,7 +26,7 @@ tmesh1 = tmesh_generator.run()
 ###
 tmesh_generator.genmtd = 'synthetic_regular'
 tmesh_generator.itmuni     = 'd'
-tmesh_generator.sim_state  = 'transient'
+tmesh_generator.flow_regime  = 'transient'
 tmesh_generator.nper       = 5
 tmesh_generator.lenper     = 3
 tmesh_generator.chron_path = os.path.join(cfolder,'rech_chronicles.csv')
@@ -40,7 +40,7 @@ tmesh2 = tmesh_generator.run()
 ###
 tmesh_generator.genmtd = 'from_chron'
 tmesh_generator.itmuni     = 'd'
-tmesh_generator.sim_state  = 'transient'
+tmesh_generator.flow_regime  = 'transient'
 tmesh_generator.nper       = 100
 tmesh_generator.lenper     = 3
 tmesh_generator.chron_path = os.path.join(cfolder,'rech_chronicles.csv')

@@ -244,6 +244,10 @@ export_mode = "lite"
 # - field_vertical_profile.depths/factors/interpolation:
 #   profile tabule (mode tabulated), interpolation "linear" ou "step".
 
+[flow]
+# Regime global de simulation pour le module d'ecoulement ("steady" ou "transient").
+flow_regime = "transient"
+
 # ----------------------------------------------------------------------
 # K
 # ----------------------------------------------------------------------
@@ -578,8 +582,6 @@ nodata = -9999.0
 [modflow.tgrid]
 # Time unit label propagated to FloPy (for example 'd').
 itmuni = "days"
-# Temporal simulation mode ("steady" or "transient").
-sim_state = "transient"
 # Temporal mesh generation method ("synthetic_regular" or "from_chron").
 genmtd = "synthetic_regular"
 # Number of stress periods.

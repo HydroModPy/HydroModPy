@@ -622,7 +622,6 @@ if __name__ == '__main__':
                             # Model settings
                             box=setting.box,
                             sink_fill=setting.sink_fill,
-                            sim_state=setting.sim_state,
                             dis_perlen=setting.dis_perlen,
                             # Well settings
                             well_coords=setting.well_coords,
@@ -634,13 +633,7 @@ if __name__ == '__main__':
                             # Boundary settings
                             # Climatic settings
                             recharge=climatic.recharge,
-                            runoff=climatic.runoff,
                             first_clim=climatic.first_clim,
-                            # Hydraulic settings
-                            bottom=hydraulic.bottom,
-                            thick=hydraulic.thick,
-                            nlay=hydraulic.nlay,
-                            lay_decay=hydraulic.lay_decay,
                             modflow_config=cfg.modflow,
                             )
 
@@ -678,6 +671,7 @@ if __name__ == '__main__':
 
     timeseries_results = timeseries.Timeseries(geographic,
                                             model_modflow=model_modflow,
+                                            runoff=climatic.runoff,
                                             model_modpath=None,
                                             model_mt3dms=None,
                                             datetime_format=True,
@@ -1106,6 +1100,7 @@ if __name__ == '__main__':
 
     timeseries_results = timeseries.Timeseries(geographic,
                                                model_modflow=model_modflow,
+                                                runoff=climatic.runoff,
                                                 model_modpath=model_modpath,
                                                 model_mt3dms=model_mt3dms,
                                                 suffix_name=scenario,
