@@ -13,6 +13,7 @@
 # %% LIBRAIRIES
 
 # Python
+from collections.abc import Mapping
 import flopy
 import numpy as np
 import os
@@ -32,10 +33,17 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
+from hydromodpy.domain.raster_support import RasterSupport
+from hydromodpy.domain.surface import Surface
+from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
-    discretize_fieldparam_on_sgrid,
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.modflow_nwt.modflow_utils import (
+    build_flow_domain_property_snapshot,
+)
+from hydromodpy.solver.modflow_nwt.modflow_config import (
+    ModflowConfig,
+    ModflowSpecifParams,
 )
 
 logger = get_logger(__name__)
@@ -46,7 +54,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 # %% CLASS
 
 
-class Modflow:
+class Modflow(Solver):
     """
     Class Modflow.
 
@@ -78,27 +86,14 @@ class Modflow:
         lay_decay: float = 1.0,
         bottom: float = None,
         thick: float = 100.0,
-        verti_hk=None,
-        verti_sy=None,
-        verti_ss=None,
-        hk_value=0.0864,
-        sy_value: float = 0.1,
-        ss_value: float = 1e-5,
-        hk_decay: list = [0.0, None, False, []],
-        sy_decay: list = [0.0, None, False, []],
-        ss_decay: list = [0.0, None, False, []],
-        vka: float = 1.0,
-        exdp: float = 1,
+        modflow_config: ModflowConfig | Mapping[str, object] | None = None,
         # Well settings
         well_coords: list = [],
         well_fluxes: list = [],
         # Boundary settings
         cond_drain: float = None,
-        sea_level=None,
         bc_left: float = None,
-        bc_right: float = None,
-        use_flow_domain_fieldparam_mapping: bool = False,
-    ):
+        bc_right: float = None):
         """
         Initialize method.
 
@@ -107,9 +102,11 @@ class Modflow:
         geographic : object
             Object geographic build by HydroModPy.
         flow : object, optional
-            Flow-process object used to carry flow parameters and settings.
+            Flow-process object carrying K/Sy/Ss parameters.
+            Required by pre_processing() for property mapping on SGrid.
         domain : object, optional
-            Domain object used to carry surfaces, zones, and georeferencing.
+            Domain object carrying zones (including geology support).
+            Required by pre_processing() for property mapping on SGrid.
         model_folder : str, optional
             Path where the model will be store. The default is 'HydroModPy_outputs'.
         model_name : str, optional
@@ -143,26 +140,10 @@ class Modflow:
             At this elevation, fix a flat no flow boundary at the bottom of the model. The default is None.
         thick : float, optional
             Constant aquifer thickness of the the tickness of the model (if bottom is None). The default is 100.
-        verti_hk : list, optional
-            Depth-dependent hydraulic conductivity. The default is None.
-        verti_sy : list, optional
-            Depth-dependent specific yield. The default is None.
-        verti_ss : list, optional
-            Depth-dependent specific storage. The default is None.
-        hk_value : float or 2D float
-            Fix the hydraulic conductivity value. default is 0.0864.
-        sy_value : float or 2D float, optional
-            Fixe the specific yield value. The default is 0.1.
-        ss_value : float or 2D float, optional
-            Fixe the specifc storage value. Activated for confined layers. The default is 1e-5 (1/day).
-        hk_decay : float, optional
-            Exponential decay of hydraulic conductivity whith depth. The default is 0.
-        sy_decay : float, optional
-            Exponential specific yield of hydraulic conductivity whith depth. The default is 0.
-        ss_decay : float, optional
-            Exponential specific storage of hydraulic conductivity whith depth. The default is 0.
-        vka : list, optional
-            Ratio of horizontal to vertical hydraulic conductivity. The default is 1.
+        modflow_config : ModflowConfig | Mapping | None, optional
+            Expert MODFLOW-NWT package parameters loaded from
+            `[modflow.runtime]`, `[modflow.process_specific]`, and `[modflow.sgrid]` in TOML.
+            If None, internal defaults from ModflowConfig are used.
         wells_coord : list
             Inform the outlet coordinates of wells [lay,row,col].
             Example for 2 wells: [ [1,20,30], [1,15,15] ]
@@ -171,16 +152,10 @@ class Modflow:
             Example for 2 wells and 5 stress-periods: [ [-100,0,-100,0,-100], [-100,0,-100,0,-100] ]
         cond_drain : float, optional
             Fix the conductance value of the drai (DRN) package. The default is None.
-        sea_level : float, optional
-            Fix head on each cell below this value. The default is None.
         bc_left : float, optional
             Fix head on the left border of the domain. The default is None.
         bc_right : float, optional
             Fix head on the right border of the domain. The default is None.
-        use_flow_domain_fieldparam_mapping : bool, optional
-            If True, try mapping Flow parameters (K/Sy/Ss) through Domain geology
-            on SGrid before historical parameter construction.
-            If False, keep historical parameter construction as default behavior.
         """
 
         # %% Initialization paths
@@ -206,7 +181,6 @@ class Modflow:
         self.geographic = geographic
         self.flow = flow
         self.domain = domain
-        self.use_flow_domain_fieldparam_mapping = bool(use_flow_domain_fieldparam_mapping)
 
         #######################################################################
         # self.geographic.watershed_dem = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_dem.tif'
@@ -239,15 +213,15 @@ class Modflow:
         self.ncol = self.dem.shape[1]
 
         # %% Boundary conditions
-
         self.bc_left = bc_left
         self.bc_right = bc_right
-        self.sea_level = sea_level
-        try:
-            if self.sea_level == None:
-                self.dem[(self.dem < 0) & (self.dem > -200)] = 0
-        except:
-            pass
+
+        # commented on 2026-02-27: lines do not seem relevant
+        # try:
+        #     if self.flow.boundary_conditions["ocean"].value == None:
+        #         self.dem[(self.dem < 0) & (self.dem > -200)] = 0
+        # except:
+        #     pass
 
         # %% Input and discretization termes
 
@@ -266,31 +240,9 @@ class Modflow:
         self.nlay = nlay
         self.lay_decay = lay_decay
 
-        self.hk_value = hk_value
-        self.hk_decay = hk_decay
-        self.verti_hk = verti_hk
-
-        self.vka = vka
-        self.exdp = exdp
-
-        self.sy_value = sy_value
-        self.sy_decay = sy_decay
-        self.verti_sy = verti_sy
-
-        self.ss_value = ss_value
-        self.ss_decay = ss_decay
-        self.verti_ss = verti_ss
-
         self.cond_drain = cond_drain
 
         # %% Specific case implementation
-
-        # Preprocess conductivity values
-        try:
-            # This tips can be used to inactive some cells from hk_values grid
-            self.dem[self.hk_value < 0] = -9999
-        except:
-            pass
 
         # %% Plot things
 
@@ -303,189 +255,245 @@ class Modflow:
         self.well_coords = well_coords
         self.well_fluxes = well_fluxes
 
-        # %% Flopy model parameters (currently hardcoded, will be driven by config)
+        # %% Flopy model parameters driven by expert config
+        specif_params = ModflowSpecifParams.from_config(modflow_config)
+        if modflow_config is None:
+            self.modflow_config = ModflowConfig()
+        elif isinstance(modflow_config, ModflowConfig):
+            self.modflow_config = modflow_config
+        else:
+            self.modflow_config = ModflowConfig.model_validate(dict(modflow_config))
 
-        self.mf_version = "mfnwt"
-        self.mf_listunit = 2
-        self.mf_verbose = False
+        runtime_params = specif_params.runtime
+        process_specific_params = specif_params.process_specific
+        self.sgrid_params: dict[str, object] | None = specif_params.sgrid
 
-        # NWT solver parameters
-        self.nwt_headtol = 1e-4
-        self.nwt_fluxtol = 500
-        self.nwt_maxiterout = 5000
-        self.nwt_thickfact = 1e-05
-        self.nwt_linmeth = 1
-        self.nwt_iprnwt = 1
-        self.nwt_ibotav = 1
-        self.nwt_options = "COMPLEX"
-        self.nwt_continue = False
-        self.nwt_backflag = 0
-        self.nwt_stoptol = 1e-10
+        self.mf_version = runtime_params.mf_version
+        self.mf_listunit = runtime_params.mf_listunit
+        self.mf_verbose = runtime_params.mf_verbose
 
-        # DIS parameters
-        self.dis_itmuni = 0
+        self.nwt_headtol = runtime_params.nwt_headtol
+        self.nwt_fluxtol = runtime_params.nwt_fluxtol
+        self.nwt_maxiterout = runtime_params.nwt_maxiterout
+        self.nwt_thickfact = runtime_params.nwt_thickfact
+        self.nwt_linmeth = runtime_params.nwt_linmeth
+        self.nwt_iprnwt = runtime_params.nwt_iprnwt
+        self.nwt_ibotav = runtime_params.nwt_ibotav
+        self.nwt_options = runtime_params.nwt_options
+        self.nwt_continue = runtime_params.nwt_continue
+        self.nwt_backflag = runtime_params.nwt_backflag
+        self.nwt_stoptol = runtime_params.nwt_stoptol
 
-        # BAS parameters
-        self.bas_hnoflo = -9999
+        self.dis_itmuni = runtime_params.dis_itmuni
+        self.bas_hnoflo = runtime_params.bas_hnoflo
 
-        # UPW parameters
-        self.upw_iphdry = 1
-        self.upw_hdry = -100
-        self.upw_layvka = 1
+        self.upw_iphdry = runtime_params.upw_iphdry
+        self.upw_hdry = runtime_params.upw_hdry
+        self.upw_layvka = runtime_params.upw_layvka
 
-        # EVT parameters
-        self.evt_nevtop = 3
-        self.evt_ievt = 1
-        self.evt_ipakcb = 1
+        self.evt_nevtop = runtime_params.evt_nevtop
+        self.evt_ievt = runtime_params.evt_ievt
+        self.evt_ipakcb = runtime_params.evt_ipakcb
 
-        # OC parameters
-        self.oc_compact = True
+        self.oc_compact = runtime_params.oc_compact
+        self.wel_ipakcb = runtime_params.wel_ipakcb
 
-        # WEL parameters
-        self.wel_ipakcb = 1
+        self.lmt_output_file_name = runtime_params.lmt_output_file_name
+        self.lmt_extension = runtime_params.lmt_extension
+        self.lmt_output_format = runtime_params.lmt_output_format
 
-        # LMT parameters (MT3DMS coupling)
-        self.lmt_output_file_name = "mt3d_link.ftl"
-        self.lmt_extension = "lmt8"
-        self.lmt_output_format = "unformatted"
+        self.vka = process_specific_params.vka
+        self.exdp = process_specific_params.exdp
 
-    @staticmethod
-    def _coerce_geology_field(zone_obj):
-        """Return a geology field object exposing `on_mesh(...)`."""
-        if zone_obj is None:
-            raise ValueError("Missing geology zone object in domain")
-
-        if not hasattr(zone_obj, "on_mesh"):
-            raise TypeError(
-                "Domain geology zone must expose 'on_mesh(...)'. "
-                "Expected a GeologyField-compatible object."
-            )
-        if not hasattr(zone_obj, "identifier"):
-            raise TypeError(
-                "Domain geology zone must expose 'identifier'. "
-                "Expected a GeologyField-compatible object."
-            )
-        return zone_obj
-
-    def _build_property_from_flow_domain(
-        self,
-        *,
-        sgrid,
-        flow_param_candidates,
-        target_3d_attr: str,
-        target_surface_attr: str,
-        property_label: str,
-    ) -> None:
-        """Map one Flow parameter to one MODFLOW property array on SGrid.
-
-        Design intent
-        -------------
-        Keep the call site compact, while keeping behavior explicit:
-        - one helper call per property (K, Sy, Ss),
-        - deterministic output arrays (`target_3d_attr`, `target_surface_attr`),
-        - strict contract (no fallback, no silent skip).
-
-        Practical examples
-        ------------------
-        Example A (hydraulic conductivity):
-        - input aliases: `("K", "k")`
-        - output attrs: `target_3d_attr="hk"`, `target_surface_attr="hk_value"`
-        - expected result:
-          `self.hk.shape == (nlay, nrow, ncol)` and
-          `self.hk_value.shape == (nrow, ncol)`
-
-        Example B (specific yield):
-        - input aliases: `("Sy", "SY", "sy", "S", "s")`
-        - output attrs: `target_3d_attr="sy"`, `target_surface_attr="sy_value"`
-
-        Strict behavior (important)
-        ---------------------------
-        If one prerequisite is missing (parameter, geology zone, spatial-id
-        compatibility), this method raises immediately. In mapping mode, there
-        is intentionally no historical fallback.
-        """
-        # 1) Validate object contracts early (fail fast, explicit error message).
-        if self.flow is None or not hasattr(self.flow, "parameters"):
-            raise ValueError("Missing flow object or flow.parameters for property mapping")
-        if self.domain is None or not hasattr(self.domain, "zones"):
-            raise ValueError("Missing domain object or domain.zones for property mapping")
-
-        # 2) Read the Flow parameter registry and pick the first matching alias.
-        #    Example: with aliases ("K", "k"), prefer "K" if both exist.
-        parameters = getattr(self.flow, "parameters", {})
-        if not isinstance(parameters, dict):
-            raise TypeError("flow.parameters must be a dictionary")
-
-        param_obj = None
-        selected_name = None
-        for candidate in flow_param_candidates:
-            if candidate in parameters:
-                param_obj = parameters.get(candidate)
-                selected_name = str(candidate)
-                break
-        if param_obj is None:
-            aliases = ", ".join([str(v) for v in flow_param_candidates])
-            raise ValueError(
-                f"Cannot map {property_label}: missing flow parameter among ({aliases})"
-            )
-        if not hasattr(param_obj, "to_mesh_field"):
-            raise TypeError(
-                f"Cannot map {property_label}: selected parameter '{selected_name}' "
-                "does not expose to_mesh_field(...)"
-            )
-
-        # 3) Resolve geology support from Domain.
-        #    This must expose at least:
-        #    - identifier (for heterogeneous consistency checks),
-        #    - on_mesh(...) (for zone-fraction projection on the 2D support).
-        zones = getattr(self.domain, "zones", {})
-        if not isinstance(zones, dict):
-            raise TypeError("domain.zones must be a dictionary")
-        geology_zone = zones.get("geology")
-        if geology_zone is None:
-            raise ValueError("Cannot map property: domain.zones['geology'] is missing")
-        geology_field = self._coerce_geology_field(geology_zone)
-
-        # 4) For heterogeneous parameters, enforce field spatial-id consistency.
-        #    Example:
-        #    - param_obj.field_spatial_id == "field_geology"
-        #    - geology_field.identifier == "field_geology"
-        #    If they differ, mapping is refused to avoid mixing unrelated supports.
-        if getattr(param_obj, "is_heterogeneous", False):
-            required_field_id = str(getattr(param_obj, "field_spatial_id", "")).strip()
-            geology_field_id = str(getattr(geology_field, "identifier", "")).strip()
-            if required_field_id and geology_field_id and required_field_id != geology_field_id:
-                raise ValueError(
-                    f"Cannot map {property_label}: field_spatial_id mismatch "
-                    f"('{required_field_id}' != '{geology_field_id}')"
-                )
-
-        # 5) Core discretization call:
-        #    - geology_field.on_mesh(...) creates the planar support;
-        #    - field_param.to_mesh_field(..., depth=...) is evaluated over layers;
-        #    - returned object contains both surface map and full 3D tensor.
-        discretized = discretize_fieldparam_on_sgrid(
-            geology_field=geology_field,
-            field_param=param_obj,
-            sgrid=sgrid,
-            cell_samples_per_axis=None,
-            depth=0.0,
-            strict_field_spatial_id_match=True,
-        )
-
-        # 6) Persist outputs on MODFLOW instance:
-        #    - solver-ready 3D tensor (`hk`, `sy`, `ss`),
-        #    - surface 2D view kept for legacy logs/plots.
-        setattr(self, target_3d_attr, np.asarray(discretized.values_3d, dtype=float))
-        setattr(self, target_surface_attr, np.asarray(discretized.values_2d, dtype=float))
-
-        logger.info(
-            "%s mapped from flow.%s on domain geology",
-            property_label,
-            selected_name,
-        )
+        # Optional early synchronization from modflow.sgrid overrides.
+        if self.sgrid_params is not None:
+            sgrid_nlay = self.sgrid_params.get("nlay")
+            if sgrid_nlay is not None:
+                self.nlay = int(sgrid_nlay)
+            genmtd_lay = self.sgrid_params.get("genmtd_lay")
+            if genmtd_lay == "decay" and self.sgrid_params.get("lay_decay") is not None:
+                self.lay_decay = float(self.sgrid_params.get("lay_decay"))
+            elif genmtd_lay == "constant":
+                self.lay_decay = 1.0
+            # Backward compatibility for legacy bottom overrides in [modflow.sgrid].
+            if self.sgrid_params.get("thick") is not None:
+                self.bottom = None
+                self.thick = float(self.sgrid_params.get("thick"))
+            if self.sgrid_params.get("zbot") is not None:
+                self.bottom = float(self.sgrid_params.get("zbot"))
 
     # %% PRE-PROCESSING
+
+    def _get_domain_surfaces(self):
+        """
+        Return explicit domain surfaces when they match the active MODFLOW DEM.
+        """
+        if self.domain is None:
+            return None
+
+        surface_topo = getattr(self.domain, "surface_topo", None)
+        substratum = getattr(self.domain, "substratum", None)
+        if surface_topo is None or substratum is None:
+            return None
+        if not isinstance(surface_topo, Surface) or not isinstance(substratum, Surface):
+            raise TypeError("Domain surfaces must be Surface instances.")
+
+        top = np.asarray(surface_topo.as_array(), dtype=float)
+        bot = np.asarray(substratum.as_array(), dtype=float)
+        if top.shape != bot.shape:
+            raise ValueError(
+                f"Domain surface mismatch: top{top.shape} != substratum{bot.shape}."
+            )
+        if top.shape != self.dem.shape:
+            return None
+
+        surface_topo.assert_same_geographic_domain(substratum)
+        return surface_topo, substratum
+
+    def _build_runtime_support(self, shape: tuple[int, int]) -> RasterSupport:
+        """
+        Build one RasterSupport for the active runtime DEM support.
+        """
+        nrows, ncols = int(shape[0]), int(shape[1])
+        georef = {}
+        if hasattr(self.geographic, "build_georeferencing"):
+            georef = dict(self.geographic.build_georeferencing())
+        support = RasterSupport.from_georeferencing(
+            georef,
+            shape=(nrows, ncols),
+            nodata=-9999.0,
+        )
+
+        xmin = (
+            float(support.xmin)
+            if support.xmin is not None
+            else float(getattr(self, "xmin", 0.0))
+        )
+        ymax = (
+            float(support.ymax)
+            if support.ymax is not None
+            else float(getattr(self, "ymax", float(nrows)))
+        )
+        dx = (
+            float(support.dx)
+            if support.dx is not None
+            else float(getattr(self, "resolution", 1.0))
+        )
+        dy = (
+            float(support.dy)
+            if support.dy is not None
+            else float(getattr(self, "resolution", 1.0))
+        )
+        xmax = (
+            float(support.xmax)
+            if support.xmax is not None
+            else xmin + (dx * ncols)
+        )
+        ymin = (
+            float(support.ymin)
+            if support.ymin is not None
+            else ymax - (dy * nrows)
+        )
+        crs = support.crs if support.crs is not None else getattr(self.geographic, "crs_proj", None)
+        return RasterSupport(
+            crs=crs,
+            dx=dx,
+            dy=dy,
+            xmin=xmin,
+            xmax=xmax,
+            ymin=ymin,
+            ymax=ymax,
+            nrows=nrows,
+            ncols=ncols,
+            nodata=-9999.0,
+        )
+
+    def _build_solver_surfaces(self) -> tuple[Surface, Surface]:
+        """
+        Build top and bottom surfaces for StructuredGrid vertical discretization.
+        """
+        domain_surfaces = self._get_domain_surfaces()
+        if domain_surfaces is not None:
+            return domain_surfaces
+
+        top = np.asarray(self.dem, dtype=float)
+        support = self._build_runtime_support(top.shape)
+        top_surface = Surface(name="surface_topo", values=top, support=support)
+
+        if self.bottom is None:
+            bottom_values = np.asarray(top, dtype=float) - float(self.thick)
+        elif isinstance(self.bottom, (int, float)):
+            bottom_values = np.full_like(top, float(self.bottom), dtype=float)
+        else:
+            bottom_values = np.asarray(self.bottom, dtype=float)
+            if bottom_values.shape != top.shape:
+                raise ValueError(
+                    f"Bottom array shape mismatch: {bottom_values.shape} != {top.shape}."
+                )
+
+        bottom_values[top <= -9999.0] = -9999.0
+        bottom_surface = Surface(
+            name="substratum",
+            values=bottom_values,
+            support=support,
+        )
+        top_surface.assert_same_geographic_domain(bottom_surface)
+        return top_surface, bottom_surface
+
+    def _build_vertical_grid_config(self) -> VerticalGridConfig:
+        """
+        Build vertical-grid settings from constructor values and [modflow.sgrid].
+        """
+        payload: dict[str, object] = {
+            "lenuni": "m",
+            "nodata": -9999.0,
+            "nlay": int(self.nlay),
+        }
+        if float(self.lay_decay) > 1.0:
+            payload["genmtd_lay"] = "decay"
+            payload["lay_decay"] = float(self.lay_decay)
+        else:
+            payload["genmtd_lay"] = "constant"
+
+        if self.sgrid_params is not None:
+            for key in (
+                "genmtd_lay",
+                "nlay",
+                "lay_decay",
+                "lay_proportions",
+                "nodata",
+                "lenuni",
+            ):
+                if key in self.sgrid_params:
+                    payload[key] = self.sgrid_params[key]
+
+        genmtd_lay = payload.get("genmtd_lay")
+        if genmtd_lay != "decay":
+            payload.pop("lay_decay", None)
+        if genmtd_lay != "list":
+            payload.pop("lay_proportions", None)
+        else:
+            payload.pop("nlay", None)
+
+        return VerticalGridConfig.from_mapping(payload)
+
+    def _sync_runtime_grid_from_sgrid(self, sgrid) -> None:
+        """
+        Align runtime DEM/grid attributes with the effective SGrid geometry.
+
+        This keeps all downstream arrays (BAS/DRN/CHD/post-processing) on the
+        exact same support as the discretization actually passed to FloPy.
+        """
+        sgrid_top = np.asarray(sgrid.top, dtype=float)
+        # Keep historical DEM values when the support is already identical.
+        # This avoids tiny numerical drifts while still fixing shape conflicts.
+        if np.asarray(self.dem).shape != sgrid_top.shape:
+            self.dem = sgrid_top
+        self.nlay = int(sgrid.nlay)
+        self.nrow = int(sgrid.nrow)
+        self.ncol = int(sgrid.ncol)
+        self.zbot = np.asarray(sgrid.botm, dtype=float)
+        self.bottom_layer = np.asarray(self.zbot[-1], dtype=float)
 
     def pre_processing(self):
         """
@@ -548,9 +556,7 @@ class Modflow:
             self.steady = np.zeros(
                 len(self.recharge), dtype=bool
             )  # Vector of booleans (transient state at each time step)
-            self.steady[0] = (
-                True  # Steady state for the first time step (initialization of head values by a steady state)
-            )
+            self.steady[0] =True  # Steady state for the first time step (initialization of head values by a steady state)
             self.nstp = np.ones(len(self.recharge))  # One step per time step
             self.nper = len(self.recharge)
             # Definition of period duration (forcing is constant on a period)
@@ -579,68 +585,18 @@ class Modflow:
 
         ### Sptial: model domain definition and discretization
 
-        # Bottom definition for each of the layers
-        self.zbot = np.ones((self.nlay, self.nrow, self.ncol))
-        if self.bottom is None:
-            self.bottom_layer = (
-                self.dem - self.thick
-            )  # Matrix for constant thickness case
-            self.bottom_layer[self.dem <= -9999] = -9999
-        else:
-            if isinstance(self.bottom, (int, float)) == True:
-                self.bottom_layer = self.bottom  # Float for flat bottom case or 2D
-            else:
-                if len(self.bottom.shape) == 2:
-                    self.bottom_layer = self.bottom
-                    self.bottom_layer[self.dem <= -9999] = -9999
+        top_surface, bottom_surface = self._build_solver_surfaces()
+        self.dem = np.asarray(top_surface.as_array(), dtype=float)
+        self.nrow = self.dem.shape[0]
+        self.ncol = self.dem.shape[1]
 
-        # Modification of layer thickness exponentially
-        if self.lay_decay != 1.0:
-            exp_scale = 1 - self.lay_decay**self.nlay
-
-        # Parameters for proportions of bottom layer to surface values
-        for i in range(1, self.nlay + 1):
-            if self.lay_decay <= 1:
-                p = i / self.nlay  # Uniform thicknesses
-            else:
-                p = (
-                    1 - self.lay_decay**i
-                ) / exp_scale  # Increasing thicknesses with depth
-            # Weighted formula to go from bottom_layer to surface (self.dem)
-            if i == 1:
-                self.zbot[i - 1] = self.dem - ((self.dem - self.bottom_layer) * p)
-            else:
-                self.zbot[i - 1] = self.bottom_layer * p + self.dem * (1 - p)
-
-        # ==== REFACTORING: Tristan - spatial grid ====
-        sgrid_payload = {
-            "sgrid_type": "structured",
-            "lenuni": "m",
-            "genmtd_top": "filepath",
-            "top_path": self.dem_watershed_path,
-            "crs": self.geographic.crs_proj,
-            "nodata": -9999,
-        }
-        if self.bottom is None:
-            sgrid_payload["genmtd_bot"] = "constant_thickness"
-            sgrid_payload["thick"] = self.thick
-        elif self.bottom is not None and isinstance(self.bottom, (int, float)) == True:
-            sgrid_payload["genmtd_bot"] = "constant_altitude"
-            sgrid_payload["zbot"] = self.bottom
-        elif self.bottom is not None and len(self.bottom.shape) == 2:
-            sgrid_payload["genmtd_bot"] = "raster"
-            sgrid_payload["bot_raster"] = self.bottom
-
-        if self.lay_decay > 1.0:
-            sgrid_payload["genmtd_lay"] = "decay"
-            sgrid_payload["lay_decay"] = self.lay_decay
-            sgrid_payload["nlay"] = self.nlay
-        else:
-            sgrid_payload["genmtd_lay"] = "constant"
-            sgrid_payload["nlay"] = self.nlay
-
-        sgrid_cfg = SGridConfig.model_validate(sgrid_payload)
-        sgrid = StructuredGridBuilder().build(sgrid_cfg)
+        vertical_cfg = self._build_vertical_grid_config()
+        sgrid = StructuredGridBuilder().build_from_surfaces(
+            top_surface=top_surface,
+            bottom_surface=bottom_surface,
+            vertical_config=vertical_cfg,
+        )
+        self._sync_runtime_grid_from_sgrid(sgrid)
         
         # Imposes discretization to modflow model through
         # ---- flopy.modflow.ModflowDis
@@ -663,8 +619,7 @@ class Modflow:
             perlen=self.perlen,
             nstp=self.nstp,
             steady=self.steady,
-            start_datetime=self.start_datetime,
-        )
+            start_datetime=self.start_datetime)
 
         # self.dis = flopy.modflow.ModflowDis(self.mf,
         #                                     itmuni=0, # itmuni = 0 ==> undefined
@@ -686,6 +641,9 @@ class Modflow:
 
         # %% Boundary conditions
 
+        ### Initialze the top boundary condition of DRN package
+        self.drain_array = np.ones((self.nrow, self.ncol))
+
         ### Constant head boundary conditions of no flow (sides of domain)
 
         self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
@@ -706,51 +664,51 @@ class Modflow:
             self.iboundData[:, :, -1] = -1
             self.strtData[:, :, -1] = self.bc_right
 
-        # No flow boundary conditions
         for i in range(self.nlay):
-            if isinstance(self.sea_level, (int, float)) == True:
-                self.iboundData[i][self.dem <= self.sea_level] = -1
-                self.strtData[self.iboundData == -1] = self.sea_level
             self.iboundData[i][self.dem < -1000] = 0  # 0 is for NO FLOW
+
+        if "ocean" in self.flow.boundary_conditions.keys():
+
+            # No flow boundary conditions
+            for i in range(self.nlay):
+                if isinstance(self.flow.boundary_conditions["ocean"].value, (int, float)) == True:
+                    self.iboundData[i][self.dem <= self.flow.boundary_conditions["ocean"].value] = -1
+                    self.strtData[self.iboundData == -1] = self.flow.boundary_conditions["ocean"].value
+                
+
+            ### Constant head boundary conditions of no f : specific for sea level
+            if isinstance(self.flow.boundary_conditions["ocean"].value, (int, float, pd.Series, list)) == True:
+                package = np.zeros((self.nper, self.nrow, self.ncol))
+                if isinstance(self.flow.boundary_conditions["ocean"].value, (int, float)) == False:
+                    self.chData = {}
+                    for kper in range(0, self.nper):
+                        chdKper = []
+                        for i in range(0, self.nrow):
+                            for j in range(0, self.ncol):
+                                if self.dem[i, j] < np.max(self.flow.boundary_conditions["ocean"].value):
+                                    if (
+                                        self.iboundData[0, i, j] != 0
+                                    ):  # no-flow cells cannot be converted to specified head cells
+                                        self.drain_array[i, j] = 0
+                                        package[kper, i, j] = 1
+                                        chdKper.append(
+                                            [
+                                                0,
+                                                i,
+                                                j,
+                                                self.flow.boundary_conditions["ocean"].value[kper],
+                                                self.flow.boundary_conditions["ocean"].value[kper],
+                                            ]
+                                        )
+                                self.chData[kper] = chdKper
+                    # ---- flopy.modflow.ModflowChd
+                    self.chd = flopy.modflow.ModflowChd(
+                        self.mf, stress_period_data=self.chData
+                    )
 
         # ---- flopy.modflow.ModflowBas
         self.bas = flopy.modflow.ModflowBas(
             self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=self.bas_hnoflo)
-
-        ### Initialze the top boundary condition of DRN package
-
-        self.drain_array = np.ones((self.nrow, self.ncol))
-
-        ### Constant head boundary conditions of no f : specific for sea level
-
-        if isinstance(self.sea_level, (int, float, pd.Series, list)) == True:
-            package = np.zeros((self.nper, self.nrow, self.ncol))
-            if isinstance(self.sea_level, (int, float)) == False:
-                self.chData = {}
-                for kper in range(0, self.nper):
-                    chdKper = []
-                    for i in range(0, self.nrow):
-                        for j in range(0, self.ncol):
-                            if self.dem[i, j] < np.max(self.sea_level):
-                                if (
-                                    self.iboundData[0, i, j] != 0
-                                ):  # no-flow cells cannot be converted to specified head cells
-                                    self.drain_array[i, j] = 0
-                                    package[kper, i, j] = 1
-                                    chdKper.append(
-                                        [
-                                            0,
-                                            i,
-                                            j,
-                                            self.sea_level[kper],
-                                            self.sea_level[kper],
-                                        ]
-                                    )
-                            self.chData[kper] = chdKper
-                # ---- flopy.modflow.ModflowChd
-                self.chd = flopy.modflow.ModflowChd(
-                    self.mf, stress_period_data=self.chData
-                )
 
         # %% Parametrization
 
@@ -759,211 +717,46 @@ class Modflow:
         self.laytype = np.ones(self.nlay)  # convertible
 
         # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
-        # Homogeneous or heterogeneous hydraulic conductivity
-        # self.hk_value is always a 3D matrix create from hydraulic.py
+        # Homogeneous or heterogeneous hydraulic conductivity is always built
+        # from Flow/Domain mapping on the generated SGrid.
 
-        ### FUNCTION FOR GRADIENT DECAY LINKED TO DEM ELEVATION
-        def compute_values(dem, dem_min, dem_max, dcal, dadj):
-            # Compute boundary values
-            val_min = 1 / dcal
-            val_max = (1 / dcal) + dadj  # Ensure positive denominator
-            if val_max < 0:
-                val_max = 1
-            result = np.ones((dem.shape[0], dem.shape[1]))
-            result = np.where(
-                (dem > dem_min) & (dem < dem_max),
-                (
-                    val_min
-                    + (val_max - val_min) * ((dem - dem_min) / (dem_max - dem_min))
-                ),
-                result,
+        # Compact mapping table for Flow -> MODFLOW properties.
+        #
+        # Tuple format:
+        #   (accepted_flow_keys, target_3d_attr, target_surface_attr, human_label)
+        mapping_specs = [
+            (("K", "k"), "hk", "hk_value", "Hydraulic conductivity"),
+            (("Sy", "SY", "sy", "S", "s"), "sy", "sy_value", "Specific yield"),
+            (("Ss", "SS", "ss"), "ss", "ss_value", "Specific storage"),
+        ]
+        has_flow_domain_inputs = (
+            self.flow is not None
+            and hasattr(self.flow, "parameters")
+            and self.domain is not None
+            and hasattr(self.domain, "zones")
+        )
+        if not has_flow_domain_inputs:
+            raise ValueError(
+                "Flow/Domain inputs are required to build hk/sy/ss on SGrid. "
+                "Expected flow.parameters and domain.zones."
             )
-            result = np.where(dem <= dem_min, val_min, result)
-            result = np.where(dem >= dem_max, val_max, result)
-            result[result <= 0] = val_max
-            return result
 
-        if self.use_flow_domain_fieldparam_mapping:
-            # Compact mapping table for Flow -> MODFLOW properties.
-            #
-            # Tuple format:
-            #   (accepted_flow_keys, target_3d_attr, target_surface_attr, human_label)
-            #
-            # Example:
-            #   (("K", "k"), "hk", "hk_value", "Hydraulic conductivity")
-            # means:
-            #   - read flow.parameters["K"] or flow.parameters["k"],
-            #   - compute one 3D tensor into self.hk,
-            #   - keep one 2D surface map into self.hk_value.
-            mapping_specs = [
-                (("K", "k"), "hk", "hk_value", "Hydraulic conductivity"),
-                (("Sy", "SY", "sy", "S", "s"), "sy", "sy_value", "Specific yield"),
-                (("Ss", "SS", "ss"), "ss", "ss_value", "Specific storage"),
-            ]
-            # No try/except here by design:
-            # if one mapping is invalid/incomplete, raise immediately.
-            for aliases, target_3d_attr, target_surface_attr, label in mapping_specs:
-                self._build_property_from_flow_domain(
-                    sgrid=sgrid,
-                    flow_param_candidates=aliases,
-                    target_3d_attr=target_3d_attr,
-                    target_surface_attr=target_surface_attr,
-                    property_label=label,
+        flow_params = build_flow_domain_property_snapshot(
+            model=self,
+            sgrid=sgrid,
+            mapping_specs=mapping_specs,
+            strict=True,
+        )
+        for _, target_3d_attr, target_surface_attr, label in mapping_specs:
+            values_3d = flow_params.get(target_3d_attr)
+            values_2d = flow_params.get(target_surface_attr)
+            if values_3d is None or values_2d is None:
+                raise ValueError(
+                    f"Missing mapped values for {label} "
+                    f"('{target_3d_attr}' / '{target_surface_attr}')."
                 )
-        else:
-            logger.debug(
-                "Flow/domain parameter mapping is disabled. "
-            )
-
-            ### Hydraulic conductivty
-            self.hk = np.ones((self.nlay, self.nrow, self.ncol)) * self.hk_value
-            # Exponential decay
-            if self.hk_decay[0] != 0:
-                grad_elev = self.hk_decay[3]
-                if grad_elev != []:
-                    dem_min = grad_elev[0]
-                    dem_max = grad_elev[1]
-                    dadj = grad_elev[2]
-                    dcal = self.hk_decay[0]
-                    self.kdec_inv = compute_values(self.dem, dem_min, dem_max, dcal, dadj)
-                    self.kdec = 1 / self.kdec_inv
-                else:
-                    self.kdec = self.hk_decay[0]
-                kmin = self.hk_decay[1]
-                kmax = self.hk_value
-                hklog_transf = self.hk_decay[2]
-                if kmin == None:
-                    depth = np.zeros(self.hk.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[:-1, :, :]
-                    self.hk *= np.exp(-self.kdec * depth)
-                    logger.debug("Decay without Kmin")
-                if kmin != None:
-                    depth = np.zeros(self.hk.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[1:, :, :]  # self.zbot[:-1,:,:]
-                    self.hk = (kmin) + ((kmax) - (kmin)) * np.exp(-self.kdec * depth)
-                    # self.hk[self.hk<kmin] = kmin
-                    logger.debug("Decay with Kmin")
-                if (kmin != None) and (hklog_transf == True):
-                    depth = np.zeros(self.hk.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[1:, :, :]  # self.zbot[:-1,:,:]
-                    self.hk = np.log10(kmin) + (np.log10(kmax) - np.log10(kmin)) * np.exp(
-                        -self.kdec * depth
-                    )
-                    self.hk = 10**self.hk
-                    logger.debug("Decay with Kmin and log transform")
-                    # self.hk[self.hk<10**kmin] = 10**kmin
-            # Define values for some thickness (disconnected from the vertical discretization)
-            if self.verti_hk != None:
-                for j in range(len(self.verti_hk)):
-                    logger.debug("Processing verti_hk layer j=%d", j)
-                    for i in range(len(self.zbot)):
-                        logger.debug("Processing zbot layer i=%d", i)
-                        k_val = self.verti_hk[j][0]
-                        d1 = self.verti_hk[j][1][0]
-                        d2 = self.verti_hk[j][1][1]
-                        hk_d1 = self.dem - d1
-                        hk_d2 = self.dem - d2
-                        mask = (self.zbot[i] <= hk_d1) & (self.zbot[i] >= hk_d2)
-                        self.hk[i][mask] = k_val
-                        logger.debug("Applied k_val=%s", k_val)
-
-            ### Specific yield
-            self.sy = np.ones((self.nlay, self.nrow, self.ncol)) * self.sy_value
-            # Exponential decay
-            if self.sy_decay[0] != 0:
-                grad_elev = self.sy_decay[3]
-                if grad_elev != []:
-                    dem_min = grad_elev[0]
-                    dem_max = grad_elev[1]
-                    dadj = grad_elev[2]
-                    dcal = self.sy_decay[0]
-                    self.sydec_inv = compute_values(self.dem, dem_min, dem_max, dcal, dadj)
-                    self.sydec = 1 / self.sydec_inv
-                else:
-                    self.sydec = self.sy_decay[0]
-                symin = self.sy_decay[1]
-                symax = self.sy_value
-                sylog_transf = self.sy_decay[2]
-                if symin == None:
-                    depth = np.zeros(self.sy.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[:-1, :, :]
-                    self.sy *= np.exp(-self.sydec * depth)
-                if symin != None:
-                    depth = np.zeros(self.sy.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[1:, :, :]
-                    self.sy = (symin) + ((symax) - (symin)) * np.exp(-self.sydec * depth)
-                    # self.sy[self.sy<symin] = symin
-                if (symin != None) and (sylog_transf == True):
-                    depth = np.zeros(self.sy.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[:-1, :, :]
-                    self.sy = np.log10(symin) + (
-                        np.log10(symax) - np.log10(symin)
-                    ) * np.exp(-self.sydec * depth)
-                    self.sy = 10**self.sy
-                    # self.sy[self.sy<10**symin] = 10**symin
-            # Define values for some thickness (disconnected from the vertical discretization)
-            if self.verti_sy != None:
-                for j in range(len(self.verti_sy)):
-                    logger.debug("Processing verti_sy layer j=%d", j)
-                    for i in range(len(self.zbot)):
-                        logger.debug("Processing zbot layer i=%d", i)
-                        sy_val = self.verti_sy[j][0]
-                        d1 = self.verti_sy[j][1][0]
-                        d2 = self.verti_sy[j][1][1]
-                        sy_d1 = self.dem - d1
-                        sy_d2 = self.dem - d2
-                        mask = (self.zbot[i] <= sy_d1) & (self.zbot[i] >= sy_d2)
-                        self.sy[i][mask] = sy_val
-                        logger.debug("Applied sy_val=%s", sy_val)
-
-            ### Specific storage
-            self.ss = np.ones((self.nlay, self.nrow, self.ncol)) * self.ss_value
-            # Exponential decay
-            if self.ss_decay[0] != 0:
-                grad_elev = self.ss_decay[3]
-                if grad_elev != []:
-                    dem_min = grad_elev[0]
-                    dem_max = grad_elev[1]
-                    dadj = grad_elev[2]
-                    dcal = self.ss_decay[0]
-                    self.ssdec_inv = compute_values(self.dem, dem_min, dem_max, dcal, dadj)
-                    self.ssdec = 1 / self.ssdec_inv
-                else:
-                    self.ssdec = self.ss_decay[0]
-                ssmin = self.ss_decay[1]
-                ssmax = self.ss_value
-                sslog_transf = self.ss_decay[2]
-                if ssmin == None:
-                    depth = np.zeros(self.ss.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[:-1, :, :]
-                    self.ss *= np.exp(-self.ssdec * depth)
-                if ssmin != None:
-                    depth = np.zeros(self.ss.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[1:, :, :]
-                    self.ss = (ssmin) + ((ssmax) - (ssmin)) * np.exp(-self.ssdec * depth)
-                    # self.ss[self.ss<ssmin] = ssmin
-                if (ssmin != None) and (sslog_transf == True):
-                    depth = np.zeros(self.ss.shape)
-                    depth[1:, :, :] = self.dem - self.zbot[1:, :, :]
-                    self.ss = np.log10(ssmin) + (
-                        np.log10(ssmax) - np.log10(ssmin)
-                    ) * np.exp(-self.ssdec * depth)
-                    self.ss = 10**self.ss
-                    # self.ss[self.ss<10**ssmin] = 10**ssmin
-            # Define values for some thickness (disconnected from the vertical discretization)
-            if self.verti_ss != None:
-                for j in range(len(self.verti_ss)):
-                    logger.debug("Processing verti_ss layer j=%d", j)
-                    for i in range(len(self.zbot)):
-                        logger.debug("Processing zbot layer i=%d", i)
-                        ss_val = self.verti_ss[j][0]
-                        d1 = self.verti_ss[j][1][0]
-                        d2 = self.verti_ss[j][1][1]
-                        ss_d1 = self.dem - d1
-                        ss_d2 = self.dem - d2
-                        mask = (self.zbot[i] <= ss_d1) & (self.zbot[i] >= ss_d2)
-                        self.ss[i][mask] = ss_val
-                        logger.debug("Applied ss_val=%s", ss_val)
+            setattr(self, target_3d_attr, np.asarray(values_3d, dtype=float))
+            setattr(self, target_surface_attr, np.asarray(values_2d, dtype=float))
 
         # ---- flopy.modflow.ModflowUpw
         self.upw = flopy.modflow.ModflowUpw(
@@ -1056,42 +849,39 @@ class Modflow:
         # %% Drain package
 
         # DRN is applied to all the surface of the model: enables seepage on the top layer
-
-        self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
-        compt = 0
-        self.drnData[:, 0] = 0  # First value (0): layer
-        for i in range(0, self.nrow):
-            for j in range(0, self.ncol):
-                if self.drain_array[i, j] == 1:
-                    self.drnData[compt, 1] = i  # Second value (1): row number
-                    self.drnData[compt, 2] = j  # Third value (2): column number
-                    self.drnData[compt, 3] = self.dem[
-                        i, j
-                    ]  # Fourth value (3): altitude
-                    # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
-                    if self.sink_fill == False:
-                        if self.cond_drain != None:
-                            self.drnData[compt, 4] = self.cond_drain
-                        else:
-                            self.drnData[compt, 4] = (
-                                self.hk[0, i, j] * self.resolution**2
-                            )
-                    else:
-                        if self.sink[i, j] > 0:
-                            self.drnData[compt, 4] = 0
-                        else:
-                            if self.cond_drain != None:
-                                self.drnData[compt, 4] = self.cond_drain
+        
+        if 'drainage' in self.flow.boundary_conditions.keys():
+            self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
+            compt = 0
+            self.drnData[:, 0] = 0  # First value (0): layer
+            for i in range(0, self.nrow):
+                for j in range(0, self.ncol):
+                    if self.drain_array[i, j] == 1:
+                        self.drnData[compt, 1] = i  # Second value (1): row number
+                        self.drnData[compt, 2] = j  # Third value (2): column number
+                        self.drnData[compt, 3] = self.dem[i, j]  # Fourth value (3): altitude
+                        # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
+                        if self.sink_fill == False:
+                            if self.flow.boundary_conditions['drainage'].value > 0:
+                                self.drnData[compt, 4] = self.flow.boundary_conditions['drainage'].value
                             else:
-                                self.drnData[compt, 4] = (
-                                    self.hk[0, i, j] * self.resolution**2
-                                )
-                    compt += 1
+                                self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution**2)
+                        else:
+                            if self.sink[i, j] > 0:
+                                self.drnData[compt, 4] = 0
+                            else:
+                                if self.flow.boundary_conditions['drainage'].value > 0:
+                                    self.drnData[compt, 4] = self.flow.boundary_conditions['drainage'].value
+                                else:
+                                    self.drnData[compt, 4] = (
+                                        self.hk[0, i, j] * self.resolution**2
+                                    )
+                        compt += 1
 
-        # Imposes DRN condition to Modflow through flopy
-        lrcec = {0: self.drnData}
-        # ---- flopy.modflow.ModflowDrn
-        self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
+            # Imposes DRN condition to Modflow through flopy
+            lrcec = {0: self.drnData}
+            # ---- flopy.modflow.ModflowDrn
+            self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
 
         # %% Well package
 

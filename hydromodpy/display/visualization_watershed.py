@@ -14,6 +14,7 @@
 
 # Python
 import os
+from typing import Optional
 import numpy as np
 import geopandas as gpd
 import rasterio
@@ -32,7 +33,8 @@ except:
 
 # HydroModPy
 from hydromodpy.tools import toolbox
-from hydromodpy.watershed import Initializing, Geographic, Hydrography, Intermittency, Piezometry, Geology, Hydrometry
+from hydromodpy.watershed import Workspace, Geographic, Hydrography, Intermittency, Piezometry, Geology
+from hydromodpy.data_managers.hydrometry.station_set import StationSet
 
 #%% PLOT SETTINGS
 
@@ -87,14 +89,14 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% FUNCTIONS
 
-def watershed_dem(initializing: Initializing, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Hydrometry=None):
+def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Optional[StationSet]=None):
     """
     Plot contour watershed and DEM.
 
     Parameters
     ----------
-    initializing : Initializing
-        Initializing object of the model domain (watershed).
+    initializing : Workspace
+        Workspace object of the model domain (watershed).
     geographic : Geographic
         Geographic object of the model domain (watershed).
     hydrography : Hydrography, optional
@@ -103,8 +105,8 @@ def watershed_dem(initializing: Initializing, geographic: Geographic, hydrograph
         Piezometry object of the model domain (watershed).
     intermittency : Intermittency, optional
         Intermittency object of the model domain (watershed).
-    hydrometry : Hydrometry, optional
-        Hydrometry object of the model domain (watershed).
+    hydrometry : StationSet, optional
+        StationSet object containing hydrometric stations of the model domain (watershed).
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
@@ -154,14 +156,29 @@ def watershed_dem(initializing: Initializing, geographic: Geographic, hydrograph
             legend_handles.append(h)
     except Exception:
         pass
+    
+    # Hydrometry plotting: support both old Hydrometry class and new StationSet
     try:
-        if os.path.exists(hydrometry.hydrometric_clip):
-            hydromet = gpd.read_file(hydrometry.hydrometric_clip)
-            h = hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
-                          edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
-            legend_handles += h.get_legend_handles_labels()[0]
+        if hydrometry is not None:
+            # Old Hydrometry class with hydrometric_clip shapefile
+            # if os.path.exists(hydrometry.hydrometric_clip):
+            #     hydromet = gpd.read_file(hydrometry.hydrometric_clip)
+            #     h = hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
+            #                   edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+            #     legend_handles += h.get_legend_handles_labels()[0]
+            
+            # New StationSet class with stations_info DataFrame
+            if hasattr(hydrometry, 'stations_info'):
+                stations_info = hydrometry.stations_info
+                if not stations_info.empty and 'longitude_station' in stations_info.columns and 'latitude_station' in stations_info.columns:
+                    h = ax.scatter(stations_info['longitude_station'], 
+                                  stations_info['latitude_station'],
+                                  color='white', marker='o', zorder=7, 
+                                  edgecolor='k', lw=1, label='Hydrometric stations')
+                    legend_handles.append(h)
     except Exception:
         pass
+    
     try:
         if os.path.exists(intermittency.onde_clip):
             intermit = gpd.read_file(intermittency.onde_clip)
@@ -199,7 +216,7 @@ def watershed_dem(initializing: Initializing, geographic: Geographic, hydrograph
                     bbox_inches='tight', transparent=False)
         pass
 
-def watershed_local(regional_dem_path, initializing: Initializing, geographic: Geographic):
+def watershed_local(regional_dem_path, initializing: Workspace, geographic: Geographic):
     """
     Plot location of the watershed at the regional scale.
 
@@ -207,8 +224,8 @@ def watershed_local(regional_dem_path, initializing: Initializing, geographic: G
     ----------
     regional_dem_path : str
         Initial path of the regional DEM.
-    initializing : Initializing
-        Initializing object of the model domain (watershed).
+    initializing : Workspace
+        Workspace object of the model domain (watershed).
     geographic : Geographic
         Geographic object of the model domain (watershed).
     """
@@ -240,14 +257,14 @@ def watershed_local(regional_dem_path, initializing: Initializing, geographic: G
     fig.savefig(os.path.join(initializing.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
     
-def watershed_geology(initializing: Initializing, geographic: Geographic, geology: Geology, hydrography: Hydrography=None, piezometry: Piezometry=None):
+def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Geology, hydrography: Hydrography=None, piezometry: Piezometry=None):
     """
     Plot lithology of the watershed from specific geological map at FRance scale.
 
     Parameters
     ----------
-    initializing : Initializing
-        Initializing object of the model domain (watershed).
+    initializing : Workspace
+        Workspace object of the model domain (watershed).
     geographic : Geographic
         Geographic object of the model domain (watershed).
     geology : Geology
@@ -387,13 +404,27 @@ def watershed_zones(BV):
                        marker='^', zorder=5, label='Piezometers: discrete')
     except:
         pass   
+    
+    # Hydrometry plotting: support both old Hydrometry class and new StationSet
     try:
-        if os.path.exists(BV.hydrometry.hydrometric_clip):
-            hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
-            hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
-                          edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+        if BV.hydrometry is not None:
+            # Old Hydrometry class with hydrometric_clip shapefile
+            # if os.path.exists(BV.hydrometry.hydrometric_clip):
+            #     hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
+            #     hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
+            #                   edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
+            
+            # New StationSet class with stations_info DataFrame
+            if hasattr(BV.hydrometry, 'stations_info'):
+                stations_info = BV.hydrometry.stations_info
+                if not stations_info.empty and 'longitude_station' in stations_info.columns and 'latitude_station' in stations_info.columns:
+                    ax.scatter(stations_info['longitude_station'], 
+                              stations_info['latitude_station'],
+                              color='white', marker='o', zorder=7, 
+                              edgecolor='k', lw=1, label='Hydrometric stations')
     except:
         pass 
+    
     try:
         if os.path.exists(BV.intermittency.onde_clip):
             intermit = gpd.read_file(BV.intermittency.onde_clip)
