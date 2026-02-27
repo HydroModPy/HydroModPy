@@ -1,0 +1,2 @@
+code_sub;x_outlet;y_outlet
+GhostStation1;161081.680;6851822.504
