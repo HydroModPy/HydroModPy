@@ -210,7 +210,7 @@ mode = "mask"
 [hydrometry_stations.output]
 # Export loaded data again after loading (filtered subset):
 enabled = true
-path = "../results/example12/results_stable/hydrometry"
+path = "C:/Users/EMB/HydroModPy/examples/results/example12/results_stable/hydrometry"
 # "lite" -> station CSVs only
 # "full" -> station CSVs + metadata/stations_info/sites_info/missing_data_summary
 export_mode = "lite"
