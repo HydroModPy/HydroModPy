@@ -212,13 +212,12 @@ class Oceanic:
 
         # Check if data is already downloaded
         output_folder = os.path.join(geographic.stable_folder, 'oceanic')
-        output_filename = f'sea-level-shom_{tg_id}_{start_date}_{end_date}.csv'
+        output_filename = f'sealevel_shom_{tg_id}_{start_date}_{end_date}_H.csv' # TYPE_PRODUCT_ID_startdate_enddate_freq.ext
         if os.path.exists(os.path.join(output_folder, output_filename)):
             print(f"Data for tide gauge station {self.closest_tg['name']} already downloaded. Loading from file.")
             self.SHOM_data = pd.read_csv(os.path.join(output_folder, output_filename), parse_dates=['timestamp'])
             
         else:
-            
             # Get the vertical reference of the closest tide gauge station
             print(f"Closest tide gauge station: {self.closest_tg['name']} at ({self.closest_tg['latitude']}, {self.closest_tg['longitude']})")
             url = f'https://services.data.shom.fr/maregraphie/service/completetidegauge/{closest_tg_id}'
@@ -228,7 +227,7 @@ class Oceanic:
 
             # Download sea-level data for the closest tide gauge station
             # iterates over 31-day periods to avoid data download issues for long time series
-            sources = '3' # code to get validated data
+            sources = '3' # code to get hourly validated data
             interval = '60' # data interval in minutes
             start_date_temp = datetime.strptime(start_date, '%Y-%m-%d')
             end_date_temp = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=31)
