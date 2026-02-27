@@ -4,6 +4,7 @@
 
 [case]
 output_summary_json = "outputs/tmesh_case_summary.json"
+output_figures_dir = "outputs/figures"
 
 [[case.scenarios]]
 id = "steady_synthetic"
@@ -55,4 +56,3 @@ firstpersteady = true
 tsmult = 1
 ntsp = 1
 temporal_nodata = -9999.0
-
