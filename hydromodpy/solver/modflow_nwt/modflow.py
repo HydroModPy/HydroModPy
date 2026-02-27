@@ -660,14 +660,22 @@ class Modflow(Solver):
             self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.flow.initial_conditions["h"].value
 
         # Fixed head on the left (better for square domain)
-        if isinstance(self.bc_left, (int, float)) == True:
+        if "west_boundary" in self.flow.boundary_conditions.keys():
             self.iboundData[:, :, 0] = -1
-            self.strtData[:, :, 0] = self.bc_left
+            self.strtData[:, :, 0] = self.flow.boundary_conditions["west_boundary"].value
 
         # Fixed head on the right (better for square domain)
-        if isinstance(self.bc_right, (int, float)) == True:
+        if "east_boundary" in self.flow.boundary_conditions.keys():
             self.iboundData[:, :, -1] = -1
-            self.strtData[:, :, -1] = self.bc_right
+            self.strtData[:, :, -1] = self.flow.boundary_conditions["east_boundary"].value
+        
+        if "north_boundary" in self.flow.boundary_conditions.keys():
+            self.iboundData[:, 0, :] = -1
+            self.strtData[:, 0, :] = self.flow.boundary_conditions["north_boundary"].value
+        
+        if "south_boundary" in self.flow.boundary_conditions.keys():
+            self.iboundData[:, -1, :] = -1
+            self.strtData[:, -1, :] = self.flow.boundary_conditions["south_boundary"].value
 
         for i in range(self.nlay):
             self.iboundData[i][self.dem < -1000] = 0  # 0 is for NO FLOW

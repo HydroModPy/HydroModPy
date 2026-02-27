@@ -33,7 +33,12 @@ class FlowConfig(BaseModel):
     )
     bc: dict[str, object] = Field(
         default_factory=dict,
-        description="Mapping of flow boundary-condition payloads.",
+        description=(
+            "Mapping of flow boundary-condition payloads. "
+            "Supported [flow.bc.dirichlet] keys are: ocean, stream, "
+            "north_boundary, south_boundary, east_boundary, west_boundary "
+            "(no top_boundary)."
+        ),
     )
     ic: dict[str, dict[str, object]] = Field(
         default_factory=dict,
@@ -163,11 +168,19 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
     """Parse and normalize `[flow.bc]` entries.
 
     Normalized structure:
-    - `bc["dirichlet"]`: mapping with optional `ocean` and `stream` payloads
+    - `bc["dirichlet"]`: mapping with optional payloads for
+      `ocean`, `stream`, `north_boundary`, `south_boundary`,
+      `east_boundary`, `west_boundary`
     - `bc["cauchy"]`: mapping with optional `drainage` payload
     - `bc["robin"]`: legacy alias accepted for `cauchy`
     """
     parsed: dict[str, object] = {}
+    dirichlet_domain_defaults = {
+        "north_boundary": "north side",
+        "south_boundary": "south side",
+        "east_boundary": "east side",
+        "west_boundary": "west side",
+    }
 
     dirichlet_payload = bc_cfg.get("dirichlet")
     if dirichlet_payload is not None:
@@ -175,7 +188,14 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
             raise ValueError("flow.bc.dirichlet must be a mapping when provided")
 
         parsed_dirichlet: dict[str, dict[str, object]] = {}
-        for key in ("ocean", "stream"):
+        for key in (
+            "ocean",
+            "stream",
+            "north_boundary",
+            "south_boundary",
+            "east_boundary",
+            "west_boundary",
+        ):
             item = dirichlet_payload.get(key)
             if item is None:
                 continue
@@ -184,6 +204,8 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
             normalized_item = dict(item)
             if "units" not in normalized_item and "unit" in normalized_item:
                 normalized_item["units"] = normalized_item["unit"]
+            if "application_domain" not in normalized_item and key in dirichlet_domain_defaults:
+                normalized_item["application_domain"] = dirichlet_domain_defaults[key]
             normalized_item.setdefault("data_value", False)
             normalized_item.setdefault("units", "m")
             parsed_dirichlet[key] = normalized_item

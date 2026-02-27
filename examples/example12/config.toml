@@ -401,6 +401,9 @@ description = "Initial groundwater head"
 # ----------------------------------------------------------------------
 # Flow boundary conditions (Cauchy/Dirichlet/Neumann)
 # ----------------------------------------------------------------------
+# Supported [flow.bc.dirichlet] keys:
+#   ocean, stream, north_boundary, south_boundary, east_boundary, west_boundary
+# Note: no top_boundary key.
 
 [flow.bc.cauchy.drainage]
 # Domain of application on the model domain boundaries/surfaces.
@@ -422,26 +425,69 @@ application_domain = "top"
 type = "dirichlet"
 # Head value for Dirichlet condition.
 value = 1.0
-# Unit of head.
+# Unit of hydraulic head.
 unit = "m"
 # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
 data_value = true
 
-[flow.bc.dirichlet.stream]
-application_domain = "top"
-# Boundary-condition type.
-type = "dirichlet"
-# Head value for Dirichlet condition.
-value = 1.0
-# Unit of head.
-unit = "m"
-# Optional flag to use data-derived values instead of fixed value.
-data_value = false
+# [flow.bc.dirichlet.stream]
+# application_domain = "top"
+# # Boundary-condition type.
+# type = "dirichlet"
+# # Head value for Dirichlet condition.
+# value = 1.0
+# # Unit of hydraulic head.
+# unit = "m"
+# # Optional flag to use data-derived values instead of fixed value.
+# data_value = false
 
+# [flow.bc.dirichlet.north_boundary]
+# # Domain of application for the north boundary.
+# application_domain = "north side"
+# # Boundary-condition type.
+# type = "dirichlet"
+# # Head value for Dirichlet condition.
+# value = 1.0
+# # Unit of hydraulic head.
+# unit = "m"
+# # Optional flag to use data-derived values instead of fixed value.
+# data_value = false
 
+# [flow.bc.dirichlet.south_boundary]
+# # Domain of application for the south boundary.
+# application_domain = "south side"
+# # Boundary-condition type.
+# type = "dirichlet"
+# # Head value for Dirichlet condition.
+# value = 1.0
+# # Unit of hydraulic head.
+# unit = "m"
+# # Optional flag to use data-derived values instead of fixed value.
+# data_value = false
 
+# [flow.bc.dirichlet.east_boundary]
+# # Domain of application for the east boundary.
+# application_domain = "east side"
+# # Boundary-condition type.
+# type = "dirichlet"
+# # Head value for Dirichlet condition.
+# value = 1.0
+# # Unit of hydraulic head.
+# unit = "m"
+# # Optional flag to use data-derived values instead of fixed value.
+# data_value = false
 
-
+# [flow.bc.dirichlet.west_boundary]
+# # Domain of application for the west boundary.
+# application_domain = "west side"
+# # Boundary-condition type.
+# type = "dirichlet"
+# # Head value for Dirichlet condition.
+# value = 1.0
+# # Unit of hydraulic head.
+# unit = "m"
+# # Optional flag to use data-derived values instead of fixed value.
+# data_value = false
 
 # ----------------------------------------------------------------------
 # MODFLOW expert configuration
