@@ -10,6 +10,7 @@ Created on Fri Mar 21 10:39:38 2025
 # Libraries installed by default
 import sys
 import os
+import tomllib
 from pathlib import Path
 
 from flopy import run_model
@@ -48,8 +49,10 @@ sys.path.append(root_dir)
 import hydromodpy as hmp
 from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Workspace, Climatic, Driasclimat, Driaseau, \
-    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
+    Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
+from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
@@ -65,8 +68,12 @@ from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingSt
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
-cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
+config_path = Path(__file__).parent / "config.toml"
+cfg = HydroModPyConfig.from_toml(config_path)
 out_path = cfg.workspace.out_dir_path
+
+with config_path.open('rb') as f:
+    raw_toml = tomllib.load(f)
 
 #%% ---- EXTRACT CATCHMENT
 
@@ -128,10 +135,36 @@ if __name__ == '__main__':
                         add_path=data_path,
                         out_path=workspace.catch_folder,
                         sub_snap_dist=50)
-    hydrometry = Hydrometry(out_path=workspace.catch_folder,
-                            hydrometry_path=data_path,
-                            file_name='france hydrometric stations.shp',
-                            geographic=geographic)
+    
+    # hydrometry = Hydrometry(out_path=workspace.catch_folder,
+    #                         hydrometry_path=data_path,
+    #                         file_name='france hydrometric stations.shp',
+    #                         geographic=geographic)
+
+    # Extract hydrometry configuration from raw_toml
+    hydro_section = raw_toml.get("hydrometry_stations", {})
+
+    hydro_cfg = {
+        "hydrometry": {k: v for k, v in hydro_section.items() 
+                    if k not in ["source", "selection", "output"]},
+        "source": hydro_section.get("source", {}),
+        "selection": hydro_section.get("selection", {}),
+        "output": hydro_section.get("output", {}),
+    }
+
+    # Inject watershed shapefile created by Geographic as mask for station selection
+    selection_mode = hydro_cfg["selection"].get("mode", "mask")
+    if selection_mode == "mask":
+        hydro_cfg["selection"]["mask_path"] = geographic.watershed_shp
+        print(f"Hydrometry: Loading stations from watershed mask: {geographic.watershed_shp}")
+
+    # Load stations with error handling
+    try:
+        hydrometry = StationSet.from_config(hydro_cfg)
+    except ValueError as e:
+        print(f"Warning: Hydrometry loading failed - {e}")
+        print("Continuing without hydrometric stations...")
+        hydrometry = None
 
     intermittency = Intermittency(out_path=workspace.catch_folder,
                                   intermittency_path=data_path,
@@ -141,6 +174,8 @@ if __name__ == '__main__':
     #%% CLIMATIC
 
     climatic = Climatic(out_path=workspace.catch_folder)
+
+    #%% OCEANIC
 
     oceanic = Oceanic()
     oceanic.extract_local_data(out_path=workspace.catch_folder,
@@ -154,6 +189,8 @@ if __name__ == '__main__':
     except Exception as _shom_exc:
         print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
         oceanic.update_MSL(0.0)
+
+    flow.boundary_conditions["ocean"].value = oceanic.MSL
 
     
     #%% WATERSHED OBJECT
@@ -546,13 +583,17 @@ if __name__ == '__main__':
     the_K0 = 5e-5*24*3600
     hydraulic.update_hk(the_K0) # 3D
     Kmin_for_hk_decay = 1e-8*24*3600
-    hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
+    hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay,
+                              log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
 
     # the_sy0 = 0.1/100 #
     the_sy0 = 2/100 #
     hydraulic.update_sy(the_sy0)
     Symin_for_sy_decay = 0.1/100
-    hydraulic.update_sy_decay((1/alpha)/n_factor, min_value=Symin_for_sy_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
+    hydraulic.update_sy_decay((1/alpha)/n_factor, # change in : (1/alpha/n_factor)
+                              min_value=Symin_for_sy_decay,
+                              log_transf=Klog_transf,
+                              grad_elev=[93,136,-20]) # 0
     # hydraulic.update_sy_decay(0) # 0
 
     the_ss0 = 1e-10
@@ -597,7 +638,6 @@ if __name__ == '__main__':
                             cross_ylim=setting.cross_ylim,
                             check_grid=setting.check_grid,
                             # Boundary settings
-                            sea_level=oceanic.MSL,
                             bc_left=setting.bc_left,
                             bc_right=setting.bc_right,
                             # Climatic settings
