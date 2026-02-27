@@ -15,6 +15,7 @@ from hydromodpy.watershed.subbasin import Subbasin
 from hydromodpy.watershed.transport import Transport 
 
 from hydromodpy.watershed.geographic import Geographic
+from hydromodpy.watershed.workspace import Workspace
 from hydromodpy.watershed.initializing import Initializing
 
-__all__ = ['Climatic', 'Driasclimat', 'Driaseau', 'Geology', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Hydrometry', 'Intermittency', 'Oceanic', 'Piezometry', 'Settings', 'SafranSurfex', 'Subbasin', 'Transport', 'Geographic', 'Initializing']
+__all__ = ['Climatic', 'Driasclimat', 'Driaseau', 'Geology', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Hydrometry', 'Intermittency', 'Oceanic', 'Piezometry', 'Settings', 'SafranSurfex', 'Subbasin', 'Transport', 'Geographic', 'Workspace', 'Initializing']

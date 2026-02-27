@@ -50,6 +50,9 @@ from hydromodpy.data_managers.geology.geology_config import (
     validate_geology_config_data,
 )
 from hydromodpy.data_managers.geology.geology_io import load_geology_encoded_grid
+from hydromodpy.data_managers.geology.geology_io import (
+    load_geology_encoded_grid_on_raster_support,
+)
 from hydromodpy.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.field.core.field_spatial import Field
 from hydromodpy.field.core.field_spatial_weighted_discretization import (
@@ -422,5 +425,74 @@ class GeologyField(Field):
         """
         cfg = load_geology_toml(toml_path, section=section)
         return cls.from_dict(cfg)
+
+    @classmethod
+    def from_watershed_config(
+        cls,
+        geology_config,
+        *,
+        raster_support,
+    ) -> "GeologyField":
+        """
+        Build one geology field from the legacy watershed `GeologyConfig`
+        together with an explicit `RasterSupport`.
+
+        This constructor is meant for `Domain`: geology is configured only by
+        its own config block, while the target spatial reduction/rasterization
+        window is defined by the domain topographic support.
+        """
+        from hydromodpy.watershed.geology_config import GeologyConfig
+
+        if geology_config is None:
+            geology_cfg = GeologyConfig()
+        elif isinstance(geology_config, GeologyConfig):
+            geology_cfg = geology_config
+        elif isinstance(geology_config, Mapping):
+            geology_cfg = GeologyConfig.model_validate(dict(geology_config))
+        else:
+            raise TypeError(
+                "geology_config must be a GeologyConfig instance, mapping, or None"
+            )
+
+        if bool(geology_cfg.landsea):
+            raise ValueError(
+                "Domain GeologyField pipeline does not support legacy landsea=True flag. "
+                "Please use landsea=None/false."
+            )
+        if raster_support is None:
+            raise ValueError("raster_support is required to build geology on domain support")
+
+        source_rel = Path(str(geology_cfg.types_obs))
+        source_path = (
+            source_rel
+            if source_rel.is_absolute()
+            else (Path(geology_cfg.geo_path) / source_rel)
+        )
+
+        cfg = validate_geology_config_data(
+            {
+                "id": str(geology_cfg.id),
+                "source": {
+                    "path": str(source_path),
+                    "kind": "auto",
+                    "code_field": str(geology_cfg.fields_obs),
+                    "all_touched": False,
+                },
+                "cell_samples_per_axis": int(geology_cfg.cell_samples_per_axis),
+            }
+        )
+        loaded = load_geology_encoded_grid_on_raster_support(
+            cfg,
+            raster_support=raster_support,
+        )
+        return cls(
+            identifier=str(cfg["id"]),
+            encoded_codes=loaded["encoded_codes"],
+            encoded_to_zone=loaded["encoded_to_zone"],
+            transform=loaded["transform"],
+            crs=loaded["crs"],
+            source_kind=str(loaded["source_kind"]),
+            default_cell_samples_per_axis=int(cfg.get("cell_samples_per_axis", 8)),
+        )
 
 

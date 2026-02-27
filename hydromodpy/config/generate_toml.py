@@ -28,17 +28,17 @@ def _get_registry() -> dict[str, type[BaseModel]]:
     """Lazy-load the module registry to avoid circular imports."""
     global _MODULE_REGISTRY
     if _MODULE_REGISTRY is None:
+        from hydromodpy.data_managers.data_managers_config import DataManagersConfig
         from hydromodpy.domain.domain_config import DomainConfig
+        from hydromodpy.geographic.geographic_config import GeographicConfig
         from hydromodpy.process.flow.flow_config import FlowConfig
         from hydromodpy.solver.modflow_nwt.modflow_config import ModflowConfig
-        from hydromodpy.watershed.geology_config import GeologyConfig
-        from hydromodpy.watershed.initializing_config import InitializingConfig
-        from hydromodpy.watershed.geographic_config import GeographicConfig
+        from hydromodpy.watershed.workspace_config import WorkspaceConfig
         _MODULE_REGISTRY = {
-            "initializing": InitializingConfig,
+            "workspace": WorkspaceConfig,
             "geographic": GeographicConfig,
             "domain": DomainConfig,
-            "geology": GeologyConfig,
+            "data": DataManagersConfig,
             "flow": FlowConfig,
             "modflow": ModflowConfig,
         }
@@ -123,7 +123,7 @@ def generate_toml_from_instances(
     Parameters
     ----------
     instances : dict of {section_name: model_instance}
-        E.g. ``{"initializing": init_cfg, "geographic": geo_cfg}``.
+        E.g. ``{"workspace": workspace_cfg, "geographic": geo_cfg}``.
     output_path : str, Path, or None
         If provided, write the result to this file.
     profile : str
@@ -140,7 +140,7 @@ def generate_toml_from_instances(
 
         from hydromodpy.config.generate_toml import generate_toml_from_instances
         content = generate_toml_from_instances(
-            {"initializing": init_cfg, "geographic": geo_cfg},
+            {"workspace": workspace_cfg, "geographic": geo_cfg},
             output_path="examples/01S_short/config.toml",
         )
     """
