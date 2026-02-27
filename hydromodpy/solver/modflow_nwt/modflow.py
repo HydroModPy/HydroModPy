@@ -17,7 +17,6 @@ from collections.abc import Mapping
 import flopy
 import numpy as np
 import os
-import datetime
 import pandas as pd
 import sys
 import rasterio
@@ -33,13 +32,11 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
-from hydromodpy.domain.raster_support import RasterSupport
 from hydromodpy.domain.surface import Surface
 from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_generation import (
-    TMeshConfig,
     TMesh_Generation,
 )
 from hydromodpy.solver.modflow_nwt.modflow_utils import (
@@ -81,7 +78,6 @@ class Modflow(Solver):
         check_grid: bool = True,
         # Climatic settings
         recharge=0.001,
-        runoff=None,
         first_clim: str = "mean",
         dis_perlen: bool = False,
         # Hydraulic settings
@@ -117,15 +113,14 @@ class Modflow(Solver):
         sink_fill : bool, optional
             If True, package drain is desactivate on pit. The watertable can create lake on pit. The default is False.
         sim_state : str, optional
-            'steady' or 'transient'. simulation state. The default is 'steady'.
+            Fallback simulation state ('steady' or 'transient') when
+            `flow.config.flow_regime` is not available. The default is 'steady'.
         plot_cross : bool, optional
             If True, display a cross section of the model. The default is True.
         check_grid : bool, optional
             If True, check if the water connectivity is respected with the meshgrid. The default is True.
         recharge : float or list, optional
             Recharge [L/T] as input of the model. The default is 0.001.
-        runoff : float or list, optional
-            Runoff [L/T] as an independent variable that can be added in post-processing to the model. The default is 0.0001.
         first_clim : str, optional
             If 'mean': the first recharge value is the mean of the chronicle.
             If 'first': the first recharge value is the first value of the timeseries.
@@ -175,11 +170,6 @@ class Modflow(Solver):
         self.flow = flow
         self.domain = domain
 
-        #######################################################################
-        # self.geographic.watershed_dem = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_dem.tif'
-        # self.geographic.watershed_box_buff_dem = 'C:/Users/rabherve/Simulations/Lasset/Lasset_25m/results_stable/geographic/watershed_box_buff_dem.tif'
-        #######################################################################
-
         self.resolution = geographic.dem_res
         self.xul = geographic.xmin
         self.yul = geographic.ymax
@@ -205,19 +195,16 @@ class Modflow(Solver):
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
 
-        # commented on 2026-02-27: lines do not seem relevant
-        # try:
-        #     if self.flow.boundary_conditions["ocean"].value == None:
-        #         self.dem[(self.dem < 0) & (self.dem > -200)] = 0
-        # except:
-        #     pass
-
         # %% Input and discretization termes
 
         self.recharge = recharge
-        self.runoff = runoff
 
-        self.sim_state = sim_state
+        self.sim_state = str(sim_state).strip().lower()
+        if self.sim_state not in {"steady", "transient"}:
+            raise ValueError("sim_state must be 'steady' or 'transient'")
+        self.flow_regime = self._resolve_flow_regime()
+        if self.flow_regime is not None:
+            self.sim_state = self.flow_regime
         self.first_clim = first_clim
         self.dis_perlen = dis_perlen
 
@@ -253,9 +240,8 @@ class Modflow(Solver):
 
         runtime_params = specif_params.runtime
         process_specific_params = specif_params.process_specific
-        self.sgrid_params: dict[str, object] | None = specif_params.sgrid
+        self.sgrid_config: VerticalGridConfig | None = specif_params.sgrid
         self.tgrid_config = specif_params.tgrid
-        self.tgrid = None
 
         self.mf_version = runtime_params.mf_version
         self.mf_listunit = runtime_params.mf_listunit
@@ -298,15 +284,20 @@ class Modflow(Solver):
 
     def _get_domain_surfaces(self):
         """
-        Return explicit domain surfaces when they match the active MODFLOW DEM.
+        Return explicit domain surfaces used by the MODFLOW spatial grid.
         """
         if self.domain is None:
-            return None
+            raise ValueError(
+                "Modflow spatial geometry is domain-only: a Domain object is required."
+            )
 
         surface_topo = getattr(self.domain, "surface_topo", None)
         substratum = getattr(self.domain, "substratum", None)
         if surface_topo is None or substratum is None:
-            return None
+            raise ValueError(
+                "Modflow spatial geometry is domain-only: domain.surface_topo "
+                "and domain.substratum are required."
+            )
         if not isinstance(surface_topo, Surface) or not isinstance(substratum, Surface):
             raise TypeError("Domain surfaces must be Surface instances.")
 
@@ -317,155 +308,32 @@ class Modflow(Solver):
                 f"Domain surface mismatch: top{top.shape} != substratum{bot.shape}."
             )
         if top.shape != self.dem.shape:
-            return None
+            raise ValueError(
+                "Domain surface shape must match active DEM support "
+                f"({top.shape} vs {self.dem.shape})."
+            )
 
         surface_topo.assert_same_geographic_domain(substratum)
         return surface_topo, substratum
 
-    def _build_runtime_support(self, shape: tuple[int, int]) -> RasterSupport:
-        """
-        Build one RasterSupport for the active runtime DEM support.
-        """
-        nrows, ncols = int(shape[0]), int(shape[1])
-        georef = {}
-        if hasattr(self.geographic, "build_georeferencing"):
-            georef = dict(self.geographic.build_georeferencing())
-        support = RasterSupport.from_georeferencing(
-            georef,
-            shape=(nrows, ncols),
-            nodata=-9999.0,
-        )
+    def _resolve_flow_regime(self) -> str | None:
+        """Return flow regime from flow config when available."""
+        if self.flow is None:
+            return None
 
-        xmin = (
-            float(support.xmin)
-            if support.xmin is not None
-            else float(getattr(self, "xmin", 0.0))
-        )
-        ymax = (
-            float(support.ymax)
-            if support.ymax is not None
-            else float(getattr(self, "ymax", float(nrows)))
-        )
-        dx = (
-            float(support.dx)
-            if support.dx is not None
-            else float(getattr(self, "resolution", 1.0))
-        )
-        dy = (
-            float(support.dy)
-            if support.dy is not None
-            else float(getattr(self, "resolution", 1.0))
-        )
-        xmax = (
-            float(support.xmax)
-            if support.xmax is not None
-            else xmin + (dx * ncols)
-        )
-        ymin = (
-            float(support.ymin)
-            if support.ymin is not None
-            else ymax - (dy * nrows)
-        )
-        crs = support.crs if support.crs is not None else getattr(self.geographic, "crs_proj", None)
-        return RasterSupport(
-            crs=crs,
-            dx=dx,
-            dy=dy,
-            xmin=xmin,
-            xmax=xmax,
-            ymin=ymin,
-            ymax=ymax,
-            nrows=nrows,
-            ncols=ncols,
-            nodata=-9999.0,
-        )
+        flow_regime = None
+        flow_cfg = getattr(self.flow, "config", None)
+        if flow_cfg is not None:
+            flow_regime = getattr(flow_cfg, "flow_regime", None)
+        if flow_regime is None:
+            flow_regime = getattr(self.flow, "flow_regime", None)
+        if flow_regime is None:
+            return None
 
-    def _build_solver_surfaces(self) -> tuple[Surface, Surface]:
-        """
-        Build top and bottom surfaces for StructuredGrid vertical discretization.
-        """
-        domain_surfaces = self._get_domain_surfaces()
-        if domain_surfaces is not None:
-            return domain_surfaces
-
-        top = np.asarray(self.dem, dtype=float)
-        support = self._build_runtime_support(top.shape)
-        top_surface = Surface(name="surface_topo", values=top, support=support)
-
-        if self.bottom is None:
-            bottom_values = np.asarray(top, dtype=float) - float(self.thick)
-        elif isinstance(self.bottom, (int, float)):
-            bottom_values = np.full_like(top, float(self.bottom), dtype=float)
-        else:
-            bottom_values = np.asarray(self.bottom, dtype=float)
-            if bottom_values.shape != top.shape:
-                raise ValueError(
-                    f"Bottom array shape mismatch: {bottom_values.shape} != {top.shape}."
-                )
-
-        bottom_values[top <= -9999.0] = -9999.0
-        bottom_surface = Surface(
-            name="substratum",
-            values=bottom_values,
-            support=support,
-        )
-        top_surface.assert_same_geographic_domain(bottom_surface)
-        return top_surface, bottom_surface
-
-    def _build_vertical_grid_config(self) -> VerticalGridConfig:
-        """
-        Build vertical-grid settings from constructor values and [modflow.sgrid].
-        """
-        payload: dict[str, object] = {
-            "lenuni": "m",
-            "nodata": -9999.0,
-            "nlay": int(self.nlay),
-        }
-        if float(self.lay_decay) > 1.0:
-            payload["genmtd_lay"] = "decay"
-            payload["lay_decay"] = float(self.lay_decay)
-        else:
-            payload["genmtd_lay"] = "constant"
-
-        if self.sgrid_params is not None:
-            for key in (
-                "genmtd_lay",
-                "nlay",
-                "lay_decay",
-                "lay_proportions",
-                "nodata",
-                "lenuni",
-            ):
-                if key in self.sgrid_params:
-                    payload[key] = self.sgrid_params[key]
-
-        genmtd_lay = payload.get("genmtd_lay")
-        if genmtd_lay != "decay":
-            payload.pop("lay_decay", None)
-        if genmtd_lay != "list":
-            payload.pop("lay_proportions", None)
-        else:
-            payload.pop("nlay", None)
-
-        return VerticalGridConfig.from_mapping(payload)
-
-    def _sync_runtime_grid_from_sgrid(self, sgrid) -> None:
-        """
-        Align runtime DEM/grid attributes with the effective SGrid geometry.
-
-        This keeps all downstream arrays (BAS/DRN/CHD/post-processing) on the
-        exact same support as the discretization actually passed to FloPy.
-        """
-        sgrid_top = np.asarray(sgrid.top, dtype=float)
-        # Keep historical DEM values when the support is already identical.
-        # This avoids tiny numerical drifts while still fixing shape conflicts.
-        if np.asarray(self.dem).shape != sgrid_top.shape:
-            self.dem = sgrid_top
-        self.nlay = int(sgrid.nlay)
-        self.nrow = int(sgrid.nrow)
-        self.ncol = int(sgrid.ncol)
-        self.zbot = np.asarray(sgrid.botm, dtype=float)
-        self.bottom_layer = np.asarray(self.zbot[-1], dtype=float)
+        flow_regime_text = str(flow_regime).strip().lower()
+        if flow_regime_text not in {"steady", "transient"}:
+            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
+        return flow_regime_text
 
     def pre_processing(self):
         """
@@ -509,94 +377,65 @@ class Modflow(Solver):
 
         # %% Discretization
 
-        ### Temporal: time step is driven by recharge
+        ### Temporal: model time definition from [modflow.tgrid]
+        if self.tgrid_config is None:
+            raise ValueError(
+                "Missing [modflow.tgrid] configuration: a typed TMeshConfigModel "
+                "is required to generate temporal discretization."
+            )
+        builder_kwargs = self.tgrid_config.to_builder_kwargs()
+        flow_regime = self._resolve_flow_regime()
+        if flow_regime is not None and flow_regime != str(self.tgrid_config.sim_state):
+            logger.info(
+                "Using flow.flow_regime='%s' instead of modflow.tgrid.sim_state='%s'.",
+                flow_regime,
+                self.tgrid_config.sim_state,
+            )
+        if flow_regime is not None:
+            builder_kwargs["sim_state"] = flow_regime
 
-        # Steady state
-        if self.sim_state == "steady":
-            self.nper = 1  # Number of forcing periods (recharge)
-            self.perlen = 1  # Length of period
-            self.nstp = [1]  # Steps in a given period (not used here)
-            self.steady = True  # Steady state
-            self.start_datetime = None
-
-        # Transient state
-        if self.sim_state == "transient":
-            if isinstance(self.recharge, (dict)) == True:
-                self.start_datetime = 0
-            else:
-                self.start_datetime = self.recharge.index[0]  # First date of recharge
-            self.steady = np.zeros(
-                len(self.recharge), dtype=bool
-            )  # Vector of booleans (transient state at each time step)
-            self.steady[0] =True  # Steady state for the first time step (initialization of head values by a steady state)
-            self.nstp = np.ones(len(self.recharge))  # One step per time step
-            self.nper = len(self.recharge)
-            # Definition of period duration (forcing is constant on a period)
-            #       As many periods as recharge values
-            #       Extracts from climatic data the time steps (self.perlen)
-            if self.dis_perlen == True:
-                if isinstance(self.recharge, pd.core.series.Series):
-                    if isinstance(self.recharge.index[0], datetime.datetime):
-                        self.perlen = (
-                            self.recharge.index.to_series()
-                            .diff()
-                            .dt.total_seconds()
-                            .values
-                            / 86400
-                        )  # values converted into float days
-                    else:
-                        self.perlen = self.recharge.index.to_series().diff().values
-            if isinstance(self.dis_perlen, list) == True:
-                self.perlen = self.dis_perlen
-            if self.dis_perlen == False:
-                self.perlen = np.ones(len(self.recharge))
-            if isinstance(self.recharge, (dict)) == True:
-                self.perlen = np.ones(len(self.recharge))
-            # First timestep is steady state:
-            self.perlen[0] = 1
+        builder = TMesh_Generation(**builder_kwargs)
+        tgrid = builder.run()
+        self.flow_regime = flow_regime
+        self.sim_state = str(builder_kwargs.get("sim_state", self.sim_state))
+        dis_itmuni = getattr(tgrid, "time_units", self.dis_itmuni)
+        dis_nper = int(np.asarray(getattr(tgrid, "perlen", []), dtype=float).size)
+        dis_perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
+        dis_nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
+        dis_steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
+        dis_start_datetime = getattr(tgrid, "start_datetime", None)
+        if dis_nper == 0:
+            raise ValueError("modflow.tgrid produced an empty perlen vector.")
+        self.dis_itmuni = dis_itmuni
+        self.nper = dis_nper
+        self.perlen = dis_perlen
+        self.nstp = dis_nstp
+        self.steady = dis_steady
+        self.start_datetime = dis_start_datetime
 
         ### Sptial: model domain definition and discretization
 
-        top_surface, bottom_surface = self._build_solver_surfaces()
+        top_surface, bottom_surface = self._get_domain_surfaces()
         self.dem = np.asarray(top_surface.as_array(), dtype=float)
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
 
-        vertical_cfg = self._build_vertical_grid_config()
+        if self.sgrid_config is None:
+            raise ValueError(
+                "Missing [modflow.sgrid] configuration: a typed VerticalGridConfig "
+                "is required to generate the structured grid."
+            )
+        vertical_cfg = self.sgrid_config
         sgrid = StructuredGridBuilder().build_from_surfaces(
             top_surface=top_surface,
             bottom_surface=bottom_surface,
             vertical_config=vertical_cfg,
         )
-        self._sync_runtime_grid_from_sgrid(sgrid)
-
-        # Optional temporal discretization from [modflow.tgrid].
-        if self.tgrid_config is not None:
-            tmesh_config = TMeshConfig(**self.tgrid_config.to_builder_kwargs())
-            builder = TMesh_Generation(config=tmesh_config)
-            tgrid = builder.run()
-            self.tgrid = tgrid
-            self.dis_itmuni = getattr(tgrid, "time_units", self.dis_itmuni)
-            self.nper = int(len(np.asarray(getattr(tgrid, "perlen", []), dtype=float)))
-            self.perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
-            self.nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
-            self.steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
-            self.start_datetime = getattr(tgrid, "start_datetime", None)
-
-        if self.tgrid is not None:
-            dis_itmuni = getattr(self.tgrid, "time_units", self.dis_itmuni)
-            dis_nper = int(np.asarray(getattr(self.tgrid, "perlen", []), dtype=float).size)
-            dis_perlen = np.asarray(getattr(self.tgrid, "perlen", []), dtype=float)
-            dis_nstp = np.asarray(getattr(self.tgrid, "nstp", []), dtype=int)
-            dis_steady = np.asarray(getattr(self.tgrid, "steady_state", []), dtype=bool)
-            dis_start_datetime = getattr(self.tgrid, "start_datetime", self.start_datetime)
-        else:
-            dis_itmuni = self.dis_itmuni
-            dis_nper = self.nper
-            dis_perlen = self.perlen
-            dis_nstp = self.nstp
-            dis_steady = self.steady
-            dis_start_datetime = self.start_datetime
+        self.nlay = int(sgrid.nlay)
+        self.nrow = int(sgrid.nrow)
+        self.ncol = int(sgrid.ncol)
+        self.zbot = np.asarray(sgrid.botm, dtype=float)
+        self.bottom_layer = np.asarray(self.zbot[-1], dtype=float)
         
         # Imposes discretization to modflow model through
         # ---- flopy.modflow.ModflowDis
