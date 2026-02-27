@@ -9,6 +9,8 @@ from hydromodpy.solver.modflow_nwt.modflow_config import (
     ModflowConfig,
     ModflowSpecifParams,
 )
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 
 
 def test_modflow_config_defaults_match_runtime_defaults():
@@ -21,6 +23,7 @@ def test_modflow_config_defaults_match_runtime_defaults():
     assert params.process_specific.vka == 1.0
     assert params.process_specific.exdp == 1.0
     assert params.sgrid is None
+    assert params.tgrid is None
 
 
 def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
@@ -53,6 +56,16 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 'genmtd_lay = "decay"',
                 "nlay = 3",
                 "lay_decay = 1.8",
+                "",
+                "[modflow.tgrid]",
+                'itmuni = "d"',
+                'sim_state = "transient"',
+                'genmtd = "synthetic_regular"',
+                "nper = 4",
+                "lenper = 2.0",
+                "firstpersteady = true",
+                "ntsp = [1, 2, 2, 3]",
+                "tsmult = [1.0, 1.1, 1.1, 1.2]",
             ]
         ),
         encoding="utf-8",
@@ -63,9 +76,14 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflow.process_specific.vka == 2.5
     assert cfg.modflow.process_specific.exdp == 3.0
     assert cfg.modflow.runtime.nwt_options == "SIMPLE"
-    assert cfg.modflow.sgrid["genmtd_lay"] == "decay"
-    assert cfg.modflow.sgrid["nlay"] == 3
-    assert cfg.modflow.sgrid["lay_decay"] == 1.8
+    assert isinstance(cfg.modflow.sgrid, VerticalGridConfig)
+    assert cfg.modflow.sgrid.genmtd_lay == "decay"
+    assert cfg.modflow.sgrid.nlay == 3
+    assert cfg.modflow.sgrid.lay_decay == 1.8
+    assert isinstance(cfg.modflow.tgrid, TMeshConfigModel)
+    assert cfg.modflow.tgrid.sim_state == "transient"
+    assert cfg.modflow.tgrid.nper == 4
+    assert cfg.modflow.tgrid.ntsp == [1, 2, 2, 3]
 
 
 def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
