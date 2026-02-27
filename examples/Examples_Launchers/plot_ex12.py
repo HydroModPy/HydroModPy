@@ -660,3 +660,263 @@ def plot_web_animation(simulations_folder, vers):
     fig.update_yaxes(visible=False)
 
     fig.show("browser")
+
+
+import numpy as np
+import imageio
+import os
+
+def plot_model_cross_section(geographic, model_folder, model_name, cur_x=50,
+                             ylim=[90, 130], xlim=[1500, 4900], dx=75):
+    """Génère la coupe 2D du modèle (Topographie vs Nappe)."""
+
+    # Chemins des fichiers
+    dem_path = geographic.watershed_dem
+    wt_path = os.path.join(model_folder, model_name, '_postprocess', 'watertable_elevation.npy')
+
+    if not os.path.exists(wt_path):
+        print(f"Erreur: Fichier résultat non trouvé pour {model_name}")
+        return
+
+    # Chargement
+    dem_data = imageio.imread(dem_path)
+    watertable_elevation = np.load(wt_path, allow_pickle=True).item()
+    wt_data = watertable_elevation[2] # On prend l'item 2 comme dans votre code
+
+    # Préparation des données de profil
+    wt_prof = wt_data.astype(float)
+    wt_prof[wt_prof < 0] = np.nan
+    dem_prof = dem_data.astype(float)
+    dem_prof[dem_prof < 0] = np.nan
+
+    # Extraction de la colonne cur_x
+    dem_v_plot = dem_prof[:, int(cur_x)]
+    wt_v_plot = wt_prof[:, int(cur_x)]
+    dist = np.arange(len(dem_v_plot)) * dx
+
+    # Plot
+    fig, ax = plt.subplots(1, 1, figsize=(8, 5), dpi=300)
+
+    # Remplissages (Eau, Sol, Bedrock)
+    ax.fill_between(dist, dem_v_plot-20, wt_v_plot, color='dodgerblue', alpha=0.5, label='Water')
+    ax.fill_between(dist, wt_v_plot, dem_v_plot, color='saddlebrown', alpha=0.5, label='Soil')
+    ax.fill_between(dist, 0, dem_v_plot-20, color='lightgrey', alpha=0.5)
+
+    # Lignes
+    ax.plot(dist, wt_v_plot, color='navy', lw=1.5)
+    ax.plot(dist, dem_v_plot, color='saddlebrown', lw=1.5)
+    ax.plot(dist, dem_v_plot-20, color='dimgray', lw=1.5)
+
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_xlabel('Distance [m]')
+    ax.set_ylabel('Elevation [m]')
+    ax.set_title(f"Cross-section: {model_name} (x={cur_x*dx}m)")
+
+    plt.tight_layout()
+    return fig, ax
+
+def plot_recharge_summary(R_mm_day, r_mm_day, R_mm_day_filt, title="Recharge Analysis", save_path=None):
+    """Affiche la recharge et le runoff en mode linéaire, log et filtré."""
+    fig, axs = plt.subplots(3, 1, figsize=(8, 10), sharex=True)
+
+    # Conversion jour -> mois approximative (*30)
+    recharge_month = 30 * R_mm_day
+    total_month = 30 * (R_mm_day + r_mm_day)
+
+    # 1. Linéaire
+    axs[0].plot(recharge_month, label='Recharge', c='navy', lw=1)
+    axs[0].fill_between(R_mm_day.index, recharge_month, total_month,
+                        label='Recharge + Runoff', color='dodgerblue', alpha=0.8)
+    axs[0].set_ylabel('R [mm/month]')
+    axs[0].legend(loc='upper right')
+    axs[0].set_title(f'{title} - Linear scale', fontsize=10)
+
+    # 2. Log
+    axs[1].plot(recharge_month, c='navy', lw=1)
+    axs[1].fill_between(R_mm_day.index, recharge_month, total_month, color='dodgerblue', alpha=0.8)
+    axs[1].set_yscale('log')
+    axs[1].set_ylabel('R [mm/month]')
+    axs[1].set_title('Log scale', fontsize=10)
+
+    # 3. Filtré (SAFRAN-ISBA style)
+    axs[2].plot(30 * R_mm_day_filt, label='Filtered Recharge', c='dodgerblue', lw=2)
+    axs[2].set_ylabel('R [mm/month]')
+    axs[2].set_title('Filtered Signal', fontsize=10)
+    axs[2].set_xlabel('Date')
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+    return fig, axs
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import os
+
+def plot_piezometry_recharge(model_path, model_name, xlim=['2000', '2005'], ylim_depth=None):
+    """Affiche la profondeur de nappe (WTD) et la recharge sur un même graphique."""
+    sim_path = os.path.join(model_path, r'_postprocess/_timeseries/_simulated_timeseries.csv')
+    if not os.path.exists(sim_path):
+        print(f"Fichier non trouvé : {sim_path}")
+        return
+
+    Smod = pd.read_csv(sim_path, sep=';', index_col=0, parse_dates=True)
+    Rmod = Smod['recharge'] * 30 * 1000  # Conversion mm/mois
+    WTDmod = Smod['watertable_depth']
+
+    fig, ax1 = plt.subplots(1, 1, figsize=(12, 4), dpi=300)
+
+    # Axe 1 : Profondeur de nappe
+    ax1.plot(WTDmod, marker='o', markersize=3, color='red', lw=1.5, label='Simulated WT Depth')
+    ax1.set_ylabel('WT depth [m]')
+    ax1.set_xlabel('Date')
+    ax1.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
+    if ylim_depth: ax1.set_ylim(ylim_depth)
+    ax1.invert_yaxis()  # La surface est en haut (0)
+    ax1.legend(loc='upper left')
+
+    # Axe 2 : Recharge (Barres bleues)
+    ax2 = ax1.twinx()
+    ax2.bar(Rmod.index, Rmod, color='dodgerblue', width=15, alpha=0.6, label='Recharge')
+    ax2.set_ylabel('Recharge [mm/month]')
+    ax2.set_ylim(0, Rmod.max() * 3) # On laisse de la place en bas
+    ax2.invert_yaxis() # Pluie qui tombe du haut
+    ax2.legend(loc='upper right')
+
+    # Formatage dates
+    ax1.xaxis.set_major_locator(mdates.YearLocator())
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+
+    plt.title(model_name.upper())
+    plt.tight_layout()
+    return fig, ax1
+
+from hydromodpy.viz import visualization_results, export_vtuvtk
+
+def run_full_visualizations2D_3D(initializing, geographic, hydrography, model_name,
+                             run_2d=True, run_3d=True, export_vtk=False):
+    """Exécute les modules de visualisation standard de HydromodPy."""
+
+    # 1. Export VTK (pour Paraview)
+    if export_vtk:
+        print(f"Exporting VTK for {model_name}...")
+        export_vtuvtk.VTK(initializing, geographic, hydrography, model_name)
+
+    visu = visualization_results.Visualization(initializing, geographic, hydrography, model_name)
+
+    # 2. Visualisation 2D
+    if run_2d:
+        print(f"Generating 2D Visuals for {model_name}...")
+        obj_list = ['map', 'grid', 'watertable', 'watertable_depth',
+                    'drain_flow', 'surface_flow', 'pathlines', 'residence_times']
+        scales = [(None,None)] * 6 + [(0,10), (0,10)]
+
+        visu.visual2D(object_list=obj_list, color_scale=scales, lines=1000)
+
+    # 3. Visualisation 3D
+    if run_3d:
+        print(f"Opening 3D Visualizer for {model_name}...")
+        visu.visual3D(interactive=True,
+                      object_list=['grid', 'watertable', 'watertable_depth',
+                                   'surface_flow', 'drain_flow', 'pathlines'],
+                      view='south-west', z_scale=10)
+
+
+def plot_rmodel_pathlines(model_path, geographic, stable_folder, vmin=0.1, vmax=100):
+    """Cartographie des lignes de flux colorées par temps de résidence."""
+    # Chemins
+    path_shp = os.path.join(model_path, '_postprocess', '_particles', 'pathlines_weighted.shp')
+    end_shp = os.path.join(model_path, '_postprocess', '_particles', 'starting_weighted.shp')
+    bound_shp = os.path.join(stable_folder, 'geographic', 'watershed.shp')
+    dem_path = geographic.watershed_box_buff_dem
+
+    # Chargement
+    shp_pathlines = gpd.read_file(path_shp)
+    shp_endpoints = gpd.read_file(end_shp)
+    watershed_boundary = gpd.read_file(bound_shp)
+
+    with rasterio.open(dem_path) as dem_rio:
+        dem_data = dem_rio.read(1)
+        dem_data = np.ma.masked_where(dem_data < 0, dem_data)
+        extent = rasterio.plot.plotting_extent(dem_rio)
+
+    # Setup Couleurs (Log scale)
+    norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
+    cmap = 'jet'
+
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+
+    # 1. DEM en fond (Gris)
+    ax.imshow(dem_data, cmap='Greys', alpha=0.5, extent=extent, zorder=1)
+
+    # 2. Limite bassin
+    watershed_boundary.plot(ax=ax, facecolor='None', edgecolor='black', lw=2, zorder=2)
+
+    # 3. Pathlines
+    shp_pathlines.plot(ax=ax, column='time_win_y', cmap=cmap, norm=norm, lw=1, zorder=3)
+
+    # 4. Points de départ (Seepage)
+    shp_endpoints.plot(ax=ax, column='time_win_y', cmap=cmap, norm=norm,
+                       markersize=15, edgecolor='k', lw=0.5, zorder=4)
+
+    ax.set_title(f'Residence times - {os.path.basename(model_path)}')
+
+    # Colorbar
+    im = cm.ScalarMappable(cmap=cmap, norm=norm)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    plt.colorbar(im, cax=cax, label='Time [years]')
+
+    return fig, ax
+
+
+def plot_streamflow_comparison(geographic,df_obs, model_path, model_name,
+                               xlim=['2002', '2005'], ylim=[-5, 100]):
+    """Compare le débit observé (Qobs) avec les résultats simulés du dossier model_path."""
+
+    sim_path = os.path.join(model_path, '_postprocess/_timeseries/_simulated_timeseries.csv')
+    if not os.path.exists(sim_path):
+        return None
+    area = int(round(geographic.catch_area))
+
+    Qobs_path = data_path / 'Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt'
+    Qobs = pd.read_csv(Qobs_path, sep=';', header=None)
+    date = pd.to_datetime(Qobs[0]+' '+Qobs[1], format="%d/%m/%Y %H:%M:%S")
+    Qobs.index = date
+    Qobs = Qobs[2].to_frame(name="Q")
+    Qobs = Qobs / 1000 # L/d to m3/d
+    Qobs = (Qobs / (area*1000000)) # m3/d to m/day
+    Qobs = Qobs.resample('ME').mean()
+    # Qobs = Qobs.resample('M').sum() * 1000 # m/day to mm/month
+    # Qobs = select_period(Qobs, 2003, 2003)
+    Qobs = Qobs * 30 * 1000
+    # Chargement simulation
+    Smod = pd.read_csv(sim_path, sep=';', index_col=0, parse_dates=True)
+
+    # Calculs (m/day -> mm/month)
+    Rmod = Smod['recharge'] * 30 * 1000
+    rmod = Smod['runoff'] * 30 * 1000
+    Omod = Smod['outflow_drain'] * 30 * 1000
+    Qmod = Omod + rmod
+
+    # Plot
+    fig, ax = plt.subplots(1, 1, figsize=(12, 4), dpi=300)
+
+    ax.plot(df_obs, color='k', lw=2, label='Observed')
+    ax.plot(Qmod, color='red', lw=2, label='Simulated (Outflow+Runoff)')
+    ax.plot(Rmod, color='dodgerblue', lw=2, ls='--', label='Recharge')
+
+    ax.set_xlim(pd.to_datetime(xlim[0]), pd.to_datetime(xlim[1]))
+    ax.set_ylim(ylim)
+    ax.set_ylabel('Q / A [mm/month]')
+    ax.legend()
+    ax.set_title(model_name.upper())
+
+    # Formatage dates
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+
+    plt.tight_layout()
+    return fig, ax
