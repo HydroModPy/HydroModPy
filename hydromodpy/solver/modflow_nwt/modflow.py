@@ -66,13 +66,13 @@ class Modflow(Solver):
         geographic: object,
         flow: object = None,
         domain: object = None,
+        modflow_config: ModflowConfig | Mapping[str, object] | None = None,
         # Worflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default",
         bin_path: str = "bin",
         box: bool = True,
         sink_fill: bool = False,
-        sim_state: str = "steady",
         plot_cross: bool = True,
         cross_ylim: list = [],
         check_grid: bool = True,
@@ -80,12 +80,6 @@ class Modflow(Solver):
         recharge=0.001,
         first_clim: str = "mean",
         dis_perlen: bool = False,
-        # Hydraulic settings
-        nlay: int = 1,
-        lay_decay: float = 1.0,
-        bottom: float = None,
-        thick: float = 100.0,
-        modflow_config: ModflowConfig | Mapping[str, object] | None = None,
         # Well settings
         well_coords: list = [],
         well_fluxes: list = []):
@@ -112,9 +106,6 @@ class Modflow(Solver):
             True if you want run the model on the square area of the watershed. The default is True.
         sink_fill : bool, optional
             If True, package drain is desactivate on pit. The watertable can create lake on pit. The default is False.
-        sim_state : str, optional
-            Fallback simulation state ('steady' or 'transient') when
-            `flow.config.flow_regime` is not available. The default is 'steady'.
         plot_cross : bool, optional
             If True, display a cross section of the model. The default is True.
         check_grid : bool, optional
@@ -126,14 +117,6 @@ class Modflow(Solver):
             If 'first': the first recharge value is the first value of the timeseries.
             If a 'float' : the first recharge is the fixed value.
             The default is 'mean'.
-        nlay : int, optional
-            Number of layer. The default is 1.
-        lay_decay : float, optional
-            Modification of layer thickness for exponentially decreasing whit depth. The default is 1.
-        bottom : float, optional
-            At this elevation, fix a flat no flow boundary at the bottom of the model. The default is None.
-        thick : float, optional
-            Constant aquifer thickness of the the tickness of the model (if bottom is None). The default is 100.
         modflow_config : ModflowConfig | Mapping | None, optional
             Expert MODFLOW-NWT package parameters loaded from
             `[modflow.runtime]`, `[modflow.process_specific]`, and `[modflow.sgrid]` in TOML.
@@ -199,24 +182,9 @@ class Modflow(Solver):
 
         self.recharge = recharge
 
-        self.sim_state = str(sim_state).strip().lower()
-        if self.sim_state not in {"steady", "transient"}:
-            raise ValueError("sim_state must be 'steady' or 'transient'")
         self.flow_regime = self._resolve_flow_regime()
-        if self.flow_regime is not None:
-            self.sim_state = self.flow_regime
         self.first_clim = first_clim
         self.dis_perlen = dis_perlen
-
-        # %% Model parameters
-
-        self.bottom = bottom
-        self.thick = thick
-
-        self.nlay = nlay
-        self.lay_decay = lay_decay
-
-        # %% Specific case implementation
 
         # %% Plot things
 
@@ -385,19 +353,16 @@ class Modflow(Solver):
             )
         builder_kwargs = self.tgrid_config.to_builder_kwargs()
         flow_regime = self._resolve_flow_regime()
-        if flow_regime is not None and flow_regime != str(self.tgrid_config.sim_state):
-            logger.info(
-                "Using flow.flow_regime='%s' instead of modflow.tgrid.sim_state='%s'.",
-                flow_regime,
-                self.tgrid_config.sim_state,
+        if flow_regime is None:
+            raise ValueError(
+                "Missing flow.flow_regime configuration: Modflow temporal setup "
+                "must be driven by [flow].flow_regime."
             )
-        if flow_regime is not None:
-            builder_kwargs["sim_state"] = flow_regime
+        builder_kwargs["flow_regime"] = flow_regime
 
         builder = TMesh_Generation(**builder_kwargs)
         tgrid = builder.run()
         self.flow_regime = flow_regime
-        self.sim_state = str(builder_kwargs.get("sim_state", self.sim_state))
         dis_itmuni = getattr(tgrid, "time_units", self.dis_itmuni)
         dis_nper = int(np.asarray(getattr(tgrid, "perlen", []), dtype=float).size)
         dis_perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
@@ -652,9 +617,9 @@ class Modflow(Solver):
         self.rchData = {}
         for kper in range(0, self.nper):
             if isinstance(self.recharge, (dict)) == True:
-                if self.sim_state == "steady":
+                if self.flow_regime == "steady":
                     self.rchData = sum(self.recharge.values()) / len(self.recharge)
-                if self.sim_state == "transient":
+                if self.flow_regime == "transient":
                     self.rchData = self.recharge
             else:
                 if isinstance(self.recharge, (int, float)):

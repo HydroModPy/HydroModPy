@@ -1,7 +1,7 @@
 """Pydantic configuration model for flow-process definitions.
 
-This module validates and normalizes the `[flow.param.<id>]`, `[flow.ic]` and
-`[flow.bc]` payloads from TOML into dictionaries consumable by `Flow`.
+This module validates and normalizes `[flow]`, `[flow.param.<id>]`, `[flow.ic]`
+and `[flow.bc]` payloads from TOML into dictionaries consumable by `Flow`.
 """
 
 from __future__ import annotations
@@ -9,9 +9,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from hydromodpy.config.param_level import ParamLevel
 from hydromodpy.field.core.field_param_config import (
     resolve_field_param_config_payload,
 )
@@ -24,6 +26,13 @@ class FlowConfig(BaseModel):
     `Sy`, ...) and values are resolved FieldParamConfig payloads.
     """
 
+    flow_regime: Annotated[Literal["steady", "transient"], ParamLevel("user")] = Field(
+        default="transient",
+        description=(
+            "Global flow simulation regime used by solvers consuming [flow] "
+            "(steady or transient)."
+        ),
+    )
     param: dict[str, dict[str, object]] = Field(
         default_factory=dict,
         description=(
@@ -64,6 +73,14 @@ class FlowConfig(BaseModel):
                 )
             out[param_id] = dict(raw_payload)
         return out
+
+    @field_validator("flow_regime", mode="before")
+    @classmethod
+    def _validate_flow_regime(cls, value):
+        text = str(value).strip().lower()
+        if text not in {"steady", "transient"}:
+            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
+        return text
 
     @field_validator("bc", mode="before")
     @classmethod
@@ -128,7 +145,13 @@ class FlowConfig(BaseModel):
         parsed_param = _parse_flow_param_sections(raw_param, base_dir=base_dir)
         parsed_ic = _parse_flow_ic_sections(raw_ic)
         parsed_bc = _parse_flow_bc_sections(raw_bc)
-        return cls(param=parsed_param, ic=parsed_ic, bc=parsed_bc)
+        raw_flow_regime = flow_section.get("flow_regime", "transient")
+        return cls(
+            flow_regime=raw_flow_regime,
+            param=parsed_param,
+            ic=parsed_ic,
+            bc=parsed_bc,
+        )
 
 
 def _parse_flow_param_sections(

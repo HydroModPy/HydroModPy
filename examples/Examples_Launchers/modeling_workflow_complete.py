@@ -77,7 +77,6 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
             # Model settings
             box=settings.box,
             sink_fill=settings.sink_fill,
-            sim_state=settings.sim_state,
             dis_perlen=settings.dis_perlen,
             # Well settings
             well_coords=settings.well_coords,
@@ -90,13 +89,7 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
             sea_level=oceanic.MSL if oceanic else None,
             # Climatic settings
             recharge=climatic.recharge,
-            runoff=climatic.runoff,
             first_clim=climatic.first_clim,
-            # Hydraulic settings
-            bottom=hydraulic.bottom,
-            thick=hydraulic.thick,
-            nlay=hydraulic.nlay,
-            lay_decay=hydraulic.lay_decay,
         )
 
         # Preprocessing
@@ -411,7 +404,7 @@ def complete_mt3dms(geographic, climatic, model_modflow, initializing, model_nam
 # COMPLETE TIMESERIES - Generate timeseries results (postprocessing)
 # ============================================================================
 
-def complete_timeseries(geographic, model_modflow, model_modpath=None, model_mt3dms=None,
+def complete_timeseries(geographic, model_modflow, runoff=None, model_modpath=None, model_mt3dms=None,
                        scenario='s1', config=None):
     """
     Complete TIMESERIES workflow: Generate timeseries results
@@ -449,6 +442,7 @@ def complete_timeseries(geographic, model_modflow, model_modpath=None, model_mt3
         timeseries_results = timeseries.Timeseries(
             geographic,
             model_modflow=model_modflow,
+            runoff=runoff,
             model_modpath=model_modpath,
             model_mt3dms=model_mt3dms,
             suffix_name=suffix_name,

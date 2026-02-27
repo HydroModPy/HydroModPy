@@ -206,7 +206,6 @@ model_modflow = Modflow(BV.geographic,
                         # Model settings
                         box=BV.settings.box,
                         sink_fill=BV.settings.sink_fill,
-                        sim_state=BV.settings.sim_state,
                         dis_perlen=BV.settings.dis_perlen,
                         # Well settings
                         well_coords=BV.settings.well_coords,
@@ -217,18 +216,9 @@ model_modflow = Modflow(BV.geographic,
                         check_grid=BV.settings.check_grid,
                         # Boundary settings
                         sea_level=BV.oceanic.MSL,
-                        bc_left=BV.settings.bc_left,
-                        bc_right=BV.settings.bc_right,
                         # Climatic settings
                         recharge=BV.climatic.recharge,
-                        runoff=BV.climatic.runoff,
                         first_clim=BV.climatic.first_clim,
-                        # Hydraulic settings
-                        bottom=BV.hydraulic.bottom,
-                        thick=BV.hydraulic.thick,
-                        nlay=BV.hydraulic.nlay,
-                        lay_decay=BV.hydraulic.lay_decay,
-                        cond_drain=BV.hydraulic.cond_drain,
                         )
 
 model_modflow.pre_processing()
