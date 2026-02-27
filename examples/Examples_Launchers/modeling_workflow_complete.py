@@ -88,8 +88,6 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
             check_grid=settings.check_grid,
             # Boundary settings
             sea_level=oceanic.MSL if oceanic else None,
-            bc_left=settings.bc_left,
-            bc_right=settings.bc_right,
             # Climatic settings
             recharge=climatic.recharge,
             runoff=climatic.runoff,
@@ -99,7 +97,6 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
             thick=hydraulic.thick,
             nlay=hydraulic.nlay,
             lay_decay=hydraulic.lay_decay,
-            cond_drain=hydraulic.cond_drain,
         )
 
         # Preprocessing

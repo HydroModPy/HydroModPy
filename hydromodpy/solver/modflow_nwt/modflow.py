@@ -38,6 +38,10 @@ from hydromodpy.domain.surface import Surface
 from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.temporal.tmesh_generation import (
+    TMeshConfig,
+    TMesh_Generation,
+)
 from hydromodpy.solver.modflow_nwt.modflow_utils import (
     build_flow_domain_property_snapshot,
 )
@@ -49,7 +53,6 @@ from hydromodpy.solver.modflow_nwt.modflow_config import (
 logger = get_logger(__name__)
 
 import matplotlib as mpl
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # %% CLASS
 
@@ -89,11 +92,7 @@ class Modflow(Solver):
         modflow_config: ModflowConfig | Mapping[str, object] | None = None,
         # Well settings
         well_coords: list = [],
-        well_fluxes: list = [],
-        # Boundary settings
-        cond_drain: float = None,
-        bc_left: float = None,
-        bc_right: float = None):
+        well_fluxes: list = []):
         """
         Initialize method.
 
@@ -150,12 +149,6 @@ class Modflow(Solver):
         wells_fluxes : list
             Inform the fluxes [L3/T] for each stress-periods, for different wells.
             Example for 2 wells and 5 stress-periods: [ [-100,0,-100,0,-100], [-100,0,-100,0,-100] ]
-        cond_drain : float, optional
-            Fix the conductance value of the drai (DRN) package. The default is None.
-        bc_left : float, optional
-            Fix head on the left border of the domain. The default is None.
-        bc_right : float, optional
-            Fix head on the right border of the domain. The default is None.
         """
 
         # %% Initialization paths
@@ -212,10 +205,6 @@ class Modflow(Solver):
         self.nrow = self.dem.shape[0]
         self.ncol = self.dem.shape[1]
 
-        # %% Boundary conditions
-        self.bc_left = bc_left
-        self.bc_right = bc_right
-
         # commented on 2026-02-27: lines do not seem relevant
         # try:
         #     if self.flow.boundary_conditions["ocean"].value == None:
@@ -239,8 +228,6 @@ class Modflow(Solver):
 
         self.nlay = nlay
         self.lay_decay = lay_decay
-
-        self.cond_drain = cond_drain
 
         # %% Specific case implementation
 
@@ -267,6 +254,8 @@ class Modflow(Solver):
         runtime_params = specif_params.runtime
         process_specific_params = specif_params.process_specific
         self.sgrid_params: dict[str, object] | None = specif_params.sgrid
+        self.tgrid_config = specif_params.tgrid
+        self.tgrid = None
 
         self.mf_version = runtime_params.mf_version
         self.mf_listunit = runtime_params.mf_listunit
@@ -304,23 +293,6 @@ class Modflow(Solver):
 
         self.vka = process_specific_params.vka
         self.exdp = process_specific_params.exdp
-
-        # Optional early synchronization from modflow.sgrid overrides.
-        if self.sgrid_params is not None:
-            sgrid_nlay = self.sgrid_params.get("nlay")
-            if sgrid_nlay is not None:
-                self.nlay = int(sgrid_nlay)
-            genmtd_lay = self.sgrid_params.get("genmtd_lay")
-            if genmtd_lay == "decay" and self.sgrid_params.get("lay_decay") is not None:
-                self.lay_decay = float(self.sgrid_params.get("lay_decay"))
-            elif genmtd_lay == "constant":
-                self.lay_decay = 1.0
-            # Backward compatibility for legacy bottom overrides in [modflow.sgrid].
-            if self.sgrid_params.get("thick") is not None:
-                self.bottom = None
-                self.thick = float(self.sgrid_params.get("thick"))
-            if self.sgrid_params.get("zbot") is not None:
-                self.bottom = float(self.sgrid_params.get("zbot"))
 
     # %% PRE-PROCESSING
 
@@ -597,6 +569,34 @@ class Modflow(Solver):
             vertical_config=vertical_cfg,
         )
         self._sync_runtime_grid_from_sgrid(sgrid)
+
+        # Optional temporal discretization from [modflow.tgrid].
+        if self.tgrid_config is not None:
+            tmesh_config = TMeshConfig(**self.tgrid_config.to_builder_kwargs())
+            builder = TMesh_Generation(config=tmesh_config)
+            tgrid = builder.run()
+            self.tgrid = tgrid
+            self.dis_itmuni = getattr(tgrid, "time_units", self.dis_itmuni)
+            self.nper = int(len(np.asarray(getattr(tgrid, "perlen", []), dtype=float)))
+            self.perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
+            self.nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
+            self.steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
+            self.start_datetime = getattr(tgrid, "start_datetime", None)
+
+        if self.tgrid is not None:
+            dis_itmuni = getattr(self.tgrid, "time_units", self.dis_itmuni)
+            dis_nper = int(np.asarray(getattr(self.tgrid, "perlen", []), dtype=float).size)
+            dis_perlen = np.asarray(getattr(self.tgrid, "perlen", []), dtype=float)
+            dis_nstp = np.asarray(getattr(self.tgrid, "nstp", []), dtype=int)
+            dis_steady = np.asarray(getattr(self.tgrid, "steady_state", []), dtype=bool)
+            dis_start_datetime = getattr(self.tgrid, "start_datetime", self.start_datetime)
+        else:
+            dis_itmuni = self.dis_itmuni
+            dis_nper = self.nper
+            dis_perlen = self.perlen
+            dis_nstp = self.nstp
+            dis_steady = self.steady
+            dis_start_datetime = self.start_datetime
         
         # Imposes discretization to modflow model through
         # ---- flopy.modflow.ModflowDis
@@ -614,30 +614,12 @@ class Modflow(Solver):
             xul=sgrid.xoffset,
             yul=sgrid.extent[3],
             # Temporal grid parameters
-            itmuni=self.dis_itmuni,
-            nper=self.nper,
-            perlen=self.perlen,
-            nstp=self.nstp,
-            steady=self.steady,
-            start_datetime=self.start_datetime)
-
-        # self.dis = flopy.modflow.ModflowDis(self.mf,
-        #                                     itmuni=0, # itmuni = 0 ==> undefined
-        #                                     lenuni=2, # itmuni_values = {'days': 4, 'hours': 3, 'minutes': 2, 'seconds': 1, 'undefined': 0, 'years': 5}
-        #                                     nlay=self.nlay,
-        #                                     nrow=self.nrow,
-        #                                     ncol=self.ncol,
-        #                                     delr=self.resolution,
-        #                                     delc=self.resolution,
-        #                                     top=self.dem,
-        #                                     botm=self.zbot,
-        #                                     xul=self.xul,
-        #                                     yul=self.yul,
-        #                                     nper=self.nper,
-        #                                     perlen=self.perlen,
-        #                                     nstp=self.nstp,
-        #                                     steady=self.steady,
-        #                                     start_datetime=self.start_datetime)
+            itmuni=dis_itmuni,
+            nper=dis_nper,
+            perlen=dis_perlen,
+            nstp=dis_nstp,
+            steady=dis_steady,
+            start_datetime=dis_start_datetime)
 
         # %% Boundary conditions
 
