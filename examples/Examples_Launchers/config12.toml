@@ -101,7 +101,8 @@ dem_correc_type = "breach"
 
 [domain]
 # Ordered list of zone identifiers loaded in the domain.
-# Supported values currently include: 'geology'.
+# Supporte
+#d values currently include: 'geology'.
 # Type: list[str] | Default: []
 zone_ids = ["geology"]
 
@@ -136,6 +137,50 @@ cell_samples_per_axis = 8
 # Set to true to enable sea-specific processing.
 # Type: bool (optional) | Optional
 # landsea =
+
+
+# ----------------------------------------------------------------------
+# Hydrometry configuration (new StationSet-based)
+#
+# Notes for local mode:
+# - station loading needs station CSV files in source.local_data_dir
+# - mask loading requires local reference tables:
+#   stations_info.csv (preferred) or metadata.csv with WGS84 coordinates
+#
+# from the Hub'Eau API, replacing the old shapefile-based Hydrometry class.
+# ----------------------------------------------------------------------
+
+[hydrometry_stations]
+variable = "QmnJ"
+display = false
+# Optional date filter (comment out to load all available data):
+# date_start = "2019-01-01"
+# date_end = "2025-12-31"
+
+[hydrometry_stations.source]
+# "api" fetches from Hub'Eau; "local" reads previously exported CSVs
+mode = "api"
+# Used when source.mode = "local":
+# local_data_dir = "hydrometry_exports"
+
+[hydrometry_stations.selection]
+# "mask" = select stations inside a geographic boundary (watershed shapefile)
+# "stations" = explicit list of station IDs
+mode = "mask"
+
+# Used when selection.mode = "stations"
+# station_ids = ["J736422001"]
+
+# Used when selection.mode = "mask"
+# mask_path = "will be dynamically set from Geographic class"
+
+[hydrometry_stations.output]
+# Export loaded data again after loading (filtered subset):
+enabled = true
+path = "../results/example12/results_stable/hydrometry"
+# "lite" -> station CSVs only
+# "full" -> station CSVs + metadata/stations_info/sites_info/missing_data_summary
+export_mode = "lite"
 
 
 # ----------------------------------------------------------------------
@@ -248,7 +293,7 @@ value = 0.02
 # Depth dependency mode shared over the full domain.
 mode = "exponential"
 # Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
-characteristic_depth = 7.5
+characteristic_depth = 30
 # Optional minimum factor floor for exponential mode:
 # factor = max(exp(-depth/characteristic_depth), min_factor)
 min_factor = 5e-2
@@ -303,6 +348,36 @@ mode = "none"
 # factors = [1.0, 0.8, 0.5]
 # Interpolation strategy for tabulated mode: "linear" or "step".
 # interpolation = "linear"
+
+
+# ----------------------------------------------------------------------
+# Flow boundary conditions (Robin / DRN)
+# ----------------------------------------------------------------------
+
+[flow.bc.robin.drainage]
+# Domain of application on the model domain boundaries/surfaces.
+# Allowed values: "top", "north side", "west side", "east side", "south side".
+application_domain = "top"
+# Boundary-condition type.
+type = "robin"
+# Robin/DRN value (conductance-like coefficient).
+value = 1.0
+
+[flow.bc.dirichlet.ocean]
+application_domain = "top"
+#Boundary-condition type.
+type = "dirichlet"
+#Robin/DRN value (conductance-like coefficient).
+value = 1.0
+data_value = true  # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
+
+[flow.bc.dirichlet.stream]
+application_domain = "top"
+# Boundary-condition type.
+type = "dirichlet"
+# Robin/DRN value (conductance-like coefficient).
+value = 1.0
+
 
 
 # ----------------------------------------------------------------------

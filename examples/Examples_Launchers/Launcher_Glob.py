@@ -28,6 +28,8 @@ from itertools import islice
 from PIL import Image
 import base64
 from io import BytesIO
+import plot_ex12
+
 
 try:
     import flopy.utils.binaryfile as bf
@@ -195,7 +197,7 @@ CONFIG_OPTIONS = {
             "plot_animation_interactive": False
         },
         "plots": {
-            "recharge_runoff": True,
+            "plot_recharge_summary": True,
             "streamflow": True,
             "piezometry": True,
             "cross_section": True,
@@ -1675,10 +1677,18 @@ def recharge(results):
             climatic_object.update_runoff(None, sim_state=p["sim_state"])
             first_clim= p.get("first_clim")
             climatic_object.update_first_clim(first_clim)
+            R_mm_day_filt= select_period(climatic_object.recharge,time_index)*0
+            R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
+            R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
+            R_mm_day_filt[R_mm_day_filt.index.month.isin([7])] = -1
+             # plt.plot(R_mm_day_filt)
+
+            R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
 
             results['R_mm_day'] = climatic_object.recharge
             results['runoff'] = climatic_object.runoff
             results['climatic'] = climatic_object
+            results['R_mm_day_filt'] = R_mm_day_filt
             print("Recharge and runoff created\n")
             return results
 
@@ -1706,10 +1716,18 @@ def recharge(results):
         )
 
         print("Recharge and runoff loaded\n")
+        R_mm_day_filt= select_period(climatic_object.recharge,p["recharge_first_year"],p["recharge_last_year"])*0
+        R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
+        R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
+        R_mm_day_filt[R_mm_day_filt.index.month.isin([7])] = -1
+             # plt.plot(R_mm_day_filt)
+
+        R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
 
         results['R_mm_day'] = climatic_object.recharge
-        results['runoff'] = climatic_object.runoff
+        results['r_mm_day'] = climatic_object.runoff
         results['climatic'] = climatic_object
+        results['R_mm_day_filt'] = R_mm_day_filt
 
         return results
 
@@ -2421,7 +2439,7 @@ def ex12_matching_streams(results):
         iteration_label = model_name
         print(f" Creating MatchingStreams instance with iteration_label: {iteration_label}")
 
-        matching_streams_obj = MatchingStreamsCalib(
+        matching_streams_obj = MatchingStreams(
             geographic=geographic,
             hydrography=hydrography,
             initializing=initializing,
@@ -2443,13 +2461,11 @@ def ex12_matching_streams(results):
         traceback.print_exc()
         results['success_matching_streams'] = False
         return results
-
-
 # ============================================================================
 # WORKFLOW VALIDATION
 # ============================================================================
 
-WORKFLOW_DEFINITION = {
+WORKFLOW_DEFINITION = WORKFLOW_DEFINITION = {
     "ex12": [
         {
             "step": 1,
@@ -2474,55 +2490,71 @@ WORKFLOW_DEFINITION = {
         },
         {
             "step": 4,
+            "section":"plot",
+            "function":"plot_ex12.py functions: plot_recharge_summary",
+            "requires":[],
+            "provides":"Recharge_visualisation"
+            },
+        {
+            "step": 5,
             "section": "parametrization",
             "function": "parametrization()",
             "requires": [ "climatic"],
             "provides": ["settings", "hydraulic_params"]
         },
         {
-            "step": 5,
+            "step": 7,
             "section": "modeling",
             "function": "modeling()",
             "requires": [ "settings", "hydraulic_params"],
             "provides": ["model_name", "success_modflow", "model_modflow"]
         },
-        {
-            "step": 6,
+         {
+            "step": 8,
             "section": "matching_streams",
             "function": "ex12_matching_streams()",
             "requires": ["model_name", "model_modflow"],
             "provides": ["matching_streams"]
         },
         {
-            "step": 7,
+            "step": 9,
+            "section":"plot",
+            "function":"plot_ex12.py functions: plot_cross_section(),plot_streamflow(),plot_piezometry()",
+            "requires":[],
+            "provides":"Cross_section_visualisation"
+            },
+
+        {
+            "step": 10,
             "section": "modpath",
-            "function": "ex12_modpath()",
-            "requires": [ "model_modflow", "success_modflow"],
+            "function": "modpath_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
             "provides": ["model_modpath", "success_modpath"]
         },
         {
-            "step": 8,
-            "section": "mt3dms",
-            "function": "ex12_mt3dms()",
-            "requires": ["model_modflow", "success_modflow"],
-            "provides": ["model_mt3dms", "success_mt3dms"]
-        },
-        {
-            "step": 9,
+            "step": 12,
             "section": "plot",
-            "function": "plot.py functions: plot_recharge_runoff, plot_streamflow, plot_piezometry, plot_cross_section, plot_pathlines, plot_concentration",
+            "function": "plot_ex12.py functions:plot_pathlines,plot_2d(),plot_3d()",
             "requires": ["model_name", "success_modflow"],
             "provides": ["visualizations"]
         },
         {
-            "step": 10,
-            "section": "plot_animation_interactive",
-            "function": "ex12_plot_web_animation()",
-            "requires": ["model_name", "simulations_folder", "model_modflow"],
-            "provides": ["interactive_web_animation"]
+            "step": 13,
+            "section": "mt3dms",
+            "function": "mt3dms_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
+            "provides": ["model_mt3dms", "success_mt3dms"]
+        },
+        {
+            "step": 14,
+            "section": "plot",
+            "function": "plot_ex12.py functions: plot_concentration,interactive_cross_section,plot_web_animation",
+            "requires": ["model_name", "success_modflow"],
+            "provides": ["visualizations"]
         }
     ],
-      "ex09": [
+
+    "ex09": [
         {
             "step": 1,
             "section": "watershed",
@@ -2561,21 +2593,21 @@ WORKFLOW_DEFINITION = {
         {
             "step": 6,
             "section": "matching_streams",
-            "function": "ex12_matching_streams()",
+            "function": "matching_streams_ex12()",
             "requires": ["model_name", "model_modflow"],
             "provides": ["matching_streams"]
         },
         {
             "step": 7,
             "section": "modpath",
-            "function": "ex12_modpath()",
-            "requires": ["BV", "model_modflow", "success_modflow"],
+            "function": "modpath_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
             "provides": ["model_modpath", "success_modpath"]
         },
         {
             "step": 8,
             "section": "mt3dms",
-            "function": "ex12_mt3dms()",
+            "function": "mt3dms_ex12()",
             "requires": ["model_modflow", "success_modflow"],
             "provides": ["model_mt3dms", "success_mt3dms"]
         },
@@ -2836,8 +2868,6 @@ WORKFLOW_DEFINITION = {
 }
 
 
-
-
 def print_workflow_definition():
     config = CONFIG
     example_key = config["example"]
@@ -2853,7 +2883,21 @@ def print_workflow_definition():
         print(f"Requiert: {', '.join(step['requires']) if step['requires'] else 'Rien'}")
         print(f" Fournit: {', '.join(step['provides'])}")
 
+def validate_results_state(results, expected_keys, step_name=""):
+    """Validate that results dict contains expected keys"""
+    if results is None:
+        print(f"\n VALIDATION ERROR at {step_name}: results dict is None!")
+        return False
 
+    missing = [key for key in expected_keys if key not in results]
+
+    if missing:
+        print(f"\n VALIDATION ERROR at {step_name}:")
+        print(f" Missing keys: {missing}")
+        print(f" Available keys: {list(results.keys())}")
+        return False
+
+    return True
 def trace_workflow_execution(sections):
     """Trace et valide l'ordre d'exécution"""
     print("\n" + "="*70)
@@ -2946,244 +2990,136 @@ FUNCTION_MAPPING = {
 
 
 def main():
-    """Main execution orchestrator using WORKFLOW_DEFINITION"""
+    """Main execution orchestrator optimized for examples workflow"""
+    # --- AJOUT CRITIQUE : Ajoute le dossier actuel au chemin de recherche Python ---
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
     config = CONFIG
     example_key = config["example"]
     sections = config.get("sections", {})
     workflow = WORKFLOW_DEFINITION.get(example_key, [])
 
-    print("\n" + "="*70)
-    print(f"HYDROMODPY - EXAMPLE {example_key.upper()} LAUNCHER".center(70))
-    print("="*70)
-    print(f"\nEnabled sections: {[s for s, v in sections.items() if v]}\n")
+    # 1. Affichage de la définition et Trace du plan d'exécution
+    print_workflow_definition()
+    is_valid, enabled_steps = trace_workflow_execution(sections)
 
-    results = {'success_modflow': False, 'success_modpath': False, 'success_mt3dms': False}
-    step_counter = 1
+    if not is_valid:
+        print("\n[ERREUR] Le workflow contient des erreurs de dépendances. Arrêt.")
+        return None
 
-    # Execute workflow steps defined in WORKFLOW_DEFINITION
-    for step in workflow:
-        section = step["section"]
-        function_name = step["function"]
+    results = {
+        'success_modflow': False,
+        'success_modpath': False,
+        'success_mt3dms': False,
+        'example_key': example_key
+    }
 
-        # Check if section is enabled in CONFIG
-        if not sections.get(section):
+    # 2. Exécution dynamique des étapes
+    for step_cfg in enabled_steps:
+        step_idx = step_cfg["step"]
+        section = step_cfg["section"]
+        func_name = step_cfg["function"]
+        requires = step_cfg["requires"]
+        provides = step_cfg["provides"]
+
+        print(f"\n" + "-"*50)
+        print(f"[STEP {step_idx}] Section: {section.upper()}")
+        print(f"Executing: {func_name}")
+        print("-"*50)
+
+        # Gestion des dépendances critiques (MODFLOW)
+        if section in ["matching_streams", "modpath", "mt3dms", "plot"] and not results.get('success_modflow'):
+            print(f"Skipping {section}: Requires successful MODFLOW execution.")
             continue
 
-        # Check dependencies
-        if section in ["matching_streams", "modpath", "mt3dms"] and not results.get('success_modflow'):
-            print(f"\n[STEP {step_counter}]Skipping {section} (MODFLOW failed)")
-            step_counter += 1
-            continue
+        # --- CAS 1 : Sections de calcul standard ---
+        if section not in ["plots", "plot"]:
+            func = FUNCTION_MAPPING.get(section)
+            if func is None:
+                print(f"Critical Error: Function mapping missing for {section}")
+                continue
 
-        print(f"\n[STEP {step_counter}] Executing: {function_name}")
-
-        # Get function from mapping
-        func = FUNCTION_MAPPING.get(section)
-        if func is None:
-            print(f" Function not found for section {section}")
-            step_counter += 1
-            continue
-
-        # Watershed is special - takes example_key, others take results
-        if section == "watershed":
-            results_temp = func(example_key)
-            if results_temp:
-                results.update(results_temp)
+            # Appel spécial pour watershed (souvent le point d'entrée)
+            if section == "watershed":
+                res_step = func(example_key)
             else:
-                print("Watershed extraction failed. Stopping.")
-                return None
+                res_step = func(results)
+
+            # Mise à jour des résultats
+            if isinstance(res_step, dict):
+                results.update(res_step)
+
+            # Validation des sorties attendues
+            validate_results_state(results, provides if isinstance(provides, list) else [provides], section)
+
+        # --- CAS 2 : Sections de PLOTS (Dynamique) ---
         else:
-            if results:
-                results = func(results)
-
-        step_counter += 1
-
-    # Additional processing steps (not in WORKFLOW_DEFINITION)
-    # STEP: PREPARE CONCENTRATION DATA (for plotting)
-    if results and results.get('success_mt3dms'):
-        print(f"\n[STEP {step_counter}] Executing: ex12_prepare_concentration_data()")
-        results = ex12_prepare_concentration_data(results)
-        step_counter += 1
-
-    # STEP: TIMESERIES - MODFLOW ONLY (first generation: MODFLOW without transport)
-    if results and results.get('success_modflow') and sections.get("modeling"):
-        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_modflow()")
-        results = ex12_postprocessing_timeseries_modflow(results)
-        step_counter += 1
-
-    # STEP: TIMESERIES - COMPLETE (second generation: MODFLOW with MT3DMS, only if transport enabled and successful)
-    if results and results.get('success_modflow') and sections.get("mt3dms") and results.get('success_mt3dms'):
-        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_complete()")
-        results = ex12_postprocessing_timeseries_complete(results)
-        step_counter += 1
-
-    # STEP 10: Plotting - EX12/EX09 only (use monolithic plot_ex12 module)
-    plots_config = CONFIG.get("plots", {})
-    example_key = results.get('example_key', CONFIG["example"]) if results else CONFIG["example"]
-
-    # Only use monolithic plot block for ex12 and ex09
-    if example_key in ["ex12", "ex09"] and results and sections.get("plot") and any(plots_config.values()):
-        print(f"\n[STEP {step_counter}] Executing: Plots")
-        print("\n" + "="*70)
-        print(f"{example_key} - PLOTTING".center(70))
-        print("="*70)
-
-        if results.get('success_modflow'):
-            # Import plot_ex12 functions with fallback
+            # Import dynamique des fonctions de plot_ex12
             try:
-                from plot_ex12 import (plot_cross_section, plot_streamflow, plot_piezometry,
-                                       plot_pathlines, plot_concentration, plot_2d, plot_3d,
-                                       plot_interactive_cross_section, plot_web_animation)
-            except (ModuleNotFoundError, ImportError):
-                # Fallback: Create dummy functions for test environment
-                import importlib.util
-                import sys
-                from pathlib import Path
-
-                def plot_cross_section(*args, **kwargs): pass
-                def plot_streamflow(*args, **kwargs): pass
-                def plot_piezometry(*args, **kwargs): pass
-                def plot_pathlines(*args, **kwargs): pass
-                def plot_concentration(*args, **kwargs): pass
-                def plot_2d(*args, **kwargs): pass
-                def plot_3d(*args, **kwargs): pass
-                def plot_interactive_cross_section(*args, **kwargs): pass
-                def plot_web_animation(*args, **kwargs): pass
-
-            # Get plot parameters from PARAMS based on example
-            example_key = results.get('example_key', CONFIG["example"])
+                import plot_ex12 as pltx
+                # Import forcé depuis le fichier local
+                importlib.reload(pltx)
+            except ImportError as e:
+                print(f"ERREUR : Impossible d'importer 'plot_ex12.py' même s'il est présent : {e}")
+                print(f"Répertoire de recherche : {current_dir}")
+                continue
+            # Récupération des paramètres de plot
             plot_params = PARAMS.get(example_key, {}).get("plot_params", {})
-
-            # Extract parameters with defaults
             factor = plot_params.get("factor", 30)
             vers = 'TRANS1'
 
-            # Plot cross-section
-            if plots_config.get("cross_section", True):
-                print("Plotting cross-section")
-                plot_cross_section(results.get('geographic'),
-                                 results.get('stable_folder'),
-                                 results.get('simulations_folder'),
-                                 results.get('model_name'))
+            # Dispatcher de fonctions de plot selon le workflow
+            if "plot_recharge_summary" in func_name:
+                pltx.plot_recharge_summary(results.get("R_mm_day"),results.get("r_mm_day"),results.get("R_mm_day_filt")) # Adapte selon la signature réelle
 
-            # Plot streamflow
-            if plots_config.get("streamflow", True):
-                print("Plotting streamflow")
-                plot_streamflow(results.get('geographic'),
-                              results.get('data_path'),
-                              results.get('simulations_folder'),
-                              vers,
-                              factor=factor)
+            if "plot_cross_section" in func_name:
+                pltx.plot_cross_section(results.get("stable_folder"),results.get("simulation_folder")
+                                        ,results.get("model_name"),results.get("geographic"))
+            if "plot_streamflow" in func_name:
+                pltx.plot_streamflow(results.get('geographic'), results.get('data_path'),
+                                    results.get('simulations_folder'), vers, factor=factor)
 
-            # Plot piezometry
-            if plots_config.get("piezometry", True):
-                print("Plotting piezometry")
-                plot_piezometry(results.get('geographic'),
-                              results.get('simulations_folder'),
-                              vers,
-                              factor=factor)
+            if "plot_piezometry" in func_name:
+                pltx.plot_piezometry(results.get('geographic'), results.get('simulations_folder'),
+                                    vers, factor=factor)
 
-            # Plot pathlines
-            if plots_config.get("pathlines", True):
-                print(" Plotting pathlines")
-                plot_pathlines(results.get('geographic'),
-                             results.get('stable_folder'),
-                             results.get('simulations_folder'),
-                             results.get('model_name'))
+            if "plot_pathlines" in func_name:
+                pltx.plot_pathlines(results.get('simulations_folder'), results.get('model_name')
+                                    , results.get('stable_folder'),results.get('geographic')
+                                    )
 
-            # Plot concentration
-            if plots_config.get("concentration", True) and results.get('concobj_1c_fil_surf') is not None:
-                print("Plotting concentration")
-                plot_concentration(results.get('geographic'),
-                                 results.get('hydrography'),
-                                 results.get('stable_folder'),
-                                 results.get('simulations_folder'),
-                                 results.get('model_name'),
-                                 results.get('model_modflow'),
-                                 results.get('model_mt3dms'),
-                                 results.get('R_mm_day'),
-                                 vers=vers,
-                                 factor=factor)
+            if "plot_concentration" in func_name and results.get('success_mt3dms'):
+                pltx.plot_concentration(results.get('geographic'), results.get('hydrography'),
+                                      results.get('stable_folder'), results.get('simulations_folder'),
+                                      results.get('model_name'), results.get('model_modflow'),
+                                      results.get('model_mt3dms'), results.get('R_mm_day'),
+                                      vers=vers, factor=factor)
+            if "interactive_cross_section" in func_name and result.get('sucess_mt3dms'):
+                pltx.plot_interactive_section(results.get["stable_folder",results.get("simulation_folder")
+                                                     ,results.get("model_name")], results.get("intializing"),results.get("geographic"),results.get("hydrography"))
 
-            # Plot 2D
-            if plots_config.get("plot_2d", False):
-                print("Plotting 2D visualization")
-                plot_2d(results.get('initializing'),
-                       results.get('geographic'),
-                       results.get('hydrography'),
-                       results.get('model_name'))
+            if "plot_web_animation" in func_name and results.get('success_modflow'):
+                try:
+                    pltx.plot_web_animation(results.get('simulations_folder'),
+                                          vers=vers)
+                except Exception as e:
+                    print(f"Web animation failed: {e}")
 
-            # Plot 3D
-            if plots_config.get("plot_3d", False):
-                print(" Plotting 3D visualization")
-                plot_3d(results.get('initializing'),
-                       results.get('geographic'),
-                       results.get('hydrography'),
-                       results.get('model_name'))
+    # 3. Post-processing final (si nécessaire, hors workflow standard)
+    if results.get('success_mt3dms'):
+        print(f"\n[FINAL] Prepare concentration data")
+        results = ex12_prepare_concentration_data(results)
 
-            # Plot interactive cross-section
-            if plots_config.get("interactive_cross_section", True):
-                print("Plotting interactive cross-section")
-                plot_interactive_cross_section(results.get('initializing'),
-                                             results.get('geographic'),
-                                             results.get('hydrography'),
-                                             results.get('stable_folder'),
-                                             results.get('simulations_folder'),
-                                             results.get('model_name'))
-        else:
-            print("Skipping plots (MODFLOW failed)")
-
-        print("\n All requested plots completed\n")
-        step_counter += 1
-
-    # STEP 11: Web animation
-    plots_config = CONFIG.get("plots", {})
-    if results and plots_config.get("web_animation", False) and results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] Executing: Web animation")
-        # Import plot_web_animation with fallback
-        try:
-            from plot import plot_web_animation
-        except (ModuleNotFoundError, ImportError):
-            # Fallback: Create dummy function for test environment
-            def plot_web_animation(*args, **kwargs): pass
-        try:
-            plot_web_animation(results.get('simulations_folder'),
-                             results.get('model_name'),
-                             vers='TRANS1', figsize=(1600, 900))
-        except FileNotFoundError as e:
-            print(f"Web animation skipped: {e}")
-        step_counter += 1
-    elif plots_config.get("web_animation", False) and not results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] ⚠ Skipping animation (MODFLOW failed)")
-        step_counter += 1
-
-    # Final summary
+    # Résumé Final
     print("\n" + "="*70)
-    print("EXECUTION COMPLETED".center(70))
+    print("EXECUTION SUMMARY".center(70))
     print("="*70)
-
-    if results:
-        print(f"\n  Final results keys: {sorted(results.keys())}\n")
-        print("  Execution summary:")
-        if results.get('success_modflow'):
-            print(f"MODFLOW: {results.get('model_name', 'Success')}")
-        else:
-            print(" MODFLOW: Failed")
-
-        if results.get('success_modpath'):
-            print(f"MODPATH: Success")
-        else:
-            print("MODPATH: Skipped/Failed")
-
-        if results.get('success_mt3dms'):
-            print(f"MT3DMS: Success")
-        else:
-            print("MT3DMS: Skipped/Failed")
-        print()
+    for key in ['success_modflow', 'success_modpath', 'success_mt3dms']:
+        status = "SUCCESS" if results.get(key) else " FAILED/SKIPPED"
+        print(f"{key.upper():20}: {status}")
 
     return results
-
-
 # ============================================================================
 # EXPORTABLE FUNCTION FOR TESTS - Run Launcher_Glob with specified example
 # ============================================================================
