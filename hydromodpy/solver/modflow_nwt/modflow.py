@@ -305,22 +305,6 @@ class Modflow(Solver):
         self.vka = process_specific_params.vka
         self.exdp = process_specific_params.exdp
 
-        # Optional early synchronization from modflow.sgrid overrides.
-        if self.sgrid_params is not None:
-            sgrid_nlay = self.sgrid_params.get("nlay")
-            if sgrid_nlay is not None:
-                self.nlay = int(sgrid_nlay)
-            genmtd_lay = self.sgrid_params.get("genmtd_lay")
-            if genmtd_lay == "decay" and self.sgrid_params.get("lay_decay") is not None:
-                self.lay_decay = float(self.sgrid_params.get("lay_decay"))
-            elif genmtd_lay == "constant":
-                self.lay_decay = 1.0
-            # Backward compatibility for legacy bottom overrides in [modflow.sgrid].
-            if self.sgrid_params.get("thick") is not None:
-                self.bottom = None
-                self.thick = float(self.sgrid_params.get("thick"))
-            if self.sgrid_params.get("zbot") is not None:
-                self.bottom = float(self.sgrid_params.get("zbot"))
 
     # %% PRE-PROCESSING
 
