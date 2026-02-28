@@ -33,7 +33,7 @@ class _FakeTMeshGeneration:
 
     def run(self):
         genmtd = str(self.kwargs.get("genmtd", "synthetic_regular"))
-        sim_state = str(self.kwargs.get("sim_state", "steady"))
+        flow_regime = str(self.kwargs.get("flow_regime", "transient"))
         firstpersteady = bool(self.kwargs.get("firstpersteady", True))
 
         if genmtd == "from_chron":
@@ -68,7 +68,7 @@ class _FakeTMeshGeneration:
         totim = np.cumsum(perlen).astype(float)
         datetimes = [start_datetime + pd.to_timedelta(float(t), unit="D") for t in totim]
 
-        if sim_state == "steady":
+        if flow_regime == "steady":
             steady = np.ones(nper_actual, dtype=bool)
         else:
             steady = np.zeros(nper_actual, dtype=bool)
@@ -99,7 +99,7 @@ def test_load_tmesh_cases_toml_resolves_relative_paths(tmp_path: Path):
         "[[case.scenarios]]\n"
         "id = \"chron_case\"\n"
         "genmtd = \"from_chron\"\n"
-        "sim_state = \"transient\"\n"
+        "flow_regime = \"transient\"\n"
         "chron_path = \"chron.csv\"\n"
         "chron_dateformat = \"%d/%m/%Y\"\n"
         "chron_colsep = \"\\t\"\n"
@@ -135,13 +135,13 @@ def test_run_tmesh_cases_from_toml_builds_summaries_and_writes_json(tmp_path: Pa
         "output_figures_dir = \"outputs/figures\"\n"
         "[[case.scenarios]]\n"
         "id = \"steady_synth\"\n"
-        "sim_state = \"steady\"\n"
+        "flow_regime = \"steady\"\n"
         "genmtd = \"synthetic_regular\"\n"
         "nper = 3\n"
         "lenper = 2\n"
         "[[case.scenarios]]\n"
         "id = \"chron_trans\"\n"
-        "sim_state = \"transient\"\n"
+        "flow_regime = \"transient\"\n"
         "genmtd = \"from_chron\"\n"
         "chron_path = \"chron.csv\"\n"
         "chron_dateformat = \"%d/%m/%Y\"\n"

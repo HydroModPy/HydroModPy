@@ -35,7 +35,7 @@ class TMeshConfigModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     itmuni: str = "d"
-    sim_state: Literal["steady", "transient"] = "steady"
+    flow_regime: Literal["steady", "transient"] = "transient"
     genmtd: Literal["synthetic_regular", "from_chron"] = "synthetic_regular"
     nper: int = 1
     lenper: float | int | None = 1

@@ -1,7 +1,8 @@
 """Pydantic configuration model for flow-process definitions.
 
-This module validates and normalizes the `[flow.param.<id>]`, `[flow.ic]` and
-`[flow.bc]` payloads from TOML into dictionaries consumable by `Flow`.
+This module validates and normalizes `[flow]`, `[flow.param.<id>]`, `[flow.ic]`,
+`[flow.bc]`, and `[flow.sinks_sources]` payloads from TOML into objects
+consumable by `Flow`.
 """
 
 from __future__ import annotations
@@ -9,12 +10,105 @@ from __future__ import annotations
 from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from hydromodpy.config.param_level import ParamLevel
 from hydromodpy.field.core.field_param_config import (
     resolve_field_param_config_payload,
 )
+
+
+class FlowWellConfig(BaseModel):
+    """Typed payload for one well source/sink definition."""
+
+    cell: tuple[int, int, int] = Field(
+        ...,
+        description="Cell indices as [lay, row, col] (0-based).",
+    )
+    flux: float | list[float] = Field(
+        ...,
+        description=(
+            "Well rate [L3/T]. Scalar for constant rate, or one value per stress period."
+        ),
+    )
+    units: str = Field(default="m3/s", description="Units of flux values.")
+    description: str = Field(default="", description="Optional well description.")
+
+    @field_validator("cell", mode="before")
+    @classmethod
+    def _validate_cell(cls, value):
+        if isinstance(value, Mapping):
+            try:
+                raw_seq = [value["lay"], value["row"], value["col"]]
+            except KeyError as exc:
+                raise ValueError("well.cell mapping must define lay, row, and col") from exc
+        elif isinstance(value, (list, tuple)):
+            raw_seq = list(value)
+        else:
+            raise TypeError("well.cell must be a mapping or a 3-item list [lay, row, col]")
+
+        if len(raw_seq) != 3:
+            raise ValueError("well.cell must contain exactly 3 values: [lay, row, col]")
+
+        parsed: list[int] = []
+        for axis, raw_item in zip(("lay", "row", "col"), raw_seq):
+            if isinstance(raw_item, bool):
+                raise TypeError(f"well.cell.{axis} must be an integer")
+            if isinstance(raw_item, Real):
+                numeric = float(raw_item)
+                if not numeric.is_integer():
+                    raise TypeError(f"well.cell.{axis} must be an integer")
+                index_value = int(numeric)
+            else:
+                raise TypeError(f"well.cell.{axis} must be an integer")
+            if index_value < 0:
+                raise ValueError(f"well.cell.{axis} must be >= 0")
+            parsed.append(index_value)
+        return tuple(parsed)
+
+    @field_validator("flux", mode="before")
+    @classmethod
+    def _validate_flux(cls, value):
+        if isinstance(value, bool):
+            raise TypeError("well.flux must be numeric or a list of numeric values")
+        if isinstance(value, Real):
+            return float(value)
+        if isinstance(value, (list, tuple)):
+            if len(value) == 0:
+                raise ValueError("well.flux list cannot be empty")
+            parsed: list[float] = []
+            for idx, raw_item in enumerate(value):
+                if isinstance(raw_item, bool) or not isinstance(raw_item, Real):
+                    raise TypeError(f"well.flux[{idx}] must be numeric")
+                parsed.append(float(raw_item))
+            return parsed
+        raise TypeError("well.flux must be numeric or a list of numeric values")
+
+
+class FlowSinksSourcesConfig(BaseModel):
+    """Typed container for sinks/sources handled by Flow."""
+
+    wells: dict[str, FlowWellConfig] = Field(
+        default_factory=dict,
+        description="Mapping of well ids to typed well payloads.",
+    )
+
+    @field_validator("wells", mode="before")
+    @classmethod
+    def _validate_wells(cls, value):
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.sinks_sources.wells must be a mapping payload")
+        out: dict[str, object] = {}
+        for raw_key, raw_payload in value.items():
+            well_id = str(raw_key).strip()
+            if well_id == "":
+                raise ValueError("flow.sinks_sources.wells cannot contain empty well ids")
+            out[well_id] = raw_payload
+        return out
 
 
 class FlowConfig(BaseModel):
@@ -24,6 +118,13 @@ class FlowConfig(BaseModel):
     `Sy`, ...) and values are resolved FieldParamConfig payloads.
     """
 
+    flow_regime: Annotated[Literal["steady", "transient"], ParamLevel("user")] = Field(
+        default="transient",
+        description=(
+            "Global flow simulation regime used by solvers consuming [flow] "
+            "(steady or transient)."
+        ),
+    )
     param: dict[str, dict[str, object]] = Field(
         default_factory=dict,
         description=(
@@ -43,6 +144,10 @@ class FlowConfig(BaseModel):
     ic: dict[str, dict[str, object]] = Field(
         default_factory=dict,
         description="Mapping of flow initial-condition payloads.",
+    )
+    sinks_sources: FlowSinksSourcesConfig = Field(
+        default_factory=FlowSinksSourcesConfig,
+        description="Typed sinks/sources payload (for example pumping wells).",
     )
 
     @field_validator("param", mode="before")
@@ -64,6 +169,14 @@ class FlowConfig(BaseModel):
                 )
             out[param_id] = dict(raw_payload)
         return out
+
+    @field_validator("flow_regime", mode="before")
+    @classmethod
+    def _validate_flow_regime(cls, value):
+        text = str(value).strip().lower()
+        if text not in {"steady", "transient"}:
+            raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
+        return text
 
     @field_validator("bc", mode="before")
     @classmethod
@@ -93,6 +206,17 @@ class FlowConfig(BaseModel):
                 )
             out[ic_id] = dict(raw_payload)
         return out
+
+    @field_validator("sinks_sources", mode="before")
+    @classmethod
+    def _validate_sinks_sources(cls, value):
+        if value is None:
+            return {}
+        if isinstance(value, FlowSinksSourcesConfig):
+            return value
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.sinks_sources must be a mapping payload")
+        return dict(value)
 
     @classmethod
     def from_toml_section(
@@ -125,10 +249,26 @@ class FlowConfig(BaseModel):
         if not isinstance(raw_ic, Mapping):
             raise ValueError("TOML section 'flow.ic' must be a mapping when provided")
 
+        raw_sinks_sources = flow_section.get("sinks_sources", {})
+        if raw_sinks_sources is None:
+            raw_sinks_sources = {}
+        if not isinstance(raw_sinks_sources, Mapping):
+            raise ValueError(
+                "TOML section 'flow.sinks_sources' must be a mapping when provided"
+            )
+
         parsed_param = _parse_flow_param_sections(raw_param, base_dir=base_dir)
         parsed_ic = _parse_flow_ic_sections(raw_ic)
         parsed_bc = _parse_flow_bc_sections(raw_bc)
-        return cls(param=parsed_param, ic=parsed_ic, bc=parsed_bc)
+        parsed_sinks_sources = _parse_flow_sinks_sources_sections(raw_sinks_sources)
+        raw_flow_regime = flow_section.get("flow_regime", "transient")
+        return cls(
+            flow_regime=raw_flow_regime,
+            param=parsed_param,
+            ic=parsed_ic,
+            bc=parsed_bc,
+            sinks_sources=parsed_sinks_sources,
+        )
 
 
 def _parse_flow_param_sections(
@@ -334,4 +474,31 @@ def _parse_flow_ic_sections(ic_cfg: Mapping[str, object]) -> dict[str, dict[str,
         payload_dict["value"] = value
         parsed[ic_id] = payload_dict
 
+    return parsed
+
+
+def _parse_flow_sinks_sources_sections(
+    sinks_sources_cfg: Mapping[str, object],
+) -> dict[str, object]:
+    """Parse and normalize `[flow.sinks_sources]` entries."""
+    parsed: dict[str, object] = {}
+
+    raw_wells = sinks_sources_cfg.get("wells", {})
+    if raw_wells is None:
+        raw_wells = {}
+    if not isinstance(raw_wells, Mapping):
+        raise ValueError("flow.sinks_sources.wells must be a mapping when provided")
+
+    parsed_wells: dict[str, dict[str, object]] = {}
+    for raw_key, raw_payload in raw_wells.items():
+        well_id = str(raw_key).strip()
+        if well_id == "":
+            raise ValueError("flow.sinks_sources.wells cannot contain empty well ids")
+        if not isinstance(raw_payload, Mapping):
+            raise ValueError(
+                f"flow.sinks_sources.wells.{well_id} must be a mapping payload"
+            )
+        parsed_wells[well_id] = dict(raw_payload)
+
+    parsed["wells"] = parsed_wells
     return parsed
