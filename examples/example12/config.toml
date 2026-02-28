@@ -1,6 +1,6 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: expert | Modules: workspace, geographic, domain, data, flow, modflow
+# Profile: expert | Modules: workspace, geographic, domain, data, flow, transport, modflow
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
 # ======================================================================
@@ -510,6 +510,58 @@ cell = [0, 64, 64]
 # Pumping/injection rates per stress period [L3/T].
 flux = [0.0, -1000.0, 0.0, -500.0, 0.0, 0.0, -500.0, 0.0, 0.0, 0.0, 0.0, -1000.0]
 units = "m3/day"
+
+# ----------------------------------------------------------------------
+# Transport / Modpath particle configuration
+# ----------------------------------------------------------------------
+
+[transport.particle.parameters]
+# Particle injection zone selector:
+# - "domain": inject over full active domain
+# - "seepage_clip": use clipped seepage raster created in example12.py
+# - any other string: interpreted as raster path
+zone_partic = "seepage_clip"
+
+# Particle tracking direction.
+# Allowed values: "forward", "backward", "custom"
+track_dir = "backward"
+
+# Number of particles per axis in each active cell.
+cell_div = 1
+
+# If true, also subdivides vertically for particle injection.
+zloc_div = false
+
+# Optional list of bore depths (m) for vertical injection mode.
+# bore_depth = [0.0, 5.0, 10.0]
+
+# Optional random selection count of particles to keep.
+# sel_random = 1000
+
+# Optional slicing step for particle selection.
+# sel_slice = 10
+
+[transport.conc.parameters]
+# MT3DMS species name.
+spc_name = "NO3"
+
+# Initial concentration and recharge concentration defaults.
+# They can be overridden in the script with full arrays/dictionaries once the model grid is known.
+sconc_init = 0.0
+sconc_input = 0.0
+
+# Dispersion and diffusion parameters.
+disp_long = 0.0
+disp_transh = 0.0
+disp_transv = 0.0
+diffu_coeff = 8.64e-06
+
+# Reaction settings: None (no reaction), 0 (zero-order), 1 (first-order)
+react_order = 1
+rate_decay = 0.0
+
+# Plot concentration outputs.
+plot_conc = true
 
 # ----------------------------------------------------------------------
 # MODFLOW expert configuration

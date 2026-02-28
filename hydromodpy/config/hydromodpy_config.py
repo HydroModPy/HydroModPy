@@ -31,6 +31,7 @@ from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.data_managers.data_managers_config import DataManagersConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.solver.modflow_nwt.modflow_config import ModflowConfig
 from hydromodpy.watershed.workspace_config import WorkspaceConfig
 
@@ -39,7 +40,8 @@ class HydroModPyConfig(BaseModel):
     """
     Top-level configuration for HydroModPy.
 
-    Aggregates sub-components (workspace, geographic, domain, data, flow, modflow)
+    Aggregates sub-components (workspace, geographic, domain, data, flow,
+    transport, modflow)
     into a centralized,
     hierarchical model and validates optional flow parameters as
     `FieldParamConfig` dictionaries.
@@ -72,6 +74,13 @@ class HydroModPyConfig(BaseModel):
         description=(
             "Flow process configuration with parameter payloads validated "
             "from [flow.param.<id>] TOML sections."
+        ),
+    )
+    transport: TransportConfig = Field(
+        default_factory=TransportConfig,
+        description=(
+            "Transport process configuration, including particle-tracking "
+            "parameters under [transport.particle.parameters]."
         ),
     )
     modflow: ModflowConfig = Field(
@@ -122,6 +131,10 @@ class HydroModPyConfig(BaseModel):
             "domain": ({}, lambda data, b: _load_standard_section(data, DomainConfig, b)),
             "data": ({}, _load_data_section),
             "flow": ({}, _load_flow_section),
+            "transport": (
+                {},
+                lambda data, b: _load_standard_section(data, TransportConfig, b),
+            ),
             "modflow": ({}, _load_modflow_section),
         }
 

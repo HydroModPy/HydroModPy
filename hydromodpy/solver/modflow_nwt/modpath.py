@@ -22,6 +22,7 @@ from os.path import dirname, abspath
 import random
 import warnings
 import pickle
+from collections.abc import Mapping
 import geopandas as gpd
 import rasterio
 import flopy.utils.postprocessing as pp
@@ -49,27 +50,30 @@ class Modpath(Solver):
     """
     
     def __init__(self,
-                 geographic: object,
-                 model_modflow: object,
+                 domain: object,
+                 transport: object,
+                 model_modflow: object=None,
                  # Worflow settings
                  model_folder: str='HydroModPy_outputs',
                  model_name: str='Default_modpath',
                  bin_path: str=os.path.join(os.getcwd(),'bin'),
                  # Specific settings
-                 zone_partic: str='domain',
-                 track_dir: str='forward',
-                 bore_depth: list=None,
-                 cell_div: int=1,
-                 zloc_div: bool=False,
-                 sel_random: int=None,
-                 sel_slice: int=None):
+                 zone_partic: str | None = None,
+                 track_dir: str | None = None,
+                 bore_depth: list | None = None,
+                 cell_div: int | None = None,
+                 zloc_div: bool | None = None,
+                 sel_random: int | None = None,
+                 sel_slice: int | None = None):
         """
         Initialize method.
 
         Parameters
         ----------
-        geographic : object
-            Geographic object build by HydroModPy.
+        domain : object
+            Domain object build by HydroModPy.
+        transport : object
+            Transport object containing particle parameters.
         model_modflow : object
             Python object of the MODFLOW model.
         model_folder : str, optional
@@ -102,8 +106,21 @@ class Modpath(Solver):
         """
         
         # Initialisation
-        self.geographic = geographic
+        legacy_geographic = None
+        if model_modflow is None and transport is not None and hasattr(transport, 'mf'):
+            # Legacy call pattern: Modpath(geographic, model_modflow, ...)
+            legacy_geographic = domain
+            model_modflow = transport
+            domain = getattr(model_modflow, 'domain', None)
+            transport = getattr(model_modflow, 'transport', None)
+
+        if model_modflow is None:
+            raise ValueError("model_modflow must be provided to initialize Modpath")
+
+        self.domain = domain
+        self.transport = transport
         self.model_modflow = model_modflow
+        self.geographic = legacy_geographic if legacy_geographic is not None else self._get_geographic()
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name)
@@ -118,16 +135,30 @@ class Modpath(Solver):
             self.exe = os.path.join(bin_path, 'mac' ,'mp6')
         
         # Parameters for particles
-        if zone_partic == 'domain':
-            self.zone_partic = geographic.watershed_box_buff_dem
+        particle_params = {}
+        transport_particle = getattr(transport, 'particle', None)
+        if transport_particle is not None:
+            raw_params = getattr(transport_particle, 'parameters', None)
+            if isinstance(raw_params, Mapping):
+                particle_params = dict(raw_params)
+
+        def _pick(key, explicit, default):
+            if explicit is not None:
+                return explicit
+            return particle_params.get(key, default)
+
+        zone_partic_val = _pick('zone_partic', zone_partic, 'domain')
+        if zone_partic_val == 'domain':
+            self.zone_partic = self._resolve_domain_raster()
         else:
-            self.zone_partic = zone_partic
-        
-        self.bore_depth = bore_depth
-        self.cell_div = cell_div
-        self.zloc_div = zloc_div
-        self.sel_random = sel_random
-        self.sel_slice = sel_slice
+            self.zone_partic = zone_partic_val
+
+        self.track_dir = _pick('track_dir', track_dir, 'forward')
+        self.bore_depth = _pick('bore_depth', bore_depth, None)
+        self.cell_div = _pick('cell_div', cell_div, 1)
+        self.zloc_div = _pick('zloc_div', zloc_div, False)
+        self.sel_random = _pick('sel_random', sel_random, None)
+        self.sel_slice = _pick('sel_slice', sel_slice, None)
         
         self.verbose = False
         self.check = False
@@ -136,7 +167,7 @@ class Modpath(Solver):
         self.namefile_ext = 'mpnam'
         self.version = 'modpath'
         
-        self.track_dir = track_dir #default forward, can be "backward" or "custom"
+        # default forward, can be "backward" or "custom"
         self.track = 1 #if track_dir=='custom'
         self.zone_opt = 1 #if track_dir=='custom'
         self.zone_inj = 1 #if track_dir=='custom'
@@ -172,6 +203,39 @@ class Modpath(Solver):
         self.filt_inout = True
         self.calc_rtd = True 
         self.random_id = None       
+
+    def _get_geographic(self):
+        """Return geographic context from MODFLOW model when available."""
+        geo = getattr(self.model_modflow, 'geographic', None)
+        if geo is not None:
+            return geo
+        return getattr(self, 'geographic', None)
+
+    def _get_crs_proj(self):
+        """Resolve CRS from geographic context, else from domain support."""
+        geo = self._get_geographic()
+        if geo is not None and hasattr(geo, 'crs_proj'):
+            return geo.crs_proj
+        support = getattr(getattr(self.domain, 'surface_topo', None), 'support', None)
+        if support is not None:
+            return getattr(support, 'crs', None)
+        return None
+
+    def _resolve_domain_raster(self):
+        """Resolve default domain raster path for particle injection."""
+        geo = self._get_geographic()
+        raster_path = getattr(geo, 'watershed_box_buff_dem', None) if geo is not None else None
+        if raster_path is None:
+            raise ValueError(
+                "Cannot resolve default zone_partic='domain'. "
+                "Provide transport.particle.parameters.zone_partic as a raster path."
+            )
+        return raster_path
+
+    def _get_watershed_shp(self):
+        """Resolve watershed polygon path when available."""
+        geo = self._get_geographic()
+        return getattr(geo, 'watershed_shp', None) if geo is not None else None
     
     def pre_processing(self):
         """
@@ -511,7 +575,7 @@ class Modpath(Solver):
                 
         grid_model = model_modpath.mf.modelgrid
         
-        crs = model_modpath.geographic.crs_proj
+        crs = model_modpath._get_crs_proj()
         if isinstance(crs, (int, float)):
             epsg = crs
         elif isinstance(crs, str) and crs[:4].upper() == 'EPSG':
@@ -641,7 +705,7 @@ class Modpath(Solver):
         self.full_path = os.path.join(model_modpath.model_folder, model_modpath.model_name)
         self.particles_file = os.path.join(self.full_path, '_postprocess', '_particles')
 
-        crs = model_modpath.geographic.crs_proj
+        crs = model_modpath._get_crs_proj()
         if isinstance(crs, (int, float)):
             epsg = crs
         elif isinstance(crs, str) and crs[:4].upper() == 'EPSG':
@@ -719,7 +783,7 @@ class Modpath(Solver):
             start_weighted_shp = os.path.join(particles_dir, 'starting_weighted.shp')
             end_weighted_shp = os.path.join(particles_dir, 'ending_weighted.shp')
 
-            toolbox.export_tif(self.geographic.watershed_box_buff_dem, sflows, sflows_tif, -9999)
+            toolbox.export_tif(self._resolve_domain_raster(), sflows, sflows_tif, -9999)
 
             start = gpd.read_file(start_shp)
             start = ensure_crs(start)
@@ -808,8 +872,10 @@ class Modpath(Solver):
             if self.track_dir == 'backward':
                 end = ensure_crs(gpd.read_file(os.path.join(self.model_folder, model_name, '_postprocess', '_particles', 'starting_weighted.shp')))
             try:
-                shp = gpd.read_file(self.geographic.watershed_shp)
-                end = end.clip(shp)
+                watershed_shp = self._get_watershed_shp()
+                if watershed_shp is not None:
+                    shp = gpd.read_file(watershed_shp)
+                    end = end.clip(shp)
             except:
                 pass
             end.loc[end['time_win']==0, :] = np.nan

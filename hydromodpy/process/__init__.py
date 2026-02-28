@@ -1,7 +1,7 @@
 
 from hydromodpy.process.flow import Flow, FlowConfig, FlowImene
 from hydromodpy.process.process import Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
-from hydromodpy.process.transport import Transport
+from hydromodpy.process.transport import Transport, TransportConfig
 
 __all__ = [
 	"Flow",
@@ -12,5 +12,6 @@ __all__ = [
 	"InitialCondition",
 	"BoundaryCondition",
 	"SinkSource",
-	"Transport"
+	"Transport",
+	"TransportConfig",
 ]

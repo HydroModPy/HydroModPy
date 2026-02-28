@@ -50,7 +50,7 @@ import hydromodpy as hmp
 from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Workspace, Climatic, Driasclimat, Driaseau, \
     Hydrography, Intermittency, Piezometry, Settings, \
-    SafranSurfex, Subbasin, Transport
+    SafranSurfex, Subbasin
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -61,7 +61,7 @@ from hydromodpy.domain import (
 )
 from hydromodpy.data_managers import DataManagers
 from hydromodpy.data_managers.geology.geology_field import GeologyField
-from hydromodpy.process import Flow
+from hydromodpy.process import Flow, Transport
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
     ModflowPostprocessOptions,
@@ -115,11 +115,12 @@ if __name__ == '__main__':
             raster_support=surface_topo.support,
         )
         domain.set_zone("geology", geology)
+        
     flow = Flow(config=cfg.flow)
 
     setting = Settings()
 
-    transport = Transport()
+    transport = Transport(config=cfg.transport)
 
     #%% DATA
 
@@ -820,33 +821,18 @@ if __name__ == '__main__':
         tif_seep_clip,
         maintain_dimensions=True)
 
-    setting.update_input_particles(
-                                    # zone_partic = tif_file_clip,
-                                    # zone_partic = geographic.watershed_box_buff_dem,
-                                    zone_partic = tif_seep_clip,
-                                    cell_div = 1, # 1
-                                    zloc_div = False,  # or False, add cells at cell bottom
-                                    bore_depth = None, # '[0,5,10] for 3 particles or None
-                                    track_dir = 'backward',
-                                    # track_dir = 'forward', # backward
-                                    sel_random = None, # or int
-                                    sel_slice = None, # or int
-                                    )
+    particle_params = cfg.transport.particle.parameters.model_dump()
+    if particle_params.get('zone_partic') == 'seepage_clip':
+        particle_params['zone_partic'] = tif_seep_clip
+    transport.particle.set_parameters(particle_params)
 
-    model_modpath = Modpath(geographic,
+    model_modpath = Modpath(domain,
+                                    transport,
                                     model_modflow,
                                     # Frame settings
                                     model_folder = model_folder,
                                     model_name = model_modflow.model_name,
-                                    bin_path = workspace.bin_path,
-                                    # Specific settings
-                                    zone_partic = setting.zone_partic,
-                                    cell_div = setting.cell_div,
-                                    zloc_div = setting.zloc_div,
-                                    bore_depth = setting.bore_depth,
-                                    track_dir = setting.track_dir,
-                                    sel_random = setting.sel_random,
-                                    sel_slice = setting.sel_slice)
+                                    bin_path = workspace.bin_path)
 
     # Preprocessing Modflow
     model_modpath.pre_processing() # verbose
@@ -982,40 +968,26 @@ if __name__ == '__main__':
     sconc_input = dict(islice(sconc_input.items(), 1, None))
     rate_decay = np.ones((nlay, nrow, ncol)) * (1/(2*365))
 
-    transport.update_mt3dms_parameters(
+    transport.conc.set_parameters(
+                    cfg.transport.conc.parameters.model_dump()
+                    )
+    transport.conc.set_parameters(
                     spc_name='NO3',
                     sconc_init=sconc_init,          # array of (nlay, nrow, ncol)
                     sconc_input=sconc_input,         # dictionnray [time] with array of (nlay, nrow, ncol)
-                    disp_long=0,           # float, longitudinal dispersitvity in meters
-                    disp_transh=0,         # float, ratio of the horizontal transverse dispersivity to disp_long, usually 0.1*disp_long
-                    disp_transv=0,         # float, ratio of the vertical transverse dispersivity to disp_long, usually 0.01*disp_long
-                    diffu_coeff=1e-10*3600*24,         # molecular diffusion in (L2T-1)
-                    react_order=1,      # None: no-reaction, 0: zero-order, 1: first-order
                     rate_decay=rate_decay,          # array of (nlay, nrow, ncol), unit T-1
-                    plot_conc=True)
+                    )
 
     scenario = 's1'
-
     suffix_name = '_mt_'+scenario
-    model_mt3dms = Mt3dms(geographic,
+    model_mt3dms = Mt3dms(domain,
+                        transport,
                         model_modflow,
                         # Frame settings
                         model_folder = model_folder,
                         model_name = model_modflow.model_name,
                         suffix_name = suffix_name,
-                        bin_path = workspace.bin_path,
-                        # Specific settings
-                        spc_name = transport.spc_name,
-                        sconc_init = transport.sconc_init,
-                        sconc_input = transport.sconc_input,
-                        disp_long = transport.disp_long,
-                        disp_transh = transport.disp_transh,
-                        disp_transv = transport.disp_transv,
-                        diffu_coeff = transport.diffu_coeff,
-                        react_order = transport.react_order,
-                        rate_decay = transport.rate_decay,
-                        plot_conc = transport.plot_conc,
-                            )
+                        bin_path = workspace.bin_path)
     model_mt3dms.pre_processing()
 
 
