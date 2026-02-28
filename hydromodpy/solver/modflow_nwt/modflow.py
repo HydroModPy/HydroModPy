@@ -612,12 +612,9 @@ class Modflow(Solver):
                                         self.drain_array[i, j] = 0
                                         package[kper, i, j] = 1
                                         chdKper.append(
-                                            [
-                                                0,
-                                                i,
-                                                j,
-                                                self.flow.boundary_conditions["ocean"].value[kper],
-                                                self.flow.boundary_conditions["ocean"].value[kper],
+                                            [0, i, j,
+                                            self.flow.boundary_conditions["ocean"].value[kper],
+                                            self.flow.boundary_conditions["ocean"].value[kper],
                                             ]
                                         )
                                 self.chData[kper] = chdKper

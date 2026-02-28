@@ -22,6 +22,7 @@ Created on Thu Apr  3 13:06:53 2025
 # Python
 import os
 import sys
+from collections.abc import Mapping
 import flopy
 import numpy as np
 from os.path import dirname, abspath
@@ -52,42 +53,58 @@ class Mt3dms:
     """
 
     def __init__(self,
-                 geographic: object,
-                 model_modflow: object,
+                 domain: object,
+                 transport: object,
+                 model_modflow: object=None,
                  # Worflow settings
                  model_folder: str='HydroModPy_outputs',
                  model_name: str='Default_modpath',
                  suffix_name: str='_mt',
                  bin_path: str=os.path.join(os.getcwd(),'bin'),
                  # Specific settings
-                 spc_name: str='NO3',
-                 sconc_init: float=0,
-                 sconc_input = 0,
-                 disp_long: float=0,
-                 disp_transh: float=0,
-                 disp_transv: float=0,
-                 diffu_coeff: float=0,
-                 react_order: int=None, # for MT3DM: 0, 1, 100
-                 rate_decay: float=0,
-                 plot_conc: bool=True,
+                 spc_name: str | None = None,
+                 sconc_init: float | None = None,
+                 sconc_input = None,
+                 disp_long: float | None = None,
+                 disp_transh: float | None = None,
+                 disp_transv: float | None = None,
+                 diffu_coeff: float | None = None,
+                 react_order: int | None = None, # for MT3DM: 0, 1, 100
+                 rate_decay: float | None = None,
+                 plot_conc: bool | None = None,
                  ):
         """
         Initialize method.
 
         Parameters
         ----------
-        geographic : object
-            Geographic object build by HydroModPy.
+        domain : object
+            Domain object build by HydroModPy.
+        transport : object
+            Process Transport object holding concentration parameters.
         """
 
         #%% Initialisation
 
-        self.geographic = geographic
+        legacy_geographic = None
+        if model_modflow is None and transport is not None and hasattr(transport, 'mf'):
+            # Legacy call pattern: Mt3dms(geographic, model_modflow, ...)
+            legacy_geographic = domain
+            model_modflow = transport
+            domain = getattr(model_modflow, 'domain', None)
+            transport = getattr(model_modflow, 'transport', None)
+
+        if model_modflow is None:
+            raise ValueError("model_modflow must be provided to initialize Mt3dms")
+
+        self.domain = domain
+        self.transport = transport
+        self.model_modflow = model_modflow
+        self.geographic = legacy_geographic if legacy_geographic is not None else self._get_geographic()
 
         self.model_folder = model_folder
         self.model_name = model_name
         self.full_path = os.path.join(model_folder, model_name)
-        self.model_modflow = model_modflow
         self.suffix_name = suffix_name
         self.model_name_mt = model_name + self.suffix_name
 
@@ -100,23 +117,39 @@ class Mt3dms:
         if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mt3dusgs')
 
-        self.spc_name = spc_name
-        self.sconc_init = sconc_init
-        self.sconc_input = sconc_input
+        conc_params = {}
+        transport_conc = getattr(transport, 'conc', None)
+        if transport_conc is not None:
+            raw_params = getattr(transport_conc, 'parameters', None)
+            if isinstance(raw_params, Mapping):
+                conc_params = dict(raw_params)
 
-        self.disp_long = disp_long
-        self.disp_transh = disp_transh
-        self.disp_transv = disp_transv
-        self.diffu_coeff = diffu_coeff
+        def _pick(key, explicit, default):
+            if explicit is not None:
+                return explicit
+            return conc_params.get(key, default)
 
-        self.react_order = react_order
-        self.rate_decay = rate_decay
+        self.spc_name = _pick('spc_name', spc_name, 'NO3')
+        self.sconc_init = _pick('sconc_init', sconc_init, 0)
+        self.sconc_input = _pick('sconc_input', sconc_input, 0)
 
-        self.plot_conc = plot_conc
+        self.disp_long = _pick('disp_long', disp_long, 0)
+        self.disp_transh = _pick('disp_transh', disp_transh, 0)
+        self.disp_transv = _pick('disp_transv', disp_transv, 0)
+        self.diffu_coeff = _pick('diffu_coeff', diffu_coeff, 0)
+
+        self.react_order = _pick('react_order', react_order, None)
+        self.rate_decay = _pick('rate_decay', rate_decay, 0)
+
+        self.plot_conc = _pick('plot_conc', plot_conc, True)
 
         self.mf = model_modflow.mf
 
         self.new_stepsize = 1
+
+    def _get_geographic(self):
+        """Return geographic context from MODFLOW model when available."""
+        return getattr(self.model_modflow, 'geographic', None)
 
     #%% PRE-PROCESSING
 
