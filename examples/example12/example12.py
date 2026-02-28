@@ -70,6 +70,8 @@ from hydromodpy.solver.modflow_nwt import (
     Modpath,
     Mt3dms,
 )
+from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
+from hydromodpy.solver import SolverEngine
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
@@ -78,6 +80,7 @@ fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 config_path = Path(__file__).parent / "config.toml"
 cfg = HydroModPyConfig.from_toml(config_path)
 out_path = cfg.workspace.out_dir_path
+solver_engine = cfg.solver.solver_engine
 
 with config_path.open('rb') as f:
     raw_toml = tomllib.load(f)
@@ -557,15 +560,26 @@ if __name__ == '__main__':
         plot_cross=setting.plot_cross,
         cross_ylim=tuple(setting.cross_ylim) if setting.cross_ylim else None,
     )
-    model_modflow = Modflow(
-        geographic,
-        # Workflow settings
-        model_folder=model_folder,   # self.simulations_folder
-        model_name=setting.model_name,
-        bin_path=workspace.bin_path,
-        modflow_config=cfg.modflow,
-        preprocess_options=preprocess_options,
-    )
+    if solver_engine == SolverEngine.MODFLOW_NWT:
+        model_modflow = Modflow(
+            geographic,
+            # Workflow settings
+            model_folder=model_folder,   # self.simulations_folder
+            model_name=setting.model_name,
+            bin_path=workspace.bin_path,
+            modflow_config=cfg.modflownwt,
+            preprocess_options=preprocess_options,
+        )
+    else:
+        model_modflow = Modflow6(
+            geographic,
+            # Workflow settings
+            model_folder=model_folder,   # self.simulations_folder
+            model_name=setting.model_name,
+            bin_path=workspace.bin_path,
+            modflow_config=cfg.modflow6,
+            preprocess_options=preprocess_options,
+        )
 
     model_modflow.pre_processing(flow=flow, domain=domain) # verbose
 
@@ -799,109 +813,117 @@ if __name__ == '__main__':
 
     #%% B - MODPATH
 
-    list_folder = glob.glob(os.path.join(str(workspace.simulations_folder), vers+'*'))
+    model_modpath = None
 
-    model_name = list_folder[0].split(os.path.sep)[-1]
+    if solver_engine != SolverEngine.MODFLOW_NWT:
+        print("MODPATH workflow is currently available only with solver_engine='nwt'. Skipping section B.")
+    else:
 
-    pickle_file = list_folder[0] + '/' + 'results_' + model_name + '.pkl'
-    with open(pickle_file, 'rb') as f:
-        d = pickle.load(f)
+        list_folder = glob.glob(os.path.join(str(workspace.simulations_folder), vers+'*'))
 
-    list_model_name = d['list_model_name'][:]
-    list_flow_model = d['list_model_modflow'][:]
+        model_name = list_folder[0].split(os.path.sep)[-1]
 
-    model_modflow = list_flow_model[0]
+        pickle_file = list_folder[0] + '/' + 'results_' + model_name + '.pkl'
+        with open(pickle_file, 'rb') as f:
+            d = pickle.load(f)
 
-    # Prepare particle tracking from seepage inside the catchment studied
-    tif_seep = os.path.join(workspace.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
-    tif_seep_clip = os.path.join(workspace.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
-    wbt.clip_raster_to_polygon(
-        tif_seep,
-        os.path.join(workspace.stable_folder, 'geographic', 'watershed.shp'),
-        tif_seep_clip,
-        maintain_dimensions=True)
+        list_model_name = d['list_model_name'][:]
+        list_flow_model = d['list_model_modflow'][:]
 
-    particle_params = cfg.transport.particle.parameters.model_dump()
-    if particle_params.get('zone_partic') == 'seepage_clip':
-        particle_params['zone_partic'] = tif_seep_clip
-    transport.particle.set_parameters(particle_params)
+        model_modflow = list_flow_model[0]
 
-    model_modpath = Modpath(domain,
-                                    transport,
-                                    model_modflow,
-                                    # Frame settings
-                                    model_folder = model_folder,
-                                    model_name = model_modflow.model_name,
-                                    bin_path = workspace.bin_path)
+        # Prepare particle tracking from seepage inside the catchment studied
+        tif_seep = os.path.join(workspace.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
+        tif_seep_clip = os.path.join(workspace.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
+        wbt.clip_raster_to_polygon(
+            tif_seep,
+            os.path.join(workspace.stable_folder, 'geographic', 'watershed.shp'),
+            tif_seep_clip,
+            maintain_dimensions=True)
 
-    # Preprocessing Modflow
-    model_modpath.pre_processing() # verbose
-    success_model = model_modpath.processing(write_model=True, run_model=True)
-    model_modpath.post_processing(model_modpath,
-                        ending_point=True,
-                        starting_point=True,
-                        pathlines_shp=True,
-                        particles_shp=True,
-                        random_id=None, # select randomly to save (for pathlines and particles)
-                        ) # None
+        particle_params = cfg.transport.particle.parameters.model_dump()
+        if particle_params.get('zone_partic') == 'seepage_clip':
+            particle_params['zone_partic'] = tif_seep_clip
+        transport.particle.set_parameters(particle_params)
 
-    model_modpath.filt_processing(model_modpath,
-                        norm_flux=True, # for forward only
-                        filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
-                        filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
-                        filt_inout=True, # delete particles in and out in the same cell (first layer)
-                        calc_rtd=False, # compute residence time distribution
-                        random_id=None, # select randomly to keep
-                        ) # None
+        model_modpath = Modpath(domain,
+                        transport,
+                        model_modflow,
+                        # Frame settings
+                        model_folder = model_folder,
+                        model_name = model_modflow.model_name,
+                        bin_path = workspace.bin_path)
+
+        # Preprocessing Modflow
+        model_modpath.pre_processing() # verbose
+        success_model = model_modpath.processing(write_model=True, run_model=True)
+        model_modpath.post_processing(model_modpath,
+                    ending_point=True,
+                    starting_point=True,
+                    pathlines_shp=True,
+                    particles_shp=True,
+                    random_id=None, # select randomly to save (for pathlines and particles)
+                    ) # None
+
+        model_modpath.filt_processing(model_modpath,
+                    norm_flux=True, # for forward only
+                    filt_time=True, # delete particles with time at 0, add a column with time divided by 365 (considering recharge in days)
+                    filt_seep=True, # only forward, keep only particles finishing in zone1 (seepage), keep only particles finishing in k1 (first layer)
+                    filt_inout=True, # delete particles in and out in the same cell (first layer)
+                    calc_rtd=False, # compute residence time distribution
+                    random_id=None, # select randomly to keep
+                    ) # None
 
     #%% PLOT PATHLINES
 
-    shp_pathlines = gpd.read_file(os.path.join(simulations_folder, model_name, '_postprocess', '_particles', 'pathlines_weighted.shp'))
-    shp_endpoints = gpd.read_file(os.path.join(simulations_folder, model_name, '_postprocess', '_particles', 'starting_weighted.shp'))
+    if solver_engine == SolverEngine.MODFLOW_NWT:
+        shp_pathlines = gpd.read_file(os.path.join(simulations_folder, model_name, '_postprocess', '_particles', 'pathlines_weighted.shp'))
+        shp_endpoints = gpd.read_file(os.path.join(simulations_folder, model_name, '_postprocess', '_particles', 'starting_weighted.shp'))
 
-    line = gpd.read_file(os.path.join(stable_folder, 'geographic', 'watershed.shp'))
+        line = gpd.read_file(os.path.join(stable_folder, 'geographic', 'watershed.shp'))
 
-    dem_rio = rasterio.open(geographic.watershed_box_buff_dem)
-    dem_data = dem_rio.read(1)
-    dem_data = np.ma.masked_where(dem_data < 0, dem_data)
+        dem_rio = rasterio.open(geographic.watershed_box_buff_dem)
+        dem_data = dem_rio.read(1)
+        dem_data = np.ma.masked_where(dem_data < 0, dem_data)
 
-    norm = mcolors.LogNorm(vmin=0.1, vmax=100)
-    im = cm.ScalarMappable(cmap='jet', norm=norm)
-    im.set_array([])
+        norm = mcolors.LogNorm(vmin=0.1, vmax=100)
+        im = cm.ScalarMappable(cmap='jet', norm=norm)
+        im.set_array([])
 
-    if display_plots:
-        fig, ax = plt.subplots(1,1, figsize=(8,6))
+        if display_plots:
+            fig, ax = plt.subplots(1,1, figsize=(8,6))
 
-        # Base raster and layers
-        rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform,
-                        cmap='Greys', alpha=0.7, zorder=-10)
+            # Base raster and layers
+            rasterio.plot.show(dem_data, ax=ax, transform=dem_rio.transform,
+                            cmap='Greys', alpha=0.7, zorder=-10)
 
-        shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=1,
-                        norm=norm, zorder=1)
+            shp_pathlines.plot(ax=ax, column='time_win_y', cmap='jet', lw=1,
+                            norm=norm, zorder=1)
 
-        shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5, markersize=20,
-                                legend=False, norm=norm, zorder=2, edgecolor='k')
+            shp_endpoints.plot(ax=ax, column='time_win_y', cmap='jet', lw=0.5, markersize=20,
+                                    legend=False, norm=norm, zorder=2, edgecolor='k')
 
-        line.plot(ax=ax, facecolor='None', edgecolor='k', lw=2, zorder=-1)
+            line.plot(ax=ax, facecolor='None', edgecolor='k', lw=2, zorder=-1)
 
-        # Title
-        ax.set_title('Residence times - backward from seepage [y]', fontsize=10)
+            # Title
+            ax.set_title('Residence times - backward from seepage [y]', fontsize=10)
 
-        # Colorbar on the right, same height
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
-        cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+            # Colorbar on the right, same height
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.1)
+            cbar = fig.colorbar(im, cax=cax, orientation='vertical')
 
-        fig.tight_layout()
+            fig.tight_layout()
 
-        # fig.savefig(os.path.join(simulations_folder, model_name,
-        #                             '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
+            # fig.savefig(os.path.join(simulations_folder, model_name,
+            #                             '_postprocess', '_figures', 'RTD_'+model_name+'.png'))
 
-    #%% PLOT 2D
+    #%% PLOT 2D / 3D
 
-    visu = visualization_results.Visualization(workspace, geographic, hydrography, model_name)
-    if display_plots:
-        visu.visual2D(object_list = [
+    if solver_engine == SolverEngine.MODFLOW_NWT:
+        visu = visualization_results.Visualization(workspace, geographic, hydrography, model_name)
+        if display_plots:
+            visu.visual2D(object_list = [
                                     'map',
                                     'grid',
                                     'watertable',
@@ -924,12 +946,11 @@ if __name__ == '__main__':
                                     lines=1000
                                     )
 
-    #%% PLOT 3D
-    export_vtuvtk.VTK(workspace,geographic, hydrography, model_name)
-    if display_3D==True:
-        visu = visualization_results.Visualization(workspace,geographic, hydrography, model_name)
-        if display_plots:
-            visu.visual3D(interactive=True, object_list=[
+        export_vtuvtk.VTK(workspace,geographic, hydrography, model_name)
+        if display_3D==True:
+            visu = visualization_results.Visualization(workspace,geographic, hydrography, model_name)
+            if display_plots:
+                visu.visual3D(interactive=True, object_list=[
                                                         'grid',
                                                         'watertable',
                                                         'watertable_depth',
@@ -942,6 +963,8 @@ if __name__ == '__main__':
                                                         lines=None,
                                                         cloc=(0.7,0.1),
                                                         z_scale=10)
+    else:
+        print("Skipping MODPATH-based 2D/3D visualizations and VTK export for solver_engine='mf6'.")
 
     #%% C - MT3DMS
 
@@ -958,10 +981,16 @@ if __name__ == '__main__':
 
     model_modflow = list_flow_model[0]
 
+    model_mt3dms = None
     nper = model_modflow.nper
-    nlay = model_modflow.mf.nlay
-    nrow = model_modflow.mf.nrow
-    ncol = model_modflow.mf.ncol
+    if solver_engine == SolverEngine.MODFLOW_NWT:
+        nlay = model_modflow.mf.nlay
+        nrow = model_modflow.mf.nrow
+        ncol = model_modflow.mf.ncol
+    else:
+        nlay = model_modflow.nlay
+        nrow = model_modflow.nrow
+        ncol = model_modflow.ncol
 
     sconc_init = np.ones((nlay, nrow, ncol)) * (100/1000) # 50 mg/L en kg/m3
     sconc_input = {i: np.ones((nrow, ncol)) * (50/1000) for i in range(nper)}
@@ -980,43 +1009,81 @@ if __name__ == '__main__':
 
     scenario = 's1'
     suffix_name = '_mt_'+scenario
-    model_mt3dms = Mt3dms(domain,
-                        transport,
-                        model_modflow,
-                        # Frame settings
-                        model_folder = model_folder,
-                        model_name = model_modflow.model_name,
-                        suffix_name = suffix_name,
-                        bin_path = workspace.bin_path)
-    model_mt3dms.pre_processing()
+    if solver_engine == SolverEngine.MODFLOW_NWT:
+        model_mt3dms = Mt3dms(domain,
+                            transport,
+                            model_modflow,
+                            # Frame settings
+                            model_folder = model_folder,
+                            model_name = model_modflow.model_name,
+                            suffix_name = suffix_name,
+                            bin_path = workspace.bin_path)
+        model_mt3dms.pre_processing()
 
 
-    success_mt3dms = model_mt3dms.processing(write_model=True, run_model=True, verbose=True)
+        success_mt3dms = model_mt3dms.processing(write_model=True, run_model=True, verbose=True)
 
-    pp_model = model_mt3dms.post_processing(model_mt3dms,
-                            concentration_seepage=True,
-                            mass_seepage=True,
-                            mass_accumulated=True,
-                            export_all_tif=True) # None
+        pp_model = model_mt3dms.post_processing(model_mt3dms,
+                                concentration_seepage=True,
+                                mass_seepage=True,
+                                mass_accumulated=True,
+                                export_all_tif=True) # None
 
-    timeseries_results = timeseries.Timeseries(geographic,
-                                               model_modflow=model_modflow,
-                                                runoff=climatic.runoff,
-                                                model_modpath=model_modpath,
-                                                model_mt3dms=model_mt3dms,
-                                                suffix_name=scenario,
-                                                datetime_format=True,
-                                                subbasin_results=True,
-                                                intermittency_weekly=False,
-                                                intermittency_monthly = True,
-                                                residence_times=True,
-                                                concentration_seepage=True,
-                                                mass_accumulated=True
-                                                ) # or None
+        timeseries_results = timeseries.Timeseries(geographic,
+                                                    model_modflow=model_modflow,
+                                                    runoff=climatic.runoff,
+                                                    model_modpath=model_modpath,
+                                                    model_mt3dms=model_mt3dms,
+                                                    suffix_name=scenario,
+                                                    datetime_format=True,
+                                                    subbasin_results=True,
+                                                    intermittency_weekly=False,
+                                                    intermittency_monthly = True,
+                                                    residence_times=True,
+                                                    concentration_seepage=True,
+                                                    mass_accumulated=True
+                                                    ) # or None
+    else:
+        model_mt3dms = Modflow6Transport(domain,
+                            transport,
+                            model_modflow,
+                            # Frame settings
+                            model_folder = model_folder,
+                            model_name = model_modflow.model_name,
+                            suffix_name = suffix_name,
+                            bin_path = workspace.bin_path)
+        model_mt3dms.pre_processing()
+
+
+        success_mt3dms = model_mt3dms.processing(write_model=True, run_model=True, verbose=True)
+
+        if success_mt3dms:
+            pp_model = model_mt3dms.post_processing(model_mt3dms,
+                                    concentration_seepage=True,
+                                    mass_seepage=True,
+                                    mass_accumulated=False,
+                                    export_all_tif=True) # None
+
+            timeseries_results = timeseries.Timeseries(geographic,
+                                                       model_modflow=model_modflow,
+                                                        runoff=climatic.runoff,
+                                                        model_modpath=model_modpath,
+                                                        model_mt3dms=model_mt3dms,
+                                                        suffix_name=scenario,
+                                                        datetime_format=True,
+                                                        subbasin_results=True,
+                                                        intermittency_weekly=False,
+                                                        intermittency_monthly = True,
+                                                        residence_times=True,
+                                                        concentration_seepage=True,
+                                                        mass_accumulated=False
+                                                        ) # or None
+        else:
+            print("MF6 transport run failed, skipping transport post-processing.")
 
     #%% PLOT CONCENTRATION
 
-    if display_plots:
+    if display_plots and solver_engine == SolverEngine.MODFLOW_NWT:
         # CrÃ©er le GIF Ã  la fin du processus
         vgif_name = vers
         gif_name = vgif_name+'.gif'

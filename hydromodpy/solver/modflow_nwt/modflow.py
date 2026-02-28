@@ -92,7 +92,7 @@ class Modflow(Solver):
             Location folder of the modflow executables. The default is 'bin'.
         modflow_config : ModflowConfig | Mapping | None, optional
             Expert MODFLOW-NWT package parameters loaded from
-            `[modflow.runtime]`, `[modflow.process_specific]`, and `[modflow.sgrid]` in TOML.
+            `[modflownwt.runtime]`, `[modflownwt.process_specific]`, and `[modflownwt.sgrid]` in TOML.
             If None, internal defaults from ModflowConfig are used.
         preprocess_options : ModflowPreprocessOptions | None
             Optional typed options for pre_processing stage.
@@ -393,12 +393,12 @@ class Modflow(Solver):
 
         if self.tgrid_config is None:
             raise ValueError(
-                "Missing [modflow.tgrid] configuration: a typed TMeshConfigModel "
+                "Missing [modflownwt.tgrid] configuration: a typed TMeshConfigModel "
                 "is required to generate temporal discretization."
             )
         if self.sgrid_config is None:
             raise ValueError(
-                "Missing [modflow.sgrid] configuration: a typed VerticalGridConfig "
+                "Missing [modflownwt.sgrid] configuration: a typed VerticalGridConfig "
                 "is required to generate the structured grid."
             )
 
@@ -451,7 +451,7 @@ class Modflow(Solver):
         dis_steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
         dis_start_datetime = getattr(tgrid, "start_datetime", None)
         if dis_nper == 0:
-            raise ValueError("modflow.tgrid produced an empty perlen vector.")
+            raise ValueError("modflownwt.tgrid produced an empty perlen vector.")
 
         self.dis_itmuni = dis_itmuni
         self.nper = dis_nper

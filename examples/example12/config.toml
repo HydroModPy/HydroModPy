@@ -1,6 +1,6 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: expert | Modules: workspace, geographic, domain, data, flow, transport, modflow
+# Profile: expert | Modules: workspace, geographic, domain, data, flow, transport, solver, modflownwt, modflow6
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
 # ======================================================================
@@ -564,10 +564,19 @@ rate_decay = 0.0
 plot_conc = true
 
 # ----------------------------------------------------------------------
-# MODFLOW expert configuration
+# Solver selection
 # ----------------------------------------------------------------------
 
-[modflow.runtime]
+[solver]
+# Solver backend: "nwt" (legacy) or "mf6" (MODFLOW 6).
+solver_engine = "nwt"
+
+# ----------------------------------------------------------------------
+# MODFLOW-NWT expert configuration
+# ----------------------------------------------------------------------
+
+[modflownwt.runtime]
+
 # MODFLOW executable/version identifier passed to FloPy.
 mf_version = "mfnwt"
 # Fortran unit number used for the MODFLOW list file.
@@ -631,13 +640,13 @@ lmt_extension = "lmt8"
 # LMT file format.
 lmt_output_format = "unformatted"
 
-[modflow.process_specific]
+[modflownwt.process_specific]
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 vka = 1.0
 # Extinction depth used by the EVT package (EXDP).
 exdp = 1.0
 
-[modflow.sgrid]
+[modflownwt.sgrid]
 # Length unit label propagated to FloPy (for example 'm').
 lenuni = "m"
 # Vertical-layering method.
@@ -649,7 +658,55 @@ lay_decay = 1.2
 # No-data sentinel value used to mask invalid raster cells.
 nodata = -9999.0
 
-[modflow.tgrid]
+[modflownwt.tgrid]
+# Time unit label propagated to FloPy (for example 'd').
+itmuni = "days"
+# Temporal mesh generation method ("synthetic_regular" or "from_chron").
+genmtd = "synthetic_regular"
+# Number of stress periods.
+nper = 12
+# Length of each stress period when genmtd = "synthetic_regular".
+lenper = 30.0
+# Chronicle file path used when genmtd = "from_chron".
+chron_path = "data/recharge_chronicle.tsv"
+# Datetime format used to parse the chronicle time column.
+chron_dateformat = "%Y-%m-%d %H:%M:%S"
+# Column separator used in the chronicle file.
+chron_colsep = "\t"
+# Time-column name in the chronicle file.
+chron_time_col = "Date"
+# Optional explicit start datetime (leave commented to keep default None).
+start_datetime = "2003-01-01 00:00:00"
+
+# ----------------------------------------------------------------------
+# MODFLOW 6 expert configuration
+# ----------------------------------------------------------------------
+
+[modflow6.runtime]
+# MODFLOW 6 executable name (or absolute path).
+mf6_executable_name = "mf6"
+# IMS complexity keyword for MF6.
+mf6_ims_complexity = "COMPLEX"
+# Enable verbose FloPy logging for model setup.
+mf_verbose = false
+
+[modflow6.process_specific]
+# Vertical anisotropy factor used to derive k33 from k.
+vka = 1.0
+
+[modflow6.sgrid]
+# Length unit label propagated to FloPy (for example 'm').
+lenuni = "m"
+# Vertical-layering method.
+genmtd_lay = "decay"
+# Number of model layers for constant/decay layering.
+nlay = 10
+# Decay exponent (>1) for progressively thicker layers with depth.
+lay_decay = 1.2
+# No-data sentinel value used to mask invalid raster cells.
+nodata = -9999.0
+
+[modflow6.tgrid]
 # Time unit label propagated to FloPy (for example 'd').
 itmuni = "days"
 # Temporal mesh generation method ("synthetic_regular" or "from_chron").

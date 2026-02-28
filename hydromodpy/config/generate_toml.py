@@ -32,7 +32,10 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.domain.domain_config import DomainConfig
         from hydromodpy.geographic.geographic_config import GeographicConfig
         from hydromodpy.process.flow.flow_config import FlowConfig
+        from hydromodpy.process.transport.transport_config import TransportConfig
+        from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
         from hydromodpy.solver.modflow_nwt.modflow_config import ModflowConfig
+        from hydromodpy.solver.solver_config import SolverConfig
         from hydromodpy.watershed.workspace_config import WorkspaceConfig
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,
@@ -40,7 +43,10 @@ def _get_registry() -> dict[str, type[BaseModel]]:
             "domain": DomainConfig,
             "data": DataManagersConfig,
             "flow": FlowConfig,
-            "modflow": ModflowConfig,
+            "transport": TransportConfig,
+            "solver": SolverConfig,
+            "modflownwt": ModflowConfig,
+            "modflow6": Modflow6Config,
         }
     return _MODULE_REGISTRY
 
@@ -63,7 +69,7 @@ def generate_toml(
     output_path : str, Path, or None
         If provided, write the template to this file.
     modules : list of str, or None
-        Module sections to include (e.g. ["geographic", "modflow"]).
+        Module sections to include (e.g. ["geographic", "modflownwt"]).
         None = all registered modules.
     profile : str
         Visibility profile: "user", "dev", or "expert".
