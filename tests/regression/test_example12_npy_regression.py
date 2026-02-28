@@ -47,6 +47,7 @@ MT3DMS_OUTPUT_NAMES = [
 ]
 
 SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
+HUBEAU_HEALTHCHECK_URL = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?size=1&format=json"
 
 
 @pytest.mark.regression
@@ -56,6 +57,7 @@ def test_example12_regression_on_npy_outputs(tmp_path, update_goldens):
     """Run example12, then compare (or refresh) its golden signatures."""
     assert_required_executables()
     require_url_available(SHOM_HEALTHCHECK_URL)
+    require_url_available(HUBEAU_HEALTHCHECK_URL)
 
     out_path = tmp_path / "example12_outputs"
     run_example_script(
