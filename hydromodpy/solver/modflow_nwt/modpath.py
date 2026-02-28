@@ -117,6 +117,12 @@ class Modpath(Solver):
         if model_modflow is None:
             raise ValueError("model_modflow must be provided to initialize Modpath")
 
+        if not hasattr(model_modflow, 'mf'):
+            raise ValueError(
+                "Modpath is available only with MODFLOW-NWT flow models. "
+                "Please set [solver].solver_engine = 'nwt' and run modflownwt first."
+            )
+
         self.domain = domain
         self.transport = transport
         self.model_modflow = model_modflow

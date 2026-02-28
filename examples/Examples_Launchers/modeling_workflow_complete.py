@@ -169,6 +169,10 @@ def complete_modpath(geographic, settings, model_modflow, initializing, model_na
         print("✗ MODPATH skipped (MODFLOW not available)\n")
         return {'model_modpath': None, 'success': False}
 
+    if not hasattr(model_modflow, 'mf'):
+        print("✗ MODPATH skipped (requires MODFLOW-NWT / solver_engine='nwt')\n")
+        return {'model_modpath': None, 'success': False}
+
     try:
         stable_folder = initializing.stable_folder
         simulations_folder = initializing.simulations_folder

@@ -9,6 +9,7 @@ from hydromodpy.solver.modflow_nwt.modflow_config import (
     ModflowConfig,
     ModflowSpecifParams,
 )
+from hydromodpy.solver.solver_engine import SolverEngine
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 
@@ -43,21 +44,24 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 'catch_def = "dem"',
                 'dem_init_path = "dem.tif"',
                 "",
-                "[modflow.runtime]",
+                "[solver]",
+                'solver_engine = "nwt"',
+                "",
+                "[modflownwt.runtime]",
                 'nwt_options = "SIMPLE"',
                 "",
-                "[modflow.process_specific]",
+                "[modflownwt.process_specific]",
                 "vka = 2.5",
                 "exdp = 3.0",
                 "",
-                "[modflow.sgrid]",
+                "[modflownwt.sgrid]",
                 'lenuni = "m"',
                 "nodata = -9999.0",
                 'genmtd_lay = "decay"',
                 "nlay = 3",
                 "lay_decay = 1.8",
                 "",
-                "[modflow.tgrid]",
+                "[modflownwt.tgrid]",
                 'itmuni = "d"',
                 'flow_regime = "transient"',
                 'genmtd = "synthetic_regular"',
@@ -73,17 +77,18 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
 
     cfg = HydroModPyConfig.from_toml(toml_path)
 
-    assert cfg.modflow.process_specific.vka == 2.5
-    assert cfg.modflow.process_specific.exdp == 3.0
-    assert cfg.modflow.runtime.nwt_options == "SIMPLE"
-    assert isinstance(cfg.modflow.sgrid, VerticalGridConfig)
-    assert cfg.modflow.sgrid.genmtd_lay == "decay"
-    assert cfg.modflow.sgrid.nlay == 3
-    assert cfg.modflow.sgrid.lay_decay == 1.8
-    assert isinstance(cfg.modflow.tgrid, TMeshConfigModel)
-    assert cfg.modflow.tgrid.flow_regime == "transient"
-    assert cfg.modflow.tgrid.nper == 4
-    assert cfg.modflow.tgrid.ntsp == [1, 2, 2, 3]
+    assert cfg.solver.solver_engine == SolverEngine.MODFLOW_NWT
+    assert cfg.modflownwt.process_specific.vka == 2.5
+    assert cfg.modflownwt.process_specific.exdp == 3.0
+    assert cfg.modflownwt.runtime.nwt_options == "SIMPLE"
+    assert isinstance(cfg.modflownwt.sgrid, VerticalGridConfig)
+    assert cfg.modflownwt.sgrid.genmtd_lay == "decay"
+    assert cfg.modflownwt.sgrid.nlay == 3
+    assert cfg.modflownwt.sgrid.lay_decay == 1.8
+    assert isinstance(cfg.modflownwt.tgrid, TMeshConfigModel)
+    assert cfg.modflownwt.tgrid.flow_regime == "transient"
+    assert cfg.modflownwt.tgrid.nper == 4
+    assert cfg.modflownwt.tgrid.ntsp == [1, 2, 2, 3]
 
 
 def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
@@ -111,3 +116,37 @@ def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
 
     with pytest.raises(ValueError):
         HydroModPyConfig.from_toml(toml_path)
+
+
+def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        "\n".join(
+            [
+                "[workspace]",
+                'catch_name = "demo"',
+                'out_dir_path = "out"',
+                'data_path = "data"',
+                "",
+                "[geographic]",
+                'catch_def = "dem"',
+                'dem_init_path = "dem.tif"',
+                "",
+                "[solver]",
+                'solver_engine = "mf6"',
+                "",
+                "[modflow6.runtime]",
+                'mf6_executable_name = "mf6_custom"',
+                'mf6_ims_complexity = "SIMPLE"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(toml_path)
+    assert cfg.solver.solver_engine == SolverEngine.MODFLOW6
+    assert cfg.modflow6.runtime.mf6_executable_name == "mf6_custom"
+    assert cfg.modflow6.runtime.mf6_ims_complexity == "SIMPLE"
