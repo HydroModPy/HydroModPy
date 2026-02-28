@@ -536,11 +536,9 @@ if __name__ == '__main__':
     the_K0 = 5e-5*24*3600
     the_sy0 = 2/100
 
-    compt = 0
-
     # Change
 
-    model_name = f"{vers}_{compt}_K{the_K0/24/3600:.1e}_a{alpha:.1f}_Sy{the_sy0*100:.1f}"
+    model_name = f"{vers}_K{the_K0/24/3600:.1e}_a{alpha:.1f}_Sy{the_sy0*100:.1f}"
     print(model_name)
 
     setting.update_model_name(model_name)
@@ -548,15 +546,6 @@ if __name__ == '__main__':
     setting.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
 
     model_folder = workspace.simulations_folder
-    preprocess_options = ModflowPreprocessOptions(
-        box=setting.box,
-        sink_fill=setting.sink_fill,
-        recharge=climatic.recharge,
-        first_clim=climatic.first_clim,
-        check_grid=setting.check_grid,
-        plot_cross=setting.plot_cross,
-        cross_ylim=tuple(setting.cross_ylim) if setting.cross_ylim else None,
-    )
     model_modflow = Modflow(
         geographic,
         # Workflow settings
@@ -564,10 +553,21 @@ if __name__ == '__main__':
         model_name=setting.model_name,
         bin_path=workspace.bin_path,
         modflow_config=cfg.modflow,
-        preprocess_options=preprocess_options,
     )
 
-    model_modflow.pre_processing(flow=flow, domain=domain) # verbose
+    model_modflow.pre_processing(
+        flow=flow,
+        domain=domain,
+        options=ModflowPreprocessOptions(
+            box=setting.box,
+            sink_fill=setting.sink_fill,
+            recharge=climatic.recharge,
+            first_clim=climatic.first_clim,
+            check_grid=setting.check_grid,
+            plot_cross=setting.plot_cross,
+            cross_ylim=tuple(setting.cross_ylim) if setting.cross_ylim else None,
+        ),
+    ) # verbose
 
     list_model_name = []
     list_model_name.append(model_name)
@@ -588,8 +588,6 @@ if __name__ == '__main__':
             link_mt3dms=True,
         )
     )
-
-    prob_cells = model_modflow.prob_cells
 
     if success_model == True:
         model_modflow.post_processing(

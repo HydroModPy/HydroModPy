@@ -1,437 +1,168 @@
-
 # -*- coding: utf-8 -*-
 
-from collections.abc import Mapping
-from numbers import Real
-from typing import Literal, cast
-
-from hydromodpy.field.core.field_param import FieldParam
-from hydromodpy.field.core.field_param_config import (
-    resolve_field_param_config_payload,
-    validate_resolved_field_param_data,
-)
 from hydromodpy.process.flow.flow_config import (
-	FlowConfig,
-	FlowSinksSourcesConfig,
-	FlowWellConfig,
+    FlowConfig,
+    FlowSinksSourcesConfig,
 )
-from hydromodpy.process.process import Process, Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
+from hydromodpy.process.process_spatial import (
+    BoundaryCondition,
+    InitialCondition,
+    ProcessSpatial,
+    SinkSource,
+    Variable,
+)
 
-class Flow(Process):
-	def __init__(self, config: FlowConfig | Mapping[str, object] | None = None):
-		super().__init__()
-		self.config: FlowConfig | None = None
-		self.flow_regime: str = "transient"
-		self.boundary_condition_application_domains: dict[str, str] = {}
-		self.initial_condition_types: dict[str, str] = {}
-		if config is not None:
-			self.set_config(config)
 
-	def set_config(self, config: FlowConfig | Mapping[str, object]) -> None:
-		if isinstance(config, FlowConfig):
-			flow_cfg = config
-		elif isinstance(config, Mapping):
-			if "param" in config:
-				flow_cfg = FlowConfig.model_validate(dict(config))
-			else:
-				shorthand_param: dict[str, dict[str, object]] = {}
-				for raw_key, raw_payload in config.items():
-					param_id = str(raw_key).strip()
-					if param_id == "":
-						raise ValueError("Flow shorthand config cannot contain empty parameter ids")
-					if not isinstance(raw_payload, Mapping):
-						raise TypeError(
-							"Flow shorthand config values must be mapping payloads "
-							f"(got {type(raw_payload).__name__} for '{param_id}')"
-						)
-					shorthand_param[param_id] = dict(raw_payload)
-				flow_cfg = FlowConfig(param=shorthand_param)
-		else:
-			raise TypeError("Flow config must be a FlowConfig instance or a mapping")
+class Flow(ProcessSpatial):
+    """Runtime flow-process object built from a validated ``FlowConfig``."""
 
-		self.config = flow_cfg
-		self.flow_regime = flow_cfg.flow_regime
-		self.set_parameters(cfg_flowparam=flow_cfg.param)
-		self.set_initial_conditions(flow_cfg.ic)
-		self.set_boundary_conditions(flow_cfg.bc)
-		self.set_sinks_sources(flow_cfg.sinks_sources)
+    def __init__(self, config: FlowConfig):
+        super().__init__()
+        if not isinstance(config, FlowConfig):
+            raise TypeError("config must be a FlowConfig instance")
+        self.config: FlowConfig
+        self.flow_regime: str
+        self.boundary_condition_application_domains: dict[str, str] = {}
+        self.initial_condition_types: dict[str, str] = {}
+        self.set_config(config)
 
-	def _build_field_param(self, *, param_id: str, raw_cfg: object) -> FieldParam:
-		if isinstance(raw_cfg, Mapping):
-			payload = dict(raw_cfg)
-		else:
-			raise TypeError(
-				f"cfg_flowparam['{param_id}'] must be a mapping, "
-				f"got {type(raw_cfg).__name__}"
-			)
+    def set_config(self, config: FlowConfig) -> None:
+        """Apply one validated ``FlowConfig`` payload to runtime state."""
+        if not isinstance(config, FlowConfig):
+            raise TypeError("config must be a FlowConfig instance")
 
-		# Support field_param TOML-style payloads by delegating mode resolution
-		# to field_param_config internals.
-		if any(
-			key in payload
-			for key in ("field", "field_homogeneous", "field_heterogeneous", "field_vertical_profile")
-		):
-			resolved = resolve_field_param_config_payload(
-				payload,
-				param_id=param_id,
-				section_label=f"cfg_flowparam['{param_id}']",
-			)
-			return FieldParam.from_dict(resolved)
+        self.config = config
+        self.flow_regime = config.flow_regime
+        self.set_parameters_from_config(
+            config.param,
+            parameter_ids=config.param_list,
+            context_label="flow.param",
+        )
+        self.set_initial_conditions(self._build_initial_conditions(config.ic))
+        bc, application_domains = self._build_boundary_conditions(config.bc)
+        self.set_boundary_conditions(
+            boundary_conditions=bc,
+            application_domains=application_domains,
+        )
+        self.set_sinks_sources(config.sinks_sources)
 
-		# Supports already-resolved payload:
-		# {id, kind, value|values, field_spatial_id, vertical_profile}
-		payload.setdefault("id", param_id)
-		resolved = validate_resolved_field_param_data(payload)
-		return FieldParam.from_dict(resolved)
+    def _build_initial_conditions(
+        self,
+        initial_conditions_cfg: dict[str, dict[str, object]],
+    ) -> dict[str, InitialCondition]:
+        parsed: dict[str, InitialCondition] = {}
+        for ic_id, payload in initial_conditions_cfg.items():
+            data = dict(payload)
+            data["id"] = ic_id
+            parsed[ic_id] = InitialCondition.model_validate(data)
+        return parsed
 
-	def set_parameters(
-		self,
-		cfg_flowparam: Mapping[str, object] | None = None,
-	):
-		if cfg_flowparam is None:
-			return
-		if not isinstance(cfg_flowparam, Mapping):
-			raise TypeError("cfg_flowparam must be a mapping of parameter id to config")
+    def _build_boundary_conditions(
+        self,
+        boundary_conditions_cfg: dict[str, object],
+    ) -> tuple[dict[str, BoundaryCondition], dict[str, str]]:
+        parsed: dict[str, BoundaryCondition] = {}
+        application_domains: dict[str, str] = {}
 
-		parsed_parameters: dict[str, FieldParam] = {}
-		for raw_id, raw_cfg in cfg_flowparam.items():
-			param_id = str(raw_id).strip()
-			if param_id == "":
-				raise ValueError("cfg_flowparam cannot contain empty parameter ids")
-			parsed_parameters[param_id] = self._build_field_param(
-				param_id=param_id,
-				raw_cfg=raw_cfg,
-			)
-		self.parameters = parsed_parameters
+        for bc_id, raw_payload in boundary_conditions_cfg.items():
+            if isinstance(raw_payload, BoundaryCondition):
+                parsed[bc_id] = raw_payload
+                continue
+            payload = dict(raw_payload)
+            raw_application_domain = payload.pop("application_domain", None)
+            payload["id"] = bc_id
+            parsed[bc_id] = BoundaryCondition.model_validate(payload)
 
-	def set_variables(self, variables: dict):
-		self.variables.update(variables)
+            if isinstance(raw_application_domain, str):
+                application_domain = raw_application_domain.strip()
+                if application_domain:
+                    application_domains[bc_id] = application_domain
 
-	def set_initial_conditions(self, initial_conditions: Mapping[str, object] | None):
-		if initial_conditions is None:
-			return
-		if not isinstance(initial_conditions, Mapping):
-			raise TypeError("initial_conditions must be a mapping")
+        return parsed, application_domains
 
-		parsed_initial_conditions: dict[str, InitialCondition] = {}
-		parsed_initial_condition_types: dict[str, str] = {}
-		for raw_id, raw_payload in initial_conditions.items():
-			ic_id = str(raw_id).strip()
-			if ic_id == "":
-				raise ValueError("initial_conditions cannot contain empty ids")
+    def set_variables(self, variables: dict[str, Variable]) -> None:
+        self.variables.update(variables)
 
-			if isinstance(raw_payload, InitialCondition):
-				parsed_initial_conditions[ic_id] = raw_payload
-				parsed_initial_condition_types[ic_id] = raw_payload.type
-				continue
+    def set_initial_conditions(
+        self,
+        initial_conditions: dict[str, InitialCondition] | None,
+    ) -> None:
+        if initial_conditions is None:
+            self.initial_conditions = {}
+            self.initial_condition_types = {}
+            return
+        self.initial_conditions = dict(initial_conditions)
+        self.initial_condition_types = {
+            key: value.type for key, value in self.initial_conditions.items()
+        }
 
-			if isinstance(raw_payload, Mapping):
-				payload = dict(raw_payload)
-				raw_type = payload.get("type", "custom")
-				ic_type_raw = str(raw_type).strip().lower()
-				if ic_type_raw not in {"top", "bot", "custom"}:
-					raise ValueError(
-						f"flow.ic.{ic_id}.type must be one of: 'top', 'bot', 'custom'"
-					)
-				ic_type = cast(Literal["top", "bot", "custom"], ic_type_raw)
+    def set_boundary_conditions(
+        self,
+        boundary_conditions: dict[str, BoundaryCondition] | None = None,
+        *,
+        application_domains: dict[str, str] | None = None,
+    ) -> None:
+        if boundary_conditions is None:
+            self.boundary_conditions = {}
+        else:
+            self.boundary_conditions = dict(boundary_conditions)
+        if application_domains is None:
+            self.boundary_condition_application_domains = {}
+        else:
+            self.boundary_condition_application_domains = dict(application_domains)
 
-				if ic_type == "custom":
-					if "value" not in payload:
-						raise ValueError(f"flow.ic.{ic_id}.value is required when type='custom'")
-					raw_value = payload["value"]
-					if not isinstance(raw_value, Real):
-						raise TypeError(f"flow.ic.{ic_id}.value must be a numeric value")
-					numeric_value = float(raw_value)
-				else:
-					raw_value = payload.get("value", 0.0)
-					if not isinstance(raw_value, Real):
-						raise TypeError(
-							f"flow.ic.{ic_id}.value must be a numeric value when provided"
-						)
-					numeric_value = float(raw_value)
+    def set_sinks_sources(
+        self,
+        sinks_sources: FlowSinksSourcesConfig | None = None,
+    ) -> None:
+        if sinks_sources is None:
+            self.sinks_sources["wells"] = {}
+            return
 
-				description = str(payload.get("description", f"Initial condition '{ic_id}'"))
-				units = str(payload.get("units", payload.get("unit", "m")))
-				parsed_initial_conditions[ic_id] = InitialCondition(
-					id=ic_id,
-					type=ic_type,
-					value=numeric_value,
-					description=description,
-					units=units,
-				)
-				parsed_initial_condition_types[ic_id] = ic_type
-				continue
+        self.sinks_sources["wells"] = dict(sinks_sources.wells)
 
-			if isinstance(raw_payload, Real):
-				parsed_initial_conditions[ic_id] = InitialCondition(
-					id=ic_id,
-					type="custom",
-					value=float(raw_payload),
-					description=f"Initial condition '{ic_id}'",
-					units="m",
-				)
-				parsed_initial_condition_types[ic_id] = "custom"
-				continue
-
-			raise TypeError(
-				f"flow.ic.{ic_id} must be an InitialCondition, mapping, or numeric value"
-			)
-
-		self.initial_conditions.update(parsed_initial_conditions)
-		self.initial_condition_types.update(parsed_initial_condition_types)
-
-	def set_boundary_conditions(self, boundary_conditions: Mapping[str, object] | None = None):
-		if boundary_conditions is None:
-			return
-		if not isinstance(boundary_conditions, Mapping):
-			raise TypeError("boundary_conditions must be a mapping")
-
-		parsed_boundary_conditions: dict[str, object] = {}
-
-		dirichlet_payload = boundary_conditions.get("dirichlet")
-		if isinstance(dirichlet_payload, Mapping):
-			for bc_id in (
-				"ocean",
-				"stream",
-				"north_boundary",
-				"south_boundary",
-				"east_boundary",
-				"west_boundary",
-			):
-				sub_payload = dirichlet_payload.get(bc_id)
-				if isinstance(sub_payload, Mapping):
-					parsed_boundary_conditions[bc_id] = self._build_dirichlet_boundary_condition(
-						bc_id=bc_id,
-						payload=sub_payload,
-					)
-
-		robin_payload = boundary_conditions.get("robin")
-		cauchy_payload = boundary_conditions.get("cauchy")
-		if isinstance(cauchy_payload, Mapping):
-			drainage_payload = cauchy_payload.get("drainage")
-			if isinstance(drainage_payload, Mapping):
-				parsed_boundary_conditions["drainage"] = self._build_drainage_boundary_condition(
-					drainage_payload,
-					expected_section="cauchy",
-				)
-
-		if isinstance(robin_payload, Mapping):
-			drainage_payload = robin_payload.get("drainage")
-			if isinstance(drainage_payload, Mapping):
-				parsed_boundary_conditions.setdefault(
-					"drainage",
-					self._build_drainage_boundary_condition(
-						drainage_payload,
-						expected_section="robin",
-					),
-				)
-
-		for raw_id, raw_payload in boundary_conditions.items():
-			bc_id = str(raw_id).strip()
-			if bc_id == "":
-				raise ValueError("boundary_conditions cannot contain empty ids")
-			if bc_id in {"dirichlet", "robin", "cauchy"}:
-				continue
-			if bc_id == "drainage" and "drainage" in parsed_boundary_conditions:
-				continue
-			parsed_boundary_conditions[bc_id] = self._coerce_boundary_condition_entry(
-				bc_id=bc_id,
-				raw_payload=raw_payload,
-			)
-
-		self.boundary_conditions.update(parsed_boundary_conditions)
-
-	def _coerce_boundary_condition_entry(self, *, bc_id: str, raw_payload: object) -> object:
-		if isinstance(raw_payload, BoundaryCondition):
-			return raw_payload
-		if not isinstance(raw_payload, Mapping):
-			return raw_payload
-		if "value" not in raw_payload:
-			return dict(raw_payload)
-
-		payload = dict(raw_payload)
-		payload.setdefault("id", bc_id)
-		payload.setdefault("description", "")
-		if "units" not in payload and "unit" in payload:
-			payload["units"] = payload["unit"]
-		payload.setdefault("units", "")
-		payload.setdefault("type", "Dirichlet")
-		payload.setdefault("data_value", False)
-		return BoundaryCondition.model_validate(payload)
-
-	def _build_drainage_boundary_condition(
-		self,
-		drainage_payload: Mapping[str, object],
-		*,
-		expected_section: str,
-	) -> BoundaryCondition:
-		if "value" not in drainage_payload:
-			raise ValueError(f"flow.bc.{expected_section}.drainage.value is required")
-
-		value = drainage_payload["value"]
-		if not isinstance(value, Real):
-			raise TypeError(
-				f"flow.bc.{expected_section}.drainage.value must be a numeric value"
-			)
-
-		raw_application_domain = drainage_payload.get("application_domain")
-		if not isinstance(raw_application_domain, str):
-			raise TypeError(
-				f"flow.bc.{expected_section}.drainage.application_domain must be a string"
-			)
-		application_domain = raw_application_domain.strip()
-		if application_domain == "":
-			raise ValueError(
-				f"flow.bc.{expected_section}.drainage.application_domain cannot be empty"
-			)
-
-		allowed_domains = {"top", "north side", "west side", "east side", "south side"}
-		if application_domain not in allowed_domains:
-			raise ValueError(
-				f"flow.bc.{expected_section}.drainage.application_domain contains an invalid value: "
-				+ application_domain
-			)
-
-		raw_type = drainage_payload.get("type", "cauchy")
-		bc_type = str(raw_type).lower()
-		if bc_type not in {"cauchy", "robin"}:
-			raise ValueError(
-				f"flow.bc.{expected_section}.drainage.type must be 'cauchy' or 'robin'"
-			)
-
-		data_value = bool(drainage_payload.get("data_value", False))
-		unit = drainage_payload.get("unit", drainage_payload.get("units", "m2/s"))
-		units = str(unit)
-
-		self.boundary_condition_application_domains["drainage"] = application_domain
-
-		return BoundaryCondition(
-			id="drainage",
-			value=float(value),
-			description=(
-				f"{bc_type.capitalize()} drainage boundary condition on "
-				+ application_domain
-			),
-			units=units,
-			type=bc_type,
-			data_value=data_value,
-		)
-
-	def _build_dirichlet_boundary_condition(
-		self,
-		*,
-		bc_id: str,
-		payload: Mapping[str, object],
-	) -> BoundaryCondition:
-		if "value" not in payload:
-			raise ValueError(f"flow.bc.dirichlet.{bc_id}.value is required")
-
-		value = payload["value"]
-		data_value_flag = payload.get("data_value", False)
-		if not isinstance(value, Real):
-			raise TypeError(f"flow.bc.dirichlet.{bc_id}.value must be a numeric value")
-		numeric_value = float(value)
-
-		raw_type = payload.get("type", "dirichlet")
-		if str(raw_type).lower() != "dirichlet":
-			raise ValueError(f"flow.bc.dirichlet.{bc_id}.type must be 'dirichlet'")
-
-		raw_application_domain = payload.get("application_domain")
-		if not isinstance(raw_application_domain, str):
-			raise TypeError(
-				f"flow.bc.dirichlet.{bc_id}.application_domain must be a string"
-			)
-		application_domain = raw_application_domain.strip()
-		if application_domain == "":
-			raise ValueError(
-				f"flow.bc.dirichlet.{bc_id}.application_domain cannot be empty"
-			)
-
-		allowed_domains = {"top", "north side", "west side", "east side", "south side"}
-		if application_domain not in allowed_domains:
-			raise ValueError(
-				f"flow.bc.dirichlet.{bc_id}.application_domain contains an invalid value: "
-				+ application_domain
-			)
-
-		self.boundary_condition_application_domains[bc_id] = application_domain
-
-		data_value = bool(payload.get("data_value", False))
-		unit = payload.get("unit", payload.get("units", "m"))
-		units = str(unit)
-		description = f"Dirichlet boundary condition '{bc_id}' on {application_domain}"
-		if data_value_flag:
-			description += " (data_value=True)"
-
-		return BoundaryCondition(
-			id=bc_id,
-			value=numeric_value,
-			description=description,
-			units=units,
-			type="dirichlet",
-			data_value=data_value,
-		)
-
-	def set_sinks_sources(
-		self,
-		sinks_sources: FlowSinksSourcesConfig | Mapping[str, object] | None = None,
-	):
-		if sinks_sources is None:
-			return
-
-		if isinstance(sinks_sources, FlowSinksSourcesConfig):
-			self.sinks_sources["wells"] = dict(sinks_sources.wells)
-			return
-
-		if not isinstance(sinks_sources, Mapping):
-			raise TypeError(
-				"sinks_sources must be a FlowSinksSourcesConfig or a mapping payload"
-			)
-
-		raw_wells = sinks_sources.get("wells", sinks_sources)
-		if raw_wells is None:
-			self.sinks_sources["wells"] = {}
-			return
-		if not isinstance(raw_wells, Mapping):
-			raise TypeError("sinks_sources.wells must be a mapping of well ids to payloads")
-
-		parsed_wells: dict[str, FlowWellConfig] = {}
-		for raw_id, raw_payload in raw_wells.items():
-			well_id = str(raw_id).strip()
-			if well_id == "":
-				raise ValueError("sinks_sources.wells cannot contain empty ids")
-			if isinstance(raw_payload, FlowWellConfig):
-				parsed_wells[well_id] = raw_payload
-			elif isinstance(raw_payload, Mapping):
-				parsed_wells[well_id] = FlowWellConfig.model_validate(dict(raw_payload))
-			else:
-				raise TypeError(
-					f"sinks_sources.wells['{well_id}'] must be a FlowWellConfig or mapping"
-				)
-
-		self.sinks_sources["wells"] = parsed_wells
 
 if __name__ == "__main__":
-    test = Flow()
-    Sy = Parameter(id='Sy', value=0.1, description='Specific yield', units='-', field_type='homogeneous')
-    h = Variable(id='h', value=0, description='Hydraulic head', units='m')
-    q = Variable(id='q', value=0, description='Flow rate', units='m3/s') 
-    h0 = InitialCondition(id='h0', type='custom', value=10, description='Initial hydraulic head', units='m')
-    h_ocean = BoundaryCondition(id='h_ocean', value=0, description='Ocean boundary condition', units='m', type='Dirichlet', data_value=False)
-    drain = BoundaryCondition(id='drain', value=0, description='Drain boundary condition', units='m', type='Cauchy', data_value=False)
-    recharge = SinkSource(id='R', value=1e-8, description='Recharge rate', units='m/s')
-    well1 = SinkSource(id='W1', value=-1e-4, description='Pumping well', units='m3/s')
-    test.set_parameters(
-        cfg_flowparam={
-            "K": {
-                "field": {"id": "K", "kind": "homogeneous"},
-                "field_homogeneous": {"value": 1e-5},
-            }
-        }
+    test = Flow(FlowConfig())
+    h = Variable(id="h", value=0, description="Hydraulic head", units="m")
+    q = Variable(id="q", value=0, description="Flow rate", units="m3/s")
+    h0 = InitialCondition(
+        id="h0",
+        type="custom",
+        value=10,
+        description="Initial hydraulic head",
+        units="m",
     )
-    test.add_parameter(Sy)
+    h_ocean = BoundaryCondition(
+        id="h_ocean",
+        value=0,
+        description="Ocean boundary condition",
+        units="m",
+        type="Dirichlet",
+        data_value=False,
+    )
+    drain = BoundaryCondition(
+        id="drain",
+        value=0,
+        description="Drain boundary condition",
+        units="m",
+        type="Cauchy",
+        data_value=False,
+    )
+    well1 = SinkSource(id="W1", value=-1e-4, description="Pumping well", units="m3/s")
+    test.set_parameters_from_config(
+        {
+            "K": {"id": "K", "kind": "homogeneous", "value": 1e-5, "unit": "m/s"},
+            "Sy": {"id": "Sy", "kind": "homogeneous", "value": 0.1, "unit": "-"},
+        },
+        parameter_ids=["K", "Sy"],
+        context_label="flow.param",
+    )
     test.set_variables({h.id: h, q.id: q})
     test.set_initial_conditions({h0.id: h0})
     test.set_boundary_conditions({h_ocean.id: h_ocean, drain.id: drain})
-    test.set_sinks_sources({well1.id: well1})
-
+    test.set_sinks_sources(
+        FlowSinksSourcesConfig(
+            wells={well1.id: {"cell": (0, 0, 0), "flux": -1e-4}},
+        )
+    )
