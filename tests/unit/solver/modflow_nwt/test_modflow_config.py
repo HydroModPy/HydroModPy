@@ -59,7 +59,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 "",
                 "[modflow.tgrid]",
                 'itmuni = "d"',
-                'sim_state = "transient"',
+                'flow_regime = "transient"',
                 'genmtd = "synthetic_regular"',
                 "nper = 4",
                 "lenper = 2.0",
@@ -81,7 +81,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflow.sgrid.nlay == 3
     assert cfg.modflow.sgrid.lay_decay == 1.8
     assert isinstance(cfg.modflow.tgrid, TMeshConfigModel)
-    assert cfg.modflow.tgrid.sim_state == "transient"
+    assert cfg.modflow.tgrid.flow_regime == "transient"
     assert cfg.modflow.tgrid.nper == 4
     assert cfg.modflow.tgrid.ntsp == [1, 2, 2, 3]
 

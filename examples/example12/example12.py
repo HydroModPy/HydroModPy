@@ -49,7 +49,7 @@ sys.path.append(root_dir)
 import hydromodpy as hmp
 from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Workspace, Climatic, Driasclimat, Driaseau, \
-    Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
+    Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Subbasin, Transport
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 from hydromodpy.data_managers.oceanic import Oceanic
@@ -62,7 +62,14 @@ from hydromodpy.domain import (
 from hydromodpy.data_managers import DataManagers
 from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.process import Flow
-from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
+from hydromodpy.solver.modflow_nwt import (
+    Modflow,
+    ModflowPostprocessOptions,
+    ModflowPreprocessOptions,
+    ModflowRunOptions,
+    Modpath,
+    Mt3dms,
+)
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
@@ -111,10 +118,6 @@ if __name__ == '__main__':
     flow = Flow(config=cfg.flow)
 
     setting = Settings()
-    hydraulic = Hydraulic(nrow=geographic.y_pixel,
-                          ncol=geographic.x_pixel,
-                          box_dem=geographic.watershed_box_buff_dem)
-
 
     transport = Transport()
 
@@ -151,6 +154,15 @@ if __name__ == '__main__':
         "selection": hydro_section.get("selection", {}),
         "output": hydro_section.get("output", {}),
     }
+
+    # Resolve relative hydrometry export path from config location for portability.
+    output_path = hydro_cfg["output"].get("path")
+    if output_path:
+        output_path_obj = Path(str(output_path)).expanduser()
+        if not output_path_obj.is_absolute():
+            hydro_cfg["output"]["path"] = str(
+                (config_path.parent / output_path_obj).resolve()
+            )
 
     # Inject watershed shapefile created by Geographic as mask for station selection
     selection_mode = hydro_cfg["selection"].get("mode", "mask")
@@ -500,30 +512,10 @@ if __name__ == '__main__':
 
     box = True # or False
     sink_fill = False # or True
-    # sim_state = 'steady' # 'steady' or 'transient'
-    sim_state = 'transient' # 'steady' or 'transient'
     # first_clim = 'mean' # or 'first or value
     plot_cross = True
     cross_ylim = [0,150]
     check_grid = True
-    dis_perlen = True
-    nlay = 10
-    lay_decay = 1.2 # 1 for no decay
-    verti_hk = None # or [ [1e-5, [0, 20]],
-    verti_sy = None
-    verti_ss = None
-    cond_drain = None # or value of conductance
-    sy = 1 / 100 # -
-    sy_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-    hk_decay = 0
-    ss = 1e-5
-    ss_decay = 0 # exponential decay : 1/20 (half decrease at 20m)
-    bc_left = None # or value
-    bc_right = None # or value
-    zone_partic = 'domain' # or watershed
-    bottom = 0
-    thickness = 100
-    Klog_transf = False
 
     # Recharge
     # rec = R_mm_day
@@ -532,60 +524,16 @@ if __name__ == '__main__':
     run = rec * 0.1
     first_clim = 'mean'
     climatic.update_first_clim(first_clim)
-    climatic.update_recharge(rec, sim_state=sim_state)
-    climatic.update_runoff(run, sim_state=sim_state)
+    climatic.update_recharge(rec, sim_state=flow.flow_regime)
+    climatic.update_runoff(run, sim_state=flow.flow_regime)
 
     # Fixed
     setting.update_box_model(box)
     setting.update_sink_fill(sink_fill)
-    setting.update_simulation_state(sim_state)
-    hydraulic.update_nlay(nlay) # 1
-    hydraulic.update_lay_decay(lay_decay) # 1
-    hydraulic.update_cond_drain(cond_drain)
-    hydraulic.update_sy(sy)
-    hydraulic.update_sy_decay(sy_decay)
-    hydraulic.update_ss(ss)
-    hydraulic.update_ss_decay(ss_decay)
-    hydraulic.update_hk_vertical(verti_hk) # here for lays [ [1e-5m/s, [0, 20m]]
-    hydraulic.update_sy_vertical(verti_sy)
-    hydraulic.update_ss_vertical(verti_ss)
-    hydraulic.update_bottom(bottom)
-    setting.update_dis_perlen(dis_perlen)
-    setting.update_bc_sides(bc_left, bc_right)
-    hydraulic.update_thick(thickness)
-
-    # Well settings
-    well_1_coords = [1-1,40-1,40-1] # [lay, row, col]
-    well_2_coords = [1-1,65-1,65-1] # [lay, row, col]
-    well_1_fluxes = pd.Series([-200, -1000, -100, 0, 0, 0, 0, 0, 0, 0, 0, -1000]) # [L3/T]
-    well_2_fluxes = pd.Series([0, -1000, 0, -500, 0, 0, -500, 0, 0, 0, 0, -1000]) # [L3/T]
-    setting.update_well_pumping(well_coords=[well_1_coords, well_2_coords],
-                                    well_fluxes=[well_1_fluxes, well_2_fluxes])
 
     alpha = 15 # in m
-    n_factor = 2
-
     the_K0 = 5e-5*24*3600
-    hydraulic.update_hk(the_K0) # 3D
-    Kmin_for_hk_decay = 1e-8*24*3600
-    hydraulic.update_hk_decay(1/alpha, min_value=Kmin_for_hk_decay,
-                              log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
-
-    # the_sy0 = 0.1/100 #
-    the_sy0 = 2/100 #
-    hydraulic.update_sy(the_sy0)
-    Symin_for_sy_decay = 0.1/100
-    hydraulic.update_sy_decay((1/alpha)/n_factor, # change in : (1/alpha/n_factor)
-                              min_value=Symin_for_sy_decay,
-                              log_transf=Klog_transf,
-                              grad_elev=[93,136,-20]) # 0
-    # hydraulic.update_sy_decay(0) # 0
-
-    the_ss0 = 1e-10
-    hydraulic.update_ss(the_ss0)
-    # Ssmin_for_ss_decay = 1e-10
-    # hydraulic.update_ss_decay((1/alpha)/n_factor, min_value=Ssmin_for_ss_decay, log_transf=Klog_transf, grad_elev=[93,136,-20]) # 0
-    hydraulic.update_ss_decay(0) # 0
+    the_sy0 = 2/100
 
     compt = 0
 
@@ -598,47 +546,27 @@ if __name__ == '__main__':
 
     setting.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
 
-    for_calib = False
-    if for_calib == False:
-            model_folder = workspace.simulations_folder
-    else:
-        model_folder = workspace.calibration_folder
-    model_modflow = Modflow(geographic,
-                            flow=flow,
-                            domain=domain,
-                            # Workflow settings
-                            model_folder=model_folder,   # self.simulations_folder
-                            model_name=setting.model_name,
-                            bin_path=workspace.bin_path,
-                            # Model settings
-                            box=setting.box,
-                            sink_fill=setting.sink_fill,
-                            sim_state=setting.sim_state,
-                            dis_perlen=setting.dis_perlen,
-                            # Well settings
-                            well_coords=setting.well_coords,
-                            well_fluxes=setting.well_fluxes,
-                            # Output settings
-                            plot_cross=setting.plot_cross,
-                            cross_ylim=setting.cross_ylim,
-                            check_grid=setting.check_grid,
-                            # Boundary settings
-                            bc_left=setting.bc_left,
-                            bc_right=setting.bc_right,
-                            # Climatic settings
-                            recharge=climatic.recharge,
-                            runoff=climatic.runoff,
-                            first_clim=climatic.first_clim,
-                            # Hydraulic settings
-                            bottom=hydraulic.bottom,
-                            thick=hydraulic.thick,
-                            nlay=hydraulic.nlay,
-                            lay_decay=hydraulic.lay_decay,
-                            modflow_config=cfg.modflow,
-                            cond_drain=hydraulic.cond_drain,
-                            )
+    model_folder = workspace.simulations_folder
+    preprocess_options = ModflowPreprocessOptions(
+        box=setting.box,
+        sink_fill=setting.sink_fill,
+        recharge=climatic.recharge,
+        first_clim=climatic.first_clim,
+        check_grid=setting.check_grid,
+        plot_cross=setting.plot_cross,
+        cross_ylim=tuple(setting.cross_ylim) if setting.cross_ylim else None,
+    )
+    model_modflow = Modflow(
+        geographic,
+        # Workflow settings
+        model_folder=model_folder,   # self.simulations_folder
+        model_name=setting.model_name,
+        bin_path=workspace.bin_path,
+        modflow_config=cfg.modflow,
+        preprocess_options=preprocess_options,
+    )
 
-    model_modflow.pre_processing() # verbose
+    model_modflow.pre_processing(flow=flow, domain=domain) # verbose
 
     list_model_name = []
     list_model_name.append(model_name)
@@ -652,26 +580,36 @@ if __name__ == '__main__':
     with open(pickle_file, 'wb') as f:
         pickle.dump(dictio, f)
 
-    success_model = model_modflow.processing(write_model=True, run_model=True, link_mt3dms=True)
+    success_model = model_modflow.processing(
+        options=ModflowRunOptions(
+            write_model=True,
+            run_model=True,
+            link_mt3dms=True,
+        )
+    )
 
     prob_cells = model_modflow.prob_cells
 
     if success_model == True:
-        model_modflow.post_processing(model_modflow,
-                            watertable_elevation = True,
-                            seepage_areas = True,
-                            outflow_drain = True,
-                            accumulation_flux = True,
-                            watertable_depth = True,
-                            groundwater_flux = False,
-                            groundwater_storage = False,
-                            intermittency_weekly = False,
-                            intermittency_monthly = True,
-                            intermittency_yearly = False,
-                            export_all_tif = False)
+        model_modflow.post_processing(
+            options=ModflowPostprocessOptions(
+                watertable_elevation=True,
+                seepage_areas=True,
+                outflow_drain=True,
+                accumulation_flux=True,
+                watertable_depth=True,
+                groundwater_flux=False,
+                groundwater_storage=False,
+                intermittency_weekly=False,
+                intermittency_monthly=True,
+                intermittency_yearly=False,
+                export_all_tif=False,
+            )
+        )
 
     timeseries_results = timeseries.Timeseries(geographic,
                                             model_modflow=model_modflow,
+                                            runoff=climatic.runoff,
                                             model_modpath=None,
                                             model_mt3dms=None,
                                             datetime_format=True,
@@ -895,11 +833,6 @@ if __name__ == '__main__':
                                     sel_slice = None, # or int
                                     )
 
-    if for_calib == False:
-        model_folder = workspace.simulations_folder
-    else:
-        model_folder = workspace.calibration_folder
-
     model_modpath = Modpath(geographic,
                                     model_modflow,
                                     # Frame settings
@@ -1063,10 +996,6 @@ if __name__ == '__main__':
 
     scenario = 's1'
 
-    if for_calib == False:
-        model_folder = workspace.simulations_folder
-    else:
-        model_folder = workspace.calibration_folder
     suffix_name = '_mt_'+scenario
     model_mt3dms = Mt3dms(geographic,
                         model_modflow,
@@ -1100,6 +1029,7 @@ if __name__ == '__main__':
 
     timeseries_results = timeseries.Timeseries(geographic,
                                                model_modflow=model_modflow,
+                                                runoff=climatic.runoff,
                                                 model_modpath=model_modpath,
                                                 model_mt3dms=model_mt3dms,
                                                 suffix_name=scenario,

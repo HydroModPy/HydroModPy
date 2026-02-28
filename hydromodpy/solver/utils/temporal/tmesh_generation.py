@@ -23,7 +23,7 @@ except ModuleNotFoundError:  # pragma: no cover - used only in minimal local env
     ModelTime = None
 
 
-_VALID_SIM_STATES = {"steady", "transient"}
+_VALID_FLOW_REGIMES = {"steady", "transient"}
 _VALID_GEN_METHODS = {"synthetic_regular", "from_chron"}
 
 
@@ -32,7 +32,7 @@ class TMeshConfig:
     """Typed temporal mesh configuration."""
 
     itmuni: str = "d"
-    sim_state: str = "steady"
+    flow_regime: str = "transient"
     genmtd: str = "synthetic_regular"
     nper: int = 1
     lenper: float | int | None = 1
@@ -71,9 +71,9 @@ def _as_positive_float(name: str, value: Any) -> float:
 def _validate_config(config: TMeshConfig) -> None:
     if str(config.itmuni).strip() == "":
         raise ValueError("itmuni cannot be empty.")
-    if config.sim_state not in _VALID_SIM_STATES:
+    if config.flow_regime not in _VALID_FLOW_REGIMES:
         raise ValueError(
-            f"Invalid sim_state={config.sim_state!r}. Expected one of: {_VALID_SIM_STATES}."
+            f"Invalid flow_regime={config.flow_regime!r}. Expected one of: {_VALID_FLOW_REGIMES}."
         )
     if config.genmtd not in _VALID_GEN_METHODS:
         raise ValueError(
@@ -154,15 +154,15 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
 
 
 def _build_steady_state(config: TMeshConfig, perlen: np.ndarray) -> np.ndarray:
-    if config.sim_state == "steady":
+    if config.flow_regime == "steady":
         return np.ones(len(perlen), dtype=bool)
-    if config.sim_state == "transient":
+    if config.flow_regime == "transient":
         steady_state = np.zeros(len(perlen), dtype=bool)
         if bool(config.firstpersteady):
             steady_state[0] = True
         return steady_state
     raise ValueError(
-        f"Invalid sim_state={config.sim_state!r}. Expected one of: {_VALID_SIM_STATES}."
+        f"Invalid flow_regime={config.flow_regime!r}. Expected one of: {_VALID_FLOW_REGIMES}."
     )
 
 
@@ -284,12 +284,12 @@ class TMesh_Generation:
         self._set_config_value("itmuni", value)
 
     @property
-    def sim_state(self):
-        return self._config.sim_state
+    def flow_regime(self):
+        return self._config.flow_regime
 
-    @sim_state.setter
-    def sim_state(self, value):
-        self._set_config_value("sim_state", value)
+    @flow_regime.setter
+    def flow_regime(self, value):
+        self._set_config_value("flow_regime", value)
 
     @property
     def genmtd(self):
@@ -405,7 +405,7 @@ class TMesh_Generation:
 
     def _create_tmesh(self):
         start_datetime, time_units, perlen = self._get_period_lengths()
-        steady_state = self._get_sim_state_array(perlen)
+        steady_state = self._get_steady_state_array(perlen)
         nstp = _expand_ntsp(self.ntsp, len(perlen))
         tsmult = _expand_tsmult(self.tsmult, len(perlen))
         tmesh = _build_modeltime(
@@ -424,7 +424,7 @@ class TMesh_Generation:
     def _get_period_lengths(self):
         return _build_period_lengths(self._config)
 
-    def _get_sim_state_array(self, perlen):
+    def _get_steady_state_array(self, perlen):
         return _build_steady_state(self._config, np.asarray(perlen, dtype=float))
 
 

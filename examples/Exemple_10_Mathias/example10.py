@@ -583,7 +583,6 @@ model_modflow = Modflow(geographic,
                         # Model settings
                         box=setting.box,
                         sink_fill=setting.sink_fill,
-                        sim_state=setting.sim_state,
                         dis_perlen=setting.dis_perlen,
                         # Well settings
                         #well_coords=setting.well_coords,
@@ -594,18 +593,9 @@ model_modflow = Modflow(geographic,
                         check_grid=setting.check_grid,
                         # Boundary settings
                         sea_level=oceanic.MSL,
-                        bc_left=setting.bc_left,
-                        bc_right=setting.bc_right,
                         # Climatic settings
                         recharge=climatic.recharge,
-                        runoff=climatic.runoff,
                         #first_clim=climatic.first_clim,
-                        # Hydraulic settings
-                        bottom=hydraulic.bottom,
-                        thick=hydraulic.thick,
-                        nlay=hydraulic.nlay,
-                        lay_decay=hydraulic.lay_decay,
-                        cond_drain=hydraulic.cond_drain,
                         )
 
 model_modflow.pre_processing() # verbose
@@ -643,6 +633,7 @@ if success_model == True:
 
 timeseries_results = timeseries.Timeseries(geographic,              
                                         model_modflow=model_modflow,
+                                        runoff=climatic.runoff,
                                         model_modpath=None,
                                         model_mt3dms=None,
                                         datetime_format=True,
@@ -1073,6 +1064,7 @@ pp_model = model_mt3dms.post_processing(model_mt3dms,
 
 timeseries_results = timeseries.Timeseries(geographic,     
                                            model_modflow=model_modflow,
+                                            runoff=climatic.runoff,
                                             model_modpath=model_modpath,
                                             model_mt3dms=model_mt3dms,
                                             suffix_name=scenario,
