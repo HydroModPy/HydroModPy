@@ -33,8 +33,8 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODEULES
 from hydromodpy import watershed_root
-from hydromodpy.process import Parameter, Variable, InitialCondition, BoundaryCondition, SinkSource
 from hydromodpy.process import Flow
+from hydromodpy.process.flow.flow_config import FlowConfig
 
 # ---- FUNCTION LAUNCH
 
@@ -57,11 +57,16 @@ def run_hydromodpy(watershed_name='Test1',
                    Ss=1e-5 # -
                    ):
 
-    flow = Flow()
-    flow.add_parameter(Parameter(id='K', value=K*24*3600, description='Hydraulic conductivity', units='m/j', field_type='homogeneous',link_data=[]))
-    flow.add_parameter(Parameter(id='Sy', value=Sy, description='Specific yield', units='-', field_type='homogeneous'))
-    flow.add_parameter(Parameter(id='Ss', value=Ss, description='Specific storage', units='-', field_type='homogeneous'))
-    flow.add_sink_source(SinkSource(id='R', value=R/1000/365, description='Recharge rate', units='m/j'))
+    flow = Flow(
+        config=FlowConfig(
+            param_list=['K', 'Sy', 'Ss'],
+            param={
+                'K': {'id': 'K', 'kind': 'homogeneous', 'value': K * 24 * 3600, 'unit': 'm/day'},
+                'Sy': {'id': 'Sy', 'kind': 'homogeneous', 'value': Sy, 'unit': '-'},
+                'Ss': {'id': 'Ss', 'kind': 'homogeneous', 'value': Ss, 'unit': '-'},
+            }
+        )
+    )
     
     # ---- PERSONAL PATHS
 
