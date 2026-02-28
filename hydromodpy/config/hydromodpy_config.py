@@ -74,8 +74,9 @@ class HydroModPyConfig(BaseModel):
     flow: FlowConfig = Field(
         default_factory=FlowConfig,
         description=(
-            "Flow process configuration with parameter payloads validated "
-            "from [flow.param.<id>] TOML sections."
+            "Flow process configuration with declared parameter ids in "
+            "[flow].param_list and payloads validated from [flow.param.<id>] "
+            "TOML sections."
         ),
     )
     transport: TransportConfig = Field(

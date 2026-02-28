@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from hydromodpy.process.process import Process
+from hydromodpy.process.process_spatial import ProcessSpatial
 from hydromodpy.process.transport.transport_config import TransportConfig
 
 
@@ -22,7 +22,8 @@ class _TransportComponent:
         if kwargs:
             self.parameters.update(kwargs)
 
-class Transport(Process):
+
+class Transport(ProcessSpatial):
     def __init__(self, config: TransportConfig | Mapping[str, object] | None = None):
         super().__init__()
         self.config: TransportConfig | None = None
@@ -91,4 +92,3 @@ class Transport(Process):
     def update_mt3dms_parameters(self, **kwargs) -> None:
         """Backward-compatible alias now routed to `transport.conc.parameters`."""
         self.update_conc_parameters(**kwargs)
-
