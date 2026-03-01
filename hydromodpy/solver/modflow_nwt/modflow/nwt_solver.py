@@ -38,6 +38,7 @@ from .discretization import (
     build_temporal_discretization,
     resolve_domain_surfaces,
 )
+from .forcing_to_modflow_adapter import ForcingToModflowAdapter
 from .flow_to_modflow_adapter import FlowToModflowAdapter
 from .nwt_config import (
     ModflowConfig,
@@ -252,29 +253,8 @@ class Modflow(Solver):
         """Validate mandatory inputs before MODFLOW package assembly."""
         if self.flow is None:
             raise ValueError("pre_processing requires a configured Flow object.")
-
-        # Initial conditions are mandatory for MODFLOW startup.
-        # Important architectural rule:
-        # - their schema is defined by the process (`Flow`),
-        # - this solver only checks that one compatible payload is present.
-        initial_conditions = getattr(self.flow, "initial_conditions", None)
-        if initial_conditions is None:
-            raise ValueError("flow.initial_conditions must define one initial condition payload.")
-        initial_condition = getattr(initial_conditions, "h", None)
-        if initial_condition is None:
-            raise TypeError(
-                "flow.initial_conditions must expose one 'h' payload "
-                "(FlowInitialConditions.h)."
-            )
-        if not hasattr(initial_condition, "type") or not hasattr(initial_condition, "value"):
-            raise TypeError(
-                "flow.initial_conditions.h must be one InitialCondition-like object "
-                "(with 'type' and 'value')."
-            )
-
-        boundary_conditions = getattr(self.flow, "boundary_conditions", None)
-        if not isinstance(boundary_conditions, Mapping):
-            raise TypeError("flow.boundary_conditions must be a mapping.")
+        if self.domain is None:
+            raise ValueError("pre_processing requires a configured Domain object.")
 
         if self.tgrid_config is None:
             raise ValueError(
@@ -395,6 +375,16 @@ class Modflow(Solver):
         )
         return adapter.build()
 
+    def _build_forcing_modflow_inputs(self):
+        """Adapt recharge options into MODFLOW-ready EVT/RCH payloads."""
+        adapter = ForcingToModflowAdapter(
+            recharge=self.recharge,
+            nper=int(self.nper),
+            flow_regime=str(self.flow_regime),
+            first_clim=self.first_clim,
+        )
+        return adapter.build()
+
     def pre_processing(
         self,
         flow: object,
@@ -433,10 +423,7 @@ class Modflow(Solver):
         flow_inputs = self._build_flow_modflow_inputs(sgrid)
 
         # Boundary conditions arrays
-        self.drain_array = np.asarray(flow_inputs.drain_array, dtype=float)
-        self.iboundData = np.asarray(flow_inputs.ibound, dtype=float)
-        self.strtData = np.asarray(flow_inputs.strt, dtype=float)
-        self.chData = {} if flow_inputs.chd_spd is None else dict(flow_inputs.chd_spd)
+        self.drain_array = flow_inputs.drain_array
 
         if flow_inputs.chd_spd is not None:
             self.chd = flopy.modflow.ModflowChd(
@@ -451,8 +438,8 @@ class Modflow(Solver):
         # - strt: startup head field and imposed head on constant-head cells
         self.bas = flopy.modflow.ModflowBas(
             self.mf,
-            ibound=self.iboundData,
-            strt=self.strtData,
+            ibound=flow_inputs.ibound,
+            strt=flow_inputs.strt,
             hnoflo=self.bas_hnoflo,
         )
 
@@ -462,12 +449,12 @@ class Modflow(Solver):
         self.laywet = np.zeros(self.nlay)  # wettable
         self.laytype = np.ones(self.nlay)  # convertible
 
-        self.hk = np.asarray(flow_inputs.hk, dtype=float)
-        self.hk_value = np.asarray(flow_inputs.hk_value, dtype=float)
-        self.sy = np.asarray(flow_inputs.sy, dtype=float)
-        self.sy_value = np.asarray(flow_inputs.sy_value, dtype=float)
-        self.ss = np.asarray(flow_inputs.ss, dtype=float)
-        self.ss_value = np.asarray(flow_inputs.ss_value, dtype=float)
+        self.hk = flow_inputs.hk
+        self.hk_value = flow_inputs.hk_value
+        self.sy = flow_inputs.sy
+        self.sy_value = flow_inputs.sy_value
+        self.ss = flow_inputs.ss
+        self.ss_value = flow_inputs.ss_value
 
         # ---- flopy.modflow.ModflowUpw
         self.upw = flopy.modflow.ModflowUpw(
@@ -488,80 +475,25 @@ class Modflow(Solver):
 
         # %% Source terms
 
-        # Activated only when recharge values are negative (king of pumping)
-        if not isinstance(self.recharge, dict):
-            if (
-                not isinstance(self.recharge, float)
-                and (self.recharge < 0).any().any()
-            ):
-                self.evt = self.recharge.copy()
-                # All positive values are set to 0 (no negative values)
-                self.evt[self.evt >= 0] = 0
-                # All negative values are set to positive values
-                self.evt = abs(self.evt)
-                self.evtData = {}
-                # Loop over all time steps to make a dictionnary from a scalar or a dictionnary
-                for kper in range(0, self.nper):
-                    if isinstance(self.evt, (int, float)):
-                        # Steady state:
-                        self.evtData[kper] = self.evt
-                    else:
-                        # Transient state:
-                        if kper == 0:
-                            self.evtData[kper] = 0
-                        else:
-                            self.evtData[kper] = self.evt[kper]
-                # ---- flopy.modflow.ModflowEvt
-                self.evt = flopy.modflow.ModflowEvt(
-                    self.mf,
-                    evtr=self.evtData,
-                    surf=self.dem,
-                    nevtop=self.evt_nevtop,
-                    exdp=self.exdp,
-                    ievt=self.evt_ievt,
-                    ipakcb=self.evt_ipakcb,
-                )
-                # Finally sets all negative of self.recharge to zero values for simulation
-                if not isinstance(self.recharge, (int, float)):
-                    self.recharge[self.recharge < 0] = 0
+        forcing_inputs = self._build_forcing_modflow_inputs()
+        if forcing_inputs.evt_spd is not None:
+            self.evt = flopy.modflow.ModflowEvt(
+                self.mf,
+                evtr=forcing_inputs.evt_spd,
+                surf=self.dem,
+                nevtop=self.evt_nevtop,
+                exdp=self.exdp,
+                ievt=self.evt_ievt,
+                ipakcb=self.evt_ipakcb,
+            )
 
-        # Recharge of the aquifer on the top of the water table
-        self.rchData = {}
-        for kper in range(0, self.nper):
-            if isinstance(self.recharge, dict):
-                if self.flow_regime == "steady":
-                    self.rchData = sum(self.recharge.values()) / len(self.recharge)
-                if self.flow_regime == "transient":
-                    self.rchData = self.recharge
-            else:
-                if isinstance(self.recharge, (int, float)):
-                    # Only value in self.climatic (steady)
-                    self.rchData[kper] = self.recharge
-                else:
-                    if kper == 0:
-                        if self.first_clim == "mean":
-                            self.rchData[kper] = np.nanmean(self.recharge)
-                        if self.first_clim == "first":
-                            self.rchData[kper] = self.recharge.iloc[0]
-                        if isinstance(self.first_clim, (int, float)):
-                            self.rchData[kper] = self.first_clim
-                    else:
-                        # More flexibility in the possible format of the climatic chronicles
-                        # Should only be used exceptionnaly (pandas series recommended)
-                        try:
-                            self.rchData[kper] = self.recharge.iloc[kper]
-                        except (AttributeError, IndexError, KeyError, TypeError):
-                            self.rchData[kper] = self.recharge.iloc[kper].values[0]
-
-        # Sets recharge to modflow through flopy
         # ---- flopy.modflow.ModflowRch
-        self.rch = flopy.modflow.ModflowRch(self.mf, rech=self.rchData)
+        self.rch = flopy.modflow.ModflowRch(self.mf, rech=forcing_inputs.rch_data)
 
         # %% Drain package
 
         # DRN is applied to all the surface of the model: enables seepage on the top layer
         if flow_inputs.drn_spd is not None:
-            self.drnData = np.asarray(flow_inputs.drn_spd.get(0, []), dtype=float)
             self.drn = flopy.modflow.ModflowDrn(
                 self.mf,
                 stress_period_data=flow_inputs.drn_spd,
@@ -569,10 +501,9 @@ class Modflow(Solver):
 
         # %% Well package
 
-        self.lrcq = dict(flow_inputs.wel_spd)
-        if self.lrcq:
+        if flow_inputs.wel_spd:
             self.wel = flopy.modflow.ModflowWel(
-                self.mf, ipakcb=self.wel_ipakcb, stress_period_data=self.lrcq
+                self.mf, ipakcb=self.wel_ipakcb, stress_period_data=flow_inputs.wel_spd
             )
 
         # %% Output control
