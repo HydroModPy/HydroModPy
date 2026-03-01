@@ -21,6 +21,9 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import (
     VerticalGridConfig,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
+    build_sgrid_from_config,
+)
 
 
 def _write_tif(path: Path, arr: np.ndarray) -> None:
@@ -84,7 +87,7 @@ def test_config_raises_for_unstructured_not_implemented(tmp_path: Path):
     top_path = tmp_path / "top.tif"
     _write_tif(top_path, np.array([[10, 11], [12, 13]], dtype=float))
 
-    with pytest.raises(ValueError, match="not implemented yet"):
+    with pytest.raises(ValueError, match="Input should be 'structured'"):
         _ = SGridConfig(
             sgrid_type="unstructured",
             top_path=str(top_path),
@@ -157,7 +160,7 @@ def test_builder_with_top_and_bottom_rasters_filepath(tmp_path: Path):
         genmtd_lay="constant",
         nlay=2,
     )
-    sgrid = StructuredGridBuilder().build(cfg)
+    sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nlay == 2
     assert sgrid.top.shape == top.shape
     assert sgrid.botm.shape == (2, *top.shape)
@@ -177,7 +180,7 @@ def test_builder_with_bottom_raster_array(tmp_path: Path):
         genmtd_lay="constant",
         nlay=2,
     )
-    sgrid = StructuredGridBuilder().build(cfg)
+    sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nlay == 2
     assert np.allclose(sgrid.botm[-1], bot)
 
@@ -200,7 +203,7 @@ def test_builder_shape_mode_resamples_top_and_bottom_filepath(tmp_path: Path):
         genmtd_lay="constant",
         nlay=2,
     )
-    sgrid = StructuredGridBuilder().build(cfg)
+    sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nrow == 3
     assert sgrid.ncol == 4
     assert sgrid.top.shape == (3, 4)
@@ -211,16 +214,21 @@ def test_builder_shape_mode_resamples_top_and_bottom_filepath(tmp_path: Path):
     assert float(np.nanmax(sgrid.botm[-1])) <= float(np.max(bot)) + 1.0e-6
 
 
-def test_compute_bottom_surface_raises_on_shape_mismatch():
+def test_build_sgrid_from_config_raises_on_bottom_raster_shape_mismatch(tmp_path: Path):
     top = np.ones((2, 2), dtype=float)
     bot = np.ones((3, 2), dtype=float)
-    with pytest.raises(ValueError, match="shape mismatch"):
-        _ = StructuredGridBuilder._compute_bottom_surface(
-            top=top,
-            nodata=-9999,
-            genmtd_bot="raster",
-            bot_raster=bot,
-        )
+    top_path = tmp_path / "top.tif"
+    _write_tif(top_path, top)
+
+    cfg = SGridConfig(
+        top_path=str(top_path),
+        genmtd_bot="raster",
+        bot_raster=bot,
+        genmtd_lay="constant",
+        nlay=2,
+    )
+    with pytest.raises(ValueError, match="shape"):
+        _ = build_sgrid_from_config(cfg)
 
 
 def test_planar_discretizer_select_resampling():
@@ -313,7 +321,7 @@ def test_config_from_toml_builds_valid_grid(tmp_path: Path):
     )
 
     cfg = SGridConfig.from_toml(config_path)
-    sgrid = StructuredGridBuilder().build(cfg)
+    sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nlay == 2
     assert sgrid.nrow == 2
     assert sgrid.ncol == 2
@@ -346,7 +354,7 @@ def test_config_from_toml_shape_mode_builds_resampled_grid(tmp_path: Path):
     )
 
     cfg = SGridConfig.from_toml(config_path)
-    sgrid = StructuredGridBuilder().build(cfg)
+    sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nlay == 2
     assert sgrid.nrow == 4
     assert sgrid.ncol == 5
@@ -372,7 +380,7 @@ def test_config_from_mapping_builds_valid_grid_from_nested_mapping(tmp_path: Pat
     }
 
     cfg = SGridConfig.from_mapping(config_data)
-    sgrid = StructuredGridBuilder().build(cfg)
+    sgrid = build_sgrid_from_config(cfg)
     assert sgrid.nlay == 2
     assert sgrid.nrow == 2
     assert sgrid.ncol == 2
@@ -390,10 +398,8 @@ def test_structured_grid_builder_builds_without_internal_cache(tmp_path: Path):
         nlay=2,
         nodata=-9999,
     )
-    builder = StructuredGridBuilder()
-
-    sgrid1 = builder.build(cfg)
-    sgrid2 = builder.build(cfg)
+    sgrid1 = build_sgrid_from_config(cfg)
+    sgrid2 = build_sgrid_from_config(cfg)
 
     assert sgrid1 is not sgrid2
     assert np.allclose(sgrid1.top, sgrid2.top)

@@ -21,7 +21,9 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
     discretize_fieldparam_on_sgrid,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
+    build_sgrid_from_config,
+)
 
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
@@ -66,7 +68,7 @@ def _build_sgrid(
         cfg_kwargs["plan_discretization_mode"] = "shape"
         cfg_kwargs["nx"] = int(nx)
         cfg_kwargs["ny"] = int(ny)
-    return StructuredGridBuilder().build(SGridConfig(**cfg_kwargs))
+    return build_sgrid_from_config(SGridConfig(**cfg_kwargs))
 
 
 def _build_test_rasters(tmp_path: Path, *, tag: str = "base") -> tuple[Path, Path]:

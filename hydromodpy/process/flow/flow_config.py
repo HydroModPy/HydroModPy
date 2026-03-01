@@ -28,11 +28,11 @@ from hydromodpy.process.flow.param_config import (
     normalize_flow_param_payloads,
     parse_flow_param_sections,
 )
-from hydromodpy.process.flow.sink_sources import (
+from hydromodpy.process.flow.sinks_sources import (
     FlowSinksSourcesConfig,
     FlowWellConfig,
 )
-from hydromodpy.process.flow.sink_sources_config import (
+from hydromodpy.process.flow.sinks_sources_config import (
     normalize_flow_sinks_sources,
 )
 from hydromodpy.process.prototype import ProcessSpatialConfig

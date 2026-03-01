@@ -9,8 +9,7 @@ The mesh adapter used here is intentionally planar (2D XY support), and the
 
 As a result:
 - `values_3d` is the main solver-ready output,
-- `values_2d` is kept as a legacy compatibility artifact for existing
-  plan-view examples.
+- `values_2d` provides one planar reference map on the same support.
 """
 
 from __future__ import annotations
@@ -32,8 +31,7 @@ class SGridFieldParamDiscretizationResult:
     values_3d:
         Final 3D array (nlay, nrow, ncol) aligned with the full SGrid.
     values_2d:
-        Legacy planar array (nrow, ncol), kept for backward compatibility and
-        planar visualizations in examples.
+        Planar reference array (nrow, ncol) evaluated on the same mesh support.
     mesh:
         Intermediate field mesh used for geology projection.
     field_discretization:
@@ -101,7 +99,7 @@ def discretize_fieldparam_on_sgrid(
     3) Project geology on this mesh with sub-sampling.
     4) Ask ``field_param`` to compute planar values per mesh cell.
     5) Evaluate those values over all SGrid layers (full 3D).
-    6) Keep a legacy 2D planar output for existing map-based workflows.
+    6) Return both a planar reference map and full 3D values.
 
     Parameters
     ----------
@@ -116,7 +114,7 @@ def discretize_fieldparam_on_sgrid(
         Higher values better resolve boundaries, at higher cost.
     depth:
         Depth offset added to layer-center depths for 3D evaluation.
-        The same value is also used for legacy 2D output (backward compatibility).
+        The same value is also used for the planar reference map.
     strict_field_spatial_id_match:
         If true, enforce consistency between heterogeneous
         ``field_param.field_spatial_id`` and ``geology_field.identifier``.
@@ -175,13 +173,11 @@ def discretize_fieldparam_on_sgrid(
     nrow = int(getattr(sgrid, "nrow"))
     ncol = int(getattr(sgrid, "ncol"))
 
-    # 6) Keep legacy planar output for current example visualizations.
-    # Why this branch still exists:
-    # - historical demos and QA figures consume a 2D map,
-    # - users expect identical planar behavior during migration to 3D.
+    # 6) Build the planar reference map on the mesh support.
+    # This output is useful for plan-view QA/plots and complements the 3D tensor.
     #
-    # Semantics of `depth` here (unchanged):
-    # - scalar offset applied uniformly to the full 2D map before plotting/export.
+    # Semantics of `depth`:
+    # - scalar offset applied uniformly to the 2D map before plotting/export.
     #
     # IMPORTANT:
     # `field_param.to_mesh_field(...)` returns values on the *current mesh support*.

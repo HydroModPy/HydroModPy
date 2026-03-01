@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from hydromodpy.process.prototype.sink_sources import SinkSource
+from hydromodpy.process.prototype.sinks_sources import SinkSource
 
 
 def normalize_sink_source_payload(

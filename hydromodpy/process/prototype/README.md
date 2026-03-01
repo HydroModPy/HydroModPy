@@ -53,7 +53,7 @@ Generic Pydantic models live in:
 
 - `initial_conditions.py`
 - `boundary_conditions.py`
-- `sink_sources.py`
+- `sinks_sources.py`
 
 These are intentionally process-neutral and reusable.
 
@@ -64,7 +64,7 @@ Normalization helpers live in:
 
 - `initial_conditions_config.py`
 - `boundary_conditions_config.py`
-- `sink_sources_config.py`
+- `sinks_sources_config.py`
 
 They convert loose mapping-style inputs into validated model instances, while
 handling small conveniences such as `unit` -> `units`.
@@ -79,8 +79,8 @@ handling small conveniences such as `unit` -> `units`.
 - `initial_conditions_config.py`: initial-condition normalizer.
 - `boundary_conditions.py`: generic boundary-condition model.
 - `boundary_conditions_config.py`: boundary-condition normalizer.
-- `sink_sources.py`: generic sink/source model.
-- `sink_sources_config.py`: sink/source normalizer.
+- `sinks_sources.py`: generic sink/source model.
+- `sinks_sources_config.py`: sink/source normalizer.
 
 
 ## Typical Integration Pattern

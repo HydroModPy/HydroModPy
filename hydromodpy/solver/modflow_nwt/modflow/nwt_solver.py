@@ -31,19 +31,19 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
-from hydromodpy.domain.surface import Surface
 from hydromodpy.solver import Solver
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
-from hydromodpy.solver.utils.temporal.tmesh_generation import (
-    TMesh_Generation,
+from .discretization import (
+    build_spatial_discretization,
+    build_temporal_discretization,
+    resolve_domain_surfaces,
 )
-from hydromodpy.solver.modflow_nwt.flow_adapter import FlowToModflowAdapter
-from hydromodpy.solver.modflow_nwt.modflow_config import (
+from .flow_to_modflow_adapter import FlowToModflowAdapter
+from .nwt_config import (
     ModflowConfig,
     ModflowSpecifParams,
 )
-from hydromodpy.solver.modflow_nwt.modflow_options import (
+from .nwt_options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
@@ -224,35 +224,10 @@ class Modflow(Solver):
         """
         Return explicit domain surfaces used by the MODFLOW spatial grid.
         """
-        if self.domain is None:
-            raise ValueError(
-                "Modflow spatial geometry is domain-only: a Domain object is required."
-            )
-
-        surface_topo = getattr(self.domain, "surface_topo", None)
-        substratum = getattr(self.domain, "substratum", None)
-        if surface_topo is None or substratum is None:
-            raise ValueError(
-                "Modflow spatial geometry is domain-only: domain.surface_topo "
-                "and domain.substratum are required."
-            )
-        if not isinstance(surface_topo, Surface) or not isinstance(substratum, Surface):
-            raise TypeError("Domain surfaces must be Surface instances.")
-
-        top = np.asarray(surface_topo.as_array(), dtype=float)
-        bot = np.asarray(substratum.as_array(), dtype=float)
-        if top.shape != bot.shape:
-            raise ValueError(
-                f"Domain surface mismatch: top{top.shape} != substratum{bot.shape}."
-            )
-        if top.shape != self.dem.shape:
-            raise ValueError(
-                "Domain surface shape must match active DEM support "
-                f"({top.shape} vs {self.dem.shape})."
-            )
-
-        surface_topo.assert_same_geographic_domain(substratum)
-        return surface_topo, substratum
+        return resolve_domain_surfaces(
+            domain=self.domain,
+            dem_shape=tuple(self.dem.shape),
+        )
 
     def _resolve_flow_regime(self) -> str | None:
         """Return flow regime from flow config when available."""
@@ -348,55 +323,35 @@ class Modflow(Solver):
 
     def _build_temporal_discretization(self) -> dict[str, object]:
         """Build temporal discretization arrays from tgrid configuration."""
-        builder_kwargs = self.tgrid_config.to_builder_kwargs()
-        builder_kwargs["flow_regime"] = self.flow_regime
+        result = build_temporal_discretization(
+            tgrid_config=self.tgrid_config,
+            flow_regime=self.flow_regime,
+            default_itmuni=self.dis_itmuni,
+        )
 
-        builder = TMesh_Generation(**builder_kwargs)
-        tgrid = builder.run()
+        self.dis_itmuni = result.itmuni
+        self.nper = result.nper
+        self.perlen = result.perlen
+        self.nstp = result.nstp
+        self.steady = result.steady
+        self.start_datetime = result.start_datetime
 
-        dis_itmuni = getattr(tgrid, "time_units", self.dis_itmuni)
-        dis_nper = int(np.asarray(getattr(tgrid, "perlen", []), dtype=float).size)
-        dis_perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
-        dis_nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
-        dis_steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
-        dis_start_datetime = getattr(tgrid, "start_datetime", None)
-        if dis_nper == 0:
-            raise ValueError("modflownwt.tgrid produced an empty perlen vector.")
-
-        self.dis_itmuni = dis_itmuni
-        self.nper = dis_nper
-        self.perlen = dis_perlen
-        self.nstp = dis_nstp
-        self.steady = dis_steady
-        self.start_datetime = dis_start_datetime
-
-        return {
-            "itmuni": dis_itmuni,
-            "nper": dis_nper,
-            "perlen": dis_perlen,
-            "nstp": dis_nstp,
-            "steady": dis_steady,
-            "start_datetime": dis_start_datetime,
-        }
+        return result.as_dis_kwargs()
 
     def _build_spatial_discretization(self):
         """Build structured spatial grid from validated domain surfaces."""
-        top_surface, bottom_surface = self._get_domain_surfaces()
-        self.dem = np.asarray(top_surface.as_array(), dtype=float)
-        self.nrow = self.dem.shape[0]
-        self.ncol = self.dem.shape[1]
-
-        sgrid = StructuredGridBuilder().build_from_surfaces(
-            top_surface=top_surface,
-            bottom_surface=bottom_surface,
+        result = build_spatial_discretization(
+            domain=self.domain,
+            dem_shape=tuple(self.dem.shape),
             vertical_config=self.sgrid_config,
         )
-        self.nlay = int(sgrid.nlay)
-        self.nrow = int(sgrid.nrow)
-        self.ncol = int(sgrid.ncol)
-        self.zbot = np.asarray(sgrid.botm, dtype=float)
-        self.bottom_layer = np.asarray(self.zbot[-1], dtype=float)
-        return sgrid
+        self.dem = result.dem
+        self.nlay = result.nlay
+        self.nrow = result.nrow
+        self.ncol = result.ncol
+        self.zbot = result.zbot
+        self.bottom_layer = result.bottom_layer
+        return result.sgrid
 
     def _build_dis_package(self, sgrid, temporal_dis: Mapping[str, object]) -> None:
         """Create FLOPY DIS package from spatial and temporal discretization."""
@@ -489,6 +444,11 @@ class Modflow(Solver):
             )
 
         # ---- flopy.modflow.ModflowBas
+        # BAS contract reminder:
+        # - ibound > 0: active cells (head is solved)
+        # - ibound = 0: inactive/no-flow cells
+        # - ibound < 0: constant-head cells
+        # - strt: startup head field and imposed head on constant-head cells
         self.bas = flopy.modflow.ModflowBas(
             self.mf,
             ibound=self.iboundData,

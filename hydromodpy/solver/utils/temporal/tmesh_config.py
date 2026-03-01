@@ -134,7 +134,33 @@ class TMeshConfigModel(BaseModel):
         return self
 
     def to_builder_kwargs(self) -> dict[str, Any]:
-        """Return plain kwargs compatible with ``TMesh_Generation(...)``."""
+        """
+        Convert this validated model into constructor kwargs for ``TMesh_Generation``.
+
+        Pedagogical intent
+        ------------------
+        ``TMeshConfigModel`` is the typed/validated contract (Pydantic side),
+        while ``TMesh_Generation`` expects plain Python arguments (builder side).
+        This method is the bridge between both layers.
+
+        Why return a dict?
+        ------------------
+        The caller can pass the result directly with ``**kwargs``:
+        ``TMesh_Generation(**cfg.to_builder_kwargs())``.
+        This keeps the runtime path explicit and avoids duplicating field-by-field
+        mapping logic at each call site.
+
+        Normalization choices
+        ---------------------
+        - ``mode="python"`` returns Python-native values.
+        - ``exclude_none=True`` drops optional keys not set by the user, so the
+          builder uses its own defaults instead of receiving explicit ``None``.
+
+        Notes
+        -----
+        Runtime-only overrides (for example ``flow_regime``) are intentionally
+        injected by the caller after this conversion.
+        """
         return self.model_dump(mode="python", exclude_none=True)
 
     @classmethod

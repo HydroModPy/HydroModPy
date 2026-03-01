@@ -144,9 +144,9 @@ class SGridConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sgrid_type: Literal["structured", "unstructured", "vertex"] = Field(
+    sgrid_type: Literal["structured"] = Field(
         default="structured",
-        description="Spatial grid family. Only 'structured' is currently implemented.",
+        description="Spatial grid family. Only 'structured' is supported.",
     )
     lenuni: str = Field(
         default="m",
@@ -276,11 +276,6 @@ class SGridConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate_cross_fields(self):
-        if self.sgrid_type == "unstructured":
-            raise ValueError("sgrid_type='unstructured' is not implemented yet")
-        if self.sgrid_type == "vertex":
-            raise ValueError("sgrid_type='vertex' is not implemented yet")
-
         if self.plan_discretization_mode == "shape":
             if self.nx is None or self.ny is None:
                 raise ValueError(

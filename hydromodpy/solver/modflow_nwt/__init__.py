@@ -1,9 +1,11 @@
 """MODFLOW-NWT solver package."""
 
-from .flow_adapter import FlowModflowInputs, FlowToModflowAdapter
-from .modflow import Modflow
-from .modflow_config import ModflowConfig, ModflowSpecifParams
-from .modflow_options import (
+from .modflow import (
+    FlowModflowInputs,
+    FlowToModflowAdapter,
+    Modflow,
+    ModflowConfig,
+    ModflowSpecifParams,
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
