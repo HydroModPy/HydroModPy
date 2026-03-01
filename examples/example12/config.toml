@@ -233,27 +233,49 @@ interpolation = "linear"
 # Flow parameter Sy (FieldParam schema)
 # ----------------------------------------------------------------------
 [flow.param.Sy.field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
 id = "Sy"
+# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
+# Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
 unit = "-"
 
 [flow.param.Sy.field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
 value = 0.02
 
 [flow.param.Sy.field_heterogeneous]
+# Source for heterogeneous values.
+# Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
+# Inline key/value mapping used when values_source='inline'.
 values = { zone1 = 0.15, zone2 = 0.08 }
+# Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "s_values.csv"
+# CSV column name containing zone/material keys.
 csv_key_column = "zone_key"
+# CSV column name containing numeric parameter values.
 csv_value_column = "value"
+# Identifier of the spatial field used to map heterogeneous values.
 field_spatial_id = "field_geology"
 
 [flow.param.Sy.field_vertical_profile]
+# Depth dependency mode shared over the full domain.
+# Allowed values: 'none', 'exponential', 'tabulated'.
 mode = "exponential"
+# Characteristic depth for exponential mode.
+# Vertical factor is exp(-depth/characteristic_depth).
 characteristic_depth = 30.0
+# Optional floor factor for exponential mode.
+# If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 5e-2
+# Depth nodes for tabulated mode (meters, first value must be 0).
 depths = [0.0, 10.0, 30.0]
+# Multiplicative factors aligned with `depths` for tabulated mode
+# (first value must be 1 at depth 0).
 factors = [1.0, 0.8, 0.5]
+# Interpolation strategy for tabulated mode.
+# Allowed values: 'linear' or 'step'.
 interpolation = "linear"
 
 
@@ -261,47 +283,99 @@ interpolation = "linear"
 # Flow parameter Ss (FieldParam schema)
 # ----------------------------------------------------------------------
 [flow.param.Ss.field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
 id = "Ss"
+# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
+# Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
 unit = "m-1"
 
 [flow.param.Ss.field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
 value = 1e-10
 
 [flow.param.Ss.field_heterogeneous]
+# Source for heterogeneous values.
+# Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
+# Inline key/value mapping used when values_source='inline'.
 values = { zone1 = 1e-10, zone2 = 5e-11 }
+# Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "ss_values.csv"
+# CSV column name containing zone/material keys.
 csv_key_column = "zone_key"
+# CSV column name containing numeric parameter values.
 csv_value_column = "value"
+# Identifier of the spatial field used to map heterogeneous values.
 field_spatial_id = "field_geology"
 
 [flow.param.Ss.field_vertical_profile]
+# Depth dependency mode shared over the full domain.
+# Allowed values: 'none', 'exponential', 'tabulated'.
 mode = "none"
+# Characteristic depth for exponential mode.
+# Vertical factor is exp(-depth/characteristic_depth).
 characteristic_depth = 30.0
+# Optional floor factor for exponential mode.
+# If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 1e-3
+# Depth nodes for tabulated mode (meters, first value must be 0).
 depths = [0.0, 10.0, 30.0]
+# Multiplicative factors aligned with `depths` for tabulated mode
+# (first value must be 1 at depth 0).
 factors = [1.0, 0.8, 0.5]
+# Interpolation strategy for tabulated mode.
+# Allowed values: 'linear' or 'step'.
 interpolation = "linear"
 
 
 # ----------------------------------------------------------------------
 # Flow initial conditions.
 # ----------------------------------------------------------------------
-[flow.ic.h]
-# Type of initial condition ('top', 'bot', or 'custom').
+[flow.ic]
+# Type of initial condition ('top', 'bottom', or 'custom').
+# 'top' means a full aquifer, 'bottom' means an empty aquifer.
 type = "top"
 # Value of the initial condition.
 value = 1.0
 # Units of the initial condition.
 unit = "m"
-# Description of the initial condition.
-description = "Initial groundwater head"
 
 
 # ----------------------------------------------------------------------
 # Flow boundary conditions.
 # ----------------------------------------------------------------------
+# Supported sections:
+# - [flow.bc.dirichlet.<id>] with <id> in:
+#   ocean, stream, north_side, south_side, east_side, west_side
+#   (legacy aliases north_boundary/south_boundary/east_boundary/west_boundary also accepted)
+# - [flow.bc.cauchy.drainage]
+# - [flow.bc.robin.drainage]
+# - [flow.bc.<custom_id>] (generic fallback)
+#
+# Required/validated keys:
+# - value (required, numeric)
+# - application_domain in {top, north side, south side, east side, west side}
+#   (for dirichlet side/ocean/stream entries, domain is inferred if omitted)
+# - type:
+#   dirichlet for [flow.bc.dirichlet.*]
+#   cauchy or robin for drainage
+#   dirichlet/cauchy/robin for generic fallback
+# - unit or units (optional):
+#   defaults to "m" for dirichlet and "m2/s" for cauchy/robin
+#
+# Copy/paste examples:
+# [flow.bc.dirichlet.west_side]
+# value = 5.0
+# type = "dirichlet"
+# application_domain = "west side"
+# unit = "m"
+#
+# [flow.bc.custom_boundary]
+# value = 1e-6
+# type = "robin"
+# application_domain = "top"
+# unit = "m2/s"
 [flow.bc.cauchy.drainage]
 # Domain of application for boundary condition.
 application_domain = "top"
@@ -315,7 +389,7 @@ unit = "m2/s"
 data_value = false
 
 [flow.bc.dirichlet.ocean]
-application_domain = "top"
+# application_domain defaults to "top" for ocean
 type = "dirichlet"
 value = 1.0
 unit = "m"
@@ -572,35 +646,30 @@ temporal_nodata = -9999.0
 # Reference templates not consumed by runtime.
 # ----------------------------------------------------------------------
 [flow_templates.bc.dirichlet.stream]
-application_domain = "top"
 type = "dirichlet"
 value = 1.0
 unit = "m"
 data_value = false
 
-[flow_templates.bc.dirichlet.north_boundary]
-application_domain = "north side"
+[flow_templates.bc.dirichlet.north_side]
 type = "dirichlet"
 value = 1.0
 unit = "m"
 data_value = false
 
-[flow_templates.bc.dirichlet.south_boundary]
-application_domain = "south side"
+[flow_templates.bc.dirichlet.south_side]
 type = "dirichlet"
 value = 1.0
 unit = "m"
 data_value = false
 
-[flow_templates.bc.dirichlet.east_boundary]
-application_domain = "east side"
+[flow_templates.bc.dirichlet.east_side]
 type = "dirichlet"
 value = 1.0
 unit = "m"
 data_value = false
 
-[flow_templates.bc.dirichlet.west_boundary]
-application_domain = "west side"
+[flow_templates.bc.dirichlet.west_side]
 type = "dirichlet"
 value = 1.0
 unit = "m"

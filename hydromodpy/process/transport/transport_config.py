@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.process.prototype import ProcessSpatialConfig
 
 
 class ParticleParametersConfig(BaseModel):
@@ -110,8 +111,16 @@ class TransportConcConfig(BaseModel):
     )
 
 
-class TransportConfig(BaseModel):
+class TransportConfig(ProcessSpatialConfig):
     """Transport-process configuration."""
+
+    # Keep shared ProcessSpatial schema inheritance, but keep these generic
+    # containers out of default transport serialization for backward compatibility.
+    param_list: list[str] = Field(default_factory=list, exclude=True)
+    param: dict[str, object] = Field(default_factory=dict, exclude=True)
+    ic: object | None = Field(default=None, exclude=True)
+    bc: dict[str, object] = Field(default_factory=dict, exclude=True)
+    sinks_sources: dict[str, object] = Field(default_factory=dict, exclude=True)
 
     particle: TransportParticleConfig = Field(
         default_factory=TransportParticleConfig,

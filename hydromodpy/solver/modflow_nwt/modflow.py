@@ -381,11 +381,24 @@ class Modflow(Solver):
         if self.flow is None:
             raise ValueError("pre_processing requires a configured Flow object.")
 
+        # Initial conditions are mandatory for MODFLOW startup.
+        # Important architectural rule:
+        # - their schema is defined by the process (`Flow`),
+        # - this solver only checks that one compatible payload is present.
         initial_conditions = getattr(self.flow, "initial_conditions", None)
-        if not isinstance(initial_conditions, Mapping):
-            raise TypeError("flow.initial_conditions must be a mapping.")
-        if "h" not in initial_conditions:
-            raise ValueError("flow.initial_conditions must define key 'h'.")
+        if initial_conditions is None:
+            raise ValueError("flow.initial_conditions must define one initial condition payload.")
+        initial_condition = getattr(initial_conditions, "h", None)
+        if initial_condition is None:
+            raise TypeError(
+                "flow.initial_conditions must expose one 'h' payload "
+                "(FlowInitialConditions.h)."
+            )
+        if not hasattr(initial_condition, "type") or not hasattr(initial_condition, "value"):
+            raise TypeError(
+                "flow.initial_conditions.h must be one InitialCondition-like object "
+                "(with 'type' and 'value')."
+            )
 
         boundary_conditions = getattr(self.flow, "boundary_conditions", None)
         if not isinstance(boundary_conditions, Mapping):
@@ -559,30 +572,43 @@ class Modflow(Solver):
         # iboundData=-1: Values imposed at the value of strtData
 
         # Free surface level is set to the surface (altitude of DEM)
-        if self.flow.initial_conditions["h"].type == "top":
+        initial_condition = self.flow.initial_conditions.h
+        if initial_condition.type == "top":
             self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.dem
-        if self.flow.initial_conditions["h"].type == "bot":
+        if initial_condition.type == "bottom":
             self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.bottom_layer
-        if self.flow.initial_conditions["h"].type == "custom":
-            self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.flow.initial_conditions["h"].value
+        if initial_condition.type == "custom":
+            self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * initial_condition.value
 
+        west_boundary = self.flow.boundary_conditions.get("west_side")
+        if west_boundary is None:
+            west_boundary = self.flow.boundary_conditions.get("west_boundary")
         # Fixed head on the left (better for square domain)
-        if "west_boundary" in self.flow.boundary_conditions.keys():
+        if west_boundary is not None:
             self.iboundData[:, :, 0] = -1
-            self.strtData[:, :, 0] = self.flow.boundary_conditions["west_boundary"].value
+            self.strtData[:, :, 0] = west_boundary.value
 
+        east_boundary = self.flow.boundary_conditions.get("east_side")
+        if east_boundary is None:
+            east_boundary = self.flow.boundary_conditions.get("east_boundary")
         # Fixed head on the right (better for square domain)
-        if "east_boundary" in self.flow.boundary_conditions.keys():
+        if east_boundary is not None:
             self.iboundData[:, :, -1] = -1
-            self.strtData[:, :, -1] = self.flow.boundary_conditions["east_boundary"].value
+            self.strtData[:, :, -1] = east_boundary.value
         
-        if "north_boundary" in self.flow.boundary_conditions.keys():
+        north_boundary = self.flow.boundary_conditions.get("north_side")
+        if north_boundary is None:
+            north_boundary = self.flow.boundary_conditions.get("north_boundary")
+        if north_boundary is not None:
             self.iboundData[:, 0, :] = -1
-            self.strtData[:, 0, :] = self.flow.boundary_conditions["north_boundary"].value
+            self.strtData[:, 0, :] = north_boundary.value
         
-        if "south_boundary" in self.flow.boundary_conditions.keys():
+        south_boundary = self.flow.boundary_conditions.get("south_side")
+        if south_boundary is None:
+            south_boundary = self.flow.boundary_conditions.get("south_boundary")
+        if south_boundary is not None:
             self.iboundData[:, -1, :] = -1
-            self.strtData[:, -1, :] = self.flow.boundary_conditions["south_boundary"].value
+            self.strtData[:, -1, :] = south_boundary.value
 
         for i in range(self.nlay):
             self.iboundData[i][self.dem < -1000] = 0  # 0 is for NO FLOW

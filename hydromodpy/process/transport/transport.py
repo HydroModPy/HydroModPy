@@ -6,7 +6,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from hydromodpy.process.process_spatial import ProcessSpatial
+from pydantic import BaseModel, Field
+
+from hydromodpy.process.prototype import ProcessSpatial
 from hydromodpy.process.transport.transport_config import TransportConfig
 
 
@@ -23,7 +25,16 @@ class _TransportComponent:
             self.parameters.update(kwargs)
 
 
-class Transport(ProcessSpatial):
+class TransportInitialConditions(BaseModel):
+    """Transport initial-condition wrapper."""
+
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Transport-specific initial-condition mapping.",
+    )
+
+
+class Transport(ProcessSpatial[TransportInitialConditions]):
     def __init__(self, config: TransportConfig | Mapping[str, object] | None = None):
         super().__init__()
         self.config: TransportConfig | None = None
@@ -67,11 +78,20 @@ class Transport(ProcessSpatial):
         self.parameters["particle"] = self.particle.parameters
         self.parameters["conc"] = self.conc.parameters
 
-    def set_variables(self, variables: dict):
-        self.variables.update(variables)
+    def build_initial_conditions(
+        self,
+        initial_conditions: object | None,
+    ) -> TransportInitialConditions | None:
+        if initial_conditions is None:
+            return None
+        if isinstance(initial_conditions, TransportInitialConditions):
+            return initial_conditions
+        if not isinstance(initial_conditions, Mapping):
+            raise TypeError("Transport initial conditions must be provided as a mapping")
+        return TransportInitialConditions(payload=dict(initial_conditions))
 
-    def set_initial_conditions(self, initial_conditions: dict):
-        self.initial_conditions.update(initial_conditions)
+    def set_initial_conditions(self, initial_conditions: object | None) -> None:
+        super().set_initial_conditions(initial_conditions)
 
     def set_boundary_conditions(self, boundary_conditions: dict):
         self.boundary_conditions.update(boundary_conditions)
