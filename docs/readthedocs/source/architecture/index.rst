@@ -10,3 +10,7 @@ This section groups design-level diagrams for HydroModPy modules.
    calibration/index
    process/process-runtime-class-diagram
    process/process-config-class-diagram
+   process/process-runtime-to-solver-sequence-diagram
+   process/process-spatial-lifecycle-state-machine
+   process/process-layer-separation-component-diagram
+   process/process-extension-activity-diagram
