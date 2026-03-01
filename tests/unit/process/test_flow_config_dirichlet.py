@@ -27,21 +27,19 @@ def test_dirichlet_side_key_infers_application_domain() -> None:
     assert east_side["application_domain"] == "east side"
 
 
-def test_dirichlet_legacy_boundary_alias_is_canonicalized() -> None:
-    cfg = _build_flow_config(
-        {
-            "bc": {
-                "dirichlet": {
-                    "west_boundary": {
-                        "value": 101.0,
+def test_dirichlet_legacy_boundary_alias_is_rejected() -> None:
+    with pytest.raises(ValueError, match="unsupported Dirichlet key 'west_boundary'"):
+        _build_flow_config(
+            {
+                "bc": {
+                    "dirichlet": {
+                        "west_boundary": {
+                            "value": 101.0,
+                        }
                     }
                 }
             }
-        }
-    )
-
-    assert "west_boundary" not in cfg.bc
-    assert cfg.bc["west_side"]["application_domain"] == "west side"
+        )
 
 
 def test_dirichlet_mismatched_application_domain_raises() -> None:
@@ -60,15 +58,35 @@ def test_dirichlet_mismatched_application_domain_raises() -> None:
         )
 
 
-def test_dirichlet_duplicate_aliases_raise() -> None:
-    with pytest.raises(ValueError, match="Duplicate Dirichlet entry"):
+def test_duplicate_dirichlet_entries_raise() -> None:
+    with pytest.raises(ValueError, match="Duplicate boundary condition entry"):
         _build_flow_config(
             {
                 "bc": {
                     "dirichlet": {
                         "south_side": {"value": 99.0},
-                        "south_boundary": {"value": 98.0},
+                    },
+                    "south_side": {"value": 98.0},
+                }
+            }
+        )
+
+
+def test_top_level_drainage_alias_is_rejected() -> None:
+    with pytest.raises(ValueError, match="flow.bc.drainage is no longer supported"):
+        _build_flow_config(
+            {
+                "bc": {
+                    "drainage": {
+                        "value": 1e-6,
+                        "type": "cauchy",
+                        "application_domain": "top",
                     }
                 }
             }
         )
+
+
+def test_param_values_alias_is_rejected() -> None:
+    with pytest.raises(ValueError, match="flow\\.param_values"):
+        _build_flow_config({"param_values": {}})
