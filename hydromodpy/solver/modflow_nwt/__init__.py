@@ -1,6 +1,8 @@
 """MODFLOW-NWT solver package."""
 
 from .modflow import (
+    ForcingModflowInputs,
+    ForcingToModflowAdapter,
     FlowModflowInputs,
     FlowToModflowAdapter,
     Modflow,
@@ -14,6 +16,8 @@ from .modpath import Modpath
 from .mt3dms import Mt3dms
 
 __all__ = [
+    "ForcingModflowInputs",
+    "ForcingToModflowAdapter",
     "FlowModflowInputs",
     "FlowToModflowAdapter",
     "Modflow",
