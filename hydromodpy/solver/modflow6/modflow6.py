@@ -16,7 +16,7 @@ from flopy.utils import postprocessing as pp
 from hydromodpy.domain.surface import Surface
 from hydromodpy.modeling import masstransfer
 from hydromodpy.solver import Solver
-from hydromodpy.solver.modflow_nwt.modflow_options import (
+from hydromodpy.solver.modflow_nwt.modflow import (
 	ModflowPostprocessOptions,
 	ModflowPreprocessOptions,
 	ModflowRunOptions,
@@ -25,8 +25,8 @@ from hydromodpy.solver.modflow6.modflow6_config import (
 	Modflow6Config,
 	_coerce_modflow6_config,
 )
-from hydromodpy.solver.modflow_nwt.modflow_utils import (
-	build_flow_domain_property_snapshot,
+from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+	resolve_flow_property_arrays,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
@@ -357,15 +357,10 @@ class Modflow6(Solver):
 		self.nrow = int(sgrid.nrow)
 		self.ncol = int(sgrid.ncol)
 
-		flow_params = build_flow_domain_property_snapshot(
-			model=self,
+		flow_params = resolve_flow_property_arrays(
+			flow=self.flow,
+			domain=self.domain,
 			sgrid=sgrid,
-			mapping_specs=[
-				(("K", "k"), "hk", "hk_value", "Hydraulic conductivity"),
-				(("Sy", "SY", "sy", "S", "s"), "sy", "sy_value", "Specific yield"),
-				(("Ss", "SS", "ss"), "ss", "ss_value", "Specific storage"),
-			],
-			strict=True,
 		)
 		self.hk = flow_params["hk"]
 		self.sy = flow_params["sy"]

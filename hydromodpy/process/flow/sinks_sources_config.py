@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from hydromodpy.process.flow.sink_sources import FlowSinksSourcesConfig
+from hydromodpy.process.flow.sinks_sources import FlowSinksSourcesConfig
 
 
 def normalize_flow_sinks_sources(

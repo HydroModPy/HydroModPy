@@ -12,7 +12,7 @@ from .flow import Flow
 from .boundary_conditions import FlowBoundaryConditionConfig
 from .flow_config import FlowConfig
 from .initial_conditions import FlowInitialCondition, FlowInitialConditions
-from .sink_sources import FlowSinksSourcesConfig, FlowWellConfig
+from .sinks_sources import FlowSinksSourcesConfig, FlowWellConfig
 
 __all__ = [
     "Flow",

@@ -1,17 +1,13 @@
-"""MODFLOW-NWT solver package."""
+"""MODFLOW-NWT flow solver components."""
 
-from .modflow import (
-    FlowModflowInputs,
-    FlowToModflowAdapter,
-    Modflow,
-    ModflowConfig,
-    ModflowSpecifParams,
+from .flow_to_modflow_adapter import FlowModflowInputs, FlowToModflowAdapter
+from .nwt_solver import Modflow
+from .nwt_config import ModflowConfig, ModflowSpecifParams
+from .nwt_options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from .modpath import Modpath
-from .mt3dms import Mt3dms
 
 __all__ = [
     "FlowModflowInputs",
@@ -22,7 +18,4 @@ __all__ = [
     "ModflowPreprocessOptions",
     "ModflowRunOptions",
     "ModflowPostprocessOptions",
-    "Modpath",
-    "Mt3dms",
 ]
-

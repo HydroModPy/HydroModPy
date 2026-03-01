@@ -26,3 +26,5 @@ Notes
 - The sequence is logical and backend-agnostic at the high level.
 - Payload conversion is explicitly separated from process runtime state.
 - Solver wrappers remain consumers of already-normalized process data.
+- For detailed DIS payload semantics, see
+  ``docs/developers/modflow_discretization_contract.md``.

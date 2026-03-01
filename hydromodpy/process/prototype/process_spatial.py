@@ -38,7 +38,7 @@ from hydromodpy.field.core.field_param import FieldParam
 from hydromodpy.process.prototype.boundary_conditions import BoundaryCondition
 from hydromodpy.process.prototype.initial_conditions import InitialCondition
 from hydromodpy.process.prototype.process_spatial_config import ProcessSpatialConfig
-from hydromodpy.process.prototype.sink_sources import SinkSource
+from hydromodpy.process.prototype.sinks_sources import SinkSource
 
 
 TInitialConditions = TypeVar("TInitialConditions")

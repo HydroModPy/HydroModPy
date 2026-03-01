@@ -22,7 +22,7 @@ package "Runtime Process Layer" {
 }
 
 package "Adapter Layer" {
-  component "flow_adapter (NWT)" as FlowAdapterNwt
+  component "flow_to_modflow_adapter (NWT)" as FlowAdapterNwt
   component "MF6 Assembly Helpers" as Mf6Helpers
 }
 

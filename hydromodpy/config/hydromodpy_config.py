@@ -33,7 +33,7 @@ from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-from hydromodpy.solver.modflow_nwt.modflow_config import ModflowConfig
+from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
 from hydromodpy.solver.solver_config import SolverConfig
 from hydromodpy.watershed.workspace_config import WorkspaceConfig
 

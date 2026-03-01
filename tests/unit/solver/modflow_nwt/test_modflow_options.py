@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.solver.modflow_nwt.modflow_options import (
+from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,

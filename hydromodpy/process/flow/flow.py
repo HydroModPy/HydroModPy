@@ -49,7 +49,7 @@ from hydromodpy.process.flow.initial_conditions import (
 from hydromodpy.process.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
-from hydromodpy.process.flow.sink_sources import FlowSinksSourcesConfig
+from hydromodpy.process.flow.sinks_sources import FlowSinksSourcesConfig
 from hydromodpy.process.prototype import BoundaryCondition, ProcessSpatial, SinkSource
 
 
