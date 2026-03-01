@@ -1,0 +1,19 @@
+@startuml
+title ProcessSpatial - Lifecycle State Machine
+
+[*] --> Created
+
+Created --> ConfigValidated : validate config model\n(FlowConfig / TransportConfig)
+ConfigValidated --> RuntimeHydrated : apply set_config()\nparameters + ic + bc + sinks_sources
+RuntimeHydrated --> PreparedForSolver : build adapter payloads
+PreparedForSolver --> Solving : launch solver run
+
+Solving --> Solved : solver success
+Solving --> Failed : solver or IO exception
+
+Solved --> PostProcessed : export diagnostics\nand compute derived outputs
+PostProcessed --> RuntimeHydrated : update parameters/reload config
+Failed --> RuntimeHydrated : fix input and retry
+
+PostProcessed --> [*]
+@enduml
