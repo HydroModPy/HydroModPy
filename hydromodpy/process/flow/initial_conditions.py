@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Typed flow initial-condition models."""
+"""
+Flow Initial Condition Models
+=============================
+
+Typed initial-condition structures for the flow process.
+
+The flow process currently exposes one initial-condition variable (`h`) used
+to initialize hydraulic heads before solver assembly.
+"""
 
 from __future__ import annotations
 
@@ -35,13 +43,19 @@ class FlowInitialCondition(BaseInitialCondition):
 
     @model_validator(mode="after")
     def _validate_custom_value(self) -> "FlowInitialCondition":
+        """Require `value` whenever `type='custom'`."""
         if self.type == "custom" and self.value is None:
             raise ValueError("flow.ic.value is required when flow.ic.type='custom'")
         return self
 
 
 class FlowInitialConditions(BaseModel):
-    """Flow initial-condition structure stored on ProcessSpatial."""
+    """
+    Container for flow initial conditions stored in process runtime.
+
+    Keeping one explicit container (instead of bare values) allows the process
+    API to remain extensible when adding future IC variables.
+    """
 
     h: FlowInitialCondition = Field(
         ...,

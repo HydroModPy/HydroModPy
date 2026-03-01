@@ -1,0 +1,89 @@
+@startuml
+title Process - Config Class Diagram
+
+package "hydromodpy.process.prototype" {
+  class ProcessSpatialConfig {
+    +param_list: list[str]
+    +param: dict[str, object]
+    +ic: object | None
+    +bc: dict[str, object]
+    +sinks_sources: dict[str, object]
+  }
+
+  class InitialCondition
+}
+
+package "hydromodpy.process.flow" {
+  class FlowConfig {
+    +flow_regime: steady | transient
+    +param_list: list[str]
+    +param: dict[str, dict]
+    +bc: dict[str, object]
+    +ic: FlowInitialConditions | None
+    +sinks_sources: FlowSinksSourcesConfig
+    +from_toml_section(flow_section, base_dir)
+  }
+
+  class FlowInitialCondition {
+    +type: top | bottom | custom
+    +value: float | None
+  }
+  class FlowInitialConditions {
+    +h: FlowInitialCondition
+  }
+  class FlowBoundaryConditionConfig {
+    +id: str
+    +value: float
+    +description: str
+    +units: str
+    +type: dirichlet | cauchy | robin
+    +data_value: bool
+    +application_domain: str | None
+  }
+  class FlowWellConfig {
+    +cell: tuple[int, int, int]
+    +flux: float | list[float]
+    +units: str
+    +description: str
+  }
+  class FlowSinksSourcesConfig {
+    +wells: dict[str, FlowWellConfig]
+  }
+}
+
+package "hydromodpy.process.transport" {
+  class TransportConfig {
+    +particle: TransportParticleConfig
+    +conc: TransportConcConfig
+    +param_list: list[str] (excluded)
+    +param: dict[str, object] (excluded)
+    +ic: object | None (excluded)
+    +bc: dict[str, object] (excluded)
+    +sinks_sources: dict[str, object] (excluded)
+  }
+
+  class ParticleParametersConfig
+  class TransportParticleConfig {
+    +parameters: ParticleParametersConfig
+  }
+  class ConcParametersConfig
+  class TransportConcConfig {
+    +parameters: ConcParametersConfig
+  }
+}
+
+ProcessSpatialConfig <|-- FlowConfig
+ProcessSpatialConfig <|-- TransportConfig
+
+InitialCondition <|-- FlowInitialCondition
+FlowInitialConditions *-- FlowInitialCondition : h
+FlowConfig --> FlowInitialConditions : ic
+FlowConfig --> FlowBoundaryConditionConfig : bc values
+FlowConfig --> FlowSinksSourcesConfig : sinks_sources
+FlowSinksSourcesConfig *-- FlowWellConfig : wells
+
+TransportConfig *-- TransportParticleConfig : particle
+TransportConfig *-- TransportConcConfig : conc
+TransportParticleConfig *-- ParticleParametersConfig : parameters
+TransportConcConfig *-- ConcParametersConfig : parameters
+@enduml
