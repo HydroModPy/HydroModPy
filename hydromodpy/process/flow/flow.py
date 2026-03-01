@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from hydromodpy.process.flow.flow_config import (
-    FlowConfig,
-    FlowSinksSourcesConfig,
+from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.process.flow.initial_conditions import (
+    FlowInitialCondition,
+    FlowInitialConditions,
 )
-from hydromodpy.process.process_spatial import (
-    BoundaryCondition,
-    InitialCondition,
-    ProcessSpatial,
-    SinkSource,
-    Variable,
+from hydromodpy.process.flow.initial_conditions_config import (
+    normalize_flow_initial_conditions,
 )
+from hydromodpy.process.flow.sink_sources import FlowSinksSourcesConfig
+from hydromodpy.process.prototype import BoundaryCondition, ProcessSpatial, SinkSource
 
 
 class Flow(ProcessSpatial):
@@ -22,6 +21,7 @@ class Flow(ProcessSpatial):
             raise TypeError("config must be a FlowConfig instance")
         self.config: FlowConfig
         self.flow_regime: str
+        self.initial_conditions: FlowInitialConditions | None
         self.boundary_condition_application_domains: dict[str, str] = {}
         self.initial_condition_types: dict[str, str] = {}
         self.set_config(config)
@@ -38,7 +38,7 @@ class Flow(ProcessSpatial):
             parameter_ids=config.param_list,
             context_label="flow.param",
         )
-        self.set_initial_conditions(self._build_initial_conditions(config.ic))
+        self.set_initial_conditions(config.ic)
         bc, application_domains = self._build_boundary_conditions(config.bc)
         self.set_boundary_conditions(
             boundary_conditions=bc,
@@ -46,16 +46,11 @@ class Flow(ProcessSpatial):
         )
         self.set_sinks_sources(config.sinks_sources)
 
-    def _build_initial_conditions(
+    def build_initial_conditions(
         self,
-        initial_conditions_cfg: dict[str, dict[str, object]],
-    ) -> dict[str, InitialCondition]:
-        parsed: dict[str, InitialCondition] = {}
-        for ic_id, payload in initial_conditions_cfg.items():
-            data = dict(payload)
-            data["id"] = ic_id
-            parsed[ic_id] = InitialCondition.model_validate(data)
-        return parsed
+        initial_conditions: object | None,
+    ) -> FlowInitialConditions | None:
+        return normalize_flow_initial_conditions(initial_conditions, location_prefix="flow.ic")
 
     def _build_boundary_conditions(
         self,
@@ -80,21 +75,16 @@ class Flow(ProcessSpatial):
 
         return parsed, application_domains
 
-    def set_variables(self, variables: dict[str, Variable]) -> None:
-        self.variables.update(variables)
-
     def set_initial_conditions(
         self,
-        initial_conditions: dict[str, InitialCondition] | None,
+        initial_conditions: object | None,
     ) -> None:
-        if initial_conditions is None:
-            self.initial_conditions = {}
+        parsed = self.build_initial_conditions(initial_conditions)
+        self.initial_conditions = parsed
+        if parsed is None:
             self.initial_condition_types = {}
             return
-        self.initial_conditions = dict(initial_conditions)
-        self.initial_condition_types = {
-            key: value.type for key, value in self.initial_conditions.items()
-        }
+        self.initial_condition_types = {"h": parsed.h.type}
 
     def set_boundary_conditions(
         self,
@@ -124,13 +114,9 @@ class Flow(ProcessSpatial):
 
 if __name__ == "__main__":
     test = Flow(FlowConfig())
-    h = Variable(id="h", value=0, description="Hydraulic head", units="m")
-    q = Variable(id="q", value=0, description="Flow rate", units="m3/s")
-    h0 = InitialCondition(
-        id="h0",
+    h0 = FlowInitialCondition(
         type="custom",
         value=10,
-        description="Initial hydraulic head",
         units="m",
     )
     h_ocean = BoundaryCondition(
@@ -158,8 +144,7 @@ if __name__ == "__main__":
         parameter_ids=["K", "Sy"],
         context_label="flow.param",
     )
-    test.set_variables({h.id: h, q.id: q})
-    test.set_initial_conditions({h0.id: h0})
+    test.set_initial_conditions(h0)
     test.set_boundary_conditions({h_ocean.id: h_ocean, drain.id: drain})
     test.set_sinks_sources(
         FlowSinksSourcesConfig(
