@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Typed flow sink/source models."""
+"""
+Flow Sink/Source Models
+=======================
+
+Typed schemas for flow sink/source declarations.
+
+Current scope:
+- pumping/injection wells (`FlowWellConfig`),
+- container model for process-level storage (`FlowSinksSourcesConfig`).
+"""
 
 from __future__ import annotations
 
@@ -10,7 +19,13 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class FlowWellConfig(BaseModel):
-    """Typed payload for one well source/sink definition."""
+    """
+    Typed payload for one well source/sink definition.
+
+    Conventions:
+    - `cell` uses 0-based `(lay, row, col)` indexing.
+    - `flux` may be scalar (constant in time) or vector (one value per stress period).
+    """
 
     cell: tuple[int, int, int] = Field(
         ...,
@@ -28,6 +43,7 @@ class FlowWellConfig(BaseModel):
     @field_validator("cell", mode="before")
     @classmethod
     def _validate_cell(cls, value):
+        """Validate/normalize cell addressing into a `(lay, row, col)` tuple."""
         if isinstance(value, Mapping):
             try:
                 raw_seq = [value["lay"], value["row"], value["col"]]
@@ -60,6 +76,7 @@ class FlowWellConfig(BaseModel):
     @field_validator("flux", mode="before")
     @classmethod
     def _validate_flux(cls, value):
+        """Validate scalar or vector flux payload."""
         if isinstance(value, bool):
             raise TypeError("well.flux must be numeric or a list of numeric values")
         if isinstance(value, Real):
@@ -87,6 +104,7 @@ class FlowSinksSourcesConfig(BaseModel):
     @field_validator("wells", mode="before")
     @classmethod
     def _validate_wells(cls, value):
+        """Validate wells mapping keys before per-item model validation."""
         if value is None:
             return {}
         if not isinstance(value, Mapping):

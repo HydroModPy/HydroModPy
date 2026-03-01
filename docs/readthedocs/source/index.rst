@@ -143,6 +143,7 @@ For any question or collaboration request, contact:
    news
    install
    examples
+   architecture/index
    api-reference
    contribute
 

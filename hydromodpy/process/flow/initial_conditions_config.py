@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Flow initial-condition payload normalizers."""
+"""
+Flow Initial Condition Normalizers
+=================================
+
+Normalization helpers for `[flow.ic]` payloads.
+
+This module accepts compact user payloads and returns the typed runtime/config
+structure `FlowInitialConditions`.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +27,8 @@ def normalize_flow_initial_conditions(
     """
     Normalize one flow initial-condition payload into `FlowInitialConditions`.
 
-    Accepted input shapes:
+    Accepted input shapes
+    ---------------------
     - `None` or `{}` -> `None`
     - `FlowInitialConditions` -> passthrough
     - `FlowInitialCondition` -> wrapped as `{"h": ...}`
@@ -41,6 +50,8 @@ def normalize_flow_initial_conditions(
     if len(payload) == 0:
         return None
 
+    # Flow IC is intentionally kept flat in TOML (`[flow.ic]`), hence only
+    # direct keys are accepted here.
     direct_keys = {"type", "value", "unit", "units", "description"}
     unknown_keys = [str(key).strip() for key in payload if str(key).strip() not in direct_keys]
     if unknown_keys:
@@ -59,7 +70,11 @@ def _normalize_single_ic_payload(
     *,
     location_prefix: str,
 ) -> dict[str, object]:
-    """Normalize one single flow initial-condition payload."""
+    """
+    Normalize one single flow initial-condition payload.
+
+    Output keys are aligned with `FlowInitialCondition`.
+    """
     payload_dict = dict(payload)
 
     raw_type = payload_dict.get("type", "custom")
@@ -85,6 +100,7 @@ def _normalize_single_ic_payload(
         else:
             payload_dict.pop("value", None)
 
+    # Normalize unit alias and apply process defaults.
     if "units" not in payload_dict and "unit" in payload_dict:
         payload_dict["units"] = payload_dict["unit"]
     payload_dict.setdefault("id", "h")

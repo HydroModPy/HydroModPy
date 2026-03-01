@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Flow sink/source payload normalizers."""
+"""
+Flow Sink/Source Normalizers
+============================
+
+Normalization entry point for `[flow.sinks_sources]` payloads.
+
+The heavy validation of nested well payloads is delegated to
+`FlowSinksSourcesConfig` (Pydantic schema).
+"""
 
 from __future__ import annotations
 

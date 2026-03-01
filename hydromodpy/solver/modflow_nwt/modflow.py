@@ -14,11 +14,9 @@
 
 # Python
 from collections.abc import Mapping
-from numbers import Real
 import flopy
 import numpy as np
 import os
-import pandas as pd
 import sys
 import rasterio
 from os.path import dirname, abspath
@@ -40,9 +38,7 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGri
 from hydromodpy.solver.utils.temporal.tmesh_generation import (
     TMesh_Generation,
 )
-from hydromodpy.solver.modflow_nwt.modflow_utils import (
-    build_flow_domain_property_snapshot,
-)
+from hydromodpy.solver.modflow_nwt.flow_adapter import FlowToModflowAdapter
 from hydromodpy.solver.modflow_nwt.modflow_config import (
     ModflowConfig,
     ModflowSpecifParams,
@@ -277,105 +273,6 @@ class Modflow(Solver):
             raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
         return flow_regime_text
 
-    def _build_well_stress_period_data(self, n_stress_periods: int) -> dict[int, list[list[float]]]:
-        """Build MODFLOW WEL stress-period payload from flow.sinks_sources.wells."""
-        if n_stress_periods <= 0 or self.flow is None:
-            return {}
-
-        sinks_sources = getattr(self.flow, "sinks_sources", {})
-        if not isinstance(sinks_sources, Mapping):
-            return {}
-
-        wells = sinks_sources.get("wells", {})
-        if wells is None:
-            return {}
-        if not isinstance(wells, Mapping):
-            raise TypeError(
-                "flow.sinks_sources['wells'] must be a mapping of well ids to payloads."
-            )
-        if len(wells) == 0:
-            return {}
-
-        normalized_wells: list[tuple[str, tuple[int, int, int], np.ndarray]] = []
-        for raw_well_id, raw_well_payload in wells.items():
-            well_id = str(raw_well_id).strip()
-            if well_id == "":
-                raise ValueError("flow.sinks_sources.wells cannot contain empty ids.")
-
-            if isinstance(raw_well_payload, Mapping):
-                cell_payload = raw_well_payload.get("cell")
-                flux_payload = raw_well_payload.get("flux")
-            else:
-                cell_payload = getattr(raw_well_payload, "cell", None)
-                flux_payload = getattr(raw_well_payload, "flux", None)
-
-            if cell_payload is None:
-                raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell is required")
-            if flux_payload is None:
-                raise ValueError(f"flow.sinks_sources.wells.{well_id}.flux is required")
-
-            if isinstance(cell_payload, Mapping):
-                cell_seq = [
-                    cell_payload.get("lay"),
-                    cell_payload.get("row"),
-                    cell_payload.get("col"),
-                ]
-            else:
-                cell_seq = list(cell_payload)
-            if len(cell_seq) != 3:
-                raise ValueError(
-                    f"flow.sinks_sources.wells.{well_id}.cell must contain 3 values: [lay,row,col]"
-                )
-
-            cell_parsed: list[int] = []
-            for axis, raw_index in zip(("lay", "row", "col"), cell_seq):
-                if isinstance(raw_index, bool) or not isinstance(raw_index, Real):
-                    raise TypeError(
-                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be numeric"
-                    )
-                numeric_index = float(raw_index)
-                if not numeric_index.is_integer():
-                    raise TypeError(
-                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be an integer"
-                    )
-                int_index = int(numeric_index)
-                if int_index < 0:
-                    raise ValueError(
-                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be >= 0"
-                    )
-                cell_parsed.append(int_index)
-            cell = (cell_parsed[0], cell_parsed[1], cell_parsed[2])
-
-            if isinstance(flux_payload, bool):
-                raise TypeError(
-                    f"flow.sinks_sources.wells.{well_id}.flux must be numeric or list of numeric values"
-                )
-            if isinstance(flux_payload, Real):
-                flux_vector = np.full(n_stress_periods, float(flux_payload), dtype=float)
-            else:
-                flux_vector = np.asarray(flux_payload, dtype=float).reshape(-1)
-                if flux_vector.size == 0:
-                    raise ValueError(
-                        f"flow.sinks_sources.wells.{well_id}.flux cannot be empty"
-                    )
-                if flux_vector.size == 1:
-                    flux_vector = np.full(n_stress_periods, float(flux_vector[0]), dtype=float)
-                elif flux_vector.size != n_stress_periods:
-                    raise ValueError(
-                        f"flow.sinks_sources.wells.{well_id}.flux length ({flux_vector.size}) "
-                        f"must be 1 or match nper ({n_stress_periods})"
-                    )
-
-            normalized_wells.append((well_id, cell, flux_vector))
-
-        lrcq: dict[int, list[list[float]]] = {}
-        for t in range(n_stress_periods):
-            lrcq[t] = [
-                [cell[0], cell[1], cell[2], float(flux_vector[t])]
-                for _, cell, flux_vector in normalized_wells
-            ]
-        return lrcq
-
     def _validate_pre_processing_inputs(self) -> None:
         """Validate mandatory inputs before MODFLOW package assembly."""
         if self.flow is None:
@@ -525,6 +422,24 @@ class Modflow(Solver):
             start_datetime=temporal_dis["start_datetime"],
         )
 
+    def _build_flow_modflow_inputs(self, sgrid):
+        """Adapt Flow+Domain data into solver-ready payloads."""
+        adapter = FlowToModflowAdapter(
+            flow=self.flow,
+            domain=self.domain,
+            sgrid=sgrid,
+            dem=self.dem,
+            bottom_layer=self.bottom_layer,
+            nlay=self.nlay,
+            nrow=self.nrow,
+            ncol=self.ncol,
+            nper=int(self.nper),
+            resolution=float(self.resolution),
+            sink_fill=bool(self.sink_fill),
+            sink=getattr(self, "sink", None),
+        )
+        return adapter.build()
+
     def pre_processing(
         self,
         flow: object,
@@ -559,147 +474,40 @@ class Modflow(Solver):
         sgrid = self._build_spatial_discretization()
         self._build_dis_package(sgrid, temporal_dis)
 
-        # %% Boundary conditions
+        # %% Flow adaptation (process -> solver-ready payloads)
+        flow_inputs = self._build_flow_modflow_inputs(sgrid)
 
-        ### Initialze the top boundary condition of DRN package
-        self.drain_array = np.ones((self.nrow, self.ncol))
+        # Boundary conditions arrays
+        self.drain_array = np.asarray(flow_inputs.drain_array, dtype=float)
+        self.iboundData = np.asarray(flow_inputs.ibound, dtype=float)
+        self.strtData = np.asarray(flow_inputs.strt, dtype=float)
+        self.chData = {} if flow_inputs.chd_spd is None else dict(flow_inputs.chd_spd)
 
-        ### Constant head boundary conditions of no flow (sides of domain)
-
-        self.iboundData = np.ones((self.nlay, self.nrow, self.ncol))
-        # iboundData=1: Should compute head in cells
-        # iboundData=0: Nothing is calculated in cells
-        # iboundData=-1: Values imposed at the value of strtData
-
-        # Free surface level is set to the surface (altitude of DEM)
-        initial_condition = self.flow.initial_conditions.h
-        if initial_condition.type == "top":
-            self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.dem
-        if initial_condition.type == "bottom":
-            self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * self.bottom_layer
-        if initial_condition.type == "custom":
-            self.strtData = np.ones((self.nlay, self.nrow, self.ncol)) * initial_condition.value
-
-        west_boundary = self.flow.boundary_conditions.get("west_side")
-        if west_boundary is None:
-            west_boundary = self.flow.boundary_conditions.get("west_boundary")
-        # Fixed head on the left (better for square domain)
-        if west_boundary is not None:
-            self.iboundData[:, :, 0] = -1
-            self.strtData[:, :, 0] = west_boundary.value
-
-        east_boundary = self.flow.boundary_conditions.get("east_side")
-        if east_boundary is None:
-            east_boundary = self.flow.boundary_conditions.get("east_boundary")
-        # Fixed head on the right (better for square domain)
-        if east_boundary is not None:
-            self.iboundData[:, :, -1] = -1
-            self.strtData[:, :, -1] = east_boundary.value
-        
-        north_boundary = self.flow.boundary_conditions.get("north_side")
-        if north_boundary is None:
-            north_boundary = self.flow.boundary_conditions.get("north_boundary")
-        if north_boundary is not None:
-            self.iboundData[:, 0, :] = -1
-            self.strtData[:, 0, :] = north_boundary.value
-        
-        south_boundary = self.flow.boundary_conditions.get("south_side")
-        if south_boundary is None:
-            south_boundary = self.flow.boundary_conditions.get("south_boundary")
-        if south_boundary is not None:
-            self.iboundData[:, -1, :] = -1
-            self.strtData[:, -1, :] = south_boundary.value
-
-        for i in range(self.nlay):
-            self.iboundData[i][self.dem < -1000] = 0  # 0 is for NO FLOW
-
-        if "ocean" in self.flow.boundary_conditions.keys():
-
-            # No flow boundary conditions
-            for i in range(self.nlay):
-                if isinstance(self.flow.boundary_conditions["ocean"].value, (int, float)):
-                    self.iboundData[i][self.dem <= self.flow.boundary_conditions["ocean"].value] = -1
-                    self.strtData[self.iboundData == -1] = self.flow.boundary_conditions["ocean"].value
-                
-
-            ### Constant head boundary conditions of no f : specific for sea level
-            if isinstance(self.flow.boundary_conditions["ocean"].value, (int, float, pd.Series, list)):
-                package = np.zeros((self.nper, self.nrow, self.ncol))
-                if not isinstance(self.flow.boundary_conditions["ocean"].value, (int, float)):
-                    self.chData = {}
-                    for kper in range(0, self.nper):
-                        chdKper = []
-                        for i in range(0, self.nrow):
-                            for j in range(0, self.ncol):
-                                if self.dem[i, j] < np.max(self.flow.boundary_conditions["ocean"].value):
-                                    if (
-                                        self.iboundData[0, i, j] != 0
-                                    ):  # no-flow cells cannot be converted to specified head cells
-                                        self.drain_array[i, j] = 0
-                                        package[kper, i, j] = 1
-                                        chdKper.append(
-                                            [0, i, j,
-                                            self.flow.boundary_conditions["ocean"].value[kper],
-                                            self.flow.boundary_conditions["ocean"].value[kper],
-                                            ]
-                                        )
-                                self.chData[kper] = chdKper
-                    # ---- flopy.modflow.ModflowChd
-                    self.chd = flopy.modflow.ModflowChd(
-                        self.mf, stress_period_data=self.chData
-                    )
+        if flow_inputs.chd_spd is not None:
+            self.chd = flopy.modflow.ModflowChd(
+                self.mf, stress_period_data=flow_inputs.chd_spd
+            )
 
         # ---- flopy.modflow.ModflowBas
         self.bas = flopy.modflow.ModflowBas(
-            self.mf, ibound=self.iboundData, strt=self.strtData, hnoflo=self.bas_hnoflo)
+            self.mf,
+            ibound=self.iboundData,
+            strt=self.strtData,
+            hnoflo=self.bas_hnoflo,
+        )
 
         # %% Parametrization
 
-        # Specify the unconfined conditions of the aquifer
+        # Specify the unconfined conditions of the aquifer.
         self.laywet = np.zeros(self.nlay)  # wettable
         self.laytype = np.ones(self.nlay)  # convertible
 
-        # Necessary to give hydraulic conductivity: 3D matrix of hydraulic conductivities
-        # Homogeneous or heterogeneous hydraulic conductivity is always built
-        # from Flow/Domain mapping on the generated SGrid.
-
-        # Compact mapping table for Flow -> MODFLOW properties.
-        #
-        # Tuple format:
-        #   (accepted_flow_keys, target_3d_attr, target_surface_attr, human_label)
-        mapping_specs = [
-            (("K", "k"), "hk", "hk_value", "Hydraulic conductivity"),
-            (("Sy", "SY", "sy", "S", "s"), "sy", "sy_value", "Specific yield"),
-            (("Ss", "SS", "ss"), "ss", "ss_value", "Specific storage"),
-        ]
-        has_flow_domain_inputs = (
-            self.flow is not None
-            and hasattr(self.flow, "parameters")
-            and self.domain is not None
-            and hasattr(self.domain, "zones")
-        )
-        if not has_flow_domain_inputs:
-            raise ValueError(
-                "Flow/Domain inputs are required to build hk/sy/ss on SGrid. "
-                "Expected flow.parameters and domain.zones."
-            )
-
-        flow_params = build_flow_domain_property_snapshot(
-            model=self,
-            sgrid=sgrid,
-            mapping_specs=mapping_specs,
-            strict=True,
-        )
-        for _, target_3d_attr, target_surface_attr, label in mapping_specs:
-            values_3d = flow_params.get(target_3d_attr)
-            values_2d = flow_params.get(target_surface_attr)
-            if values_3d is None or values_2d is None:
-                raise ValueError(
-                    f"Missing mapped values for {label} "
-                    f"('{target_3d_attr}' / '{target_surface_attr}')."
-                )
-            setattr(self, target_3d_attr, np.asarray(values_3d, dtype=float))
-            setattr(self, target_surface_attr, np.asarray(values_2d, dtype=float))
+        self.hk = np.asarray(flow_inputs.hk, dtype=float)
+        self.hk_value = np.asarray(flow_inputs.hk_value, dtype=float)
+        self.sy = np.asarray(flow_inputs.sy, dtype=float)
+        self.sy_value = np.asarray(flow_inputs.sy_value, dtype=float)
+        self.ss = np.asarray(flow_inputs.ss, dtype=float)
+        self.ss_value = np.asarray(flow_inputs.ss_value, dtype=float)
 
         # ---- flopy.modflow.ModflowUpw
         self.upw = flopy.modflow.ModflowUpw(
@@ -792,43 +600,16 @@ class Modflow(Solver):
         # %% Drain package
 
         # DRN is applied to all the surface of the model: enables seepage on the top layer
-        
-        if 'drainage' in self.flow.boundary_conditions.keys():
-            self.drnData = np.zeros((int(np.sum(self.drain_array)), 5))
-            compt = 0
-            self.drnData[:, 0] = 0  # First value (0): layer
-            for i in range(0, self.nrow):
-                for j in range(0, self.ncol):
-                    if self.drain_array[i, j] == 1:
-                        self.drnData[compt, 1] = i  # Second value (1): row number
-                        self.drnData[compt, 2] = j  # Third value (2): column number
-                        self.drnData[compt, 3] = self.dem[i, j]  # Fourth value (3): altitude
-                        # Fifth value (4): value of the conductivity of the drain (integrated over the surface of the cell)
-                        if not self.sink_fill:
-                            if self.flow.boundary_conditions['drainage'].value > 0:
-                                self.drnData[compt, 4] = self.flow.boundary_conditions['drainage'].value
-                            else:
-                                self.drnData[compt, 4] = (self.hk[0, i, j] * self.resolution**2)
-                        else:
-                            if self.sink[i, j] > 0:
-                                self.drnData[compt, 4] = 0
-                            else:
-                                if self.flow.boundary_conditions['drainage'].value > 0:
-                                    self.drnData[compt, 4] = self.flow.boundary_conditions['drainage'].value
-                                else:
-                                    self.drnData[compt, 4] = (
-                                        self.hk[0, i, j] * self.resolution**2
-                                    )
-                        compt += 1
-
-            # Imposes DRN condition to Modflow through flopy
-            lrcec = {0: self.drnData}
-            # ---- flopy.modflow.ModflowDrn
-            self.drn = flopy.modflow.ModflowDrn(self.mf, stress_period_data=lrcec)
+        if flow_inputs.drn_spd is not None:
+            self.drnData = np.asarray(flow_inputs.drn_spd.get(0, []), dtype=float)
+            self.drn = flopy.modflow.ModflowDrn(
+                self.mf,
+                stress_period_data=flow_inputs.drn_spd,
+            )
 
         # %% Well package
 
-        self.lrcq = self._build_well_stress_period_data(n_stress_periods=int(self.nper))
+        self.lrcq = dict(flow_inputs.wel_spd)
         if self.lrcq:
             self.wel = flopy.modflow.ModflowWel(
                 self.mf, ipakcb=self.wel_ipakcb, stress_period_data=self.lrcq
