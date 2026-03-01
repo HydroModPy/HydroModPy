@@ -24,6 +24,10 @@ from hydromodpy.process.flow.initial_conditions import (
 from hydromodpy.process.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
+from hydromodpy.process.flow.param_config import (
+    normalize_flow_param_payloads,
+    parse_flow_param_sections,
+)
 from hydromodpy.process.flow.sink_sources import (
     FlowSinksSourcesConfig,
     FlowWellConfig,
@@ -32,10 +36,6 @@ from hydromodpy.process.flow.sink_sources_config import (
     normalize_flow_sinks_sources,
 )
 from hydromodpy.process.prototype import ProcessSpatialConfig
-from hydromodpy.field.core.field_param_config import (
-    resolve_field_param_config_payload,
-    validate_resolved_field_param_data,
-)
 
 __all__ = [
     "FlowBoundaryConditionConfig",
@@ -79,7 +79,7 @@ class FlowConfig(ProcessSpatialConfig):
             "Mapping of flow boundary-condition payloads parsed from [flow.bc]. "
             "Supported sections are: "
             "[flow.bc.dirichlet.<id>] with <id> in ocean, stream, north_side, "
-            "south_side, east_side, west_side (legacy *_boundary aliases accepted); "
+            "south_side, east_side, west_side; "
             "[flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; "
             "and generic [flow.bc.<custom_id>] payloads. "
             "Common required key: value. "
@@ -106,44 +106,32 @@ class FlowConfig(ProcessSpatialConfig):
     @model_validator(mode="before")
     @classmethod
     def _normalize_param_payload_shapes(cls, value):
+        """
+        Normalize accepted parameter declaration styles before validation.
+
+        Supports canonical shape only, then rewrites to:
+        - `param_list`
+        - `param`
+        """
         if value is None or not isinstance(value, Mapping):
             return value
         payload = dict(value)
         raw_param_list = payload.get("param_list")
         raw_param = payload.get("param")
-        raw_param_values = payload.get("param_values")
         if isinstance(raw_param, Mapping):
-            if raw_param_values is not None:
-                raise ValueError(
-                    "Use either flow.param mapping or legacy flow.param_values mapping, "
-                    "but not both at once"
-                )
             if raw_param_list is None:
                 payload["param_list"] = list(raw_param.keys())
-        elif isinstance(raw_param, (list, tuple)):
-            # Transitional compatibility with old format:
-            # flow.param = ["K", "Ss", "Sy"] + flow.param_values.<id>...
-            if raw_param_list is not None:
-                raise ValueError(
-                    "Use either flow.param_list or legacy flow.param list, "
-                    "but not both at once"
-                )
-            payload["param_list"] = list(raw_param)
-            if isinstance(raw_param_values, Mapping):
-                payload["param"] = dict(raw_param_values)
-            else:
-                payload["param"] = {}
-        elif raw_param is None and isinstance(raw_param_values, Mapping):
-            payload["param"] = dict(raw_param_values)
-            if raw_param_list is None:
-                payload["param_list"] = list(raw_param_values.keys())
+        elif raw_param is not None:
+            raise ValueError("flow.param must be a mapping payload when provided")
 
-        payload.pop("param_values", None)
+        if payload.get("param_values") is not None:
+            raise ValueError("flow.param_values is no longer supported. Use flow.param.")
         return payload
 
     @field_validator("param_list", mode="before")
     @classmethod
     def _validate_param_list(cls, value):
+        """Validate and normalize `flow.param_list` as a unique ordered list."""
         if value is None:
             return []
         if isinstance(value, Mapping):
@@ -164,42 +152,12 @@ class FlowConfig(ProcessSpatialConfig):
     @field_validator("param", mode="before")
     @classmethod
     def _validate_param_payloads(cls, value):
-        if value is None:
-            return {}
-        if not isinstance(value, Mapping):
-            raise ValueError("flow.param must be a mapping of parameter id to payload")
-
-        out: dict[str, dict[str, object]] = {}
-        for raw_key, raw_payload in value.items():
-            param_id = str(raw_key).strip()
-            if param_id == "":
-                raise ValueError("flow.param cannot contain empty parameter ids")
-            if not isinstance(raw_payload, Mapping):
-                raise ValueError(
-                    f"flow.param['{param_id}'] must be a mapping payload"
-                )
-            payload = dict(raw_payload)
-            if any(
-                key in payload
-                for key in (
-                    "field",
-                    "field_homogeneous",
-                    "field_heterogeneous",
-                    "field_vertical_profile",
-                )
-            ):
-                out[param_id] = resolve_field_param_config_payload(
-                    payload,
-                    param_id=param_id,
-                    section_label=f"flow.param.{param_id}",
-                )
-            else:
-                payload.setdefault("id", param_id)
-                out[param_id] = validate_resolved_field_param_data(payload)
-        return out
+        """Normalize `flow.param` payloads into resolved FieldParamConfig mappings."""
+        return normalize_flow_param_payloads(value, location_prefix="flow.param")
 
     @model_validator(mode="after")
     def _validate_param_consistency(self):
+        """Enforce one-to-one consistency between `param_list` and `param` keys."""
         missing = [param_id for param_id in self.param_list if param_id not in self.param]
         if missing:
             missing_text = ", ".join(missing)
@@ -217,6 +175,7 @@ class FlowConfig(ProcessSpatialConfig):
     @field_validator("flow_regime", mode="before")
     @classmethod
     def _validate_flow_regime(cls, value):
+        """Validate flow regime enumeration."""
         text = str(value).strip().lower()
         if text not in {"steady", "transient"}:
             raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
@@ -225,11 +184,13 @@ class FlowConfig(ProcessSpatialConfig):
     @field_validator("bc", mode="before")
     @classmethod
     def _validate_bc(cls, value):
+        """Normalize boundary-condition payloads from `[flow.bc]`."""
         return normalize_flow_boundary_conditions(value, location_prefix="flow.bc")
 
     @field_validator("ic", mode="before")
     @classmethod
     def _validate_ic(cls, value):
+        """Normalize initial-condition payload from `[flow.ic]`."""
         if value is None:
             return None
         return normalize_flow_initial_conditions(value, location_prefix="flow.ic")
@@ -237,6 +198,7 @@ class FlowConfig(ProcessSpatialConfig):
     @field_validator("sinks_sources", mode="before")
     @classmethod
     def _validate_sinks_sources(cls, value):
+        """Normalize sinks/sources payload from `[flow.sinks_sources]`."""
         return normalize_flow_sinks_sources(value, location_prefix="flow.sinks_sources")
 
     @classmethod
@@ -246,7 +208,15 @@ class FlowConfig(ProcessSpatialConfig):
         *,
         base_dir: Path,
     ) -> "FlowConfig":
-        """Build a validated FlowConfig from the `[flow]` TOML section."""
+        """
+        Build a validated `FlowConfig` from the `[flow]` TOML section.
+
+        Processing steps:
+        1. Validate raw section shapes.
+        2. Parse and resolve parameter sections (`flow.param.<id>`).
+        3. Normalize IC/BC/sinks-sources sections.
+        4. Validate the final typed model with Pydantic.
+        """
         if flow_section is None:
             return cls()
         if not isinstance(flow_section, Mapping):
@@ -264,30 +234,9 @@ class FlowConfig(ProcessSpatialConfig):
         if raw_param is None:
             raw_param = {}
         if not isinstance(raw_param, Mapping):
-            if isinstance(raw_param, (list, tuple)):
-                # Transitional compatibility with previous format:
-                # flow.param = ["K", "Ss", "Sy"] + flow.param_values.<id>...
-                raw_param_list = list(raw_param)
-                raw_param = flow_section.get("param_values", {})
-                if raw_param is None:
-                    raw_param = {}
-                if not isinstance(raw_param, Mapping):
-                    raise ValueError(
-                        "TOML section 'flow.param_values' must be a mapping when flow.param is a list"
-                    )
-            else:
-                raise ValueError("TOML section 'flow.param' must be a mapping when provided")
-
-        raw_param_values_alias = flow_section.get("param_values")
-        if raw_param_values_alias is not None:
-            if not isinstance(raw_param_values_alias, Mapping):
-                raise ValueError("TOML section 'flow.param_values' must be a mapping when provided")
-            if len(raw_param) > 0:
-                raise ValueError(
-                    "Do not use both flow.param and flow.param_values. "
-                    "Use flow.param only."
-                )
-            raw_param = raw_param_values_alias
+            raise ValueError("TOML section 'flow.param' must be a mapping when provided")
+        if flow_section.get("param_values") is not None:
+            raise ValueError("TOML section 'flow.param_values' is no longer supported.")
 
         raw_bc = flow_section.get("bc", {})
         if raw_bc is None:
@@ -309,7 +258,8 @@ class FlowConfig(ProcessSpatialConfig):
                 "TOML section 'flow.sinks_sources' must be a mapping when provided"
             )
 
-        parsed_param = _parse_flow_param_sections(
+        # Parameter payloads are resolved against field-param section grammar.
+        parsed_param = parse_flow_param_sections(
             raw_param,
             base_dir=base_dir,
             section_prefix="flow.param",
@@ -318,12 +268,18 @@ class FlowConfig(ProcessSpatialConfig):
         if len(declared_param) == 0 and len(parsed_param) > 0:
             declared_param = list(parsed_param.keys())
 
-        parsed_ic = _parse_flow_ic_section(raw_ic)
-        parsed_bc = normalize_flow_boundary_conditions(raw_bc, location_prefix="flow.bc")
-        parsed_sinks_sources = normalize_flow_sinks_sources(
-            raw_sinks_sources,
-            location_prefix="flow.sinks_sources",
-        )
+        # Keep raw TOML payloads for IC/BC/sinks_sources here and let field
+        # validators normalize exactly once.
+        #
+        # Rationale:
+        # - `FlowConfig` already defines dedicated validators for `ic`, `bc`,
+        #   and `sinks_sources`;
+        # - pre-normalizing here and validating again may trigger false legacy
+        #   detections (for example normalized key "drainage" seen as deprecated
+        #   input on second pass).
+        parsed_ic = raw_ic
+        parsed_bc = raw_bc
+        parsed_sinks_sources = raw_sinks_sources
         raw_flow_regime = flow_section.get("flow_regime", "transient")
         return cls(
             flow_regime=raw_flow_regime,
@@ -333,51 +289,9 @@ class FlowConfig(ProcessSpatialConfig):
             bc=parsed_bc,
             sinks_sources=parsed_sinks_sources,
         )
-
-
-def _parse_flow_param_sections(
-    param_cfg: Mapping[str, object],
-    *,
-    base_dir: Path,
-    section_prefix: str = "flow.param",
-) -> dict[str, dict[str, object]]:
-    """Parse flow parameter entries using field_param grammar."""
-    parsed: dict[str, dict[str, object]] = {}
-    for raw_id, raw_payload in param_cfg.items():
-        param_id = str(raw_id).strip()
-        if param_id == "":
-            raise ValueError(f"{section_prefix} cannot contain empty parameter ids")
-        if not isinstance(raw_payload, Mapping):
-            raise ValueError(
-                f"{section_prefix}.{param_id} must be a mapping with field_param-style sections"
-            )
-        parsed[param_id] = _field_param_config_from_flow_payload(
-            payload=raw_payload,
-            param_id=param_id,
-            base_dir=base_dir,
-            section_prefix=section_prefix,
-        )
-    return parsed
-
-
-def _field_param_config_from_flow_payload(
-    *,
-    payload: Mapping[str, object],
-    param_id: str,
-    base_dir: Path,
-    section_prefix: str = "flow.param",
-) -> dict[str, object]:
-    """Build one resolved FieldParamConfig mapping from one TOML parameter payload."""
-    return resolve_field_param_config_payload(
-        payload,
-        param_id=param_id,
-        base_dir=base_dir,
-        section_label=f"{section_prefix}.{param_id}",
-    )
-
-
 def _parse_flow_ic_section(ic_cfg: Mapping[str, object]) -> FlowInitialConditions | None:
-    """Parse and normalize one single `[flow.ic]` payload.
+    """
+    Parse and normalize one single `[flow.ic]` payload.
 
     Supported shapes:
     - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`.

@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Flow boundary-condition payload normalizers."""
+"""
+Flow Boundary Condition Normalizers
+==================================
+
+Normalization and canonicalization helpers for `[flow.bc]` payloads.
+
+Responsibilities:
+- normalize accepted TOML shapes into one flat BC mapping,
+- enforce domain/type/value consistency rules,
+- support canonical keys only.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +20,6 @@ from typing import cast
 from hydromodpy.process.flow.boundary_conditions import (
     ALLOWED_BC_APPLICATION_DOMAINS,
     DIRICHLET_BC_CANONICAL_DOMAINS,
-    DIRICHLET_BC_LEGACY_ALIASES,
     FlowBoundaryConditionConfig,
 )
 
@@ -20,7 +29,11 @@ def normalize_flow_boundary_conditions(
     *,
     location_prefix: str = "flow.bc",
 ) -> dict[str, object]:
-    """Normalize one `[flow.bc]` payload into canonical boundary-condition mappings."""
+    """
+    Normalize one `[flow.bc]` payload into canonical boundary-condition mappings.
+
+    Returns a flat dictionary keyed by normalized BC ids.
+    """
     if value is None:
         return {}
     if not isinstance(value, Mapping):
@@ -29,6 +42,7 @@ def normalize_flow_boundary_conditions(
 
 
 def _coerce_numeric_boundary_value(*, value: object, location: str) -> float:
+    """Validate and coerce one boundary numeric value."""
     if isinstance(value, bool) or not isinstance(value, Real):
         raise TypeError(f"{location} must be a numeric value")
     return float(value)
@@ -39,6 +53,7 @@ def _normalize_boundary_units(
     *,
     default_units: str,
 ) -> str:
+    """Resolve units from payload (`units` > `unit` > default)."""
     if "units" in payload:
         return str(payload["units"])
     if "unit" in payload:
@@ -51,17 +66,15 @@ def _canonicalize_dirichlet_bc_id(
     raw_bc_id: str,
     location_prefix: str,
 ) -> str:
+    """Map one raw Dirichlet key to its canonical identifier."""
     bc_id = str(raw_bc_id).strip()
     if bc_id == "":
         raise ValueError(f"{location_prefix} cannot be empty")
 
-    canonical_bc_id = DIRICHLET_BC_LEGACY_ALIASES.get(bc_id, bc_id)
-    if canonical_bc_id in DIRICHLET_BC_CANONICAL_DOMAINS:
-        return canonical_bc_id
+    if bc_id in DIRICHLET_BC_CANONICAL_DOMAINS:
+        return bc_id
 
-    supported_keys = sorted(
-        set(DIRICHLET_BC_CANONICAL_DOMAINS.keys()) | set(DIRICHLET_BC_LEGACY_ALIASES.keys())
-    )
+    supported_keys = sorted(DIRICHLET_BC_CANONICAL_DOMAINS.keys())
     supported_text = ", ".join(supported_keys)
     raise ValueError(
         f"{location_prefix} contains unsupported Dirichlet key '{bc_id}'. "
@@ -75,6 +88,7 @@ def _normalize_dirichlet_boundary_payload(
     payload: Mapping[str, object],
     location_prefix: str,
 ) -> dict[str, object]:
+    """Normalize one Dirichlet payload and validate inferred application domain."""
     if "value" not in payload:
         raise ValueError(f"{location_prefix}.value is required")
 
@@ -92,6 +106,8 @@ def _normalize_dirichlet_boundary_payload(
     if raw_type != "dirichlet":
         raise ValueError(f"{location_prefix}.type must be 'dirichlet'")
 
+    # Domain is inferred from canonical key and must remain consistent if
+    # explicitly provided by the user.
     inferred_application_domain = DIRICHLET_BC_CANONICAL_DOMAINS[canonical_bc_id]
     raw_application_domain = payload.get("application_domain")
     if raw_application_domain is None:
@@ -142,6 +158,7 @@ def _normalize_drainage_boundary_payload(
     location_prefix: str,
     expected_type: str,
 ) -> dict[str, object]:
+    """Normalize one drainage payload for Cauchy/Robin sections."""
     if "value" not in payload:
         raise ValueError(f"{location_prefix}.value is required")
 
@@ -190,6 +207,7 @@ def _normalize_generic_boundary_payload(
     payload: Mapping[str, object],
     location_prefix: str,
 ) -> dict[str, object]:
+    """Normalize one generic BC payload not handled by dedicated sections."""
     if "value" not in payload:
         raise ValueError(f"{location_prefix}.value is required")
 
@@ -228,7 +246,15 @@ def _normalize_generic_boundary_payload(
 
 
 def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
-    """Parse and normalize ``[flow.bc]`` entries into one flat mapping."""
+    """
+    Parse and normalize `[flow.bc]` entries into one flat mapping.
+
+    Supported section-level precedence:
+    - `[flow.bc.dirichlet.*]`
+    - `[flow.bc.cauchy.drainage]`
+    - `[flow.bc.robin.drainage]` (only if drainage was not already set)
+    - direct `[flow.bc.<id>]` entries
+    """
     parsed: dict[str, dict[str, object]] = {}
 
     dirichlet_payload = bc_cfg.get("dirichlet")
@@ -285,29 +311,26 @@ def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:
                 expected_type="robin",
             )
 
-    legacy_drainage = bc_cfg.get("drainage")
-    if "drainage" not in parsed and isinstance(legacy_drainage, Mapping):
-        parsed["drainage"] = _normalize_drainage_boundary_payload(
-            payload=legacy_drainage,
-            location_prefix="flow.bc.drainage",
-            expected_type="cauchy",
-        )
-
+    # Direct entries are parsed last to preserve explicit section behavior.
     for raw_key, raw_payload in bc_cfg.items():
         key = str(raw_key).strip()
         if key == "":
             raise ValueError("flow.bc cannot contain empty keys")
-        if key in {"dirichlet", "cauchy", "robin", "drainage"}:
+        if key in {"dirichlet", "cauchy", "robin"}:
             continue
+        if key == "drainage":
+            raise ValueError(
+                "flow.bc.drainage is no longer supported. "
+                "Use flow.bc.cauchy.drainage or flow.bc.robin.drainage."
+            )
         if not isinstance(raw_payload, Mapping):
             raise TypeError(f"flow.bc.{key} must be a mapping payload")
 
-        canonical_key = DIRICHLET_BC_LEGACY_ALIASES.get(key, key)
-        if canonical_key in DIRICHLET_BC_CANONICAL_DOMAINS:
-            if canonical_key in parsed:
-                raise ValueError(f"Duplicate boundary condition entry for '{canonical_key}' in flow.bc")
-            parsed[canonical_key] = _normalize_dirichlet_boundary_payload(
-                bc_id=canonical_key,
+        if key in DIRICHLET_BC_CANONICAL_DOMAINS:
+            if key in parsed:
+                raise ValueError(f"Duplicate boundary condition entry for '{key}' in flow.bc")
+            parsed[key] = _normalize_dirichlet_boundary_payload(
+                bc_id=key,
                 payload=raw_payload,
                 location_prefix=f"flow.bc.{key}",
             )

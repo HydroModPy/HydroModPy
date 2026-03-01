@@ -1,7 +1,6 @@
 from hydromodpy.process.flow import (
     Flow,
     FlowConfig,
-    FlowImene,
     FlowInitialCondition,
     FlowInitialConditions,
 )
@@ -22,7 +21,6 @@ from hydromodpy.process.transport import (
 __all__ = [
     "Flow",
     "FlowConfig",
-    "FlowImene",
     "FlowInitialCondition",
     "FlowInitialConditions",
     "ProcessSpatial",

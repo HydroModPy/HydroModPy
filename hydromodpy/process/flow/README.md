@@ -9,7 +9,6 @@ Main files:
 - `flow_config.py`: Pydantic schema and TOML parsing for `[flow]`.
 - `initial_conditions.py`: typed flow initial-condition models.
 - `initial_conditions_config.py`: normalization/validation of `[flow.ic]`.
-- `flow_imene.py`: custom example extension (`FlowImene`).
 
 
 ## 1. End-to-End Data Path
@@ -105,7 +104,7 @@ Payload resolution:
 
 Important behavior:
 
-- no nested legacy shape (`[flow.ic.h]`) is supported.
+- no nested shape (`[flow.ic.h]`) is supported.
 - no scalar shorthand (`flow.ic = 10.0`) is supported.
 - normalized runtime object is:
   `FlowInitialConditions(h=FlowInitialCondition(...))`.
@@ -146,19 +145,6 @@ Generic fallback:
 
 ```toml
 [flow.bc.<custom_id>]
-```
-
-Legacy aliases still accepted for side Dirichlet keys:
-
-- `north_boundary` -> `north_side`
-- `south_boundary` -> `south_side`
-- `east_boundary` -> `east_side`
-- `west_boundary` -> `west_side`
-
-Legacy top-level drainage alias is also accepted:
-
-```toml
-[flow.bc.drainage]
 ```
 
 ### 5.2 Validation Rules
@@ -301,4 +287,3 @@ print(flow.sinks_sources.get("wells", {}).keys())
   - `FlowConfig.bc` field description
   - `_parse_flow_bc_sections(...)` docstring
   - `examples/example12/config.toml` comments
-- If legacy paths are removed in code, remove them from this README as well.
