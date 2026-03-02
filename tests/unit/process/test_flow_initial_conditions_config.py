@@ -1,0 +1,15 @@
+from hydromodpy.process.flow.initial_conditions_config import (
+    normalize_flow_initial_conditions,
+)
+
+
+def test_normalize_flow_initial_conditions_sets_default_h_id() -> None:
+    initial_conditions = normalize_flow_initial_conditions(
+        {
+            "type": "top",
+            "value": 1.0,
+            "unit": "m",
+        }
+    )
+    assert initial_conditions is not None
+    assert initial_conditions.h.id == "h"

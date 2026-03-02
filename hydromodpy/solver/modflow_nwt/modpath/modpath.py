@@ -106,27 +106,19 @@ class Modpath(Solver):
         """
         
         # Initialisation
-        legacy_geographic = None
-        if model_modflow is None and transport is not None and hasattr(transport, 'mf'):
-            # Legacy call pattern: Modpath(geographic, model_modflow, ...)
-            legacy_geographic = domain
-            model_modflow = transport
-            domain = getattr(model_modflow, 'domain', None)
-            transport = getattr(model_modflow, 'transport', None)
-
         if model_modflow is None:
             raise ValueError("model_modflow must be provided to initialize Modpath")
 
         if not hasattr(model_modflow, 'mf'):
             raise ValueError(
                 "Modpath is available only with MODFLOW-NWT flow models. "
-                "Please set [solver].solver_engine = 'nwt' and run modflownwt first."
+                "Please set [solver].solver_engine = 'modflownwt' and run modflownwt first."
             )
 
         self.domain = domain
         self.transport = transport
         self.model_modflow = model_modflow
-        self.geographic = legacy_geographic if legacy_geographic is not None else self._get_geographic()
+        self.geographic = self._get_geographic()
         self.model_name = model_name
         self.model_folder = model_folder
         self.full_path = os.path.join(model_folder, model_name)
@@ -212,10 +204,7 @@ class Modpath(Solver):
 
     def _get_geographic(self):
         """Return geographic context from MODFLOW model when available."""
-        geo = getattr(self.model_modflow, 'geographic', None)
-        if geo is not None:
-            return geo
-        return getattr(self, 'geographic', None)
+        return getattr(self.model_modflow, 'geographic', None)
 
     def _get_crs_proj(self):
         """Resolve CRS from geographic context, else from domain support."""

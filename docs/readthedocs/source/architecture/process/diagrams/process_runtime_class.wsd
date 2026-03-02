@@ -1,0 +1,83 @@
+@startuml
+title Process - Runtime Class Diagram
+
+package "hydromodpy.process.prototype" {
+  abstract class "ProcessSpatial<TInitialConditions>" as ProcessSpatialT {
+    +parameters: dict[str, object]
+    +initial_conditions: TInitialConditions | None
+    +boundary_conditions: dict[str, BoundaryCondition]
+    +sinks_sources: dict[str, object]
+    +set_parameters_from_config(parameters, parameter_ids, context_label)
+    +build_initial_conditions(initial_conditions)
+    +set_boundary_conditions(boundary_conditions)
+    +set_sinks_sources(sinks_sources)
+  }
+
+  class InitialCondition
+  class BoundaryCondition
+  class SinkSource
+}
+
+package "hydromodpy.process.flow" {
+  class Flow {
+    +config: FlowConfig
+    +flow_regime: str
+    +initial_conditions: FlowInitialConditions | None
+    +boundary_condition_application_domains: dict[str, str]
+    +set_config(config)
+    +set_initial_conditions(initial_conditions)
+    +set_boundary_conditions(boundary_conditions, application_domains)
+    +set_sinks_sources(sinks_sources)
+  }
+
+  class FlowConfig
+  class FlowInitialCondition {
+    +type: top | bottom | custom
+    +value: float | None
+  }
+  class FlowInitialConditions {
+    +h: FlowInitialCondition
+  }
+  class FlowSinksSourcesConfig
+}
+
+package "hydromodpy.process.transport" {
+  class Transport {
+    +config: TransportConfig | None
+    +particle: _TransportComponent
+    +conc: _TransportComponent
+    +set_config(config)
+    +set_parameters(parameters)
+    +build_initial_conditions(initial_conditions)
+    +set_boundary_conditions(boundary_conditions)
+    +set_sinks_sources(sinks_sources)
+  }
+
+  class TransportConfig
+  class TransportInitialConditions {
+    +payload: dict[str, Any]
+  }
+  class _TransportComponent {
+    +parameters: dict[str, Any]
+    +set_parameters(parameters, kwargs)
+  }
+}
+
+ProcessSpatialT <|-- Flow
+ProcessSpatialT <|-- Transport
+
+Flow --> FlowConfig : consumes
+Transport --> TransportConfig : consumes
+
+InitialCondition <|-- FlowInitialCondition
+FlowInitialConditions *-- FlowInitialCondition : h
+Flow --> FlowInitialConditions : initial_conditions
+Transport --> TransportInitialConditions : initial_conditions
+
+ProcessSpatialT --> BoundaryCondition : boundary_conditions values
+ProcessSpatialT ..> SinkSource : add_sink_source()
+
+Transport *-- _TransportComponent : particle
+Transport *-- _TransportComponent : conc
+Flow --> FlowSinksSourcesConfig : set_sinks_sources input
+@enduml

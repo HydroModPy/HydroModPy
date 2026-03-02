@@ -1,12 +1,12 @@
-# Calibration2
+# Calibration
 
-`hydromodpy/calibration2/` centralizes generic calibration code and runnable
+`hydromodpy/calibration/` centralizes generic calibration code and runnable
 scientific cases.
 
 ## Directory Map
 
 ```text
-hydromodpy/calibration2/
+hydromodpy/calibration/
 |-- core/
 |   |-- engine.py
 |   |-- parameters.py
@@ -75,13 +75,7 @@ hydromodpy/calibration2/
 |       |-- workflow.py
 |       `-- case_config.py
 `-- uml/
-    |-- calibration_activity.wsd
-    |-- calibration_sequence.wsd
-    |-- reservoir_sequence.wsd
-    |-- core_classes_config.wsd
-    |-- core_classes_main.wsd
-    |-- case_core_structure.wsd
-    `-- devkit_sequence.wsd
+    `-- README.md
 ```
 
 ## Structure (What Goes Where)
@@ -94,7 +88,7 @@ hydromodpy/calibration2/
 - `cases/`: runnable scientific examples with case-specific data generation and workflows.
 - `cases/utils/`: shared case-level helpers reusable across multiple cases (for example forcing generators).
 - `cases/reservoir/models/`: hydrological model equations and parameter order per reservoir variant.
-- `uml/`: PlantUML `.wsd` diagrams documenting architecture and execution flows.
+- `uml/`: module-local README with links to UML sources in docs.
 
 ## Shared API
 
@@ -107,7 +101,7 @@ All cases follow the same flow:
 3. Run `calibrate(method=..., **method_kwargs)` and consume
    `CalibrationResults`.
 
-## How To Use Calibration2
+## How To Use Calibration
 
 ### Option A: Direct Python API
 
@@ -116,8 +110,8 @@ Use this when you already have observed data and a simulator function.
 ```python
 import numpy as np
 
-from hydromodpy.calibration2.core.engine import CalibrationEngine
-from hydromodpy.calibration2.core.parameters import CalibrationParameterSet
+from hydromodpy.calibration.core.engine import CalibrationEngine
+from hydromodpy.calibration.core.parameters import CalibrationParameterSet
 
 observed = np.asarray([...], dtype=float)
 
@@ -170,7 +164,7 @@ This is the pattern used in `cases/reservoir/` and `cases/recession_brutsaert/`.
 Use these helpers from Python to speed up onboarding:
 
 ```python
-from hydromodpy.calibration2.devkit import (
+from hydromodpy.calibration.devkit import (
     scaffold_case,
     check_case,
     run_doctor,
@@ -220,7 +214,7 @@ For `da_mh_gp`, `objective_metric = "rmse"` must be used.
 
 Minimal checklist:
 
-1. Create a new case folder under `hydromodpy/calibration2/cases/<your_case>/`.
+1. Create a new case folder under `hydromodpy/calibration/cases/<your_case>/`.
 2. Implement your forward model wrapper:
    `simulator(params_dict) -> simulated_series` with output shape matching `observed`.
 3. Add case configuration validation in `case_config.py` (Pydantic model).
@@ -251,21 +245,17 @@ When you need a new calibration algorithm:
 
 ## Case Readmes
 
-- `hydromodpy/calibration2/cases/reservoir/README.md`
-- `hydromodpy/calibration2/cases/groundwater_1d/README.md`
-- `hydromodpy/calibration2/cases/recession_brutsaert/README.md`
+- `hydromodpy/calibration/cases/reservoir/README.md`
+- `hydromodpy/calibration/cases/groundwater_1d/README.md`
+- `hydromodpy/calibration/cases/recession_brutsaert/README.md`
 
 ## Onboarding Docs
 
-- Case cookbook: `hydromodpy/calibration2/docs/case_cookbook.md`
-- Config reference: `hydromodpy/calibration2/docs/config_reference.md`
+- Case cookbook: `hydromodpy/calibration/docs/case_cookbook.md`
+- Config reference: `hydromodpy/calibration/docs/config_reference.md`
 
 ## UML
 
-- Calibration sequence (`.wsd`): `hydromodpy/calibration2/uml/calibration_sequence.wsd`
-- Calibration activity (`.wsd`): `hydromodpy/calibration2/uml/calibration_activity.wsd`
-- Reservoir case sequence (`.wsd`): `hydromodpy/calibration2/uml/reservoir_sequence.wsd`
-- Class diagram - config (+ key module functions) (`.wsd`): `hydromodpy/calibration2/uml/core_classes_config.wsd`
-- Class diagram - main runtime (+ key module functions) (`.wsd`): `hydromodpy/calibration2/uml/core_classes_main.wsd`
-- Class diagram - case core contract/orchestration (`.wsd`): `hydromodpy/calibration2/uml/case_core_structure.wsd`
-- Sequence diagram - devkit onboarding flow (`.wsd`): `hydromodpy/calibration2/uml/devkit_sequence.wsd`
+- Local pointer README: `hydromodpy/calibration/uml/README.md`
+- Canonical UML sources: `docs/readthedocs/source/architecture/calibration/diagrams/`
+- Architecture page: `docs/readthedocs/source/architecture/calibration/calibration-uml-diagrams.rst`

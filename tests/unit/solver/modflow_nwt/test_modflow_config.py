@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.solver.modflow_nwt.modflow_config import (
+from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowConfig,
     ModflowSpecifParams,
 )
@@ -45,7 +45,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "nwt"',
+                'solver_engine = "modflownwt"',
                 "",
                 "[modflownwt.runtime]",
                 'nwt_options = "SIMPLE"',
@@ -136,7 +136,7 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "mf6"',
+                'solver_engine = "modflow6"',
                 "",
                 "[modflow6.runtime]",
                 'mf6_executable_name = "mf6_custom"',

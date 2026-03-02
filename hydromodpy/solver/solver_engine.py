@@ -8,5 +8,5 @@ from enum import Enum
 class SolverEngine(str, Enum):
     """Supported groundwater solver backends."""
 
-    MODFLOW_NWT = "nwt"
-    MODFLOW6 = "mf6"
+    MODFLOW_NWT = "modflownwt"
+    MODFLOW6 = "modflow6"
