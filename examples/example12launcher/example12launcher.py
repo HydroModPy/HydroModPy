@@ -13,6 +13,12 @@ Usage::
 """
 
 from pathlib import Path
+import sys
+
+# When this file is executed directly by path, Python adds the script folder to
+# ``sys.path`` but not necessarily the repository root.  Insert the repo root
+# explicitly so the local ``launchers`` package can always be imported.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from launchers import HydroModPyLauncher
 
