@@ -181,7 +181,6 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     frame_paths = plot_concentration_frames(
         model_transport=result.model_transport,
         model_modflow=result.model_modflow,
-        workspace=result.workspace,
         geographic=result.geographic,
         hydrography=result.hydrography,
         recharge_series=result.climatic.recharge,

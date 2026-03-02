@@ -86,12 +86,11 @@ def plot_streamflow(
 - the simulated outlet flux is reconstructed from drain flow and runoff;
 - recharge is added as contextual forcing on the same timeline.
 
-    The helper applies the historical unit conversion used by the existing
-    HydroModPy examples so the resulting figure stays comparable with legacy
-    outputs.
+    The helper applies the project plotting unit conversion used throughout
+    HydroModPy example diagnostics.
     """
 
-    # Convert model fluxes to the plotting unit used in legacy examples.
+    # Convert model fluxes to the plotting unit used by the project diagnostics.
     rmod = simulated_timeseries["recharge"] * factor * 1000
     qmod = (simulated_timeseries["outflow_drain"] + simulated_timeseries["runoff"]) * factor * 1000
 

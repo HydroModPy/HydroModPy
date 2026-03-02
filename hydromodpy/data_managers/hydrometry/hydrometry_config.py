@@ -6,7 +6,7 @@ from pathlib import Path
 import tomllib
 from typing import Any, Literal, Mapping
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 
 class HydrometrySectionSchema(BaseModel):
@@ -14,10 +14,22 @@ class HydrometrySectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    variable: str = "QmnJ"
-    display: bool = False
-    date_start: str | None = None
-    date_end: str | None = None
+    variable: str = Field(
+        default="QmnJ",
+        description="Hydrometric variable requested from the source (for example daily discharge code).",
+    )
+    display: bool = Field(
+        default=False,
+        description="If true, display diagnostic information while loading station data.",
+    )
+    date_start: str | None = Field(
+        default=None,
+        description="Optional inclusive start date filter applied to the requested time series.",
+    )
+    date_end: str | None = Field(
+        default=None,
+        description="Optional inclusive end date filter applied to the requested time series.",
+    )
 
     @field_validator("variable")
     @classmethod
@@ -43,8 +55,14 @@ class SourceSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Literal["api", "local"] = "api"
-    local_data_dir: str | None = None
+    mode: Literal["api", "local"] = Field(
+        default="api",
+        description="Hydrometry source mode: remote API lookup or local exported files.",
+    )
+    local_data_dir: str | None = Field(
+        default=None,
+        description="Local directory containing previously exported station files when mode='local'.",
+    )
 
     @field_validator("local_data_dir")
     @classmethod
@@ -68,9 +86,18 @@ class SelectionSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Literal["stations", "mask"]
-    station_ids: list[str] | None = None
-    mask_path: str | None = None
+    mode: Literal["stations", "mask"] = Field(
+        ...,
+        description="Station selection mode: explicit station ids or spatial mask filtering.",
+    )
+    station_ids: list[str] | None = Field(
+        default=None,
+        description="Explicit list of hydrometric station identifiers used when mode='stations'.",
+    )
+    mask_path: str | None = Field(
+        default=None,
+        description="Path to the polygon mask used to keep stations intersecting the study area when mode='mask'.",
+    )
 
     @field_validator("station_ids")
     @classmethod
@@ -108,9 +135,18 @@ class OutputSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = False
-    path: str = "hydromodpy/data_managers/hydrometry/exports"
-    export_mode: Literal["lite", "full"] = "lite"
+    enabled: bool = Field(
+        default=False,
+        description="If true, export the loaded station series to disk after selection.",
+    )
+    path: str = Field(
+        default="hydromodpy/data_managers/hydrometry/exports",
+        description="Destination directory for exported hydrometry files.",
+    )
+    export_mode: Literal["lite", "full"] = Field(
+        default="lite",
+        description="Export payload level: 'lite' for compact outputs, 'full' for all available files.",
+    )
 
     @field_validator("path")
     @classmethod
@@ -126,10 +162,22 @@ class HydrometryTomlSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    hydrometry: HydrometrySectionSchema
-    source: SourceSectionSchema
-    selection: SelectionSectionSchema
-    output: OutputSectionSchema = OutputSectionSchema()
+    hydrometry: HydrometrySectionSchema = Field(
+        ...,
+        description="General hydrometry request block.",
+    )
+    source: SourceSectionSchema = Field(
+        ...,
+        description="Hydrometry source selection block.",
+    )
+    selection: SelectionSectionSchema = Field(
+        ...,
+        description="Hydrometry station-selection block.",
+    )
+    output: OutputSectionSchema = Field(
+        default_factory=OutputSectionSchema,
+        description="Optional export block for loaded station series.",
+    )
 
 
 def _resolve_path(path_value: str, base_dir: Path) -> str:

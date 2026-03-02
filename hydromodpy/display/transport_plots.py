@@ -42,27 +42,22 @@ def _input_concentration_mg_l(model_transport) -> float:
     """Estimate the injected concentration in ``mg/L`` for plot reference lines.
 
     This value is used only as a visual reference line in concentration plots.
-    Scalar and dictionary-style transport inputs are both accepted; unsupported
-    payloads fall back to ``0.0`` so the caller can simply omit the line.
+    Scalar and dictionary-style transport inputs are both accepted.
     """
 
     sconc_input = getattr(model_transport, "sconc_input", None)
+    if sconc_input is None:
+        return 0.0
     if isinstance(sconc_input, dict) and sconc_input:
         first_key = sorted(sconc_input)[0]
         return float(sconc_input[first_key].mean()) * 1000
-    if sconc_input is not None:
-        try:
-            return float(sconc_input) * 1000
-        except Exception:
-            pass
-    return 0.0
+    return float(sconc_input) * 1000
 
 
 def plot_concentration_frames(
     *,
     model_transport,
     model_modflow,
-    workspace,
     geographic,
     hydrography,
     recharge_series,
@@ -120,8 +115,6 @@ def plot_concentration_frames(
     streams = gpd.read_file(hydrography.streams) if hydrography is not None else None
 
     dem_path = Path(geographic.watershed_dem)
-    hill_path = workspace.stable_folder / "geographic" / "watershed_hill.tif"
-
     frame_paths: list[Path] = []
     all_box_stats: list[tuple[float, list[dict[str, float | list[float]]]]] = []
     mean_vals: list[float] = []
@@ -129,157 +122,134 @@ def plot_concentration_frames(
     last_figure = None
 
     with rasterio.open(dem_path) as dem:
-        hill = rasterio.open(hill_path) if hill_path.exists() else None
         dem_data = dem.read(1)
         dem_mask = np.ma.masked_where(dem_data < 0, dem_data)
-        hill_mask = None
-        if hill is not None:
-            hill_data = hill.read(1)
-            hill_mask = np.ma.masked_where(hill_data < 0, hill_data)
 
-        try:
-            for i in range(nframes):
-                seep_path = Path(model_modflow.full_path) / "_postprocess" / "_rasters" / f"outflow_drain_t({i}).tif"
-                if seep_path.exists():
-                    seep = imageio.imread(seep_path)
-                else:
-                    seep = np.zeros_like(concentration_cube[offset + i][0], dtype=float)
+        for i in range(nframes):
+            seep_path = Path(model_modflow.full_path) / "_postprocess" / "_rasters" / f"outflow_drain_t({i}).tif"
+            seep = imageio.imread(seep_path)
 
-                concentration_surface = concentration_cube[offset + i][0]
-                concentration_surface = np.ma.masked_where(seep <= 0, concentration_surface)
-                values = np.asarray(concentration_surface).astype(float).ravel()
-                values = values[~np.isnan(values)]
-                if values.size == 0:
-                    # Skip fully dry/no-seepage frames instead of writing blanks.
-                    continue
+            concentration_surface = concentration_cube[offset + i][0]
+            concentration_surface = np.ma.masked_where(seep <= 0, concentration_surface)
+            values = np.asarray(concentration_surface).astype(float).ravel()
+            values = values[~np.isnan(values)]
+            if values.size == 0:
+                # Skip fully dry/no-seepage frames instead of writing blanks.
+                continue
 
-                xpos = mdates.date2num(pd.to_datetime(recharge_month.index[i]))
-                q10 = float(np.nanmin(values))
-                q90 = float(np.nanmax(values))
-                median = float(np.nanmedian(values))
-                mean = float(np.nanmean(values))
-                box_stats = [{
-                    "med": median,
-                    "mean": mean,
-                    "q1": q10,
-                    "q3": q90,
-                    "whislo": q10,
-                    "whishi": q90,
-                    "fliers": [],
-                }]
-                mean_vals.append(mean)
-                mean_times.append(xpos)
-                all_box_stats.append((xpos, box_stats))
+            xpos = mdates.date2num(pd.to_datetime(recharge_month.index[i]))
+            q10 = float(np.nanmin(values))
+            q90 = float(np.nanmax(values))
+            median = float(np.nanmedian(values))
+            mean = float(np.nanmean(values))
+            box_stats = [{
+                "med": median,
+                "mean": mean,
+                "q1": q10,
+                "q3": q90,
+                "whislo": q10,
+                "whishi": q90,
+                "fliers": [],
+            }]
+            mean_vals.append(mean)
+            mean_times.append(xpos)
+            all_box_stats.append((xpos, box_stats))
 
-                fig, axs = plt.subplots(
-                    2,
-                    1,
-                    figsize=(8, 12),
-                    dpi=dpi,
-                    gridspec_kw={"height_ratios": [1, 3]},
+            fig, axs = plt.subplots(
+                2,
+                1,
+                figsize=(8, 12),
+                dpi=dpi,
+                gridspec_kw={"height_ratios": [1, 3]},
+            )
+            ax = axs.ravel()
+            axb = ax[0].twinx()
+            ax[0].zorder, axb.zorder = 1, 0
+            ax[0].patch.set_visible(False)
+
+            # Redraw the full history on each frame so the animation is cumulative.
+            for xpos_b, box_stat in all_box_stats:
+                ax[0].bxp(
+                    box_stat,
+                    positions=[xpos_b],
+                    widths=5,
+                    showfliers=False,
+                    showmeans=True,
+                    meanline=False,
+                    boxprops=dict(color="forestgreen"),
+                    medianprops=dict(color="forestgreen"),
+                    meanprops=dict(
+                        marker="o",
+                        markerfacecolor="k",
+                        markeredgecolor="k",
+                        markersize=5,
+                    ),
                 )
-                ax = axs.ravel()
-                axb = ax[0].twinx()
-                ax[0].zorder, axb.zorder = 1, 0
-                ax[0].patch.set_visible(False)
 
-                # Redraw the full history on each frame so the animation is cumulative.
-                for xpos_b, box_stat in all_box_stats:
-                    ax[0].bxp(
-                        box_stat,
-                        positions=[xpos_b],
-                        widths=5,
-                        showfliers=False,
-                        showmeans=True,
-                        meanline=False,
-                        boxprops=dict(color="forestgreen"),
-                        medianprops=dict(color="forestgreen"),
-                        meanprops=dict(
-                            marker="o",
-                            markerfacecolor="k",
-                            markeredgecolor="k",
-                            markersize=5,
-                        ),
-                    )
-
-                ax[0].axvline(x=xpos, color="black", linestyle="--", lw=0.5, zorder=-1)
-                if input_no3 > 0:
-                    ax[0].axhline(
-                        y=input_no3,
-                        color="darkorange",
-                        linestyle="-",
-                        lw=1,
-                        zorder=-1,
-                        label=f"Injection: {input_no3:.0f} mg/L",
-                    )
-                ax[0].set_ylabel("[NO3] mg/L", color="forestgreen")
-                ax[0].xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-                ax[0].set_xlim(
-                    pd.to_datetime(recharge_month.index[0]),
-                    pd.to_datetime(recharge_month.index[-1]) + pd.Timedelta(days=31),
+            ax[0].axvline(x=xpos, color="black", linestyle="--", lw=0.5, zorder=-1)
+            if input_no3 > 0:
+                ax[0].axhline(
+                    y=input_no3,
+                    color="darkorange",
+                    linestyle="-",
+                    lw=1,
+                    zorder=-1,
+                    label=f"Injection: {input_no3:.0f} mg/L",
                 )
-                ax[0].plot(mean_times, mean_vals, color="black", lw=2)
-                axb.step(recharge_month.index[: nframes], recharge_month.iloc[: nframes], lw=2, color="dodgerblue")
-                axb.set_ylabel("Recharge [mm/month]", color="dodgerblue")
+            ax[0].set_ylabel("[NO3] mg/L", color="forestgreen")
+            ax[0].xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+            ax[0].set_xlim(
+                pd.to_datetime(recharge_month.index[0]),
+                pd.to_datetime(recharge_month.index[-1]) + pd.Timedelta(days=31),
+            )
+            ax[0].plot(mean_times, mean_vals, color="black", lw=2)
+            axb.step(recharge_month.index[: nframes], recharge_month.iloc[: nframes], lw=2, color="dodgerblue")
+            axb.set_ylabel("Recharge [mm/month]", color="dodgerblue")
 
-                vmin = max(1e-6, float(np.nanmin(values)))
-                vmax = max(vmin, float(np.nanmax(values)))
-                norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
-                scalar_mappable = cm.ScalarMappable(cmap="turbo", norm=norm)
-                scalar_mappable.set_array([])
+            vmin = max(1e-6, float(np.nanmin(values)))
+            vmax = max(vmin, float(np.nanmax(values)))
+            norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
+            scalar_mappable = cm.ScalarMappable(cmap="turbo", norm=norm)
+            scalar_mappable.set_array([])
 
-                if hill is not None:
-                    # Prefer hillshade when available because it improves relief cues.
-                    rasterio.plot.show(
-                        hill_mask,
-                        ax=ax[1],
-                        transform=hill.transform,
-                        cmap="Greys_r",
-                        alpha=0.75,
-                        zorder=-10,
-                    )
-                else:
-                    rasterio.plot.show(
-                        dem_mask,
-                        ax=ax[1],
-                        transform=dem.transform,
-                        cmap="Greys_r",
-                        alpha=0.4,
-                        zorder=-10,
-                    )
+            rasterio.plot.show(
+                dem_mask,
+                ax=ax[1],
+                transform=dem.transform,
+                cmap="Greys_r",
+                alpha=0.4,
+                zorder=-10,
+            )
 
-                rasterio.plot.show(
-                    np.ma.masked_where(dem_data < 0, concentration_surface.copy()),
-                    ax=ax[1],
-                    transform=dem.transform,
-                    cmap="turbo",
-                    alpha=1,
-                    zorder=1,
-                )
-                watershed.plot(ax=ax[1], facecolor="None", edgecolor="k", lw=3, zorder=2)
-                if streams is not None:
-                    streams.plot(ax=ax[1], color="navy", lw=1, zorder=0)
+            rasterio.plot.show(
+                np.ma.masked_where(dem_data < 0, concentration_surface.copy()),
+                ax=ax[1],
+                transform=dem.transform,
+                cmap="turbo",
+                alpha=1,
+                zorder=1,
+            )
+            watershed.plot(ax=ax[1], facecolor="None", edgecolor="k", lw=3, zorder=2)
+            if streams is not None:
+                streams.plot(ax=ax[1], color="navy", lw=1, zorder=0)
 
-                divider = make_axes_locatable(ax[1])
-                cax = divider.new_vertical(size="5%", pad=0.6, pack_start=True)
-                fig.add_axes(cax)
-                fig.colorbar(scalar_mappable, cax=cax, orientation="horizontal", label="[NO3] mg/L")
-                fig.tight_layout()
+            divider = make_axes_locatable(ax[1])
+            cax = divider.new_vertical(size="5%", pad=0.6, pack_start=True)
+            fig.add_axes(cax)
+            fig.colorbar(scalar_mappable, cax=cax, orientation="horizontal", label="[NO3] mg/L")
+            fig.tight_layout()
 
-                if save_frames:
-                    frame_path = output_dir / f"{prefix}_{i:03d}_{model_modflow.model_name}.png"
-                    fig.savefig(frame_path, dpi=dpi, bbox_inches="tight")
-                    frame_paths.append(frame_path)
+            if save_frames:
+                frame_path = output_dir / f"{prefix}_{i:03d}_{model_modflow.model_name}.png"
+                fig.savefig(frame_path, dpi=dpi, bbox_inches="tight")
+                frame_paths.append(frame_path)
 
-                if show_last_frame:
-                    if last_figure is not None:
-                        plt.close(last_figure)
-                    last_figure = fig
-                else:
-                    plt.close(fig)
-        finally:
-            if hill is not None:
-                hill.close()
+            if show_last_frame:
+                if last_figure is not None:
+                    plt.close(last_figure)
+                last_figure = fig
+            else:
+                plt.close(fig)
 
     if show_last_frame and last_figure is not None:
         plt.show()
