@@ -12,7 +12,7 @@ original traceback attached.
 
 Example ``hooks.py``::
 
-    from launcher import RunResult
+    from launchers import RunResult
 
     def on_before_flow(result: RunResult) -> None:
         result.flow.set_recharge(...)
@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from launcher.run_result import RunResult
+    from launchers.run_result import RunResult
 
 KNOWN_HOOKS: list[str] = [
     "on_before_setup",
