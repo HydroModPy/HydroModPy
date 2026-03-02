@@ -17,10 +17,7 @@ from rasterio.enums import Resampling
 from rasterio.transform import Affine, from_bounds
 from rasterio.warp import reproject
 
-try:
-    from .raster_grid_reader import TopRasterGrid
-except ImportError:
-    from raster_grid_reader import TopRasterGrid
+from .raster_grid_reader import TopRasterGrid
 
 
 class PlanarDiscretizer:

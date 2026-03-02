@@ -1,0 +1,56 @@
+@startuml
+title Process - Layer Separation Component Diagram
+left to right direction
+
+package "User / Orchestration Layer" {
+  component "Workflow Scripts" as WorkflowScripts
+  component "HydroModPy API Calls" as ApiCalls
+}
+
+package "Configuration Layer" {
+  component "HydroModPyConfig" as HydroModPyConfig
+  component "FlowConfig" as FlowConfig
+  component "TransportConfig" as TransportConfig
+  component "Section Normalizers\n(param / ic / bc / sinks_sources)" as Normalizers
+}
+
+package "Runtime Process Layer" {
+  component "ProcessSpatial" as ProcessSpatial
+  component "Flow" as Flow
+  component "Transport" as Transport
+  component "Typed Runtime Payloads" as RuntimePayloads
+}
+
+package "Adapter Layer" {
+  component "flow_to_modflow_adapter (NWT)" as FlowAdapterNwt
+  component "MF6 Assembly Helpers" as Mf6Helpers
+}
+
+package "Solver Backend Layer" {
+  component "MODFLOW-NWT Wrapper" as ModflowNwtWrapper
+  component "MODFLOW 6 Wrapper" as Modflow6Wrapper
+}
+
+WorkflowScripts --> HydroModPyConfig
+ApiCalls --> HydroModPyConfig
+
+HydroModPyConfig --> FlowConfig
+HydroModPyConfig --> TransportConfig
+FlowConfig --> Normalizers
+TransportConfig --> Normalizers
+
+FlowConfig --> Flow
+TransportConfig --> Transport
+Flow --> ProcessSpatial : extends
+Transport --> ProcessSpatial : extends
+Flow --> RuntimePayloads
+Transport --> RuntimePayloads
+
+Flow --> FlowAdapterNwt
+Flow --> Mf6Helpers
+RuntimePayloads --> FlowAdapterNwt
+RuntimePayloads --> Mf6Helpers
+
+FlowAdapterNwt --> ModflowNwtWrapper
+Mf6Helpers --> Modflow6Wrapper
+@enduml

@@ -129,7 +129,7 @@ GOLDEN_REF_DIR = REPO_ROOT / "tests" / "regression" / "reference" / "golden_refe
 def generate_golden_reference(example_key: str):
     """Generate and save golden reference for one example via launcher_glob."""
     config = EXAMPLES[example_key]
-    
+
     # Import run_launcher_glob from Launcher_Glob
     sys.path.insert(0, str(REPO_ROOT / "examples" / "Examples_Launchers"))
     try:
@@ -137,16 +137,16 @@ def generate_golden_reference(example_key: str):
     except ImportError as e:
         print(f"  ✗ Could not import run_launcher_glob: {e}")
         return False
-    
+
     print(f"\n{'='*70}")
     print(f"Generating golden reference for {example_key.upper()}".center(70))
     print(f"{'='*70}")
-    
+
     # Create temporary directory and run launcher_glob
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         out_path = tmp_path / f"launcher_glob_{example_key}_outputs"
-        
+
         try:
             print(f"  Running launcher_glob for {example_key}...")
             run_launcher_glob(
@@ -160,7 +160,7 @@ def generate_golden_reference(example_key: str):
             import traceback
             traceback.print_exc()
             return False
-        
+
         # Resolve output paths
         try:
             _, postprocess_dir, particles_dir = resolve_model_workspace(
@@ -174,7 +174,7 @@ def generate_golden_reference(example_key: str):
             import traceback
             traceback.print_exc()
             return False
-        
+
         # Collect signatures
         try:
             modflow_sig = collect_modflow_signatures(postprocess_dir, config["modflow_outputs"])
@@ -185,13 +185,13 @@ def generate_golden_reference(example_key: str):
             import traceback
             traceback.print_exc()
             return False
-        
+
         # Build golden reference payload
         golden_payload = {
             "modflow_expected": modflow_sig,
             "modpath_expected": modpath_sig,
         }
-        
+
         # Save to JSON file
         golden_file = GOLDEN_REF_DIR / f"launcher_glob_{example_key}_npy_signatures.json"
         try:
@@ -210,26 +210,26 @@ def main():
     print("\n" + "="*70)
     print("GENERATING LAUNCHER_GLOB GOLDEN REFERENCES".center(70))
     print("="*70)
-    
+
     results = {}
     for example_key in EXAMPLES.keys():
         results[example_key] = generate_golden_reference(example_key)
-    
+
     # Summary
     print("\n" + "="*70)
     print("SUMMARY".center(70))
     print("="*70)
-    
+
     for example_key, success in results.items():
         status = "✓" if success else "✗"
         print(f"  {status} {example_key}")
-    
+
     all_success = all(results.values())
     if all_success:
         print("\n✓ All golden references generated successfully!")
     else:
         print("\n✗ Some golden references failed to generate")
-    
+
     return 0 if all_success else 1
 
 

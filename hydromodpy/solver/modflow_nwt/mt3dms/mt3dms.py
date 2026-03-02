@@ -86,21 +86,13 @@ class Mt3dms:
 
         #%% Initialisation
 
-        legacy_geographic = None
-        if model_modflow is None and transport is not None and hasattr(transport, 'mf'):
-            # Legacy call pattern: Mt3dms(geographic, model_modflow, ...)
-            legacy_geographic = domain
-            model_modflow = transport
-            domain = getattr(model_modflow, 'domain', None)
-            transport = getattr(model_modflow, 'transport', None)
-
         if model_modflow is None:
             raise ValueError("model_modflow must be provided to initialize Mt3dms")
 
         self.domain = domain
         self.transport = transport
         self.model_modflow = model_modflow
-        self.geographic = legacy_geographic if legacy_geographic is not None else self._get_geographic()
+        self.geographic = self._get_geographic()
 
         self.model_folder = model_folder
         self.model_name = model_name

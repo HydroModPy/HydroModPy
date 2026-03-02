@@ -1,24 +1,35 @@
-from hydromodpy.process.flow import Flow, FlowConfig, FlowImene
-from hydromodpy.process.process_spatial import (
+from hydromodpy.process.flow import (
+    Flow,
+    FlowConfig,
+    FlowInitialCondition,
+    FlowInitialConditions,
+)
+from hydromodpy.process.prototype import (
     BoundaryCondition,
     InitialCondition,
     Process,
     ProcessSpatial,
+    ProcessSpatialConfig,
     SinkSource,
-    Variable,
 )
-from hydromodpy.process.transport import Transport, TransportConfig
+from hydromodpy.process.transport import (
+    Transport,
+    TransportConfig,
+    TransportInitialConditions,
+)
 
 __all__ = [
     "Flow",
     "FlowConfig",
-    "FlowImene",
+    "FlowInitialCondition",
+    "FlowInitialConditions",
     "ProcessSpatial",
+    "ProcessSpatialConfig",
     "Process",
-    "Variable",
     "InitialCondition",
     "BoundaryCondition",
     "SinkSource",
     "Transport",
+    "TransportInitialConditions",
     "TransportConfig",
 ]

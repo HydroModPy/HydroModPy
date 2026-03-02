@@ -10,14 +10,30 @@ import numpy as np
 import whitebox
 from itertools import islice
 from pathlib import Path
-
+import pickle
+import hydromodpy as hmp
 # Direct class imports (like example12.py)
 from hydromodpy.solver.modflow import Modflow
 from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
-
+# HYDROMODPY MODULES
+import hydromodpy as hmp
+from hydromodpy import watershed_root
+from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
+    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
+    SafranSurfex, Subbasin, Transport
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
+from hydromodpy.tools import toolbox
+from hydromodpy.process import Flow
+from hydromodpy.solver.modflow import Modflow
+from hydromodpy.modeling.modpath import Modpath
+from hydromodpy.modeling.mt3dms import Mt3dms
+from hydromodpy.modeling import timeseries, netcdf
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
@@ -26,8 +42,8 @@ wbt.verbose = False
 # COMPLETE MODFLOW - Enchaîne: preprocessing → processing → postprocessing
 # ============================================================================
 
-def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initializing,
-                    model_name, hk_value, bin_path, config):
+def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,oceanic_object,
+                    model_name, bin_path, workspace,config,cfg):
     """
     Complete MODFLOW workflow: Pre-processing → Processing → Post-processing
 
@@ -36,6 +52,8 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
     Parameters
     ----------
     geographic : Geographic object
+    flow : Flow object
+    domain : Domain object
     hydraulic : Hydraulic object
     settings : Settings object
     climatic : Climatic object
@@ -61,21 +79,27 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
 
     try:
         # Update hydraulic and settings
-        hydraulic.update_hk(hk_value)
+        #hydraulic.update_hk(hk_value)
         settings.update_model_name(model_name)
-
+        settings.update_check_model(
+            plot_cross = config.get("postprocessing_modflow", {}).get("plot_cross", True),
+            check_grid = config.get("postprocessing_modflow", {}).get("check_grid", True),
+            cross_ylim = config.get("postprocessing_modflow", {}).get("cross_ylim", [0, 200])
+        )
         # Determine model folder
-        model_folder = initializing.simulations_folder
+        model_folder = workspace.simulations_folder
 
         # Create Modflow instance (like example12.py)
         print("Creating MODFLOW model...")
         model_modflow = Modflow(
             geographic,
+            flow=flow,
+            domain=domain,
             model_folder=model_folder,
-            model_name=model_name,
+            model_name=settings.model_name,
             bin_path=bin_path,
             # Model settings
-            box=settings.box,
+           #box=settings.box,
             sink_fill=settings.sink_fill,
             dis_perlen=settings.dis_perlen,
             # Output settings
@@ -92,6 +116,19 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
         # Preprocessing
         print("  Preprocessing MODFLOW...")
         model_modflow.pre_processing()
+        # --- AJOUT 1 : SAUVEGARDE PICKLE (Avant le calcul) ---
+        print("  Saving model state (Pickle)...")
+        dictio = {
+            'list_model_name': [model_name],
+            'list_model_modflow': [model_modflow]
+        }
+        # On crée le dossier du modèle s'il n'existe pas encore
+        save_dir = os.path.join(model_folder, model_name)
+        os.makedirs(save_dir, exist_ok=True)
+
+        pickle_file = os.path.join(save_dir, f'results_{model_name}.pkl')
+        with open(pickle_file, 'wb') as f:
+            pickle.dump(dictio, f)
 
         # Processing
         print("  Processing MODFLOW...")
@@ -122,12 +159,12 @@ def complete_modflow(geographic, hydraulic, settings, climatic, oceanic, initial
             postproc_params = {**default_params, **postproc_params}
             model_modflow.post_processing(model_modflow, **postproc_params)
 
-        print("✓ MODFLOW completed\n")
+        print("MODFLOW completed\n")
         return {'model_modflow': model_modflow, 'success': success_modflow, 'model_name': model_name}
 
     except Exception as e:
         import traceback
-        print(f"✗ MODFLOW error: {e}")
+        print(f"MODFLOW error: {e}")
         traceback.print_exc()
         return {'model_modflow': None, 'success': False, 'model_name': model_name}
 
@@ -431,7 +468,7 @@ def complete_timeseries(geographic, model_modflow, runoff=None, model_modpath=No
     print(f"{'='*70}")
 
     if not model_modflow:
-        print("✗ TIMESERIES skipped (MODFLOW not available)\n")
+        print("TIMESERIES skipped (MODFLOW not available)\n")
         return {'timeseries_results': None, 'success': False}
 
     try:
@@ -456,11 +493,11 @@ def complete_timeseries(geographic, model_modflow, runoff=None, model_modpath=No
             mass_accumulated=(model_mt3dms is not None)
         )
 
-        print("✓ TIMESERIES completed\n")
+        print("TIMESERIES completed\n")
         return {'timeseries_results': timeseries_results, 'success': True}
 
     except Exception as e:
         import traceback
-        print(f"✗ TIMESERIES error: {e}")
+        print(f"TIMESERIES error: {e}")
         traceback.print_exc()
         return {'timeseries_results': None, 'success': False}

@@ -20,7 +20,6 @@ hydromodpy/solver/utils/mesh/cartesian_grid/
 |   |   `-- watershed_box_buff_dem.tif
 |   `-- discretization/
 |       |-- run_demo_2d.py
-|       |-- run_demo.py
 |       |-- run_demo_config.py
 |       `-- run_demo_config_2d.toml
 |-- __init__.py
@@ -55,8 +54,7 @@ Supported layering methods:
 
 Current limitation:
 
-- only `sgrid_type = "structured"` is implemented,
-- `unstructured` and `vertex` are placeholders.
+- only `sgrid_type = "structured"` is supported.
 - TOML interface currently supports `genmtd_bot` in
   `filepath|raster|constant_thickness|constant_altitude`.
 
@@ -92,13 +90,13 @@ is currently defined over planar cells (`x`, `y` polygons). A full 3D adapter
 would require a dedicated volumetric field contract (3D cells / 3D geology
 support), which is outside the current scope.
 
-### Backward Compatibility and Plots
+### Planar and 3D outputs
 
 - `SGridFieldParamDiscretizationResult.values_3d` is the reference output for
   solver injection.
-- `SGridFieldParamDiscretizationResult.values_2d` is kept for compatibility and
-  for existing **plan-view** figures in cartesian-grid examples.
-- 3D figures can be added later without changing this compatibility layer.
+- `SGridFieldParamDiscretizationResult.values_2d` is a planar reference map
+  used by **plan-view** figures in cartesian-grid examples.
+- 3D figures are produced from `values_3d`.
 
 ### Pipeline Schematic
 
@@ -136,8 +134,8 @@ support), which is outside the current scope.
             | (nlay, nrow, ncol)      |
             +-------------------------+
 
-Legacy compatibility:
-- values_2d is still exported for existing plan-view demos.
+Reference output:
+- values_2d remains available as planar map output.
 ```
 
 ### UML Class Diagram (Grid + Field/FieldParam Coupling)
@@ -150,7 +148,7 @@ classDiagram
     }
 
     class StructuredGridBuilder {
-      +build(cfg) StructuredGrid
+      +build_from_surfaces(top_surface, bottom_surface, vertical_config) StructuredGrid
     }
 
     class StructuredGrid {
@@ -238,7 +236,7 @@ sequenceDiagram
     participant GF as GeologyField
     participant FP as FieldParam
 
-    U->>B: build(SGridConfig)
+    U->>B: build_from_surfaces(top_surface, bottom_surface, vertical_config)
     B-->>U: sgrid
     U->>AD: discretize_fieldparam_on_sgrid(geology_field, field_param, sgrid, ...)
     AD->>MA: build_field_mesh_from_sgrid(sgrid)
@@ -360,7 +358,7 @@ Behavior:
 
 ### Configuration Parameters (`SGridConfig`)
 
-- `sgrid_type`: grid family selector (`structured`, `unstructured`, `vertex`), currently only `structured` is executable.
+- `sgrid_type`: grid family selector (currently `structured` only).
 - `lenuni`: length unit label stored in FloPy grid metadata.
 - `genmtd_top`: top-surface method (`filepath` only for now).
 - `top_path`: path to the top DEM raster (required).
@@ -388,35 +386,33 @@ Temporal discretization is now separated from cartesian mesh tools and lives in:
 ## Minimal Example (Spatial Grid)
 
 ```python
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from pathlib import Path
+import subprocess
 
-cfg = SGridConfig(
-    top_path="path/to/top_dem.tif",
-    crs="EPSG:2154",
-    nodata=-9999,
-    genmtd_bot="constant_thickness",
-    thick=100.0,
-    genmtd_lay="constant",
-    nlay=3,
+repo_root = Path("hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation")
+subprocess.run(
+    [
+        "python",
+        str(repo_root / "run_grid_demo.py"),
+        "--config",
+        str(repo_root / "run_grid_demo_config.toml"),
+    ],
+    check=True,
 )
-
-sgrid = StructuredGridBuilder().build(cfg)
-
-print(sgrid.nlay, sgrid.nrow, sgrid.ncol)
 ```
 
 ## TOML + Pydantic Interface (Spatial Grid)
 
-You can configure the grid directly from TOML:
+The generation demo uses the validated TOML interface (`SGridConfig`) and then
+builds the grid through the surface-driven builder API.
 
 ```python
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 
-cfg = SGridConfig.from_toml("hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo_config.toml")
-sgrid = StructuredGridBuilder().build(cfg)
-print(sgrid.nlay, sgrid.nrow, sgrid.ncol)
+cfg = SGridConfig.from_toml(
+    "hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo_config.toml"
+)
+print(cfg.genmtd_bot, cfg.genmtd_lay, cfg.nodata)
 ```
 
 Associated files:
@@ -428,7 +424,7 @@ Associated files:
 
 ## Returned Object
 
-`StructuredGridBuilder.build(cfg)` returns a FloPy `StructuredGrid` exposing standard
+`StructuredGridBuilder.build_from_surfaces(...)` returns a FloPy `StructuredGrid` exposing standard
 attributes used downstream by MODFLOW setup:
 
 - `lenuni`, `nlay`, `nrow`, `ncol`,
