@@ -47,6 +47,10 @@ def main():
             print(name)
         return
 
+    # If the user passed a directory, generate a default filename inside it
+    if args.output and Path(args.output).is_dir():
+        args.output = str(Path(args.output) / "config.toml")
+
     content = generate_toml(
         output_path=args.output,
         modules=args.modules,
