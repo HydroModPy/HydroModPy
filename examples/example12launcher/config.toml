@@ -494,8 +494,8 @@ plot_conc = true
 # ----------------------------------------------------------------------
 
 [solver]
-# Solver backend: "nwt" (legacy) or "mf6" (MODFLOW 6).
-solver_engine = "nwt"
+# Solver backend: "modflownwt" (Newton-Raphson, unconfined) or "modflow6".
+solver_engine = "modflownwt"
 
 # ----------------------------------------------------------------------
 # MODFLOW-NWT expert configuration
