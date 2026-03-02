@@ -107,7 +107,7 @@ Issues = "https://github.com/HydroModPy/HydroModPy/issues"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["hydromodpy*", "launcher*"]
+include = ["hydromodpy*", "launchers*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*"]

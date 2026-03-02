@@ -13,6 +13,8 @@ This diagram shows validated configuration classes (Pydantic models):
 Diagram source
 --------------
 
+.. uml:: diagrams/process_config_class.wsd
+
 .. literalinclude:: diagrams/process_config_class.wsd
    :language: text
    :caption: PlantUML (.wsd) source - process config class diagram
