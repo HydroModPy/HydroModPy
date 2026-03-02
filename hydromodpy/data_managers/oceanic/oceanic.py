@@ -263,6 +263,36 @@ class Oceanic:
                     os.makedirs(os.path.dirname(output_path))
                 tg_df.to_csv(output_path, index=False)
 
+    def fetch_msl_or_default(
+        self,
+        geographic,
+        start_date: str = "2003-01-01",
+        end_date: str = "2003-01-30",
+        default: float = 0.0,
+    ) -> float:
+        """Download MSL from SHOM and return its mean, or ``default`` on failure.
+
+        Parameters
+        ----------
+        geographic : object
+            Watershed geographic object used to locate the nearest tide gauge.
+        start_date, end_date : str
+            Date range for the SHOM download (format ``'YYYY-MM-DD'``).
+        default : float
+            Value returned when the download fails (network unavailable, …).
+
+        Returns
+        -------
+        float
+            Mean sea level in metres.
+        """
+        try:
+            self.download_SHOM_data(geographic, start_date=start_date, end_date=end_date)
+            return float(self.SHOM_data["value"].mean())
+        except Exception as exc:
+            print(f"SHOM download failed ({exc}), using default MSL={default}")
+            return default
+
     def display_data(self, values):
         """
         Function to activate plots.
