@@ -46,6 +46,6 @@ def _run_transport(result: "RunResult") -> None:
 
     model_transport.pre_processing()
     model_transport.processing(write_model=True, run_model=True, verbose=True)
-    model_transport.post_processing()
+    model_transport.post_processing(model_transport)
 
     result.model_transport = model_transport
