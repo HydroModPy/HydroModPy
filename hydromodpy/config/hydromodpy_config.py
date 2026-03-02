@@ -38,6 +38,18 @@ from hydromodpy.solver.solver_config import SolverConfig
 from hydromodpy.watershed.workspace_config import WorkspaceConfig
 
 
+class RunConfig(BaseModel):
+    """Controls which phases the launcher executes."""
+
+    phases: list[str] = Field(
+        default=["setup", "data", "flow", "particles", "transport"],
+        description=(
+            "Ordered list of phases to run. "
+            "Allowed values: 'setup', 'data', 'flow', 'particles', 'transport'."
+        ),
+    )
+
+
 class HydroModPyConfig(BaseModel):
     """
     Top-level configuration for HydroModPy.
@@ -107,6 +119,13 @@ class HydroModPyConfig(BaseModel):
             "[modflow6.runtime], [modflow6.process_specific], [modflow6.sgrid]."
         ),
     )
+    run: RunConfig = Field(
+        default_factory=RunConfig,
+        description=(
+            "Launcher run configuration. Controls which phases are executed. "
+            "Defaults to all phases if the [run] section is absent from the TOML."
+        ),
+    )
 
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
@@ -160,6 +179,7 @@ class HydroModPyConfig(BaseModel):
             "solver": ({}, _load_solver_section),
             "modflownwt": ({}, _load_modflow_nwt_section),
             "modflow6": ({}, _load_modflow6_section),
+            "run": ({}, lambda data, b: _load_standard_section(data, RunConfig, b)),
         }
 
         parsed_sections: dict[str, Any] = {}

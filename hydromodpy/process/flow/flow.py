@@ -5,39 +5,65 @@ Flow Runtime Process
 
 Purpose
 -------
-Provide the runtime representation of the groundwater flow process built from
-one validated `FlowConfig`.
+Provide the runtime representation of the groundwater flow process, built from
+one validated ``FlowConfig`` and consumed by solver adapter layers.
 
 Scope
 -----
-This class is intentionally process-level and solver-agnostic:
-- it stores normalized flow parameters,
-- it stores one typed initial-conditions structure,
-- it stores typed boundary conditions,
-- it stores typed sink/source payloads (currently wells).
+``Flow`` is process-level and solver-agnostic. It exposes the following
+runtime attributes after ``set_config(...)`` is called:
+
+- ``flow_regime`` : ``'steady'`` or ``'transient'``, forwarded from config.
+- ``parameters`` : normalized hydraulic property dict (K, Sy, Ss, …),
+  keyed by parameter id and containing ``FieldParam`` objects.
+- ``initial_conditions`` : one ``FlowInitialConditions`` instance grouping
+  the head IC policy (type + optional scalar value).
+- ``initial_condition_types`` : compact cache ``{"h": type_str}`` for fast
+  IC-type inspection downstream.
+- ``boundary_conditions`` : typed ``BoundaryCondition`` objects keyed by
+  BC id (``"ocean"``, ``"drainage"``, ``"west_side"``, …).
+- ``boundary_condition_application_domains`` : optional per-BC domain strings
+  (e.g. ``"top"``, ``"west side"``), used by some spatial adapters.
+- ``active_bc`` : list of BC ids explicitly activated in the config;
+  only these ids will be processed by the solver adapter.
+- ``sinks_sources`` : dict with two keys:
+  ``"wells"`` → ``dict[str, FlowWellConfig]``,
+  ``"recharge"`` → ``FlowRechargeConfig | None``.
+- ``active_sinks_sources`` : list of sink/source categories explicitly
+  activated (e.g. ``["wells", "recharge"]``).
 
 Runtime lifecycle
 -----------------
-1. `FlowConfig` is validated by Pydantic.
-2. `Flow.set_config(...)` copies and normalizes config sections into runtime
-   containers (`parameters`, `initial_conditions`, `boundary_conditions`,
-   `sinks_sources`).
-3. Solver adapters (outside this module) transform this runtime state into
-   solver-ready arrays and stress-period payloads.
+1. ``FlowConfig`` is validated by Pydantic from a TOML/dict payload.
+2. ``Flow(config)`` calls ``set_config(config)`` which normalizes each
+   config section into the typed runtime containers listed above.
+3. Solver adapters (outside this module) read those containers and transform
+   them into solver-ready arrays and stress-period payloads.
 
 Data path (high-level)
 ----------------------
-`[flow] TOML` -> `FlowConfig` -> `Flow` runtime -> `Solver adapter` -> `Solver`
+.. code-block:: text
+
+    TOML
+     └─> FlowConfig (Pydantic)
+          └─> Flow.set_config()
+               ├─ [flow]               -> flow_regime
+               ├─ [flow.param]         -> parameters
+               ├─ [flow.ic]            -> initial_conditions
+               ├─ [flow.bc]            -> boundary_conditions, active_bc
+               └─ [flow.sinks_sources] -> sinks_sources, active_sinks_sources
+                                               └─> FlowToModflowAdapter -> MODFLOW
 
 Design rule
 -----------
-Any transformation to solver-specific formats (for example MODFLOW stress
-period dictionaries) is performed outside this class, in solver adapter layers.
+Any transformation to solver-specific formats (for example MODFLOW stress-period
+dictionaries) is performed outside this class, in solver adapter layers.
+``Flow`` itself never references FLOPY or any solver convention.
 
 Non-goals
 ---------
 - no direct FLOPY/MODFLOW package creation in this module,
-- no spatial discretization logic in this module,
+- no spatial discretization or gridding logic in this module,
 - no temporal stress-period formatting in this module.
 """
 
@@ -49,21 +75,53 @@ from hydromodpy.process.flow.initial_conditions import (
 from hydromodpy.process.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
 )
-from hydromodpy.process.flow.sinks_sources import FlowSinksSourcesConfig
+from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
 from hydromodpy.process.prototype import BoundaryCondition, ProcessSpatial, SinkSource
 
 
 class Flow(ProcessSpatial):
     """
-    Runtime flow-process object built from a validated `FlowConfig`.
+    Runtime flow-process object built from a validated ``FlowConfig``.
 
-    Notes
-    -----
-    `Flow` is the canonical runtime container for:
-    - `parameters`
-    - `initial_conditions`
-    - `boundary_conditions`
-    - `sinks_sources`
+    Inherits from ``ProcessSpatial``, which initializes the base containers
+    (``parameters``, ``initial_conditions``, ``boundary_conditions``,
+    ``sinks_sources``, ``active_bc``, ``active_sinks_sources``) and provides
+    the parameter-ingestion helpers.
+
+    ``Flow`` specializes those containers with:
+
+    - ``FlowInitialConditions`` as the typed IC structure (head policy),
+    - ``BoundaryCondition`` Pydantic objects for each configured BC,
+    - a ``{"wells": ..., "recharge": ...}`` namespace for sinks/sources.
+
+    Runtime attributes (populated by ``set_config``)
+    -------------------------------------------------
+    flow_regime : str
+        ``'steady'`` or ``'transient'``, forwarded from ``FlowConfig``.
+    config : FlowConfig
+        Reference to the last validated config applied via ``set_config``.
+    parameters : dict[str, FieldParam | object]
+        Hydraulic property parameters (K, Sy, Ss, …) keyed by id.
+    initial_conditions : FlowInitialConditions | None
+        Typed IC container; exposes ``h`` (head IC: type + optional value).
+    initial_condition_types : dict[str, str]
+        Compact cache ``{"h": type_str}``; allows fast IC-type inspection
+        without traversing the full ``FlowInitialConditions`` object.
+    boundary_conditions : dict[str, BoundaryCondition]
+        Typed BC objects keyed by BC id.
+    boundary_condition_application_domains : dict[str, str]
+        Optional per-BC spatial domain strings (e.g. ``"top"``,
+        ``"west side"``); used by spatial adapters that need to know where
+        a BC is applied.
+    active_bc : list[str]
+        BC ids declared as active in config; only these are processed by
+        the solver adapter.
+    sinks_sources : dict[str, object]
+        Namespace with keys ``"wells"`` (``dict[str, FlowWellConfig]``)
+        and ``"recharge"`` (``FlowRechargeConfig | None``).
+    active_sinks_sources : list[str]
+        Sink/source categories explicitly activated
+        (e.g. ``["wells", "recharge"]``).
     """
 
     def __init__(self, config: FlowConfig):
@@ -87,11 +145,28 @@ class Flow(ProcessSpatial):
 
     def set_config(self, config: FlowConfig) -> None:
         """
-        Apply one validated `FlowConfig` payload to runtime state.
+        Apply one validated ``FlowConfig`` payload to runtime state.
 
         This is the main synchronization point between config and runtime
-        containers. Existing runtime members are replaced by values resolved
-        from `config`.
+        containers. All existing runtime attributes are replaced in one
+        deterministic pass. Calling this method a second time with a new
+        config fully resets the runtime state.
+
+        Steps performed (in order)
+        --------------------------
+        1. ``flow_regime`` is forwarded directly from the config string.
+        2. ``parameters`` are resolved in the order declared by
+           ``config.param_list`` (preserves user intent for K/Sy/Ss ordering).
+        3. ``initial_conditions`` are built from ``config.ic`` via the
+           process-specific normalizer (delegates to
+           ``normalize_flow_initial_conditions``).
+        4. ``boundary_conditions`` and ``boundary_condition_application_domains``
+           are built from ``config.bc`` (typed objects + optional domain map).
+        5. ``sinks_sources`` is populated from ``config.sinks_sources``
+           (wells dict + recharge config).
+        6. ``active_sinks_sources`` and ``active_bc`` are copied from config
+           as plain lists; they control which items the solver adapter
+           actually processes.
         """
         if not isinstance(config, FlowConfig):
             raise TypeError("config must be a FlowConfig instance")
@@ -114,6 +189,10 @@ class Flow(ProcessSpatial):
         )
         # Sinks/sources are stored in a process-level dictionary namespace.
         self.set_sinks_sources(config.sinks_sources)
+        # active_* lists control which items the solver adapter will process;
+        # items absent from these lists are silently ignored downstream.
+        self.active_sinks_sources = list(config.active_sinks_sources)
+        self.active_bc = list(config.active_bc)
 
     def build_initial_conditions(
         self,
@@ -134,11 +213,26 @@ class Flow(ProcessSpatial):
         """
         Convert raw boundary-condition payloads into typed runtime structures.
 
+        Each entry in ``boundary_conditions_cfg`` is either:
+
+        - an already-typed ``BoundaryCondition`` (passed through as-is), or
+        - a raw mapping, validated via ``BoundaryCondition.model_validate``.
+
+        For mapping payloads, ``id`` is always forced to the TOML section key
+        (e.g. ``"ocean"``, ``"west_side"``). This prevents the ``id`` field
+        in the TOML from diverging from the key actually used to look up the
+        BC at runtime, which would cause silent mismatches in the adapter.
+
+        The ``application_domain`` key, if present, is extracted from the
+        payload before Pydantic validation and stored separately in
+        ``boundary_condition_application_domains``. This keeps the domain
+        hint available to spatial adapters without polluting the BC model.
+
         Returns
         -------
         tuple[dict[str, BoundaryCondition], dict[str, str]]
             - typed BC objects keyed by BC id,
-            - optional application-domain mapping keyed by BC id.
+            - per-BC application-domain strings keyed by the same BC id.
         """
         parsed: dict[str, BoundaryCondition] = {}
         application_domains: dict[str, str] = {}
@@ -169,10 +263,16 @@ class Flow(ProcessSpatial):
         initial_conditions: object | None,
     ) -> None:
         """
-        Store normalized flow initial conditions.
+        Normalize and store flow initial conditions.
 
-        Also stores a compact `initial_condition_types` cache used to quickly
-        inspect active IC kinds.
+        Delegates normalization to ``build_initial_conditions`` (which calls
+        ``normalize_flow_initial_conditions``), then stores the result in
+        ``self.initial_conditions``.
+
+        Also maintains ``self.initial_condition_types``, a compact
+        ``{"h": type_str}`` dict. This cache lets downstream code (e.g.
+        solver adapters) check the IC type in O(1) without traversing the
+        full ``FlowInitialConditions`` object.
         """
         parsed = self.build_initial_conditions(initial_conditions)
         self.initial_conditions = parsed
@@ -213,13 +313,30 @@ class Flow(ProcessSpatial):
         """
         Replace flow sink/source runtime payloads.
 
-        Current convention is to store wells under `self.sinks_sources["wells"]`.
+        Stores wells under `self.sinks_sources["wells"]` and recharge config
+        under `self.sinks_sources["recharge"]`.
         """
         if sinks_sources is None:
             self.sinks_sources["wells"] = {}
+            self.sinks_sources["recharge"] = None
             return
 
         self.sinks_sources["wells"] = dict(sinks_sources.wells)
+        self.sinks_sources["recharge"] = sinks_sources.recharge
+
+    def set_recharge(self, recharge: FlowRechargeConfig | None) -> None:
+        """
+        Inject or replace the recharge payload at runtime.
+
+        Useful when recharge is computed dynamically (e.g. from a PyHELP run)
+        and must be set after `Flow` is already configured from TOML.
+
+        Parameters
+        ----------
+        recharge : FlowRechargeConfig | None
+            Typed recharge payload, or None to clear.
+        """
+        self.sinks_sources["recharge"] = recharge
 
 
 if __name__ == "__main__":

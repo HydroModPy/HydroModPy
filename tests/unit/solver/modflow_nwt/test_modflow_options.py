@@ -7,13 +7,13 @@ from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 
 
 def test_preprocess_options_normalize_cross_ylim_list():
-    options = ModflowPreprocessOptions(cross_ylim=[10, 30], first_clim="MEAN")
+    options = ModflowPreprocessOptions(cross_ylim=[10, 30])
 
     assert options.cross_ylim == (10.0, 30.0)
-    assert options.first_clim == "mean"
 
 
 def test_preprocess_options_accept_empty_cross_ylim_as_none():
@@ -22,9 +22,11 @@ def test_preprocess_options_accept_empty_cross_ylim_as_none():
     assert options.cross_ylim is None
 
 
-def test_preprocess_options_reject_unknown_first_clim_keyword():
-    with pytest.raises(ValueError, match="first_clim must be"):
-        ModflowPreprocessOptions(first_clim="median")
+def test_preprocess_options_no_recharge_or_first_clim_fields():
+    options = ModflowPreprocessOptions()
+
+    assert not hasattr(options, "recharge")
+    assert not hasattr(options, "first_clim")
 
 
 def test_run_options_defaults_match_processing_signature():
@@ -43,3 +45,50 @@ def test_postprocess_options_defaults_are_stable():
     assert options.watertable_depth is True
     assert options.seepage_areas is True
     assert options.export_all_tif is False
+
+
+# --- FlowRechargeConfig ---
+
+def test_recharge_config_defaults():
+    cfg = FlowRechargeConfig()
+
+    assert cfg.values == 0.0
+    assert cfg.first_clim == "mean"
+    assert cfg.units == "m/s"
+    assert cfg.negative_to_evt is True
+
+
+def test_recharge_config_first_clim_normalized_to_lowercase():
+    cfg = FlowRechargeConfig(values=0.001, first_clim="MEAN")
+
+    assert cfg.first_clim == "mean"
+
+
+def test_recharge_config_first_clim_accepts_first():
+    cfg = FlowRechargeConfig(values=0.001, first_clim="first")
+
+    assert cfg.first_clim == "first"
+
+
+def test_recharge_config_first_clim_accepts_numeric():
+    cfg = FlowRechargeConfig(values=0.001, first_clim=0.0005)
+
+    assert cfg.first_clim == pytest.approx(0.0005)
+
+
+def test_recharge_config_first_clim_rejects_unknown_keyword():
+    with pytest.raises(ValueError, match="first_clim must be"):
+        FlowRechargeConfig(values=0.001, first_clim="median")
+
+
+def test_recharge_config_accepts_list_values():
+    cfg = FlowRechargeConfig(values=[0.001, 0.0008, -0.0002], negative_to_evt=True)
+
+    assert cfg.values == [0.001, 0.0008, -0.0002]
+    assert cfg.negative_to_evt is True
+
+
+def test_recharge_config_negative_to_evt_default_true():
+    cfg = FlowRechargeConfig(values=0.001)
+
+    assert cfg.negative_to_evt is True

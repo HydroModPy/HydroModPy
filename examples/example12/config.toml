@@ -175,6 +175,12 @@ export_mode = "lite"
 # Global flow simulation regime used by solvers consuming [flow]
 # (steady or transient).
 flow_regime = "transient"
+# Sink/source packages explicitly activated for this run.
+# Allowed values: "recharge", "wells".  An empty list disables all packages.
+active_sinks_sources = ["recharge", "wells"]
+# Boundary-condition packages explicitly activated for this run.
+# Allowed values: "ocean", "stream", "north_side", "south_side", "east_side", "west_side", "drainage".
+active_bc = ["ocean", "drainage"]
 # Declared flow parameters (order used at runtime construction).
 param_list = ["K", "Ss", "Sy"]
 
@@ -411,6 +417,25 @@ units = "m3/day"
 cell = [0, 64, 64]
 flux = [0.0, -1000.0, 0.0, -500.0, 0.0, 0.0, -500.0, 0.0, 0.0, 0.0, 0.0, -1000.0]
 units = "m3/day"
+
+# ----------------------------------------------------------------------
+# Flow sinks/sources (recharge).
+#
+# In this example the recharge *values* are computed from PyHELP climate
+# output at runtime and injected via flow.set_recharge(FlowRechargeConfig(
+# values=climatic.recharge, first_clim=..., negative_to_evt=...)).
+# The policy parameters below are read by the script so that they can be
+# changed here without touching the code.
+# ----------------------------------------------------------------------
+[flow.sinks_sources.recharge]
+# Policy for stress-period 0 when values come from a dynamic series.
+# Accepted values: "mean" (series average), "first" (first element),
+# or a numeric scalar (explicit long-term average, e.g. 0.0005).
+first_clim = "mean"
+
+# When true (default), negative values feed the MODFLOW EVT package
+# and the RCH value for that period is clipped to 0.
+negative_to_evt = true
 
 # ----------------------------------------------------------------------
 # Transport / Modpath particle configuration

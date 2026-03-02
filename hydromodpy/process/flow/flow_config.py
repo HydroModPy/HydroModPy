@@ -14,7 +14,10 @@ from typing import Annotated, Literal
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
+from hydromodpy.process.flow.boundary_conditions import (
+    DIRICHLET_BC_CANONICAL_DOMAINS,
+    FlowBoundaryConditionConfig,
+)
 from hydromodpy.process.flow.boundary_conditions_config import (
     normalize_flow_boundary_conditions,
 )
@@ -101,6 +104,23 @@ class FlowConfig(ProcessSpatialConfig):
     sinks_sources: FlowSinksSourcesConfig = Field(
         default_factory=FlowSinksSourcesConfig,
         description="Typed sinks/sources payload (for example pumping wells).",
+    )
+    active_sinks_sources: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Explicitly activated sink/source names for this flow run. "
+            "Allowed values: 'recharge', 'wells'. "
+            "An empty list means no sink/source package is assembled by the solver."
+        ),
+    )
+    active_bc: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Explicitly activated boundary-condition ids for this flow run. "
+            "Allowed values: 'ocean', 'stream', 'north_side', 'south_side', "
+            "'east_side', 'west_side', 'drainage'. "
+            "An empty list means no boundary-condition package is assembled by the solver."
+        ),
     )
 
     @model_validator(mode="before")
@@ -201,6 +221,73 @@ class FlowConfig(ProcessSpatialConfig):
         """Normalize sinks/sources payload from `[flow.sinks_sources]`."""
         return normalize_flow_sinks_sources(value, location_prefix="flow.sinks_sources")
 
+    @field_validator("active_sinks_sources", mode="before")
+    @classmethod
+    def _validate_active_sinks_sources(cls, value):
+        """
+        Validate that ``active_sinks_sources`` only contains allowed values.
+
+        For ``Flow``, the only permitted sink/source identifiers are
+        ``'recharge'`` and ``'wells'``.  Any other value is an error.
+        Duplicates are rejected to keep the list unambiguous.
+        """
+        _ALLOWED = {"recharge", "wells"}
+        if value is None:
+            return []
+        if not isinstance(value, (list, tuple)):
+            raise ValueError("flow.active_sinks_sources must be a list")
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            name = str(raw).strip()
+            if name not in _ALLOWED:
+                allowed_text = ", ".join(sorted(_ALLOWED))
+                raise ValueError(
+                    f"flow.active_sinks_sources: '{name}' is not a valid sink/source "
+                    f"for Flow. Allowed values: {allowed_text}."
+                )
+            if name in seen:
+                raise ValueError(
+                    f"flow.active_sinks_sources cannot contain duplicates: '{name}'"
+                )
+            seen.add(name)
+            out.append(name)
+        return out
+
+    @field_validator("active_bc", mode="before")
+    @classmethod
+    def _validate_active_bc(cls, value):
+        """
+        Validate that ``active_bc`` only contains allowed boundary-condition ids.
+
+        For ``Flow``, permitted ids are those declared in
+        ``DIRICHLET_BC_CANONICAL_DOMAINS`` (ocean, stream, north_side,
+        south_side, east_side, west_side) plus ``'drainage'``.
+        Duplicates are rejected to keep the list unambiguous.
+        """
+        _ALLOWED = set(DIRICHLET_BC_CANONICAL_DOMAINS.keys()) | {"drainage"}
+        if value is None:
+            return []
+        if not isinstance(value, (list, tuple)):
+            raise ValueError("flow.active_bc must be a list")
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            name = str(raw).strip()
+            if name not in _ALLOWED:
+                allowed_text = ", ".join(sorted(_ALLOWED))
+                raise ValueError(
+                    f"flow.active_bc: '{name}' is not a valid boundary-condition id "
+                    f"for Flow. Allowed values: {allowed_text}."
+                )
+            if name in seen:
+                raise ValueError(
+                    f"flow.active_bc cannot contain duplicates: '{name}'"
+                )
+            seen.add(name)
+            out.append(name)
+        return out
+
     @classmethod
     def from_toml_section(
         cls,
@@ -258,6 +345,22 @@ class FlowConfig(ProcessSpatialConfig):
                 "TOML section 'flow.sinks_sources' must be a mapping when provided"
             )
 
+        raw_active_sinks_sources = flow_section.get("active_sinks_sources", [])
+        if raw_active_sinks_sources is None:
+            raw_active_sinks_sources = []
+        if not isinstance(raw_active_sinks_sources, (list, tuple)):
+            raise ValueError(
+                "TOML section 'flow.active_sinks_sources' must be a list when provided"
+            )
+
+        raw_active_bc = flow_section.get("active_bc", [])
+        if raw_active_bc is None:
+            raw_active_bc = []
+        if not isinstance(raw_active_bc, (list, tuple)):
+            raise ValueError(
+                "TOML section 'flow.active_bc' must be a list when provided"
+            )
+
         # Parameter payloads are resolved against field-param section grammar.
         parsed_param = parse_flow_param_sections(
             raw_param,
@@ -288,6 +391,8 @@ class FlowConfig(ProcessSpatialConfig):
             ic=parsed_ic,
             bc=parsed_bc,
             sinks_sources=parsed_sinks_sources,
+            active_sinks_sources=list(raw_active_sinks_sources),
+            active_bc=list(raw_active_bc),
         )
 def _parse_flow_ic_section(ic_cfg: Mapping[str, object]) -> FlowInitialConditions | None:
     """

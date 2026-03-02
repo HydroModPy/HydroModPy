@@ -22,8 +22,8 @@ Inputs (process/runtime side):
   boundary-condition objects keyed by id (for example ocean, side Dirichlet
   limits, drainage) that drive ``ibound`` updates and CHD/DRN package payloads.
 - ``flow.sinks_sources``:
-  source/sink definitions (currently wells) converted to period-wise WEL rows
-  ``[lay, row, col, flux]``.
+  source/sink definitions (wells and recharge) converted to period-wise
+  WEL rows ``[lay, row, col, flux]`` and RCH/EVT stress-period dicts.
 - ``domain`` + ``sgrid`` context:
   spatial support used to map process properties onto solver cells, including
   geological zoning and structured-grid geometry.
@@ -40,6 +40,11 @@ Outputs (solver side):
 - stress-period payloads:
   ``chd_spd``, ``drn_spd``, ``wel_spd`` as MODFLOW stress-period dictionaries
   keyed by period index, ready to be passed to FLOPY package constructors.
+- recharge payloads:
+  ``rch_data`` as a period-indexed dict or a scalar (steady-state Mapping
+  average), consumed by ``ModflowRch(rech=...)``.
+  ``evt_spd`` as a per-period evapotranspiration dict built from negative
+  recharge values routed to EVT, or ``None`` when not activated.
 
 Glossary
 --------
@@ -116,6 +121,12 @@ class FlowModflowInputs:
     - ``drain_array``: shape ``(nrow, ncol)``; binary drainage activation mask.
     - ``hk``, ``sy``, ``ss``: shape ``(nlay, nrow, ncol)``.
     - ``*_value``: shape ``(nrow, ncol)`` surface snapshot kept for diagnostics.
+    - ``rch_data``: period-indexed dict ``{kper: value}`` consumed by
+      ``ModflowRch(rech=...)``, or a scalar average for steady-state Mapping
+      inputs.
+    - ``evt_spd``: per-period evapotranspiration dict ``{kper: value}``
+      produced when negative recharge values are routed to EVT, or ``None``
+      when EVT routing is not activated.
 
     BAS contract reminder
     ---------------------
@@ -139,6 +150,8 @@ class FlowModflowInputs:
     chd_spd: dict[int, list[list[float]]] | None
     drn_spd: dict[int, np.ndarray] | None
     wel_spd: dict[int, list[list[float]]]
+    rch_data: object | None
+    evt_spd: dict[int, object] | None
 
 
 class FlowToModflowAdapter:
@@ -272,22 +285,22 @@ class FlowToModflowAdapter:
         # Side Dirichlet boundaries are enforced by:
         # - setting ibound to -1 (constant-head cells),
         # - forcing startup heads on the same faces.
-        west_side = self._boundary_conditions.get("west_side")
+        west_side = self._boundary_conditions.get("west_side") if self._is_bc_active("west_side") else None
         if west_side is not None:
             ibound[:, :, 0] = -1
             strt[:, :, 0] = float(west_side.value)
 
-        east_side = self._boundary_conditions.get("east_side")
+        east_side = self._boundary_conditions.get("east_side") if self._is_bc_active("east_side") else None
         if east_side is not None:
             ibound[:, :, -1] = -1
             strt[:, :, -1] = float(east_side.value)
 
-        north_side = self._boundary_conditions.get("north_side")
+        north_side = self._boundary_conditions.get("north_side") if self._is_bc_active("north_side") else None
         if north_side is not None:
             ibound[:, 0, :] = -1
             strt[:, 0, :] = float(north_side.value)
 
-        south_side = self._boundary_conditions.get("south_side")
+        south_side = self._boundary_conditions.get("south_side") if self._is_bc_active("south_side") else None
         if south_side is not None:
             ibound[:, -1, :] = -1
             strt[:, -1, :] = float(south_side.value)
@@ -305,6 +318,11 @@ class FlowToModflowAdapter:
         return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(
             value, bool
         )
+
+    def _is_bc_active(self, bc_id: str) -> bool:
+        """Return True when ``bc_id`` is explicitly declared in ``flow.active_bc``."""
+        active = getattr(self.flow, "active_bc", [])
+        return bc_id in active
 
     def _build_ocean_chd(
         self,
@@ -338,7 +356,9 @@ class FlowToModflowAdapter:
         maximum sea level over the series. This keeps a stable active set
         through time and only changes imposed heads per period.
         """
-        # 1) Resolve ocean BC payload.
+        # 1) Resolve ocean BC payload — only when ocean is explicitly activated.
+        if not self._is_bc_active("ocean"):
+            return None
         ocean_boundary = self._boundary_conditions.get("ocean")
         if ocean_boundary is None:
             return None
@@ -457,7 +477,24 @@ class FlowToModflowAdapter:
         - Otherwise: derive conductance from ``hk * resolution^2``.
         - With ``sink_fill=True``: cells flagged as sink receive zero
           conductance (disabled drainage).
+
+        Returns
+        -------
+        dict[int, np.ndarray] | None
+            Stress-period dict ``{0: drn_data}`` where ``drn_data`` has shape
+            ``(n_active_cells, 5)`` with columns
+            ``[lay, row, col, elevation, conductance]``.
+            Returns ``None`` when drainage is not activated.
+
+        Notes
+        -----
+        The DRN payload is time-invariant: only period 0 is populated.
+        MODFLOW inherits that geometry for all subsequent stress periods
+        when no new entry is provided.
         """
+        # Only assemble DRN payload when drainage BC is explicitly activated.
+        if not self._is_bc_active("drainage"):
+            return None
         drainage_boundary = self._boundary_conditions.get("drainage")
         if drainage_boundary is None:
             return None
@@ -507,111 +544,50 @@ class FlowToModflowAdapter:
         """
         Normalize flow wells into MODFLOW WEL stress-period format.
 
-        Accepted payload shapes are:
-        - typed objects exposing ``cell`` and ``flux``,
-        - plain mappings with ``cell`` and ``flux`` keys.
-
         Returns
         -------
         dict[int, list[list[float]]]
             WEL package stress-period payload keyed by period index, with each
             row formatted as ``[lay, row, col, flux]``.
+
+        Notes
+        -----
+        Wells absent from ``flow.active_sinks_sources``, or with an empty
+        payload, result in an empty dict (no WEL rows), not an error.
+        Cell and flux validation is delegated to ``FlowWellConfig`` (Pydantic);
+        only the flux-vector length vs ``nper`` is enforced here, since
+        ``nper`` is not known at config-validation time.
         """
         if self.nper <= 0:
             return {}
 
+        # Only assemble the WEL payload when wells are explicitly activated.
+        active = getattr(self.flow, "active_sinks_sources", [])
+        if "wells" not in active:
+            return {}
+
         sinks_sources = getattr(self.flow, "sinks_sources", {})
-        if not isinstance(sinks_sources, Mapping):
+        wells = sinks_sources.get("wells", {}) if isinstance(sinks_sources, Mapping) else {}
+        if not wells:
             return {}
 
-        wells = sinks_sources.get("wells", {})
-        if wells is None:
-            return {}
-        if not isinstance(wells, Mapping):
-            raise TypeError(
-                "flow.sinks_sources['wells'] must be a mapping of well ids to payloads."
-            )
-        if len(wells) == 0:
-            return {}
-
-        # Internal normalized representation:
-        # (well_id, (lay, row, col), flux_vector[nper]).
+        # Broadcast scalar / single-value flux to nper; reject length mismatches.
         normalized_wells: list[tuple[str, tuple[int, int, int], np.ndarray]] = []
-        for raw_well_id, raw_well_payload in wells.items():
-            well_id = str(raw_well_id).strip()
-            if well_id == "":
-                raise ValueError("flow.sinks_sources.wells cannot contain empty ids.")
-
-            # Accept both typed objects and plain mappings.
-            if isinstance(raw_well_payload, Mapping):
-                cell_payload = raw_well_payload.get("cell")
-                flux_payload = raw_well_payload.get("flux")
-            else:
-                cell_payload = getattr(raw_well_payload, "cell", None)
-                flux_payload = getattr(raw_well_payload, "flux", None)
-
-            if cell_payload is None:
-                raise ValueError(f"flow.sinks_sources.wells.{well_id}.cell is required")
-            if flux_payload is None:
-                raise ValueError(f"flow.sinks_sources.wells.{well_id}.flux is required")
-
-            if isinstance(cell_payload, Mapping):
-                cell_seq = [
-                    cell_payload.get("lay"),
-                    cell_payload.get("row"),
-                    cell_payload.get("col"),
-                ]
-            else:
-                cell_seq = list(cell_payload)
-            if len(cell_seq) != 3:
-                raise ValueError(
-                    f"flow.sinks_sources.wells.{well_id}.cell must contain 3 values: [lay,row,col]"
-                )
-
-            # Parse each axis independently to produce precise validation errors.
-            cell_parsed: list[int] = []
-            for axis, raw_index in zip(("lay", "row", "col"), cell_seq):
-                if isinstance(raw_index, bool) or not isinstance(raw_index, Real):
-                    raise TypeError(
-                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be numeric"
-                    )
-                numeric_index = float(raw_index)
-                if not numeric_index.is_integer():
-                    raise TypeError(
-                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be an integer"
-                    )
-                int_index = int(numeric_index)
-                if int_index < 0:
-                    raise ValueError(
-                        f"flow.sinks_sources.wells.{well_id}.cell.{axis} must be >= 0"
-                    )
-                cell_parsed.append(int_index)
-            cell = (cell_parsed[0], cell_parsed[1], cell_parsed[2])
-
-            if isinstance(flux_payload, bool):
-                raise TypeError(
-                    f"flow.sinks_sources.wells.{well_id}.flux must be numeric or list of numeric values"
-                )
-            if isinstance(flux_payload, Real):
-                # Scalar flux means the same pumping/injection rate for all
-                # stress periods.
-                flux_vector = np.full(self.nper, float(flux_payload), dtype=float)
-            else:
-                flux_vector = np.asarray(flux_payload, dtype=float).reshape(-1)
-                if flux_vector.size == 0:
-                    raise ValueError(
-                        f"flow.sinks_sources.wells.{well_id}.flux cannot be empty"
-                    )
+        for well_id, well in wells.items():
+            cell: tuple[int, int, int] = well.cell
+            flux = well.flux
+            if isinstance(flux, list):
+                flux_vector = np.asarray(flux, dtype=float)
                 if flux_vector.size == 1:
-                    # Single-value vectors are broadcast across all stress
-                    # periods (same pumping schedule everywhere in time).
                     flux_vector = np.full(self.nper, float(flux_vector[0]), dtype=float)
                 elif flux_vector.size != self.nper:
                     raise ValueError(
                         f"flow.sinks_sources.wells.{well_id}.flux length ({flux_vector.size}) "
                         f"must be 1 or match nper ({self.nper})"
                     )
-
+            else:
+                # Scalar flux: same rate for all stress periods.
+                flux_vector = np.full(self.nper, float(flux), dtype=float)
             normalized_wells.append((well_id, cell, flux_vector))
 
         # Convert normalized wells to period-indexed LRCQ payload.
@@ -623,6 +599,263 @@ class FlowToModflowAdapter:
             ]
         return lrcq
 
+    # ------------------------------------------------------------------
+    # Recharge / EVT helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _copy_payload(payload: object) -> object:
+        """
+        Return a defensive copy of a payload to prevent in-place mutations
+        from propagating to the upstream process object.
+
+        Mapping inputs are shallow-copied via ``dict()``. Array/Series inputs
+        are copied via their own ``.copy()`` method when available. Objects
+        that cannot be copied are returned as-is.
+        """
+        if isinstance(payload, Mapping):
+            return dict(payload)
+        if hasattr(payload, "copy"):
+            try:
+                return payload.copy()
+            except Exception:
+                return payload
+        return payload
+
+    @staticmethod
+    def _has_negative_values(payload: object) -> bool:
+        """
+        Return True when ``payload`` contains at least one negative value.
+
+        Uses a two-pass fallback strategy to handle heterogeneous containers:
+
+        1. Direct comparison ``(payload < 0).any().any()`` — covers numpy
+           arrays and pandas DataFrames/Series.
+        2. Fallback via ``np.asarray`` and ``np.nanmin`` — covers plain
+           Python lists and generic 1-D sequences.
+
+        Returns ``False`` when neither strategy succeeds (conservative choice:
+        no EVT routing attempted on unrecognised payloads).
+        """
+        try:
+            return bool((payload < 0).any().any())
+        except Exception:
+            try:
+                as_array = np.asarray(payload, dtype=float)
+                return bool(np.nanmin(as_array) < 0)
+            except Exception:
+                return False
+
+    @staticmethod
+    def _series_value(payload: object, kper: int):
+        """
+        Read one stress-period value from a heterogeneous payload container.
+
+        Handles two container families:
+
+        - pandas Series / DataFrame (detected via ``iloc``): uses positional
+          integer indexing; extracts a scalar from single-column DataFrames.
+        - Generic sequences (list, numpy array, etc.): uses plain ``[]``.
+        """
+        if hasattr(payload, "iloc"):
+            value = payload.iloc[kper]
+            try:
+                return value.values[0]
+            except Exception:
+                return value
+        return payload[kper]
+
+    def _resolve_flow_regime(self) -> str:
+        """
+        Resolve and validate the flow regime string from the flow object.
+
+        Looks up the regime in two locations in priority order:
+
+        1. ``flow.config.flow_regime`` — typed config sub-object (preferred).
+        2. ``flow.flow_regime`` — direct attribute fallback.
+
+        Returns
+        -------
+        str
+            ``'steady'`` or ``'transient'`` (lower-cased and stripped).
+
+        Raises
+        ------
+        ValueError
+            When no regime attribute is found, or the resolved value is not
+            one of the two accepted strings.
+        """
+        flow_cfg = getattr(self.flow, "config", None)
+        regime = None
+        if flow_cfg is not None:
+            regime = getattr(flow_cfg, "flow_regime", None)
+        if regime is None:
+            regime = getattr(self.flow, "flow_regime", None)
+        if regime is None:
+            raise ValueError(
+                "flow.flow_regime is required to build recharge payloads."
+            )
+        flow_regime = str(regime).strip().lower()
+        if flow_regime not in {"steady", "transient"}:
+            raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
+        return flow_regime
+
+    def _build_recharge_payload(self) -> tuple[object, dict[int, object] | None]:
+        """
+        Build RCH and EVT payloads from ``flow.sinks_sources["recharge"]``.
+
+        Returns
+        -------
+        tuple[rch_data, evt_spd]
+            ``rch_data`` is the payload passed to ``ModflowRch(rech=...)``.
+            ``evt_spd`` is the EVT stress-period dict, or ``None`` when not activated.
+        """
+        active = getattr(self.flow, "active_sinks_sources", [])
+        if "recharge" not in active:
+            return None, None
+
+        sinks_sources = getattr(self.flow, "sinks_sources", {})
+        recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
+        if recharge_cfg is None:
+            return None, None
+
+        recharge_payload = self._copy_payload(recharge_cfg.values)
+        recharge_payload, evt_spd = self._extract_evt_payload(recharge_payload, recharge_cfg.negative_to_evt)
+        rch_data = self._assemble_rch_data(recharge_payload, recharge_cfg.first_clim, self._resolve_flow_regime())
+        return rch_data, evt_spd
+
+    def _extract_evt_payload(
+        self, payload: object, negative_to_evt: bool
+    ) -> tuple[object, dict[int, object] | None]:
+        """
+        Route negative recharge values to an EVT stress-period dict and clip
+        the recharge payload to non-negative values.
+
+        In MODFLOW, EVT (EvapTranspiration) represents upward fluxes from the
+        water table. When a recharge series contains negative values, those can
+        optionally be routed to the EVT package instead of being zeroed out or
+        left as negative RCH — which MODFLOW would otherwise reject.
+
+        This method is a no-op (payload unchanged, ``None`` for EVT) when any
+        of the following is true:
+
+        - ``negative_to_evt`` is ``False``,
+        - ``payload`` is a Mapping (period-keyed dict: per-value routing is
+          not supported for this type),
+        - ``payload`` is a scalar number,
+        - ``payload`` contains no negative values.
+
+        Parameters
+        ----------
+        payload : object
+            Recharge series (numpy array, pandas Series, etc.). Negative values
+            are clipped to 0 in place when EVT routing is triggered.
+        negative_to_evt : bool
+            Flag from ``recharge_cfg.negative_to_evt``.
+
+        Returns
+        -------
+        tuple[object, dict[int, object] | None]
+            ``(clipped_payload, evt_spd)`` where ``clipped_payload`` has all
+            negative values set to 0 and ``evt_spd`` maps each stress period
+            to the absolute value of the original negative recharge.
+
+        Notes
+        -----
+        Period 0 always receives ``evt_spd[0] = 0``, regardless of the payload
+        value. This mirrors the ``first_clim`` warm-up convention for RCH:
+        the first climate step is excluded from EVT forcing.
+        """
+        if (
+            not negative_to_evt
+            or isinstance(payload, Mapping)
+            or self._is_scalar_number(payload)
+            or not self._has_negative_values(payload)
+        ):
+            return payload, None
+
+        evt_payload = self._copy_payload(payload)
+        evt_payload[evt_payload >= 0] = 0
+        evt_payload = abs(evt_payload)
+
+        evt_spd: dict[int, object] = {
+            kper: (0 if kper == 0 else self._series_value(evt_payload, kper))
+            for kper in range(self.nper)
+        }
+
+        payload[payload < 0] = 0
+        return payload, evt_spd
+
+    def _assemble_rch_data(self, payload: object, first_clim: object, flow_regime: str) -> object:
+        """
+        Convert a recharge payload into the period-indexed structure expected
+        by ``ModflowRch(rech=...)``.
+
+        Two assembly branches depending on ``payload`` type:
+
+        **Mapping branch** (period-keyed dict supplied by the user):
+
+        - Steady regime: collapses all values to a single scalar mean.
+          An empty Mapping raises ``ValueError``.
+        - Transient regime: returns a copy of the dict as-is (period keys
+          are already explicit).
+
+        **Sequence branch** (numpy array, pandas Series, or scalar):
+
+        - Scalar payload: broadcast to the same constant for all ``nper``.
+        - Period 0: handled by the ``first_clim`` policy (``'mean'``,
+          ``'first'``, or a numeric override). Needed because climate series
+          often start one index ahead of the first stress period.
+        - Periods 1…nper-1: read directly from the series.
+
+        Parameters
+        ----------
+        payload : object
+            Recharge values after EVT clipping. May be a Mapping, a numpy
+            array, a pandas Series, or a scalar number.
+        first_clim : object
+            Policy for period-0 when payload is a sequence.
+            ``'mean'``: mean of the whole series (``np.nanmean``).
+            ``'first'``: first element of the series.
+            numeric: used as a constant override for period 0.
+        flow_regime : str
+            ``'steady'`` or ``'transient'``; controls the Mapping branch.
+
+        Returns
+        -------
+        object
+            ``dict[int, value]`` for transient runs, or a scalar for
+            steady-state Mapping inputs.
+        """
+        if isinstance(payload, Mapping):
+            if flow_regime == "steady":
+                if len(payload) == 0:
+                    raise ValueError(
+                        "flow.sinks_sources.recharge.values mapping cannot be empty in steady regime."
+                    )
+                return sum(payload.values()) / len(payload)
+            return dict(payload)
+
+        rch_dict: dict[int, object] = {}
+        for kper in range(self.nper):
+            if self._is_scalar_number(payload):
+                rch_dict[kper] = float(payload)
+            elif kper == 0:
+                if first_clim == "mean":
+                    rch_dict[kper] = np.nanmean(payload)
+                elif first_clim == "first":
+                    rch_dict[kper] = self._series_value(payload, 0)
+                elif self._is_scalar_number(first_clim):
+                    rch_dict[kper] = float(first_clim)
+                else:
+                    raise ValueError(
+                        "flow.sinks_sources.recharge.first_clim must be "
+                        "'mean', 'first', or a numeric value."
+                    )
+            else:
+                rch_dict[kper] = self._series_value(payload, kper)
+        return rch_dict
+
     def build(self) -> FlowModflowInputs:
         """
         Build all solver-ready payloads in one deterministic pass.
@@ -633,7 +866,8 @@ class FlowToModflowAdapter:
         2. ocean CHD transformation,
         3. domain/property mapping,
         4. drainage package payload,
-        5. well package payload.
+        5. well package payload,
+        6. recharge (RCH) and evapotranspiration (EVT) payloads.
 
         Returns
         -------
@@ -674,6 +908,9 @@ class FlowToModflowAdapter:
         # Stage 5: normalize wells to WEL stress-period structure.
         wel_spd = self._build_well_stress_period_data()
 
+        # Stage 6: recharge and EVT payloads from flow.sinks_sources.recharge.
+        rch_data, evt_spd = self._build_recharge_payload()
+
         # Final packaging of all solver-ready arrays and SPD payloads.
         return FlowModflowInputs(
             ibound=np.asarray(ibound, dtype=float),
@@ -688,4 +925,6 @@ class FlowToModflowAdapter:
             chd_spd=chd_spd,
             drn_spd=drn_spd,
             wel_spd=wel_spd,
+            rch_data=rch_data,
+            evt_spd=evt_spd,
         )

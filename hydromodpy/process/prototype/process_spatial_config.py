@@ -41,3 +41,20 @@ class ProcessSpatialConfig(BaseModel):
         default_factory=dict,
         description="Mapping of process sink/source payloads.",
     )
+    active_sinks_sources: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Ordered list of sink/source identifiers that are explicitly activated "
+            "for this process. An empty list means no sink/source is active. "
+            "Concrete process configs (e.g. FlowConfig) validate the allowed values."
+        ),
+    )
+    active_bc: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Ordered list of boundary-condition identifiers that are explicitly "
+            "activated for this process. An empty list means no boundary-condition "
+            "package is assembled. "
+            "Concrete process configs (e.g. FlowConfig) validate the allowed values."
+        ),
+    )
