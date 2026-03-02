@@ -4,7 +4,7 @@ Hooks for example12launcher.
 
 Each function named ``on_before_<phase>`` / ``on_after_<phase>`` is called
 automatically by the launcher around the corresponding phase.  They receive a
-single :class:`~launcher.RunResult` argument and return ``None``.
+single :class:`~launchers.RunResult` argument and return ``None``.
 
 This file contains the study-specific logic extracted from ``examples/example12/
 example12.py``.  The generic boilerplate (workspace, domain, solvers, …) lives
@@ -13,26 +13,22 @@ in the launcher phases and is not repeated here.
 
 from __future__ import annotations
 
-import glob
-import os
-from itertools import islice
 from pathlib import Path
 
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import imageio.v2 as imageio
 
-from launcher import RunResult
+from launchers import RunResult
+from hydromodpy.display import (
+    display_options_from_raw_toml,
+    plot_flow_suite,
+    plot_particles_suite,
+    plot_transport_suite,
+)
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _display_plots() -> bool:
-    return os.environ.get("HYDROMODPY_NO_DISPLAY") != "1"
-
 
 # ── on_after_data ─────────────────────────────────────────────────────────────
 
@@ -188,114 +184,8 @@ def on_after_flow(result: RunResult) -> None:
         from_calib=False,
     )
 
-    if not _display_plots():
-        return
-
-    _plot_cross_section(result)
-    _plot_streamflow(result)
-    _plot_piezometry(result)
-
-
-def _plot_cross_section(result: RunResult) -> None:
-    ws         = result.workspace
-    model_name = result.model_modflow.model_name
-    sim_folder = ws.simulations_folder / model_name
-
-    wt_data = np.load(
-        sim_folder / "_postprocess" / "watertable_elevation.npy",
-        allow_pickle=True,
-    ).item()
-    dem_data = imageio.imread(result.geographic.watershed_dem)
-    wt       = wt_data[2].astype(float)
-    dem      = dem_data.astype(float)
-    wt[wt < 0]   = np.nan
-    dem[dem < 0] = np.nan
-
-    cur_x = 50
-    x     = np.arange(dem.shape[0]) * 75
-
-    fig, ax = plt.subplots(figsize=(6, 4), dpi=300)
-    ax.fill_between(x, dem[:, cur_x] - 20, wt[:, cur_x],
-                    color="dodgerblue", alpha=0.5, lw=0)
-    ax.plot(x, wt[:, cur_x],  color="navy",        lw=1.5)
-    ax.plot(x, dem[:, cur_x], color="saddlebrown", lw=1.5)
-    ax.fill_between(x, wt[:, cur_x], dem[:, cur_x],
-                    color="saddlebrown", alpha=0.5, lw=0)
-    ax.fill_between(x, 0, dem[:, cur_x] - 20, color="lightgrey", alpha=0.5, lw=0)
-    ax.plot(x, dem[:, cur_x] - 20, color="dimgray", lw=1.5)
-    ax.set_xlim(1500, 4900)
-    ax.set_ylim(90, 130)
-    ax.set_xlabel("Distance [m]")
-    ax.set_ylabel("Elevation [m]")
-    plt.tight_layout()
-
-
-def _plot_streamflow(result: RunResult) -> None:
-    area       = int(round(result.geographic.catch_area))
-    data_path  = result.cfg.workspace.data_path
-    ws         = result.workspace
-    model_name = result.model_modflow.model_name
-
-    Qobs_path = data_path / "Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt"
-    Qobs = pd.read_csv(Qobs_path, sep=";", header=None)
-    Qobs.index = pd.to_datetime(Qobs[0] + " " + Qobs[1],
-                                format="%d/%m/%Y %H:%M:%S")
-    Qobs = Qobs[2].to_frame(name="Q")
-    Qobs = Qobs / 1000 / (area * 1_000_000)
-    Qobs = Qobs.resample("ME").mean() * 30 * 1000
-
-    sim_folder = ws.simulations_folder / model_name
-    Smod_path  = sim_folder / "_postprocess/_timeseries/_simulated_timeseries.csv"
-    Smod = pd.read_csv(Smod_path, sep=";", index_col=0, parse_dates=True)
-
-    Rmod = Smod["recharge"] * 30 * 1000
-    Qmod = (Smod["outflow_drain"] + Smod["runoff"]) * 30 * 1000
-
-    fig, ax = plt.subplots(figsize=(12, 3.5), dpi=300)
-    ax.plot(Qobs, color="k",          lw=2, label="Observed")
-    ax.plot(Qmod, color="red",         lw=2, label="Simulated: outflow")
-    ax.plot(Rmod, color="dodgerblue",  lw=2, label="Recharge")
-    ax.xaxis.set_major_locator(mdates.YearLocator(1))
-    ax.xaxis.set_minor_locator(mdates.MonthLocator())
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    ax.set_xlim(pd.to_datetime("2002"), pd.to_datetime("2005"))
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Q / A [mm/month]")
-    ax.set_ylim(-5, 100)
-    ax.legend(loc="upper left")
-    ax.set_title(model_name.upper(), fontsize=10)
-    plt.tight_layout()
-
-
-def _plot_piezometry(result: RunResult) -> None:
-    ws         = result.workspace
-    model_name = result.model_modflow.model_name
-    sim_folder = ws.simulations_folder / model_name
-
-    Smod_path = sim_folder / "_postprocess/_timeseries/_simulated_timeseries.csv"
-    Smod = pd.read_csv(Smod_path, sep=";", index_col=0, parse_dates=True)
-
-    Rmod  = Smod["recharge"] * 30 * 1000
-    WTDmod = Smod["watertable_depth"]
-
-    fig, ax = plt.subplots(figsize=(12, 3.5), dpi=300)
-    ax.plot(WTDmod, marker="o", color="red", lw=2, label="Simulated: watertable")
-    ax.xaxis.set_major_locator(mdates.YearLocator(1))
-    ax.xaxis.set_minor_locator(mdates.MonthLocator())
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    ax.set_xlim(pd.to_datetime("2000"), pd.to_datetime("2005"))
-    ax.set_xlabel("Date")
-    ax.set_ylabel("WT depth [m]")
-    ax.invert_yaxis()
-    ax.legend(loc="upper left")
-
-    axb = ax.twinx()
-    axb.bar(Rmod.index, Rmod, color="dodgerblue",
-            width=10, edgecolor="None", alpha=1, label="Recharge")
-    axb.set_ylim(0, 100)
-    axb.invert_yaxis()
-    axb.legend(loc="upper right")
-    plt.tight_layout()
+    display_options = display_options_from_raw_toml(result.raw_toml)
+    plot_flow_suite(result, display_options)
 
 
 # ── on_before_particles ───────────────────────────────────────────────────────
@@ -328,6 +218,14 @@ def on_before_particles(result: RunResult) -> None:
 
 # ── on_before_transport ───────────────────────────────────────────────────────
 
+# on_after_particles
+def on_after_particles(result: RunResult) -> None:
+    """Render optional particle visualizations."""
+    display_options = display_options_from_raw_toml(result.raw_toml)
+    plot_particles_suite(result, display_options)
+
+
+# on_before_transport
 def on_before_transport(result: RunResult) -> None:
     """Set NO3 initial/input concentrations and first-order decay rate."""
     from hydromodpy.solver.modflow_nwt import Modflow
@@ -359,9 +257,6 @@ def on_before_transport(result: RunResult) -> None:
 
 def on_after_transport(result: RunResult) -> None:
     """Generate concentration GIF and Plotly slider (from example12 lines 1293-1407)."""
-    if not _display_plots():
-        return
-
     # Full timeseries with all models
     from hydromodpy.modeling import timeseries
 
@@ -381,8 +276,5 @@ def on_after_transport(result: RunResult) -> None:
         concentration_seepage=True,
         mass_accumulated=True,
     )
-
-    # Concentration maps, GIF and Plotly slider logic follows the same
-    # structure as example12.py lines 1098-1407 — omitted here for brevity;
-    # copy from example12.py and adapt using result.model_transport and
-    # result.workspace as replacements for local variables.
+    display_options = display_options_from_raw_toml(result.raw_toml)
+    plot_transport_suite(result, display_options)

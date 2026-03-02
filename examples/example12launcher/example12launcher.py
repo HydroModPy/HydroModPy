@@ -7,21 +7,21 @@ this file; everything else is driven by config.toml.
 
 Usage::
 
-    python example12launcher.py
+    python -m examples.example12launcher.example12launcher
     # or
-    python -m launcher run examples/example12launcher/config.toml
+    python -m launchers run examples/example12launcher/config.toml
 """
 
-import sys
 from pathlib import Path
 
-# Ensure the repo root (where the `launcher` package lives) is on sys.path.
-# Not needed once `pip install -e .` has been re-run after adding launcher to pyproject.toml.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from launchers import HydroModPyLauncher
 
-from launcher import HydroModPyLauncher
 
-# Path(__file__).parent resolves to the directory containing this script,
-# so config.toml is always located relative to example12launcher.py
-# regardless of the working directory from which the script is launched.
-HydroModPyLauncher(Path(__file__).parent / "config.toml").run()
+def main() -> None:
+    """Run the example12 launcher with its colocated TOML configuration."""
+
+    HydroModPyLauncher(Path(__file__).parent / "config.toml").run()
+
+
+if __name__ == "__main__":
+    main()
