@@ -504,7 +504,7 @@ solver_engine = "modflownwt"
 [modflownwt.runtime]
 
 # MODFLOW executable/version identifier passed to FloPy.
-mf_version = "nwt"
+mf_version = "mfnwt"
 # Fortran unit number used for the MODFLOW list file.
 mf_listunit = 2
 # Enable verbose FloPy logging for model setup.

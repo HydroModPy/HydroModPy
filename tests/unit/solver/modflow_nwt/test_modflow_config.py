@@ -18,7 +18,7 @@ def test_modflow_config_defaults_match_runtime_defaults():
     cfg = ModflowConfig()
     params = ModflowSpecifParams.from_config(cfg)
 
-    assert params.runtime.mf_version == "nwt"
+    assert params.runtime.mf_version == "mfnwt"
     assert params.runtime.nwt_headtol == 1e-4
     assert params.runtime.nwt_fluxtol == 500.0
     assert params.process_specific.vka == 1.0
