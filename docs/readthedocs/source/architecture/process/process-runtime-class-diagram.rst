@@ -13,6 +13,8 @@ This diagram shows runtime inheritance and composition for process objects:
 Diagram source
 --------------
 
+.. uml:: diagrams/process_runtime_class.wsd
+
 .. literalinclude:: diagrams/process_runtime_class.wsd
    :language: text
    :caption: PlantUML (.wsd) source - process runtime class diagram

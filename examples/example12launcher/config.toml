@@ -3,7 +3,7 @@
 # Profile: expert | Modules: workspace, geographic, domain, data, flow, transport, solver, modflownwt, modflow6
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
-# Descriptions are aligned with Pydantic field descriptions when available.
+# Descriptions follow Pydantic field descriptions unless a clearer project-specific note is more useful.
 # ======================================================================
 
 # ----------------------------------------------------------------------
@@ -136,35 +136,35 @@ landsea = false
 # Hydrometry station-set configuration (example script section).
 # ----------------------------------------------------------------------
 [hydrometry_stations]
-# General hydrometry request variable.
+# Hydrometric variable requested from the source (for example daily discharge code).
 variable = "QmnJ"
-# Display flag during loading.
+# If true, display diagnostic information while loading station data.
 display = false
-# Optional start date filter.
+# Optional inclusive start date filter applied to the requested time series.
 date_start = "2019-01-01"
-# Optional end date filter.
+# Optional inclusive end date filter applied to the requested time series.
 date_end = "2025-12-31"
 
 [hydrometry_stations.source]
-# Data source mode: "api" or "local".
+# Hydrometry source mode: remote API lookup or local exported files.
 mode = "api"
-# Local directory used when source.mode="local".
+# Local directory containing previously exported station files when mode='local'.
 local_data_dir = "hydrometry_exports"
 
 [hydrometry_stations.selection]
-# Selection mode: "stations" or "mask".
+# Station selection mode: explicit station ids or spatial mask filtering.
 mode = "mask"
-# Station list used when selection.mode="stations".
+# Explicit list of hydrometric station identifiers used when mode='stations'.
 station_ids = ["J736422001"]
-# Mask path used when selection.mode="mask".
+# Path to the polygon mask used to keep stations intersecting the study area when mode='mask'.
 mask_path = "will be dynamically set from Geographic class"
 
 [hydrometry_stations.output]
-# Export loaded data after selection.
+# If true, export the loaded station series to disk after selection.
 enabled = true
-# Export destination directory.
+# Destination directory for exported hydrometry files.
 path = "../results/example12/results_stable/hydrometry"
-# Export mode: "lite" or "full".
+# Export payload level: 'lite' for compact outputs, 'full' for all available files.
 export_mode = "lite"
 
 
@@ -396,9 +396,13 @@ data_value = false
 
 [flow.bc.dirichlet.ocean]
 # application_domain defaults to "top" for ocean
+# Type of the boundary condition (fixed head for ocean stage).
 type = "dirichlet"
+# Boundary-condition value.
 value = 1.0
+# Boundary-condition units.
 unit = "m"
+# If True, boundary-condition values are sourced from data.
 data_value = true
 
 
@@ -414,8 +418,12 @@ flux = [-200.0, -1000.0, -100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1000.0
 units = "m3/day"
 
 [flow.sinks_sources.wells.W2]
+# Cell indices as [lay, row, col] (0-based).
 cell = [0, 64, 64]
+# Well rate [L3/T]. Scalar for constant rate, or one value per stress period.
+# Negative = pumping, positive = injection.
 flux = [0.0, -1000.0, 0.0, -500.0, 0.0, 0.0, -500.0, 0.0, 0.0, 0.0, 0.0, -1000.0]
+# Units of flux values.
 units = "m3/day"
 
 # ----------------------------------------------------------------------
@@ -473,20 +481,28 @@ spc_name = "NO3"
 
 # Initial concentration and recharge concentration defaults.
 # They can be overridden in the script with full arrays/dictionaries once the model grid is known.
+# Initial concentration value (can be overridden at runtime).
 sconc_init = 0.0
+# Recharge concentration input value (can be overridden at runtime).
 sconc_input = 0.0
 
 # Dispersion and diffusion parameters.
+# Longitudinal dispersivity [L].
 disp_long = 0.0
+# Horizontal transverse dispersivity ratio.
 disp_transh = 0.0
+# Vertical transverse dispersivity ratio.
 disp_transv = 0.0
+# Molecular diffusion coefficient [L2/T].
 diffu_coeff = 8.64e-06
 
 # Reaction settings: None (no reaction), 0 (zero-order), 1 (first-order)
 react_order = 1
+# Decay rate value (can be overridden at runtime).
 rate_decay = 0.0
 
 # Plot concentration outputs.
+# Enable concentration plotting outputs.
 plot_conc = true
 
 # ----------------------------------------------------------------------
@@ -494,8 +510,8 @@ plot_conc = true
 # ----------------------------------------------------------------------
 
 [solver]
-# Solver backend: "nwt" (legacy) or "mf6" (MODFLOW 6).
-solver_engine = "nwt"
+# Solver backend: "modflownwt" (Newton-Raphson, unconfined) or "modflow6".
+solver_engine = "modflownwt"
 
 # ----------------------------------------------------------------------
 # MODFLOW-NWT expert configuration
@@ -671,33 +687,53 @@ temporal_nodata = -9999.0
 # Reference templates not consumed by runtime.
 # ----------------------------------------------------------------------
 [flow_templates.bc.dirichlet.stream]
+# Type of the boundary condition.
 type = "dirichlet"
+# Boundary-condition value.
 value = 1.0
+# Boundary-condition units.
 unit = "m"
+# If True, boundary-condition values are sourced from data.
 data_value = false
 
 [flow_templates.bc.dirichlet.north_side]
+# Type of the boundary condition.
 type = "dirichlet"
+# Boundary-condition value.
 value = 1.0
+# Boundary-condition units.
 unit = "m"
+# If True, boundary-condition values are sourced from data.
 data_value = false
 
 [flow_templates.bc.dirichlet.south_side]
+# Type of the boundary condition.
 type = "dirichlet"
+# Boundary-condition value.
 value = 1.0
+# Boundary-condition units.
 unit = "m"
+# If True, boundary-condition values are sourced from data.
 data_value = false
 
 [flow_templates.bc.dirichlet.east_side]
+# Type of the boundary condition.
 type = "dirichlet"
+# Boundary-condition value.
 value = 1.0
+# Boundary-condition units.
 unit = "m"
+# If True, boundary-condition values are sourced from data.
 data_value = false
 
 [flow_templates.bc.dirichlet.west_side]
+# Type of the boundary condition.
 type = "dirichlet"
+# Boundary-condition value.
 value = 1.0
+# Boundary-condition units.
 unit = "m"
+# If True, boundary-condition values are sourced from data.
 data_value = false
 
 # ----------------------------------------------------------------------
@@ -707,3 +743,46 @@ data_value = false
 # Phases to execute in order.
 # Remove a phase name to skip it (e.g. remove "particles" to skip MODPATH).
 phases = ["setup", "data", "flow", "particles", "transport"]
+
+# ----------------------------------------------------------------------
+# Display configuration for reusable plotting hooks.
+# This section is validated by hydromodpy.display.options.DisplayConfig
+# and consumed by the plotting hooks.
+# ----------------------------------------------------------------------
+[display]
+# Master switch for all optional plotting hooks.
+enabled = true
+# Show interactive figures/windows when rendering is enabled.
+show = true
+# Save figures/animations to disk when rendering is enabled.
+save = false
+# Output resolution used when saving raster figures.
+dpi = 300
+# If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.
+respect_env_no_display = true
+
+[display.flow]
+# Master switch for the flow plotting group.
+enabled = true
+# Render the flow cross-section plot.
+cross_section = true
+# Render the streamflow comparison plot.
+streamflow = true
+# Render the piezometry plot.
+piezometry = true
+
+[display.particles]
+# Master switch for the particle plotting group.
+enabled = true
+# Render particle pathlines.
+pathlines = true
+
+[display.transport]
+# Master switch for the transport plotting group.
+enabled = true
+# Render concentration plots.
+concentration = true
+# Export concentration GIF animation.
+gif = true
+# Export browser-friendly web animation for concentration outputs.
+web_animation = true
