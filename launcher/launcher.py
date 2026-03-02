@@ -1,14 +1,94 @@
-"""HydroModPyLauncher — pipeline HydroModPy.
+"""HydroModPyLauncher — HydroModPy pipeline orchestrator.
 
-Usage::
+This module is the single entry point of the hydrogeological modelling
+pipeline. It runs five phases sequentially, each of which can be
+instrumented through user-defined hooks.
+
+Pipeline
+--------
+1. **Setup**
+   Initialises the structural objects of the model from ``config.toml``:
+   workspace (input/output folders), geographic context (projection, extent,
+   DEM), simulation domain (MODFLOW grid, optional geology), and the flow
+   and transport configuration objects.
+
+2. **Data**
+   Loads external forcings that are independent of the solver:
+
+   - *Climatic*: rainfall and PET time series (``Climatic``).
+   - *Oceanic*: mean sea level (MSL) downloaded from the SHOM tide-gauge
+     service (``fetch_msl_or_default``). If the network is unavailable, the
+     fallback value 0.0 m is used silently. When an ``ocean`` boundary
+     condition is declared in the config, the MSL is automatically injected
+     into it.
+
+3. **Flow**
+   Builds and runs the groundwater flow model:
+
+   - Solver selection: MODFLOW-NWT (Newton-Raphson, suited to unconfined
+     aquifers) or MODFLOW 6, driven by ``[solver] solver_engine``.
+   - Pre-processing: FloPy grid construction, hydraulic parameter assignment
+     (K, Sy), boundary conditions (drains, recharge, prescribed head).
+   - MODFLOW binary execution.
+   - Post-processing, conditional on solver convergence: water-table
+     elevation, depth to water table, seepage areas, drain fluxes, monthly
+     intermittency index.
+   - Pickle dump of the pre-processed model object for standalone
+     post-processing or manual inspection.
+
+4. **Particles** *(MODFLOW-NWT only)*
+   Lagrangian particle tracking with MODPATH:
+
+   - Computation of flow pathlines from source points (drains, outlets).
+   - Export of pathlines and final particle positions as shapefiles.
+   - Filtering by travel time, flux magnitude, seepage zones, and
+     inflow/outflow direction.
+
+5. **Transport**
+   Advective-dispersive solute transport simulation:
+
+   - MT3DMS coupled to MODFLOW-NWT, or MODFLOW 6-GWT, depending on the
+     selected solver.
+   - Uses the velocity field produced by the Flow phase as hydrodynamic
+     forcing.
+
+Hooks
+-----
+A ``hooks.py`` file placed in the same directory as ``config.toml`` is
+automatically discovered and loaded. It may define any of the following
+functions, called immediately before and after each phase:
+
+.. code-block:: python
+
+    def on_before_setup(result): ...
+    def on_after_setup(result): ...
+    def on_before_data(result): ...
+    def on_after_data(result): ...
+    def on_before_flow(result): ...
+    def on_after_flow(result): ...
+    def on_before_particles(result): ...
+    def on_after_particles(result): ...
+    def on_before_transport(result): ...
+    def on_after_transport(result): ...
+
+Usage
+-----
+::
 
     from launcher import HydroModPyLauncher
 
     result = HydroModPyLauncher("path/to/config.toml").run()
 
-Or from the CLI::
+Or from the command line::
 
     python -m launcher run path/to/config.toml
+
+Environment variables
+---------------------
+``HYDROMODPY_OUT_PATH``
+    Overrides the output path defined in ``config.toml``.
+    Useful for redirecting results in CI pipelines or on HPC clusters
+    without editing the configuration file.
 """
 
 from __future__ import annotations
@@ -55,6 +135,8 @@ class HydroModPyLauncher:
         self.config_path = Path(config_path).resolve()
         self.cfg = HydroModPyConfig.from_toml(self.config_path)
 
+        # HYDROMODPY_OUT_PATH allows redirecting outputs without editing
+        # config.toml (useful in CI pipelines or on HPC clusters).
         if out_path_env := os.environ.get("HYDROMODPY_OUT_PATH"):
             self.cfg.workspace.out_dir_path = Path(out_path_env)
 
@@ -70,6 +152,8 @@ class HydroModPyLauncher:
         cfg = self.cfg
 
         # ── Setup ─────────────────────────────────────────────────────────────
+        # Initialise the structural model objects: workspace, geographic
+        # context, domain (grid + optional geology), flow and transport config.
         self.hooks.call("on_before_setup", r)
 
         r.workspace  = hmp.Workspace(config=cfg.workspace)
@@ -79,6 +163,8 @@ class HydroModPyLauncher:
 
         r.domain = Domain(config=cfg.domain, surface_topo=surface_topo)
         if "geology" in DataManagers.from_config(cfg.data).types:
+            # Geology is optional: loaded only when [data.geology] is present
+            # in config.toml.
             geology = GeologyField.from_watershed_config(
                 cfg.data.geology, raster_support=surface_topo.support
             )
@@ -91,6 +177,9 @@ class HydroModPyLauncher:
         self.hooks.call("on_after_setup", r)
 
         # ── Data ──────────────────────────────────────────────────────────────
+        # Load external forcings: climatic time series and mean sea level.
+        # MSL is fetched from the SHOM tide-gauge service; falls back to
+        # 0.0 m if the network is unavailable.
         self.hooks.call("on_before_data", r)
 
         r.climatic = Climatic(out_path=ws.catch_folder)
@@ -104,12 +193,16 @@ class HydroModPyLauncher:
         oceanic.update_MSL(oceanic.fetch_msl_or_default(r.geographic))
         r.oceanic = oceanic
 
+        # Inject MSL into the ocean boundary condition when one is declared
+        # in the config (boundary_conditions.ocean).
         if "ocean" in r.flow.boundary_conditions:
             r.flow.boundary_conditions["ocean"].value = oceanic.MSL
 
         self.hooks.call("on_after_data", r)
 
         # ── Flow ──────────────────────────────────────────────────────────────
+        # Build, pre-process, run and post-process the groundwater flow model
+        # (MODFLOW-NWT or MODFLOW 6, depending on solver_engine).
         self.hooks.call("on_before_flow", r)
 
         preprocess_options = ModflowPreprocessOptions(
@@ -141,6 +234,8 @@ class HydroModPyLauncher:
 
         model_modflow.pre_processing(flow=r.flow, domain=r.domain, options=preprocess_options)
 
+        # Persist the pre-processed model object to allow standalone
+        # post-processing or manual inspection after the run.
         pickle_path = (
             Path(ws.simulations_folder)
             / r.settings.model_name
@@ -157,6 +252,7 @@ class HydroModPyLauncher:
             options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
         )
         if success:
+            # Post-processing is conditional on solver convergence.
             model_modflow.post_processing(
                 options=ModflowPostprocessOptions(
                     watertable_elevation=True,
@@ -172,6 +268,8 @@ class HydroModPyLauncher:
         self.hooks.call("on_after_flow", r)
 
         # ── Particles ─────────────────────────────────────────────────────────
+        # Lagrangian particle tracking with MODPATH (NWT only).
+        # Computes travel times and capture zones from drain/outlet sources.
         self.hooks.call("on_before_particles", r)
 
         if cfg.solver.solver_engine == SolverEngine.MODFLOW_NWT:
@@ -189,17 +287,17 @@ class HydroModPyLauncher:
                 model_modpath,
                 ending_point=True,
                 starting_point=True,
-                pathlines_shp=True,
-                particles_shp=True,
+                pathlines_shp=True,   # pathlines exported as shapefile
+                particles_shp=True,   # final particle positions as shapefile
                 random_id=None,
             )
             model_modpath.filt_processing(
                 model_modpath,
-                norm_flux=True,
-                filt_time=True,
-                filt_seep=True,
-                filt_inout=True,
-                calc_rtd=False,
+                norm_flux=True,       # normalise by drained flux
+                filt_time=True,       # filter by travel time
+                filt_seep=True,       # filter by seepage zone
+                filt_inout=True,      # filter by inflow/outflow direction
+                calc_rtd=False,       # residence-time distribution (disabled)
                 random_id=None,
             )
             r.model_modpath = model_modpath
@@ -207,6 +305,8 @@ class HydroModPyLauncher:
         self.hooks.call("on_after_particles", r)
 
         # ── Transport ─────────────────────────────────────────────────────────
+        # Advective-dispersive solute transport (MT3DMS or MODFLOW 6-GWT).
+        # Uses the flow-phase velocity field as hydrodynamic forcing.
         self.hooks.call("on_before_transport", r)
 
         if cfg.solver.solver_engine == SolverEngine.MODFLOW_NWT:
@@ -216,7 +316,7 @@ class HydroModPyLauncher:
                 model_modflow,
                 model_folder=ws.simulations_folder,
                 model_name=model_modflow.model_name,
-                suffix_name="_mt_s1",
+                suffix_name="_mt_s1",  # suffix identifying the transport scenario
                 bin_path=ws.bin_path,
             )
         else:

@@ -21,4 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from launcher import HydroModPyLauncher
 
+# Path(__file__).parent resolves to the directory containing this script,
+# so config.toml is always located relative to example12launcher.py
+# regardless of the working directory from which the script is launched.
 HydroModPyLauncher(Path(__file__).parent / "config.toml").run()
