@@ -212,7 +212,9 @@ class Oceanic:
 
         # Check if data is already downloaded
         output_folder = os.path.join(geographic.stable_folder, 'oceanic')
-        output_filename = f'sealevel_shom_{tg_id}_{start_date}_{end_date}_H.csv' # TYPE_PRODUCT_ID_startdate_enddate_freq.ext
+        startdate = start_date.replace('-', '')
+        enddate = end_date.replace('-', '')
+        output_filename = f'sealevel_shom_{tg_id}_{startdate}_{enddate}_H.csv' # TYPE_PRODUCT_ID_startdate_enddate_freq.ext
         if os.path.exists(os.path.join(output_folder, output_filename)):
             print(f"Data for tide gauge station {self.closest_tg['name']} already downloaded. Loading from file.")
             self.SHOM_data = pd.read_csv(os.path.join(output_folder, output_filename), parse_dates=['timestamp'])

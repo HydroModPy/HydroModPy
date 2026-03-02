@@ -35,9 +35,7 @@ hydromodpy/field/
 |       |-- run_field_demo.py
 |       `-- outputs/
 |-- uml/
-|   |-- field_classes.wsd
-|   |-- field_activity.wsd
-|   `-- field_sequence.wsd
+|   `-- README.md
 |-- __init__.py
 `-- README.md
 ```
@@ -59,7 +57,7 @@ hydromodpy/field/
 - `cases/geology/`: geology-specific implementation of a generic spatial field
   with validated configuration, source adapters (raster/vector), and processing
   helpers.
-- `uml/`: PlantUML diagrams describing class structure and execution flows.
+- `uml/`: module-local README with links to UML sources in docs.
 
 ## Core Concepts
 
@@ -160,6 +158,6 @@ python -m pytest tests/unit/field -q
 
 ## UML
 
-- Class diagram: `hydromodpy/field/uml/field_classes.wsd`
-- Activity diagram: `hydromodpy/field/uml/field_activity.wsd`
-- Sequence diagram: `hydromodpy/field/uml/field_sequence.wsd`
+- Local pointer README: `hydromodpy/field/uml/README.md`
+- Canonical UML sources: `docs/readthedocs/source/architecture/field/diagrams/`
+- Architecture page: `docs/readthedocs/source/architecture/field/field-uml-diagrams.rst`

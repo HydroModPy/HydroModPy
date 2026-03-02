@@ -1,0 +1,37 @@
+@startuml
+title Process - Runtime To Solver Sequence
+
+actor User
+participant "Workflow Runner\n(example script / API)" as Runner
+participant "FlowConfig" as FlowConfig
+participant "Flow" as Flow
+participant "FlowAdapter (NWT)" as FlowAdapter
+participant "MODFLOW-NWT Wrapper" as NWT
+participant "MODFLOW 6 Wrapper" as MF6
+
+User -> Runner: launch simulation workflow
+Runner -> FlowConfig: from_toml_section(flow_section, base_dir)
+FlowConfig --> Runner: validated FlowConfig
+
+Runner -> Flow: Flow(config)
+Flow -> Flow: set_config(...)\nset_parameters_from_config(...)\nset_initial_conditions(...)\nset_boundary_conditions(...)\nset_sinks_sources(...)
+Flow --> Runner: runtime process object
+
+Runner -> Runner: select solver backend
+
+alt backend = nwt
+  Runner -> FlowAdapter: build solver-ready payloads\nfrom Flow + domain + temporal mesh
+  FlowAdapter -> FlowAdapter: normalize heads, BC, wells\nand application domains
+  FlowAdapter --> Runner: adapter payloads
+  Runner -> NWT: configure model packages
+  Runner -> NWT: run()
+  NWT --> Runner: heads + flows outputs
+else backend = mf6
+  Runner -> MF6: configure(flow, domain, temporal)
+  MF6 -> MF6: map runtime BC/IC/sinks\ninto MF6 package data
+  Runner -> MF6: run()
+  MF6 --> Runner: heads + budget outputs
+end
+
+Runner --> User: simulation results and artifacts
+@enduml

@@ -32,7 +32,9 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_dem
     SGridFieldParamDiscretizationConfig,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
+    build_sgrid_from_config,
+)
 
 
 DEFAULT_CONFIG_FILE = "run_demo_3d_config.toml"
@@ -501,7 +503,7 @@ def main(argv=None) -> int:
 
     result = run_discretization_case(cfg)
     field_param = FieldParam.from_dict(cfg.field_param)
-    sgrid = StructuredGridBuilder().build(SGridConfig.from_mapping(cfg.sgrid))
+    sgrid = build_sgrid_from_config(SGridConfig.from_mapping(cfg.sgrid))
     values_3d = np.asarray(result.values_3d, dtype=float)
     projected_field_3d = _build_projected_field_on_sgrid_3d(
         field_discretization=result.field_discretization,

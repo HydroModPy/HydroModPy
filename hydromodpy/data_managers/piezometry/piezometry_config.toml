@@ -1,5 +1,20 @@
 # Piezometry station-set configuration
 #
+# DISCOVERY MODES (see run_piezometry_example.py for examples):
+# 1) provide piezometer_ids in [selection] section
+# 2) leave piezometer_ids empty [] to trigger automatic discovery with fallback
+# 3) use mask_path to select piezometers by geographic mask
+#
+# DISCOVERY WITH FALLBACK (new feature):
+# - PiezometerSet.discover_piezometer_ids(
+#     bbox=(minx, miny, maxx, maxy),
+#     center_point=(lon, lat),     # Optional: sort by distance
+#     fallback_if_empty=True,      # NEW: if no piezometers in bbox, search beyond
+#     max_ids=5
+#   )
+# - If zone is empty and fallback_if_empty=True, searches France-wide for closest ones
+# - Automatically sorted by distance to center_point or mask centroid
+#
 # Supported combinations:
 # 1) selection.mode = "stations" + source.mode = "api"
 # 2) selection.mode = "mask"     + source.mode = "api"
@@ -27,15 +42,18 @@ mode = "api"
 
 [selection]
 # "stations" or "mask"
-mode = "stations"
+mode = "mask"
 
 # Used when selection.mode = "stations"
-# Example zone (central France) with >=2 piezometers with recent observations:
-# bbox ~ (2.90, 45.84, 3.46, 46.33) in EPSG:4326
-piezometer_ids = ["06932X0178/P10", "06216X0228/P30-10"]
+# Leave empty [] to trigger automatic discovery in run_piezometry_example.py
+# Example fixed ID: ["03884X0021/TF1PR", "06932X0178/P10"]
+# piezometer_ids = []
 
 # Used when selection.mode = "mask"
-# mask_path = "../../data/France/geology/GEO1M.shp"
+# Example: mask_path = "../../data/France/dem/ALT_5M.tif"
+# Testing with example12 geographic mask (no piezometers inside, triggers fallback)
+# Path from HydroModPy/hydromodpy/data_managers/piezometry/ to examples/results/example12/
+mask_path = "../../../examples/results/example12/results_stable/geographic/watershed.shp"
 
 [output]
 # Export loaded data again after loading (filtered subset):
