@@ -4,7 +4,7 @@
  * HydroModPy Launcher - Example 12 STANDALONE
  * Complete example 12 with ALL functions from launcher.py, only adapted for ex12
 """
-
+import traceback
 import sys
 import hydromodpy as hmp
 import os
@@ -1388,113 +1388,88 @@ def watershed(example_id):
     print(f"\n EXAMPLE {example_id} - WATERSHED EXTRACTION ")
 
     try:
-        # 1. Récupérer les paramètres de l'exemple
+        # 1. Paramètres et Chemins
         p = PARAMS[example_id]
-
-        # 2. RECONSTRUIRE LE CHEMIN ABSOLU (C'est ce qui manquait !)
-        # root_dir doit être défini globalement (le chemin vers la racine du projet)
         example_path = os.path.join(root_dir, p["base_path"])
         absolute_data_path = os.path.join(example_path, "data")
 
-        # 3. METTRE À JOUR LA CONFIGURATION AVEC LES BONS CHEMINS
-        # On dit aux objets HMP où chercher réellement
-        data_path =cfg.workspace.data_path = Path(absolute_data_path)
-        workspace = hmp.Workspace(config=cfg.workspace)
-        # Très important : mettre à jour le chemin du DEM
-
-        #dem_filename = Path(cfg.geographic.dem_init_path).name
-        #cfg.geographic.dem_init_path = Path(absolute_data_path) / dem_filename
-
+        # Mise à jour de la config globale pour les objets HMP
+        cfg.workspace.data_path = Path(absolute_data_path)
+        cfg.workspace.catch_name = p.get("catch_name", cfg.workspace.catch_name)
 
         if not os.path.exists(absolute_data_path):
             print(f"✗ Data path not found: {absolute_data_path}\n")
             return None
 
-        print(f"Configuration loaded. Data path: {absolute_data_path}")
-        print(f"DEM path: {cfg.geographic.dem_init_path}")
-
-        # 4. Créer les objets HMP (ils vont maintenant trouver les fichiers)
+        # 2. Création du Workspace (Remplace Initializing)
         workspace_object = hmp.Workspace(config=cfg.workspace)
-        geographic_object = hmp.Geographic(cfg.geographic, workspace)
+
+        # 3. Geographic et Domain (avec Géologie)
+        geographic_object = hmp.Geographic(cfg.geographic, workspace_object)
         surface_topo = geographic_object.get_domain_surface_topo()
 
+        domain = Domain(config=cfg.domain, surface_topo=surface_topo)
 
-        domain = Domain(
-        config=cfg.domain,
-        surface_topo=surface_topo,
-    )
+        # Intégration de la Géologie si configurée
         data_managers = DataManagers.from_config(cfg.data)
         if "geology" in data_managers.types:
+            print(" Integrating Geology field...")
             geology = GeologyField.from_watershed_config(
                 cfg.data.geology,
                 raster_support=surface_topo.support,
             )
             domain.set_zone("geology", geology)
-        flow = Flow(config=cfg.flow)
 
-        print("Creating individual objects (Settings, Hydraulic, oceanic_object)...")
+        # 4. Objets de calcul
+        flow = Flow(config=cfg.flow)
         settings_object = Settings()
         hydraulic_object = Hydraulic(
             nrow=geographic_object.y_pixel,
             ncol=geographic_object.x_pixel,
             box_dem=geographic_object.watershed_box_buff_dem
         )
-        transport_object = Transport()
-
-        # 5. Climatic et oceanic_object
+        transport = Transport()
         climatic_object = Climatic(out_path=workspace_object.catch_folder)
-       #%% oceanic_object
 
-
-        oceanic_object = Oceanic()
-        oceanic_object.extract_local_data(out_path=workspace.catch_folder,
-                                    geographic=geographic_object,
-                                    oceanic_path=data_path)
+        # 5. Oceanic (avec SHOM)
+        oceanic = Oceanic()
+        oceanic.extract_local_data(
+            out_path=workspace_object.catch_folder,
+            geographic=geographic_object,
+            oceanic_path=str(absolute_data_path)
+        )
         try:
-            oceanic_object.download_SHOM_data(geographic=geographic_object,
-                                        start_date='2003-01-01',
-                                        end_date='2003-01-30')
-            oceanic_object.update_MSL(oceanic_object.SHOM_data['value'].mean())
-        except Exception as _shom_exc:
-            print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
-            oceanic_object.update_MSL(0.0)
+            # On essaye de récupérer les données marées
+            oceanic.download_SHOM_data(geographic=geographic_object, start_date='2003-01-01', end_date='2003-01-30')
+            oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+        except Exception as e:
+            print(f"SHOM download failed ({e}), using default MSL=0.0")
+            oceanic.update_MSL(0.0)
 
-        flow.boundary_conditions["ocean"].value = oceanic_object.MSL
-        # Extract hydrometry configuration from raw_toml
+        flow.boundary_conditions["ocean"].value = oceanic.MSL
+
+        # 6. Hydrometry (Nouveau StationSet)
         hydro_section = raw_toml.get("hydrometry_stations", {})
+        if hydro_section:
+            hydro_cfg = {
+                "hydrometry": {k: v for k, v in hydro_section.items() if k not in ["source", "selection", "output"]},
+                "source": hydro_section.get("source", {}),
+                "selection": hydro_section.get("selection", {}),
+                "output": hydro_section.get("output", {}),
+            }
+            # Utilise le shapefile du bassin comme masque
+            if hydro_cfg["selection"].get("mode") == "mask":
+                hydro_cfg["selection"]["mask_path"] = geographic_object.watershed_shp
 
-        hydro_cfg = {
-            "hydrometry": {k: v for k, v in hydro_section.items()
-                        if k not in ["source", "selection", "output"]},
-            "source": hydro_section.get("source", {}),
-            "selection": hydro_section.get("selection", {}),
-            "output": hydro_section.get("output", {}),
-        }
-
-    # Inject watershed shapefile created by Geographic as mask for station selection
-        selection_mode = hydro_cfg["selection"].get("mode", "mask")
-        if selection_mode == "mask":
-            hydro_cfg["selection"]["mask_path"] = geographic_object.watershed_shp
-            print(f"Hydrometry: Loading stations from watershed mask: {geographic_object.watershed_shp}")
-
-    # Load stations with error handling
-        try:
-            hydrometry = StationSet.from_config(hydro_cfg)
-        except ValueError as e:
-            print(f"Warning: Hydrometry loading failed - {e}")
-            print("Continuing without hydrometric stations...")
+            try:
+                hydrometry = StationSet.from_config(hydro_cfg)
+            except Exception as e:
+                print(f"Hydrometry loading failed: {e}")
+                hydrometry = None
+        else:
             hydrometry = None
 
-        # 6. Gestion des dossiers de sortie
-        stable_folder = workspace_object.stable_folder
-        simulations_folder = workspace_object.simulations_folder
-        calibration_folder = workspace_object.calibration_folder
-
-        # Correction : utilise example_id (le texte "ex12")
-        if MODELING_CONFIG.get(example_id, {}).get("type") == "single":
-            calibration_folder = simulations_folder
-
-        # 7. Retourner les résultats
+        # 7. Préparation des résultats
         results = {
             'workspace': workspace_object,
             'geographic': geographic_object,
@@ -1502,22 +1477,21 @@ def watershed(example_id):
             'hydraulic': hydraulic_object,
             'domain': domain,
             'flow': flow,
-            'hydrometry':hydrometry,
-            'oceanic_object': oceanic_object,
+            'oceanic': oceanic,
             'climatic': climatic_object,
-            'transport': transport_object,
+            'transport': transport,
+            'hydrometry': hydrometry,
             'example_key': example_id,
-            'data_path': absolute_data_path, # On renvoie le chemin absolu
-            'stable_folder': stable_folder,
-            'simulations_folder': simulations_folder,
-            'calibration_folder': calibration_folder
+            'data_path': absolute_data_path,
+            'stable_folder': workspace_object.stable_folder,
+            'simulations_folder': workspace_object.simulations_folder,
+            'calibration_folder': workspace_object.calibration_folder
         }
 
         return results
 
     except Exception as e:
         print(f"Error in watershed: {e}")
-        import traceback
         traceback.print_exc()
         return None
 
@@ -1526,41 +1500,38 @@ def watershed(example_id):
 # ============================================================================
 
 def _resolve_reference(ref_str, results):
-    """Resolve nested references like 'workspace.catch_folder' to actual values"""
-    if not ref_str or ref_str is None:
-        return None
+    """Resolve nested references like 'workspace.catch_folder'"""
+    if not ref_str: return None
 
     parts = ref_str.split('.')
-    obj = results.get(parts[0])
+    # Gérer la transition historique si nécessaire
+    if parts[0] == 'initializing': parts[0] = 'workspace'
 
-    if obj is None:
-        return None
+    obj = results.get(parts[0])
+    if obj is None: return None
 
     for part in parts[1:]:
         try:
             obj = getattr(obj, part)
-        except AttributeError:
-            return None
-
+        except AttributeError: return None
     return obj
+
 # ============================================================================
 # STEP 2: DATA INTEGRATION + surface
 # ============================================================================
 
 def data(results):
-    """Add geographic data to watershed using DATA_MODULES configuration"""
     print("\n" + "="*70)
     print("DATA - GEOGRAPHIC INTEGRATION".center(70))
     print("="*70)
 
-    if not results:
-        return None
+    if not results: return None
 
     try:
         example_key = results.get('example_key')
         module_config = DATA_MODULES.get(example_key, {})
 
-        # 1. Instanciation des modules (Hydrography, Geology, etc.)
+        # 1. Instanciation dynamique (Hydrography, Subbasin, etc.)
         for module_name, module_info in module_config.items():
             try:
                 class_name = module_info["class_name"]
@@ -1578,39 +1549,35 @@ def data(results):
             except Exception as e:
                 print(f" Error module {module_name}: {e}")
 
-        # --- AJOUT ICI : Calcul de l'Area ---
+        # 2. Calcul de l'Area
         geographic = results.get('geographic')
         if geographic:
-            # On stocke l'entier arrondi dans results['area']
             results['area'] = int(round(geographic.catch_area))
-            print(f" Catchment Area: {results['area']}")
-        # ------------------------------------
+            print(f" Catchment Area: {results['area']} m²")
 
-        # 2. Visualisations
+        # 3. Visualisations (Version mise à jour)
         print("\nCreating watershed visualizations...")
         try:
-            # Utilise le chemin DEM depuis la config globale
-            dem_path = cfg.geographic.dem_init_path
-
-            visualization_watershed.watershed_local(cfg.geographic.dem_init_path, workspace, geographic)
+            visualization_watershed.watershed_local(
+                cfg.geographic.dem_init_path,
+                results.get('workspace'),
+                results.get('geographic')
+            )
             visualization_watershed.watershed_dem(
-                workspace=results.get('workspace'),
+                initializing=results.get('workspace'),
                 geographic=results.get('geographic'),
                 hydrography=results.get('hydrography'),
                 piezometry=None,
                 intermittency=results.get('intermittency'),
                 hydrometry=results.get('hydrometry')
             )
-            print(" Visualizations: OK")
         except Exception as e:
-            print(f" Visualization Error: {e}")
+            print(f" Visualization Warning: {e}")
 
         return results
-
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error in data: {e}")
         return results
-
 def surfaces(results):
     """Define aquifer surfaces using thickness from PARAMS"""
     print("\n" + "="*70)
@@ -1857,7 +1824,7 @@ def parametrization(results):
         settings_object = results['settings']
         hydraulic_object = results['hydraulic']
         climatic_object = results.get('climatic')
-        oceanic_object_object = results['oceanic_object']
+        oceanic_object = results['oceanic']
 
         if climatic_object is None:
             workspace_object = results['workspace']
@@ -1868,7 +1835,7 @@ def parametrization(results):
 
         # Configure Settings (like example12.py)
         print("Settings...")
-        settings_object.update_box_model(p["box"])
+        #settings_object.update_box_model(p["box"])
         settings_object.update_sink_fill(p["sink_fill"])
         settings_object.update_simulation_state(p["sim_state"])
         settings_object.update_bc_sides(p["bc_left"], p["bc_right"])
@@ -2022,7 +1989,7 @@ def modeling(results):
         hydraulic_object = results['hydraulic']
         settings_object = results['settings']
         climatic_object = results['climatic']
-        #oceanic_object = results['oceanic_object']
+        oceanic_object = results['oceanic']
         workspace_object = results['workspace']
 
         p = PARAMS[example_key]
@@ -2057,8 +2024,8 @@ def modeling(results):
                 hydraulic=hydraulic_object,
                 settings=settings_object,
                 climatic=climatic_object,
-                #oceanic_object=oceanic_object,
-                #workspace=workspace_object,
+                oceanic_object=oceanic_object,
+                workspace=workspace_object,
                 model_name=model_name,
                 bin_path=CONFIG.get("bin_path", workspace_object.bin_path),
                 config=config,
@@ -2093,8 +2060,8 @@ def modeling(results):
                         hydraulic=hydraulic_object,
                         settings=settings_object,
                         climatic=climatic_object,
-                        #oceanic_object=oceanic_object,
-                        #workspace=workspace_object,
+                        oceanic_object=oceanic_object,
+                        workspace=workspace_object,
                         model_name=model_name,
                         hk_value=hk_value,
                         bin_path=CONFIG.get("bin_path", workspace_object.bin_path),
@@ -2123,7 +2090,7 @@ def modeling(results):
                         hydraulic=hydraulic_object,
                         settings=settings_object,
                         climatic=climatic_object,
-                       # oceanic_object=oceanic_object,
+                        oceanic_object=oceanic_object,
                         workspace=workspace_object,
                         model_name=model_name,
                         hk_value=hk_fixed,  # Use fixed HK for ex04
@@ -2493,7 +2460,7 @@ def ex12_matching_streams(results):
         matching_streams_obj = MatchingStreams(
             geographic=geographic,
             hydrography=hydrography,
-            workspace=workspace,
+            initializing=workspace,
             iteration_label=iteration_label,
             from_calib=False
         )
