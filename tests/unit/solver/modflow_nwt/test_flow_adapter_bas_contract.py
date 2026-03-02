@@ -13,6 +13,7 @@ def _build_adapter(
     initial_type: str = "top",
     initial_value: float = 0.0,
     boundary_conditions: dict[str, object] | None = None,
+    active_bc: list[str] | None = None,
 ) -> FlowToModflowAdapter:
     dem = np.array(
         [
@@ -23,12 +24,20 @@ def _build_adapter(
     )
     bottom = dem - 10.0
 
+    bc = {} if boundary_conditions is None else boundary_conditions
+    # Default active_bc: activate all BCs present in boundary_conditions so
+    # that existing tests continue to pass without requiring explicit lists.
+    if active_bc is None:
+        active_bc = list(bc.keys())
+
     flow = SimpleNamespace(
         initial_conditions=SimpleNamespace(
             h=SimpleNamespace(type=initial_type, value=initial_value)
         ),
-        boundary_conditions={} if boundary_conditions is None else boundary_conditions,
+        boundary_conditions=bc,
+        active_bc=active_bc,
         sinks_sources={},
+        active_sinks_sources=[],
         parameters={},
     )
     domain = SimpleNamespace(zones={})

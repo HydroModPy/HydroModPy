@@ -62,6 +62,7 @@ from hydromodpy.domain import (
 from hydromodpy.data_managers import DataManagers
 from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.process import Flow, Transport
+from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
     ModflowPostprocessOptions,
@@ -526,7 +527,10 @@ if __name__ == '__main__':
     # run = r_mm_day
     rec = R_mm_day_filt[:] / 1000
     run = rec * 0.1
-    first_clim = 'mean'
+    # Read first_clim from [flow.sinks_sources.recharge] in config.toml so
+    # the policy can be changed without modifying this script.
+    _rech_cfg = flow.sinks_sources.get("recharge")
+    first_clim = _rech_cfg.first_clim if _rech_cfg is not None else "mean"
     climatic.update_first_clim(first_clim)
     climatic.update_recharge(rec, sim_state=flow.flow_regime)
     climatic.update_runoff(run, sim_state=flow.flow_regime)
@@ -548,12 +552,16 @@ if __name__ == '__main__':
 
     setting.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
 
+    # Inject recharge into flow (process-level) before pre_processing.
+    flow.set_recharge(FlowRechargeConfig(
+        values=climatic.recharge,
+        first_clim=climatic.first_clim,
+    ))
+
     model_folder = workspace.simulations_folder
     preprocess_options = ModflowPreprocessOptions(
         box=setting.box,
         sink_fill=setting.sink_fill,
-        recharge=climatic.recharge,
-        first_clim=climatic.first_clim,
         check_grid=setting.check_grid,
         plot_cross=setting.plot_cross,
         cross_ylim=tuple(setting.cross_ylim) if setting.cross_ylim else None,
@@ -585,8 +593,6 @@ if __name__ == '__main__':
         options=ModflowPreprocessOptions(
             box=setting.box,
             sink_fill=setting.sink_fill,
-            recharge=climatic.recharge,
-            first_clim=climatic.first_clim,
             check_grid=setting.check_grid,
             plot_cross=setting.plot_cross,
             cross_ylim=tuple(setting.cross_ylim) if setting.cross_ylim else None,

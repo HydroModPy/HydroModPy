@@ -60,6 +60,8 @@ class ProcessSpatial(ABC, Generic[TInitialConditions]):
         self.initial_conditions: TInitialConditions | None = None
         self.boundary_conditions: dict[str, BoundaryCondition] = {}
         self.sinks_sources: dict[str, object] = {}
+        self.active_sinks_sources: list[str] = []
+        self.active_bc: list[str] = []
 
     @staticmethod
     def _coerce_parameter_from_config(parameter_id: str, raw_parameter: object) -> object:

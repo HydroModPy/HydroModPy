@@ -17,12 +17,10 @@ from collections.abc import Mapping
 import flopy
 import numpy as np
 import os
-import sys
 import rasterio
+import sys
 from os.path import dirname, abspath
-import matplotlib.pyplot as plt
 import flopy.utils.binaryfile as fpu
-import flopy.utils.postprocessing as pp
 
 # Root
 df = dirname(dirname(abspath(__file__)))
@@ -33,13 +31,15 @@ from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
 from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from .cross_section_plots import plot_cross_section
+from .diagnostics import check_water_flow_connectivity
 from .discretization import (
     build_spatial_discretization,
     build_temporal_discretization,
     resolve_domain_surfaces,
 )
-from .forcing_to_modflow_adapter import ForcingToModflowAdapter
 from .flow_to_modflow_adapter import FlowToModflowAdapter
+from .intermittency import export_intermittency
 from .nwt_config import (
     ModflowConfig,
     ModflowSpecifParams,
@@ -49,10 +49,17 @@ from .nwt_options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+from .postprocess import (
+    NODATA,
+    compute_groundwater_flux,
+    compute_groundwater_storage,
+    compute_outflow_drain,
+    compute_seepage_areas,
+    compute_watertable_depth,
+    compute_watertable_elevation,
+)
 
 logger = get_logger(__name__)
-
-import matplotlib as mpl
 
 # %% CLASS
 
@@ -141,47 +148,12 @@ class Modflow(Solver):
         else:
             self.modflow_config = ModflowConfig.model_validate(dict(modflow_config))
 
-        runtime_params = specif_params.runtime
-        process_specific_params = specif_params.process_specific
+        self._params: ModflowSpecifParams = specif_params
         self.sgrid_config: VerticalGridConfig | None = specif_params.sgrid
         self.tgrid_config = specif_params.tgrid
 
-        self.mf_version = runtime_params.mf_version
-        self.mf_listunit = runtime_params.mf_listunit
-        self.mf_verbose = runtime_params.mf_verbose
-
-        self.nwt_headtol = runtime_params.nwt_headtol
-        self.nwt_fluxtol = runtime_params.nwt_fluxtol
-        self.nwt_maxiterout = runtime_params.nwt_maxiterout
-        self.nwt_thickfact = runtime_params.nwt_thickfact
-        self.nwt_linmeth = runtime_params.nwt_linmeth
-        self.nwt_iprnwt = runtime_params.nwt_iprnwt
-        self.nwt_ibotav = runtime_params.nwt_ibotav
-        self.nwt_options = runtime_params.nwt_options
-        self.nwt_continue = runtime_params.nwt_continue
-        self.nwt_backflag = runtime_params.nwt_backflag
-        self.nwt_stoptol = runtime_params.nwt_stoptol
-
-        self.dis_itmuni = runtime_params.dis_itmuni
-        self.bas_hnoflo = runtime_params.bas_hnoflo
-
-        self.upw_iphdry = runtime_params.upw_iphdry
-        self.upw_hdry = runtime_params.upw_hdry
-        self.upw_layvka = runtime_params.upw_layvka
-
-        self.evt_nevtop = runtime_params.evt_nevtop
-        self.evt_ievt = runtime_params.evt_ievt
-        self.evt_ipakcb = runtime_params.evt_ipakcb
-
-        self.oc_compact = runtime_params.oc_compact
-        self.wel_ipakcb = runtime_params.wel_ipakcb
-
-        self.lmt_output_file_name = runtime_params.lmt_output_file_name
-        self.lmt_extension = runtime_params.lmt_extension
-        self.lmt_output_format = runtime_params.lmt_output_format
-
-        self.vka = process_specific_params.vka
-        self.exdp = process_specific_params.exdp
+        # dis_itmuni is mutable: may be updated in _build_temporal_discretization
+        self.dis_itmuni = specif_params.runtime.dis_itmuni
 
     def _select_active_dem(self, box: bool) -> None:
         """Select and normalize the active DEM support for the simulation."""
@@ -194,7 +166,7 @@ class Modflow(Solver):
 
         self.box = bool(box)
         dem = np.asarray(dem_source, dtype=float).copy()
-        dem[(dem <= -9999) | (dem >= 9999)] = -9999
+        dem[(dem <= NODATA) | (dem >= 9999)] = NODATA
         self.dem = dem
         self.nrow = int(dem.shape[0])
         self.ncol = int(dem.shape[1])
@@ -212,8 +184,6 @@ class Modflow(Solver):
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
-        self.recharge = options.recharge
-        self.first_clim = options.first_clim
         self.plot_cross = bool(options.plot_cross)
         self.cross_ylim = [] if options.cross_ylim is None else list(options.cross_ylim)
         self.check_grid = bool(options.check_grid)
@@ -277,28 +247,29 @@ class Modflow(Solver):
 
     def _initialize_solver_packages(self) -> None:
         """Initialize FLOPY MODFLOW and NWT solver packages."""
+        r = self._params.runtime
         self.mf = flopy.modflow.Modflow(
             self.model_name,
             exe_name=self.exe,
-            version=self.mf_version,
-            listunit=self.mf_listunit,
-            verbose=self.mf_verbose,
+            version=r.mf_version,
+            listunit=r.mf_listunit,
+            verbose=r.mf_verbose,
             model_ws=self.full_path,
         )
 
         self.nwt = flopy.modflow.ModflowNwt(
             self.mf,
-            headtol=self.nwt_headtol,
-            fluxtol=self.nwt_fluxtol,
-            maxiterout=self.nwt_maxiterout,
-            thickfact=self.nwt_thickfact,
-            linmeth=self.nwt_linmeth,
-            iprnwt=self.nwt_iprnwt,
-            ibotav=self.nwt_ibotav,
-            options=self.nwt_options,
-            Continue=self.nwt_continue,
-            backflag=self.nwt_backflag,
-            stoptol=self.nwt_stoptol,
+            headtol=r.nwt_headtol,
+            fluxtol=r.nwt_fluxtol,
+            maxiterout=r.nwt_maxiterout,
+            thickfact=r.nwt_thickfact,
+            linmeth=r.nwt_linmeth,
+            iprnwt=r.nwt_iprnwt,
+            ibotav=r.nwt_ibotav,
+            options=r.nwt_options,
+            Continue=r.nwt_continue,
+            backflag=r.nwt_backflag,
+            stoptol=r.nwt_stoptol,
         )
 
     def _build_temporal_discretization(self) -> dict[str, object]:
@@ -375,16 +346,6 @@ class Modflow(Solver):
         )
         return adapter.build()
 
-    def _build_forcing_modflow_inputs(self):
-        """Adapt recharge options into MODFLOW-ready EVT/RCH payloads."""
-        adapter = ForcingToModflowAdapter(
-            recharge=self.recharge,
-            nper=int(self.nper),
-            flow_regime=str(self.flow_regime),
-            first_clim=self.first_clim,
-        )
-        return adapter.build()
-
     def pre_processing(
         self,
         flow: object,
@@ -436,6 +397,7 @@ class Modflow(Solver):
         # - ibound = 0: inactive/no-flow cells
         # - ibound < 0: constant-head cells
         # - strt: startup head field and imposed head on constant-head cells
+        self.bas_hnoflo = self._params.runtime.bas_hnoflo
         self.bas = flopy.modflow.ModflowBas(
             self.mf,
             ibound=flow_inputs.ibound,
@@ -457,6 +419,7 @@ class Modflow(Solver):
         self.ss_value = flow_inputs.ss_value
 
         # ---- flopy.modflow.ModflowUpw
+        self.upw_hdry = self._params.runtime.upw_hdry
         self.upw = flopy.modflow.ModflowUpw(
             self.mf,
             laytyp=self.laytype,
@@ -464,10 +427,10 @@ class Modflow(Solver):
             hk=self.hk,
             sy=self.sy,
             ss=self.ss,
-            vka=self.vka,
-            iphdry=self.upw_iphdry,
+            vka=self._params.process_specific.vka,
+            iphdry=self._params.runtime.upw_iphdry,
             hdry=self.upw_hdry,
-            layvka=self.upw_layvka,
+            layvka=self._params.runtime.upw_layvka,
             extension="upw",
             unitnumber=None,
             noparcheck=False,
@@ -475,20 +438,28 @@ class Modflow(Solver):
 
         # %% Source terms
 
-        forcing_inputs = self._build_forcing_modflow_inputs()
-        if forcing_inputs.evt_spd is not None:
+        if flow_inputs.evt_spd is not None:
             self.evt = flopy.modflow.ModflowEvt(
                 self.mf,
-                evtr=forcing_inputs.evt_spd,
+                evtr=flow_inputs.evt_spd,
                 surf=self.dem,
-                nevtop=self.evt_nevtop,
-                exdp=self.exdp,
-                ievt=self.evt_ievt,
-                ipakcb=self.evt_ipakcb,
+                nevtop=self._params.runtime.evt_nevtop,
+                exdp=self._params.process_specific.exdp,
+                ievt=self._params.runtime.evt_ievt,
+                ipakcb=self._params.runtime.evt_ipakcb,
             )
 
         # ---- flopy.modflow.ModflowRch
-        self.rch = flopy.modflow.ModflowRch(self.mf, rech=forcing_inputs.rch_data)
+        if flow_inputs.rch_data is not None:
+            self.rch = flopy.modflow.ModflowRch(self.mf, rech=flow_inputs.rch_data)
+        # Store the RCH schedule as an instance attribute so that post-processing
+        # consumers (e.g. Timeseries) can read it without going back to the flow
+        # object.  This is the *processed* schedule: first_clim has been applied
+        # to period 0 and, when negative_to_evt=True, negative values have already
+        # been clipped to 0 (their absolute values were routed to the EVT package
+        # above).  Format: dict {kper: rate [L/T]} — one entry per stress period.
+        # None when recharge is not in active_sinks_sources.
+        self.recharge = flow_inputs.rch_data
 
         # %% Drain package
 
@@ -503,7 +474,7 @@ class Modflow(Solver):
 
         if flow_inputs.wel_spd:
             self.wel = flopy.modflow.ModflowWel(
-                self.mf, ipakcb=self.wel_ipakcb, stress_period_data=flow_inputs.wel_spd
+                self.mf, ipakcb=self._params.runtime.wel_ipakcb, stress_period_data=flow_inputs.wel_spd
             )
 
         # %% Output control
@@ -519,67 +490,11 @@ class Modflow(Solver):
             stress_period_data=stress_period_data,
             extension=["oc", "hds", "cbc"],
             unitnumber=None,
-            compact=self.oc_compact,
+            compact=self._params.runtime.oc_compact,
         )
         self.oc.reset_budgetunit(fname=self.model_name + ".cbc")
 
-        # Check grid
-        def check_water_flow_connectivity(grid):
-            layers, rows, cols = grid.shape
-            problematic_cells = []  # Store problematic cells
-
-            for z in range(layers - 1):  # Focus on flow between layers
-                logger.debug("Checking layer %d", z)
-                for y in range(rows):
-                    for x in range(cols):
-                        # Skip if the current cell is inactive (e.g., NaN or specific inactive value)
-                        if np.isnan(grid[z, y, x]) or np.isnan(grid[z + 1, y, x]):
-                            continue
-
-                        # Current cell's top and bottom elevations
-                        current_top = grid[z, y, x]
-                        current_bottom = grid[z + 1, y, x]
-
-                        neighbors = []
-
-                        # Collect adjacent neighbors' top and bottom elevations
-                        if y > 0 and not (
-                            np.isnan(grid[z, y - 1, x])
-                            or np.isnan(grid[z + 1, y - 1, x])
-                        ):  # Left neighbor
-                            neighbors.append((grid[z, y - 1, x], grid[z + 1, y - 1, x]))
-                        if y < rows - 1 and not (
-                            np.isnan(grid[z, y + 1, x])
-                            or np.isnan(grid[z + 1, y + 1, x])
-                        ):  # Right neighbor
-                            neighbors.append((grid[z, y + 1, x], grid[z + 1, y + 1, x]))
-                        if x > 0 and not (
-                            np.isnan(grid[z, y, x - 1])
-                            or np.isnan(grid[z + 1, y, x - 1])
-                        ):  # Front neighbor
-                            neighbors.append((grid[z, y, x - 1], grid[z + 1, y, x - 1]))
-                        if x < cols - 1 and not (
-                            np.isnan(grid[z, y, x + 1])
-                            or np.isnan(grid[z + 1, y, x + 1])
-                        ):  # Back neighbor
-                            neighbors.append((grid[z, y, x + 1], grid[z + 1, y, x + 1]))
-
-                        # If there are neighbors, check if water can flow
-                        if neighbors:
-                            can_flow = False
-                            for neighbor_top, neighbor_bottom in neighbors:
-                                # Check if current cell's range overlaps with neighbor's range
-                                if (
-                                    current_bottom <= neighbor_top
-                                    and current_top >= neighbor_bottom
-                                ):
-                                    can_flow = True
-                                    break
-
-                            if not can_flow:
-                                problematic_cells.append((z, y, x))
-
-            return problematic_cells
+        # %% Grid connectivity check
 
         if active_options.check_grid:
             grid_to_check = self.mf.modelgrid.top_botm
@@ -594,78 +509,12 @@ class Modflow(Solver):
                 )
                 self.prob_cells = len(problematic_cells)
 
-        # CrossSection figure
+        # %% Cross-section figure
+
         if active_options.plot_cross:
-
-            fig, axs = plt.subplots(1, 2, figsize=(14, 4), dpi=300)
-            axs = axs.ravel()
-
-            grid_model = self.mf.modelgrid
-
-            modelxsect1 = flopy.plot.PlotCrossSection(
-                model=self.mf, line={"Row": int((grid_model.shape[1]) / 2)}
+            plot_cross_section(
+                self.mf, self.hk, self.sy, self.dem, self.model_name, active_options
             )
-            imhk = modelxsect1.plot_array(
-                self.hk / 24 / 3600,
-                masked_values=[-9999],
-                cmap="jet",
-                alpha=0.5,
-                lw=0.1,
-                ax=axs[0],
-                # norm=mpl.colors.LogNorm(vmin=self.hk.min(), vmax=self.hk.max())
-                norm=mpl.colors.LogNorm(vmin=1e-10, vmax=1e-1),
-            )
-            # modelxsect1.plot_grid(ax=axs[0])
-            axs[0].set_title("West-East (Row), K [m/s]", fontsize=12)
-            if active_options.cross_ylim is None:
-                axs[0].set_ylim(
-                    np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
-                    np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)),
-                )
-            else:
-                axs[0].set_ylim(
-                    active_options.cross_ylim[0], active_options.cross_ylim[1]
-                )
-            axs[0].set_xlabel("Distance [m]")
-            axs[0].set_ylabel("Elevation [m]")
-            # divider = make_axes_locatable(axs[0])
-            # cax = divider.append_axes('right', size='5%', pad=0.05)
-            # fig.colorbar(imhk, cax=cax, orientation='vertical')
-            fig.colorbar(imhk)
-
-            modelxsect2 = flopy.plot.PlotCrossSection(
-                model=self.mf, line={"Column": int((grid_model.shape[2]) / 2)}
-            )
-            imsy = modelxsect2.plot_array(
-                self.sy * 100,
-                masked_values=[-9999],
-                cmap="jet",
-                alpha=0.5,
-                lw=0.1,
-                ax=axs[1],
-                # norm=mpl.colors.LogNorm(vmin=self.sy.min(), vmax=self.sy.max())
-                norm=mpl.colors.LogNorm(vmin=0.1, vmax=100),
-            )
-            # modelxsect2.plot_grid(ax=axs[1])
-            axs[1].set_title("North-South (Column), Sy [%]", fontsize=12)
-            if active_options.cross_ylim is None:
-                axs[1].set_ylim(
-                    np.nanmin(np.ma.masked_equal(self.dem, -9999, copy=False)),
-                    np.nanmax(np.ma.masked_equal(self.dem, -9999, copy=False)),
-                )
-            else:
-                axs[1].set_ylim(
-                    active_options.cross_ylim[0], active_options.cross_ylim[1]
-                )
-            axs[1].set_xlabel("Distance [m]")
-            axs[1].set_ylabel("Elevation [m]")
-            # divider = make_axes_locatable(axs[1])
-            # cax = divider.append_axes('right', size='5%', pad=0.05)
-            # fig.colorbar(imsy, cax=cax, orientation='vertical')
-            fig.colorbar(imsy)
-
-            fig.suptitle(self.model_name.upper(), y=1.0, fontsize=10)
-            fig.tight_layout()
 
     # %% PROCESSING
 
@@ -696,9 +545,9 @@ class Modflow(Solver):
         if options.link_mt3dms:
             lmt = flopy.modflow.ModflowLmt(
                 self.mf,
-                output_file_name=self.lmt_output_file_name,
-                extension=self.lmt_extension,
-                output_file_format=self.lmt_output_format,
+                output_file_name=self._params.runtime.lmt_output_file_name,
+                extension=self._params.runtime.lmt_extension,
+                output_file_format=self._params.runtime.lmt_output_format,
                 unitnumber=None,
             )
 
@@ -717,6 +566,23 @@ class Modflow(Solver):
         return success_model
 
     # %% POST-PROCESSING
+
+    def _setup_postprocess_folders(self) -> None:
+        """Create the output folder hierarchy for post-processing artefacts."""
+        self.save_file = os.path.join(self.full_path, "_postprocess")
+        toolbox.create_folder(self.save_file)
+
+        self.figure_file = os.path.join(self.full_path, "_postprocess", "_figures")
+        toolbox.create_folder(self.figure_file)
+
+        self.temporary_file = os.path.join(self.full_path, "_postprocess", "_temporary")
+        toolbox.create_folder(self.temporary_file)
+
+        self.tifs_file = os.path.join(self.full_path, "_postprocess", "_rasters")
+        toolbox.create_folder(self.tifs_file)
+
+        self.save_fig = os.path.join(self.model_folder, "_figures")
+        toolbox.create_folder(self.save_fig)
 
     def post_processing(
         self,
@@ -737,21 +603,7 @@ class Modflow(Solver):
                 "post_processing options must be a ModflowPostprocessOptions instance."
             )
 
-        # Create folders
-        self.save_file = os.path.join(self.full_path, "_postprocess")
-        toolbox.create_folder(self.save_file)
-
-        self.figure_file = os.path.join(self.full_path, "_postprocess", "_figures")
-        toolbox.create_folder(self.figure_file)
-
-        self.temporary_file = os.path.join(self.full_path, "_postprocess", "_temporary")
-        toolbox.create_folder(self.temporary_file)
-
-        self.tifs_file = os.path.join(self.full_path, "_postprocess", "_rasters")
-        toolbox.create_folder(self.tifs_file)
-
-        self.save_fig = os.path.join(self.model_folder, "_figures")
-        toolbox.create_folder(self.save_fig)
+        self._setup_postprocess_folders()
 
         # %% Load essential data
 
@@ -759,7 +611,7 @@ class Modflow(Solver):
         self.path_file = os.path.join(self.full_path, self.model_name)
 
         # Files have been output in the processing phase and are re-read here
-        self.dem_mask = self.dem < -9999
+        self.dem_mask = self.dem == NODATA
         # heads
         self.head_fpu = fpu.HeadFile(self.path_file + ".hds")
         # fluxes
@@ -775,15 +627,8 @@ class Modflow(Solver):
         if len(self.kper) > 1:
             self.kstp = self.nstp[self.kper] - 1
 
-        # %% Export results over times
-
-        # Fill dictionnaries .npy or .nc over times and create .tif
-
-        # Create dictionnaries for each of the results to extract
-        # x[time]=matrix
-        #   - x: type of output
-        #   - time: time at which it is taken
-        #   - matrix: 2D matrix of values
+        # %% Initialize result dictionaries
+        # x[time] = matrix — one 2-D array per stress period
         self.dict_watertable_elevation = {}
         self.dict_watertable_depth = {}
         self.dict_seepage_areas = {}
@@ -800,7 +645,8 @@ class Modflow(Solver):
 
         logger.debug("Post-processing MODFLOW: %s", self.model_name)
 
-        # Loop over times: fills each of the previous structures and create raster
+        # %% Loop over stress periods
+
         for item, time in enumerate(self.times):
             logger.info(
                 "Post-processing stress period %d/%d", item + 1, len(self.times)
@@ -808,194 +654,128 @@ class Modflow(Solver):
 
             if len(self.times) == 1:
                 self.kstpkper = self.kstpkpers[0]
-
-            if len(self.times) > 1:
+            else:
                 self.kstpkper = (self.kstp[item], self.kper[item])
 
             lead_numb = str(item)
+            export_tif = options.export_all_tif or (item == 0)
 
-            export_tif = True
-            if not options.export_all_tif:
-                if item > 0:
-                    export_tif = False
-
-            # Search watertable data positive values
-            self.head = self.head_fpu.get_data(
-                totim=time
-            )  # self.head_all = self.head_fpu.get_alldata(), self.head_all[item][0]
-            if self.nlay == 1:
-                self.head_data = self.head[0]
-            else:
-                ### Option 1
-                self.head_data = pp.get_water_table(self.head, -100)  # -9999
-                ### Option 2
-                # head_final = np.zeros([self.nrow,self.ncol])
-                # for i in range(0,self.nrow):
-                #     for j in range (0,self.ncol):
-                #         for k in range(0,self.nlay):
-                #             if self.head[k,i,j] > 0:
-                #                 head_final[i,j] = self.head[k,i,j]
-                #                 break
-                # self.head_data = head_final.copy()
+            self.head = self.head_fpu.get_data(totim=time)
 
             if options.watertable_elevation:
-                ### Watertable elevation
-                self.wt_elev = self.head_data.copy()
-                self.wt_elev[self.dem_mask] = -9999
+                self.wt_elev = compute_watertable_elevation(self.head, self.nlay)
+                self.wt_elev[self.dem_mask] = NODATA
                 output_path = (
-                    self.tifs_file + "/watertable_elevation_t(" + lead_numb + ").tif"
+                    self.tifs_file + f"/watertable_elevation_t({lead_numb}).tif"
                 )
                 if export_tif:
                     toolbox.export_tif(
-                        self.dem_watershed_path, self.wt_elev, output_path, -9999
+                        self.dem_watershed_path, self.wt_elev, output_path, NODATA
                     )
                 self.dict_watertable_elevation[item] = self.wt_elev
 
             if options.watertable_depth:
-                ### Watertable depth
-                self.wt_depth = self.dem - self.wt_elev.copy()
-                self.wt_depth[self.dem_mask] = -9999
+                self.wt_depth = compute_watertable_depth(
+                    self.wt_elev, self.dem, self.dem_mask
+                )
                 output_path = (
-                    self.tifs_file + "/watertable_depth_t(" + lead_numb + ").tif"
+                    self.tifs_file + f"/watertable_depth_t({lead_numb}).tif"
                 )
                 if export_tif:
                     toolbox.export_tif(
-                        self.dem_watershed_path, self.wt_depth, output_path, -9999
+                        self.dem_watershed_path, self.wt_depth, output_path, NODATA
                     )
                 self.dict_watertable_depth[item] = self.wt_depth
 
             if options.seepage_areas:
-                ### Seepage areas
-                self.seep_area = self.dem - self.wt_elev.copy()
-                self.seep_area[self.seep_area >= 0] = 0
-                self.seep_area[self.seep_area < 0] = 1
-                self.seep_area[self.dem_mask] = -9999
-                output_path = self.tifs_file + "/seepage_areas_t(" + lead_numb + ").tif"
+                self.seep_area = compute_seepage_areas(
+                    self.wt_elev, self.dem, self.dem_mask
+                )
+                output_path = self.tifs_file + f"/seepage_areas_t({lead_numb}).tif"
                 if export_tif:
                     toolbox.export_tif(
-                        self.dem_watershed_path, self.seep_area, output_path, -9999
+                        self.dem_watershed_path, self.seep_area, output_path, NODATA
                     )
                 self.dict_seepage_areas[item] = self.seep_area
 
             if options.outflow_drain:
-                ### Outflow drain
                 self.drain = self.cbb.get_data(
                     text="DRAINS", kstpkper=self.kstpkper, totim=time
                 )
-                self.out_all = np.zeros((1, self.dis.nrow, self.dis.ncol))
-                sim = 0
-                count = 0
-                for i in range(0, self.dis.nrow):
-                    for j in range(0, self.dis.ncol):
-                        if self.drain_array[i, j] == 1:
-                            self.out_all[sim, i, j] = np.abs(self.drain[0][count][1])
-                            count = count + 1
-                self.out_drn = self.out_all[0]
-                self.out_drn[self.dem_mask] = -9999
-                output_path = self.tifs_file + "/outflow_drain_t(" + lead_numb + ").tif"
-                if options.accumulation_flux:
+                self.out_drn = compute_outflow_drain(
+                    self.drain,
+                    self.drain_array,
+                    self.dis.nrow,
+                    self.dis.ncol,
+                    self.dem_mask,
+                )
+                output_path = self.tifs_file + f"/outflow_drain_t({lead_numb}).tif"
+                if options.accumulation_flux or export_tif:
                     toolbox.export_tif(
-                        self.dem_watershed_path, self.out_drn, output_path, -9999
+                        self.dem_watershed_path, self.out_drn, output_path, NODATA
                     )
-                else:
-                    if export_tif:
-                        toolbox.export_tif(
-                            self.dem_watershed_path, self.out_drn, output_path, -9999
-                        )
                 self.dict_outflow_drain[item] = self.out_drn
 
             if options.groundwater_flux:
-                ### Groundwater flux
-                self.cbb_data = self.cbb.get_data(kstpkper=(0, 0))
-                self.frf = self.cbb.get_data(
-                    text="FLOW RIGHT FACE", kstpkper=self.kstpkper, totim=time
-                )[0]
-                self.fff = self.cbb.get_data(
-                    text="FLOW FRONT FACE", kstpkper=self.kstpkper, totim=time
-                )[0]
-                if self.nlay == 1:
-                    self.flux = np.sqrt(self.frf**2 + self.fff**2)
-                if self.nlay > 1:
-                    self.flf = self.cbb.get_data(
-                        text="FLOW LOWER FACE", kstpkper=self.kstpkper, totim=time
-                    )[
-                        0
-                    ]  # > 1 lay
-                    self.flux = np.sqrt(self.frf**2 + self.fff**2 + self.flf**2)
-                self.flux_top = self.flux[0]
-                self.flux_top[self.dem_mask] = -9999
+                self.flux_top = compute_groundwater_flux(
+                    self.cbb, self.kstpkper, time, self.nlay, self.dem_mask
+                )
                 output_path = (
-                    self.tifs_file + "/groundwater_flux_t(" + lead_numb + ").tif"
+                    self.tifs_file + f"/groundwater_flux_t({lead_numb}).tif"
                 )
                 if export_tif:
                     toolbox.export_tif(
-                        self.dem_watershed_path, self.flux_top, output_path, -9999
+                        self.dem_watershed_path, self.flux_top, output_path, NODATA
                     )
                 self.dict_groundwater_flux[item] = self.flux_top
 
             if options.groundwater_storage:
-                ### Groundwater storage
-                self.wt_sto = self.wt_elev.copy()
-                self.wt_sto[self.dem < 0] = np.nan
-                self.wt_sto = (
-                    (self.wt_sto - self.zbot[-1])
-                    * (self.resolution**2)
-                    * np.nanmean(self.sy)
+                self.wt_sto = compute_groundwater_storage(
+                    self.wt_elev, self.zbot, self.sy, self.dem, self.resolution
                 )
                 output_path = (
-                    self.tifs_file + "/groundwater_storage_t(" + lead_numb + ").tif"
+                    self.tifs_file + f"/groundwater_storage_t({lead_numb}).tif"
                 )
                 if export_tif:
                     toolbox.export_tif(
-                        self.dem_watershed_path, self.wt_sto, output_path, -9999
+                        self.dem_watershed_path, self.wt_sto, output_path, NODATA
                     )
                 self.dict_groundwater_storage[item] = self.wt_sto
 
             if options.accumulation_flux:
-                ### Accumulation flux
                 accumulated_flow = masstransfer.Masstransfer(
                     self.geographic,
-                    "outflow_drain_t(" + lead_numb + ").tif",
-                    "tracept_t(" + lead_numb + ").shp",
-                    "accumulation_flux_t(" + lead_numb + ").tif",
+                    f"outflow_drain_t({lead_numb}).tif",
+                    f"tracept_t({lead_numb}).shp",
+                    f"accumulation_flux_t({lead_numb}).tif",
                     extraction_folder=self.save_file,
                 )
                 accumulated_flow.trace_cumulated()
                 output_path = (
-                    self.tifs_file + "/accumulation_flux_t(" + lead_numb + ").tif"
+                    self.tifs_file + f"/accumulation_flux_t({lead_numb}).tif"
                 )
                 with rasterio.open(output_path) as src:
                     self.dict_accumulation_flux[item] = src.read(1)
 
-        ### Save dictionaries to npy
-        if options.watertable_elevation:
-            logger.info("Exporting watertable elevation time series")
-            np.save(
-                self.save_file + "/watertable_elevation", self.dict_watertable_elevation
-            )
-        if options.watertable_depth:
-            logger.info("Exporting watertable depth time series")
-            np.save(self.save_file + "/watertable_depth", self.dict_watertable_depth)
-        if options.seepage_areas:
-            logger.info("Exporting seepage areas time series")
-            np.save(self.save_file + "/seepage_areas", self.dict_seepage_areas)
-        if options.outflow_drain:
-            logger.info("Exporting outflow drain time series")
-            np.save(self.save_file + "/outflow_drain", self.dict_outflow_drain)
-        if options.groundwater_flux:
-            logger.info("Exporting groundwater flux time series")
-            np.save(self.save_file + "/groundwater_flux", self.dict_groundwater_flux)
-        if options.groundwater_storage:
-            logger.info("Exporting groundwater storage time series")
-            np.save(
-                self.save_file + "/groundwater_storage", self.dict_groundwater_storage
-            )
-        if options.accumulation_flux:
-            logger.info("Exporting accumulation flux time series")
-            np.save(self.save_file + "/accumulation_flux", self.dict_accumulation_flux)
+        # %% Save time-series dictionaries to .npy
+
+        _timeseries_exports = [
+            (options.watertable_elevation, self.dict_watertable_elevation, "watertable_elevation"),
+            (options.watertable_depth, self.dict_watertable_depth, "watertable_depth"),
+            (options.seepage_areas, self.dict_seepage_areas, "seepage_areas"),
+            (options.outflow_drain, self.dict_outflow_drain, "outflow_drain"),
+            (options.groundwater_flux, self.dict_groundwater_flux, "groundwater_flux"),
+            (options.groundwater_storage, self.dict_groundwater_storage, "groundwater_storage"),
+            (options.accumulation_flux, self.dict_accumulation_flux, "accumulation_flux"),
+        ]
+        for flag, data, name in _timeseries_exports:
+            if flag:
+                logger.info("Exporting %s time series", name.replace("_", " "))
+                np.save(self.save_file + "/" + name, data)
+
+        # %% Persistency index
 
         if options.persistency_index:
-            ### Persistency index
             logger.info("Exporting persistency index maps")
             acc_npy_raw = np.load(
                 os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
@@ -1005,7 +785,7 @@ class Modflow(Solver):
                 with rasterio.open(self.geographic.watershed_box_buff_dem) as src:
                     mask = src.read(1)
                 acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=(mask < 0))
-            zero = acc_npy[0] * 0
+            zero = acc_npy_raw[0] * 0
             for i in range(len(acc_npy)):
                 tempo = acc_npy[i].copy()
                 tempo[tempo > 0] = 1
@@ -1014,242 +794,75 @@ class Modflow(Solver):
             pi_export = days_flux.copy()
             self.pi = np.ma.masked_where(days_flux <= 0, days_flux)
             self.dict_persistency_index[0] = self.pi
-            pi_export[days_flux <= 0] = -9999
-            pi_export[mask <= 0] = -9999
-            output_path = self.tifs_file + "/persistency_index_t(" + "-" + ").tif"
-            toolbox.export_tif(self.dem_watershed_path, pi_export, output_path, -9999)
-
+            pi_export[days_flux <= 0] = NODATA
+            pi_export[mask <= 0] = NODATA
+            output_path = self.tifs_file + "/persistency_index_t(-).tif"
+            toolbox.export_tif(self.dem_watershed_path, pi_export, output_path, NODATA)
             np.save(self.save_file + "/persistency_index", self.dict_persistency_index)
 
-        if options.intermittency_daily:
-            ### Intermittency daily
-            logger.info("Exporting daily intermittency maps")
+        # %% Intermittency (daily / weekly / monthly / yearly)
+
+        _any_intermittency = (
+            options.intermittency_daily
+            or options.intermittency_weekly
+            or options.intermittency_monthly
+            or options.intermittency_yearly
+        )
+        if _any_intermittency:
             acc_npy_raw = np.load(
                 os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
             ).item()
-            acc_npy = list(acc_npy_raw.items())[:]
-            if len(acc_npy_raw) >= 365:
-                inf = 0
-                sup = 365
-                step = int(round(len(acc_npy_raw) / 365))
-                compt = 0
-                for i in range(step):
-                    logger.debug("Processing daily intermittency t: %d / %d", i, step)
-                    interv = list(acc_npy)[inf:sup]
-                    for key in range(len(interv)):
-                        with rasterio.open(self.geographic.watershed_dem) as src:
-                            mask = src.read(1)
-                        interv[key] = np.ma.masked_array(
-                            interv[key][1], mask=(mask < 0)
-                        )
-                    zero = acc_npy_raw[0] * 0
-                    for j in range(len(interv)):
-                        tempo = interv[j].copy()
-                        tempo[tempo > 0] = 1
-                        zero = zero + tempo
-                    days_flux = zero.copy()
-                    days_flux = np.ma.masked_array(days_flux, mask=(mask < 0))
-                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux <= 0))
-                    for k in range(len(interv)):
-                        tempo = np.ma.masked_where(interv[k] <= 0, interv[k])
-                        tempo[days_flux < 365] = 0
-                        tempo[days_flux == 365] = 1
-                        tempo_export = tempo.copy()
-                        self.tempo = np.ma.masked_where(interv[k] <= 0, tempo)
-                        self.dict_intermittency_daily[compt] = self.tempo
-                        tempo_export[interv[k] <= 0] = -9999
-                        tempo_export[mask <= 0] = -9999
-                        output_path = (
-                            self.tifs_file
-                            + "/intermittency_daily_t("
-                            + str(compt)
-                            + ").tif"
-                        )
-                        # if export_tif==True:
-                        toolbox.export_tif(
-                            self.geographic.watershed_dem,
-                            tempo_export,
-                            output_path,
-                            -9999,
-                        )
-                        compt += 1
-                    inf += 365
-                    sup += 365
-            np.save(
-                self.save_file + "/intermittency_daily", self.dict_intermittency_daily
+
+        if options.intermittency_daily:
+            export_intermittency(
+                label="daily",
+                window_size=365,
+                acc_npy_raw=acc_npy_raw,
+                result_dict=self.dict_intermittency_daily,
+                tifs_file=self.tifs_file,
+                watershed_dem=self.geographic.watershed_dem,
+                save_file=self.save_file,
+                save_filename="intermittency_daily",
+                toolbox=toolbox,
             )
 
         if options.intermittency_weekly:
-            logger.info("Exporting weekly intermittency maps")
-            acc_npy_raw = np.load(
-                os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
-            ).item()
-            acc_npy = list(acc_npy_raw.items())[:]
-            if len(acc_npy_raw) >= 52:
-                inf = 0
-                sup = 52
-                step = int(round(len(acc_npy_raw) / 52))
-                compt = 0
-                for i in range(step):
-                    logger.debug("Processing weekly intermittency t: %d / %d", i, step)
-                    interv = list(acc_npy)[inf:sup]
-                    for key in range(len(interv)):
-                        with rasterio.open(self.geographic.watershed_dem) as src:
-                            mask = src.read(1)
-                        interv[key] = np.ma.masked_array(
-                            interv[key][1], mask=(mask < 0)
-                        )
-                    zero = acc_npy_raw[0] * 0
-                    for j in range(len(interv)):
-                        tempo = interv[j].copy()
-                        tempo[tempo > 0] = 1
-                        zero = zero + tempo
-                    days_flux = zero.copy()
-                    days_flux = np.ma.masked_array(days_flux, mask=(mask < 0))
-                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux <= 0))
-                    for k in range(len(interv)):
-                        tempo = np.ma.masked_where(interv[k] <= 0, interv[k])
-                        tempo[days_flux < 52] = 0
-                        tempo[days_flux == 52] = 1
-                        tempo_export = tempo.copy()
-                        self.tempo = np.ma.masked_where(interv[k] <= 0, tempo)
-                        self.dict_intermittency_daily[compt] = self.tempo
-                        tempo_export[interv[k] <= 0] = -9999
-                        tempo_export[mask <= 0] = -9999
-                        output_path = (
-                            self.tifs_file
-                            + "/intermittency_weekly_t("
-                            + str(compt)
-                            + ").tif"
-                        )
-                        # if export_tif==True:
-                        toolbox.export_tif(
-                            self.geographic.watershed_dem,
-                            tempo_export,
-                            output_path,
-                            -9999,
-                        )
-                        compt += 1
-                    inf += 52
-                    sup += 52
-            np.save(
-                self.save_file + "/intermittency_weekly", self.dict_intermittency_weekly
+            export_intermittency(
+                label="weekly",
+                window_size=52,
+                acc_npy_raw=acc_npy_raw,
+                result_dict=self.dict_intermittency_weekly,
+                tifs_file=self.tifs_file,
+                watershed_dem=self.geographic.watershed_dem,
+                save_file=self.save_file,
+                save_filename="intermittency_weekly",
+                toolbox=toolbox,
             )
 
         if options.intermittency_monthly:
-            ### Intermittency monthly
-            logger.info("Exporting monthly intermittency maps")
-            acc_npy_raw = np.load(
-                os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
-            ).item()
-            acc_npy = list(acc_npy_raw.items())[:]
-            if len(acc_npy_raw) >= 12:
-                inf = 0
-                sup = 12
-                step = int(round(len(acc_npy_raw) / 12))
-                compt = 0
-                for i in range(step):
-                    logger.debug("Processing monthly intermittency t: %d / %d", i, step)
-                    interv = list(acc_npy)[inf:sup]
-                    for key in range(len(interv)):
-                        with rasterio.open(self.geographic.watershed_dem) as src:
-                            mask = src.read(1)
-                        interv[key] = np.ma.masked_array(
-                            interv[key][1], mask=(mask < 0)
-                        )
-                    zero = acc_npy_raw[0] * 0
-                    for j in range(len(interv)):
-                        tempo = interv[j].copy()
-                        tempo[tempo > 0] = 1
-                        zero = zero + tempo
-                    days_flux = zero.copy()
-                    days_flux = np.ma.masked_array(days_flux, mask=(mask < 0))
-                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux <= 0))
-                    for k in range(len(interv)):
-                        tempo = np.ma.masked_where(interv[k] <= 0, interv[k])
-                        tempo[days_flux < 12] = 0
-                        tempo[days_flux == 12] = 1
-                        tempo_export = tempo.copy()
-                        self.tempo = np.ma.masked_where(interv[k] <= 0, tempo)
-                        self.dict_intermittency_monthly[compt] = self.tempo
-                        tempo_export[interv[k] <= 0] = -9999
-                        tempo_export[mask <= 0] = -9999
-                        output_path = (
-                            self.tifs_file
-                            + "/intermittency_monthly_t("
-                            + str(compt)
-                            + ").tif"
-                        )
-                        toolbox.export_tif(
-                            self.geographic.watershed_dem,
-                            tempo_export,
-                            output_path,
-                            -9999,
-                        )
-                        compt += 1
-                    inf += 12
-                    sup += 12
-            np.save(
-                self.save_file + "/intermittency_monthly",
-                self.dict_intermittency_monthly,
+            export_intermittency(
+                label="monthly",
+                window_size=12,
+                acc_npy_raw=acc_npy_raw,
+                result_dict=self.dict_intermittency_monthly,
+                tifs_file=self.tifs_file,
+                watershed_dem=self.geographic.watershed_dem,
+                save_file=self.save_file,
+                save_filename="intermittency_monthly",
+                toolbox=toolbox,
             )
 
         if options.intermittency_yearly:
-            ### Intermittency monthly
-            logger.info("Exporting yearly intermittency maps")
-            acc_npy_raw = np.load(
-                os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
-            ).item()
-            acc_npy = list(acc_npy_raw.items())[:]
-            if len(acc_npy_raw) >= 1:
-                inf = 0
-                sup = 1
-                step = int(round(len(acc_npy_raw) / 1))
-                compt = 0
-                for i in range(step):
-                    logger.debug("Processing yearly intermittency t: %d / %d", i, step)
-                    interv = list(acc_npy)[inf:sup]
-                    for key in range(len(interv)):
-                        with rasterio.open(self.geographic.watershed_dem) as src:
-                            mask = src.read(1)
-                        interv[key] = np.ma.masked_array(
-                            interv[key][1], mask=(mask < 0)
-                        )
-                    zero = acc_npy_raw[0] * 0
-                    for j in range(len(interv)):
-                        tempo = interv[j].copy()
-                        tempo[tempo > 0] = 1
-                        zero = zero + tempo
-                    days_flux = zero.copy()
-                    days_flux = np.ma.masked_array(days_flux, mask=(mask < 0))
-                    days_flux = np.ma.masked_array(days_flux, mask=(days_flux <= 0))
-                    for k in range(len(interv)):
-                        tempo = np.ma.masked_where(interv[k] <= 0, interv[k])
-                        tempo[days_flux < 1] = 0
-                        tempo[days_flux == 1] = 1
-                        tempo_export = tempo.copy()
-                        self.tempo = np.ma.masked_where(interv[k] <= 0, tempo)
-                        self.dict_intermittency_monthly[compt] = self.tempo
-                        tempo_export[interv[k] <= 0] = -9999
-                        tempo_export[mask <= 0] = -9999
-                        output_path = (
-                            self.tifs_file
-                            + "/intermittency_yearly_t("
-                            + str(compt)
-                            + ").tif"
-                        )
-                        toolbox.export_tif(
-                            self.geographic.watershed_dem,
-                            tempo_export,
-                            output_path,
-                            -9999,
-                        )
-                        compt += 1
-                    inf += 12
-                    sup += 12
-            np.save(
-                self.save_file + "/intermittency_yearly",
-                self.dict_intermittency_monthly,
+            export_intermittency(
+                label="yearly",
+                window_size=1,
+                acc_npy_raw=acc_npy_raw,
+                result_dict=self.dict_intermittency_yearly,
+                tifs_file=self.tifs_file,
+                watershed_dem=self.geographic.watershed_dem,
+                save_file=self.save_file,
+                save_filename="intermittency_yearly",
+                toolbox=toolbox,
             )
 
 

@@ -15,7 +15,7 @@ catch_name = "example12"
 # Root output directory where all results will be stored.
 out_dir_path = "../results"
 # Path to the input data folder (observations, climate, GIS layers, etc.).
-data_path = "data/"
+data_path = "../example12/data/"
 
 
 # ----------------------------------------------------------------------
@@ -699,3 +699,11 @@ type = "dirichlet"
 value = 1.0
 unit = "m"
 data_value = false
+
+# ----------------------------------------------------------------------
+# Launcher run configuration
+# ----------------------------------------------------------------------
+[run]
+# Phases to execute in order.
+# Remove a phase name to skip it (e.g. remove "particles" to skip MODPATH).
+phases = ["setup", "data", "flow", "particles", "transport"]
