@@ -212,6 +212,13 @@ export_mode = "lite"
 #   profile tabule (mode tabulated), interpolation "linear" ou "step".
 
 # ----------------------------------------------------------------------
+# Flow runtime selectors
+# ----------------------------------------------------------------------
+[flow]
+flow_regime = "transient"
+param_list = ["K", "Ss", "Sy"]
+
+# ----------------------------------------------------------------------
 # K
 # ----------------------------------------------------------------------
 
@@ -364,7 +371,6 @@ type = "robin"
 value = 1.0
 
 [flow.bc.dirichlet.ocean]
-application_domain = "top"
 #Boundary-condition type.
 type = "dirichlet"
 #Robin/DRN value (conductance-like coefficient).
@@ -372,7 +378,6 @@ value = 1.0
 data_value = true  # Optional flag to use data values (e.g. from oceanic) instead of a fixed value.
 
 [flow.bc.dirichlet.stream]
-application_domain = "top"
 # Boundary-condition type.
 type = "dirichlet"
 # Robin/DRN value (conductance-like coefficient).

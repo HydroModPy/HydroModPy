@@ -1,22 +1,27 @@
 # Field UML
 
-PlantUML diagrams for the `hydromodpy.field` module.
+This folder remains the module-local UML entry point for `hydromodpy.field`.
+The canonical `.wsd` files are now stored in the documentation tree.
 
-## Files
+## Source Of Truth
 
-- `field_classes.wsd`: class diagram (core abstractions + square case classes).
-- `field_spatial_cases_classes.wsd`: focused class diagram for
-  `Field` (parent), `FieldSquare`, and `GeologyField`.
-- `field_activity.wsd`: activity diagram of the demo workflow.
-- `field_sequence.wsd`: sequence diagram of runtime interactions.
+- `docs/readthedocs/source/architecture/field/diagrams/field_classes.wsd`
+- `docs/readthedocs/source/architecture/field/diagrams/field_spatial_cases_classes.wsd`
+- `docs/readthedocs/source/architecture/field/diagrams/field_activity.wsd`
+- `docs/readthedocs/source/architecture/field/diagrams/field_sequence.wsd`
+
+## Related Documentation
+
+- `docs/readthedocs/source/architecture/field/index.rst`
+- `docs/readthedocs/source/architecture/field/field-uml-diagrams.rst`
 
 ## Render
 
 From repository root:
 
 ```bash
-plantuml hydromodpy/field/uml/field_classes.wsd
-plantuml hydromodpy/field/uml/field_spatial_cases_classes.wsd
-plantuml hydromodpy/field/uml/field_activity.wsd
-plantuml hydromodpy/field/uml/field_sequence.wsd
+plantuml docs/readthedocs/source/architecture/field/diagrams/field_classes.wsd
+plantuml docs/readthedocs/source/architecture/field/diagrams/field_spatial_cases_classes.wsd
+plantuml docs/readthedocs/source/architecture/field/diagrams/field_activity.wsd
+plantuml docs/readthedocs/source/architecture/field/diagrams/field_sequence.wsd
 ```

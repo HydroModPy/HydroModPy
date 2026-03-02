@@ -45,7 +45,7 @@ def test_synthetic_regular_builds_expected_arrays(monkeypatch):
 
     cfg = mod.TMeshConfig(
         genmtd="synthetic_regular",
-        sim_state="transient",
+        flow_regime="transient",
         nper=3,
         lenper=2,
         firstpersteady=True,
@@ -77,7 +77,11 @@ def test_from_chron_parses_dates_and_computes_perlen(monkeypatch, tmp_path: Path
     )
 
     builder = mod.TMesh_Generation(
-        config=mod.TMeshConfig(genmtd="from_chron", chron_path=str(chron_path))
+        config=mod.TMeshConfig(
+            genmtd="from_chron",
+            chron_path=str(chron_path),
+            flow_regime="steady",
+        )
     )
     tmesh = builder.run()
 
@@ -92,10 +96,10 @@ def test_invalid_genmtd_raises():
         _ = mod.TMesh_Generation(config=mod.TMeshConfig(genmtd="unknown"))
 
 
-def test_invalid_sim_state_raises():
+def test_invalid_flow_regime_raises():
     mod = _load_tmesh_module()
-    with pytest.raises(ValueError, match="Invalid sim_state"):
-        _ = mod.TMesh_Generation(config=mod.TMeshConfig(sim_state="unknown"))
+    with pytest.raises(ValueError, match="Invalid flow_regime"):
+        _ = mod.TMesh_Generation(config=mod.TMeshConfig(flow_regime="unknown"))
 
 
 def test_invalid_nper_raises():

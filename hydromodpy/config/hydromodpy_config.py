@@ -16,7 +16,7 @@ Usage::
     cfg.domain.zone_ids
     cfg.data.geology.id
     cfg.flow.param["K"]
-    cfg.modflow.process_specific.vka
+    cfg.modflownwt.process_specific.vka
 """
 
 import tomllib
@@ -31,15 +31,31 @@ from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.data_managers.data_managers_config import DataManagersConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
-from hydromodpy.solver.modflow_nwt.modflow_config import ModflowConfig
+from hydromodpy.process.transport.transport_config import TransportConfig
+from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
+from hydromodpy.solver.solver_config import SolverConfig
 from hydromodpy.watershed.workspace_config import WorkspaceConfig
+
+
+class RunConfig(BaseModel):
+    """Controls which phases the launcher executes."""
+
+    phases: list[str] = Field(
+        default=["setup", "data", "flow", "particles", "transport"],
+        description=(
+            "Ordered list of phases to run. "
+            "Allowed values: 'setup', 'data', 'flow', 'particles', 'transport'."
+        ),
+    )
 
 
 class HydroModPyConfig(BaseModel):
     """
     Top-level configuration for HydroModPy.
 
-    Aggregates sub-components (workspace, geographic, domain, data, flow, modflow)
+    Aggregates sub-components (workspace, geographic, domain, data, flow,
+    transport, solver, modflownwt, modflow6)
     into a centralized,
     hierarchical model and validates optional flow parameters as
     `FieldParamConfig` dictionaries.
@@ -70,15 +86,44 @@ class HydroModPyConfig(BaseModel):
     flow: FlowConfig = Field(
         default_factory=FlowConfig,
         description=(
-            "Flow process configuration with parameter payloads validated "
-            "from [flow.param.<id>] TOML sections."
+            "Flow process configuration with declared parameter ids in "
+            "[flow].param_list and payloads validated from [flow.param.<id>] "
+            "TOML sections."
         ),
     )
-    modflow: ModflowConfig = Field(
+    transport: TransportConfig = Field(
+        default_factory=TransportConfig,
+        description=(
+            "Transport process configuration, including particle-tracking "
+            "parameters under [transport.particle.parameters]."
+        ),
+    )
+    solver: SolverConfig = Field(
+        default_factory=SolverConfig,
+        description=(
+            "Global solver selection loaded from [solver], including "
+            "the active solver_engine."
+        ),
+    )
+    modflownwt: ModflowConfig = Field(
         default_factory=ModflowConfig,
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
-            "[modflow.runtime], [modflow.process_specific], [modflow.sgrid]."
+            "[modflownwt.runtime], [modflownwt.process_specific], [modflownwt.sgrid]."
+        ),
+    )
+    modflow6: Modflow6Config = Field(
+        default_factory=Modflow6Config,
+        description=(
+            "Expert MODFLOW 6 package configuration loaded from "
+            "[modflow6.runtime], [modflow6.process_specific], [modflow6.sgrid]."
+        ),
+    )
+    run: RunConfig = Field(
+        default_factory=RunConfig,
+        description=(
+            "Launcher run configuration. Controls which phases are executed. "
+            "Defaults to all phases if the [run] section is absent from the TOML."
         ),
     )
 
@@ -111,6 +156,11 @@ class HydroModPyConfig(BaseModel):
                 "Section [initializing] is no longer supported. "
                 "Use [workspace] instead."
             )
+        if "modflow" in raw:
+            raise ValueError(
+                "Section [modflow] is no longer supported. "
+                "Use [solver], [modflownwt], and [modflow6] sections instead."
+            )
         workspace_section = raw.get("workspace", {})
 
         section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
@@ -122,7 +172,14 @@ class HydroModPyConfig(BaseModel):
             "domain": ({}, lambda data, b: _load_standard_section(data, DomainConfig, b)),
             "data": ({}, _load_data_section),
             "flow": ({}, _load_flow_section),
-            "modflow": ({}, _load_modflow_section),
+            "transport": (
+                {},
+                lambda data, b: _load_standard_section(data, TransportConfig, b),
+            ),
+            "solver": ({}, _load_solver_section),
+            "modflownwt": ({}, _load_modflow_nwt_section),
+            "modflow6": ({}, _load_modflow6_section),
+            "run": ({}, lambda data, b: _load_standard_section(data, RunConfig, b)),
         }
 
         parsed_sections: dict[str, Any] = {}
@@ -136,6 +193,11 @@ class HydroModPyConfig(BaseModel):
     def initializing(self) -> WorkspaceConfig:
         """Backward-compatible alias. Prefer `workspace`."""
         return self.workspace
+
+    @property
+    def modflow(self) -> ModflowConfig:
+        """Backward-compatible alias. Prefer `modflownwt`."""
+        return self.modflownwt
 
 
 def _is_path_field(field_info: FieldInfo) -> bool:
@@ -193,10 +255,28 @@ def _load_data_section(section_data: Any, base: Path) -> DataManagersConfig:
     return DataManagersConfig.from_toml_section(section_data, base_dir=base)
 
 
-def _load_modflow_section(section_data: Any, base: Path) -> ModflowConfig:
-    """Load modflow section."""
+def _load_solver_section(section_data: Any, base: Path) -> SolverConfig:
+    """Load solver section."""
+    if section_data is None:
+        section_data = {}
+    if not isinstance(section_data, Mapping):
+        raise ValueError("TOML section must be a mapping for SolverConfig")
+    return SolverConfig.model_validate(dict(section_data))
+
+
+def _load_modflow_nwt_section(section_data: Any, base: Path) -> ModflowConfig:
+    """Load modflownwt section."""
     if section_data is None:
         section_data = {}
     if not isinstance(section_data, Mapping):
         raise ValueError("TOML section must be a mapping for ModflowConfig")
     return ModflowConfig.model_validate(dict(section_data))
+
+
+def _load_modflow6_section(section_data: Any, base: Path) -> Modflow6Config:
+    """Load modflow6 section."""
+    if section_data is None:
+        section_data = {}
+    if not isinstance(section_data, Mapping):
+        raise ValueError("TOML section must be a mapping for Modflow6Config")
+    return Modflow6Config.model_validate(dict(section_data))

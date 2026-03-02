@@ -4,7 +4,7 @@
 
 [tmesh]
 itmuni = "d"
-sim_state = "steady"
+flow_regime = "steady"
 genmtd = "synthetic_regular"
 nper = 10
 lenper = 1
@@ -16,4 +16,3 @@ firstpersteady = true
 tsmult = 1
 ntsp = 1
 temporal_nodata = -9999.0
-
