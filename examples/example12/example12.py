@@ -106,6 +106,32 @@ if __name__ == '__main__':
     data_path = cfg.workspace.data_path
 
     workspace = hmp.Workspace(config=cfg.workspace)
+
+    # ------------------------------------------------------------------ #
+    # EXEMPLE : instancier GeographicConfig directement en Python,
+    # sans passer par le fichier TOML.  Décommenter le bloc ci-dessous
+    # et commenter la ligne  ``geographic = hmp.Geographic(cfg.geographic, workspace)``
+    # pour l'utiliser.
+    #
+    # from hydromodpy.geographic.geographic_config import GeographicConfig
+    #
+    # geo_cfg = GeographicConfig(
+    #     catch_def      = "from_outlet_coord",
+    #     dem_init_path  = Path("../../data/Brittany/dem/regional dem.tif"),
+    #     cell_size      = 100.0,
+    #     x_outlet       = 265611.933,
+    #     y_outlet       = 6784182.776,
+    #     snap_dist      = 50,
+    #     buff_area      = 20.0,
+    #     polyg_shp_path = Path("../../data/Brittany/shape/watershed.shp"),
+    #     crs_project    = "EPSG:2154",
+    #     dem_correc_type = "breach",
+    #     bottom_path    = Path("../../data/Brittany/dem/regional_dem_full.tif"),
+    #     reg_fold       = Path("../../data/Brittany/dem/correcflow"),
+    # )
+    # geographic = hmp.Geographic(geo_cfg, workspace)
+    # ------------------------------------------------------------------ #
+
     geographic = hmp.Geographic(cfg.geographic, workspace)
     surface_topo = geographic.get_domain_surface_topo()
     domain = Domain(
@@ -119,7 +145,7 @@ if __name__ == '__main__':
             raster_support=surface_topo.support,
         )
         domain.set_zone("geology", geology)
-        
+
     flow = Flow(config=cfg.flow)
 
     setting = Settings()
