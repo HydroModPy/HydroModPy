@@ -10,6 +10,8 @@ This activity diagram proposes a practical workflow to add a new
 Diagram source
 --------------
 
+.. uml:: diagrams/process_extension_activity.wsd
+
 .. literalinclude:: diagrams/process_extension_activity.wsd
    :language: text
    :caption: PlantUML (.wsd) source - process extension activity diagram
