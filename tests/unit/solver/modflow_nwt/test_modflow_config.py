@@ -18,7 +18,7 @@ def test_modflow_config_defaults_match_runtime_defaults():
     cfg = ModflowConfig()
     params = ModflowSpecifParams.from_config(cfg)
 
-    assert params.runtime.mf_version == "mfnwt"
+    assert params.runtime.mf_version == "nwt"
     assert params.runtime.nwt_headtol == 1e-4
     assert params.runtime.nwt_fluxtol == 500.0
     assert params.process_specific.vka == 1.0
@@ -45,7 +45,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "nwt"',
+                'solver_engine = "modflownwt"',
                 "",
                 "[modflownwt.runtime]",
                 'nwt_options = "SIMPLE"',
@@ -136,7 +136,7 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "mf6"',
+                'solver_engine = "modflow6"',
                 "",
                 "[modflow6.runtime]",
                 'mf6_executable_name = "mf6_custom"',

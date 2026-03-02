@@ -19,7 +19,7 @@ class ModflowRuntimeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     mf_version: Annotated[str, ParamLevel("expert")] = Field(
-        default="mfnwt",
+        default="nwt",
         description="MODFLOW executable/version identifier passed to FloPy.",
     )
     mf_listunit: Annotated[int, ParamLevel("expert")] = Field(
@@ -196,7 +196,7 @@ class ModflowRuntimeParams:
     """Runtime container for MODFLOW-NWT package settings."""
 
     # Core MODFLOW object
-    mf_version: str = "mfnwt"
+    mf_version: str = "nwt"
     mf_listunit: int = 2
     mf_verbose: bool = False
 
