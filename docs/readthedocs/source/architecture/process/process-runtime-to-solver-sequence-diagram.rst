@@ -16,6 +16,8 @@ It focuses on:
 Diagram source
 --------------
 
+.. uml:: diagrams/runtime_to_solver_sequence.wsd
+
 .. literalinclude:: diagrams/runtime_to_solver_sequence.wsd
    :language: text
    :caption: PlantUML (.wsd) source - process runtime to solver sequence
