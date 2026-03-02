@@ -42,8 +42,8 @@ wbt.verbose = False
 # COMPLETE MODFLOW - Enchaîne: preprocessing → processing → postprocessing
 # ============================================================================
 
-def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, initializing,
-                    model_name, bin_path, config,cfg):
+def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,oceanic_object,
+                    model_name, bin_path, workspace,config,cfg):
     """
     Complete MODFLOW workflow: Pre-processing → Processing → Post-processing
 
@@ -87,7 +87,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, init
             cross_ylim = config.get("postprocessing_modflow", {}).get("cross_ylim", [0, 200])
         )
         # Determine model folder
-        model_folder = initializing.simulations_folder
+        model_folder = workspace.simulations_folder
 
         # Create Modflow instance (like example12.py)
         print("Creating MODFLOW model...")
@@ -99,7 +99,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, init
             model_name=settings.model_name,
             bin_path=bin_path,
             # Model settings
-            box=settings.box,
+           #box=settings.box,
             sink_fill=settings.sink_fill,
             sim_state=settings.sim_state,
             dis_perlen=settings.dis_perlen,
@@ -111,7 +111,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic, init
             cross_ylim=settings.cross_ylim,
             check_grid=settings.check_grid,
             # Boundary settings
-            sea_level=oceanic.MSL if oceanic else None,
+            #sea_level=oceanic_object.MSL if oceanic_object else None,
             bc_left=settings.bc_left,
             bc_right=settings.bc_right,
             # Climatic settings
