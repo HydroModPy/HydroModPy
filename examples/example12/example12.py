@@ -830,7 +830,7 @@ if __name__ == '__main__':
     model_modpath = None
 
     if solver_engine != SolverEngine.MODFLOW_NWT:
-        print("MODPATH workflow is currently available only with solver_engine='nwt'. Skipping section B.")
+        print("MODPATH workflow is currently available only with solver_engine='modflownwt'. Skipping section B.")
     else:
 
         list_folder = glob.glob(os.path.join(str(workspace.simulations_folder), vers+'*'))

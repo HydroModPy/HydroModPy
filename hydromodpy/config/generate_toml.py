@@ -11,6 +11,9 @@ Usage::
 
 from __future__ import annotations
 
+import types as _stdlib_types
+import typing
+from enum import Enum
 from pathlib import Path
 from typing import Any, get_args, get_origin
 
@@ -180,8 +183,15 @@ def _fmt(val: Any) -> str:
         return ""
     if isinstance(val, bool):
         return "true" if val else "false"
+    if isinstance(val, Enum):
+        return _fmt(val.value)
+    if isinstance(val, Path):
+        return f'"{ val}"'
     if isinstance(val, str):
-        return f'"{val}"'
+        return f'"{ val}"'
+    if isinstance(val, (list, tuple)):
+        inner = ", ".join(_fmt(item) for item in val)
+        return f"[{inner}]"
     return str(val)
 
 
@@ -244,6 +254,10 @@ def _constraints_from_field(field_info: FieldInfo) -> list[str]:
         if all(isinstance(a, str) for a in args):
             opts = ", ".join(f'"{a}"' for a in args)
             parts.append(f"one of: {opts}")
+    # Enum values
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        opts = ", ".join(f'"{ e.value}"' for e in annotation)
+        parts.append(f"one of: {opts}")
     return parts
 
 
@@ -258,18 +272,30 @@ def _default_value(field_info: FieldInfo) -> Any:
     return field_info.default  # may be None (optional with no value)
 
 
+def _is_union_origin(origin: Any) -> bool:
+    """Return True if *origin* represents a Union type."""
+    if origin is typing.Union:
+        return True
+    if hasattr(_stdlib_types, "UnionType") and origin is _stdlib_types.UnionType:
+        return True
+    return False
+
+
 def _placeholder(field_info: FieldInfo) -> str:
     """Return a TOML-safe placeholder value for a field with no set default.
 
     For Literal types the first allowed value is used; for scalars a
     zero-equivalent is returned; everything else falls back to ``""``.
+
+    Numeric constraints (``gt``, ``ge``) are respected so that the
+    placeholder never violates the validation rule.
     """
     annotation = field_info.annotation
     origin = get_origin(annotation)
 
     # Unwrap Optional[X] / Union[X, None] to get the inner type
     inner = annotation
-    if origin is not None:
+    if _is_union_origin(origin):
         args = get_args(annotation)
         non_none = [a for a in args if a is not type(None)]
         if non_none:
@@ -284,22 +310,98 @@ def _placeholder(field_info: FieldInfo) -> str:
             # Bare Literal at top level
             if all(isinstance(a, (str, int, float)) for a in args):
                 return _fmt(args[0])
+    elif origin is not None:
+        # Non-union parameterised type (list, dict, etc.) — check for Literal
+        args = get_args(annotation)
+        if args and all(isinstance(a, (str, int, float)) for a in args):
+            return _fmt(args[0])
 
     # Bare Literal at top level (origin is typing.Literal)
     top_args = get_args(annotation)
     if top_args and all(isinstance(a, (str, int, float)) for a in top_args):
         return _fmt(top_args[0])
 
-    name = getattr(inner, "__name__", "")
-    if name == "str":
+    # Container types (list, dict, including parameterised forms)
+    inner_origin = get_origin(inner)
+    inner_name = getattr(inner, "__name__", "")
+    if inner_origin is list or inner is list or inner_name == "list":
+        return "[]"
+    if inner_origin is dict or inner is dict or inner_name == "dict":
+        return "{}"
+
+    # Extract numeric lower-bound constraints from metadata
+    min_bound: float | None = None
+    min_exclusive = False
+    for meta in field_info.metadata:
+        cls_name = type(meta).__name__
+        if cls_name == "Gt":
+            min_bound = meta.gt
+            min_exclusive = True
+        elif cls_name == "Ge":
+            min_bound = meta.ge
+            min_exclusive = False
+
+    if inner_name == "str":
         return '""'
-    if name == "int":
+    if inner_name == "int":
+        if min_bound is not None and min_exclusive:
+            return str(int(min_bound) + 1)
+        if min_bound is not None:
+            return str(int(min_bound))
         return "0"
-    if name == "float":
+    if inner_name == "float":
+        if min_bound is not None and min_exclusive:
+            return str(float(min_bound) + 1.0)
+        if min_bound is not None:
+            return str(float(min_bound))
         return "0.0"
-    if name == "bool":
+    if inner_name == "bool":
         return "false"
     return '""'
+
+
+def _resolve_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
+    """Return the concrete BaseModel subclass if the field holds one, else None.
+
+    Container fields (``list[M]``, ``dict[str, M]``) are **not** considered
+    nested model fields — only direct ``M`` or ``Optional[M]`` / ``Union[M, N]``.
+    """
+    annotation = field_info.annotation
+
+    # Direct BaseModel subclass
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return annotation
+
+    origin = get_origin(annotation)
+    if origin is None:
+        return None
+
+    # Skip container types (list, dict, set, tuple, …)
+    if isinstance(origin, type) and issubclass(origin, (list, dict, set, tuple, frozenset)):
+        return None
+
+    # Handle Union types (typing.Union, types.UnionType)
+    args = get_args(annotation)
+    if not args:
+        return None
+
+    non_none = [a for a in args if a is not type(None)]
+    base_models = [a for a in non_none if isinstance(a, type) and issubclass(a, BaseModel)]
+
+    if not base_models:
+        return None
+
+    # Prefer the default_factory's concrete type for discriminated unions
+    if field_info.default_factory is not None:
+        try:
+            instance = field_info.default_factory()
+            if isinstance(instance, BaseModel):
+                return type(instance)
+        except Exception:
+            pass
+    if isinstance(field_info.default, BaseModel):
+        return type(field_info.default)
+    return base_models[0]
 
 
 def _header(profile: str, modules: list[str]) -> list[str]:
@@ -314,11 +416,40 @@ def _header(profile: str, modules: list[str]) -> list[str]:
     ]
 
 
+def _render_field_comment(
+    lines: list[str],
+    field_info: FieldInfo,
+) -> None:
+    """Append description + meta comment lines for a single field."""
+    desc = field_info.description or ""
+    if desc:
+        for desc_line in desc.split(". "):
+            desc_line = desc_line.strip()
+            if desc_line:
+                if not desc_line.endswith("."):
+                    desc_line += "."
+                lines.append(f"# {desc_line}")
+
+    meta_parts = [f"Type: {_type_label(field_info)}"]
+    meta_parts.extend(_constraints_from_field(field_info))
+
+    default = _default_value(field_info)
+    if default is _UNDEFINED:
+        meta_parts.append("REQUIRED")
+    elif default is None:
+        meta_parts.append("Optional")
+    else:
+        meta_parts.append(f"Default: {_fmt(default)}")
+
+    lines.append(f"# {' | '.join(meta_parts)}")
+
+
 def _section(
     section_name: str,
     model_cls: type[BaseModel],
     threshold: int,
     values: dict | None = None,
+    _depth: int = 0,
 ) -> list[str]:
     """Generate a [section] with filtered fields.
 
@@ -327,29 +458,88 @@ def _section(
     values : dict or None
         When provided, these values override defaults for the value line.
         A ``None`` entry means the field is left commented out.
+    _depth : int
+        Recursion depth (0 = top-level section header with banner).
     """
-    lines = []
-    title = model_cls.__doc__ or section_name
-    title = title.strip().split("\n")[0]
+    lines: list[str] = []
 
-    lines.append("")
-    lines.append("# " + "-" * 70)
-    lines.append(f"# {title}")
-    lines.append("# " + "-" * 70)
-    lines.append("")
-    lines.append(f"[{section_name}]")
+    # ----- classify fields ------------------------------------------------
+    scalar_fields: list[tuple[str, FieldInfo, str]] = []   # (name, info, level)
+    nested_fields: list[tuple[str, FieldInfo, str, type[BaseModel]]] = []
 
-    has_fields = False
     for name, field_info in model_cls.model_fields.items():
+        # Skip fields explicitly excluded from serialisation (e.g. Transport)
+        if getattr(field_info, "exclude", False):
+            continue
+
         level = _get_param_level(field_info)
         if PROFILES.get(level, 0) > threshold:
             continue
 
-        has_fields = True
+        nested_cls = _resolve_basemodel_type(field_info)
+        if nested_cls is not None:
+            nested_fields.append((name, field_info, level, nested_cls))
+        else:
+            scalar_fields.append((name, field_info, level))
 
-        # Description
+    # ----- section header -------------------------------------------------
+    if _depth == 0:
+        title = (model_cls.__doc__ or section_name).strip().split("\n")[0]
+        lines.append("")
+        lines.append("# " + "-" * 70)
+        lines.append(f"# {title}")
+        lines.append("# " + "-" * 70)
+
+    # Emit [section_name] when there are scalar fields (or nothing at all)
+    if scalar_fields:
+        lines.append("")
+        lines.append(f"[{section_name}]")
+
+        for name, field_info, level in scalar_fields:
+            _render_field_comment(lines, field_info)
+
+            default = _default_value(field_info)
+
+            # Value line — prefer override value when provided
+            if values is not None and name in values and values[name] is not None:
+                lines.append(f"{name} = {_fmt(values[name])}")
+            elif default is not _UNDEFINED and default is not None:
+                lines.append(f"{name} = {_fmt(default)}")
+            elif level == "user":
+                lines.append(f"{name} = {_placeholder(field_info)}")
+            else:
+                lines.append(f"# {name} =")
+
+            lines.append("")
+
+    elif not nested_fields:
+        # No fields at all at this profile level
+        lines.append("")
+        lines.append(f"[{section_name}]")
+        lines.append("# (no parameters at this profile level)")
+        lines.append("")
+
+    # ----- nested sub-tables ----------------------------------------------
+    for name, field_info, level, nested_cls in nested_fields:
+        sub_section = f"{section_name}.{name}"
+
+        # Resolve override values for the sub-section
+        sub_values = None
+        if values is not None and name in values:
+            raw = values[name]
+            if isinstance(raw, dict):
+                sub_values = raw
+            elif isinstance(raw, BaseModel):
+                sub_values = raw.model_dump()
+
+        default = _default_value(field_info)
+        has_factory = field_info.default_factory is not None
+        is_truly_optional = (default is None and not has_factory)
+
+        # Description comment before the sub-table
         desc = field_info.description or ""
         if desc:
+            lines.append("")
             for desc_line in desc.split(". "):
                 desc_line = desc_line.strip()
                 if desc_line:
@@ -357,39 +547,17 @@ def _section(
                         desc_line += "."
                     lines.append(f"# {desc_line}")
 
-        # Meta line: type, constraints, default
-        meta_parts = [f"Type: {_type_label(field_info)}"]
-        meta_parts.extend(_constraints_from_field(field_info))
-
-        default = _default_value(field_info)
-        if default is _UNDEFINED:
-            meta_parts.append("REQUIRED")
-        elif default is None:
-            meta_parts.append("Optional")
+        if is_truly_optional and sub_values is None:
+            # Optional with no default and no override: comment out
+            lines.append(f"# [{sub_section}]")
+            lines.append("")
         else:
-            meta_parts.append(f"Default: {_fmt(default)}")
-
-        lines.append(f"# {' | '.join(meta_parts)}")
-
-        # Value line — prefer override value when provided
-        if values is not None and name in values and values[name] is not None:
-            lines.append(f"{name} = {_fmt(values[name])}")
-        elif default is not _UNDEFINED and default is not None:
-            # Has a real non-None default: write it uncommented
-            lines.append(f"{name} = {_fmt(default)}")
-        elif level == "user":
-            # User-level field with no concrete default (required or optional):
-            # show uncommented with a type-appropriate placeholder so the file
-            # is directly editable without manual uncommenting.
-            lines.append(f"{name} = {_placeholder(field_info)}")
-        else:
-            # Dev / expert optional field: comment out (non-essential)
-            lines.append(f"# {name} =")
-
-        lines.append("")
-
-    if not has_fields:
-        lines.append("# (no parameters at this profile level)")
-        lines.append("")
+            # Has a default_factory or concrete override: expand recursively
+            lines.extend(
+                _section(
+                    sub_section, nested_cls, threshold,
+                    values=sub_values, _depth=_depth + 1,
+                )
+            )
 
     return lines
