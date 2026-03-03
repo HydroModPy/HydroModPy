@@ -134,13 +134,9 @@ class Modpath(Solver):
         
         # Parameters for the Modpath transport solver
         particle_params = {}
-        transport_modpath = getattr(transport, 'modpath', None)
-        if transport_modpath is None:
-            transport_modpath = getattr(transport, 'particle', None)
-        if transport_modpath is not None:
-            raw_params = getattr(transport_modpath, 'parameters', None)
-            if isinstance(raw_params, Mapping):
-                particle_params = dict(raw_params)
+        raw_params = getattr(transport.modpath, 'parameters', None)
+        if isinstance(raw_params, Mapping):
+            particle_params = dict(raw_params)
 
         def _pick(key, explicit, default):
             if explicit is not None:

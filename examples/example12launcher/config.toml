@@ -19,6 +19,8 @@ name = "Example 12 launcher baseline"
 description = "Transient flow, particle tracking, and nitrate transport."
 
 [[simulation.process]]
+# Unique identifier for this process within the simulation plan.
+id = "flow_main"
 # Requested process family executed by the launcher.
 type = "flow"
 # Ordered list of active solver names for this process.
@@ -26,6 +28,8 @@ type = "flow"
 solvers = ["modflownwt"]
 
 [[simulation.process]]
+# Unique identifier for this process within the simulation plan.
+id = "transport_main"
 # Requested process family executed by the launcher.
 type = "transport"
 # Ordered list of active solver names for this process.

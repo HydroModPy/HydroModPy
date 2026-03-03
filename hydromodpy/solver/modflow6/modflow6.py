@@ -623,10 +623,8 @@ class Modflow6Transport:
 		self.exe = getattr(model_modflow, "exe", "mf6")
 
 		conc_params = {}
-		comp = getattr(transport, "modflow6gwt", None)
-		if comp is None:
-			comp = getattr(transport, "conc", None)
-		if comp is not None and isinstance(getattr(comp, "parameters", None), Mapping):
+		comp = transport.modflow6gwt
+		if isinstance(getattr(comp, "parameters", None), Mapping):
 			conc_params = dict(comp.parameters)
 		conc_params.update(kwargs)
 

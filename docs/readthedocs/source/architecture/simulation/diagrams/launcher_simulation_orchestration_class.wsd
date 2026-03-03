@@ -1,0 +1,97 @@
+@startuml
+title Launcher - Simulation Orchestration Class Diagram
+
+package "launchers" {
+  class HydroModPyLauncher {
+    +cfg: HydroModPyConfig
+    +result: RunResult
+    +run()
+    +_create_simulation_plan()
+    +_run_setup()
+    +_run_data()
+  }
+
+  class RunResult {
+    +simulation_plan: SimulationPlan
+    +process_runs_by_id: dict[str, ProcessRun]
+    +models_by_run_id: dict[str, object]
+    +flow: Flow
+    +transport: Transport
+    +model_modflow: Modflow | Modflow6
+    +model_modpath: Modpath | None
+    +model_transport: Mt3dms | Modflow6Transport | None
+  }
+}
+
+package "hydromodpy.simulation" {
+  class SimulationPlanner {
+    +build(config)
+    +build_default(flow_solver)
+  }
+
+  class SimulationPlan {
+    +name: str
+    +description: str
+    +runs: tuple[ProcessRun, ...]
+  }
+
+  class ProcessRun {
+    +id: str
+    +process_id: str
+    +process_type: str
+    +solver: str
+    +depends_on: tuple[str, ...]
+  }
+
+  class SimulationRunner {
+    +execute(plan, state)
+  }
+}
+
+package "hydromodpy.process" {
+  class Flow
+  class Transport
+}
+
+package "hydromodpy.solver" {
+  interface "Flow Solver Wrapper" as FlowSolver
+  class Modflow
+  class Modflow6
+
+  interface "Transport Solver Wrapper" as TransportSolver
+  class Modpath
+  class Mt3dms
+  class Modflow6Transport
+}
+
+HydroModPyLauncher --> SimulationPlanner : builds
+HydroModPyLauncher --> SimulationRunner : delegates execution
+HydroModPyLauncher *-- RunResult : owns mutable state
+
+SimulationPlanner ..> SimulationPlan : returns
+SimulationPlanner ..> ProcessRun : produces
+
+SimulationPlan *-- "0..*" ProcessRun : runs
+
+RunResult --> SimulationPlan : stores
+RunResult --> ProcessRun : indexes by id
+RunResult --> Flow : setup phase
+RunResult --> Transport : setup phase
+RunResult --> FlowSolver : last flow model
+RunResult --> TransportSolver : last transport model
+
+SimulationRunner ..> SimulationPlan : consumes ordered runs
+SimulationRunner ..> RunResult : reads and updates
+SimulationRunner ..> ProcessRun : dispatches
+SimulationRunner ..> Flow : uses runtime process
+SimulationRunner ..> Transport : uses runtime process
+SimulationRunner ..> FlowSolver : instantiates from run.solver
+SimulationRunner ..> TransportSolver : instantiates from run.solver
+
+FlowSolver <|.. Modflow
+FlowSolver <|.. Modflow6
+
+TransportSolver <|.. Modpath
+TransportSolver <|.. Mt3dms
+TransportSolver <|.. Modflow6Transport
+@enduml
