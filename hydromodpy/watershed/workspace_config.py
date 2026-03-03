@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.config.param_level import ParamLevel
 
@@ -14,9 +14,20 @@ class WorkspaceConfig(BaseModel):
     model outputs and intermediate results.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     catch_name: Annotated[str, ParamLevel("user")] = Field(
-        description="Name of the watershed/catchment (used as folder name)."
+        description="Name of the watershed/catchment (used as folder name).",
+        min_length=1,
     )
+
+    @field_validator("catch_name", mode="before")
+    @classmethod
+    def _validate_catch_name(cls, value: object) -> str:
+        text = str(value).strip()
+        if not text:
+            raise ValueError("catch_name cannot be empty or whitespace-only")
+        return text
     out_dir_path: Annotated[Path, ParamLevel("user")] = Field(
         description="Root output directory where all results will be stored."
     )

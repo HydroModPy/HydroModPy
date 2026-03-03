@@ -10,11 +10,13 @@ Concrete process schemas should typically inherit from this class and add
 process-specific validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProcessSpatialConfig(BaseModel):
     """Base Pydantic schema shared by `ProcessSpatial` child configurations."""
+
+    model_config = ConfigDict(extra="forbid")
 
     param_list: list[str] = Field(
         default_factory=list,

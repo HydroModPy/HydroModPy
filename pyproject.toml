@@ -92,6 +92,10 @@ docs = [
 ]
 ide = ["spyder>=6.0", "jupyterlab>=4.0"]
 
+[project.scripts]
+hmp = "hydromodpy.__main__:main"
+hydromodpy = "hydromodpy.__main__:main"
+
 [project.urls]
 Homepage = "https://hydromodpy-docs.readthedocs.io/en/latest/"
 Documentation = "https://hydromodpy-docs.readthedocs.io/en/latest/"
@@ -103,7 +107,7 @@ Issues = "https://github.com/HydroModPy/HydroModPy/issues"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["hydromodpy*", "launcher*"]
+include = ["hydromodpy*", "launchers*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*"]
