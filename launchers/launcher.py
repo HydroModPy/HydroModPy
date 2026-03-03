@@ -1,9 +1,51 @@
-"""HydroModPy launcher with legacy and simulation-plan execution modes."""
+"""HydroModPy launcher driven by an explicit simulation plan.
+
+This module is the user-facing entry point that turns a declarative TOML file
+into a concrete modeling run.
+
+The launcher deliberately stays thin:
+
+1. it loads and validates the configuration,
+2. it prepares shared runtime objects used by all solvers,
+3. it asks the simulation layer to resolve the declared process list,
+4. it delegates the actual solver execution to ``SimulationRunner``.
+
+That separation matters because three concerns stay isolated:
+
+- ``HydroModPyLauncher`` handles I/O-oriented bootstrap work
+  (paths, raw TOML, hooks, shared objects),
+- ``SimulationPlanner`` handles dependency logic
+  (for example: a transport run may require a specific flow solver first),
+- ``SimulationRunner`` handles side effects
+  (writing models, launching binaries, storing produced models).
+
+In practice, the launcher consumes a TOML structure like::
+
+    [simulation]
+    name = "Example 12 launcher baseline"
+    description = "Transient flow, particle tracking, and nitrate transport."
+
+    [[simulation.process]]
+    id = "flow_main"
+    type = "flow"
+    solvers = ["modflownwt"]
+
+    [[simulation.process]]
+    id = "transport_no3"
+    type = "transport"
+    solvers = ["mt3dms"]
+
+The launcher itself does not hard-code "run flow then transport". It only:
+
+- prepares the shared state,
+- builds a plan from the TOML,
+- wires legacy hooks around process families,
+- executes the resolved plan.
+"""
 
 from __future__ import annotations
 
 import os
-import pickle
 import tomllib
 from pathlib import Path
 
@@ -14,17 +56,8 @@ from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.domain import Domain
 from hydromodpy.process import Flow, Transport
-from hydromodpy.simulation import ProcessRun, SimulationPlan, SimulationPlanner
-from hydromodpy.solver import SolverEngine
-from hydromodpy.solver.modflow_nwt import (
-    Modflow,
-    ModflowPostprocessOptions,
-    ModflowPreprocessOptions,
-    ModflowRunOptions,
-    Modpath,
-    Mt3dms,
-)
-from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
+from hydromodpy.simulation import SimulationPlanner
+from hydromodpy.simulation.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.watershed.climatic import Climatic
 from hydromodpy.watershed.settings import Settings
 from launchers.hook_registry import HookRegistry
@@ -32,9 +65,44 @@ from launchers.run_result import RunResult
 
 
 class HydroModPyLauncher:
-    """Orchestrates the HydroModPy pipeline driven by a TOML configuration file."""
+    """High-level orchestration layer between configuration and execution.
+
+    This class is intentionally small. It does not implement solver-specific
+    logic itself; instead, it prepares a ``RunResult`` state object and then
+    hands a resolved ``SimulationPlan`` to ``SimulationRunner``.
+
+    Example
+    -------
+    The typical usage is:
+
+    >>> from pathlib import Path
+    >>> launcher = HydroModPyLauncher(Path("examples/example12launcher/config.toml"))
+    >>> result = launcher.run()
+
+    After ``run()``, ``result`` contains both the shared objects created during
+    bootstrap (workspace, domain, flow config, transport config) and the models
+    produced by executed runs.
+    """
 
     def __init__(self, config_path: str | Path) -> None:
+        """Load configuration, raw TOML, and user hooks for one launcher run.
+
+        Parameters
+        ----------
+        config_path:
+            Path to the TOML file that declares both the shared HydroModPy
+            sections (workspace, flow, transport, etc.) and the
+            ``[simulation]`` block.
+
+        Notes
+        -----
+        Two views of the same configuration are kept on purpose:
+
+        - ``self.cfg`` is the validated Pydantic representation used by the core
+          code,
+        - ``raw_toml`` is the untyped dictionary kept for hooks that still read
+          example-specific custom sections directly.
+        """
         self.config_path = Path(config_path).resolve()
         self.cfg = HydroModPyConfig.from_toml(self.config_path)
 
@@ -49,25 +117,70 @@ class HydroModPyLauncher:
         self.hooks = HookRegistry.discover(self.config_path)
 
     def run(self) -> RunResult:
-        """Execute the pipeline and return the populated result object."""
-        if self.cfg.simulation.has_processes():
-            planner = SimulationPlanner()
-            plan = planner.build(self.cfg.simulation)
-            self.result.simulation_plan = plan
-            self.result.process_runs_by_id = {run.id: run for run in plan.runs}
+        """Execute one full launcher session and return the populated runtime state.
+
+        The execution order is:
+
+        1. validate that the TOML declares at least one simulation process,
+        2. build the resolved execution plan,
+        3. create the shared structural objects (setup),
+        4. load shared forcings (data),
+        5. execute planned process runs through ``SimulationRunner``.
+
+        A useful mental model is:
+
+        - ``setup`` and ``data`` run once per launcher session,
+        - planned process runs (flow, transport, etc.) run once per declared
+          process/solver pair.
+
+        For example, if the TOML declares:
+
+        - one ``flow`` process with ``["modflownwt", "modflow6"]``
+        - one ``transport`` process with ``["mt3dms", "modflow6gwt"]``
+
+        then ``run()`` will still perform setup/data only once, but it will
+        later execute four concrete solver runs in the resolved order.
+        """
+        if not self.cfg.simulation.has_processes():
+            raise ValueError(
+                "Launchers require an explicit [simulation] block with at least "
+                "one [[simulation.process]] entry."
+            )
+
+        plan = self._create_simulation_plan()
+        self.result.simulation_plan = plan
+        # Keep a direct lookup table by run id because downstream code and
+        # hooks often need to reason about concrete runs, not just the flat list.
+        self.result.process_runs_by_id = {run.id: run for run in plan.runs}
 
         self._run_setup()
         self._run_data()
-
-        if self.result.simulation_plan and not self.result.simulation_plan.is_empty():
-            self._run_simulation_plan(self.result.simulation_plan)
-        else:
-            self._run_legacy_processes()
+        # The runner owns the fine-grained solver dispatch. The launcher only
+        # adapts legacy hooks to the new "process family" transitions.
+        SimulationRunner(
+            callbacks=ProcessCallbacks(
+                before_process=lambda process_type: self._call_process_hook("before", process_type),
+                after_process=lambda process_type: self._call_process_hook("after", process_type),
+            )
+        ).execute(plan, self.result)
 
         return self.result
 
     def _run_setup(self) -> None:
-        """Initialise the shared structural objects used by later phases."""
+        """Initialise the structural objects shared by all later process runs.
+
+        This method builds the stable "session context" of the simulation:
+
+        - workspace and folders,
+        - geographic context and topographic support,
+        - domain and optional geology zone,
+        - flow and transport process objects,
+        - generic launcher settings.
+
+        It runs once, even when the simulation plan later contains several
+        solver runs. For example, two flow solvers still reuse the same domain
+        geometry and the same declared flow configuration.
+        """
         r = self.result
         cfg = self.cfg
 
@@ -91,7 +204,19 @@ class HydroModPyLauncher:
         self.hooks.call("on_after_setup", r)
 
     def _run_data(self) -> None:
-        """Load the external forcings shared by all process runs."""
+        """Load the external forcings shared by all process runs.
+
+        This phase prepares data that are not specific to one solver backend:
+
+        - climatic forcing series,
+        - oceanic data and mean sea level,
+        - injection of mean sea level into the ocean boundary condition when
+          that boundary exists.
+
+        The important design point is that this is done once before any solver
+        run. A later ``flow`` run and a later ``transport`` run both read from
+        the same prepared runtime state.
+        """
         r = self.result
         cfg = self.cfg
         ws = r.workspace
@@ -114,299 +239,39 @@ class HydroModPyLauncher:
 
         self.hooks.call("on_after_data", r)
 
-    def _run_legacy_processes(self) -> None:
-        """Execute the historical fixed phase order."""
-        flow_solver = self._legacy_flow_solver_name()
+    def _create_simulation_plan(self):
+        """Resolve the declarative ``[simulation]`` block into concrete runs.
 
-        self.hooks.call("on_before_flow", self.result)
-        flow_model = self._run_flow_solver(flow_solver)
-        self.hooks.call("on_after_flow", self.result)
+        ``SimulationPlanner`` converts a compact declaration into explicit
+        executable units. For example, this input:
 
-        self.hooks.call("on_before_transport", self.result)
-        if flow_solver == "modflownwt":
-            self._run_transport_solver("modpath", flow_model)
-            self._run_transport_solver("mt3dms", flow_model)
-        else:
-            self._run_transport_solver("modflow6gwt", flow_model)
-        self.hooks.call("on_after_transport", self.result)
+        - ``type="flow", solvers=["modflownwt"]``
+        - ``type="transport", solvers=["mt3dms"]``
 
-    def _run_simulation_plan(self, plan: SimulationPlan) -> None:
-        """Execute the resolved process runs in declared order."""
-        current_process_type: str | None = None
-
-        for run in plan.runs:
-            if run.process_type != current_process_type:
-                if current_process_type is not None:
-                    self._call_process_hook("after", current_process_type)
-                self._call_process_hook("before", run.process_type)
-                current_process_type = run.process_type
-
-            self._run_process_run(run)
-
-        if current_process_type is not None:
-            self._call_process_hook("after", current_process_type)
+        becomes two concrete runs where the second one explicitly depends on
+        the first. That explicit plan is what makes execution deterministic and
+        reusable outside the launcher as well.
+        """
+        planner = SimulationPlanner()
+        return planner.build(self.cfg.simulation)
 
     def _call_process_hook(self, moment: str, process_type: str) -> None:
-        """Call the legacy hook naming scheme for the given process type."""
+        """Bridge the new process-family execution model to legacy hook names.
+
+        Parameters
+        ----------
+        moment:
+            Either ``"before"`` or ``"after"``.
+        process_type:
+            Process family name such as ``"flow"`` or ``"transport"``.
+
+        Example
+        -------
+        ``_call_process_hook("before", "flow")`` resolves to the legacy hook
+        name ``on_before_flow``.
+
+        This keeps existing ``hooks.py`` files working while the core runtime is
+        now organized around a resolved simulation plan instead of hard-coded
+        launcher phases.
+        """
         self.hooks.call(f"on_{moment}_{process_type}", self.result)
-
-    def _run_process_run(self, run: ProcessRun) -> None:
-        """Dispatch one resolved process run to the matching implementation."""
-        if run.process_type == "flow":
-            self._run_flow_solver(run.solver, run=run)
-            return
-
-        if run.process_type == "transport":
-            flow_model = self._resolve_required_flow_model(run)
-            self._run_transport_solver(run.solver, flow_model, run=run)
-            return
-
-        raise ValueError(f"Unsupported simulation process type '{run.process_type}'.")
-
-    def _resolve_required_flow_model(self, run: ProcessRun):
-        """Return the flow model required by a downstream process run."""
-        if len(run.depends_on) != 1:
-            raise ValueError(
-                f"Process run '{run.id}' expected exactly one flow dependency, "
-                f"got {len(run.depends_on)}."
-            )
-
-        dependency_id = run.depends_on[0]
-        if dependency_id not in self.result.models_by_run_id:
-            raise ValueError(
-                f"Process run '{run.id}' depends on '{dependency_id}', "
-                "but that run has not produced a model yet."
-            )
-
-        return self.result.models_by_run_id[dependency_id]
-
-    def _legacy_flow_solver_name(self) -> str:
-        """Return the legacy flow solver name from the global solver config."""
-        if self.cfg.solver.solver_engine == SolverEngine.MODFLOW_NWT:
-            return "modflownwt"
-        return "modflow6"
-
-    def _build_preprocess_options(self) -> ModflowPreprocessOptions:
-        """Create the common flow pre-processing options."""
-        settings = self.result.settings
-        return ModflowPreprocessOptions(
-            box=settings.box,
-            sink_fill=settings.sink_fill,
-            check_grid=settings.check_grid,
-            plot_cross=settings.plot_cross,
-            cross_ylim=tuple(settings.cross_ylim) if settings.cross_ylim else None,
-        )
-
-    def _flow_model_name(self, run: ProcessRun | None) -> str:
-        """Return a stable model name for the flow solver run."""
-        base_name = self.result.settings.model_name
-        if run is None or self._has_single_process_run("flow"):
-            return base_name
-        return f"{base_name}_{self._run_label(run)}"
-
-    def _transport_suffix(self, run: ProcessRun | None) -> str:
-        """Return a stable transport suffix for the solver run."""
-        if run is None:
-            return "_mt_s1"
-        concentration_runs = self._concentration_transport_runs()
-        if len(concentration_runs) <= 1:
-            return "_mt_s1"
-        for index, planned in enumerate(concentration_runs, start=1):
-            if planned.id == run.id:
-                return f"_mt_s{index}"
-        return "_mt_s1"
-
-    def _concentration_transport_runs(self) -> list[ProcessRun]:
-        """Return the planned transport runs that write concentration outputs."""
-        plan = self.result.simulation_plan
-        if plan is None:
-            return []
-        return [
-            run
-            for run in plan.runs
-            if run.process_type == "transport" and run.solver in {"mt3dms", "modflow6gwt"}
-        ]
-
-    def _has_single_process_run(self, process_type: str) -> bool:
-        """Return True when the simulation plan contains exactly one run of one type."""
-        plan = self.result.simulation_plan
-        if plan is None:
-            return False
-        return sum(1 for run in plan.runs if run.process_type == process_type) == 1
-
-    def _run_label(self, run: ProcessRun) -> str:
-        """Return a short, stable label for one planned process run."""
-        plan = self.result.simulation_plan
-        if plan is None:
-            return run.process_id
-
-        same_type_runs = [planned for planned in plan.runs if planned.process_type == run.process_type]
-        for index, planned in enumerate(same_type_runs, start=1):
-            if planned.id == run.id:
-                prefix = {
-                    "flow": "f",
-                    "transport": "t",
-                }.get(run.process_type, "r")
-                return f"{prefix}{index}"
-
-        # Fallback for defensive robustness if the plan changed unexpectedly.
-        return run.process_id
-
-    def _run_flow_solver(self, solver_name: str, run: ProcessRun | None = None):
-        """Build, run, and record one flow solver instance."""
-        r = self.result
-        ws = r.workspace
-        preprocess_options = self._build_preprocess_options()
-        model_name = self._flow_model_name(run)
-
-        if solver_name == "modflownwt":
-            model_modflow = Modflow(
-                r.geographic,
-                model_folder=ws.simulations_folder,
-                model_name=model_name,
-                bin_path=ws.bin_path,
-                modflow_config=self.cfg.modflownwt,
-                preprocess_options=preprocess_options,
-            )
-        elif solver_name == "modflow6":
-            model_modflow = Modflow6(
-                r.geographic,
-                model_folder=ws.simulations_folder,
-                model_name=model_name,
-                bin_path=ws.bin_path,
-                modflow_config=self.cfg.modflow6,
-                preprocess_options=preprocess_options,
-            )
-        else:
-            raise ValueError(f"Unsupported flow solver '{solver_name}'.")
-
-        model_modflow.pre_processing(
-            flow=r.flow,
-            domain=r.domain,
-            options=preprocess_options,
-        )
-
-        pickle_path = (
-            Path(ws.simulations_folder)
-            / model_name
-            / f"results_{model_name}.pkl"
-        )
-        pickle_path.parent.mkdir(parents=True, exist_ok=True)
-        with pickle_path.open("wb") as fh:
-            pickle.dump(
-                {
-                    "list_model_name": [model_name],
-                    "list_model_modflow": [model_modflow],
-                },
-                fh,
-            )
-
-        success = model_modflow.processing(
-            options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
-        )
-        if success:
-            model_modflow.post_processing(
-                options=ModflowPostprocessOptions(
-                    watertable_elevation=True,
-                    watertable_depth=True,
-                    seepage_areas=True,
-                    outflow_drain=True,
-                    accumulation_flux=True,
-                    intermittency_monthly=True,
-                )
-            )
-
-        r.model_modflow = model_modflow
-        if run is not None:
-            r.models_by_run_id[run.id] = model_modflow
-
-        return model_modflow
-
-    def _run_modpath_solver(
-        self,
-        flow_model,
-        run: ProcessRun | None = None,
-    ):
-        """Build, run, and record one Modpath transport solver instance."""
-
-        r = self.result
-        ws = r.workspace
-        model_modpath = Modpath(
-            r.domain,
-            r.transport,
-            flow_model,
-            model_folder=ws.simulations_folder,
-            model_name=flow_model.model_name,
-            bin_path=ws.bin_path,
-        )
-        model_modpath.pre_processing()
-        model_modpath.processing(write_model=True, run_model=True)
-        model_modpath.post_processing(
-            model_modpath,
-            ending_point=True,
-            starting_point=True,
-            pathlines_shp=True,
-            particles_shp=True,
-            random_id=None,
-        )
-        model_modpath.filt_processing(
-            model_modpath,
-            norm_flux=True,
-            filt_time=True,
-            filt_seep=True,
-            filt_inout=True,
-            calc_rtd=False,
-            random_id=None,
-        )
-
-        r.model_modpath = model_modpath
-        if run is not None:
-            r.models_by_run_id[run.id] = model_modpath
-
-        return model_modpath
-
-    def _run_transport_solver(
-        self,
-        solver_name: str,
-        flow_model,
-        run: ProcessRun | None = None,
-    ):
-        """Build, run, and record one transport solver instance."""
-        if solver_name == "modpath":
-            return self._run_modpath_solver(flow_model, run=run)
-
-        r = self.result
-        ws = r.workspace
-        suffix_name = self._transport_suffix(run)
-
-        if solver_name == "mt3dms":
-            model_transport = Mt3dms(
-                r.domain,
-                r.transport,
-                flow_model,
-                model_folder=ws.simulations_folder,
-                model_name=flow_model.model_name,
-                suffix_name=suffix_name,
-                bin_path=ws.bin_path,
-            )
-        elif solver_name == "modflow6gwt":
-            model_transport = Modflow6Transport(
-                r.domain,
-                r.transport,
-                flow_model,
-                model_folder=ws.simulations_folder,
-                model_name=flow_model.model_name,
-                suffix_name=suffix_name,
-            )
-        else:
-            raise ValueError(f"Unsupported transport solver '{solver_name}'.")
-
-        model_transport.pre_processing()
-        model_transport.processing(write_model=True, run_model=True, verbose=True)
-        model_transport.post_processing(model_transport)
-
-        r.model_transport = model_transport
-        if run is not None:
-            r.models_by_run_id[run.id] = model_transport
-
-        return model_transport

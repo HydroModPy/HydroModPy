@@ -12,11 +12,10 @@ class SimulationProcessConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str | None = Field(
-        default=None,
+    id: str = Field(
         description=(
-            "Optional user-facing identifier for the process. "
-            "If omitted, a deterministic id is derived from the process type."
+            "User-facing identifier for the process. "
+            "This id is required and must be unique within the simulation."
         ),
     )
     type: Literal["flow", "transport"] = Field(
@@ -37,12 +36,6 @@ class SimulationProcessConfig(BaseModel):
         if not cleaned:
             raise ValueError("At least one non-empty solver name is required.")
         return cleaned
-
-    def resolved_id(self, index: int) -> str:
-        """Return the explicit id or derive a stable fallback identifier."""
-        if self.id:
-            return self.id
-        return f"{self.type}_{index}"
 
 
 class SimulationConfig(BaseModel):
