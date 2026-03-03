@@ -1,10 +1,34 @@
 # ======================================================================
 # HydroModPy Configuration
-# Profile: expert | Modules: workspace, geographic, domain, data, flow, transport, solver, modflownwt, modflow6
+# Profile: expert | Modules: simulation, workspace, geographic, domain, data, flow, transport, modflownwt, modflow6
 # Auto-generated from Pydantic models.
 # Edit values below. Comments describe each parameter.
 # Descriptions follow Pydantic field descriptions unless a clearer project-specific note is more useful.
 # ======================================================================
+
+# ----------------------------------------------------------------------
+# Simulation orchestration.
+# Process declarations drive the launcher order and active solver backends.
+# This example keeps the historical behavior: MODFLOW-NWT, MODPATH, MT3DMS.
+# ----------------------------------------------------------------------
+[simulation]
+name = "Example 12 launcher baseline"
+description = "Transient flow, particle tracking, and nitrate transport."
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+[[simulation.process]]
+id = "particles_main"
+type = "particles"
+solvers = ["modpath"]
+
+[[simulation.process]]
+id = "transport_no3"
+type = "transport"
+solvers = ["mt3dms"]
 
 # ----------------------------------------------------------------------
 # Workspace configuration for watershed project structure.
@@ -506,14 +530,6 @@ rate_decay = 0.0
 plot_conc = true
 
 # ----------------------------------------------------------------------
-# Solver selection
-# ----------------------------------------------------------------------
-
-[solver]
-# Solver backend: "modflownwt" (Newton-Raphson, unconfined) or "modflow6".
-solver_engine = "modflownwt"
-
-# ----------------------------------------------------------------------
 # MODFLOW-NWT expert configuration
 # ----------------------------------------------------------------------
 
@@ -735,14 +751,6 @@ value = 1.0
 unit = "m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
-
-# ----------------------------------------------------------------------
-# Launcher run configuration
-# ----------------------------------------------------------------------
-[run]
-# Phases to execute in order.
-# Remove a phase name to skip it (e.g. remove "particles" to skip MODPATH).
-phases = ["setup", "data", "flow", "particles", "transport"]
 
 # ----------------------------------------------------------------------
 # Display configuration for reusable plotting hooks.

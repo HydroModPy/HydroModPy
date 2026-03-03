@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
     from hydromodpy.watershed.workspace import Workspace
     from hydromodpy.watershed.settings import Settings
     from hydromodpy.watershed.climatic import Climatic
@@ -23,37 +24,35 @@ if TYPE_CHECKING:
 
 @dataclass
 class RunResult:
-    """Accumulates every object produced during the launcher pipeline.
-
-    Populated progressively by phase functions and hooks.  Each phase reads
-    what was created before it and writes its own outputs back onto this object.
-    """
+    """Accumulates every object produced during the launcher pipeline."""
 
     cfg: HydroModPyConfig
     config_path: Path
-    raw_toml: dict[str, Any]          # raw tomllib dict – available to hooks
+    raw_toml: dict[str, Any]
+    simulation_plan: Any = field(default=None)  # SimulationPlan
+    process_runs_by_id: dict[str, Any] = field(default_factory=dict)  # ProcessRun
+    models_by_run_id: dict[str, Any] = field(default_factory=dict)
 
-    # ── Phase: setup ─────────────────────────────────────────────────────────
-    workspace:  Any = field(default=None)   # Workspace
-    geographic: Any = field(default=None)   # Geographic
-    domain:     Any = field(default=None)   # Domain
-    flow:       Any = field(default=None)   # Flow
-    transport:  Any = field(default=None)   # Transport
-    settings:   Any = field(default=None)   # Settings
+    # Setup phase
+    workspace: Any = field(default=None)   # Workspace
+    geographic: Any = field(default=None)  # Geographic
+    domain: Any = field(default=None)      # Domain
+    flow: Any = field(default=None)        # Flow
+    transport: Any = field(default=None)   # Transport
+    settings: Any = field(default=None)    # Settings
 
-    # ── Phase: data ──────────────────────────────────────────────────────────
-    climatic:    Any = field(default=None)  # Climatic
-    oceanic:     Any = field(default=None)  # Oceanic
-    # Below are None unless a hook populates them (example-specific data)
-    hydrography: Any = field(default=None)  # Hydrography
+    # Data phase
+    climatic: Any = field(default=None)       # Climatic
+    oceanic: Any = field(default=None)        # Oceanic
+    hydrography: Any = field(default=None)    # Hydrography
     intermittency: Any = field(default=None)  # Intermittency
-    hydrometry:  Any = field(default=None)  # StationSet
+    hydrometry: Any = field(default=None)     # StationSet
 
-    # ── Phase: flow ──────────────────────────────────────────────────────────
-    model_modflow: Any = field(default=None)   # Modflow | Modflow6
+    # Flow phase
+    model_modflow: Any = field(default=None)  # Modflow | Modflow6
 
-    # ── Phase: particles ────────────────────────────────────────────────────
-    model_modpath: Any = field(default=None)   # Modpath
+    # Particles phase
+    model_modpath: Any = field(default=None)  # Modpath
 
-    # ── Phase: transport ────────────────────────────────────────────────────
+    # Transport phase
     model_transport: Any = field(default=None)  # Mt3dms | Modflow6Transport
