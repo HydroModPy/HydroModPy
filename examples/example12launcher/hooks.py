@@ -188,11 +188,11 @@ def on_after_flow(result: RunResult) -> None:
     plot_flow_suite(result, display_options)
 
 
-# ── on_before_particles ───────────────────────────────────────────────────────
-
-def on_before_particles(result: RunResult) -> None:
-    """Clip seepage raster and configure particle injection zone."""
+# on_before_transport
+def on_before_transport(result: RunResult) -> None:
+    """Prepare Modpath injection inputs and concentration fields for transport solvers."""
     import whitebox
+    from hydromodpy.solver.modflow_nwt import Modflow
 
     ws         = result.workspace
     model_name = result.model_modflow.model_name
@@ -210,25 +210,10 @@ def on_before_particles(result: RunResult) -> None:
         maintain_dimensions=True,
     )
 
-    particle_params = result.cfg.transport.particle.parameters.model_dump()
-    if particle_params.get("zone_partic") == "seepage_clip":
-        particle_params["zone_partic"] = str(tif_seep_clip)
-    result.transport.particle.set_parameters(particle_params)
-
-
-# ── on_before_transport ───────────────────────────────────────────────────────
-
-# on_after_particles
-def on_after_particles(result: RunResult) -> None:
-    """Render optional particle visualizations."""
-    display_options = display_options_from_raw_toml(result.raw_toml)
-    plot_particles_suite(result, display_options)
-
-
-# on_before_transport
-def on_before_transport(result: RunResult) -> None:
-    """Set NO3 initial/input concentrations and first-order decay rate."""
-    from hydromodpy.solver.modflow_nwt import Modflow
+    modpath_params = result.cfg.transport.modpath.parameters.model_dump()
+    if modpath_params.get("zone_partic") == "seepage_clip":
+        modpath_params["zone_partic"] = str(tif_seep_clip)
+    result.transport.modpath.set_parameters(modpath_params)
 
     mf   = result.model_modflow
     nper = mf.nper
@@ -242,39 +227,49 @@ def on_before_transport(result: RunResult) -> None:
                    for i in range(1, nper)}                     # skip SP0
     rate_decay  = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))
 
-    result.transport.conc.set_parameters(
-        **result.cfg.transport.conc.parameters.model_dump()
-    )
-    result.transport.conc.set_parameters(
+    runtime_parameters = dict(
         spc_name="NO3",
         sconc_init=sconc_init,
         sconc_input=sconc_input,
         rate_decay=rate_decay,
     )
 
+    result.transport.mt3dms.set_parameters(
+        result.cfg.transport.mt3dms.parameters.model_dump()
+    )
+    result.transport.mt3dms.set_parameters(runtime_parameters)
+    result.transport.modflow6gwt.set_parameters(
+        result.cfg.transport.modflow6gwt.parameters.model_dump()
+    )
+    result.transport.modflow6gwt.set_parameters(runtime_parameters)
+
 
 # ── on_after_transport ────────────────────────────────────────────────────────
 
 def on_after_transport(result: RunResult) -> None:
-    """Generate concentration GIF and Plotly slider (from example12 lines 1293-1407)."""
-    # Full timeseries with all models
+    """Render post-transport diagnostics once all transport solvers have completed."""
     from hydromodpy.modeling import timeseries
 
-    scenario = "s1"
-    timeseries.Timeseries(
-        result.geographic,
-        model_modflow=result.model_modflow,
-        runoff=result.climatic.runoff,
-        model_modpath=result.model_modpath,
-        model_mt3dms=result.model_transport,
-        suffix_name=scenario,
-        datetime_format=True,
-        subbasin_results=True,
-        intermittency_weekly=False,
-        intermittency_monthly=True,
-        residence_times=True,
-        concentration_seepage=True,
-        mass_accumulated=True,
-    )
     display_options = display_options_from_raw_toml(result.raw_toml)
-    plot_transport_suite(result, display_options)
+    if result.model_transport is not None:
+        scenario = "s1"
+        timeseries.Timeseries(
+            result.geographic,
+            model_modflow=result.model_modflow,
+            runoff=result.climatic.runoff,
+            model_modpath=result.model_modpath,
+            model_mt3dms=result.model_transport,
+            suffix_name=scenario,
+            datetime_format=True,
+            subbasin_results=True,
+            intermittency_weekly=False,
+            intermittency_monthly=True,
+            residence_times=True,
+            concentration_seepage=True,
+            mass_accumulated=True,
+        )
+
+    if result.model_modpath is not None:
+        plot_particles_suite(result, display_options)
+    if result.model_transport is not None:
+        plot_transport_suite(result, display_options)

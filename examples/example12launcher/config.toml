@@ -9,26 +9,28 @@
 # ----------------------------------------------------------------------
 # Simulation orchestration.
 # Process declarations drive the launcher order and active solver backends.
-# This example keeps the historical behavior: MODFLOW-NWT, MODPATH, MT3DMS.
+# This example keeps the historical behavior: MODFLOW-NWT, then transport
+# solved by MODPATH and MT3DMS.
 # ----------------------------------------------------------------------
 [simulation]
+# Human-readable simulation name.
 name = "Example 12 launcher baseline"
+# Short free-text description of the simulation intent.
 description = "Transient flow, particle tracking, and nitrate transport."
 
 [[simulation.process]]
-id = "flow_main"
+# Requested process family executed by the launcher.
 type = "flow"
+# Ordered list of active solver names for this process.
+# Each listed solver is executed.
 solvers = ["modflownwt"]
 
 [[simulation.process]]
-id = "particles_main"
-type = "particles"
-solvers = ["modpath"]
-
-[[simulation.process]]
-id = "transport_no3"
+# Requested process family executed by the launcher.
 type = "transport"
-solvers = ["mt3dms"]
+# Ordered list of active solver names for this process.
+# Each listed solver is executed.
+solvers = ["modpath", "mt3dms"]
 
 # ----------------------------------------------------------------------
 # Workspace configuration for watershed project structure.
@@ -470,10 +472,10 @@ first_clim = "mean"
 negative_to_evt = true
 
 # ----------------------------------------------------------------------
-# Transport / Modpath particle configuration
+# Transport solver configuration
 # ----------------------------------------------------------------------
 
-[transport.particle.parameters]
+[transport.modpath.parameters]
 # Particle injection zone selector:
 # - "domain": inject over full active domain
 # - "seepage_clip": use clipped seepage raster created in example12.py
@@ -499,7 +501,7 @@ zloc_div = false
 # Optional slicing step for particle selection.
 # sel_slice = 10
 
-[transport.conc.parameters]
+[transport.mt3dms.parameters]
 # MT3DMS species name.
 spc_name = "NO3"
 

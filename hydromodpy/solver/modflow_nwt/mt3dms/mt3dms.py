@@ -110,7 +110,9 @@ class Mt3dms:
             self.exe = os.path.join(bin_path, 'mac' ,'mt3dusgs')
 
         conc_params = {}
-        transport_conc = getattr(transport, 'conc', None)
+        transport_conc = getattr(transport, 'mt3dms', None)
+        if transport_conc is None:
+            transport_conc = getattr(transport, 'conc', None)
         if transport_conc is not None:
             raw_params = getattr(transport_conc, 'parameters', None)
             if isinstance(raw_params, Mapping):

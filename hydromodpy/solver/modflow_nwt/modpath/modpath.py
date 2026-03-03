@@ -132,11 +132,13 @@ class Modpath(Solver):
         if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mp6')
         
-        # Parameters for particles
+        # Parameters for the Modpath transport solver
         particle_params = {}
-        transport_particle = getattr(transport, 'particle', None)
-        if transport_particle is not None:
-            raw_params = getattr(transport_particle, 'parameters', None)
+        transport_modpath = getattr(transport, 'modpath', None)
+        if transport_modpath is None:
+            transport_modpath = getattr(transport, 'particle', None)
+        if transport_modpath is not None:
+            raw_params = getattr(transport_modpath, 'parameters', None)
             if isinstance(raw_params, Mapping):
                 particle_params = dict(raw_params)
 
@@ -223,7 +225,7 @@ class Modpath(Solver):
         if raster_path is None:
             raise ValueError(
                 "Cannot resolve default zone_partic='domain'. "
-                "Provide transport.particle.parameters.zone_partic as a raster path."
+                "Provide transport.modpath.parameters.zone_partic as a raster path."
             )
         return raster_path
 

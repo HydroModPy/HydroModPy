@@ -122,14 +122,12 @@ class HydroModPyLauncher:
         flow_model = self._run_flow_solver(flow_solver)
         self.hooks.call("on_after_flow", self.result)
 
-        self.hooks.call("on_before_particles", self.result)
-        if flow_solver == "modflownwt":
-            self._run_particles_solver("modpath", flow_model)
-        self.hooks.call("on_after_particles", self.result)
-
         self.hooks.call("on_before_transport", self.result)
-        transport_solver = "mt3dms" if flow_solver == "modflownwt" else "modflow6gwt"
-        self._run_transport_solver(transport_solver, flow_model)
+        if flow_solver == "modflownwt":
+            self._run_transport_solver("modpath", flow_model)
+            self._run_transport_solver("mt3dms", flow_model)
+        else:
+            self._run_transport_solver("modflow6gwt", flow_model)
         self.hooks.call("on_after_transport", self.result)
 
     def _run_simulation_plan(self, plan: SimulationPlan) -> None:
@@ -156,11 +154,6 @@ class HydroModPyLauncher:
         """Dispatch one resolved process run to the matching implementation."""
         if run.process_type == "flow":
             self._run_flow_solver(run.solver, run=run)
-            return
-
-        if run.process_type == "particles":
-            flow_model = self._resolve_required_flow_model(run)
-            self._run_particles_solver(run.solver, flow_model, run=run)
             return
 
         if run.process_type == "transport":
@@ -213,9 +206,26 @@ class HydroModPyLauncher:
 
     def _transport_suffix(self, run: ProcessRun | None) -> str:
         """Return a stable transport suffix for the solver run."""
-        if run is None or self._has_single_process_run("transport"):
+        if run is None:
             return "_mt_s1"
-        return f"_mt_{self._run_label(run)}"
+        concentration_runs = self._concentration_transport_runs()
+        if len(concentration_runs) <= 1:
+            return "_mt_s1"
+        for index, planned in enumerate(concentration_runs, start=1):
+            if planned.id == run.id:
+                return f"_mt_s{index}"
+        return "_mt_s1"
+
+    def _concentration_transport_runs(self) -> list[ProcessRun]:
+        """Return the planned transport runs that write concentration outputs."""
+        plan = self.result.simulation_plan
+        if plan is None:
+            return []
+        return [
+            run
+            for run in plan.runs
+            if run.process_type == "transport" and run.solver in {"mt3dms", "modflow6gwt"}
+        ]
 
     def _has_single_process_run(self, process_type: str) -> bool:
         """Return True when the simulation plan contains exactly one run of one type."""
@@ -235,7 +245,6 @@ class HydroModPyLauncher:
             if planned.id == run.id:
                 prefix = {
                     "flow": "f",
-                    "particles": "p",
                     "transport": "t",
                 }.get(run.process_type, "r")
                 return f"{prefix}{index}"
@@ -313,15 +322,12 @@ class HydroModPyLauncher:
 
         return model_modflow
 
-    def _run_particles_solver(
+    def _run_modpath_solver(
         self,
-        solver_name: str,
         flow_model,
         run: ProcessRun | None = None,
     ):
-        """Build, run, and record one particle-tracking solver instance."""
-        if solver_name != "modpath":
-            raise ValueError(f"Unsupported particles solver '{solver_name}'.")
+        """Build, run, and record one Modpath transport solver instance."""
 
         r = self.result
         ws = r.workspace
@@ -366,6 +372,9 @@ class HydroModPyLauncher:
         run: ProcessRun | None = None,
     ):
         """Build, run, and record one transport solver instance."""
+        if solver_name == "modpath":
+            return self._run_modpath_solver(flow_model, run=run)
+
         r = self.result
         ws = r.workspace
         suffix_name = self._transport_suffix(run)
