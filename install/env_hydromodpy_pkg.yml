@@ -19,6 +19,7 @@ dependencies:
   - pydantic
   - pytest
   - pytest-xdist
+  - sphinx
   - plotly
   - pyproj
   - pyshp

@@ -19,8 +19,28 @@ import pickle
 import geopandas as gpd
 import rasterio
 import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+
+
+_wbt = None
+
+
+def _get_wbt():
+    """Create WhiteboxTools only when first needed."""
+    global _wbt
+    if _wbt is None:
+        _wbt = whitebox.WhiteboxTools()
+        _wbt.verbose = False
+    return _wbt
+
+
+class _LazyWhiteboxTools:
+    """Backwards-compatible proxy delaying WhiteboxTools initialization."""
+
+    def __getattr__(self, name):
+        return getattr(_get_wbt(), name)
+
+
+wbt = _LazyWhiteboxTools()
 
 # Root
 from os.path import dirname, abspath
@@ -28,7 +48,7 @@ root_dir = (dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.watershed.geographic import Geographic
+from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.watershed import climatic, driasclimat, driaseau, \
     geology, hydraulic, hydrography, hydrometry, intermittency, oceanic_old, piezometry, settings, safransurfex, subbasin, transport
 from hydromodpy.modeling import modpath, mt3dms, timeseries, netcdf

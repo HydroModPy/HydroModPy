@@ -4,7 +4,6 @@ This folder contains demo-only files for standalone SGrid/FieldParam
 discretization workflows.
 
 - `run_demo_2d.py`: lightweight CLI visualization script (2D panels, HSV colormap).
-- `run_demo.py`: backward-compatible wrapper that forwards to `run_demo_2d.py`.
 - `run_demo_3d.py`: dedicated visualization script (vertical center section,
   horizontal center section, and additional 1D profile).
 - `prepare_brittany_geology_subset.py`: utility to build a Brittany-only geology
@@ -31,7 +30,7 @@ Note on outputs:
 - The discretization core now computes a full `values_3d` array
   `(nlay, nrow, ncol)` for solver workflows.
 - Existing demo figures deliberately remain plan-view and therefore use
-  `values_2d` for backward-compatible visualization.
+  `values_2d` as planar reference visualization.
 - `run_demo_3d.py` uses the same discretization core but renders a dedicated
   2-panel figure centered on `values_3d`.
 - In `run_demo_3d.py`, colormap is `hsv`; normalization switches automatically

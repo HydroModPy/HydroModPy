@@ -83,10 +83,10 @@ geo_config = GeographicConfig(
     dem_correc_type='breach'
 )
 
-# Create Geographic object with config and initializing_object
+# Create Geographic object with config and initializing object
 geographic_object = geographic.Geographic(
     config=geo_config,
-    initializing_object=initializing_object
+    initializing=initializing_object
 )
 
 # Extract the catchment from a regional DEM
@@ -103,7 +103,7 @@ simulations_folder = initializing_object.simulations_folder
 # ---- DATA
 from_dem = None  # Whether data come from loaded objects or derived from DEM
 
-visualization_watershed.watershed_local(dem_path, BV)
+visualization_watershed.watershed_local(dem_path, initializing_object, geographic_object)
 
 if from_dem == None:
     # Clip specific data at the catchment scale

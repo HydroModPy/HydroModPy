@@ -15,6 +15,9 @@
 # Python
 import numpy as np
 import whitebox
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import Any
 from hydromodpy.tools import get_logger
 wbt = whitebox.WhiteboxTools()
 #wbt.set_compress_rasters(True)
@@ -24,6 +27,28 @@ logger = get_logger(__name__)
 
 #%% CLASS
 
+@dataclass
+class _ParticleSettings:
+    """Container for particle-tracking parameters."""
+
+    parameters: dict[str, Any] = field(
+        default_factory=lambda: {
+            'zone_partic': 'domain',
+            'track_dir': 'forward',
+            'bore_depth': None,
+            'cell_div': 1,
+            'zloc_div': False,
+            'sel_random': None,
+            'sel_slice': None,
+        }
+    )
+
+    def set_parameters(self, parameters: Mapping[str, Any] | None = None, **kwargs) -> None:
+        if parameters is not None:
+            self.parameters.update(dict(parameters))
+        if kwargs:
+            self.parameters.update(kwargs)
+
 class Transport:
     """
     Class with some update functions for transport (concentration) model parameters.
@@ -31,6 +56,28 @@ class Transport:
     
     def __init__(self):
         logger.info('Initializing transport module for concentration parameters')
+        self.particle = _ParticleSettings()
+
+    def update_particle_parameters(
+        self,
+        zone_partic: str = 'domain',
+        track_dir: str = 'forward',
+        bore_depth: list | None = None,
+        cell_div: int = 1,
+        zloc_div: bool = False,
+        sel_random: int | None = None,
+        sel_slice: int | None = None,
+    ):
+        """Update particle-tracking parameters stored in ``transport.particle.parameters``."""
+        self.particle.set_parameters(
+            zone_partic=zone_partic,
+            track_dir=track_dir,
+            bore_depth=bore_depth,
+            cell_div=cell_div,
+            zloc_div=zloc_div,
+            sel_random=sel_random,
+            sel_slice=sel_slice,
+        )
         
     #%% UPDATE
     

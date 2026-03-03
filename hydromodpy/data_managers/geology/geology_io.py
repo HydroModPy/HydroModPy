@@ -61,6 +61,7 @@ import numpy as np
 import rasterio
 from rasterio.features import rasterize
 from rasterio.mask import mask as raster_mask
+from rasterio.transform import from_origin
 from rasterio.warp import Resampling, reproject
 
 from hydromodpy.data_managers.geology.geology_processing import (
@@ -443,6 +444,123 @@ def _read_vector_codes(
     return encoded, encoded_to_zone, transform, ref_crs
 
 
+def _grid_from_raster_support(raster_support):
+    """Extract output grid geometry from one `RasterSupport`-like object."""
+    if raster_support is None:
+        raise ValueError("raster_support is required")
+
+    nrows = getattr(raster_support, "nrows", None)
+    ncols = getattr(raster_support, "ncols", None)
+    xmin = getattr(raster_support, "xmin", None)
+    ymax = getattr(raster_support, "ymax", None)
+    dx = getattr(raster_support, "dx", None)
+    dy = getattr(raster_support, "dy", None)
+    crs = getattr(raster_support, "crs", None)
+
+    missing = [
+        name
+        for name, value in (
+            ("nrows", nrows),
+            ("ncols", ncols),
+            ("xmin", xmin),
+            ("ymax", ymax),
+            ("dx", dx),
+            ("dy", dy),
+        )
+        if value is None
+    ]
+    if missing:
+        raise ValueError(
+            "RasterSupport is missing required grid metadata: " + ", ".join(missing)
+        )
+
+    out_shape = (int(nrows), int(ncols))
+    transform = from_origin(float(xmin), float(ymax), float(dx), float(dy))
+    return out_shape, transform, crs
+
+
+def _read_raster_codes_on_raster_support(
+    raster_path: str,
+    *,
+    raster_support,
+):
+    """
+    Read and reproject a geology raster onto an explicit target raster support.
+    """
+    out_shape, target_transform, target_crs = _grid_from_raster_support(raster_support)
+    with rasterio.open(raster_path) as src:
+        source = np.asarray(src.read(1), dtype=float)
+        nodata = src.nodata if src.nodata is not None else np.nan
+        raw = np.full(out_shape, np.nan, dtype=float)
+        reproject(
+            source=source,
+            destination=raw,
+            src_transform=src.transform,
+            src_crs=src.crs,
+            src_nodata=src.nodata,
+            dst_transform=target_transform,
+            dst_crs=target_crs if target_crs is not None else src.crs,
+            dst_nodata=np.nan,
+            resampling=Resampling.nearest,
+        )
+        out_crs = target_crs if target_crs is not None else src.crs
+    return raw, target_transform, out_crs, nodata
+
+
+def _read_vector_codes_on_raster_support(
+    vector_path: str,
+    *,
+    code_field: str,
+    raster_support,
+    all_touched: bool = False,
+):
+    """
+    Read geology polygons and rasterize them on an explicit target raster support.
+
+    The target support fully defines the working window: output shape,
+    transform, CRS, and therefore the effective clipping extent.
+    """
+    import geopandas as gpd
+
+    gdf = gpd.read_file(vector_path)
+    if gdf.empty:
+        raise ValueError(f"Vector geology source has no geometry: {vector_path}")
+    if code_field not in gdf.columns:
+        raise KeyError(f"Missing vector field '{code_field}' in {vector_path}")
+
+    out_shape, transform, target_crs = _grid_from_raster_support(raster_support)
+    if gdf.crs is not None and target_crs is not None and gdf.crs != target_crs:
+        gdf = gdf.to_crs(target_crs)
+
+    gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()]
+    if gdf.empty:
+        raise ValueError("Vector geology source has only empty geometries after filtering")
+
+    zone_to_encoded: dict[str, int] = {}
+    shapes = []
+    for geom, raw_code in zip(gdf.geometry, gdf[code_field], strict=False):
+        zone_key = normalize_zone_key(raw_code)
+        if zone_key == "":
+            continue
+        if zone_key not in zone_to_encoded:
+            zone_to_encoded[zone_key] = len(zone_to_encoded) + 1
+        encoded = int(zone_to_encoded[zone_key])
+        shapes.append((geom, encoded))
+    if not shapes:
+        raise ValueError("No valid vector geology feature with usable code")
+
+    encoded = rasterize(
+        shapes=shapes,
+        out_shape=out_shape,
+        transform=transform,
+        fill=0,
+        all_touched=bool(all_touched),
+        dtype="int32",
+    )
+    encoded_to_zone = {int(v): str(k) for k, v in zone_to_encoded.items()}
+    return encoded, encoded_to_zone, transform, target_crs
+
+
 def _load_landsea_raster(
     landsea_path: str,
     *,
@@ -590,6 +708,69 @@ def load_geology_encoded_grid(
         )
 
     # Final normalization of output types for stable downstream behavior.
+    return {
+        "encoded_codes": np.asarray(encoded, dtype=np.int32),
+        "encoded_to_zone": {int(k): str(v) for k, v in encoded_to_zone.items()},
+        "transform": transform,
+        "crs": crs,
+        "source_kind": source_kind,
+    }
+
+
+def load_geology_encoded_grid_on_raster_support(
+    config: Mapping[str, Any],
+    *,
+    raster_support,
+):
+    """
+    Load geology data and normalize it on an explicit `RasterSupport`.
+
+    Unlike `load_geology_encoded_grid`, this variant does not rely on an
+    external reference raster path or clip polygon path. The target working
+    window is entirely defined by `raster_support`.
+    """
+    cfg = dict(config)
+    source_cfg = dict(cfg["source"])
+
+    source_path = str(source_cfg["path"])
+    source_kind = infer_source_kind(source_path, requested_kind=source_cfg.get("kind", "auto"))
+
+    if source_kind == "raster":
+        raw, transform, crs, nodata = _read_raster_codes_on_raster_support(
+            source_path,
+            raster_support=raster_support,
+        )
+        encoded, encoded_to_zone = encode_numeric_raster(raw, nodata_value=nodata)
+    elif source_kind == "vector":
+        encoded, encoded_to_zone, transform, crs = _read_vector_codes_on_raster_support(
+            source_path,
+            code_field=str(source_cfg["code_field"]),
+            raster_support=raster_support,
+            all_touched=bool(source_cfg.get("all_touched", False)),
+        )
+    else:
+        raise ValueError(f"Unsupported source kind '{source_kind}'")
+
+    if not encoded_to_zone:
+        raise ValueError("Geology source produced no valid zone code")
+
+    landsea_cfg = dict(cfg.get("landsea", {}))
+    if bool(landsea_cfg.get("enabled", False)):
+        landsea = _load_landsea_raster(
+            str(landsea_cfg["path"]),
+            target_shape=encoded.shape,
+            target_transform=transform,
+            target_crs=crs,
+            clip_polygon_path=None,
+        )
+        encoded, encoded_to_zone = apply_landsea_override(
+            encoded,
+            encoded_to_zone=encoded_to_zone,
+            landsea_array=landsea,
+            sea_value=float(landsea_cfg.get("sea_value", 0.0)),
+            override_zone_key=str(landsea_cfg.get("override_code", "1")),
+        )
+
     return {
         "encoded_codes": np.asarray(encoded, dtype=np.int32),
         "encoded_to_zone": {int(k): str(v) for k, v in encoded_to_zone.items()},

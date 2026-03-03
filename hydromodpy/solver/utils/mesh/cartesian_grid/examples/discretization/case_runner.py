@@ -11,7 +11,9 @@ import numpy as np
 from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
+    build_sgrid_from_config,
+)
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_demo_config import (
     SGridFieldParamDiscretizationConfig,
 )
@@ -64,7 +66,7 @@ def run_discretization_case(
     geology_field = GeologyField.from_dict(cfg.geology)
     field_param = FieldParam.from_dict(cfg.field_param)
     sgrid_cfg = SGridConfig.from_mapping(cfg.sgrid)
-    sgrid = StructuredGridBuilder().build(sgrid_cfg)
+    sgrid = build_sgrid_from_config(sgrid_cfg)
 
     result = discretize_fieldparam_on_sgrid(
         geology_field=geology_field,
