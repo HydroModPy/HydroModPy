@@ -1,258 +1,248 @@
 # -*- coding: utf-8 -*-
 """
-Structured grid construction primitives.
+Surface-driven structured-grid generation for FloPy.
 
-Copyright
----------
-Copyright (c) 2023 Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy
-Licensed under EPL-2.0 OR Apache-2.0.
+Overview
+--------
+This module builds a FloPy ``StructuredGrid`` from two absolute-elevation
+surfaces:
+- one topographic surface (`top_surface`),
+- one bottom surface (`bottom_surface`).
 
-Architecture choices
+Design responsibilities
+-----------------------
+- Horizontal discretization (XY) is handled outside this builder, typically in
+  `Surface` (`resample_to_shape(...)`).
+- This builder handles only:
+  - geometric consistency checks for vertical construction,
+  - vertical layering (`constant`, `decay`, `list`),
+  - assembly of FloPy `StructuredGrid`.
+
+Important convention
 --------------------
-- Validation is intentionally not implemented in this module.
-- ``SGridConfig`` (Pydantic, in ``sgrid_config.py``) is the single source of
-  truth for configuration rules and cross-field constraints.
-- Raster I/O is extracted into ``RasterGridReader`` to isolate ``rasterio``
-  and keep this module focused on geometry construction.
-- Planar re-discretization (``nx``/``ny``) is delegated to
-  ``PlanarDiscretizer`` to keep interpolation policy explicit and testable.
-- ``StructuredGridBuilder`` is a pure transformation:
-  validated config -> new FloPy ``StructuredGrid``.
-- No cache and no hidden mutable state are kept inside the builder.
+`top_surface` and `bottom_surface` are absolute altitudes in the same datum.
+No additive combination is done between the two surfaces.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import numpy as np
 from flopy.discretization import StructuredGrid
 
-try:
-    from .utils.planar_discretizer import PlanarDiscretizer
-    from .utils.raster_grid_reader import RasterGridReader
-    from .utils.raster_grid_reader import TopRasterGrid
-    from .sgrid_config import SGridConfig
-except ImportError:
-    from utils.planar_discretizer import PlanarDiscretizer
-    from utils.raster_grid_reader import RasterGridReader
-    from utils.raster_grid_reader import TopRasterGrid
-    from sgrid_config import SGridConfig
+from hydromodpy.domain.surface import Surface
+from .sgrid_config import VerticalGridConfig
 
 
 class StructuredGridBuilder:
-    """Pure, deterministic builder from validated ``SGridConfig``."""
+    """
+    Build FloPy `StructuredGrid` objects from explicit top/bottom surfaces.
+    """
 
-    def __init__(
+    def __init__(self):
+        # No hidden state: deterministic transformations only.
+        pass
+
+    def build_from_surfaces(
         self,
-        raster_reader: RasterGridReader | None = None,
-        planar_discretizer: PlanarDiscretizer | None = None,
-    ):
-        self._raster_reader = raster_reader or RasterGridReader()
-        self._planar_discretizer = planar_discretizer or PlanarDiscretizer()
+        top_surface: Surface,
+        bottom_surface: Surface,
+        vertical_config: VerticalGridConfig | Mapping[str, object] | None = None,
+    ) -> StructuredGrid:
+        """
+        Build one structured grid from two absolute-elevation surfaces.
 
-    def build(self, config: SGridConfig) -> StructuredGrid:
-        """Create and return one new FloPy ``StructuredGrid``."""
-        source_top_grid, target_top_grid = self._create_hgrid_structured(config)
-        botm, nlay = self._create_vgrid_structured(
-            top=target_top_grid.top,
-            config=config,
-            source_top_grid=source_top_grid,
-            target_top_grid=target_top_grid,
-        )
-        return StructuredGrid(
-            delc=target_top_grid.delc,
-            delr=target_top_grid.delr,
-            top=target_top_grid.top,
-            botm=botm,
-            xoff=target_top_grid.xoff,
-            yoff=target_top_grid.yoff,
-            nlay=nlay,
-            nrow=target_top_grid.nrow,
-            ncol=target_top_grid.ncol,
-            crs=config.crs,
-            lenuni=config.lenuni,
-        )
+        The method intentionally separates three steps:
+        1. Validate horizontal/geometric compatibility of inputs.
+        2. Compute vertical layer proportions.
+        3. Build `botm` and return a FloPy `StructuredGrid`.
+        """
+        cfg = _coerce_vertical_config(vertical_config)
 
-    def _create_hgrid_structured(
-        self, config: SGridConfig
-    ) -> tuple[TopRasterGrid, TopRasterGrid]:
-        source_top_grid = self._raster_reader.read_top_grid(str(config.top_path))
-        target_top_grid = self._planar_discretizer.discretize_top(
-            source_top_grid=source_top_grid,
-            mode=config.plan_discretization_mode,
-            nx=config.nx,
-            ny=config.ny,
-            nodata=config.nodata,
-            fallback_crs=config.crs,
-        )
-        top = np.asarray(target_top_grid.top, dtype=float)
-        top[top <= config.nodata] = config.nodata
-        target_top_grid = TopRasterGrid(
-            top,
-            target_top_grid.delc,
-            target_top_grid.delr,
-            target_top_grid.xoff,
-            target_top_grid.yoff,
-            target_top_grid.nrow,
-            target_top_grid.ncol,
-            target_top_grid.transform,
-            target_top_grid.crs,
-            target_top_grid.bounds,
-        )
-        return source_top_grid, target_top_grid
+        # 1) Horizontal compatibility checks.
+        #    "Same geographic domain" means same CRS + same spatial extent.
+        top_surface.assert_same_geographic_domain(bottom_surface)
 
-    def _create_vgrid_structured(
-        self,
-        top,
-        config: SGridConfig,
-        source_top_grid: TopRasterGrid,
-        target_top_grid: TopRasterGrid,
-    ):
-        bot = self._compute_bottom_surface(
-            top=top,
-            nodata=config.nodata,
-            genmtd_bot=config.genmtd_bot,
-            bot_path=config.bot_path,
-            bot_raster=config.bot_raster,
-            thick=config.thick,
-            zbot=config.zbot,
-            plan_mode=config.plan_discretization_mode,
-            source_top_grid=source_top_grid,
-            target_top_grid=target_top_grid,
-            fallback_crs=config.crs,
-            raster_reader=self._raster_reader,
-            planar_discretizer=self._planar_discretizer,
+        support = top_surface.support
+        if support is None:
+            raise ValueError("Top surface must carry a RasterSupport.")
+        support.assert_complete_domain()
+
+        top = np.asarray(top_surface.as_array(), dtype=float)
+        bot = np.asarray(bottom_surface.as_array(), dtype=float)
+        if top.shape != bot.shape:
+            raise ValueError(
+                "top_surface and bottom_surface must have the same discretization "
+                f"before vertical grid construction: top{top.shape} != bottom{bot.shape}. "
+                "Use Surface.resample_to_shape(...) beforehand."
+            )
+
+        nodata = float(cfg.nodata)
+
+        # Mask invalid cells consistently in both surfaces.
+        invalid = (
+            ~np.isfinite(top)
+            | ~np.isfinite(bot)
+            | (top <= nodata)
+            | (bot <= nodata)
         )
+        top = np.array(top, dtype=float, copy=True)
+        bot = np.array(bot, dtype=float, copy=True)
+        top[invalid] = nodata
+        bot[invalid] = nodata
+
+        self._assert_bottom_below_top(top=top, bot=bot, nodata=nodata)
+
+        # 2) Vertical proportions from config.
         allp, nlay = self._compute_layer_proportions(
-            genmtd_lay=config.genmtd_lay,
-            nlay=config.nlay,
-            lay_decay=config.lay_decay,
-            lay_proportions=config.lay_proportions,
+            genmtd_lay=cfg.genmtd_lay,
+            nlay=cfg.nlay,
+            lay_decay=cfg.lay_decay,
+            lay_proportions=cfg.lay_proportions,
         )
-        botm = self._build_botm(top=top, bot=bot, nodata=config.nodata, allp=allp)
-        return botm, nlay
+
+        # 3) Build layer bottoms and FloPy grid.
+        botm = self._build_botm(top=top, bot=bot, nodata=nodata, allp=allp)
+
+        nrow = int(support.nrows)
+        ncol = int(support.ncols)
+        xmin = float(support.xmin)
+        ymin = float(support.ymin)
+        xmax = float(support.xmax)
+        ymax = float(support.ymax)
+
+        dx = float(support.dx) if support.dx is not None else (xmax - xmin) / ncol
+        dy = float(support.dy) if support.dy is not None else (ymax - ymin) / nrow
+        if dx <= 0 or dy <= 0:
+            raise ValueError(f"Invalid support cell sizes: dx={dx}, dy={dy}.")
+
+        delr = np.full(ncol, dx, dtype=float)
+        delc = np.full(nrow, dy, dtype=float)
+
+        return StructuredGrid(
+            delc=delc,
+            delr=delr,
+            top=top,
+            botm=botm,
+            xoff=xmin,
+            yoff=ymin,
+            nlay=nlay,
+            nrow=nrow,
+            ncol=ncol,
+            crs=support.crs,
+            lenuni=cfg.lenuni,
+        )
 
     @staticmethod
-    def _compute_bottom_surface(
-        top,
-        nodata,
-        genmtd_bot,
-        bot_path=None,
-        bot_raster=None,
-        thick=None,
-        zbot=None,
-        plan_mode="raster_native",
-        source_top_grid: TopRasterGrid | None = None,
-        target_top_grid: TopRasterGrid | None = None,
-        fallback_crs: str | None = None,
-        raster_reader: RasterGridReader | None = None,
-        planar_discretizer: PlanarDiscretizer | None = None,
-    ):
-        """Compute bottom surface according to selected generation method."""
-        if genmtd_bot == "filepath":
-            reader = raster_reader or RasterGridReader()
-            if plan_mode == "shape":
-                if target_top_grid is None:
-                    raise ValueError("target_top_grid is required in shape discretization mode")
-                bot, bot_transform, bot_crs, _ = reader.read_band1_with_metadata(str(bot_path))
-                target_shape = (target_top_grid.nrow, target_top_grid.ncol)
-                discretizer = planar_discretizer or PlanarDiscretizer()
-                src_crs = bot_crs or (source_top_grid.crs if source_top_grid else None) or fallback_crs
-                dst_crs = target_top_grid.crs or fallback_crs
-                bot = discretizer.resample_to_target(
-                    source=np.asarray(bot, dtype=float),
-                    src_transform=bot_transform,
-                    src_crs=src_crs,
-                    dst_shape=target_shape,
-                    dst_transform=target_top_grid.transform,
-                    dst_crs=dst_crs,
-                    nodata=float(nodata),
-                    resampling=discretizer.select_resampling(
-                        src_shape=np.asarray(bot).shape,
-                        dst_shape=target_shape,
-                    ),
-                )
-            else:
-                bot = reader.read_band1(str(bot_path))
-        elif genmtd_bot == "raster":
-            bot = np.asarray(bot_raster, dtype=float)
-            if plan_mode == "shape" and target_top_grid is not None:
-                target_shape = (target_top_grid.nrow, target_top_grid.ncol)
-                if bot.shape != target_shape:
-                    if source_top_grid is None:
-                        raise ValueError(
-                            "source_top_grid is required to resample bot_raster in shape mode"
-                        )
-                    source_shape = (source_top_grid.nrow, source_top_grid.ncol)
-                    if bot.shape != source_shape:
-                        raise ValueError(
-                            "bot_raster shape must match source top shape or target shape in shape mode."
-                        )
-                    src_crs = source_top_grid.crs or fallback_crs
-                    dst_crs = target_top_grid.crs or fallback_crs
-                    discretizer = planar_discretizer or PlanarDiscretizer()
-                    bot = discretizer.resample_to_target(
-                        source=bot,
-                        src_transform=source_top_grid.transform,
-                        src_crs=src_crs,
-                        dst_shape=target_shape,
-                        dst_transform=target_top_grid.transform,
-                        dst_crs=dst_crs,
-                        nodata=float(nodata),
-                        resampling=discretizer.select_resampling(
-                            src_shape=source_shape,
-                            dst_shape=target_shape,
-                        ),
-                    )
-        elif genmtd_bot == "constant_thickness":
-            bot = np.asarray(top, dtype=float) - float(thick)
-        elif genmtd_bot == "constant_altitude":
-            bot = np.zeros_like(top, dtype=float) + float(zbot)
-        else:
-            # Should be unreachable: method is validated in SGridConfig.
-            raise ValueError(
-                f"Unsupported genmtd_bot '{genmtd_bot}'. "
-                "Allowed: filepath, raster, constant_thickness, constant_altitude."
-            )
-
+    def _assert_bottom_below_top(top, bot, nodata):
+        """
+        Ensure vertical order is physically consistent: bottom < top on valid cells.
+        """
+        top = np.asarray(top, dtype=float)
         bot = np.asarray(bot, dtype=float)
-        if bot.shape != np.asarray(top).shape:
+        nodata_value = float(nodata)
+
+        valid = (
+            np.isfinite(top)
+            & np.isfinite(bot)
+            & (top > nodata_value)
+            & (bot > nodata_value)
+        )
+        if not np.any(valid):
+            raise ValueError("No finite overlapping valid cells found between top and bottom surfaces.")
+
+        violations = bot[valid] >= top[valid]
+        if np.any(violations):
+            n_bad = int(np.count_nonzero(violations))
+            total = int(violations.size)
+            max_delta = float(np.max(bot[valid] - top[valid]))
             raise ValueError(
-                f"Bottom surface shape mismatch: bot{bot.shape} != top{np.asarray(top).shape}."
+                "Bottom surface must be strictly below top surface on valid cells "
+                f"({n_bad}/{total} violations, max(bot-top)={max_delta:.6g})."
             )
-        bot[np.asarray(top) <= nodata] = nodata
-        return bot
 
     @staticmethod
     def _compute_layer_proportions(genmtd_lay, nlay=None, lay_decay=None, lay_proportions=None):
-        """Compute cumulative layer proportions and number of layers."""
+        """
+        Compute cumulative vertical proportions (`allp`) and layer count (`nlay`).
+
+        Returned convention
+        -------------------
+        - `allp` is a 1D cumulative array in ]0, 1], one value per model layer.
+        - `allp[k]` is the fraction of total vertical distance `(top - bottom)`
+          reached at the bottom of layer `k`.
+        - The last value is always ~1.0, so the last computed layer bottom
+          matches the provided bottom surface.
+
+        Examples
+        --------
+        - `constant, nlay=4` -> `[0.25, 0.50, 0.75, 1.00]`
+        - `list, [0.1, 0.2, 0.3, 0.4]` -> cumulative `[0.1, 0.3, 0.6, 1.0]`
+        - `decay` -> increasing thickness with depth (for `lay_decay > 1`)
+        """
         if genmtd_lay == "list":
+            # User provides explicit per-layer fractions that sum to 1.
+            # We convert them to cumulative proportions expected by `_build_botm`.
             arr = np.asarray(lay_proportions, dtype=float)
             return np.cumsum(arr), int(arr.size)
+
         if genmtd_lay == "constant":
+            # Uniform layer thickness: each layer spans 1/nlay of total thickness.
             nlay_int = int(nlay)
             return np.arange(1, nlay_int + 1, dtype=float) / nlay_int, nlay_int
+
         if genmtd_lay == "decay":
+            # Geometric-like cumulative profile:
+            # upper layers thinner, deeper layers thicker when `decay > 1`.
             nlay_int = int(nlay)
             decay = float(lay_decay)
             idx = np.arange(1, nlay_int + 1, dtype=float)
             allp = (1 - decay**idx) / (1 - decay**nlay_int)
             return allp, nlay_int
-        # Should be unreachable: method is validated in SGridConfig.
+
         raise ValueError(f"Unsupported genmtd_lay '{genmtd_lay}'. Allowed: list, constant, decay.")
 
     @staticmethod
     def _build_botm(top, bot, nodata, allp):
-        """Build layer bottom elevations from top, bottom and cumulative proportions."""
+        """
+        Build layer-bottom array `botm` from top and bottom absolute surfaces.
+
+        Pedagogical formulation
+        -----------------------
+        For each layer `k`, the cumulative proportion `allp[k]` is in [0, 1]:
+        - 0 means at top elevation,
+        - 1 means at bottom elevation.
+
+        The interpolation formula is:
+            z_k = top - (top - bot) * allp[k]
+
+        Then nodata is propagated so invalid cells stay invalid in all layers.
+        """
         top = np.asarray(top, dtype=float)
         bot = np.asarray(bot, dtype=float)
         allp = np.asarray(allp, dtype=float)
         if allp.ndim != 1 or allp.size == 0:
             raise ValueError("allp must be a non-empty 1D array.")
 
+        # Broadcast `top` and `bot` over all layers and apply cumulative
+        # interpolation fractions (`allp`) to obtain each layer bottom surface.
         botm = top[None, :, :] - ((top - bot)[None, :, :] * allp[:, None, None])
+
+        # Keep nodata mask consistent for all layers.
         botm[:, bot <= nodata] = nodata
         return botm
 
 
-# TODO: DEM crs and length unit (as imported from .tif file) should be checked
-# and reprojected if necessary.
+def _coerce_vertical_config(
+    vertical_config: VerticalGridConfig | Mapping[str, object] | None,
+) -> VerticalGridConfig:
+    if vertical_config is None:
+        return VerticalGridConfig()
+    if isinstance(vertical_config, VerticalGridConfig):
+        return vertical_config
+    if isinstance(vertical_config, Mapping):
+        return VerticalGridConfig.from_mapping(vertical_config)
+    raise TypeError(
+        "vertical_config must be None, VerticalGridConfig, or a mapping of values."
+    )

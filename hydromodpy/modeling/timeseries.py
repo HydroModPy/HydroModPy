@@ -44,6 +44,7 @@ class Timeseries:
     def __init__(self,
                  geographic: object,
                  model_modflow: object,
+                 runoff=None,
                  model_modpath: int=None,
                  model_mt3dms: int=None,
                  suffix_name: int=None,
@@ -63,6 +64,8 @@ class Timeseries:
             Variable object of the model domain (watershed).
         model_modflow : object
             MODFLOW model object.
+        runoff : float, Series, dict or None, optional
+            Runoff forcing used for reporting in exported timeseries.
         model_modpath : object
             MODPATH model object.
         datetime_format : bool, optional
@@ -100,7 +103,7 @@ class Timeseries:
             toolbox.create_folder(self.timeseries_file)
 
         self.recharge = model_modflow.recharge
-        self.runoff = model_modflow.runoff
+        self.runoff = runoff
 
         self.intermittency_yearly = intermittency_yearly
         self.intermittency_monthly = intermittency_monthly

@@ -1,8 +1,8 @@
 """Run an end-to-end piezometry station-set example.
 
-This script reads the local ``piezometry_config.toml`` file, builds a
-``PiezometerSet``, prints a completeness report, and exports one plot
-per station.
+This script demonstrates piezometer loading from a TOML configuration:
+1. Load a ``PiezometerSet`` via ``from_toml``
+2. Plot every discovered piezometer to an output directory
 """
 
 from pathlib import Path
@@ -22,77 +22,72 @@ except ImportError:
     from piezometer_set import PiezometerSet
 
 
-DISCOVERY_BBOX = (2.90, 45.84, 3.46, 46.33)
-FALLBACK_IDS = ["06932X0178/P10", "06216X0228/P30-10"]
-
-
-def _fmt_date_or_none(value):
-    """Return ``YYYY-MM-DD`` string or ``None``."""
-    if value is None:
-        return None
-    return value.strftime("%Y-%m-%d")
-
-
 def _safe_id_token(value: str) -> str:
     """Return a filesystem-safe token for one piezometer id."""
     return safe_file_token(value)
 
 
 def main() -> None:
-    """Execute the piezometry example workflow."""
+    """Execute the piezometry discovery workflow from a TOML config."""
     manager_dir = Path(__file__).resolve().parent
     config_path = manager_dir / "piezometry_config.toml"
     outputs_dir = manager_dir / "outputs"
+    outputs_dir.mkdir(exist_ok=True)
 
-    piezometers = PiezometerSet.from_toml(config_path)
-    if not piezometers.piezometers:
-        print("No loaded piezometer data from configured IDs.")
-        print(f"Trying automatic discovery in bbox={DISCOVERY_BBOX}...")
-        start = _fmt_date_or_none(piezometers.date_start)
-        end = _fmt_date_or_none(piezometers.date_end)
-        discovered = PiezometerSet.discover_piezometer_ids(
-            bbox=DISCOVERY_BBOX,
-            require_observations=True,
-            date_start=start,
-            date_end=end,
-            max_ids=6,
-            timeout=60,
-        )
-        if len(discovered) < 2:
-            print(
-                "Automatic discovery returned fewer than 2 IDs; "
-                "using known fallback IDs."
-            )
-            discovered = FALLBACK_IDS
-        else:
-            print(f"Discovered IDs: {discovered[:6]}")
+    print("=" * 70)
+    print("PIEZOMETRY DISCOVERY EXAMPLE - MASK-BASED WORKFLOW")
+    print("=" * 70)
 
-        piezometers = PiezometerSet(
-            measurement=piezometers.measurement,
-            id=discovered[:2],
-            display=piezometers.display,
-            date_start=start,
-            date_end=end,
-            output=piezometers.output,
-            source_mode="api",
-        )
-
-    piezometers.get_completeness_report()
-    if not piezometers.piezometers:
-        print("No loaded piezometer data available; skipping plot export.")
-        print(
-            "Tip: use PiezometerSet.discover_piezometer_ids("
-            "bbox=(minx, miny, maxx, maxy), require_observations=True)"
-        )
+    # Load piezometer set from config
+    try:
+        piezometers = PiezometerSet.from_toml(config_path)
+    except Exception as exc:
+        print(f"Error:  Failed to load config: {exc}")
         return
-    station_ids = sorted(piezometers.piezometers.keys())
-    for station_id in station_ids:
-        output_path = outputs_dir / f"piezometer_plot_{_safe_id_token(station_id)}.png"
-        piezometers.plot_piezometer(
-            piezometer_id=station_id,
-            output_path=output_path,
-            show=True,
-        )
+
+    # -- Display loaded configuration ----------------------------------------
+    print(f"\n[Config] Measurement type : {piezometers.measurement}")
+    if piezometers.date_start or piezometers.date_end:
+        print(f"[Config] Date range       : {piezometers.date_start} -> {piezometers.date_end}")
+
+    # -- Completeness report -------------------------------------------------
+    piezometers.get_completeness_report()
+
+    # -- List discovered piezometers -----------------------------------------
+    if not piezometers.piezometers:
+        print("\nNo loaded piezometric data available.")
+        print("\nTips for new developers:")
+        print("  - Check that the TOML config lists valid station IDs or a mask")
+        print("  - Use PiezometerSet.discover_piezometer_ids() for geographic search")
+        print("  - Use require_observations=True to filter by data availability")
+        return
+
+    piezometer_ids = sorted(piezometers.piezometers.keys())
+
+    print("\n" + "=" * 70)
+    print("DISCOVERED PIEZOMETERS")
+    print("=" * 70)
+    print(f"Total: {len(piezometer_ids)} piezometer(s)")
+    for idx, pid in enumerate(piezometer_ids[:10], 1):
+        print(f"  {idx}. {pid}")
+    if len(piezometer_ids) > 10:
+        print(f"  ... and {len(piezometer_ids) - 10} more")
+
+    # -- Export one plot per piezometer --------------------------------------
+    print("\n" + "=" * 70)
+    print("EXPORTING PLOTS")
+    print("=" * 70)
+    for piezometer_id in piezometer_ids:
+        output_path = outputs_dir / f"piezometer_plot_{_safe_id_token(piezometer_id)}.png"
+        try:
+            piezometers.plot_piezometer(
+                piezometer_id=piezometer_id,
+                output_path=output_path,
+                show=True,
+            )
+            print(f"  Exported: {output_path.name}")
+        except Exception as exc:
+            print(f"  Failed to plot {piezometer_id}: {exc}")
 
 
 if __name__ == "__main__":

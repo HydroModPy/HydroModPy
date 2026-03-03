@@ -2,30 +2,101 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.solver.modflow_nwt.modflow_config import (
+from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowConfig,
     ModflowSpecifParams,
 )
+from hydromodpy.solver.solver_engine import SolverEngine
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 
 
 def test_modflow_config_defaults_match_runtime_defaults():
     cfg = ModflowConfig()
-    runtime = ModflowSpecifParams.from_config(cfg)
+    params = ModflowSpecifParams.from_config(cfg)
 
-    assert runtime.mf_version == "mfnwt"
-    assert runtime.nwt_headtol == 1e-4
-    assert runtime.nwt_fluxtol == 500.0
-    assert runtime.vka == 1.0
-    assert runtime.exdp == 1.0
+    assert params.runtime.mf_version == "mfnwt"
+    assert params.runtime.nwt_headtol == 1e-4
+    assert params.runtime.nwt_fluxtol == 500.0
+    assert params.process_specific.vka == 1.0
+    assert params.process_specific.exdp == 1.0
+    assert params.sgrid is None
+    assert params.tgrid is None
 
 
-def test_hydromodpy_config_loads_modflow_section(tmp_path: Path):
+def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
     toml_path = tmp_path / "config.toml"
     toml_path.write_text(
         "\n".join(
             [
-                "[initializing]",
+                "[workspace]",
+                'catch_name = "demo"',
+                'out_dir_path = "out"',
+                'data_path = "data"',
+                "",
+                "[geographic]",
+                'catch_def = "dem"',
+                'dem_init_path = "dem.tif"',
+                "",
+                "[solver]",
+                'solver_engine = "modflownwt"',
+                "",
+                "[modflownwt.runtime]",
+                'nwt_options = "SIMPLE"',
+                "",
+                "[modflownwt.process_specific]",
+                "vka = 2.5",
+                "exdp = 3.0",
+                "",
+                "[modflownwt.sgrid]",
+                'lenuni = "m"',
+                "nodata = -9999.0",
+                'genmtd_lay = "decay"',
+                "nlay = 3",
+                "lay_decay = 1.8",
+                "",
+                "[modflownwt.tgrid]",
+                'itmuni = "d"',
+                'flow_regime = "transient"',
+                'genmtd = "synthetic_regular"',
+                "nper = 4",
+                "lenper = 2.0",
+                "firstpersteady = true",
+                "ntsp = [1, 2, 2, 3]",
+                "tsmult = [1.0, 1.1, 1.1, 1.2]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(toml_path)
+
+    assert cfg.solver.solver_engine == SolverEngine.MODFLOW_NWT
+    assert cfg.modflownwt.process_specific.vka == 2.5
+    assert cfg.modflownwt.process_specific.exdp == 3.0
+    assert cfg.modflownwt.runtime.nwt_options == "SIMPLE"
+    assert isinstance(cfg.modflownwt.sgrid, VerticalGridConfig)
+    assert cfg.modflownwt.sgrid.genmtd_lay == "decay"
+    assert cfg.modflownwt.sgrid.nlay == 3
+    assert cfg.modflownwt.sgrid.lay_decay == 1.8
+    assert isinstance(cfg.modflownwt.tgrid, TMeshConfigModel)
+    assert cfg.modflownwt.tgrid.flow_regime == "transient"
+    assert cfg.modflownwt.tgrid.nper == 4
+    assert cfg.modflownwt.tgrid.ntsp == [1, 2, 2, 3]
+
+
+def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        "\n".join(
+            [
+                "[workspace]",
                 'catch_name = "demo"',
                 'out_dir_path = "out"',
                 'data_path = "data"',
@@ -43,8 +114,39 @@ def test_hydromodpy_config_loads_modflow_section(tmp_path: Path):
         encoding="utf-8",
     )
 
-    cfg = HydroModPyConfig.from_toml(toml_path)
+    with pytest.raises(ValueError):
+        HydroModPyConfig.from_toml(toml_path)
 
-    assert cfg.modflow.vka == 2.5
-    assert cfg.modflow.exdp == 3.0
-    assert cfg.modflow.nwt_options == "SIMPLE"
+
+def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        "\n".join(
+            [
+                "[workspace]",
+                'catch_name = "demo"',
+                'out_dir_path = "out"',
+                'data_path = "data"',
+                "",
+                "[geographic]",
+                'catch_def = "dem"',
+                'dem_init_path = "dem.tif"',
+                "",
+                "[solver]",
+                'solver_engine = "modflow6"',
+                "",
+                "[modflow6.runtime]",
+                'mf6_executable_name = "mf6_custom"',
+                'mf6_ims_complexity = "SIMPLE"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(toml_path)
+    assert cfg.solver.solver_engine == SolverEngine.MODFLOW6
+    assert cfg.modflow6.runtime.mf6_executable_name == "mf6_custom"
+    assert cfg.modflow6.runtime.mf6_ims_complexity == "SIMPLE"

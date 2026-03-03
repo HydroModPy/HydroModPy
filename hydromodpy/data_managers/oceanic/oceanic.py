@@ -212,13 +212,14 @@ class Oceanic:
 
         # Check if data is already downloaded
         output_folder = os.path.join(geographic.stable_folder, 'oceanic')
-        output_filename = f'sea-level-shom_{tg_id}_{start_date}_{end_date}.csv'
+        startdate = start_date.replace('-', '')
+        enddate = end_date.replace('-', '')
+        output_filename = f'sealevel_shom_{tg_id}_{startdate}_{enddate}_H.csv' # TYPE_PRODUCT_ID_startdate_enddate_freq.ext
         if os.path.exists(os.path.join(output_folder, output_filename)):
             print(f"Data for tide gauge station {self.closest_tg['name']} already downloaded. Loading from file.")
             self.SHOM_data = pd.read_csv(os.path.join(output_folder, output_filename), parse_dates=['timestamp'])
             
         else:
-            
             # Get the vertical reference of the closest tide gauge station
             print(f"Closest tide gauge station: {self.closest_tg['name']} at ({self.closest_tg['latitude']}, {self.closest_tg['longitude']})")
             url = f'https://services.data.shom.fr/maregraphie/service/completetidegauge/{closest_tg_id}'
@@ -228,7 +229,7 @@ class Oceanic:
 
             # Download sea-level data for the closest tide gauge station
             # iterates over 31-day periods to avoid data download issues for long time series
-            sources = '3' # code to get validated data
+            sources = '3' # code to get hourly validated data
             interval = '60' # data interval in minutes
             start_date_temp = datetime.strptime(start_date, '%Y-%m-%d')
             end_date_temp = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=31)
@@ -261,6 +262,36 @@ class Oceanic:
                 if not os.path.exists(os.path.dirname(output_path)):
                     os.makedirs(os.path.dirname(output_path))
                 tg_df.to_csv(output_path, index=False)
+
+    def fetch_msl_or_default(
+        self,
+        geographic,
+        start_date: str = "2003-01-01",
+        end_date: str = "2003-01-30",
+        default: float = 0.0,
+    ) -> float:
+        """Download MSL from SHOM and return its mean, or ``default`` on failure.
+
+        Parameters
+        ----------
+        geographic : object
+            Watershed geographic object used to locate the nearest tide gauge.
+        start_date, end_date : str
+            Date range for the SHOM download (format ``'YYYY-MM-DD'``).
+        default : float
+            Value returned when the download fails (network unavailable, …).
+
+        Returns
+        -------
+        float
+            Mean sea level in metres.
+        """
+        try:
+            self.download_SHOM_data(geographic, start_date=start_date, end_date=end_date)
+            return float(self.SHOM_data["value"].mean())
+        except Exception as exc:
+            print(f"SHOM download failed ({exc}), using default MSL={default}")
+            return default
 
     def display_data(self, values):
         """

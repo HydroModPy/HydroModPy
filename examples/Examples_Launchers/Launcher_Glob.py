@@ -4,29 +4,47 @@
  * HydroModPy Launcher - Example 12 STANDALONE
  * Complete example 12 with ALL functions from launcher.py, only adapted for ex12
 """
-
+import traceback
 import sys
+import hydromodpy as hmp
 import os
-import pickle
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import imageio.v2 as imageio
 import whitebox
 import geopandas as gpd
 import glob
 from pathlib import Path
-import rasterio
-import rasterio.plot
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
+
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from itertools import islice
-from PIL import Image
-import base64
-from io import BytesIO
+import sys
+import os
+import tomllib
+from pathlib import Path
+
+from flopy import run_model
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+import glob
+import pickle
+import matplotlib.dates as mdates
+import rasterio
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+from itertools import islice
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import xarray as xr
+import rioxarray as rxr
+import pickle
+
+import imageio.v2 as imageio
+import whitebox
+
+
 
 try:
     import flopy.utils.binaryfile as bf
@@ -44,17 +62,29 @@ try:
     import hydromodpy
 except:
     pass
-
+# HYDROMODPY MODULES
+import hydromodpy as hmp
 from hydromodpy import watershed_root
-from hydromodpy.watershed import initializing, geographic
-from hydromodpy.watershed import Geographic, Initializing, Climatic, Geology, Hydrography, Hydrometry, Intermittency, Settings, Hydraulic, Oceanic, Transport,Subbasin
-from hydromodpy.watershed.initializing_config import InitializingConfig
-from hydromodpy.watershed.geographic_config import GeographicConfig
+from hydromodpy.watershed import Geographic, Workspace, Climatic, Driasclimat, Driaseau, \
+    Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
+    SafranSurfex, Subbasin, Transport
+from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.display import visualization_watershed, visualization_results
+from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.calibration_legacy.matching_stream import MatchingStreams as MatchingStreamsCalib
-
+from hydromodpy.domain import (
+    Domain,
+)
+from hydromodpy.data_managers import DataManagers
+from hydromodpy.data_managers.geology.geology_field import GeologyField
+from hydromodpy.process import Flow
+from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
+from hydromodpy.modeling import timeseries, netcdf
+from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
+#import importlib
 # Import complete workflow functions from modeling_workflow_complete.py (relative import)
 try:
     from modeling_workflow_complete import (
@@ -80,13 +110,14 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
 # ============================================================================
-EXAMPLE_TO_RUN = "ex01"  # ← CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex12"  # ← CHANGE THIS TO SWITCH EXAMPLES
 
 # Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
 config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
-cfg = HydroModPyConfig.from_toml(Path(__file__).parent / f"config{config_number}.toml")
-
-
+config_path = Path(__file__).parent / f"config{config_number}.toml"
+# 3. Chargement de la configuration
+cfg = HydroModPyConfig.from_toml(config_path)
+out_path = cfg.workspace.out_dir_path
 
 # ============================================================================
 # CONFIG - MULTIPLE EXAMPLES (ex03, ex09, ex12)
@@ -173,7 +204,7 @@ CONFIG_OPTIONS = {
             "plot_animation_interactive": False
         },
         "plots": {
-            "recharge_runoff": True,
+            "plot_recharge_summary": True,
             "streamflow": True,
             "piezometry": True,
             "cross_section": True,
@@ -240,7 +271,8 @@ CONFIG = CONFIG_OPTIONS[EXAMPLE_TO_RUN]
 if not CONFIG.get('display_figures', False):
     mpl.use('Agg')
 
-
+with config_path.open('rb') as f:
+    raw_toml = tomllib.load(f)
 # ============================================================================
 # PARAMETERS - EXAMPLE 12 ONLY
 # ============================================================================
@@ -253,9 +285,15 @@ PARAMS = {
         "watershed_name": "example12",
         "recharge_first_year": 2003,
         "recharge_last_year": 2003,
-        "recharge_time_step": "M",
+        "recharge_time_step": "ME",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "first_clim":"mean",
         # Parametrization
         "box": True,
+        "compt": 0,
+        "sy": 1 / 100,
+        "ss": 1e-5,
         "sink_fill": False,
         "sim_state": "transient",
         "plot_cross": True,
@@ -264,14 +302,6 @@ PARAMS = {
         "dis_perlen": True,
         "nlay": 10,
         "lay_decay": 1.2,
-        "verti_hk": None,
-        "verti_sy": None,
-        "verti_ss": None,
-        "sy": 1 / 100,
-        "sy_decay": 0,
-        "ss": 1e-5,
-        "ss_decay": 0,
-        "vka": 1,
         "bottom": 0,
         "thickness": 100,
         "cond_drain": None,
@@ -293,7 +323,6 @@ PARAMS = {
         "well_1_fluxes": [-200, -1000, -100, 0, 0, 0, 0, 0, 0, 0, 0, -1000],  # [L3/T] for 12 stress periods
         "well_2_fluxes": [0, -1000, 0, -500, 0, 0, -500, 0, 0, 0, 0, -1000],  # [L3/T] for 12 stress periods
         # Vertical anisotropy exponent
-        "exdp": 1.0,
         # Transport (MT3DMS) settings
         "spc_name": "NO3",
         "disp_long": 0,  # Longitudinal dispersivity (m)
@@ -305,6 +334,9 @@ PARAMS = {
         "sconc_input_value": 50,  # Input concentration (mg/L)
         "rate_decay_value": 1 / (2 * 365),  # Decay rate (T-1) - half-life 2 years
         "plot_conc": True,
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
+        "var_list_sim2":['runoff', 'recharge'],
         # Plotting parameters (ex12 uses monthly data)
         "plot_params": {
             "factor": 30,  # Monthly data
@@ -323,7 +355,10 @@ PARAMS = {
         "watershed_name": "09S_short",
         "recharge_first_year": 2003,       # ← 09S_short SHORT version
         "recharge_last_year": 2003,        # ← Single year for speed
-        "recharge_time_step": "M",         # ← Monthly (not Weekly)
+        "recharge_time_step": "ME",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Modeling
         "box": True,
         "sink_fill": False,
@@ -334,15 +369,7 @@ PARAMS = {
         "dis_perlen": True,
         "nlay": 10,                       # ← 10 couches = long calcul
         "lay_decay": 1.2,
-        "verti_hk": None,
-        "verti_sy": None,
-        "verti_ss": None,
         "cond_drain": None,
-        "sy": 1 / 100,
-        "sy_decay": 0,
-        "ss": 1e-5,
-        "ss_decay": 0,
-        "vka": 1,
         "bottom": 0,
         "thickness": 100,
         "bc_left": None,
@@ -363,7 +390,6 @@ PARAMS = {
         "well_1_fluxes": [],
         "well_2_fluxes": [],
         # Vertical anisotropy exponent
-        "exdp": 1.0,
         # Transport (MT3DMS) settings
         "spc_name": "NO3",
         "disp_long": 0,  # Longitudinal dispersivity (m)
@@ -375,6 +401,8 @@ PARAMS = {
         "sconc_input_value": 50,  # Input concentration (mg/L)
         "rate_decay_value": 1 / (2 * 365),  # Decay rate (T-1) - half-life 2 years
         "plot_conc": True,
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters (ex09 uses weekly-like scaling, different subplot layout)
         "plot_params": {
             "factor": 7,  # Weekly-like scaling
@@ -393,7 +421,10 @@ PARAMS = {
         "watershed_name": "04S_short",
         "recharge_first_year": 2000,
         "recharge_last_year": 2001,
-        "recharge_time_step": "M",
+        "recharge_time_step": "ME",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Frame settings
         "box": True,
         "sink_fill": False,
@@ -414,6 +445,8 @@ PARAMS = {
         # Looping over porosity (Sy)
         "iD_set_simulations": "explorSy_test1",
         "list_porosity": [0.5, 5],  # in percent
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters
         "plot_params": {
             "factor": 30,
@@ -433,6 +466,9 @@ PARAMS = {
         "recharge_first_year": 1990,
         "recharge_last_year": 2019,
         "recharge_time_step": "D",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Parametrization
         "box": True,
         "sink_fill": False,
@@ -445,14 +481,16 @@ PARAMS = {
         "lay_decay": 1,
         "bottom": None,
         "thick": 50,
-        "sy": 10 / 100,
         "cond_drain": None,
         "bc_left": None,
         "bc_right": None,
         "sea_level": "None",
+
         # Multiple models
         "iD_set_simulations": "explorK_test1",
-        "list_hyd_cond": list(np.geomspace(1e-8, 1e-3, 10)),  # in m/s (10 values)
+        "list_hyd_cond": list(np.geomspace(1e-8, 1e-3, 10)),  # in m/s (10 values),
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters
         "plot_params": {
             "factor": 30,
@@ -473,8 +511,12 @@ PARAMS = {
         "recharge_first_year": 2017,
         "recharge_last_year": 2017,
         "recharge_time_step": "D",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Frame settings
         "box": True,
+        "hk_decay": 0,
         "sink_fill": False,
         "sim_state": "transient",
         "dis_perlen": True,  # Auto-calculated from monthly stress periods
@@ -482,14 +524,6 @@ PARAMS = {
         "plot_cross": True,
         "check_grid": True,
         # Hydraulic parameters
-        "verti_hk": None,
-        "verti_sy": None,
-        "verti_ss": None,
-        "sy": 1 / 100,
-        "sy_decay": 0,
-        "ss": 1e-5,
-        "ss_decay": 0,
-        "vka": 1,
         "bottom": None,
         "thickness": 50,
         "cond_drain": None,
@@ -515,6 +549,8 @@ PARAMS = {
         "well_2_coords": [0, 16, 28],  # [layer-1, row-1, col-1]
         "well_1_fluxes": [-200, 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # [L3/T] for 12 stress periods
         "well_2_fluxes": [-500, 0, 0, -500, 0, 0, -500, 0, 0, 0, 0, 0],  # [L3/T] for 12 stress periods
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters
         "plot_params": {
             "factor": 30,
@@ -535,6 +571,9 @@ PARAMS = {
         "recharge_first_year": 1990,
         "recharge_last_year": 2019,
         "recharge_time_step": "D",
+        "clim_mod":"REA",
+        "clim_sce": "historic",
+        "var_list_sim2":['runoff', 'recharge'],
         # Frame settings
         "box": True,
         "sink_fill": False,
@@ -544,14 +583,6 @@ PARAMS = {
         "plot_cross": False,
         "check_grid": True,
         # Hydraulic parameters
-        "verti_hk": None,
-        "verti_sy": None,
-        "verti_ss": None,
-        "sy": 1 / 100,
-        "sy_decay": 1 / 20,
-        "ss": None,
-        "ss_decay": 1 / 20,
-        "vka": None,
         "bottom": None,
         "thickness": 50,
         "cond_drain": None,
@@ -562,7 +593,6 @@ PARAMS = {
         "lay_decay": 1.5,
         # Conduct HK
         "hk": 2e-5 * 24 * 3600,  # m/d
-        "hk_decay": 1 / 20,
         "Kmin_for_hk_decay": None,
         "Klog_transf": False,
         # Complex K/Sy parameters (not used in ex01)
@@ -584,6 +614,8 @@ PARAMS = {
         # Model identification
         "iD_set_simulations": None,
         "list_hyd_cond": None,
+        "var_list":['t', 'precip', 'dli'],
+        "spatial_mean": True,
         # Plotting parameters
         "plot_params": {
             "factor": 30,
@@ -603,21 +635,10 @@ PARAMS = {
 
 DATA_MODULES = {
     "ex12": {
-        "geology": {
-            "class_name": "Geology",
-            "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
-                "geographic": ("geographic", True),
-                "geo_path": ("data_path", True),
-                "landsea": (None, False),
-                "types_obs": ("GEO1M.shp", False),
-                "fields_obs": ("CODE_LEG", False)
-            }
-        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "types_obs": (["botopage2024_naizin_streams_perennial-intermittent"], False),
                 "fields_obs": (["FID"], False),
                 "geographic": ("geographic", True),
@@ -632,23 +653,23 @@ DATA_MODULES = {
                 "hydrometry": (None, False),
                 "intermittency": (None, False),
                 "add_path": ("data_path", True),
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "sub_snap_dist": (50, False)
             }
         },
-        "hydrometry": {
+        """"hydrometry": {
             "class_name": "Hydrometry",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "hydrometry_path": ("data_path", True),
                 "file_name": ("france hydrometric stations.shp", False),
                 "geographic": ("geographic", True)
             }
-        },
+        },"""
         "intermittency": {
             "class_name": "Intermittency",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "intermittency_path": ("data_path", True),
                 "file_name": ("regional onde stations.shp", False),
                 "geographic": ("geographic", True)
@@ -659,7 +680,7 @@ DATA_MODULES = {
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "types_obs": (["botopage2024_naizin_streams_perennial-intermittent"], False),
                 "fields_obs": (["FID"], False),
                 "geographic": ("geographic", False),
@@ -674,27 +695,16 @@ DATA_MODULES = {
                 "hydrometry": (None, False),
                 "intermittency": (None, False),
                 "add_path": ("data_path", True),
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "sub_snap_dist": (50, False)
             }
         }
     },
     "ex04": {
-        "geology": {
-            "class_name": "Geology",
-            "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
-                "geographic": ("geographic", True),
-                "geo_path": ("data_path", True),
-                "landsea": (None, False),
-                "types_obs": ("GEO1M.shp", False),
-                "fields_obs": ("CODE_LEG", False)
-            }
-        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "types_obs": (["regional stream network"], False),
                 "fields_obs": (["FID"], False),
                 "geographic": ("geographic", True),
@@ -705,7 +715,7 @@ DATA_MODULES = {
         "hydrometry": {
             "class_name": "Hydrometry",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "hydrometry_path": ("data_path", True),
                 "file_name": ("france hydrometric stations.shp", False),
                 "geographic": ("geographic", True)
@@ -714,7 +724,7 @@ DATA_MODULES = {
         "intermittency": {
             "class_name": "Intermittency",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "intermittency_path": ("data_path", True),
                 "file_name": ("regional onde stations.shp", False),
                 "geographic": ("geographic", True)
@@ -727,27 +737,16 @@ DATA_MODULES = {
                 "hydrometry": (None, False),
                 "intermittency": (None, False),
                 "add_path": ("data_path", True),
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "sub_snap_dist": (150, False)
             }
         }
     },
     "ex03": {
-        "geology": {
-            "class_name": "Geology",
-            "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
-                "geographic": ("geographic", True),
-                "geo_path": ("data_path", True),
-                "landsea": (None, False),
-                "types_obs": ("GEO1M.shp", False),
-                "fields_obs": ("CODE_LEG", False)
-            }
-        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "types_obs": (["regional stream network"], False),
                 "fields_obs": (["FID"], False),
                 "geographic": ("geographic", True),
@@ -762,14 +761,14 @@ DATA_MODULES = {
                 "hydrometry": (None, False),
                 "intermittency": (None, False),
                 "add_path": ("data_path", True),
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "sub_snap_dist": (150, False)
             }
         },
         "hydrometry": {
             "class_name": "Hydrometry",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "hydrometry_path": ("data_path", True),
                 "file_name": ("france hydrometric stations.shp", False),
                 "geographic": ("geographic", True)
@@ -778,7 +777,7 @@ DATA_MODULES = {
         "intermittency": {
             "class_name": "Intermittency",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "intermittency_path": ("data_path", True),
                 "file_name": ("regional onde stations.shp", False),
                 "geographic": ("geographic", True)
@@ -789,7 +788,7 @@ DATA_MODULES = {
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "types_obs": (["regional stream network"], False),
                 "fields_obs": (["FID"], False),
                 "geographic": ("geographic", True),
@@ -799,21 +798,10 @@ DATA_MODULES = {
         }
     },
     "ex01": {
-        "geology": {
-            "class_name": "Geology",
-            "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
-                "geographic": ("geographic", True),
-                "geo_path": ("data_path", True),
-                "landsea": (None, False),
-                "types_obs": ("GEO1M.shp", False),
-                "fields_obs": ("CODE_LEG", False)
-            }
-        },
         "hydrography": {
             "class_name": "Hydrography",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "types_obs": (["regional stream network"], False),
                 "fields_obs": (["FID"], False),
                 "geographic": ("geographic", True),
@@ -824,7 +812,7 @@ DATA_MODULES = {
         "hydrometry": {
             "class_name": "Hydrometry",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "hydrometry_path": ("data_path", True),
                 "file_name": ("france hydrometric stations.shp", False),
                 "geographic": ("geographic", True)
@@ -833,7 +821,7 @@ DATA_MODULES = {
         "intermittency": {
             "class_name": "Intermittency",
             "constructor_args": {
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "intermittency_path": ("data_path", True),
                 "file_name": ("regional onde stations.shp", False),
                 "geographic": ("geographic", True)
@@ -846,7 +834,7 @@ DATA_MODULES = {
                 "hydrometry": (None, False),
                 "intermittency": (None, False),
                 "add_path": ("data_path", True),
-                "out_path": ("initializing.catch_folder", True),
+                "out_path": ("workspace.catch_folder", True),
                 "sub_snap_dist": (150, False)
             }
         }
@@ -865,11 +853,11 @@ PARAM_CONFIG = {
             "runoff_factor": 0.1
         },
         "hydraulic_specific": {
-            "update_ss": True,
-            "update_vka": True,
+            "update_ss": False,
+            "update_vka": False,
             "update_vertical": False,
-            "update_decay": True,
-            "sy_complex": True
+            "update_decay": False,
+            "sy_complex": False
         },
         "particle_tracking": False
     },
@@ -880,11 +868,11 @@ PARAM_CONFIG = {
             "runoff_factor": 0.1
         },
         "hydraulic_specific": {
-            "update_ss": True,
-            "update_vka": True,
-            "update_vertical": True,
-            "update_decay": True,
-            "sy_complex": True  # Sy avec decay
+            "update_ss": False,
+            "update_vka": False,
+            "update_vertical": False,
+            "update_decay": False,
+            "sy_complex": False  # Sy avec decay
         },
         "particle_tracking": False
     },
@@ -912,7 +900,7 @@ PARAM_CONFIG = {
         "hydraulic_specific": {
             "update_bottom": True,
             "update_thick": True,
-            "update_sy_simple": True,
+            "update_sy_simple": False,
             "decay_config": False
         },
         "particle_tracking": True
@@ -924,7 +912,7 @@ PARAM_CONFIG = {
             "runoff": None
         },
         "hydraulic_specific": {
-            "update_sy_simple": True,
+            "update_sy_simple": False,
             "decay_config": False
         },
         "particle_tracking": False
@@ -936,14 +924,14 @@ PARAM_CONFIG = {
             "runoff_factor": None
         },
         "hydraulic_specific": {
-            "update_hk": True,
-            "update_hk_decay": True,
-            "update_sy_simple": True,
+            "update_hk": False,
+            "update_hk_decay": False,
+            "update_sy_simple": False,
             "update_ss": False,
             "update_vka": False,
             "update_hk_vertical": False,
-            "update_decay": True,
-            "decay_config": True
+            "update_decay": False,
+            "decay_config": False
         },
         "particle_tracking": True
     }
@@ -1151,6 +1139,7 @@ MODELING_CONFIG = {
 MODPATH_CONFIG = {
     "ex12": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1181,6 +1170,7 @@ MODPATH_CONFIG = {
     },
      "ex09": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1211,6 +1201,7 @@ MODPATH_CONFIG = {
     },
     "ex03": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1241,6 +1232,7 @@ MODPATH_CONFIG = {
     },
     "ex00": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1271,6 +1263,7 @@ MODPATH_CONFIG = {
     },
     "ex01": {
         "preprocessing": {
+            "for_calib": False,
             "zone_partic": "seepage_areas",
             "cell_div": 1,
             "zloc_div": False,
@@ -1391,234 +1384,281 @@ def select_period(df, first, last):
 
 
 
-def watershed(example_key):
-    """Extract watershed for example 12 (loads config from config.toml)"""
-    print("\n" + "="*70)
-    print("EXAMPLE 12 - WATERSHED EXTRACTION".center(70))
-    print("="*70)
+def watershed(example_id):
+    print(f"\n EXAMPLE {example_id} - WATERSHED EXTRACTION ")
 
     try:
-        # Load paths from PARAMS (for data directory reference)
-        #example_key = results.get('example_key', CONFIG["example"])
-        p = PARAMS[example_key]
+        # 1. Paramètres et Chemins
+        p = PARAMS[example_id]
         example_path = os.path.join(root_dir, p["base_path"])
-        data_path = os.path.join(example_path, "data")
+        absolute_data_path = os.path.join(example_path, "data")
 
-        if not os.path.exists(data_path):
-            print(f"Data path not found: {data_path}\n")
+        # Mise à jour de la config globale pour les objets HMP
+        cfg.workspace.data_path = Path(absolute_data_path)
+        cfg.workspace.catch_name = p.get("catch_name", cfg.workspace.catch_name)
+
+        if not os.path.exists(absolute_data_path):
+            print(f"✗ Data path not found: {absolute_data_path}\n")
             return None
 
-        print(f"\n Configuration loaded from: config.toml")
-        print(f" Data path: {data_path}")
+        # 2. Création du Workspace (Remplace Initializing)
+        workspace_object = hmp.Workspace(config=cfg.workspace)
 
-        # Update cfg paths with proper Path objects
-        # If out_dir_path is already an absolute path (set by run_launcher_glob for tests),
-        # keep it as is. Otherwise, combine with example_path.
-        out_dir_path = Path(cfg.initializing.out_dir_path)
-        if not out_dir_path.is_absolute():
-            out_dir_path = Path(example_path) / out_dir_path
+        # 3. Geographic et Domain (avec Géologie)
+        geographic_object = hmp.Geographic(cfg.geographic, workspace_object)
+        surface_topo = geographic_object.get_domain_surface_topo()
 
-        cfg.initializing.out_dir_path = out_dir_path
-        cfg.initializing.data_path = Path(data_path)
+        domain = Domain(config=cfg.domain, surface_topo=surface_topo)
 
-        # Extract filename from dem_init_path (it may have "data/" prefix from config.toml)
-        dem_filename = Path(cfg.geographic.dem_init_path).name
-        cfg.geographic.dem_init_path = Path(data_path) / dem_filename
+        # Intégration de la Géologie si configurée
+        data_managers = DataManagers.from_config(cfg.data)
+        if "geology" in data_managers.types:
+            print(" Integrating Geology field...")
+            geology = GeologyField.from_watershed_config(
+                cfg.data.geology,
+                raster_support=surface_topo.support,
+            )
+            domain.set_zone("geology", geology)
 
-        # Verify DEM path
-        dem_path = str(cfg.geographic.dem_init_path)
-        if not os.path.exists(dem_path):
-            print(f"DEM not found: {dem_path}\n")
-            return None
-
-        print(f"DEM: {dem_path}")
-
-        # Create Initializing object with config from config.toml
-        initializing_object = initializing.Initializing(config=cfg.initializing)
-
-        # Create Geographic object with config from config.toml
-        geographic_object = Geographic(config=cfg.geographic,
-                        initializing=initializing_object)
-
-        # Create individual objects (like example12.py) - NOT via BV
-        print("Creating individual objects (Settings, Hydraulic, Oceanic)...")
+        # 4. Objets de calcul
+        flow = Flow(config=cfg.flow)
         settings_object = Settings()
         hydraulic_object = Hydraulic(
             nrow=geographic_object.y_pixel,
             ncol=geographic_object.x_pixel,
             box_dem=geographic_object.watershed_box_buff_dem
         )
-        oceanic_object = Oceanic()
-        transport_object = Transport()
+        transport = Transport()
+        climatic_object = Climatic(out_path=workspace_object.catch_folder)
 
-        stable_folder = initializing_object.stable_folder
-        simulations_folder = initializing_object.simulations_folder
-        calibration_folder = initializing_object.calibration_folder
-        results_path = cfg.initializing.out_dir_path
+        # 5. Oceanic (avec SHOM)
+        oceanic = Oceanic()
+        oceanic.extract_local_data(
+            out_path=workspace_object.catch_folder,
+            geographic=geographic_object,
+            oceanic_path=str(absolute_data_path)
+        )
+        try:
+            # On essaye de récupérer les données marées
+            oceanic.download_SHOM_data(geographic=geographic_object, start_date='2003-01-01', end_date='2003-01-30')
+            oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+        except Exception as e:
+            print(f"SHOM download failed ({e}), using default MSL=0.0")
+            oceanic.update_MSL(0.0)
 
-        # For example 12 (single model), use simulations_folder as calibration_folder
-        # This ensures MODFLOW outputs go to the correct location for MODPATH/MT3DMS
-        example_key = CONFIG["example"]
-        if MODELING_CONFIG.get(example_key, {}).get("type") == "single":
-            calibration_folder = simulations_folder
+        flow.boundary_conditions["ocean"].value = oceanic.MSL
 
-        print("Watershed extracted\n")
+        # 6. Hydrometry (Nouveau StationSet)
+        hydro_section = raw_toml.get("hydrometry_stations", {})
+        if hydro_section:
+            hydro_cfg = {
+                "hydrometry": {k: v for k, v in hydro_section.items() if k not in ["source", "selection", "output"]},
+                "source": hydro_section.get("source", {}),
+                "selection": hydro_section.get("selection", {}),
+                "output": hydro_section.get("output", {}),
+            }
+            # Utilise le shapefile du bassin comme masque
+            if hydro_cfg["selection"].get("mode") == "mask":
+                hydro_cfg["selection"]["mask_path"] = geographic_object.watershed_shp
 
-        # Prepare results dictionary with individual objects (NOT BV)
+            try:
+                hydrometry = StationSet.from_config(hydro_cfg)
+            except Exception as e:
+                print(f"Hydrometry loading failed: {e}")
+                hydrometry = None
+        else:
+            hydrometry = None
+
+        # 7. Préparation des résultats
         results = {
-            'initializing': initializing_object,
+            'workspace': workspace_object,
             'geographic': geographic_object,
             'settings': settings_object,
             'hydraulic': hydraulic_object,
-            'oceanic': oceanic_object,
-            'transport': transport_object,
-            'example_key': example_key,
-            'data_path': data_path,
-            'results_path': results_path,
-            'stable_folder': stable_folder,
-            'simulations_folder': simulations_folder,
-            'calibration_folder': calibration_folder
+            'domain': domain,
+            'flow': flow,
+            'oceanic': oceanic,
+            'climatic': climatic_object,
+            'transport': transport,
+            'hydrometry': hydrometry,
+            'example_key': example_id,
+            'data_path': absolute_data_path,
+            'stable_folder': workspace_object.stable_folder,
+            'simulations_folder': workspace_object.simulations_folder,
+            'calibration_folder': workspace_object.calibration_folder
         }
 
         return results
 
     except Exception as e:
-        print(f"Error: {e}\n")
-        import traceback
+        print(f"Error in watershed: {e}")
         traceback.print_exc()
         return None
-
 
 # ============================================================================
 # HELPER: Resolve References for DATA_MODULES
 # ============================================================================
 
 def _resolve_reference(ref_str, results):
-    """Resolve nested references like 'initializing.catch_folder' to actual values"""
-    if not ref_str or ref_str is None:
-        return None
+    """Resolve nested references like 'workspace.catch_folder'"""
+    if not ref_str: return None
 
     parts = ref_str.split('.')
-    obj = results.get(parts[0])
+    # Gérer la transition historique si nécessaire
+    if parts[0] == 'initializing': parts[0] = 'workspace'
 
-    if obj is None:
-        return None
+    obj = results.get(parts[0])
+    if obj is None: return None
 
     for part in parts[1:]:
         try:
             obj = getattr(obj, part)
-        except AttributeError:
-            return None
-
+        except AttributeError: return None
     return obj
 
-
 # ============================================================================
-# STEP 2: DATA INTEGRATION
+# STEP 2: DATA INTEGRATION + surface
 # ============================================================================
 
 def data(results):
-    """Add geographic data to watershed using DATA_MODULES configuration"""
     print("\n" + "="*70)
     print("DATA - GEOGRAPHIC INTEGRATION".center(70))
+    print("="*70)
+
+    if not results: return None
+
+    try:
+        example_key = results.get('example_key')
+        module_config = DATA_MODULES.get(example_key, {})
+
+        # 1. Instanciation dynamique (Hydrography, Subbasin, etc.)
+        for module_name, module_info in module_config.items():
+            try:
+                class_name = module_info["class_name"]
+                constructor_args = module_info["constructor_args"]
+                resolved_kwargs = {}
+                for arg_name, (arg_value, is_reference) in constructor_args.items():
+                    if is_reference and arg_value:
+                        resolved_kwargs[arg_name] = _resolve_reference(arg_value, results)
+                    else:
+                        resolved_kwargs[arg_name] = arg_value
+
+                module_class = globals()[class_name]
+                results[module_name] = module_class(**resolved_kwargs)
+                print(f" Module {module_name}: OK")
+            except Exception as e:
+                print(f" Error module {module_name}: {e}")
+
+        # 2. Calcul de l'Area
+        geographic = results.get('geographic')
+        if geographic:
+            results['area'] = int(round(geographic.catch_area))
+            print(f" Catchment Area: {results['area']} m²")
+
+        # 3. Visualisations (Version mise à jour)
+        print("\nCreating watershed visualizations...")
+        try:
+            visualization_watershed.watershed_local(
+                cfg.geographic.dem_init_path,
+                results.get('workspace'),
+                results.get('geographic')
+            )
+            visualization_watershed.watershed_dem(
+                initializing=results.get('workspace'),
+                geographic=results.get('geographic'),
+                hydrography=results.get('hydrography'),
+                piezometry=None,
+                intermittency=results.get('intermittency'),
+                hydrometry=results.get('hydrometry')
+            )
+        except Exception as e:
+            print(f" Visualization Warning: {e}")
+
+        return results
+    except Exception as e:
+        print(f"Error in data: {e}")
+        return results
+def surfaces(results):
+    """Define aquifer surfaces using thickness from PARAMS"""
+    print("\n" + "="*70)
+    print("SURFACES - GEOMETRY DEFINITION".center(70))
     print("="*70)
 
     if not results:
         return None
 
     try:
-        example_key = results.get('example_key', CONFIG["example"])
-        data_path = results.get('data_path')
+        # 1. Récupérer la clé de l'exemple (ex: "ex12")
+        example_key = results.get('example_key')
 
-        # Check if configuration exists for this example
-        if example_key not in DATA_MODULES:
-            print(f"No data configuration for {example_key}")
-            return results
+        # 2. Récupérer le paramètre thickness spécifique à cet exemple
+        # On cherche dans PARAMS["ex12"]["thickness"]
+        # On met 50 par défaut si jamais le paramètre est oublié dans config.toml
+        thickness = PARAMS.get(example_key, {}).get("thickness", 50)
 
-        module_config = DATA_MODULES[example_key]
-        print(f"\nInstantiating data modules for {example_key.upper()}...")
+        geographic = results.get('geographic')
 
-        # Iterate through each module in configuration
-        for module_name, module_info in module_config.items():
-            try:
-                class_name = module_info["class_name"]
-                constructor_args = module_info["constructor_args"]
+        print(f"Example: {example_key}")
+        print(f"Applying thickness from PARAMS: {thickness}m")
 
-                # Resolve all constructor arguments
-                resolved_kwargs = {}
-                for arg_name, (arg_value, is_reference) in constructor_args.items():
-                    if is_reference:
-                        # Resolve reference from results dict
-                        resolved_value = _resolve_reference(arg_value, results)
-                        resolved_kwargs[arg_name] = resolved_value
-                    else:
-                        # Use static value directly
-                        resolved_kwargs[arg_name] = arg_value
+        # 3. Création de l'objet Surfaces
+        surfaces_object = Surfaces(
+            aquifer_top = geographic.dem_box_buff_data,
+            aquifer_bottom = geographic.dem_box_buff_data - thickness
+        )
 
-                # Get class from globals (imported in launcher)
-                module_class = globals()[class_name]
+        # 4. Stockage dans le dictionnaire de résultats
+        results['surfaces'] = surfaces_object
+        results['aquifer_top'] = surfaces_object.aquifer_top
+        results['aquifer_bottom'] = surfaces_object.aquifer_bottom
+        results['thickness'] = thickness # Optionnel : pour mémoire
 
-                # Instantiate the module
-                print(f"{module_name}...", end="", flush=True)
-                module_instance = module_class(**resolved_kwargs)
-
-                # Store in results
-                results[module_name] = module_instance
-                print("True")
-
-            except KeyError as e:
-                print(f"Missing class: {e}")
-            except Exception as e:
-                print(f"Error: {e}")
-
-        # Visualizations (using available DATA_MODULES configuration)
-        viz_list = []  # Placeholder for future visualization enhancements using DATA_MODULES
-        if viz_list:
-            print("\n Creating watershed visualizations...")
-            for viz in viz_list:
-                try:
-                    method_name = viz["method"]
-                    if hasattr(visualization_watershed, method_name):
-                        print(f" {viz['name']}...", end="", flush=True)
-
-                        if viz.get("dem_param"):
-                            # watershed_local requires dem_init_path as first parameter
-                            dem_filename = PARAMS[example_key].get("dem_filename", "watershed_dem.tif")
-                            if dem_filename:
-                                dem_path = os.path.join(data_path, dem_filename)
-                                if os.path.exists(dem_path):
-                                    getattr(visualization_watershed, method_name)(dem_path, results.get('initializing'), results.get('geographic'))
-                                    print(" True")
-                                else:
-                                    print(f"DEM not found: {dem_path}")
-                        elif viz.get("extended"):
-                            # watershed_dem requires initializing, geographic, hydrography, piezometry, intermittency, hydrometry
-                            getattr(visualization_watershed, method_name)(
-                                initializing=results.get('initializing'),
-                                geographic=results.get('geographic'),
-                                hydrography=results.get('hydrography'),
-                                piezometry=None,
-                                intermittency=results.get('intermittency'),
-                                hydrometry=results.get('hydrometry')
-                            )
-                            print(" True")
-                        else:
-                            # Simple method call with geographic only
-                            getattr(visualization_watershed, method_name)(results.get('geographic'))
-                            print(" True")
-                except Exception as e:
-                    print(f"Error: {e}")
-
-        print("Data integration completed\n")
+        print("Surfaces created successfully")
         return results
 
     except Exception as e:
-        print(f"Error: {e}\n")
-        import traceback
-        traceback.print_exc()
+        print(f"Error in surfaces for {example_key}: {e}")
         return results
 
+def atmosphere(results):  # sourcery skip: extract-method
+    """Update climatic data (reanalysis)"""
+    print("\n" + "="*70)
+    print("ATMOSPHERE - CLIMATIC DATA UPDATE".center(70))
+    print("="*70)
 
+    if not results:
+        return None
+
+    try:
+        example_id = results.get('example_key')
+        example_key = results.get('example_key', CONFIG["example"])
+        p = PARAMS[example_key]
+        data_path = results['data_path']
+        climatic = results.get('climatic')
+        geographic = results.get('geographic')
+        workspace = results.get('workspace')
+
+        print(f"Updating reanalysis for {example_id} ")
+
+        # Appel de la méthode
+        climatic.update_sim2_reanalysis(
+            var_list=p.get("var_list",[]),
+            nc_data_path=Path(workspace.catch_folder) / 'results_stable' / 'climatic',
+            first_year=p.get("first_year"),
+            last_year=p.get("last_year"),
+            time_step=p.get("recharge_time_step"),
+            sim_state=p.get("sim_state"),
+            spatial_mean=True,
+            geographic=geographic,
+            disk_clip=geographic.watershed_shp
+        )
+
+        print("Atmosphere updated")
+        return results
+
+    except Exception as e:
+        print(f"Error in atmosphere: {e}")
+        return results
 # ============================================================================
 # STEP 3: RECHARGE CALCULATION
 # ============================================================================
@@ -1641,8 +1681,8 @@ def recharge(results):
         climatic_object = results.get('climatic')
         if climatic_object is None:
             print(" Creating Climatic object...")
-            initializing_object = results['initializing']
-            climatic_object = Climatic(out_path=initializing_object.catch_folder)
+            workspace_object = results['workspace']
+            climatic_object = Climatic(out_path=workspace_object.catch_folder)
             results['climatic'] = climatic_object
 
         # FOR EX00: Create recharge manually from monthly data (like example_00.py)
@@ -1653,11 +1693,20 @@ def recharge(results):
             recharge = pd.Series(rch_series.values, index=time_index)
             climatic_object.update_recharge(recharge, sim_state=p["sim_state"])
             climatic_object.update_runoff(None, sim_state=p["sim_state"])
-            climatic_object.update_first_clim('mean')
+            first_clim= p.get("first_clim")
+            climatic_object.update_first_clim(first_clim)
+            R_mm_day_filt= select_period(climatic_object.recharge,time_index)*0
+            R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
+            R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
+            R_mm_day_filt[R_mm_day_filt.index.month.isin([7])] = -1
+             # plt.plot(R_mm_day_filt)
+
+            R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
 
             results['R_mm_day'] = climatic_object.recharge
             results['runoff'] = climatic_object.runoff
             results['climatic'] = climatic_object
+            results['R_mm_day_filt'] = R_mm_day_filt
             print("Recharge and runoff created\n")
             return results
 
@@ -1665,8 +1714,8 @@ def recharge(results):
         print("Update recharge (REANALYSIS)...")
         climatic_object.update_recharge_reanalysis(
             path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
-            clim_mod='REA',
-            clim_sce='historic',
+            clim_mod=p["clim_mod"],
+            clim_sce=p["clim_sce"],
             first_year=p["recharge_first_year"],
             last_year=p["recharge_last_year"],
             time_step=p["recharge_time_step"],
@@ -1676,8 +1725,8 @@ def recharge(results):
         print("Update runoff (REANALYSIS)...")
         climatic_object.update_runoff_reanalysis(
             path_file=os.path.join(data_path, '_climate_REANALYSIS.csv'),
-            clim_mod='REA',
-            clim_sce='historic',
+            clim_mod=p["clim_mod"],
+            clim_sce=p["clim_sce"],
             first_year=p["recharge_first_year"],
             last_year=p["recharge_last_year"],
             time_step=p["recharge_time_step"],
@@ -1685,10 +1734,18 @@ def recharge(results):
         )
 
         print("Recharge and runoff loaded\n")
+        R_mm_day_filt= select_period(climatic_object.recharge,p["recharge_first_year"],p["recharge_last_year"])*0
+        R_mm_day_filt[R_mm_day_filt.index.month.isin([3,4,5,6,8,9,10])] = 0
+        R_mm_day_filt[R_mm_day_filt.index.month.isin([1,2,11,12])] = 2
+        R_mm_day_filt[R_mm_day_filt.index.month.isin([7])] = -1
+             # plt.plot(R_mm_day_filt)
+
+        R_mm_day_filt.index = pd.to_datetime(R_mm_day_filt.index)
 
         results['R_mm_day'] = climatic_object.recharge
-        results['runoff'] = climatic_object.runoff
+        results['r_mm_day'] = climatic_object.runoff
         results['climatic'] = climatic_object
+        results['R_mm_day_filt'] = R_mm_day_filt
 
         return results
 
@@ -1698,7 +1755,53 @@ def recharge(results):
         traceback.print_exc()
         return results
 
+def recharge_sim2(results):
+    """Calculate recharge from climatic data using SIM2 method"""
+    print("\n" + "="*70)
+    print("RECHARGE SIM2 - CLIMATIC DATA UPDATE".center(70))
+    print("="*70)
 
+    if not results:
+        return None
+
+    try:
+        example_key = results.get('example_key', CONFIG["example"])
+        p = PARAMS[example_key]
+        data_path = results['data_path']
+        climatic = results.get('climatic')
+        geographic = results.get('geographic')
+        workspace = results.get('workspace')
+
+        print(f"Updating recharge with SIM2 for {example_key} ")
+
+        # Appel de la méthode
+        climatic.update_sim2_reanalysis(
+            var_list=p.get("var_list_sim2",[]),
+            nc_data_path=Path(workspace.catch_folder) / 'results_stable' / 'climatic',
+            first_year=p.get("first_year"),
+            last_year=p.get("last_year"),
+            time_step=p.get("recharge_time_step"),
+            sim_state=p.get("sim_state"),
+            geographic=geographic,
+            disk_clip=geographic.watershed_shp
+        )
+        print("Converting units (mm to m)...")
+        for attr in ['t', 'precip', 'etp', 'runoff', 'recharge']:
+            val = getattr(climatic, attr, None)
+            if val is not None:
+                setattr(climatic, attr, val / 1000.0)
+
+        # Mise à jour des résultats finaux
+        results['R_mm_day'] = climatic.recharge
+        results['runoff']   = climatic.runoff
+        results['climatic'] = climatic # On renvoie l'objet mis à jour
+
+        print("Recharge SIM2 updated")
+        return results
+
+    except Exception as e:
+        print(f"Error in recharge_sim2: {e}")
+        return results
 # ============================================================================
 # STEP 4: PARAMETRIZATION
 # ============================================================================
@@ -1724,15 +1827,15 @@ def parametrization(results):
         oceanic_object = results['oceanic']
 
         if climatic_object is None:
-            initializing_object = results['initializing']
-            climatic_object = Climatic(out_path=initializing_object.catch_folder)
+            workspace_object = results['workspace']
+            climatic_object = Climatic(out_path=workspace_object.catch_folder)
             results['climatic'] = climatic_object
 
         print("Configuring individual objects...")
 
         # Configure Settings (like example12.py)
         print("Settings...")
-        settings_object.update_box_model(p["box"])
+        #settings_object.update_box_model(p["box"])
         settings_object.update_sink_fill(p["sink_fill"])
         settings_object.update_simulation_state(p["sim_state"])
         settings_object.update_bc_sides(p["bc_left"], p["bc_right"])
@@ -1769,7 +1872,7 @@ def parametrization(results):
         hydraulic_object.update_cond_drain(p["cond_drain"])
         hydraulic_object.update_lay_decay(p["lay_decay"])
         hydraulic_object.update_bottom(p["bottom"])
-        hydraulic_object.update_exdp(p.get("exdp", 1.0))
+        #hydraulic_object.update_exdp(p.get("exdp", 1.0))
 
         # Configure Transport (created for all, configured as needed)
         print("Transport...")
@@ -1794,10 +1897,11 @@ def parametrization(results):
         transport_object.sconc_init_value = p.get("sconc_init_value", 0) / 1000  # Convert mg/L to kg/m3
         transport_object.sconc_input_value = p.get("sconc_input_value", 0) / 1000
         transport_object.rate_decay_value = p.get("rate_decay_value", 0)
+        first_clim = p.get("first_clim")
 
         # Configure Climatic (like example12.py)
         print(" Climatic...")
-        climatic_object.update_first_clim('mean')
+        climatic_object.update_first_clim(first_clim)
 
         # Handle recharge based on example type
         if example_key == "ex00":
@@ -1831,44 +1935,26 @@ def parametrization(results):
         if config["hydraulic_specific"].get("update_hk"):
             hydraulic_object.update_hk(p["hk"])
 
-        if config["hydraulic_specific"].get("update_sy_simple"):
-            hydraulic_object.update_sy(p["sy"])
-
-        if config["hydraulic_specific"].get("update_ss"):
-            hydraulic_object.update_ss(p["ss"])
-
-        if config["hydraulic_specific"].get("update_vka"):
-            hydraulic_object.update_vka(p["vka"])
-
-        if config["hydraulic_specific"].get("update_hk_vertical"):
-            hydraulic_object.update_hk_vertical(p["verti_hk"])
-
-        if config["hydraulic_specific"].get("update_decay"):
-            if config["hydraulic_specific"].get("update_hk_decay"):
-                hydraulic_object.update_hk_decay(p["hk_decay"], min_value=p.get("Kmin_for_hk_decay"), log_transf=p.get("Klog_transf"))
-            hydraulic_object.update_sy_decay(p["sy_decay"])
-            hydraulic_object.update_ss_decay(p["ss_decay"])
 
         # COMPLEX: sy_complex
-        if config["hydraulic_specific"].get("sy_complex"):
-            hydraulic_object.update_hk(p["the_K0"])
-            hydraulic_object.update_hk_decay(
+        #if config["hydraulic_specific"].get("sy_complex"):
+          #  hydraulic_object.update_hk(p["the_K0"])
+           # hydraulic_object.update_sy(p["the_sy0"])
+            """ hydraulic_object.update_hk_decay(
                 1 / p["alpha"],
                 min_value=p["Kmin_for_hk_decay"],
                 log_transf=p["Klog_transf"],
                 grad_elev=[93, 136, -20]
-            )
-
-            hydraulic_object.update_sy(p["the_sy0"])
-            hydraulic_object.update_sy_decay(
+            )"""
+            """hydraulic_object.update_sy_decay(
                 (1 / p["alpha"]) / p["n_factor"],
                 min_value=p["Symin_for_sy_decay"],
                 log_transf=p["Klog_transf"],
                 grad_elev=[93, 136, -20]
-            )
+            )"
 
             hydraulic_object.update_ss(p["the_ss0"])
-            hydraulic_object.update_ss_decay(0)
+            hydraulic_object.update_ss_decay(0)"""
 
         print("Parametrization completed\n")
         return results
@@ -1898,14 +1984,24 @@ def modeling(results):
     try:
         # Get individual objects created in watershed(), recharge(), and parametrization()
         geographic_object = results['geographic']
+        flow_object = results.get('flow')
+        domain_object = results.get('domain')
         hydraulic_object = results['hydraulic']
         settings_object = results['settings']
         climatic_object = results['climatic']
         oceanic_object = results['oceanic']
-        initializing_object = results['initializing']
+        workspace_object = results['workspace']
 
         p = PARAMS[example_key]
         config = MODELING_CONFIG[example_key]
+
+        # --- AJOUT 3 : GESTION DYNAMIQUE DU DOSSIER ---
+        for_calib = config.get("preprocessing", {}).get("for_calib", False)
+        if for_calib:
+            model_folder = workspace_object.calibration_folder
+        else:
+            model_folder = workspace_object.simulations_folder
+
 
         print(f"\n  Running MODFLOW for {example_key}...")
 
@@ -1915,24 +2011,25 @@ def modeling(results):
             the_K0 = p.get("the_K0")
             if the_K0 is not None:
                 the_K0_ms = the_K0 / 24 / 3600
-                model_name = f"{p['vers']}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
+                model_name = f"{p['vers']}_{p.get('compt', 0)}_K{the_K0_ms:.1e}_a{p['alpha']:.1f}_Sy{p['the_sy0']*100:.1f}"
             else:
                 # ex01: use hk from PARAMS, no version/alpha naming
                 model_name = f"{example_key}_hk{p['hk']:.1e}"
 
             # Call refactored complete_modflow function with individual objects
-            hk_value = p.get("the_K0") if p.get("the_K0") is not None else p.get("hk")
             result = complete_modflow(
                 geographic=geographic_object,
+                flow=flow_object,
+                domain=domain_object,
                 hydraulic=hydraulic_object,
                 settings=settings_object,
                 climatic=climatic_object,
-                oceanic=oceanic_object,
-                initializing=initializing_object,
+                oceanic_object=oceanic_object,
+                workspace=workspace_object,
                 model_name=model_name,
-                hk_value=hk_value,
-                bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
-                config=config
+                bin_path=CONFIG.get("bin_path", workspace_object.bin_path),
+                config=config,
+                cfg=cfg,
             )
 
             results['model_name'] = result['model_name']
@@ -1963,12 +2060,13 @@ def modeling(results):
                         hydraulic=hydraulic_object,
                         settings=settings_object,
                         climatic=climatic_object,
-                        oceanic=oceanic_object,
-                        initializing=initializing_object,
+                        oceanic_object=oceanic_object,
+                        workspace=workspace_object,
                         model_name=model_name,
                         hk_value=hk_value,
-                        bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
-                        config=config
+                        bin_path=CONFIG.get("bin_path", workspace_object.bin_path),
+                        config=config,
+                        cfg=cfg,
                     )
                     list_model_name.append(result['model_name'])
                     list_success_modflow.append(result['success'])
@@ -1992,11 +2090,11 @@ def modeling(results):
                         hydraulic=hydraulic_object,
                         settings=settings_object,
                         climatic=climatic_object,
-                        oceanic=oceanic_object,
-                        initializing=initializing_object,
+                        oceanic_object=oceanic_object,
+                        workspace=workspace_object,
                         model_name=model_name,
                         hk_value=hk_fixed,  # Use fixed HK for ex04
-                        bin_path=CONFIG.get("bin_path", initializing_object.bin_path),
+                        bin_path=CONFIG.get("bin_path", workspace_object.bin_path),
                         config=config
                     )
                     list_model_name.append(result['model_name'])
@@ -2040,7 +2138,7 @@ def modpath_ex12(results):
         geographic_object = results['geographic']
         settings_object = results['settings']
         model_modflow = results['model_modflow']
-        initializing_object = results['initializing']
+        workspace_object = results['workspace']
         model_name = results['model_name']
 
         # CRITICAL: Ensure seepage_areas raster exists before MODPATH
@@ -2074,7 +2172,7 @@ def modpath_ex12(results):
             geographic=geographic_object,
             settings=settings_object,
             model_modflow=model_modflow,
-            initializing=initializing_object,
+            workspace=workspace_object,
             model_name=model_name,
             for_calib=False,
             config=config
@@ -2105,7 +2203,7 @@ def mt3dms_ex12(results):
         # Get individual objects
         geographic_object = results['geographic']
         model_modflow = results['model_modflow']
-        initializing_object = results['initializing']
+        workspace_object = results['workspace']
         model_name = results['model_name']
         transport_object = results.get('transport')
 
@@ -2146,7 +2244,7 @@ def mt3dms_ex12(results):
             geographic=geographic_object,
             climatic=None,
             model_modflow=model_modflow,
-            initializing=initializing_object,
+            workspace=workspace_object,
             model_name=model_name,
             scenario=scenario,
             for_calib=False,
@@ -2349,20 +2447,20 @@ def ex12_matching_streams(results):
         model_name = results.get('model_name')
         geographic = results.get('geographic')
         hydrography = results.get('hydrography')
-        initializing = results.get('initializing')
+        workspace = results.get('workspace')
 
-        if geographic is None or model_name is None or hydrography is None or initializing is None:
-            print("Missing required objects (geographic, hydrography, initializing, or model_name)\n")
+        if geographic is None or model_name is None or hydrography is None or workspace is None:
+            print("Missing required objects (geographic, hydrography, workspace, or model_name)\n")
             return results
 
         # Instantiate MatchingStreams from calibration_legacy module
         iteration_label = model_name
         print(f" Creating MatchingStreams instance with iteration_label: {iteration_label}")
 
-        matching_streams_obj = MatchingStreamsCalib(
+        matching_streams_obj = MatchingStreams(
             geographic=geographic,
             hydrography=hydrography,
-            initializing=initializing,
+            initializing=workspace,
             iteration_label=iteration_label,
             from_calib=False
         )
@@ -2381,13 +2479,11 @@ def ex12_matching_streams(results):
         traceback.print_exc()
         results['success_matching_streams'] = False
         return results
-
-
 # ============================================================================
 # WORKFLOW VALIDATION
 # ============================================================================
 
-WORKFLOW_DEFINITION = {
+WORKFLOW_DEFINITION = WORKFLOW_DEFINITION = {
     "ex12": [
         {
             "step": 1,
@@ -2412,55 +2508,71 @@ WORKFLOW_DEFINITION = {
         },
         {
             "step": 4,
+            "section":"plot",
+            "function":"plot_ex12.py functions: plot_recharge_summary",
+            "requires":[],
+            "provides":"Recharge_visualisation"
+            },
+        {
+            "step": 5,
             "section": "parametrization",
             "function": "parametrization()",
             "requires": [ "climatic"],
             "provides": ["settings", "hydraulic_params"]
         },
         {
-            "step": 5,
+            "step": 7,
             "section": "modeling",
             "function": "modeling()",
             "requires": [ "settings", "hydraulic_params"],
             "provides": ["model_name", "success_modflow", "model_modflow"]
         },
-        {
-            "step": 6,
+         {
+            "step": 8,
             "section": "matching_streams",
             "function": "ex12_matching_streams()",
             "requires": ["model_name", "model_modflow"],
             "provides": ["matching_streams"]
         },
         {
-            "step": 7,
+            "step": 9,
+            "section":"plot",
+            "function":"plot_ex12.py functions: plot_cross_section(),plot_streamflow(),plot_piezometry()",
+            "requires":[],
+            "provides":"Cross_section_visualisation"
+            },
+
+        {
+            "step": 10,
             "section": "modpath",
-            "function": "ex12_modpath()",
-            "requires": ["BV", "model_modflow", "success_modflow"],
+            "function": "modpath_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
             "provides": ["model_modpath", "success_modpath"]
         },
         {
-            "step": 8,
-            "section": "mt3dms",
-            "function": "ex12_mt3dms()",
-            "requires": ["model_modflow", "success_modflow"],
-            "provides": ["model_mt3dms", "success_mt3dms"]
-        },
-        {
-            "step": 9,
+            "step": 12,
             "section": "plot",
-            "function": "plot.py functions: plot_recharge_runoff, plot_streamflow, plot_piezometry, plot_cross_section, plot_pathlines, plot_concentration",
+            "function": "plot_ex12.py functions:plot_pathlines,plot_2d(),plot_3d()",
             "requires": ["model_name", "success_modflow"],
             "provides": ["visualizations"]
         },
         {
-            "step": 10,
-            "section": "plot_animation_interactive",
-            "function": "ex12_plot_web_animation()",
-            "requires": ["model_name", "simulations_folder", "model_modflow"],
-            "provides": ["interactive_web_animation"]
+            "step": 13,
+            "section": "mt3dms",
+            "function": "mt3dms_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
+            "provides": ["model_mt3dms", "success_mt3dms"]
+        },
+        {
+            "step": 14,
+            "section": "plot",
+            "function": "plot_ex12.py functions: plot_concentration,interactive_cross_section,plot_web_animation",
+            "requires": ["model_name", "success_modflow"],
+            "provides": ["visualizations"]
         }
     ],
-      "ex09": [
+
+    "ex09": [
         {
             "step": 1,
             "section": "watershed",
@@ -2499,21 +2611,21 @@ WORKFLOW_DEFINITION = {
         {
             "step": 6,
             "section": "matching_streams",
-            "function": "ex12_matching_streams()",
+            "function": "matching_streams_ex12()",
             "requires": ["model_name", "model_modflow"],
             "provides": ["matching_streams"]
         },
         {
             "step": 7,
             "section": "modpath",
-            "function": "ex12_modpath()",
-            "requires": ["BV", "model_modflow", "success_modflow"],
+            "function": "modpath_ex12()",
+            "requires": ["model_modflow", "success_modflow"],
             "provides": ["model_modpath", "success_modpath"]
         },
         {
             "step": 8,
             "section": "mt3dms",
-            "function": "ex12_mt3dms()",
+            "function": "mt3dms_ex12()",
             "requires": ["model_modflow", "success_modflow"],
             "provides": ["model_mt3dms", "success_mt3dms"]
         },
@@ -2774,8 +2886,6 @@ WORKFLOW_DEFINITION = {
 }
 
 
-
-
 def print_workflow_definition():
     config = CONFIG
     example_key = config["example"]
@@ -2791,7 +2901,21 @@ def print_workflow_definition():
         print(f"Requiert: {', '.join(step['requires']) if step['requires'] else 'Rien'}")
         print(f" Fournit: {', '.join(step['provides'])}")
 
+def validate_results_state(results, expected_keys, step_name=""):
+    """Validate that results dict contains expected keys"""
+    if results is None:
+        print(f"\n VALIDATION ERROR at {step_name}: results dict is None!")
+        return False
 
+    missing = [key for key in expected_keys if key not in results]
+
+    if missing:
+        print(f"\n VALIDATION ERROR at {step_name}:")
+        print(f" Missing keys: {missing}")
+        print(f" Available keys: {list(results.keys())}")
+        return False
+
+    return True
 def trace_workflow_execution(sections):
     """Trace et valide l'ordre d'exécution"""
     print("\n" + "="*70)
@@ -2890,238 +3014,122 @@ def main():
     sections = config.get("sections", {})
     workflow = WORKFLOW_DEFINITION.get(example_key, [])
 
-    print("\n" + "="*70)
-    print(f"HYDROMODPY - EXAMPLE {example_key.upper()} LAUNCHER".center(70))
-    print("="*70)
-    print(f"\nEnabled sections: {[s for s, v in sections.items() if v]}\n")
+    # Extraire les paramètres globaux pour les plots
+    vers = config.get("vers", "v1")
+    factor = config.get("factor", 1.0)
 
-    results = {'success_modflow': False, 'success_modpath': False, 'success_mt3dms': False}
+    print("\n" + "="*70)
+    print(f"HYDROMODPY - {example_key.upper()} ORCHESTRATOR".center(70))
+    print("="*70)
+    print(f"\nEnabled sections in config: {[s for s, v in sections.items() if v]}\n")
+
+    # Initialisation des résultats
+    results = {
+        'success_modflow': False,
+        'success_modpath': False,
+        'success_mt3dms': False,
+        'example_key': example_key
+    }
+
     step_counter = 1
 
-    # Execute workflow steps defined in WORKFLOW_DEFINITION
     for step in workflow:
         section = step["section"]
         function_name = step["function"]
 
-        # Check if section is enabled in CONFIG
-        if not sections.get(section):
+        if not sections.get(section, False):
             continue
 
-        # Check dependencies
-        if section in ["matching_streams", "modpath", "mt3dms"] and not results.get('success_modflow'):
-            print(f"\n[STEP {step_counter}]Skipping {section} (MODFLOW failed)")
+        # Dépendances critiques
+        critical_sections = ["matching_streams", "modpath", "mt3dms"]
+        if section in critical_sections and not results.get('success_modflow'):
+            print(f"\n[STEP {step_counter}] Skipping {section} (MODFLOW failed)")
             step_counter += 1
             continue
 
-        print(f"\n[STEP {step_counter}] Executing: {function_name}")
+        print(f"\n[STEP {step_counter}] Section: {section.upper()} | Executing: {function_name}")
 
-        # Get function from mapping
-        func = FUNCTION_MAPPING.get(section)
-        if func is None:
-            print(f" Function not found for section {section}")
-            step_counter += 1
-            continue
+        # --- BLOC PLOT CORRIGÉ ---
+        if section == "plot":
+            import plot_ex12
 
-        # Watershed is special - takes example_key, others take results
-        if section == "watershed":
+            if "recharge" in function_name:
+                # Le plot de recharge s'exécute car il ne dépend pas de MODFLOW
+                plot_ex12.plot_recharge_summary(
+                    results.get("R_mm_day"),
+                    results.get("r_mm_day"),
+                    results.get("R_mm_day_filt")
+                )
+
+            elif "cross_section" in function_name:
+                # Correction typo: success_modflow
+                if results.get("success_modflow"):
+                    plot_ex12.plot_cross_section(results.get("stable_folder"), results.get("simulations_folder"), results.get("model_name"), results.get("simulation_folder"))
+                    plot_ex12.plot_streamflow(
+                        results.get('geographic'), results.get('data_path'),
+                        results.get('simulations_folder'), vers, factor=factor
+                    )
+                    plot_ex12.plot_piezometry(
+                        results.get('geographic'), results.get('simulations_folder'),
+                        vers, factor=factor
+                    )
+
+            elif "pathlines" in function_name:
+                # Correction typo: success_modpath
+                if results.get("success_modpath"):
+                    plot_ex12.plot_pathlines(
+                        results.get('simulations_folder'), results.get('model_name'),
+                        results.get('stable_folder'), results.get('geographic')
+                    )
+                    plot_ex12.plot_2d(
+                        results.get("workspace"), results.get("geographic"),
+                        results.get("hydrography"), results.get("model_name")
+                    )
+
+            elif "concentration" in function_name:
+                if results.get('success_mt3dms'):
+                    # Préparation des données MT3DMS avant le plot
+                    results = ex12_prepare_concentration_data(results)
+
+                    plot_ex12.plot_concentration(
+                        results.get('geographic'), results.get('hydrography'),
+                        results.get('stable_folder'), results.get('simulations_folder'),
+                        results.get('model_name'), results.get('model_modflow'),
+                        results.get('model_mt3dms'), results.get('R_mm_day'),
+                        vers=vers, factor=factor
+                    )
+                    # Correction syntaxe .get()
+                    plot_ex12.plot_interactive_section(
+                        results.get("stable_folder"),
+                        results.get("simulations_folder"),
+                        results.get("model_name"),
+                        results.get("workspace"),
+                        results.get("geographic"),
+                        results.get("hydrography")
+                    )
+                    plot_ex12.plot_web_animation(results.get('simulations_folder'), vers=vers)
+
+        # --- BLOC CALCULS ---
+        elif section == "watershed":
+            func = FUNCTION_MAPPING.get(section)
             results_temp = func(example_key)
             if results_temp:
                 results.update(results_temp)
             else:
-                print("Watershed extraction failed. Stopping.")
+                print("!! Watershed extraction failed. Stopping !!")
                 return None
         else:
-            if results:
+            func = FUNCTION_MAPPING.get(section)
+            if func:
                 results = func(results)
+            else:
+                print(f" Warning: No function found for {section}")
 
         step_counter += 1
 
-    # Additional processing steps (not in WORKFLOW_DEFINITION)
-    # STEP: PREPARE CONCENTRATION DATA (for plotting)
-    if results and results.get('success_mt3dms'):
-        print(f"\n[STEP {step_counter}] Executing: ex12_prepare_concentration_data()")
-        results = ex12_prepare_concentration_data(results)
-        step_counter += 1
-
-    # STEP: TIMESERIES - MODFLOW ONLY (first generation: MODFLOW without transport)
-    if results and results.get('success_modflow') and sections.get("modeling"):
-        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_modflow()")
-        results = ex12_postprocessing_timeseries_modflow(results)
-        step_counter += 1
-
-    # STEP: TIMESERIES - COMPLETE (second generation: MODFLOW with MT3DMS, only if transport enabled and successful)
-    if results and results.get('success_modflow') and sections.get("mt3dms") and results.get('success_mt3dms'):
-        print(f"\n[STEP {step_counter}] Executing: ex12_postprocessing_timeseries_complete()")
-        results = ex12_postprocessing_timeseries_complete(results)
-        step_counter += 1
-
-    # STEP 10: Plotting - EX12/EX09 only (use monolithic plot_ex12 module)
-    plots_config = CONFIG.get("plots", {})
-    example_key = results.get('example_key', CONFIG["example"]) if results else CONFIG["example"]
-
-    # Only use monolithic plot block for ex12 and ex09
-    if example_key in ["ex12", "ex09"] and results and sections.get("plot") and any(plots_config.values()):
-        print(f"\n[STEP {step_counter}] Executing: Plots")
-        print("\n" + "="*70)
-        print(f"{example_key} - PLOTTING".center(70))
-        print("="*70)
-
-        if results.get('success_modflow'):
-            # Import plot_ex12 functions with fallback
-            try:
-                from plot_ex12 import (plot_cross_section, plot_streamflow, plot_piezometry,
-                                       plot_pathlines, plot_concentration, plot_2d, plot_3d,
-                                       plot_interactive_cross_section, plot_web_animation)
-            except (ModuleNotFoundError, ImportError):
-                # Fallback: Create dummy functions for test environment
-                import importlib.util
-                import sys
-                from pathlib import Path
-
-                def plot_cross_section(*args, **kwargs): pass
-                def plot_streamflow(*args, **kwargs): pass
-                def plot_piezometry(*args, **kwargs): pass
-                def plot_pathlines(*args, **kwargs): pass
-                def plot_concentration(*args, **kwargs): pass
-                def plot_2d(*args, **kwargs): pass
-                def plot_3d(*args, **kwargs): pass
-                def plot_interactive_cross_section(*args, **kwargs): pass
-                def plot_web_animation(*args, **kwargs): pass
-
-            # Get plot parameters from PARAMS based on example
-            example_key = results.get('example_key', CONFIG["example"])
-            plot_params = PARAMS.get(example_key, {}).get("plot_params", {})
-
-            # Extract parameters with defaults
-            factor = plot_params.get("factor", 30)
-            vers = 'TRANS1'
-
-            # Plot cross-section
-            if plots_config.get("cross_section", True):
-                print("Plotting cross-section")
-                plot_cross_section(results.get('geographic'),
-                                 results.get('stable_folder'),
-                                 results.get('simulations_folder'),
-                                 results.get('model_name'))
-
-            # Plot streamflow
-            if plots_config.get("streamflow", True):
-                print("Plotting streamflow")
-                plot_streamflow(results.get('geographic'),
-                              results.get('data_path'),
-                              results.get('simulations_folder'),
-                              vers,
-                              factor=factor)
-
-            # Plot piezometry
-            if plots_config.get("piezometry", True):
-                print("Plotting piezometry")
-                plot_piezometry(results.get('geographic'),
-                              results.get('simulations_folder'),
-                              vers,
-                              factor=factor)
-
-            # Plot pathlines
-            if plots_config.get("pathlines", True):
-                print(" Plotting pathlines")
-                plot_pathlines(results.get('geographic'),
-                             results.get('stable_folder'),
-                             results.get('simulations_folder'),
-                             results.get('model_name'))
-
-            # Plot concentration
-            if plots_config.get("concentration", True) and results.get('concobj_1c_fil_surf') is not None:
-                print("Plotting concentration")
-                plot_concentration(results.get('geographic'),
-                                 results.get('hydrography'),
-                                 results.get('stable_folder'),
-                                 results.get('simulations_folder'),
-                                 results.get('model_name'),
-                                 results.get('model_modflow'),
-                                 results.get('model_mt3dms'),
-                                 results.get('R_mm_day'),
-                                 vers=vers,
-                                 factor=factor)
-
-            # Plot 2D
-            if plots_config.get("plot_2d", False):
-                print("Plotting 2D visualization")
-                plot_2d(results.get('initializing'),
-                       results.get('geographic'),
-                       results.get('hydrography'),
-                       results.get('model_name'))
-
-            # Plot 3D
-            if plots_config.get("plot_3d", False):
-                print(" Plotting 3D visualization")
-                plot_3d(results.get('initializing'),
-                       results.get('geographic'),
-                       results.get('hydrography'),
-                       results.get('model_name'))
-
-            # Plot interactive cross-section
-            if plots_config.get("interactive_cross_section", True):
-                print("Plotting interactive cross-section")
-                plot_interactive_cross_section(results.get('initializing'),
-                                             results.get('geographic'),
-                                             results.get('hydrography'),
-                                             results.get('stable_folder'),
-                                             results.get('simulations_folder'),
-                                             results.get('model_name'))
-        else:
-            print("Skipping plots (MODFLOW failed)")
-
-        print("\n All requested plots completed\n")
-        step_counter += 1
-
-    # STEP 11: Web animation
-    plots_config = CONFIG.get("plots", {})
-    if results and plots_config.get("web_animation", False) and results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] Executing: Web animation")
-        # Import plot_web_animation with fallback
-        try:
-            from plot import plot_web_animation
-        except (ModuleNotFoundError, ImportError):
-            # Fallback: Create dummy function for test environment
-            def plot_web_animation(*args, **kwargs): pass
-        try:
-            plot_web_animation(results.get('simulations_folder'),
-                             results.get('model_name'),
-                             vers='TRANS1', figsize=(1600, 900))
-        except FileNotFoundError as e:
-            print(f"Web animation skipped: {e}")
-        step_counter += 1
-    elif plots_config.get("web_animation", False) and not results.get('success_modflow'):
-        print(f"\n[STEP {step_counter}] ⚠ Skipping animation (MODFLOW failed)")
-        step_counter += 1
-
-    # Final summary
     print("\n" + "="*70)
-    print("EXECUTION COMPLETED".center(70))
+    print(f"WORKFLOW {example_key.upper()} COMPLETED".center(70))
     print("="*70)
-
-    if results:
-        print(f"\n  Final results keys: {sorted(results.keys())}\n")
-        print("  Execution summary:")
-        if results.get('success_modflow'):
-            print(f"MODFLOW: {results.get('model_name', 'Success')}")
-        else:
-            print(" MODFLOW: Failed")
-
-        if results.get('success_modpath'):
-            print(f"MODPATH: Success")
-        else:
-            print("MODPATH: Skipped/Failed")
-
-        if results.get('success_mt3dms'):
-            print(f"MT3DMS: Success")
-        else:
-            print("MT3DMS: Skipped/Failed")
-        print()
-
-    return results
-
-
 # ============================================================================
 # EXPORTABLE FUNCTION FOR TESTS - Run Launcher_Glob with specified example
 # ============================================================================
@@ -3156,9 +3164,9 @@ def run_launcher_glob(example_key: str, out_path: str = None, display_plots: boo
     cfg = HydroModPyConfig.from_toml(Path(__file__).parent / f"config{config_number}.toml")
 
     # Override output path if specified (for test isolation)
-    # Convert to Path object (required for path operations in initializing_config)
+    # Convert to Path object (required for path operations in workspace_config)
     if out_path:
-        cfg.initializing.out_dir_path = Path(out_path)
+        cfg.workspace.out_dir_path = Path(out_path)
 
     # Execute main pipeline
     return main()

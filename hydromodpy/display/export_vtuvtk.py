@@ -23,7 +23,7 @@ import flopy.utils.binaryfile as bf
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.watershed import Initializing, Geographic, Hydrography, Piezometry
+from hydromodpy.watershed import Workspace, Geographic, Hydrography, Piezometry
 
 logger = get_logger(__name__)
 
@@ -98,7 +98,7 @@ class VTK():
     Class to generate VTU/VTK files from MODFLOW/MODPATH postprocessing results.
     """
     
-    def __init__(self, initializing:Initializing, 
+    def __init__(self, initializing:Workspace, 
                  geographic:Geographic, hydrography:Hydrography, modelname = None, piezometry:Piezometry = None):
         
         if modelname != None:
