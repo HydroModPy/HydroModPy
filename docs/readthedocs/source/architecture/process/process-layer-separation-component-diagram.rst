@@ -10,6 +10,8 @@ runtime process objects, adapter logic, and solver backends.
 Diagram source
 --------------
 
+.. uml:: diagrams/process_layered_components.wsd
+
 .. literalinclude:: diagrams/process_layered_components.wsd
    :language: text
    :caption: PlantUML (.wsd) source - process layer separation component diagram

@@ -50,10 +50,18 @@ class PyhelpGrid(PyhelpCsvManager):
     def _dem_coordinate(self) -> list:
         """
         Get a list of longitude and latitude from the DEM.
-        Here, it transforms from EPSG:2056 to EPSG:4326
+        Transform from DEM CRS to EPSG:4326 (WGS84)
         """
-        coords = transform_coordinates(self._dem_file_path, "EPSG:2056", "EPSG:4326")
-        # Si aucun shapefile n’est indiqué, on ne filtre pas les points :
+        import rasterio
+    
+        with rasterio.open(self._dem_file_path) as ds:
+            src_crs = ds.crs
+    
+        if src_crs is None:
+            raise ValueError(f"DEM has no CRS: {self._dem_file_path}")
+    
+        coords = transform_coordinates(self._dem_file_path, str(src_crs), "EPSG:4326")
+    
         if self._shapefile_path:
             return filter_coordinates_by_shape(coords, self._shapefile_path, "EPSG:4326")
         return coords

@@ -23,13 +23,13 @@ import numpy as np
 import pandas as pd
 
 # ---- Local Libraries Imports
-from hydromodpy.pyhelp.preprocessing import write_d10d11_allcells, format_d10d11_inputs
-from hydromodpy.pyhelp.processing import run_help_allcells
-from hydromodpy.pyhelp.utils import (savedata_to_hdf5, calc_dist_from_coord,
+from hydromodpy.pyhelp.core.preprocessing import write_d10d11_allcells, format_d10d11_inputs
+from hydromodpy.pyhelp.core.processing import run_help_allcells
+from hydromodpy.pyhelp.core.utils import (savedata_to_hdf5, calc_dist_from_coord,
                           delete_folder_recursively)
-from hydromodpy.pyhelp.weather_reader import (
+from hydromodpy.pyhelp.core.weather_reader import (
     save_precip_to_HELP, save_airtemp_to_HELP, save_solrad_to_HELP)
-from hydromodpy.pyhelp.output import HelpOutput
+from hydromodpy.pyhelp.core.output import HelpOutput
 from hydromodpy.tools import get_logger
 
 

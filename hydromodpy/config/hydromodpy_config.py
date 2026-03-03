@@ -29,6 +29,7 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.data_managers.data_managers_config import DataManagersConfig
+from hydromodpy.display.options import DisplayConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
@@ -55,7 +56,7 @@ class HydroModPyConfig(BaseModel):
     Top-level configuration for HydroModPy.
 
     Aggregates sub-components (workspace, geographic, domain, data, flow,
-    transport, solver, modflownwt, modflow6)
+    transport, solver, modflownwt, modflow6, display)
     into a centralized,
     hierarchical model and validates optional flow parameters as
     `FieldParamConfig` dictionaries.
@@ -126,6 +127,12 @@ class HydroModPyConfig(BaseModel):
             "Defaults to all phases if the [run] section is absent from the TOML."
         ),
     )
+    display: DisplayConfig = Field(
+        default_factory=DisplayConfig,
+        description=(
+            "Optional display and export toggles loaded from the [display] section."
+        ),
+    )
 
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
@@ -180,6 +187,7 @@ class HydroModPyConfig(BaseModel):
             "modflownwt": ({}, _load_modflow_nwt_section),
             "modflow6": ({}, _load_modflow6_section),
             "run": ({}, lambda data, b: _load_standard_section(data, RunConfig, b)),
+            "display": ({}, lambda data, b: _load_standard_section(data, DisplayConfig, b)),
         }
 
         parsed_sections: dict[str, Any] = {}

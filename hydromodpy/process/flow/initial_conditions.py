@@ -5,8 +5,17 @@ Flow Initial Condition Models
 
 Typed initial-condition structures for the flow process.
 
+This module defines:
+- `FlowInitialCondition`: one validated payload describing how head values are
+  initialized (`top`, `bottom`, or `custom`).
+- `FlowInitialConditions`: the runtime container currently exposing the `h`
+  initial condition consumed by the flow process and solver adapters.
+
 The flow process currently exposes one initial-condition variable (`h`) used
 to initialize hydraulic heads before solver assembly.
+
+Raw `[flow.ic]` configuration payloads are normalized separately in
+`initial_conditions_config.py` before being validated against these models.
 """
 
 from __future__ import annotations

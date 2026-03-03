@@ -2,7 +2,7 @@
 
 Usage::
 
-    python -m launcher run path/to/config.toml
+    python -m launchers run path/to/config.toml
 """
 
 import sys
@@ -11,10 +11,10 @@ from pathlib import Path
 
 def main() -> None:
     if len(sys.argv) == 3 and sys.argv[1] == "run":
-        from launcher import HydroModPyLauncher
+        from launchers import HydroModPyLauncher
         HydroModPyLauncher(Path(sys.argv[2])).run()
     else:
-        print("Usage: python -m launcher run <path/to/config.toml>")
+        print("Usage: python -m launchers run <path/to/config.toml>")
         sys.exit(1)
 
 
