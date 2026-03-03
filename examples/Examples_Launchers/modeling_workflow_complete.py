@@ -187,7 +187,8 @@ def complete_modpath(domain, transport, solver_engine, workspace, vers,
             maintain_dimensions=True)
 
         # 3. Paramètres transport
-        particle_params = transport.particle.parameters.model_dump() # On récupère via l'objet passé
+        _params_obj = transport.particle.parameters
+        particle_params = _params_obj if isinstance(_params_obj, dict) else _params_obj.model_dump()
         if particle_params.get('zone_partic') == 'seepage_clip':
             particle_params['zone_partic'] = tif_seep_clip
         transport.particle.set_parameters(particle_params)

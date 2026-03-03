@@ -1254,7 +1254,15 @@ def watershed(example_id):
 
         # Mise à jour de la config globale pour les objets HMP
         cfg.workspace.data_path = Path(absolute_data_path)
-        cfg.workspace.out_dir_path = Path(root_dir) / "examples" / "results"
+        # Only reset out_dir_path to project default if it was not already
+        # overridden by the caller (e.g., run_launcher_glob sets a temp path
+        # for test isolation).  An explicit absolute path that differs from the
+        # default means "keep it"; anything else (None, relative, or already
+        # equal to the default) means "set the default".
+        _project_default_out = Path(root_dir) / "examples" / "results"
+        _current_out = cfg.workspace.out_dir_path
+        if not (_current_out and Path(_current_out).is_absolute() and Path(_current_out) != _project_default_out):
+            cfg.workspace.out_dir_path = _project_default_out
         watershed_name=cfg.workspace.catch_name = p.get("catch_name", cfg.workspace.catch_name)
         print('##### '+watershed_name.upper()+' #####')
         if not os.path.exists(absolute_data_path):
@@ -2041,6 +2049,7 @@ def ex12_postprocessing_timeseries_modflow(results):
         ts_result = complete_timeseries(
             geographic=geographic_object,
             model_modflow=model_modflow,
+            runoff=results.get('runoff'),
             model_modpath=None,
             model_mt3dms=None,
             scenario=None,
@@ -2086,6 +2095,7 @@ def ex12_postprocessing_timeseries_complete(results):
         ts_result = complete_timeseries(
             geographic=geographic_object,
             model_modflow=model_modflow,
+            runoff=results.get('runoff'),
             model_modpath=model_modpath,
             model_mt3dms=model_mt3dms,
             scenario=scenario,
@@ -2233,7 +2243,7 @@ def ex12_matching_streams(results):
 # WORKFLOW VALIDATION
 # ============================================================================
 
-WORKFLOW_DEFINITION = WORKFLOW_DEFINITION = {
+WORKFLOW_DEFINITION  = {
     "ex12": [
         {
             "step": 1,
@@ -2752,6 +2762,18 @@ except ImportError:
         def plot_map_ex03(*args, **kwargs): pass
         def plot_graph_ex03(*args, **kwargs): pass
 
+# Import plot_ex12 with fallback
+try:
+    import plot_ex12
+except ImportError:
+    try:
+        import importlib.util as _ilu
+        _spec12 = _ilu.spec_from_file_location("plot_ex12", Path(__file__).parent / "plot_ex12.py")
+        plot_ex12 = _ilu.module_from_spec(_spec12)
+        _spec12.loader.exec_module(plot_ex12)
+    except Exception:
+        plot_ex12 = None
+
 FUNCTION_MAPPING = {
     "watershed": watershed,
     "data": data,
@@ -2817,8 +2839,6 @@ def main():
 
         # --- BLOC PLOT CORRIGÉ ---
         if section == "plot":
-            import plot_ex12
-
             if "recharge" in function_name:
                 # Le plot de recharge s'exécute car il ne dépend pas de MODFLOW
                 plot_ex12.plot_recharge_summary(
@@ -2831,13 +2851,15 @@ def main():
                 # Correction typo: success_modflow
                 if results.get("success_modflow"):
                     plot_ex12.plot_cross_section(results.get("stable_folder"), results.get("simulations_folder"), results.get("model_name"), results.get("geographic"))
+                    _time_idx = results.get('R_mm_day_filt').index if results.get('R_mm_day_filt') is not None else None
                     plot_ex12.plot_streamflow(
                         results.get('geographic'), results.get('data_path'),
-                        results.get('simulations_folder'), vers, factor=factor
+                        results.get('simulations_folder'), vers, factor=factor,
+                        time_index=_time_idx
                     )
                     plot_ex12.plot_piezometry(
                         results.get('geographic'), results.get('simulations_folder'),
-                        vers, factor=factor
+                        vers, factor=factor, time_index=_time_idx
                     )
 
             elif "pathlines" in function_name:
@@ -2851,6 +2873,10 @@ def main():
                         results.get("workspace"), results.get("geographic"),
                         results.get("hydrography"), results.get("model_name")
                     )
+                    plot_ex12.plot_3d(
+                        results.get("workspace"), results.get("geographic"),
+                        results.get("hydrography"), results.get("model_name")
+                    )
 
             elif "concentration" in function_name:
                 if results.get('success_mt3dms'):
@@ -2858,11 +2884,15 @@ def main():
                     results = ex12_prepare_concentration_data(results)
 
                     plot_ex12.plot_concentration(
-                        results.get('geographic'), results.get('hydrography'),
-                        results.get('stable_folder'), results.get('simulations_folder'),
-                        results.get('model_name'), results.get('model_modflow'),
-                        results.get('model_mt3dms'), results.get('R_mm_day'),
-                        vers=vers, factor=factor
+                        vers=vers,
+                        model_mt3dms=results.get('model_mt3dms'),
+                        model_modflow=results.get('model_modflow'),
+                        simulations_folder=results.get('simulations_folder'),
+                        stable_folder=results.get('stable_folder'),
+                        R_mm_day_filt=results.get('R_mm_day_filt'),
+                        geographic=results.get('geographic'),
+                        hydrography=results.get('hydrography'),
+                        initializing=results.get('workspace')
                     )
                     # Corre
                     # ction syntaxe .get()
