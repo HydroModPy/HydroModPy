@@ -104,13 +104,15 @@ def plot_cross_section(stable_folder, simulations_folder, model_name, geographic
 # PLOT STREAMFLOW - WITH DYNAMIC FACTOR PARAMETER
 # ============================================================================
 
-def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
+def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30, time_index=None):
     """Plot streamflow - with dynamic factor for different examples
 
     Parameters:
     -----------
     factor : int, default=30
         Scaling factor for data (30 for monthly ex12, 7 for weekly ex09)
+    time_index : DatetimeIndex, optional
+        Real datetime index to remap Smod when CSV stores integers
     """
     area = int(round(geographic.catch_area))
 
@@ -156,7 +158,13 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
             Smod_path = os.path.join(timeseries_dir, fname)
             if os.path.exists(Smod_path):
                 try:
-                    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True, date_format='mixed')
+                    # Remap integer index to real dates if available
+                    if time_index is not None and len(time_index) == len(Smod):
+                        Smod.index = time_index
+                    elif 'date' in Smod.columns:
+                        Smod.index = pd.to_datetime(Smod['date'])
+                        Smod = Smod.drop(columns=['date'])
                     break
                 except Exception:
                     continue
@@ -167,7 +175,7 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
             continue
 
         Rmod = Smod['recharge'] * factor * 1000
-        rmod = Smod['runoff'] * factor * 1000
+        rmod = Smod.get('runoff', Smod['recharge'] * 0) * factor * 1000
 
         Omod = (Smod['outflow_drain'] * factor * 1000)
         Qmod = Omod + rmod
@@ -193,13 +201,15 @@ def plot_streamflow(geographic, data_path, simulations_folder, vers, factor=30):
 # PLOT PIEZOMETRY - WITH DYNAMIC FACTOR PARAMETER
 # ============================================================================
 
-def plot_piezometry(geographic, simulations_folder, vers, factor=30):
+def plot_piezometry(geographic, simulations_folder, vers, factor=30, time_index=None):
     """Plot piezometry - with dynamic factor for different examples
 
     Parameters:
     -----------
     factor : int, default=30
         Scaling factor for data (30 for monthly ex12, 7 for weekly ex09)
+    time_index : DatetimeIndex, optional
+        Real datetime index to remap Smod when CSV stores integers
     """
     area = int(round(geographic.catch_area))
 
@@ -219,7 +229,13 @@ def plot_piezometry(geographic, simulations_folder, vers, factor=30):
             Smod_path = os.path.join(timeseries_dir, fname)
             if os.path.exists(Smod_path):
                 try:
-                    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True)
+                    Smod = pd.read_csv(Smod_path, sep=';', index_col=0, parse_dates=True, date_format='mixed')
+                    # Remap integer index to real dates if available
+                    if time_index is not None and len(time_index) == len(Smod):
+                        Smod.index = time_index
+                    elif 'date' in Smod.columns:
+                        Smod.index = pd.to_datetime(Smod['date'])
+                        Smod = Smod.drop(columns=['date'])
                     break
                 except Exception:
                     continue
@@ -252,6 +268,7 @@ def plot_piezometry(geographic, simulations_folder, vers, factor=30):
         axb.bar(Rmod.index, Rmod, color='dodgerblue', width=10, edgecolor='None', lw=0, alpha=1, label='Recharge')
         axb.set_ylim(0, 100)
         axb.invert_yaxis()
+        axb.set_yticks([0, 100])
         axb.set_yticklabels([0, 100])
         axb.legend(loc='upper right')
         plt.show()
@@ -319,8 +336,15 @@ def plot_concentration( vers, model_mt3dms, model_modflow, simulations_folder, s
     if not os.path.exists(figures_dir): os.makedirs(figures_dir)
     mean_vals, mean_times = [], []
 
+    # Generate hillshade first if not already present (like example12.py line 1157)
+    hill_path = os.path.join(stable_folder, 'geographic', 'watershed_hill.tif')
+    if not os.path.exists(hill_path):
+        wbt.hillshade(
+            os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'),
+            hill_path
+        )
     dem = rasterio.open(os.path.join(stable_folder, 'geographic', 'watershed_dem.tif'))
-    hill = rasterio.open(os.path.join(stable_folder, 'geographic', 'watershed_hill.tif'))
+    hill = rasterio.open(hill_path)
 
     for i in range(len(concobj_1c_fil_surf)):
         the_time = i
