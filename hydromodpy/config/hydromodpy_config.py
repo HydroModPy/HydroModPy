@@ -33,6 +33,7 @@ from hydromodpy.display.options import DisplayConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
+from hydromodpy.simulation.config import SimulationConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
 from hydromodpy.solver.solver_config import SolverConfig
@@ -97,6 +98,14 @@ class HydroModPyConfig(BaseModel):
         description=(
             "Transport process configuration, including particle-tracking "
             "parameters under [transport.particle.parameters]."
+        ),
+    )
+    simulation: SimulationConfig = Field(
+        default_factory=SimulationConfig,
+        description=(
+            "Optional simulation orchestration block loaded from [simulation] "
+            "and [[simulation.process]]. When absent, the launcher keeps its "
+            "legacy fixed phase order."
         ),
     )
     solver: SolverConfig = Field(
@@ -182,6 +191,10 @@ class HydroModPyConfig(BaseModel):
             "transport": (
                 {},
                 lambda data, b: _load_standard_section(data, TransportConfig, b),
+            ),
+            "simulation": (
+                {},
+                lambda data, b: _load_standard_section(data, SimulationConfig, b),
             ),
             "solver": ({}, _load_solver_section),
             "modflownwt": ({}, _load_modflow_nwt_section),
