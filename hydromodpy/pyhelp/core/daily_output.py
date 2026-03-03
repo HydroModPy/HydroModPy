@@ -72,7 +72,6 @@ def read_daily_help_output(filepath):
 
 def calc_area_daily_avg(cellnames, workdir):
     
-
     COMPONENTS = ['precip', 'runoff', 'evapo', 'rechg']
     all_dfs = []
 

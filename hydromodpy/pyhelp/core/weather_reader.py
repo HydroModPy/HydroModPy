@@ -16,7 +16,7 @@ import calendar
 import numpy as np
 
 # ---- Local imports
-from hydromodpy.pyhelp.utils import save_content_to_csv
+from hydromodpy.pyhelp.core.utils import save_content_to_csv
 
 
 def save_precip_to_HELP(filename, years, precip, city):
