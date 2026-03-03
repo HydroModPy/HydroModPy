@@ -6,34 +6,44 @@ Enchaîne: MODFLOW → MODPATH → MT3DMS
 """
 
 import os
+import glob
 import numpy as np
 import whitebox
 from itertools import islice
 from pathlib import Path
 import pickle
 import hydromodpy as hmp
-# Direct class imports (like example12.py)
-from hydromodpy.solver.modflow import Modflow
-from hydromodpy.modeling.modpath import Modpath
-from hydromodpy.modeling.mt3dms import Mt3dms
-from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
 # HYDROMODPY MODULES
 import hydromodpy as hmp
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
-    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
-    SafranSurfex, Subbasin, Transport
+from hydromodpy.watershed import Geographic, Workspace, Climatic, Driasclimat, Driaseau, \
+    Hydrography, Intermittency, Piezometry, Settings, \
+    SafranSurfex, Subbasin
+from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.process import Flow
-from hydromodpy.solver.modflow import Modflow
-from hydromodpy.modeling.modpath import Modpath
-from hydromodpy.modeling.mt3dms import Mt3dms
+from hydromodpy.domain import (
+    Domain,
+)
+from hydromodpy.data_managers import DataManagers
+from hydromodpy.data_managers.geology.geology_field import GeologyField
+from hydromodpy.process import Flow, Transport
+from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+from hydromodpy.solver import modflow_nwt, modflow6
+from hydromodpy.solver.modflow_nwt import (
+    Modflow,
+    ModflowPostprocessOptions,
+    ModflowPreprocessOptions,
+    ModflowRunOptions,
+    Modpath,
+    Mt3dms,
+)
+from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
+from hydromodpy.solver import SolverEngine
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
@@ -42,139 +52,90 @@ wbt.verbose = False
 # COMPLETE MODFLOW - Enchaîne: preprocessing → processing → postprocessing
 # ============================================================================
 
-def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,oceanic_object,
-                    model_name, bin_path, workspace,config,cfg):
-    """
-    Complete MODFLOW workflow: Pre-processing → Processing → Post-processing
-
-    Enchaîne directement les 3 étapes: preprocessing, processing, postprocessing
-
-    Parameters
-    ----------
-    geographic : Geographic object
-    flow : Flow object
-    domain : Domain object
-    hydraulic : Hydraulic object
-    settings : Settings object
-    climatic : Climatic object
-    oceanic : Oceanic object
-    initializing : Initializing object
-    model_name : str
-        Model identification name
-    hk_value : float
-        Hydraulic conductivity value
-    bin_path : str
-        Path to MODFLOW binaries
-    config : dict
-        Configuration with 'processing' and 'postprocessing_modflow' keys
-
-    Returns
-    -------
-    dict
-        Result dictionary with keys: model_modflow, success, model_name
-    """
-    print(f"\n{'='*70}")
-    print(f"MODFLOW WORKFLOW: {model_name}")
-    print(f"{'='*70}")
-
+def complete_modflow(geographic, flow, domain, settings, climatic, oceanic_object,
+                    model_name, bin_path, workspace, config, cfg, params):
     try:
-        # Update hydraulic and settings
-        #hydraulic.update_hk(hk_value)
-        settings.update_model_name(model_name)
-        settings.update_check_model(
-            plot_cross = config.get("postprocessing_modflow", {}).get("plot_cross", True),
-            check_grid = config.get("postprocessing_modflow", {}).get("check_grid", True),
-            cross_ylim = config.get("postprocessing_modflow", {}).get("cross_ylim", [0, 200])
-        )
-        # Determine model folder
-        model_folder = workspace.simulations_folder
+        # 1. Utilisation de "first_clim" depuis le dictionnaire PARAMS du launcher
+        first_clim_val = params.get("first_clim", "mean")
 
-        # Create Modflow instance (like example12.py)
-        print("Creating MODFLOW model...")
-        model_modflow = Modflow(
-            geographic,
-            flow=flow,
-            domain=domain,
-            model_folder=model_folder,
-            model_name=settings.model_name,
-            bin_path=bin_path,
-            # Model settings
-           #box=settings.box,
-            sink_fill=settings.sink_fill,
-            dis_perlen=settings.dis_perlen,
-            # Output settings
-            plot_cross=settings.plot_cross,
-            cross_ylim=settings.cross_ylim,
-            check_grid=settings.check_grid,
-            # Boundary settings
-            sea_level=oceanic.MSL if oceanic else None,
-            # Climatic settings
-            recharge=climatic.recharge,
-            first_clim=climatic.first_clim,
+        # Injection dans le flux (Règle ton erreur AttributeError)
+        flow.set_recharge(FlowRechargeConfig(
+            values=climatic.recharge,
+            first_clim=first_clim_val,
+        ))
+
+        # 2. Préparation des options avec les valeurs de PARAMS
+        preprocess_options = ModflowPreprocessOptions(
+            box=params.get("box", True),           # Tiré de PARAMS
+            sink_fill=params.get("sink_fill", False), # Tiré de PARAMS
+            check_grid=params.get("check_grid", True), # Tiré de PARAMS
+            plot_cross=params.get("plot_cross", True), # Tiré de PARAMS
+            cross_ylim=tuple(params.get("cross_ylim", [0, 150])), # Tiré de PARAMS
         )
 
-        # Preprocessing
-        print("  Preprocessing MODFLOW...")
-        model_modflow.pre_processing()
-        # --- AJOUT 1 : SAUVEGARDE PICKLE (Avant le calcul) ---
-        print("  Saving model state (Pickle)...")
-        dictio = {
-            'list_model_name': [model_name],
-            'list_model_modflow': [model_modflow]
-        }
-        # On crée le dossier du modèle s'il n'existe pas encore
+        # 3. Choix du moteur (via cfg/TOML)
+        solver_engine = cfg.solver.solver_engine
+        model_folder=workspace.simulations_folder
+        # Instanciation (NWT ou MF6)
+        if solver_engine == SolverEngine.MODFLOW_NWT:
+            model_modflow = Modflow(
+                geographic,
+                model_folder=workspace.simulations_folder,
+                model_name=model_name,
+                bin_path=bin_path,
+                modflow_config=cfg.modflownwt,
+                preprocess_options=preprocess_options,
+            )
+        else:
+            from hydromodpy.solver.modflow6 import Modflow6
+            model_modflow = Modflow6(
+                geographic,
+                model_folder=workspace.simulations_folder,
+                model_name=model_name,
+                bin_path=bin_path,
+                modflow_config=cfg.modflow6,
+                preprocess_options=preprocess_options,
+            )
+
+        # 4. Exécution
+        model_modflow.pre_processing(flow=flow, domain=domain, options=preprocess_options)
+
+        # 5. Sauvegarde Pickle (Important pour le rechargement)
         save_dir = os.path.join(model_folder, model_name)
         os.makedirs(save_dir, exist_ok=True)
+        with open(os.path.join(save_dir, f'results_{model_name}.pkl'), 'wb') as f:
+            pickle.dump({'list_model_name': [model_name], 'list_model_modflow': [model_modflow]}, f)
 
-        pickle_file = os.path.join(save_dir, f'results_{model_name}.pkl')
-        with open(pickle_file, 'wb') as f:
-            pickle.dump(dictio, f)
+        # 6. Processing
+        success = model_modflow.processing(
+            options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
+        )
 
-        # Processing
-        print("  Processing MODFLOW...")
-        processing_params = config.get("processing", {"write_model": True, "run_model": True, "link_mt3dms": True})
-        success_modflow = model_modflow.processing(**processing_params)
+        # 7. Post-processing
+        if success:
+            model_modflow.post_processing(
+                options=ModflowPostprocessOptions(
+                    watertable_elevation=True,
+                    seepage_areas=True,
+                    outflow_drain=True,
+                    watertable_depth=True,
+                    intermittency_monthly=True
+                )
+            )
 
-        # Postprocessing
-        if success_modflow:
-            print("  Postprocessing MODFLOW...")
-            postproc_params = config.get("postprocessing_modflow", {})
-
-            # Default parameters (from example12.py)
-            default_params = {
-                'watertable_elevation': True,
-                'seepage_areas': True,
-                'outflow_drain': True,
-                'accumulation_flux': True,
-                'watertable_depth': True,
-                'groundwater_flux': False,
-                'groundwater_storage': False,
-                'intermittency_weekly': False,
-                'intermittency_monthly': True,
-                'intermittency_yearly': False,
-                'export_all_tif': False
-            }
-
-            # Merge config with defaults (config overrides defaults)
-            postproc_params = {**default_params, **postproc_params}
-            model_modflow.post_processing(model_modflow, **postproc_params)
-
-        print("MODFLOW completed\n")
-        return {'model_modflow': model_modflow, 'success': success_modflow, 'model_name': model_name}
+        return {'model_modflow': model_modflow, 'success': success, 'model_name': model_name}
 
     except Exception as e:
+        print(f"MODFLOW Error: {e}")
         import traceback
-        print(f"MODFLOW error: {e}")
         traceback.print_exc()
         return {'model_modflow': None, 'success': False, 'model_name': model_name}
-
-
 # ============================================================================
 # COMPLETE MODPATH - Enchaîne: preprocessing → processing → postprocessing → filtering
 # ============================================================================
 
-def complete_modpath(geographic, settings, model_modflow, initializing, model_name,
-                    for_calib=False, config=None):
+def complete_modpath(domain, transport, solver_engine, workspace, vers,
+                     model_modpath=None):
     """
     Complete MODPATH workflow: Pre-processing → Processing → Post-processing → Filtering
 
@@ -199,123 +160,66 @@ def complete_modpath(geographic, settings, model_modflow, initializing, model_na
         Result dictionary with keys: model_modpath, success
     """
     print(f"\n{'='*70}")
-    print(f"MODPATH WORKFLOW: {model_name}")
+    print(f"MODPATH WORKFLOW")
     print(f"{'='*70}")
 
-    if not model_modflow:
-        print("✗ MODPATH skipped (MODFLOW not available)\n")
+    if solver_engine != SolverEngine.MODFLOW_NWT:
+        print("MODPATH workflow is currently available only with solver_engine='nwt'. Skipping section B.")
         return {'model_modpath': None, 'success': False}
+    else:
+        # 1. Trouver le dossier et charger le pickle
+        list_folder = glob.glob(os.path.join(str(workspace.simulations_folder), vers+'*'))
+        model_name = list_folder[0].split(os.path.sep)[-1]
+        pickle_file = list_folder[0] + '/' + 'results_' + model_name + '.pkl'
 
-    if not hasattr(model_modflow, 'mf'):
-        print("✗ MODPATH skipped (requires MODFLOW-NWT / solver_engine='nwt')\n")
-        return {'model_modpath': None, 'success': False}
+        with open(pickle_file, 'rb') as f:
+            d = pickle.load(f)
+        model_modflow = d['list_model_modflow'][0]
 
-    try:
-        stable_folder = initializing.stable_folder
-        simulations_folder = initializing.simulations_folder
-        calibration_folder = initializing.calibration_folder
+        # 2. Whitebox : Préparation des particules
+        tif_seep = os.path.join(workspace.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0).tif')
+        tif_seep_clip = os.path.join(workspace.simulations_folder, model_name, '_postprocess/_rasters','seepage_areas_t(0)_clip.tif')
 
-        # Prepare particles from seepage
-        working_folder = calibration_folder if for_calib else simulations_folder
-        tif_seep = os.path.join(working_folder, model_name, '_postprocess/_rasters/seepage_areas_t(0).tif')
-        tif_seep_clip = os.path.join(working_folder, model_name, '_postprocess/_rasters/seepage_areas_t(0)_clip.tif')
+        wbt.clip_raster_to_polygon(
+            tif_seep,
+            os.path.join(workspace.stable_folder, 'geographic', 'watershed.shp'),
+            tif_seep_clip,
+            maintain_dimensions=True)
 
-        if os.path.exists(tif_seep):
-            print(f"  Clipping seepage areas to watershed...")
-            watershed_shp = os.path.join(stable_folder, 'geographic', 'watershed.shp')
-            wbt.clip_raster_to_polygon(tif_seep, watershed_shp, tif_seep_clip, maintain_dimensions=True)
-            zone_partic_param = tif_seep_clip
-        else:
-            zone_partic_param = 'domain'
+        # 3. Paramètres transport
+        particle_params = transport.particle.parameters.model_dump() # On récupère via l'objet passé
+        if particle_params.get('zone_partic') == 'seepage_clip':
+            particle_params['zone_partic'] = tif_seep_clip
+        transport.particle.set_parameters(particle_params)
 
-        # Get preprocessing params
-        preproc_params = config.get('preprocessing', {}) if config else {}
-        cell_div = preproc_params.get('cell_div', 1)
-        zloc_div = preproc_params.get('zloc_div', False)
-        bore_depth = preproc_params.get('bore_depth', None)
-        track_dir = preproc_params.get('track_dir', 'backward')
-        sel_random = preproc_params.get('sel_random', None)
-        sel_slice = preproc_params.get('sel_slice', None)
+        # 4. Instance et exécution
+        model_modpath = Modpath(domain,
+                        transport,
+                        model_modflow,
+                        model_folder = workspace.simulations_folder,
+                        model_name = model_modflow.model_name,
+                        bin_path = workspace.bin_path)
 
-        # Update settings
-        settings.update_input_particles(
-            zone_partic=zone_partic_param, cell_div=cell_div, zloc_div=zloc_div,
-            bore_depth=bore_depth, track_dir=track_dir, sel_random=sel_random, sel_slice=sel_slice
-        )
-
-        # Create Modpath instance
-        print("Creating MODPATH model...")
-        model_folder = initializing.calibration_folder if for_calib else initializing.simulations_folder
-        model_modpath = Modpath(geographic,
-                                model_modflow,
-                                model_folder=model_folder,
-                                model_name=model_modflow.model_name,
-                                bin_path=initializing.bin_path,
-                                zone_partic=settings.zone_partic,
-                                cell_div=settings.cell_div,
-                                zloc_div=settings.zloc_div,
-                                bore_depth=settings.bore_depth,
-                                track_dir=settings.track_dir,
-                                sel_random=settings.sel_random,
-                                sel_slice=settings.sel_slice)
-
-        # Preprocessing
-        print("  Preprocessing MODPATH...")
         model_modpath.pre_processing()
+        success = model_modpath.processing(write_model=True, run_model=True)
 
-        # Processing
-        print("  Processing MODPATH...")
-        processing_params = config.get('processing', {'write_model': True, 'run_model': True}) if config else {'write_model': True, 'run_model': True}
-        success_modpath = model_modpath.processing(**processing_params)
+        if success:
+            model_modpath.post_processing(model_modpath,
+                        ending_point=True, starting_point=True,
+                        pathlines_shp=True, particles_shp=True, random_id=None)
 
-        # Postprocessing
-        if success_modpath:
-            print("  Postprocessing MODPATH...")
-            postproc_params = config.get('post_processing', {}) if config else {}
+            model_modpath.filt_processing(model_modpath,
+                        norm_flux=True, filt_time=True, filt_seep=True,
+                        filt_inout=True, calc_rtd=False, random_id=None)
 
-            # Default parameters (from example12.py)
-            default_postproc = {
-                'ending_point': True,
-                'starting_point': True,
-                'pathlines_shp': True,
-                'particles_shp': True,
-                'random_id': None
-            }
-            postproc_params = {**default_postproc, **postproc_params}
-            model_modpath.post_processing(model_modpath, **postproc_params)
-
-            # Filtering
-            print("  Filtering MODPATH results...")
-            filt_params = config.get('filt_processing', {}) if config else {}
-
-            # Default parameters (from example12.py)
-            default_filt = {
-                'norm_flux': True,
-                'filt_time': True,
-                'filt_seep': True,
-                'filt_inout': True,
-                'calc_rtd': False,
-                'random_id': None
-            }
-            filt_params = {**default_filt, **filt_params}
-            model_modpath.filt_processing(model_modpath, **filt_params)
-
-        print("✓ MODPATH completed\n")
-        return {'model_modpath': model_modpath, 'success': True}
-
-    except Exception as e:
-        import traceback
-        print(f"✗ MODPATH error: {e}")
-        traceback.print_exc()
-        return {'model_modpath': None, 'success': False}
-
+        return {'model_modpath': model_modpath, 'success': success}
 
 # ============================================================================
 # COMPLETE MT3DMS - Enchaîne: preprocessing → processing → postprocessing
 # ============================================================================
 
-def complete_mt3dms(geographic, climatic, model_modflow, initializing, model_name,
-                   scenario='s1', for_calib=False, transport=None, config=None):
+def complete_mt3dms(geographic, climatic, model_modflow,domain, workspace,transport, solver_engine,vers,
+                   scenario='s1'):
     """
     Complete MT3DMS workflow: Pre-processing → Processing → Post-processing
 
@@ -344,100 +248,93 @@ def complete_mt3dms(geographic, climatic, model_modflow, initializing, model_nam
         Result dictionary with keys: model_mt3dms, success
     """
     print(f"\n{'='*70}")
-    print(f"MT3DMS WORKFLOW: {model_name} - scenario '{scenario}'")
     print(f"{'='*70}")
 
     if not model_modflow:
         print("✗ MT3DMS skipped (MODFLOW not available)\n")
         return {'model_mt3dms': None, 'success': False}
 
-    try:
-        nper = model_modflow.nper
+    list_folder = glob.glob(os.path.join(str(workspace.simulations_folder), vers+'*'))
+    model_name = list_folder[0].split(os.path.sep)[-1]
+    print(f"MT3DMS WORKFLOW: {model_name} - scenario '{scenario}'")
+    pickle_file = list_folder[0] + '/' + 'results_' + model_name + '.pkl'
+
+    with open(pickle_file, 'rb') as f:
+        d = pickle.load(f)
+    model_modflow = d['list_model_modflow'][0]
+
+    model_mt3dms = None
+    nper = model_modflow.nper
+
+    # 2. Détection des dimensions
+    if solver_engine == SolverEngine.MODFLOW_NWT:
         nlay = model_modflow.mf.nlay
         nrow = model_modflow.mf.nrow
         ncol = model_modflow.mf.ncol
+    else:
+        nlay = model_modflow.nlay
+        nrow = model_modflow.nrow
+        ncol = model_modflow.ncol
 
-        print(f"  Setting up concentration arrays (nlay={nlay}, nrow={nrow}, ncol={ncol}, nper={nper})...")
+    # 3. Tableaux de concentration
+    sconc_init = np.ones((nlay, nrow, ncol)) * (100/1000)
+    sconc_input = {i: np.ones((nrow, ncol)) * (50/1000) for i in range(nper)}
+    sconc_input = dict(islice(sconc_input.items(), 1, None))
+    rate_decay = np.ones((nlay, nrow, ncol)) * (1/(2*365))
 
-        # Get transport parameters from config, then from transport object, then defaults
-        preproc_params = config.get('preprocessing', {}) if config else {}
+    transport.conc.set_parameters(spc_name='NO3',
+                                  sconc_init=sconc_init,
+                                  sconc_input=sconc_input,
+                                  rate_decay=rate_decay)
 
-        spc_name = preproc_params.get('spc_name') or (transport.spc_name if transport else 'NO3')
-        disp_long = preproc_params.get('disp_long', transport.disp_long if transport else 0)
-        disp_transh = preproc_params.get('disp_transh', transport.disp_transh if transport else 0)
-        disp_transv = preproc_params.get('disp_transv', transport.disp_transv if transport else 0)
-        diffu_coeff = preproc_params.get('diffu_coeff', transport.diffu_coeff if transport else 1e-10 * 3600 * 24)
-        react_order = preproc_params.get('react_order', transport.react_order if transport else 1)
-        plot_conc = preproc_params.get('plot_conc', transport.plot_conc if transport else True)
+    # 4. Exécution du Transport
+    scenario = 's1'
+    suffix_name = '_mt_'+scenario
 
-        # Concentration arrays from transport object
-        if transport is not None:
-            sconc_init = transport.sconc_init
-            sconc_input = transport.sconc_input
-            rate_decay = transport.rate_decay
-        else:
-            # Default values
-            sconc_init = np.ones((nlay, nrow, ncol)) * (100 / 1000)
-            sconc_input = {i: np.ones((nrow, ncol)) * (50 / 1000) for i in range(nper)}
-            sconc_input = dict(islice(sconc_input.items(), 1, None))
-            rate_decay = np.ones((nlay, nrow, ncol)) * (1 / (2 * 365))
+    if solver_engine == SolverEngine.MODFLOW_NWT:
+        model_mt3dms = Mt3dms(domain, transport, model_modflow,
+                            model_folder = workspace.simulations_folder,
+                            model_name = model_modflow.model_name,
+                            suffix_name = suffix_name,
+                            bin_path = workspace.bin_path)
+    else:
+        model_mt3dms = Modflow6Transport(domain, transport, model_modflow,
+                            model_folder = workspace.simulations_folder,
+                            model_name = model_modflow.model_name,
+                            suffix_name = suffix_name,
+                            bin_path = workspace.bin_path)
 
-        # Create Mt3dms instance
-        print("Creating MT3DMS model...")
-        model_folder = initializing.simulations_folder if not for_calib else initializing.calibration_folder
-        suffix_name = '_mt_' + scenario
-        model_mt3dms = Mt3dms(geographic,
-                        model_modflow,
-                        model_folder=model_folder,
-                        model_name=model_modflow.model_name,
-                        suffix_name=suffix_name,
-                        bin_path=initializing.bin_path,
-                        spc_name=spc_name,
-                        sconc_init=sconc_init,
-                        sconc_input=sconc_input,
-                        disp_long=disp_long,
-                        disp_transh=disp_transh,
-                        disp_transv=disp_transv,
-                        diffu_coeff=diffu_coeff,
-                        react_order=react_order,
-                        rate_decay=rate_decay,
-                        plot_conc=plot_conc
-        )
+    model_mt3dms.pre_processing()
+    success_mt3dms = model_mt3dms.processing(write_model=True, run_model=True, verbose=True)
 
-        # Preprocessing
-        print("  Preprocessing MT3DMS...")
-        model_mt3dms.pre_processing()
+    # 5. Post-processing et Timeseries
+    if success_mt3dms:
+        # NWT vs MF6 pour mass_accumulated
+        mass_acc = True if solver_engine == SolverEngine.MODFLOW_NWT else False
 
-        # Processing
-        print("  Processing MT3DMS...")
-        processing_params = config.get('processing', {'write_model': True, 'run_model': True, 'verbose': True}) if config else {'write_model': True, 'run_model': True, 'verbose': True}
-        success_mt3dms = model_mt3dms.processing(**processing_params)
+        model_mt3dms.post_processing(model_mt3dms,
+                                concentration_seepage=True,
+                                mass_seepage=True,
+                                mass_accumulated=mass_acc,
+                                export_all_tif=True)
 
-        # Postprocessing
-        if success_mt3dms:
-            print("  Postprocessing MT3DMS...")
-            postproc_params = config.get('post_processing', {}) if config else {}
+        timeseries_results = timeseries.Timeseries(geographic,
+                                                    model_modflow=model_modflow,
+                                                    runoff=climatic.runoff,
+                                                    model_modpath=None, # Sera mis à jour par le launcher si besoin
+                                                    model_mt3dms=model_mt3dms,
+                                                    suffix_name=scenario,
+                                                    datetime_format=True,
+                                                    subbasin_results=True,
+                                                    intermittency_weekly=False,
+                                                    intermittency_monthly = True,
+                                                    residence_times=True,
+                                                    concentration_seepage=True,
+                                                    mass_accumulated=mass_acc)
 
-            # Default parameters (from example12.py)
-            default_postproc = {
-                'concentration_seepage': True,
-                'mass_seepage': True,
-                'mass_accumulated': True,
-                'export_all_tif': True
-            }
-            postproc_params = {**default_postproc, **postproc_params}
-            model_mt3dms.post_processing(model_mt3dms, **postproc_params)
-
-        print("✓ MT3DMS completed\n")
-        return {'model_mt3dms': model_mt3dms, 'success': True}
-
-    except Exception as e:
-        import traceback
-        print(f"✗ MT3DMS error: {e}")
-        traceback.print_exc()
+        return {'model_mt3dms': model_mt3dms, 'success': True, 'timeseries': timeseries_results}
+    else:
         return {'model_mt3dms': None, 'success': False}
-
-
 # ============================================================================
 # COMPLETE TIMESERIES - Generate timeseries results (postprocessing)
 # ============================================================================
