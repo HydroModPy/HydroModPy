@@ -802,10 +802,10 @@ if __name__ == '__main__':
             tif_seep_clip,
             maintain_dimensions=True)
 
-        particle_params = cfg.transport.particle.parameters.model_dump()
+        particle_params = cfg.transport.modpath.parameters.model_dump()
         if particle_params.get('zone_partic') == 'seepage_clip':
             particle_params['zone_partic'] = tif_seep_clip
-        transport.particle.set_parameters(particle_params)
+        transport.modpath.set_parameters(particle_params)
 
         model_modpath = Modpath(domain,
                         transport,
@@ -958,10 +958,19 @@ if __name__ == '__main__':
     sconc_input = dict(islice(sconc_input.items(), 1, None))
     rate_decay = np.ones((nlay, nrow, ncol)) * (1/(2*365))
 
-    transport.conc.set_parameters(
-                    cfg.transport.conc.parameters.model_dump()
+    transport.mt3dms.set_parameters(
+                    cfg.transport.mt3dms.parameters.model_dump()
                     )
-    transport.conc.set_parameters(
+    transport.mt3dms.set_parameters(
+                    spc_name='NO3',
+                    sconc_init=sconc_init,          # array of (nlay, nrow, ncol)
+                    sconc_input=sconc_input,         # dictionnray [time] with array of (nlay, nrow, ncol)
+                    rate_decay=rate_decay,          # array of (nlay, nrow, ncol), unit T-1
+                    )
+    transport.modflow6gwt.set_parameters(
+                    cfg.transport.modflow6gwt.parameters.model_dump()
+                    )
+    transport.modflow6gwt.set_parameters(
                     spc_name='NO3',
                     sconc_init=sconc_init,          # array of (nlay, nrow, ncol)
                     sconc_input=sconc_input,         # dictionnray [time] with array of (nlay, nrow, ncol)

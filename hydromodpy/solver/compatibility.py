@@ -7,7 +7,7 @@ ProcessSolverKey = tuple[str, str]
 PROCESS_SOLVER_REQUIREMENTS: dict[ProcessSolverKey, tuple[ProcessSolverKey, ...]] = {
     ("flow", "modflownwt"): (),
     ("flow", "modflow6"): (),
-    ("particles", "modpath"): (("flow", "modflownwt"),),
+    ("transport", "modpath"): (("flow", "modflownwt"),),
     ("transport", "mt3dms"): (("flow", "modflownwt"),),
     ("transport", "modflow6gwt"): (("flow", "modflow6"),),
 }

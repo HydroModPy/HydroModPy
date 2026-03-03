@@ -598,7 +598,7 @@ class Modflow6(Solver):
 
 
 class Modflow6Transport:
-	"""Transport solver based on MODFLOW 6 GWT and `transport.conc.parameters`."""
+	"""Transport solver based on MODFLOW 6 GWT and `transport.modflow6gwt.parameters`."""
 
 	def __init__(
 		self,
@@ -623,7 +623,9 @@ class Modflow6Transport:
 		self.exe = getattr(model_modflow, "exe", "mf6")
 
 		conc_params = {}
-		comp = getattr(transport, "conc", None)
+		comp = getattr(transport, "modflow6gwt", None)
+		if comp is None:
+			comp = getattr(transport, "conc", None)
 		if comp is not None and isinstance(getattr(comp, "parameters", None), Mapping):
 			conc_params = dict(comp.parameters)
 		conc_params.update(kwargs)

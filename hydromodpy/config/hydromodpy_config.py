@@ -96,8 +96,9 @@ class HydroModPyConfig(BaseModel):
     transport: TransportConfig = Field(
         default_factory=TransportConfig,
         description=(
-            "Transport process configuration, including particle-tracking "
-            "parameters under [transport.particle.parameters]."
+            "Transport process configuration, with solver-specific parameter "
+            "blocks under [transport.modpath.parameters], "
+            "[transport.mt3dms.parameters], and [transport.modflow6gwt.parameters]."
         ),
     )
     simulation: SimulationConfig = Field(

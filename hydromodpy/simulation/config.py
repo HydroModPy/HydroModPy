@@ -19,7 +19,7 @@ class SimulationProcessConfig(BaseModel):
             "If omitted, a deterministic id is derived from the process type."
         ),
     )
-    type: Literal["flow", "particles", "transport"] = Field(
+    type: Literal["flow", "transport"] = Field(
         description="Requested process family executed by the launcher."
     )
     solvers: list[str] = Field(

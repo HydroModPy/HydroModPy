@@ -51,8 +51,6 @@ class RunResult:
     # Flow phase
     model_modflow: Any = field(default=None)  # Modflow | Modflow6
 
-    # Particles phase
-    model_modpath: Any = field(default=None)  # Modpath
-
-    # Transport phase
+    # Transport solvers
+    model_modpath: Any = field(default=None)    # Modpath
     model_transport: Any = field(default=None)  # Mt3dms | Modflow6Transport

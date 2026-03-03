@@ -35,8 +35,6 @@ KNOWN_HOOKS: list[str] = [
     "on_after_data",
     "on_before_flow",
     "on_after_flow",
-    "on_before_particles",
-    "on_after_particles",
     "on_before_transport",
     "on_after_transport",
 ]
