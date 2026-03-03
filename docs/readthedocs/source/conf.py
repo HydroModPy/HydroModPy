@@ -95,12 +95,15 @@ extensions = [
     "sphinx_togglebutton",
     "sphinx_tabs.tabs",
     "sphinx_multiversion",
+    "sphinxcontrib.plantuml",
     "sphinxcontrib.autodoc_pydantic",
 ]
 autoclass_content = 'both'
 autosummary_generate = True
 nbsphinx_allow_errors = True
 nbsphinx_execute = "never"
+plantuml = "plantuml"
+plantuml_output_format = "svg"
 
 # ---------------------------------------------------------------------------
 # autodoc-pydantic – configuration des modèles de paramètres

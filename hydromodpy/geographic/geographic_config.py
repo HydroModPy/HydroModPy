@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
 
@@ -13,6 +13,8 @@ class GeographicConfig(BaseModel):
     This model stores parameters used to extract and prepare the physical domain
     (watershed geometry and rasters) based on various possible input definitions.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     catch_def: Annotated[
         Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"], ParamLevel("user")

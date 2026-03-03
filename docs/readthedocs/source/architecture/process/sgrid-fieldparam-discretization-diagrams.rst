@@ -13,12 +13,16 @@ These diagrams describe how HydroModPy bridges:
 Class Diagram
 -------------
 
+.. uml:: diagrams/sgrid_fieldparam_discretization_class.wsd
+
 .. literalinclude:: diagrams/sgrid_fieldparam_discretization_class.wsd
    :language: text
    :caption: PlantUML (.wsd) source - SGrid/FieldParam discretization class diagram
 
 Activity Diagram
 ----------------
+
+.. uml:: diagrams/sgrid_fieldparam_discretization_activity.wsd
 
 .. literalinclude:: diagrams/sgrid_fieldparam_discretization_activity.wsd
    :language: text
