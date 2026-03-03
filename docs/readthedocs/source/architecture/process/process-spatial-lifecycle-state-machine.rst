@@ -10,6 +10,8 @@ runtime object from creation to solver execution and post-processing.
 Diagram source
 --------------
 
+.. uml:: diagrams/process_spatial_lifecycle_state.wsd
+
 .. literalinclude:: diagrams/process_spatial_lifecycle_state.wsd
    :language: text
    :caption: PlantUML (.wsd) source - ProcessSpatial lifecycle state machine

@@ -75,13 +75,13 @@ Usage
 -----
 ::
 
-    from launcher import HydroModPyLauncher
+    from launchers import HydroModPyLauncher
 
     result = HydroModPyLauncher("path/to/config.toml").run()
 
 Or from the command line::
 
-    python -m launcher run path/to/config.toml
+    python -m launchers run path/to/config.toml
 
 Environment variables
 ---------------------
@@ -117,8 +117,8 @@ from hydromodpy.solver.modflow_nwt import (
 from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
 from hydromodpy.watershed.climatic import Climatic
 from hydromodpy.watershed.settings import Settings
-from launcher.hook_registry import HookRegistry
-from launcher.run_result import RunResult
+from launchers.hook_registry import HookRegistry
+from launchers.run_result import RunResult
 
 
 class HydroModPyLauncher:
