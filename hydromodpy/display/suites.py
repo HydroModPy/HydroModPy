@@ -30,6 +30,15 @@ from hydromodpy.display.transport_plots import (
 )
 
 
+def _resolve_flow_model(result):
+    """Return the configured flow model using explicit solver lookup."""
+
+    flow_model = result.get_model_for_solver("modflownwt")
+    if flow_model is None:
+        flow_model = result.get_model_for_solver("modflow6")
+    return flow_model
+
+
 def _load_observed_streamflow(result) -> pd.DataFrame:
     """Load and normalize the observed discharge series for flow diagnostics.
 
@@ -58,7 +67,7 @@ def _load_flow_timeseries(result) -> pd.DataFrame:
     the flow diagnostic plots.
     """
 
-    model_name = result.model_modflow.model_name
+    model_name = _resolve_flow_model(result).model_name
     smod_path = (
         result.workspace.simulations_folder
         / model_name
@@ -85,7 +94,8 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
     if not options.should_render():
         return
 
-    model_name = result.model_modflow.model_name
+    flow_model = _resolve_flow_model(result)
+    model_name = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.workspace, model_name)
     simulated_timeseries = _load_flow_timeseries(result)
     observed_streamflow = _load_observed_streamflow(result)
@@ -127,7 +137,8 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
     if not options.should_render():
         return
 
-    model_name = result.model_modflow.model_name
+    flow_model = _resolve_flow_model(result)
+    model_name = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.workspace, model_name)
     particles_dir = (
         result.workspace.simulations_folder
@@ -163,7 +174,14 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     concentration rendering work is done only once per run.
     """
 
-    if not options.should_render() or result.model_transport is None:
+    if not options.should_render():
+        return
+
+    flow_model = _resolve_flow_model(result)
+    transport_model = result.get_model_for_solver("mt3dms")
+    if transport_model is None:
+        transport_model = result.get_model_for_solver("modflow6gwt")
+    if transport_model is None:
         return
 
     run_concentration = options.transport.is_enabled("concentration", default=False)
@@ -172,15 +190,15 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     if not any([run_concentration, run_gif, run_web_animation]):
         return
 
-    model_name = result.model_modflow.model_name
+    model_name = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.workspace, model_name) / "transport"
     save_frame_files = options.save or run_gif or run_web_animation
     show_last_frame = run_concentration and options.show
 
     # Frame generation is shared by the static images, GIF, and HTML slider.
     frame_paths = plot_concentration_frames(
-        model_transport=result.model_transport,
-        model_modflow=result.model_modflow,
+        model_transport=transport_model,
+        model_modflow=flow_model,
         geographic=result.geographic,
         hydrography=result.hydrography,
         recharge_series=result.climatic.recharge,

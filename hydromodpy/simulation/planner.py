@@ -1,13 +1,16 @@
 """Translate declarative simulation config into an executable simulation plan.
 
 The planner is the boundary between "what the user requested" and "what the
-runner can execute". The input ``SimulationConfig`` stays declarative:
-a process may list several solvers, and dependencies are only implied by
-process/solver compatibility rules.
+runner can execute". The input ``SimulationConfig`` stays declarative, but it
+is now intentionally constrained:
+
+- at most one ``flow`` process,
+- at most one ``transport`` process,
+- one process can still list several solvers.
 
 This module normalizes that into a flat ordered list of ``ProcessRun`` objects
-with explicit backward dependencies and a deterministic order. It deliberately
-does not reorder anything: the user-declared order is kept, and the planner
+with explicit backward dependencies and a deterministic order. The planner
+deliberately does not reorder anything: the user-declared order is kept, and it
 simply validates that every required dependency is already provided by an
 earlier run.
 """
@@ -20,20 +23,37 @@ from hydromodpy.solver.compatibility import required_bindings
 
 
 class SimulationPlanner:
-    """Expand and validate simulation config into concrete runnable units."""
+    """Validate simulation config and emit concrete runnable units."""
 
     def build(self, config: SimulationConfig) -> SimulationPlan:
-        """Expand ``config`` into a validated ordered ``SimulationPlan``.
+        """Convert ``config`` into a validated ordered ``SimulationPlan``.
 
         The planner performs four key tasks:
 
+        - preserve the user-declared process order instead of re-sorting runs,
         - expand one process entry into one ``ProcessRun`` per solver,
         - verify uniqueness of both process ids and concrete run ids,
         - resolve each required dependency to a previously planned run.
+
+        Example
+        -------
+        If the user declares:
+
+        - ``flow_main`` with ``solvers=["modflownwt"]``
+        - ``transport_main`` with ``solvers=["modpath", "mt3dms"]``
+
+        then the planner emits three ordered runs:
+
+        - ``flow_main::modflownwt``
+        - ``transport_main::modpath``
+        - ``transport_main::mt3dms``
+
+        and each transport run is bound to the earlier compatible flow run
+        required by the solver compatibility rules.
         """
         runs: list[ProcessRun] = []
-        # Track the latest run that provides each (process_type, solver)
-        # capability so dependent runs can bind to a concrete upstream model.
+        # Track the produced runs for each (process_type, solver) capability so
+        # later runs can bind to the most recent compatible provider.
         runs_by_capability: dict[tuple[str, str], list[ProcessRun]] = {}
         # Separate guards keep TOML-level ids and concrete process/solver ids
         # unique, which produces clearer error messages.
@@ -52,7 +72,9 @@ class SimulationPlanner:
             for solver_name in process_cfg.solvers:
                 dependencies: list[str] = []
                 # Dependency resolution is strictly backward-looking: a run may
-                # only depend on capabilities already planned earlier.
+                # only depend on capabilities already planned earlier. If
+                # ``transport_main::mt3dms`` appears before any compatible
+                # ``flow::*`` provider, planning fails instead of reordering.
                 for required_type, required_solver in required_bindings(
                     process_cfg.type, solver_name
                 ):
@@ -64,12 +86,8 @@ class SimulationPlanner:
                             "requires an earlier process using "
                             f"{required_type}/{required_solver}."
                         )
-                    # When several earlier runs provide the same capability, the
-                    # most recent one is the one that will feed this run.
                     dependencies.append(providers[-1].id)
 
-                # Concrete run ids distinguish solver variants originating from
-                # the same declarative process entry.
                 run_id = f"{process_id}::{solver_name}"
                 if run_id in seen_run_ids:
                     raise ValueError(

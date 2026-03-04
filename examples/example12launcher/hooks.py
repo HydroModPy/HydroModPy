@@ -19,12 +19,12 @@ The hook names in this file map to two kinds of lifecycle events:
 That distinction matters for state interpretation:
 
 - ``on_before_flow`` prepares inputs shared by every flow solver in the block.
-- ``on_after_flow`` sees ``result.model_modflow`` set to the last flow model
-  executed in that block.
+- ``on_after_flow`` can resolve the concrete flow backend from the canonical
+  ``models_by_run_id`` registry.
 - ``on_before_transport`` runs before the first transport solver and therefore
   relies on the already-produced flow outputs.
-- ``on_after_transport`` runs after the last transport solver and sees the final
-  values of ``result.model_modpath`` and ``result.model_transport``.
+- ``on_after_transport`` runs after the transport solver and can resolve
+  specific solver outputs from the run registry.
 
 This file intentionally does not recreate the generic launcher boilerplate
 (workspace, geographic context, domain, solver instances, etc.). Those objects
@@ -46,6 +46,15 @@ from hydromodpy.display import (
 )
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 from launchers import RunResult
+
+
+def _resolve_flow_model(result: RunResult):
+    """Return the available flow model using explicit solver lookup."""
+
+    flow_model = result.get_model_for_solver("modflownwt")
+    if flow_model is None:
+        flow_model = result.get_model_for_solver("modflow6")
+    return flow_model
 
 
 def on_after_data(result: RunResult) -> None:
@@ -235,9 +244,9 @@ def on_before_flow(result: RunResult) -> None:
 def on_after_flow(result: RunResult) -> None:
     """Generate flow-only diagnostics after the flow process family finishes.
 
-    This hook runs after the last contiguous flow solver. ``result.model_modflow``
-    therefore points to the final flow model executed in that block, which is
-    the model consumed by every post-processing call below.
+    This hook runs after the flow solver. The hook therefore resolves the
+    produced flow model from the canonical run registry and uses it
+    for every post-processing call below.
 
     The hook:
 
@@ -251,7 +260,7 @@ def on_after_flow(result: RunResult) -> None:
 
     geo = result.geographic
     ws = result.workspace
-    model_modflow = result.model_modflow
+    model_modflow = _resolve_flow_model(result)
     model_name = model_modflow.model_name
 
     timeseries.Timeseries(
@@ -284,44 +293,47 @@ def on_before_transport(result: RunResult) -> None:
 
     This hook is process-family scoped: it runs once before the transport block,
     not once per transport solver. It configures shared runtime inputs consumed
-    by both particle tracking and concentration transport.
+    by the declared transport solvers.
 
     Important assumption
     --------------------
-    The hook uses ``result.model_modflow`` to locate the seepage raster and grid
-    shape. Because the runner sets that attribute to the latest completed flow
-    model, this example assumes that the transport block should use the last
-    flow solver produced by the immediately preceding flow block.
+    The hook uses the flow model resolved from ``models_by_run_id`` to locate
+    the seepage raster and grid shape. This example therefore assumes that the
+    transport block consumes the preceding compatible flow result.
     """
-    import whitebox
-
     from hydromodpy.solver.modflow_nwt import Modflow
 
     ws = result.workspace
-    flow_model = result.model_modflow
+    flow_model = _resolve_flow_model(result)
+    modpath_run = result.get_run_for_solver("modpath")
+    mt3dms_run = result.get_run_for_solver("mt3dms")
+    modflow6gwt_run = result.get_run_for_solver("modflow6gwt")
     model_name = flow_model.model_name
     sim_folder = ws.simulations_folder / model_name
 
-    seepage_tif = sim_folder / "_postprocess/_rasters/seepage_areas_t(0).tif"
-    seepage_clip_tif = sim_folder / "_postprocess/_rasters/seepage_areas_t(0)_clip.tif"
+    if modpath_run is not None:
+        import whitebox
 
-    # Clip the seepage map to the watershed polygon so Modpath can inject
-    # particles only where seepage occurs inside the catchment.
-    wbt = whitebox.WhiteboxTools()
-    wbt.verbose = False
-    wbt.clip_raster_to_polygon(
-        str(seepage_tif),
-        str(ws.stable_folder / "geographic" / "watershed.shp"),
-        str(seepage_clip_tif),
-        maintain_dimensions=True,
-    )
+        seepage_tif = sim_folder / "_postprocess/_rasters/seepage_areas_t(0).tif"
+        seepage_clip_tif = sim_folder / "_postprocess/_rasters/seepage_areas_t(0)_clip.tif"
 
-    modpath_params = result.cfg.transport.modpath.parameters.model_dump()
-    if modpath_params.get("zone_partic") == "seepage_clip":
-        # The TOML uses a readable sentinel value; the solver API expects the
-        # concrete raster path created just above.
-        modpath_params["zone_partic"] = str(seepage_clip_tif)
-    result.transport.modpath.set_parameters(modpath_params)
+        # Clip the seepage map to the watershed polygon so Modpath can inject
+        # particles only where seepage occurs inside the catchment.
+        wbt = whitebox.WhiteboxTools()
+        wbt.verbose = False
+        wbt.clip_raster_to_polygon(
+            str(seepage_tif),
+            str(ws.stable_folder / "geographic" / "watershed.shp"),
+            str(seepage_clip_tif),
+            maintain_dimensions=True,
+        )
+
+        modpath_params = result.cfg.transport.modpath.parameters.model_dump()
+        if modpath_params.get("zone_partic") == "seepage_clip":
+            # The TOML uses a readable sentinel value; the solver API expects the
+            # concrete raster path created just above.
+            modpath_params["zone_partic"] = str(seepage_clip_tif)
+        result.transport.modpath.set_parameters(modpath_params)
 
     nper = flow_model.nper
     if isinstance(flow_model, Modflow):
@@ -347,12 +359,14 @@ def on_before_transport(result: RunResult) -> None:
         rate_decay=rate_decay,
     )
 
-    result.transport.mt3dms.set_parameters(result.cfg.transport.mt3dms.parameters.model_dump())
-    result.transport.mt3dms.set_parameters(runtime_parameters)
-    result.transport.modflow6gwt.set_parameters(
-        result.cfg.transport.modflow6gwt.parameters.model_dump()
-    )
-    result.transport.modflow6gwt.set_parameters(runtime_parameters)
+    if mt3dms_run is not None:
+        result.transport.mt3dms.set_parameters(result.cfg.transport.mt3dms.parameters.model_dump())
+        result.transport.mt3dms.set_parameters(runtime_parameters)
+    elif modflow6gwt_run is not None:
+        result.transport.modflow6gwt.set_parameters(
+            result.cfg.transport.modflow6gwt.parameters.model_dump()
+        )
+        result.transport.modflow6gwt.set_parameters(runtime_parameters)
 
 
 def on_after_transport(result: RunResult) -> None:
@@ -360,8 +374,9 @@ def on_after_transport(result: RunResult) -> None:
 
     This hook sees the final state of the transport process family:
 
-    - ``result.model_modpath`` is the last executed Modpath model, if any
-    - ``result.model_transport`` is the last executed concentration model, if any
+    - ``result.get_model_for_solver("modpath")`` resolves the Modpath model
+    - ``result.get_model_for_solver("mt3dms")`` resolves the MT3DMS model
+    - ``result.get_model_for_solver("modflow6gwt")`` resolves the MF6-GWT model
 
     The concentration timeseries call still uses the legacy hard-coded scenario
     label ``"s1"``. That matches the default single concentration transport run
@@ -371,14 +386,20 @@ def on_after_transport(result: RunResult) -> None:
 
     display_options = display_options_from_raw_toml(result.raw_toml)
 
-    if result.model_transport is not None:
+    flow_model = _resolve_flow_model(result)
+    particle_model = result.get_model_for_solver("modpath")
+    transport_model = result.get_model_for_solver("mt3dms")
+    if transport_model is None:
+        transport_model = result.get_model_for_solver("modflow6gwt")
+
+    if transport_model is not None:
         scenario = "s1"
         timeseries.Timeseries(
             result.geographic,
-            model_modflow=result.model_modflow,
+            model_modflow=flow_model,
             runoff=result.climatic.runoff,
-            model_modpath=result.model_modpath,
-            model_mt3dms=result.model_transport,
+            model_modpath=particle_model,
+            model_mt3dms=transport_model,
             suffix_name=scenario,
             datetime_format=True,
             subbasin_results=True,
@@ -389,7 +410,7 @@ def on_after_transport(result: RunResult) -> None:
             mass_accumulated=True,
         )
 
-    if result.model_modpath is not None:
+    if particle_model is not None:
         plot_particles_suite(result, display_options)
-    if result.model_transport is not None:
+    if transport_model is not None:
         plot_transport_suite(result, display_options)
