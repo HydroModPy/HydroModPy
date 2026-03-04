@@ -51,14 +51,15 @@ Put differently: the runner owns execution flow, not solver mechanics.
 - which solver-specific options are required to run those classes;
 - the exact pre-processing / processing / post-processing call sequence of each solver.
 
-That solver-specific knowledge belongs in `simulation/adapters/`.
+That solver-specific knowledge belongs in `simulation/adapters/`, with one
+adapter module per solver grouped under the `flow/` and `transport/` families.
 
 ## Where to look in the code
 
 - Planning logic: `simulation/planner.py`
 - Generic orchestration: `simulation/runner.py`
 - Runtime contracts shared by runner and adapters: `simulation/runtime.py`
-- Solver-specific bridging code: `simulation/adapters/`
+- Solver-specific bridging code: `simulation/adapters/` (`flow/` and `transport/`)
 
 ## Hooks and adapters
 
