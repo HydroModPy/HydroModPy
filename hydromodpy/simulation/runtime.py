@@ -27,8 +27,7 @@ class SimulationState(Protocol):
 
     ``SimulationRunner`` and the solver adapters only rely on this protocol,
     not on a concrete implementation such as ``RunResult``. The canonical model
-    registry is ``models_by_run_id``; concrete states may still expose extra
-    compatibility attributes, but generic orchestration does not require them.
+    registry is ``models_by_run_id``.
     """
 
     cfg: Any
