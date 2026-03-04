@@ -32,7 +32,7 @@ def _fmt_date_or_none(value):
     return value.strftime("%Y-%m-%d")
 
 
-def main() -> None:
+def main_station_set() -> None:
     """Execute the hydrometry example workflow with mask-based discovery."""
     manager_dir = Path(__file__).resolve().parent
     config_path = manager_dir / "hydrometry_config.toml"
@@ -126,5 +126,149 @@ def main() -> None:
         print("  • Use require_observations=True to filter by data availability")
 
 
+def main_station() -> None:
+    """Test the Station class with a single loaded station."""
+    manager_dir = Path(__file__).resolve().parent
+    config_path = manager_dir / "hydrometry_config.toml"
+    outputs_dir = manager_dir / "outputs"
+    outputs_dir.mkdir(exist_ok=True)
+
+    print("=" * 70)
+    print("HYDROMETRY STATION CLASS TEST")
+    print("=" * 70)
+
+    # Load config and get a station
+    try:
+        config_data = load_hydrometry_toml(config_path)
+        selection_cfg = config_data.get("selection", {})
+        selection_mode = selection_cfg.get("mode", "stations")
+        mask_path = selection_cfg.get("mask_path")
+        piezometry_cfg = config_data.get("hydrometry", {})
+        
+        date_start = _fmt_date_or_none(piezometry_cfg.get("date_start"))
+        date_end = _fmt_date_or_none(piezometry_cfg.get("date_end"))
+    except Exception as exc:
+        print(f"[Error] Failed to load config: {exc}")
+        return
+
+    # Discover and load stations
+    print(f"\n[Loading] Loading hydrometric stations...")
+    try:
+        if selection_mode == "mask" and mask_path:
+            discovered = StationSet.discover_station_ids(
+                mask_path=mask_path,
+                require_observations=False,
+                date_start=date_start,
+                date_end=date_end,
+                max_ids=5,  # Limit to 5 for testing
+                fallback_search_radius_km=10.0,
+                timeout=60,
+            )
+        else:
+            print("[Error] This test requires selection.mode='mask' in config")
+            return
+
+        if not discovered:
+            print("[Error] No stations discovered")
+            return
+
+        # Create StationSet to load data
+        stations = StationSet(
+            variable=piezometry_cfg.get("variable", "QmnJ"),
+            id=discovered,
+            display=piezometry_cfg.get("display", False),
+            date_start=date_start,
+            date_end=date_end,
+            output=None,  # Don't export here
+            source_mode="api",
+        )
+    except Exception as exc:
+        print(f"[Error] Loading failed: {exc}")
+        import traceback
+        traceback.print_exc()
+        return
+
+    # Test Station class with the first loaded station
+    if not stations.stations:
+        print("[Error] No stations loaded")
+        return
+
+    station_id = sorted(stations.stations.keys())[0]
+    print(f"\n[Test] Testing Station class with: {station_id}")
+    print("=" * 70)
+
+    station = stations.stations[station_id]
+
+    # 1️⃣ Display basic info
+    print("\n1️⃣  STATION BASIC INFO")
+    print(f"   ID: {station.station_id}")
+    print(f"   Variable: {station.variable}")
+    print(f"   Label: {station.build_label()}")
+
+    # 2️⃣ Display metadata
+    print("\n2️⃣  STATION METADATA")
+    if station.metadata:
+        for key, value in sorted(station.metadata.items())[:5]:  # Show first 5
+            print(f"   {key}: {value}")
+        if len(station.metadata) > 5:
+            print(f"   ... and {len(station.metadata) - 5} more keys")
+    else:
+        print("   No metadata available")
+
+    # 3️⃣ Display spatial info
+    print("\n3️⃣  SPATIAL INFORMATION")
+    if station.station_position:
+        print(f"   Position: {station.station_position}")
+    else:
+        print("   No position data")
+    if station.georeferencing:
+        print(f"   Georeferencing: {station.georeferencing}")
+
+    # 4️⃣ Display data summary
+    print("\n4️⃣  DATA SUMMARY")
+    if not station.data.empty:
+        print(f"   Records: {len(station.data)}")
+        print(f"   Date range: {station.data['date_obs_elab'].min()} to {station.data['date_obs_elab'].max()}")
+        print(f"   Columns: {', '.join(station.data.columns.tolist())}")
+    else:
+        print("   No data loaded")
+
+    # 5️⃣ Calculate and display completeness
+    print("\n5️⃣  DATA COMPLETENESS")
+    try:
+        completeness = station.completeness(verbose=False)
+        print(f"   Total expected days: {completeness.get('expected_days', 0)}")
+        print(f"   Actual days with data: {completeness.get('actual_days', 0)}")
+        print(f"   Missing days: {completeness.get('missing_days', 0)}")
+        print(f"   Completeness: {completeness.get('completeness_pct', 0.0):.1f}%")
+        print(f"   Gaps detected: {completeness.get('gaps_detected', 0)}")
+    except Exception as e:
+        print(f"   Error computing completeness: {e}")
+
+    # 6️⃣ Generate plot
+    print("\n6️⃣  PLOTTING")
+    try:
+        plot_output = outputs_dir / f"station_test_{station_id}.png"
+        station.plot(output_path=plot_output, show=False)
+        print(f"   ✓ Plot saved to: {plot_output.name}")
+    except Exception as e:
+        print(f"   ✗ Failed to generate plot: {e}")
+
+    print("\n" + "=" * 70)
+    print("[Success] Station class test completed")
+
+
 if __name__ == "__main__":
-    main()
+    # Run both discovery workflow and Station class test
+    main_station_set()
+    
+    # Clear separator for readability
+    print("\n\n")
+    print("█" * 70)
+    print("█" + " " * 68 + "█")
+    print("█" + " TRANSITIONING TO STATION CLASS TEST ".center(68) + "█")
+    print("█" + " " * 68 + "█")
+    print("█" * 70)
+    print("\n")
+    
+    main_station()

@@ -1006,8 +1006,11 @@ class StationSet(BaseStationSet):
            start_date = "00000000"
            end_date = "00000000"
        
+       # Make station_id filesystem-safe by replacing slash and backslash with underscore
+       safe_id = str(station_id).replace("/", "_").replace("\\", "_")
+       
        # Build filename
-       filename = f"hydrometry_{api_name}_{station_id}_{start_date}_{end_date}_{freq}.csv"
+       filename = f"hydrometry_{api_name}_{safe_id}_{start_date}_{end_date}_{freq}.csv"
        return filename
 
    def _export_data(self):

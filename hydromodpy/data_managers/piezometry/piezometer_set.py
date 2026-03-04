@@ -886,7 +886,7 @@ class PiezometerSet(BaseStationSet):
         Returns
         -------
         str
-            Standardized CSV filename
+            Standardized CSV filename (filesystem-safe)
         """
         # Determine API name
         api_name = "HUBEAU" if self.source_mode == "api" else "custom"
@@ -909,8 +909,11 @@ class PiezometerSet(BaseStationSet):
             start_date = "00000000"
             end_date = "00000000"
         
+        # Make piezometer_id filesystem-safe by replacing slash and backslash with underscore
+        safe_id = str(piezometer_id).replace("/", "_").replace("\\", "_")
+        
         # Build filename
-        filename = f"piezometry_{api_name}_{piezometer_id}_{start_date}_{end_date}_{freq}.csv"
+        filename = f"piezometry_{api_name}_{safe_id}_{start_date}_{end_date}_{freq}.csv"
         return filename
 
     def _export_data(self):
