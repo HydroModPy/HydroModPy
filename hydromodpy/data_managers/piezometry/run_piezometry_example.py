@@ -94,7 +94,7 @@ def main_piezometer_set() -> None:
             piezometers.plot_piezometer(
                 piezometer_id=piezometer_id,
                 output_path=output_path,
-                show=False,
+                show=True,
             )
             print(f"  ✓ Exported: {output_path.name}")
         except Exception as exc:
