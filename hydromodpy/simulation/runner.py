@@ -1,75 +1,37 @@
 """Execute a resolved ``SimulationPlan`` against a prepared runtime state.
 
-The runner is the operational half of the launcher pipeline.
+The runner is the orchestration layer that sits between planning and concrete
+solver APIs.
 
 By the time this module runs, the planner has already converted the declarative
 ``[simulation]`` block into a flat ordered list of concrete ``ProcessRun``
-objects. For example, the planner may already have resolved:
-
-- ``flow_main::modflownwt``
-- ``transport_main::modpath`` depending on ``flow_main::modflownwt``
-- ``transport_main::mt3dms`` depending on ``flow_main::modflownwt``
-
-The runner therefore does not decide *what* should run or *in which order*.
-Its job is narrower and more concrete:
+objects. The runner therefore does not decide *what* should run or *in which
+order*. Its job is narrower:
 
 - walk through the runs in the order provided by the planner,
-- select the matching solver backend for each run,
-- recover the exact upstream model referenced by ``depends_on``,
-- assign stable model names / suffixes so outputs do not collide,
-- store each produced model in ``state.models_by_run_id`` for later runs.
+- open and close process-family blocks via optional callbacks,
+- resolve the exact upstream models referenced by ``depends_on``,
+- delegate solver-specific execution to the matching adapter,
+- store each produced model back into ``state.models_by_run_id``.
+
+In one sentence:
+
+- the runner knows the plan and the runtime state;
+- the adapters know how to call the concrete solvers.
 
 Keeping this logic separate from the planner avoids mixing dependency
-validation with side effects, file-system writes, and solver API calls.
+validation with side effects. Keeping it separate from the adapters avoids
+mixing generic orchestration with solver-specific API calls.
 """
 
 from __future__ import annotations
 
-import pickle
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Callable
 
+from hydromodpy.simulation.adapters import get_solver_adapter
 from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
-from hydromodpy.solver.modflow_nwt import (
-    Modflow,
-    ModflowPostprocessOptions,
-    ModflowPreprocessOptions,
-    ModflowRunOptions,
-    Modpath,
-    Mt3dms,
-)
-from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
-
-
-class SimulationState(Protocol):
-    """Minimal mutable state required by ``SimulationRunner``.
-
-    ``Protocol`` is used here as a typing contract, not as a concrete base
-    class. In practice, this means "any object shaped like this is acceptable":
-    launcher code can provide a rich runtime state object, while tests can
-    substitute lightweight doubles, as long as they expose these attributes.
-
-    Two attributes are especially important for understanding the execution
-    model:
-
-    - ``flow`` / ``transport`` are the prepared shared process objects created
-      once by the launcher and reused by solver runs;
-    - ``models_by_run_id`` is the per-run registry that lets a transport run
-      retrieve the exact flow model produced by its declared dependency.
-    """
-
-    cfg: Any
-    workspace: Any
-    settings: Any
-    geographic: Any
-    flow: Any
-    domain: Any
-    transport: Any
-    model_modflow: Any
-    model_modpath: Any
-    model_transport: Any
-    models_by_run_id: dict[str, Any]
+from hydromodpy.simulation.runtime import RunContext, RunExecutionResult, SimulationState
 
 
 @dataclass(frozen=True)
@@ -77,8 +39,8 @@ class ProcessCallbacks:
     """Optional hooks fired when the runner enters or leaves a process family.
 
     These callbacks are coarse-grained on purpose: they are triggered once per
-    contiguous block of runs with the same ``process_type``, not once per solver
-    execution.
+    contiguous block of runs with the same ``process_type``, not once per
+    solver execution.
     """
 
     before_process: Callable[[str], None] | None = None
@@ -97,6 +59,11 @@ class SimulationRunner:
 
     The runner is intentionally stateful: each completed run writes its model
     back into ``state.models_by_run_id`` so later runs can consume it.
+
+    Another useful simplification is:
+
+    - ``SimulationRunner`` decides *when* one run is executed;
+    - the selected adapter decides *how* that run is executed.
     """
 
     def __init__(self, callbacks: ProcessCallbacks | None = None) -> None:
@@ -106,8 +73,14 @@ class SimulationRunner:
         """Execute each planned run in order against ``state``.
 
         The plan is assumed to be pre-validated by ``SimulationPlanner``.
-        This method therefore focuses on process-family transitions and runtime
-        dispatch, not on rebuilding dependencies.
+        This method focuses on process-family transitions, dependency lookup,
+        and adapter dispatch.
+
+        In other words:
+
+        - it does not rebuild planning rules;
+        - it does not instantiate solver classes directly;
+        - it only coordinates the execution flow around those operations.
 
         Example
         -------
@@ -127,6 +100,7 @@ class SimulationRunner:
         6. run ``transport_main::mt3dms``
         7. ``after_process("transport")``
         """
+
         current_process_type: str | None = None
 
         for run in plan.runs:
@@ -147,11 +121,13 @@ class SimulationRunner:
 
     def _call_before_process(self, process_type: str) -> None:
         """Invoke the optional before-process callback."""
+
         if self.callbacks.before_process is not None:
             self.callbacks.before_process(process_type)
 
     def _call_after_process(self, process_type: str) -> None:
         """Invoke the optional after-process callback."""
+
         if self.callbacks.after_process is not None:
             self.callbacks.after_process(process_type)
 
@@ -161,326 +137,66 @@ class SimulationRunner:
         state: SimulationState,
         run: ProcessRun,
     ) -> None:
-        """Dispatch one resolved process run to the matching implementation.
+        """Execute one resolved process run through its registered adapter.
 
-        The dispatch happens in two stages:
+        All solver-specific behavior lives behind adapters. The runner only:
 
-        - first by process family (``flow`` vs ``transport``),
-        - then inside the family by concrete solver name.
+        - resolves the already-declared upstream models for the run;
+        - selects the adapter matching ``(run.process_type, run.solver)``;
+        - records the outputs published by that adapter.
 
-        This method is the boundary between "generic run orchestration" and
-        "solver-specific execution".
+        This is the key boundary of the module: from this point on, the runner
+        stays generic and the adapter is responsible for the concrete solver
+        call sequence.
         """
-        if run.process_type == "flow":
-            self._run_flow_solver(plan, state, run)
-            return
 
-        if run.process_type == "transport":
-            # Transport does not read a vague "latest flow model". It reads the
-            # exact upstream flow run selected by the planner through
-            # ``depends_on``.
-            flow_model = self._resolve_required_flow_model(state, run)
-            self._run_transport_solver(plan, state, run, flow_model)
-            return
-
-        raise ValueError(f"Unsupported simulation process type '{run.process_type}'.")
-
-    def _resolve_required_flow_model(self, state: SimulationState, run: ProcessRun):
-        """Return the flow model produced by the declared dependency of *run*.
-
-        For a transport run, ``run.depends_on`` contains the concrete run id of
-        the flow model it must consume. Example:
-
-        - transport run id: ``transport_main::mt3dms``
-        - dependency id: ``flow_main::modflownwt``
-
-        The lookup is performed against ``state.models_by_run_id`` so the
-        dependency is explicit and deterministic even when several flow runs
-        exist in the same simulation.
-        """
-        if len(run.depends_on) != 1:
-            raise ValueError(
-                f"Process run '{run.id}' expected exactly one flow dependency, "
-                f"got {len(run.depends_on)}."
+        dependency_models = self._resolve_dependency_models(state, run)
+        adapter = get_solver_adapter(run.process_type, run.solver)
+        result = adapter.execute(
+            RunContext(
+                plan=plan,
+                run=run,
+                state=state,
+                dependency_models=dependency_models,
             )
-
-        # Dependencies point to an exact upstream run id, not to a generic
-        # "latest flow model". That is what keeps multi-run plans predictable.
-        dependency_id = run.depends_on[0]
-        if dependency_id not in state.models_by_run_id:
-            raise ValueError(
-                f"Process run '{run.id}' depends on '{dependency_id}', "
-                "but that run has not produced a model yet."
-            )
-
-        return state.models_by_run_id[dependency_id]
-
-    def _build_preprocess_options(self, state: SimulationState) -> ModflowPreprocessOptions:
-        """Build the common flow pre-processing options from the prepared settings."""
-        settings = state.settings
-        # Centralize the mapping from launcher settings to solver options so
-        # both flow backends consume the same pre-processing contract.
-        return ModflowPreprocessOptions(
-            box=settings.box,
-            sink_fill=settings.sink_fill,
-            check_grid=settings.check_grid,
-            plot_cross=settings.plot_cross,
-            cross_ylim=tuple(settings.cross_ylim) if settings.cross_ylim else None,
         )
+        self._record_run_output(state, run, result)
 
-    def _flow_model_name(
+    def _resolve_dependency_models(
         self,
-        plan: SimulationPlan,
         state: SimulationState,
         run: ProcessRun,
-    ) -> str:
-        """Return the stable model name used for one flow run.
+    ) -> tuple[object, ...]:
+        """Resolve the concrete upstream models referenced by ``run.depends_on``.
 
-        When a plan contains a single flow run, the base launcher name is kept
-        unchanged. When several flow runs exist, a short positional suffix is
-        added (for example ``_f1``, ``_f2``) so each run writes to its own
-        folder.
+        The runner resolves dependencies generically, in declared order, then
+        hands the resulting model tuple to the adapter.
+
+        This keeps dependency lookup centralized in one place, while still
+        allowing each adapter to validate the exact dependency shape it expects
+        (for example: "I need exactly one upstream flow model").
         """
-        base_name = state.settings.model_name
-        # Keep the base model name when there is no risk of collision.
-        if self._has_single_process_run(plan, "flow"):
-            return base_name
-        return f"{base_name}_{self._run_label(plan, run)}"
 
-    def _transport_suffix(self, plan: SimulationPlan, run: ProcessRun) -> str:
-        """Return the stable suffix used by concentration transport runs.
-
-        Concentration transport runs share the same parent flow model folder,
-        so they need distinct suffixes (``_mt_s1``, ``_mt_s2``, ...) to avoid
-        overwriting each other's outputs.
-        """
-        concentration_runs = self._concentration_transport_runs(plan)
-        for index, planned in enumerate(concentration_runs, start=1):
-            if planned.id == run.id:
-                return f"_mt_s{index}"
-        raise ValueError(
-            f"Transport run '{run.id}' is not part of the concentration transport sequence."
-        )
-
-    def _concentration_transport_runs(self, plan: SimulationPlan) -> list[ProcessRun]:
-        """Return transport runs that write concentration outputs."""
-        return [
-            run
-            for run in plan.runs
-            if run.process_type == "transport" and run.solver in {"mt3dms", "modflow6gwt"}
-        ]
-
-    def _has_single_process_run(self, plan: SimulationPlan, process_type: str) -> bool:
-        """Return True when *plan* contains exactly one run of *process_type*."""
-        return sum(1 for run in plan.runs if run.process_type == process_type) == 1
-
-    def _run_label(self, plan: SimulationPlan, run: ProcessRun) -> str:
-        """Return a short stable label for one planned run.
-
-        Labels are positional within the process family, not across the whole
-        plan. This keeps names compact and predictable:
-
-        - first flow run -> ``f1``
-        - second flow run -> ``f2``
-        - first transport run -> ``t1``
-        """
-        # Position is computed within the same process family only.
-        same_type_runs = [planned for planned in plan.runs if planned.process_type == run.process_type]
-        for index, planned in enumerate(same_type_runs, start=1):
-            if planned.id == run.id:
-                prefix = {
-                    "flow": "f",
-                    "transport": "t",
-                }.get(run.process_type, "r")
-                return f"{prefix}{index}"
-
-        raise ValueError(
-            f"Process run '{run.id}' is not present in the provided simulation plan."
-        )
-
-    def _run_flow_solver(
-        self,
-        plan: SimulationPlan,
-        state: SimulationState,
-        run: ProcessRun,
-    ):
-        """Build, run, and record one flow solver instance.
-
-        The lifecycle is:
-
-        1. choose the concrete backend from ``run.solver``,
-        2. run pre-processing using the shared ``state.flow`` and ``state.domain``,
-        3. execute the numerical model,
-        4. run post-processing if the solve succeeded,
-        5. register the produced model for downstream consumers.
-        """
-        ws = state.workspace
-        preprocess_options = self._build_preprocess_options(state)
-        model_name = self._flow_model_name(plan, state, run)
-
-        # Instantiate the concrete flow backend selected by the resolved plan.
-        if run.solver == "modflownwt":
-            model_modflow = Modflow(
-                state.geographic,
-                model_folder=ws.simulations_folder,
-                model_name=model_name,
-                bin_path=ws.bin_path,
-                modflow_config=state.cfg.modflownwt,
-                preprocess_options=preprocess_options,
-            )
-        elif run.solver == "modflow6":
-            model_modflow = Modflow6(
-                state.geographic,
-                model_folder=ws.simulations_folder,
-                model_name=model_name,
-                bin_path=ws.bin_path,
-                modflow_config=state.cfg.modflow6,
-                preprocess_options=preprocess_options,
-            )
-        else:
-            raise ValueError(f"Unsupported flow solver '{run.solver}'.")
-
-        model_modflow.pre_processing(
-            flow=state.flow,
-            domain=state.domain,
-            options=preprocess_options,
-        )
-
-        pickle_path = Path(ws.simulations_folder) / model_name / f"results_{model_name}.pkl"
-        pickle_path.parent.mkdir(parents=True, exist_ok=True)
-        # Persist the pre-run model payload using the project-standard pickle
-        # shape expected by downstream post-processing utilities.
-        with pickle_path.open("wb") as fh:
-            pickle.dump(
-                {
-                    "list_model_name": [model_name],
-                    "list_model_modflow": [model_modflow],
-                },
-                fh,
-            )
-
-        success = model_modflow.processing(
-            options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
-        )
-        if success:
-            # Post-processing reads numerical outputs from disk, so it only
-            # makes sense after a successful solve.
-            model_modflow.post_processing(
-                options=ModflowPostprocessOptions(
-                    watertable_elevation=True,
-                    watertable_depth=True,
-                    seepage_areas=True,
-                    outflow_drain=True,
-                    accumulation_flux=True,
-                    intermittency_monthly=True,
+        models: list[object] = []
+        for dependency_id in run.depends_on:
+            if dependency_id not in state.models_by_run_id:
+                raise ValueError(
+                    f"Process run '{run.id}' depends on '{dependency_id}', "
+                    "but that run has not produced a model yet."
                 )
-            )
+            models.append(state.models_by_run_id[dependency_id])
+        return tuple(models)
 
-        # Keep both the legacy "latest flow model" pointer and the precise
-        # per-run registry. The latter is what dependent transport runs use.
-        state.model_modflow = model_modflow
-        state.models_by_run_id[run.id] = model_modflow
-        return model_modflow
-
-    def _run_modpath_solver(
+    def _record_run_output(
         self,
         state: SimulationState,
         run: ProcessRun,
-        flow_model,
-    ):
-        """Build, run, and record one Modpath transport solver instance.
+        result: RunExecutionResult,
+    ) -> None:
+        """Persist one completed run output back into the shared runtime state.
 
-        Modpath is modeled as a transport-family run at the plan level, but it
-        is a particle-tracking post-process of one concrete flow model.
+        ``models_by_run_id`` is the canonical per-run registry used for future
+        dependency resolution.
         """
-        ws = state.workspace
-        # Reuse the exact flow model folder and name because Modpath consumes
-        # the files already written by that dependency.
-        model_modpath = Modpath(
-            state.domain,
-            state.transport,
-            flow_model,
-            model_folder=ws.simulations_folder,
-            model_name=flow_model.model_name,
-            bin_path=ws.bin_path,
-        )
-        model_modpath.pre_processing()
-        model_modpath.processing(write_model=True, run_model=True)
-        model_modpath.post_processing(
-            model_modpath,
-            ending_point=True,
-            starting_point=True,
-            pathlines_shp=True,
-            particles_shp=True,
-            random_id=None,
-        )
-        model_modpath.filt_processing(
-            model_modpath,
-            norm_flux=True,
-            filt_time=True,
-            filt_seep=True,
-            filt_inout=True,
-            calc_rtd=False,
-            random_id=None,
-        )
 
-        # Store the latest Modpath instance for legacy hooks, and also the
-        # exact model under its run id for precise downstream lookup.
-        state.model_modpath = model_modpath
-        state.models_by_run_id[run.id] = model_modpath
-        return model_modpath
-
-    def _run_transport_solver(
-        self,
-        plan: SimulationPlan,
-        state: SimulationState,
-        run: ProcessRun,
-        flow_model,
-    ):
-        """Build, run, and record one transport solver instance.
-
-        ``flow_model`` is the already-resolved upstream dependency. This keeps
-        the transport branch agnostic of planner details: by the time execution
-        reaches this method, the correct flow context is already known.
-        """
-        if run.solver == "modpath":
-            # Particle tracking lives in the transport family at the plan level,
-            # but follows its own dedicated runtime path.
-            return self._run_modpath_solver(state, run, flow_model)
-
-        ws = state.workspace
-        # Concentration solvers share one parent flow folder, so they receive
-        # stable suffixes to avoid overwriting one another's outputs.
-        suffix_name = self._transport_suffix(plan, run)
-
-        if run.solver == "mt3dms":
-            model_transport = Mt3dms(
-                state.domain,
-                state.transport,
-                flow_model,
-                model_folder=ws.simulations_folder,
-                model_name=flow_model.model_name,
-                suffix_name=suffix_name,
-                bin_path=ws.bin_path,
-            )
-        elif run.solver == "modflow6gwt":
-            model_transport = Modflow6Transport(
-                state.domain,
-                state.transport,
-                flow_model,
-                model_folder=ws.simulations_folder,
-                model_name=flow_model.model_name,
-                suffix_name=suffix_name,
-            )
-        else:
-            raise ValueError(f"Unsupported transport solver '{run.solver}'.")
-
-        model_transport.pre_processing()
-        model_transport.processing(write_model=True, run_model=True, verbose=True)
-        model_transport.post_processing(model_transport)
-
-        # Keep a legacy pointer to the latest concentration transport model,
-        # while also registering the exact run output for deterministic reuse.
-        state.model_transport = model_transport
-        state.models_by_run_id[run.id] = model_transport
-        return model_transport
+        state.models_by_run_id[run.id] = result.primary_model

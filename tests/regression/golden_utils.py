@@ -267,9 +267,15 @@ def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> N
         assert_stats(actual["time"], expected["time"])
 
 
-def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
+def assert_required_executables(
+    repo_root: Path = REPO_ROOT,
+    *,
+    require_modflow: bool = True,
+    require_modpath: bool = True,
+    require_mt3dms: bool = False,
+) -> None:
     """
-    Ensure bundled MODFLOW/MODPATH executables are available for this platform.
+    Ensure bundled solver executables are available for this platform.
 
     The function *skips* the test (instead of failing) when binaries are
     missing, because this is an environment issue, not a model-regression
@@ -279,16 +285,27 @@ def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
     if platform.system() == "Windows":
         mf_exe = repo_root / "bin" / "win" / "mfnwt.exe"
         mp_exe = repo_root / "bin" / "win" / "mp6.exe"
+        mt_exe = repo_root / "bin" / "win" / "mt3d-usgs_1.1.0_64.exe"
     elif platform.system() == "Linux":
         mf_exe = repo_root / "bin" / "linux" / "mfnwt"
         mp_exe = repo_root / "bin" / "linux" / "mp6"
+        mt_exe = repo_root / "bin" / "linux" / "mt3dusgs"
     elif platform.system() == "Darwin":
         mf_exe = repo_root / "bin" / "mac" / "mfnwt"
         mp_exe = repo_root / "bin" / "mac" / "mp6"
+        mt_exe = repo_root / "bin" / "mac" / "mt3dusgs"
     else:
         pytest.skip(f"Unsupported platform for bundled executables: {platform.system()}")
 
-    missing = [str(p) for p in (mf_exe, mp_exe) if not p.exists()]
+    required_paths = []
+    if require_modflow:
+        required_paths.append(mf_exe)
+    if require_modpath:
+        required_paths.append(mp_exe)
+    if require_mt3dms:
+        required_paths.append(mt_exe)
+
+    missing = [str(p) for p in required_paths if not p.exists()]
     if missing:
         pytest.skip(f"Required executables are missing: {missing}")
 

@@ -63,7 +63,7 @@ HUBEAU_HEALTHCHECK_URL = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referen
 @pytest.mark.coverage
 def test_example12launcher_regression_on_npy_outputs(tmp_path, update_goldens):
     """Run example12launcher, then compare its outputs against the example12 golden."""
-    assert_required_executables()
+    assert_required_executables(require_mt3dms=True)
     require_url_available(SHOM_HEALTHCHECK_URL)
     require_url_available(HUBEAU_HEALTHCHECK_URL)
 

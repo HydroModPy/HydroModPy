@@ -24,8 +24,8 @@ class SimulationProcessConfig(BaseModel):
     solvers: list[str] = Field(
         min_length=1,
         description=(
-            "Ordered list of active solver names for this process. "
-            "Each listed solver is executed."
+            "Ordered list of active solver names for this process. Each listed "
+            "solver is executed in order."
         ),
     )
 
@@ -52,9 +52,26 @@ class SimulationConfig(BaseModel):
         default_factory=list,
         description=(
             "Ordered list of requested processes loaded from "
-            "[[simulation.process]]."
+            "[[simulation.process]]. At most one ``flow`` and one "
+            "``transport`` process are supported."
         ),
     )
+
+    @field_validator("process")
+    @classmethod
+    def _validate_unique_process_types(
+        cls,
+        value: list[SimulationProcessConfig],
+    ) -> list[SimulationProcessConfig]:
+        seen_types: set[str] = set()
+        for process_cfg in value:
+            if process_cfg.type in seen_types:
+                raise ValueError(
+                    "At most one process of each type is supported. "
+                    f"Duplicate '{process_cfg.type}' process found."
+                )
+            seen_types.add(process_cfg.type)
+        return value
 
     def has_processes(self) -> bool:
         """Return True when the simulation explicitly declares processes."""
