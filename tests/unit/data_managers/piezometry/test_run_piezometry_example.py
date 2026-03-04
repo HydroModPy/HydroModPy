@@ -46,7 +46,7 @@ def test_main_exports_one_plot_per_loaded_station(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(run_module, "PiezometerSet", _FakePiezometerSet)
     monkeypatch.setattr(run_module, "__file__", str(tmp_path / "run_piezometry_example.py"))
 
-    run_module.main()
+    run_module.main_piezometer_set()
 
     assert len(calls) == 2
     assert [item["piezometer_id"] for item in calls] == [
