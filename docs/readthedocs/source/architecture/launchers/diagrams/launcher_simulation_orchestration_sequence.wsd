@@ -5,7 +5,6 @@ actor User
 participant "HydroModPyLauncher" as Launcher
 participant "SimulationPlanner" as Planner
 participant "SimulationPlan" as Plan
-participant "RunResult" as Result
 participant "SimulationRunner" as Runner
 participant "Flow" as Flow
 participant "Transport" as Transport
@@ -13,21 +12,21 @@ participant "Flow Solver\n(Modflow / Modflow6)" as FlowSolver
 participant "Transport Solver\n(Modpath / Mt3dms / Modflow6Transport)" as TransportSolver
 
 User -> Launcher: run()
-Launcher -> Planner: build(cfg.simulation)\nor build_default(cfg.solver.solver_engine)
+Launcher -> Planner: build(cfg.simulation)
 Planner -> Planner: resolve process ids\nexpand one ProcessRun per solver\nresolve dependencies from required bindings
 Planner --> Launcher: SimulationPlan
 
-Launcher -> Result: store simulation_plan\nstore process_runs_by_id
+Launcher -> Launcher: store simulation_plan\nstore process_runs_by_id
 
 Launcher -> Launcher: _run_setup()
 Launcher -> Flow: Flow(config)
 Launcher -> Transport: Transport(config)
-Launcher -> Result: store workspace, domain,\nsettings, flow, transport
+Launcher -> Launcher: store workspace, domain,\nsettings, flow, transport
 
 Launcher -> Launcher: _run_data()
-Launcher -> Result: store shared forcings\n(climatic, oceanic, ...)
+Launcher -> Launcher: store shared forcings\n(climatic, oceanic, ...)
 
-Launcher -> Runner: execute(plan, result)
+Launcher -> Runner: execute(plan, launcher state)
 Runner -> Plan: iterate ordered runs
 
 loop for each ProcessRun
@@ -36,18 +35,18 @@ loop for each ProcessRun
     Runner -> FlowSolver: pre_processing(flow, domain, options)
     Runner -> FlowSolver: processing(...)
     Runner -> FlowSolver: post_processing() [if successful]
-    Runner -> Result: model_modflow = flow solver\nmodels_by_run_id[run.id] = flow solver
+    Runner -> Launcher: store model_modflow\nmodels_by_run_id[run.id] = flow solver
   else run.process_type == "transport"
-    Runner -> Result: load models_by_run_id[run.depends_on[0]]
-    Result --> Runner: upstream flow model
+    Runner -> Launcher: load models_by_run_id[run.depends_on[0]]
+    Launcher --> Runner: upstream flow model
     Runner -> TransportSolver: instantiate backend\nselected by run.solver
     Runner -> TransportSolver: pre_processing()
     Runner -> TransportSolver: processing(...)
     Runner -> TransportSolver: post_processing()
-    Runner -> Result: model_modpath or model_transport = solver\nmodels_by_run_id[run.id] = solver
+    Runner -> Launcher: store model_modpath or model_transport\nmodels_by_run_id[run.id] = solver
   end
 end
 
-Runner --> Launcher: updated RunResult state
-Launcher --> User: RunResult
+Runner --> Launcher: execution complete
+Launcher --> User: run() returns
 @enduml

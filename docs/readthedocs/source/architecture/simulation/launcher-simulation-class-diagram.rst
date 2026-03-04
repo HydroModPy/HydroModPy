@@ -13,7 +13,7 @@ It focuses on:
 - ``SimulationPlanner`` and the immutable ``SimulationPlan`` / ``ProcessRun``
   objects it builds,
 - ``SimulationRunner`` as the runtime dispatcher,
-- ``RunResult`` as the shared mutable state exchanged between launcher phases,
+- the launcher-owned runtime state exchanged between orchestration phases,
 - process runtimes (``Flow`` / ``Transport``) and the solver wrappers they feed.
 
 Diagram source
@@ -30,9 +30,12 @@ Notes
 
 - ``SimulationPlan`` is intentionally immutable: the planner produces it once,
   then the runner consumes it without rewriting scheduling decisions.
-- ``RunResult`` is the opposite: it is the mutable execution state that
-  gradually accumulates runtime objects and produced models.
+- The mutable execution state stays owned by the launcher, which gradually
+  accumulates runtime objects and produced models across phases.
 - ``SimulationRunner`` does not decide the schedule. It only dispatches the
   already-resolved ``ProcessRun`` entries to the right solver backend.
 - Solver wrappers are selected from ``ProcessRun.solver``, which keeps solver
   choice explicit and traceable in the plan itself.
+- For dynamic views of the same orchestration path, see
+  :doc:`../launchers/launcher-simulation-sequence-diagram` and
+  :doc:`../launchers/launcher-simulation-activity-diagram`.

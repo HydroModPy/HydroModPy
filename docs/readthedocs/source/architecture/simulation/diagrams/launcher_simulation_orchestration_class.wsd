@@ -4,29 +4,16 @@ title Launcher - Simulation Orchestration Class Diagram
 package "launchers" {
   class HydroModPyLauncher {
     +cfg: HydroModPyConfig
-    +result: RunResult
     +run()
     +_create_simulation_plan()
     +_run_setup()
     +_run_data()
-  }
-
-  class RunResult {
-    +simulation_plan: SimulationPlan
-    +process_runs_by_id: dict[str, ProcessRun]
-    +models_by_run_id: dict[str, object]
-    +flow: Flow
-    +transport: Transport
-    +model_modflow: Modflow | Modflow6
-    +model_modpath: Modpath | None
-    +model_transport: Mt3dms | Modflow6Transport | None
   }
 }
 
 package "hydromodpy.simulation" {
   class SimulationPlanner {
     +build(config)
-    +build_default(flow_solver)
   }
 
   class SimulationPlan {
@@ -44,7 +31,7 @@ package "hydromodpy.simulation" {
   }
 
   class SimulationRunner {
-    +execute(plan, state)
+    +execute(plan, runtime_state)
   }
 }
 
@@ -66,22 +53,18 @@ package "hydromodpy.solver" {
 
 HydroModPyLauncher --> SimulationPlanner : builds
 HydroModPyLauncher --> SimulationRunner : delegates execution
-HydroModPyLauncher *-- RunResult : owns mutable state
 
 SimulationPlanner ..> SimulationPlan : returns
 SimulationPlanner ..> ProcessRun : produces
 
 SimulationPlan *-- "0..*" ProcessRun : runs
 
-RunResult --> SimulationPlan : stores
-RunResult --> ProcessRun : indexes by id
-RunResult --> Flow : setup phase
-RunResult --> Transport : setup phase
-RunResult --> FlowSolver : last flow model
-RunResult --> TransportSolver : last transport model
+HydroModPyLauncher --> SimulationPlan : stores active plan
+HydroModPyLauncher --> ProcessRun : indexes runs by id
+HydroModPyLauncher --> Flow : prepares runtime process
+HydroModPyLauncher --> Transport : prepares runtime process
 
 SimulationRunner ..> SimulationPlan : consumes ordered runs
-SimulationRunner ..> RunResult : reads and updates
 SimulationRunner ..> ProcessRun : dispatches
 SimulationRunner ..> Flow : uses runtime process
 SimulationRunner ..> Transport : uses runtime process

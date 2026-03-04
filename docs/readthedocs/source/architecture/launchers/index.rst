@@ -8,3 +8,4 @@ in the top-level ``launchers`` package.
    :maxdepth: 2
 
    launcher-simulation-sequence-diagram
+   launcher-simulation-activity-diagram
