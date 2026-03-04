@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
-"""
+"""Time-series post-processing utilities for HydroModPy outputs.
+
+This module reads the raster and vector products generated in the
+``_postprocess`` tree of a simulation and converts them into CSV tables that
+summarize the temporal evolution of the model at catchment scale. When
+subbasins are available, the same aggregation is repeated for each one.
+
+The class is report-oriented: it does not compute raw model results itself.
+Instead, it loads arrays already written by earlier post-processing steps
+(water table, seepage, drainage, particle tracking, and optional transport
+products) and applies spatial reductions before export.
+
  * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
  *
  * This program and the accompanying materials are made available under the
@@ -37,8 +48,17 @@ warnings.filterwarnings("ignore", message=".*converting a masked element to nan.
 
 
 class Timeseries:
-    """
-    Extract timeseries results from rasters and shapefiles created.
+    """Aggregate post-processed outputs into exported time-series tables.
+
+    Instantiating this class immediately:
+
+    1. locates and loads any available ``.npy`` grids and particle shapefiles,
+    2. computes catchment-level summary metrics,
+    3. optionally repeats the extraction for each configured subbasin,
+    4. writes one CSV file per aggregation target.
+
+    The constructor is intentionally side-effectful: object creation triggers
+    the export workflow.
     """
 
     def __init__(self,
@@ -57,27 +77,61 @@ class Timeseries:
                  residence_times: bool=False,
                  concentration_seepage: bool=False,
                  mass_accumulated: bool=False):
-        """
+        """Load available products and export time-series CSV files.
+
         Parameters
         ----------
         geographic : object
-            Variable object of the model domain (watershed).
+            Watershed description used for masks, DEM access, and optional
+            subbasin discovery.
         model_modflow : object
-            MODFLOW model object.
-        runoff : float, Series, dict or None, optional
-            Runoff forcing used for reporting in exported timeseries.
-        model_modpath : object
-            MODPATH model object.
+            Flow model object providing the model name, output folder,
+            recharge, and spatial resolution.
+        runoff : float, pandas.Series, dict or None, optional
+            Optional runoff forcing mirrored into the exported table. Scalars
+            are treated as a single-step value, while dictionaries are reduced
+            to one average per time step.
+        model_modpath : object, optional
+            Particle tracking model. When provided, residence-time metrics can
+            be computed from the stored particle shapefile.
+        model_mt3dms : object, optional
+            Transport model. When provided, transport-related arrays are loaded
+            if they exist in ``_postprocess``.
+        suffix_name : str or None, optional
+            Optional suffix appended to the exported CSV file name.
         datetime_format : bool, optional
-            Indicate if the model is referenced with datetime format. The default is True.
+            If ``True``, attempt to parse the time index as ``YYYY-mm-dd``
+            dates before exporting. Otherwise, keep a numeric index.
         subbasin_results : bool, optional
-            Indicated if simulation results need to be created at subassins scale. The default is True.
-        intermittency_monthly : bool
-            If True, the intermittent and perennial part of hydrographic network is calculated on a monthly basis.
-        intermittency_weekly : bool
-            If True, the intermittent and perennial part of hydrographic network is calculated on a weekly basis.
-        intermittency_daily : bool
-            If True, the intermittent and perennial part of hydrographic network is calculated on a daily basis.
+            If ``True``, export one additional CSV per subbasin found in the
+            stable workspace.
+        intermittency_yearly : bool, optional
+            Compute yearly perennial/intermittent area indicators from
+            ``accumulation_flux``.
+        intermittency_monthly : bool, optional
+            Compute monthly perennial/intermittent area indicators from
+            ``accumulation_flux``.
+        intermittency_weekly : bool, optional
+            Compute weekly perennial/intermittent area indicators from
+            ``accumulation_flux``.
+        intermittency_daily : bool, optional
+            Compute daily perennial/intermittent area indicators from
+            ``accumulation_flux``.
+        residence_times : bool, optional
+            If ``True``, export the mean residence time from particle tracking
+            outputs.
+        concentration_seepage : bool, optional
+            Compatibility flag for workflows that expect seepage concentration
+            reporting.
+        mass_accumulated : bool, optional
+            Compatibility flag for workflows that expect accumulated-mass
+            reporting.
+
+        Notes
+        -----
+        The constructor performs the full extraction immediately. It prepares
+        the output folders, loads every available intermediate product, and
+        writes CSV files as a side effect.
         """
 
         # Init parameters
@@ -117,7 +171,8 @@ class Timeseries:
 
         self.datetime_format = datetime_format
 
-        ### Recharge management to initiate the .csv file results
+        # Normalize recharge so the exported table always starts from a
+        # consistent time index and one value per time step.
         if isinstance(self.recharge,(int,float)) == True:
             time=[0]
             recharge = self.recharge
@@ -128,7 +183,7 @@ class Timeseries:
             time = range(len(self.recharge))
             recharge = pd.Series(np.array(list(({k:np.nanmean(v) for k,v in self.recharge.items()}).values())), index=range(len(self.recharge)))
 
-        ### Runoff management to fill the .csv file results
+        # Normalize optional runoff with the same conventions as recharge.
         if self.runoff is not None and (not isinstance(self.runoff, pd.DataFrame) or not self.runoff.empty):
             if isinstance(self.runoff, (int, float)):
                 time = [0]
@@ -151,7 +206,8 @@ class Timeseries:
         #      if ext == '.npy':
         #          npy_list.append(name)
 
-        ### Open .npy files if they exist
+        # Load every post-processed grid opportunistically. Missing products are
+        # expected for some workflows, so failures are ignored.
 
         try:
             self.watertable_elevation = np.load(os.path.join(self.save_file, 'watertable_elevation'+'.npy'), allow_pickle=True).item()
@@ -201,7 +257,7 @@ class Timeseries:
             except:
                 pass
 
-        ### For total catchment
+        # Export the main watershed summary first.
         with rasterio.open(self.geographic.watershed_dem) as src:
             dem_clip = src.read(1)
 
@@ -210,7 +266,7 @@ class Timeseries:
         self.extract_results(dem_clip, time, recharge, runoff, self.timeseries_file)
         logger.info("Exported catchment time series to %s", self.timeseries_file)
 
-        ### For sub-catchments
+        # Repeat the same extraction for each available subbasin mask.
         if subbasin_results == True:
             try:
                 self.zones_folder = os.path.join(self.stable_folder, 'subbasin')
@@ -230,30 +286,47 @@ class Timeseries:
             except:
                 pass
 
-    #%% EXTRACT DATA AT THE CATCHMENT SCLAE IN CSV
+    #%% EXTRACT DATA AT THE CATCHMENT SCALE IN CSV
 
     def extract_results(self, dem_clip, time, recharge, runoff, timeseries_file):
-        """
-        Calculate catchment-scale values and save them in a data frame (.csv)..
+        """Aggregate loaded products over one spatial mask and export them.
 
         Parameters
         ----------
-        dem_clip : 2D matrix
-            Masked raster data of the model domain (watershed).
-        time : DatetimeIndex or list
-            Index for time.
-        recharge : Series or list
-            Values of recharge input.
+        dem_clip : numpy.ndarray
+            DEM raster used as the spatial support and mask for the aggregation
+            target (either the full watershed or one subbasin).
+        time : pandas.DatetimeIndex or list
+            Time axis copied to the exported table.
+        recharge : pandas.Series, numpy.ndarray or list
+            Recharge values mirrored into the exported table.
+        runoff : pandas.Series, numpy.ndarray, scalar or list
+            Optional runoff values mirrored into the exported table.
         timeseries_file : str
-            Path folder to save .csv file results.
+            Output folder receiving the generated CSV file.
+
+        Returns
+        -------
+        pandas.DataFrame or None
+            The catchment-scale data frame when exporting the main watershed,
+            otherwise ``None`` for subbasin exports.
+
+        Notes
+        -----
+        The nested helpers below all follow the same contract: apply the DEM
+        mask to a stored grid, then reduce it with a metric suited to the
+        variable being exported (mean, sum, max, specific discharge, or
+        percentage of active cells).
         """
 
         def calc_max(key, data_process, target_data, mask_data, cond_symb, value_masked):
+            """Return the maximum value of one masked grid."""
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             calc = np.nanmax(masked)
             return calc
 
         def calc_mean(key, data_process, target_data, mask_data, cond_symb, value_masked):
+            """Return the mean value of one masked grid."""
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             masked[masked<0] = 0 ### ATTENTION
             masked[masked<-1] = np.nan ### ATTENTION
@@ -261,24 +334,28 @@ class Timeseries:
             return calc
 
         def calc_sum(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
+            """Return the spatial sum of one masked grid."""
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             calc = (np.nansum(masked))
             return calc
 
         def calc_qspe(key, data_process, target_data, mask_data, cond_symb, value_masked, resolution):
+            """Return the area-normalized sum of one masked grid."""
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             calc = (np.nansum(masked) / (cell * resolution**2))
             return calc
 
         def calc_percent(key, data_process, target_data, mask_data, cond_symb, value_masked):
+            """Return the percentage of active cells in one masked grid."""
             masked = toolbox.mask_by_dem(target_data[key], mask_data, cond_symb, value_masked)
             cell = masked.count()
             count = (masked > 0).sum()
             calc = (count/cell) * 100
             return calc
 
-        ### Create the initial dataframe file
+        # Seed the exported table with the forcing series so every later metric
+        # aligns on the same index.
         self.mfdata = pd.DataFrame({"date": time, "recharge": recharge}, index=range(len(time)))
 
         try:
@@ -286,6 +363,7 @@ class Timeseries:
         except:
             pass
 
+        # Append one column per available post-processed product.
         ### watertable_elevation
         try:
             for key in self.watertable_elevation:
@@ -358,6 +436,7 @@ class Timeseries:
         except:
             pass
 
+        # Intermittency modes classify wetted cells over fixed temporal blocks.
         ### intermittency_saturation
         if self.intermittency_yearly == True:
             try:
@@ -397,6 +476,7 @@ class Timeseries:
             except:
                 pass
 
+        # The monthly mode follows the same logic with 12-step windows.
         ### intermittency_saturation
         if self.intermittency_monthly == True:
             try:
@@ -512,6 +592,7 @@ class Timeseries:
             except:
                 pass
 
+        # Residence time is a scalar summary derived from the particle shapefile.
         ### residence_times
         if self.residence_times == True:
             try:
@@ -530,6 +611,7 @@ class Timeseries:
             except:
                 pass
 
+        # Finalize index formatting and write the CSV file for this mask.
         ### save files
         if self.datetime_format==True:
             try:
