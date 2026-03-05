@@ -221,7 +221,10 @@ def nc_to_pyhelp_csv(nc_path: str | Path, var: str, out_csv: str | Path) -> Path
     lat = lat.ravel()
 
     dates = pd.to_datetime(ds["time"].values).strftime("%d/%m/%Y")
-    vals = da.values.reshape(da.shape[0], -1)  # (time, ny*nx)
+    vals = da.values.reshape(da.shape[0], -1)
+    # convert solar radiation W/m2 -> MJ/m2/day
+    if var == "DLI":
+        vals = vals * 0.0864
 
     # Write header (lat/lon) + blank line
     with out_csv.open("w", encoding="utf-8") as f:
