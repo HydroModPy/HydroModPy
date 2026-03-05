@@ -33,5 +33,5 @@ Notes
   already-resolved ``SimulationPlan``.
 - ``models_by_run_id`` is the explicit handoff point between earlier flow runs
   and later transport runs.
-- Process hooks are opened and closed per contiguous process-family block, not
-  per individual solver call.
+- Process callbacks are opened and closed per contiguous process-family block,
+  not per individual solver call.

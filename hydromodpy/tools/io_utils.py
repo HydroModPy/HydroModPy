@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 I/O utilities for HydroModPy examples.
 
@@ -20,7 +20,7 @@ import rasterio
 import geopandas as gpd
 import imageio.v2 as imageio
 
-from hydromodpy import watershed_root
+from hydromodpy.watershed_legacy import watershed_root_legacy
 
 
 def setup_paths(root_dir, example_name, results_dir="results", env_var_name=None):
@@ -48,14 +48,14 @@ def setup_paths(root_dir, example_name, results_dir="results", env_var_name=None
         - 'stable': stable results path
         - 'simulations': simulations results path
     """
-    regression_path = os.path.join(root_dir, "examples", example_name)
+    regression_path = os.path.join(root_dir, "examples_legacy", example_name)
     data_path = os.path.join(regression_path, "data")
 
     if env_var_name is None:
         env_var_name = f"HYDROMODPY_{example_name.upper()}_OUT_PATH"
 
     out_path = os.getenv(env_var_name,
-                        os.path.join(root_dir, "examples", results_dir))
+                        os.path.join(root_dir, "examples_legacy", results_dir))
 
     paths = {
         'regression': regression_path,
@@ -232,11 +232,11 @@ def load_simulation_results(simulations_folder, model_name, result_types=None):
             ts_path = os.path.join(model_path, '_postprocess/_timeseries/_simulated_timeseries.csv')
             results['timeseries'] = load_csv(ts_path, parse_dates=True)
 
-        print(f"✓ Loaded {len(results)} result(s) for model '{model_name}'")
+        print(f"âœ“ Loaded {len(results)} result(s) for model '{model_name}'")
         return results
 
     except FileNotFoundError as e:
-        print(f"⚠ Warning: Some files not found - {e}")
+        print(f"âš  Warning: Some files not found - {e}")
         return results
 
 
@@ -304,7 +304,7 @@ def save_results(data, filepath, format='csv'):
     elif format == 'netcdf':
         if hasattr(data, 'to_netcdf'):
             data.to_netcdf(filepath)
-    print(f"✓ Saved to {filepath}")
+    print(f"âœ“ Saved to {filepath}")
 
 
 def extract_watershed(dem_path, out_path, watershed_name, from_xyv=None, from_shp=None,
@@ -312,7 +312,7 @@ def extract_watershed(dem_path, out_path, watershed_name, from_xyv=None, from_sh
     """
     Extract watershed from DEM or shapefile with standard HydroModPy configuration.
 
-    Provides simplified interface to watershed_root.Watershed for common use cases.
+    Provides simplified interface to watershed_root_legacy.Watershed for common use cases.
 
     Parameters:
     -----------
@@ -354,7 +354,7 @@ def extract_watershed(dem_path, out_path, watershed_name, from_xyv=None, from_sh
     ...                         watershed_name='watershed_1',
     ...                         from_shp='data/catchment_boundary.shp')
     """
-    BV = watershed_root.Watershed(
+    BV = watershed_root_legacy.Watershed(
         dem_path=dem_path,
         out_path=out_path,
         load=load,
@@ -366,5 +366,8 @@ def extract_watershed(dem_path, out_path, watershed_name, from_xyv=None, from_sh
         bottom_path=bottom_path,
         save_object=save_object
     )
-    print(f"✓ Watershed '{watershed_name}' extracted successfully")
+    print(f"âœ“ Watershed '{watershed_name}' extracted successfully")
     return BV
+
+
+

@@ -5,20 +5,30 @@ package "launchers" {
   class HydroModPyLauncher {
     +cfg: HydroModPyConfig
     +data_plan: DataLoadPlan
-    +result: RunResult
+    +run_state: LauncherRunState
     +_run_setup()
     +_run_data()
+    +_apply_structural_updates_from_data()
   }
+}
 
-  class HookRegistry {
-    +discover(config_path)
-    +call(name, result)
-  }
-
-  class RunResult {
+package "hydromodpy.simulation.state" {
+  class LauncherRunState {
     +raw_toml: dict
     +data_plan: DataLoadPlan
+    +setup: SetupContext
+    +loaded_data: LoadedDataContext
+  }
+
+  class SetupContext {
     +domain
+    +flow
+  }
+
+  class LoadedDataContext {
+    +geology
+    +oceanic
+    +climatic
     +hydrometry
   }
 }
@@ -34,15 +44,8 @@ package "hydromodpy.data_managers" {
     +reasons_by_type
   }
 
-  class DataManagers {
-    +from_config(config)
-    +types: list[str]
-  }
-}
-
-package "hydromodpy.domain" {
-  class Domain {
-    +set_zone(name, zone)
+  class DataManagersRuntimeLoader {
+    +load_all(run_state)
   }
 }
 
@@ -58,28 +61,35 @@ package "hydromodpy.data_managers.hydrometry" {
   }
 }
 
-package "example hooks.py" {
-  class HooksModule {
-    +on_after_data(result)
+package "hydromodpy.domain" {
+  class Domain {
+    +set_zone(name, zone)
+  }
+
+  class DomainBinders {
+    +apply_geology_to_domain(domain, geology)
   }
 }
 
-HydroModPyLauncher --> DataManagersPlanner : build(..., raw_toml,...)
+package "hydromodpy.process.flow" {
+  class FlowBinders {
+    +apply_oceanic_to_flow(flow, oceanic)
+    +apply_climatic_to_flow_recharge(flow, climatic)
+  }
+}
+
+HydroModPyLauncher --> DataManagersPlanner : build(...)
 DataManagersPlanner ..> DataLoadPlan : returns
-HydroModPyLauncher --> RunResult : stores raw_toml\nand data_plan
+HydroModPyLauncher --> LauncherRunState : stores raw_toml\nand data_plan
+HydroModPyLauncher --> DataManagersRuntimeLoader : load_all(run_state)
+DataManagersRuntimeLoader --> LauncherRunState : fills loaded_data
 
-HydroModPyLauncher ..> DataManagers : reads resolved types
-HydroModPyLauncher --> GeologyField : build geology field\nif "geology" active
-HydroModPyLauncher --> Domain : set_zone("geology", geology)
-Domain <-- RunResult : stores domain reference
+DataManagersRuntimeLoader ..> GeologyField : builds if geology active
+DataManagersRuntimeLoader ..> StationSet : builds if hydrometry active
 
-HydroModPyLauncher --> HookRegistry : discover()/call()
-HookRegistry ..> HooksModule : loads known functions
-HookRegistry --> HooksModule : calls on_after_data(result)
+HydroModPyLauncher --> DomainBinders : apply_geology_to_domain(...)
+DomainBinders --> Domain : set_zone("geology", geology)
+HydroModPyLauncher --> FlowBinders : apply_oceanic/climatic(...)
 
-HooksModule --> RunResult : reads raw_toml["hydrometry_stations"]
-HooksModule ..> StationSet : StationSet.from_config(hydro_cfg)
-HooksModule --> RunResult : sets hydrometry
-
-RunResult ..> DataLoadPlan : resolved activation trace
+LauncherRunState ..> DataLoadPlan : resolved activation trace
 @enduml

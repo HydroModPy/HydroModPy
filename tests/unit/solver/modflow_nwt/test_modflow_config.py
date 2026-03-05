@@ -9,7 +9,7 @@ from hydromodpy.solver.modflow_nwt.modflow import (
     ModflowConfig,
     ModflowSpecifParams,
 )
-from hydromodpy.solver.solver_engine import SolverEngine
+from hydromodpy.solver.prototype.solver_engine import SolverEngine
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 

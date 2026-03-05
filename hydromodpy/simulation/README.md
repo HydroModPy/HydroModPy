@@ -32,7 +32,7 @@ A short reading guide:
 ## Why this separation exists
 
 - Planning rules change when orchestration logic changes.
-- Running logic changes when dependency handling or hooks change.
+- Running logic changes when dependency handling or process callbacks change.
 - Context materialization changes when process object creation policy changes.
 - Adapters change when solver APIs change.
 - Solver implementations change when the numerical backend itself changes.
@@ -70,11 +70,11 @@ adapter module per solver grouped under the `flow/` and `transport/` families.
 - Solver-specific bridging code: `simulation/adapters/` (`flow/` and `transport/`)
 - Runtime state contracts and concrete models: `simulation/state/`
 
-## Hooks and adapters
+## Callbacks and adapters
 
-Hooks are orthogonal to this separation.
+Process-family callbacks are orthogonal to this separation.
 
-- Hooks customize runtime state before or after a process family.
+- Callbacks can trigger orchestration side-effects around process families.
 - Adapters execute one concrete solver for one resolved run.
 
-Keeping hooks does not require the runner to import solver classes directly.
+Keeping callbacks does not require the runner to import solver classes directly.

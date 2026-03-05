@@ -13,7 +13,7 @@ from hydromodpy.process import Flow, Transport
 
 _REQUIRED_COMPONENTS_BY_PROCESS: dict[str, tuple[str, ...]] = {
     "flow": ("flow",),
-    # Transport hooks and adapters commonly need both transport settings and
+    # Transport callbacks and adapters commonly need both transport settings and
     # the shared flow process context.
     "transport": ("flow", "transport"),
 }

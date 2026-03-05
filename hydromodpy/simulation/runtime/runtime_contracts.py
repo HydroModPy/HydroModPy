@@ -27,6 +27,7 @@ class SimulationSetupState(Protocol):
 
     workspace: Any
     settings: Any
+    model_name: str
     geographic: Any
     flow: Any | None
     domain: Any

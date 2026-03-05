@@ -1,4 +1,4 @@
-"""
+﻿"""
 Shared utilities for regression tests based on golden references.
 
 Why this file exists
@@ -514,7 +514,7 @@ def run_legacy_example_script(
     extra_env: dict | None = None,
 ) -> None:
     """
-    Run a legacy example script that hardcodes `examples/results`.
+    Run a legacy example script that hardcodes `examples_legacy/results`.
 
     Legacy scripts are executed through an inline wrapper. The wrapper:
     1. redirects only the canonical hardcoded results path,
@@ -561,7 +561,7 @@ orig_join = os.path.join
 
 def patched_join(*parts):
     # Redirect only the canonical hardcoded pattern, keep all other joins intact.
-    if len(parts) == 3 and parts[1] == "examples" and parts[2] == "results":
+    if len(parts) == 3 and parts[1] == "examples_legacy" and parts[2] == "results":
         return str(out_path)
     return orig_join(*parts)
 
@@ -589,7 +589,7 @@ if patch_ipython_inline:
     except Exception:
         pass
 
-from hydromodpy.watershed_root import Watershed
+from hydromodpy.watershed_legacy.watershed_root_legacy import Watershed
 assert hasattr(Watershed, stop_method), f"Unknown Watershed method: {stop_method}"
 orig_method = getattr(Watershed, stop_method)
 stop_counter = {"calls": 0}
@@ -644,4 +644,7 @@ except SystemExit as exc:
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"
     )
+
+
+
 

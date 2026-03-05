@@ -1,7 +1,7 @@
 """Runtime data loading orchestrator driven by a resolved data plan.
 
 This module centralizes launcher data-phase loading logic so that the launcher
-stays focused on orchestration order and hook execution.
+stays focused on orchestration order.
 """
 
 from __future__ import annotations
@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+import pandas as pd
 
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.data_managers.plan import DataLoadPlan
@@ -29,6 +31,7 @@ class DataManagersRuntimeLoader:
         """Load active data-manager families into ``result``."""
         ws = result.setup.workspace
         result.loaded_data.climatic = Climatic(out_path=ws.catch_folder)
+        self._load_recharge_chronicle(result)
 
         active_types = tuple(self.data_plan.types)
         for type_name in active_types:
@@ -107,7 +110,7 @@ class DataManagersRuntimeLoader:
 
     def _load_hydrography_data(self, result: "LauncherRunState") -> None:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
-        from hydromodpy.watershed import Hydrography
+        from hydromodpy.watershed_legacy import Hydrography
 
         cfg = result.cfg
         section = self._get_data_section(
@@ -259,6 +262,189 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "piezometry", exc)
 
+    def _load_recharge_chronicle(self, result: "LauncherRunState") -> None:
+        """Load optional recharge chronicle into ``result.loaded_data.climatic``.
+
+        This bridges legacy launcher-level ``[recharge_chronicle]`` sections to
+        the generic data-loading stage so flow recharge can be bound without
+        relying on custom per-example preprocessing code.
+        """
+        raw_section = result.raw_toml.get("recharge_chronicle")
+        if not isinstance(raw_section, Mapping):
+            return
+        section = dict(raw_section)
+        mode = str(section.get("mode", "")).strip().lower()
+        if mode == "":
+            return
+        allowed = {"observed_csv", "synthetic_generated", "synthetic_csv"}
+        if mode not in allowed:
+            raise ValueError(
+                "recharge_chronicle.mode must be one of "
+                "'observed_csv', 'synthetic_generated', 'synthetic_csv'."
+            )
+
+        if mode == "observed_csv":
+            self._load_observed_recharge_chronicle(result, section)
+            return
+
+        if mode == "synthetic_generated":
+            recharge, runoff = self._build_synthetic_generated_series(result, section)
+        else:
+            recharge, runoff = self._build_synthetic_csv_series(result, section)
+
+        flow_regime = getattr(result.setup.flow, "flow_regime", "transient")
+        result.loaded_data.climatic.update_recharge(recharge, sim_state=flow_regime)
+        result.loaded_data.climatic.update_runoff(runoff, sim_state=flow_regime)
+
+    def _load_observed_recharge_chronicle(
+        self,
+        result: "LauncherRunState",
+        section: Mapping[str, Any],
+    ) -> None:
+        observed = self._as_mapping(
+            section.get("observed_csv"),
+            name="recharge_chronicle.observed_csv",
+        )
+        default_path = result.cfg.workspace.data_path / "_climate_REANALYSIS.csv"
+        path_file = self._resolve_config_path(
+            observed.get("path_file", str(default_path)),
+            option_name="recharge_chronicle.observed_csv.path_file",
+        )
+        clim_mod = str(observed.get("clim_mod", "REA"))
+        clim_sce = str(observed.get("clim_sce", "historic"))
+        first_year = int(observed.get("first_year", 2003))
+        last_year = int(observed.get("last_year", first_year))
+        time_step = str(observed.get("time_step", "ME"))
+        sim_state = str(observed.get("sim_state", "transient"))
+
+        result.loaded_data.climatic.update_recharge_reanalysis(
+            path_file=path_file,
+            clim_mod=clim_mod,
+            clim_sce=clim_sce,
+            first_year=first_year,
+            last_year=last_year,
+            time_step=time_step,
+            sim_state=sim_state,
+        )
+        result.loaded_data.climatic.update_runoff_reanalysis(
+            path_file=path_file,
+            clim_mod=clim_mod,
+            clim_sce=clim_sce,
+            first_year=first_year,
+            last_year=last_year,
+            time_step=time_step,
+            sim_state=sim_state,
+        )
+
+    def _build_synthetic_generated_series(
+        self,
+        result: "LauncherRunState",
+        section: Mapping[str, Any],
+    ) -> tuple[pd.Series, pd.Series]:
+        generated = self._as_mapping(
+            section.get("synthetic_generated"),
+            name="recharge_chronicle.synthetic_generated",
+        )
+        recharge_cfg = result.setup.flow.sinks_sources.get("recharge")
+        raw_values = generated.get("values_mm_day")
+        if raw_values is None and recharge_cfg is not None:
+            # Backward-compatible fallback for previous config style.
+            raw_values = recharge_cfg.values
+
+        if isinstance(raw_values, (list, tuple)):
+            values = [float(item) for item in raw_values]
+            periods = int(generated.get("periods", len(values)))
+            if len(values) != periods:
+                raise ValueError(
+                    "recharge_chronicle.synthetic_generated.values_mm_day length "
+                    "must match periods."
+                )
+        elif isinstance(raw_values, (int, float)) and not isinstance(raw_values, bool):
+            periods = int(generated.get("periods", 12))
+            values = [float(raw_values)] * periods
+        else:
+            raise ValueError(
+                "recharge_chronicle.synthetic_generated.values_mm_day must be "
+                "a scalar or a list of numeric values."
+            )
+
+        start_date = str(generated.get("start_date", "2003-01-01"))
+        freq = str(generated.get("freq", "ME"))
+        index = pd.date_range(start=start_date, periods=periods, freq=freq)
+        recharge = self._to_m_per_day(
+            pd.Series(values, index=index, dtype=float),
+            units=generated.get("units", "mm/day"),
+            label="synthetic_generated recharge",
+        )
+        runoff_ratio = float(generated.get("runoff_ratio", 0.1))
+        runoff = recharge * runoff_ratio
+        return recharge, runoff
+
+    def _build_synthetic_csv_series(
+        self,
+        result: "LauncherRunState",
+        section: Mapping[str, Any],
+    ) -> tuple[pd.Series, pd.Series]:
+        synthetic = self._as_mapping(
+            section.get("synthetic_csv"),
+            name="recharge_chronicle.synthetic_csv",
+        )
+        path_file = self._resolve_config_path(
+            synthetic.get("path_file"),
+            option_name="recharge_chronicle.synthetic_csv.path_file",
+        )
+        sep = str(synthetic.get("sep", ","))
+        date_column = str(synthetic.get("date_column", "date"))
+        recharge_column = str(synthetic.get("recharge_column", "recharge_mm_day"))
+        date_format = synthetic.get("date_format")
+        runoff_column = synthetic.get("runoff_column")
+
+        dataframe = pd.read_csv(path_file, sep=sep)
+        if date_column not in dataframe.columns:
+            raise ValueError(
+                f"Column '{date_column}' not found in synthetic recharge CSV: {path_file}"
+            )
+        if recharge_column not in dataframe.columns:
+            raise ValueError(
+                f"Column '{recharge_column}' not found in synthetic recharge CSV: {path_file}"
+            )
+
+        if date_format is None or str(date_format).strip() == "":
+            dates = pd.to_datetime(dataframe[date_column])
+        else:
+            dates = pd.to_datetime(dataframe[date_column], format=str(date_format))
+
+        recharge_raw = pd.Series(
+            dataframe[recharge_column].astype(float).values,
+            index=dates,
+        ).sort_index()
+        recharge = self._to_m_per_day(
+            recharge_raw,
+            units=synthetic.get("units", "mm/day"),
+            label="synthetic_csv recharge",
+        )
+
+        if isinstance(runoff_column, str) and runoff_column in dataframe.columns:
+            runoff_raw = pd.Series(
+                dataframe[runoff_column].astype(float).values,
+                index=dates,
+            ).sort_index()
+            runoff = self._to_m_per_day(
+                runoff_raw,
+                units=synthetic.get("runoff_units", synthetic.get("units", "mm/day")),
+                label="synthetic_csv runoff",
+            )
+        else:
+            runoff_ratio = float(synthetic.get("runoff_ratio", 0.1))
+            runoff = recharge * runoff_ratio
+
+        time_step = synthetic.get("time_step")
+        if isinstance(time_step, str) and time_step.strip():
+            recharge = recharge.resample(time_step).mean().ffill()
+            runoff = runoff.resample(time_step).mean().ffill()
+
+        return recharge, runoff
+
     def _handle_missing_data_section(
         self,
         result: "LauncherRunState",
@@ -308,6 +494,28 @@ class DataManagersRuntimeLoader:
         if not path.is_absolute():
             path = (self.config_path.parent / path).resolve()
         return path
+
+    def _resolve_config_path(self, value: Any, *, option_name: str) -> Path:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{option_name} must be a non-empty string path.")
+        return self._resolve_path_like(value)
+
+    @staticmethod
+    def _as_mapping(value: Any, *, name: str) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if isinstance(value, Mapping):
+            return dict(value)
+        raise ValueError(f"{name} must be a mapping.")
+
+    @staticmethod
+    def _to_m_per_day(series: pd.Series, *, units: object, label: str) -> pd.Series:
+        unit = str(units).strip().lower()
+        if unit in {"m/day", "m/d"}:
+            return series.astype(float)
+        if unit in {"mm/day", "mm/d"}:
+            return series.astype(float) / 1000.0
+        raise ValueError(f"{label} units must be 'mm/day' or 'm/day'. Got: {units!r}")
 
     @staticmethod
     def _as_string_list(value: Any) -> list[str]:

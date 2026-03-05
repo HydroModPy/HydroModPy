@@ -6,7 +6,7 @@ The role of this module is strictly declarative:
 - validate nested sections of active manager families,
 - resolve paths for dedicated typed sections (currently ``data.geology``).
 
-Inference rules (domain/process/hook-driven activation) are intentionally
+Inference rules (domain/process-driven activation) are intentionally
 implemented elsewhere in ``data_managers.planner``.
 """
 
@@ -19,7 +19,7 @@ from typing import Any, Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.watershed.geology_config import GeologyConfig
+from hydromodpy.watershed_legacy.geology_config import GeologyConfig
 
 
 SUPPORTED_DATA_MANAGER_TYPES = (
@@ -38,7 +38,7 @@ class DataManagersConfig(BaseModel):
 
     The `types` list declares user-requested data families. The effective
     active set can also include planner-inferred families deduced from other
-    sections (domain, flow, hooks) depending on `inference_mode`.
+    sections (domain, flow) depending on `inference_mode`.
 
     For each active type, the matching nested section can be validated dynamically:
     - `geology` already uses its dedicated Pydantic model (`GeologyConfig`),
@@ -53,7 +53,7 @@ class DataManagersConfig(BaseModel):
         description=(
             "Ordered list of data-manager types explicitly requested in [data]. "
             "The launcher may append inferred types deduced from other sections "
-            "(for example domain.zone_ids, flow.active_bc, hooks.py). "
+            "(for example domain.zone_ids, flow.active_bc). "
             "Allowed values: "
             "'geology', 'hydrography', 'hydrometry', 'intermittency', "
             "'oceanic', 'piezometry'."

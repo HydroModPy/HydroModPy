@@ -6,13 +6,11 @@ Current inference scope (V3)
 - presence of ``[hydrometry_stations]`` in raw TOML -> activate ``hydrometry``
 - ``flow.active_bc`` containing ``stream`` -> activate ``hydrography``
 - ``flow.active_bc`` containing ``ocean`` -> activate ``oceanic``
-- markers found in ``hooks.py`` -> activate corresponding manager families
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any
 
 from hydromodpy.data_managers.data_managers_config import DataManagersConfig
@@ -22,18 +20,6 @@ from hydromodpy.data_managers.plan import DataLoadPlan
 class DataManagersPlanner:
     """Build a deterministic data-manager activation plan."""
 
-    _HOOK_MARKERS_BY_TYPE: dict[str, tuple[str, ...]] = {
-        "hydrography": ("hydrography(", "result.data.hydrography"),
-        "intermittency": ("intermittency(", "result.data.intermittency"),
-        "hydrometry": (
-            "stationset",
-            "result.data.hydrometry",
-            "hydrometry_stations",
-        ),
-        "oceanic": ("oceanic(", "result.data.oceanic"),
-        "piezometry": ("piezometer", "result.data.piezometry"),
-    }
-
     def build(
         self,
         config: DataManagersConfig,
@@ -41,7 +27,6 @@ class DataManagersPlanner:
         domain_zone_ids: Sequence[str] | None = None,
         raw_toml: Mapping[str, Any] | None = None,
         flow_active_bc: Sequence[str] | None = None,
-        hook_python_path: str | Path | None = None,
     ) -> DataLoadPlan:
         """Resolve data-manager types from explicit and inferred declarations.
 
@@ -57,9 +42,6 @@ class DataManagersPlanner:
         flow_active_bc:
             Validated `flow.active_bc` list used for boundary-condition-driven
             inference (`stream`/`ocean`).
-        hook_python_path:
-            Optional path to ``hooks.py``. When provided and file exists, the
-            planner scans text markers to infer hook-driven data families.
         """
         explicit_types = tuple(config.types)
         inferred_types: list[str] = []
@@ -99,17 +81,6 @@ class DataManagersPlanner:
                 "inferred from flow.active_bc containing 'ocean'",
             )
 
-        hook_reasons = self._infer_types_from_hook_file(hook_python_path)
-        for type_name, reason in hook_reasons.items():
-            if type_name in explicit_set:
-                continue
-            self._add_inference(
-                inferred_types,
-                reasons_by_type,
-                type_name,
-                reason,
-            )
-
         if config.inference_mode == "strict":
             self._enforce_strict_mode(config, inferred_types)
 
@@ -138,29 +109,6 @@ class DataManagersPlanner:
         if values is None:
             return set()
         return {str(raw).strip().lower() for raw in values if str(raw).strip()}
-
-    @classmethod
-    def _infer_types_from_hook_file(
-        cls,
-        hook_python_path: str | Path | None,
-    ) -> dict[str, str]:
-        """Infer manager types by scanning textual markers in ``hooks.py``."""
-        if hook_python_path is None:
-            return {}
-        hook_path = Path(hook_python_path)
-        if not hook_path.exists() or not hook_path.is_file():
-            return {}
-
-        content = hook_path.read_text(encoding="utf-8", errors="ignore").lower()
-        inferred: dict[str, str] = {}
-        for type_name, markers in cls._HOOK_MARKERS_BY_TYPE.items():
-            matching = [marker for marker in markers if marker in content]
-            if not matching:
-                continue
-            inferred[type_name] = (
-                "inferred from hooks.py markers: " + ", ".join(matching)
-            )
-        return inferred
 
     @staticmethod
     def _enforce_strict_mode(

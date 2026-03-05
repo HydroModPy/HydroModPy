@@ -128,7 +128,7 @@ markers = [
 
 [tool.coverage.run]
 source = [
-    "hydromodpy.watershed",
+    "hydromodpy.watershed_legacy",
     "hydromodpy.tools",
     "hydromodpy.modeling",
     "hydromodpy.display",

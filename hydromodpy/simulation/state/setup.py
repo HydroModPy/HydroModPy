@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from hydromodpy.domain import Domain
     from hydromodpy.process import Flow, Transport
     from hydromodpy.simulation.workspace import Workspace
-    from hydromodpy.watershed.settings import Settings
+    from hydromodpy.watershed_legacy.settings import Settings
 
 
 @dataclass
@@ -22,4 +22,4 @@ class SetupContext:
     flow: Flow | None = None
     transport: Transport | None = None
     settings: Settings | None = None
-
+    model_name: str = "default"

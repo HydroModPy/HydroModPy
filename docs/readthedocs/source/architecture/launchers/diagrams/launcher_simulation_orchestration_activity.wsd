@@ -4,7 +4,7 @@ title Launcher - Simulation Orchestration Activity
 start
 
 :Load config and raw TOML;
-:Discover hooks and initialize launcher state;
+:Initialize launcher state;
 
 if (Simulation config has at least one process?) then (yes)
 else (no)
@@ -15,22 +15,19 @@ endif
 :Build SimulationPlan\nwith SimulationPlanner.build();
 :Store simulation_plan and\nprocess_runs_by_id on launcher;
 
-:Call on_before_setup;
 :Create shared setup objects\n(workspace, geographic,\ndomain, flow, settings, transport);
-:Call on_after_setup;
+:Default settings.model_name\nfrom [simulation].name when non-empty;
 
-:Call on_before_data;
 :Load shared data\n(climatic, oceanic, mean sea level);
 if (Flow has ocean boundary?) then (yes)
   :Inject oceanic.MSL into\nflow ocean boundary;
 endif
-:Call on_after_data;
 
 :Create SimulationRunner\nwith process callbacks;
 
 while (Remaining ProcessRun?) is (yes)
   :Load next run in plan order;
-  :Open or close process-family hooks\nif the run enters a new contiguous block;
+  :Open or close process-family callbacks\nif the run enters a new contiguous block;
 
   if (run.process_type is flow?) then (yes)
     :Instantiate flow solver\nfrom run.solver;
@@ -48,7 +45,7 @@ while (Remaining ProcessRun?) is (yes)
   endif
 endwhile (no)
 
-:Close final process-family hook\nif one is active;
+:Close final process-family callback\nif one is active;
 :Return from run();
 
 stop

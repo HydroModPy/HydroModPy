@@ -441,7 +441,7 @@ class GeologyField(Field):
         its own config block, while the target spatial reduction/rasterization
         window is defined by the domain topographic support.
         """
-        from hydromodpy.watershed.geology_config import GeologyConfig
+        from hydromodpy.watershed_legacy.geology_config import GeologyConfig
 
         if geology_config is None:
             geology_cfg = GeologyConfig()

@@ -3,7 +3,10 @@
 from types import SimpleNamespace
 
 from hydromodpy.domain.structure_binders import apply_geology_to_domain
-from hydromodpy.process.flow.structure_binders import apply_oceanic_to_flow
+from hydromodpy.process.flow.structure_binders import (
+    apply_climatic_to_flow_recharge,
+    apply_oceanic_to_flow,
+)
 
 
 class _DummyDomain:
@@ -47,3 +50,39 @@ def test_apply_oceanic_to_flow_is_noop_without_ocean_boundary() -> None:
     apply_oceanic_to_flow(flow=flow, oceanic=oceanic)
 
     assert flow.boundary_conditions == {}
+
+
+class _DummyRechargeConfig:
+    first_clim = "mean"
+    units = "m/s"
+    negative_to_evt = True
+
+
+class _DummyFlow:
+    def __init__(self) -> None:
+        self.sinks_sources = {"recharge": _DummyRechargeConfig()}
+        self.bound_recharge = None
+
+    def set_recharge(self, recharge) -> None:
+        self.bound_recharge = recharge
+
+
+def test_apply_climatic_to_flow_recharge_binds_loaded_series() -> None:
+    flow = _DummyFlow()
+    climatic = SimpleNamespace(recharge=[0.001, 0.002, 0.003])
+
+    apply_climatic_to_flow_recharge(flow=flow, climatic=climatic)
+
+    assert flow.bound_recharge is not None
+    assert flow.bound_recharge.values == [0.001, 0.002, 0.003]
+    assert flow.bound_recharge.first_clim == "mean"
+    assert flow.bound_recharge.negative_to_evt is True
+
+
+def test_apply_climatic_to_flow_recharge_is_noop_without_climatic_recharge() -> None:
+    flow = _DummyFlow()
+    climatic = SimpleNamespace(recharge=None)
+
+    apply_climatic_to_flow_recharge(flow=flow, climatic=climatic)
+
+    assert flow.bound_recharge is None

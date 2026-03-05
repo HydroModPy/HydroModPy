@@ -1,4 +1,4 @@
-"""
+﻿"""
 End-to-end regression test for `example_00.py`.
 
 What this test verifies
@@ -32,7 +32,7 @@ from tests.regression.golden_utils import (
 # Absolute path to the example script executed by the test.
 EXAMPLE_00_SCRIPT = (
     REPO_ROOT
-    / "examples"
+    / "examples_legacy"
     / "00_quick_test_of_wide_hydromodpy_capabilities"
     / "example_00.py"
 )
@@ -99,4 +99,5 @@ def test_example_00_regression_on_npy_outputs(tmp_path, update_goldens):
         golden_reference_file=GOLDEN_REFERENCE_FILE,
         update_goldens=update_goldens,
     )
+
 

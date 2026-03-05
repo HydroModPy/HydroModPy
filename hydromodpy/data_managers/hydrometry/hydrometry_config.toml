@@ -1,4 +1,4 @@
-# Hydrometry station-set configuration
+﻿# Hydrometry station-set configuration
 #
 # Supported combinations:
 # 1) selection.mode = "stations" + source.mode = "api"
@@ -32,7 +32,7 @@ mode = "mask"
 # station_ids = ["J736422001"]
 
 # Used when selection.mode = "mask"
-mask_path = "../../../examples/results/example12/results_stable/geographic/watershed.shp"
+mask_path = "../../../examples_legacy/results/example12/results_stable/geographic/watershed.shp"
 
 [output]
 # Export loaded data again after loading (filtered subset):
@@ -41,3 +41,4 @@ path = "exports"
 # "lite" -> station CSVs only
 # "full" -> station CSVs + metadata/stations_info/sites_info/missing_data_summary
 export_mode = "lite"
+

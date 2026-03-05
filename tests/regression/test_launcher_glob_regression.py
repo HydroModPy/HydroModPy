@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from examples.Examples_Launchers.Launcher_Glob import run_launcher_glob
+from examples_legacy.Examples_Launchers.Launcher_Glob import run_launcher_glob
 from tests.regression.golden_utils import (
     DEFAULT_MODFLOW_OUTPUT_NAMES,
     assert_required_executables,

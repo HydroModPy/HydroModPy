@@ -42,7 +42,7 @@ from hydromodpy.simulation.runtime.runtime_contracts import (
 
 @dataclass(frozen=True)
 class ProcessCallbacks:
-    """Optional hooks fired when the runner enters or leaves a process family.
+    """Optional callbacks fired when the runner enters or leaves a process family.
 
     These callbacks are coarse-grained on purpose: they are triggered once per
     contiguous block of runs with the same ``process_type``, not once per
@@ -118,12 +118,12 @@ class SimulationRunner:
         for run in plan.runs:
             # Callbacks are grouped by contiguous process-family blocks. This
             # means two consecutive transport solvers share one
-            # before/after-transport window instead of retriggering hooks for
+            # before/after-transport window instead of retriggering callbacks for
             # every solver.
             if run.process_type != current_process_type:
                 if current_process_type is not None:
                     self._call_after_process(current_process_type)
-                # Materialize shared process objects before hooks fire so
+                # Materialize shared process objects before callbacks fire so
                 # before-process callbacks can safely mutate/read them.
                 self.process_context_factory.ensure_for_process(state, run.process_type)
                 self._call_before_process(run.process_type)

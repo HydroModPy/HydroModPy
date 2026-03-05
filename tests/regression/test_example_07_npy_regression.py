@@ -1,4 +1,4 @@
-"""End-to-end regression test for examples/07.../example_07.py."""
+﻿"""End-to-end regression test for examples/07.../example_07.py."""
 
 from pathlib import Path
 
@@ -19,7 +19,7 @@ from tests.regression.golden_utils import (
 
 EXAMPLE_07_SCRIPT = (
     REPO_ROOT
-    / "examples"
+    / "examples_legacy"
     / "07_analytical_solution_for_streamflow_recession"
     / "example_07.py"
 )
@@ -120,3 +120,4 @@ def test_example_07_regression_on_binary_outputs(tmp_path, update_goldens):
 
     expected = load_golden_reference(GOLDEN_REFERENCE_FILE)
     _assert_binary_signatures(actual, expected)
+

@@ -25,7 +25,7 @@ import flopy.utils.binaryfile as bf
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.watershed import Hydrography
+from hydromodpy.watershed_legacy import Hydrography
 from hydromodpy.data_managers.piezometry.piezometry_legacy import Piezometry
 
 logger = get_logger(__name__)

@@ -1,4 +1,4 @@
-"""End-to-end regression test for examples/05S_short/example_05.py."""
+﻿"""End-to-end regression test for examples/05S_short/example_05.py."""
 
 from pathlib import Path
 
@@ -16,7 +16,7 @@ from tests.regression.golden_utils import (
 
 EXAMPLE_05S_SCRIPT = (
     REPO_ROOT
-    / "examples"
+    / "examples_legacy"
     / "05S_short"
     / "example_05.py"
 )
@@ -64,3 +64,4 @@ def test_example_05s_short_regression_on_npy_outputs(tmp_path, update_goldens):
         golden_reference_file=GOLDEN_REFERENCE_FILE,
         update_goldens=update_goldens,
     )
+

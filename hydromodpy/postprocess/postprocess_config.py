@@ -8,7 +8,7 @@ process-family runs (`flow`, `transport`), such as:
 - display suites.
 
 Default policy is conservative (`enabled = false`) to preserve backward
-compatibility with projects that still rely on custom `hooks.py` files.
+compatibility with projects that do not yet use launcher-managed postprocess.
 """
 
 from __future__ import annotations
@@ -124,7 +124,7 @@ class PostprocessConfig(BaseModel):
         default=False,
         description=(
             "Enable launcher-managed postprocessing after process runs. "
-            "Defaults to false for backward compatibility with hook-driven projects."
+            "Defaults to false for backward compatibility."
         ),
     )
     flow: FlowPostprocessConfig = Field(

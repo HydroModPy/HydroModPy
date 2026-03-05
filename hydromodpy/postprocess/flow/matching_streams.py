@@ -25,7 +25,7 @@ import whitebox
 from hydromodpy.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.watershed import Hydrography
+from hydromodpy.watershed_legacy import Hydrography
 
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
