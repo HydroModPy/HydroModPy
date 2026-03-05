@@ -14,10 +14,11 @@ import pickle
 import hydromodpy as hmp
 # Direct class imports (like example12.py)
 from hydromodpy.solver.modflow import Modflow
-from hydromodpy.modeling.modpath import Modpath
-from hydromodpy.modeling.mt3dms import Mt3dms
-from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.solver.modflow_nwt import Modpath
+from hydromodpy.solver.modflow_nwt import Mt3dms
+from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import timeseries
+from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 # HYDROMODPY MODULES
 import hydromodpy as hmp
 from hydromodpy import watershed_root
@@ -29,10 +30,11 @@ from hydromodpy.display import visualization_watershed, visualization_results, e
 from hydromodpy.tools import toolbox
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow import Modflow
-from hydromodpy.modeling.modpath import Modpath
-from hydromodpy.modeling.mt3dms import Mt3dms
-from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.solver.modflow_nwt import Modpath
+from hydromodpy.solver.modflow_nwt import Mt3dms
+from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import timeseries
+from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False

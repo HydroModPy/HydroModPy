@@ -300,8 +300,8 @@ _LAZY_IMPORTS = {
     "GeographicConfig": "hydromodpy.geographic.geographic_config",
     # modeling
     "Modflow": "hydromodpy.solver.modflow",
-    "Modpath": "hydromodpy.modeling.modpath",
-    "Mt3dms": "hydromodpy.modeling.mt3dms",
+    "Modpath": "hydromodpy.solver.modflow_nwt",
+    "Mt3dms": "hydromodpy.solver.modflow_nwt",
 }
 
 

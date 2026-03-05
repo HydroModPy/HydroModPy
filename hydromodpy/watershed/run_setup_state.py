@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class RunSetupState:
+class SetupContext:
     """Objects prepared during setup and reused by all runs."""
 
     workspace: Workspace | None = None
@@ -22,3 +22,7 @@ class RunSetupState:
     flow: Flow | None = None
     transport: Transport | None = None
     settings: Settings | None = None
+
+
+# Backward-compatible alias kept while call sites migrate.
+RunSetupState = SetupContext

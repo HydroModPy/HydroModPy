@@ -184,6 +184,7 @@ def calibrate_reservoir_model(chronicle, config, model_name):
     )
     objective_metric = settings["objective_metric"]
     method = settings["method"]
+    objective_settings = settings["objective"]
     parameter_set = settings["parameter_set"]
     bounds = settings["bounds"]
     parameter_names = parameter_set.names
@@ -201,6 +202,7 @@ def calibrate_reservoir_model(chronicle, config, model_name):
         simulator=simulator,
         parameter_set=parameter_set,
         objective_metric=objective_metric,
+        objective_config=objective_settings,
     )
 
     calibrate_kwargs = settings["method_kwargs"]
@@ -228,6 +230,7 @@ def calibrate_reservoir_model(chronicle, config, model_name):
         "q_calib_mm_day": q_calib_mm_day,
         "metrics": metrics,
         "objective_metric": objective_metric,
+        "objective": objective_settings,
         "method": method,
         "bounds": bounds,
         "parameter_set": parameter_set,

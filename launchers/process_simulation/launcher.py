@@ -39,7 +39,8 @@ The launcher itself does not hard-code "run flow then transport". It only:
 
 - prepares the shared state,
 - builds a plan from the TOML,
-- wires legacy hooks around process families,
+- runs optional launcher-managed postprocess actions after process families,
+- keeps legacy hooks around process families,
 - executes the resolved plan.
 """
 
@@ -57,19 +58,21 @@ from hydromodpy.data_managers import (
     DataManagersRuntimeLoader,
 )
 from hydromodpy.domain import Domain
+from hydromodpy.domain.structure_binders import apply_geology_to_domain
+from hydromodpy.postprocess.runner import PostprocessRunner
+from hydromodpy.process.flow.structure_binders import apply_oceanic_to_flow
 from hydromodpy.simulation import ProcessContextFactory, SimulationPlanner
 from hydromodpy.simulation.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.watershed.settings import Settings
-from launchers.hook_registry import HookRegistry
-from launchers.run_result import RunResult
-from launchers.structure_updaters import apply_geology_to_domain, apply_oceanic_to_flow
+from launchers.process_simulation.hook_registry import HookRegistry
+from launchers.process_simulation.run_state import LauncherRunState
 
 
 class HydroModPyLauncher:
     """High-level orchestration layer between configuration and execution.
 
     This class is intentionally small. It does not implement solver-specific
-    logic itself; instead, it prepares a ``RunResult`` state object and then
+    logic itself; instead, it prepares a ``LauncherRunState`` object and then
     hands a resolved ``SimulationPlan`` to ``SimulationRunner``.
 
     Example
@@ -78,9 +81,9 @@ class HydroModPyLauncher:
 
     >>> from pathlib import Path
     >>> launcher = HydroModPyLauncher(Path("examples/example12launcher/config.toml"))
-    >>> result = launcher.run()
+    >>> run_state = launcher.run()
 
-    After ``run()``, ``result`` contains both the shared objects created during
+    After ``run()``, ``run_state`` contains both the shared objects created during
     bootstrap (workspace, domain, flow config, transport config) and the models
     produced by executed runs.
     """
@@ -130,13 +133,14 @@ class HydroModPyLauncher:
         self.cfg.data = self.cfg.data.with_resolved_types(data_plan.types)
         self.data_plan = data_plan
 
-        self.result = RunResult(
+        self.run_state = LauncherRunState(
             cfg=self.cfg,
             config_path=self.config_path,
             raw_toml=raw_toml,
         )
-        self.result.results.data_plan = data_plan
+        self.run_state.data_plan = data_plan
         self.process_context_factory = ProcessContextFactory()
+        self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
         self.hooks = HookRegistry.discover(self.config_path)
 
     @staticmethod
@@ -156,7 +160,7 @@ class HydroModPyLauncher:
                     + "; ".join(reasons)
                 )
 
-    def run(self) -> RunResult:
+    def run(self) -> LauncherRunState:
         """Execute one full launcher session and return the populated runtime state.
 
         The execution order is:
@@ -169,7 +173,7 @@ class HydroModPyLauncher:
 
         A useful mental model is:
 
-        - ``setup`` and ``data`` run once per launcher session,
+        - ``setup`` and ``loaded_data`` run once per launcher session,
         - planned process runs (flow, transport, etc.) run once per declared
           process/solver pair.
 
@@ -178,7 +182,7 @@ class HydroModPyLauncher:
         - one ``flow`` process with ``["modflownwt", "modflow6"]``
         - one ``transport`` process with ``["mt3dms", "modflow6gwt"]``
 
-        then ``run()`` will still perform setup/data only once, but it will
+        then ``run()`` will still perform setup/loaded_data only once, but it will
         later execute four concrete solver runs in the resolved order.
         """
         if not self.cfg.simulation.has_processes():
@@ -187,25 +191,28 @@ class HydroModPyLauncher:
                 "one [[simulation.process]] entry."
             )
 
+        run_state = self.run_state
+        execution_state = run_state.execution
         plan = self._create_simulation_plan()
-        self.result.results.simulation_plan = plan
+        execution_state.simulation_plan = plan
         # Keep a direct lookup table by run id because downstream code and
         # hooks often need to reason about concrete runs, not just the flat list.
-        self.result.results.process_runs_by_id = {run.id: run for run in plan.runs}
+        execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
 
         self._run_setup()
         self._run_data()
-        # The runner owns the fine-grained solver dispatch. The launcher only
-        # adapts legacy hooks to the new "process family" transitions.
+        # The runner owns the fine-grained solver dispatch. The launcher
+        # provides process-family callbacks to run managed postprocess actions
+        # and legacy hooks around those transitions.
         SimulationRunner(
             callbacks=ProcessCallbacks(
-                before_process=lambda process_type: self._call_process_hook("before", process_type),
-                after_process=lambda process_type: self._call_process_hook("after", process_type),
+                before_process=self._on_before_process,
+                after_process=self._on_after_process,
             ),
             process_context_factory=self.process_context_factory,
-        ).execute(plan, self.result)
+        ).execute(plan, run_state)
 
-        return self.result
+        return run_state
 
     def _run_setup(self) -> None:
         """Initialise the structural objects shared by all later process runs.
@@ -222,48 +229,51 @@ class HydroModPyLauncher:
         solver runs. For example, two flow solvers still reuse the same domain
         geometry and the same declared flow configuration.
         """
-        r = self.result
+        run_state = self.run_state
+        setup_state = run_state.setup
         cfg = self.cfg
 
-        self.hooks.call("on_before_setup", r)
+        self.hooks.call("on_before_setup", run_state)
 
-        r.setup.workspace = hmp.Workspace(config=cfg.workspace)
-        r.setup.geographic = hmp.Geographic(cfg.geographic, r.setup.workspace)
-        surface_topo = r.setup.geographic.get_domain_surface_topo()
+        setup_state.workspace = hmp.Workspace(config=cfg.workspace)
+        setup_state.geographic = hmp.Geographic(cfg.geographic, setup_state.workspace)
+        surface_topo = setup_state.geographic.get_domain_surface_topo()
 
-        r.setup.domain = Domain(config=cfg.domain, surface_topo=surface_topo)
+        setup_state.domain = Domain(config=cfg.domain, surface_topo=surface_topo)
 
-        r.setup.settings = Settings()
+        setup_state.settings = Settings()
         # Keep eager context creation in setup for compatibility with data
         # binders and existing hooks.
-        self.process_context_factory.ensure_flow(r)
-        self.process_context_factory.ensure_transport(r)
+        self.process_context_factory.ensure_flow(run_state)
+        self.process_context_factory.ensure_transport(run_state)
 
-        self.hooks.call("on_after_setup", r)
+        self.hooks.call("on_after_setup", run_state)
 
     def _run_data(self) -> None:
         """Load the external forcings shared by all process runs.
 
         Runtime loading is delegated to ``DataManagersRuntimeLoader`` in the
-        data_managers package. Structural bindings (for example geology to
-        domain zones) are then applied explicitly by launcher-level updaters.
+        data_managers package. Structural bindings are then applied explicitly
+        through domain/process binder modules.
         """
-        r = self.result
-        self.hooks.call("on_before_data", r)
+        run_state = self.run_state
+        self.hooks.call("on_before_data", run_state)
         loader = DataManagersRuntimeLoader(
             config_path=self.config_path,
             data_plan=self.data_plan,
         )
-        loader.load_all(r)
+        loader.load_all(run_state)
         self._apply_structural_updates_from_data()
-        self.hooks.call("on_after_data", r)
+        self.hooks.call("on_after_data", run_state)
 
     def _apply_structural_updates_from_data(self) -> None:
         """Bind loaded data objects to runtime structures using explicit updaters."""
-        r = self.result
-        apply_geology_to_domain(domain=r.setup.domain, geology=r.data.geology)
-        self.process_context_factory.ensure_flow(r)
-        apply_oceanic_to_flow(flow=r.setup.flow, oceanic=r.data.oceanic)
+        run_state = self.run_state
+        setup_state = run_state.setup
+        data_state = run_state.loaded_data
+        apply_geology_to_domain(domain=setup_state.domain, geology=data_state.geology)
+        self.process_context_factory.ensure_flow(run_state)
+        apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.
@@ -300,4 +310,13 @@ class HydroModPyLauncher:
         now organized around a resolved simulation plan instead of hard-coded
         launcher phases.
         """
-        self.hooks.call(f"on_{moment}_{process_type}", self.result)
+        self.hooks.call(f"on_{moment}_{process_type}", self.run_state)
+
+    def _on_before_process(self, process_type: str) -> None:
+        """Run launcher-level actions before one process-family block."""
+        self._call_process_hook("before", process_type)
+
+    def _on_after_process(self, process_type: str) -> None:
+        """Run launcher-level actions after one process-family block."""
+        self.postprocess_runner.after_process(process_type, self.run_state)
+        self._call_process_hook("after", process_type)

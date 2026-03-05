@@ -9,8 +9,8 @@ execution:
   result.
 
 The key design goal is decoupling. The launcher may own a rich concrete state
-object such as ``RunResult``, but the runner and adapters only depend on the
-minimal shapes defined here. That keeps the orchestration layers loosely
+object such as ``LauncherRunState``, but the runner and adapters only depend on
+the minimal shapes defined here. That keeps the orchestration layers loosely
 coupled while still making data flow explicit.
 """
 
@@ -43,7 +43,7 @@ class SimulationState(Protocol):
     """Minimal mutable state consumed directly during plan execution.
 
     ``SimulationRunner`` and solver adapters only rely on this protocol, not
-    on a concrete implementation such as ``RunResult``.
+    on a concrete implementation such as ``LauncherRunState``.
     """
 
     cfg: Any

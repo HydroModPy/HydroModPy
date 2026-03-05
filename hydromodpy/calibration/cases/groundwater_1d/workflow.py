@@ -125,6 +125,7 @@ def calibrate_groundwater_model(chronicle, config):
         model_parameter_order=MODEL_PARAMETER_ORDER,
     )
     objective_metric = settings["objective_metric"]
+    objective_settings = settings["objective"]
     method = settings["method"]
     parameter_set = settings["parameter_set"]
     bounds = settings["bounds"]
@@ -136,6 +137,7 @@ def calibrate_groundwater_model(chronicle, config):
         simulator=simulator,
         parameter_set=parameter_set,
         objective_metric=objective_metric,
+        objective_config=objective_settings,
     )
 
     result = calibration_obj.calibrate(
@@ -164,6 +166,7 @@ def calibrate_groundwater_model(chronicle, config):
         "simulation_best": simulation_best,
         "metrics": metrics,
         "objective_metric": objective_metric,
+        "objective": objective_settings,
         "method": method,
         "bounds": bounds,
         "parameter_set": parameter_set,

@@ -6,15 +6,13 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from hydromodpy.data_managers.plan import DataLoadPlan
     from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
 
 
 @dataclass
-class RunExecutionState:
+class ExecutionRegistry:
     """Execution-oriented metadata and produced model registry."""
 
     simulation_plan: SimulationPlan | None = None
-    data_plan: DataLoadPlan | None = None
     process_runs_by_id: dict[str, ProcessRun] = field(default_factory=dict)
     models_by_run_id: dict[str, Any] = field(default_factory=dict)

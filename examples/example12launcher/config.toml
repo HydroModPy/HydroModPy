@@ -533,11 +533,13 @@ zloc_div = false
 spc_name = "NO3"
 
 # Initial concentration and recharge concentration defaults.
-# They can be overridden in the script with full arrays/dictionaries once the model grid is known.
-# Initial concentration value (can be overridden at runtime).
-sconc_init = 0.0
-# Recharge concentration input value (can be overridden at runtime).
-sconc_input = 0.0
+# Scalars declared here are expanded at runtime to full grid-shaped payloads
+# using the upstream flow model dimensions.
+# sconc_init -> 3D array (nlay, nrow, ncol)
+# sconc_input -> dict[stress_period] of 2D arrays (nrow, ncol), with stress
+# period 0 left to solver defaults unless explicitly provided as a mapping.
+sconc_init = 0.1
+sconc_input = 0.05
 
 # Dispersion and diffusion parameters.
 # Longitudinal dispersivity [L].
@@ -551,8 +553,8 @@ diffu_coeff = 8.64e-06
 
 # Reaction settings: None (no reaction), 0 (zero-order), 1 (first-order)
 react_order = 1
-# Decay rate value (can be overridden at runtime).
-rate_decay = 0.0
+# Scalar decay rate expanded at runtime to a 3D array (nlay, nrow, ncol).
+rate_decay = 0.00136986301369863
 
 # Plot concentration outputs.
 # Enable concentration plotting outputs.
@@ -782,9 +784,70 @@ unit = "m"
 data_value = false
 
 # ----------------------------------------------------------------------
+# Launcher-managed postprocess workflows.
+# This section replaces legacy on_after_flow/on_after_transport hooks.
+# ----------------------------------------------------------------------
+[postprocess]
+# Master switch for launcher-managed postprocess after process-family runs.
+# Keep false to preserve hook-only behavior in older projects.
+enabled = true
+
+[postprocess.flow]
+# Enable postprocess tasks after the flow process family.
+enabled = true
+# Run MatchingStreams diagnostics after flow outputs are produced.
+matching_streams = true
+# Run display.flow suite (guarded by [display] options).
+display = true
+
+[postprocess.flow.timeseries]
+# Export flow timeseries after flow postprocess.
+enabled = true
+# Export datetimes when available.
+datetime_format = true
+# Also export subbasin-level timeseries.
+subbasin_results = true
+
+[postprocess.flow.intermittency]
+# Intermittency aggregation levels.
+yearly = false
+monthly = true
+weekly = false
+daily = false
+
+[postprocess.transport]
+# Enable postprocess tasks after the transport process family.
+enabled = true
+# Run display.particles suite when Modpath outputs exist.
+display_particles = true
+# Run display.transport suite when concentration outputs exist.
+display_transport = true
+
+[postprocess.transport.timeseries]
+# Export transport timeseries after transport postprocess.
+enabled = true
+# Historical suffix used by example12 launcher outputs.
+suffix_name = "s1"
+# Export datetimes when available.
+datetime_format = true
+# Also export subbasin-level timeseries.
+subbasin_results = true
+# Additional transport indicators.
+residence_times = true
+concentration_seepage = true
+mass_accumulated = true
+
+[postprocess.transport.intermittency]
+# Intermittency aggregation levels.
+yearly = false
+monthly = true
+weekly = false
+daily = false
+
+# ----------------------------------------------------------------------
 # Display configuration for reusable plotting hooks.
 # This section is validated by hydromodpy.display.options.DisplayConfig
-# and consumed by the plotting hooks.
+# and consumed by launcher postprocess display suites.
 # ----------------------------------------------------------------------
 [display]
 # Master switch for all optional plotting hooks.

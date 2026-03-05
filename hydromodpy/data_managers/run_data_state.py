@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class RunDataState:
+class LoadedDataContext:
     """Loaded data-manager objects shared by process runs."""
 
     climatic: Climatic | None = None
@@ -26,3 +26,7 @@ class RunDataState:
     intermittency: Intermittency | None = None
     hydrometry: StationSet | None = None
     piezometry: PiezometerSet | None = None
+
+
+# Backward-compatible alias kept while call sites migrate.
+RunDataState = LoadedDataContext

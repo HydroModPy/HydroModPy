@@ -13,5 +13,5 @@ Class overview
 
    ~hydromodpy.solver.modflow_nwt.modflow.Modflow
    ~hydromodpy.solver.modflow_nwt.modpath.Modpath
-   ~hydromodpy.modeling.timeseries.Timeseries
+   ~hydromodpy.postprocess.timeseries.Timeseries
    ~hydromodpy.modeling.masstransfer.Masstransfer

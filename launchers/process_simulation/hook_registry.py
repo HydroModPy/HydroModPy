@@ -4,7 +4,7 @@ Convention
 ----------
 Place a ``hooks.py`` file in the same directory as your ``config.toml``.
 Define functions named ``on_before_<phase>`` or ``on_after_<phase>``; they
-receive a single :class:`RunResult` argument and return ``None``.
+receive a single :class:`LauncherRunState` argument and return ``None``.
 
 Any hook name not present in ``hooks.py`` is silently ignored (no-op).
 Exceptions raised inside a hook are re-raised as :class:`HookError` with the
@@ -12,9 +12,9 @@ original traceback attached.
 
 Example ``hooks.py``::
 
-    from launchers import RunResult
+    from launchers import LauncherRunState
 
-    def on_before_flow(result: RunResult) -> None:
+    def on_before_flow(result: LauncherRunState) -> None:
         result.setup.flow.set_recharge(...)
 """
 
@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from launchers.run_result import RunResult
+    from launchers.process_simulation.run_state import LauncherRunState
 
 KNOWN_HOOKS: list[str] = [
     "on_before_setup",
@@ -76,7 +76,7 @@ class HookRegistry:
 
         return registry
 
-    def call(self, name: str, result: "RunResult") -> None:
+    def call(self, name: str, result: "LauncherRunState") -> None:
         """Call the hook named *name* with *result*, or do nothing if absent."""
         fn = self._hooks.get(name)
         if fn is None:

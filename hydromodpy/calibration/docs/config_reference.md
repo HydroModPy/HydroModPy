@@ -21,6 +21,7 @@ This page is generated from Pydantic schemas used by calibration2.
 | `bounds` | `dict[str, tuple[float, float] | list[float]]` | `required` |
 | `calibration_method` | `dict[str, dict[str, Any]]` | `<factory>` |
 | `output` | `OutputSectionSchema` | `<factory>` |
+| `objective` | `ObjectiveSectionSchema` | `<factory>` |
 
 ### `[output]`
 
@@ -32,6 +33,13 @@ This page is generated from Pydantic schemas used by calibration2.
 | `show_objective_surface` | `bool` | `False` |
 | `objective_surface_n_evaluations` | `int` | `300` |
 | `objective_surface_seed` | `int` | `42` |
+
+### `[objective]`
+
+| Field | Type | Default |
+|---|---|---|
+| `transform` | `str` | `'identity'` |
+| `transform_params` | `dict[str, float]` | `<factory>` |
 
 ## Built-in Method Kwargs
 
@@ -120,6 +128,7 @@ This page is generated from Pydantic schemas used by calibration2.
 | `losses_months` | `list[int]` | `<factory>` |
 | `error_fraction` | `float` | `0.05` |
 | `error_seed` | `int` | `12345` |
+| `solver_backend` | `str` | `'analytic'` |
 | `capacity_mm_true` | `float | NoneType` | `None` |
 | `k_per_day_true` | `float | NoneType` | `None` |
 | `s0_mm` | `float` | `0.0` |

@@ -102,6 +102,7 @@ def run_calibration_case(
         simulator=case_context.simulator,
         parameter_set=settings["parameter_set"],
         objective_metric=settings["objective_metric"],
+        objective_config=settings["objective"],
     )
     result = calibration_engine.calibrate(
         method=selected_method,
@@ -120,6 +121,7 @@ def run_calibration_case(
         "result": result,
         "method": selected_method,
         "objective_metric": settings["objective_metric"],
+        "objective": settings["objective"],
         "bounds": settings["bounds"],
         "parameter_set": settings["parameter_set"],
         "parameter_names": settings["parameter_names"],

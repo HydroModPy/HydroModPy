@@ -15,7 +15,7 @@ from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.watershed.climatic import Climatic
 
 if TYPE_CHECKING:
-    from launchers.run_result import RunResult
+    from launchers.process_simulation.run_state import LauncherRunState
 
 
 class DataManagersRuntimeLoader:
@@ -25,10 +25,10 @@ class DataManagersRuntimeLoader:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
 
-    def load_all(self, result: "RunResult") -> None:
+    def load_all(self, result: "LauncherRunState") -> None:
         """Load active data-manager families into ``result``."""
         ws = result.setup.workspace
-        result.data.climatic = Climatic(out_path=ws.catch_folder)
+        result.loaded_data.climatic = Climatic(out_path=ws.catch_folder)
 
         active_types = tuple(self.data_plan.types)
         for type_name in active_types:
@@ -52,7 +52,7 @@ class DataManagersRuntimeLoader:
                 continue
             print(f"[DataManagersPlanner] Warning: unsupported data type '{type_name}' in plan.")
 
-    def _load_geology_data(self, result: "RunResult") -> None:
+    def _load_geology_data(self, result: "LauncherRunState") -> None:
         """Load geology support as a standalone data object."""
         from hydromodpy.data_managers.geology.geology_field import GeologyField
 
@@ -75,14 +75,14 @@ class DataManagersRuntimeLoader:
             return
 
         try:
-            result.data.geology = GeologyField.from_watershed_config(
+            result.loaded_data.geology = GeologyField.from_watershed_config(
                 geology_cfg,
                 raster_support=raster_support,
             )
         except Exception as exc:
             self._handle_data_loading_error(result, "geology", exc)
 
-    def _load_oceanic_data(self, result: "RunResult") -> None:
+    def _load_oceanic_data(self, result: "LauncherRunState") -> None:
         """Load oceanic data and optional mean sea-level boundary value."""
         cfg = result.cfg
         section = self._get_data_section(
@@ -101,11 +101,11 @@ class DataManagersRuntimeLoader:
                 oceanic_path=oceanic_path,
             )
             oceanic.update_MSL(oceanic.fetch_msl_or_default(result.setup.geographic))
-            result.data.oceanic = oceanic
+            result.loaded_data.oceanic = oceanic
         except Exception as exc:
             self._handle_data_loading_error(result, "oceanic", exc)
 
-    def _load_hydrography_data(self, result: "RunResult") -> None:
+    def _load_hydrography_data(self, result: "LauncherRunState") -> None:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
         from hydromodpy.watershed import Hydrography
 
@@ -147,7 +147,7 @@ class DataManagersRuntimeLoader:
         if isinstance(streams_file, str) and streams_file.strip():
             streams_file = str(self._resolve_path_like(streams_file))
         try:
-            result.data.hydrography = Hydrography(
+            result.loaded_data.hydrography = Hydrography(
                 out_path=result.setup.workspace.catch_folder,
                 types_obs=types_obs,
                 fields_obs=fields_obs,
@@ -158,7 +158,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrography", exc)
 
-    def _load_intermittency_data(self, result: "RunResult") -> None:
+    def _load_intermittency_data(self, result: "LauncherRunState") -> None:
         """Load ONDE-style intermittency observations."""
         from hydromodpy.watershed import Intermittency
 
@@ -188,7 +188,7 @@ class DataManagersRuntimeLoader:
             )
             return
         try:
-            result.data.intermittency = Intermittency(
+            result.loaded_data.intermittency = Intermittency(
                 out_path=result.setup.workspace.catch_folder,
                 intermittency_path=intermittency_path,
                 file_name=file_name,
@@ -197,7 +197,7 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "intermittency", exc)
 
-    def _load_hydrometry_data(self, result: "RunResult") -> None:
+    def _load_hydrometry_data(self, result: "LauncherRunState") -> None:
         """Load hydrometry station sets from data section or legacy custom section."""
         from hydromodpy.data_managers.hydrometry.hydrometry_config import (
             validate_hydrometry_config_data,
@@ -224,11 +224,11 @@ class DataManagersRuntimeLoader:
         try:
             payload = validate_hydrometry_config_data(payload)
             self._resolve_station_set_paths(payload)
-            result.data.hydrometry = StationSet.from_config(payload)
+            result.loaded_data.hydrometry = StationSet.from_config(payload)
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrometry", exc)
 
-    def _load_piezometry_data(self, result: "RunResult") -> None:
+    def _load_piezometry_data(self, result: "LauncherRunState") -> None:
         """Load piezometry station sets from data section or legacy custom section."""
         from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
         from hydromodpy.data_managers.piezometry.piezometry_config import (
@@ -255,13 +255,13 @@ class DataManagersRuntimeLoader:
         try:
             payload = validate_piezometry_config_data(payload)
             self._resolve_station_set_paths(payload)
-            result.data.piezometry = PiezometerSet.from_config(payload)
+            result.loaded_data.piezometry = PiezometerSet.from_config(payload)
         except Exception as exc:
             self._handle_data_loading_error(result, "piezometry", exc)
 
     def _handle_missing_data_section(
         self,
-        result: "RunResult",
+        result: "LauncherRunState",
         type_name: str,
         detail: str,
     ) -> None:
@@ -272,7 +272,7 @@ class DataManagersRuntimeLoader:
 
     def _handle_data_loading_error(
         self,
-        result: "RunResult",
+        result: "LauncherRunState",
         type_name: str,
         exc: Exception,
     ) -> None:
@@ -281,7 +281,7 @@ class DataManagersRuntimeLoader:
             raise ValueError(message) from exc
         print(f"[DataManagersPlanner] Warning: {message}")
 
-    def _is_required_data_type(self, result: "RunResult", type_name: str) -> bool:
+    def _is_required_data_type(self, result: "LauncherRunState", type_name: str) -> bool:
         inferred_set = set(self.data_plan.inferred_types)
         if type_name in inferred_set and result.cfg.data.inference_mode == "warn":
             return False
@@ -289,7 +289,7 @@ class DataManagersRuntimeLoader:
 
     @staticmethod
     def _get_data_section(
-        result: "RunResult",
+        result: "LauncherRunState",
         type_name: str,
         *,
         legacy_keys: tuple[str, ...] = (),

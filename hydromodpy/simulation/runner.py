@@ -33,7 +33,11 @@ from typing import Callable
 from hydromodpy.simulation.adapters import get_solver_adapter
 from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.process_context import ProcessContextFactory
-from hydromodpy.simulation.runtime import RunContext, RunExecutionResult, SimulationState
+from hydromodpy.simulation.runtime_contracts import (
+    RunContext,
+    RunExecutionResult,
+    SimulationState,
+)
 
 
 @dataclass(frozen=True)

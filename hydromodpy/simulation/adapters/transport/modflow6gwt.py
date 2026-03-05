@@ -6,7 +6,7 @@ from hydromodpy.simulation.adapters.transport.common import (
     required_flow_model,
     transport_output_suffix,
 )
-from hydromodpy.simulation.runtime import RunContext, RunExecutionResult
+from hydromodpy.simulation.runtime_contracts import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow6 import Modflow6Transport
 
 

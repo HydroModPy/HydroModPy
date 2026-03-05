@@ -58,8 +58,9 @@ from hydromodpy.display import visualization_watershed, visualization_results, e
 from hydromodpy.tools import toolbox
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
-from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import timeseries
+from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 config_path = Path(__file__).parent / "config.toml"

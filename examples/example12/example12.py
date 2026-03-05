@@ -72,8 +72,9 @@ from hydromodpy.solver.modflow_nwt import (
 )
 from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
 from hydromodpy.solver import SolverEngine
-from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import timeseries
+from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 from hydromodpy.pyhelp import preprocessing_pyhelp, PyhelpGridParams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 

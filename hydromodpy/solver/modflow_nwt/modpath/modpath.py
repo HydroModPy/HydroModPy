@@ -144,10 +144,7 @@ class Modpath(Solver):
             return particle_params.get(key, default)
 
         zone_partic_val = _pick('zone_partic', zone_partic, 'domain')
-        if zone_partic_val == 'domain':
-            self.zone_partic = self._resolve_domain_raster()
-        else:
-            self.zone_partic = zone_partic_val
+        self.zone_partic = self._resolve_zone_partic(zone_partic_val)
 
         self.track_dir = _pick('track_dir', track_dir, 'forward')
         self.bore_depth = _pick('bore_depth', bore_depth, None)
@@ -224,6 +221,52 @@ class Modpath(Solver):
                 "Provide transport.modpath.parameters.zone_partic as a raster path."
             )
         return raster_path
+
+    def _resolve_seepage_clip_raster(self):
+        """Build and return clipped seepage raster path for particle injection."""
+        import whitebox
+
+        seepage_tif = os.path.join(
+            self.full_path,
+            '_postprocess',
+            '_rasters',
+            'seepage_areas_t(0).tif',
+        )
+        if not os.path.isfile(seepage_tif):
+            raise FileNotFoundError(
+                "Cannot resolve zone_partic='seepage_clip': "
+                f"missing seepage raster at {seepage_tif}."
+            )
+
+        watershed_shp = self._get_watershed_shp()
+        if watershed_shp is None:
+            raise ValueError(
+                "Cannot resolve zone_partic='seepage_clip': watershed polygon is not available."
+            )
+
+        seepage_clip_tif = os.path.join(
+            self.full_path,
+            '_postprocess',
+            '_rasters',
+            'seepage_areas_t(0)_clip.tif',
+        )
+        wbt = whitebox.WhiteboxTools()
+        wbt.verbose = False
+        wbt.clip_raster_to_polygon(
+            str(seepage_tif),
+            str(watershed_shp),
+            str(seepage_clip_tif),
+            maintain_dimensions=True,
+        )
+        return seepage_clip_tif
+
+    def _resolve_zone_partic(self, zone_partic_val):
+        """Resolve ``zone_partic`` aliases to concrete raster paths."""
+        if zone_partic_val == 'domain':
+            return self._resolve_domain_raster()
+        if zone_partic_val == 'seepage_clip':
+            return self._resolve_seepage_clip_raster()
+        return zone_partic_val
 
     def _get_watershed_shp(self):
         """Resolve watershed polygon path when available."""
