@@ -19,7 +19,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.domain import Domain
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.watershed.workspace import Workspace
+from hydromodpy.simulation.workspace import Workspace
 
 
 def run_domain_case_from_toml(

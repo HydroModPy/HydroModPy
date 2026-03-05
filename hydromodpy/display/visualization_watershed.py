@@ -14,7 +14,7 @@
 
 # Python
 import os
-from typing import Optional
+from typing import Any, Optional
 import numpy as np
 import geopandas as gpd
 import rasterio
@@ -43,7 +43,11 @@ except:
 
 # HydroModPy
 from hydromodpy.tools import toolbox
-from hydromodpy.watershed import Workspace, Geographic, Hydrography, Intermittency, Piezometry, Geology
+from hydromodpy.simulation.workspace import Workspace
+from hydromodpy.geographic.geographic import Geographic
+from hydromodpy.watershed import Hydrography
+from hydromodpy.data_managers.piezometry.piezometry_legacy import Piezometry
+from hydromodpy.data_managers.intermittency import Intermittency
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 
 #%% PLOT SETTINGS
@@ -267,7 +271,7 @@ def watershed_local(regional_dem_path, initializing: Workspace, geographic: Geog
     fig.savefig(os.path.join(initializing.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
     
-def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Geology, hydrography: Hydrography=None, piezometry: Piezometry=None):
+def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Any, hydrography: Hydrography=None, piezometry: Piezometry=None):
     """
     Plot lithology of the watershed from specific geological map at FRance scale.
 
@@ -277,8 +281,8 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
         Workspace object of the model domain (watershed).
     geographic : Geographic
         Geographic object of the model domain (watershed).
-    geology : Geology
-        Geology object of the model domain (watershed).
+    geology : object
+        Geology-like object exposing a ``geol_file`` path.
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)

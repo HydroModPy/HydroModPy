@@ -111,7 +111,7 @@ def run_hydromodpy(watershed_name='11S_short',
     BV.settings.update_box_model(True)
     BV.settings.update_sink_fill(False)
     BV.settings.update_simulation_state(sim_state) # Transient
-    BV.settings.update_check_model(plot_cross=False, check_grid=True)
+    BV.settings.update_check_model(check_grid=True)
     BV.settings.update_dis_perlen(dis_perlen=False)
 
     # Climatic settings
@@ -205,3 +205,4 @@ if __name__ == '__main__':
     watertable_depth_output = run_hydromodpy()
 
 # ---- NOTES
+

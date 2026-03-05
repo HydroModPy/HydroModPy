@@ -192,7 +192,7 @@ BV.add_hydraulic()
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
+BV.settings.update_check_model(check_grid=check_grid)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -458,3 +458,4 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 #%% ---- NOTES
 
 os.chdir(root_dir)
+

@@ -10,12 +10,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.data_managers.plan import DataLoadPlan
 from hydromodpy.data_managers.oceanic import Oceanic
-from hydromodpy.watershed.climatic import Climatic
 
 if TYPE_CHECKING:
-    from launchers.process_simulation.run_state import LauncherRunState
+    from hydromodpy.simulation.state.run_state import LauncherRunState
 
 
 class DataManagersRuntimeLoader:
@@ -160,7 +160,7 @@ class DataManagersRuntimeLoader:
 
     def _load_intermittency_data(self, result: "LauncherRunState") -> None:
         """Load ONDE-style intermittency observations."""
-        from hydromodpy.watershed import Intermittency
+        from hydromodpy.data_managers.intermittency import Intermittency
 
         cfg = result.cfg
         section = self._get_data_section(

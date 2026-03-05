@@ -100,7 +100,8 @@ def test_planner_does_not_duplicate_explicit_oceanic() -> None:
 def test_planner_infers_types_from_hooks_file(tmp_path) -> None:
     hooks_path = tmp_path / "hooks.py"
     hooks_path.write_text(
-        "from hydromodpy.watershed import Hydrography, Intermittency\n"
+        "from hydromodpy.watershed import Hydrography\n"
+        "from hydromodpy.data_managers.intermittency import Intermittency\n"
         "def on_after_data(result):\n"
         "    result.data.hydrography = Hydrography()\n"
         "    result.data.intermittency = Intermittency()\n",

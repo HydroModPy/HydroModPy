@@ -209,3 +209,6 @@ class Intermittency:
             )
             plt.close(fig)
             logger.debug("Intermittency station processed: %s", code)
+
+
+__all__ = ["Intermittency"]

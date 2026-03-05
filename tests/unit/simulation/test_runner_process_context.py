@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
-from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.runner import ProcessCallbacks, SimulationRunner
-from hydromodpy.simulation.runtime_contracts import RunExecutionResult
+from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
+from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
+from hydromodpy.simulation.runtime.runtime_contracts import RunExecutionResult
 
 
 class _RecordingAdapter:
@@ -49,7 +49,7 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
         ("transport", "mt3dms"): transport_adapter,
     }
     monkeypatch.setattr(
-        "hydromodpy.simulation.runner.get_solver_adapter",
+        "hydromodpy.simulation.runtime.runner.get_solver_adapter",
         lambda process_type, solver_name: adapters[(process_type, solver_name)],
     )
 

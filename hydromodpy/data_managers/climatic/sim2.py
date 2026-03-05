@@ -40,7 +40,7 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess.netcdf import NetcdfWriter
 
 logger = get_logger(__name__)
 
@@ -815,7 +815,7 @@ class Sim2:
         if bound_min<0: bound_min = bound_min*1.1
         elif bound_min>0: bound_min = bound_min/1.1
         else: bound_min = bound_min - 0.01*bound_max
-        scale_factor, add_offset = netcdf.compute_scale_and_offset(
+        scale_factor, add_offset = NetcdfWriter.compute_scale_and_offset(
             bound_min, bound_max, 16)
         ds[var].encoding['scale_factor'] = scale_factor
         ds[var].encoding['add_offset'] = add_offset

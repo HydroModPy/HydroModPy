@@ -133,7 +133,7 @@ BV.settings.update_model_name(model_name) # Name of the model/simulation
 BV.settings.update_box_model(True)
 BV.settings.update_sink_fill(False)
 BV.settings.update_simulation_state('transient') # steady
-BV.settings.update_check_model(plot_cross=True, check_grid=True)
+BV.settings.update_check_model(check_grid=True)
 BV.settings.update_dis_perlen(dis_perlen=True)
 
 # Climatic settings
@@ -358,3 +358,4 @@ fig.tight_layout()
 #%% ---- NOTES
 
 os.chdir(root_dir)
+

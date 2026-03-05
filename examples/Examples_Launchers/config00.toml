@@ -10,7 +10,7 @@
 # Initialization configuration for watershed project structure.
 # ----------------------------------------------------------------------
 
-[initializing]
+[workspace]
 # Name of the watershed/catchment (used as folder name).
 # Type: string | REQUIRED
 catch_name = "00S_short"

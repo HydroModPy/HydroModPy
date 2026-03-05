@@ -26,7 +26,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.watershed.workspace import Workspace
+from hydromodpy.simulation.workspace import Workspace
 
 KNOWN_CASE_IDS = ("base", "canut", "nancon", "aber")
 
@@ -34,7 +34,7 @@ KNOWN_CASE_IDS = ("base", "canut", "nancon", "aber")
 def run_geographic_case_from_toml(config_toml: str | Path):
     """Build Workspace + Geographic from one global TOML file."""
     cfg = HydroModPyConfig.from_toml(config_toml)
-    workspace = Workspace(config=cfg.initializing)
+    workspace = Workspace(config=cfg.workspace)
     geographic = Geographic(config=cfg.geographic, initializing=workspace)
     return workspace, geographic
 
@@ -151,8 +151,8 @@ def run_geographic_cases_from_toml(
         case_label = str(spec["label"])
         geo_overrides = dict(spec["overrides"])
 
-        init_cfg = cfg.initializing.model_copy(
-            update={"catch_name": f"{cfg.initializing.catch_name}_{case_id}"}
+        init_cfg = cfg.workspace.model_copy(
+            update={"catch_name": f"{cfg.workspace.catch_name}_{case_id}"}
         )
         geo_cfg = cfg.geographic.model_copy(update=geo_overrides)
 
@@ -279,7 +279,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--config",
         type=Path,
         default=Path(__file__).with_name("run_geographic_config.toml"),
-        help="Path to a HydroModPy TOML file containing [initializing] and [geographic].",
+        help="Path to a HydroModPy TOML file containing [workspace] and [geographic].",
     )
     parser.add_argument(
         "--cases",

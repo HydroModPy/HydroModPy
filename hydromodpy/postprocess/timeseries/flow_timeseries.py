@@ -1,5 +1,26 @@
 # -*- coding: utf-8 -*-
-"""Flow-oriented time-series post-processing utilities."""
+"""Flow-oriented time-series post-processing utilities.
+
+This module converts gridded flow postprocess products (``.npy`` dictionaries
+keyed by stress period) into tabular watershed/subbasin time series.
+
+Typical output files
+--------------------
+- ``_postprocess/_timeseries/_simulated_timeseries.csv`` (catchment scale)
+- ``_subbasins/<zone_name>/_simulated_timeseries.csv`` (optional)
+
+Illustration
+------------
+Given a flow output dictionary like::
+
+    seepage_areas = {
+        0: array([[...], [...]]),
+        1: array([[...], [...]]),
+    }
+
+the exporter writes one row per key (time step), and each grid is reduced to
+one scalar with a reducer (mean, sum, percentage, etc.) over the watershed mask.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +41,15 @@ warnings.filterwarnings("ignore", message=".*converting a masked element to nan.
 
 
 class FlowTimeseriesPostprocess:
-    """Export flow postprocess outputs as watershed/subbasin time-series CSV files."""
+    """Export flow postprocess outputs as watershed/subbasin time-series CSV files.
+
+    Design notes
+    ------------
+    - Inputs are optional. Missing ``.npy`` payloads are skipped silently.
+    - Aggregations are mask-based: each raster is reduced over ``dem_clip``.
+    - The class is base-oriented: transport exporters subclass it and append
+      extra columns (for example concentration or residence time).
+    """
 
     def __init__(
         self,
@@ -35,6 +64,30 @@ class FlowTimeseriesPostprocess:
         intermittency_weekly: bool = False,
         intermittency_daily: bool = False,
     ) -> None:
+        """Build and immediately export flow time series.
+
+        Parameters
+        ----------
+        geographic:
+            Geographic runtime object containing watershed rasters and folders.
+        model_modflow:
+            Executed flow model object (MODFLOW-NWT or MODFLOW 6 wrapper).
+        runoff:
+            Optional runoff forcing. Accepted forms mirror recharge:
+            scalar, ``pandas.Series``, or ``dict[time, 2D-array]``.
+        suffix_name:
+            Optional CSV suffix. Example: ``suffix_name="s1"`` writes
+            ``_simulated_timeseries_s1.csv``.
+        datetime_format:
+            If ``True``, convert ``time`` to ``DatetimeIndex`` when possible.
+        subbasin_results:
+            If ``True``, repeat extraction for each available subbasin mask.
+
+        Example
+        -------
+        ``FlowTimeseriesPostprocess(geo, flow_model, runoff=runoff_series)``
+        exports one catchment CSV plus optional subbasin CSV files.
+        """
         self.suffix_name = suffix_name
 
         self.geographic = geographic
@@ -78,6 +131,8 @@ class FlowTimeseriesPostprocess:
 
         with rasterio.open(self.geographic.watershed_dem) as src:
             dem_clip = src.read(1)
+        # ``self.cell`` is used by intermittency postprocess helpers that need
+        # normalized indicators (% flowing cells, etc.).
         self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip < 0)).count()
         self.extract_results(dem_clip, time, recharge, runoff_series, self.timeseries_file)
         logger.info("Exported catchment time series to %s", self.timeseries_file)
@@ -86,7 +141,18 @@ class FlowTimeseriesPostprocess:
             self._export_subbasins(time, recharge, runoff_series)
 
     def _normalize_forcing_series(self) -> tuple[Any, Any, Any]:
-        """Normalize recharge/runoff to a common time axis."""
+        """Normalize recharge/runoff to a common time axis.
+
+        Supported recharge/runoff forms
+        -------------------------------
+        - scalar: one-step synthetic series
+        - ``pandas.Series``: explicit timestamped series
+        - ``dict``: one 2D grid per stress period, reduced to mean per period
+
+        Illustration
+        ------------
+        ``{0: grid0, 1: grid1}`` -> ``time=range(2)``, ``values=[mean(grid0), mean(grid1)]``.
+        """
         time = [0]
         recharge: Any = self.recharge
         runoff: Any = np.nan
@@ -211,7 +277,14 @@ class FlowTimeseriesPostprocess:
         dem_clip: np.ndarray,
         reducer: Callable[[np.ndarray, np.ndarray], float],
     ) -> None:
-        """Append one CSV column from a dictionary of time-indexed grids."""
+        """Append one CSV column from a dictionary of time-indexed grids.
+
+        Example
+        -------
+        For ``column_name="watertable_depth"``, each grid from
+        ``dataset[stress_period]`` is reduced and written in
+        ``frame.loc[stress_period, "watertable_depth"]``.
+        """
         if dataset is None:
             return
         try:
@@ -231,7 +304,15 @@ class FlowTimeseriesPostprocess:
         runoff: Any,
         timeseries_file: str,
     ) -> pd.DataFrame | None:
-        """Aggregate loaded grids over one mask and export one CSV file."""
+        """Aggregate loaded grids over one mask and export one CSV file.
+
+        Workflow
+        --------
+        1. Initialize base frame with ``date`` and forcings.
+        2. Append scalar columns reduced from flow grids.
+        3. Optionally append intermittency and subclass columns.
+        4. Normalize index and write CSV.
+        """
         self.mfdata = pd.DataFrame({"date": time, "recharge": recharge}, index=range(len(time)))
         try:
             self.mfdata["runoff"] = runoff
@@ -308,6 +389,8 @@ class FlowTimeseriesPostprocess:
             try:
                 self.mfdata["date"] = pd.to_datetime(time, format="%Y-%m-%d")
             except Exception:
+                # Fallback keeps deterministic integer chronology when incoming
+                # time labels are not parseable as datetimes.
                 self.mfdata["date"] = np.arange(0, len(self.mfdata), 1)
         self.mfdata = self.mfdata.set_index(["date"])
 

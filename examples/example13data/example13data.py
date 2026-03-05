@@ -47,25 +47,28 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Geographic, Initializing, Climatic, \
+from hydromodpy.geographic import Geographic, Subbasin
+from hydromodpy.data_managers.climatic import Climatic
+from hydromodpy.watershed import \
     Driasclimat, Driaseau, Hydrometry, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
-    SafranSurfex, Subbasin, Transport
+    SafranSurfex, Transport
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
-from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 config_path = Path(__file__).parent / "config.toml"
 cfg = HydroModPyConfig.from_toml(config_path)
-out_path = cfg.initializing.out_dir_path
+out_path = cfg.workspace.out_dir_path
 
 with config_path.open('rb') as f:
     raw_toml = tomllib.load(f)
@@ -83,16 +86,16 @@ display_3D = display_plots
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
-cfg.initializing.out_dir_path = out_path
-watershed_name = cfg.initializing.catch_name
+cfg.workspace.out_dir_path = out_path
+watershed_name = cfg.workspace.catch_name
 print('##### '+watershed_name.upper()+' #####')
 
-data_path = cfg.initializing.data_path
+data_path = cfg.workspace.data_path
 
-initializing = Initializing(config=cfg.initializing)
+initializing = Workspace(config=cfg.workspace)
 
-stable_folder      = cfg.initializing.stable_folder
-simulations_folder = cfg.initializing.simulations_folder
+stable_folder      = cfg.workspace.stable_folder
+simulations_folder = cfg.workspace.simulations_folder
 calibration_folder = initializing.calibration_folder # necessary for plots
 
 #%% GEOGRAPHIC

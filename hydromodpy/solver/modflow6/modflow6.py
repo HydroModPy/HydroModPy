@@ -133,10 +133,8 @@ class Modflow6(Solver):
 
 		self.preprocess_options = options
 		self.sink_fill = bool(options.sink_fill)
-		self.recharge = options.recharge
-		self.first_clim = options.first_clim
-		self.plot_cross = bool(options.plot_cross)
-		self.cross_ylim = [] if options.cross_ylim is None else list(options.cross_ylim)
+		self.recharge = getattr(options, "recharge", None)
+		self.first_clim = getattr(options, "first_clim", None)
 		self.check_grid = bool(options.check_grid)
 		self._select_active_dem(box=bool(options.box))
 

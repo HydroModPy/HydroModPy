@@ -16,15 +16,18 @@ import hydromodpy as hmp
 from hydromodpy.solver.modflow import Modflow
 from hydromodpy.solver.modflow_nwt import Modpath
 from hydromodpy.solver.modflow_nwt import Mt3dms
-from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 # HYDROMODPY MODULES
 import hydromodpy as hmp
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
-    Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, \
-    SafranSurfex, Subbasin, Transport
+from hydromodpy.geographic import Geographic, Subbasin
+from hydromodpy.data_managers.climatic import Climatic
+from hydromodpy.watershed import Driasclimat, Driaseau, \
+    Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, \
+    SafranSurfex, Transport
+from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
@@ -32,7 +35,7 @@ from hydromodpy.process import Flow
 from hydromodpy.solver.modflow import Modflow
 from hydromodpy.solver.modflow_nwt import Modpath
 from hydromodpy.solver.modflow_nwt import Mt3dms
-from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
@@ -60,7 +63,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,ocean
     settings : Settings object
     climatic : Climatic object
     oceanic : Oceanic object
-    initializing : Initializing object
+    workspace : Workspace-like object
     model_name : str
         Model identification name
     hk_value : float
@@ -84,9 +87,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,ocean
         #hydraulic.update_hk(hk_value)
         settings.update_model_name(model_name)
         settings.update_check_model(
-            plot_cross = config.get("postprocessing_modflow", {}).get("plot_cross", True),
-            check_grid = config.get("postprocessing_modflow", {}).get("check_grid", True),
-            cross_ylim = config.get("postprocessing_modflow", {}).get("cross_ylim", [0, 200])
+            check_grid=config.get("postprocessing_modflow", {}).get("check_grid", True)
         )
         # Determine model folder
         model_folder = workspace.simulations_folder
@@ -105,8 +106,6 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,ocean
             sink_fill=settings.sink_fill,
             dis_perlen=settings.dis_perlen,
             # Output settings
-            plot_cross=settings.plot_cross,
-            cross_ylim=settings.cross_ylim,
             check_grid=settings.check_grid,
             # Boundary settings
             sea_level=oceanic.MSL if oceanic else None,
@@ -187,7 +186,7 @@ def complete_modpath(geographic, settings, model_modflow, initializing, model_na
     geographic : Geographic object
     settings : Settings object
     model_modflow : Modflow object
-    initializing : Initializing object
+    workspace : Workspace-like object
     model_name : str
         Model identification name
     for_calib : bool, default False
@@ -328,7 +327,7 @@ def complete_mt3dms(geographic, climatic, model_modflow, initializing, model_nam
     geographic : Geographic object
     climatic : Climatic object
     model_modflow : Modflow object
-    initializing : Initializing object
+    workspace : Workspace-like object
     model_name : str
         Model identification name
     scenario : str, default 's1'

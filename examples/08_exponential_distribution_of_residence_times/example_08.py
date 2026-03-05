@@ -210,7 +210,7 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
+BV.settings.update_check_model(check_grid=check_grid)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -440,3 +440,4 @@ ax.legend(loc='lower left')
 # bx.set_xscale('log')
 # bx.set_xlim(5e-3, 1.5e1)
 # bx.set_xlim(0.5e-3, 1.5e1)
+

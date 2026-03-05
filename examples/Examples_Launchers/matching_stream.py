@@ -19,7 +19,9 @@ import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 from hydromodpy.tools import toolbox
-from hydromodpy.watershed import Initializing, Geographic, Hydrography
+from hydromodpy.simulation.workspace import Workspace
+from hydromodpy.geographic import Geographic
+from hydromodpy.watershed import Hydrography
 
 class MatchingStreams:
         """
@@ -37,7 +39,7 @@ class MatchingStreams:
         def __init__(self,
                     geographic: Geographic,
                     hydrography: Hydrography,
-                    initializing: Initializing,
+                    initializing: Workspace,
                     iteration_label=None,
                     from_calib=True):
 

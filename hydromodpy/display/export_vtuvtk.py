@@ -23,7 +23,10 @@ import flopy.utils.binaryfile as bf
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.watershed import Workspace, Geographic, Hydrography, Piezometry
+from hydromodpy.simulation.workspace import Workspace
+from hydromodpy.geographic.geographic import Geographic
+from hydromodpy.watershed import Hydrography
+from hydromodpy.data_managers.piezometry.piezometry_legacy import Piezometry
 
 logger = get_logger(__name__)
 
@@ -149,7 +152,7 @@ class VTK():
             Directory where the model input/output files are stored.
         save_file : str
             Directory where the generated VTK artefacts are saved.
-        geographic : hydromodpy.watershed.geographic.Geographic
+        geographic : hydromodpy.geographic.geographic.Geographic
             Geographic descriptor of the watershed instance.
         """
         

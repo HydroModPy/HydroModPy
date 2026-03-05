@@ -31,7 +31,6 @@ from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
 from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
-from .cross_section_plots import plot_cross_section
 from .diagnostics import check_water_flow_connectivity
 from .discretization import (
     build_spatial_discretization,
@@ -184,8 +183,6 @@ class Modflow(Solver):
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
-        self.plot_cross = bool(options.plot_cross)
-        self.cross_ylim = [] if options.cross_ylim is None else list(options.cross_ylim)
         self.check_grid = bool(options.check_grid)
         self._select_active_dem(box=bool(options.box))
 
@@ -508,13 +505,6 @@ class Modflow(Solver):
                     len(problematic_cells),
                 )
                 self.prob_cells = len(problematic_cells)
-
-        # %% Cross-section figure
-
-        if active_options.plot_cross:
-            plot_cross_section(
-                self.mf, self.hk, self.sy, self.dem, self.model_name, active_options
-            )
 
     # %% PROCESSING
 

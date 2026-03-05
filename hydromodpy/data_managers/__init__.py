@@ -19,7 +19,6 @@ from hydromodpy.data_managers.data_managers_config import DataManagersConfig
 from hydromodpy.data_managers.data_managers import DataManagers
 from hydromodpy.data_managers.plan import DataLoadPlan
 from hydromodpy.data_managers.planner import DataManagersPlanner
-from hydromodpy.data_managers.runtime_loader import DataManagersRuntimeLoader
 
 # Keep __all__ explicit so import surfaces stay stable for callers and docs.
 __all__ = (
@@ -29,3 +28,11 @@ __all__ = (
     "DataManagersPlanner",
     "DataManagersRuntimeLoader",
 )
+
+
+def __getattr__(name: str):
+    if name == "DataManagersRuntimeLoader":
+        from hydromodpy.data_managers.runtime_loader import DataManagersRuntimeLoader
+
+        return DataManagersRuntimeLoader
+    raise AttributeError(f"module 'hydromodpy.data_managers' has no attribute {name!r}")

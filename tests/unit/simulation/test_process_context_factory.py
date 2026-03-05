@@ -7,7 +7,7 @@ import pytest
 from hydromodpy.process import Flow, Transport
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
-from hydromodpy.simulation.process_context import ProcessContextFactory
+from hydromodpy.simulation.runtime.process_context import ProcessContextFactory
 
 
 def _build_state(*, flow=None, transport=None) -> SimpleNamespace:

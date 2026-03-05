@@ -17,6 +17,7 @@ import sys
 import os
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 try:
     import hydromodpy
@@ -33,7 +34,8 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODEULES
 from hydromodpy import watershed_root
-from hydromodpy.watershed import initializing, geographic
+from hydromodpy.geographic import Geographic, GeographicConfig
+from hydromodpy.simulation.workspace import Workspace, WorkspaceConfig
 # ---- FUNCTION LAUNCH
 
 def run_hydromodpy(watershed_name='11S_short',
@@ -66,26 +68,30 @@ def run_hydromodpy(watershed_name='11S_short',
 
     # ---- EXTRACT CATCHMENT
     
-    initializing_object = initializing.Initializing(catch_name=watershed_name,
-                                                    out_dir_path=out_dir_path)
+    config_init = WorkspaceConfig(
+        catch_name=watershed_name,
+        out_dir_path=Path(out_dir_path),
+        data_path=Path(os.path.join(root_dir, "examples", "11S_short", "data")),
+    )
+    initializing_object = Workspace(config=config_init)
     
     specific_path = os.path.join(root_dir, "examples", "11S_short/")
     dem_path = os.path.join(specific_path, "data", DEM_name)
 
-    geographic_object = geographic.Geographic(
-                    # initializing_object: object=None,
-                     stable_folder = initializing_object.stable_folder,
-                     out_dir_path = initializing_object.catch_folder,
-                     catch_def = catch_def,
-                     dem_init_path = dem_path,
-                     x_outlet = X_coord,
-                     y_outlet = Y_coord,
-                     snap_dist = snap_dist,
-                     buff_area = buff_area,
-                     polyg_shp_path = None,
-                     dem_correc_type=dem_correc_type, # 'fill' or 'breach'
-                     # demflow_dir_path=None
-                     )
+    geo_config = GeographicConfig(
+        catch_def=catch_def,
+        dem_init_path=Path(dem_path),
+        x_outlet=X_coord,
+        y_outlet=Y_coord,
+        snap_dist=snap_dist,
+        buff_area=buff_area,
+        polyg_shp_path=None,
+        dem_correc_type=dem_correc_type,
+    )
+    geographic_object = Geographic(
+        config=geo_config,
+        initializing=initializing_object,
+    )
     
     # Name of the study site
     watershed_name = watershed_name
@@ -117,7 +123,7 @@ def run_hydromodpy(watershed_name='11S_short',
     BV.settings.update_box_model(True)
     BV.settings.update_sink_fill(False)
     BV.settings.update_simulation_state(sim_state) # Transient
-    BV.settings.update_check_model(plot_cross=False, check_grid=True)
+    BV.settings.update_check_model(check_grid=True)
     BV.settings.update_dis_perlen(dis_perlen=False)
 
     # Climatic settings
@@ -213,3 +219,4 @@ if __name__ == '__main__':
     watertable_depth_output = run_hydromodpy()
 
 # ---- NOTES
+

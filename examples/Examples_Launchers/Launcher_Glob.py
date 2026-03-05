@@ -65,9 +65,11 @@ except:
 # HYDROMODPY MODULES
 import hydromodpy as hmp
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Geographic, Workspace, Climatic, Driasclimat, Driaseau, \
+from hydromodpy.geographic import Geographic, Subbasin
+from hydromodpy.data_managers.climatic import Climatic
+from hydromodpy.watershed import Driasclimat, Driaseau, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
-    SafranSurfex, Subbasin, Transport
+    SafranSurfex, Transport
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -79,7 +81,7 @@ from hydromodpy.domain import (
 from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
-from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
@@ -1856,14 +1858,8 @@ def parametrization(results):
             settings_object.update_well_pumping(well_coords=[], well_fluxes=[])
 
         # Check model parameters
-        plot_cross = config["check_model"].get("plot_cross", False)
         check_grid = config["check_model"].get("check_grid", False)
-        cross_ylim = config["check_model"].get("cross_ylim", [0, 150])
-        settings_object.update_check_model(
-            plot_cross=plot_cross,
-            check_grid=check_grid,
-            cross_ylim=cross_ylim
-        )
+        settings_object.update_check_model(check_grid=check_grid)
 
         # Configure Hydraulic (like example12.py)
         print("Hydraulic...")
@@ -3182,3 +3178,4 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+

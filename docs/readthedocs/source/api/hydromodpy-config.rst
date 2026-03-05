@@ -27,20 +27,20 @@ hydromodpy.config.hydromodpy\_config
 
 ----
 
-hydromodpy.simulation.workspace\_config
----------------------------------------
+hydromodpy.simulation.workspace.config
+--------------------------------------
 
-.. autopydantic_model:: hydromodpy.simulation.workspace_config.WorkspaceConfig
+.. autopydantic_model:: hydromodpy.simulation.workspace.config.WorkspaceConfig
    :members:
    :undoc-members:
    :member-order: bysource
 
 ----
 
-hydromodpy.watershed.geographic\_config
------------------------------------------
+hydromodpy.geographic.geographic\_config
+----------------------------------------
 
-.. autopydantic_model:: hydromodpy.watershed.geographic_config.GeographicConfig
+.. autopydantic_model:: hydromodpy.geographic.geographic_config.GeographicConfig
    :members:
    :undoc-members:
    :member-order: bysource

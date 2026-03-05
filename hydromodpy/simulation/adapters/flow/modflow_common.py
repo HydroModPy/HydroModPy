@@ -16,8 +16,8 @@ from __future__ import annotations
 import pickle
 from pathlib import Path
 
-from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.runtime_contracts import RunContext, RunExecutionResult
+from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
+from hydromodpy.simulation.runtime.runtime_contracts import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow_nwt import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
@@ -80,8 +80,6 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
         box=settings.box,
         sink_fill=settings.sink_fill,
         check_grid=settings.check_grid,
-        plot_cross=settings.plot_cross,
-        cross_ylim=tuple(settings.cross_ylim) if settings.cross_ylim else None,
     )
 
 

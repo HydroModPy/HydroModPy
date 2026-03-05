@@ -13,7 +13,7 @@ from hydromodpy.postprocess.flow.matching_streams import run_matching_streams
 from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 
 if TYPE_CHECKING:
-    from launchers.process_simulation.run_state import LauncherRunState
+    from hydromodpy.simulation.state.run_state import LauncherRunState
 
 
 class PostprocessRunner:
@@ -67,6 +67,15 @@ class PostprocessRunner:
                 intermittency_daily=cfg.intermittency.daily,
             )
 
+        if cfg.netcdf.enabled:
+            from hydromodpy.postprocess.netcdf import FlowNetcdfPostprocess
+
+            FlowNetcdfPostprocess(
+                state.setup.geographic,
+                model_modflow=flow_model,
+                datetime_format=cfg.netcdf.datetime_format,
+            )
+
         if cfg.matching_streams and state.data.hydrography is not None:
             run_matching_streams(
                 geographic=state.setup.geographic,
@@ -116,6 +125,20 @@ class PostprocessRunner:
                 residence_times=cfg.timeseries.residence_times,
                 concentration_seepage=cfg.timeseries.concentration_seepage,
                 mass_accumulated=cfg.timeseries.mass_accumulated,
+            )
+
+        if cfg.netcdf.enabled and (transport_model is not None or particle_model is not None):
+            from hydromodpy.postprocess.netcdf import TransportNetcdfPostprocess
+
+            TransportNetcdfPostprocess(
+                state.setup.geographic,
+                model_modflow=flow_model,
+                model_modpath=particle_model,
+                model_mt3dms=transport_model,
+                datetime_format=cfg.netcdf.datetime_format,
+                residence_times=cfg.netcdf.residence_times,
+                concentration_seepage=cfg.netcdf.concentration_seepage,
+                mass_accumulated=cfg.netcdf.mass_accumulated,
             )
 
         display_options = state.cfg.display.to_runtime_options()

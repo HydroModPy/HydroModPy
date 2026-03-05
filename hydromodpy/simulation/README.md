@@ -7,6 +7,7 @@ The simulation package separates four responsibilities:
 - `ProcessContextFactory`: creates shared process objects (`flow`, `transport`) from validated config in one place.
 - `SolverAdapter`: translates one generic `ProcessRun` into the concrete API call sequence for a specific solver.
 - Solver classes (`Modflow`, `Modpath`, `Mt3dms`, `Modflow6`, ...): perform the actual numerical or post-processing work.
+- Runtime state models (`simulation/state/`): hold setup/data/execution scopes shared by launchers, runner, and postprocess.
 
 The intended pipeline is:
 
@@ -61,11 +62,13 @@ adapter module per solver grouped under the `flow/` and `transport/` families.
 
 ## Where to look in the code
 
-- Planning logic: `simulation/planner.py`
-- Generic orchestration: `simulation/runner.py`
-- Runtime contracts shared by runner and adapters: `simulation/runtime_contracts.py`
-- Process-object materialization policy: `simulation/process_context.py`
+- Planning logic: `simulation/planning/`
+- Generic orchestration: `simulation/runtime/runner.py`
+- Runtime contracts shared by runner and adapters: `simulation/runtime/runtime_contracts.py`
+- Process-object materialization policy: `simulation/runtime/process_context.py`
+- Workspace setup and contracts: `simulation/workspace/`
 - Solver-specific bridging code: `simulation/adapters/` (`flow/` and `transport/`)
+- Runtime state contracts and concrete models: `simulation/state/`
 
 ## Hooks and adapters
 

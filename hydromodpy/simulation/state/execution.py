@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
+    from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 
 
 @dataclass
