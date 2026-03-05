@@ -23,3 +23,10 @@ partir de la convention de nommage retenue :
 
 Cette arborescence prepare une separation claire des responsabilites sans
 modifier le launcher principal existant.
+
+## Separation loading/update
+
+- Le chargement des donnees reste dans `hydromodpy/data_managers/runtime_loader.py`.
+- Les mises a jour structurelles issues de ces donnees (ex. geology->domain,
+  oceanic->flow) sont portees par `launchers/structure_updaters.py`.
+- Le launcher orchestre l'ordre: chargement data puis binders structurels.

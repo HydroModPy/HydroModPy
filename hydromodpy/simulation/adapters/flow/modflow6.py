@@ -34,14 +34,14 @@ class Modflow6FlowAdapter:
 
         state = ctx.state
         preprocess_options = build_preprocess_options(state)
-        model_name = flow_model_name(ctx.plan, state.settings.model_name, ctx.run)
+        model_name = flow_model_name(ctx.plan, state.setup.settings.model_name, ctx.run)
         # This is the only MODFLOW 6-specific part of the adapter: wiring the
         # MF6 config block into the concrete solver implementation.
         model_modflow = Modflow6(
-            state.geographic,
-            model_folder=state.workspace.simulations_folder,
+            state.setup.geographic,
+            model_folder=state.setup.workspace.simulations_folder,
             model_name=model_name,
-            bin_path=state.workspace.bin_path,
+            bin_path=state.setup.workspace.bin_path,
             modflow_config=state.cfg.modflow6,
             preprocess_options=preprocess_options,
         )

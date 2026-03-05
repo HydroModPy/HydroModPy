@@ -102,8 +102,8 @@ def test_planner_infers_types_from_hooks_file(tmp_path) -> None:
     hooks_path.write_text(
         "from hydromodpy.watershed import Hydrography, Intermittency\n"
         "def on_after_data(result):\n"
-        "    result.hydrography = Hydrography()\n"
-        "    result.intermittency = Intermittency()\n",
+        "    result.data.hydrography = Hydrography()\n"
+        "    result.data.intermittency = Intermittency()\n",
         encoding="utf-8",
     )
 
@@ -124,7 +124,7 @@ def test_planner_strict_mode_raises_when_hook_infers_missing_section(tmp_path) -
     hooks_path = tmp_path / "hooks.py"
     hooks_path.write_text(
         "def on_after_data(result):\n"
-        "    result.hydrography = object()\n",
+        "    result.data.hydrography = object()\n",
         encoding="utf-8",
     )
 
@@ -142,7 +142,7 @@ def test_planner_warn_mode_allows_hook_inference_without_section(tmp_path) -> No
     hooks_path = tmp_path / "hooks.py"
     hooks_path.write_text(
         "def on_after_data(result):\n"
-        "    result.hydrography = object()\n",
+        "    result.data.hydrography = object()\n",
         encoding="utf-8",
     )
 

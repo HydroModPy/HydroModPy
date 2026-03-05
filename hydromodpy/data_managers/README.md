@@ -35,6 +35,8 @@ L'objectif de la couche racine est de decider, de maniere deterministe, **quels 
   Chargement runtime des donnees activees, pilote par `DataLoadPlan`.
   Ce module porte la logique de dispatch par type (`oceanic`, `hydrometry`,
   `hydrography`, etc.) pour garder le launcher mince.
+  Il ne met pas a jour les structures metier (domain/process): ces binders
+  sont appeles ensuite par le launcher.
 
 ---
 

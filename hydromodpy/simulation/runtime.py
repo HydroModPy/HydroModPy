@@ -22,22 +22,33 @@ from typing import Any, Protocol
 from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
 
 
-class SimulationState(Protocol):
-    """Minimal mutable state consumed directly during plan execution.
+class SimulationSetupState(Protocol):
+    """Minimal setup scope consumed by runner/adapters."""
 
-    ``SimulationRunner`` and the solver adapters only rely on this protocol,
-    not on a concrete implementation such as ``RunResult``. The canonical model
-    registry is ``models_by_run_id``.
-    """
-
-    cfg: Any
     workspace: Any
     settings: Any
     geographic: Any
-    flow: Any
+    flow: Any | None
     domain: Any
-    transport: Any
+    transport: Any | None
+
+
+class SimulationExecutionState(Protocol):
+    """Minimal results scope consumed by runner/adapters."""
+
     models_by_run_id: dict[str, Any]
+
+
+class SimulationState(Protocol):
+    """Minimal mutable state consumed directly during plan execution.
+
+    ``SimulationRunner`` and solver adapters only rely on this protocol, not
+    on a concrete implementation such as ``RunResult``.
+    """
+
+    cfg: Any
+    setup: SimulationSetupState
+    results: SimulationExecutionState
 
 
 @dataclass(frozen=True)
@@ -60,7 +71,7 @@ class RunExecutionResult:
     """Payload returned by a solver adapter after one run completes.
 
     ``primary_model`` is the exact model produced by the run and is always
-    stored under ``state.models_by_run_id[run.id]`` by the runner.
+    stored under ``state.results.models_by_run_id[run.id]`` by the runner.
     """
 
     primary_model: Any

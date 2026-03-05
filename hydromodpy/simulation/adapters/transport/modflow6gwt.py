@@ -22,10 +22,10 @@ class Modflow6GwtTransportAdapter:
         state = ctx.state
         flow_model = required_flow_model(ctx)
         model_transport = Modflow6Transport(
-            state.domain,
-            state.transport,
+            state.setup.domain,
+            state.setup.transport,
             flow_model,
-            model_folder=state.workspace.simulations_folder,
+            model_folder=state.setup.workspace.simulations_folder,
             model_name=flow_model.model_name,
             suffix_name=transport_output_suffix(ctx.plan, ctx.run),
         )

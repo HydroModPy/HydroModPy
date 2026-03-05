@@ -15,7 +15,7 @@ Example ``hooks.py``::
     from launchers import RunResult
 
     def on_before_flow(result: RunResult) -> None:
-        result.flow.set_recharge(...)
+        result.setup.flow.set_recharge(...)
 """
 
 from __future__ import annotations

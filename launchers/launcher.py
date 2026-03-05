@@ -6,7 +6,7 @@ into a concrete modeling run.
 The launcher deliberately stays thin:
 
 1. it loads and validates the configuration,
-2. it prepares shared runtime objects used by all solvers,
+2. it prepares shared runtime context used by process solvers,
 3. it asks the simulation layer to resolve the declared process list,
 4. it delegates the actual solver execution to ``SimulationRunner``.
 
@@ -56,14 +56,13 @@ from hydromodpy.data_managers import (
     DataManagersPlanner,
     DataManagersRuntimeLoader,
 )
-from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.domain import Domain
-from hydromodpy.process import Flow, Transport
-from hydromodpy.simulation import SimulationPlanner
+from hydromodpy.simulation import ProcessContextFactory, SimulationPlanner
 from hydromodpy.simulation.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.watershed.settings import Settings
 from launchers.hook_registry import HookRegistry
 from launchers.run_result import RunResult
+from launchers.structure_updaters import apply_geology_to_domain, apply_oceanic_to_flow
 
 
 class HydroModPyLauncher:
@@ -135,8 +134,9 @@ class HydroModPyLauncher:
             cfg=self.cfg,
             config_path=self.config_path,
             raw_toml=raw_toml,
-            data_plan=data_plan,
         )
+        self.result.results.data_plan = data_plan
+        self.process_context_factory = ProcessContextFactory()
         self.hooks = HookRegistry.discover(self.config_path)
 
     @staticmethod
@@ -188,10 +188,10 @@ class HydroModPyLauncher:
             )
 
         plan = self._create_simulation_plan()
-        self.result.simulation_plan = plan
+        self.result.results.simulation_plan = plan
         # Keep a direct lookup table by run id because downstream code and
         # hooks often need to reason about concrete runs, not just the flat list.
-        self.result.process_runs_by_id = {run.id: run for run in plan.runs}
+        self.result.results.process_runs_by_id = {run.id: run for run in plan.runs}
 
         self._run_setup()
         self._run_data()
@@ -201,7 +201,8 @@ class HydroModPyLauncher:
             callbacks=ProcessCallbacks(
                 before_process=lambda process_type: self._call_process_hook("before", process_type),
                 after_process=lambda process_type: self._call_process_hook("after", process_type),
-            )
+            ),
+            process_context_factory=self.process_context_factory,
         ).execute(plan, self.result)
 
         return self.result
@@ -213,8 +214,8 @@ class HydroModPyLauncher:
 
         - workspace and folders,
         - geographic context and topographic support,
-        - domain and optional geology zone,
-        - flow and transport process objects,
+        - domain geometry,
+        - process-level context objects (``flow``, ``transport``),
         - generic launcher settings.
 
         It runs once, even when the simulation plan later contains several
@@ -226,20 +227,17 @@ class HydroModPyLauncher:
 
         self.hooks.call("on_before_setup", r)
 
-        r.workspace = hmp.Workspace(config=cfg.workspace)
-        r.geographic = hmp.Geographic(cfg.geographic, r.workspace)
-        surface_topo = r.geographic.get_domain_surface_topo()
+        r.setup.workspace = hmp.Workspace(config=cfg.workspace)
+        r.setup.geographic = hmp.Geographic(cfg.geographic, r.setup.workspace)
+        surface_topo = r.setup.geographic.get_domain_surface_topo()
 
-        r.domain = Domain(config=cfg.domain, surface_topo=surface_topo)
-        if "geology" in cfg.data.types:
-            geology = GeologyField.from_watershed_config(
-                cfg.data.geology, raster_support=surface_topo.support
-            )
-            r.domain.set_zone("geology", geology)
+        r.setup.domain = Domain(config=cfg.domain, surface_topo=surface_topo)
 
-        r.flow = Flow(config=cfg.flow)
-        r.settings = Settings()
-        r.transport = Transport(config=cfg.transport)
+        r.setup.settings = Settings()
+        # Keep eager context creation in setup for compatibility with data
+        # binders and existing hooks.
+        self.process_context_factory.ensure_flow(r)
+        self.process_context_factory.ensure_transport(r)
 
         self.hooks.call("on_after_setup", r)
 
@@ -247,15 +245,25 @@ class HydroModPyLauncher:
         """Load the external forcings shared by all process runs.
 
         Runtime loading is delegated to ``DataManagersRuntimeLoader`` in the
-        data_managers package to keep launcher orchestration thin.
+        data_managers package. Structural bindings (for example geology to
+        domain zones) are then applied explicitly by launcher-level updaters.
         """
         r = self.result
         self.hooks.call("on_before_data", r)
-        DataManagersRuntimeLoader(
+        loader = DataManagersRuntimeLoader(
             config_path=self.config_path,
             data_plan=self.data_plan,
-        ).load_all(r)
+        )
+        loader.load_all(r)
+        self._apply_structural_updates_from_data()
         self.hooks.call("on_after_data", r)
+
+    def _apply_structural_updates_from_data(self) -> None:
+        """Bind loaded data objects to runtime structures using explicit updaters."""
+        r = self.result
+        apply_geology_to_domain(domain=r.setup.domain, geology=r.data.geology)
+        self.process_context_factory.ensure_flow(r)
+        apply_oceanic_to_flow(flow=r.setup.flow, oceanic=r.data.oceanic)
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.

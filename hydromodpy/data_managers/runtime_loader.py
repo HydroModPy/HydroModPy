@@ -27,13 +27,13 @@ class DataManagersRuntimeLoader:
 
     def load_all(self, result: "RunResult") -> None:
         """Load active data-manager families into ``result``."""
-        ws = result.workspace
-        result.climatic = Climatic(out_path=ws.catch_folder)
+        ws = result.setup.workspace
+        result.data.climatic = Climatic(out_path=ws.catch_folder)
 
         active_types = tuple(self.data_plan.types)
         for type_name in active_types:
             if type_name == "geology":
-                # Geology is loaded during setup to build domain zones.
+                self._load_geology_data(result)
                 continue
             if type_name == "oceanic":
                 self._load_oceanic_data(result)
@@ -52,8 +52,35 @@ class DataManagersRuntimeLoader:
                 continue
             print(f"[DataManagersPlanner] Warning: unsupported data type '{type_name}' in plan.")
 
-        if "ocean" in result.flow.boundary_conditions and result.oceanic is not None:
-            result.flow.boundary_conditions["ocean"].value = result.oceanic.MSL
+    def _load_geology_data(self, result: "RunResult") -> None:
+        """Load geology support as a standalone data object."""
+        from hydromodpy.data_managers.geology.geology_field import GeologyField
+
+        geology_cfg = result.cfg.data.geology
+        if geology_cfg is None:
+            self._handle_missing_data_section(
+                result,
+                "geology",
+                "missing [data.geology] section",
+            )
+            return
+
+        raster_support = result.setup.domain.surface_topo.support
+        if raster_support is None:
+            self._handle_data_loading_error(
+                result,
+                "geology",
+                ValueError("domain surface raster support is not available"),
+            )
+            return
+
+        try:
+            result.data.geology = GeologyField.from_watershed_config(
+                geology_cfg,
+                raster_support=raster_support,
+            )
+        except Exception as exc:
+            self._handle_data_loading_error(result, "geology", exc)
 
     def _load_oceanic_data(self, result: "RunResult") -> None:
         """Load oceanic data and optional mean sea-level boundary value."""
@@ -69,12 +96,12 @@ class DataManagersRuntimeLoader:
         try:
             oceanic = Oceanic()
             oceanic.extract_local_data(
-                out_path=result.workspace.catch_folder,
-                geographic=result.geographic,
+                out_path=result.setup.workspace.catch_folder,
+                geographic=result.setup.geographic,
                 oceanic_path=oceanic_path,
             )
-            oceanic.update_MSL(oceanic.fetch_msl_or_default(result.geographic))
-            result.oceanic = oceanic
+            oceanic.update_MSL(oceanic.fetch_msl_or_default(result.setup.geographic))
+            result.data.oceanic = oceanic
         except Exception as exc:
             self._handle_data_loading_error(result, "oceanic", exc)
 
@@ -120,11 +147,11 @@ class DataManagersRuntimeLoader:
         if isinstance(streams_file, str) and streams_file.strip():
             streams_file = str(self._resolve_path_like(streams_file))
         try:
-            result.hydrography = Hydrography(
-                out_path=result.workspace.catch_folder,
+            result.data.hydrography = Hydrography(
+                out_path=result.setup.workspace.catch_folder,
                 types_obs=types_obs,
                 fields_obs=fields_obs,
-                geographic=result.geographic,
+                geographic=result.setup.geographic,
                 hydro_path=hydro_path,
                 streams_file=streams_file,
             )
@@ -161,11 +188,11 @@ class DataManagersRuntimeLoader:
             )
             return
         try:
-            result.intermittency = Intermittency(
-                out_path=result.workspace.catch_folder,
+            result.data.intermittency = Intermittency(
+                out_path=result.setup.workspace.catch_folder,
                 intermittency_path=intermittency_path,
                 file_name=file_name,
-                geographic=result.geographic,
+                geographic=result.setup.geographic,
             )
         except Exception as exc:
             self._handle_data_loading_error(result, "intermittency", exc)
@@ -192,12 +219,12 @@ class DataManagersRuntimeLoader:
 
         payload = self._normalize_station_set_section(raw_section, root_key="hydrometry")
         if str(payload["selection"].get("mode", "mask")).strip().lower() == "mask":
-            payload["selection"]["mask_path"] = str(result.geographic.watershed_shp)
+            payload["selection"]["mask_path"] = str(result.setup.geographic.watershed_shp)
 
         try:
             payload = validate_hydrometry_config_data(payload)
             self._resolve_station_set_paths(payload)
-            result.hydrometry = StationSet.from_config(payload)
+            result.data.hydrometry = StationSet.from_config(payload)
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrometry", exc)
 
@@ -223,12 +250,12 @@ class DataManagersRuntimeLoader:
 
         payload = self._normalize_station_set_section(raw_section, root_key="piezometry")
         if str(payload["selection"].get("mode", "mask")).strip().lower() == "mask":
-            payload["selection"]["mask_path"] = str(result.geographic.watershed_shp)
+            payload["selection"]["mask_path"] = str(result.setup.geographic.watershed_shp)
 
         try:
             payload = validate_piezometry_config_data(payload)
             self._resolve_station_set_paths(payload)
-            result.piezometry = PiezometerSet.from_config(payload)
+            result.data.piezometry = PiezometerSet.from_config(payload)
         except Exception as exc:
             self._handle_data_loading_error(result, "piezometry", exc)
 

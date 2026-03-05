@@ -22,13 +22,13 @@ class Mt3dmsTransportAdapter:
         state = ctx.state
         flow_model = required_flow_model(ctx)
         model_transport = Mt3dms(
-            state.domain,
-            state.transport,
+            state.setup.domain,
+            state.setup.transport,
             flow_model,
-            model_folder=state.workspace.simulations_folder,
+            model_folder=state.setup.workspace.simulations_folder,
             model_name=flow_model.model_name,
             suffix_name=transport_output_suffix(ctx.plan, ctx.run),
-            bin_path=state.workspace.bin_path,
+            bin_path=state.setup.workspace.bin_path,
         )
         model_transport.pre_processing()
         model_transport.processing(write_model=True, run_model=True, verbose=True)

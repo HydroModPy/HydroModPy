@@ -63,11 +63,11 @@ def on_after_data(result: RunResult) -> None:
     This hook extends the generic launcher ``data`` phase. At this point the
     launcher has already created:
 
-    - ``result.workspace``
-    - ``result.geographic``
-    - ``result.flow``
-    - ``result.climatic``
-    - ``result.oceanic``
+    - ``result.setup.workspace``
+    - ``result.setup.geographic``
+    - ``result.setup.flow``
+    - ``result.data.climatic``
+    - ``result.data.oceanic``
 
     The hook adds the study assets that are not part of the generic core:
 
@@ -80,19 +80,19 @@ def on_after_data(result: RunResult) -> None:
     -----
     ``StationSet.from_config`` can raise ``ValueError`` for invalid user
     selections or missing source data. This example treats that as a non-fatal
-    warning and stores ``None`` in ``result.hydrometry`` so the rest of the run
+    warning and stores ``None`` in ``result.data.hydrometry`` so the rest of the run
     can continue.
     """
     from hydromodpy.data_managers.hydrometry.station_set import StationSet
     from hydromodpy.watershed import Hydrography, Intermittency
 
-    ws = result.workspace
+    ws = result.setup.workspace
     data_path = result.cfg.workspace.data_path
-    geo = result.geographic
+    geo = result.setup.geographic
 
     # Load the stream dataset used by the Naizin example. The shapefile is
     # located by "type" inside the configured hydro-data directory.
-    result.hydrography = Hydrography(
+    result.data.hydrography = Hydrography(
         out_path=ws.catch_folder,
         types_obs=["botopage2024_naizin_streams_perennial-intermittent"],
         fields_obs=["FID"],
@@ -103,7 +103,7 @@ def on_after_data(result: RunResult) -> None:
 
     # Load the regional ONDE intermittency observations used for comparison in
     # downstream timeseries and diagnostics.
-    result.intermittency = Intermittency(
+    result.data.intermittency = Intermittency(
         out_path=ws.catch_folder,
         intermittency_path=data_path,
         file_name="regional onde stations.shp",
@@ -138,15 +138,15 @@ def on_after_data(result: RunResult) -> None:
         hydro_cfg["selection"]["mask_path"] = geo.watershed_shp
 
     try:
-        result.hydrometry = StationSet.from_config(hydro_cfg)
+        result.data.hydrometry = StationSet.from_config(hydro_cfg)
     except ValueError as exc:
         print(f"Warning: Hydrometry loading failed - {exc}")
-        result.hydrometry = None
+        result.data.hydrometry = None
 
     # Seed the climatic object with one transient year of observed recharge and
     # runoff. Later hooks overwrite the actual synthetic forcing used by the
     # flow model, but they still rely on these series as the initial template.
-    result.climatic.update_recharge_reanalysis(
+    result.data.climatic.update_recharge_reanalysis(
         path_file=data_path / "_climate_REANALYSIS.csv",
         clim_mod="REA",
         clim_sce="historic",
@@ -155,7 +155,7 @@ def on_after_data(result: RunResult) -> None:
         time_step="ME",
         sim_state="transient",
     )
-    result.climatic.update_runoff_reanalysis(
+    result.data.climatic.update_runoff_reanalysis(
         path_file=data_path / "_climate_REANALYSIS.csv",
         clim_mod="REA",
         clim_sce="historic",
@@ -171,14 +171,14 @@ def on_before_flow(result: RunResult) -> None:
 
     This hook runs once before the first flow solver in the current process
     block. If several flow solvers are declared, they all consume the same
-    ``result.flow`` object configured here.
+    ``result.setup.flow`` object configured here.
 
     The hook performs four tasks:
 
     - replace the raw reanalysis recharge by a synthetic monthly scenario
     - derive runoff from recharge
     - set study-specific model naming and preprocessing options
-    - inject the final recharge policy into ``result.flow``
+    - inject the final recharge policy into ``result.setup.flow``
 
     The synthetic scenario is intentionally simple:
 
@@ -186,7 +186,7 @@ def on_before_flow(result: RunResult) -> None:
     - March, April, May, June, August, September, October: ``0 mm/day``
     - July: ``-1 mm/day`` so that evapotranspiration handling is exercised
     """
-    raw_recharge = result.climatic.recharge
+    raw_recharge = result.data.climatic.recharge
 
     # Keep the same 2003 monthly index as the reanalysis series, then overwrite
     # values with a deterministic synthetic scenario used for the example.
@@ -203,8 +203,8 @@ def on_before_flow(result: RunResult) -> None:
     recharge = synthetic_recharge / 1000
     runoff = recharge * 0.1
 
-    result.climatic.update_recharge(recharge, sim_state=result.flow.flow_regime)
-    result.climatic.update_runoff(runoff, sim_state=result.flow.flow_regime)
+    result.data.climatic.update_recharge(recharge, sim_state=result.setup.flow.flow_regime)
+    result.data.climatic.update_runoff(runoff, sim_state=result.setup.flow.flow_regime)
 
     alpha = 15
     hydraulic_conductivity = 5e-5 * 24 * 3600
@@ -215,10 +215,10 @@ def on_before_flow(result: RunResult) -> None:
         f"{model_version}_K{hydraulic_conductivity / 24 / 3600:.1e}"
         f"_a{alpha:.1f}_Sy{specific_yield * 100:.1f}"
     )
-    result.settings.update_model_name(model_name)
-    result.settings.update_box_model(box=True)
-    result.settings.update_sink_fill(sink_fill=False)
-    result.settings.update_check_model(
+    result.setup.settings.update_model_name(model_name)
+    result.setup.settings.update_box_model(box=True)
+    result.setup.settings.update_sink_fill(sink_fill=False)
+    result.setup.settings.update_check_model(
         plot_cross=True,
         check_grid=True,
         cross_ylim=[0, 200],
@@ -227,15 +227,15 @@ def on_before_flow(result: RunResult) -> None:
     # Reuse the policy declared in TOML for stress period 0 and negative
     # recharge handling. The time series values themselves are the synthetic
     # series computed above.
-    recharge_config = result.flow.sinks_sources.get("recharge")
+    recharge_config = result.setup.flow.sinks_sources.get("recharge")
     first_clim = recharge_config.first_clim if recharge_config is not None else "mean"
-    result.climatic.update_first_clim(first_clim)
+    result.data.climatic.update_first_clim(first_clim)
 
     negative_to_evt = recharge_config.negative_to_evt if recharge_config is not None else True
-    result.flow.set_recharge(
+    result.setup.flow.set_recharge(
         FlowRechargeConfig(
-            values=result.climatic.recharge,
-            first_clim=result.climatic.first_clim,
+            values=result.data.climatic.recharge,
+            first_clim=result.data.climatic.first_clim,
             negative_to_evt=negative_to_evt,
         )
     )
@@ -258,15 +258,15 @@ def on_after_flow(result: RunResult) -> None:
     from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
     from hydromodpy.modeling import timeseries
 
-    geo = result.geographic
-    ws = result.workspace
+    geo = result.setup.geographic
+    ws = result.setup.workspace
     model_modflow = _resolve_flow_model(result)
     model_name = model_modflow.model_name
 
     timeseries.Timeseries(
         geo,
         model_modflow=model_modflow,
-        runoff=result.climatic.runoff,
+        runoff=result.data.climatic.runoff,
         model_modpath=None,
         model_mt3dms=None,
         datetime_format=True,
@@ -278,7 +278,7 @@ def on_after_flow(result: RunResult) -> None:
 
     MatchingStreams(
         geo,
-        result.hydrography,
+        result.data.hydrography,
         ws,
         iteration_label=model_name,
         from_calib=False,
@@ -303,7 +303,7 @@ def on_before_transport(result: RunResult) -> None:
     """
     from hydromodpy.solver.modflow_nwt import Modflow
 
-    ws = result.workspace
+    ws = result.setup.workspace
     flow_model = _resolve_flow_model(result)
     modpath_run = result.get_run_for_solver("modpath")
     mt3dms_run = result.get_run_for_solver("mt3dms")
@@ -333,7 +333,7 @@ def on_before_transport(result: RunResult) -> None:
             # The TOML uses a readable sentinel value; the solver API expects the
             # concrete raster path created just above.
             modpath_params["zone_partic"] = str(seepage_clip_tif)
-        result.transport.modpath.set_parameters(modpath_params)
+        result.setup.transport.modpath.set_parameters(modpath_params)
 
     nper = flow_model.nper
     if isinstance(flow_model, Modflow):
@@ -360,13 +360,13 @@ def on_before_transport(result: RunResult) -> None:
     )
 
     if mt3dms_run is not None:
-        result.transport.mt3dms.set_parameters(result.cfg.transport.mt3dms.parameters.model_dump())
-        result.transport.mt3dms.set_parameters(runtime_parameters)
+        result.setup.transport.mt3dms.set_parameters(result.cfg.transport.mt3dms.parameters.model_dump())
+        result.setup.transport.mt3dms.set_parameters(runtime_parameters)
     elif modflow6gwt_run is not None:
-        result.transport.modflow6gwt.set_parameters(
+        result.setup.transport.modflow6gwt.set_parameters(
             result.cfg.transport.modflow6gwt.parameters.model_dump()
         )
-        result.transport.modflow6gwt.set_parameters(runtime_parameters)
+        result.setup.transport.modflow6gwt.set_parameters(runtime_parameters)
 
 
 def on_after_transport(result: RunResult) -> None:
@@ -395,9 +395,9 @@ def on_after_transport(result: RunResult) -> None:
     if transport_model is not None:
         scenario = "s1"
         timeseries.Timeseries(
-            result.geographic,
+            result.setup.geographic,
             model_modflow=flow_model,
-            runoff=result.climatic.runoff,
+            runoff=result.data.climatic.runoff,
             model_modpath=particle_model,
             model_mt3dms=transport_model,
             suffix_name=scenario,

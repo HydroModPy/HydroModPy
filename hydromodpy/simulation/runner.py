@@ -9,10 +9,11 @@ objects. The runner therefore does not decide *what* should run or *in which
 order*. Its job is narrower:
 
 - walk through the runs in the order provided by the planner,
+- ensure each process-family block has its required runtime objects,
 - open and close process-family blocks via optional callbacks,
 - resolve the exact upstream models referenced by ``depends_on``,
 - delegate solver-specific execution to the matching adapter,
-- store each produced model back into ``state.models_by_run_id``.
+- store each produced model back into ``state.results.models_by_run_id``.
 
 In one sentence:
 
@@ -31,6 +32,7 @@ from typing import Callable
 
 from hydromodpy.simulation.adapters import get_solver_adapter
 from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
+from hydromodpy.simulation.process_context import ProcessContextFactory
 from hydromodpy.simulation.runtime import RunContext, RunExecutionResult, SimulationState
 
 
@@ -58,7 +60,7 @@ class SimulationRunner:
     4. repeat until the plan is exhausted.
 
     The runner is intentionally stateful: each completed run writes its model
-    back into ``state.models_by_run_id`` so later runs can consume it.
+    back into ``state.results.models_by_run_id`` so later runs can consume it.
 
     Another useful simplification is:
 
@@ -66,8 +68,13 @@ class SimulationRunner:
     - the selected adapter decides *how* that run is executed.
     """
 
-    def __init__(self, callbacks: ProcessCallbacks | None = None) -> None:
+    def __init__(
+        self,
+        callbacks: ProcessCallbacks | None = None,
+        process_context_factory: ProcessContextFactory | None = None,
+    ) -> None:
         self.callbacks = callbacks or ProcessCallbacks()
+        self.process_context_factory = process_context_factory or ProcessContextFactory()
 
     def execute(self, plan: SimulationPlan, state: SimulationState) -> None:
         """Execute each planned run in order against ``state``.
@@ -80,6 +87,7 @@ class SimulationRunner:
 
         - it does not rebuild planning rules;
         - it does not instantiate solver classes directly;
+        - it does ensure process-level context exists before process callbacks;
         - it only coordinates the execution flow around those operations.
 
         Example
@@ -111,6 +119,9 @@ class SimulationRunner:
             if run.process_type != current_process_type:
                 if current_process_type is not None:
                     self._call_after_process(current_process_type)
+                # Materialize shared process objects before hooks fire so
+                # before-process callbacks can safely mutate/read them.
+                self.process_context_factory.ensure_for_process(state, run.process_type)
                 self._call_before_process(run.process_type)
                 current_process_type = run.process_type
 
@@ -179,12 +190,12 @@ class SimulationRunner:
 
         models: list[object] = []
         for dependency_id in run.depends_on:
-            if dependency_id not in state.models_by_run_id:
+            if dependency_id not in state.results.models_by_run_id:
                 raise ValueError(
                     f"Process run '{run.id}' depends on '{dependency_id}', "
                     "but that run has not produced a model yet."
                 )
-            models.append(state.models_by_run_id[dependency_id])
+            models.append(state.results.models_by_run_id[dependency_id])
         return tuple(models)
 
     def _record_run_output(
@@ -195,8 +206,8 @@ class SimulationRunner:
     ) -> None:
         """Persist one completed run output back into the shared runtime state.
 
-        ``models_by_run_id`` is the canonical per-run registry used for future
+        ``results.models_by_run_id`` is the canonical per-run registry used for future
         dependency resolution.
         """
 
-        state.models_by_run_id[run.id] = result.primary_model
+        state.results.models_by_run_id[run.id] = result.primary_model
