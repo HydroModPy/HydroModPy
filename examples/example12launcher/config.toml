@@ -142,7 +142,7 @@ substratum_elevation = 0.0
 # (for example domain.zone_ids, flow.active_bc, hooks.py).
 # Allowed values: "geology", "hydrography", "hydrometry",
 # "intermittency", "oceanic", "piezometry".
-types = ["geology"]
+types = ["geology", "hydrography", "intermittency", "hydrometry"]
 # Policy for inferred types not explicitly listed in data.types.
 # "warn"   = keep inferred types, continue if data.<type> section is missing.
 # "strict" = raise if an inferred type has no data.<type> section
@@ -170,9 +170,27 @@ landsea = false
 
 
 # ----------------------------------------------------------------------
-# Hydrometry station-set configuration (example script section).
+# Hydrography configuration.
 # ----------------------------------------------------------------------
-[hydrometry_stations]
+[data.hydrography]
+# Observation layer identifiers searched in hydro_path.
+types_obs = ["botopage2024_naizin_streams_perennial-intermittent"]
+# Attribute names associated with each observation layer.
+fields_obs = ["FID"]
+
+
+# ----------------------------------------------------------------------
+# Intermittency configuration.
+# ----------------------------------------------------------------------
+[data.intermittency]
+# Intermittency observation filename.
+file_name = "regional onde stations.shp"
+
+
+# ----------------------------------------------------------------------
+# Hydrometry station-set configuration.
+# ----------------------------------------------------------------------
+[data.hydrometry]
 # Hydrometric variable requested from the source (for example daily discharge code).
 variable = "QmnJ"
 # If true, display diagnostic information while loading station data.
@@ -182,21 +200,19 @@ date_start = "2019-01-01"
 # Optional inclusive end date filter applied to the requested time series.
 date_end = "2025-12-31"
 
-[hydrometry_stations.source]
+[data.hydrometry.source]
 # Hydrometry source mode: remote API lookup or local exported files.
 mode = "api"
 # Local directory containing previously exported station files when mode='local'.
 local_data_dir = "hydrometry_exports"
 
-[hydrometry_stations.selection]
+[data.hydrometry.selection]
 # Station selection mode: explicit station ids or spatial mask filtering.
 mode = "mask"
 # Explicit list of hydrometric station identifiers used when mode='stations'.
 station_ids = ["J736422001"]
-# Path to the polygon mask used to keep stations intersecting the study area when mode='mask'.
-mask_path = "will be dynamically set from Geographic class"
 
-[hydrometry_stations.output]
+[data.hydrometry.output]
 # If true, export the loaded station series to disk after selection.
 enabled = true
 # Destination directory for exported hydrometry files.

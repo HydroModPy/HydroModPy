@@ -33,8 +33,6 @@ already exist on ``RunResult`` when the relevant hook is called.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 
@@ -58,90 +56,20 @@ def _resolve_flow_model(result: RunResult):
 
 
 def on_after_data(result: RunResult) -> None:
-    """Load the shared external datasets required by the study.
+    """Seed climate forcing once generic data-manager loading is complete.
 
     This hook extends the generic launcher ``data`` phase. At this point the
     launcher has already created:
 
-    - ``result.setup.workspace``
-    - ``result.setup.geographic``
-    - ``result.setup.flow``
     - ``result.data.climatic``
-    - ``result.data.oceanic``
+    - ``result.data.hydrography``
+    - ``result.data.intermittency``
+    - ``result.data.hydrometry``
 
-    The hook adds the study assets that are not part of the generic core:
-
-    - Naizin-specific hydrography
-    - intermittency observations
-    - optional hydrometry station exports driven by ``[hydrometry_stations]``
-    - a one-year SAFRAN-ISBA reanalysis slice used as the raw climate source
-
-    Notes
-    -----
-    ``StationSet.from_config`` can raise ``ValueError`` for invalid user
-    selections or missing source data. This example treats that as a non-fatal
-    warning and stores ``None`` in ``result.data.hydrometry`` so the rest of the run
-    can continue.
+    Those datasets now come from ``[data.*]`` TOML sections via the generic
+    runtime loader. This hook keeps only the study-specific climate bootstrap.
     """
-    from hydromodpy.data_managers.hydrometry.station_set import StationSet
-    from hydromodpy.watershed import Hydrography, Intermittency
-
-    ws = result.setup.workspace
     data_path = result.cfg.workspace.data_path
-    geo = result.setup.geographic
-
-    # Load the stream dataset used by the Naizin example. The shapefile is
-    # located by "type" inside the configured hydro-data directory.
-    result.data.hydrography = Hydrography(
-        out_path=ws.catch_folder,
-        types_obs=["botopage2024_naizin_streams_perennial-intermittent"],
-        fields_obs=["FID"],
-        geographic=geo,
-        hydro_path=data_path,
-        streams_file=None,
-    )
-
-    # Load the regional ONDE intermittency observations used for comparison in
-    # downstream timeseries and diagnostics.
-    result.data.intermittency = Intermittency(
-        out_path=ws.catch_folder,
-        intermittency_path=data_path,
-        file_name="regional onde stations.shp",
-        geographic=geo,
-    )
-
-    # The hydrometry section is custom to this example and is therefore read
-    # from raw TOML rather than the validated Pydantic config tree.
-    hydro_section = result.raw_toml.get("hydrometry_stations", {})
-    hydro_cfg = {
-        "hydrometry": {
-            key: value
-            for key, value in hydro_section.items()
-            if key not in ["source", "selection", "output"]
-        },
-        "source": hydro_section.get("source", {}),
-        "selection": hydro_section.get("selection", {}),
-        "output": hydro_section.get("output", {}),
-    }
-
-    output_path = hydro_cfg["output"].get("path")
-    if output_path:
-        # Resolve relative export paths from the config file location so the
-        # hook behaves the same regardless of the current working directory.
-        resolved_output = Path(str(output_path)).expanduser()
-        if not resolved_output.is_absolute():
-            hydro_cfg["output"]["path"] = str((result.config_path.parent / resolved_output).resolve())
-
-    if hydro_cfg["selection"].get("mode", "mask") == "mask":
-        # In mask mode the example always uses the watershed polygon produced by
-        # the launcher setup phase, not a hand-maintained static path.
-        hydro_cfg["selection"]["mask_path"] = geo.watershed_shp
-
-    try:
-        result.data.hydrometry = StationSet.from_config(hydro_cfg)
-    except ValueError as exc:
-        print(f"Warning: Hydrometry loading failed - {exc}")
-        result.data.hydrometry = None
 
     # Seed the climatic object with one transient year of observed recharge and
     # runoff. Later hooks overwrite the actual synthetic forcing used by the
