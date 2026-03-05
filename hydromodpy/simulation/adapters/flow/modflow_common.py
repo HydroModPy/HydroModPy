@@ -75,7 +75,7 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
     place.
     """
 
-    settings = state.settings
+    settings = state.setup.settings
     return ModflowPreprocessOptions(
         box=settings.box,
         sink_fill=settings.sink_fill,
@@ -122,15 +122,15 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     # Pre-processing materializes the grid, packages, and disk inputs for the
     # chosen flow backend using the already-prepared shared domain objects.
     model_modflow.pre_processing(
-        flow=state.flow,
-        domain=state.domain,
+        flow=state.setup.flow,
+        domain=state.setup.domain,
         options=preprocess_options,
     )
 
     # Keep emitting the legacy payload immediately after preparation so older
     # post-processing utilities can reopen the prepared model using the
     # historical file convention.
-    _persist_pre_run_payload(state.workspace, model_modflow.model_name, model_modflow)
+    _persist_pre_run_payload(state.setup.workspace, model_modflow.model_name, model_modflow)
 
     # The numerical run is shared across flow backends: write files, execute
     # the solver, and link MT3DMS-compatible outputs when available.

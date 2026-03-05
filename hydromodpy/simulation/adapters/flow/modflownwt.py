@@ -34,14 +34,14 @@ class ModflowNwtFlowAdapter:
 
         state = ctx.state
         preprocess_options = build_preprocess_options(state)
-        model_name = flow_model_name(ctx.plan, state.settings.model_name, ctx.run)
+        model_name = flow_model_name(ctx.plan, state.setup.settings.model_name, ctx.run)
         # This is the only MODFLOW-NWT-specific part of the adapter: wiring
         # the correct config section into the concrete solver class.
         model_modflow = Modflow(
-            state.geographic,
-            model_folder=state.workspace.simulations_folder,
+            state.setup.geographic,
+            model_folder=state.setup.workspace.simulations_folder,
             model_name=model_name,
-            bin_path=state.workspace.bin_path,
+            bin_path=state.setup.workspace.bin_path,
             modflow_config=state.cfg.modflownwt,
             preprocess_options=preprocess_options,
         )

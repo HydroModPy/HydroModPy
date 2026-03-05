@@ -1,18 +1,16 @@
-"""Concrete runtime state shared across the launcher pipeline.
+"""Concrete runtime state shared across one launcher session.
 
-This module holds the mutable "working memory" of one launcher session.
-It is useful to distinguish three layers:
+``RunResult`` separates three concerns:
 
-- the config describes what the user asked for;
-- the ``SimulationPlan`` describes which concrete runs must execute, in order;
-- ``RunResult`` stores the real objects created while that plan is executed.
+- ``setup``: structural objects prepared once (workspace, domain, flow, ...);
+- ``data``: loaded support data (climatic, oceanic, hydrometry, ...);
+- ``results``: execution outputs and registries (plans, produced models).
 
-In practice, ``RunResult`` is the runtime state passed between setup, data,
-hooks, and ``SimulationRunner``. As execution progresses, it accumulates both:
+Callers are expected to use explicit scopes:
 
-- shared prepared objects such as ``workspace``, ``domain``, ``flow``, and
-  ``transport``;
-- produced solver models, with ``models_by_run_id`` as the canonical registry.
+- ``result.setup.<...>`` for structural runtime context,
+- ``result.data.<...>`` for loaded datasets,
+- ``result.results.<...>`` for produced outputs and plan metadata.
 """
 
 from __future__ import annotations
@@ -22,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from hydromodpy.data_managers.plan import DataLoadPlan
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
     from hydromodpy.watershed.workspace import Workspace
@@ -29,18 +28,52 @@ if TYPE_CHECKING:
     from hydromodpy.watershed.climatic import Climatic
     from hydromodpy.watershed.hydrography import Hydrography
     from hydromodpy.watershed.intermittency import Intermittency
+    from hydromodpy.data_managers.geology.geology_field import GeologyField
     from hydromodpy.data_managers.hydrometry.station_set import StationSet
     from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
     from hydromodpy.data_managers.oceanic import Oceanic
     from hydromodpy.domain import Domain
     from hydromodpy.process import Flow, Transport
-    from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
-    from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
+
+
+@dataclass
+class RunSetupState:
+    """Objects prepared during setup and reused by all runs."""
+
+    workspace: Workspace | None = None
+    geographic: Any = None  # Geographic
+    domain: Domain | None = None
+    flow: Flow | None = None
+    transport: Transport | None = None
+    settings: Settings | None = None
+
+
+@dataclass
+class RunDataState:
+    """Loaded data-manager objects shared by process runs."""
+
+    climatic: Climatic | None = None
+    geology: GeologyField | None = None
+    oceanic: Oceanic | None = None
+    hydrography: Hydrography | None = None
+    intermittency: Intermittency | None = None
+    hydrometry: StationSet | None = None
+    piezometry: PiezometerSet | None = None
+
+
+@dataclass
+class RunExecutionState:
+    """Execution-oriented metadata and produced model registry."""
+
+    simulation_plan: SimulationPlan | None = None
+    data_plan: DataLoadPlan | None = None
+    process_runs_by_id: dict[str, ProcessRun] = field(default_factory=dict)
+    models_by_run_id: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class RunResult:
-    """Accumulate the mutable objects produced during one launcher run.
+    """Mutable launcher state split into setup/data/results scopes.
 
     ``models_by_run_id`` is the source of truth for produced solver models.
     Concrete solver instances are resolved explicitly from that registry.
@@ -49,31 +82,14 @@ class RunResult:
     cfg: HydroModPyConfig
     config_path: Path
     raw_toml: dict[str, Any]
-    simulation_plan: Any = field(default=None)  # SimulationPlan
-    data_plan: Any = field(default=None)  # DataLoadPlan
-    process_runs_by_id: dict[str, Any] = field(default_factory=dict)  # ProcessRun
-    models_by_run_id: dict[str, Any] = field(default_factory=dict)
-
-    # Setup phase
-    workspace: Any = field(default=None)   # Workspace
-    geographic: Any = field(default=None)  # Geographic
-    domain: Any = field(default=None)      # Domain
-    flow: Any = field(default=None)        # Flow
-    transport: Any = field(default=None)   # Transport
-    settings: Any = field(default=None)    # Settings
-
-    # Data phase
-    climatic: Any = field(default=None)       # Climatic
-    oceanic: Any = field(default=None)        # Oceanic
-    hydrography: Any = field(default=None)    # Hydrography
-    intermittency: Any = field(default=None)  # Intermittency
-    hydrometry: Any = field(default=None)     # StationSet
-    piezometry: Any = field(default=None)     # PiezometerSet
+    setup: RunSetupState = field(default_factory=RunSetupState)
+    data: RunDataState = field(default_factory=RunDataState)
+    results: RunExecutionState = field(default_factory=RunExecutionState)
 
     def get_model(self, run_id: str) -> Any:
         """Return the exact model produced by a concrete process run."""
 
-        return self.models_by_run_id[run_id]
+        return self.results.models_by_run_id[run_id]
 
     def get_run_for_solver(self, solver_name: str) -> Any:
         """Return the unique planned run matching ``solver_name``, if any.
@@ -83,7 +99,9 @@ class RunResult:
         directly instead of relying on family-wide shortcuts.
         """
 
-        matches = [run for run in self.process_runs_by_id.values() if run.solver == solver_name]
+        matches = [
+            run for run in self.results.process_runs_by_id.values() if run.solver == solver_name
+        ]
         if len(matches) > 1:
             raise ValueError(
                 f"Expected at most one run for solver '{solver_name}', got {len(matches)}."
@@ -96,4 +114,4 @@ class RunResult:
         run = self.get_run_for_solver(solver_name)
         if run is None:
             return None
-        return self.models_by_run_id.get(run.id)
+        return self.results.models_by_run_id.get(run.id)

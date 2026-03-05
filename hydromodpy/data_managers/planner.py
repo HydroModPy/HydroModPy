@@ -23,11 +23,15 @@ class DataManagersPlanner:
     """Build a deterministic data-manager activation plan."""
 
     _HOOK_MARKERS_BY_TYPE: dict[str, tuple[str, ...]] = {
-        "hydrography": ("hydrography(", "result.hydrography"),
-        "intermittency": ("intermittency(", "result.intermittency"),
-        "hydrometry": ("stationset", "result.hydrometry", "hydrometry_stations"),
-        "oceanic": ("oceanic(", "result.oceanic"),
-        "piezometry": ("piezometer", "result.piezometry"),
+        "hydrography": ("hydrography(", "result.data.hydrography"),
+        "intermittency": ("intermittency(", "result.data.intermittency"),
+        "hydrometry": (
+            "stationset",
+            "result.data.hydrometry",
+            "hydrometry_stations",
+        ),
+        "oceanic": ("oceanic(", "result.data.oceanic"),
+        "piezometry": ("piezometer", "result.data.piezometry"),
     }
 
     def build(

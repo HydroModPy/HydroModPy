@@ -50,7 +50,7 @@ def _load_observed_streamflow(result) -> pd.DataFrame:
     steps in each flow plotting function.
     """
 
-    area = int(round(result.geographic.catch_area))
+    area = int(round(result.setup.geographic.catch_area))
     qobs_path = result.cfg.workspace.data_path / "Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt"
     qobs = pd.read_csv(qobs_path, sep=";", header=None)
     qobs.index = pd.to_datetime(qobs[0] + " " + qobs[1], format="%d/%m/%Y %H:%M:%S")
@@ -69,7 +69,7 @@ def _load_flow_timeseries(result) -> pd.DataFrame:
 
     model_name = _resolve_flow_model(result).model_name
     smod_path = (
-        result.workspace.simulations_folder
+        result.setup.workspace.simulations_folder
         / model_name
         / "_postprocess"
         / "_timeseries"
@@ -96,15 +96,15 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
 
     flow_model = _resolve_flow_model(result)
     model_name = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.workspace, model_name)
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
     simulated_timeseries = _load_flow_timeseries(result)
     observed_streamflow = _load_observed_streamflow(result)
 
     if options.flow.is_enabled("cross_section", default=True):
         plot_cross_section(
-            watershed_dem_path=result.geographic.watershed_dem,
+            watershed_dem_path=result.setup.geographic.watershed_dem,
             watertable_npy_path=(
-                result.workspace.simulations_folder
+                result.setup.workspace.simulations_folder
                 / model_name
                 / "_postprocess"
                 / "watertable_elevation.npy"
@@ -139,9 +139,9 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
 
     flow_model = _resolve_flow_model(result)
     model_name = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.workspace, model_name)
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
     particles_dir = (
-        result.workspace.simulations_folder
+        result.setup.workspace.simulations_folder
         / model_name
         / "_postprocess"
         / "_particles"
@@ -155,8 +155,8 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
     plot_pathlines(
         pathlines_shp=pathlines_shp,
         endpoints_shp=endpoints_shp,
-        watershed_shp=result.geographic.watershed_shp,
-        dem_raster=result.geographic.watershed_box_buff_dem,
+        watershed_shp=result.setup.geographic.watershed_shp,
+        dem_raster=result.setup.geographic.watershed_box_buff_dem,
         options=options,
         save_path=output_dir / "pathlines.png",
     )
@@ -191,7 +191,7 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
         return
 
     model_name = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.workspace, model_name) / "transport"
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name) / "transport"
     save_frame_files = options.save or run_gif or run_web_animation
     show_last_frame = run_concentration and options.show
 
@@ -199,9 +199,9 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     frame_paths = plot_concentration_frames(
         model_transport=transport_model,
         model_modflow=flow_model,
-        geographic=result.geographic,
-        hydrography=result.hydrography,
-        recharge_series=result.climatic.recharge,
+        geographic=result.setup.geographic,
+        hydrography=result.data.hydrography,
+        recharge_series=result.data.climatic.recharge,
         output_dir=output_dir,
         prefix="concentration",
         dpi=options.dpi,

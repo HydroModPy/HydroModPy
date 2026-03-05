@@ -3,7 +3,8 @@
 The simulation package separates four responsibilities:
 
 - `SimulationPlanner`: turns the declarative `[simulation]` TOML block into an explicit ordered `SimulationPlan`.
-- `SimulationRunner`: walks through that plan, manages process-family transitions, resolves runtime dependencies, and records outputs.
+- `SimulationRunner`: walks through that plan, materializes process context when needed, manages process-family transitions, resolves runtime dependencies, and records outputs.
+- `ProcessContextFactory`: creates shared process objects (`flow`, `transport`) from validated config in one place.
 - `SolverAdapter`: translates one generic `ProcessRun` into the concrete API call sequence for a specific solver.
 - Solver classes (`Modflow`, `Modpath`, `Mt3dms`, `Modflow6`, ...): perform the actual numerical or post-processing work.
 
@@ -14,6 +15,7 @@ SimulationConfig
 -> SimulationPlanner
 -> SimulationPlan (ProcessRun...)
 -> SimulationRunner
+-> ProcessContextFactory (on process-family transitions)
 -> SolverAdapter
 -> Solver implementation
 ```
@@ -22,6 +24,7 @@ A short reading guide:
 
 - `planner` answers: "what should run, and in which order?"
 - `runner` answers: "when does each run execute, and what state is carried forward?"
+- `process context factory` answers: "how do we get `flow`/`transport` objects when a block starts?"
 - `adapter` answers: "how do I call this concrete solver for this run?"
 - `solver` answers: "how does the numerical backend actually compute?"
 
@@ -29,6 +32,7 @@ A short reading guide:
 
 - Planning rules change when orchestration logic changes.
 - Running logic changes when dependency handling or hooks change.
+- Context materialization changes when process object creation policy changes.
 - Adapters change when solver APIs change.
 - Solver implementations change when the numerical backend itself changes.
 
@@ -39,6 +43,7 @@ Keeping those concerns separate prevents one kind of change from forcing a rewri
 `SimulationRunner` should know:
 
 - the ordered list of runs to execute;
+- when to ensure process-level context objects exist before callbacks;
 - when a process-family block starts or ends;
 - how to resolve `depends_on` against `models_by_run_id`;
 - how to store the model produced by a completed run.
@@ -59,6 +64,7 @@ adapter module per solver grouped under the `flow/` and `transport/` families.
 - Planning logic: `simulation/planner.py`
 - Generic orchestration: `simulation/runner.py`
 - Runtime contracts shared by runner and adapters: `simulation/runtime.py`
+- Process-object materialization policy: `simulation/process_context.py`
 - Solver-specific bridging code: `simulation/adapters/` (`flow/` and `transport/`)
 
 ## Hooks and adapters

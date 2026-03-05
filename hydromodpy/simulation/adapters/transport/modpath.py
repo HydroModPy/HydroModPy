@@ -19,12 +19,12 @@ class ModpathTransportAdapter:
         state = ctx.state
         flow_model = required_flow_model(ctx)
         model_modpath = Modpath(
-            state.domain,
-            state.transport,
+            state.setup.domain,
+            state.setup.transport,
             flow_model,
-            model_folder=state.workspace.simulations_folder,
+            model_folder=state.setup.workspace.simulations_folder,
             model_name=flow_model.model_name,
-            bin_path=state.workspace.bin_path,
+            bin_path=state.setup.workspace.bin_path,
         )
         model_modpath.pre_processing()
         model_modpath.processing(write_model=True, run_model=True)

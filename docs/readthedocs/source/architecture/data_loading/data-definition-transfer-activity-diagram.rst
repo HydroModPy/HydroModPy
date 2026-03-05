@@ -30,4 +30,4 @@ Notes
 - Geology transfer is driven by resolved data types at setup time.
 - Hydrometry transfer is implemented in `on_after_data` when that hook exists.
 - Missing/invalid hydrometry configuration is handled as a non-fatal branch in
-  the example hook (`result.hydrometry = None`).
+  the example hook (`result.data.hydrometry = None`).
