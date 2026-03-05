@@ -59,7 +59,6 @@ from hydromodpy.tools import toolbox
 from hydromodpy.domain import (
     Domain,
 )
-from hydromodpy.data_managers import DataManagers
 from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.process import Flow, Transport
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
@@ -138,8 +137,7 @@ if __name__ == '__main__':
         config=cfg.domain,
         surface_topo=surface_topo,
     )
-    data_managers = DataManagers.from_config(cfg.data)
-    if "geology" in data_managers.types:
+    if "geology" in cfg.data.types:
         geology = GeologyField.from_watershed_config(
             cfg.data.geology,
             raster_support=surface_topo.support,

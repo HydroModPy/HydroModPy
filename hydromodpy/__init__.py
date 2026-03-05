@@ -263,7 +263,12 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depends on local env
 from hydromodpy import watershed
 from hydromodpy import modeling
 from hydromodpy import tools
-from hydromodpy import pyhelp
+# pyhelp is optional in lightweight environments (requires h5py stack).
+try:
+    from hydromodpy import pyhelp
+except ModuleNotFoundError as exc:  # pragma: no cover - depends on local env
+    _bootstrap_logger.warning("pyhelp import skipped: %s", exc)
+    pyhelp = None  # type: ignore[assignment]
 from hydromodpy import calibration
 from hydromodpy import data_managers
 from hydromodpy import domain

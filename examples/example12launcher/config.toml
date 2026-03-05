@@ -137,10 +137,17 @@ substratum_elevation = 0.0
 # Data managers configuration.
 # ----------------------------------------------------------------------
 [data]
-# Ordered list of active data-manager types.
+# Ordered list of data types explicitly declared in [data].
+# The launcher can infer additional types from other sections
+# (for example domain.zone_ids, flow.active_bc, hooks.py).
 # Allowed values: "geology", "hydrography", "hydrometry",
 # "intermittency", "oceanic", "piezometry".
 types = ["geology"]
+# Policy for inferred types not explicitly listed in data.types.
+# "warn"   = keep inferred types, continue if data.<type> section is missing.
+# "strict" = raise if an inferred type has no data.<type> section
+#            (except geology, which can use default config).
+inference_mode = "warn"
 
 
 # ----------------------------------------------------------------------

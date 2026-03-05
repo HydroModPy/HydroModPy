@@ -19,12 +19,22 @@ import numpy as np
 import geopandas as gpd
 import rasterio
 from rasterio.plot import show
-import contextily as cx
+try:
+    import contextily as cx
+except ModuleNotFoundError:  # optional dependency for basemap backgrounds
+    cx = None
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib_scalebar.scalebar import ScaleBar
+try:
+    from matplotlib_scalebar.scalebar import ScaleBar
+except ModuleNotFoundError:  # optional dependency for map scale bars
+    from matplotlib.artist import Artist
+
+    class ScaleBar(Artist):  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):
+            super().__init__()
 import matplotlib.patches as mpatches
 try:
     from colormap.colors import rgb2hex, hex2rgb
@@ -285,7 +295,8 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     ax.set(aspect='equal') 
-    cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+    if cx is not None:
+        cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
     geol = gpd.read_file(geology.geol_file)
     try:
         geol['hex']

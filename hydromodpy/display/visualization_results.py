@@ -18,14 +18,24 @@ from collections.abc import Sequence
 from datetime import datetime
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib_scalebar.scalebar import ScaleBar
+try:
+    from matplotlib_scalebar.scalebar import ScaleBar
+except ModuleNotFoundError:  # optional dependency for map scale bars
+    from matplotlib.artist import Artist
+
+    class ScaleBar(Artist):  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):
+            super().__init__()
 from matplotlib.collections import LineCollection
 import rasterio
 from rasterio.plot import show
 import geopandas as gpd
 import flopy
 import os, sys
-import contextily as cx
+try:
+    import contextily as cx
+except ModuleNotFoundError:  # optional dependency for basemap backgrounds
+    cx = None
 import matplotlib as mpl
 from matplotlib import rcsetup
 
@@ -399,7 +409,8 @@ class Visualization():
                 cbar.ax.tick_params(size=2)
             if basemap[compt] == 1:
                 try:
-                    cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+                    if cx is not None:
+                        cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
                 except:
                     pass
             handles, labels = ax.get_legend_handles_labels()
