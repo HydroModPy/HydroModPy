@@ -19,56 +19,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.data_managers.run_data_state import RunDataState
+from hydromodpy.simulation.run_execution_state import RunExecutionState
+from hydromodpy.watershed.run_setup_state import RunSetupState
+
 if TYPE_CHECKING:
-    from hydromodpy.data_managers.plan import DataLoadPlan
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
-    from hydromodpy.watershed.workspace import Workspace
-    from hydromodpy.watershed.settings import Settings
-    from hydromodpy.watershed.climatic import Climatic
-    from hydromodpy.watershed.hydrography import Hydrography
-    from hydromodpy.watershed.intermittency import Intermittency
-    from hydromodpy.data_managers.geology.geology_field import GeologyField
-    from hydromodpy.data_managers.hydrometry.station_set import StationSet
-    from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
-    from hydromodpy.data_managers.oceanic import Oceanic
-    from hydromodpy.domain import Domain
-    from hydromodpy.process import Flow, Transport
-
-
-@dataclass
-class RunSetupState:
-    """Objects prepared during setup and reused by all runs."""
-
-    workspace: Workspace | None = None
-    geographic: Any = None  # Geographic
-    domain: Domain | None = None
-    flow: Flow | None = None
-    transport: Transport | None = None
-    settings: Settings | None = None
-
-
-@dataclass
-class RunDataState:
-    """Loaded data-manager objects shared by process runs."""
-
-    climatic: Climatic | None = None
-    geology: GeologyField | None = None
-    oceanic: Oceanic | None = None
-    hydrography: Hydrography | None = None
-    intermittency: Intermittency | None = None
-    hydrometry: StationSet | None = None
-    piezometry: PiezometerSet | None = None
-
-
-@dataclass
-class RunExecutionState:
-    """Execution-oriented metadata and produced model registry."""
-
-    simulation_plan: SimulationPlan | None = None
-    data_plan: DataLoadPlan | None = None
-    process_runs_by_id: dict[str, ProcessRun] = field(default_factory=dict)
-    models_by_run_id: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
