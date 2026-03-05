@@ -12,7 +12,7 @@ precise message when a contract is violated.
    from hydromodpy.config import HydroModPyConfig
 
    cfg = HydroModPyConfig.from_toml("config.toml")
-   cfg.initializing.catch_name   # validated str
+   cfg.workspace.catch_name      # validated str
    cfg.geographic.catch_def      # validated Literal
 
 ----
@@ -27,10 +27,10 @@ hydromodpy.config.hydromodpy\_config
 
 ----
 
-hydromodpy.watershed.initializing\_config
-------------------------------------------
+hydromodpy.simulation.workspace\_config
+---------------------------------------
 
-.. autopydantic_model:: hydromodpy.watershed.initializing_config.InitializingConfig
+.. autopydantic_model:: hydromodpy.simulation.workspace_config.WorkspaceConfig
    :members:
    :undoc-members:
    :member-order: bysource
