@@ -63,7 +63,7 @@ adapter module per solver grouped under the `flow/` and `transport/` families.
 
 - Planning logic: `simulation/planner.py`
 - Generic orchestration: `simulation/runner.py`
-- Runtime contracts shared by runner and adapters: `simulation/runtime.py`
+- Runtime contracts shared by runner and adapters: `simulation/runtime_contracts.py`
 - Process-object materialization policy: `simulation/process_context.py`
 - Solver-specific bridging code: `simulation/adapters/` (`flow/` and `transport/`)
 

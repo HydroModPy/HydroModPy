@@ -41,6 +41,9 @@ sys.path.append(df)
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.modeling import masstransfer
+from hydromodpy.solver.transport_common.runtime_arrays import (
+    build_concentration_runtime_overrides,
+)
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% CLASS
@@ -114,24 +117,41 @@ class Mt3dms:
         if isinstance(raw_params, Mapping):
             conc_params = dict(raw_params)
 
-        def _pick(key, explicit, default):
-            if explicit is not None:
-                return explicit
-            return conc_params.get(key, default)
+        explicit_params = {
+            'spc_name': spc_name,
+            'sconc_init': sconc_init,
+            'sconc_input': sconc_input,
+            'disp_long': disp_long,
+            'disp_transh': disp_transh,
+            'disp_transv': disp_transv,
+            'diffu_coeff': diffu_coeff,
+            'react_order': react_order,
+            'rate_decay': rate_decay,
+            'plot_conc': plot_conc,
+        }
+        for key, value in explicit_params.items():
+            if value is not None:
+                conc_params[key] = value
 
-        self.spc_name = _pick('spc_name', spc_name, 'NO3')
-        self.sconc_init = _pick('sconc_init', sconc_init, 0)
-        self.sconc_input = _pick('sconc_input', sconc_input, 0)
+        runtime_overrides = build_concentration_runtime_overrides(
+            conc_params,
+            model_modflow,
+        )
+        conc_params.update(runtime_overrides)
 
-        self.disp_long = _pick('disp_long', disp_long, 0)
-        self.disp_transh = _pick('disp_transh', disp_transh, 0)
-        self.disp_transv = _pick('disp_transv', disp_transv, 0)
-        self.diffu_coeff = _pick('diffu_coeff', diffu_coeff, 0)
+        self.spc_name = conc_params.get('spc_name', 'NO3')
+        self.sconc_init = conc_params.get('sconc_init', 0)
+        self.sconc_input = conc_params.get('sconc_input', 0)
 
-        self.react_order = _pick('react_order', react_order, None)
-        self.rate_decay = _pick('rate_decay', rate_decay, 0)
+        self.disp_long = conc_params.get('disp_long', 0)
+        self.disp_transh = conc_params.get('disp_transh', 0)
+        self.disp_transv = conc_params.get('disp_transv', 0)
+        self.diffu_coeff = conc_params.get('diffu_coeff', 0)
 
-        self.plot_conc = _pick('plot_conc', plot_conc, True)
+        self.react_order = conc_params.get('react_order', None)
+        self.rate_decay = conc_params.get('rate_decay', 0)
+
+        self.plot_conc = conc_params.get('plot_conc', True)
 
         self.mf = model_modflow.mf
 

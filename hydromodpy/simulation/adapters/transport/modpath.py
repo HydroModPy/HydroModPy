@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from hydromodpy.simulation.adapters.transport.common import required_flow_model
-from hydromodpy.simulation.runtime import RunContext, RunExecutionResult
+from hydromodpy.simulation.runtime_contracts import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow_nwt import Modpath
 
 

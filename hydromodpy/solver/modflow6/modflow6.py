@@ -28,6 +28,9 @@ from hydromodpy.solver.modflow6.modflow6_config import (
 from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
 	resolve_flow_property_arrays,
 )
+from hydromodpy.solver.transport_common.runtime_arrays import (
+	build_concentration_runtime_overrides,
+)
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
 from hydromodpy.tools import get_logger, toolbox
@@ -627,6 +630,12 @@ class Modflow6Transport:
 		if isinstance(getattr(comp, "parameters", None), Mapping):
 			conc_params = dict(comp.parameters)
 		conc_params.update(kwargs)
+		conc_params.update(
+			build_concentration_runtime_overrides(
+				conc_params,
+				model_modflow,
+			)
+		)
 
 		self.spc_name = conc_params.get("spc_name", "NO3")
 		self.sconc_init = conc_params.get("sconc_init", 0.0)

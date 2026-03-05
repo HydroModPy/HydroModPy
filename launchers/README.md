@@ -28,5 +28,14 @@ modifier le launcher principal existant.
 
 - Le chargement des donnees reste dans `hydromodpy/data_managers/runtime_loader.py`.
 - Les mises a jour structurelles issues de ces donnees (ex. geology->domain,
-  oceanic->flow) sont portees par `launchers/structure_updaters.py`.
+  oceanic->flow) sont portees par les modules metier:
+  `hydromodpy/domain/structure_binders.py` et
+  `hydromodpy/process/flow/structure_binders.py`.
 - Le launcher orchestre l'ordre: chargement data puis binders structurels.
+
+## Postprocess
+
+- Les post-traitements standards apres `flow`/`transport` sont pilotes par
+  `[postprocess]` dans le TOML et executes par `hydromodpy/postprocess/runner.py`.
+- Les hooks `on_after_flow` / `on_after_transport` restent possibles pour des
+  besoins specifiques, mais ne sont plus necessaires pour le cas standard.

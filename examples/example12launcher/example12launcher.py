@@ -2,8 +2,9 @@
 """Example 12 — launcher entry-point.
 
 Runs the full example12 study via the generic HydroModPyLauncher.
-Study-specific logic (recharge, NO3, plots) lives in hooks.py alongside
-this file; everything else is driven by config.toml.
+Study-specific preprocessing logic (recharge, NO3 runtime arrays) lives in
+hooks.py; launcher-managed postprocess is configured in config.toml via
+`[postprocess]` and `[display]`.
 
 Usage::
 

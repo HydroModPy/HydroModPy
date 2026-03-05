@@ -83,6 +83,13 @@ class Flow(ProcessSpatial):
     """
     Runtime flow-process object built from a validated ``FlowConfig``.
 
+    Quick reading guide
+    -------------------
+    For a first pass, focus on these three methods:
+    - ``set_config``: one-shot synchronization from ``FlowConfig`` to runtime.
+    - ``_build_boundary_conditions``: validation and normalization of BC payloads.
+    - ``set_sinks_sources``: runtime storage of wells and recharge payloads.
+
     Inherits from ``ProcessSpatial``, which initializes the base containers
     (``parameters``, ``initial_conditions``, ``boundary_conditions``,
     ``sinks_sources``, ``active_bc``, ``active_sinks_sources``) and provides

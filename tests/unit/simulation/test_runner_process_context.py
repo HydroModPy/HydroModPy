@@ -6,7 +6,7 @@ from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.runner import ProcessCallbacks, SimulationRunner
-from hydromodpy.simulation.runtime import RunExecutionResult
+from hydromodpy.simulation.runtime_contracts import RunExecutionResult
 
 
 class _RecordingAdapter:

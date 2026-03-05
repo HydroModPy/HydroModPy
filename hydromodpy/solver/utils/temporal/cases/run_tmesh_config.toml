@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------
-# Temporal-mesh demo scenarios extracted from tmesh_generation_demo.py
+# Temporal-mesh demo scenarios used by run_tmesh_case.py
 # ----------------------------------------------------------------------
 
 [case]

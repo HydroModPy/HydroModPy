@@ -33,6 +33,7 @@ from pydantic import BaseModel
 from hydromodpy.calibration.core.engine_config import (
     CalibrationSectionSchema,
     CalibrationTomlSchema,
+    ObjectiveSectionSchema,
     OutputSectionSchema,
 )
 from hydromodpy.calibration.core.methods_config import METHOD_KWARGS_MODELS
@@ -140,6 +141,11 @@ def build_config_reference_markdown() -> str:
     sections.append("### `[output]`")
     sections.append("")
     sections.append(_model_markdown_table(OutputSectionSchema))
+    sections.append("")
+
+    sections.append("### `[objective]`")
+    sections.append("")
+    sections.append(_model_markdown_table(ObjectiveSectionSchema))
     sections.append("")
 
     sections.append("## Built-in Method Kwargs")

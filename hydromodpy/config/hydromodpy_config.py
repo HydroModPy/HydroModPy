@@ -31,6 +31,7 @@ from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.data_managers.data_managers_config import DataManagersConfig
 from hydromodpy.display.options import DisplayConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
+from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.simulation.config import SimulationConfig
@@ -145,6 +146,13 @@ class HydroModPyConfig(BaseModel):
             "Optional display and export toggles loaded from the [display] section."
         ),
     )
+    postprocess: PostprocessConfig = Field(
+        default_factory=PostprocessConfig,
+        description=(
+            "Optional launcher-managed postprocess workflow loaded from the "
+            "[postprocess] section."
+        ),
+    )
 
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
@@ -204,6 +212,10 @@ class HydroModPyConfig(BaseModel):
             "modflow6": ({}, _load_modflow6_section),
             "run": ({}, lambda data, b: _load_standard_section(data, RunConfig, b)),
             "display": ({}, lambda data, b: _load_standard_section(data, DisplayConfig, b)),
+            "postprocess": (
+                {},
+                lambda data, b: _load_standard_section(data, PostprocessConfig, b),
+            ),
         }
 
         parsed_sections: dict[str, Any] = {}

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from hydromodpy.simulation.runtime import RunContext, RunExecutionResult
+from hydromodpy.simulation.runtime_contracts import RunContext, RunExecutionResult
 
 
 class SolverAdapter(Protocol):

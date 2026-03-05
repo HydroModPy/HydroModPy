@@ -79,8 +79,9 @@ from hydromodpy.domain import (
 from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
-from hydromodpy.modeling import timeseries, netcdf
-from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
+from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import timeseries
+from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 #import importlib
@@ -2436,7 +2437,7 @@ def ex12_prepare_concentration_data(results):
 # EXEMPLE 09 - MATCHING STREAMS CLASS
 # ============================================================================
 def ex12_matching_streams(results):
-    """MatchingStreams calibration analysis - uses calibration_legacy module"""
+    """MatchingStreams calibration analysis using postprocess.flow module."""
     print("  Executing MatchingStreams analysis...")
     if not results:
         return None
@@ -2451,7 +2452,7 @@ def ex12_matching_streams(results):
             print("Missing required objects (geographic, hydrography, workspace, or model_name)\n")
             return results
 
-        # Instantiate MatchingStreams from calibration_legacy module
+        # Instantiate MatchingStreams from hydromodpy.postprocess.flow.matching_streams
         iteration_label = model_name
         print(f" Creating MatchingStreams instance with iteration_label: {iteration_label}")
 

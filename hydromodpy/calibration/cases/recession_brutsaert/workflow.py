@@ -125,6 +125,7 @@ def calibrate_k_sy(chronicle, config):
         model_parameter_order=MODEL_PARAMETER_ORDER,
     )
     objective_metric = settings["objective_metric"]
+    objective_settings = settings["objective"]
     global_method = settings["method"]
     parameter_set = settings["parameter_set"]
     bounds = settings["bounds"]
@@ -151,6 +152,7 @@ def calibrate_k_sy(chronicle, config):
         simulator=simulator,
         parameter_set=parameter_set,
         objective_metric=objective_metric,
+        objective_config=objective_settings,
     )
 
     global_kwargs = settings["method_kwargs"]
@@ -175,6 +177,7 @@ def calibrate_k_sy(chronicle, config):
         "q_calib": q_calib,
         "metrics": all_metrics,
         "objective_metric": objective_metric,
+        "objective": objective_settings,
         "global_method": global_method,
         "parameter_set": parameter_set,
     }
