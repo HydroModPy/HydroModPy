@@ -49,9 +49,10 @@ sys.path.append(root_dir)
 
 # HydroModPy
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.watershed import climatic, driasclimat, driaseau, \
-    geology, hydraulic, hydrography, hydrometry, intermittency, oceanic_old, piezometry, settings, safransurfex, subbasin, transport
-from hydromodpy.modeling import netcdf
+from hydromodpy.data_managers.climatic.driaseau import Driaseau
+from hydromodpy.data_managers.piezometry.piezometry_legacy import Piezometry
+from hydromodpy.data_managers.climatic import driasclimat, safransurfex
+from hydromodpy.postprocess import netcdf
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.tools import setup_simulation_log
 
@@ -427,7 +428,7 @@ class Watershed:
         None.
         """
         self.driaseau_path = driaseau_path
-        self.driaseau = driaseau.Driaseau(out_path=self.watershed_folder,
+        self.driaseau = Driaseau(out_path=self.watershed_folder,
                                           driaseau_path=self.driaseau_path,
                                           watershed_shp=self.geographic.watershed_shp,
                                           list_models=list_models,
@@ -442,7 +443,7 @@ class Watershed:
         -------
         None.
         """
-        self.piezometry = piezometry.Piezometry(out_path=self.watershed_folder,
+        self.piezometry = Piezometry(out_path=self.watershed_folder,
                                                 geographic=self.geographic)
         self.elt_def.append('piezometry')
         self.save_object()

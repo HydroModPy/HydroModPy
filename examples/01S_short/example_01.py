@@ -42,7 +42,8 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
-from hydromodpy.watershed import initializing, geographic
+from hydromodpy.geographic import Geographic
+from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
@@ -50,26 +51,26 @@ fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
 
-out_path = cfg.initializing.out_dir_path
+out_path = cfg.workspace.out_dir_path
 
 #%% ---- EXTRACT CATCHMENT
 
-watershed_name = cfg.initializing.catch_name
+watershed_name = cfg.workspace.catch_name
 print('##### '+watershed_name.upper()+' #####')
 
-data_path = cfg.initializing.data_path
+data_path = cfg.workspace.data_path
 
-initializing_object = initializing.Initializing(config=cfg.initializing)
-geographic_object   = geographic.Geographic(config=cfg.geographic,
-                                            initializing_object=initializing_object)
+initializing_object = Workspace(config=cfg.workspace)
+geographic_object   = Geographic(config=cfg.geographic,
+                                 initializing=initializing_object)
 
 BV = watershed_root.Watershed(load=False,
                               initializing_object=initializing_object,
                               geographic_object=geographic_object,
                               save_object=True)
 
-stable_folder      = cfg.initializing.stable_folder
-simulations_folder = cfg.initializing.simulations_folder
+stable_folder      = cfg.workspace.stable_folder
+simulations_folder = cfg.workspace.simulations_folder
 
 #%% ---- ADD DATA PLOT
 
@@ -174,7 +175,7 @@ BV.settings.update_model_name(model_name) # Name of the model/simulation
 BV.settings.update_box_model(True)
 BV.settings.update_sink_fill(False)
 BV.settings.update_simulation_state('steady') # Transient
-BV.settings.update_check_model(plot_cross=False, check_grid=True)
+BV.settings.update_check_model(check_grid=True)
 BV.settings.update_dis_perlen(dis_perlen=False)
 
 # Climatic settings
@@ -445,3 +446,4 @@ visu.interactive_cross_section(dem_data, watertable_data, stream_data, interacti
 os.chdir(root_dir)
 
 # %%
+

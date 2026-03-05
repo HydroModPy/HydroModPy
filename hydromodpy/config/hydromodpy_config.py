@@ -34,11 +34,11 @@ from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
-from hydromodpy.simulation.config import SimulationConfig
+from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
 from hydromodpy.solver.solver_config import SolverConfig
-from hydromodpy.watershed.workspace_config import WorkspaceConfig
+from hydromodpy.simulation.workspace.config import WorkspaceConfig
 
 
 class RunConfig(BaseModel):
@@ -224,11 +224,6 @@ class HydroModPyConfig(BaseModel):
             parsed_sections[section_name] = loader(section_data, base)
 
         return cls(**parsed_sections)
-
-    @property
-    def initializing(self) -> WorkspaceConfig:
-        """Backward-compatible alias. Prefer `workspace`."""
-        return self.workspace
 
     @property
     def modflow(self) -> ModflowConfig:

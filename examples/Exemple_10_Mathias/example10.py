@@ -51,14 +51,18 @@ from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
-from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat, Driaseau, \
-    Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Oceanic, Piezometry, Settings, SafranSurfex, Subbasin, Transport
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig, InitializingConfig, GeographicConfig
+from hydromodpy.geographic import Geographic, Subbasin
+from hydromodpy.data_managers.climatic import Climatic
+from hydromodpy.watershed import Driasclimat, Driaseau, \
+    Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, SafranSurfex, Transport
+from hydromodpy.data_managers.oceanic import Oceanic
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig, GeographicConfig
+from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
 from hydromodpy.modeling.modflow import Modflow
 from hydromodpy.solver.modflow_nwt import Modpath, Mt3dms
-from hydromodpy.modeling import netcdf
+from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 # from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
@@ -194,17 +198,17 @@ class MatchingStreams:
 
 # def run_example10(out_path=out_path, display_plots=True, display_3D=False):
 
-out_path = cfg.initializing.out_dir_path
+out_path = cfg.workspace.out_dir_path
 display_plots=True
 display_3D=False    
 
-cfg.initializing.out_dir_path = out_path
-watershed_name = cfg.initializing.catch_name
+cfg.workspace.out_dir_path = out_path
+watershed_name = cfg.workspace.catch_name
 print('##### '+watershed_name.upper()+' #####')
 
-data_path = cfg.initializing.data_path
+data_path = cfg.workspace.data_path
 
-initializing = Initializing(config=cfg.initializing)
+initializing = Workspace(config=cfg.workspace)
 geographic   = Geographic(config=cfg.geographic,
                           initializing=initializing)
 setting = Settings()
@@ -255,8 +259,8 @@ oceanic = Oceanic()
 #                              oceanic_path=data_path,
 #                              geographic=geographic)
 #%% WATERSHED OBJECT
-stable_folder      = cfg.initializing.stable_folder
-simulations_folder = cfg.initializing.simulations_folder
+stable_folder      = cfg.workspace.stable_folder
+simulations_folder = cfg.workspace.simulations_folder
 calibration_folder = initializing.calibration_folder # necessary for plots
 
 #%% DATA
@@ -271,7 +275,7 @@ area = geographic.catch_area
 """
 print("test")
 
-pyhelp_workdir = Path(cfg.initializing.out_dir_path) / watershed_name / "results_pyhelp"
+pyhelp_workdir = Path(cfg.workspace.out_dir_path) / watershed_name / "results_pyhelp"
 pyhelp_workdir.mkdir(parents=True, exist_ok=True)
 
 era5_folder = Path(data_path)
@@ -336,7 +340,7 @@ for k in k_values:
         # Input climatic ready - Input grid ready
         nc = preprocessing_pyhelp(
             workdir=str(pyhelp_workdir),
-            outpath=str(cfg.initializing.simulations_folder),
+            outpath=str(cfg.workspace.simulations_folder),
             grid_csv=grid_base_csv,
             ready_csvs=ready_csvs,
         )
@@ -355,7 +359,7 @@ df = df.rename(columns={df.columns[0]: "time"})
 """
 #%% ---- SCALING
 """
-pyhelp_workdir = Path(cfg.initializing.out_dir_path) / watershed_name / "results_pyhelp"
+pyhelp_workdir = Path(cfg.workspace.out_dir_path) / watershed_name / "results_pyhelp"
 pyhelp_workdir.mkdir(parents=True, exist_ok=True)
 
 nc_path = pyhelp_workdir / name_sim / "_pyhelp_outputs_grid.nc"
@@ -569,7 +573,7 @@ print(model_name)
 
 setting.update_model_name(model_name)
 
-setting.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
+setting.update_check_model(check_grid=check_grid)
 
 for_calib = False
 if for_calib == False:
@@ -589,8 +593,6 @@ model_modflow = Modflow(geographic,
                         #well_coords=setting.well_coords,
                         #well_fluxes=setting.well_fluxes,
                         # Output settings
-                        plot_cross=setting.plot_cross,
-                        cross_ylim=setting.cross_ylim,
                         check_grid=setting.check_grid,
                         # Boundary settings
                         sea_level=oceanic.MSL,

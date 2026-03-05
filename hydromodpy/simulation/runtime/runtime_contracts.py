@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
+from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 
 
 class SimulationSetupState(Protocol):

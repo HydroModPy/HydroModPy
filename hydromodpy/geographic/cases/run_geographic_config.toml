@@ -2,7 +2,7 @@
 # Geographic-only case extracted from examples/example12/config.toml
 # ----------------------------------------------------------------------
 
-[initializing]
+[workspace]
 catch_name = "example12_geographic_case"
 out_dir_path = "../../../examples/results"
 data_path = "../../../examples/example12/data"

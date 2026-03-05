@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 HydroModPy Example 03 - SHORT Version with NEW API
-Hydrographic network in steady state - Uses new Initializing + Geographic API
+Hydrographic network in steady state - Uses Workspace + Geographic API
 
 Author: HydroModPy Team
 Date: 2026-02-19
@@ -30,9 +30,9 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root
-from hydromodpy.watershed import initializing, geographic
-from hydromodpy.watershed.initializing_config import InitializingConfig
-from hydromodpy.watershed.geographic_config import GeographicConfig
+from hydromodpy.geographic import Geographic
+from hydromodpy.simulation.workspace import Workspace, WorkspaceConfig
+from hydromodpy.geographic import GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.tools import toolbox
 from pathlib import Path
@@ -58,15 +58,15 @@ print("EXAMPLE 03 SHORT - NEW API".center(70))
 
 print('##### '+watershed_name.upper()+' #####')
 
-# Create InitializingConfig with proper parameters
-config_init = InitializingConfig(
+# Create WorkspaceConfig with proper parameters
+config_init = WorkspaceConfig(
     catch_name=watershed_name,
     out_dir_path=Path(out_path),
     data_path=Path(data_path)
 )
 
-# Create Initializing object with config
-initializing_object = initializing.Initializing(config_init)
+# Create Workspace object with config
+initializing_object = Workspace(config=config_init)
 
 specific_path = os.path.join(root_dir, "examples", "03S_short/")
 dem_path = os.path.join(specific_path, "data", dem_filename)
@@ -84,7 +84,7 @@ geo_config = GeographicConfig(
 )
 
 # Create Geographic object with config and initializing object
-geographic_object = geographic.Geographic(
+geographic_object = Geographic(
     config=geo_config,
     initializing=initializing_object
 )
@@ -201,7 +201,7 @@ BV.add_hydraulic()
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
+BV.settings.update_check_model(check_grid=check_grid)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -467,3 +467,4 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 #%% ---- NOTES
 
 os.chdir(root_dir)
+

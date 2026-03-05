@@ -692,7 +692,7 @@ for irec, (name, drec) in enumerate(recharges):
             check_grid = True
         else:
             check_grid = False
-        BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid)
+        BV.settings.update_check_model(check_grid=check_grid)
 
         # Run
         model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
@@ -909,3 +909,4 @@ for i, model_path in enumerate([model_name_ref]):
 #%% ---- NOTES
 
 os.chdir(DIR)
+

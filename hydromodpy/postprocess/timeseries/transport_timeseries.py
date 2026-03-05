@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Transport-oriented time-series post-processing utilities."""
+"""Transport-oriented time-series post-processing utilities.
+
+This module extends flow time-series export with transport indicators:
+- concentration at seepage zones,
+- accumulated mass,
+- optional residence time estimated from Modpath particles.
+
+Illustration
+------------
+If ``concentration_seepage=True`` and ``mass_accumulated=True``, the exported
+CSV includes both columns in addition to standard flow columns.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +25,11 @@ from hydromodpy.postprocess.timeseries.flow_timeseries import FlowTimeseriesPost
 
 
 class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
-    """Export flow+transport postprocess outputs as time-series CSV files."""
+    """Export flow+transport postprocess outputs as time-series CSV files.
+
+    The class inherits full flow extraction behavior and appends transport
+    columns only when corresponding flags/data are available.
+    """
 
     def __init__(
         self,
@@ -34,6 +49,28 @@ class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
         concentration_seepage: bool = False,
         mass_accumulated: bool = False,
     ) -> None:
+        """Build and export transport-enriched time series.
+
+        Parameters
+        ----------
+        model_modpath:
+            Optional Modpath model used to compute residence-time indicators.
+        model_mt3dms:
+            Optional concentration transport model (MT3DMS or MF6 GWT output
+            shape compatible with the same ``.npy`` contract).
+        residence_times:
+            If ``True``, append one representative residence-time metric.
+        concentration_seepage:
+            If ``True``, append ``concentration_seepage`` column.
+        mass_accumulated:
+            If ``True``, append ``mass_accumulated`` column.
+
+        Example
+        -------
+        ``TransportTimeseriesPostprocess(..., concentration_seepage=True)``
+        reads ``concentration_seepage.npy`` and exports one reduced value per
+        time step.
+        """
         self.model_modpath = model_modpath
         self.model_mt3dms = model_mt3dms
         self.residence_times = residence_times
@@ -58,7 +95,14 @@ class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
         )
 
     def _load_additional_products(self) -> None:
-        """Load transport products and optional particle shapefiles."""
+        """Load transport products and optional particle shapefiles.
+
+        Particle shapefile lookup is backward-compatible:
+        1. ``<type_dir>_weighted.shp``
+        2. ``<type_dir>.shp``
+        where ``type_dir`` is ``ending`` for forward tracking and ``starting``
+        for backward tracking.
+        """
         if self.model_modpath is not None:
             type_dir = "ending" if self.model_modpath.track_dir == "forward" else "starting"
             try:
@@ -78,7 +122,14 @@ class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
             self.mass_accumulated_data = self._try_load_npy("mass_accumulated")
 
     def _append_additional_columns(self, frame: pd.DataFrame, dem_clip: np.ndarray) -> None:
-        """Append transport concentration/mass columns and optional residence time."""
+        """Append transport concentration/mass columns and optional residence time.
+
+        Residence-time strategy
+        -----------------------
+        A single representative value is written at key ``0``:
+        - prefer ``time_win`` when available,
+        - otherwise fallback to ``time``.
+        """
         if self.concentration_seepage_enabled:
             self._append_column(
                 frame,
@@ -105,6 +156,8 @@ class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
                     return
 
                 try:
+                    # Keep residence-time indicator consistent with watershed
+                    # reporting domain even if particle files include extras.
                     shp_frame = gpd.read_file(self.geographic.watershed_shp)
                     particles = particles.clip(shp_frame)
                 except Exception:
@@ -117,4 +170,3 @@ class TransportTimeseriesPostprocess(FlowTimeseriesPostprocess):
                 frame.loc[key, "residence_times"] = calc
             except Exception:
                 pass
-

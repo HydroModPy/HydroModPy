@@ -9,12 +9,12 @@ Module overview
 
 - :doc:`hydromodpy.config <api/hydromodpy-config>` – Pydantic parameter contracts
   (:class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,
-  :class:`~hydromodpy.simulation.workspace_config.WorkspaceConfig`,
-  :class:`~hydromodpy.watershed.geographic_config.GeographicConfig`)
+  :class:`~hydromodpy.simulation.workspace.config.WorkspaceConfig`,
+  :class:`~hydromodpy.geographic.geographic_config.GeographicConfig`)
   with validated fields, type constraints, and cross-field rules.
 - :doc:`hydromodpy.watershed <api/hydromodpy-watershed>` – watershed extraction,
-  basin descriptors (geography, geology, hydraulics, climate, hydrography, etc.),
-  and the main :class:`hydromodpy.watershed_root.Watershed` object.
+  basin descriptors (geography, geology, hydraulics, hydrography) plus
+  data-manager entry points used by :class:`hydromodpy.watershed_root.Watershed`.
 - :doc:`hydromodpy.modeling <api/hydromodpy-modeling>` – preprocessing /
   processing / post-processing helpers for MODFLOW, MODPATH, surface
   mass-transfer routing, MT3DMS transport, and time-series utilities.
@@ -47,3 +47,4 @@ Detailed documentation
    api/hydromodpy-display
    api/hydromodpy-pyhelp
    api/hydromodpy-tools
+

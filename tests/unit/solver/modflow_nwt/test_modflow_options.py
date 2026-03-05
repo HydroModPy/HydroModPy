@@ -10,16 +10,12 @@ from hydromodpy.solver.modflow_nwt.modflow import (
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 
 
-def test_preprocess_options_normalize_cross_ylim_list():
-    options = ModflowPreprocessOptions(cross_ylim=[10, 30])
+def test_preprocess_options_defaults_are_stable():
+    options = ModflowPreprocessOptions()
 
-    assert options.cross_ylim == (10.0, 30.0)
-
-
-def test_preprocess_options_accept_empty_cross_ylim_as_none():
-    options = ModflowPreprocessOptions(cross_ylim=[])
-
-    assert options.cross_ylim is None
+    assert options.box is True
+    assert options.sink_fill is False
+    assert options.check_grid is True
 
 
 def test_preprocess_options_no_recharge_or_first_clim_fields():
@@ -27,6 +23,8 @@ def test_preprocess_options_no_recharge_or_first_clim_fields():
 
     assert not hasattr(options, "recharge")
     assert not hasattr(options, "first_clim")
+    assert not hasattr(options, "plot_cross")
+    assert not hasattr(options, "cross_ylim")
 
 
 def test_run_options_defaults_match_processing_signature():

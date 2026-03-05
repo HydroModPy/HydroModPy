@@ -3,6 +3,7 @@
 The `[postprocess]` TOML section controls optional tasks executed after
 process-family runs (`flow`, `transport`), such as:
 - timeseries exports,
+- netcdf exports,
 - matching-stream diagnostics,
 - display suites.
 
@@ -14,73 +15,22 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
-def _promote_legacy_intermittency_settings(value: dict) -> dict:
-    """Lift legacy ``timeseries.intermittency_*`` keys to ``intermittency``."""
-
-    raw = dict(value)
-    timeseries = dict(raw.get("timeseries") or {})
-    intermittency = dict(raw.get("intermittency") or {})
-
-    legacy_to_new = {
-        "intermittency_yearly": "yearly",
-        "intermittency_monthly": "monthly",
-        "intermittency_weekly": "weekly",
-        "intermittency_daily": "daily",
-    }
-    moved = False
-    for legacy_key, new_key in legacy_to_new.items():
-        if legacy_key in timeseries and new_key not in intermittency:
-            intermittency[new_key] = timeseries.pop(legacy_key)
-            moved = True
-
-    if moved:
-        raw["timeseries"] = timeseries
-    if intermittency:
-        raw["intermittency"] = intermittency
-    return raw
-
-
-class IntermittencyPostprocessConfig(BaseModel):
-    """Intermittency indicators derived from flow accumulation flux."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    yearly: bool = Field(
-        default=False,
-        description="Compute yearly intermittency indicators from accumulation flux.",
-    )
-    monthly: bool = Field(
-        default=True,
-        description="Compute monthly intermittency indicators from accumulation flux.",
-    )
-    weekly: bool = Field(
-        default=False,
-        description="Compute weekly intermittency indicators from accumulation flux.",
-    )
-    daily: bool = Field(
-        default=False,
-        description="Compute daily intermittency indicators from accumulation flux.",
-    )
-
-
-class FlowTimeseriesPostprocessConfig(BaseModel):
-    """Flow-timeseries export options."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool = Field(
-        default=True,
-        description="Enable flow timeseries export after the flow process family.",
-    )
-    datetime_format: bool = Field(
-        default=True,
-        description="Format exported timeseries index as datetimes when possible.",
-    )
-    subbasin_results: bool = Field(
-        default=True,
-        description="Also export one timeseries file per available subbasin.",
-    )
+from hydromodpy.postprocess.flow.intermittency_config import (
+    IntermittencyPostprocessConfig,
+    promote_legacy_intermittency_settings,
+)
+from hydromodpy.postprocess.netcdf.flow_netcdf_config import (
+    FlowNetcdfPostprocessConfig,
+)
+from hydromodpy.postprocess.netcdf.transport_netcdf_config import (
+    TransportNetcdfPostprocessConfig,
+)
+from hydromodpy.postprocess.timeseries.flow_timeseries_config import (
+    FlowTimeseriesPostprocessConfig,
+)
+from hydromodpy.postprocess.timeseries.transport_timeseries_config import (
+    TransportTimeseriesPostprocessConfig,
+)
 
 
 class FlowPostprocessConfig(BaseModel):
@@ -95,6 +45,10 @@ class FlowPostprocessConfig(BaseModel):
     timeseries: FlowTimeseriesPostprocessConfig = Field(
         default_factory=FlowTimeseriesPostprocessConfig,
         description="Flow timeseries export options.",
+    )
+    netcdf: FlowNetcdfPostprocessConfig = Field(
+        default_factory=FlowNetcdfPostprocessConfig,
+        description="Flow NetCDF export options.",
     )
     intermittency: IntermittencyPostprocessConfig = Field(
         default_factory=IntermittencyPostprocessConfig,
@@ -117,45 +71,7 @@ class FlowPostprocessConfig(BaseModel):
     ) -> object:
         if not isinstance(value, dict):
             return value
-        return _promote_legacy_intermittency_settings(value)
-
-
-class TransportTimeseriesPostprocessConfig(BaseModel):
-    """Transport-timeseries export options."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool = Field(
-        default=True,
-        description="Enable transport timeseries export after transport runs.",
-    )
-    suffix_name: str = Field(
-        default="s1",
-        description=(
-            "Suffix appended to transport timeseries filenames "
-            "(legacy default: 's1')."
-        ),
-    )
-    datetime_format: bool = Field(
-        default=True,
-        description="Format exported timeseries index as datetimes when possible.",
-    )
-    subbasin_results: bool = Field(
-        default=True,
-        description="Also export one timeseries file per available subbasin.",
-    )
-    residence_times: bool = Field(
-        default=True,
-        description="Export residence-time indicators from particle tracking outputs.",
-    )
-    concentration_seepage: bool = Field(
-        default=True,
-        description="Export seepage concentration indicators from transport outputs.",
-    )
-    mass_accumulated: bool = Field(
-        default=True,
-        description="Export accumulated-mass indicators from transport outputs.",
-    )
+        return promote_legacy_intermittency_settings(value)
 
 
 class TransportPostprocessConfig(BaseModel):
@@ -170,6 +86,10 @@ class TransportPostprocessConfig(BaseModel):
     timeseries: TransportTimeseriesPostprocessConfig = Field(
         default_factory=TransportTimeseriesPostprocessConfig,
         description="Transport timeseries export options.",
+    )
+    netcdf: TransportNetcdfPostprocessConfig = Field(
+        default_factory=TransportNetcdfPostprocessConfig,
+        description="Transport NetCDF export options.",
     )
     intermittency: IntermittencyPostprocessConfig = Field(
         default_factory=IntermittencyPostprocessConfig,
@@ -192,7 +112,7 @@ class TransportPostprocessConfig(BaseModel):
     ) -> object:
         if not isinstance(value, dict):
             return value
-        return _promote_legacy_intermittency_settings(value)
+        return promote_legacy_intermittency_settings(value)
 
 
 class PostprocessConfig(BaseModel):

@@ -424,7 +424,7 @@ print(model_name)
 
 BV.settings.update_model_name(model_name)
 
-BV.settings.update_check_model(plot_cross=plot_cross, check_grid=check_grid, cross_ylim=[0,200])
+BV.settings.update_check_model(check_grid=check_grid)
 
 model_modflow = BV.preprocessing_modflow(for_calib=True) # BV.calibration_folder
 

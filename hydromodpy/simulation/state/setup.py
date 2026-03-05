@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from hydromodpy.domain import Domain
     from hydromodpy.process import Flow, Transport
+    from hydromodpy.simulation.workspace import Workspace
     from hydromodpy.watershed.settings import Settings
-    from hydromodpy.watershed.workspace import Workspace
 
 
 @dataclass
@@ -23,6 +23,3 @@ class SetupContext:
     transport: Transport | None = None
     settings: Settings | None = None
 
-
-# Backward-compatible alias kept while call sites migrate.
-RunSetupState = SetupContext

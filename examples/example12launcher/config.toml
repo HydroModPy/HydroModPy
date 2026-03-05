@@ -482,11 +482,8 @@ units = "m3/day"
 # ----------------------------------------------------------------------
 # Flow sinks/sources (recharge).
 #
-# In this example the recharge *values* are computed from PyHELP climate
-# output at runtime and injected via flow.set_recharge(FlowRechargeConfig(
-# values=climatic.recharge, first_clim=..., negative_to_evt=...)).
-# The policy parameters below are read by the script so that they can be
-# changed here without touching the code.
+# This block now keeps solver-side recharge policy only.
+# Recharge chronicle source/mode is configured in [recharge_chronicle] below.
 # ----------------------------------------------------------------------
 [flow.sinks_sources.recharge]
 # Policy for stress-period 0 when values come from a dynamic series.
@@ -497,6 +494,53 @@ first_clim = "mean"
 # When true (default), negative values feed the MODFLOW EVT package
 # and the RCH value for that period is clipped to 0.
 negative_to_evt = true
+
+# ----------------------------------------------------------------------
+# Recharge chronicle source/mode (consumed by examples/example12launcher/hooks.py)
+#
+# mode options:
+# - "observed_csv"        : load natural observed chronicle from CSV
+# - "synthetic_generated" : generate synthetic chronicle from inline values
+# - "synthetic_csv"       : load synthetic chronicle from dedicated CSV
+# ----------------------------------------------------------------------
+[recharge_chronicle]
+mode = "synthetic_generated"
+
+[recharge_chronicle.observed_csv]
+# Example natural chronicle used today by example12 launcher.
+path_file = "../example12/data/_climate_REANALYSIS.csv"
+clim_mod = "REA"
+clim_sce = "historic"
+first_year = 2003
+last_year = 2003
+time_step = "ME"
+sim_state = "transient"
+# Used only if runoff column is unavailable.
+runoff_ratio = 0.1
+
+[recharge_chronicle.synthetic_generated]
+start_date = "2003-01-01"
+freq = "ME"
+periods = 12
+units = "mm/day"
+# (Jan..Dec): [2, 2, 0, 0, 0, 0, -1, 0, 0, 0, 2, 2]
+values_mm_day = [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 2.0, 2.0]
+runoff_ratio = 0.1
+
+[recharge_chronicle.synthetic_csv]
+# Active only when mode = "synthetic_csv".
+path_file = "../example12/data/recharge_synthetic_2003.csv"
+sep = ","
+date_column = "date"
+date_format = "%Y-%m-%d"
+recharge_column = "recharge_mm_day"
+units = "mm/day"
+# Optional runoff column. If absent, runoff_ratio is used instead.
+runoff_column = "runoff_mm_day"
+runoff_units = "mm/day"
+runoff_ratio = 0.1
+# Optional resampling frequency ("D", "W", "ME", ...). Leave empty to keep CSV cadence.
+time_step = ""
 
 # ----------------------------------------------------------------------
 # Transport solver configuration
@@ -808,6 +852,12 @@ datetime_format = true
 # Also export subbasin-level timeseries.
 subbasin_results = true
 
+[postprocess.flow.netcdf]
+# Export flow NetCDF files from _postprocess/*.npy.
+enabled = false
+# Export datetimes when available.
+datetime_format = true
+
 [postprocess.flow.intermittency]
 # Intermittency aggregation levels.
 yearly = false
@@ -832,6 +882,16 @@ suffix_name = "s1"
 datetime_format = true
 # Also export subbasin-level timeseries.
 subbasin_results = true
+# Additional transport indicators.
+residence_times = true
+concentration_seepage = true
+mass_accumulated = true
+
+[postprocess.transport.netcdf]
+# Export transport NetCDF files (flow + transport variables).
+enabled = false
+# Export datetimes when available.
+datetime_format = true
 # Additional transport indicators.
 residence_times = true
 concentration_seepage = true

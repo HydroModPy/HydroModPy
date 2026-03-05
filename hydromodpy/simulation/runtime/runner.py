@@ -31,9 +31,9 @@ from dataclasses import dataclass
 from typing import Callable
 
 from hydromodpy.simulation.adapters import get_solver_adapter
-from hydromodpy.simulation.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.process_context import ProcessContextFactory
-from hydromodpy.simulation.runtime_contracts import (
+from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
+from hydromodpy.simulation.runtime.process_context import ProcessContextFactory
+from hydromodpy.simulation.runtime.runtime_contracts import (
     RunContext,
     RunExecutionResult,
     SimulationState,

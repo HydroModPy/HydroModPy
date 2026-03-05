@@ -221,7 +221,7 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_check_model(plot_cross=plot_cross)
+BV.settings.update_check_model()
 
 # Hydraulic settings
 BV.hydraulic.update_nlay(nlay) # 1
@@ -364,3 +364,4 @@ timeseries_results = BV.postprocessing_timeseries(model_modflow=model_modflow,
                                                   subbasin_results=subbasin_results) # or None
 
 #%% ---- NOTES
+

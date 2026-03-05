@@ -368,7 +368,7 @@ BV.settings.update_model_name(model_name)
 BV.settings.update_box_model(box)
 BV.settings.update_sink_fill(sink_fill)
 BV.settings.update_simulation_state(sim_state)
-BV.settings.update_check_model(plot_cross=plot_cross, cross_ylim=cross_ylim, check_grid=check_grid)
+BV.settings.update_check_model(check_grid=check_grid)
 
 # Climatic settings
 BV.climatic.update_recharge(recharge, sim_state=sim_state)
@@ -554,3 +554,4 @@ visu.interactive_cross_section(dem_data, watertable_data, stream_data, interacti
 #%% ---- NOTES
 
 os.chdir(root_dir)
+

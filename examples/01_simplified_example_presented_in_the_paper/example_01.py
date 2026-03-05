@@ -187,7 +187,7 @@ BV.settings.update_model_name(model_name) # Name of the model/simulation
 BV.settings.update_box_model(True)
 BV.settings.update_sink_fill(False)
 BV.settings.update_simulation_state('steady') # Transient
-BV.settings.update_check_model(plot_cross=False, check_grid=True)
+BV.settings.update_check_model(check_grid=True)
 BV.settings.update_dis_perlen(dis_perlen=False)
 
 # Climatic settings
@@ -458,3 +458,4 @@ visu.interactive_cross_section(dem_data, watertable_data, stream_data, interacti
 os.chdir(root_dir)
 
 # %%
+

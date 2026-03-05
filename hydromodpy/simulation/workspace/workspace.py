@@ -12,19 +12,25 @@
 
 # %% LIBRARIES
 
-import os
-import sys
-from os.path import abspath, dirname
+from pathlib import Path
 
 from hydromodpy.tools import get_logger, setup_simulation_log, toolbox
-from hydromodpy.watershed.workspace_config import WorkspaceConfig
-
-df = dirname(dirname(abspath(__file__)))
-sys.path.append(df)
-root_dir = dirname(abspath(__file__))
-sys.path.append(root_dir)
+from hydromodpy.simulation.workspace.config import WorkspaceConfig
 
 logger = get_logger(__name__)
+
+
+def _resolve_bin_path() -> str:
+    """Resolve the executable folder with repo-root priority."""
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parents[3] / "bin",  # <repo>/bin
+        here.parents[2] / "bin",  # <repo>/hydromodpy/bin (legacy fallback)
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return str(candidates[0])
 
 
 class Workspace:
@@ -59,4 +65,4 @@ class Workspace:
         self.figure_folder = self.stable_folder / "_figures"
         toolbox.create_folder(self.figure_folder)
 
-        self.bin_path = os.path.join(os.path.dirname(df), "bin")
+        self.bin_path = _resolve_bin_path()

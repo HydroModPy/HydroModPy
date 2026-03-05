@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from launchers.process_simulation.run_state import LauncherRunState
+    from hydromodpy.simulation.state.run_state import LauncherRunState
 
 KNOWN_HOOKS: list[str] = [
     "on_before_setup",
