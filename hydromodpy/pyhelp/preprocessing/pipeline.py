@@ -24,7 +24,7 @@ def prepare_inputs(cfg):
         cfg.dem,
         cfg.shapefile,
         Path(cfg.workdir),
-        era5_folder=cfg.era5_folder,
+        nc_folder=cfg.nc_folder,
         ready_csvs=cfg.ready_csvs,
         grid_params=cfg.grid_params
     )
@@ -75,7 +75,7 @@ def preprocessing_pyhelp(
     grid_base: Optional[Path] = None,
     dem: Optional[str] = None,
     ready_climatic_csvs: Optional[List[str]] = None,
-    era5_folder: Optional[str] = None,
+    nc_folder: Optional[str] = None,
     shapefile: Optional[str] = None,
     grid_params = None,
 
@@ -137,7 +137,7 @@ def preprocessing_pyhelp(
         dem=dem,
         shapefile=shapefile,
         ready_climatic_csvs=ready_climatic_csvs,
-        era5_folder=era5_folder,
+        nc_folder=nc_folder,
         grid_params=grid_params,
         compress_level=compress_level,
     )

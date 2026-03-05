@@ -69,7 +69,7 @@ class PyhelpPreprocessingConfig:
 
         # Climate inputs: either ready_csvs OR era5_folder
         ready_climatic_csvs: Optional[Tuple[Path, Path, Path]] = None,
-        era5_folder: Optional[Path] = None,
+        nc_folder: Optional[Path] = None,
 
         # Parameters
         grid_params: Optional[PyhelpGridParams] = None,
@@ -86,14 +86,13 @@ class PyhelpPreprocessingConfig:
         self.dem = Path(dem) if dem is not None else None
         self.shapefile = Path(shapefile) if shapefile is not None else None
 
+        self.ready_csvs = None
         if ready_climatic_csvs is not None:
-            self.ready_csvs = (
-                Path(ready_climatic_csvs[0]),
-                Path(ready_climatic_csvs[1]),
-                Path(ready_climatic_csvs[2])         
-                )
-            
-        self.era5_folder = Path(era5_folder) if era5_folder is not None else None
+            self.ready_csvs = (Path(ready_climatic_csvs[0]), Path(ready_climatic_csvs[1]), Path(ready_climatic_csvs[2]))
+                    
+        self.nc_folder = None
+        if nc_folder is not None:
+            self.nc_folder = (Path(nc_folder[0]), Path(nc_folder[1]), Path(nc_folder[2]))
 
         self.grid_params = grid_params
         self.compress_level = int(compress_level)
