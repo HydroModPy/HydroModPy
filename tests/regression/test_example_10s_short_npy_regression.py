@@ -1,4 +1,4 @@
-"""End-to-end regression test for examples/10S_short/example_10.py."""
+﻿"""End-to-end regression test for examples/10S_short/example_10.py."""
 
 import tempfile
 import uuid
@@ -19,7 +19,7 @@ from tests.regression.golden_utils import (
 
 EXAMPLE_10S_SCRIPT = (
     REPO_ROOT
-    / "examples"
+    / "examples_legacy"
     / "10S_short"
     / "example_10.py"
 )
@@ -70,3 +70,4 @@ def test_example_10s_short_regression_on_npy_outputs(update_goldens):
         golden_reference_file=GOLDEN_REFERENCE_FILE,
         update_goldens=update_goldens,
     )
+

@@ -1,4 +1,4 @@
-"""End-to-end regression test for examples/example_11.py."""
+﻿"""End-to-end regression test for examples/example_11.py."""
 
 from pathlib import Path
 
@@ -18,7 +18,7 @@ from tests.regression.golden_utils import (
 
 EXAMPLE_11_SCRIPT = (
     REPO_ROOT
-    / "examples"
+    / "examples_legacy"
     / "11_for run from scratch without plots"
     / "example_11.py"
 )
@@ -79,4 +79,5 @@ def test_example_11_regression_on_npy_outputs(tmp_path, update_goldens, dem_name
         golden_reference_file=golden_reference_file,
         update_goldens=update_goldens,
     )
+
 

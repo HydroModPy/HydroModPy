@@ -13,7 +13,7 @@ The launcher deliberately stays thin:
 That separation matters because three concerns stay isolated:
 
 - ``HydroModPyLauncher`` handles I/O-oriented bootstrap work
-  (paths, raw TOML, hooks, shared objects),
+  (paths, raw TOML, shared objects),
 - ``SimulationPlanner`` handles dependency logic
   (for example: a transport run may require a specific flow solver first),
 - ``SimulationRunner`` handles side effects
@@ -40,7 +40,6 @@ The launcher itself does not hard-code "run flow then transport". It only:
 - prepares the shared state,
 - builds a plan from the TOML,
 - runs optional launcher-managed postprocess actions after process families,
-- keeps legacy hooks around process families,
 - executes the resolved plan.
 """
 
@@ -60,12 +59,14 @@ from hydromodpy.data_managers import (
 from hydromodpy.domain import Domain
 from hydromodpy.domain.structure_binders import apply_geology_to_domain
 from hydromodpy.postprocess.runner import PostprocessRunner
-from hydromodpy.process.flow.structure_binders import apply_oceanic_to_flow
+from hydromodpy.process.flow.structure_binders import (
+    apply_climatic_to_flow_recharge,
+    apply_oceanic_to_flow,
+)
 from hydromodpy.simulation import ProcessContextFactory, SimulationPlanner
 from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.state.run_state import LauncherRunState
-from hydromodpy.watershed.settings import Settings
-from launchers.process_simulation.hook_registry import HookRegistry
+from hydromodpy.watershed_legacy.settings import Settings
 
 
 class HydroModPyLauncher:
@@ -89,7 +90,7 @@ class HydroModPyLauncher:
     """
 
     def __init__(self, config_path: str | Path) -> None:
-        """Load configuration, raw TOML, and user hooks for one launcher run.
+        """Load configuration and raw TOML for one launcher run.
 
         Parameters
         ----------
@@ -104,8 +105,8 @@ class HydroModPyLauncher:
 
         - ``self.cfg`` is the validated Pydantic representation used by the core
           code,
-        - ``raw_toml`` is the untyped dictionary kept for hooks that still read
-          example-specific custom sections directly.
+        - ``raw_toml`` is the untyped dictionary kept for launcher-managed
+          custom sections (for example ``[recharge_chronicle]``).
         """
         self.config_path = Path(config_path).resolve()
         self.cfg = HydroModPyConfig.from_toml(self.config_path)
@@ -125,7 +126,6 @@ class HydroModPyLauncher:
             domain_zone_ids=self.cfg.domain.zone_ids,
             raw_toml=raw_toml,
             flow_active_bc=self.cfg.flow.active_bc,
-            hook_python_path=self.config_path.parent / "hooks.py",
         )
         self._log_data_plan(data_plan)
         # Apply resolved types back to cfg so downstream code can keep reading
@@ -141,7 +141,6 @@ class HydroModPyLauncher:
         self.run_state.data_plan = data_plan
         self.process_context_factory = ProcessContextFactory()
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
-        self.hooks = HookRegistry.discover(self.config_path)
 
     @staticmethod
     def _log_data_plan(data_plan: DataLoadPlan) -> None:
@@ -195,18 +194,16 @@ class HydroModPyLauncher:
         execution_state = run_state.execution
         plan = self._create_simulation_plan()
         execution_state.simulation_plan = plan
-        # Keep a direct lookup table by run id because downstream code and
-        # hooks often need to reason about concrete runs, not just the flat list.
+        # Keep a direct lookup table by run id because downstream code often
+        # needs concrete run-level lookup, not just the flat list.
         execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
 
         self._run_setup()
         self._run_data()
         # The runner owns the fine-grained solver dispatch. The launcher
-        # provides process-family callbacks to run managed postprocess actions
-        # and legacy hooks around those transitions.
+        # only provides process-family callbacks for managed postprocess.
         SimulationRunner(
             callbacks=ProcessCallbacks(
-                before_process=self._on_before_process,
                 after_process=self._on_after_process,
             ),
             process_context_factory=self.process_context_factory,
@@ -233,8 +230,6 @@ class HydroModPyLauncher:
         setup_state = run_state.setup
         cfg = self.cfg
 
-        self.hooks.call("on_before_setup", run_state)
-
         setup_state.workspace = hmp.Workspace(config=cfg.workspace)
         setup_state.geographic = hmp.Geographic(cfg.geographic, setup_state.workspace)
         surface_topo = setup_state.geographic.get_domain_surface_topo()
@@ -242,12 +237,19 @@ class HydroModPyLauncher:
         setup_state.domain = Domain(config=cfg.domain, surface_topo=surface_topo)
 
         setup_state.settings = Settings()
+        # Use [simulation].name as the default model/folder base name.
+        # Canonical runtime location is setup.model_name.
+        simulation_name = "_".join(str(cfg.simulation.name).strip().split())
+        if simulation_name:
+            setup_state.model_name = simulation_name
+            # Keep mirroring for compatibility with code paths still reading
+            # settings.model_name directly.
+            if hasattr(setup_state.settings, "model_name"):
+                setup_state.settings.model_name = simulation_name
         # Keep eager context creation in setup for compatibility with data
-        # binders and existing hooks.
+        # binders.
         self.process_context_factory.ensure_flow(run_state)
         self.process_context_factory.ensure_transport(run_state)
-
-        self.hooks.call("on_after_setup", run_state)
 
     def _run_data(self) -> None:
         """Load the external forcings shared by all process runs.
@@ -257,14 +259,12 @@ class HydroModPyLauncher:
         through domain/process binder modules.
         """
         run_state = self.run_state
-        self.hooks.call("on_before_data", run_state)
         loader = DataManagersRuntimeLoader(
             config_path=self.config_path,
             data_plan=self.data_plan,
         )
         loader.load_all(run_state)
         self._apply_structural_updates_from_data()
-        self.hooks.call("on_after_data", run_state)
 
     def _apply_structural_updates_from_data(self) -> None:
         """Bind loaded data objects to runtime structures using explicit updaters."""
@@ -274,6 +274,7 @@ class HydroModPyLauncher:
         apply_geology_to_domain(domain=setup_state.domain, geology=data_state.geology)
         self.process_context_factory.ensure_flow(run_state)
         apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
+        apply_climatic_to_flow_recharge(flow=setup_state.flow, climatic=data_state.climatic)
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.
@@ -291,32 +292,6 @@ class HydroModPyLauncher:
         planner = SimulationPlanner()
         return planner.build(self.cfg.simulation)
 
-    def _call_process_hook(self, moment: str, process_type: str) -> None:
-        """Bridge the new process-family execution model to legacy hook names.
-
-        Parameters
-        ----------
-        moment:
-            Either ``"before"`` or ``"after"``.
-        process_type:
-            Process family name such as ``"flow"`` or ``"transport"``.
-
-        Example
-        -------
-        ``_call_process_hook("before", "flow")`` resolves to the legacy hook
-        name ``on_before_flow``.
-
-        This keeps existing ``hooks.py`` files working while the core runtime is
-        now organized around a resolved simulation plan instead of hard-coded
-        launcher phases.
-        """
-        self.hooks.call(f"on_{moment}_{process_type}", self.run_state)
-
-    def _on_before_process(self, process_type: str) -> None:
-        """Run launcher-level actions before one process-family block."""
-        self._call_process_hook("before", process_type)
-
     def _on_after_process(self, process_type: str) -> None:
         """Run launcher-level actions after one process-family block."""
         self.postprocess_runner.after_process(process_type, self.run_state)
-        self._call_process_hook("after", process_type)

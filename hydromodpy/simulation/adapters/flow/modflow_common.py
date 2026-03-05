@@ -67,6 +67,24 @@ def flow_model_name(plan: SimulationPlan, base_name: str, run: ProcessRun) -> st
     return f"{base_name}_{_run_label(plan, run)}"
 
 
+def resolve_base_model_name(setup) -> str:
+    """Resolve the launcher base model name from runtime setup state.
+
+    Canonical source is ``setup.model_name`` in the modern simulation runtime.
+    A compatibility fallback to ``setup.settings.model_name`` is kept while
+    older code paths migrate.
+    """
+
+    setup_name = str(getattr(setup, "model_name", "") or "").strip()
+    if setup_name:
+        return setup_name
+    settings = getattr(setup, "settings", None)
+    legacy_name = str(getattr(settings, "model_name", "") or "").strip()
+    if legacy_name:
+        return legacy_name
+    return "default"
+
+
 def build_preprocess_options(state) -> ModflowPreprocessOptions:
     """Build the flow pre-processing options from the shared runtime settings.
 

@@ -1,4 +1,4 @@
-"""Run a geographic-only case from a TOML configuration.
+﻿"""Run a geographic-only case from a TOML configuration.
 
 This case is extracted from example12 and keeps only:
 - Workspace setup
@@ -46,7 +46,7 @@ def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
     canut_shp = repo_root / "data" / "Brittany_small_test_example" / "Canut" / "canut.shp"
     wide_brittany_dem = (
         repo_root
-        / "examples"
+        / "examples_legacy"
         / "01_simplified_example_presented_in_the_paper"
         / "data"
         / "regional dem.tif"
@@ -329,3 +329,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

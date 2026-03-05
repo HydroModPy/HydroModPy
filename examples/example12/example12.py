@@ -47,7 +47,6 @@ sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
 import hydromodpy as hmp
-from hydromodpy import watershed_root
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.watershed import Driasclimat, Driaseau, \

@@ -1,4 +1,4 @@
-"""Top-level Pydantic configuration object for HydroModPy.
+﻿"""Top-level Pydantic configuration object for HydroModPy.
 
 Aggregates all sub-configs into a single hierarchical model.
 Relative paths in the TOML are resolved against the TOML file location;
@@ -9,7 +9,7 @@ Usage::
 
     from hydromodpy.config import HydroModPyConfig
 
-    cfg = HydroModPyConfig.from_toml("examples/01S_short/config.toml")
+    cfg = HydroModPyConfig.from_toml("examples_legacy/01S_short/config.toml")
     cfg.workspace.catch_name
     cfg.geographic.catch_def
     cfg.geographic.dem_init_path
@@ -37,7 +37,7 @@ from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-from hydromodpy.solver.solver_config import SolverConfig
+from hydromodpy.solver.prototype.solver_config import SolverConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
 
 
@@ -84,7 +84,7 @@ class HydroModPyConfig(BaseModel):
         description=(
             "Data-managers configuration. Use `data.types` to declare requested "
             "families (for example `geology`). The launcher can also infer extra "
-            "families from other sections (domain, flow, hooks), controlled by "
+            "families from other sections (domain, flow), controlled by "
             "`data.inference_mode` ('warn' or 'strict')."
         ),
     )
@@ -311,3 +311,4 @@ def _load_modflow6_section(section_data: Any, base: Path) -> Modflow6Config:
     if not isinstance(section_data, Mapping):
         raise ValueError("TOML section must be a mapping for Modflow6Config")
     return Modflow6Config.model_validate(dict(section_data))
+

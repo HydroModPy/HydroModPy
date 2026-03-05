@@ -56,8 +56,6 @@ L'objectif de la couche racine est de decider, de maniere deterministe, **quels 
 - presence de `[hydrometry_stations]` dans le TOML brut -> active `hydrometry`
 - `flow.active_bc` contient `stream` -> active `hydrography`
 - `flow.active_bc` contient `ocean` -> active `oceanic`
-- marqueurs detectes dans `hooks.py` -> active les types correspondants
-  (hydrography, intermittency, hydrometry, oceanic, piezometry)
 
 Chaque inference est tracee dans `DataLoadPlan.reasons_by_type`.
 

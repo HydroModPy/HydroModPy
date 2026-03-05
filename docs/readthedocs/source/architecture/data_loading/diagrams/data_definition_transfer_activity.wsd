@@ -14,37 +14,24 @@ if (raw_toml has [hydrometry_stations]?) then (yes)
   :Infer hydrometry activation in DataLoadPlan;
 endif
 :Apply resolved data types into cfg.data;
-:Store data_plan in RunResult;
+:Store data_plan in LauncherRunState;
 
 :Launcher.run();
 :_run_setup();
 
-if ("geology" in DataManagers.from_config(cfg.data).types?) then (yes)
-  :Build GeologyField from cfg.data.geology;
-  :Transfer geology to Domain via set_zone("geology", geology);
-else (no)
-  :Skip geology transfer;
-endif
-
 :_run_data();
-:HookRegistry.call("on_after_data", result);
+:DataManagersRuntimeLoader.load_all(run_state);
+:Transfer loaded_data.geology/hydrometry/oceanic/climatic;
 
-if (on_after_data hook exists?) then (yes)
-  :hooks.py::on_after_data(result);
-  :hydro_section = result.raw_toml.get("hydrometry_stations", {});
-  :Build hydro_cfg payload;
-  if (selection mode is mask?) then (yes)
-    :Inject watershed mask_path from geographic;
-  endif
-
-  :Try StationSet.from_config(hydro_cfg);
-  if (success?) then (yes)
-    :Transfer StationSet to result.hydrometry;
-  else (no)
-    :Warning branch;\nresult.hydrometry = None;
-  endif
-else (no)
-  :No hydrometry transfer in data phase;
+:_apply_structural_updates_from_data();
+if (geology loaded?) then (yes)
+  :apply_geology_to_domain(domain, geology);
+endif
+if (oceanic loaded?) then (yes)
+  :apply_oceanic_to_flow(flow, oceanic);
+endif
+if (climatic loaded?) then (yes)
+  :apply_climatic_to_flow_recharge(flow, climatic);
 endif
 
 :Continue with simulation plan execution;

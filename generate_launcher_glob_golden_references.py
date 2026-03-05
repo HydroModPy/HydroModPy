@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 """
 Generate golden reference signatures for launcher_glob regression tests.
 
@@ -131,11 +131,11 @@ def generate_golden_reference(example_key: str):
     config = EXAMPLES[example_key]
 
     # Import run_launcher_glob from Launcher_Glob
-    sys.path.insert(0, str(REPO_ROOT / "examples" / "Examples_Launchers"))
+    sys.path.insert(0, str(REPO_ROOT / "examples_legacy" / "Examples_Launchers"))
     try:
         from Launcher_Glob import run_launcher_glob
     except ImportError as e:
-        print(f"  ✗ Could not import run_launcher_glob: {e}")
+        print(f"  âœ— Could not import run_launcher_glob: {e}")
         return False
 
     print(f"\n{'='*70}")
@@ -154,9 +154,9 @@ def generate_golden_reference(example_key: str):
                 out_path=out_path,
                 display_plots=False
             )
-            print(f"  ✓ Execution completed")
+            print(f"  âœ“ Execution completed")
         except Exception as e:
-            print(f"  ✗ Execution failed: {e}")
+            print(f"  âœ— Execution failed: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -168,9 +168,9 @@ def generate_golden_reference(example_key: str):
                 watershed_name=config["watershed_name"],
                 results_folder_name=config["results_folder_name"],
             )
-            print(f"  ✓ Output paths resolved")
+            print(f"  âœ“ Output paths resolved")
         except Exception as e:
-            print(f"  ✗ Could not resolve output paths: {e}")
+            print(f"  âœ— Could not resolve output paths: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -179,9 +179,9 @@ def generate_golden_reference(example_key: str):
         try:
             modflow_sig = collect_modflow_signatures(postprocess_dir, config["modflow_outputs"])
             modpath_sig = collect_modpath_signatures(particles_dir, config["modpath_files"])
-            print(f"  ✓ Signatures collected")
+            print(f"  âœ“ Signatures collected")
         except Exception as e:
-            print(f"  ✗ Could not collect signatures: {e}")
+            print(f"  âœ— Could not collect signatures: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -196,10 +196,10 @@ def generate_golden_reference(example_key: str):
         golden_file = GOLDEN_REF_DIR / f"launcher_glob_{example_key}_npy_signatures.json"
         try:
             write_golden_reference(golden_file, golden_payload)
-            print(f"  ✓ Saved: {golden_file.relative_to(REPO_ROOT)}")
+            print(f"  âœ“ Saved: {golden_file.relative_to(REPO_ROOT)}")
             return True
         except Exception as e:
-            print(f"  ✗ Could not save golden reference: {e}")
+            print(f"  âœ— Could not save golden reference: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -221,17 +221,18 @@ def main():
     print("="*70)
 
     for example_key, success in results.items():
-        status = "✓" if success else "✗"
+        status = "âœ“" if success else "âœ—"
         print(f"  {status} {example_key}")
 
     all_success = all(results.values())
     if all_success:
-        print("\n✓ All golden references generated successfully!")
+        print("\nâœ“ All golden references generated successfully!")
     else:
-        print("\n✗ Some golden references failed to generate")
+        print("\nâœ— Some golden references failed to generate")
 
     return 0 if all_success else 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
+

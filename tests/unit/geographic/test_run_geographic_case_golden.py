@@ -1,4 +1,4 @@
-"""Golden non-regression test for geographic case metrics."""
+﻿"""Golden non-regression test for geographic case metrics."""
 
 from __future__ import annotations
 
@@ -110,3 +110,4 @@ def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
             abs=ABS_TOL_ELEV_M,
             rel=0.0,
         )
+

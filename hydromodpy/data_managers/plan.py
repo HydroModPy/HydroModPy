@@ -1,7 +1,7 @@
 """Immutable runtime objects for resolved data-manager activation.
 
 The planner emits one ``DataLoadPlan`` per launcher run. The plan is consumed
-by orchestration code and optionally by hooks for transparency/debugging.
+by orchestration code for transparency/debugging.
 """
 
 from __future__ import annotations

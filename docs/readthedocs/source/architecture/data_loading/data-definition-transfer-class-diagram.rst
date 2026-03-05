@@ -13,7 +13,7 @@ It focuses on:
 - data-type inference and normalization (`DataManagersPlanner` -> `DataLoadPlan`),
 - transfer of resolved data types into the launcher config and runtime state,
 - setup-time transfer for geology (`GeologyField` -> `Domain.set_zone`),
-- hook-time transfer for hydrometry (`StationSet` -> `RunResult.hydrometry`).
+- data-phase transfer for hydrometry (`StationSet` -> `LauncherRunState.loaded_data.hydrometry`).
 
 Diagram source
 --------------
@@ -28,6 +28,7 @@ Notes
 -----
 
 - `DataLoadPlan` defines **which** data families are active.
-- `_run_setup` and hooks define **where** corresponding objects are stored.
+- `_run_setup`, `DataManagersRuntimeLoader`, and binders define **where**
+  corresponding objects are stored.
 - Geology is transferred into `Domain` as a zone used by process solvers.
-- Hydrometry is transferred into `RunResult` for diagnostics and downstream use.
+- Hydrometry is transferred into launcher loaded-data state for diagnostics and downstream use.

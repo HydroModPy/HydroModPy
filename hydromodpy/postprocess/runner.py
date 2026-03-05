@@ -1,7 +1,6 @@
 """Launcher-managed postprocessing runner.
 
-This module centralizes postprocess tasks that were historically implemented
-in example-specific `on_after_flow` and `on_after_transport` hooks.
+This module centralizes postprocess tasks run after flow/transport families.
 """
 
 from __future__ import annotations

@@ -115,13 +115,13 @@ class TransportDisplayConfig(BaseModel):
 
 
 class DisplayConfig(BaseModel):
-    """Validated ``[display]`` section used by launcher plotting hooks."""
+    """Validated ``[display]`` section used by launcher plotting suites."""
 
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(
         default=True,
-        description="Master switch for all optional plotting hooks.",
+        description="Master switch for all optional plotting suites.",
     )
     show: bool = Field(
         default=True,

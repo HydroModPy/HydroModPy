@@ -37,5 +37,4 @@ modifier le launcher principal existant.
 
 - Les post-traitements standards apres `flow`/`transport` sont pilotes par
   `[postprocess]` dans le TOML et executes par `hydromodpy/postprocess/runner.py`.
-- Les hooks `on_after_flow` / `on_after_transport` restent possibles pour des
-  besoins specifiques, mais ne sont plus necessaires pour le cas standard.
+- Ce mecanisme remplace les anciens scripts projet-specifiques.

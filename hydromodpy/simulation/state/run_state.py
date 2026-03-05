@@ -100,7 +100,6 @@ class LauncherRunState:
         return self.execution.models_by_run_id.get(run.id)
 
 
-# Backward-compatible aliases kept while downstream hooks/imports migrate.
+# Backward-compatible aliases kept while downstream imports migrate.
 RunState = LauncherRunState
 RunResult = LauncherRunState
-

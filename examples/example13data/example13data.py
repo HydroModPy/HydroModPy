@@ -46,7 +46,6 @@ root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
-from hydromodpy import watershed_root
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.watershed import \

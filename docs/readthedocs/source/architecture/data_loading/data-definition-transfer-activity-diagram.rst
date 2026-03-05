@@ -11,7 +11,7 @@ It focuses on:
 
 - planning-time activation (`DataManagersPlanner.build`),
 - setup-time geology transfer to `Domain`,
-- data-phase hook transfer of hydrometry to `RunResult`,
+- data-phase transfer of hydrometry to launcher loaded-data state,
 - continuation into simulation execution after data placement is complete.
 
 Diagram source
@@ -26,8 +26,8 @@ Diagram source
 Notes
 -----
 
-- The same raw TOML can influence both activation inference and hook payloads.
+- The same raw TOML can influence both activation inference and data payloads.
 - Geology transfer is driven by resolved data types at setup time.
-- Hydrometry transfer is implemented in `on_after_data` when that hook exists.
-- Missing/invalid hydrometry configuration is handled as a non-fatal branch in
-  the example hook (`result.data.hydrometry = None`).
+- Hydrometry transfer is implemented by `DataManagersRuntimeLoader` during `_run_data()`.
+- Missing/invalid hydrometry configuration can be downgraded to warnings in
+  `data.inference_mode = "warn"` mode.

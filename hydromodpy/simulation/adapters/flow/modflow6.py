@@ -9,6 +9,7 @@ from __future__ import annotations
 from hydromodpy.simulation.adapters.flow.modflow_common import (
     build_preprocess_options,
     flow_model_name,
+    resolve_base_model_name,
     run_flow_model,
 )
 from hydromodpy.simulation.runtime.runtime_contracts import RunContext, RunExecutionResult
@@ -34,7 +35,8 @@ class Modflow6FlowAdapter:
 
         state = ctx.state
         preprocess_options = build_preprocess_options(state)
-        model_name = flow_model_name(ctx.plan, state.setup.settings.model_name, ctx.run)
+        base_model_name = resolve_base_model_name(state.setup)
+        model_name = flow_model_name(ctx.plan, base_model_name, ctx.run)
         # This is the only MODFLOW 6-specific part of the adapter: wiring the
         # MF6 config block into the concrete solver implementation.
         model_modflow = Modflow6(
