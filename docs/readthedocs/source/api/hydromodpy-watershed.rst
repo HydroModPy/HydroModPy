@@ -12,7 +12,6 @@ Class overview
    :toctree: generated/watershed
 
    ~hydromodpy.watershed_root.Watershed
-   ~hydromodpy.watershed.initializing.Initializing
    ~hydromodpy.watershed.geographic.Geographic
    ~hydromodpy.watershed.geology.Geology
    ~hydromodpy.watershed.hydrography.Hydrography

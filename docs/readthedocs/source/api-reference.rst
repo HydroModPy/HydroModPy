@@ -9,7 +9,7 @@ Module overview
 
 - :doc:`hydromodpy.config <api/hydromodpy-config>` – Pydantic parameter contracts
   (:class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,
-  :class:`~hydromodpy.watershed.initializing_config.InitializingConfig`,
+  :class:`~hydromodpy.simulation.workspace_config.WorkspaceConfig`,
   :class:`~hydromodpy.watershed.geographic_config.GeographicConfig`)
   with validated fields, type constraints, and cross-field rules.
 - :doc:`hydromodpy.watershed <api/hydromodpy-watershed>` – watershed extraction,
