@@ -224,7 +224,7 @@ def nc_to_pyhelp_csv(nc_path: str | Path, var: str, out_csv: str | Path) -> Path
     vals = da.values.reshape(da.shape[0], -1)
     # convert solar radiation W/m2 -> MJ/m2/day
     if var == "DLI":
-        vals = vals * 0.0864
+        vals = vals * 0.0036
 
     # Write header (lat/lon) + blank line
     with out_csv.open("w", encoding="utf-8") as f:
