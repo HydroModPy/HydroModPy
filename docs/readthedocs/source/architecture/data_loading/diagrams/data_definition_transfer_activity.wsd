@@ -1,0 +1,52 @@
+@startuml
+title Data Definition And Transfer - Activity
+
+start
+
+:HydroModPyLauncher.__init__();
+:Load validated cfg and raw TOML;
+
+:DataManagersPlanner.build(..., raw_toml, domain_zone_ids, flow_active_bc);
+if (domain.zone_ids contains geology?) then (yes)
+  :Activate geology (explicit or inferred);
+endif
+if (raw_toml has [hydrometry_stations]?) then (yes)
+  :Infer hydrometry activation in DataLoadPlan;
+endif
+:Apply resolved data types into cfg.data;
+:Store data_plan in RunResult;
+
+:Launcher.run();
+:_run_setup();
+
+if ("geology" in DataManagers.from_config(cfg.data).types?) then (yes)
+  :Build GeologyField from cfg.data.geology;
+  :Transfer geology to Domain via set_zone("geology", geology);
+else (no)
+  :Skip geology transfer;
+endif
+
+:_run_data();
+:HookRegistry.call("on_after_data", result);
+
+if (on_after_data hook exists?) then (yes)
+  :hooks.py::on_after_data(result);
+  :hydro_section = result.raw_toml.get("hydrometry_stations", {});
+  :Build hydro_cfg payload;
+  if (selection mode is mask?) then (yes)
+    :Inject watershed mask_path from geographic;
+  endif
+
+  :Try StationSet.from_config(hydro_cfg);
+  if (success?) then (yes)
+    :Transfer StationSet to result.hydrometry;
+  else (no)
+    :Warning branch;\nresult.hydrometry = None;
+  endif
+else (no)
+  :No hydrometry transfer in data phase;
+endif
+
+:Continue with simulation plan execution;
+stop
+@enduml

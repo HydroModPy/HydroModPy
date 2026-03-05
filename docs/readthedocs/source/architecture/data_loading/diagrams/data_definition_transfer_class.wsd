@@ -1,0 +1,85 @@
+@startuml
+title Data Definition And Transfer - Class Diagram
+
+package "launchers" {
+  class HydroModPyLauncher {
+    +cfg: HydroModPyConfig
+    +data_plan: DataLoadPlan
+    +result: RunResult
+    +_run_setup()
+    +_run_data()
+  }
+
+  class HookRegistry {
+    +discover(config_path)
+    +call(name, result)
+  }
+
+  class RunResult {
+    +raw_toml: dict
+    +data_plan: DataLoadPlan
+    +domain
+    +hydrometry
+  }
+}
+
+package "hydromodpy.data_managers" {
+  class DataManagersPlanner {
+    +build(config, domain_zone_ids, raw_toml, flow_active_bc)
+  }
+
+  class DataLoadPlan {
+    +types: tuple[str, ...]
+    +inferred_types: tuple[str, ...]
+    +reasons_by_type
+  }
+
+  class DataManagers {
+    +from_config(config)
+    +types: list[str]
+  }
+}
+
+package "hydromodpy.domain" {
+  class Domain {
+    +set_zone(name, zone)
+  }
+}
+
+package "hydromodpy.data_managers.geology" {
+  class GeologyField {
+    +from_watershed_config(...)
+  }
+}
+
+package "hydromodpy.data_managers.hydrometry" {
+  class StationSet {
+    +from_config(config_data)
+  }
+}
+
+package "example hooks.py" {
+  class HooksModule {
+    +on_after_data(result)
+  }
+}
+
+HydroModPyLauncher --> DataManagersPlanner : build(..., raw_toml,...)
+DataManagersPlanner ..> DataLoadPlan : returns
+HydroModPyLauncher --> RunResult : stores raw_toml\nand data_plan
+
+HydroModPyLauncher ..> DataManagers : reads resolved types
+HydroModPyLauncher --> GeologyField : build geology field\nif "geology" active
+HydroModPyLauncher --> Domain : set_zone("geology", geology)
+Domain <-- RunResult : stores domain reference
+
+HydroModPyLauncher --> HookRegistry : discover()/call()
+HookRegistry ..> HooksModule : loads known functions
+HookRegistry --> HooksModule : calls on_after_data(result)
+
+HooksModule --> RunResult : reads raw_toml["hydrometry_stations"]
+HooksModule ..> StationSet : StationSet.from_config(hydro_cfg)
+HooksModule --> RunResult : sets hydrometry
+
+RunResult ..> DataLoadPlan : resolved activation trace
+@enduml

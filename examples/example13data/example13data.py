@@ -46,7 +46,6 @@ root_dir = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root_dir)
 
 # HYDROMODPY MODULES
-import hydromodpy as hmp
 from hydromodpy import watershed_root
 from hydromodpy.watershed import Geographic, Initializing, Climatic, \
     Driasclimat, Driaseau, Hydrometry, \
@@ -57,12 +56,10 @@ from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.domain import Domain, Surfaces
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 config_path = Path(__file__).parent / "config.toml"
@@ -91,7 +88,7 @@ print('##### '+watershed_name.upper()+' #####')
 
 data_path = cfg.initializing.data_path
 
-initializing = hmp.Initializing(config=cfg.initializing)
+initializing = Initializing(config=cfg.initializing)
 
 stable_folder      = cfg.initializing.stable_folder
 simulations_folder = cfg.initializing.simulations_folder
@@ -99,18 +96,7 @@ calibration_folder = initializing.calibration_folder # necessary for plots
 
 #%% GEOGRAPHIC
 
-geographic   = hmp.Geographic(config=cfg.geographic,
-                          initializing=initializing)
-
-#%% DOMAIN SURFACE
-
-domain = Domain(config=cfg.domain,geographic=geographic)
-
-thickness = 50
-surfaces_object = Surfaces(aquifer_top = geographic.dem_box_buff_data,
-                           aquifer_bottom = geographic.dem_box_buff_data - thickness)
-aquifer_top = surfaces_object.aquifer_top
-aquifer_bottom = surfaces_object.aquifer_bottom
+geographic = Geographic(config=cfg.geographic, initializing=initializing)
 
 #%% ---- DATA
 

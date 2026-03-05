@@ -76,7 +76,6 @@ from hydromodpy.tools import toolbox
 from hydromodpy.domain import (
     Domain,
 )
-from hydromodpy.data_managers import DataManagers
 from hydromodpy.data_managers.geology.geology_field import GeologyField
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
@@ -1411,8 +1410,7 @@ def watershed(example_id):
         domain = Domain(config=cfg.domain, surface_topo=surface_topo)
 
         # Intégration de la Géologie si configurée
-        data_managers = DataManagers.from_config(cfg.data)
-        if "geology" in data_managers.types:
+        if "geology" in cfg.data.types:
             print(" Integrating Geology field...")
             geology = GeologyField.from_watershed_config(
                 cfg.data.geology,

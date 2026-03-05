@@ -51,14 +51,16 @@ from pathlib import Path
 
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.data_managers import DataManagers
+from hydromodpy.data_managers import (
+    DataLoadPlan,
+    DataManagersPlanner,
+    DataManagersRuntimeLoader,
+)
 from hydromodpy.data_managers.geology.geology_field import GeologyField
-from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.domain import Domain
 from hydromodpy.process import Flow, Transport
 from hydromodpy.simulation import SimulationPlanner
 from hydromodpy.simulation.runner import ProcessCallbacks, SimulationRunner
-from hydromodpy.watershed.climatic import Climatic
 from hydromodpy.watershed.settings import Settings
 from launchers.hook_registry import HookRegistry
 from launchers.run_result import RunResult
@@ -113,8 +115,46 @@ class HydroModPyLauncher:
         with self.config_path.open("rb") as fh:
             raw_toml = tomllib.load(fh)
 
-        self.result = RunResult(cfg=self.cfg, config_path=self.config_path, raw_toml=raw_toml)
+        # Resolve the effective data-manager activation set from:
+        # - explicit [data].types declarations,
+        # - high-level domain/process/context hints.
+        data_plan = DataManagersPlanner().build(
+            self.cfg.data,
+            domain_zone_ids=self.cfg.domain.zone_ids,
+            raw_toml=raw_toml,
+            flow_active_bc=self.cfg.flow.active_bc,
+            hook_python_path=self.config_path.parent / "hooks.py",
+        )
+        self._log_data_plan(data_plan)
+        # Apply resolved types back to cfg so downstream code can keep reading
+        # one canonical config tree (`self.cfg.data`).
+        self.cfg.data = self.cfg.data.with_resolved_types(data_plan.types)
+        self.data_plan = data_plan
+
+        self.result = RunResult(
+            cfg=self.cfg,
+            config_path=self.config_path,
+            raw_toml=raw_toml,
+            data_plan=data_plan,
+        )
         self.hooks = HookRegistry.discover(self.config_path)
+
+    @staticmethod
+    def _log_data_plan(data_plan: DataLoadPlan) -> None:
+        """Print concise planner diagnostics when inferred types are present."""
+        if not data_plan.inferred_types:
+            return
+        print(
+            "[DataManagersPlanner] inferred data types: "
+            + ", ".join(data_plan.inferred_types)
+        )
+        for type_name in data_plan.inferred_types:
+            reasons = data_plan.reasons_for(type_name)
+            if reasons:
+                print(
+                    f"[DataManagersPlanner] {type_name}: "
+                    + "; ".join(reasons)
+                )
 
     def run(self) -> RunResult:
         """Execute one full launcher session and return the populated runtime state.
@@ -191,7 +231,7 @@ class HydroModPyLauncher:
         surface_topo = r.geographic.get_domain_surface_topo()
 
         r.domain = Domain(config=cfg.domain, surface_topo=surface_topo)
-        if "geology" in DataManagers.from_config(cfg.data).types:
+        if "geology" in cfg.data.types:
             geology = GeologyField.from_watershed_config(
                 cfg.data.geology, raster_support=surface_topo.support
             )
@@ -206,37 +246,15 @@ class HydroModPyLauncher:
     def _run_data(self) -> None:
         """Load the external forcings shared by all process runs.
 
-        This phase prepares data that are not specific to one solver backend:
-
-        - climatic forcing series,
-        - oceanic data and mean sea level,
-        - injection of mean sea level into the ocean boundary condition when
-          that boundary exists.
-
-        The important design point is that this is done once before any solver
-        run. A later ``flow`` run and a later ``transport`` run both read from
-        the same prepared runtime state.
+        Runtime loading is delegated to ``DataManagersRuntimeLoader`` in the
+        data_managers package to keep launcher orchestration thin.
         """
         r = self.result
-        cfg = self.cfg
-        ws = r.workspace
-
         self.hooks.call("on_before_data", r)
-
-        r.climatic = Climatic(out_path=ws.catch_folder)
-
-        oceanic = Oceanic()
-        oceanic.extract_local_data(
-            out_path=ws.catch_folder,
-            geographic=r.geographic,
-            oceanic_path=cfg.workspace.data_path,
-        )
-        oceanic.update_MSL(oceanic.fetch_msl_or_default(r.geographic))
-        r.oceanic = oceanic
-
-        if "ocean" in r.flow.boundary_conditions:
-            r.flow.boundary_conditions["ocean"].value = oceanic.MSL
-
+        DataManagersRuntimeLoader(
+            config_path=self.config_path,
+            data_plan=self.data_plan,
+        ).load_all(r)
         self.hooks.call("on_after_data", r)
 
     def _create_simulation_plan(self):

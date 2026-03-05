@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from hydromodpy.watershed.hydrography import Hydrography
     from hydromodpy.watershed.intermittency import Intermittency
     from hydromodpy.data_managers.hydrometry.station_set import StationSet
+    from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
     from hydromodpy.data_managers.oceanic import Oceanic
     from hydromodpy.domain import Domain
     from hydromodpy.process import Flow, Transport
@@ -49,6 +50,7 @@ class RunResult:
     config_path: Path
     raw_toml: dict[str, Any]
     simulation_plan: Any = field(default=None)  # SimulationPlan
+    data_plan: Any = field(default=None)  # DataLoadPlan
     process_runs_by_id: dict[str, Any] = field(default_factory=dict)  # ProcessRun
     models_by_run_id: dict[str, Any] = field(default_factory=dict)
 
@@ -66,6 +68,7 @@ class RunResult:
     hydrography: Any = field(default=None)    # Hydrography
     intermittency: Any = field(default=None)  # Intermittency
     hydrometry: Any = field(default=None)     # StationSet
+    piezometry: Any = field(default=None)     # PiezometerSet
 
     def get_model(self, run_id: str) -> Any:
         """Return the exact model produced by a concrete process run."""

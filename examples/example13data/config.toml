@@ -10,7 +10,7 @@
 # Initialization configuration for watershed project structure.
 # ----------------------------------------------------------------------
 
-[initializing]
+[workspace]
 # Name of the watershed/catchment (used as folder name).
 # Type: string | REQUIRED
 catch_name = "example13data"
@@ -108,35 +108,32 @@ zone_ids = ["geology"]
 
 
 # ----------------------------------------------------------------------
-# Geology configuration nested under domain.
+# Data managers configuration.
 # ----------------------------------------------------------------------
 
-[domain.geology]
+[data]
+# Ordered list of active data-manager types.
+# Allowed values: "geology", "hydrography", "hydrometry",
+# "intermittency", "oceanic", "piezometry".
+types = ["geology"]
+
+
+# ----------------------------------------------------------------------
+# Geology configuration.
+# ----------------------------------------------------------------------
+
+[data.geology]
 # Identifier of the geology spatial field.
-# Type: string | Default: "field_geology"
 id = "field_geology"
-
 # Path to the geology data directory.
-# Type: path | Default: "data/France/geology"
 geo_path = "../../data/France/geology"
-
 # Geology shapefile name inside `geo_path`.
-# Type: string | Default: "GEO1M.shp"
 types_obs = "GEO1M.shp"
-
 # Attribute field used to encode geology classes.
-# Type: string | Default: "CODE_LEG"
 fields_obs = "CODE_LEG"
-
 # Sub-sampling density passed to geology_field.on_mesh(...).
 # Higher values improve interface resolution but increase runtime.
-# Type: int | >= 2 | Default: 8
 cell_samples_per_axis = 8
-
-# Optional land/sea activation flag used by the legacy geology workflow.
-# Set to true to enable sea-specific processing.
-# Type: bool (optional) | Optional
-# landsea =
 
 
 # ----------------------------------------------------------------------
@@ -386,10 +383,18 @@ value = 1.0
 
 
 # ----------------------------------------------------------------------
-# MODFLOW expert configuration
+# Solver selection
 # ----------------------------------------------------------------------
 
-[modflow]
+[solver]
+# Solver backend: "modflownwt" or "modflow6" (MODFLOW 6).
+solver_engine = "modflownwt"
+
+# ----------------------------------------------------------------------
+# MODFLOW-NWT expert configuration
+# ----------------------------------------------------------------------
+
+[modflownwt.runtime]
 # MODFLOW executable/version identifier passed to FloPy.
 mf_version = "mfnwt"
 # Fortran unit number used for the MODFLOW list file.
@@ -453,6 +458,7 @@ lmt_extension = "lmt8"
 # LMT file format.
 lmt_output_format = "unformatted"
 
+[modflownwt.process_specific]
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 vka = 1.0
 # Extinction depth used by the EVT package (EXDP).

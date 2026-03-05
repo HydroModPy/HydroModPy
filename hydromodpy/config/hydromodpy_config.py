@@ -81,8 +81,10 @@ class HydroModPyConfig(BaseModel):
     data: DataManagersConfig = Field(
         default_factory=DataManagersConfig,
         description=(
-            "Data-managers configuration. Use `data.types` to declare active "
-            "families (for example `geology`) and their nested sections."
+            "Data-managers configuration. Use `data.types` to declare requested "
+            "families (for example `geology`). The launcher can also infer extra "
+            "families from other sections (domain, flow, hooks), controlled by "
+            "`data.inference_mode` ('warn' or 'strict')."
         ),
     )
     flow: FlowConfig = Field(
