@@ -62,7 +62,14 @@ def test_launcher_data_overview_data_only_regression(tmp_path):
         assert path.stat().st_size > 0, f"Output exists but is empty: {path}"
 
     # Data-overview workflow must not trigger numerical solver runs.
-    assert not (catch_root / "results_simulations").exists()
+    # ``results_simulations`` may be pre-created by workspace setup.
+    results_simulations_dir = catch_root / "results_simulations"
+    if results_simulations_dir.exists():
+        simulation_files = [p for p in results_simulations_dir.rglob("*") if p.is_file()]
+        assert not simulation_files, (
+            "Unexpected files found in results_simulations for data-only workflow: "
+            f"{simulation_files}"
+        )
     forbidden_suffixes = {".nam", ".hds", ".cbc", ".oc", ".upw", ".nwt"}
     solver_outputs = [
         path
