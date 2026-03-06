@@ -1,0 +1,105 @@
+# =============================================================================
+# Exemple 1 : Donnees custom (fichiers CSV utilisateur)
+# =============================================================================
+#
+# L'utilisateur fournit ses propres fichiers dans un dossier par variable.
+# Chaque dossier doit contenir :
+#   - Un fichier de localisation : TYPE_custom_LOC.csv
+#   - Des chroniques CSV par station : TYPE_custom_ID_YYYYMMDD_YYYYMMDD_FREQ.csv
+#
+# Exemple d'arborescence :
+#
+#   data/hydro/
+#       hydrometry_custom_LOC.csv           <- coordonnees des stations
+#       hydrometry_custom_ST001_20150101_20231231_D.csv
+#       hydrometry_custom_ST002_20150101_20231231_D.csv
+#
+#   data/piezo/
+#       piezometry_custom_LOC.csv
+#       piezometry_custom_BSS001_20150101_20231231_D.csv
+#
+#   data/wq/
+#       waterquality_custom_LOC.csv
+#       waterquality_custom_SITE01_20150101_20231231_D.csv
+#
+# Format du fichier LOC.csv (colonnes par defaut) :
+#   id,x,y,crs
+#   ST001,-1.68,48.12,EPSG:4326
+#   ST002,-1.75,48.05,EPSG:4326
+#
+# Format des chroniques CSV :
+#   datetime,value
+#   2015-01-01,2.35
+#   2015-01-02,2.41
+#   ...
+#
+# =============================================================================
+
+
+# --- Hydrometry : debits depuis des CSV ---
+[hydrometry]
+
+[[hydrometry.sources]]
+source = "custom"
+path = "data/hydro"
+
+# Noms de colonnes (modifiables si vos CSV ont des en-tetes differents)
+# col_id = "id"             # defaut
+# col_x = "x"               # defaut
+# col_y = "y"               # defaut
+# col_crs = "crs"           # defaut
+# col_datetime = "datetime"  # defaut
+# col_value = "value"        # defaut
+# default_crs = "EPSG:4326"  # defaut
+
+# Conversion d'unites (optionnel)
+source_unit = "m3/s"
+target_unit = "m3/s"
+
+# Filtrer certaines stations (optionnel, sinon toutes les stations du LOC)
+# station_ids = ["ST001", "ST002"]
+
+# Masque spatial (optionnel) : ne garder que les stations dans ce masque
+# mask_path = "data/masque_bassin.shp"
+
+
+# --- Piezometry : niveaux depuis des CSV ---
+[piezometry]
+
+[[piezometry.sources]]
+source = "custom"
+path = "data/piezo"
+source_unit = "m"
+target_unit = "m"
+
+# Exemple avec des noms de colonnes non standards
+# col_id = "code_bss"
+# col_x = "longitude"
+# col_y = "latitude"
+# col_datetime = "date"
+# col_value = "niveau_m"
+
+
+# --- Piezometry : valeur fixe (alternative aux CSV) ---
+# Utile pour imposer une condition limite constante
+# [[piezometry.sources]]
+# source = "custom"
+# fixed_value = 15.0
+# station_ids = ["BSS_CL_01", "BSS_CL_02"]
+
+# Ou des valeurs differentes par station :
+# [[piezometry.sources]]
+# source = "custom"
+# [piezometry.sources.fixed_values]
+# BSS_CL_01 = 15.0
+# BSS_CL_02 = 22.5
+
+
+# --- Water quality : qualite d'eau depuis des CSV ---
+[water_quality]
+
+[[water_quality.sources]]
+source = "custom"
+path = "data/wq"
+source_unit = "mg/L"
+target_unit = "mg/L"

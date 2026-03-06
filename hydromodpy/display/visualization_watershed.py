@@ -34,7 +34,7 @@ except:
 # HydroModPy
 from hydromodpy.tools import toolbox
 from hydromodpy.watershed import Workspace, Geographic, Hydrography, Intermittency, Piezometry, Geology
-from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
 #%% PLOT SETTINGS
 
@@ -89,7 +89,7 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% FUNCTIONS
 
-def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Optional[StationSet]=None):
+def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Optional[list[PointRecord]]=None):
     """
     Plot contour watershed and DEM.
 
@@ -105,8 +105,8 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
         Piezometry object of the model domain (watershed).
     intermittency : Intermittency, optional
         Intermittency object of the model domain (watershed).
-    hydrometry : StationSet, optional
-        StationSet object containing hydrometric stations of the model domain (watershed).
+    hydrometry : list[PointRecord], optional
+        List of PointRecord objects containing hydrometric stations.
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
@@ -157,25 +157,15 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     except Exception:
         pass
     
-    # Hydrometry plotting: support both old Hydrometry class and new StationSet
     try:
         if hydrometry is not None:
-            # Old Hydrometry class with hydrometric_clip shapefile
-            # if os.path.exists(hydrometry.hydrometric_clip):
-            #     hydromet = gpd.read_file(hydrometry.hydrometric_clip)
-            #     h = hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
-            #                   edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
-            #     legend_handles += h.get_legend_handles_labels()[0]
-            
-            # New StationSet class with stations_info DataFrame
-            if hasattr(hydrometry, 'stations_info'):
-                stations_info = hydrometry.stations_info
-                if not stations_info.empty and 'longitude_station' in stations_info.columns and 'latitude_station' in stations_info.columns:
-                    h = ax.scatter(stations_info['longitude_station'], 
-                                  stations_info['latitude_station'],
-                                  color='white', marker='o', zorder=7, 
-                                  edgecolor='k', lw=1, label='Hydrometric stations')
-                    legend_handles.append(h)
+            locs = [r.location for r in hydrometry if r.location is not None]
+            if locs:
+                xs = [loc.x for loc in locs]
+                ys = [loc.y for loc in locs]
+                h = ax.scatter(xs, ys, color='white', marker='o', zorder=7,
+                               edgecolor='k', lw=1, label='Hydrometric stations')
+                legend_handles.append(h)
     except Exception:
         pass
     
@@ -405,25 +395,16 @@ def watershed_zones(BV):
     except:
         pass   
     
-    # Hydrometry plotting: support both old Hydrometry class and new StationSet
     try:
         if BV.hydrometry is not None:
-            # Old Hydrometry class with hydrometric_clip shapefile
-            # if os.path.exists(BV.hydrometry.hydrometric_clip):
-            #     hydromet = gpd.read_file(BV.hydrometry.hydrometric_clip)
-            #     hydromet.plot(ax=ax, color='white', zorder=7, marker='o',
-            #                   edgecolor='k', lw=1, legend=True, label='Hydrometric: continue')
-            
-            # New StationSet class with stations_info DataFrame
-            if hasattr(BV.hydrometry, 'stations_info'):
-                stations_info = BV.hydrometry.stations_info
-                if not stations_info.empty and 'longitude_station' in stations_info.columns and 'latitude_station' in stations_info.columns:
-                    ax.scatter(stations_info['longitude_station'], 
-                              stations_info['latitude_station'],
-                              color='white', marker='o', zorder=7, 
-                              edgecolor='k', lw=1, label='Hydrometric stations')
-    except:
-        pass 
+            locs = [r.location for r in BV.hydrometry if r.location is not None]
+            if locs:
+                xs = [loc.x for loc in locs]
+                ys = [loc.y for loc in locs]
+                ax.scatter(xs, ys, color='white', marker='o', zorder=7,
+                           edgecolor='k', lw=1, label='Hydrometric stations')
+    except Exception:
+        pass
     
     try:
         if os.path.exists(BV.intermittency.onde_clip):

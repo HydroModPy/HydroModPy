@@ -140,47 +140,18 @@ cell_samples_per_axis = 8
 
 
 # ----------------------------------------------------------------------
-# Hydrometry configuration (new StationSet-based)
-#
-# Notes for local mode:
-# - station loading needs station CSV files in source.local_data_dir
-# - mask loading requires local reference tables:
-#   stations_info.csv (preferred) or metadata.csv with WGS84 coordinates
-#
-# from the Hub'Eau API, replacing the old shapefile-based Hydrometry class.
+# Hydrometry configuration.
 # ----------------------------------------------------------------------
+[hydrometry]
+date_start = "2019-01-01"
+date_end = "2025-12-31"
 
-[hydrometry_stations]
-variable = "QmnJ"
-display = false
-# Optional date filter (comment out to load all available data):
-# date_start = "2019-01-01"
-# date_end = "2025-12-31"
-
-[hydrometry_stations.source]
-# "api" fetches from Hub'Eau; "local" reads previously exported CSVs
-mode = "api"
-# Used when source.mode = "local":
-# local_data_dir = "hydrometry_exports"
-
-[hydrometry_stations.selection]
-# "mask" = select stations inside a geographic boundary (watershed shapefile)
-# "stations" = explicit list of station IDs
-mode = "mask"
-
-# Used when selection.mode = "stations"
-# station_ids = ["J736422001"]
-
-# Used when selection.mode = "mask"
-# mask_path = "will be dynamically set from Geographic class"
-
-[hydrometry_stations.output]
-# Export loaded data again after loading (filtered subset):
-enabled = true
-path = "../results/example13data/results_stable/hydrometry"
-# "lite" -> station CSVs only
-# "full" -> station CSVs + metadata/stations_info/sites_info/missing_data_summary
-export_mode = "lite"
+[[hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
+# mask_path set dynamically from Geographic watershed shapefile
 
 
 # ----------------------------------------------------------------------
