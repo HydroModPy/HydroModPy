@@ -14,6 +14,12 @@ from __future__ import annotations
 import os
 import tomllib
 from pathlib import Path
+import sys
+
+# When this file is executed directly by path, Python adds the script folder to
+# ``sys.path`` but not necessarily the repository root. Insert the repo root
+# explicitly so the local ``hydromodpy`` package can always be imported.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
