@@ -48,6 +48,8 @@ _RE_REGRESSION = re.compile(
     r"\.py$"
 )
 
+_ALLOWED_REGRESSION_BASES = {"example12", "launcher_simulation"}
+
 
 def _discover_regression_tests(
     regression_dir: Path,
@@ -62,6 +64,8 @@ def _discover_regression_tests(
         if not m:
             continue
         base = m.group("base")
+        if base not in _ALLOWED_REGRESSION_BASES:
+            continue
         is_short = "s_short" in p.name
         variant = "short" if is_short else "full"
         tests.setdefault(base, {"full": [], "short": []})

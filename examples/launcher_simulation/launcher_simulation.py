@@ -8,9 +8,9 @@ hooks.py; launcher-managed postprocess is configured in config.toml via
 
 Usage::
 
-    python -m examples.example12launcher.example12launcher
+    python -m examples.launcher_simulation.launcher_simulation
     # or
-    python -m launchers run examples/example12launcher/config.toml
+    python -m launchers run examples/launcher_simulation/config.toml
 """
 
 from pathlib import Path

@@ -270,7 +270,7 @@ from pathlib import Path
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.process.flow import Flow
 
-cfg = HydroModPyConfig.from_toml(Path("examples/example12/config.toml"))
+cfg = HydroModPyConfig.from_toml(Path("examples_legacy/example12/config.toml"))
 flow = Flow(config=cfg.flow)
 
 print(flow.flow_regime)
@@ -286,4 +286,4 @@ print(flow.sinks_sources.get("wells", {}).keys())
 - Keep user-facing TOML grammar in sync with:
   - `FlowConfig.bc` field description
   - `_parse_flow_bc_sections(...)` docstring
-  - `examples/example12/config.toml` comments
+  - `examples_legacy/example12/config.toml` comments

@@ -31,6 +31,72 @@ WBT = whitebox.WhiteboxTools()
 WBT.verbose = False
 
 
+def _normalize_col_token(value: object) -> str:
+    """Normalize a column name token for tolerant ONDE schema matching."""
+    text = str(value).strip().lower()
+    return "".join(ch for ch in text if ch.isalnum())
+
+
+def _resolve_required_column(
+    available_columns: list[str],
+    *,
+    role: str,
+    candidates: tuple[str, ...],
+) -> str:
+    """Return the matching column name for one logical ONDE field.
+
+    The ONDE exports are not always stable across providers/conversions:
+    some files carry raw names like ``<LbSiteHyd`` while others may include
+    closing ``>`` or slight punctuation variants. We therefore resolve columns
+    by normalized token, while keeping deterministic priority from *candidates*.
+    """
+    candidate_map = {_normalize_col_token(col): col for col in available_columns}
+    for candidate in candidates:
+        key = _normalize_col_token(candidate)
+        if key in candidate_map:
+            return candidate_map[key]
+    raise KeyError(
+        f"Intermittency column for '{role}' was not found. "
+        f"Tried candidates={candidates}. Available={available_columns}"
+    )
+
+
+def _resolve_onde_columns(available_columns: list[str]) -> dict[str, str]:
+    """Resolve the logical ONDE schema to concrete column names."""
+    return {
+        "station_label": _resolve_required_column(
+            available_columns,
+            role="station_label",
+            candidates=("<LbSiteHyd", "<LbSiteHyd>", "LbSiteHyd", "label_site"),
+        ),
+        "station_code": _resolve_required_column(
+            available_columns,
+            role="station_code",
+            candidates=("<CdSiteHyd", "<CdSiteHyd>", "CdSiteHyd", "code_site"),
+        ),
+        "x_coord": _resolve_required_column(
+            available_columns,
+            role="x_coord",
+            candidates=("<CoordXSit", "<CoordXSit>", "CoordXSit", "x"),
+        ),
+        "y_coord": _resolve_required_column(
+            available_columns,
+            role="y_coord",
+            candidates=("<CoordYSit", "<CoordYSit>", "CoordYSit", "y"),
+        ),
+        "obs_date": _resolve_required_column(
+            available_columns,
+            role="obs_date",
+            candidates=("<DtRealObs", "<DtRealObs>", "DtRealObs", "date_obs"),
+        ),
+        "obs_label": _resolve_required_column(
+            available_columns,
+            role="obs_label",
+            candidates=("<LbRsObser", "<LbRsObser>", "LbRsObser", "observation_label"),
+        ),
+    }
+
+
 class Intermittency:
     """Extract, structure, and visualize stream intermittency observations.
 
@@ -107,23 +173,32 @@ class Intermittency:
         WBT.clip(onde_data, geographic.watershed_shp, self.onde_clip)
 
         intermit_bv = gpd.read_file(self.onde_clip)
-        stations = intermit_bv["<LbSiteHyd>"].dropna().unique()
+        cols = _resolve_onde_columns(list(intermit_bv.columns))
+        stations = intermit_bv[cols["station_label"]].dropna().unique()
 
         for station_label in stations:
-            station_rows = intermit_bv[intermit_bv["<LbSiteHyd"] == station_label]
+            station_rows = intermit_bv[intermit_bv[cols["station_label"]] == station_label]
             if station_rows.empty:
                 continue
 
             first_row = station_rows.iloc[0]
             last_row = station_rows.iloc[-1]
 
-            code_value = first_row["<CdSiteHyd"] if pd.notnull(first_row["<CdSiteHyd"]) else None
+            station_code_col = cols["station_code"]
+            station_label_col = cols["station_label"]
+            x_coord_col = cols["x_coord"]
+            y_coord_col = cols["y_coord"]
+            obs_date_col = cols["obs_date"]
+
+            code_value = first_row[station_code_col] if pd.notnull(first_row[station_code_col]) else None
             self.code_onde.append(code_value)
-            self.label.append(first_row["<LbSiteHyd"] if pd.notnull(first_row["<LbSiteHyd"]) else None)
-            self.x_coord.append(first_row["<CoordXSit"] if pd.notnull(first_row["<CoordXSit"]) else None)
-            self.y_coord.append(first_row["<CoordYSit"] if pd.notnull(first_row["<CoordYSit"]) else None)
-            self.date_first.append(pd.to_datetime(first_row["<DtRealObs"], errors="coerce"))
-            self.date_last.append(pd.to_datetime(last_row["<DtRealObs"], errors="coerce"))
+            self.label.append(
+                first_row[station_label_col] if pd.notnull(first_row[station_label_col]) else None
+            )
+            self.x_coord.append(first_row[x_coord_col] if pd.notnull(first_row[x_coord_col]) else None)
+            self.y_coord.append(first_row[y_coord_col] if pd.notnull(first_row[y_coord_col]) else None)
+            self.date_first.append(pd.to_datetime(first_row[obs_date_col], errors="coerce"))
+            self.date_last.append(pd.to_datetime(last_row[obs_date_col], errors="coerce"))
 
     def load_intermittency_data(self, data_folder: str) -> None:
         """Load clipped observations, build code table, and export station plots.
@@ -145,14 +220,15 @@ class Intermittency:
         }
 
         shp = gpd.read_file(self.onde_clip)
-        shp["date"] = pd.to_datetime(shp["<DtRealObs"], format="%Y-%m-%d", errors="coerce")
-        shp["code_flow"] = shp["<LbRsObser"].map(label_to_code)
+        cols = _resolve_onde_columns(list(shp.columns))
+        shp["date"] = pd.to_datetime(shp[cols["obs_date"]], format="%Y-%m-%d", errors="coerce")
+        shp["code_flow"] = shp[cols["obs_label"]].map(label_to_code)
         self.flowing = pd.DataFrame()
 
         unknown_labels = sorted(
             {
                 str(value)
-                for value in shp["<LbRsObser"].dropna().unique()
+                for value in shp[cols["obs_label"]].dropna().unique()
                 if value not in label_to_code
             }
         )
@@ -165,7 +241,7 @@ class Intermittency:
         for code in self.code_onde:
             if code is None:
                 continue
-            station_rows = shp[shp["<CdSiteHyd"] == code]
+            station_rows = shp[shp[cols["station_code"]] == code]
             if station_rows.empty:
                 continue
 
@@ -187,7 +263,7 @@ class Intermittency:
                 s=50,
                 lw=1.5,
             )
-            station_label = str(station_rows.iloc[0]["<LbSiteHyd"])
+            station_label = str(station_rows.iloc[0][cols["station_label"]])
             ax.set_title(f"{code} - {station_label}")
             ax.set_yticks(list(label_to_code.values()))
             ax.set_yticklabels(["Dry", "Invisible", "Low", "Acceptable", "Visible"])

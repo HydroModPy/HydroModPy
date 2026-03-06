@@ -1,4 +1,4 @@
-﻿"""Golden non-regression test for geographic case metrics."""
+"""Golden non-regression test for geographic case metrics."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def _load_json(path: Path) -> dict:
 def _write_tmp_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "run_geographic_config.toml"
     dem_path = (REPO_ROOT / "data" / "Brittany" / "dem" / "regional dem.tif").as_posix()
-    data_path = (REPO_ROOT / "examples" / "example12" / "data").as_posix()
+    data_path = (REPO_ROOT / "examples_legacy" / "example12" / "data").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
     config_path.write_text(

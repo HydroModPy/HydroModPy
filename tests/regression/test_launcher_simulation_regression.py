@@ -1,7 +1,7 @@
-"""End-to-end regression test for examples/example12launcher/example12launcher.py.
+"""End-to-end regression test for examples/launcher_simulation/launcher_simulation.py.
 
 Verifies that the HydroModPyLauncher-based entry-point produces bit-for-bit
-identical outputs to the monolithic ``examples/example12/example12.py`` script.
+identical outputs to the monolithic ``examples_legacy/example12/example12.py`` script.
 The golden reference file is shared with the example12 test so that any
 divergence between the two entry-points is caught automatically.
 """
@@ -20,11 +20,11 @@ from tests.regression.golden_utils import (
     update_or_assert_goldens,
 )
 
-EXAMPLE12LAUNCHER_SCRIPT = (
+LAUNCHER_SIMULATION_SCRIPT = (
     REPO_ROOT
     / "examples"
-    / "example12launcher"
-    / "example12launcher.py"
+    / "launcher_simulation"
+    / "launcher_simulation.py"
 )
 
 # Intentionally reuses the same golden file as example12 so any divergence
@@ -61,15 +61,15 @@ HUBEAU_HEALTHCHECK_URL = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referen
 @pytest.mark.regression
 @pytest.mark.slow
 @pytest.mark.coverage
-def test_example12launcher_regression_on_npy_outputs(tmp_path, update_goldens):
-    """Run example12launcher, then compare its outputs against the example12 golden."""
+def test_launcher_simulation_regression_on_npy_outputs(tmp_path, update_goldens):
+    """Run launcher_simulation, then compare its outputs against the example12 golden."""
     assert_required_executables(require_mt3dms=True)
     require_url_available(SHOM_HEALTHCHECK_URL)
     require_url_available(HUBEAU_HEALTHCHECK_URL)
 
-    out_path = tmp_path / "example12launcher_outputs"
+    out_path = tmp_path / "launcher_simulation_outputs"
     run_example_script(
-        script_path=EXAMPLE12LAUNCHER_SCRIPT,
+        script_path=LAUNCHER_SIMULATION_SCRIPT,
         out_path=out_path,
         out_env_var="HYDROMODPY_OUT_PATH",
         extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
