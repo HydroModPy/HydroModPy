@@ -206,11 +206,11 @@ class DataManagersRuntimeLoader:
             self._handle_data_loading_error(result, "intermittency", exc)
 
     def _load_hydrometry_data(self, result: "LauncherRunState") -> None:
-        """Load hydrometry station sets from ``data.hydrometry`` payload."""
-        from hydromodpy.data_managers.hydrometry.hydrometry_config import (
-            validate_hydrometry_config_data,
-        )
-        from hydromodpy.data_managers.hydrometry.station_set import StationSet
+        """Load hydrometry records from ``data.hydrometry`` payload."""
+        from datetime import datetime as dt
+
+        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
 
         raw_section = self._get_data_section(result, "hydrometry")
         if raw_section is None:
@@ -221,23 +221,29 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        payload = self._normalize_station_set_section(raw_section, root_key="hydrometry")
-        if str(payload["selection"].get("mode", "mask")).strip().lower() == "mask":
-            payload["selection"]["mask_path"] = str(result.setup.geographic.watershed_shp)
-
         try:
-            payload = validate_hydrometry_config_data(payload)
-            self._resolve_station_set_paths(payload)
-            result.loaded_data.hydrometry = StationSet.from_config(payload)
+            hydro_cfg = HydrometryConfig.model_validate(raw_section)
+            period = None
+            if hydro_cfg.date_start and hydro_cfg.date_end:
+                period = (dt.fromisoformat(hydro_cfg.date_start), dt.fromisoformat(hydro_cfg.date_end))
+            for src in hydro_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+            manager = HydrometryManager(
+                config=hydro_cfg,
+                project_period=period,
+                project_extent=None,
+            )
+            result.loaded_data.hydrometry = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrometry", exc)
 
     def _load_piezometry_data(self, result: "LauncherRunState") -> None:
-        """Load piezometry station sets from ``data.piezometry`` payload."""
-        from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
-        from hydromodpy.data_managers.piezometry.piezometry_config import (
-            validate_piezometry_config_data,
-        )
+        """Load piezometry records from ``data.piezometry`` payload."""
+        from datetime import datetime as dt
+
+        from hydromodpy.data_managers.piezometry.config import PiezometryConfig
+        from hydromodpy.data_managers.piezometry.manager import PiezometryManager
 
         raw_section = self._get_data_section(result, "piezometry")
         if raw_section is None:
@@ -248,14 +254,20 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        payload = self._normalize_station_set_section(raw_section, root_key="piezometry")
-        if str(payload["selection"].get("mode", "mask")).strip().lower() == "mask":
-            payload["selection"]["mask_path"] = str(result.setup.geographic.watershed_shp)
-
         try:
-            payload = validate_piezometry_config_data(payload)
-            self._resolve_station_set_paths(payload)
-            result.loaded_data.piezometry = PiezometerSet.from_config(payload)
+            piezo_cfg = PiezometryConfig.model_validate(raw_section)
+            period = None
+            if piezo_cfg.date_start and piezo_cfg.date_end:
+                period = (dt.fromisoformat(piezo_cfg.date_start), dt.fromisoformat(piezo_cfg.date_end))
+            for src in piezo_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+            manager = PiezometryManager(
+                config=piezo_cfg,
+                project_period=period,
+                project_extent=None,
+            )
+            result.loaded_data.piezometry = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "piezometry", exc)
 
@@ -319,43 +331,3 @@ class DataManagersRuntimeLoader:
             return out
         return []
 
-    @staticmethod
-    def _normalize_station_set_section(
-        section: Mapping[str, Any],
-        *,
-        root_key: str,
-    ) -> dict[str, Any]:
-        if root_key in section and isinstance(section[root_key], Mapping):
-            return {
-                root_key: dict(section.get(root_key, {})),
-                "source": dict(section.get("source", {})),
-                "selection": dict(section.get("selection", {})),
-                "output": dict(section.get("output", {})),
-            }
-        return {
-            root_key: {
-                key: value
-                for key, value in section.items()
-                if key not in {"source", "selection", "output"}
-            },
-            "source": dict(section.get("source", {})),
-            "selection": dict(section.get("selection", {})),
-            "output": dict(section.get("output", {})),
-        }
-
-    def _resolve_station_set_paths(self, payload: dict[str, Any]) -> None:
-        source_cfg = payload.get("source", {})
-        selection_cfg = payload.get("selection", {})
-        output_cfg = payload.get("output", {})
-
-        local_data_dir = source_cfg.get("local_data_dir")
-        if isinstance(local_data_dir, str) and local_data_dir.strip():
-            source_cfg["local_data_dir"] = str(self._resolve_path_like(local_data_dir))
-
-        mask_path = selection_cfg.get("mask_path")
-        if isinstance(mask_path, str) and mask_path.strip():
-            selection_cfg["mask_path"] = str(self._resolve_path_like(mask_path))
-
-        output_path = output_cfg.get("path")
-        if isinstance(output_path, str) and output_path.strip():
-            output_cfg["path"] = str(self._resolve_path_like(output_path))
