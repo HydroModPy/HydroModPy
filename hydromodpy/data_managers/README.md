@@ -53,7 +53,6 @@ L'objectif de la couche racine est de decider, de maniere deterministe, **quels 
 ## Regles d'inference actuelles
 
 - `domain.zone_ids` contient `geology` -> active `geology`
-- presence de `[hydrometry_stations]` dans le TOML brut -> active `hydrometry`
 - `flow.active_bc` contient `stream` -> active `hydrography`
 - `flow.active_bc` contient `ocean` -> active `oceanic`
 

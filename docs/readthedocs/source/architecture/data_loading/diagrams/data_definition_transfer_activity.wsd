@@ -10,9 +10,6 @@ start
 if (domain.zone_ids contains geology?) then (yes)
   :Activate geology (explicit or inferred);
 endif
-if (raw_toml has [hydrometry_stations]?) then (yes)
-  :Infer hydrometry activation in DataLoadPlan;
-endif
 :Apply resolved data types into cfg.data;
 :Store data_plan in LauncherRunState;
 

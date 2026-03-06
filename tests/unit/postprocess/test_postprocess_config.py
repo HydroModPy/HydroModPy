@@ -1,5 +1,8 @@
 """Unit tests for postprocess TOML configuration schema."""
 
+import pytest
+from pydantic import ValidationError
+
 from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 
 
@@ -50,24 +53,21 @@ def test_postprocess_config_accepts_nested_overrides() -> None:
     assert cfg.transport.intermittency.daily is True
 
 
-def test_postprocess_config_migrates_legacy_timeseries_intermittency_keys() -> None:
-    cfg = PostprocessConfig.model_validate(
-        {
-            "enabled": True,
-            "flow": {
-                "timeseries": {
-                    "intermittency_monthly": False,
-                    "intermittency_yearly": True,
-                }
-            },
-            "transport": {
-                "timeseries": {
-                    "intermittency_daily": True,
-                }
-            },
-        }
-    )
-
-    assert cfg.flow.intermittency.monthly is False
-    assert cfg.flow.intermittency.yearly is True
-    assert cfg.transport.intermittency.daily is True
+def test_postprocess_config_rejects_legacy_timeseries_intermittency_keys() -> None:
+    with pytest.raises(ValidationError):
+        PostprocessConfig.model_validate(
+            {
+                "enabled": True,
+                "flow": {
+                    "timeseries": {
+                        "intermittency_monthly": False,
+                        "intermittency_yearly": True,
+                    }
+                },
+                "transport": {
+                    "timeseries": {
+                        "intermittency_daily": True,
+                    }
+                },
+            }
+        )

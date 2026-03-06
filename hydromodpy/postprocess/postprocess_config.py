@@ -13,11 +13,10 @@ compatibility with projects that do not yet use launcher-managed postprocess.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.postprocess.flow.intermittency_config import (
     IntermittencyPostprocessConfig,
-    promote_legacy_intermittency_settings,
 )
 from hydromodpy.postprocess.netcdf.flow_netcdf_config import (
     FlowNetcdfPostprocessConfig,
@@ -63,17 +62,6 @@ class FlowPostprocessConfig(BaseModel):
         description="Run the flow display suite after flow postprocessing.",
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def _migrate_legacy_intermittency(
-        cls,
-        value: object,
-    ) -> object:
-        if not isinstance(value, dict):
-            return value
-        return promote_legacy_intermittency_settings(value)
-
-
 class TransportPostprocessConfig(BaseModel):
     """Postprocessing options for the transport process family."""
 
@@ -103,17 +91,6 @@ class TransportPostprocessConfig(BaseModel):
         default=True,
         description="Run transport display suite when a transport model is available.",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _migrate_legacy_intermittency(
-        cls,
-        value: object,
-    ) -> object:
-        if not isinstance(value, dict):
-            return value
-        return promote_legacy_intermittency_settings(value)
-
 
 class PostprocessConfig(BaseModel):
     """Top-level `[postprocess]` configuration."""
