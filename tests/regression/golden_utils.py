@@ -456,6 +456,7 @@ def run_example_script(
     out_path: Path,
     out_env_var: str,
     extra_env: dict | None = None,
+    script_args: list[str] | None = None,
     timeout: int = 1200,
     cwd: Path = REPO_ROOT,
 ) -> None:
@@ -478,11 +479,12 @@ def run_example_script(
     # When coverage is active, use a wrapper that starts coverage
     # programmatically before any project imports.  This avoids the numpy
     # double-load crashes caused by .pth files or "coverage run".
+    run_args = [] if script_args is None else list(script_args)
     if os.environ.get("HYDROMODPY_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
-        command = [sys.executable, str(wrapper), str(script_path)]
+        command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
-        command = [sys.executable, str(script_path)]
+        command = [sys.executable, str(script_path), *run_args]
     completed = subprocess.run(
         command,
         cwd=str(cwd),

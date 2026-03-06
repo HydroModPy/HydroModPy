@@ -70,6 +70,23 @@ def test_recharge_no_evt_when_negative_to_evt_false():
     assert evt_spd is None
 
 
+def test_recharge_list_builds_evt_and_clips_negative_values():
+    cfg = FlowRechargeConfig(values=[0.1, -0.2, 0.3], first_clim="mean", negative_to_evt=True)
+    adapter = _make_adapter(cfg, "transient", nper=3)
+
+    rch_data, evt_spd = adapter._build_recharge_payload()
+
+    assert evt_spd is not None
+    assert evt_spd[0] == 0
+    assert evt_spd[1] == pytest.approx(0.2)
+    assert evt_spd[2] == pytest.approx(0.0)
+
+    assert isinstance(rch_data, dict)
+    assert rch_data[0] == pytest.approx(np.mean([0.1, 0.0, 0.3]))
+    assert rch_data[1] == pytest.approx(0.0)
+    assert rch_data[2] == pytest.approx(0.3)
+
+
 def test_recharge_steady_mapping_returns_mean_scalar():
     cfg = FlowRechargeConfig(values={0: 0.2, 1: 0.4})
     adapter = _make_adapter(cfg, "steady", nper=2)

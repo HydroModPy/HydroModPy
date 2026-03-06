@@ -139,7 +139,7 @@ substratum_elevation = 0.0
 [data]
 # Ordered list of data types explicitly declared in [data].
 # The launcher can infer additional types from other sections
-# (for example domain.zone_ids, flow.active_bc, hooks.py).
+# (for example domain.zone_ids and flow.active_bc).
 # Allowed values: "geology", "hydrography", "hydrometry",
 # "intermittency", "oceanic", "piezometry".
 types = ["geology", "hydrography", "intermittency", "hydrometry"]
@@ -481,9 +481,6 @@ units = "m3/day"
 
 # ----------------------------------------------------------------------
 # Flow sinks/sources (recharge).
-#
-# This block now keeps solver-side recharge policy only.
-# Recharge chronicle source/mode is configured in [recharge_chronicle] below.
 # ----------------------------------------------------------------------
 [flow.sinks_sources.recharge]
 # Policy for stress-period 0 when values come from a dynamic series.
@@ -496,7 +493,7 @@ first_clim = "mean"
 negative_to_evt = true
 
 # ----------------------------------------------------------------------
-# Recharge chronicle source/mode (consumed by examples/launcher_simulation/hooks.py)
+# Recharge chronicle source/mode consumed by launcher runtime.
 #
 # mode options:
 # - "observed_csv"        : load natural observed chronicle from CSV
@@ -507,7 +504,7 @@ negative_to_evt = true
 mode = "synthetic_generated"
 
 [recharge_chronicle.observed_csv]
-# Example natural chronicle used today by launcher_simulation.
+# Example natural chronicle used by launcher_simulation.
 path_file = "../../examples_legacy/example12/data/_climate_REANALYSIS.csv"
 clim_mod = "REA"
 clim_sce = "historic"
@@ -829,11 +826,11 @@ data_value = false
 
 # ----------------------------------------------------------------------
 # Launcher-managed postprocess workflows.
-# This section replaces legacy on_after_flow/on_after_transport hooks.
+# This section replaces legacy project-specific postprocess scripts.
 # ----------------------------------------------------------------------
 [postprocess]
 # Master switch for launcher-managed postprocess after process-family runs.
-# Keep false to preserve hook-only behavior in older projects.
+# Keep false to disable optional postprocess tasks.
 enabled = true
 
 [postprocess.flow]
@@ -905,12 +902,12 @@ weekly = false
 daily = false
 
 # ----------------------------------------------------------------------
-# Display configuration for reusable plotting hooks.
+# Display configuration for reusable plotting options.
 # This section is validated by hydromodpy.display.options.DisplayConfig
 # and consumed by launcher postprocess display suites.
 # ----------------------------------------------------------------------
 [display]
-# Master switch for all optional plotting hooks.
+# Master switch for all optional plotting features.
 enabled = true
 # Show interactive figures/windows when rendering is enabled.
 show = true

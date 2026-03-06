@@ -43,7 +43,7 @@ from matplotlib import rcsetup
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.watershed_legacy import Hydrography
+from hydromodpy.data_managers.hydrography import Hydrography
 
 logger = get_logger(__name__)
 

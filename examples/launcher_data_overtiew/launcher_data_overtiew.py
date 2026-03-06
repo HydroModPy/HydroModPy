@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-"""launcher_data_overtiew: setup + data loading only (no process execution)."""
+"""launcher_data_overtiew: setup + data loading only (no process execution).
+
+This script is intentionally "data-only":
+- build workspace/geographic/domain contexts,
+- load and bind data managers,
+- print an activation summary,
+- optionally plot watershed data overlays,
+- never execute flow/transport simulation solvers.
+"""
 
 from __future__ import annotations
 
@@ -17,14 +25,18 @@ from hydromodpy.simulation.state.run_state import LauncherRunState
 
 
 def _build_run_state(config_path: Path) -> LauncherRunState:
+    # 1) Parse and validate TOML into the canonical HydroModPy config object.
     cfg = HydroModPyConfig.from_toml(config_path)
 
+    # Optional output override for test runs and CI.
     if out_override := os.environ.get("HYDROMODPY_OUT_PATH"):
         cfg.workspace.out_dir_path = Path(out_override)
 
+    # Keep raw TOML for planner diagnostics and compatibility checks.
     with config_path.open("rb") as stream:
         raw_toml = tomllib.load(stream)
 
+    # 2) Resolve active data-manager families (explicit + inferred).
     data_plan = DataManagersPlanner().build(
         cfg.data,
         domain_zone_ids=cfg.domain.zone_ids,
@@ -33,6 +45,7 @@ def _build_run_state(config_path: Path) -> LauncherRunState:
     )
     cfg.data = cfg.data.with_resolved_types(data_plan.types)
 
+    # 3) Create one shared launcher state object.
     run_state = LauncherRunState(
         cfg=cfg,
         config_path=config_path,
@@ -40,10 +53,15 @@ def _build_run_state(config_path: Path) -> LauncherRunState:
         data_plan=data_plan,
     )
 
+    # 4) Build setup contexts required by data loaders and visualizations.
     workspace = hmp.Workspace(config=cfg.workspace)
     geographic = hmp.Geographic(cfg.geographic, workspace)
-    surface_topo = geographic.get_domain_surface_topo()
-    domain = Domain(config=cfg.domain, surface_topo=surface_topo)
+    domain = None
+    # Domain is optional for this data-overview launcher.
+    # Build it only when explicitly configured or when geology is active.
+    if "domain" in raw_toml or "geology" in data_plan.types:
+        surface_topo = geographic.get_domain_surface_topo()
+        domain = Domain(config=cfg.domain, surface_topo=surface_topo)
 
     run_state.setup.workspace = workspace
     run_state.setup.geographic = geographic
@@ -56,19 +74,19 @@ def _load_data(run_state: LauncherRunState) -> None:
     if run_state.data_plan is None:
         raise ValueError("Data plan is missing.")
 
+    # Load all active data managers declared/resolved in the data plan.
     loader = DataManagersRuntimeLoader(
         config_path=run_state.config_path,
         data_plan=run_state.data_plan,
     )
     loader.load_all(run_state)
 
-    if run_state.setup.domain is None:
-        raise ValueError("Domain was not initialized.")
-
-    apply_geology_to_domain(
-        domain=run_state.setup.domain,
-        geology=run_state.loaded_data.geology,
-    )
+    # Bind loaded geology object to Domain.zones when a domain exists.
+    if run_state.setup.domain is not None:
+        apply_geology_to_domain(
+            domain=run_state.setup.domain,
+            geology=run_state.loaded_data.geology,
+        )
 
 
 def _show_summary(run_state: LauncherRunState) -> None:
@@ -87,6 +105,7 @@ def _show_summary(run_state: LauncherRunState) -> None:
 
 
 def _plot_watershed_overview(run_state: LauncherRunState) -> None:
+    # Headless switch used by tests/CI to skip plotting side effects.
     if os.environ.get("HYDROMODPY_NO_DISPLAY") == "1":
         return
 
@@ -113,12 +132,14 @@ def _plot_watershed_overview(run_state: LauncherRunState) -> None:
 
 
 def main() -> None:
+    # Example-local configuration entry point.
     config_path = Path(__file__).parent / "config.toml"
     run_state = _build_run_state(config_path)
 
     watershed_name = run_state.cfg.workspace.catch_name
     print(f"##### {watershed_name.upper()} #####")
 
+    # Data overview workflow only: setup + data + display.
     _load_data(run_state)
     _show_summary(run_state)
     _plot_watershed_overview(run_state)

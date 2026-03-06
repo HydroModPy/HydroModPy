@@ -47,9 +47,12 @@ from __future__ import annotations
 
 import os
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import hydromodpy as hmp
+import pandas as pd
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.data_managers import (
     DataLoadPlan,
@@ -66,7 +69,161 @@ from hydromodpy.process.flow.structure_binders import (
 from hydromodpy.simulation import ProcessContextFactory, SimulationPlanner
 from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.state.run_state import LauncherRunState
-from hydromodpy.watershed_legacy.settings import Settings
+from hydromodpy.simulation.settings import Settings
+
+
+def _as_mapping(value: object, *, name: str) -> dict[str, Any]:
+    """Return a shallow dict copy from a mapping-like payload."""
+    if value is None:
+        return {}
+    if isinstance(value, Mapping):
+        return dict(value)
+    raise ValueError(f"{name} must be a mapping")
+
+
+def _resolve_config_path(
+    config_path: Path,
+    path_value: object,
+    *,
+    name: str,
+) -> Path:
+    """Resolve a path relative to the launcher TOML location."""
+    if not isinstance(path_value, str) or not path_value.strip():
+        raise ValueError(f"{name} must be a non-empty string path")
+    path = Path(path_value).expanduser()
+    if not path.is_absolute():
+        path = (config_path.parent / path).resolve()
+    return path
+
+
+def _to_m_per_day(series: pd.Series, *, units: object, label: str) -> pd.Series:
+    """Normalize recharge/runoff units to m/day."""
+    unit = str(units).strip().lower()
+    if unit in {"m/day", "m/d"}:
+        return series.astype(float)
+    if unit in {"mm/day", "mm/d"}:
+        return series.astype(float) / 1000.0
+    raise ValueError(f"{label} units must be 'mm/day' or 'm/day'. Got: {units!r}")
+
+
+def _normalize_recharge_mode(raw_toml: Mapping[str, Any]) -> str | None:
+    """Return recharge chronicle mode, or None when section is absent."""
+    cfg = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
+    if not cfg:
+        return None
+    mode = str(cfg.get("mode", "synthetic_generated")).strip().lower()
+    allowed = {"observed_csv", "synthetic_generated", "synthetic_csv"}
+    if mode not in allowed:
+        raise ValueError(
+            "recharge_chronicle.mode must be one of "
+            "'observed_csv', 'synthetic_generated', 'synthetic_csv'."
+        )
+    return mode
+
+
+def _build_synthetic_generated_series(
+    raw_toml: Mapping[str, Any],
+    *,
+    default_values: object | None = None,
+) -> tuple[pd.Series, pd.Series]:
+    """Build recharge/runoff series from inline synthetic payload."""
+    cfg_root = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
+    cfg = _as_mapping(
+        cfg_root.get("synthetic_generated"),
+        name="recharge_chronicle.synthetic_generated",
+    )
+
+    raw_values = cfg.get("values_mm_day", default_values)
+    if isinstance(raw_values, (list, tuple)):
+        values = [float(v) for v in raw_values]
+        periods = int(cfg.get("periods", len(values)))
+        if len(values) != periods:
+            raise ValueError(
+                "recharge_chronicle.synthetic_generated.values_mm_day length must match periods."
+            )
+    elif isinstance(raw_values, (int, float)) and not isinstance(raw_values, bool):
+        periods = int(cfg.get("periods", 12))
+        values = [float(raw_values)] * periods
+    else:
+        raise ValueError(
+            "recharge_chronicle.synthetic_generated.values_mm_day must be "
+            "a scalar or a list of numeric values."
+        )
+
+    start_date = str(cfg.get("start_date", "2003-01-01"))
+    freq = str(cfg.get("freq", "ME"))
+    index = pd.date_range(start=start_date, periods=periods, freq=freq)
+    recharge_raw = pd.Series(values, index=index, dtype=float)
+    recharge = _to_m_per_day(
+        recharge_raw,
+        units=cfg.get("units", "mm/day"),
+        label="synthetic_generated recharge",
+    )
+    runoff_ratio = float(cfg.get("runoff_ratio", 0.1))
+    runoff = recharge * runoff_ratio
+    return recharge, runoff
+
+
+def _build_synthetic_csv_series(
+    raw_toml: Mapping[str, Any],
+    *,
+    config_path: Path,
+) -> tuple[pd.Series, pd.Series]:
+    """Build recharge/runoff series from a CSV payload."""
+    cfg_root = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
+    cfg = _as_mapping(
+        cfg_root.get("synthetic_csv"),
+        name="recharge_chronicle.synthetic_csv",
+    )
+
+    path_file = _resolve_config_path(
+        config_path,
+        cfg.get("path_file", ""),
+        name="recharge_chronicle.synthetic_csv.path_file",
+    )
+    sep = str(cfg.get("sep", ","))
+    date_column = str(cfg.get("date_column", "date"))
+    recharge_column = str(cfg.get("recharge_column", "recharge_mm_day"))
+    date_format = cfg.get("date_format")
+    runoff_column = cfg.get("runoff_column")
+
+    df = pd.read_csv(path_file, sep=sep)
+    if date_column not in df.columns:
+        raise ValueError(f"Column '{date_column}' not found in synthetic recharge CSV: {path_file}")
+    if recharge_column not in df.columns:
+        raise ValueError(
+            f"Column '{recharge_column}' not found in synthetic recharge CSV: {path_file}"
+        )
+
+    if date_format is None:
+        dates = pd.to_datetime(df[date_column])
+    else:
+        dates = pd.to_datetime(df[date_column], format=str(date_format))
+
+    recharge_raw = pd.Series(df[recharge_column].astype(float).values, index=dates).sort_index()
+    recharge = _to_m_per_day(
+        recharge_raw,
+        units=cfg.get("units", "mm/day"),
+        label="synthetic_csv recharge",
+    )
+
+    if isinstance(runoff_column, str) and runoff_column in df.columns:
+        runoff_raw = pd.Series(df[runoff_column].astype(float).values, index=dates).sort_index()
+        runoff = _to_m_per_day(
+            runoff_raw,
+            units=cfg.get("runoff_units", cfg.get("units", "mm/day")),
+            label="synthetic_csv runoff",
+        )
+    else:
+        runoff_ratio = float(cfg.get("runoff_ratio", 0.1))
+        runoff = recharge * runoff_ratio
+
+    time_step = cfg.get("time_step")
+    if isinstance(time_step, str) and time_step.strip():
+        recharge = recharge.resample(time_step).mean().ffill()
+        runoff = runoff.resample(time_step).mean().ffill()
+
+    return recharge, runoff
 
 
 class HydroModPyLauncher:
@@ -81,7 +238,7 @@ class HydroModPyLauncher:
     The typical usage is:
 
     >>> from pathlib import Path
-    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config.toml"))
+    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config_standard.toml"))
     >>> run_state = launcher.run()
 
     After ``run()``, ``run_state`` contains both the shared objects created during
@@ -105,13 +262,13 @@ class HydroModPyLauncher:
 
         - ``self.cfg`` is the validated Pydantic representation used by the core
           code,
-        - ``raw_toml`` is the untyped dictionary kept for launcher-managed
-          custom sections (for example ``[recharge_chronicle]``).
+        - ``raw_toml`` is the untyped dictionary kept for optional
+          launcher-managed custom sections (currently ``[recharge_chronicle]``).
         """
         self.config_path = Path(config_path).resolve()
         self.cfg = HydroModPyConfig.from_toml(self.config_path)
 
-        # HYDROMODPY_OUT_PATH allows redirecting outputs without editing config.toml.
+        # HYDROMODPY_OUT_PATH allows redirecting outputs without editing the launcher TOML.
         if out_path_env := os.environ.get("HYDROMODPY_OUT_PATH"):
             self.cfg.workspace.out_dir_path = Path(out_path_env)
 
@@ -264,7 +421,86 @@ class HydroModPyLauncher:
             data_plan=self.data_plan,
         )
         loader.load_all(run_state)
+        self._apply_recharge_chronicle_from_toml()
         self._apply_structural_updates_from_data()
+
+    def _apply_recharge_chronicle_from_toml(self) -> None:
+        """Optionally materialize climatic recharge from [recharge_chronicle]."""
+        run_state = self.run_state
+        mode = _normalize_recharge_mode(run_state.raw_toml)
+        if mode is None:
+            return
+
+        climatic = run_state.loaded_data.climatic
+        if climatic is None:
+            raise RuntimeError(
+                "Launcher internal error: loaded_data.climatic is not initialized."
+            )
+
+        sinks_sources = getattr(run_state.setup.flow, "sinks_sources", {})
+        recharge_cfg = (
+            sinks_sources.get("recharge")
+            if isinstance(sinks_sources, dict)
+            else None
+        )
+        default_values = getattr(recharge_cfg, "values", None) if recharge_cfg is not None else None
+
+        if mode == "observed_csv":
+            cfg_root = _as_mapping(
+                run_state.raw_toml.get("recharge_chronicle"),
+                name="recharge_chronicle",
+            )
+            cfg = _as_mapping(
+                cfg_root.get("observed_csv"),
+                name="recharge_chronicle.observed_csv",
+            )
+            default_path = run_state.cfg.workspace.data_path / "_climate_REANALYSIS.csv"
+            path_file = _resolve_config_path(
+                self.config_path,
+                cfg.get("path_file", str(default_path)),
+                name="recharge_chronicle.observed_csv.path_file",
+            )
+            clim_mod = str(cfg.get("clim_mod", "REA"))
+            clim_sce = str(cfg.get("clim_sce", "historic"))
+            first_year = int(cfg.get("first_year", 2003))
+            last_year = int(cfg.get("last_year", first_year))
+            time_step = str(cfg.get("time_step", "ME"))
+            sim_state = str(cfg.get("sim_state", run_state.setup.flow.flow_regime))
+
+            climatic.update_recharge_reanalysis(
+                path_file=path_file,
+                clim_mod=clim_mod,
+                clim_sce=clim_sce,
+                first_year=first_year,
+                last_year=last_year,
+                time_step=time_step,
+                sim_state=sim_state,
+            )
+            climatic.update_runoff_reanalysis(
+                path_file=path_file,
+                clim_mod=clim_mod,
+                clim_sce=clim_sce,
+                first_year=first_year,
+                last_year=last_year,
+                time_step=time_step,
+                sim_state=sim_state,
+            )
+            return
+
+        if mode == "synthetic_generated":
+            recharge, runoff = _build_synthetic_generated_series(
+                run_state.raw_toml,
+                default_values=default_values,
+            )
+        else:
+            recharge, runoff = _build_synthetic_csv_series(
+                run_state.raw_toml,
+                config_path=self.config_path,
+            )
+
+        sim_state = run_state.setup.flow.flow_regime
+        climatic.update_recharge(recharge, sim_state=sim_state)
+        climatic.update_runoff(runoff, sim_state=sim_state)
 
     def _apply_structural_updates_from_data(self) -> None:
         """Bind loaded data objects to runtime structures using explicit updaters."""

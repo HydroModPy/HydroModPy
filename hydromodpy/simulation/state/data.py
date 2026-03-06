@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from hydromodpy.data_managers.intermittency import Intermittency
     from hydromodpy.data_managers.oceanic import Oceanic
     from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
-    from hydromodpy.watershed_legacy.hydrography import Hydrography
+    from hydromodpy.data_managers.hydrography import Hydrography
 
 
 @dataclass
