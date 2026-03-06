@@ -1,0 +1,68 @@
+"""Point time-series contract."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
+
+import pandas as pd
+
+from hydromodpy.data_managers.contracts.location import StationLocation
+
+REQUIRED_COLUMNS = ("datetime", "value")
+
+
+@dataclass
+class PointRecord:
+    """Single-station time series produced by any loader.
+
+    data must contain at least columns [datetime, value].
+    """
+
+    station_id: str
+    variable: str
+    source: str
+    unit: str
+    frequency: str
+    data: pd.DataFrame
+    date_start: datetime
+    date_end: datetime
+    location: Optional[StationLocation] = None
+    is_constant: bool = False
+
+    def __post_init__(self):
+        missing = [c for c in REQUIRED_COLUMNS if c not in self.data.columns]
+        if missing:
+            raise ValueError(
+                f"PointRecord.data missing columns: {missing}. "
+                f"Got: {list(self.data.columns)}"
+            )
+        self.data["datetime"] = pd.to_datetime(self.data["datetime"], errors="coerce")
+        self.data["value"] = pd.to_numeric(self.data["value"], errors="coerce")
+
+    @property
+    def n_records(self) -> int:
+        return len(self.data)
+
+    @property
+    def has_data(self) -> bool:
+        return not self.data.empty
+
+    def filter_by_period(self, start: datetime, end: datetime) -> "PointRecord":
+        """Return a new PointRecord filtered to [start, end]."""
+        mask = (self.data["datetime"] >= pd.Timestamp(start)) & (
+            self.data["datetime"] <= pd.Timestamp(end)
+        )
+        return PointRecord(
+            station_id=self.station_id,
+            variable=self.variable,
+            source=self.source,
+            unit=self.unit,
+            frequency=self.frequency,
+            data=self.data.loc[mask].copy(),
+            date_start=start,
+            date_end=end,
+            location=self.location,
+            is_constant=self.is_constant,
+        )
