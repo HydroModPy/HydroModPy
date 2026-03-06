@@ -188,37 +188,19 @@ file_name = "regional onde stations.shp"
 
 
 # ----------------------------------------------------------------------
-# Hydrometry station-set configuration.
+# Hydrometry configuration.
 # ----------------------------------------------------------------------
 [data.hydrometry]
-# Hydrometric variable requested from the source (for example daily discharge code).
-variable = "QmnJ"
-# If true, display diagnostic information while loading station data.
-display = false
-# Optional inclusive start date filter applied to the requested time series.
 date_start = "2019-01-01"
-# Optional inclusive end date filter applied to the requested time series.
 date_end = "2025-12-31"
 
-[data.hydrometry.source]
-# Hydrometry source mode: remote API lookup or local exported files.
-mode = "api"
-# Local directory containing previously exported station files when mode='local'.
-local_data_dir = "hydrometry_exports"
-
-[data.hydrometry.selection]
-# Station selection mode: explicit station ids or spatial mask filtering.
-mode = "mask"
-# Explicit list of hydrometric station identifiers used when mode='stations'.
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
 station_ids = ["J736422001"]
-
-[data.hydrometry.output]
-# If true, export the loaded station series to disk after selection.
-enabled = true
-# Destination directory for exported hydrometry files.
-path = "../results/example12/results_stable/hydrometry"
-# Export payload level: 'lite' for compact outputs, 'full' for all available files.
-export_mode = "lite"
+# mask_path set dynamically from Geographic watershed shapefile
 
 
 # ----------------------------------------------------------------------

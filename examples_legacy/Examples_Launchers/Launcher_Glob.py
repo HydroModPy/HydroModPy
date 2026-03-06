@@ -70,7 +70,8 @@ from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.watershed import Driasclimat, Driaseau, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Transport
-from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
@@ -1449,26 +1450,28 @@ def watershed(example_id):
 
         flow.boundary_conditions["ocean"].value = oceanic.MSL
 
-        # 6. Hydrometry (Nouveau StationSet)
-        hydro_section = raw_toml.get("hydrometry_stations", {})
+        # 6. Hydrometry
+        hydro_section = raw_toml.get("hydrometry", {})
+        hydrometry = None
         if hydro_section:
-            hydro_cfg = {
-                "hydrometry": {k: v for k, v in hydro_section.items() if k not in ["source", "selection", "output"]},
-                "source": hydro_section.get("source", {}),
-                "selection": hydro_section.get("selection", {}),
-                "output": hydro_section.get("output", {}),
-            }
-            # Utilise le shapefile du bassin comme masque
-            if hydro_cfg["selection"].get("mode") == "mask":
-                hydro_cfg["selection"]["mask_path"] = geographic_object.watershed_shp
-
             try:
-                hydrometry = StationSet.from_config(hydro_cfg)
+                from datetime import datetime as dt
+                hydro_cfg = HydrometryConfig.model_validate(hydro_section)
+                period = None
+                if hydro_cfg.date_start and hydro_cfg.date_end:
+                    period = (dt.fromisoformat(hydro_cfg.date_start), dt.fromisoformat(hydro_cfg.date_end))
+                for src in hydro_cfg.sources:
+                    if not src.mask_path:
+                        src.mask_path = Path(geographic_object.watershed_shp)
+                manager = HydrometryManager(
+                    config=hydro_cfg,
+                    project_period=period,
+                    project_extent=None,
+                )
+                hydrometry = manager.load()
             except Exception as e:
                 print(f"Hydrometry loading failed: {e}")
                 hydrometry = None
-        else:
-            hydrometry = None
 
         # 7. PrÃ©paration des rÃ©sultats
         results = {
