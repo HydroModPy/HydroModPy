@@ -52,7 +52,8 @@ from hydromodpy.watershed import \
     Driasclimat, Driaseau, Hydrometry, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Transport
-from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.simulation.workspace import Workspace
@@ -223,30 +224,29 @@ hydrometry_old = Hydrometry(out_path=initializing.catch_folder,
                         file_name='france hydrometric stations.shp',
                         geographic=geographic)
 
-# Extract hydrometry configuration from raw_toml
-hydro_section = raw_toml.get("hydrometry_stations", {})
-
-hydro_cfg = {
-    "hydrometry": {k: v for k, v in hydro_section.items() 
-                if k not in ["source", "selection", "output"]},
-    "source": hydro_section.get("source", {}),
-    "selection": hydro_section.get("selection", {}),
-    "output": hydro_section.get("output", {}),
-}
-
-# Inject watershed shapefile created by Geographic as mask for station selection
-selection_mode = hydro_cfg["selection"].get("mode", "mask")
-if selection_mode == "mask":
-    hydro_cfg["selection"]["mask_path"] = geographic.watershed_shp
-    print(f"Hydrometry: Loading stations from watershed mask: {geographic.watershed_shp}")
-
-# Load stations with error handling
-try:
-    hydrometry = StationSet.from_config(hydro_cfg)
-except ValueError as e:
-    print(f"Warning: Hydrometry loading failed - {e}")
-    print("Continuing without hydrometric stations...")
-    hydrometry = None
+# Load hydrometry from TOML [hydrometry] section
+hydro_section = raw_toml.get("hydrometry", {})
+hydrometry = None
+if hydro_section:
+    try:
+        from datetime import datetime as dt
+        hydro_cfg = HydrometryConfig.model_validate(hydro_section)
+        period = None
+        if hydro_cfg.date_start and hydro_cfg.date_end:
+            period = (dt.fromisoformat(hydro_cfg.date_start), dt.fromisoformat(hydro_cfg.date_end))
+        for src in hydro_cfg.sources:
+            if not src.mask_path:
+                src.mask_path = Path(geographic.watershed_shp)
+        manager = HydrometryManager(
+            config=hydro_cfg,
+            project_period=period,
+            project_extent=None,
+        )
+        hydrometry = manager.load()
+    except Exception as e:
+        print(f"Warning: Hydrometry loading failed - {e}")
+        print("Continuing without hydrometric stations...")
+        hydrometry = None
 
 #%% INTERMITTENCY
 

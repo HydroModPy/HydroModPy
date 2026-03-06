@@ -2,6 +2,9 @@
 HydroModPy command-line interface.
 
 Usage (hmp and hydromodpy are interchangeable):
+    hmp init                              # creates ~/hydromodpy/
+    hmp init --path /mnt/shared/hydrodata # creates at custom location
+
     hmp config my_config.toml
     hmp config --profile user --modules geographic
     hmp config --list-modules
@@ -91,6 +94,30 @@ def _list_regression_tests(regression_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 # Subcommand handlers
 # ---------------------------------------------------------------------------
+
+def _cmd_init(args: argparse.Namespace) -> None:
+    """Create HydroModPy workspace with shared data and example project."""
+    from hydromodpy.data_managers.scaffold import scaffold
+
+    result = scaffold(args.path)
+
+    print(f"Workspace: {result}")
+    print()
+    print("Structure:")
+    for p in sorted(result.rglob("*")):
+        rel = p.relative_to(result)
+        indent = "  " * len(rel.parts)
+        if p.is_dir():
+            print(f"  {indent}{rel.name}/")
+        else:
+            print(f"  {indent}{rel.name}")
+    print()
+    print("Next steps:")
+    print(f"  1. Fill data/*_LOC.csv with your station coordinates (id,x,y,crs)")
+    print(f"  2. Add chronicle CSVs per station in data/<variable>/")
+    print(f"  3. Copy bv_example/ to create your own watershed project")
+    print(f"  4. Edit <your_bv>/data_managers.toml to configure sources")
+
 
 def _cmd_config(args: argparse.Namespace) -> None:
     """Generate a TOML configuration template."""
@@ -185,6 +212,17 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
+    # --- init subcommand ---
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Create HydroModPy workspace (data + cache + example BV). Default: ~/hydromodpy/",
+    )
+    init_parser.add_argument(
+        "--path",
+        default=None,
+        help="Workspace path (default: ~/hydromodpy/)",
+    )
+
     # --- config subcommand ---
     from hydromodpy.config.generate_toml import PROFILES
 
@@ -262,7 +300,9 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "config":
+    if args.command == "init":
+        _cmd_init(args)
+    elif args.command == "config":
         _cmd_config(args)
     elif args.command == "test":
         _cmd_test(args)
