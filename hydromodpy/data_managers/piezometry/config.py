@@ -80,6 +80,12 @@ class PiezometryConfig(BaseModel):
     sources: list[PiezometrySourceConfig] = Field(
         ..., min_length=1, description="At least one data source."
     )
+    date_start: Optional[str] = Field(
+        None, description="Project start date (ISO format, e.g. '2019-01-01')."
+    )
+    date_end: Optional[str] = Field(
+        None, description="Project end date (ISO format, e.g. '2025-12-31')."
+    )
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "PiezometryConfig":

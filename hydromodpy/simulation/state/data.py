@@ -7,11 +7,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hydromodpy.data_managers.climatic import Climatic
+    from hydromodpy.data_managers.contracts.timeseries import PointRecord
     from hydromodpy.data_managers.geology.geology_field import GeologyField
-    from hydromodpy.data_managers.hydrometry.station_set import StationSet
     from hydromodpy.data_managers.intermittency import Intermittency
     from hydromodpy.data_managers.oceanic import Oceanic
-    from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
     from hydromodpy.data_managers.hydrography import Hydrography
 
 
@@ -24,8 +23,8 @@ class LoadedDataContext:
     oceanic: Oceanic | None = None
     hydrography: Hydrography | None = None
     intermittency: Intermittency | None = None
-    hydrometry: StationSet | None = None
-    piezometry: PiezometerSet | None = None
+    hydrometry: list[PointRecord] | None = None
+    piezometry: list[PointRecord] | None = None
 
 
 # Backward-compatible alias kept while call sites migrate.
