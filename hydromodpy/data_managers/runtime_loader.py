@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.data_managers.plan import DataLoadPlan
 from hydromodpy.data_managers.oceanic import Oceanic
+from hydromodpy.simulation.workspace.path_registry import WorkspacePathRegistry
 
 if TYPE_CHECKING:
     from hydromodpy.simulation.state.run_state import LauncherRunState
@@ -21,14 +22,19 @@ if TYPE_CHECKING:
 class DataManagersRuntimeLoader:
     """Load runtime data objects from a resolved data-manager activation plan."""
 
+    _LEGACY_STATION_EXPORT_DEFAULTS: dict[str, str] = {
+        "hydrometry": "hydromodpy/data_managers/hydrometry/exports",
+        "piezometry": "hydromodpy/data_managers/piezometry/exports",
+    }
+
     def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
 
     def load_all(self, result: "LauncherRunState") -> None:
         """Load active data-manager families into ``result``."""
-        ws = result.setup.workspace
-        result.loaded_data.climatic = Climatic(out_path=ws.catch_folder)
+        workspace_paths = self._workspace_paths(result)
+        result.loaded_data.climatic = Climatic(out_path=workspace_paths.catch_folder)
 
         active_types = tuple(self.data_plan.types)
         for type_name in active_types:
@@ -104,15 +110,17 @@ class DataManagersRuntimeLoader:
 
     def _load_oceanic_data(self, result: "LauncherRunState") -> None:
         """Load oceanic data and optional mean sea-level boundary value."""
-        cfg = result.cfg
+        workspace_paths = self._workspace_paths(result)
         section = self._get_data_section(result, "oceanic")
-        oceanic_path = cfg.workspace.data_path
-        if section is not None and section.get("oceanic_path") is not None:
-            oceanic_path = self._resolve_path_like(section["oceanic_path"])
+        oceanic_path = self._resolve_manager_input_path(
+            section=section,
+            keys=("oceanic_path",),
+            default_root=workspace_paths.data_path,
+        )
         try:
             oceanic = Oceanic()
             oceanic.extract_local_data(
-                out_path=result.setup.workspace.catch_folder,
+                out_path=workspace_paths.catch_folder,
                 geographic=result.setup.geographic,
                 oceanic_path=oceanic_path,
             )
@@ -125,7 +133,7 @@ class DataManagersRuntimeLoader:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
         from hydromodpy.data_managers.hydrography import Hydrography
 
-        cfg = result.cfg
+        workspace_paths = self._workspace_paths(result)
         section = self._get_data_section(result, "hydrography")
         if section is None:
             self._handle_missing_data_section(
@@ -152,15 +160,17 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        hydro_path = self._resolve_path_like(
-            section.get("hydro_path", cfg.workspace.data_path)
+        hydro_path = self._resolve_manager_input_path(
+            section=section,
+            keys=("hydro_path",),
+            default_root=workspace_paths.data_path,
         )
         streams_file = section.get("streams_file")
         if isinstance(streams_file, str) and streams_file.strip():
             streams_file = str(self._resolve_path_like(streams_file))
         try:
             result.loaded_data.hydrography = Hydrography(
-                out_path=result.setup.workspace.catch_folder,
+                out_path=workspace_paths.catch_folder,
                 types_obs=types_obs,
                 fields_obs=fields_obs,
                 geographic=result.setup.geographic,
@@ -174,7 +184,7 @@ class DataManagersRuntimeLoader:
         """Load ONDE-style intermittency observations."""
         from hydromodpy.data_managers.intermittency import Intermittency
 
-        cfg = result.cfg
+        workspace_paths = self._workspace_paths(result)
         section = self._get_data_section(result, "intermittency")
         if section is None:
             self._handle_missing_data_section(
@@ -184,8 +194,10 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        intermittency_path = self._resolve_path_like(
-            section.get("intermittency_path", section.get("path", cfg.workspace.data_path))
+        intermittency_path = self._resolve_manager_input_path(
+            section=section,
+            keys=("intermittency_path", "path"),
+            default_root=workspace_paths.data_path,
         )
         file_name = str(section.get("file_name", "regional onde stations.shp")).strip()
         if not file_name:
@@ -197,7 +209,7 @@ class DataManagersRuntimeLoader:
             return
         try:
             result.loaded_data.intermittency = Intermittency(
-                out_path=result.setup.workspace.catch_folder,
+                out_path=workspace_paths.catch_folder,
                 intermittency_path=intermittency_path,
                 file_name=file_name,
                 geographic=result.setup.geographic,
@@ -224,10 +236,15 @@ class DataManagersRuntimeLoader:
         payload = self._normalize_station_set_section(raw_section, root_key="hydrometry")
         if str(payload["selection"].get("mode", "mask")).strip().lower() == "mask":
             payload["selection"]["mask_path"] = str(result.setup.geographic.watershed_shp)
+        workspace_paths = self._workspace_paths(result)
 
         try:
             payload = validate_hydrometry_config_data(payload)
-            self._resolve_station_set_paths(payload)
+            self._resolve_station_set_paths(
+                payload,
+                manager_type="hydrometry",
+                workspace_paths=workspace_paths,
+            )
             result.loaded_data.hydrometry = StationSet.from_config(payload)
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrometry", exc)
@@ -251,10 +268,15 @@ class DataManagersRuntimeLoader:
         payload = self._normalize_station_set_section(raw_section, root_key="piezometry")
         if str(payload["selection"].get("mode", "mask")).strip().lower() == "mask":
             payload["selection"]["mask_path"] = str(result.setup.geographic.watershed_shp)
+        workspace_paths = self._workspace_paths(result)
 
         try:
             payload = validate_piezometry_config_data(payload)
-            self._resolve_station_set_paths(payload)
+            self._resolve_station_set_paths(
+                payload,
+                manager_type="piezometry",
+                workspace_paths=workspace_paths,
+            )
             result.loaded_data.piezometry = PiezometerSet.from_config(payload)
         except Exception as exc:
             self._handle_data_loading_error(result, "piezometry", exc)
@@ -303,6 +325,33 @@ class DataManagersRuntimeLoader:
             path = (self.config_path.parent / path).resolve()
         return path
 
+    def _workspace_paths(self, result: "LauncherRunState") -> WorkspacePathRegistry:
+        workspace = result.setup.workspace
+        if workspace is None:
+            raise ValueError("Launcher setup.workspace is required before data loading.")
+        if hasattr(workspace, "paths"):
+            return workspace.paths
+        return WorkspacePathRegistry(
+            catch_name=str(getattr(workspace, "catch_name", result.cfg.workspace.catch_name)),
+            out_dir_path=Path(getattr(workspace, "out_dir_path", result.cfg.workspace.out_dir_path)),
+            data_path=Path(result.cfg.workspace.data_path),
+        )
+
+    def _resolve_manager_input_path(
+        self,
+        *,
+        section: Mapping[str, Any] | None,
+        keys: tuple[str, ...],
+        default_root: Path,
+    ) -> Path:
+        """Resolve one manager input path with section-override precedence."""
+        if section is not None:
+            for key in keys:
+                raw_value = section.get(key)
+                if isinstance(raw_value, str) and raw_value.strip():
+                    return self._resolve_path_like(raw_value)
+        return Path(default_root)
+
     @staticmethod
     def _as_string_list(value: Any) -> list[str]:
         if value is None:
@@ -343,7 +392,13 @@ class DataManagersRuntimeLoader:
             "output": dict(section.get("output", {})),
         }
 
-    def _resolve_station_set_paths(self, payload: dict[str, Any]) -> None:
+    def _resolve_station_set_paths(
+        self,
+        payload: dict[str, Any],
+        *,
+        manager_type: str,
+        workspace_paths: WorkspacePathRegistry,
+    ) -> None:
         source_cfg = payload.get("source", {})
         selection_cfg = payload.get("selection", {})
         output_cfg = payload.get("output", {})
@@ -357,5 +412,21 @@ class DataManagersRuntimeLoader:
             selection_cfg["mask_path"] = str(self._resolve_path_like(mask_path))
 
         output_path = output_cfg.get("path")
-        if isinstance(output_path, str) and output_path.strip():
-            output_cfg["path"] = str(self._resolve_path_like(output_path))
+        default_output = workspace_paths.manager_stable_folder(manager_type)
+        if not isinstance(output_path, str) or not output_path.strip():
+            output_cfg["path"] = str(default_output)
+            return
+        if self._is_legacy_station_output_default(output_path, manager_type):
+            output_cfg["path"] = str(default_output)
+            return
+        output_cfg["path"] = str(self._resolve_path_like(output_path))
+
+    @staticmethod
+    def _normalize_path_token(value: str) -> str:
+        return str(Path(str(value).strip())).replace("\\", "/").lower()
+
+    def _is_legacy_station_output_default(self, path_value: str, manager_type: str) -> bool:
+        legacy_default = self._LEGACY_STATION_EXPORT_DEFAULTS.get(manager_type)
+        if legacy_default is None:
+            return False
+        return self._normalize_path_token(path_value) == self._normalize_path_token(legacy_default)

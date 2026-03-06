@@ -26,7 +26,3 @@ class LoadedDataContext:
     intermittency: Intermittency | None = None
     hydrometry: StationSet | None = None
     piezometry: PiezometerSet | None = None
-
-
-# Backward-compatible alias kept while call sites migrate.
-RunDataState = LoadedDataContext

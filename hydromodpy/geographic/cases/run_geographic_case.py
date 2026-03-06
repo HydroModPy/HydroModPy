@@ -102,8 +102,54 @@ def _resolve_requested_cases(cases_arg: list[str]) -> list[str]:
     return ordered
 
 
-def compute_catchment_metrics(geographic) -> dict[str, float]:
-    """Compute area and mean elevation on the catchment footprint."""
+def _valid_dem_values(dem: np.ndarray, nodata: float | None) -> tuple[np.ndarray, np.ndarray]:
+    """Return validity mask and valid DEM values for one raster array."""
+    mask = np.isfinite(dem)
+    if nodata is not None:
+        mask &= dem != nodata
+    return mask, dem[mask]
+
+
+def _dem_distribution_metrics(
+    values: np.ndarray,
+    *,
+    total_pixel_count: int,
+    prefix: str,
+) -> dict[str, float | int]:
+    """Compute distribution metrics used in golden non-regression checks."""
+    valid_count = int(values.size)
+    nodata_count = int(total_pixel_count - valid_count)
+    if valid_count == 0:
+        # Keep explicit NaN payloads if input mask is unexpectedly empty.
+        return {
+            f"valid_pixel_count_{prefix}": int(valid_count),
+            f"nodata_pixel_count_{prefix}": int(nodata_count),
+            f"mean_elevation_{prefix}_m": float("nan"),
+            f"std_elevation_{prefix}_m": float("nan"),
+            f"min_elevation_{prefix}_m": float("nan"),
+            f"max_elevation_{prefix}_m": float("nan"),
+            f"q05_elevation_{prefix}_m": float("nan"),
+            f"q50_elevation_{prefix}_m": float("nan"),
+            f"q95_elevation_{prefix}_m": float("nan"),
+            f"sum_elevation_{prefix}_m": float("nan"),
+        }
+
+    return {
+        f"valid_pixel_count_{prefix}": int(valid_count),
+        f"nodata_pixel_count_{prefix}": int(nodata_count),
+        f"mean_elevation_{prefix}_m": float(np.mean(values, dtype=np.float64)),
+        f"std_elevation_{prefix}_m": float(np.std(values, dtype=np.float64)),
+        f"min_elevation_{prefix}_m": float(np.min(values)),
+        f"max_elevation_{prefix}_m": float(np.max(values)),
+        f"q05_elevation_{prefix}_m": float(np.quantile(values, 0.05)),
+        f"q50_elevation_{prefix}_m": float(np.quantile(values, 0.50)),
+        f"q95_elevation_{prefix}_m": float(np.quantile(values, 0.95)),
+        f"sum_elevation_{prefix}_m": float(np.sum(values, dtype=np.float64)),
+    }
+
+
+def compute_catchment_metrics(geographic) -> dict[str, float | int]:
+    """Compute DEM-sensitive metrics for catchment and box-buffer footprints."""
     area_km2 = getattr(geographic, "catch_area", None)
     if area_km2 is None:
         gdf = gpd.read_file(geographic.watershed_shp)
@@ -112,15 +158,33 @@ def compute_catchment_metrics(geographic) -> dict[str, float]:
     with rasterio.open(geographic.watershed_dem) as catch_src:
         catch_dem = catch_src.read(1)
         catch_nodata = catch_src.nodata
-    catch_mask = np.isfinite(catch_dem)
-    if catch_nodata is not None:
-        catch_mask &= catch_dem != catch_nodata
-    mean_alt_catch = float(np.nanmean(np.where(catch_mask, catch_dem, np.nan)))
+    catch_mask, catch_values = _valid_dem_values(catch_dem, catch_nodata)
 
-    return {
+    with rasterio.open(geographic.watershed_box_buff_dem) as box_src:
+        box_dem = box_src.read(1)
+        box_nodata = box_src.nodata
+    box_mask, box_values = _valid_dem_values(box_dem, box_nodata)
+
+    catch_metrics = _dem_distribution_metrics(
+        catch_values,
+        total_pixel_count=int(catch_dem.size),
+        prefix="catchment",
+    )
+    box_metrics = _dem_distribution_metrics(
+        box_values,
+        total_pixel_count=int(box_dem.size),
+        prefix="box_buff",
+    )
+
+    metrics = {
         "catchment_area_km2": float(area_km2),
-        "mean_elevation_catchment_m": mean_alt_catch,
+        # Keep legacy aliases for backward compatibility.
+        "mean_elevation_catchment_m": float(np.nanmean(np.where(catch_mask, catch_dem, np.nan))),
+        "mean_elevation_box_buff_m": float(np.nanmean(np.where(box_mask, box_dem, np.nan))),
     }
+    metrics.update(catch_metrics)
+    metrics.update(box_metrics)
+    return metrics
 
 
 def run_geographic_cases_from_toml(
