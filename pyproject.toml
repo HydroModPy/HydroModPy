@@ -71,6 +71,7 @@ dependencies = [
     "pytest",
     "pytest-xdist",
     "dask",
+    "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
