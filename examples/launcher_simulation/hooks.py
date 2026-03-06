@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Study-specific hooks for ``examples/example12launcher``.
+"""Study-specific hooks for ``examples/launcher_simulation``.
 
 The launcher discovers this file next to ``config.toml`` and imports any
 function named ``on_before_<phase>`` or ``on_after_<phase>``. Each hook

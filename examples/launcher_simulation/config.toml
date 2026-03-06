@@ -45,7 +45,7 @@ catch_name = "example12"
 # Root output directory where all results will be stored.
 out_dir_path = "../results"
 # Path to the input data folder (observations, climate, GIS layers, etc.).
-data_path = "../example12/data/"
+data_path = "../../examples_legacy/example12/data/"
 
 
 # ----------------------------------------------------------------------
@@ -496,7 +496,7 @@ first_clim = "mean"
 negative_to_evt = true
 
 # ----------------------------------------------------------------------
-# Recharge chronicle source/mode (consumed by examples/example12launcher/hooks.py)
+# Recharge chronicle source/mode (consumed by examples/launcher_simulation/hooks.py)
 #
 # mode options:
 # - "observed_csv"        : load natural observed chronicle from CSV
@@ -507,8 +507,8 @@ negative_to_evt = true
 mode = "synthetic_generated"
 
 [recharge_chronicle.observed_csv]
-# Example natural chronicle used today by example12 launcher.
-path_file = "../example12/data/_climate_REANALYSIS.csv"
+# Example natural chronicle used today by launcher_simulation.
+path_file = "../../examples_legacy/example12/data/_climate_REANALYSIS.csv"
 clim_mod = "REA"
 clim_sce = "historic"
 first_year = 2003
@@ -529,7 +529,7 @@ runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_csv]
 # Active only when mode = "synthetic_csv".
-path_file = "../example12/data/recharge_synthetic_2003.csv"
+path_file = "../../examples_legacy/example12/data/recharge_synthetic_2003.csv"
 sep = ","
 date_column = "date"
 date_format = "%Y-%m-%d"

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
  * Copyright (c) 2023 Alexandre Gauvain, Ronan AbhervÃ©, Jean-Raynald de Dreuzy
  * HydroModPy Launcher - Example 12 STANDALONE
@@ -281,7 +281,7 @@ with config_path.open('rb') as f:
 
 PARAMS = {
     "ex12": {
-        "base_path": "examples/example12",
+        "base_path": "examples_legacy/example12",
         "dem_filename": "regional dem.tif",
         "dem_coordinates": [265611.933, 6784182.776, 50, 20, 'EPSG:2154'],
         "watershed_name": "example12",

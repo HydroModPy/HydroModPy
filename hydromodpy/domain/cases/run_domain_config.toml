@@ -1,11 +1,11 @@
 # ----------------------------------------------------------------------
-# Domain-only case extracted from examples/example12/config.toml
+# Domain-only case extracted from examples_legacy/example12/config.toml
 # ----------------------------------------------------------------------
 
 [workspace]
 catch_name = "example12_domain_case"
 out_dir_path = "../../../examples/results"
-data_path = "../../../examples/example12/data"
+data_path = "../../../examples_legacy/example12/data"
 
 [geographic]
 catch_def = "from_outlet_coord"
