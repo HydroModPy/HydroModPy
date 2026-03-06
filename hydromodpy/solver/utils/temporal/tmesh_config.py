@@ -7,6 +7,7 @@ from pathlib import Path
 import tomllib
 from typing import Any, Literal
 
+import pandas as pd
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
 
 
@@ -131,6 +132,20 @@ class TMeshConfigModel(BaseModel):
                 raise ValueError("lenper is required when genmtd='synthetic_regular'")
         if self.genmtd == "from_chron" and self.chron_path is None:
             raise ValueError("chron_path is required when genmtd='from_chron'")
+        if self.start_datetime is not None and self.end_datetime is not None:
+            try:
+                start = pd.Timestamp(self.start_datetime)
+                end = pd.Timestamp(self.end_datetime)
+            except Exception as exc:
+                raise ValueError(
+                    "start_datetime and end_datetime must be valid datetime values."
+                ) from exc
+            if pd.isna(start) or pd.isna(end):
+                raise ValueError(
+                    "start_datetime and end_datetime must be valid datetime values."
+                )
+            if end <= start:
+                raise ValueError("end_datetime must be strictly greater than start_datetime")
         return self
 
     def to_builder_kwargs(self) -> dict[str, Any]:

@@ -294,14 +294,24 @@ def help3o_available() -> bool:
     return ensure_help3o_loaded() is not None
 
 
+def _load_help_manager():
+    try:
+        from hydromodpy.pyhelp.core.managers import HelpManager as _HelpManager
+    except ModuleNotFoundError as exc:
+        if getattr(exc, "name", None) == "h5py":
+            raise ModuleNotFoundError(
+                "hydromodpy.pyhelp.core.HelpManager requires optional dependency "
+                "'h5py'. Install it to use PyHELP workflows."
+            ) from exc
+        raise
+    return _HelpManager
+
+
 def __getattr__(name):
     if name == "HELP3O":
         return ensure_help3o_loaded()
+    if name == "HelpManager":
+        help_manager = _load_help_manager()
+        globals()["HelpManager"] = help_manager
+        return help_manager
     raise AttributeError(f"module {__name__} has no attribute {name}")
-
-try:
-    from hydromodpy.pyhelp.core.managers import HelpManager
-except ImportError as e:
-    # We need to do this to avoid an error when building the
-    # help extension with setup.py
-    logger.warning("HelpManager import failed: %s", e)

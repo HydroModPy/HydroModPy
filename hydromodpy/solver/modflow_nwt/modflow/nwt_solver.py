@@ -28,7 +28,7 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.modeling import masstransfer
+from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from .diagnostics import check_water_flow_connectivity

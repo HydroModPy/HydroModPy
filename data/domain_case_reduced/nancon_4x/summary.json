@@ -1,0 +1,15 @@
+{
+  "watershed_shp": "C:\\codes\\HydroModPy-GH\\examples\\results\\example12_domain_case\\results_stable\\geographic\\watershed.shp",
+  "source_dem": "C:\\codes\\HydroModPy-GH\\examples_legacy\\01_simplified_example_presented_in_the_paper\\data\\regional dem.tif",
+  "source_geology_shp": "C:\\codes\\HydroModPy-GH\\data\\France\\geology\\GEO1M.shp",
+  "area_factor": 4.0,
+  "clip_bounds": [
+    380850.0,
+    6809587.5,
+    401100.0,
+    6832087.5
+  ],
+  "output_dem": "C:\\codes\\HydroModPy-GH\\data\\domain_case_reduced\\nancon_4x\\regional_dem_4x.tif",
+  "output_geology_shp": "C:\\codes\\HydroModPy-GH\\data\\domain_case_reduced\\nancon_4x\\geology\\GEO1M_4x.shp",
+  "geology_feature_count": 6
+}

@@ -16,17 +16,18 @@ import os
 import ssl
 import sys
 from os.path import abspath, dirname
+from pathlib import Path
 
 import certifi
 import geopandas as gpd
 import geopy.geocoders
 import numpy as np
-import pandas as pd
 import rasterio
 import whitebox
 from geopy.geocoders import Nominatim
 from pyproj import Transformer
 
+from hydromodpy.geographic_v2.catchment_from_point import extract_catchment_from_point
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.geographic.geographic_io import (
     ensure_crs as _ensure_crs_impl,
@@ -306,22 +307,19 @@ class Geographic:
             _ensure_crs(self.watershed_shp, self.crs_proj)
 
     def _build_watershed_from_outlet(self, *, direc_path: str, acc_path: str) -> None:
-        outlet_shp = os.path.join(self.geographic_path, "outlet.shp")
-        outlet_snap_shp = os.path.join(self.geographic_path, "outlet_snap.shp")
-
-        df = pd.DataFrame({"x": [self.x_outlet], "y": [self.y_outlet]})
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df["x"], df["y"]), crs=self.crs_proj)
-        gdf.to_file(outlet_shp)
-        _ensure_crs(outlet_shp, self.crs_proj)
-
-        wbt.snap_pour_points(outlet_shp, acc_path, outlet_snap_shp, self.snap_dist)
-        _ensure_crs(outlet_snap_shp, self.crs_proj)
-
-        wbt.watershed(direc_path, outlet_snap_shp, self.watershed, esri_pntr=False)
-        _ensure_crs(self.watershed, self.crs_proj)
-
-        wbt.raster_to_vector_polygons(self.watershed, self.watershed_shp)
-        _ensure_crs(self.watershed_shp, self.crs_proj)
+        extract_catchment_from_point(
+            x_outlet=float(self.x_outlet),
+            y_outlet=float(self.y_outlet),
+            snap_dist=int(self.snap_dist),
+            acc_path=acc_path,
+            direc_path=direc_path,
+            output_dir=self.geographic_path,
+            crs_project=self.crs_proj,
+            outlet_name="outlet.shp",
+            outlet_snap_name="outlet_snap.shp",
+            watershed_tif_name=Path(self.watershed).name,
+            watershed_shp_name=Path(self.watershed_shp).name,
+        )
 
     def _build_watershed_derivatives(self) -> None:
         wbt.polygons_to_lines(self.watershed_shp, self.watershed_contour_shp)

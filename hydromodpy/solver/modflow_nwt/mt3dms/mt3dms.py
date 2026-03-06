@@ -40,8 +40,8 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.modeling import masstransfer
-from hydromodpy.solver.transport_common.runtime_arrays import (
+from hydromodpy.solver.modflow_common import masstransfer
+from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large

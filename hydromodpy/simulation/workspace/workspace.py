@@ -16,6 +16,7 @@ from pathlib import Path
 
 from hydromodpy.tools import get_logger, setup_simulation_log, toolbox
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from hydromodpy.simulation.workspace.path_registry import WorkspacePathRegistry
 
 logger = get_logger(__name__)
 
@@ -42,27 +43,29 @@ class Workspace:
     """
 
     def __init__(self, config: WorkspaceConfig):
-        self.catch_name = config.catch_name
-        self.out_dir_path = config.out_dir_path
+        self.paths = WorkspacePathRegistry.from_config(config)
+        self.catch_name = self.paths.catch_name
+        self.out_dir_path = self.paths.out_dir_path
+        self.data_path = self.paths.data_path
 
-        self.catch_folder = config.catch_folder
+        self.catch_folder = self.paths.catch_folder
         toolbox.create_folder(self.catch_folder)
 
         setup_simulation_log(self.catch_folder)
 
-        self.stable_folder = config.stable_folder
+        self.stable_folder = self.paths.stable_folder
         toolbox.create_folder(self.stable_folder)
 
-        self.simulations_folder = config.simulations_folder
+        self.simulations_folder = self.paths.simulations_folder
         toolbox.create_folder(self.simulations_folder)
 
-        self.calibration_folder = config.calibration_folder
+        self.calibration_folder = self.paths.calibration_folder
         toolbox.create_folder(self.calibration_folder)
 
-        self.add_data_folder = self.stable_folder / "add_data"
+        self.add_data_folder = self.paths.add_data_folder
         toolbox.create_folder(self.add_data_folder)
 
-        self.figure_folder = self.stable_folder / "_figures"
+        self.figure_folder = self.paths.figures_folder
         toolbox.create_folder(self.figure_folder)
 
         self.bin_path = _resolve_bin_path()
