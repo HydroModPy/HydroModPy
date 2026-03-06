@@ -35,7 +35,8 @@ from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 def on_after_data(result: RunResult) -> None:
     """Load SAFRAN-ISBA reanalysis, hydrography, intermittency and hydrometry."""
     from hydromodpy.watershed import Hydrography, Intermittency, Subbasin
-    from hydromodpy.data_managers.hydrometry.station_set import StationSet
+    from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+    from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
 
     ws        = result.workspace
     data_path = result.cfg.workspace.data_path
@@ -60,28 +61,26 @@ def on_after_data(result: RunResult) -> None:
     )
 
     # ── Hydrometry stations ──────────────────────────────────────────────
-    hydro_section = result.raw_toml.get("hydrometry_stations", {})
-    hydro_cfg = {
-        "hydrometry": {k: v for k, v in hydro_section.items()
-                       if k not in ["source", "selection", "output"]},
-        "source":     hydro_section.get("source", {}),
-        "selection":  hydro_section.get("selection", {}),
-        "output":     hydro_section.get("output", {}),
-    }
-    output_path = hydro_cfg["output"].get("path")
-    if output_path:
-        p = Path(str(output_path)).expanduser()
-        if not p.is_absolute():
-            hydro_cfg["output"]["path"] = str(
-                (result.config_path.parent / p).resolve()
+    hydro_section = result.raw_toml.get("hydrometry", {})
+    if hydro_section:
+        try:
+            from datetime import datetime as dt
+            hydro_cfg = HydrometryConfig.model_validate(hydro_section)
+            period = None
+            if hydro_cfg.date_start and hydro_cfg.date_end:
+                period = (dt.fromisoformat(hydro_cfg.date_start), dt.fromisoformat(hydro_cfg.date_end))
+            for src in hydro_cfg.sources:
+                if not src.mask_path:
+                    src.mask_path = Path(geo.watershed_shp)
+            manager = HydrometryManager(
+                config=hydro_cfg,
+                project_period=period,
+                project_extent=None,
             )
-    if hydro_cfg["selection"].get("mode", "mask") == "mask":
-        hydro_cfg["selection"]["mask_path"] = geo.watershed_shp
-    try:
-        result.hydrometry = StationSet.from_config(hydro_cfg)
-    except ValueError as exc:
-        print(f"Warning: Hydrometry loading failed – {exc}")
-        result.hydrometry = None
+            result.hydrometry = manager.load()
+        except Exception as exc:
+            print(f"Warning: Hydrometry loading failed - {exc}")
+            result.hydrometry = None
 
     # ── SAFRAN-ISBA reanalysis ────────────────────────────────────────────
     result.climatic.update_recharge_reanalysis(
