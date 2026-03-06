@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from hydromodpy.watershed.climatic import Climatic
     from hydromodpy.watershed.hydrography import Hydrography
     from hydromodpy.watershed.intermittency import Intermittency
-    from hydromodpy.data_managers.hydrometry.station_set import StationSet
+    from hydromodpy.data_managers.contracts.timeseries import PointRecord
     from hydromodpy.data_managers.oceanic import Oceanic
     from hydromodpy.domain import Domain
     from hydromodpy.process import Flow, Transport
@@ -47,7 +47,7 @@ class RunResult:
     # Below are None unless a hook populates them (example-specific data)
     hydrography: Any = field(default=None)  # Hydrography
     intermittency: Any = field(default=None)  # Intermittency
-    hydrometry:  Any = field(default=None)  # StationSet
+    hydrometry:  Any = field(default=None)  # list[PointRecord]
 
     # ── Phase: flow ──────────────────────────────────────────────────────────
     model_modflow: Any = field(default=None)   # Modflow | Modflow6
