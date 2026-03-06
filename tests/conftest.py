@@ -7,6 +7,7 @@ import pytest
 _ALLOWED_REGRESSION_FILES = {
     "test_example12_npy_regression.py",
     "test_launcher_simulation_regression.py",
+    "test_launcher_data_overview_regression.py",
 }
 
 
