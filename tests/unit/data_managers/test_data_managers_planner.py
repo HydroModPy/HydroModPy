@@ -23,19 +23,18 @@ def test_planner_infers_geology_from_domain_zone_ids() -> None:
     assert "domain.zone_ids" in plan.reasons_for("geology")[0]
 
 
-def test_planner_infers_hydrometry_from_hydrometry_stations_section() -> None:
+def test_planner_does_not_infer_hydrometry_from_unrelated_raw_section() -> None:
     cfg = DataManagersConfig(types=[])
 
     plan = DataManagersPlanner().build(
         cfg,
         domain_zone_ids=[],
-        raw_toml={"hydrometry_stations": {"selection": {"mode": "mask"}}},
+        raw_toml={"custom_data_section": {"selection": {"mode": "mask"}}},
     )
 
     assert plan.explicit_types == ()
-    assert plan.inferred_types == ("hydrometry",)
-    assert plan.types == ("hydrometry",)
-    assert "hydrometry_stations" in plan.reasons_for("hydrometry")[0]
+    assert plan.inferred_types == ()
+    assert plan.types == ()
 
 
 def test_planner_does_not_duplicate_explicit_hydrometry() -> None:
@@ -44,7 +43,7 @@ def test_planner_does_not_duplicate_explicit_hydrometry() -> None:
     plan = DataManagersPlanner().build(
         cfg,
         domain_zone_ids=[],
-        raw_toml={"hydrometry_stations": {}},
+        raw_toml={},
     )
 
     assert plan.explicit_types == ("hydrometry",)
@@ -129,12 +128,12 @@ def test_with_resolved_types_injects_default_geology_section() -> None:
 
 
 def test_plan_types_merge_explicit_and_inferred_deterministically() -> None:
-    cfg = DataManagersConfig(types=["oceanic"])
+    cfg = DataManagersConfig(types=["oceanic", "hydrometry"])
     plan = DataManagersPlanner().build(
         cfg,
         domain_zone_ids=["geology"],
-        raw_toml={"hydrometry_stations": {"source": {"mode": "api"}}},
+        raw_toml={},
         flow_active_bc=["stream", "ocean"],
     )
 
-    assert plan.types == ("oceanic", "geology", "hydrometry", "hydrography")
+    assert plan.types == ("oceanic", "hydrometry", "geology", "hydrography")

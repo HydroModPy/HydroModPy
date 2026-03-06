@@ -3,7 +3,6 @@
 Current inference scope (V3)
 ----------------------------
 - ``domain.zone_ids`` containing ``geology`` -> activate ``geology``
-- presence of ``[hydrometry_stations]`` in raw TOML -> activate ``hydrometry``
 - ``flow.active_bc`` containing ``stream`` -> activate ``hydrography``
 - ``flow.active_bc`` containing ``ocean`` -> activate ``oceanic``
 """
@@ -38,7 +37,7 @@ class DataManagersPlanner:
             Normalized `domain.zone_ids` list used for zone-driven inference.
         raw_toml:
             Raw untyped TOML dictionary used for custom-section inference
-            (for example `[hydrometry_stations]`).
+            (for example custom hook payloads).
         flow_active_bc:
             Validated `flow.active_bc` list used for boundary-condition-driven
             inference (`stream`/`ocean`).
@@ -55,14 +54,6 @@ class DataManagersPlanner:
                 reasons_by_type,
                 "geology",
                 "inferred from domain.zone_ids containing 'geology'",
-            )
-
-        if self._has_hydrometry_section(raw_toml) and "hydrometry" not in explicit_set:
-            self._add_inference(
-                inferred_types,
-                reasons_by_type,
-                "hydrometry",
-                "inferred from [hydrometry_stations] section in TOML",
             )
 
         active_bc = self._normalize_tokens(flow_active_bc)
@@ -96,12 +87,6 @@ class DataManagersPlanner:
     @staticmethod
     def _domain_requests_geology(domain_zone_ids: Sequence[str] | None) -> bool:
         return "geology" in DataManagersPlanner._normalize_tokens(domain_zone_ids)
-
-    @staticmethod
-    def _has_hydrometry_section(raw_toml: Mapping[str, Any] | None) -> bool:
-        if raw_toml is None:
-            return False
-        return "hydrometry_stations" in raw_toml
 
     @staticmethod
     def _normalize_tokens(values: Sequence[str] | None) -> set[str]:

@@ -11,7 +11,6 @@ from typing import Any
 __all__ = [
     "apply_intermittency_columns",
     "IntermittencyPostprocessConfig",
-    "promote_legacy_intermittency_settings",
     "MatchingStreams",
     "run_matching_streams",
 ]
@@ -23,21 +22,12 @@ def __getattr__(name: str) -> Any:
 
         return apply_intermittency_columns
 
-    if name in {
-        "IntermittencyPostprocessConfig",
-        "promote_legacy_intermittency_settings",
-    }:
+    if name == "IntermittencyPostprocessConfig":
         from hydromodpy.postprocess.flow.intermittency_config import (
             IntermittencyPostprocessConfig,
-            promote_legacy_intermittency_settings,
         )
 
-        return {
-            "IntermittencyPostprocessConfig": IntermittencyPostprocessConfig,
-            "promote_legacy_intermittency_settings": (
-                promote_legacy_intermittency_settings
-            ),
-        }[name]
+        return IntermittencyPostprocessConfig
 
     if name in {"MatchingStreams", "run_matching_streams"}:
         from hydromodpy.postprocess.flow.matching_streams import (
