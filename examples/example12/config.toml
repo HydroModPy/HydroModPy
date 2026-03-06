@@ -133,39 +133,19 @@ landsea = false
 
 
 # ----------------------------------------------------------------------
-# Hydrometry station-set configuration (example script section).
+# Hydrometry configuration.
 # ----------------------------------------------------------------------
-[hydrometry_stations]
-# General hydrometry request variable.
-variable = "QmnJ"
-# Display flag during loading.
-display = false
-# Optional start date filter.
+[hydrometry]
 date_start = "2019-01-01"
-# Optional end date filter.
 date_end = "2025-12-31"
 
-[hydrometry_stations.source]
-# Data source mode: "api" or "local".
-mode = "api"
-# Local directory used when source.mode="local".
-local_data_dir = "hydrometry_exports"
-
-[hydrometry_stations.selection]
-# Selection mode: "stations" or "mask".
-mode = "mask"
-# Station list used when selection.mode="stations".
+[[hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
 station_ids = ["J736422001"]
-# Mask path used when selection.mode="mask".
-mask_path = "will be dynamically set from Geographic class"
-
-[hydrometry_stations.output]
-# Export loaded data after selection.
-enabled = true
-# Export destination directory.
-path = "../results/example12/results_stable/hydrometry"
-# Export mode: "lite" or "full".
-export_mode = "lite"
+# mask_path set dynamically from Geographic watershed shapefile
 
 
 # ----------------------------------------------------------------------
