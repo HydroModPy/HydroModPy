@@ -50,7 +50,7 @@ sys.path.append(root_dir)
 # HydroModPy
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.climatic.driaseau import Driaseau
-from hydromodpy.data_managers.piezometry.piezometry_legacy import Piezometry
+from hydromodpy.data_managers.piezometry.piezometry import Piezometry
 from hydromodpy.data_managers.climatic import driasclimat, safransurfex
 from hydromodpy.postprocess import netcdf
 from hydromodpy.tools import toolbox, get_logger

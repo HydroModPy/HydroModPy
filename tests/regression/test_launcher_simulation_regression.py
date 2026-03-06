@@ -26,6 +26,12 @@ LAUNCHER_SIMULATION_SCRIPT = (
     / "launcher_simulation"
     / "launcher_simulation.py"
 )
+LAUNCHER_SIMULATION_DEFAULT_CONFIG = (
+    REPO_ROOT
+    / "examples"
+    / "launcher_simulation"
+    / "config_standard.toml"
+)
 
 # Intentionally reuses the same golden file as example12 so any divergence
 # between the launcher-based run and the monolithic script is detected.
@@ -61,7 +67,16 @@ HUBEAU_HEALTHCHECK_URL = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referen
 @pytest.mark.regression
 @pytest.mark.slow
 @pytest.mark.coverage
-def test_launcher_simulation_regression_on_npy_outputs(tmp_path, update_goldens):
+@pytest.mark.parametrize(
+    "config_path",
+    [
+        pytest.param(
+            LAUNCHER_SIMULATION_DEFAULT_CONFIG,
+            id="config_standard",
+        ),
+    ],
+)
+def test_launcher_simulation_regression_on_npy_outputs(tmp_path, update_goldens, config_path):
     """Run launcher_simulation, then compare its outputs against the example12 golden."""
     assert_required_executables(require_mt3dms=True)
     require_url_available(SHOM_HEALTHCHECK_URL)
@@ -73,6 +88,7 @@ def test_launcher_simulation_regression_on_npy_outputs(tmp_path, update_goldens)
         out_path=out_path,
         out_env_var="HYDROMODPY_OUT_PATH",
         extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
+        script_args=[str(config_path)],
         timeout=7200,
     )
 

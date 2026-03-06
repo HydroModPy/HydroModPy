@@ -65,12 +65,12 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        raster_support = result.setup.domain.surface_topo.support
+        raster_support = self._resolve_geology_raster_support(result)
         if raster_support is None:
             self._handle_data_loading_error(
                 result,
                 "geology",
-                ValueError("domain surface raster support is not available"),
+                ValueError("domain/geographic surface raster support is not available"),
             )
             return
 
@@ -82,14 +82,30 @@ class DataManagersRuntimeLoader:
         except Exception as exc:
             self._handle_data_loading_error(result, "geology", exc)
 
+    @staticmethod
+    def _resolve_geology_raster_support(result: "LauncherRunState") -> Any:
+        """Resolve raster support used by geology loading.
+
+        Preferred source is ``setup.domain.surface_topo.support``. If no
+        domain object was prepared, fallback to the geographic-derived surface.
+        """
+        domain = result.setup.domain
+        if domain is not None and domain.surface_topo.support is not None:
+            return domain.surface_topo.support
+
+        geographic = result.setup.geographic
+        if geographic is None:
+            return None
+        try:
+            surface_topo = geographic.get_domain_surface_topo()
+        except Exception:
+            return None
+        return surface_topo.support
+
     def _load_oceanic_data(self, result: "LauncherRunState") -> None:
         """Load oceanic data and optional mean sea-level boundary value."""
         cfg = result.cfg
-        section = self._get_data_section(
-            result,
-            "oceanic",
-            legacy_keys=("oceanic",),
-        )
+        section = self._get_data_section(result, "oceanic")
         oceanic_path = cfg.workspace.data_path
         if section is not None and section.get("oceanic_path") is not None:
             oceanic_path = self._resolve_path_like(section["oceanic_path"])
@@ -107,19 +123,15 @@ class DataManagersRuntimeLoader:
 
     def _load_hydrography_data(self, result: "LauncherRunState") -> None:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
-        from hydromodpy.watershed_legacy import Hydrography
+        from hydromodpy.data_managers.hydrography import Hydrography
 
         cfg = result.cfg
-        section = self._get_data_section(
-            result,
-            "hydrography",
-            legacy_keys=("hydrography",),
-        )
+        section = self._get_data_section(result, "hydrography")
         if section is None:
             self._handle_missing_data_section(
                 result,
                 "hydrography",
-                "missing [data.hydrography] (or legacy [hydrography]) section",
+                "missing [data.hydrography] section",
             )
             return
 
@@ -163,16 +175,12 @@ class DataManagersRuntimeLoader:
         from hydromodpy.data_managers.intermittency import Intermittency
 
         cfg = result.cfg
-        section = self._get_data_section(
-            result,
-            "intermittency",
-            legacy_keys=("intermittency",),
-        )
+        section = self._get_data_section(result, "intermittency")
         if section is None:
             self._handle_missing_data_section(
                 result,
                 "intermittency",
-                "missing [data.intermittency] (or legacy [intermittency]) section",
+                "missing [data.intermittency] section",
             )
             return
 
@@ -225,22 +233,18 @@ class DataManagersRuntimeLoader:
             self._handle_data_loading_error(result, "hydrometry", exc)
 
     def _load_piezometry_data(self, result: "LauncherRunState") -> None:
-        """Load piezometry station sets from data section or legacy custom section."""
+        """Load piezometry station sets from ``data.piezometry`` payload."""
         from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
         from hydromodpy.data_managers.piezometry.piezometry_config import (
             validate_piezometry_config_data,
         )
 
-        raw_section = self._get_data_section(
-            result,
-            "piezometry",
-            legacy_keys=("piezometry_stations",),
-        )
+        raw_section = self._get_data_section(result, "piezometry")
         if raw_section is None:
             self._handle_missing_data_section(
                 result,
                 "piezometry",
-                "missing [data.piezometry] and legacy [piezometry_stations] sections",
+                "missing [data.piezometry] section",
             )
             return
 
@@ -287,16 +291,10 @@ class DataManagersRuntimeLoader:
     def _get_data_section(
         result: "LauncherRunState",
         type_name: str,
-        *,
-        legacy_keys: tuple[str, ...] = (),
     ) -> dict[str, Any] | None:
         section_value = getattr(result.cfg.data, type_name, None)
         if isinstance(section_value, Mapping):
             return dict(section_value)
-        for key in legacy_keys:
-            legacy_value = result.raw_toml.get(key)
-            if isinstance(legacy_value, Mapping):
-                return dict(legacy_value)
         return None
 
     def _resolve_path_like(self, value: Any) -> Path:

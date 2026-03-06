@@ -24,6 +24,12 @@ partir de la convention de nommage retenue :
 Cette arborescence prepare une separation claire des responsabilites sans
 modifier le launcher principal existant.
 
+## CLI
+
+Commande recommandee pour la famille simulation :
+
+`python -m launchers simulation run <path/to/config.toml>`
+
 ## Separation loading/update
 
 - Le chargement des donnees reste dans `hydromodpy/data_managers/runtime_loader.py`.

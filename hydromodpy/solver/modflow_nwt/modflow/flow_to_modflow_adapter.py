@@ -774,17 +774,26 @@ class FlowToModflowAdapter:
         ):
             return payload, None
 
+        payload_for_rch = self._copy_payload(payload)
         evt_payload = self._copy_payload(payload)
+
+        # Python lists do not support boolean masking (payload[payload < 0]).
+        # Normalize sequence payloads to ndarrays before vectorized clipping.
+        if isinstance(payload_for_rch, list):
+            payload_for_rch = np.asarray(payload_for_rch, dtype=float)
+        if isinstance(evt_payload, list):
+            evt_payload = np.asarray(evt_payload, dtype=float)
+
         evt_payload[evt_payload >= 0] = 0
-        evt_payload = abs(evt_payload)
+        evt_payload = np.abs(evt_payload)
 
         evt_spd: dict[int, object] = {
             kper: (0 if kper == 0 else self._series_value(evt_payload, kper))
             for kper in range(self.nper)
         }
 
-        payload[payload < 0] = 0
-        return payload, evt_spd
+        payload_for_rch[payload_for_rch < 0] = 0
+        return payload_for_rch, evt_spd
 
     def _assemble_rch_data(self, payload: object, first_clim: object, flow_regime: str) -> object:
         """

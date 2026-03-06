@@ -45,8 +45,8 @@ except:
 from hydromodpy.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.watershed_legacy import Hydrography
-from hydromodpy.data_managers.piezometry.piezometry_legacy import Piezometry
+from hydromodpy.data_managers.hydrography import Hydrography
+from hydromodpy.data_managers.piezometry.piezometry import Piezometry
 from hydromodpy.data_managers.intermittency import Intermittency
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 
