@@ -97,6 +97,50 @@ def _resolve_onde_columns(available_columns: list[str]) -> dict[str, str]:
     }
 
 
+def _vector_dataset_family(path: str) -> tuple[str, ...]:
+    """Return the file family used to track one vector dataset freshness."""
+    root, ext = os.path.splitext(path)
+    if ext.lower() != ".shp":
+        return (path,)
+    return (
+        root + ".shp",
+        root + ".shx",
+        root + ".dbf",
+        root + ".prj",
+        root + ".cpg",
+        root + ".qmd",
+    )
+
+
+def _latest_existing_mtime(path: str) -> float:
+    """Return newest mtime among existing files from one vector dataset family."""
+    candidates = [item for item in _vector_dataset_family(path) if os.path.exists(item)]
+    if not candidates:
+        raise FileNotFoundError(path)
+    return max(os.path.getmtime(item) for item in candidates)
+
+
+def _clip_cache_is_valid(*, source_path: str, mask_path: str, output_path: str) -> bool:
+    """Check whether clipped output is present and newer than source/mask inputs."""
+    output_root, _ = os.path.splitext(output_path)
+    required_output = (
+        output_root + ".shp",
+        output_root + ".shx",
+        output_root + ".dbf",
+    )
+    if not all(os.path.exists(item) for item in required_output):
+        return False
+
+    try:
+        output_mtime = _latest_existing_mtime(output_path)
+        source_mtime = _latest_existing_mtime(source_path)
+        mask_mtime = _latest_existing_mtime(mask_path)
+    except FileNotFoundError:
+        return False
+
+    return output_mtime >= max(source_mtime, mask_mtime)
+
+
 class Intermittency:
     """Extract, structure, and visualize stream intermittency observations.
 
@@ -170,7 +214,18 @@ class Intermittency:
 
         onde_data = os.path.join(intermittency_path, file_name)
         self.onde_clip = os.path.join(data_folder, file_name)
-        WBT.clip(onde_data, geographic.watershed_shp, self.onde_clip)
+        if _clip_cache_is_valid(
+            source_path=onde_data,
+            mask_path=geographic.watershed_shp,
+            output_path=self.onde_clip,
+        ):
+            logger.info("Intermittency clip cache hit, reusing %s", self.onde_clip)
+        else:
+            logger.info("Intermittency clip cache miss, running Whitebox clip")
+            WBT.clip(onde_data, geographic.watershed_shp, self.onde_clip)
+
+        if not os.path.exists(self.onde_clip):
+            raise FileNotFoundError(f"Intermittency clip output was not created: {self.onde_clip}")
 
         intermit_bv = gpd.read_file(self.onde_clip)
         cols = _resolve_onde_columns(list(intermit_bv.columns))

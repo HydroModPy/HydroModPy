@@ -19,11 +19,11 @@ from rasterio.features import rasterize
 from rasterio.transform import from_bounds
 
 # Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.data_managers.geology.demo_common import (
+from hydromodpy.data_managers.geology.cases.common import (
     clip_square_window,
     format_axes_ticks_km,
     resolve_case_path,
@@ -40,9 +40,9 @@ from hydromodpy.data_managers.geology.geology_processing import (
 from hydromodpy.field.core.field_param import FieldParam
 
 
-DEFAULT_GEOLOGY_CONFIG_FILE = "geology_config.toml"
+DEFAULT_GEOLOGY_CONFIG_FILE = "run_geology_case.toml"
 DEFAULT_GEOLOGY_SECTION = "geology"
-DEFAULT_FIELD_PARAM_CONFIG_FILE = "field_param_config.toml"
+DEFAULT_FIELD_PARAM_CONFIG_FILE = "run_geology_property_case.toml"
 DEFAULT_FIELD_PARAM_SECTION = "field"
 DEFAULT_OUTPUT_FILE = "geology_property_demo.png"
 DEFAULT_SEA_FIELD = "TERRE_MER"
@@ -65,7 +65,7 @@ def _parse_args(argv=None):
     parser.add_argument(
         "--geology-config-file",
         default=DEFAULT_GEOLOGY_CONFIG_FILE,
-        help="Geology TOML configuration path (default: geology_config.toml).",
+        help="Geology TOML configuration path (default: run_geology_case.toml).",
     )
     parser.add_argument(
         "--geology-section",
@@ -75,7 +75,7 @@ def _parse_args(argv=None):
     parser.add_argument(
         "--field-param-config-file",
         default=DEFAULT_FIELD_PARAM_CONFIG_FILE,
-        help="FieldParam TOML configuration path (default: field_param_config.toml).",
+        help="FieldParam TOML configuration path (default: run_geology_property_case.toml).",
     )
     parser.add_argument(
         "--field-param-section",
@@ -87,7 +87,7 @@ def _parse_args(argv=None):
         default=DEFAULT_OUTPUT_FILE,
         help=(
             "Output figure path. Bare filenames are saved in outputs/. "
-            "Relative paths are resolved from hydromodpy/data_managers/geology/ "
+            "Relative paths are resolved from hydromodpy/data_managers/geology/cases/ "
             f"(default: {DEFAULT_OUTPUT_FILE})."
         ),
     )

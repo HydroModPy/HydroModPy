@@ -9,7 +9,7 @@ classes (not a uniform map).
 By default, sea polygons are reassigned to one uniform class for readability.
 
 Run from repository root:
-    python hydromodpy/data_managers/geology/run_geology_France.py
+    python hydromodpy/data_managers/geology/cases/run_geology_map_case.py
 """
 
 from __future__ import annotations
@@ -22,11 +22,11 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 # Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.data_managers.geology.demo_common import (
+from hydromodpy.data_managers.geology.cases.common import (
     clip_square_window,
     format_axes_ticks_km,
     resolve_case_path,
@@ -41,7 +41,7 @@ from hydromodpy.data_managers.geology.geology_processing import (
 )
 
 
-DEFAULT_CONFIG_FILE = "geology_config.toml"
+DEFAULT_CONFIG_FILE = "run_geology_case.toml"
 DEFAULT_SECTION = "geology"
 DEFAULT_OUTPUT_FILE = "geology_france_global.png"
 DEFAULT_SEA_FIELD = "TERRE_MER"
@@ -64,7 +64,7 @@ def _parse_args(argv=None):
     parser.add_argument(
         "--config-file",
         default=DEFAULT_CONFIG_FILE,
-        help="Geology TOML configuration path (default: geology_config.toml).",
+        help="Geology TOML configuration path (default: run_geology_case.toml).",
     )
     parser.add_argument(
         "--section",
@@ -76,7 +76,7 @@ def _parse_args(argv=None):
         default=DEFAULT_OUTPUT_FILE,
         help=(
             "Output figure path. Bare filenames are saved in outputs/. "
-            "Relative paths are resolved from hydromodpy/data_managers/geology/ "
+            "Relative paths are resolved from hydromodpy/data_managers/geology/cases/ "
             f"(default: {DEFAULT_OUTPUT_FILE})."
         ),
     )

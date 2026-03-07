@@ -30,6 +30,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import geopandas as gpd
@@ -100,20 +101,23 @@ def resolve_tiered_results_dir(
     """
     Build and prepare one deterministic output directory for a regression test.
 
-    Outputs are tiered by test location under ``HYDROMODPY_OUT_PATH``:
+    Outputs are tiered by test location under ``HYDROMODPY_OUT_PATH`` when set:
     - ``.../normal/<run_name>/``
     - ``.../extensive/<run_name>/``
+
+    If ``HYDROMODPY_OUT_PATH`` is not set, a deterministic temporary root is
+    used: ``<tempdir>/hydromodpy_regression_outputs``.
 
     The target directory is cleaned before each run to avoid stale artifacts.
     """
     base_out_path = os.environ.get("HYDROMODPY_OUT_PATH")
-    if not base_out_path:
-        raise RuntimeError(
-            "HYDROMODPY_OUT_PATH must be set to the regression output root "
-            "before running regression tests."
+    if base_out_path:
+        results_root = Path(base_out_path).expanduser().resolve()
+    else:
+        results_root = (
+            Path(tempfile.gettempdir())
+            / "hydromodpy_regression_outputs"
         )
-
-    results_root = Path(base_out_path).expanduser().resolve()
     file_path = Path(test_file).resolve()
     file_parts = set(file_path.parts)
     tier = "extensive" if "extensive" in file_parts else "normal"

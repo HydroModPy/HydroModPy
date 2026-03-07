@@ -113,8 +113,11 @@ hydromodpy/mesh/cartesian_grid/output/
 
 # Temporary files
 *.tmp
+*.prof
 *.bak
 *.old
+_profile_launcher_*/
+_profiling_out/
 examples/examples/results/11S_short/hydromodpy_debug.log
 examples/examples/results/11S_short/results_stable/geographic/outlet.cpg
 examples/examples/results/11S_short/results_stable/geographic/outlet.dbf

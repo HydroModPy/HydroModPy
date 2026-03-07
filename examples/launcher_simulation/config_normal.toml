@@ -187,11 +187,24 @@ fields_obs = ["FID"]
 file_name = "regional onde stations.shp"
 
 [data.oceanic]
-# Mean sea-level source for oceanic boundary value:
-# "local" = read CSV, "web" = SHOM API, "auto" = local then web.
+# Optional folder containing local oceanic support files used during extraction.
+# Relative paths are resolved from this TOML file location.
+# oceanic_path = "data/"
+
+# Mean sea-level source policy:
+# "local" = read CSV from msl_local_csv, "web" = SHOM API, "auto" = local then web.
 msl_source = "local"
-# Pre-downloaded SHOM CSV used in local/auto mode.
+# Path to a pre-downloaded SHOM CSV used in "local" or "auto" mode.
 msl_local_csv = "data/oceanic/sealevel_shom_152_20030101_20030130_H.csv"
+# If true, derive msl_start_date/msl_end_date from [simulation.time].
+# If [simulation.time] is missing, fallback to explicit dates below.
+msl_use_simulation_time_window = false
+# Inclusive start date (YYYY-MM-DD) for mean sea-level retrieval.
+msl_start_date = "2003-01-01"
+# Inclusive end date (YYYY-MM-DD) for mean sea-level retrieval.
+msl_end_date = "2003-01-30"
+# Fallback sea-level value used when retrieval fails (SI unit: meter).
+msl_default = 0.0
 
 
 # ----------------------------------------------------------------------

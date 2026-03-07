@@ -73,6 +73,7 @@ def _build_property_from_flow_domain(
     *,
     model,
     sgrid,
+    geometry_cache,
     flow_param_candidates,
     target_3d_attr: str,
     target_surface_attr: str,
@@ -171,6 +172,7 @@ def _build_property_from_flow_domain(
         geology_field=geology_field,
         field_param=param_obj,
         sgrid=sgrid,
+        geometry_cache=geometry_cache,
         cell_samples_per_axis=None,
         depth=0.0,
         strict_field_spatial_id_match=True,
@@ -219,12 +221,17 @@ def resolve_flow_property_arrays(
 
     # Use a tiny proxy to satisfy mapping helper contract.
     proxy = _PropertyMappingProxy(flow=flow, domain=domain)
+    # Per-call cache used to reuse geometry discretization across K/Sy/Ss mapping.
+    # This avoids recomputing geology_field.on_mesh(...) for identical
+    # (geology_field, sgrid, sampling) within the same launcher run.
+    geometry_cache: dict[tuple[int, int, int], tuple[object, object, np.ndarray]] = {}
     out: dict[str, np.ndarray] = {}
     for aliases, target_3d_attr, target_surface_attr, label in mapping_specs:
         # Mapping writes attributes on the proxy only.
         _build_property_from_flow_domain(
             model=proxy,
             sgrid=sgrid,
+            geometry_cache=geometry_cache,
             flow_param_candidates=aliases,
             target_3d_attr=target_3d_attr,
             target_surface_attr=target_surface_attr,
