@@ -256,7 +256,7 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
     import hydromodpy.geographic.geographic as geo_mod
-    import hydromodpy.geographic_v2.catchment_from_point as point_mod
+    import hydromodpy.geographic.core.catchment_from_point as point_mod
 
     fake_wbt = _FakeWhiteboxTools()
     monkeypatch.setattr(geo_mod, "wbt", fake_wbt)
@@ -282,7 +282,7 @@ def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
     import hydromodpy.geographic.geographic as geo_mod
-    import hydromodpy.geographic_v2.catchment_from_point as point_mod
+    import hydromodpy.geographic.core.catchment_from_point as point_mod
 
     fake_wbt = _FakeWhiteboxTools()
     monkeypatch.setattr(geo_mod, "wbt", fake_wbt)
@@ -346,6 +346,18 @@ def test_geographic_legacy_from_polygon_contract(tmp_path: Path, monkeypatch: py
     assert georef["crs"] == "EPSG:2154"
     assert float(georef["dx"]) == pytest.approx(100.0, abs=1e-9)
     assert float(georef["dy"]) == pytest.approx(100.0, abs=1e-9)
+
+    domain_geographic = geo.get_domain_geographic_context()
+    assert domain_geographic.catch_def == "from_polyg_shp"
+    assert domain_geographic.zone_kind == "catchment"
+    assert domain_geographic.watershed_shp == geo.watershed_shp
+    assert domain_geographic.watershed_box_buff_dem == geo.watershed_box_buff_dem
+    assert domain_geographic.box_buff_shp == geo.box_buff
+    assert float(domain_geographic.catchment_area_km2) == pytest.approx(
+        float(geo.catch_area),
+        abs=1e-9,
+    )
+    assert domain_geographic.surface_topo.support is not None
 
 
 def test_geographic_legacy_from_polygon_golden(

@@ -634,11 +634,19 @@ class StationSet(BaseStationSet):
            'format': 'json'
        }
 
-       response = requests.get(url, params=params)
+       try:
+           response = requests.get(url, params=params, timeout=30)
+       except requests.exceptions.RequestException as exc:
+           print(f"Warning: station API request failed on initial bbox: {exc}")
+           return [], []
        if not self.__check_status_code(response.status_code):
-           raise RuntimeError("Failed to retrieve stations from API")
-
-       stations_data = response.json().get('data', [])
+           print("Warning: failed to retrieve stations from API on initial bbox.")
+           return [], []
+       try:
+           stations_data = response.json().get('data', [])
+       except ValueError as exc:
+           print(f"Warning: invalid JSON payload for initial station bbox query: {exc}")
+           return [], []
 
        if not stations_data:
            print("No stations found in bounding box area")
@@ -689,8 +697,21 @@ class StationSet(BaseStationSet):
                'size': 10000,
                'format': 'json'
            }
-           fallback_response = requests.get(url, params=fallback_params)
-           fallback_stations = fallback_response.json().get('data', [])
+           try:
+               fallback_response = requests.get(url, params=fallback_params, timeout=30)
+           except requests.exceptions.RequestException as exc:
+               print(f"Warning: fallback station API request failed: {exc}")
+               fallback_stations = []
+           else:
+               if not self.__check_status_code(fallback_response.status_code):
+                   print("Warning: fallback station API request returned a non-success status.")
+                   fallback_stations = []
+               else:
+                   try:
+                       fallback_stations = fallback_response.json().get('data', [])
+                   except ValueError as exc:
+                       print(f"Warning: invalid JSON payload for fallback station query: {exc}")
+                       fallback_stations = []
            
            if fallback_stations:
                print(f"Found {len(fallback_stations)} stations in fallback area")
@@ -718,7 +739,11 @@ class StationSet(BaseStationSet):
                print(f"Using all {len(fallback_stations)} stations from fallback search (sorted by distance)")
                stations_in_mask = stations_gdf  # Include all fallback stations
            else:
-               raise ValueError(f"No stations found within the specified geographic mask or in {fallback_search_radius_km} km fallback radius")
+               print(
+                   "Warning: no stations found within the specified geographic mask "
+                   f"or in {fallback_search_radius_km} km fallback radius."
+               )
+               return [], []
 
        station_ids = stations_in_mask['code_station'].tolist()
        site_ids = [sid[:8] for sid in station_ids]

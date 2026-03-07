@@ -48,7 +48,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed import \
+from hydromodpy.watershed_legacy import \
     Driasclimat, Driaseau, Hydrometry, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Transport

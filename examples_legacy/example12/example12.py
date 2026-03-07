@@ -49,7 +49,7 @@ sys.path.append(root_dir)
 import hydromodpy as hmp
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed import Driasclimat, Driaseau, \
+from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
     Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex
 from hydromodpy.data_managers.hydrometry.station_set import StationSet

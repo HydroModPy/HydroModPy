@@ -21,7 +21,7 @@ wbt.verbose = False
 from hydromodpy.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic import Geographic
-from hydromodpy.watershed import Hydrography
+from hydromodpy.watershed_legacy import Hydrography
 
 class MatchingStreams:
         """

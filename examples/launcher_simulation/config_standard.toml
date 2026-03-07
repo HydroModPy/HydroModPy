@@ -915,6 +915,9 @@ show = true
 save = false
 # Output resolution used when saving raster figures.
 dpi = 300
+# Optional custom directory for exported display figures.
+# Relative paths are resolved from the catchment folder.
+# output_dir = "figures_inspection"
 # If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.
 respect_env_no_display = true
 

@@ -31,6 +31,7 @@ enabled = true
 show = true
 save = false
 dpi = 300
+output_dir = "figures_inspection"
 respect_env_no_display = true
 
 [display.flow]
@@ -65,8 +66,13 @@ ouvrir de fenetres.
 
 ## Sorties ecrites
 
-- Figures standard: `simulations/<model>/_postprocess/_figures/`
-- Figures transport: `simulations/<model>/_postprocess/_figures/transport/`
+- Par defaut:
+  - Figures standard: `simulations/<model>/_postprocess/_figures/`
+  - Figures transport: `simulations/<model>/_postprocess/_figures/transport/`
+- Avec `display.output_dir`:
+  - chemin absolu: directement sous ce dossier;
+  - chemin relatif: resolu depuis le dossier du catchment (`<out>/<catch>/`).
+  - Structure ecrite: `<output_dir>/<model>/` et `<output_dir>/<model>/transport/`.
 - Les viewers 3D peuvent aussi generer des fichiers VTK sous le dossier de
   simulation du modele.
 

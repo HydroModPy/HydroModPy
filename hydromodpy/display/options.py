@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -136,6 +137,13 @@ class DisplayConfig(BaseModel):
         ge=1,
         description="Output resolution used when saving raster figures.",
     )
+    output_dir: Path | None = Field(
+        default=None,
+        description=(
+            "Optional custom root directory for saved display outputs. "
+            "Relative paths are resolved from the workspace catchment folder."
+        ),
+    )
     respect_env_no_display: bool = Field(
         default=True,
         description="If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.",
@@ -183,6 +191,7 @@ class DisplayConfig(BaseModel):
             show=show,
             save=self.save,
             dpi=self.dpi,
+            output_dir=self.output_dir,
             respect_env_no_display=self.respect_env_no_display,
             flow=self.flow.to_section_options(),
             particles=self.particles.to_section_options(),
@@ -239,6 +248,7 @@ class DisplayOptions:
     show: bool = True
     save: bool = False
     dpi: int = 300
+    output_dir: Path | None = None
     respect_env_no_display: bool = True
     flow: DisplaySectionOptions = field(default_factory=DisplaySectionOptions)
     particles: DisplaySectionOptions = field(default_factory=DisplaySectionOptions)

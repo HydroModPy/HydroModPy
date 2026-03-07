@@ -1,0 +1,91 @@
+{
+  "status": "ok",
+  "status_error": null,
+  "profile_root": "C:\\codes\\HydroModPy-GH\\_profile_launcher_normal\\20260307_123024",
+  "config": "C:\\codes\\HydroModPy-GH\\examples\\launcher_simulation\\config_normal.toml",
+  "metrics": {
+    "assert_required_executables": {
+      "seconds": 0.0,
+      "ok": true,
+      "error": null
+    },
+    "url_check_shom": {
+      "seconds": 0.775,
+      "ok": true,
+      "error": null
+    },
+    "url_check_hubeau": {
+      "seconds": 1.04,
+      "ok": true,
+      "error": null
+    },
+    "launcher_init": {
+      "seconds": 0.015,
+      "ok": true,
+      "error": null
+    },
+    "launcher_setup": {
+      "seconds": 2.906,
+      "ok": true,
+      "error": null
+    },
+    "launcher_data": {
+      "seconds": 66.648,
+      "ok": true,
+      "error": null
+    },
+    "launcher_run_total": {
+      "seconds": 88.934,
+      "ok": true,
+      "error": null
+    },
+    "resolve_model_workspace": {
+      "seconds": 0.0,
+      "ok": true,
+      "error": null
+    },
+    "collect_modflow_signatures": {
+      "seconds": 0.028,
+      "ok": true,
+      "error": null
+    },
+    "collect_modpath_signatures": {
+      "seconds": 0.017,
+      "ok": true,
+      "error": null
+    },
+    "collect_mt3dms_signatures": {
+      "seconds": 0.031,
+      "ok": true,
+      "error": null
+    },
+    "golden_compare_or_update": {
+      "seconds": 0.001,
+      "ok": true,
+      "error": null,
+      "mode": "assert",
+      "file": "C:\\codes\\HydroModPy-GH\\tests\\regression\\reference\\golden_references\\normal\\launcher_simulation_normal_npy_signatures.json"
+    }
+  },
+  "run_metrics": {
+    "flow_main::modflownwt": {
+      "process_type": "flow",
+      "solver": "modflownwt",
+      "seconds": 15.823
+    },
+    "transport_main::modpath": {
+      "process_type": "transport",
+      "solver": "modpath",
+      "seconds": 1.248
+    },
+    "transport_main::mt3dms": {
+      "process_type": "transport",
+      "solver": "mt3dms",
+      "seconds": 2.309
+    }
+  },
+  "process_totals": {
+    "flow": 15.823,
+    "transport": 3.557
+  }
+}
