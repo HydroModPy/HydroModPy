@@ -99,6 +99,8 @@ test/results/
 test_*/
 hydromodpy/data_managers/geology/outputs/
 hydromodpy/data_managers/hydrometry/outputs/
+hydromodpy/data_managers/*/cases/outputs/**
+!hydromodpy/data_managers/*/cases/outputs/.gitkeep
 hydromodpy/mesh/cartesian_grid/output/
 *.chk
 *.hds
