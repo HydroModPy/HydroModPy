@@ -10,11 +10,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Union
 
 import pandas as pd
-import requests
 
 try:
     from ..common.base_station_set import BaseStationSet
     from ..common.utils import safe_file_token
+    from .discovery import (
+        discover_piezometer_ids as discover_piezometer_ids_in_area,
+        normalize_piezometer_ids,
+        select_piezometer_ids_from_mask,
+    )
     from .piezometer import Piezometer
     from .loaders_api import ApiPiezometerLoader
     from .loaders_local import LocalPiezometerLoader
@@ -28,6 +32,11 @@ except ImportError:
             sys.path.insert(0, _path)
     from common.base_station_set import BaseStationSet
     from common.utils import safe_file_token
+    from discovery import (
+        discover_piezometer_ids as discover_piezometer_ids_in_area,
+        normalize_piezometer_ids,
+        select_piezometer_ids_from_mask,
+    )
     from piezometer import Piezometer
     from loaders_api import ApiPiezometerLoader
     from loaders_local import LocalPiezometerLoader
@@ -149,6 +158,17 @@ class PiezometerSet(BaseStationSet):
             Discovered valid ``code_bss`` identifiers, sorted by distance if
             center_point or mask_path provided.
         """
+        return discover_piezometer_ids_in_area(
+            bbox=bbox,
+            mask_path=mask_path,
+            center_point=center_point,
+            fallback_search_radius_km=fallback_search_radius_km,
+            require_observations=require_observations,
+            date_start=date_start,
+            date_end=date_end,
+            max_ids=max_ids,
+            timeout=timeout,
+        )
         if max_ids is not None and max_ids < 1:
             raise ValueError("max_ids must be None or >= 1")
 
@@ -528,6 +548,12 @@ class PiezometerSet(BaseStationSet):
 
     def _get_piezometers_from_mask(self, mask_path, fallback_search_radius_km: float = 25.0):
         """Select piezometers located inside a mask geometry."""
+        return select_piezometer_ids_from_mask(
+            mask_path=mask_path,
+            source_mode=self.source_mode,
+            local_data_dir=self.local_data_dir,
+            fallback_search_radius_km=fallback_search_radius_km,
+        )
         print(f"Loading geographic mask from: {mask_path}")
         mask_gdf = self._load_mask_geometry(mask_path)
         if self.source_mode == "api":
@@ -738,6 +764,7 @@ class PiezometerSet(BaseStationSet):
     @staticmethod
     def _process_ids(id_values):
         """Normalize piezometer identifiers into a list of strings."""
+        return normalize_piezometer_ids(id_values)
         if isinstance(id_values, str):
             id_values = [id_values]
         normalized = [str(v).strip() for v in id_values]

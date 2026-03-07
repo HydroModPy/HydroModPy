@@ -125,6 +125,7 @@ markers = [
     "extensive: extended regression checks for deeper validation",
     "fast: quick-running regression cases",
     "slow: long-running integration or regression tests",
+    "integration: tests that call external services or systems",
     "coverage: long-running coverage tests",
 ]
 
