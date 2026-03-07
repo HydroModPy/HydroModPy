@@ -1,4 +1,4 @@
-# Chronicles Module
+# Hydrometry Module
 
 `hydromodpy.data_managers.hydrometry` provides tools to load, inspect, and export hydrometric
 time series as station-level datasets.
@@ -9,7 +9,8 @@ time series as station-level datasets.
   multi-station loading from:
   - Hub'Eau API (`source_mode="api"`)
   - local exported CSV files (`source_mode="local"`)
-- `run_hydrometry_example.py`: executable example script for a full load/report/plot run.
+- `cases/run_hydrometry_case.py`: executable case script for a full
+  load/report/plot run.
 
 ## Core Data Object
 
@@ -36,7 +37,7 @@ Hydrometry now reuses shared components from `hydromodpy.data_managers.common`:
 
 ## Configuration
 
-- `hydrometry_config.toml`: example configuration file.
+- `cases/run_hydrometry_config.toml`: example configuration file.
 - `hydrometry_config.py`: parser and validator for TOML configuration.
 
 ## Minimal Example
@@ -44,6 +45,8 @@ Hydrometry now reuses shared components from `hydromodpy.data_managers.common`:
 ```python
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 
-stations = StationSet.from_toml("hydromodpy/data_managers/hydrometry/hydrometry_config.toml")
+stations = StationSet.from_toml(
+    "hydromodpy/data_managers/hydrometry/cases/run_hydrometry_config.toml"
+)
 report = stations.get_missing_data_summary()
 ```

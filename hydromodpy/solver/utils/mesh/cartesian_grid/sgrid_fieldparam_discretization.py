@@ -75,6 +75,7 @@ def discretize_fieldparam_on_sgrid(
     geology_field,
     field_param,
     sgrid,
+    geometry_cache: dict[tuple[int, int, int], tuple[StructuredFieldMesh, object, np.ndarray]] | None = None,
     cell_samples_per_axis: int | None = None,
     depth: float = 0.0,
     strict_field_spatial_id_match: bool = True,
@@ -139,29 +140,38 @@ def discretize_fieldparam_on_sgrid(
                 f"{required_field_id!r} != {geology_field_id!r}"
             )
 
-    # 3) Solver-grid adapter.
-    # Build a planar mesh view (XY only) consumed by geology_field.on_mesh(...).
-    # Vertical resolution is handled later through layer-center depth evaluation.
-    mesh = build_field_mesh_from_sgrid(sgrid)
     default_n_sub = int(getattr(geology_field, "default_cell_samples_per_axis", 8))
     # Sub-sampling density controls zone-fraction accuracy inside each cell.
     # Enforce >=2 to keep a meaningful 2D sampling pattern.
     n_sub = max(2, int(cell_samples_per_axis or default_n_sub))
 
-    # 4) Geometry projection (geology -> weighted fractions by zone and cell).
-    # `field_discretization` is not the final parameter grid.
-    # It is an intermediate spatial object that stores, for each mesh cell:
-    # - the list of zone keys seen in the geology field,
-    # - one fraction per zone key (between 0 and 1),
-    # - the target mesh reference.
-    # Example (one cell):
-    #   {"granite": 0.70, "schist": 0.30}
-    # This object is then consumed by `field_param.to_mesh_field(...)` to
-    # compute actual scalar values using weighted aggregation.
-    field_discretization = geology_field.on_mesh(
-        mesh,
-        cell_samples_per_axis=n_sub,
-    )
+    # 3) Solver-grid adapter + geometry projection.
+    # This is the expensive step (geology_field.on_mesh(...)).
+    # Reuse it from a per-run cache when available.
+    cache_key = (id(geology_field), id(sgrid), int(n_sub))
+    cached = geometry_cache.get(cache_key) if geometry_cache is not None else None
+    if cached is None:
+        # Build a planar mesh view (XY only) consumed by geology_field.on_mesh(...).
+        # Vertical resolution is handled later through layer-center depth evaluation.
+        mesh = build_field_mesh_from_sgrid(sgrid)
+        # `field_discretization` is not the final parameter grid.
+        # It is an intermediate spatial object that stores, for each mesh cell:
+        # - the list of zone keys seen in the geology field,
+        # - one fraction per zone key (between 0 and 1),
+        # - the target mesh reference.
+        # Example (one cell):
+        #   {"granite": 0.70, "schist": 0.30}
+        # This object is then consumed by `field_param.to_mesh_field(...)` to
+        # compute actual scalar values using weighted aggregation.
+        field_discretization = geology_field.on_mesh(
+            mesh,
+            cell_samples_per_axis=n_sub,
+        )
+        layer_center_depths_base = _compute_layer_center_depths(sgrid)
+        if geometry_cache is not None:
+            geometry_cache[cache_key] = (mesh, field_discretization, layer_center_depths_base)
+    else:
+        mesh, field_discretization, layer_center_depths_base = cached
 
     # 5) Read target SGrid dimensions.
     # These dimensions define the canonical solver tensor layout used
@@ -194,7 +204,7 @@ def discretize_fieldparam_on_sgrid(
     # `layer_center_depths` is computed from (top, botm) and gives, for each
     # (layer,row,col), a positive-downward depth at the cell center.
     # A global scalar depth offset is then added (same semantics as before).
-    layer_center_depths = _compute_layer_center_depths(sgrid) + float(depth)
+    layer_center_depths = np.asarray(layer_center_depths_base, dtype=float) + float(depth)
     if layer_center_depths.shape != (nlay, nrow, ncol):
         raise ValueError(
             "Layer depth shape mismatch with SGrid dimensions: "

@@ -8,7 +8,7 @@ import textwrap
 
 import numpy as np
 
-from hydromodpy.data_managers.geology import run_geology_property_demo as demo
+from hydromodpy.data_managers.geology.cases import run_geology_property_case as demo
 from hydromodpy.data_managers.geology.geology_mesh import GeologyStructuredMesh
 
 

@@ -1,26 +1,21 @@
 """Run an end-to-end hydrometry station-set example.
 
 This script demonstrates multiple ways to discover and load hydrometric data:
-1. Load from hydrometry_config.toml with explicit station IDs
-2. Load from hydrometry_config.toml with geographic mask (automatic fallback if empty)
+1. Load from run_hydrometry_config.toml with explicit station IDs
+2. Load from run_hydrometry_config.toml with geographic mask (automatic fallback if empty)
 3. Use manual discovery with discover_station_ids() for fine-grained control
 """
 
 from pathlib import Path
 import sys
 
-_MANAGER_ROOT = Path(__file__).resolve().parents[1]
-_THIS_DIR = Path(__file__).resolve().parent
-for _path in (str(_MANAGER_ROOT), str(_THIS_DIR)):
-    if _path not in sys.path:
-        sys.path.insert(0, _path)
+# Support direct execution from file path and ensure local package precedence.
+repo_root = Path(__file__).resolve().parents[4]
+if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
-try:
-    from .station_set import StationSet
-    from .hydrometry_config import load_hydrometry_toml
-except ImportError:
-    from station_set import StationSet
-    from hydrometry_config import load_hydrometry_toml
+from hydromodpy.data_managers.hydrometry.hydrometry_config import load_hydrometry_toml
+from hydromodpy.data_managers.hydrometry.station_set import StationSet
 
 
 def _fmt_date_or_none(value):
@@ -34,9 +29,10 @@ def _fmt_date_or_none(value):
 
 def main_station_set() -> None:
     """Execute the hydrometry example workflow with mask-based discovery."""
-    manager_dir = Path(__file__).resolve().parent
-    config_path = manager_dir / "hydrometry_config.toml"
-    outputs_dir = manager_dir / "outputs"
+    case_dir = Path(__file__).resolve().parent
+    config_path = case_dir / "run_hydrometry_config.toml"
+    outputs_dir = case_dir / "outputs"
+    outputs_dir.mkdir(exist_ok=True)
 
     print("=" * 70)
     print("HYDROMETRY DISCOVERY EXAMPLE - MASK-BASED WORKFLOW")
@@ -128,9 +124,9 @@ def main_station_set() -> None:
 
 def main_station() -> None:
     """Test the Station class with a single loaded station."""
-    manager_dir = Path(__file__).resolve().parent
-    config_path = manager_dir / "hydrometry_config.toml"
-    outputs_dir = manager_dir / "outputs"
+    case_dir = Path(__file__).resolve().parent
+    config_path = case_dir / "run_hydrometry_config.toml"
+    outputs_dir = case_dir / "outputs"
     outputs_dir.mkdir(exist_ok=True)
 
     print("=" * 70)
@@ -143,10 +139,10 @@ def main_station() -> None:
         selection_cfg = config_data.get("selection", {})
         selection_mode = selection_cfg.get("mode", "stations")
         mask_path = selection_cfg.get("mask_path")
-        piezometry_cfg = config_data.get("hydrometry", {})
-        
-        date_start = _fmt_date_or_none(piezometry_cfg.get("date_start"))
-        date_end = _fmt_date_or_none(piezometry_cfg.get("date_end"))
+        hydrometry_cfg = config_data.get("hydrometry", {})
+
+        date_start = _fmt_date_or_none(hydrometry_cfg.get("date_start"))
+        date_end = _fmt_date_or_none(hydrometry_cfg.get("date_end"))
     except Exception as exc:
         print(f"[Error] Failed to load config: {exc}")
         return
@@ -174,9 +170,9 @@ def main_station() -> None:
 
         # Create StationSet to load data
         stations = StationSet(
-            variable=piezometry_cfg.get("variable", "QmnJ"),
+            variable=hydrometry_cfg.get("variable", "QmnJ"),
             id=discovered,
-            display=piezometry_cfg.get("display", False),
+            display=hydrometry_cfg.get("display", False),
             date_start=date_start,
             date_end=date_end,
             output=None,  # Don't export here

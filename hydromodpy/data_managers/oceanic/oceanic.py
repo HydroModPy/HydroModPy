@@ -120,27 +120,22 @@ class Oceanic:
         self.RSL = {}
         self.RMSL = {}
         for sce in scenarios:
-            nc = Dataset(os.path.join(oceanic_path, rsl_name[sce]), "r", format="NETCDF4")
-            date = np.array(nc.variables['time'][:])
-            df = pd.DataFrame(date, columns=["date"])
-            df.index = pd.to_datetime(df['date'],format='%Y')
-            df = df.drop(['date'], axis=1)
-            v = []; vh = []; vl = []; vstdh = []; vstdl = []
-            for i in range(0, len(nc.variables['time'][:])):
-                med = nc.variables['slr_md'][i][yidx][xidx]
-                v.append(med)
-                high = nc.variables['slr_he'][i][yidx][xidx]
-                vh.append(med+(1.645*high))
-                vstdh.append(med+high)
-                low = nc.variables['slr_le'][i][yidx][xidx]
-                vstdl.append(med-low)
-                vl.append(med-(1.645*low))
+            # Why/how this block is written:
+            # - Use a context manager so each NetCDF file is always closed immediately.
+            # - Slice all time steps at once ([:, yidx, xidx]) instead of iterating in
+            #   Python, which is faster and keeps the same formulas as the original loop.
+            with Dataset(os.path.join(oceanic_path, rsl_name[sce]), "r", format="NETCDF4") as nc:
+                date = np.asarray(nc.variables['time'][:])
+                med = np.ma.filled(nc.variables['slr_md'][:, yidx, xidx], np.nan).astype(float, copy=False)
+                high = np.ma.filled(nc.variables['slr_he'][:, yidx, xidx], np.nan).astype(float, copy=False)
+                low = np.ma.filled(nc.variables['slr_le'][:, yidx, xidx], np.nan).astype(float, copy=False)
 
-            df['median'] = v
-            df['std high'] = vstdh
-            df['std low'] = vstdl
-            df['95th per'] = vh
-            df['5th per'] = vl
+            df = pd.DataFrame(index=pd.to_datetime(date, format='%Y'))
+            df['median'] = med
+            df['std high'] = med + high
+            df['std low'] = med - low
+            df['95th per'] = med + (1.645 * high)
+            df['5th per'] = med - (1.645 * low)
 
             df1 = df.copy()
             df1 = df1 - df1['median'].loc['2020'].values[0] + self.MSL
@@ -170,18 +165,29 @@ class Oceanic:
         yidx : int
             Index y.
         """
-        nc = Dataset(path, "r", format="NETCDF4")
-        find_idx = np.zeros((np.shape(nc.variables['slr_md'][0])[0]*np.shape(nc.variables['slr_md'][0])[1],5))
-        compt = 0
-        for x in range(0,np.shape(nc.variables['slr_md'][0])[1]):
-            for y in range(0,np.shape(nc.variables['slr_md'][0])[0]):
-                find_idx[compt,:] = [x,y,nc.variables['x'][x].data.item(),nc.variables['y'][y].data.item(),nc.variables['slr_md'][0][y][x]]
-                compt +=1
-        find_idx = find_idx[~np.isnan(find_idx).any(axis=1)]
-        distance = np.sqrt((find_idx[:,3]-geographic.centroid_long_lat_Greenwich[0])**2+(find_idx[:,2]-geographic.centroid_long_lat_Greenwich[1])**2)
-        idx = distance.argmin()
-        xidx = find_idx[idx][0]
-        yidx = find_idx[idx][1]
+        # Vectorized nearest-cell lookup:
+        # - build a full distance field once with NumPy broadcasting,
+        # - mask invalid cells (NaN in slr_md/x/y),
+        # - pick the minimum distance index.
+        # This preserves the original behavior while avoiding nested Python loops.
+        with Dataset(path, "r", format="NETCDF4") as nc:
+            slr = np.ma.filled(nc.variables['slr_md'][0], np.nan).astype(float, copy=False)
+            x_vals = np.asarray(nc.variables['x'][:], dtype=float)
+            y_vals = np.asarray(nc.variables['y'][:], dtype=float)
+
+        valid = np.isfinite(slr)
+        valid &= np.isfinite(y_vals)[:, None]
+        valid &= np.isfinite(x_vals)[None, :]
+        if not np.any(valid):
+            raise ValueError(f"No valid slr_md cell found in NetCDF file: {path}")
+
+        dy = y_vals[:, None] - geographic.centroid_long_lat_Greenwich[0]
+        dx = x_vals[None, :] - geographic.centroid_long_lat_Greenwich[1]
+        distance2 = (dy * dy) + (dx * dx)
+        distance2[~valid] = np.inf
+
+        idx = int(np.argmin(distance2))
+        yidx, xidx = np.unravel_index(idx, distance2.shape)
         return int(xidx), int(yidx)
 
     def download_SHOM_data(self, geographic, start_date, end_date, write=True):
@@ -199,8 +205,9 @@ class Oceanic:
             End date of the data to be downloaded (format: 'YYYY-MM-DD').
         """
         # Get the list of tide gauge stations from SHOM website
+        session = requests.Session()
         url = 'https://services.data.shom.fr/maregraphie/service/tidegauges'
-        tide_gauge_list = requests.get(url)
+        tide_gauge_list = session.get(url)
         tide_gauge_list = tide_gauge_list.json()
         self.tide_gauge_df = pd.DataFrame(tide_gauge_list)
 
@@ -223,37 +230,45 @@ class Oceanic:
             # Get the vertical reference of the closest tide gauge station
             print(f"Closest tide gauge station: {self.closest_tg['name']} at ({self.closest_tg['latitude']}, {self.closest_tg['longitude']})")
             url = f'https://services.data.shom.fr/maregraphie/service/completetidegauge/{closest_tg_id}'
-            tide_gauge_info = requests.get(url)
+            tide_gauge_info = session.get(url)
             tide_gauge_info = tide_gauge_info.json()
             zh_ref = float(tide_gauge_info['verticalRef']['zh_ref']) # Vertical reference of the tide gauge station
 
             # Download sea-level data for the closest tide gauge station
             # iterates over 31-day periods to avoid data download issues for long time series
+            # Why/how this loop is structured:
+            # - SHOM requests are split into fixed 31-day chunks to keep API calls reliable.
+            # - We advance one contiguous window at a time until end_limit, with no
+            #   special-case "first iteration" branch, which keeps the logic simpler
+            #   and avoids off-by-one/date-gap issues between chunks.
             sources = '3' # code to get hourly validated data
             interval = '60' # data interval in minutes
+            end_limit = datetime.strptime(end_date, '%Y-%m-%d')
             start_date_temp = datetime.strptime(start_date, '%Y-%m-%d')
-            end_date_temp = datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=31)
-            i=0
-            while end_date_temp < datetime.strptime(end_date, '%Y-%m-%d') or i==0:
-                if i!=0:
-                    start_date_temp = end_date_temp + timedelta(days=1)
-                    end_date_temp = start_date_temp + timedelta(days=31)
+            chunks = []
+            # Keep the original chunked loop logic, but optimize the hot path:
+            # - Bound each request window to `end_limit` to avoid over-fetching and post-filter waste.
+            # - Append per-window frames to `chunks` and concatenate once after the loop, which is
+            #   much faster than repeated `pd.concat` inside the loop.
+            # - Reuse the same HTTP session (`session.get`) to reduce connection overhead.
+            while start_date_temp <= end_limit:
+                end_date_temp = min(start_date_temp + timedelta(days=31), end_limit)
                 dtStart = f'{start_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
                 dtEnd = f'{end_date_temp.strftime("%Y-%m-%d")}T00%3A00%3A00Z'
                 url = f'https://services.data.shom.fr/maregraphie/observation/json/{tg_id}?sources={sources}&dtStart={dtStart}&dtEnd={dtEnd}&interval={interval}'
-                tg_data = requests.get(url)
-                tg_data = tg_data.json()
-                if i==0:
-                    tg_df = pd.DataFrame(tg_data['data'])[['timestamp', 'value']]
-                else:
-                    tg_df = pd.concat([tg_df, pd.DataFrame(tg_data['data'])[['timestamp', 'value']]], ignore_index=True)
-                i+=1
-                
+                tg_data = session.get(url).json()
+                chunk_df = pd.DataFrame(tg_data.get('data', []))
+                if not chunk_df.empty:
+                    chunk_df = chunk_df.reindex(columns=['timestamp', 'value'])
+                    chunks.append(chunk_df[['timestamp', 'value']])
+                start_date_temp = end_date_temp + timedelta(days=1)
+            tg_df = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame(columns=['timestamp', 'value'])
+                 
             # Process the downloaded data
             tg_df['value'] = pd.to_numeric(tg_df['value'], errors='coerce')
             tg_df['value'] = tg_df['value'] + zh_ref # Convert vertical level from hydrographic to IGN reference
             tg_df['timestamp'] = pd.to_datetime(tg_df['timestamp'])
-            tg_df = tg_df[tg_df['timestamp'] <= datetime.strptime(end_date, '%Y-%m-%d')] # Keep only data until the specified end date
+            tg_df = tg_df[tg_df['timestamp'] <= end_limit] # Keep only data until the specified end date
             self.SHOM_data = tg_df
 
             # Optionally, write the data to a CSV file
@@ -262,6 +277,7 @@ class Oceanic:
                 if not os.path.exists(os.path.dirname(output_path)):
                     os.makedirs(os.path.dirname(output_path))
                 tg_df.to_csv(output_path, index=False)
+        session.close()
 
     def load_local_shom_data(self, csv_path):
         """

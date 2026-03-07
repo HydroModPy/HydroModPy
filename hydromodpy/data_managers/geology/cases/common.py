@@ -2,7 +2,7 @@
 Shared helpers for geology demo launchers.
 
 This module centralizes repeated demo concerns:
-- local path resolution inside `field/cases/geology`,
+- local path resolution inside `hydromodpy/data_managers/geology/cases`,
 - default output-path handling (`outputs/...` for relative names),
 - axis tick formatting for projected coordinates (m -> km),
 - local square clipping utilities,
@@ -33,8 +33,8 @@ def resolve_output_path(path_like, *, default_file: str):
 
     Examples
     --------
-    - "my_fig.png" -> ".../geology/outputs/my_fig.png"
-    - "outputs/a.png" -> ".../geology/outputs/a.png"
+    - "my_fig.png" -> ".../geology/cases/outputs/my_fig.png"
+    - "outputs/a.png" -> ".../geology/cases/outputs/a.png"
     - "C:/tmp/a.png" -> "C:/tmp/a.png"
     """
     raw_text = str(path_like).strip()

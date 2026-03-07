@@ -205,8 +205,9 @@ def load_hydrometry_toml(config_path: str | Path) -> dict[str, Any]:
     Relative paths are resolved against the TOML file directory.
     """
     path = Path(config_path).expanduser().resolve()
-    with path.open("rb") as stream:
-        payload = tomllib.load(stream)
+    # Use utf-8-sig to accept files saved with a UTF-8 BOM
+    # (otherwise tomllib.load on bytes can fail at line 1, column 1).
+    payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
 
     try:
         cfg = validate_hydrometry_config_data(payload)

@@ -7,8 +7,11 @@ stays focused on orchestration order.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel
 
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.data_managers.plan import DataLoadPlan
@@ -122,6 +125,7 @@ class DataManagersRuntimeLoader:
         msl_start_date = "2003-01-01"
         msl_end_date = "2003-01-30"
         msl_default = 0.0
+        msl_use_simulation_time_window = False
 
         if section is not None:
             raw_source = section.get("msl_source")
@@ -149,6 +153,28 @@ class DataManagersRuntimeLoader:
                         "[DataManagersPlanner] Warning: invalid data.oceanic.msl_default="
                         f"{raw_default!r}, using 0.0"
                     )
+
+            raw_use_simulation_time_window = section.get("msl_use_simulation_time_window")
+            if isinstance(raw_use_simulation_time_window, bool):
+                msl_use_simulation_time_window = raw_use_simulation_time_window
+            elif isinstance(raw_use_simulation_time_window, str):
+                token = raw_use_simulation_time_window.strip().lower()
+                if token in {"1", "true", "yes", "on"}:
+                    msl_use_simulation_time_window = True
+                elif token in {"0", "false", "no", "off"}:
+                    msl_use_simulation_time_window = False
+
+        if msl_use_simulation_time_window:
+            simulation_dates = self._resolve_simulation_time_window_dates(result)
+            if simulation_dates is None:
+                print(
+                    "[DataManagersPlanner] Warning: data.oceanic."
+                    "msl_use_simulation_time_window=true but [simulation.time] "
+                    "is missing or invalid; using data.oceanic.msl_start_date/"
+                    "msl_end_date."
+                )
+            else:
+                msl_start_date, msl_end_date = simulation_dates
 
         try:
             oceanic = Oceanic()
@@ -357,8 +383,43 @@ class DataManagersRuntimeLoader:
         type_name: str,
     ) -> dict[str, Any] | None:
         section_value = getattr(result.cfg.data, type_name, None)
+        if isinstance(section_value, BaseModel):
+            payload = section_value.model_dump(mode="python", exclude_none=True)
+            if isinstance(payload, Mapping):
+                return dict(payload)
         if isinstance(section_value, Mapping):
             return dict(section_value)
+        return None
+
+    @staticmethod
+    def _resolve_simulation_time_window_dates(
+        result: "LauncherRunState",
+    ) -> tuple[str, str] | None:
+        simulation_cfg = getattr(result.cfg, "simulation", None)
+        time_cfg = getattr(simulation_cfg, "time", None)
+        if time_cfg is None:
+            return None
+        start_date = DataManagersRuntimeLoader._normalize_iso_date(
+            getattr(time_cfg, "start_datetime", None)
+        )
+        end_date = DataManagersRuntimeLoader._normalize_iso_date(
+            getattr(time_cfg, "end_datetime", None)
+        )
+        if start_date is None or end_date is None:
+            return None
+        return start_date, end_date
+
+    @staticmethod
+    def _normalize_iso_date(value: Any) -> str | None:
+        if isinstance(value, datetime):
+            return value.date().isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return None
+            return text.replace("T", " ").split(" ", 1)[0]
         return None
 
     def _resolve_path_like(self, value: Any) -> Path:
