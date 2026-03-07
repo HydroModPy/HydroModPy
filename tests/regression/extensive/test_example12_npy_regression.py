@@ -8,6 +8,7 @@ from tests.regression.golden_utils import (
     collect_modpath_signatures,
     require_url_available,
     resolve_tiered_golden_file,
+    resolve_tiered_results_dir,
     resolve_model_workspace,
     run_example_script,
     update_or_assert_goldens,
@@ -53,13 +54,16 @@ HUBEAU_HEALTHCHECK_URL = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referen
 @pytest.mark.extensive
 @pytest.mark.slow
 @pytest.mark.coverage
-def test_example12_regression_on_npy_outputs(tmp_path, update_goldens):
+def test_example12_regression_on_npy_outputs(update_goldens):
     """Run example12, then compare (or refresh) its golden signatures."""
     assert_required_executables()
     require_url_available(SHOM_HEALTHCHECK_URL)
     require_url_available(HUBEAU_HEALTHCHECK_URL)
 
-    out_path = tmp_path / "example12_outputs"
+    out_path = resolve_tiered_results_dir(
+        test_file=__file__,
+        run_name="example12_outputs",
+    )
     run_example_script(
         script_path=EXAMPLE12_SCRIPT,
         out_path=out_path,

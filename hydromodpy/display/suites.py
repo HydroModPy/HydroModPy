@@ -96,7 +96,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
 
     flow_model = _resolve_flow_model(result)
     model_name = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name, options=options)
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
     simulated_timeseries = _load_flow_timeseries(result)
     observed_streamflow = _load_observed_streamflow(result)
 
@@ -139,7 +139,7 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
 
     flow_model = _resolve_flow_model(result)
     model_name = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name, options=options)
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
     particles_dir = (
         result.setup.workspace.simulations_folder
         / model_name
@@ -191,10 +191,7 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
         return
 
     model_name = flow_model.model_name
-    output_dir = (
-        resolve_model_figure_dir(result.setup.workspace, model_name, options=options)
-        / "transport"
-    )
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name) / "transport"
     save_frame_files = options.save or run_gif or run_web_animation
     show_last_frame = run_concentration and options.show
 

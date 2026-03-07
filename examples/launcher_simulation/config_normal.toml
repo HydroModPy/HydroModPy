@@ -186,6 +186,13 @@ fields_obs = ["FID"]
 # Intermittency observation filename.
 file_name = "regional onde stations.shp"
 
+[data.oceanic]
+# Mean sea-level source for oceanic boundary value:
+# "local" = read CSV, "web" = SHOM API, "auto" = local then web.
+msl_source = "local"
+# Pre-downloaded SHOM CSV used in local/auto mode.
+msl_local_csv = "data/oceanic/sealevel_shom_152_20030101_20030130_H.csv"
+
 
 # ----------------------------------------------------------------------
 # Hydrometry station-set configuration.
@@ -912,12 +919,9 @@ enabled = false
 # Show interactive figures/windows when rendering is enabled.
 show = false
 # Save figures/animations to disk when rendering is enabled.
-save = false
+save = true
 # Output resolution used when saving raster figures.
 dpi = 300
-# Optional custom directory for exported display figures.
-# Relative paths are resolved from the catchment folder.
-# output_dir = "figures_inspection"
 # If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.
 respect_env_no_display = true
 
