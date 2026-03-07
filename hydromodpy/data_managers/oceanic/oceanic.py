@@ -263,14 +263,48 @@ class Oceanic:
                     os.makedirs(os.path.dirname(output_path))
                 tg_df.to_csv(output_path, index=False)
 
+    def load_local_shom_data(self, csv_path):
+        """
+        Load pre-downloaded SHOM data from a local CSV file.
+
+        Parameters
+        ----------
+        csv_path : str
+            Path to a CSV file with at least ``timestamp`` and ``value`` columns.
+        """
+        if csv_path is None:
+            raise ValueError("Local SHOM CSV path is missing")
+
+        csv_path = os.path.abspath(str(csv_path))
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(f"Local SHOM CSV not found: {csv_path}")
+
+        df = pd.read_csv(csv_path, parse_dates=['timestamp'])
+        required_columns = {'timestamp', 'value'}
+        missing = required_columns.difference(df.columns)
+        if missing:
+            raise ValueError(
+                f"Local SHOM CSV missing required columns: {sorted(missing)}"
+            )
+
+        df = df[['timestamp', 'value']].copy()
+        df['value'] = pd.to_numeric(df['value'], errors='coerce')
+        df = df.dropna(subset=['timestamp', 'value']).reset_index(drop=True)
+        if df.empty:
+            raise ValueError(f"Local SHOM CSV has no valid rows: {csv_path}")
+
+        self.SHOM_data = df
+
     def fetch_msl_or_default(
         self,
         geographic,
         start_date: str = "2003-01-01",
         end_date: str = "2003-01-30",
         default: float = 0.0,
+        source: str = "web",
+        local_csv_path: str | None = None,
     ) -> float:
-        """Download MSL from SHOM and return its mean, or ``default`` on failure.
+        """Fetch MSL and return its mean, or ``default`` on failure.
 
         Parameters
         ----------
@@ -280,18 +314,49 @@ class Oceanic:
             Date range for the SHOM download (format ``'YYYY-MM-DD'``).
         default : float
             Value returned when the download fails (network unavailable, …).
+        source : str
+            Source mode for MSL retrieval:
+            - ``"web"``: download from SHOM API
+            - ``"local"``: read from ``local_csv_path``
+            - ``"auto"``: local first, then web fallback
+        local_csv_path : str | None
+            Local SHOM CSV used in ``"local"``/``"auto"`` mode.
 
         Returns
         -------
         float
             Mean sea level in metres.
         """
-        try:
-            self.download_SHOM_data(geographic, start_date=start_date, end_date=end_date)
-            return float(self.SHOM_data["value"].mean())
-        except Exception as exc:
-            print(f"SHOM download failed ({exc}), using default MSL={default}")
-            return default
+        source_mode = str(source).strip().lower()
+        if source_mode not in {"web", "local", "auto"}:
+            print(f"Unsupported MSL source '{source}', using 'auto'")
+            source_mode = "auto"
+
+        if source_mode in {"local", "auto"}:
+            if local_csv_path is None:
+                if source_mode == "local":
+                    print("Local MSL source selected but no CSV path provided, "
+                          f"using default MSL={default}")
+                    return default
+            else:
+                try:
+                    self.load_local_shom_data(local_csv_path)
+                    return float(self.SHOM_data["value"].mean())
+                except Exception as exc:
+                    if source_mode == "local":
+                        print(f"Local SHOM load failed ({exc}), using default MSL={default}")
+                        return default
+                    print(f"Local SHOM load failed ({exc}), trying SHOM web download.")
+
+        if source_mode in {"web", "auto"}:
+            try:
+                self.download_SHOM_data(geographic, start_date=start_date, end_date=end_date)
+                return float(self.SHOM_data["value"].mean())
+            except Exception as exc:
+                print(f"SHOM download failed ({exc}), using default MSL={default}")
+                return default
+
+        return default
 
     def display_data(self, values):
         """

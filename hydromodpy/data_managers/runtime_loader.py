@@ -117,6 +117,39 @@ class DataManagersRuntimeLoader:
             keys=("oceanic_path",),
             default_root=workspace_paths.data_path,
         )
+        msl_source = "auto"
+        msl_local_csv: str | None = None
+        msl_start_date = "2003-01-01"
+        msl_end_date = "2003-01-30"
+        msl_default = 0.0
+
+        if section is not None:
+            raw_source = section.get("msl_source")
+            if isinstance(raw_source, str) and raw_source.strip():
+                msl_source = raw_source.strip().lower()
+
+            raw_local_csv = section.get("msl_local_csv")
+            if isinstance(raw_local_csv, str) and raw_local_csv.strip():
+                msl_local_csv = str(self._resolve_path_like(raw_local_csv))
+
+            raw_start_date = section.get("msl_start_date")
+            if isinstance(raw_start_date, str) and raw_start_date.strip():
+                msl_start_date = raw_start_date.strip()
+
+            raw_end_date = section.get("msl_end_date")
+            if isinstance(raw_end_date, str) and raw_end_date.strip():
+                msl_end_date = raw_end_date.strip()
+
+            raw_default = section.get("msl_default")
+            if raw_default is not None:
+                try:
+                    msl_default = float(raw_default)
+                except (TypeError, ValueError):
+                    print(
+                        "[DataManagersPlanner] Warning: invalid data.oceanic.msl_default="
+                        f"{raw_default!r}, using 0.0"
+                    )
+
         try:
             oceanic = Oceanic()
             oceanic.extract_local_data(
@@ -124,7 +157,16 @@ class DataManagersRuntimeLoader:
                 geographic=result.setup.geographic,
                 oceanic_path=oceanic_path,
             )
-            oceanic.update_MSL(oceanic.fetch_msl_or_default(result.setup.geographic))
+            oceanic.update_MSL(
+                oceanic.fetch_msl_or_default(
+                    result.setup.geographic,
+                    start_date=msl_start_date,
+                    end_date=msl_end_date,
+                    default=msl_default,
+                    source=msl_source,
+                    local_csv_path=msl_local_csv,
+                )
+            )
             result.loaded_data.oceanic = oceanic
         except Exception as exc:
             self._handle_data_loading_error(result, "oceanic", exc)

@@ -12,6 +12,7 @@ import pytest
 from tests.regression.golden_utils import (
     REPO_ROOT,
     require_url_available,
+    resolve_tiered_results_dir,
     run_example_script,
 )
 
@@ -33,12 +34,15 @@ HUBEAU_HEALTHCHECK_URL = (
 @pytest.mark.extensive
 @pytest.mark.slow
 @pytest.mark.coverage
-def test_launcher_data_overview_data_only_regression(tmp_path):
+def test_launcher_data_overview_data_only_regression():
     """Run data-overview launcher and assert stable data-only side effects."""
     require_url_available(SHOM_HEALTHCHECK_URL)
     require_url_available(HUBEAU_HEALTHCHECK_URL)
 
-    out_path = tmp_path / "launcher_data_overview_outputs"
+    out_path = resolve_tiered_results_dir(
+        test_file=__file__,
+        run_name="launcher_data_overview_outputs",
+    )
     run_example_script(
         script_path=LAUNCHER_DATA_OVERVIEW_SCRIPT,
         out_path=out_path,

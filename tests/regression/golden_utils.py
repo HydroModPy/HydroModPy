@@ -92,6 +92,38 @@ def resolve_tiered_golden_file(
     return REGRESSION_GOLDENS_ROOT / tier / str(filename)
 
 
+def resolve_tiered_results_dir(
+    *,
+    test_file: str | Path,
+    run_name: str,
+) -> Path:
+    """
+    Build and prepare one deterministic output directory for a regression test.
+
+    Outputs are tiered by test location under ``HYDROMODPY_OUT_PATH``:
+    - ``.../normal/<run_name>/``
+    - ``.../extensive/<run_name>/``
+
+    The target directory is cleaned before each run to avoid stale artifacts.
+    """
+    base_out_path = os.environ.get("HYDROMODPY_OUT_PATH")
+    if not base_out_path:
+        raise RuntimeError(
+            "HYDROMODPY_OUT_PATH must be set to the regression output root "
+            "before running regression tests."
+        )
+
+    results_root = Path(base_out_path).expanduser().resolve()
+    file_path = Path(test_file).resolve()
+    file_parts = set(file_path.parts)
+    tier = "extensive" if "extensive" in file_parts else "normal"
+    out_dir = results_root / tier / str(run_name)
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir
+
+
 def write_golden_reference(path: Path, payload: dict) -> None:
     """
     Persist a golden reference JSON file using stable formatting.
@@ -491,7 +523,7 @@ def run_example_script(
     - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
-    # Redirect outputs into a pytest temporary directory.
+    # Redirect outputs into the per-test output directory.
     env[out_env_var] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")

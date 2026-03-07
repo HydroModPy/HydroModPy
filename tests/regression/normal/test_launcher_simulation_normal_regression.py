@@ -8,6 +8,7 @@ from tests.regression.golden_utils import (
     collect_modpath_signatures,
     require_url_available,
     resolve_tiered_golden_file,
+    resolve_tiered_results_dir,
     resolve_model_workspace,
     run_example_script,
     update_or_assert_goldens,
@@ -51,7 +52,6 @@ MT3DMS_OUTPUT_NAMES = [
     "mass_seepage",
 ]
 
-SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
 HUBEAU_HEALTHCHECK_URL = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?size=1&format=json"
 
 
@@ -67,13 +67,15 @@ HUBEAU_HEALTHCHECK_URL = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referen
         ),
     ],
 )
-def test_launcher_simulation_regression_on_npy_outputs(tmp_path, update_goldens, config_path):
+def test_launcher_simulation_regression_on_npy_outputs(update_goldens, config_path):
     """Run launcher_simulation, then compare or refresh its own golden signatures."""
     assert_required_executables(require_mt3dms=True)
-    require_url_available(SHOM_HEALTHCHECK_URL)
     require_url_available(HUBEAU_HEALTHCHECK_URL)
 
-    out_path = tmp_path / "launcher_simulation_outputs"
+    out_path = resolve_tiered_results_dir(
+        test_file=__file__,
+        run_name="launcher_simulation_outputs",
+    )
     run_example_script(
         script_path=LAUNCHER_SIMULATION_SCRIPT,
         out_path=out_path,
