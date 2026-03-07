@@ -33,25 +33,27 @@ Run all of them:
 hmp test regression
 ```
 
-Filter by speed:
+Filter by speed/tier:
 
 ```bash
 hmp test regression --fast
 hmp test regression --slow
+hmp test regression --normal
+hmp test regression --extensive
 ```
 
 Run a specific one:
 
 ```bash
 hmp test regression example12
-hmp test regression example_09
-hmp test regression launcher_glob
+hmp test regression launcher_simulation_normal --normal
 ```
 
-Run the short variant of an example:
+Run only the extensive suite folder (or normal suite folder when populated):
 
 ```bash
-hmp test regression example_03 --short
+hmp test regression --extensive
+hmp test regression --normal
 ```
 
 See what's available:
@@ -78,7 +80,8 @@ hmp test regression example12 --update-goldens
 
 ### Notes
 
-- Only `example12` passes right now. The others will fail until their setup is done.
+- The current regression set is: `launcher_simulation_normal` (normal), plus `example12_npy`, `launcher_simulation`, and `launcher_data_overview` (extensive).
 - `--fast` and `--slow` match pytest markers, not individual examples.
+- `--normal` and `--extensive` select tests by directory (`tests/regression/normal` and `tests/regression/extensive`).
 - `-j` maps to pytest-xdist `-n` flag. Without it, tests run sequentially.
 - The command prints the actual `pytest` invocation to stderr before running it.

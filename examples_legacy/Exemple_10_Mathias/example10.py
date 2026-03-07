@@ -53,15 +53,14 @@ from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 from hydromodpy import watershed_root_legacy
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed import Driasclimat, Driaseau, \
+from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
     Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, SafranSurfex, Transport
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig, GeographicConfig
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.tools import toolbox
-from hydromodpy.modeling.modflow import Modflow
-from hydromodpy.solver.modflow_nwt import Modpath, Mt3dms
+from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 # from hydromodpy.postprocess.flow.matching_streams import MatchingStreams

@@ -39,6 +39,11 @@ import pytest
 
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
+REGRESSION_GOLDENS_ROOT = (
+    Path(__file__).resolve().parent
+    / "reference"
+    / "golden_references"
+)
 
 # Common MODFLOW outputs checked by many tests.
 # Individual tests can override this list when needed.
@@ -67,6 +72,24 @@ def load_golden_reference(path: Path) -> dict:
     """
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def resolve_tiered_golden_file(
+    *,
+    test_file: str | Path,
+    filename: str,
+) -> Path:
+    """
+    Build the canonical golden path for one regression test file.
+
+    Goldens are tiered by test location:
+    - tests under ``tests/regression/extensive`` -> ``.../golden_references/extensive/``
+    - all other regression tests -> ``.../golden_references/normal/``
+    """
+    file_path = Path(test_file).resolve()
+    file_parts = set(file_path.parts)
+    tier = "extensive" if "extensive" in file_parts else "normal"
+    return REGRESSION_GOLDENS_ROOT / tier / str(filename)
 
 
 def write_golden_reference(path: Path, payload: dict) -> None:

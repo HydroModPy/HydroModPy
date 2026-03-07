@@ -30,24 +30,54 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
-def resolve_model_figure_dir(workspace, model_name: str) -> Path:
+def _resolve_custom_output_root(workspace, options: DisplayOptions | None) -> Path | None:
+    """Resolve an optional custom display output root from runtime options."""
+
+    if options is None or options.output_dir is None:
+        return None
+
+    root = Path(options.output_dir)
+    if root.is_absolute():
+        return root
+    return workspace.catch_folder / root
+
+
+def resolve_model_figure_dir(
+    workspace,
+    model_name: str,
+    *,
+    options: DisplayOptions | None = None,
+) -> Path:
     """Build the standard figure output directory for one model run.
 
     The returned path points to the model-specific post-processing tree under
-    ``workspace.simulations_folder``. Plotting functions use this location as
-    their default destination for PNG exports tied to one model execution.
+    ``workspace.simulations_folder`` by default.
+
+    When ``options.output_dir`` is configured, the destination becomes:
+    ``<output_dir>/<model_name>/``. Relative ``output_dir`` values are resolved
+    from ``workspace.catch_folder``.
     """
 
+    custom_root = _resolve_custom_output_root(workspace, options)
+    if custom_root is not None:
+        return custom_root / model_name
     return workspace.simulations_folder / model_name / "_postprocess" / "_figures"
 
 
-def resolve_shared_figure_dir(workspace) -> Path:
+def resolve_shared_figure_dir(
+    workspace,
+    *,
+    options: DisplayOptions | None = None,
+) -> Path:
     """Build the shared figure directory used for workspace-level outputs.
 
     This is useful for figures that summarize several models or that belong to
     the workspace as a whole rather than to a single simulation subfolder.
     """
 
+    custom_root = _resolve_custom_output_root(workspace, options)
+    if custom_root is not None:
+        return custom_root / "_shared"
     return workspace.simulations_folder / "_figures"
 
 

@@ -33,7 +33,7 @@ def _configure_whitebox_single_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     # WhiteboxTools instances are created at import time in these modules.
     # We force them to one worker explicitly.
     import hydromodpy.geographic.geographic as geo_mod
-    import hydromodpy.geographic_v2.catchment_from_point as point_mod
+    import hydromodpy.geographic.core.catchment_from_point as point_mod
 
     for tool in (getattr(geo_mod, "wbt", None), getattr(point_mod, "wbt", None)):
         if tool is None:

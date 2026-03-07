@@ -261,7 +261,6 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depends on local env
 
 # Import submodules for convenience
 from hydromodpy import watershed_legacy
-from hydromodpy import modeling
 from hydromodpy import tools
 from hydromodpy import calibration
 from hydromodpy import data_managers
@@ -324,7 +323,6 @@ def __getattr__(name):
 __all__ = [
     "Watershed",
     "watershed_legacy",
-    "modeling",
     "tools",
     "pyhelp",
     "calibration",
