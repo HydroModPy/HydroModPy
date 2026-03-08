@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.solver.transport_common.runtime_arrays import (
+from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
     flow_grid_shape,
 )

@@ -7,12 +7,16 @@ stays focused on orchestration order.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel
 
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.data_managers.plan import DataLoadPlan
 from hydromodpy.data_managers.oceanic import Oceanic
+from hydromodpy.simulation.workspace.path_registry import WorkspacePathRegistry
 
 if TYPE_CHECKING:
     from hydromodpy.simulation.state.run_state import LauncherRunState
@@ -21,14 +25,19 @@ if TYPE_CHECKING:
 class DataManagersRuntimeLoader:
     """Load runtime data objects from a resolved data-manager activation plan."""
 
+    _LEGACY_STATION_EXPORT_DEFAULTS: dict[str, str] = {
+        "hydrometry": "hydromodpy/data_managers/hydrometry/exports",
+        "piezometry": "hydromodpy/data_managers/piezometry/exports",
+    }
+
     def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
 
     def load_all(self, result: "LauncherRunState") -> None:
         """Load active data-manager families into ``result``."""
-        ws = result.setup.workspace
-        result.loaded_data.climatic = Climatic(out_path=ws.catch_folder)
+        workspace_paths = self._workspace_paths(result)
+        result.loaded_data.climatic = Climatic(out_path=workspace_paths.catch_folder)
 
         active_types = tuple(self.data_plan.types)
         for type_name in active_types:
@@ -104,19 +113,86 @@ class DataManagersRuntimeLoader:
 
     def _load_oceanic_data(self, result: "LauncherRunState") -> None:
         """Load oceanic data and optional mean sea-level boundary value."""
-        cfg = result.cfg
+        workspace_paths = self._workspace_paths(result)
         section = self._get_data_section(result, "oceanic")
-        oceanic_path = cfg.workspace.data_path
-        if section is not None and section.get("oceanic_path") is not None:
-            oceanic_path = self._resolve_path_like(section["oceanic_path"])
+        oceanic_path = self._resolve_manager_input_path(
+            section=section,
+            keys=("oceanic_path",),
+            default_root=workspace_paths.data_path,
+        )
+        msl_source = "auto"
+        msl_local_csv: str | None = None
+        msl_start_date = "2003-01-01"
+        msl_end_date = "2003-01-30"
+        msl_default = 0.0
+        msl_use_simulation_time_window = False
+
+        if section is not None:
+            raw_source = section.get("msl_source")
+            if isinstance(raw_source, str) and raw_source.strip():
+                msl_source = raw_source.strip().lower()
+
+            raw_local_csv = section.get("msl_local_csv")
+            if isinstance(raw_local_csv, str) and raw_local_csv.strip():
+                msl_local_csv = str(self._resolve_path_like(raw_local_csv))
+
+            raw_start_date = section.get("msl_start_date")
+            if isinstance(raw_start_date, str) and raw_start_date.strip():
+                msl_start_date = raw_start_date.strip()
+
+            raw_end_date = section.get("msl_end_date")
+            if isinstance(raw_end_date, str) and raw_end_date.strip():
+                msl_end_date = raw_end_date.strip()
+
+            raw_default = section.get("msl_default")
+            if raw_default is not None:
+                try:
+                    msl_default = float(raw_default)
+                except (TypeError, ValueError):
+                    print(
+                        "[DataManagersPlanner] Warning: invalid data.oceanic.msl_default="
+                        f"{raw_default!r}, using 0.0"
+                    )
+
+            raw_use_simulation_time_window = section.get("msl_use_simulation_time_window")
+            if isinstance(raw_use_simulation_time_window, bool):
+                msl_use_simulation_time_window = raw_use_simulation_time_window
+            elif isinstance(raw_use_simulation_time_window, str):
+                token = raw_use_simulation_time_window.strip().lower()
+                if token in {"1", "true", "yes", "on"}:
+                    msl_use_simulation_time_window = True
+                elif token in {"0", "false", "no", "off"}:
+                    msl_use_simulation_time_window = False
+
+        if msl_use_simulation_time_window:
+            simulation_dates = self._resolve_simulation_time_window_dates(result)
+            if simulation_dates is None:
+                print(
+                    "[DataManagersPlanner] Warning: data.oceanic."
+                    "msl_use_simulation_time_window=true but [simulation.time] "
+                    "is missing or invalid; using data.oceanic.msl_start_date/"
+                    "msl_end_date."
+                )
+            else:
+                msl_start_date, msl_end_date = simulation_dates
+
         try:
             oceanic = Oceanic()
             oceanic.extract_local_data(
-                out_path=result.setup.workspace.catch_folder,
+                out_path=workspace_paths.catch_folder,
                 geographic=result.setup.geographic,
                 oceanic_path=oceanic_path,
             )
-            oceanic.update_MSL(oceanic.fetch_msl_or_default(result.setup.geographic))
+            oceanic.update_MSL(
+                oceanic.fetch_msl_or_default(
+                    result.setup.geographic,
+                    start_date=msl_start_date,
+                    end_date=msl_end_date,
+                    default=msl_default,
+                    source=msl_source,
+                    local_csv_path=msl_local_csv,
+                )
+            )
             result.loaded_data.oceanic = oceanic
         except Exception as exc:
             self._handle_data_loading_error(result, "oceanic", exc)
@@ -125,7 +201,7 @@ class DataManagersRuntimeLoader:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
         from hydromodpy.data_managers.hydrography import Hydrography
 
-        cfg = result.cfg
+        workspace_paths = self._workspace_paths(result)
         section = self._get_data_section(result, "hydrography")
         if section is None:
             self._handle_missing_data_section(
@@ -152,15 +228,17 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        hydro_path = self._resolve_path_like(
-            section.get("hydro_path", cfg.workspace.data_path)
+        hydro_path = self._resolve_manager_input_path(
+            section=section,
+            keys=("hydro_path",),
+            default_root=workspace_paths.data_path,
         )
         streams_file = section.get("streams_file")
         if isinstance(streams_file, str) and streams_file.strip():
             streams_file = str(self._resolve_path_like(streams_file))
         try:
             result.loaded_data.hydrography = Hydrography(
-                out_path=result.setup.workspace.catch_folder,
+                out_path=workspace_paths.catch_folder,
                 types_obs=types_obs,
                 fields_obs=fields_obs,
                 geographic=result.setup.geographic,
@@ -174,7 +252,7 @@ class DataManagersRuntimeLoader:
         """Load ONDE-style intermittency observations."""
         from hydromodpy.data_managers.intermittency import Intermittency
 
-        cfg = result.cfg
+        workspace_paths = self._workspace_paths(result)
         section = self._get_data_section(result, "intermittency")
         if section is None:
             self._handle_missing_data_section(
@@ -184,8 +262,10 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        intermittency_path = self._resolve_path_like(
-            section.get("intermittency_path", section.get("path", cfg.workspace.data_path))
+        intermittency_path = self._resolve_manager_input_path(
+            section=section,
+            keys=("intermittency_path", "path"),
+            default_root=workspace_paths.data_path,
         )
         file_name = str(section.get("file_name", "regional onde stations.shp")).strip()
         if not file_name:
@@ -197,7 +277,7 @@ class DataManagersRuntimeLoader:
             return
         try:
             result.loaded_data.intermittency = Intermittency(
-                out_path=result.setup.workspace.catch_folder,
+                out_path=workspace_paths.catch_folder,
                 intermittency_path=intermittency_path,
                 file_name=file_name,
                 geographic=result.setup.geographic,
@@ -305,8 +385,43 @@ class DataManagersRuntimeLoader:
         type_name: str,
     ) -> dict[str, Any] | None:
         section_value = getattr(result.cfg.data, type_name, None)
+        if isinstance(section_value, BaseModel):
+            payload = section_value.model_dump(mode="python", exclude_none=True)
+            if isinstance(payload, Mapping):
+                return dict(payload)
         if isinstance(section_value, Mapping):
             return dict(section_value)
+        return None
+
+    @staticmethod
+    def _resolve_simulation_time_window_dates(
+        result: "LauncherRunState",
+    ) -> tuple[str, str] | None:
+        simulation_cfg = getattr(result.cfg, "simulation", None)
+        time_cfg = getattr(simulation_cfg, "time", None)
+        if time_cfg is None:
+            return None
+        start_date = DataManagersRuntimeLoader._normalize_iso_date(
+            getattr(time_cfg, "start_datetime", None)
+        )
+        end_date = DataManagersRuntimeLoader._normalize_iso_date(
+            getattr(time_cfg, "end_datetime", None)
+        )
+        if start_date is None or end_date is None:
+            return None
+        return start_date, end_date
+
+    @staticmethod
+    def _normalize_iso_date(value: Any) -> str | None:
+        if isinstance(value, datetime):
+            return value.date().isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return None
+            return text.replace("T", " ").split(" ", 1)[0]
         return None
 
     def _resolve_path_like(self, value: Any) -> Path:
@@ -314,6 +429,33 @@ class DataManagersRuntimeLoader:
         if not path.is_absolute():
             path = (self.config_path.parent / path).resolve()
         return path
+
+    def _workspace_paths(self, result: "LauncherRunState") -> WorkspacePathRegistry:
+        workspace = result.setup.workspace
+        if workspace is None:
+            raise ValueError("Launcher setup.workspace is required before data loading.")
+        if hasattr(workspace, "paths"):
+            return workspace.paths
+        return WorkspacePathRegistry(
+            catch_name=str(getattr(workspace, "catch_name", result.cfg.workspace.catch_name)),
+            out_dir_path=Path(getattr(workspace, "out_dir_path", result.cfg.workspace.out_dir_path)),
+            data_path=Path(result.cfg.workspace.data_path),
+        )
+
+    def _resolve_manager_input_path(
+        self,
+        *,
+        section: Mapping[str, Any] | None,
+        keys: tuple[str, ...],
+        default_root: Path,
+    ) -> Path:
+        """Resolve one manager input path with section-override precedence."""
+        if section is not None:
+            for key in keys:
+                raw_value = section.get(key)
+                if isinstance(raw_value, str) and raw_value.strip():
+                    return self._resolve_path_like(raw_value)
+        return Path(default_root)
 
     @staticmethod
     def _as_string_list(value: Any) -> list[str]:

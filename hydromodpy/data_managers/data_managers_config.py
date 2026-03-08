@@ -4,7 +4,8 @@ The role of this module is strictly declarative:
 
 - normalize and validate ``data.types``,
 - validate nested sections of active manager families,
-- resolve paths for dedicated typed sections (currently ``data.geology``).
+- validate dedicated typed sections (currently ``data.geology`` and
+  ``data.oceanic``).
 
 Inference rules (domain/process-driven activation) are intentionally
 implemented elsewhere in ``data_managers.planner``.
@@ -32,6 +33,96 @@ SUPPORTED_DATA_MANAGER_TYPES = (
 )
 
 
+class OceanicConfig(BaseModel):
+    """Configuration for oceanic support and mean sea-level acquisition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    oceanic_path: Annotated[str | None, ParamLevel("user")] = Field(
+        default=None,
+        description=(
+            "Optional folder containing local oceanic support files used by "
+            "Oceanic.extract_local_data. Relative paths are resolved from the "
+            "TOML file directory."
+        ),
+    )
+    msl_source: Annotated[Literal["auto", "local", "web"], ParamLevel("user")] = Field(
+        default="auto",
+        description=(
+            "Mean sea-level source policy. "
+            "'local' reads the CSV from msl_local_csv, "
+            "'web' queries SHOM, "
+            "'auto' tries local first then falls back to web."
+        ),
+    )
+    msl_local_csv: Annotated[str | None, ParamLevel("user")] = Field(
+        default=None,
+        description=(
+            "Path to a pre-downloaded SHOM CSV file used when msl_source is "
+            "'local' or 'auto'. Relative paths are resolved from the TOML "
+            "file directory."
+        ),
+    )
+    msl_use_simulation_time_window: Annotated[bool, ParamLevel("user")] = Field(
+        default=False,
+        description=(
+            "If true, derive msl_start_date and msl_end_date from "
+            "[simulation.time].start_datetime/end_datetime. If "
+            "[simulation.time] is missing, fallback to the explicit "
+            "msl_start_date/msl_end_date values below."
+        ),
+    )
+    msl_start_date: Annotated[str, ParamLevel("user")] = Field(
+        default="2003-01-01",
+        description=(
+            "Inclusive mean sea-level start date in ISO format (YYYY-MM-DD). "
+            "Used directly when msl_use_simulation_time_window=false or as "
+            "fallback otherwise."
+        ),
+    )
+    msl_end_date: Annotated[str, ParamLevel("user")] = Field(
+        default="2003-01-30",
+        description=(
+            "Inclusive mean sea-level end date in ISO format (YYYY-MM-DD). "
+            "Used directly when msl_use_simulation_time_window=false or as "
+            "fallback otherwise."
+        ),
+    )
+    msl_default: Annotated[float, ParamLevel("user")] = Field(
+        default=0.0,
+        description=(
+            "Fallback mean sea-level value used when acquisition fails "
+            "(SI unit: meter)."
+        ),
+    )
+
+    @field_validator("oceanic_path", "msl_local_csv", mode="before")
+    @classmethod
+    def _normalize_optional_paths(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @field_validator("msl_source", mode="before")
+    @classmethod
+    def _normalize_msl_source(cls, value):
+        if value is None:
+            return "auto"
+        text = str(value).strip().lower()
+        if text not in {"auto", "local", "web"}:
+            raise ValueError("data.oceanic.msl_source must be 'auto', 'local' or 'web'")
+        return text
+
+    @field_validator("msl_start_date", "msl_end_date", mode="before")
+    @classmethod
+    def _normalize_dates(cls, value):
+        text = str(value).strip()
+        if not text:
+            raise ValueError("data.oceanic date values cannot be empty")
+        return text
+
+
 class DataManagersConfig(BaseModel):
     """
     Top-level configuration for data-manager families.
@@ -42,8 +133,8 @@ class DataManagersConfig(BaseModel):
 
     For each active type, the matching nested section can be validated dynamically:
     - `geology` already uses its dedicated Pydantic model (`GeologyConfig`),
-    - the other data families are kept as validated mappings for now, until
-      their dedicated schemas are introduced.
+    - `oceanic` uses `OceanicConfig`,
+    - the other data families are kept as validated mappings for now.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -85,9 +176,11 @@ class DataManagersConfig(BaseModel):
         default=None,
         description="Reserved configuration mapping for intermittency data-manager.",
     )
-    oceanic: Annotated[dict[str, Any] | None, ParamLevel("dev")] = Field(
+    oceanic: Annotated[OceanicConfig | None, ParamLevel("user")] = Field(
         default=None,
-        description="Reserved configuration mapping for oceanic data-manager.",
+        description=(
+            "Oceanic configuration used when 'oceanic' is listed in data.types."
+        ),
     )
     piezometry: Annotated[dict[str, Any] | None, ParamLevel("dev")] = Field(
         default=None,
@@ -143,11 +236,16 @@ class DataManagersConfig(BaseModel):
     def _validate_declared_sections(self) -> "DataManagersConfig":
         # Post-validation coherence:
         # - active geology always has a typed config object (default if omitted),
-        # - other active families must be mappings until their typed schemas exist.
+        # - active oceanic uses its dedicated typed schema when provided,
+        # - remaining active families must be mappings until typed schemas exist.
         for type_name in self.types:
             if type_name == "geology":
                 if self.geology is None:
                     self.geology = GeologyConfig()
+                continue
+            if type_name == "oceanic":
+                if self.oceanic is not None and not isinstance(self.oceanic, OceanicConfig):
+                    raise ValueError("data.oceanic must follow OceanicConfig schema")
                 continue
             section_value = getattr(self, type_name)
             if section_value is not None and not isinstance(section_value, dict):
@@ -213,6 +311,14 @@ class DataManagersConfig(BaseModel):
                 geology_dict = dict(geology_payload)
                 _resolve_section_paths(geology_dict, GeologyConfig, base_dir)
                 payload["geology"] = GeologyConfig(**geology_dict)
+                continue
+            if type_name == "oceanic":
+                oceanic_payload = payload.get("oceanic")
+                if oceanic_payload is None:
+                    continue
+                if not isinstance(oceanic_payload, Mapping):
+                    raise ValueError("TOML section 'data.oceanic' must be a mapping")
+                payload["oceanic"] = OceanicConfig.model_validate(dict(oceanic_payload))
                 continue
 
             section_value = payload.get(type_name)

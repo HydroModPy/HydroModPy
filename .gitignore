@@ -99,6 +99,8 @@ test/results/
 test_*/
 hydromodpy/data_managers/geology/outputs/
 hydromodpy/data_managers/hydrometry/outputs/
+hydromodpy/data_managers/*/cases/outputs/**
+!hydromodpy/data_managers/*/cases/outputs/.gitkeep
 hydromodpy/mesh/cartesian_grid/output/
 *.chk
 *.hds
@@ -113,8 +115,11 @@ hydromodpy/mesh/cartesian_grid/output/
 
 # Temporary files
 *.tmp
+*.prof
 *.bak
 *.old
+_profile_launcher_*/
+_profiling_out/
 examples/examples/results/11S_short/hydromodpy_debug.log
 examples/examples/results/11S_short/results_stable/geographic/outlet.cpg
 examples/examples/results/11S_short/results_stable/geographic/outlet.dbf

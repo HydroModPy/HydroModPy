@@ -1,0 +1,17 @@
+{
+  "profile_root": "C:\\codes\\HydroModPy-GH\\_profile_launcher_normal\\20260307_123310_data_breakdown",
+  "config": "C:\\codes\\HydroModPy-GH\\examples\\launcher_simulation\\config_normal.toml",
+  "metrics": {
+    "launcher_init": 0.012,
+    "launcher_setup": 2.34,
+    "_load_geology_data": 6.146,
+    "_load_hydrography_data": 0.393,
+    "_load_intermittency_data": 12.683,
+    "_load_hydrometry_data": 2.874,
+    "_load_oceanic_data": 32.94,
+    "load_all": 55.038,
+    "_apply_recharge_chronicle_from_toml": 0.001,
+    "_apply_structural_updates_from_data": 0.0,
+    "launcher_data_total": 55.039
+  }
+}

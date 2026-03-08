@@ -13,6 +13,8 @@ Usage (hmp and hydromodpy are interchangeable):
     hmp test regression
     hmp test regression --fast
     hmp test regression --slow
+    hmp test regression --normal
+    hmp test regression --extensive
     hmp test regression --list
     hmp test regression example_09
     hmp test regression example12
@@ -22,10 +24,10 @@ Usage (hmp and hydromodpy are interchangeable):
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
-import argparse
 from pathlib import Path
 
 
@@ -51,24 +53,63 @@ _RE_REGRESSION = re.compile(
     r"\.py$"
 )
 
-_ALLOWED_REGRESSION_BASES = {"example12", "launcher_simulation"}
+_REGRESSION_TIERS = ("normal", "extensive")
 
+
+def _selected_tiers(normal: bool, extensive: bool) -> list[str]:
+    """Return regression tiers requested from CLI flags."""
+    if normal and extensive:
+        return ["normal", "extensive"]
+    if normal:
+        return ["normal"]
+    if extensive:
+        return ["extensive"]
+    return ["normal", "extensive"]
+
+
+def _append_marker_filter(
+    pytest_args: list[str],
+    normal: bool,
+    extensive: bool,
+    fast: bool,
+    slow: bool,
+) -> None:
+    """Append pytest marker filters from CLI flags."""
+    if fast and slow:
+        print("Cannot use --fast and --slow together.", file=sys.stderr)
+        sys.exit(2)
+
+    markers: list[str] = []
+    if normal and not extensive:
+        markers.append("normal")
+    elif extensive and not normal:
+        markers.append("extensive")
+    if fast:
+        markers.append("fast")
+    if slow:
+        markers.append("slow")
+
+    if markers:
+        pytest_args.extend(["-m", " and ".join(markers)])
 
 def _discover_regression_tests(
     regression_dir: Path,
+    selected_tiers: list[str] | None = None,
 ) -> dict[str, dict[str, list[Path]]]:
-    """Return ``{base_name: {"full": [...], "short": [...]}}``.
+    """Return ``{base_name: {"full": [...], "short": [...]}}`` grouped by file base.
 
-    Scans all ``test_*regression*.py`` files and groups them by base name.
+    Scans all ``test_*regression*.py`` files (including nested directories),
+    optionally restricted to selected tier directories.
     """
+    selected = set(selected_tiers or _REGRESSION_TIERS)
     tests: dict[str, dict[str, list[Path]]] = {}
-    for p in sorted(regression_dir.glob("test_*regression*.py")):
+    for p in sorted(regression_dir.rglob("test_*regression*.py")):
+        if not any(tier in p.parts for tier in selected):
+            continue
         m = _RE_REGRESSION.match(p.name)
         if not m:
             continue
         base = m.group("base")
-        if base not in _ALLOWED_REGRESSION_BASES:
-            continue
         is_short = "s_short" in p.name
         variant = "short" if is_short else "full"
         tests.setdefault(base, {"full": [], "short": []})
@@ -76,9 +117,17 @@ def _discover_regression_tests(
     return tests
 
 
-def _list_regression_tests(regression_dir: Path) -> None:
+def _list_regression_tests(
+    regression_dir: Path,
+    *,
+    normal: bool = False,
+    extensive: bool = False,
+) -> None:
     """Print available regression test names."""
-    tests = _discover_regression_tests(regression_dir)
+    tests = _discover_regression_tests(
+        regression_dir,
+        selected_tiers=_selected_tiers(normal, extensive),
+    )
     if not tests:
         print("No regression tests found.", file=sys.stderr)
         return
@@ -89,6 +138,90 @@ def _list_regression_tests(regression_dir: Path) -> None:
         if variants["short"]:
             parts.append("short")
         print(f"  {base:30s} [{', '.join(parts)}]")
+
+
+def _append_regression_name_selection(
+    *,
+    pytest_args: list[str],
+    regression_dir: Path,
+    name: str,
+    short: bool,
+    selected_tiers: list[str],
+) -> None:
+    """Append selected regression files for a specific test name.
+
+    Name can be provided as the exact base name or with a unique prefix.
+    """
+    tests = _discover_regression_tests(
+        regression_dir=regression_dir,
+        selected_tiers=selected_tiers,
+    )
+
+    available = [base for base in tests.keys() if base == name]
+    if not available:
+        candidates = [base for base in tests.keys() if base.startswith(name)]
+        if len(candidates) == 1:
+            available = candidates
+        elif candidates:
+            print(f"Ambiguous regression name '{name}'.", file=sys.stderr)
+            print("Candidates:", ", ".join(sorted(candidates)), file=sys.stderr)
+            sys.exit(2)
+
+    if not available:
+        print(f"No regression test named '{name}' for selected tier(s).", file=sys.stderr)
+        sys.exit(2)
+
+    matched_base = available[0]
+    variants = tests[matched_base]
+    variant = "short" if short else "full"
+    selected_files = variants[variant]
+
+    if short and not selected_files and variants["full"]:
+        print(
+            f"[hmp] No short regression found for '{matched_base}'. "
+            "Falling back to full regression.",
+            file=sys.stderr,
+        )
+        selected_files = variants["full"]
+
+    if not selected_files:
+        print(
+            f"No regression files found for '{matched_base}' and selected tier(s).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    for path in sorted(selected_files):
+        pytest_args.append(str(path))
+
+
+def _append_regression_directory_selection(
+    *,
+    pytest_args: list[str],
+    regression_dir: Path,
+    normal: bool,
+    extensive: bool,
+) -> None:
+    """Append one or more regression tier directories to pytest selection."""
+    tiers = _selected_tiers(normal, extensive)
+    selected = False
+
+    for tier in tiers:
+        tier_dir = regression_dir / tier
+        if not tier_dir.exists():
+            continue
+        has_tests = any(
+            _RE_REGRESSION.match(p.name)
+            for p in tier_dir.rglob("test_*regression*.py")
+        )
+        if not has_tests:
+            continue
+        pytest_args.append(str(tier_dir))
+        selected = True
+
+    if not selected:
+        print("No regression tests found for selected tier(s).", file=sys.stderr)
+        sys.exit(2)
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +280,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
     """Run tests via pytest."""
     root = _find_project_root()
     pytest_args = ["pytest", "-v"]
+    tiers = _selected_tiers(args.normal, args.extensive)
 
     if args.suite == "unit":
         pytest_args.append(str(root / "tests" / "unit"))
@@ -155,40 +289,35 @@ def _cmd_test(args: argparse.Namespace) -> None:
         regression_dir = root / "tests" / "regression"
 
         if args.list:
-            _list_regression_tests(regression_dir)
+            _list_regression_tests(
+                regression_dir,
+                normal=args.normal,
+                extensive=args.extensive,
+            )
             return
-
         if args.name is not None:
-            all_tests = _discover_regression_tests(regression_dir)
-            name = args.name
-
-            if name not in all_tests:
-                print(
-                    f"Unknown regression test '{name}'.\n"
-                    f"Available tests:",
-                    file=sys.stderr,
-                )
-                _list_regression_tests(regression_dir)
-                sys.exit(1)
-
-            variant = "short" if args.short else "full"
-            matches = all_tests[name][variant]
-
-            if not matches:
-                print(
-                    f"No {variant} variant for '{name}'.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-            for m in matches:
-                pytest_args.append(str(m))
+            _append_regression_name_selection(
+                pytest_args=pytest_args,
+                regression_dir=regression_dir,
+                name=args.name,
+                short=args.short,
+                selected_tiers=tiers,
+            )
         else:
-            pytest_args.append(str(regression_dir))
-            if args.fast:
-                pytest_args.extend(["-m", "fast"])
-            elif args.slow:
-                pytest_args.extend(["-m", "slow"])
+            _append_regression_directory_selection(
+                pytest_args=pytest_args,
+                regression_dir=regression_dir,
+                normal=args.normal,
+                extensive=args.extensive,
+            )
+
+        _append_marker_filter(
+            pytest_args=pytest_args,
+            normal=args.normal,
+            extensive=args.extensive,
+            fast=args.fast,
+            slow=args.slow,
+        )
 
         if args.update_goldens:
             pytest_args.append("--update-goldens")
@@ -281,6 +410,16 @@ def main() -> None:
         "--slow",
         action="store_true",
         help="Only run slow regression tests",
+    )
+    test_parser.add_argument(
+        "--normal",
+        action="store_true",
+        help="Only run normal regression tests",
+    )
+    test_parser.add_argument(
+        "--extensive",
+        action="store_true",
+        help="Only run extensive regression tests",
     )
     test_parser.add_argument(
         "--short",

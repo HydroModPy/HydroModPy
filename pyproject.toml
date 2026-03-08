@@ -121,8 +121,11 @@ python_files = ["test_*.py"]
 addopts = "-ra"
 markers = [
     "regression: non-regression tests based on reference datasets",
+    "normal: default regression tier (subset used for routine runs)",
+    "extensive: extended regression checks for deeper validation",
     "fast: quick-running regression cases",
     "slow: long-running integration or regression tests",
+    "integration: tests that call external services or systems",
     "coverage: long-running coverage tests",
 ]
 
@@ -130,7 +133,6 @@ markers = [
 source = [
     "hydromodpy.watershed_legacy",
     "hydromodpy.tools",
-    "hydromodpy.modeling",
     "hydromodpy.display",
 ]
 parallel = true

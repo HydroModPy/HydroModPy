@@ -30,6 +30,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import geopandas as gpd
@@ -39,6 +40,11 @@ import pytest
 
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
+REGRESSION_GOLDENS_ROOT = (
+    Path(__file__).resolve().parent
+    / "reference"
+    / "golden_references"
+)
 
 # Common MODFLOW outputs checked by many tests.
 # Individual tests can override this list when needed.
@@ -67,6 +73,59 @@ def load_golden_reference(path: Path) -> dict:
     """
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def resolve_tiered_golden_file(
+    *,
+    test_file: str | Path,
+    filename: str,
+) -> Path:
+    """
+    Build the canonical golden path for one regression test file.
+
+    Goldens are tiered by test location:
+    - tests under ``tests/regression/extensive`` -> ``.../golden_references/extensive/``
+    - all other regression tests -> ``.../golden_references/normal/``
+    """
+    file_path = Path(test_file).resolve()
+    file_parts = set(file_path.parts)
+    tier = "extensive" if "extensive" in file_parts else "normal"
+    return REGRESSION_GOLDENS_ROOT / tier / str(filename)
+
+
+def resolve_tiered_results_dir(
+    *,
+    test_file: str | Path,
+    run_name: str,
+) -> Path:
+    """
+    Build and prepare one deterministic output directory for a regression test.
+
+    Outputs are tiered by test location under ``HYDROMODPY_OUT_PATH`` when set:
+    - ``.../normal/<run_name>/``
+    - ``.../extensive/<run_name>/``
+
+    If ``HYDROMODPY_OUT_PATH`` is not set, a deterministic temporary root is
+    used: ``<tempdir>/hydromodpy_regression_outputs``.
+
+    The target directory is cleaned before each run to avoid stale artifacts.
+    """
+    base_out_path = os.environ.get("HYDROMODPY_OUT_PATH")
+    if base_out_path:
+        results_root = Path(base_out_path).expanduser().resolve()
+    else:
+        results_root = (
+            Path(tempfile.gettempdir())
+            / "hydromodpy_regression_outputs"
+        )
+    file_path = Path(test_file).resolve()
+    file_parts = set(file_path.parts)
+    tier = "extensive" if "extensive" in file_parts else "normal"
+    out_dir = results_root / tier / str(run_name)
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir
 
 
 def write_golden_reference(path: Path, payload: dict) -> None:
@@ -468,7 +527,7 @@ def run_example_script(
     - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
-    # Redirect outputs into a pytest temporary directory.
+    # Redirect outputs into the per-test output directory.
     env[out_env_var] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")

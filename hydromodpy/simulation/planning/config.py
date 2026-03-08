@@ -2,9 +2,36 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class SimulationTimeConfig(BaseModel):
+    """Canonical simulation time window and forcing-coverage policy."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start_datetime: datetime = Field(
+        description="Inclusive simulation start datetime.",
+    )
+    end_datetime: datetime = Field(
+        description="Inclusive simulation end datetime.",
+    )
+    coverage_policy: Literal["error", "warn", "ignore"] = Field(
+        default="error",
+        description=(
+            "Behavior when recharge does not fully cover [start_datetime, end_datetime]: "
+            "'error' raises, 'warn' emits a warning, 'ignore' skips checks."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_window_order(self):
+        if self.end_datetime <= self.start_datetime:
+            raise ValueError("simulation.time.end_datetime must be greater than start_datetime.")
+        return self
 
 
 class SimulationProcessConfig(BaseModel):
@@ -47,6 +74,13 @@ class SimulationConfig(BaseModel):
     description: str = Field(
         default="",
         description="Short free-text description of the simulation intent.",
+    )
+    time: SimulationTimeConfig | None = Field(
+        default=None,
+        description=(
+            "Optional canonical simulation window used to align solver temporal "
+            "settings and validate forcing coverage."
+        ),
     )
     process: list[SimulationProcessConfig] = Field(
         default_factory=list,

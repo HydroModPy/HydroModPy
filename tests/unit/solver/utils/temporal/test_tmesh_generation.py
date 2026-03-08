@@ -90,6 +90,99 @@ def test_from_chron_parses_dates_and_computes_perlen(monkeypatch, tmp_path: Path
     assert np.array_equal(tmesh.steady_state, np.array([True, True]))
 
 
+def test_synthetic_regular_checks_start_end_window_consistency(monkeypatch):
+    mod = _load_tmesh_module()
+    monkeypatch.setattr(mod, "ModelTime", _FakeModelTime)
+
+    builder = mod.TMesh_Generation(
+        config=mod.TMeshConfig(
+            genmtd="synthetic_regular",
+            flow_regime="transient",
+            nper=3,
+            lenper=2,
+            start_datetime="2020-01-01 00:00:00",
+            end_datetime="2020-01-07 00:00:00",
+        )
+    )
+    tmesh = builder.run()
+
+    assert np.allclose(tmesh.perlen, np.array([2.0, 2.0, 2.0]))
+    assert pd.Timestamp(tmesh.start_datetime) == pd.Timestamp("2020-01-01 00:00:00")
+
+
+def test_synthetic_regular_rejects_inconsistent_end_datetime(monkeypatch):
+    mod = _load_tmesh_module()
+    monkeypatch.setattr(mod, "ModelTime", _FakeModelTime)
+
+    builder = mod.TMesh_Generation(
+        config=mod.TMeshConfig(
+            genmtd="synthetic_regular",
+            flow_regime="transient",
+            nper=3,
+            lenper=2,
+            start_datetime="2020-01-01 00:00:00",
+            end_datetime="2020-01-08 00:00:00",
+        )
+    )
+
+    with pytest.raises(ValueError, match="window mismatch"):
+        _ = builder.run()
+
+
+def test_from_chron_respects_explicit_start_end_window(monkeypatch, tmp_path: Path):
+    mod = _load_tmesh_module()
+    monkeypatch.setattr(mod, "ModelTime", _FakeModelTime)
+
+    chron_path = tmp_path / "chron.csv"
+    chron_path.write_text(
+        "Date\tvalue\n"
+        "2020-01-01 00:00:00\t1\n"
+        "2020-01-02 00:00:00\t2\n"
+        "2020-01-03 00:00:00\t3\n"
+        "2020-01-04 00:00:00\t4\n",
+        encoding="utf-8",
+    )
+
+    builder = mod.TMesh_Generation(
+        config=mod.TMeshConfig(
+            genmtd="from_chron",
+            chron_path=str(chron_path),
+            start_datetime="2020-01-02 00:00:00",
+            end_datetime="2020-01-04 00:00:00",
+        )
+    )
+    tmesh = builder.run()
+
+    assert np.allclose(tmesh.perlen, np.array([1.0, 1.0]))
+    assert pd.Timestamp(tmesh.start_datetime) == pd.Timestamp("2020-01-02 00:00:00")
+
+
+def test_from_chron_requires_exact_window_bounds_in_chronicle(monkeypatch, tmp_path: Path):
+    mod = _load_tmesh_module()
+    monkeypatch.setattr(mod, "ModelTime", _FakeModelTime)
+
+    chron_path = tmp_path / "chron.csv"
+    chron_path.write_text(
+        "Date\tvalue\n"
+        "2020-01-01 00:00:00\t1\n"
+        "2020-01-02 00:00:00\t2\n"
+        "2020-01-03 00:00:00\t3\n",
+        encoding="utf-8",
+    )
+
+    builder = mod.TMesh_Generation(
+        config=mod.TMeshConfig(
+            genmtd="from_chron",
+            chron_path=str(chron_path),
+            start_datetime="2020-01-01 12:00:00",
+            end_datetime="2020-01-03 00:00:00",
+        )
+    )
+
+    with pytest.raises(ValueError, match="exactly match chronicle timestamps"):
+        _ = builder.run()
+
+
 def test_invalid_genmtd_raises():
     mod = _load_tmesh_module()
     with pytest.raises(ValueError, match="Invalid genmtd"):
