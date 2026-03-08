@@ -1,0 +1,72 @@
+@startuml
+title Simulation Time Cycle - Activity
+
+start
+
+:Load TOML and build HydroModPyConfig;
+:Initialize launcher state;
+
+if (Has [simulation.time]?) then (yes)
+  :resolve_simulation_time_window();
+  if (window invalid?) then (yes)
+    :Raise ValueError;
+    stop
+  endif
+
+  :resolve_simulation_time_grid();
+  if (step alignment mismatch?) then (yes)
+    :Raise ValueError;
+    stop
+  endif
+
+  :apply_explicit_time_window_to_tgrids();
+  :Store time_grid in run_state.setup.time_grid;
+else (no)
+  :time_grid remains None\n(fallback mode);
+endif
+
+:Load data managers;
+if (oceanic/hydrometry/piezometry\nuse_simulation_time_window?) then (yes)
+  :resolve_simulation_time_window_dates();
+  if (window unresolved?) then (yes)
+    :Warn and keep explicit fallback dates;
+  else (no)
+    :Inject canonical date_start/date_end;
+  endif
+endif
+
+:Build recharge chronicle payload\nwith simulation_window;
+if (mode = observed_csv?) then (yes)
+  :Derive first_year/last_year/time_step\nfrom simulation window;
+else (no)
+  if (mode = synthetic_generated?) then (yes)
+    :Derive period index from simulation boundaries;
+  else (synthetic_csv)
+    :Resample and align series to\nsimulation boundaries;
+  endif
+endif
+
+:validate_recharge_coverage();
+if (coverage_policy = error and invalid?) then (yes)
+  :Raise ValueError;
+  stop
+elseif (coverage_policy = warn and invalid?) then (warn)
+  :Emit warning and continue;
+endif
+
+while (Next ProcessRun?) is (yes)
+  if (Flow solver run?) then (yes)
+    if (time_grid available?) then (yes)
+      :Use canonical nper/perlen from time_grid;
+    else (no)
+      :Build temporal mesh from solver tgrid;
+    endif
+    :Execute flow solver;
+  else (transport)
+    :Resolve upstream flow model;
+    :Execute transport solver;
+  endif
+endwhile (no)
+
+stop
+@enduml
