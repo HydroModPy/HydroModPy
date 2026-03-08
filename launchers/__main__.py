@@ -2,13 +2,13 @@
 
 Usage::
 
-    python -m launchers simulation run path/to/config.toml
+    hmp simulation path/to/config.toml          # recommended
+    python -m launchers simulation path/to/config.toml   # equivalent
 
 Notes
 -----
-This module is a shared wrapper and is intentionally not study-specific.
-For one explicit study launcher, use:
-``python -m examples.launcher_simulation.launcher_simulation``.
+The canonical CLI is ``hmp simulation`` (defined in ``hydromodpy/__main__.py``).
+``python -m launchers`` is kept as an equivalent alternative.
 """
 
 from __future__ import annotations
@@ -30,23 +30,17 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="python -m launchers",
         description="HydroModPy launchers CLI.",
     )
-    launchers_parser = parser.add_subparsers(dest="launcher", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    simulation_parser = launchers_parser.add_parser(
+    sim_parser = subparsers.add_parser(
         "simulation",
-        help="Simulation launcher family.",
+        help="Run a simulation from a TOML configuration file.",
     )
-    simulation_commands = simulation_parser.add_subparsers(dest="command", required=True)
-    simulation_run = simulation_commands.add_parser(
-        "run",
-        help="Run one simulation launcher TOML.",
-    )
-    simulation_run.add_argument(
+    sim_parser.add_argument(
         "config",
         type=Path,
-        help="Path to launcher TOML file.",
+        help="Path to the simulation TOML file.",
     )
-    simulation_run.set_defaults(_handler="simulation_run")
     return parser
 
 
@@ -59,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code)
 
-    if parsed._handler == "simulation_run":
+    if parsed.command == "simulation":
         _run_simulation_launcher(parsed.config.expanduser().resolve())
         return 0
 
