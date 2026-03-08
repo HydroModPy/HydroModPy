@@ -6,7 +6,8 @@ from pathlib import Path
 import tomllib
 from typing import Any, Literal, Mapping
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from hydromodpy.units import parse_length_to_m
 
 
 class PiezometrySectionSchema(BaseModel):
@@ -16,8 +17,30 @@ class PiezometrySectionSchema(BaseModel):
 
     measurement: Literal["level", "depth", "both"] = "both"
     display: bool = False
-    date_start: str | None = None
-    date_end: str | None = None
+    use_simulation_time_window: bool = Field(
+        default=False,
+        description=(
+            "If true, derive date_start/date_end from [simulation.time] canonical "
+            "window in launcher mode. If the simulation window is missing or "
+            "invalid, fallback to explicit date_start/date_end when provided."
+        ),
+    )
+    date_start: str | None = Field(
+        default=None,
+        description=(
+            "Optional inclusive start date filter applied to the requested time "
+            "series. Used directly when use_simulation_time_window=false or as "
+            "fallback otherwise."
+        ),
+    )
+    date_end: str | None = Field(
+        default=None,
+        description=(
+            "Optional inclusive end date filter applied to the requested time "
+            "series. Used directly when use_simulation_time_window=false or as "
+            "fallback otherwise."
+        ),
+    )
 
     @field_validator("date_start", "date_end")
     @classmethod
@@ -63,6 +86,8 @@ class SelectionSectionSchema(BaseModel):
     mode: Literal["stations", "mask"]
     piezometer_ids: list[str] | None = None
     mask_path: str | None = None
+    fallback_search_radius: Any | None = None
+    fallback_search_radius_km: float | None = None
 
     @field_validator("piezometer_ids")
     @classmethod
@@ -94,6 +119,29 @@ class SelectionSectionSchema(BaseModel):
             # Allow empty list [] to trigger automatic discovery
         if self.mode == "mask" and self.mask_path is None:
             raise ValueError("selection.mask_path is required when selection.mode='mask'")
+        if self.fallback_search_radius is not None and self.fallback_search_radius_km is not None:
+            raise ValueError(
+                "selection.fallback_search_radius and selection.fallback_search_radius_km "
+                "cannot both be provided."
+            )
+        raw_radius = self.fallback_search_radius
+        raw_default_unit = "m"
+        if raw_radius is None and self.fallback_search_radius_km is not None:
+            raw_radius = self.fallback_search_radius_km
+            raw_default_unit = "km"
+        if raw_radius is None:
+            raw_radius = 25.0
+            raw_default_unit = "km"
+
+        radius_m = parse_length_to_m(
+            raw_radius,
+            default_unit=raw_default_unit,
+            label="selection.fallback_search_radius",
+        )
+        if radius_m < 0.0:
+            raise ValueError("selection.fallback_search_radius must be >= 0.")
+        self.fallback_search_radius = float(radius_m)
+        self.fallback_search_radius_km = None
         return self
 
 

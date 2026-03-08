@@ -98,6 +98,7 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
         box=settings.box,
         sink_fill=settings.sink_fill,
         check_grid=settings.check_grid,
+        time_grid=getattr(state.setup, "time_grid", None),
     )
 
 

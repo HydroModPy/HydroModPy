@@ -50,20 +50,18 @@ csv_value_column = "K_value"
 field_spatial_id = "field_geology"
 
 [flow.ic]
-type = "top"                        # top | bottom | custom
-unit = "m"
+type = "custom"                     # top | bottom | custom
+value = "12.5 m"                    # "<value> <unit>" in one field
 
 [flow.bc.dirichlet.ocean]
-value = 1.0
+value = "1.0 m"
 type = "dirichlet"
-unit = "m"
 data_value = true
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
 type = "cauchy"
-value = 0.0
-unit = "m2/s"
+value = "0.0 m2/s"
 
 [flow.sinks_sources.wells.W1]
 cell = [0, 39, 39]                  # [lay, row, col], 0-based
@@ -98,8 +96,8 @@ Payload resolution:
 `[flow.ic]` is a single payload with direct keys:
 
 - `type`: `top`, `bottom`, or `custom`
-- `value`: required when `type = "custom"`
-- `unit` or `units`: normalized to `units` (default `m`)
+- `value`: required when `type = "custom"`, accepts numeric or `"<value> <unit>"`
+- `unit` or `units`: optional fallback when `value` has no inline unit (default `m`)
 - `description`: optional
 
 Important behavior:
@@ -151,8 +149,8 @@ Generic fallback:
 
 Common:
 
-- `value` is required and must be numeric.
-- `unit` and `units` are both accepted.
+- `value` is required and accepts numeric or `"<value> <unit>"`.
+- `unit` and `units` are both accepted as optional fallback.
 - `data_value` is optional boolean.
 - `description` is optional string.
 
@@ -216,26 +214,22 @@ param_list = ["K", "Sy", "Ss"]
 
 [flow.ic]
 type = "custom"
-value = 12.5
-unit = "m"
+value = "12.5 m"
 description = "Initial hydraulic head"
 
 [flow.bc.dirichlet.ocean]
-value = 0.0
+value = "0.0 m"
 type = "dirichlet"
-unit = "m"
 data_value = true
 
 [flow.bc.dirichlet.west_side]
-value = 3.0
+value = "3.0 m"
 type = "dirichlet"
-unit = "m"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
 type = "cauchy"
-value = 1e-6
-unit = "m2/s"
+value = "1e-6 m2/s"
 
 [flow.sinks_sources.wells.P1]
 cell = [0, 25, 40]

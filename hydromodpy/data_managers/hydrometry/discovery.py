@@ -12,13 +12,17 @@ import requests
 
 try:
     from ..common.base_station_set import BaseStationSet
+    from hydromodpy.units import parse_length_to_m
 except ImportError:
     import sys
 
     _manager_root = Path(__file__).resolve().parents[1]
-    if str(_manager_root) not in sys.path:
-        sys.path.insert(0, str(_manager_root))
+    _repo_root = Path(__file__).resolve().parents[3]
+    for _path in (str(_manager_root), str(_repo_root)):
+        if _path not in sys.path:
+            sys.path.insert(0, _path)
     from common.base_station_set import BaseStationSet
+    from hydromodpy.units import parse_length_to_m
 
 
 API_BASE_URL = "https://hubeau.eaufrance.fr/api/v2/"
@@ -80,7 +84,8 @@ class StationDiscovery(BaseStationSet):
         bbox: Optional[tuple[float, float, float, float]] = None,
         mask_path: Optional[Union[str, Path]] = None,
         center_point: Optional[tuple[float, float]] = None,
-        fallback_search_radius_km: float = 10.0,
+        fallback_search_radius_m: Optional[Any] = None,
+        fallback_search_radius_km: Optional[Any] = None,
         require_observations: bool = False,
         date_start: Optional[str] = None,
         date_end: Optional[str] = None,
@@ -90,6 +95,24 @@ class StationDiscovery(BaseStationSet):
         """Discover valid Hub'Eau hydrometric station identifiers in a geographic area."""
         if max_ids is not None and max_ids < 1:
             raise ValueError("max_ids must be None or >= 1")
+        if fallback_search_radius_m is not None and fallback_search_radius_km is not None:
+            raise ValueError(
+                "Use either fallback_search_radius_m or fallback_search_radius_km, not both."
+            )
+        if fallback_search_radius_m is None and fallback_search_radius_km is None:
+            fallback_search_radius_km = 10.0
+        if fallback_search_radius_m is None:
+            radius_m = parse_length_to_m(
+                fallback_search_radius_km,
+                default_unit="km",
+                label="fallback_search_radius_km",
+            )
+        else:
+            radius_m = parse_length_to_m(
+                fallback_search_radius_m,
+                default_unit="m",
+                label="fallback_search_radius_m",
+            )
 
         helper = cls()
         mask_gdf = None
@@ -128,11 +151,11 @@ class StationDiscovery(BaseStationSet):
             timeout=timeout,
         )
 
-        if not candidate_data and fallback_search_radius_km > 0 and reference_point is not None:
-            print(f"No stations found in initial area. Trying with {fallback_search_radius_km} km buffer...")
+        if not candidate_data and radius_m > 0 and reference_point is not None:
+            print(f"No stations found in initial area. Trying with {radius_m / 1000.0:.3f} km buffer...")
             lon, lat = reference_point
-            lat_offset = fallback_search_radius_km / 111.0
-            lon_offset = fallback_search_radius_km / (111.0 * cos(radians(lat)))
+            lat_offset = radius_m / 111_000.0
+            lon_offset = radius_m / (111_000.0 * cos(radians(lat)))
             candidate_data = helper._search_stations_in_bbox(
                 minx=lon - lon_offset,
                 miny=lat - lat_offset,
@@ -169,17 +192,36 @@ class StationDiscovery(BaseStationSet):
         mask_path: Union[str, Path],
         *,
         source_mode: str,
-        fallback_search_radius_km: float = 10.0,
+        fallback_search_radius_m: Optional[Any] = None,
+        fallback_search_radius_km: Optional[Any] = None,
     ) -> tuple[list[str], list[str]]:
         """Select station identifiers located inside a mask geometry."""
         print(f"Loading geographic mask from: {mask_path}")
         mask_gdf = self._load_mask_geometry(mask_path)
         mode = str(source_mode).strip().lower()
+        if fallback_search_radius_m is not None and fallback_search_radius_km is not None:
+            raise ValueError(
+                "Use either fallback_search_radius_m or fallback_search_radius_km, not both."
+            )
+        if fallback_search_radius_m is None and fallback_search_radius_km is None:
+            fallback_search_radius_km = 10.0
+        if fallback_search_radius_m is None:
+            radius_m = parse_length_to_m(
+                fallback_search_radius_km,
+                default_unit="km",
+                label="fallback_search_radius_km",
+            )
+        else:
+            radius_m = parse_length_to_m(
+                fallback_search_radius_m,
+                default_unit="m",
+                label="fallback_search_radius_m",
+            )
 
         if mode == "api":
             return self._select_api_station_ids_from_mask(
                 mask_gdf=mask_gdf,
-                fallback_search_radius_km=fallback_search_radius_km,
+                fallback_search_radius_m=radius_m,
             )
         if mode == "local":
             return self._filter_stations_with_geometry_local(mask_gdf)
@@ -187,12 +229,12 @@ class StationDiscovery(BaseStationSet):
 
     @staticmethod
     def _haversine_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-        """Calculate distance in kilometers between two WGS84 points."""
+        """Calculate distance in meters between two WGS84 points."""
         lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
         dlon = lon2 - lon1
         dlat = lat2 - lat1
         a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-        return 6371 * 2 * asin(sqrt(a))
+        return 6_371_000.0 * 2 * asin(sqrt(a))
 
     @staticmethod
     def _normalize_api_date(value: Optional[str], *, default: str) -> str:
@@ -344,7 +386,7 @@ class StationDiscovery(BaseStationSet):
         self,
         *,
         mask_gdf: Any,
-        fallback_search_radius_km: float,
+        fallback_search_radius_m: float,
     ) -> tuple[list[str], list[str]]:
         bounds = mask_gdf.total_bounds
         print(f"Searching stations in bounding box: {bounds}")
@@ -363,12 +405,15 @@ class StationDiscovery(BaseStationSet):
 
         if not candidate_data:
             print("No stations found within the mask polygon.")
-            print(f"Activating automatic fallback search: {fallback_search_radius_km} km radius buffer...")
+            print(
+                "Activating automatic fallback search: "
+                f"{fallback_search_radius_m / 1000.0:.3f} km radius buffer..."
+            )
 
             centroid = self._mask_centroid(mask_gdf)
             ref_lon, ref_lat = centroid.x, centroid.y
-            lat_offset = fallback_search_radius_km / 111.0
-            lon_offset = fallback_search_radius_km / (111.0 * cos(radians(ref_lat)))
+            lat_offset = fallback_search_radius_m / 111_000.0
+            lon_offset = fallback_search_radius_m / (111_000.0 * cos(radians(ref_lat)))
 
             try:
                 candidate_data = self._search_stations_in_bbox(
@@ -392,7 +437,7 @@ class StationDiscovery(BaseStationSet):
             else:
                 print(
                     "Warning: no stations found within the specified geographic mask "
-                    f"or in {fallback_search_radius_km} km fallback radius."
+                    f"or in {fallback_search_radius_m / 1000.0:.3f} km fallback radius."
                 )
                 return [], []
 
@@ -473,13 +518,15 @@ def select_station_ids_from_mask(
     *,
     source_mode: str,
     local_data_dir: Optional[Union[str, Path]] = None,
-    fallback_search_radius_km: float = 10.0,
+    fallback_search_radius_m: Optional[Any] = None,
+    fallback_search_radius_km: Optional[Any] = None,
 ) -> tuple[list[str], list[str]]:
     """Module-level wrapper used by :class:`StationSet`."""
     helper = StationDiscovery(local_data_dir=local_data_dir)
     return helper.select_station_ids_from_mask(
         mask_path=mask_path,
         source_mode=source_mode,
+        fallback_search_radius_m=fallback_search_radius_m,
         fallback_search_radius_km=fallback_search_radius_km,
     )
 

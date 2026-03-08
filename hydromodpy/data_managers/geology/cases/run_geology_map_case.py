@@ -39,6 +39,7 @@ from hydromodpy.data_managers.geology.geology_processing import (
     build_zone_class_index_on_dataframe,
     uniformize_sea_zone_on_dataframe,
 )
+from hydromodpy.units import parse_length_to_m
 
 
 DEFAULT_CONFIG_FILE = "run_geology_case.toml"
@@ -363,30 +364,31 @@ def _select_local_window(args, gdf):
     if bool(args.bretagne_10km):
         center_x = DEFAULT_BRETAGNE_CENTER_X
         center_y = DEFAULT_BRETAGNE_CENTER_Y
-        window_km = 10.0
+        window_m = float(parse_length_to_m(10.0, default_unit="km", label="window"))
         gdf, local_window_polygon = clip_square_window(
             gdf,
             center_x=center_x,
             center_y=center_y,
-            window_km=window_km,
+            window_m=window_m,
         )
         print(
             "local_window: preset_bretagne_10km "
-            f"(center=({center_x:.1f}, {center_y:.1f}), side={window_km:.1f} km)"
+            f"(center=({center_x:.1f}, {center_y:.1f}), side={window_m / 1000.0:.1f} km)"
         )
     elif (args.center_x is not None) or (args.center_y is not None):
         if (args.center_x is None) or (args.center_y is None):
             raise ValueError("Use --center-x and --center-y together.")
+        window_m = float(parse_length_to_m(args.window_km, default_unit="km", label="window_km"))
         gdf, local_window_polygon = clip_square_window(
             gdf,
             center_x=float(args.center_x),
             center_y=float(args.center_y),
-            window_km=float(args.window_km),
+            window_m=window_m,
         )
         print(
             "local_window: custom "
             f"(center=({float(args.center_x):.1f}, {float(args.center_y):.1f}), "
-            f"side={float(args.window_km):.1f} km)"
+            f"side={window_m / 1000.0:.1f} km)"
         )
     return gdf, local_window_polygon
 

@@ -90,3 +90,38 @@ def test_top_level_drainage_alias_is_rejected() -> None:
 def test_param_values_alias_is_rejected() -> None:
     with pytest.raises(ValueError, match="flow\\.param_values"):
         _build_flow_config({"param_values": {}})
+
+
+def test_boundary_value_accepts_inline_unit() -> None:
+    cfg = _build_flow_config(
+        {
+            "bc": {
+                "cauchy": {
+                    "drainage": {
+                        "value": "1e-6 m2/s",
+                        "application_domain": "top",
+                    }
+                }
+            }
+        }
+    )
+
+    drainage = cfg.bc["drainage"]
+    assert drainage["value"] == pytest.approx(1e-6)
+    assert drainage["units"] == "m2/s"
+
+
+def test_boundary_value_rejects_conflicting_units() -> None:
+    with pytest.raises(ValueError, match="conflicting units"):
+        _build_flow_config(
+            {
+                "bc": {
+                    "dirichlet": {
+                        "ocean": {
+                            "value": "1.0 m",
+                            "unit": "cm",
+                        }
+                    }
+                }
+            }
+        )

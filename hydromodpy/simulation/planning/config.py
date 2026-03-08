@@ -13,14 +13,6 @@ class SimulationTimeConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Literal["explicit", "from_modflow"] = Field(
-        default="explicit",
-        description=(
-            "Time-window source policy. "
-            "'explicit' reads start_datetime/end_datetime from this section; "
-            "'from_modflow' derives the window from active flow solver tgrid settings."
-        ),
-    )
     start_datetime: datetime | None = Field(
         default=None,
         description=(
@@ -61,12 +53,11 @@ class SimulationTimeConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate_window_order(self):
-        if self.mode == "explicit":
-            if self.start_datetime is None or self.end_datetime is None:
-                raise ValueError(
-                    "simulation.time.start_datetime and simulation.time.end_datetime "
-                    "are required when simulation.time.mode='explicit'."
-                )
+        if self.start_datetime is None or self.end_datetime is None:
+            raise ValueError(
+                "simulation.time.start_datetime and simulation.time.end_datetime "
+                "are required when [simulation.time] is declared."
+            )
         if (
             self.start_datetime is not None
             and self.end_datetime is not None

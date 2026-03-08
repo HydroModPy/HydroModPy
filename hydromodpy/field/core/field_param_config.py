@@ -16,13 +16,17 @@ import tomllib
 from typing import Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from hydromodpy.units.hydraulic_conductivity import (
+    M_PER_S_CANONICAL_UNITS,
+    normalize_m_per_s_unit,
+)
 
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
 SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
 SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
-SUPPORTED_PARAMETER_UNITS = ("-", "m/s", "m/day", "cm/s", "cm/day", "m-1", "cm-1")
+SUPPORTED_PARAMETER_UNITS = ("-", *M_PER_S_CANONICAL_UNITS, "m-1", "cm-1")
 
 _UNIT_ALIASES = {
     "-": "-",
@@ -30,18 +34,6 @@ _UNIT_ALIASES = {
     "none": "-",
     "dimensionless": "-",
     "unitless": "-",
-    "m/s": "m/s",
-    "m.s-1": "m/s",
-    "m*s-1": "m/s",
-    "m*s^-1": "m/s",
-    "m/day": "m/day",
-    "m/d": "m/day",
-    "cm/s": "cm/s",
-    "cm.s-1": "cm/s",
-    "cm*s-1": "cm/s",
-    "cm*s^-1": "cm/s",
-    "cm/day": "cm/day",
-    "cm/d": "cm/day",
     "m-1": "m-1",
     "1/m": "m-1",
     "m^-1": "m-1",
@@ -58,10 +50,13 @@ def _normalize_unit_token(value: str | None) -> str | None:
     token = str(value).strip().lower().replace(" ", "")
     if token == "":
         raise ValueError("field.unit cannot be empty when provided")
-    if token not in _UNIT_ALIASES:
+    if token in _UNIT_ALIASES:
+        return _UNIT_ALIASES[token]
+    try:
+        return normalize_m_per_s_unit(token)
+    except ValueError:
         allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
-        raise ValueError(f"Unsupported field.unit '{value}'. Allowed: {allowed}")
-    return _UNIT_ALIASES[token]
+        raise ValueError(f"Unsupported field.unit '{value}'. Allowed: {allowed}") from None
 
 
 class FieldBaseSectionSchema(BaseModel):

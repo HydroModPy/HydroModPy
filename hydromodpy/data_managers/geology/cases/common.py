@@ -15,6 +15,7 @@ from pathlib import Path
 
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from shapely.geometry import box
+from hydromodpy.units import parse_length_to_m
 
 
 def resolve_case_path(path_like):
@@ -61,13 +62,33 @@ def format_axes_ticks_km(ax):
     ax.set_ylabel("y [km]")
 
 
-def clip_square_window(gdf, *, center_x: float, center_y: float, window_km: float):
+def clip_square_window(
+    gdf,
+    *,
+    center_x: float,
+    center_y: float,
+    window_m: float | None = None,
+    window_km: float | None = None,
+):
     """
     Clip one GeoDataFrame to a square window centered at (center_x, center_y).
     """
-    side_m = float(window_km) * 1000.0
+    if window_m is not None and window_km is not None:
+        raise ValueError("Use either window_m or window_km, not both.")
+    if window_m is None and window_km is None:
+        raise ValueError("window_m or window_km must be provided.")
+
+    raw_window = window_m if window_m is not None else window_km
+    raw_default_unit = "m" if window_m is not None else "km"
+    side_m = float(
+        parse_length_to_m(
+            raw_window,
+            default_unit=raw_default_unit,
+            label="window",
+        )
+    )
     if side_m <= 0.0:
-        raise ValueError("window_km must be > 0")
+        raise ValueError("window must be > 0")
     half = 0.5 * side_m
     win = box(
         float(center_x) - half,

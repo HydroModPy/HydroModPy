@@ -135,6 +135,7 @@ class Modflow6(Solver):
 		self.sink_fill = bool(options.sink_fill)
 		self.recharge = getattr(options, "recharge", None)
 		self.first_clim = getattr(options, "first_clim", None)
+		self.time_grid = getattr(options, "time_grid", None)
 		self.check_grid = bool(options.check_grid)
 		self._select_active_dem(box=bool(options.box))
 
@@ -332,21 +333,37 @@ class Modflow6(Solver):
 		self._apply_preprocess_options(active_options)
 
 		self.flow_regime = self._resolve_flow_regime() or "transient"
-
-		builder_kwargs = self.modflow_config.tgrid.to_builder_kwargs() if getattr(self.modflow_config, "tgrid", None) else {}
-		builder_kwargs["flow_regime"] = self.flow_regime
-		tgrid = TMesh_Generation(**builder_kwargs).run() if builder_kwargs else None
-
-		if tgrid is not None:
-			self.nper = int(np.asarray(getattr(tgrid, "perlen", []), dtype=float).size)
-			self.perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
-			self.nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
-			self.steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
+		launcher_time_grid = self.time_grid
+		if launcher_time_grid is not None:
+			self.perlen = np.asarray(list(launcher_time_grid.period_lengths_days), dtype=float)
+			self.nper = int(self.perlen.size)
+			if self.nper == 0:
+				raise ValueError("simulation.time grid produced an empty perlen vector.")
+			self.nstp = np.ones((self.nper,), dtype=int)
+			if self.flow_regime == "steady":
+				self.steady = np.ones((self.nper,), dtype=bool)
+			else:
+				self.steady = np.zeros((self.nper,), dtype=bool)
+				firstpersteady = bool(getattr(getattr(self.modflow_config, "tgrid", None), "firstpersteady", True))
+				if firstpersteady:
+					self.steady[0] = True
+			time_units = "days"
 		else:
-			self.nper = 1
-			self.perlen = np.asarray([1.0], dtype=float)
-			self.nstp = np.asarray([1], dtype=int)
-			self.steady = np.asarray([self.flow_regime == "steady"], dtype=bool)
+			builder_kwargs = self.modflow_config.tgrid.to_builder_kwargs() if getattr(self.modflow_config, "tgrid", None) else {}
+			builder_kwargs["flow_regime"] = self.flow_regime
+			tgrid = TMesh_Generation(**builder_kwargs).run() if builder_kwargs else None
+
+			if tgrid is not None:
+				self.nper = int(np.asarray(getattr(tgrid, "perlen", []), dtype=float).size)
+				self.perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
+				self.nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
+				self.steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
+			else:
+				self.nper = 1
+				self.perlen = np.asarray([1.0], dtype=float)
+				self.nstp = np.asarray([1], dtype=int)
+				self.steady = np.asarray([self.flow_regime == "steady"], dtype=bool)
+			time_units = getattr(getattr(self.modflow_config, "tgrid", None), "itmuni", "days")
 
 		surface_topo, bottom_surface = self._get_domain_surfaces()
 		sgrid = StructuredGridBuilder().build_from_surfaces(
@@ -379,7 +396,7 @@ class Modflow6(Solver):
 			self.sim,
 			nper=int(self.nper),
 			perioddata=[(float(self.perlen[i]), int(self.nstp[i]), 1.0) for i in range(int(self.nper))],
-			time_units=getattr(getattr(self.modflow_config, "tgrid", None), "itmuni", "days"),
+			time_units=time_units,
 		)
 		self.ims = flopy.mf6.ModflowIms(
 			self.sim,

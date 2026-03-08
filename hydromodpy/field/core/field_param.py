@@ -26,6 +26,11 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
+from hydromodpy.units.hydraulic_conductivity import (
+    M_PER_S_CANONICAL_UNITS,
+    factor_to_m_per_s,
+    normalize_m_per_s_unit,
+)
 
 try:
     from hydromodpy.field.core.field_param_config import (
@@ -50,25 +55,13 @@ SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
 
 # Unit conventions and conversion factors to SI.
 # Values in this class are always stored in SI internally.
-SUPPORTED_PARAM_UNITS = ("-", "m/s", "m/day", "cm/s", "cm/day", "m-1", "cm-1")
+SUPPORTED_PARAM_UNITS = ("-", *M_PER_S_CANONICAL_UNITS, "m-1", "cm-1")
 _UNIT_ALIASES = {
     "-": "-",
     "1": "-",
     "none": "-",
     "dimensionless": "-",
     "unitless": "-",
-    "m/s": "m/s",
-    "m.s-1": "m/s",
-    "m*s-1": "m/s",
-    "m*s^-1": "m/s",
-    "m/day": "m/day",
-    "m/d": "m/day",
-    "cm/s": "cm/s",
-    "cm.s-1": "cm/s",
-    "cm*s-1": "cm/s",
-    "cm*s^-1": "cm/s",
-    "cm/day": "cm/day",
-    "cm/d": "cm/day",
     "m-1": "m-1",
     "1/m": "m-1",
     "m^-1": "m-1",
@@ -78,19 +71,13 @@ _UNIT_ALIASES = {
 }
 _UNIT_TO_SI_UNIT = {
     "-": "-",
-    "m/s": "m/s",
-    "m/day": "m/s",
-    "cm/s": "m/s",
-    "cm/day": "m/s",
+    **{unit: "m/s" for unit in M_PER_S_CANONICAL_UNITS},
     "m-1": "m-1",
     "cm-1": "m-1",
 }
 _UNIT_TO_SI_FACTOR = {
     "-": 1.0,
-    "m/s": 1.0,
-    "m/day": 1.0 / 86400.0,
-    "cm/s": 1.0e-2,
-    "cm/day": 1.0e-2 / 86400.0,
+    **{unit: factor_to_m_per_s(unit) for unit in M_PER_S_CANONICAL_UNITS},
     "m-1": 1.0,
     "cm-1": 100.0,
 }
@@ -265,10 +252,13 @@ class FieldParam:
         token = str(unit).strip().lower().replace(" ", "")
         if token == "":
             raise ValueError("unit cannot be empty when provided")
-        if token not in _UNIT_ALIASES:
+        if token in _UNIT_ALIASES:
+            return _UNIT_ALIASES[token]
+        try:
+            return normalize_m_per_s_unit(token)
+        except ValueError:
             allowed = ", ".join(SUPPORTED_PARAM_UNITS)
-            raise ValueError(f"Unsupported unit '{unit}'. Allowed units: {allowed}")
-        return _UNIT_ALIASES[token]
+            raise ValueError(f"Unsupported unit '{unit}'. Allowed units: {allowed}") from None
 
     @staticmethod
     def _expected_si_unit_for_identifier(identifier: str) -> str | None:

@@ -108,6 +108,17 @@ def test_field_param_converts_k_from_m_per_day_to_si():
     assert float(param.value) == pytest.approx(1e-4)
 
 
+def test_field_param_converts_k_from_mm_per_day_to_si():
+    param = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        unit="mm/day",
+        value=8640.0,
+    )
+    assert param.unit == "m/s"
+    assert float(param.value) == pytest.approx(1e-4)
+
+
 def test_field_param_converts_ss_from_cm_inverse_to_m_inverse():
     param = FieldParam(
         identifier="Ss",

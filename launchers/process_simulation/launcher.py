@@ -77,6 +77,7 @@ from hydromodpy.simulation.state.run_state import LauncherRunState
 from hydromodpy.simulation.settings import Settings
 from hydromodpy.simulation.time import (
     apply_explicit_time_window_to_tgrids,
+    resolve_simulation_time_grid,
     resolve_simulation_time_window,
     validate_recharge_coverage,
 )
@@ -129,6 +130,7 @@ class HydroModPyLauncher:
             self.cfg.workspace.out_dir_path = Path(out_path_env)
 
         apply_explicit_time_window_to_tgrids(self.cfg)
+        self.time_grid = resolve_simulation_time_grid(self.cfg)
 
         with self.config_path.open("rb") as fh:
             raw_toml = tomllib.load(fh)
@@ -153,6 +155,7 @@ class HydroModPyLauncher:
             config_path=self.config_path,
             raw_toml=raw_toml,
         )
+        self.run_state.setup.time_grid = self.time_grid
         self.run_state.data_plan = data_plan
         self.process_context_factory = ProcessContextFactory()
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
@@ -315,7 +318,8 @@ class HydroModPyLauncher:
         )
         default_values = getattr(recharge_cfg, "values", None) if recharge_cfg is not None else None
         sim_state = run_state.setup.flow.flow_regime
-        window = resolve_simulation_time_window(self.cfg)
+        resolved_grid = getattr(run_state.setup, "time_grid", None)
+        window = resolved_grid.window if resolved_grid is not None else resolve_simulation_time_window(self.cfg)
         payload = build_recharge_chronicle_payload(
             run_state.raw_toml,
             config_path=self.config_path,

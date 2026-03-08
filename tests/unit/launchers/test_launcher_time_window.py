@@ -9,6 +9,7 @@ import pytest
 
 from hydromodpy.simulation.time import (
     apply_explicit_time_window_to_tgrids,
+    resolve_simulation_time_grid,
     resolve_simulation_time_window,
     validate_recharge_coverage,
 )
@@ -65,50 +66,10 @@ def test_apply_simulation_time_window_updates_solver_tgrids() -> None:
     assert cfg.modflow6.tgrid.tsmult == 1.0
 
 
-def test_get_simulation_time_window_from_modflow_uses_flow_solver_tgrid() -> None:
+def test_get_simulation_time_window_rejects_from_modflow_mode() -> None:
     cfg = _make_cfg_with_time(mode="from_modflow")
-    cfg.modflownwt.tgrid.start_datetime = "2020-02-01 00:00:00"
-    cfg.modflownwt.tgrid.end_datetime = "2020-02-05 00:00:00"
 
-    window = resolve_simulation_time_window(cfg)
-
-    assert window is not None
-    assert window.coverage_policy == "error"
-    assert str(window.start).startswith("2020-02-01")
-    assert str(window.end).startswith("2020-02-05")
-
-
-def test_get_simulation_time_window_from_modflow_accepts_equal_bounds() -> None:
-    cfg = _make_cfg_with_time(mode="from_modflow")
-    cfg.modflownwt.tgrid.start_datetime = "2020-02-01 00:00:00"
-    cfg.modflownwt.tgrid.end_datetime = "2020-02-01 00:00:00"
-
-    window = resolve_simulation_time_window(cfg)
-
-    assert window is not None
-    assert str(window.start).startswith("2020-02-01")
-    assert str(window.end).startswith("2020-02-01")
-
-
-def test_apply_simulation_time_window_from_modflow_keeps_solver_tgrid_as_source() -> None:
-    cfg = _make_cfg_with_time(mode="from_modflow")
-    cfg.modflownwt.tgrid.start_datetime = "2020-02-01 00:00:00"
-    cfg.modflownwt.tgrid.end_datetime = "2020-02-05 00:00:00"
-
-    apply_explicit_time_window_to_tgrids(cfg)
-
-    assert str(cfg.modflownwt.tgrid.start_datetime).startswith("2020-02-01")
-    assert str(cfg.modflownwt.tgrid.end_datetime).startswith("2020-02-05")
-    assert cfg.modflow6.tgrid.start_datetime is None
-    assert cfg.modflow6.tgrid.end_datetime is None
-
-
-def test_get_simulation_time_window_from_modflow_requires_complete_tgrid_bounds() -> None:
-    cfg = _make_cfg_with_time(mode="from_modflow")
-    cfg.modflownwt.tgrid.start_datetime = "2020-02-01 00:00:00"
-    cfg.modflownwt.tgrid.end_datetime = None
-
-    with pytest.raises(ValueError, match="requires both modflownwt.tgrid.start_datetime"):
+    with pytest.raises(ValueError, match="must be 'explicit'"):
         resolve_simulation_time_window(cfg)
 
 
@@ -173,6 +134,30 @@ def test_apply_simulation_time_window_monthly_calendar_lengths() -> None:
 
     assert cfg.modflownwt.tgrid.nper == 3
     assert cfg.modflownwt.tgrid.lenper == [31.0, 29.0, 31.0]
+
+
+def test_resolve_simulation_time_grid_explicit_mode() -> None:
+    cfg = _make_cfg_with_time(step_value=10, step_unit="day")
+    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
+    cfg.simulation.time.end_datetime = "2020-01-30 00:00:00"
+
+    grid = resolve_simulation_time_grid(cfg)
+
+    assert grid is not None
+    assert grid.nper == 3
+    assert list(grid.period_lengths_days) == [10.0, 10.0, 10.0]
+    assert list(grid.period_starts) == [
+        pd.Timestamp("2020-01-01 00:00:00"),
+        pd.Timestamp("2020-01-11 00:00:00"),
+        pd.Timestamp("2020-01-21 00:00:00"),
+    ]
+
+
+def test_resolve_simulation_time_grid_rejects_from_modflow_mode() -> None:
+    cfg = _make_cfg_with_time(mode="from_modflow")
+
+    with pytest.raises(ValueError, match="must be 'explicit'"):
+        _ = resolve_simulation_time_grid(cfg)
 
 
 def test_apply_simulation_time_window_raises_when_end_not_aligned_with_step() -> None:
