@@ -119,6 +119,16 @@ def test_field_param_converts_k_from_mm_per_day_to_si():
     assert float(param.value) == pytest.approx(1e-4)
 
 
+def test_field_param_accepts_inline_k_unit_without_explicit_field_unit():
+    param = FieldParam(
+        identifier="K",
+        kind="homogeneous",
+        value="8.64 m/day",
+    )
+    assert param.unit == "m/s"
+    assert float(param.value) == pytest.approx(1e-4)
+
+
 def test_field_param_converts_ss_from_cm_inverse_to_m_inverse():
     param = FieldParam(
         identifier="Ss",
@@ -128,6 +138,36 @@ def test_field_param_converts_ss_from_cm_inverse_to_m_inverse():
     )
     assert param.unit == "m-1"
     assert float(param.value) == pytest.approx(1e-4)
+
+
+def test_field_param_accepts_inline_ss_unit_without_explicit_field_unit():
+    param = FieldParam(
+        identifier="Ss",
+        kind="homogeneous",
+        value="1e-6 cm-1",
+    )
+    assert param.unit == "m-1"
+    assert float(param.value) == pytest.approx(1e-4)
+
+
+def test_field_param_accepts_inline_dimensionless_sy():
+    param = FieldParam(
+        identifier="Sy",
+        kind="homogeneous",
+        value="0.2 -",
+    )
+    assert param.unit == "-"
+    assert float(param.value) == pytest.approx(0.2)
+
+
+def test_field_param_rejects_conflicting_inline_unit_with_explicit_field_unit():
+    with pytest.raises(ValueError, match="mixes conflicting units"):
+        _ = FieldParam(
+            identifier="K",
+            kind="homogeneous",
+            unit="m/day",
+            value="1.0 m/s",
+        )
 
 
 def test_field_param_rejects_incompatible_unit_family():
@@ -178,6 +218,19 @@ def test_field_param_heterogeneous_with_vertical_profile_tabulated():
     zones = np.array(["granite", "micaschists", "granite"], dtype=object)
     values = param.to_array(zone_ids=zones, depth=10.0)
     assert np.allclose(values, np.array([7.5, 3.0, 7.5], dtype=float))
+
+
+def test_field_param_heterogeneous_accepts_inline_units_without_explicit_field_unit():
+    param = FieldParam(
+        identifier="K",
+        kind="heterogeneous",
+        values_by_key={"granite": "10.0 m/day", "micaschists": "2.0 m/day"},
+        field_spatial_id="field_square",
+    )
+
+    zones = np.array(["granite", "micaschists"], dtype=object)
+    values = param.to_array(zone_ids=zones)
+    assert np.allclose(values, np.array([10.0 / 86400.0, 2.0 / 86400.0], dtype=float))
 
 
 def test_heterogeneous_requires_zone_ids():
@@ -310,6 +363,32 @@ def test_field_param_from_toml_with_vertical_profile_exponential(tmp_path: Path)
             [field_vertical_profile]
             mode = "exponential"
             characteristic_depth = 30.0
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    param = FieldParam.from_toml(path)
+    assert param.is_homogeneous
+    assert param.has_vertical_variation
+    assert float(param.to_array(depth=30.0)) == pytest.approx(12.0 * np.exp(-1.0))
+
+
+def test_field_param_from_toml_with_vertical_profile_exponential_characteristic_depth_unit(
+    tmp_path: Path,
+):
+    path = tmp_path / "field_vertical_exp_units.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "homogeneous"
+            value = 12.0
+
+            [field_vertical_profile]
+            mode = "exponential"
+            characteristic_depth = "30.0 m"
             """
         ),
         encoding="utf-8",

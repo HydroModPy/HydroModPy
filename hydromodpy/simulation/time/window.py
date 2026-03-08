@@ -9,7 +9,7 @@ Key conventions
 - User input is an *inclusive* window: ``[start_datetime, end_datetime]``.
 - Internal period math is computed on *half-open* bounds:
   ``[start_datetime, end_exclusive)``.
-- Stress-period lengths are exported in **days** for solver-facing ``lenper``.
+- Stress-period lengths are exported in **seconds** for solver-facing ``lenper``.
 - Coverage checks can enforce one of three policies:
   ``error`` / ``warn`` / ``ignore``.
 
@@ -24,6 +24,13 @@ import warnings
 from typing import Any, Literal
 
 import pandas as pd
+
+from hydromodpy.units import (
+    convert_seconds_to_unit,
+    normalize_time_unit,
+    parse_scalar_and_unit,
+    timedelta_to_seconds,
+)
 
 
 _VALID_POLICIES = {"error", "warn", "ignore"}
@@ -61,12 +68,20 @@ class ResolvedSimulationTimeGrid:
 
     window: ResolvedSimulationTimeWindow
     boundaries: tuple[pd.Timestamp, ...]
-    period_lengths_days: tuple[float, ...]
+    period_lengths_seconds: tuple[float, ...]
 
     @property
     def nper(self) -> int:
         """Number of stress periods."""
-        return len(self.period_lengths_days)
+        return len(self.period_lengths_seconds)
+
+    @property
+    def period_lengths_days(self) -> tuple[float, ...]:
+        """Backward-compatible day-equivalent view of stress-period lengths."""
+        return tuple(
+            convert_seconds_to_unit(seconds, unit="days")
+            for seconds in self.period_lengths_seconds
+        )
 
     @property
     def period_starts(self) -> tuple[pd.Timestamp, ...]:
@@ -118,34 +133,62 @@ def _normalize_mode(raw_mode: Any) -> Literal["explicit"]:
 
 def _normalize_step_value(raw_step_value: Any) -> int:
     """Normalize and validate the time-step multiplier."""
+    if isinstance(raw_step_value, bool):
+        raise ValueError("simulation.time.step_value must be a positive integer.")
     try:
-        step_value = int(raw_step_value)
+        step_value = float(raw_step_value)
     except Exception as exc:
         raise ValueError("simulation.time.step_value must be a positive integer.") from exc
-    if step_value <= 0:
+    if not step_value.is_integer() or step_value <= 0:
         raise ValueError("simulation.time.step_value must be a positive integer.")
-    return step_value
+    return int(step_value)
 
 
 def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", "year"]:
     """Normalize step-unit aliases to canonical tokens."""
     token = str(raw_step_unit).strip().lower()
-    aliases = {
-        "h": "hour",
-        "hr": "hour",
+    if token in {"m", "mo", "mon", "month", "months"}:
+        return "month"
+    try:
+        canonical = normalize_time_unit(token)
+    except ValueError as exc:
+        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
+    token_map = {
         "hours": "hour",
-        "d": "day",
         "days": "day",
-        "m": "month",
-        "months": "month",
-        "y": "year",
-        "yr": "year",
         "years": "year",
     }
-    token = aliases.get(token, token)
-    if token not in _VALID_STEP_UNITS:
+    step_unit = token_map.get(canonical)
+    if step_unit is None:
         raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
-    return token  # type: ignore[return-value]
+    return step_unit  # type: ignore[return-value]
+
+
+def _parse_step_spec(
+    *,
+    raw_step_value: Any,
+    raw_step_unit: Any,
+) -> tuple[int, Literal["hour", "day", "month", "year"]]:
+    explicit_unit_raw: str | None = None
+    if raw_step_unit is not None and str(raw_step_unit).strip() != "":
+        explicit_unit_raw = str(raw_step_unit).strip()
+
+    default_unit = explicit_unit_raw or "day"
+    scalar, resolved_unit = parse_scalar_and_unit(
+        raw_step_value,
+        location="simulation.time.step_value",
+        default_unit=default_unit,
+    )
+    step_value = _normalize_step_value(scalar)
+    step_unit = _normalize_step_unit(resolved_unit)
+
+    if explicit_unit_raw is not None:
+        expected_unit = _normalize_step_unit(explicit_unit_raw)
+        if step_unit != expected_unit:
+            raise ValueError(
+                "simulation.time.step_value unit conflicts with simulation.time.step_unit."
+            )
+    return step_value, step_unit
 
 
 def _time_step_offset(*, step_value: int, step_unit: str) -> pd.DateOffset | pd.Timedelta:
@@ -212,26 +255,26 @@ def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Time
     return boundaries
 
 
-def _period_lengths_in_days_from_boundaries(
+def _period_lengths_in_seconds_from_boundaries(
     boundaries: list[pd.Timestamp],
 ) -> list[float]:
-    """Convert boundary deltas to positive ``lenper`` values in days."""
+    """Convert boundary deltas to positive ``lenper`` values in seconds."""
     out: list[float] = []
     for idx in range(len(boundaries) - 1):
         delta = boundaries[idx + 1] - boundaries[idx]
-        days = delta.total_seconds() / 86400.0
-        if days <= 0:
+        seconds = timedelta_to_seconds(delta)
+        if seconds <= 0:
             raise ValueError("Computed non-positive stress-period length from simulation.time.")
-        out.append(float(days))
+        out.append(float(seconds))
     if not out:
         raise ValueError("simulation.time resolved to an empty stress-period sequence.")
     return out
 
 
-def _period_lengths_in_days(window: ResolvedSimulationTimeWindow) -> list[float]:
-    """Convenience wrapper: window -> boundaries -> day-based period lengths."""
+def _period_lengths_in_seconds(window: ResolvedSimulationTimeWindow) -> list[float]:
+    """Convenience wrapper: window -> boundaries -> second-based period lengths."""
     boundaries = _build_time_boundaries(window)
-    return _period_lengths_in_days_from_boundaries(boundaries)
+    return _period_lengths_in_seconds_from_boundaries(boundaries)
 
 
 def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
@@ -249,13 +292,13 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
     window = resolve_simulation_time_window(cfg)
     if window is None:
         return None
-    # Build explicit period boundaries first, then derive day-based lenper.
+    # Build explicit period boundaries first, then derive second-based lenper.
     boundaries = _build_time_boundaries(window)
-    perlen_days = _period_lengths_in_days_from_boundaries(boundaries)
+    perlen_seconds = _period_lengths_in_seconds_from_boundaries(boundaries)
     return ResolvedSimulationTimeGrid(
         window=window,
         boundaries=tuple(boundaries),
-        period_lengths_days=tuple(perlen_days),
+        period_lengths_seconds=tuple(perlen_seconds),
     )
 
 
@@ -302,8 +345,10 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
 
     coverage_policy = _normalize_policy(getattr(time_cfg, "coverage_policy", "error"))
     mode = _normalize_mode(getattr(time_cfg, "mode", "explicit"))
-    step_value = _normalize_step_value(getattr(time_cfg, "step_value", 1))
-    step_unit = _normalize_step_unit(getattr(time_cfg, "step_unit", "day"))
+    step_value, step_unit = _parse_step_spec(
+        raw_step_value=getattr(time_cfg, "step_value", 1),
+        raw_step_unit=getattr(time_cfg, "step_unit", None),
+    )
 
     start = _as_timestamp(getattr(time_cfg, "start_datetime", None), name="simulation.time.start_datetime")
     end = _as_timestamp(getattr(time_cfg, "end_datetime", None), name="simulation.time.end_datetime")
@@ -336,7 +381,7 @@ def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWind
     grid = resolve_simulation_time_grid(cfg)
     if grid is None:
         return window
-    perlen_days = list(grid.period_lengths_days)
+    perlen_seconds = list(grid.period_lengths_seconds)
     nper = grid.nper
 
     for solver_section_name in ("modflownwt", "modflow6"):
@@ -347,11 +392,11 @@ def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWind
         # Persist the same canonical window in each active flow solver section.
         tgrid_cfg.start_datetime = window.start.to_pydatetime()
         tgrid_cfg.end_datetime = window.end.to_pydatetime()
-        # Launcher temporal mesh is materialized in days for lenper consistency.
-        tgrid_cfg.itmuni = "d"
+        # Launcher temporal mesh is materialized in seconds for SI consistency.
+        tgrid_cfg.itmuni = "seconds"
         tgrid_cfg.genmtd = "synthetic_regular"
         tgrid_cfg.nper = nper
-        tgrid_cfg.lenper = perlen_days
+        tgrid_cfg.lenper = perlen_seconds
         # Keep launcher temporal control centralized in [simulation.time].
         # nstp/tsmult tuning is intentionally postponed to a later phase.
         tgrid_cfg.ntsp = 1

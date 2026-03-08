@@ -73,10 +73,9 @@ class ProcessSpatial(ABC, Generic[TInitialConditions]):
 
         payload = dict(raw_parameter)
         payload.setdefault("id", parameter_id)
-        try:
-            return FieldParam.from_dict(payload)
-        except Exception:
+        if "kind" not in payload and "mode" not in payload:
             return raw_parameter
+        return FieldParam.from_dict(payload)
 
     def set_parameters_from_config(
         self,

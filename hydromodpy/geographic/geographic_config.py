@@ -100,6 +100,16 @@ class GeographicConfig(BaseModel):
             raise ValueError("geographic.snap_dist must be > 0.")
         return snap_m
 
+    @field_validator("cell_size", mode="before")
+    @classmethod
+    def _normalize_cell_size(cls, value):
+        if value is None:
+            return None
+        cell_size_m = float(parse_length_to_m(value, default_unit="m", label="geographic.cell_size"))
+        if cell_size_m <= 0.0:
+            raise ValueError("geographic.cell_size must be > 0.")
+        return cell_size_m
+
     @field_validator("buff_area", mode="before")
     @classmethod
     def _normalize_buff_area(cls, value):

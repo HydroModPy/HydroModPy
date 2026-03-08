@@ -27,6 +27,18 @@ def test_modflow_config_defaults_match_runtime_defaults():
     assert params.tgrid is None
 
 
+def test_modflow_config_accepts_exdp_with_unit_string():
+    cfg = ModflowConfig.model_validate(
+        {
+            "process_specific": {
+                "vka": 1.0,
+                "exdp": "1.5 m",
+            }
+        }
+    )
+    assert cfg.process_specific.exdp == pytest.approx(1.5)
+
+
 def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()
@@ -89,6 +101,38 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflownwt.tgrid.flow_regime == "transient"
     assert cfg.modflownwt.tgrid.nper == 4
     assert cfg.modflownwt.tgrid.ntsp == [1, 2, 2, 3]
+
+
+def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        "\n".join(
+            [
+                "[workspace]",
+                'catch_name = "demo"',
+                'out_dir_path = "out"',
+                'data_path = "data"',
+                "",
+                "[geographic]",
+                'catch_def = "dem"',
+                'dem_init_path = "dem.tif"',
+                "",
+                "[solver]",
+                'solver_engine = "modflownwt"',
+                "",
+                "[modflownwt.process_specific]",
+                "vka = 2.5",
+                'exdp = "3.0 m"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(toml_path)
+    assert cfg.modflownwt.process_specific.exdp == pytest.approx(3.0)
 
 
 def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):

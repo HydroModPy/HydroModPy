@@ -6,11 +6,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.config.param_level import ParamLevel
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
+from hydromodpy.units.length import parse_length_to_m
 
 
 class ModflowRuntimeConfig(BaseModel):
@@ -149,6 +150,16 @@ class ModflowProcessSpecificConfig(BaseModel):
         default=1.0,
         description="Extinction depth [L] used by the EVT package (EXDP).",
     )
+
+    @field_validator("exdp", mode="before")
+    @classmethod
+    def _normalize_exdp(cls, value):
+        if value is None:
+            return None
+        exdp_m = float(parse_length_to_m(value, default_unit="m", label="modflownwt.process_specific.exdp"))
+        if exdp_m <= 0.0:
+            raise ValueError("modflownwt.process_specific.exdp must be > 0.")
+        return exdp_m
 
 
 class ModflowConfig(BaseModel):

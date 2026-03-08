@@ -18,6 +18,7 @@ from hydromodpy.simulation.time import (
     build_simulation_time_boundaries,
     simulation_time_pandas_frequency,
 )
+from hydromodpy.units import factor_to_m_per_s
 
 
 RechargeChronicleMode = Literal["observed_csv", "synthetic_generated", "synthetic_csv"]
@@ -70,14 +71,16 @@ def _resolve_config_path(
     return path
 
 
-def _to_m_per_day(series: pd.Series, *, units: object, label: str) -> pd.Series:
-    """Normalize recharge/runoff units to m/day."""
-    unit = str(units).strip().lower()
-    if unit in {"m/day", "m/d"}:
-        return series.astype(float)
-    if unit in {"mm/day", "mm/d"}:
-        return series.astype(float) / 1000.0
-    raise ValueError(f"{label} units must be 'mm/day' or 'm/day'. Got: {units!r}")
+def _to_m_per_s(series: pd.Series, *, units: object, label: str) -> pd.Series:
+    """Normalize recharge/runoff units to m/s."""
+    try:
+        factor = factor_to_m_per_s(units)
+    except ValueError as exc:
+        raise ValueError(
+            f"{label} units must be compatible with m/s (for example mm/day, m/day, m/s). "
+            f"Got: {units!r}"
+        ) from exc
+    return series.astype(float) * float(factor)
 
 
 def _normalize_recharge_mode(raw_toml: Mapping[str, Any]) -> RechargeChronicleMode | None:
@@ -207,7 +210,7 @@ def _build_synthetic_generated_series(
             values = values * periods
 
     recharge_raw = pd.Series(values, index=index, dtype=float)
-    recharge = _to_m_per_day(
+    recharge = _to_m_per_s(
         recharge_raw,
         units=cfg.get("units", "mm/day"),
         label="synthetic_generated recharge",
@@ -255,7 +258,7 @@ def _build_synthetic_csv_series(
         dates = pd.to_datetime(df[date_column], format=str(date_format))
 
     recharge_raw = pd.Series(df[recharge_column].astype(float).values, index=dates).sort_index()
-    recharge = _to_m_per_day(
+    recharge = _to_m_per_s(
         recharge_raw,
         units=cfg.get("units", "mm/day"),
         label="synthetic_csv recharge",
@@ -263,7 +266,7 @@ def _build_synthetic_csv_series(
 
     if isinstance(runoff_column, str) and runoff_column in df.columns:
         runoff_raw = pd.Series(df[runoff_column].astype(float).values, index=dates).sort_index()
-        runoff = _to_m_per_day(
+        runoff = _to_m_per_s(
             runoff_raw,
             units=cfg.get("runoff_units", cfg.get("units", "mm/day")),
             label="synthetic_csv runoff",

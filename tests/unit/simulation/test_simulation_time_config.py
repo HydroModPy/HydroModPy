@@ -29,6 +29,26 @@ def test_simulation_time_window_parses_from_mapping() -> None:
     assert cfg.time.coverage_policy == "warn"
 
 
+def test_simulation_time_window_parses_inline_step_value_unit() -> None:
+    cfg = SimulationConfig.model_validate(
+        {
+            "name": "time-window-inline",
+            "description": "test",
+            "time": {
+                "start_datetime": "2020-01-01 00:00:00",
+                "end_datetime": "2020-01-02 00:00:00",
+                "step_value": "30 day",
+                "coverage_policy": "warn",
+            },
+            "process": [],
+        }
+    )
+
+    assert cfg.time is not None
+    assert cfg.time.step_value == 30
+    assert cfg.time.step_unit == "day"
+
+
 def test_simulation_time_window_rejects_inverted_bounds() -> None:
     with pytest.raises(ValueError, match="end_datetime must be greater than or equal"):
         _ = SimulationConfig.model_validate(
@@ -72,7 +92,7 @@ def test_simulation_time_window_rejects_from_modflow_mode() -> None:
 
 
 def test_simulation_time_window_rejects_non_positive_step_value() -> None:
-    with pytest.raises(ValueError, match="greater than or equal to 1"):
+    with pytest.raises(ValueError, match="must be a positive integer"):
         _ = SimulationConfig.model_validate(
             {
                 "name": "invalid-step",
@@ -81,6 +101,22 @@ def test_simulation_time_window_rejects_non_positive_step_value() -> None:
                     "end_datetime": "2020-01-01 00:00:00",
                     "step_value": 0,
                     "step_unit": "day",
+                },
+                "process": [],
+            }
+        )
+
+
+def test_simulation_time_window_rejects_conflicting_inline_and_explicit_units() -> None:
+    with pytest.raises(ValueError, match="unit conflicts with simulation.time.step_unit"):
+        _ = SimulationConfig.model_validate(
+            {
+                "name": "invalid-step-conflict",
+                "time": {
+                    "start_datetime": "2020-01-01 00:00:00",
+                    "end_datetime": "2020-01-02 00:00:00",
+                    "step_value": "30 day",
+                    "step_unit": "hour",
                 },
                 "process": [],
             }
