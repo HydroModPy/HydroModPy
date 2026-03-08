@@ -67,7 +67,7 @@ from hydromodpy.process.flow.structure_binders import (
     apply_oceanic_to_flow,
 )
 from hydromodpy.simulation.forcing import build_recharge_chronicle_payload
-from hydromodpy.simulation import ProcessContextFactory, SimulationPlanner
+from hydromodpy.simulation import SimulationPlanner, ensure_flow, ensure_transport
 from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.state.run_state import LauncherRunState
 from hydromodpy.simulation.settings import Settings
@@ -150,7 +150,6 @@ class HydroModPyLauncher:
             raw_toml=raw_toml,
         )
         self.run_state.data_plan = data_plan
-        self.process_context_factory = ProcessContextFactory()
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
 
     @staticmethod
@@ -217,7 +216,6 @@ class HydroModPyLauncher:
             callbacks=ProcessCallbacks(
                 after_process=self._on_after_process,
             ),
-            process_context_factory=self.process_context_factory,
         ).execute(plan, run_state)
 
         return run_state
@@ -273,10 +271,9 @@ class HydroModPyLauncher:
             # settings.model_name directly.
             if hasattr(setup_state.settings, "model_name"):
                 setup_state.settings.model_name = simulation_name
-        # Keep eager context creation in setup for compatibility with data
-        # binders.
-        self.process_context_factory.ensure_flow(run_state)
-        self.process_context_factory.ensure_transport(run_state)
+        # Eagerly create Flow/Transport so data binders can reference them.
+        ensure_flow(run_state)
+        ensure_transport(run_state)
 
     def _run_data(self) -> None:
         """Load the external forcings shared by all process runs.
@@ -370,7 +367,7 @@ class HydroModPyLauncher:
         setup_state = run_state.setup
         data_state = run_state.loaded_data
         apply_geology_to_domain(domain=setup_state.domain, geology=data_state.geology)
-        self.process_context_factory.ensure_flow(run_state)
+        ensure_flow(run_state)
         apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
         apply_climatic_to_flow_recharge(flow=setup_state.flow, climatic=data_state.climatic)
 

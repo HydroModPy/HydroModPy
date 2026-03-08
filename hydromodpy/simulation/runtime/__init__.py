@@ -3,14 +3,18 @@
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.runtime.runner import (
     ProcessCallbacks,
-    ProcessContextFactory,
     SimulationRunner,
+    ensure_flow,
+    ensure_process_context,
+    ensure_transport,
 )
 
 __all__ = [
     "ProcessCallbacks",
-    "ProcessContextFactory",
     "RunContext",
     "RunExecutionResult",
     "SimulationRunner",
+    "ensure_flow",
+    "ensure_process_context",
+    "ensure_transport",
 ]
