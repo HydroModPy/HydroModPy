@@ -1,46 +1,45 @@
 # Launchers Package
 
-`launchers/` contient les points d'entree et les orchestrateurs de workflows.
-
-## Sous-dossiers metier
-
-Les sous-dossiers suivants structurent les futurs launchers specialises a
-partir de la convention de nommage retenue :
-
-- `data_overview/` : pour `DataOverviewLauncher`
-- `process_simulation/` : pour `ProcessSimulationLauncher`
-- `model_calibration/` : pour `ModelCalibrationLauncher`
-- `hydro_cal_val/` : pour `HydroCalValLauncher`
-
-## Intention
-
-- `DataOverviewLauncher` : illustration, visualisation et inventaire des
-  donnees et de la configuration disponibles pour un site, sans simulation.
-- `ProcessSimulationLauncher` : execution des simulations de processus.
-- `ModelCalibrationLauncher` : orchestration des workflows de calibration.
-- `HydroCalValLauncher` : mise en place d'une strategie hydrologique de
-  calibration-validation.
-
-Cette arborescence prepare une separation claire des responsabilites sans
-modifier le launcher principal existant.
+`launchers/` contient les orchestrateurs de workflows HydroModPy.
 
 ## CLI
 
-Commande recommandee pour la famille simulation :
+Commande canonique :
 
-`python -m launchers simulation run <path/to/config.toml>`
+```bash
+hmp simulation path/to/config.toml
+hmp simulation path/to/config.toml --out /tmp/results
+```
 
-## Separation loading/update
+Equivalent via module :
 
-- Le chargement des donnees reste dans `hydromodpy/data_managers/runtime_loader.py`.
-- Les mises a jour structurelles issues de ces donnees (ex. geology->domain,
-  oceanic->flow) sont portees par les modules metier:
-  `hydromodpy/domain/structure_binders.py` et
-  `hydromodpy/process/flow/structure_binders.py`.
-- Le launcher orchestre l'ordre: chargement data puis binders structurels.
+```bash
+python -m launchers simulation path/to/config.toml
+```
 
-## Postprocess
+## Sous-dossiers
 
-- Les post-traitements standards apres `flow`/`transport` sont pilotes par
-  `[postprocess]` dans le TOML et executes par `hydromodpy/postprocess/runner.py`.
-- Ce mecanisme remplace les anciens scripts projet-specifiques.
+| Dossier | Classe | Etat |
+|---|---|---|
+| `process_simulation/` | `HydroModPyLauncher` | Fonctionnel |
+| `data_overview/` | `DataOverviewLauncher` | Reserve (vide) |
+| `model_calibration/` | `ModelCalibrationLauncher` | Reserve (vide) |
+| `hydro_cal_val/` | `HydroCalValLauncher` | Reserve (vide) |
+
+## Architecture
+
+Le launcher orchestre sans implementer de logique solveur :
+
+1. Charge et valide le TOML (`HydroModPyConfig`)
+2. Bootstrap les objets partages (workspace, geographic, domain, flow, transport)
+3. Charge les donnees externes (`DataManagersRuntimeLoader`)
+4. Applique les binders structurels (geology->domain, oceanic->flow, climatic->recharge)
+5. Delegue l'execution a `SimulationRunner` avec callbacks postprocess
+
+## Separation des responsabilites
+
+- **Chargement donnees** : `hydromodpy/data_managers/runtime_loader.py`
+- **Binders structurels** : `hydromodpy/domain/structure_binders.py`, `hydromodpy/process/flow/structure_binders.py`
+- **Planification** : `hydromodpy/simulation/planning/`
+- **Execution** : `hydromodpy/simulation/runtime/runner.py`
+- **Postprocess** : `hydromodpy/postprocess/runner.py` (pilote par `[postprocess]` dans le TOML)
