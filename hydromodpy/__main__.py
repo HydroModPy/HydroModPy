@@ -9,6 +9,9 @@ Usage (hmp and hydromodpy are interchangeable):
     hmp config --profile user --modules geographic
     hmp config --list-modules
 
+    hmp simulation config.toml            # run a simulation from a TOML file
+    hmp simulation config.toml --out /tmp/results
+
     hmp test unit
     hmp test regression
     hmp test regression --fast
@@ -25,6 +28,7 @@ Usage (hmp and hydromodpy are interchangeable):
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -276,6 +280,27 @@ def _cmd_config(args: argparse.Namespace) -> None:
         print(content)
 
 
+def _cmd_simulation(args: argparse.Namespace) -> None:
+    """Run a simulation from a TOML configuration file."""
+    from launchers import HydroModPyLauncher
+
+    config_path = Path(args.config).expanduser().resolve()
+    if not config_path.is_file():
+        print(f"Configuration file not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    if args.out:
+        os.environ["HYDROMODPY_OUT_PATH"] = str(Path(args.out).expanduser().resolve())
+
+    launcher = HydroModPyLauncher(config_path)
+    run_state = launcher.run()
+
+    print(f"Simulation complete: {config_path.name}", file=sys.stderr)
+    model_ids = list(run_state.execution.models_by_run_id.keys())
+    if model_ids:
+        print(f"Produced models: {', '.join(model_ids)}", file=sys.stderr)
+
+
 def _cmd_test(args: argparse.Namespace) -> None:
     """Run tests via pytest."""
     root = _find_project_root()
@@ -381,6 +406,22 @@ def main() -> None:
         help="List available module names and exit",
     )
 
+    # --- simulation subcommand ---
+    sim_parser = subparsers.add_parser(
+        "simulation",
+        help="Run a simulation from a TOML configuration file",
+    )
+    sim_parser.add_argument(
+        "config",
+        type=Path,
+        help="Path to the simulation TOML file",
+    )
+    sim_parser.add_argument(
+        "--out",
+        default=None,
+        help="Override output directory (sets HYDROMODPY_OUT_PATH)",
+    )
+
     # --- test subcommand ---
     test_parser = subparsers.add_parser(
         "test",
@@ -443,6 +484,8 @@ def main() -> None:
         _cmd_init(args)
     elif args.command == "config":
         _cmd_config(args)
+    elif args.command == "simulation":
+        _cmd_simulation(args)
     elif args.command == "test":
         _cmd_test(args)
     else:

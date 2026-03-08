@@ -33,6 +33,23 @@ MAX_DAYS_PER_CHUNK = 20_000
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _normalize_station_id(raw_id: str) -> str:
+    """Normalize a Hub'Eau station or site identifier to a 10-char station code.
+
+    Hub'Eau uses 10-character station codes (``code_station``). Users sometimes
+    provide the 8-character site code (``code_site``) instead.  When an 8-char
+    code is given, ``"01"`` is appended (the default sensor suffix).
+    """
+    cleaned = str(raw_id).strip()
+    if len(cleaned) == 8:
+        return cleaned + "01"
+    return cleaned
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 def fetch(
@@ -55,7 +72,7 @@ def fetch(
     """
     # Resolve station list
     if station_ids:
-        ids = list(station_ids)
+        ids = [_normalize_station_id(s) for s in station_ids]
     elif bbox is not None:
         ids = _discover_stations_in_bbox(
             bbox, date_start=date_start, date_end=date_end,
@@ -272,8 +289,10 @@ def _get_obs_chunk(
 
     # Normalize to standard columns
     out = pd.DataFrame()
-    out["datetime"] = pd.to_datetime(df.get("date_obs_elab"), errors="coerce")
-    out["value"] = pd.to_numeric(df.get("resultat_obs_elab"), errors="coerce")
+    date_col = df["date_obs_elab"] if "date_obs_elab" in df.columns else pd.Series(dtype=object)
+    value_col = df["resultat_obs_elab"] if "resultat_obs_elab" in df.columns else pd.Series(dtype=object)
+    out["datetime"] = pd.to_datetime(date_col, errors="coerce")
+    out["value"] = pd.to_numeric(value_col, errors="coerce")
     out["quality"] = df.get("libelle_qualification", "")
 
     # Convert Hub'Eau L/s → m³/s for discharge variables, mm → m for height

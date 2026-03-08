@@ -25,7 +25,3 @@ class LoadedDataContext:
     intermittency: Intermittency | None = None
     hydrometry: list[PointRecord] | None = None
     piezometry: list[PointRecord] | None = None
-
-
-# Backward-compatible alias kept while call sites migrate.
-RunDataState = LoadedDataContext

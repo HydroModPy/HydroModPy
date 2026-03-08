@@ -46,7 +46,6 @@ from hydromodpy.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.hydrography import Hydrography
-from hydromodpy.data_managers.piezometry.piezometry import Piezometry
 from hydromodpy.data_managers.intermittency import Intermittency
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
@@ -103,7 +102,7 @@ fontdic = {'family' : 'serif'} # for legend
 
 #%% FUNCTIONS
 
-def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Optional[list[PointRecord]]=None):
+def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Optional[list[PointRecord]]=None, intermittency: Intermittency=None, hydrometry: Optional[list[PointRecord]]=None):
     """
     Plot contour watershed and DEM.
 
@@ -115,8 +114,8 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
         Geographic object of the model domain (watershed).
     hydrography : Hydrography, optional
         Hydrography object of the model domain (watershed).
-    piezometry : Piezometry, optional
-        Piezometry object of the model domain (watershed).
+    piezometry : list[PointRecord], optional
+        List of PointRecord objects containing piezometric stations.
     intermittency : Intermittency, optional
         Intermittency object of the model domain (watershed).
     hydrometry : list[PointRecord], optional
@@ -156,18 +155,14 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     except Exception:
         pass
     try:
-        if os.path.exists(piezometry.piezos_shp):
-            piezos = gpd.read_file(piezometry.piezos_shp)
-            h = piezos.plot(ax=ax, color='blue', marker='^', zorder=6,
-                            edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
-            legend_handles += h.get_legend_handles_labels()[0]
-    except Exception:
-        pass
-    try:
-        if len(piezometry.x_coord_discrete)>0:
-            h = ax.scatter(piezometry.x_coord_discrete, piezometry.y_coord_discrete, c='darkorange',
-                        marker='^', zorder=5, label='Piezometers: discrete')
-            legend_handles.append(h)
+        if piezometry is not None:
+            pz_locs = [r.location for r in piezometry if r.location is not None]
+            if pz_locs:
+                pz_xs = [loc.x for loc in pz_locs]
+                pz_ys = [loc.y for loc in pz_locs]
+                h = ax.scatter(pz_xs, pz_ys, color='blue', marker='^', zorder=6,
+                               edgecolor='k', lw=1, label='Piezometers')
+                legend_handles.append(h)
     except Exception:
         pass
     
@@ -261,7 +256,7 @@ def watershed_local(regional_dem_path, initializing: Workspace, geographic: Geog
     fig.savefig(os.path.join(initializing.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
     
-def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Any, hydrography: Hydrography=None, piezometry: Piezometry=None):
+def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Any, hydrography: Hydrography=None, piezometry: Optional[list[PointRecord]]=None):
     """
     Plot lithology of the watershed from specific geological map at FRance scale.
 
@@ -273,6 +268,8 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
         Geographic object of the model domain (watershed).
     geology : object
         Geology-like object exposing a ``geol_file`` path.
+    piezometry : list[PointRecord], optional
+        List of PointRecord objects containing piezometric stations.
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
@@ -339,14 +336,14 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
         pass
     contour.plot(ax=ax, lw=1.5, color='k', zorder=4, legend=True, edgecolor='k', facecolor='None', label='Watershed')
     try:
-        if len(piezometry.x_coord_discrete)>0:
-            piezod = ax.scatter(piezometry.x_coord_discrete, piezometry.y_coord_discrete,  c='darkorange',
-                       marker='^', zorder=5, label='Piezometers: discrete')
-        if os.path.exists(piezometry.piezos_shp):
-            piezos = gpd.read_file(piezometry.piezos_shp)
-            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
-                        edgecolor='k',legend=True, label='Piezometers: continue')
-    except:
+        if piezometry is not None:
+            pz_locs = [r.location for r in piezometry if r.location is not None]
+            if pz_locs:
+                pz_xs = [loc.x for loc in pz_locs]
+                pz_ys = [loc.y for loc in pz_locs]
+                ax.scatter(pz_xs, pz_ys, color='blue', marker='^', zorder=6,
+                           edgecolor='k', label='Piezometers')
+    except Exception:
         pass
     scalebar = ScaleBar(1,box_alpha=0, scale_loc = 'top', location='lower left', rotation='horizontal-only')
     ax.add_artist(scalebar)
@@ -397,18 +394,15 @@ def watershed_zones(BV):
     except:
         pass
     try:
-        if os.path.exists(BV.piezometry.piezos_shp):
-            piezos = gpd.read_file(BV.piezometry.piezos_shp)
-            piezos.plot(ax=ax, color='blue', marker='^', zorder=6, 
-                        edgecolor='k', lw=1, legend=True, label='Piezometers: continue')
-    except:
+        if BV.piezometry is not None:
+            pz_locs = [r.location for r in BV.piezometry if r.location is not None]
+            if pz_locs:
+                pz_xs = [loc.x for loc in pz_locs]
+                pz_ys = [loc.y for loc in pz_locs]
+                ax.scatter(pz_xs, pz_ys, color='blue', marker='^', zorder=6,
+                           edgecolor='k', lw=1, label='Piezometers')
+    except Exception:
         pass
-    try:
-        if len(BV.piezometry.x_coord_discrete)>0:
-            ax.scatter(BV.piezometry.x_coord_discrete, BV.piezometry.y_coord_discrete, c='darkorange',
-                       marker='^', zorder=5, label='Piezometers: discrete')
-    except:
-        pass   
     
     try:
         if BV.hydrometry is not None:

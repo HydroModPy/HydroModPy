@@ -6,7 +6,7 @@ from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
 from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
-from hydromodpy.simulation.runtime.runtime_contracts import RunExecutionResult
+from hydromodpy.simulation.planning.plan import RunExecutionResult
 
 
 class _RecordingAdapter:
@@ -33,7 +33,7 @@ def _build_state() -> SimpleNamespace:
             flow=None,
             transport=None,
         ),
-        results=SimpleNamespace(
+        execution=SimpleNamespace(
             models_by_run_id={},
         ),
     )
@@ -89,7 +89,7 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
     assert observations["transport"] == (True, True)
     assert flow_adapter.calls[0].dependency_models == ()
     assert transport_adapter.calls[0].dependency_models == (flow_model,)
-    assert state.results.models_by_run_id == {
+    assert state.execution.models_by_run_id == {
         "flow_main::modflownwt": flow_model,
         "transport_main::mt3dms": transport_model,
     }

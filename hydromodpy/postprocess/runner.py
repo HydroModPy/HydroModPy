@@ -53,7 +53,7 @@ class PostprocessRunner:
         if cfg.timeseries.enabled:
             from hydromodpy.postprocess.timeseries import FlowTimeseriesPostprocess
 
-            runoff = state.data.climatic.runoff if state.data.climatic is not None else None
+            runoff = state.loaded_data.climatic.runoff if state.loaded_data.climatic is not None else None
             FlowTimeseriesPostprocess(
                 state.setup.geographic,
                 model_modflow=flow_model,
@@ -75,10 +75,10 @@ class PostprocessRunner:
                 datetime_format=cfg.netcdf.datetime_format,
             )
 
-        if cfg.matching_streams and state.data.hydrography is not None:
+        if cfg.matching_streams and state.loaded_data.hydrography is not None:
             run_matching_streams(
                 geographic=state.setup.geographic,
-                hydrography=state.data.hydrography,
+                hydrography=state.loaded_data.hydrography,
                 workspace=state.setup.workspace,
                 iteration_label=flow_model.model_name,
                 from_calib=False,
@@ -107,7 +107,7 @@ class PostprocessRunner:
                 TransportTimeseriesPostprocess,
             )
 
-            runoff = state.data.climatic.runoff if state.data.climatic is not None else None
+            runoff = state.loaded_data.climatic.runoff if state.loaded_data.climatic is not None else None
             TransportTimeseriesPostprocess(
                 state.setup.geographic,
                 model_modflow=flow_model,

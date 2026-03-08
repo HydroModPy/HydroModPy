@@ -3,7 +3,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from launchers import LauncherRunState, RunResult, RunState
+from launchers import LauncherRunState
 
 
 def _build_state() -> LauncherRunState:
@@ -50,21 +50,3 @@ def test_run_state_results_scope_and_lookup_helpers() -> None:
     assert result.execution.models_by_run_id[run.id] is model
     assert result.get_model(run.id) is model
     assert result.get_model_for_solver("modflownwt") is model
-
-
-def test_run_state_compatibility_aliases_still_map_to_canonical_scopes() -> None:
-    result = _build_state()
-    climatic = object()
-    result.data.climatic = climatic
-    assert result.loaded_data.climatic is climatic
-
-    run = SimpleNamespace(id="flow_main__modflownwt", solver="modflownwt")
-    model = object()
-    result.results.process_runs_by_id = {run.id: run}
-    result.results.models_by_run_id = {run.id: model}
-    assert result.execution.models_by_run_id[run.id] is model
-
-
-def test_run_result_alias_points_to_run_state() -> None:
-    assert RunState is LauncherRunState
-    assert RunResult is LauncherRunState

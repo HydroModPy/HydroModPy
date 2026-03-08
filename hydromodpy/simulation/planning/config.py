@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from hydromodpy.solver.compatibility import known_process_types
+
 
 class SimulationTimeConfig(BaseModel):
     """Canonical simulation time window and forcing-coverage policy."""
@@ -68,8 +70,8 @@ class SimulationProcessConfig(BaseModel):
             "This id is required and must be unique within the simulation."
         ),
     )
-    type: Literal["flow", "transport"] = Field(
-        description="Requested process family executed by the launcher."
+    type: str = Field(
+        description="Requested process family executed by the launcher.",
     )
     solvers: list[str] = Field(
         min_length=1,
@@ -78,6 +80,20 @@ class SimulationProcessConfig(BaseModel):
             "solver is executed in order."
         ),
     )
+
+    @field_validator("type")
+    @classmethod
+    def _validate_type(cls, value: str) -> str:
+        cleaned = value.strip().lower()
+        if not cleaned:
+            raise ValueError("Process type cannot be empty.")
+        registered = known_process_types()
+        if cleaned not in registered:
+            raise ValueError(
+                f"Unknown process type '{cleaned}'. "
+                f"Registered types: {', '.join(sorted(registered))}."
+            )
+        return cleaned
 
     @field_validator("solvers")
     @classmethod
@@ -109,8 +125,7 @@ class SimulationConfig(BaseModel):
         default_factory=list,
         description=(
             "Ordered list of requested processes loaded from "
-            "[[simulation.process]]. At most one ``flow`` and one "
-            "``transport`` process are supported."
+            "[[simulation.process]]. At most one process per type is supported."
         ),
     )
 

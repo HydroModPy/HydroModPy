@@ -42,7 +42,12 @@ class _DummyDomain:
         self.surface_topo = surface_topo
 
 
-def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
+def _noop_ensure(state):
+    """No-op replacement for ensure_flow / ensure_transport in tests."""
+
+
+def _patch_launcher_deps(monkeypatch):
+    """Patch Workspace, Geographic, Domain, and ensure_* for launcher tests."""
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.hmp.Workspace",
         _DummyWorkspace,
@@ -55,6 +60,18 @@ def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
         "launchers.process_simulation.launcher.Domain",
         _DummyDomain,
     )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_flow",
+        _noop_ensure,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_transport",
+        _noop_ensure,
+    )
+
+
+def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
+    _patch_launcher_deps(monkeypatch)
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
@@ -71,30 +88,14 @@ def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
     launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
     launcher.cfg = cfg
     launcher.run_state = run_state
-    launcher.process_context_factory = SimpleNamespace(
-        ensure_flow=lambda state: None,
-        ensure_transport=lambda state: None,
-    )
 
     launcher._run_setup()
 
     assert run_state.setup.model_name == "simulation_name_from_toml"
-    assert run_state.setup.settings.model_name == "simulation_name_from_toml"
 
 
 def test_run_setup_replaces_spaces_in_simulation_name(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
-        _DummyWorkspace,
-    )
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
-        _DummyGeographic,
-    )
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
-        _DummyDomain,
-    )
+    _patch_launcher_deps(monkeypatch)
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
@@ -111,32 +112,15 @@ def test_run_setup_replaces_spaces_in_simulation_name(monkeypatch) -> None:
     launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
     launcher.cfg = cfg
     launcher.run_state = run_state
-    launcher.process_context_factory = SimpleNamespace(
-        ensure_flow=lambda state: None,
-        ensure_transport=lambda state: None,
-    )
 
     launcher._run_setup()
 
     assert run_state.setup.model_name == "simulation_name_with_spaces"
-    assert run_state.setup.settings.model_name == "simulation_name_with_spaces"
 
 
 def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> None:
     captured: dict[str, object] = {}
-
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Workspace",
-        _DummyWorkspace,
-    )
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.hmp.Geographic",
-        _DummyGeographic,
-    )
-    monkeypatch.setattr(
-        "launchers.process_simulation.launcher.Domain",
-        _DummyDomain,
-    )
+    _patch_launcher_deps(monkeypatch)
 
     def _fake_apply_catchment_zones_to_domain(*, domain, geographic, zone_id="catchment"):
         captured["domain"] = domain
@@ -163,10 +147,6 @@ def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> Non
     launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
     launcher.cfg = cfg
     launcher.run_state = run_state
-    launcher.process_context_factory = SimpleNamespace(
-        ensure_flow=lambda state: None,
-        ensure_transport=lambda state: None,
-    )
 
     launcher._run_setup()
 

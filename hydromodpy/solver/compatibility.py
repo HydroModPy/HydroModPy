@@ -35,7 +35,18 @@ PROCESS_SOLVER_REQUIREMENTS: dict[ProcessSolverKey, tuple[ProcessSolverKey, ...]
     ("transport", "modpath"): (("flow", "modflownwt"),),
     ("transport", "mt3dms"): (("flow", "modflownwt"),),
     ("transport", "modflow6gwt"): (("flow", "modflow6"),),
+    # Post-processing and display phases — stubs registered for extensibility.
+    # No dependency requirements (adapters inspect state at runtime).
+    ("postprocess", "timeseries"): (),
+    ("postprocess", "netcdf"): (),
+    ("display", "flow"): (),
+    ("display", "transport"): (),
 }
+
+
+def known_process_types() -> set[str]:
+    """Return the set of process types registered in the compatibility matrix."""
+    return {key[0] for key in PROCESS_SOLVER_REQUIREMENTS}
 
 
 def is_supported(process_type: str, solver_name: str) -> bool:
@@ -46,6 +57,24 @@ def is_supported(process_type: str, solver_name: str) -> bool:
     ``PROCESS_SOLVER_REQUIREMENTS``.
     """
     return (process_type, solver_name) in PROCESS_SOLVER_REQUIREMENTS
+
+
+def register_process_solver(
+    process_type: str,
+    solver_name: str,
+    requires: tuple[ProcessSolverKey, ...] = (),
+) -> None:
+    """Register a new process/solver pair with its dependency requirements.
+
+    This allows external modules to extend the compatibility matrix without
+    modifying this file directly.
+    """
+    key = (process_type, solver_name)
+    if key in PROCESS_SOLVER_REQUIREMENTS:
+        raise ValueError(
+            f"Process/solver pair already registered: {process_type}/{solver_name}."
+        )
+    PROCESS_SOLVER_REQUIREMENTS[key] = requires
 
 
 def required_bindings(process_type: str, solver_name: str) -> tuple[ProcessSolverKey, ...]:
