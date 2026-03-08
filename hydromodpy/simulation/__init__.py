@@ -2,6 +2,8 @@
 
 from hydromodpy.simulation.planning import (
     ProcessRun,
+    RunContext,
+    RunExecutionResult,
     SimulationConfig,
     SimulationPlan,
     SimulationPlanner,
@@ -26,6 +28,8 @@ __all__ = [
     "LoadedDataContext",
     "ProcessRun",
     "ProcessContextFactory",
+    "RunContext",
+    "RunExecutionResult",
     "RunResult",
     "RunState",
     "SetupContext",
