@@ -44,7 +44,10 @@ class TMeshConfigModel(BaseModel):
     )
     flow_regime: Literal["steady", "transient"] = Field(
         default="transient",
-        description="Flow regime used to derive the steady/transient stress-period flags.",
+        description=(
+            "Flow regime used to derive the steady/transient stress-period flags. "
+            "In launcher mode this field is generally derived from [flow].flow_regime."
+        ),
     )
     genmtd: Literal["synthetic_regular", "from_chron"] = Field(
         default="synthetic_regular",
@@ -93,8 +96,20 @@ class TMeshConfigModel(BaseModel):
         ),
     )
     firstpersteady: bool = True
-    tsmult: int | float | list[int] | list[float] = 1
-    ntsp: int | list[int] = 1
+    tsmult: int | float | list[int] | list[float] = Field(
+        default=1,
+        description=(
+            "Time-step multiplier per stress period (scalar or list). In launcher mode this "
+            "field is currently forced to 1.0 and generally not intended for manual editing."
+        ),
+    )
+    ntsp: int | list[int] = Field(
+        default=1,
+        description=(
+            "Number of time steps per stress period (scalar or list). In launcher mode this "
+            "field is currently forced to 1 and generally not intended for manual editing."
+        ),
+    )
     temporal_nodata: float = -9999.0
 
     @field_validator("itmuni", "chron_dateformat", "chron_time_col")

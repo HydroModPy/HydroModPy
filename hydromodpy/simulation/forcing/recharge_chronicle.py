@@ -13,6 +13,12 @@ from typing import Any, Literal
 
 import pandas as pd
 
+from hydromodpy.simulation.time import (
+    ResolvedSimulationTimeWindow,
+    build_simulation_time_boundaries,
+    simulation_time_pandas_frequency,
+)
+
 
 RechargeChronicleMode = Literal["observed_csv", "synthetic_generated", "synthetic_csv"]
 
@@ -89,10 +95,74 @@ def _normalize_recharge_mode(raw_toml: Mapping[str, Any]) -> RechargeChronicleMo
     return mode  # type: ignore[return-value]
 
 
+def _period_starts_from_window(window: ResolvedSimulationTimeWindow) -> pd.DatetimeIndex:
+    boundaries = build_simulation_time_boundaries(window)
+    return pd.DatetimeIndex(boundaries[:-1])
+
+
+def _align_series_to_simulation_window(
+    series: pd.Series,
+    *,
+    simulation_window: ResolvedSimulationTimeWindow,
+    label: str,
+) -> pd.Series:
+    """Aggregate one datetime-indexed series to simulation stress periods.
+
+    Aggregation policy
+    ------------------
+    - One output value per stress period.
+    - Value = arithmetic mean over values in [period_start, period_end).
+    - If no value falls in a period, reuse the last available value before
+      period_end (forward carry).
+    """
+    if series.empty:
+        raise ValueError(f"{label} series is empty and cannot be aligned to simulation.time.")
+
+    data = series.copy()
+    if not isinstance(data.index, pd.DatetimeIndex):
+        data.index = pd.to_datetime(data.index)
+    data = data.sort_index()
+
+    boundaries = build_simulation_time_boundaries(simulation_window)
+    starts = pd.DatetimeIndex(boundaries[:-1])
+    values: list[float] = []
+    for left, right in zip(boundaries[:-1], boundaries[1:], strict=False):
+        chunk = data.loc[(data.index >= left) & (data.index < right)]
+        if not chunk.empty:
+            values.append(float(chunk.mean()))
+            continue
+
+        # No value inside this period: carry the latest known value before the
+        # period end so solver forcing remains continuous.
+        history = data.loc[data.index < right]
+        if history.empty:
+            raise ValueError(
+                f"{label} has no value available before simulation period ending at {right}."
+            )
+        values.append(float(history.iloc[-1]))
+
+    return pd.Series(values, index=starts, dtype=float)
+
+
+def align_forcing_series_to_simulation_window(
+    series: pd.Series,
+    *,
+    simulation_window: ResolvedSimulationTimeWindow,
+    label: str = "forcing",
+) -> pd.Series:
+    """Public wrapper for period aggregation on simulation-time boundaries."""
+    return _align_series_to_simulation_window(
+        series,
+        simulation_window=simulation_window,
+        label=label,
+    )
+
+
 def _build_synthetic_generated_series(
     raw_toml: Mapping[str, Any],
     *,
     default_values: object | None = None,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> tuple[pd.Series, pd.Series]:
     """Build recharge/runoff series from inline synthetic payload."""
     cfg_root = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
@@ -104,23 +174,38 @@ def _build_synthetic_generated_series(
     raw_values = cfg.get("values_mm_day", default_values)
     if isinstance(raw_values, (list, tuple)):
         values = [float(v) for v in raw_values]
-        periods = int(cfg.get("periods", len(values)))
-        if len(values) != periods:
-            raise ValueError(
-                "recharge_chronicle.synthetic_generated.values_mm_day length must match periods."
-            )
     elif isinstance(raw_values, (int, float)) and not isinstance(raw_values, bool):
-        periods = int(cfg.get("periods", 12))
-        values = [float(raw_values)] * periods
+        values = [float(raw_values)]
     else:
         raise ValueError(
             "recharge_chronicle.synthetic_generated.values_mm_day must be "
             "a scalar or a list of numeric values."
         )
 
-    start_date = str(cfg.get("start_date", "2003-01-01"))
-    freq = str(cfg.get("freq", "ME"))
-    index = pd.date_range(start=start_date, periods=periods, freq=freq)
+    if simulation_window is None:
+        periods = int(cfg.get("periods", len(values)))
+        if len(values) not in {1, periods}:
+            raise ValueError(
+                "recharge_chronicle.synthetic_generated.values_mm_day length must be 1 "
+                "or match periods."
+            )
+        if len(values) == 1:
+            values = values * periods
+        start_date = str(cfg.get("start_date", "2003-01-01"))
+        freq = str(cfg.get("freq", "ME"))
+        index = pd.date_range(start=start_date, periods=periods, freq=freq)
+    else:
+        index = _period_starts_from_window(simulation_window)
+        periods = len(index)
+        if len(values) not in {1, periods}:
+            raise ValueError(
+                "recharge_chronicle.synthetic_generated.values_mm_day length must be 1 "
+                "or match the number of simulation stress periods "
+                f"({periods}) derived from simulation.time."
+            )
+        if len(values) == 1:
+            values = values * periods
+
     recharge_raw = pd.Series(values, index=index, dtype=float)
     recharge = _to_m_per_day(
         recharge_raw,
@@ -136,6 +221,7 @@ def _build_synthetic_csv_series(
     raw_toml: Mapping[str, Any],
     *,
     config_path: Path,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> tuple[pd.Series, pd.Series]:
     """Build recharge/runoff series from a CSV payload."""
     cfg_root = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
@@ -190,6 +276,22 @@ def _build_synthetic_csv_series(
     if isinstance(time_step, str) and time_step.strip():
         recharge = recharge.resample(time_step).mean().ffill()
         runoff = runoff.resample(time_step).mean().ffill()
+    elif simulation_window is not None:
+        freq = simulation_time_pandas_frequency(simulation_window, anchor="start")
+        recharge = recharge.resample(freq).mean().ffill()
+        runoff = runoff.resample(freq).mean().ffill()
+
+    if simulation_window is not None:
+        recharge = _align_series_to_simulation_window(
+            recharge,
+            simulation_window=simulation_window,
+            label="synthetic_csv recharge",
+        )
+        runoff = _align_series_to_simulation_window(
+            runoff,
+            simulation_window=simulation_window,
+            label="synthetic_csv runoff",
+        )
 
     return recharge, runoff
 
@@ -200,6 +302,7 @@ def _build_observed_request(
     config_path: Path,
     default_observed_path: Path,
     default_sim_state: str,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> ObservedRechargeChronicleRequest:
     """Build normalized observed recharge/runoff request payload."""
     cfg_root = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
@@ -215,9 +318,16 @@ def _build_observed_request(
     )
     clim_mod = str(cfg.get("clim_mod", "REA"))
     clim_sce = str(cfg.get("clim_sce", "historic"))
-    first_year = int(cfg.get("first_year", 2003))
-    last_year = int(cfg.get("last_year", first_year))
-    time_step = str(cfg.get("time_step", "ME"))
+    if simulation_window is None:
+        first_year = int(cfg.get("first_year", 2003))
+        last_year = int(cfg.get("last_year", first_year))
+        time_step = str(cfg.get("time_step", "ME"))
+    else:
+        # In launcher-driven mode, force observed extraction to the canonical
+        # simulation temporal grid.
+        first_year = int(simulation_window.start.year)
+        last_year = int(simulation_window.end.year)
+        time_step = simulation_time_pandas_frequency(simulation_window, anchor="start")
     sim_state = str(cfg.get("sim_state", default_sim_state))
 
     return ObservedRechargeChronicleRequest(
@@ -238,6 +348,7 @@ def build_recharge_chronicle_payload(
     default_values: object | None = None,
     default_observed_path: Path,
     default_sim_state: str,
+    simulation_window: ResolvedSimulationTimeWindow | None = None,
 ) -> RechargeChroniclePayload | None:
     """Parse one ``[recharge_chronicle]`` section into a normalized payload."""
     mode = _normalize_recharge_mode(raw_toml)
@@ -250,6 +361,7 @@ def build_recharge_chronicle_payload(
             config_path=config_path,
             default_observed_path=default_observed_path,
             default_sim_state=default_sim_state,
+            simulation_window=simulation_window,
         )
         return RechargeChroniclePayload(mode=mode, observed=observed)
 
@@ -257,15 +369,16 @@ def build_recharge_chronicle_payload(
         recharge, runoff = _build_synthetic_generated_series(
             raw_toml,
             default_values=default_values,
+            simulation_window=simulation_window,
         )
     else:
         recharge, runoff = _build_synthetic_csv_series(
             raw_toml,
             config_path=config_path,
+            simulation_window=simulation_window,
         )
     return RechargeChroniclePayload(
         mode=mode,
         recharge=recharge,
         runoff=runoff,
     )
-
