@@ -31,7 +31,7 @@ def test_recharge_chronicle_payload_builds_synthetic_generated_series(tmp_path: 
                 "start_date": "2003-01-01",
                 "freq": "D",
                 "periods": 2,
-                "values_mm_day": [1.0, 2.0],
+                "values": [1.0, 2.0],
                 "units": "mm/day",
                 "runoff_ratio": 0.5,
             },
@@ -51,6 +51,32 @@ def test_recharge_chronicle_payload_builds_synthetic_generated_series(tmp_path: 
     assert payload.runoff is not None
     assert np.allclose(payload.recharge.values, [0.001, 0.002])
     assert np.allclose(payload.runoff.values, [0.0005, 0.0010])
+
+
+def test_recharge_chronicle_payload_rejects_legacy_values_mm_day_key(tmp_path: Path) -> None:
+    raw_toml = {
+        "recharge_chronicle": {
+            "mode": "synthetic_generated",
+            "synthetic_generated": {
+                "start_date": "2003-01-01",
+                "freq": "D",
+                "periods": 2,
+                "values_mm_day": [1.0, 2.0],
+                "units": "mm/day",
+            },
+        }
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="recharge_chronicle.synthetic_generated.values must be",
+    ):
+        build_recharge_chronicle_payload(
+            raw_toml,
+            config_path=tmp_path / "launcher.toml",
+            default_observed_path=tmp_path / "default.csv",
+            default_sim_state="transient",
+        )
 
 
 def test_recharge_chronicle_payload_builds_observed_request(tmp_path: Path) -> None:
@@ -104,7 +130,7 @@ def test_recharge_chronicle_synthetic_generated_aligns_with_simulation_window(
                 "start_date": "2000-01-01",
                 "freq": "ME",
                 "periods": 99,
-                "values_mm_day": [1.0, 2.0, 3.0],
+                "values": [1.0, 2.0, 3.0],
                 "units": "mm/day",
                 "runoff_ratio": 0.2,
             },
