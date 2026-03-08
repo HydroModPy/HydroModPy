@@ -171,14 +171,14 @@ def _build_synthetic_generated_series(
         name="recharge_chronicle.synthetic_generated",
     )
 
-    raw_values = cfg.get("values_mm_day", default_values)
+    raw_values = cfg.get("values", default_values)
     if isinstance(raw_values, (list, tuple)):
         values = [float(v) for v in raw_values]
     elif isinstance(raw_values, (int, float)) and not isinstance(raw_values, bool):
         values = [float(raw_values)]
     else:
         raise ValueError(
-            "recharge_chronicle.synthetic_generated.values_mm_day must be "
+            "recharge_chronicle.synthetic_generated.values must be "
             "a scalar or a list of numeric values."
         )
 
@@ -186,7 +186,7 @@ def _build_synthetic_generated_series(
         periods = int(cfg.get("periods", len(values)))
         if len(values) not in {1, periods}:
             raise ValueError(
-                "recharge_chronicle.synthetic_generated.values_mm_day length must be 1 "
+                "recharge_chronicle.synthetic_generated.values length must be 1 "
                 "or match periods."
             )
         if len(values) == 1:
@@ -199,7 +199,7 @@ def _build_synthetic_generated_series(
         periods = len(index)
         if len(values) not in {1, periods}:
             raise ValueError(
-                "recharge_chronicle.synthetic_generated.values_mm_day length must be 1 "
+                "recharge_chronicle.synthetic_generated.values length must be 1 "
                 "or match the number of simulation stress periods "
                 f"({periods}) derived from simulation.time."
             )

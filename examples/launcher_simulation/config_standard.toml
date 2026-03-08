@@ -548,7 +548,7 @@ runoff_ratio = 0.1
 # [simulation.time] and are intentionally not exposed here.
 units = "mm/day"
 # (Jan..Dec): [2, 2, 0, 0, 0, 0, -1, 0, 0, 0, 2, 2]
-values_mm_day = [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 2.0, 2.0]
+values = [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 2.0, 2.0]
 runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_csv]
