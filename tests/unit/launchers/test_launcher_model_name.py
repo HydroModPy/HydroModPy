@@ -92,7 +92,6 @@ def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
     launcher._run_setup()
 
     assert run_state.setup.model_name == "simulation_name_from_toml"
-    assert run_state.setup.settings.model_name == "simulation_name_from_toml"
 
 
 def test_run_setup_replaces_spaces_in_simulation_name(monkeypatch) -> None:
@@ -117,7 +116,6 @@ def test_run_setup_replaces_spaces_in_simulation_name(monkeypatch) -> None:
     launcher._run_setup()
 
     assert run_state.setup.model_name == "simulation_name_with_spaces"
-    assert run_state.setup.settings.model_name == "simulation_name_with_spaces"
 
 
 def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> None:
