@@ -175,7 +175,9 @@ class ModflowConfig(BaseModel):
         default=None,
         description=(
             "Optional temporal discretization payload as one validated "
-            "`TMeshConfigModel` model."
+            "`TMeshConfigModel` model. In launcher mode, most tgrid fields are "
+            "generally auto-managed from [simulation.time] and are not intended "
+            "for manual editing."
         ),
     )
 

@@ -18,6 +18,8 @@ def _make_cfg_with_time(
     *,
     coverage_policy: str = "error",
     mode: str = "explicit",
+    step_value: int = 1,
+    step_unit: str = "day",
 ) -> SimpleNamespace:
     return SimpleNamespace(
         simulation=SimpleNamespace(
@@ -25,6 +27,8 @@ def _make_cfg_with_time(
                 mode=mode,
                 start_datetime="2020-01-01 00:00:00",
                 end_datetime="2020-01-03 00:00:00",
+                step_value=step_value,
+                step_unit=step_unit,
                 coverage_policy=coverage_policy,
             ),
             process=[
@@ -47,8 +51,14 @@ def test_apply_simulation_time_window_updates_solver_tgrids() -> None:
 
     assert str(cfg.modflownwt.tgrid.start_datetime).startswith("2020-01-01")
     assert str(cfg.modflownwt.tgrid.end_datetime).startswith("2020-01-03")
+    assert cfg.modflownwt.tgrid.nper == 3
+    assert cfg.modflownwt.tgrid.lenper == [1.0, 1.0, 1.0]
+    assert cfg.modflownwt.tgrid.itmuni == "d"
     assert str(cfg.modflow6.tgrid.start_datetime).startswith("2020-01-01")
     assert str(cfg.modflow6.tgrid.end_datetime).startswith("2020-01-03")
+    assert cfg.modflow6.tgrid.nper == 3
+    assert cfg.modflow6.tgrid.lenper == [1.0, 1.0, 1.0]
+    assert cfg.modflow6.tgrid.itmuni == "d"
 
 
 def test_get_simulation_time_window_from_modflow_uses_flow_solver_tgrid() -> None:
@@ -121,3 +131,23 @@ def test_validate_recharge_coverage_passes_for_full_coverage() -> None:
     )
 
     validate_recharge_coverage(recharge, window)
+
+
+def test_apply_simulation_time_window_monthly_calendar_lengths() -> None:
+    cfg = _make_cfg_with_time(step_value=1, step_unit="month")
+    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
+    cfg.simulation.time.end_datetime = "2020-03-31 00:00:00"
+
+    apply_explicit_time_window_to_tgrids(cfg)
+
+    assert cfg.modflownwt.tgrid.nper == 3
+    assert cfg.modflownwt.tgrid.lenper == [31.0, 29.0, 31.0]
+
+
+def test_apply_simulation_time_window_raises_when_end_not_aligned_with_step() -> None:
+    cfg = _make_cfg_with_time(step_value=2, step_unit="day")
+    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
+    cfg.simulation.time.end_datetime = "2020-01-03 00:00:00"
+
+    with pytest.raises(ValueError, match="not aligned with step_value/step_unit"):
+        apply_explicit_time_window_to_tgrids(cfg)

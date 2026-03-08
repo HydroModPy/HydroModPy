@@ -31,8 +31,23 @@ class SimulationTimeConfig(BaseModel):
     end_datetime: datetime | None = Field(
         default=None,
         description=(
-            "Simulation window upper datetime bound. Must be strictly greater "
-            "than start_datetime."
+            "Simulation window upper datetime bound, interpreted as inclusive. "
+            "Must be greater than or equal to start_datetime."
+        ),
+    )
+    step_value: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Simulation time-step multiplier used with step_unit. "
+            "For example 6 with step_unit='hour', or 2 with step_unit='month'."
+        ),
+    )
+    step_unit: Literal["hour", "day", "month", "year"] = Field(
+        default="day",
+        description=(
+            "Canonical simulation time-step unit used to derive stress periods "
+            "and align forcing series."
         ),
     )
     coverage_policy: Literal["error", "warn", "ignore"] = Field(
@@ -52,8 +67,14 @@ class SimulationTimeConfig(BaseModel):
                     "simulation.time.start_datetime and simulation.time.end_datetime "
                     "are required when simulation.time.mode='explicit'."
                 )
-        if self.start_datetime is not None and self.end_datetime is not None and self.end_datetime <= self.start_datetime:
-            raise ValueError("simulation.time.end_datetime must be greater than start_datetime.")
+        if (
+            self.start_datetime is not None
+            and self.end_datetime is not None
+            and self.end_datetime < self.start_datetime
+        ):
+            raise ValueError(
+                "simulation.time.end_datetime must be greater than or equal to start_datetime."
+            )
         return self
 
 

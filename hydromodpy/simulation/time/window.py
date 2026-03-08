@@ -18,6 +18,7 @@ import pandas as pd
 
 _VALID_POLICIES = {"error", "warn", "ignore"}
 _VALID_MODES = {"explicit", "from_modflow"}
+_VALID_STEP_UNITS = {"hour", "day", "month", "year"}
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,8 @@ class ResolvedSimulationTimeWindow:
 
     start: pd.Timestamp
     end: pd.Timestamp
+    step_value: int
+    step_unit: Literal["hour", "day", "month", "year"]
     coverage_policy: Literal["error", "warn", "ignore"]
 
     def to_date_bounds(self) -> tuple[str, str]:
@@ -81,6 +84,104 @@ def _normalize_mode(raw_mode: Any) -> Literal["explicit", "from_modflow"]:
     return mode  # type: ignore[return-value]
 
 
+def _normalize_step_value(raw_step_value: Any) -> int:
+    try:
+        step_value = int(raw_step_value)
+    except Exception as exc:
+        raise ValueError("simulation.time.step_value must be a positive integer.") from exc
+    if step_value <= 0:
+        raise ValueError("simulation.time.step_value must be a positive integer.")
+    return step_value
+
+
+def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", "year"]:
+    token = str(raw_step_unit).strip().lower()
+    aliases = {
+        "h": "hour",
+        "hr": "hour",
+        "hours": "hour",
+        "d": "day",
+        "days": "day",
+        "m": "month",
+        "months": "month",
+        "y": "year",
+        "yr": "year",
+        "years": "year",
+    }
+    token = aliases.get(token, token)
+    if token not in _VALID_STEP_UNITS:
+        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
+    return token  # type: ignore[return-value]
+
+
+def _time_step_offset(*, step_value: int, step_unit: str) -> pd.DateOffset | pd.Timedelta:
+    if step_unit == "hour":
+        return pd.to_timedelta(step_value, unit="h")
+    if step_unit == "day":
+        return pd.to_timedelta(step_value, unit="d")
+    if step_unit == "month":
+        return pd.DateOffset(months=step_value)
+    if step_unit == "year":
+        return pd.DateOffset(years=step_value)
+    raise ValueError(f"Unsupported simulation.time.step_unit={step_unit!r}.")
+
+
+def _inclusive_end_to_exclusive_end(
+    end_inclusive: pd.Timestamp,
+    *,
+    step_unit: str,
+) -> pd.Timestamp:
+    # Inclusive simulation windows are entered as dates/timestamps in TOML.
+    # We convert to half-open bounds [start, end_exclusive) for period lengths.
+    if step_unit == "hour":
+        return end_inclusive + pd.to_timedelta(1, unit="h")
+    return end_inclusive + pd.to_timedelta(1, unit="d")
+
+
+def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Timestamp]:
+    start = window.start
+    end = window.end
+    if end < start:
+        raise ValueError("simulation.time.end_datetime must be greater than or equal to start_datetime.")
+
+    end_exclusive = _inclusive_end_to_exclusive_end(
+        end,
+        step_unit=window.step_unit,
+    )
+    step_offset = _time_step_offset(
+        step_value=window.step_value,
+        step_unit=window.step_unit,
+    )
+
+    boundaries = [start]
+    current = start
+    while current < end_exclusive:
+        current = current + step_offset
+        boundaries.append(current)
+
+    if boundaries[-1] != end_exclusive:
+        raise ValueError(
+            "simulation.time window is not aligned with step_value/step_unit under "
+            "inclusive end semantics. Ensure end_datetime falls exactly on a "
+            "time-step boundary."
+        )
+    return boundaries
+
+
+def _period_lengths_in_days(window: ResolvedSimulationTimeWindow) -> list[float]:
+    boundaries = _build_time_boundaries(window)
+    out: list[float] = []
+    for idx in range(len(boundaries) - 1):
+        delta = boundaries[idx + 1] - boundaries[idx]
+        days = delta.total_seconds() / 86400.0
+        if days <= 0:
+            raise ValueError("Computed non-positive stress-period length from simulation.time.")
+        out.append(float(days))
+    if not out:
+        raise ValueError("simulation.time resolved to an empty stress-period sequence.")
+    return out
+
+
 def _resolve_window_from_modflow_tgrids(cfg: Any) -> tuple[pd.Timestamp, pd.Timestamp] | None:
     for solver_name in _flow_solver_preference(cfg):
         solver_cfg = getattr(cfg, solver_name, None)
@@ -112,15 +213,19 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
 
     coverage_policy = _normalize_policy(getattr(time_cfg, "coverage_policy", "error"))
     mode = _normalize_mode(getattr(time_cfg, "mode", "explicit"))
+    step_value = _normalize_step_value(getattr(time_cfg, "step_value", 1))
+    step_unit = _normalize_step_unit(getattr(time_cfg, "step_unit", "day"))
 
     if mode == "explicit":
         start = _as_timestamp(getattr(time_cfg, "start_datetime", None), name="simulation.time.start_datetime")
         end = _as_timestamp(getattr(time_cfg, "end_datetime", None), name="simulation.time.end_datetime")
-        if end <= start:
-            raise ValueError("simulation.time.end_datetime must be greater than start_datetime.")
+        if end < start:
+            raise ValueError("simulation.time.end_datetime must be greater than or equal to start_datetime.")
         return ResolvedSimulationTimeWindow(
             start=start,
             end=end,
+            step_value=step_value,
+            step_unit=step_unit,
             coverage_policy=coverage_policy,
         )
 
@@ -135,6 +240,8 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
     return ResolvedSimulationTimeWindow(
         start=start,
         end=end,
+        step_value=step_value,
+        step_unit=step_unit,
         coverage_policy=coverage_policy,
     )
 
@@ -151,6 +258,9 @@ def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWind
     if mode != "explicit":
         return window
 
+    perlen_days = _period_lengths_in_days(window)
+    nper = len(perlen_days)
+
     for solver_section_name in ("modflownwt", "modflow6"):
         solver_cfg = getattr(cfg, solver_section_name, None)
         tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
@@ -158,6 +268,10 @@ def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWind
             continue
         tgrid_cfg.start_datetime = window.start.to_pydatetime()
         tgrid_cfg.end_datetime = window.end.to_pydatetime()
+        tgrid_cfg.itmuni = "d"
+        tgrid_cfg.genmtd = "synthetic_regular"
+        tgrid_cfg.nper = nper
+        tgrid_cfg.lenper = perlen_days
     return window
 
 
@@ -269,4 +383,3 @@ def validate_recharge_coverage(
             "Recharge coverage check failed: recharge contains NaN values within "
             f"simulation window [{start}, {end}].",
         )
-

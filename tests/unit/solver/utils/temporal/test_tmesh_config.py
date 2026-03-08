@@ -163,7 +163,7 @@ def test_legacy_sim_state_key_is_rejected():
 def test_end_datetime_must_be_after_start_datetime():
     mod = _load_tmesh_config_module()
 
-    with pytest.raises(ValueError, match="end_datetime must be strictly greater"):
+    with pytest.raises(ValueError, match="end_datetime must be greater than or equal"):
         _ = mod.TMeshConfigModel.from_mapping(
             {
                 "tmesh": {
