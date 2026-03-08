@@ -281,7 +281,6 @@ _LAZY_IMPORTS = {
     "Oceanic": "hydromodpy.data_managers.oceanic",
     "Piezometry": "hydromodpy.data_managers.piezometry.piezometry",
     "SafranSurfex": "hydromodpy.data_managers.climatic.safransurfex",
-    "Settings": "hydromodpy.simulation.settings",
     "Subbasin": "hydromodpy.geographic.subbasin",
     # config
     "HydroModPyConfig": "hydromodpy.config.hydromodpy_config",
