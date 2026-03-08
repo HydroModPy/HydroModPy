@@ -41,6 +41,16 @@ class StationDiscovery(BaseStationSet):
         self.local_data_dir = Path(local_data_dir).expanduser().resolve() if local_data_dir else None
 
     @staticmethod
+    def _mask_centroid(mask_gdf: Any):
+        """Return centroid of a (possibly multi-feature) mask GeoDataFrame."""
+        try:
+            # GeoPandas/Shapely modern path.
+            return mask_gdf.union_all().centroid
+        except Exception:
+            # Backward-compatible fallback.
+            return mask_gdf.unary_union.centroid
+
+    @staticmethod
     def normalize_station_ids(id_values: Union[str, List[str]]) -> tuple[list[str], list[str]]:
         """Normalize station/site identifiers into parallel station/site lists."""
         if isinstance(id_values, str):
@@ -106,7 +116,7 @@ class StationDiscovery(BaseStationSet):
 
         reference_point = center_point
         if reference_point is None and mask_gdf is not None:
-            centroid = mask_gdf.unary_union.centroid
+            centroid = helper._mask_centroid(mask_gdf)
             reference_point = (centroid.x, centroid.y)
 
         candidate_data = helper._search_stations_in_bbox(
@@ -355,7 +365,7 @@ class StationDiscovery(BaseStationSet):
             print("No stations found within the mask polygon.")
             print(f"Activating automatic fallback search: {fallback_search_radius_km} km radius buffer...")
 
-            centroid = mask_gdf.unary_union.centroid
+            centroid = self._mask_centroid(mask_gdf)
             ref_lon, ref_lat = centroid.x, centroid.y
             lat_offset = fallback_search_radius_km / 111.0
             lon_offset = fallback_search_radius_km / (111.0 * cos(radians(ref_lat)))

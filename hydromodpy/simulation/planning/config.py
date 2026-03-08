@@ -13,23 +13,46 @@ class SimulationTimeConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    start_datetime: datetime = Field(
-        description="Inclusive simulation start datetime.",
+    mode: Literal["explicit", "from_modflow"] = Field(
+        default="explicit",
+        description=(
+            "Time-window source policy. "
+            "'explicit' reads start_datetime/end_datetime from this section; "
+            "'from_modflow' derives the window from active flow solver tgrid settings."
+        ),
     )
-    end_datetime: datetime = Field(
-        description="Inclusive simulation end datetime.",
+    start_datetime: datetime | None = Field(
+        default=None,
+        description=(
+            "Simulation window lower datetime bound used by launcher-level "
+            "time alignment and forcing checks."
+        ),
+    )
+    end_datetime: datetime | None = Field(
+        default=None,
+        description=(
+            "Simulation window upper datetime bound. Must be strictly greater "
+            "than start_datetime."
+        ),
     )
     coverage_policy: Literal["error", "warn", "ignore"] = Field(
         default="error",
         description=(
-            "Behavior when recharge does not fully cover [start_datetime, end_datetime]: "
+            "Behavior when recharge does not fully cover the declared simulation "
+            "window bounds [start_datetime, end_datetime]: "
             "'error' raises, 'warn' emits a warning, 'ignore' skips checks."
         ),
     )
 
     @model_validator(mode="after")
     def _validate_window_order(self):
-        if self.end_datetime <= self.start_datetime:
+        if self.mode == "explicit":
+            if self.start_datetime is None or self.end_datetime is None:
+                raise ValueError(
+                    "simulation.time.start_datetime and simulation.time.end_datetime "
+                    "are required when simulation.time.mode='explicit'."
+                )
+        if self.start_datetime is not None and self.end_datetime is not None and self.end_datetime <= self.start_datetime:
             raise ValueError("simulation.time.end_datetime must be greater than start_datetime.")
         return self
 
