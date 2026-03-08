@@ -223,7 +223,7 @@ def run_matching_streams(
     ```python
     run_matching_streams(
         geographic=state.setup.geographic,
-        hydrography=state.data.hydrography,
+        hydrography=state.loaded_data.hydrography,
         workspace=state.setup.workspace,
         iteration_label="flow_main_modflownwt",
         from_calib=False,
