@@ -3,8 +3,7 @@
 The simulation package separates four responsibilities:
 
 - `SimulationPlanner`: turns the declarative `[simulation]` TOML block into an explicit ordered `SimulationPlan`.
-- `SimulationRunner`: walks through that plan, materializes process context when needed, manages process-family transitions, resolves runtime dependencies, and records outputs.
-- `ProcessContextFactory`: creates shared process objects (`flow`, `transport`) from validated config in one place.
+- `SimulationRunner`: walks through that plan, materializes process context when needed via free functions, manages process-family transitions, resolves runtime dependencies, and records outputs.
 - `SolverAdapter`: translates one generic `ProcessRun` into the concrete API call sequence for a specific solver.
 - Solver classes (`Modflow`, `Modpath`, `Mt3dms`, `Modflow6`, ...): perform the actual numerical or post-processing work.
 - Runtime state models (`simulation/state/`): hold setup/data/execution scopes shared by launchers, runner, and postprocess.
@@ -16,7 +15,7 @@ SimulationConfig
 -> SimulationPlanner
 -> SimulationPlan (ProcessRun...)
 -> SimulationRunner
--> ProcessContextFactory (on process-family transitions)
+-> ensure_process_context() (on process-family transitions)
 -> SolverAdapter
 -> Solver implementation
 ```
@@ -25,7 +24,7 @@ A short reading guide:
 
 - `planner` answers: "what should run, and in which order?"
 - `runner` answers: "when does each run execute, and what state is carried forward?"
-- `process context factory` answers: "how do we get `flow`/`transport` objects when a block starts?"
+- `ensure_process_context()` answers: "how do we get `flow`/`transport` objects when a block starts?"
 - `adapter` answers: "how do I call this concrete solver for this run?"
 - `solver` answers: "how does the numerical backend actually compute?"
 
@@ -64,8 +63,8 @@ adapter module per solver grouped under the `flow/` and `transport/` families.
 
 - Planning logic: `simulation/planning/`
 - Generic orchestration: `simulation/runtime/runner.py`
-- Runtime contracts shared by runner and adapters: `simulation/runtime/runtime_contracts.py`
-- Process-object materialization policy: `simulation/runtime/process_context.py`
+- Runtime contracts (`RunContext`, `RunExecutionResult`): `simulation/planning/plan.py`
+- Process-context materialization (free functions): `simulation/runtime/runner.py`
 - Workspace setup and contracts: `simulation/workspace/`
 - Solver-specific bridging code: `simulation/adapters/` (`flow/` and `transport/`)
 - Runtime state contracts and concrete models: `simulation/state/`

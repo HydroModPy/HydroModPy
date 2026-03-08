@@ -5,17 +5,6 @@
 - ``setup``: structural objects prepared once (workspace, domain, flow, ...);
 - ``loaded_data``: loaded support data (climatic, oceanic, hydrometry, ...);
 - ``execution``: run outputs and registries (planned runs, produced models).
-
-Canonical access is explicit:
-
-- ``state.setup.<...>`` for structural runtime context,
-- ``state.loaded_data.<...>`` for loaded datasets,
-- ``state.execution.<...>`` for run outputs and execution registries.
-
-Compatibility aliases are still provided:
-
-- ``state.data`` mirrors ``state.loaded_data``,
-- ``state.results`` mirrors ``state.execution``.
 """
 
 from __future__ import annotations
@@ -49,39 +38,12 @@ class LauncherRunState:
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)
     execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
 
-    @property
-    def data(self) -> LoadedDataContext:
-        """Backward-compatible alias for ``loaded_data``."""
-
-        return self.loaded_data
-
-    @data.setter
-    def data(self, value: LoadedDataContext) -> None:
-        self.loaded_data = value
-
-    @property
-    def results(self) -> ExecutionRegistry:
-        """Backward-compatible alias for ``execution``."""
-
-        return self.execution
-
-    @results.setter
-    def results(self, value: ExecutionRegistry) -> None:
-        self.execution = value
-
     def get_model(self, run_id: str) -> Any:
         """Return the exact model produced by a concrete process run."""
-
         return self.execution.models_by_run_id[run_id]
 
     def get_run_for_solver(self, solver_name: str) -> Any:
-        """Return the unique planned run matching ``solver_name``, if any.
-
-        This is the practical explicit lookup helper used when several runs
-        exist and caller code wants to target one concrete solver backend
-        directly instead of relying on family-wide shortcuts.
-        """
-
+        """Return the unique planned run matching ``solver_name``, if any."""
         matches = [
             run for run in self.execution.process_runs_by_id.values() if run.solver == solver_name
         ]
@@ -93,13 +55,7 @@ class LauncherRunState:
 
     def get_model_for_solver(self, solver_name: str) -> Any:
         """Return the produced model for ``solver_name``, if that run completed."""
-
         run = self.get_run_for_solver(solver_name)
         if run is None:
             return None
         return self.execution.models_by_run_id.get(run.id)
-
-
-# Backward-compatible aliases kept while downstream imports migrate.
-RunState = LauncherRunState
-RunResult = LauncherRunState

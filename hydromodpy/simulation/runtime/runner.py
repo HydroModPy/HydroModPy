@@ -13,7 +13,7 @@ order*. Its job is narrower:
 - open and close process-family blocks via optional callbacks,
 - resolve the exact upstream models referenced by ``depends_on``,
 - delegate solver-specific execution to the matching adapter,
-- store each produced model back into ``state.results.models_by_run_id``.
+- store each produced model back into ``state.execution.models_by_run_id``.
 
 In one sentence:
 
@@ -112,7 +112,7 @@ class SimulationRunner:
     4. repeat until the plan is exhausted.
 
     The runner is intentionally stateful: each completed run writes its model
-    back into ``state.results.models_by_run_id`` so later runs can consume it.
+    back into ``state.execution.models_by_run_id`` so later runs can consume it.
 
     Another useful simplification is:
 
@@ -204,12 +204,12 @@ class SimulationRunner:
 
         models: list[object] = []
         for dependency_id in run.depends_on:
-            if dependency_id not in state.results.models_by_run_id:
+            if dependency_id not in state.execution.models_by_run_id:
                 raise ValueError(
                     f"Process run '{run.id}' depends on '{dependency_id}', "
                     "but that run has not produced a model yet."
                 )
-            models.append(state.results.models_by_run_id[dependency_id])
+            models.append(state.execution.models_by_run_id[dependency_id])
         return tuple(models)
 
     def _record_run_output(
@@ -220,4 +220,4 @@ class SimulationRunner:
     ) -> None:
         """Persist one completed run output back into the shared runtime state."""
 
-        state.results.models_by_run_id[run.id] = result.primary_model
+        state.execution.models_by_run_id[run.id] = result.primary_model

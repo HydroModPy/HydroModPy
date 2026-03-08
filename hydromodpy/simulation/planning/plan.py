@@ -84,7 +84,7 @@ class RunExecutionResult:
     """Payload returned by a solver adapter after one run completes.
 
     ``primary_model`` is the exact model produced by the run and is always
-    stored under ``state.results.models_by_run_id[run.id]`` by the runner.
+    stored under ``state.execution.models_by_run_id[run.id]`` by the runner.
     """
 
     primary_model: Any
