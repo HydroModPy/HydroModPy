@@ -266,6 +266,7 @@ from hydromodpy import calibration
 from hydromodpy import data_managers
 from hydromodpy import domain
 from hydromodpy import geographic
+from hydromodpy import geographic_synthethic
 
 _LAZY_IMPORTS = {
     # watershed classes
@@ -329,6 +330,7 @@ __all__ = [
     "data_managers",
     "domain",
     "geographic",
+    "geographic_synthethic",
     "log_manager",
     "__version__",
     *_LAZY_IMPORTS,
