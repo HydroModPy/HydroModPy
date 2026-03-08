@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import os
 import tomllib
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -60,7 +61,10 @@ from hydromodpy.data_managers import (
     DataManagersRuntimeLoader,
 )
 from hydromodpy.domain import Domain
-from hydromodpy.domain.structure_binders import apply_geology_to_domain
+from hydromodpy.domain.structure_binders import (
+    apply_catchment_zones_to_domain,
+    apply_geology_to_domain,
+)
 from hydromodpy.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
@@ -226,6 +230,17 @@ def _build_synthetic_csv_series(
     return recharge, runoff
 
 
+def _as_timestamp(value: object, *, name: str) -> pd.Timestamp:
+    """Parse one timestamp-like value and validate it."""
+    try:
+        ts = pd.Timestamp(value)
+    except Exception as exc:
+        raise ValueError(f"{name} must be a valid datetime value.") from exc
+    if pd.isna(ts):
+        raise ValueError(f"{name} must be a valid datetime value.")
+    return ts
+
+
 class HydroModPyLauncher:
     """High-level orchestration layer between configuration and execution.
 
@@ -272,6 +287,8 @@ class HydroModPyLauncher:
         if out_path_env := os.environ.get("HYDROMODPY_OUT_PATH"):
             self.cfg.workspace.out_dir_path = Path(out_path_env)
 
+        self._apply_simulation_time_window_to_tgrids()
+
         with self.config_path.open("rb") as fh:
             raw_toml = tomllib.load(fh)
 
@@ -298,6 +315,124 @@ class HydroModPyLauncher:
         self.run_state.data_plan = data_plan
         self.process_context_factory = ProcessContextFactory()
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
+
+    def _get_simulation_time_window(self) -> tuple[pd.Timestamp, pd.Timestamp, str] | None:
+        """Return canonical (start, end, policy) from `[simulation.time]` when configured."""
+        simulation_cfg = getattr(self.cfg, "simulation", None)
+        time_cfg = getattr(simulation_cfg, "time", None) if simulation_cfg is not None else None
+        if time_cfg is None:
+            return None
+        start = _as_timestamp(time_cfg.start_datetime, name="simulation.time.start_datetime")
+        end = _as_timestamp(time_cfg.end_datetime, name="simulation.time.end_datetime")
+        if end <= start:
+            raise ValueError("simulation.time.end_datetime must be greater than start_datetime.")
+        policy = str(getattr(time_cfg, "coverage_policy", "error")).strip().lower()
+        if policy not in {"error", "warn", "ignore"}:
+            raise ValueError("simulation.time.coverage_policy must be one of: error, warn, ignore.")
+        return start, end, policy
+
+    def _apply_simulation_time_window_to_tgrids(self) -> None:
+        """Propagate canonical simulation window to solver tgrid sections."""
+        window = self._get_simulation_time_window()
+        if window is None:
+            return
+        start, end, _ = window
+        for solver_section_name in ("modflownwt", "modflow6"):
+            solver_cfg = getattr(self.cfg, solver_section_name, None)
+            tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
+            if tgrid_cfg is None:
+                continue
+            tgrid_cfg.start_datetime = start.to_pydatetime()
+            tgrid_cfg.end_datetime = end.to_pydatetime()
+
+    @staticmethod
+    def _handle_recharge_coverage_violation(policy: str, message: str) -> None:
+        if policy == "ignore":
+            return
+        if policy == "warn":
+            warnings.warn(message, stacklevel=2)
+            return
+        raise ValueError(message)
+
+    def _validate_recharge_coverage(self, recharge: object) -> None:
+        """Check that recharge covers the configured simulation window."""
+        window = self._get_simulation_time_window()
+        if window is None:
+            return
+        start, end, policy = window
+        if policy == "ignore":
+            return
+
+        if recharge is None:
+            self._handle_recharge_coverage_violation(
+                policy,
+                "Recharge coverage check failed: recharge data is missing.",
+            )
+            return
+
+        if isinstance(recharge, pd.Series):
+            series = recharge.copy()
+        elif isinstance(recharge, pd.DataFrame):
+            if recharge.empty:
+                self._handle_recharge_coverage_violation(
+                    policy,
+                    "Recharge coverage check failed: recharge DataFrame is empty.",
+                )
+                return
+            series = recharge.iloc[:, 0].copy()
+        else:
+            # Scalar/mapping recharge cannot be validated against a datetime window.
+            self._handle_recharge_coverage_violation(
+                policy,
+                "Recharge coverage check requires a datetime-indexed Series/DataFrame "
+                f"for window [{start}, {end}], got {type(recharge).__name__}.",
+            )
+            return
+
+        if not isinstance(series.index, pd.DatetimeIndex):
+            try:
+                series.index = pd.to_datetime(series.index)
+            except Exception:
+                self._handle_recharge_coverage_violation(
+                    policy,
+                    "Recharge coverage check failed: recharge index is not datetime-like.",
+                )
+                return
+
+        series = series.sort_index()
+        if series.empty:
+            self._handle_recharge_coverage_violation(
+                policy,
+                "Recharge coverage check failed: recharge series is empty.",
+            )
+            return
+
+        series_start = pd.Timestamp(series.index.min())
+        series_end = pd.Timestamp(series.index.max())
+        if series_start > start or series_end < end:
+            self._handle_recharge_coverage_violation(
+                policy,
+                "Recharge coverage check failed: recharge range "
+                f"[{series_start}, {series_end}] does not fully cover "
+                f"simulation window [{start}, {end}].",
+            )
+            return
+
+        window_values = series.loc[(series.index >= start) & (series.index <= end)]
+        if window_values.empty:
+            self._handle_recharge_coverage_violation(
+                policy,
+                "Recharge coverage check failed: no recharge values inside simulation window "
+                f"[{start}, {end}].",
+            )
+            return
+
+        if window_values.isna().any():
+            self._handle_recharge_coverage_violation(
+                policy,
+                "Recharge coverage check failed: recharge contains NaN values within "
+                f"simulation window [{start}, {end}].",
+            )
 
     @staticmethod
     def _log_data_plan(data_plan: DataLoadPlan) -> None:
@@ -389,9 +524,25 @@ class HydroModPyLauncher:
 
         setup_state.workspace = hmp.Workspace(config=cfg.workspace)
         setup_state.geographic = hmp.Geographic(cfg.geographic, setup_state.workspace)
-        surface_topo = setup_state.geographic.get_domain_surface_topo()
+        setup_state.domain_geographic = setup_state.geographic.get_domain_geographic_context()
+        surface_topo = setup_state.domain_geographic.surface_topo
 
-        setup_state.domain = Domain(config=cfg.domain, surface_topo=surface_topo)
+        domain_cfg = cfg.domain
+        zone_ids = getattr(domain_cfg, "zone_ids", None)
+        if isinstance(zone_ids, list):
+            normalized_zone_ids = {str(item).strip().lower() for item in zone_ids}
+            if "catchment" not in normalized_zone_ids:
+                if hasattr(domain_cfg, "model_copy"):
+                    domain_cfg = domain_cfg.model_copy(deep=True)
+                    domain_cfg.zone_ids.append("catchment")
+                else:
+                    zone_ids.append("catchment")
+
+        setup_state.domain = Domain(config=domain_cfg, surface_topo=surface_topo)
+        apply_catchment_zones_to_domain(
+            domain=setup_state.domain,
+            geographic=setup_state.domain_geographic,
+        )
 
         setup_state.settings = Settings()
         # Use [simulation].name as the default model/folder base name.
@@ -485,6 +636,7 @@ class HydroModPyLauncher:
                 time_step=time_step,
                 sim_state=sim_state,
             )
+            self._validate_recharge_coverage(climatic.recharge)
             return
 
         if mode == "synthetic_generated":
@@ -499,6 +651,7 @@ class HydroModPyLauncher:
             )
 
         sim_state = run_state.setup.flow.flow_regime
+        self._validate_recharge_coverage(recharge)
         climatic.update_recharge(recharge, sim_state=sim_state)
         climatic.update_runoff(runoff, sim_state=sim_state)
 

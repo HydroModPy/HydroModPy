@@ -67,7 +67,7 @@ import hydromodpy as hmp
 from hydromodpy import watershed_root_legacy
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed import Driasclimat, Driaseau, \
+from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Transport
 from hydromodpy.data_managers.hydrometry.config import HydrometryConfig

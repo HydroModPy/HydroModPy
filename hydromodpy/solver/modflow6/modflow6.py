@@ -14,7 +14,7 @@ import numpy as np
 from flopy.utils import postprocessing as pp
 
 from hydromodpy.domain.surface import Surface
-from hydromodpy.modeling import masstransfer
+from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow_nwt.modflow import (
 	ModflowPostprocessOptions,
@@ -28,7 +28,7 @@ from hydromodpy.solver.modflow6.modflow6_config import (
 from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
 	resolve_flow_property_arrays,
 )
-from hydromodpy.solver.transport_common.runtime_arrays import (
+from hydromodpy.solver.modflow_common.runtime_arrays import (
 	build_concentration_runtime_overrides,
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder

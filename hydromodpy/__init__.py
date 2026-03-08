@@ -261,14 +261,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depends on local env
 
 # Import submodules for convenience
 from hydromodpy import watershed_legacy
-from hydromodpy import modeling
 from hydromodpy import tools
-# pyhelp is optional in lightweight environments (requires h5py stack).
-try:
-    from hydromodpy import pyhelp
-except ModuleNotFoundError as exc:  # pragma: no cover - depends on local env
-    _bootstrap_logger.warning("pyhelp import skipped: %s", exc)
-    pyhelp = None  # type: ignore[assignment]
 from hydromodpy import calibration
 from hydromodpy import data_managers
 from hydromodpy import domain
@@ -295,13 +288,30 @@ _LAZY_IMPORTS = {
     "WorkspaceConfig": "hydromodpy.simulation.workspace",
     "GeographicConfig": "hydromodpy.geographic.geographic_config",
     # modeling
-    "Modflow": "hydromodpy.solver.modflow",
+    "Modflow": "hydromodpy.solver.modflow_nwt",
     "Modpath": "hydromodpy.solver.modflow_nwt",
     "Mt3dms": "hydromodpy.solver.modflow_nwt",
 }
 
 
+def _load_pyhelp_module():
+    """Lazy-load optional pyhelp module."""
+    try:
+        module = importlib.import_module("hydromodpy.pyhelp")
+    except ModuleNotFoundError as exc:
+        if getattr(exc, "name", None) == "h5py":
+            raise ModuleNotFoundError(
+                "hydromodpy.pyhelp requires optional dependency 'h5py'. "
+                "Install it to enable PyHELP workflows."
+            ) from exc
+        raise
+    globals()["pyhelp"] = module
+    return module
+
+
 def __getattr__(name):
+    if name == "pyhelp":
+        return _load_pyhelp_module()
     if name in _LAZY_IMPORTS:
         module = importlib.import_module(_LAZY_IMPORTS[name])
         attr = getattr(module, name)
@@ -313,7 +323,6 @@ def __getattr__(name):
 __all__ = [
     "Watershed",
     "watershed_legacy",
-    "modeling",
     "tools",
     "pyhelp",
     "calibration",

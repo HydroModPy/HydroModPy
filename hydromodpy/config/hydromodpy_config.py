@@ -225,12 +225,6 @@ class HydroModPyConfig(BaseModel):
 
         return cls(**parsed_sections)
 
-    @property
-    def modflow(self) -> ModflowConfig:
-        """Backward-compatible alias. Prefer `modflownwt`."""
-        return self.modflownwt
-
-
 def _is_path_field(field_info: FieldInfo) -> bool:
     """
     Return True if the field is typed as ``Path`` or ``Optional[Path]``.

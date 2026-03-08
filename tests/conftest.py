@@ -1,14 +1,7 @@
 """Shared pytest configuration for the HydroModPy test suite."""
 
 from pathlib import Path
-
 import pytest
-
-_ALLOWED_REGRESSION_FILES = {
-    "test_example12_npy_regression.py",
-    "test_launcher_simulation_regression.py",
-    "test_launcher_data_overview_regression.py",
-}
 
 
 def pytest_addoption(parser):
@@ -28,25 +21,22 @@ def update_goldens(request):
 
 
 def pytest_collection_modifyitems(config, items):
-    """Keep only selected non-regression scenarios in tests/regression."""
-    selected = []
-    deselected = []
+    """Assign default regression tier markers for selected regression tests."""
 
     for item in items:
         item_path = Path(str(getattr(item, "fspath", item.path)))
         is_regression_file = "regression" in item_path.parts
         is_regression_test = "regression" in item.keywords
 
-        if is_regression_file and is_regression_test:
-            if item_path.name not in _ALLOWED_REGRESSION_FILES:
-                deselected.append(item)
-                continue
+        if not is_regression_file or not is_regression_test:
+            continue
 
-        selected.append(item)
-
-    if deselected:
-        config.hook.pytest_deselected(items=deselected)
-        items[:] = selected
+        if "normal" in item.keywords or "extensive" in item.keywords:
+            continue
+        if "extensive" in item_path.parts:
+            item.add_marker(pytest.mark.extensive)
+        else:
+            item.add_marker(pytest.mark.normal)
 
 
 def pytest_ignore_collect(collection_path, config):
@@ -54,10 +44,5 @@ def pytest_ignore_collect(collection_path, config):
     path = Path(str(collection_path))
     if path.suffix != ".py":
         return False
-
-    is_regression_file = len(path.parts) >= 2 and path.parts[-2] == "regression"
-    is_test_file = path.name.startswith("test_")
-    if is_regression_file and is_test_file:
-        return path.name not in _ALLOWED_REGRESSION_FILES
     return False
 

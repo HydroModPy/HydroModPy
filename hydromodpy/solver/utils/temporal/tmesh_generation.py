@@ -68,6 +68,16 @@ def _as_positive_float(name: str, value: Any) -> float:
     return fvalue
 
 
+def _as_timestamp(name: str, value: Any) -> pd.Timestamp:
+    try:
+        ts = pd.Timestamp(value)
+    except Exception as exc:
+        raise ValueError(f"{name} must be a valid datetime value.") from exc
+    if pd.isna(ts):
+        raise ValueError(f"{name} must be a valid datetime value.")
+    return ts
+
+
 def _validate_config(config: TMeshConfig) -> None:
     if str(config.itmuni).strip() == "":
         raise ValueError("itmuni cannot be empty.")
@@ -89,6 +99,11 @@ def _validate_config(config: TMeshConfig) -> None:
     if config.genmtd == "from_chron":
         if config.chron_path is None or str(config.chron_path).strip() == "":
             raise ValueError("chron_path is required for genmtd='from_chron'.")
+    if config.start_datetime is not None and config.end_datetime is not None:
+        start = _as_timestamp("start_datetime", config.start_datetime)
+        end = _as_timestamp("end_datetime", config.end_datetime)
+        if end <= start:
+            raise ValueError("end_datetime must be strictly greater than start_datetime.")
 
 
 def _read_chron_dates(config: TMeshConfig) -> pd.Series:
@@ -126,13 +141,56 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
 
     if config.genmtd == "synthetic_regular":
         start_datetime = (
-            pd.to_datetime(0) if config.start_datetime is None else config.start_datetime
+            pd.to_datetime(0)
+            if config.start_datetime is None
+            else _as_timestamp("start_datetime", config.start_datetime)
         )
         nper = _as_positive_int("nper", config.nper)
         lenper = _as_positive_float("lenper", config.lenper)
         deltat = pd.to_timedelta(np.full(nper, lenper, dtype=float), unit=config.itmuni)
+        if config.end_datetime is not None:
+            end_datetime = _as_timestamp("end_datetime", config.end_datetime)
+            expected = pd.to_timedelta(np.sum(deltat))
+            actual = end_datetime - start_datetime
+            if actual <= pd.Timedelta(0):
+                raise ValueError("end_datetime must be strictly greater than start_datetime.")
+            if not np.isclose(
+                actual.total_seconds(),
+                expected.total_seconds(),
+                rtol=0.0,
+                atol=1e-6,
+            ):
+                raise ValueError(
+                    "synthetic_regular window mismatch: end_datetime - start_datetime "
+                    "must equal nper * lenper."
+                )
     elif config.genmtd == "from_chron":
-        dates = _read_chron_dates(config)
+        dates = _read_chron_dates(config).reset_index(drop=True)
+        if config.start_datetime is not None or config.end_datetime is not None:
+            start_bound = (
+                dates.iloc[0]
+                if config.start_datetime is None
+                else _as_timestamp("start_datetime", config.start_datetime)
+            )
+            end_bound = (
+                dates.iloc[-1]
+                if config.end_datetime is None
+                else _as_timestamp("end_datetime", config.end_datetime)
+            )
+            if end_bound <= start_bound:
+                raise ValueError("end_datetime must be strictly greater than start_datetime.")
+            if start_bound < dates.iloc[0] or end_bound > dates.iloc[-1]:
+                raise ValueError(
+                    "Chronicle does not cover requested [start_datetime, end_datetime] window."
+                )
+            dates = dates[(dates >= start_bound) & (dates <= end_bound)].reset_index(drop=True)
+            if len(dates) < 2:
+                raise ValueError("Requested chronicle window must contain at least two timestamps.")
+            if dates.iloc[0] != start_bound or dates.iloc[-1] != end_bound:
+                raise ValueError(
+                    "start_datetime and end_datetime must exactly match chronicle timestamps "
+                    "when genmtd='from_chron'."
+                )
         start_datetime = dates.iloc[0]
         deltat = dates.iloc[1:].reset_index(drop=True) - dates.iloc[:-1].reset_index(
             drop=True

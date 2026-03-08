@@ -6,13 +6,13 @@ from hydromodpy.simulation.planning import (
     SimulationPlan,
     SimulationPlanner,
     SimulationProcessConfig,
+    SimulationTimeConfig,
 )
 from hydromodpy.simulation.runtime import ProcessContextFactory
 from hydromodpy.simulation.state import (
     ExecutionRegistry,
     LauncherRunState,
     LoadedDataContext,
-    RunDataState,
     RunResult,
     RunState,
     SetupContext,
@@ -25,7 +25,6 @@ __all__ = [
     "LoadedDataContext",
     "ProcessRun",
     "ProcessContextFactory",
-    "RunDataState",
     "RunResult",
     "RunState",
     "SetupContext",
@@ -33,6 +32,7 @@ __all__ = [
     "SimulationPlan",
     "SimulationPlanner",
     "SimulationProcessConfig",
+    "SimulationTimeConfig",
     "Workspace",
     "WorkspaceConfig",
 ]

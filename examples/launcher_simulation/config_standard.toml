@@ -186,6 +186,26 @@ fields_obs = ["FID"]
 # Intermittency observation filename.
 file_name = "regional onde stations.shp"
 
+[data.oceanic]
+# Optional folder containing local oceanic support files used during extraction.
+# Relative paths are resolved from this TOML file location.
+# oceanic_path = "data/"
+
+# Mean sea-level source policy:
+# "local" = read CSV from msl_local_csv, "web" = SHOM API, "auto" = local then web.
+msl_source = "local"
+# Path to a pre-downloaded SHOM CSV used in "local" or "auto" mode.
+msl_local_csv = "data/oceanic/sealevel_shom_152_20030101_20030130_H.csv"
+# If true, derive msl_start_date/msl_end_date from [simulation.time].
+# If [simulation.time] is missing, fallback to explicit dates below.
+msl_use_simulation_time_window = false
+# Inclusive start date (YYYY-MM-DD) for mean sea-level retrieval.
+msl_start_date = "2003-01-01"
+# Inclusive end date (YYYY-MM-DD) for mean sea-level retrieval.
+msl_end_date = "2003-01-30"
+# Fallback sea-level value used when retrieval fails (SI unit: meter).
+msl_default = 0.0
+
 
 # ----------------------------------------------------------------------
 # Hydrometry configuration.
@@ -894,7 +914,7 @@ enabled = true
 # Show interactive figures/windows when rendering is enabled.
 show = true
 # Save figures/animations to disk when rendering is enabled.
-save = false
+save = true
 # Output resolution used when saving raster figures.
 dpi = 300
 # If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.

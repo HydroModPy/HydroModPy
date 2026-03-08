@@ -21,6 +21,7 @@ class GeographicConfig(BaseModel):
     ] = Field(
         description=(
             "Catchment definition mode. "
+            "'dem' = model domain defined directly from a DEM raster (dem_init_path required). "
             "'txt' = model domain from an XYZ text file (dem_init_path, cell_size required). "
             "'from_outlet_coord' = watershed from outlet coordinates "
             "(dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required). "
