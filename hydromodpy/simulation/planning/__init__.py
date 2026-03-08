@@ -5,11 +5,18 @@ from hydromodpy.simulation.planning.config import (
     SimulationProcessConfig,
     SimulationTimeConfig,
 )
-from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
+from hydromodpy.simulation.planning.plan import (
+    ProcessRun,
+    RunContext,
+    RunExecutionResult,
+    SimulationPlan,
+)
 from hydromodpy.simulation.planning.planner import SimulationPlanner
 
 __all__ = [
     "ProcessRun",
+    "RunContext",
+    "RunExecutionResult",
     "SimulationConfig",
     "SimulationPlan",
     "SimulationPlanner",
