@@ -26,7 +26,7 @@ from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.hydrography import Hydrography
-from hydromodpy.data_managers.piezometry.piezometry import Piezometry
+from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
 
@@ -102,7 +102,7 @@ class VTK():
     """
     
     def __init__(self, initializing:Workspace, 
-                 geographic:Geographic, hydrography:Hydrography, modelname = None, piezometry:Piezometry = None):
+                 geographic:Geographic, hydrography:Hydrography, modelname = None, piezometry: list[PointRecord] | None = None):
         
         if modelname != None:
             modelfolder= os.path.join(initializing.simulations_folder, modelname)
@@ -644,34 +644,46 @@ class VTK():
             textoVtk.write('\n')
         textoVtk.close()
 
-    def piezometers(self,save_file,piezometry):
-        piezos = piezometry.codes_bss
-        textoVtk = open(os.path.join(save_file,'piezometers.vtk'), 'w')
-        # add header
+    def piezometers(self, save_file, piezometry: list[PointRecord]):
+        # Filter records that have a location with altitude/depth metadata
+        entries = []
+        for r in piezometry:
+            if r.location is None:
+                continue
+            alt = r.location.metadata.get("altitude")
+            depth = r.location.metadata.get("depth_m")
+            if alt is None or depth is None:
+                continue
+            entries.append((r.location.x, r.location.y, float(alt), float(depth)))
+
+        if not entries:
+            return
+
+        n_piezos = len(entries)
+        n_points = n_piezos * 2  # two points per piezometer (top + bottom)
+        n_lines_count = n_piezos
+        n_line_indices = n_piezos * 3  # each line: "2 idx1 idx2"
+
+        textoVtk = open(os.path.join(save_file, 'piezometers.vtk'), 'w')
         textoVtk.write('# vtk DataFile Version 2.0\n')
         textoVtk.write('Particles Pathlines Modpath\n')
         textoVtk.write('ASCII\n')
         textoVtk.write('DATASET POLYDATA\n')
-        textoVtk.write('POINTS ' + '18' + ' float\n')
-        for i in range(0, len(piezos)):
-            x=piezometry.x_coord[i]
-            y=piezometry.y_coord[i]
-            z=piezometry.elevation_well[i]
-            d=piezometry.depth_well[i]
+        textoVtk.write('POINTS ' + str(n_points) + ' float\n')
+        for x, y, z, d in entries:
             textoVtk.write(str(x) + ' ' + str(y) + ' ' + str(z) + '\n')
             textoVtk.write(str(x) + ' ' + str(y) + ' ' + str(d) + '\n')
         textoVtk.write('\n')
-        textoVtk.write('LINES ' + '9' + ' ' + '27' + '\n')
+        textoVtk.write('LINES ' + str(n_lines_count) + ' ' + str(n_line_indices) + '\n')
         nb = 0
-        for i in range(0, len(piezos)):
+        for _ in range(n_piezos):
             textoVtk.write('2' + ' ')
             textoVtk.write(str(nb) + ' ')
             nb = nb + 1
             textoVtk.write(str(nb) + ' ')
             nb = nb + 1
             textoVtk.write('\n')
-        
-        textoVtk.write('POINT_DATA ' + '18' + '\n')
+        textoVtk.write('POINT_DATA ' + str(n_points) + '\n')
         textoVtk.close()
     
     def watertable(self,modelname, modelfolder,save_file, geographic):
