@@ -33,6 +33,7 @@ from hydromodpy.solver import Solver
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from .diagnostics import check_water_flow_connectivity
 from .discretization import (
+    TemporalDiscretizationResult,
     build_spatial_discretization,
     build_temporal_discretization,
     resolve_domain_surfaces,
@@ -183,6 +184,7 @@ class Modflow(Solver):
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
+        self.time_grid = getattr(options, "time_grid", None)
         self.check_grid = bool(options.check_grid)
         self._select_active_dem(box=bool(options.box))
 
@@ -223,7 +225,8 @@ class Modflow(Solver):
         if self.domain is None:
             raise ValueError("pre_processing requires a configured Domain object.")
 
-        if self.tgrid_config is None:
+        launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
+        if self.tgrid_config is None and launcher_time_grid is None:
             raise ValueError(
                 "Missing [modflownwt.tgrid] configuration: a typed TMeshConfigModel "
                 "is required to generate temporal discretization."
@@ -271,11 +274,36 @@ class Modflow(Solver):
 
     def _build_temporal_discretization(self) -> dict[str, object]:
         """Build temporal discretization arrays from tgrid configuration."""
-        result = build_temporal_discretization(
-            tgrid_config=self.tgrid_config,
-            flow_regime=self.flow_regime,
-            default_itmuni=self.dis_itmuni,
-        )
+        launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
+        if launcher_time_grid is not None:
+            perlen = np.asarray(list(launcher_time_grid.period_lengths_days), dtype=float)
+            nper = int(perlen.size)
+            if nper == 0:
+                raise ValueError("simulation.time grid produced an empty perlen vector.")
+
+            nstp = np.ones((nper,), dtype=int)
+            if str(self.flow_regime).strip().lower() == "steady":
+                steady = np.ones((nper,), dtype=bool)
+            else:
+                steady = np.zeros((nper,), dtype=bool)
+                firstpersteady = bool(getattr(self.tgrid_config, "firstpersteady", True))
+                if firstpersteady:
+                    steady[0] = True
+
+            result = TemporalDiscretizationResult(
+                itmuni=4,  # days
+                nper=nper,
+                perlen=perlen,
+                nstp=nstp,
+                steady=steady,
+                start_datetime=launcher_time_grid.window.start.to_pydatetime(),
+            )
+        else:
+            result = build_temporal_discretization(
+                tgrid_config=self.tgrid_config,
+                flow_regime=self.flow_regime,
+                default_itmuni=self.dis_itmuni,
+            )
 
         self.dis_itmuni = result.itmuni
         self.nper = result.nper

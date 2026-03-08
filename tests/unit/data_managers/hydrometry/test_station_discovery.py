@@ -45,11 +45,11 @@ def test_station_set_mask_mode_delegates_to_discovery(monkeypatch: pytest.Monkey
         }
     ).to_csv(tmp_path / "J111111101.csv", index=False)
 
-    def _fake_select(mask_path, *, source_mode, local_data_dir, fallback_search_radius_km=10.0):
+    def _fake_select(mask_path, *, source_mode, local_data_dir, fallback_search_radius_m=10000.0):
         assert mask_path == "mask.shp"
         assert source_mode == "local"
         assert local_data_dir == tmp_path
-        assert fallback_search_radius_km == 10.0
+        assert fallback_search_radius_m == 10000.0
         return ["J111111101"], ["J11111110"]
 
     monkeypatch.setattr(

@@ -47,11 +47,11 @@ def test_piezometer_set_mask_mode_delegates_to_discovery(
         }
     ).to_csv(tmp_path / "BSS0000001.csv", index=False)
 
-    def _fake_select(mask_path, *, source_mode, local_data_dir, fallback_search_radius_km=25.0):
+    def _fake_select(mask_path, *, source_mode, local_data_dir, fallback_search_radius_m=25000.0):
         assert mask_path == "mask.shp"
         assert source_mode == "local"
         assert local_data_dir == tmp_path
-        assert fallback_search_radius_km == 25.0
+        assert fallback_search_radius_m == 25000.0
         return ["BSS0000001"]
 
     monkeypatch.setattr(

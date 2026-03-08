@@ -1,9 +1,11 @@
 """Shared simulation time-window resolution and validation helpers."""
 
 from hydromodpy.simulation.time.window import (
+    ResolvedSimulationTimeGrid,
     ResolvedSimulationTimeWindow,
     apply_explicit_time_window_to_tgrids,
     build_simulation_time_boundaries,
+    resolve_simulation_time_grid,
     resolve_simulation_time_window,
     resolve_simulation_time_window_dates,
     simulation_time_pandas_frequency,
@@ -11,9 +13,11 @@ from hydromodpy.simulation.time.window import (
 )
 
 __all__ = [
+    "ResolvedSimulationTimeGrid",
     "ResolvedSimulationTimeWindow",
     "apply_explicit_time_window_to_tgrids",
     "build_simulation_time_boundaries",
+    "resolve_simulation_time_grid",
     "resolve_simulation_time_window",
     "resolve_simulation_time_window_dates",
     "simulation_time_pandas_frequency",

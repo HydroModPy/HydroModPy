@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.units import parse_length_to_m
 
 
 class GeographicConfig(BaseModel):
@@ -51,15 +52,22 @@ class GeographicConfig(BaseModel):
         default=None,
         description="Y coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.",
     )
-    snap_dist: Annotated[Optional[int], ParamLevel("user")] = Field(
+    snap_dist: Annotated[Optional[float | str], ParamLevel("user")] = Field(
         default=None,
-        gt=0,
-        description="Maximum snapping distance (m) to move the outlet to the nearest stream cell. Required for 'from_outlet_coord' mode.",
+        description=(
+            "Maximum snapping distance to move the outlet to the nearest stream cell. "
+            "Accepts SI-friendly values (for example 50, '50 m', '0.05 km'). "
+            "Required for 'from_outlet_coord' mode."
+        ),
     )
-    buff_area: Annotated[Optional[float], ParamLevel("user")] = Field(
+    buff_area: Annotated[Optional[str | float], ParamLevel("user")] = Field(
         default=None,
-        gt=0,
-        description="Buffer around the watershed polygon as a percentage of sqrt(area [km²]). Required for 'from_outlet_coord' and 'from_polyg_shp' modes.",
+        description=(
+            "Buffer around the watershed polygon. Numeric values keep legacy behavior "
+            "(percentage of sqrt(area [km^2])). String values are interpreted as explicit "
+            "distances (for example '500 m', '2 km'). Required for "
+            "'from_outlet_coord' and 'from_polyg_shp' modes."
+        ),
     )
     polyg_shp_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None,
@@ -81,6 +89,42 @@ class GeographicConfig(BaseModel):
         default=None,
         description="Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.",
     )
+
+    @field_validator("snap_dist", mode="before")
+    @classmethod
+    def _normalize_snap_dist(cls, value):
+        if value is None:
+            return None
+        snap_m = float(parse_length_to_m(value, default_unit="m", label="geographic.snap_dist"))
+        if snap_m <= 0.0:
+            raise ValueError("geographic.snap_dist must be > 0.")
+        return snap_m
+
+    @field_validator("buff_area", mode="before")
+    @classmethod
+    def _normalize_buff_area(cls, value):
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            token = value.strip()
+            if token == "":
+                raise ValueError("geographic.buff_area cannot be empty.")
+            if token.endswith("%"):
+                pct = float(token[:-1].strip())
+                if pct <= 0.0:
+                    raise ValueError("geographic.buff_area percent must be > 0.")
+                return pct
+            dist_m = float(parse_length_to_m(token, default_unit="m", label="geographic.buff_area"))
+            if dist_m <= 0.0:
+                raise ValueError("geographic.buff_area distance must be > 0.")
+            # Keep string-mode contract expected by catchment_domain.
+            return f"{dist_m}"
+
+        pct = float(value)
+        if pct <= 0.0:
+            raise ValueError("geographic.buff_area percent must be > 0.")
+        return pct
 
     @model_validator(mode="after")
     def _check_mode_requirements(self) -> "GeographicConfig":
@@ -143,3 +187,4 @@ class GeographicConfig(BaseModel):
                 )
 
         return self
+

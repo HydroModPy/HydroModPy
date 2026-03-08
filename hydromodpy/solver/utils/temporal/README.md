@@ -17,10 +17,8 @@ at the same level.
 
 1. Canonical window: `[simulation.time]`
 - Used by launcher-level orchestration and forcing coverage checks.
-- If `simulation.time.mode="explicit"`, the launcher copies
+- In launcher mode, this window is explicit and copied from
   `simulation.time.start_datetime/end_datetime` into both solver tgrids.
-- If `simulation.time.mode="from_modflow"`, the canonical window is read from
-  flow-solver tgrid bounds (`start_datetime/end_datetime`).
 
 2. Process regime: `[flow].flow_regime`
 - Authoritative for steady/transient behavior in launcher flows.

@@ -1,10 +1,20 @@
-"""Time-window resolution helpers shared across launchers and data loaders.
+"""Canonical simulation-time utilities for launcher workflows.
 
-This module centralizes the logic that decides where the canonical simulation
-time-window comes from:
+This module is intentionally a single authority for temporal behavior driven
+by ``[simulation.time]`` so launchers, data loaders, and solver builders do
+not reimplement similar logic with subtle differences.
 
-- explicit values declared in ``[simulation.time]``,
-- or flow-solver ``tgrid`` values when ``mode='from_modflow'``.
+Key conventions
+---------------
+- User input is an *inclusive* window: ``[start_datetime, end_datetime]``.
+- Internal period math is computed on *half-open* bounds:
+  ``[start_datetime, end_exclusive)``.
+- Stress-period lengths are exported in **days** for solver-facing ``lenper``.
+- Coverage checks can enforce one of three policies:
+  ``error`` / ``warn`` / ``ignore``.
+
+The functions below are pure helpers around these conventions, with explicit
+validation errors intended to be user-facing.
 """
 
 from __future__ import annotations
@@ -17,13 +27,19 @@ import pandas as pd
 
 
 _VALID_POLICIES = {"error", "warn", "ignore"}
-_VALID_MODES = {"explicit", "from_modflow"}
+_VALID_MODES = {"explicit"}
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
 
 
 @dataclass(frozen=True)
 class ResolvedSimulationTimeWindow:
-    """Canonical simulation window resolved at runtime."""
+    """Normalized runtime representation of ``[simulation.time]``.
+
+    Attributes are already validated and canonicalized:
+    - datetimes parsed as :class:`pandas.Timestamp`,
+    - step values normalized to positive integer + explicit unit token,
+    - policy constrained to ``error|warn|ignore``.
+    """
 
     start: pd.Timestamp
     end: pd.Timestamp
@@ -32,8 +48,35 @@ class ResolvedSimulationTimeWindow:
     coverage_policy: Literal["error", "warn", "ignore"]
 
     def to_date_bounds(self) -> tuple[str, str]:
-        """Return inclusive date bounds as ISO ``YYYY-MM-DD`` strings."""
+        """Return inclusive date bounds as ISO ``YYYY-MM-DD`` strings.
+
+        This helper is mainly used by data APIs that consume date-only bounds.
+        """
         return self.start.date().isoformat(), self.end.date().isoformat()
+
+
+@dataclass(frozen=True)
+class ResolvedSimulationTimeGrid:
+    """Canonical stress-period mesh derived from one resolved window."""
+
+    window: ResolvedSimulationTimeWindow
+    boundaries: tuple[pd.Timestamp, ...]
+    period_lengths_days: tuple[float, ...]
+
+    @property
+    def nper(self) -> int:
+        """Number of stress periods."""
+        return len(self.period_lengths_days)
+
+    @property
+    def period_starts(self) -> tuple[pd.Timestamp, ...]:
+        """Period start timestamps (inclusive)."""
+        return self.boundaries[:-1]
+
+    @property
+    def period_ends_exclusive(self) -> tuple[pd.Timestamp, ...]:
+        """Period end timestamps (exclusive)."""
+        return self.boundaries[1:]
 
 
 def _as_timestamp(value: Any, *, name: str) -> pd.Timestamp:
@@ -48,43 +91,33 @@ def _as_timestamp(value: Any, *, name: str) -> pd.Timestamp:
 
 
 def _simulation_time_config(cfg: Any) -> Any | None:
+    """Return ``cfg.simulation.time`` when available, else ``None``."""
     simulation_cfg = getattr(cfg, "simulation", None)
     return getattr(simulation_cfg, "time", None) if simulation_cfg is not None else None
 
 
-def _flow_solver_preference(cfg: Any) -> list[str]:
-    """Return preferred flow-solver order for time-window resolution."""
-    preferred: list[str] = []
-    simulation_cfg = getattr(cfg, "simulation", None)
-    process_list = getattr(simulation_cfg, "process", ()) if simulation_cfg is not None else ()
-    for process_cfg in process_list:
-        if str(getattr(process_cfg, "type", "")).strip().lower() != "flow":
-            continue
-        for solver_name in getattr(process_cfg, "solvers", ()) or ():
-            token = str(solver_name).strip().lower()
-            if token in {"modflownwt", "modflow6"} and token not in preferred:
-                preferred.append(token)
-    for fallback in ("modflownwt", "modflow6"):
-        if fallback not in preferred:
-            preferred.append(fallback)
-    return preferred
-
-
 def _normalize_policy(raw_policy: Any) -> Literal["error", "warn", "ignore"]:
+    """Normalize coverage-policy token and validate allowed values."""
     policy = str(raw_policy).strip().lower()
     if policy not in _VALID_POLICIES:
         raise ValueError("simulation.time.coverage_policy must be one of: error, warn, ignore.")
     return policy  # type: ignore[return-value]
 
 
-def _normalize_mode(raw_mode: Any) -> Literal["explicit", "from_modflow"]:
+def _normalize_mode(raw_mode: Any) -> Literal["explicit"]:
+    """Normalize launcher mode.
+
+    Launcher mode currently supports only ``explicit``. This guard keeps
+    behavior fail-fast if unsupported values leak from config migrations.
+    """
     mode = str(raw_mode).strip().lower()
     if mode not in _VALID_MODES:
-        raise ValueError("simulation.time.mode must be one of: explicit, from_modflow.")
+        raise ValueError("simulation.time.mode must be 'explicit' in launcher mode.")
     return mode  # type: ignore[return-value]
 
 
 def _normalize_step_value(raw_step_value: Any) -> int:
+    """Normalize and validate the time-step multiplier."""
     try:
         step_value = int(raw_step_value)
     except Exception as exc:
@@ -95,6 +128,7 @@ def _normalize_step_value(raw_step_value: Any) -> int:
 
 
 def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", "year"]:
+    """Normalize step-unit aliases to canonical tokens."""
     token = str(raw_step_unit).strip().lower()
     aliases = {
         "h": "hour",
@@ -115,6 +149,7 @@ def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", 
 
 
 def _time_step_offset(*, step_value: int, step_unit: str) -> pd.DateOffset | pd.Timedelta:
+    """Build a pandas offset from one canonical step specification."""
     if step_unit == "hour":
         return pd.to_timedelta(step_value, unit="h")
     if step_unit == "day":
@@ -131,6 +166,12 @@ def _inclusive_end_to_exclusive_end(
     *,
     step_unit: str,
 ) -> pd.Timestamp:
+    """Convert an inclusive end instant to the equivalent exclusive bound.
+
+    Hourly windows advance by one hour; all coarser units advance by one day.
+    This keeps date-level inclusive semantics intuitive for day/month/year
+    configurations.
+    """
     # Inclusive simulation windows are entered as dates/timestamps in TOML.
     # We convert to half-open bounds [start, end_exclusive) for period lengths.
     if step_unit == "hour":
@@ -139,6 +180,7 @@ def _inclusive_end_to_exclusive_end(
 
 
 def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Timestamp]:
+    """Build strictly increasing half-open boundaries ``[t0, ..., tN]``."""
     start = window.start
     end = window.end
     if end < start:
@@ -156,10 +198,12 @@ def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Time
     boundaries = [start]
     current = start
     while current < end_exclusive:
+        # Advancing by one canonical step guarantees deterministic boundaries.
         current = current + step_offset
         boundaries.append(current)
 
     if boundaries[-1] != end_exclusive:
+        # Reject partial trailing periods: periodization must exactly fit window.
         raise ValueError(
             "simulation.time window is not aligned with step_value/step_unit under "
             "inclusive end semantics. Ensure end_datetime falls exactly on a "
@@ -168,8 +212,10 @@ def _build_time_boundaries(window: ResolvedSimulationTimeWindow) -> list[pd.Time
     return boundaries
 
 
-def _period_lengths_in_days(window: ResolvedSimulationTimeWindow) -> list[float]:
-    boundaries = _build_time_boundaries(window)
+def _period_lengths_in_days_from_boundaries(
+    boundaries: list[pd.Timestamp],
+) -> list[float]:
+    """Convert boundary deltas to positive ``lenper`` values in days."""
     out: list[float] = []
     for idx in range(len(boundaries) - 1):
         delta = boundaries[idx + 1] - boundaries[idx]
@@ -180,6 +226,37 @@ def _period_lengths_in_days(window: ResolvedSimulationTimeWindow) -> list[float]
     if not out:
         raise ValueError("simulation.time resolved to an empty stress-period sequence.")
     return out
+
+
+def _period_lengths_in_days(window: ResolvedSimulationTimeWindow) -> list[float]:
+    """Convenience wrapper: window -> boundaries -> day-based period lengths."""
+    boundaries = _build_time_boundaries(window)
+    return _period_lengths_in_days_from_boundaries(boundaries)
+
+
+def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
+    """Resolve canonical stress periods from ``simulation.time``.
+
+    Returns ``None`` when no ``simulation.time`` section exists.
+    """
+    time_cfg = _simulation_time_config(cfg)
+    if time_cfg is None:
+        return None
+    mode = _normalize_mode(getattr(time_cfg, "mode", "explicit"))
+    if mode != "explicit":
+        return None
+
+    window = resolve_simulation_time_window(cfg)
+    if window is None:
+        return None
+    # Build explicit period boundaries first, then derive day-based lenper.
+    boundaries = _build_time_boundaries(window)
+    perlen_days = _period_lengths_in_days_from_boundaries(boundaries)
+    return ResolvedSimulationTimeGrid(
+        window=window,
+        boundaries=tuple(boundaries),
+        period_lengths_days=tuple(perlen_days),
+    )
 
 
 def build_simulation_time_boundaries(
@@ -194,7 +271,11 @@ def simulation_time_pandas_frequency(
     *,
     anchor: Literal["start", "end"] = "start",
 ) -> str:
-    """Return the canonical pandas frequency alias for one simulation window."""
+    """Return a pandas-compatible frequency alias for one simulation window.
+
+    For month/year units, ``anchor`` selects period starts (``MS``/``YS``) or
+    period ends (``ME``/``YE``).
+    """
     if anchor not in {"start", "end"}:
         raise ValueError("anchor must be 'start' or 'end'.")
     step = int(window.step_value)
@@ -209,33 +290,12 @@ def simulation_time_pandas_frequency(
     raise ValueError(f"Unsupported simulation.time.step_unit={window.step_unit!r}.")
 
 
-def _resolve_window_from_modflow_tgrids(cfg: Any) -> tuple[pd.Timestamp, pd.Timestamp] | None:
-    for solver_name in _flow_solver_preference(cfg):
-        solver_cfg = getattr(cfg, solver_name, None)
-        tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
-        if tgrid_cfg is None:
-            continue
-        raw_start = getattr(tgrid_cfg, "start_datetime", None)
-        raw_end = getattr(tgrid_cfg, "end_datetime", None)
-        if raw_start is None and raw_end is None:
-            continue
-        if raw_start is None or raw_end is None:
-            raise ValueError(
-                "simulation.time.mode='from_modflow' requires both "
-                f"{solver_name}.tgrid.start_datetime and {solver_name}.tgrid.end_datetime."
-            )
-        start = _as_timestamp(raw_start, name=f"{solver_name}.tgrid.start_datetime")
-        end = _as_timestamp(raw_end, name=f"{solver_name}.tgrid.end_datetime")
-        if end < start:
-            raise ValueError(
-                f"{solver_name}.tgrid.end_datetime must be greater than or equal to start_datetime."
-            )
-        return start, end
-    return None
-
-
 def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | None:
-    """Resolve canonical simulation window from one launcher config object."""
+    """Resolve and validate the canonical simulation window.
+
+    This function performs normalization only; it does not mutate solver tgrid
+    sections. Use :func:`apply_explicit_time_window_to_tgrids` for propagation.
+    """
     time_cfg = _simulation_time_config(cfg)
     if time_cfg is None:
         return None
@@ -245,27 +305,10 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
     step_value = _normalize_step_value(getattr(time_cfg, "step_value", 1))
     step_unit = _normalize_step_unit(getattr(time_cfg, "step_unit", "day"))
 
-    if mode == "explicit":
-        start = _as_timestamp(getattr(time_cfg, "start_datetime", None), name="simulation.time.start_datetime")
-        end = _as_timestamp(getattr(time_cfg, "end_datetime", None), name="simulation.time.end_datetime")
-        if end < start:
-            raise ValueError("simulation.time.end_datetime must be greater than or equal to start_datetime.")
-        return ResolvedSimulationTimeWindow(
-            start=start,
-            end=end,
-            step_value=step_value,
-            step_unit=step_unit,
-            coverage_policy=coverage_policy,
-        )
-
-    # mode == "from_modflow"
-    window = _resolve_window_from_modflow_tgrids(cfg)
-    if window is None:
-        raise ValueError(
-            "simulation.time.mode='from_modflow' requires at least one flow solver "
-            "tgrid window with both start_datetime and end_datetime."
-        )
-    start, end = window
+    start = _as_timestamp(getattr(time_cfg, "start_datetime", None), name="simulation.time.start_datetime")
+    end = _as_timestamp(getattr(time_cfg, "end_datetime", None), name="simulation.time.end_datetime")
+    if end < start:
+        raise ValueError("simulation.time.end_datetime must be greater than or equal to start_datetime.")
     return ResolvedSimulationTimeWindow(
         start=start,
         end=end,
@@ -276,27 +319,35 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
 
 
 def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWindow | None:
-    """Apply explicit simulation window to flow solver tgrid sections."""
+    """Apply resolved ``simulation.time`` to flow-solver ``tgrid`` sections.
+
+    The launcher keeps temporal authority in ``[simulation.time]`` and writes
+    synchronized values into ``modflownwt.tgrid`` and ``modflow6.tgrid`` when
+    those sections are present.
+    """
     time_cfg = _simulation_time_config(cfg)
     if time_cfg is None:
         return None
-    mode = _normalize_mode(getattr(time_cfg, "mode", "explicit"))
+    _normalize_mode(getattr(time_cfg, "mode", "explicit"))
     window = resolve_simulation_time_window(cfg)
     if window is None:
         return None
-    if mode != "explicit":
-        return window
 
-    perlen_days = _period_lengths_in_days(window)
-    nper = len(perlen_days)
+    grid = resolve_simulation_time_grid(cfg)
+    if grid is None:
+        return window
+    perlen_days = list(grid.period_lengths_days)
+    nper = grid.nper
 
     for solver_section_name in ("modflownwt", "modflow6"):
         solver_cfg = getattr(cfg, solver_section_name, None)
         tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
         if tgrid_cfg is None:
             continue
+        # Persist the same canonical window in each active flow solver section.
         tgrid_cfg.start_datetime = window.start.to_pydatetime()
         tgrid_cfg.end_datetime = window.end.to_pydatetime()
+        # Launcher temporal mesh is materialized in days for lenper consistency.
         tgrid_cfg.itmuni = "d"
         tgrid_cfg.genmtd = "synthetic_regular"
         tgrid_cfg.nper = nper
@@ -326,6 +377,7 @@ def resolve_simulation_time_window_dates(
 
 
 def _handle_recharge_coverage_violation(policy: str, message: str) -> None:
+    """Apply configured coverage policy to one validation failure message."""
     if policy == "ignore":
         return
     if policy == "warn":
@@ -338,7 +390,16 @@ def validate_recharge_coverage(
     recharge: object,
     window: ResolvedSimulationTimeWindow | None,
 ) -> None:
-    """Validate that recharge fully covers the canonical simulation window."""
+    """Validate that recharge covers the canonical simulation window.
+
+    Accepted input types:
+    - ``pandas.Series`` (preferred),
+    - ``pandas.DataFrame`` (first column is used).
+
+    Validation modes:
+    - if recharge index exactly matches period starts, use values as-is,
+    - otherwise enforce continuous coverage over the inclusive window bounds.
+    """
     if window is None:
         return
     start = window.start
@@ -390,6 +451,7 @@ def validate_recharge_coverage(
         )
         return
 
+    # Exact period-start alignment is the strongest/cleanest contract.
     boundaries = _build_time_boundaries(window)
     period_starts = pd.DatetimeIndex(boundaries[:-1])
     index = pd.DatetimeIndex(series.index)
@@ -397,6 +459,8 @@ def validate_recharge_coverage(
     if is_period_aligned:
         window_values = series
     else:
+        # Fallback path: accept denser/sparser chronologies if they still fully
+        # cover window bounds and contain values inside the target interval.
         series_start = pd.Timestamp(series.index.min())
         series_end = pd.Timestamp(series.index.max())
         if series_start > start or series_end < end:

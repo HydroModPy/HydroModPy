@@ -25,4 +25,5 @@ class SetupContext:
     transport: Transport | None = None
     settings: Settings | None = None
     model_name: str = "default"
+    time_grid: Any = None
 

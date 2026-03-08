@@ -21,6 +21,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from hydromodpy.data_managers.intermittency import Intermittency
+from hydromodpy.units import parse_length_to_m
 
 
 @dataclass(slots=True)
@@ -74,7 +75,7 @@ def _build_square_mask(
     out_path: Path,
     center_x: float,
     center_y: float,
-    window_km: float,
+    window_m: float,
     mask_crs: str,
 ) -> Path:
     support_dir = out_path / "results_stable" / "intermittency" / "_case_support"
@@ -82,7 +83,7 @@ def _build_square_mask(
     mask_path = support_dir / "case_watershed_mask.shp"
     _remove_shapefile_family(mask_path)
 
-    half_window_m = 1000.0 * float(window_km) / 2.0
+    half_window_m = float(window_m) / 2.0
     polygon = box(
         float(center_x) - half_window_m,
         float(center_y) - half_window_m,
@@ -117,6 +118,21 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
             "intermittency_case.watershed_mode must be one of: square_mask, existing_shp"
         )
 
+    raw_window = case_raw.get("window")
+    default_window_unit = "m"
+    if raw_window is None:
+        raw_window = case_raw.get("window_km", 20.0)
+        default_window_unit = "km"
+    window_m = float(
+        parse_length_to_m(
+            raw_window,
+            default_unit=default_window_unit,
+            label="intermittency_case.window",
+        )
+    )
+    if window_m <= 0.0:
+        raise ValueError("intermittency_case.window must be > 0")
+
     return {
         "intermittency_path": intermittency_path,
         "file_name": str(case_raw.get("file_name", "regional onde stations.shp")),
@@ -125,7 +141,7 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
         "watershed_shp": _resolve_optional_path(config_toml, case_raw.get("watershed_shp")),
         "center_x": float(case_raw.get("center_x", 265611.933)),
         "center_y": float(case_raw.get("center_y", 6784182.776)),
-        "window_km": float(case_raw.get("window_km", 20.0)),
+        "window_m": window_m,
         "mask_crs": str(case_raw.get("mask_crs", "EPSG:2154")),
         "save_overview": _as_bool(case_raw.get("save_overview"), default=True),
         "show_plot": _as_bool(case_raw.get("show_plot"), default=False),
@@ -206,7 +222,7 @@ def run_intermittency_case_from_toml(
             out_path=cfg["out_path"],
             center_x=cfg["center_x"],
             center_y=cfg["center_y"],
-            window_km=cfg["window_km"],
+            window_m=cfg["window_m"],
             mask_crs=cfg["mask_crs"],
         )
 
@@ -278,6 +294,7 @@ def run_intermittency_case_from_toml(
         "watershed_mode": str(cfg["watershed_mode"]),
         "watershed_shp_name": str(watershed_shp.name),
         "watershed_shp_path": str(watershed_shp),
+        "window_m": float(cfg["window_m"]),
         "onde_clip_name": str(onde_clip_path.name),
         "onde_clip_path": str(onde_clip_path),
         "station_count": int(len(station_codes)),
@@ -329,4 +346,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

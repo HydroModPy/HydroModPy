@@ -302,6 +302,12 @@ class DataManagersRuntimeLoader:
             return
 
         payload = self._normalize_station_set_section(raw_section, root_key="hydrometry")
+        self._apply_simulation_window_to_station_section(
+            result=result,
+            payload=payload,
+            root_key="hydrometry",
+            manager_type="hydrometry",
+        )
         if str(payload["selection"].get("mode", "mask")).strip().lower() == "mask":
             payload["selection"]["mask_path"] = str(result.setup.geographic.watershed_shp)
         workspace_paths = self._workspace_paths(result)
@@ -334,6 +340,12 @@ class DataManagersRuntimeLoader:
             return
 
         payload = self._normalize_station_set_section(raw_section, root_key="piezometry")
+        self._apply_simulation_window_to_station_section(
+            result=result,
+            payload=payload,
+            root_key="piezometry",
+            manager_type="piezometry",
+        )
         if str(payload["selection"].get("mode", "mask")).strip().lower() == "mask":
             payload["selection"]["mask_path"] = str(result.setup.geographic.watershed_shp)
         workspace_paths = self._workspace_paths(result)
@@ -396,6 +408,51 @@ class DataManagersRuntimeLoader:
         result: "LauncherRunState",
     ) -> tuple[str, str] | None:
         return resolve_simulation_time_window_dates(result.cfg, strict=False)
+
+    @staticmethod
+    def _coerce_optional_bool(value: Any) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            token = value.strip().lower()
+            if token in {"1", "true", "yes", "on"}:
+                return True
+            if token in {"0", "false", "no", "off"}:
+                return False
+        return None
+
+    def _apply_simulation_window_to_station_section(
+        self,
+        *,
+        result: "LauncherRunState",
+        payload: dict[str, Any],
+        root_key: str,
+        manager_type: str,
+    ) -> None:
+        section_raw = payload.get(root_key)
+        if not isinstance(section_raw, Mapping):
+            return
+        section = dict(section_raw)
+        payload[root_key] = section
+
+        use_window = self._coerce_optional_bool(section.get("use_simulation_time_window"))
+        if use_window is None:
+            use_window = False
+        if not use_window:
+            return
+
+        simulation_dates = self._resolve_simulation_time_window_dates(result)
+        if simulation_dates is None:
+            print(
+                "[DataManagersPlanner] Warning: data."
+                f"{manager_type}.use_simulation_time_window=true but [simulation.time] "
+                "is missing or invalid; using explicit date_start/date_end when provided."
+            )
+            return
+
+        date_start, date_end = simulation_dates
+        section["date_start"] = date_start
+        section["date_end"] = date_end
 
     def _resolve_path_like(self, value: Any) -> Path:
         path = Path(str(value)).expanduser()

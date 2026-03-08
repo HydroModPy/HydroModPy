@@ -19,10 +19,7 @@ name = "Example 12 launcher normal fast"
 description = "Shorter transient window with transport/wells retained for fast normal regression."
 
 [simulation.time]
-# Time-window source policy:
-# "explicit" = use start_datetime/end_datetime declared below.
-# "from_modflow" = derive from active flow solver tgrid settings.
-mode = "explicit"
+# Time-window is explicit in launcher mode (start/end declared below).
 # Simulation window lower datetime bound.
 start_datetime = "2003-01-01 00:00:00"
 # Simulation window upper datetime bound (inclusive, must be >= start_datetime).
@@ -215,11 +212,11 @@ msl_source = "local"
 msl_local_csv = "data/oceanic/sealevel_shom_152_20030101_20030130_H.csv"
 # If true, derive msl_start_date/msl_end_date from [simulation.time].
 # If [simulation.time] is missing, fallback to explicit dates below.
-msl_use_simulation_time_window = false
-# Inclusive start date (YYYY-MM-DD) for mean sea-level retrieval.
-msl_start_date = "2003-01-01"
-# Inclusive end date (YYYY-MM-DD) for mean sea-level retrieval.
-msl_end_date = "2003-01-30"
+msl_use_simulation_time_window = true
+# Optional fallback dates (used when msl_use_simulation_time_window=false or
+# when [simulation.time] cannot be resolved).
+# msl_start_date = "2003-01-01"
+# msl_end_date = "2003-01-30"
 # Fallback sea-level value used when retrieval fails (SI unit: meter).
 msl_default = 0.0
 
@@ -232,10 +229,12 @@ msl_default = 0.0
 variable = "QmnJ"
 # If true, display diagnostic information while loading station data.
 display = false
-# Optional inclusive start date filter applied to the requested time series.
-date_start = "2003-01-01"
-# Optional inclusive end date filter applied to the requested time series.
-date_end = "2003-12-31"
+# If true, derive hydrometry date_start/date_end from [simulation.time].
+use_simulation_time_window = true
+# Optional fallback date window (used when use_simulation_time_window=false or
+# when [simulation.time] cannot be resolved).
+# date_start = "2003-01-01"
+# date_end = "2003-12-31"
 
 [data.hydrometry.source]
 # Hydrometry source mode: remote API lookup or local exported files.
@@ -432,10 +431,8 @@ interpolation = "linear"
 # Type of initial condition ('top', 'bottom', or 'custom').
 # 'top' means a full aquifer, 'bottom' means an empty aquifer.
 type = "top"
-# Value of the initial condition.
-value = 1.0
-# Units of the initial condition.
-unit = "m"
+# Value of the initial condition (single field: "<value> <unit>").
+value = "1.0 m"
 
 
 # ----------------------------------------------------------------------
@@ -450,7 +447,7 @@ unit = "m"
 # - [flow.bc.<custom_id>] (generic fallback)
 #
 # Required/validated keys:
-# - value (required, numeric)
+# - value (required): numeric, or "<value> <unit>"
 # - application_domain in {top, north side, south side, east side, west side}
 #   (for dirichlet side/ocean/stream entries, domain is inferred if omitted)
 # - type:
@@ -459,28 +456,25 @@ unit = "m"
 #   dirichlet/cauchy/robin for generic fallback
 # - unit or units (optional):
 #   defaults to "m" for dirichlet and "m2/s" for cauchy/robin
+#   only needed when value has no inline unit
 #
 # Copy/paste examples:
 # [flow.bc.dirichlet.west_side]
-# value = 5.0
+# value = "5.0 m"
 # type = "dirichlet"
 # application_domain = "west side"
-# unit = "m"
 #
 # [flow.bc.custom_boundary]
-# value = 1e-6
+# value = "1e-6 m2/s"
 # type = "robin"
 # application_domain = "top"
-# unit = "m2/s"
 [flow.bc.cauchy.drainage]
 # Domain of application for boundary condition.
 application_domain = "top"
 # Type of the boundary condition (for example Dirichlet, Neumann, Cauchy).
 type = "cauchy"
 # Value of the boundary condition.
-value = 0.0
-# Units of the boundary condition.
-unit = "m2/s"
+value = "0.0 m2/s"
 # If true, boundary-condition value is sourced from data.
 data_value = false
 
@@ -489,9 +483,7 @@ data_value = false
 # Type of the boundary condition (fixed head for ocean stage).
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = true
 
@@ -543,23 +535,17 @@ mode = "synthetic_generated"
 [recharge_chronicle.observed_csv]
 # Example natural chronicle used by launcher_simulation.
 # NOTE (launcher mode): first_year/last_year/time_step are auto-derived from
-# [simulation.time] when that section is enabled.
+# [simulation.time] and are intentionally not exposed here.
 path_file = "../../examples_legacy/example12/data/_climate_REANALYSIS.csv"
 clim_mod = "REA"
 clim_sce = "historic"
-first_year = 2003
-last_year = 2003
-time_step = "ME"
 sim_state = "transient"
 # Used only if runoff column is unavailable.
 runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_generated]
-# NOTE (launcher mode): start_date/freq/periods are ignored when simulation.time
-# is active; values_mm_day is aligned to the canonical stress periods.
-start_date = "2003-01-01"
-freq = "ME"
-periods = 3
+# NOTE (launcher mode): start_date/freq/periods are auto-managed from
+# [simulation.time] and are intentionally not exposed here.
 units = "mm/day"
 # (Jan..Dec): [2, 2, 0, 0, 0, 0, -1, 0, 0, 0, 2, 2]
 values_mm_day = [2.0, 0.0, -1.0]
@@ -733,26 +719,10 @@ lay_decay = 1.2
 nodata = -9999.0
 
 [modflownwt.tgrid]
-# NOTE (launcher mode): most fields in this section are auto-managed from
-# [simulation.time] and are generally not intended for manual editing.
-# Time unit label propagated to FloPy (for example 'd').
-itmuni = "days"
-# Temporal mesh generation method ("synthetic_regular" or "from_chron").
-genmtd = "synthetic_regular"
-# Number of stress periods.
-nper = 3
-# Length of each stress period when genmtd = "synthetic_regular".
-lenper = 10.0
-# Chronicle file path used when genmtd = "from_chron".
-chron_path = "data/recharge_chronicle.tsv"
-# Datetime format used to parse the chronicle time column.
-chron_dateformat = "%Y-%m-%d %H:%M:%S"
-# Column separator used in the chronicle file.
-chron_colsep = "\t"
-# Time-column name in the chronicle file.
-chron_time_col = "Date"
-# Optional explicit start datetime (leave commented to keep default None).
-start_datetime = "2003-01-01 00:00:00"
+# NOTE (launcher mode): nper/lenper/itmuni/genmtd/ntsp/tsmult and
+# start/end datetimes are auto-managed from [simulation.time].
+# Keep first stress period in steady state when flow_regime is transient.
+firstpersteady = true
 
 # ----------------------------------------------------------------------
 # MODFLOW 6 expert configuration
@@ -785,40 +755,10 @@ lay_proportions = [0.1, 0.2, 0.3, 0.4]
 nodata = -9999.0
 
 [modflow6.tgrid]
-# NOTE (launcher mode): most fields in this section are auto-managed from
-# [simulation.time] and are generally not intended for manual editing.
-# Time unit label propagated to FloPy (for example 'd').
-itmuni = "days"
-# Flow regime is defined globally in [flow].flow_regime during launcher runs.
-# This local field is kept for standalone TMesh/TGrid use-cases.
-flow_regime = "transient"
-# Temporal mesh generation method.
-genmtd = "synthetic_regular"
-# Number of stress periods.
-nper = 3
-# Length of each stress period when genmtd='synthetic_regular'.
-lenper = 10.0
-# Chronicle file path used when genmtd='from_chron'.
-chron_path = "data/recharge_chronicle.tsv"
-# Datetime format used to parse the chronicle time column.
-chron_dateformat = "%Y-%m-%d %H:%M:%S"
-# Column separator used in the chronicle file.
-chron_colsep = "\t"
-# Time-column name in the chronicle file.
-chron_time_col = "Date"
-# Optional explicit start datetime.
-start_datetime = "2003-01-01 00:00:00"
-# Optional explicit end datetime.
-end_datetime = "2003-01-31 00:00:00"
+# NOTE (launcher mode): nper/lenper/itmuni/genmtd/ntsp/tsmult and
+# start/end datetimes are auto-managed from [simulation.time].
 # Keep first stress period in steady state when relevant.
 firstpersteady = true
-# Time-step multiplier per period (scalar or list).
-# Current MODFLOW6 wrapper writes TDIS with tsmult=1.0 for all periods.
-tsmult = 1.0
-# Number of time steps per period (scalar or list).
-ntsp = 1
-# No-data sentinel used for temporal arrays.
-temporal_nodata = -9999.0
 
 
 # ----------------------------------------------------------------------
@@ -828,9 +768,7 @@ temporal_nodata = -9999.0
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -838,9 +776,7 @@ data_value = false
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -848,9 +784,7 @@ data_value = false
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -858,9 +792,7 @@ data_value = false
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -868,9 +800,7 @@ data_value = false
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 

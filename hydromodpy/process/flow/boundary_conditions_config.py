@@ -14,7 +14,6 @@ Responsibilities:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from numbers import Real
 from typing import cast
 
 from hydromodpy.process.flow.boundary_conditions import (
@@ -22,6 +21,7 @@ from hydromodpy.process.flow.boundary_conditions import (
     DIRICHLET_BC_CANONICAL_DOMAINS,
     FlowBoundaryConditionConfig,
 )
+from hydromodpy.units import parse_scalar_and_unit
 
 
 def normalize_flow_boundary_conditions(
@@ -41,24 +41,29 @@ def normalize_flow_boundary_conditions(
     return _parse_flow_bc_sections(dict(value))
 
 
-def _coerce_numeric_boundary_value(*, value: object, location: str) -> float:
-    """Validate and coerce one boundary numeric value."""
-    if isinstance(value, bool) or not isinstance(value, Real):
-        raise TypeError(f"{location} must be a numeric value")
-    return float(value)
-
-
-def _normalize_boundary_units(
-    payload: Mapping[str, object],
-    *,
-    default_units: str,
-) -> str:
-    """Resolve units from payload (`units` > `unit` > default)."""
+def _extract_explicit_boundary_units(payload: Mapping[str, object]) -> str | None:
+    """Resolve explicitly declared units from payload (`units` > `unit`)."""
     if "units" in payload:
         return str(payload["units"])
     if "unit" in payload:
         return str(payload["unit"])
-    return default_units
+    return None
+
+
+def _coerce_boundary_value_and_units(
+    *,
+    payload: Mapping[str, object],
+    location_prefix: str,
+    default_units: str,
+) -> tuple[float, str]:
+    if "value" not in payload:
+        raise ValueError(f"{location_prefix}.value is required")
+    return parse_scalar_and_unit(
+        payload["value"],
+        location=f"{location_prefix}.value",
+        default_unit=default_units,
+        explicit_unit=_extract_explicit_boundary_units(payload),
+    )
 
 
 def _canonicalize_dirichlet_bc_id(
@@ -89,17 +94,15 @@ def _normalize_dirichlet_boundary_payload(
     location_prefix: str,
 ) -> dict[str, object]:
     """Normalize one Dirichlet payload and validate inferred application domain."""
-    if "value" not in payload:
-        raise ValueError(f"{location_prefix}.value is required")
-
     canonical_bc_id = _canonicalize_dirichlet_bc_id(
         raw_bc_id=bc_id,
         location_prefix=location_prefix,
     )
 
-    value = _coerce_numeric_boundary_value(
-        value=payload["value"],
-        location=f"{location_prefix}.value",
+    value, units = _coerce_boundary_value_and_units(
+        payload=payload,
+        location_prefix=location_prefix,
+        default_units="m",
     )
 
     raw_type = str(payload.get("type", "dirichlet")).strip().lower()
@@ -142,7 +145,7 @@ def _normalize_dirichlet_boundary_payload(
         "id": canonical_bc_id,
         "value": value,
         "description": description,
-        "units": _normalize_boundary_units(payload, default_units="m"),
+        "units": units,
         "type": "dirichlet",
         "data_value": data_value,
         "application_domain": application_domain,
@@ -159,12 +162,10 @@ def _normalize_drainage_boundary_payload(
     expected_type: str,
 ) -> dict[str, object]:
     """Normalize one drainage payload for Cauchy/Robin sections."""
-    if "value" not in payload:
-        raise ValueError(f"{location_prefix}.value is required")
-
-    value = _coerce_numeric_boundary_value(
-        value=payload["value"],
-        location=f"{location_prefix}.value",
+    value, units = _coerce_boundary_value_and_units(
+        payload=payload,
+        location_prefix=location_prefix,
+        default_units="m2/s",
     )
 
     raw_type = str(payload.get("type", expected_type)).strip().lower()
@@ -191,7 +192,7 @@ def _normalize_drainage_boundary_payload(
                 f"{raw_type.capitalize()} drainage boundary condition on {application_domain}",
             )
         ),
-        "units": _normalize_boundary_units(payload, default_units="m2/s"),
+        "units": units,
         "type": raw_type,
         "data_value": bool(payload.get("data_value", False)),
         "application_domain": application_domain,
@@ -208,23 +209,21 @@ def _normalize_generic_boundary_payload(
     location_prefix: str,
 ) -> dict[str, object]:
     """Normalize one generic BC payload not handled by dedicated sections."""
-    if "value" not in payload:
-        raise ValueError(f"{location_prefix}.value is required")
-
-    value = _coerce_numeric_boundary_value(
-        value=payload["value"],
-        location=f"{location_prefix}.value",
-    )
     bc_type = str(payload.get("type", "dirichlet")).strip().lower() or "dirichlet"
     if bc_type not in {"dirichlet", "cauchy", "robin"}:
         raise ValueError(f"{location_prefix}.type must be one of: dirichlet, cauchy, robin")
 
     default_units = "m2/s" if bc_type in {"cauchy", "robin"} else "m"
+    value, units = _coerce_boundary_value_and_units(
+        payload=payload,
+        location_prefix=location_prefix,
+        default_units=default_units,
+    )
     normalized: dict[str, object] = {
         "id": bc_id,
         "value": value,
         "description": str(payload.get("description", f"Boundary condition '{bc_id}'")),
-        "units": _normalize_boundary_units(payload, default_units=default_units),
+        "units": units,
         "type": bc_type,
         "data_value": bool(payload.get("data_value", False)),
     }

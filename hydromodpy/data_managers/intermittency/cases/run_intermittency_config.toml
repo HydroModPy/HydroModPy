@@ -9,6 +9,9 @@ watershed_mode = "square_mask"
 watershed_shp = "../../../../examples_legacy/results/example12/results_stable/geographic/watershed.shp"
 center_x = 265611.933
 center_y = 6784182.776
+# Preferred: SI-friendly length token, for example "20000 m" or "20 km".
+# window = "20 km"
+# Legacy key kept for compatibility (interpreted in km):
 window_km = 20.0
 mask_crs = "EPSG:2154"
 
@@ -16,4 +19,3 @@ mask_crs = "EPSG:2154"
 save_overview = true
 show_plot = false
 overview_max_stations = 8
-

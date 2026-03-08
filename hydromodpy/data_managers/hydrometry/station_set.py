@@ -21,11 +21,13 @@ try:
    from .station import Station
    from .loaders_api import ApiStationLoader
    from .loaders_local import LocalStationLoader
+   from hydromodpy.units import parse_length_to_m
 except ImportError:
    import sys
    _manager_root = Path(__file__).resolve().parents[1]
    _this_dir = Path(__file__).resolve().parent
-   for _path in (str(_manager_root), str(_this_dir)):
+   _repo_root = Path(__file__).resolve().parents[3]
+   for _path in (str(_manager_root), str(_this_dir), str(_repo_root)):
        if _path not in sys.path:
            sys.path.insert(0, _path)
    from common.base_station_set import BaseStationSet
@@ -37,6 +39,7 @@ except ImportError:
    from station import Station
    from loaders_api import ApiStationLoader
    from loaders_local import LocalStationLoader
+   from hydromodpy.units import parse_length_to_m
 
 #%% Constants
 API_BASE_URL = "https://hubeau.eaufrance.fr/api/v2/"
@@ -119,6 +122,7 @@ class StationSet(BaseStationSet):
 
        station_ids = None
        mask_path = None
+       fallback_search_radius_m = selection_cfg.get("fallback_search_radius")
        if selection_cfg["mode"] == "stations":
            station_ids = selection_cfg["station_ids"]
        else:
@@ -141,6 +145,7 @@ class StationSet(BaseStationSet):
            output=output_value,
            source_mode=source_cfg["mode"],
            local_data_dir=source_cfg.get("local_data_dir"),
+           fallback_search_radius_m=fallback_search_radius_m,
        )
 
    @classmethod
@@ -150,7 +155,8 @@ class StationSet(BaseStationSet):
        bbox: Optional[tuple[float, float, float, float]] = None,
        mask_path: Optional[Union[str, Path]] = None,
        center_point: Optional[tuple[float, float]] = None,
-       fallback_search_radius_km: float = 10.0,
+       fallback_search_radius_m: Optional[Any] = None,
+       fallback_search_radius_km: Optional[Any] = None,
        require_observations: bool = False,
        date_start: Optional[str] = None,
        date_end: Optional[str] = None,
@@ -158,11 +164,27 @@ class StationSet(BaseStationSet):
        timeout: int = 30,
    ) -> List[str]:
        """Discover valid Hub'Eau hydrometric station identifiers in a geographic area."""
+       if fallback_search_radius_m is not None and fallback_search_radius_km is not None:
+           raise ValueError("Use either fallback_search_radius_m or fallback_search_radius_km, not both.")
+       if fallback_search_radius_m is None and fallback_search_radius_km is None:
+           fallback_search_radius_km = 10.0
+       if fallback_search_radius_m is None:
+           radius_m = parse_length_to_m(
+               fallback_search_radius_km,
+               default_unit="km",
+               label="fallback_search_radius_km",
+           )
+       else:
+           radius_m = parse_length_to_m(
+               fallback_search_radius_m,
+               default_unit="m",
+               label="fallback_search_radius_m",
+           )
        return discover_station_ids_in_area(
            bbox=bbox,
            mask_path=mask_path,
            center_point=center_point,
-           fallback_search_radius_km=fallback_search_radius_km,
+           fallback_search_radius_m=radius_m,
            require_observations=require_observations,
            date_start=date_start,
            date_end=date_end,
@@ -181,6 +203,7 @@ class StationSet(BaseStationSet):
                 output: Optional[Union[str, List[str], None]] = None,
                 source_mode: str = "api",
                 local_data_dir: Optional[Union[str, Path, None]] = None,
+                fallback_search_radius_m: Optional[Any] = None,
                 ):
        """
        Initialize StationSet instance.
@@ -227,6 +250,20 @@ class StationSet(BaseStationSet):
        self.output = output
        self.source_mode = str(source_mode).strip().lower()
        self.local_data_dir = Path(local_data_dir).expanduser().resolve() if local_data_dir else None
+       if fallback_search_radius_m is None:
+           self.fallback_search_radius_m = float(
+               parse_length_to_m(10.0, default_unit="km", label="fallback_search_radius_default")
+           )
+       else:
+           self.fallback_search_radius_m = float(
+               parse_length_to_m(
+                   fallback_search_radius_m,
+                   default_unit="m",
+                   label="fallback_search_radius_m",
+               )
+           )
+       if self.fallback_search_radius_m < 0.0:
+           raise ValueError("fallback_search_radius_m must be >= 0.")
 
        if self.source_mode not in ("api", "local"):
            raise ValueError("source_mode must be 'api' or 'local'.")
@@ -245,7 +282,10 @@ class StationSet(BaseStationSet):
 
        # Process IDs or mask
        if mask is not None:
-           self.station_id, self.site_id = self._get_stations_from_mask(mask)
+           self.station_id, self.site_id = self._get_stations_from_mask(
+               mask,
+               fallback_search_radius_m=self.fallback_search_radius_m,
+           )
        elif id is not None:
            self.station_id, self.site_id = self._process_ids(id)
        else:
@@ -258,18 +298,40 @@ class StationSet(BaseStationSet):
        if self.output:
            self._export_data()
 
-   def _get_stations_from_mask(self, mask_path, fallback_search_radius_km: float = 10.0):
+   def _get_stations_from_mask(
+       self,
+       mask_path,
+       *,
+       fallback_search_radius_m: Optional[float] = None,
+   ):
        """Select stations located inside a mask geometry.
 
        The method dispatches station filtering according to ``source_mode``:
        API-based station catalogue lookup or local station catalogue lookup.
        """
-       return select_station_ids_from_mask(
-           mask_path=mask_path,
-           source_mode=self.source_mode,
-           local_data_dir=self.local_data_dir,
-           fallback_search_radius_km=fallback_search_radius_km,
+       radius_m = (
+           self.fallback_search_radius_m
+           if fallback_search_radius_m is None
+           else float(fallback_search_radius_m)
        )
+       try:
+           return select_station_ids_from_mask(
+               mask_path=mask_path,
+               source_mode=self.source_mode,
+               local_data_dir=self.local_data_dir,
+               fallback_search_radius_m=radius_m,
+           )
+       except TypeError as exc:
+           # Backward-compatibility path for call sites/tests still exposing
+           # the legacy kilometer keyword.
+           if "unexpected keyword argument 'fallback_search_radius_m'" not in str(exc):
+               raise
+           return select_station_ids_from_mask(
+               mask_path=mask_path,
+               source_mode=self.source_mode,
+               local_data_dir=self.local_data_dir,
+               fallback_search_radius_km=float(radius_m) / 1000.0,
+           )
 
    def _process_ids(self, id):
        """Normalize station/site identifiers into parallel station/site lists.

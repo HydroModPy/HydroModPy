@@ -83,6 +83,26 @@ def test_load_field_param_toml_accepts_unit_alias_for_dimensionless(tmp_path: Pa
     assert payload["field"]["unit"] == "-"
 
 
+def test_load_field_param_toml_accepts_hourly_k_unit(tmp_path: Path):
+    path = tmp_path / "field_param_unit_hourly.toml"
+    path.write_text(
+        textwrap.dedent(
+            """
+            [field]
+            id = "K"
+            kind = "homogeneous"
+            unit = "m/h"
+
+            [field_homogeneous]
+            value = 0.01
+            """
+        ),
+        encoding="utf-8",
+    )
+    payload = load_field_param_toml(path)
+    assert payload["field"]["unit"] == "m/h"
+
+
 def test_load_field_param_toml_rejects_unknown_unit(tmp_path: Path):
     path = tmp_path / "field_param_invalid_unit.toml"
     path.write_text(

@@ -22,6 +22,7 @@ import rasterio
 from shapely.geometry import box
 
 from hydromodpy.geographic.geographic_io import ensure_crs
+from hydromodpy.units import parse_length_to_m
 
 
 @dataclass(frozen=True)
@@ -59,7 +60,7 @@ def _compute_buffer_distance(
     """Compute final buffer distance in meters, optionally snapped to DEM grid."""
     # String mode: explicit distance (meters).
     if isinstance(buff_area, str):
-        dist = float(buff_area)
+        dist = float(parse_length_to_m(buff_area, default_unit="m", label="geographic.buff_area"))
         if dist <= 0.0:
             raise ValueError("buff_area distance must be > 0")
         return dist
