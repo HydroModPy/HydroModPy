@@ -21,6 +21,5 @@ Class overview
    ~hydromodpy.watershed_legacy.Piezometry
    ~hydromodpy.data_managers.oceanic.Oceanic
    ~hydromodpy.data_managers.climatic.Climatic
-   ~hydromodpy.watershed_legacy.settings.Settings
    ~hydromodpy.watershed_legacy.hydraulic.Hydraulic
 
