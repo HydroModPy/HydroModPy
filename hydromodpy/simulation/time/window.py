@@ -182,6 +182,33 @@ def _period_lengths_in_days(window: ResolvedSimulationTimeWindow) -> list[float]
     return out
 
 
+def build_simulation_time_boundaries(
+    window: ResolvedSimulationTimeWindow,
+) -> list[pd.Timestamp]:
+    """Return half-open simulation boundaries [t0, ..., tN] from one window."""
+    return _build_time_boundaries(window)
+
+
+def simulation_time_pandas_frequency(
+    window: ResolvedSimulationTimeWindow,
+    *,
+    anchor: Literal["start", "end"] = "start",
+) -> str:
+    """Return the canonical pandas frequency alias for one simulation window."""
+    if anchor not in {"start", "end"}:
+        raise ValueError("anchor must be 'start' or 'end'.")
+    step = int(window.step_value)
+    if window.step_unit == "hour":
+        return f"{step}H"
+    if window.step_unit == "day":
+        return f"{step}D"
+    if window.step_unit == "month":
+        return f"{step}{'MS' if anchor == 'start' else 'ME'}"
+    if window.step_unit == "year":
+        return f"{step}{'YS' if anchor == 'start' else 'YE'}"
+    raise ValueError(f"Unsupported simulation.time.step_unit={window.step_unit!r}.")
+
+
 def _resolve_window_from_modflow_tgrids(cfg: Any) -> tuple[pd.Timestamp, pd.Timestamp] | None:
     for solver_name in _flow_solver_preference(cfg):
         solver_cfg = getattr(cfg, solver_name, None)
@@ -199,8 +226,10 @@ def _resolve_window_from_modflow_tgrids(cfg: Any) -> tuple[pd.Timestamp, pd.Time
             )
         start = _as_timestamp(raw_start, name=f"{solver_name}.tgrid.start_datetime")
         end = _as_timestamp(raw_end, name=f"{solver_name}.tgrid.end_datetime")
-        if end <= start:
-            raise ValueError(f"{solver_name}.tgrid.end_datetime must be greater than start_datetime.")
+        if end < start:
+            raise ValueError(
+                f"{solver_name}.tgrid.end_datetime must be greater than or equal to start_datetime."
+            )
         return start, end
     return None
 
@@ -272,6 +301,10 @@ def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWind
         tgrid_cfg.genmtd = "synthetic_regular"
         tgrid_cfg.nper = nper
         tgrid_cfg.lenper = perlen_days
+        # Keep launcher temporal control centralized in [simulation.time].
+        # nstp/tsmult tuning is intentionally postponed to a later phase.
+        tgrid_cfg.ntsp = 1
+        tgrid_cfg.tsmult = 1.0
     return window
 
 
@@ -357,25 +390,32 @@ def validate_recharge_coverage(
         )
         return
 
-    series_start = pd.Timestamp(series.index.min())
-    series_end = pd.Timestamp(series.index.max())
-    if series_start > start or series_end < end:
-        _handle_recharge_coverage_violation(
-            policy,
-            "Recharge coverage check failed: recharge range "
-            f"[{series_start}, {series_end}] does not fully cover "
-            f"simulation window [{start}, {end}].",
-        )
-        return
+    boundaries = _build_time_boundaries(window)
+    period_starts = pd.DatetimeIndex(boundaries[:-1])
+    index = pd.DatetimeIndex(series.index)
+    is_period_aligned = len(index) == len(period_starts) and index.equals(period_starts)
+    if is_period_aligned:
+        window_values = series
+    else:
+        series_start = pd.Timestamp(series.index.min())
+        series_end = pd.Timestamp(series.index.max())
+        if series_start > start or series_end < end:
+            _handle_recharge_coverage_violation(
+                policy,
+                "Recharge coverage check failed: recharge range "
+                f"[{series_start}, {series_end}] does not fully cover "
+                f"simulation window [{start}, {end}].",
+            )
+            return
 
-    window_values = series.loc[(series.index >= start) & (series.index <= end)]
-    if window_values.empty:
-        _handle_recharge_coverage_violation(
-            policy,
-            "Recharge coverage check failed: no recharge values inside simulation window "
-            f"[{start}, {end}].",
-        )
-        return
+        window_values = series.loc[(series.index >= start) & (series.index <= end)]
+        if window_values.empty:
+            _handle_recharge_coverage_violation(
+                policy,
+                "Recharge coverage check failed: no recharge values inside simulation window "
+                f"[{start}, {end}].",
+            )
+            return
 
     if window_values.isna().any():
         _handle_recharge_coverage_violation(

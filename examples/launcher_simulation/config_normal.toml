@@ -542,6 +542,8 @@ mode = "synthetic_generated"
 
 [recharge_chronicle.observed_csv]
 # Example natural chronicle used by launcher_simulation.
+# NOTE (launcher mode): first_year/last_year/time_step are auto-derived from
+# [simulation.time] when that section is enabled.
 path_file = "../../examples_legacy/example12/data/_climate_REANALYSIS.csv"
 clim_mod = "REA"
 clim_sce = "historic"
@@ -553,6 +555,8 @@ sim_state = "transient"
 runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_generated]
+# NOTE (launcher mode): start_date/freq/periods are ignored when simulation.time
+# is active; values_mm_day is aligned to the canonical stress periods.
 start_date = "2003-01-01"
 freq = "ME"
 periods = 3
@@ -563,6 +567,8 @@ runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_csv]
 # Active only when mode = "synthetic_csv".
+# NOTE (launcher mode): final forcing vectors are always aligned to
+# [simulation.time] stress periods.
 path_file = "../../examples_legacy/example12/data/recharge_synthetic_2003.csv"
 sep = ","
 date_column = "date"
@@ -573,7 +579,8 @@ units = "mm/day"
 runoff_column = "runoff_mm_day"
 runoff_units = "mm/day"
 runoff_ratio = 0.1
-# Optional resampling frequency ("D", "W", "ME", ...). Leave empty to keep CSV cadence.
+# Optional pre-alignment resampling frequency ("D", "W", "ME", ...).
+# Leave empty to directly align raw CSV values to [simulation.time].
 time_step = ""
 
 # ----------------------------------------------------------------------
