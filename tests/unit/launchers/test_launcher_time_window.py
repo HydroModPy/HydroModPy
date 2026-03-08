@@ -53,15 +53,15 @@ def test_apply_simulation_time_window_updates_solver_tgrids() -> None:
     assert str(cfg.modflownwt.tgrid.start_datetime).startswith("2020-01-01")
     assert str(cfg.modflownwt.tgrid.end_datetime).startswith("2020-01-03")
     assert cfg.modflownwt.tgrid.nper == 3
-    assert cfg.modflownwt.tgrid.lenper == [1.0, 1.0, 1.0]
-    assert cfg.modflownwt.tgrid.itmuni == "d"
+    assert cfg.modflownwt.tgrid.lenper == [86400.0, 86400.0, 86400.0]
+    assert cfg.modflownwt.tgrid.itmuni == "seconds"
     assert cfg.modflownwt.tgrid.ntsp == 1
     assert cfg.modflownwt.tgrid.tsmult == 1.0
     assert str(cfg.modflow6.tgrid.start_datetime).startswith("2020-01-01")
     assert str(cfg.modflow6.tgrid.end_datetime).startswith("2020-01-03")
     assert cfg.modflow6.tgrid.nper == 3
-    assert cfg.modflow6.tgrid.lenper == [1.0, 1.0, 1.0]
-    assert cfg.modflow6.tgrid.itmuni == "d"
+    assert cfg.modflow6.tgrid.lenper == [86400.0, 86400.0, 86400.0]
+    assert cfg.modflow6.tgrid.itmuni == "seconds"
     assert cfg.modflow6.tgrid.ntsp == 1
     assert cfg.modflow6.tgrid.tsmult == 1.0
 
@@ -133,7 +133,7 @@ def test_apply_simulation_time_window_monthly_calendar_lengths() -> None:
     apply_explicit_time_window_to_tgrids(cfg)
 
     assert cfg.modflownwt.tgrid.nper == 3
-    assert cfg.modflownwt.tgrid.lenper == [31.0, 29.0, 31.0]
+    assert cfg.modflownwt.tgrid.lenper == [2678400.0, 2505600.0, 2678400.0]
 
 
 def test_resolve_simulation_time_grid_explicit_mode() -> None:
@@ -145,7 +145,7 @@ def test_resolve_simulation_time_grid_explicit_mode() -> None:
 
     assert grid is not None
     assert grid.nper == 3
-    assert list(grid.period_lengths_days) == [10.0, 10.0, 10.0]
+    assert list(grid.period_lengths_seconds) == [864000.0, 864000.0, 864000.0]
     assert list(grid.period_starts) == [
         pd.Timestamp("2020-01-01 00:00:00"),
         pd.Timestamp("2020-01-11 00:00:00"),
@@ -167,3 +167,16 @@ def test_apply_simulation_time_window_raises_when_end_not_aligned_with_step() ->
 
     with pytest.raises(ValueError, match="not aligned with step_value/step_unit"):
         apply_explicit_time_window_to_tgrids(cfg)
+
+
+def test_apply_simulation_time_window_accepts_inline_step_value_unit() -> None:
+    cfg = _make_cfg_with_time(step_value=1, step_unit="day")
+    cfg.simulation.time.step_value = "30 day"
+    cfg.simulation.time.step_unit = None
+    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
+    cfg.simulation.time.end_datetime = "2020-03-30 00:00:00"
+
+    apply_explicit_time_window_to_tgrids(cfg)
+
+    assert cfg.modflownwt.tgrid.nper == 3
+    assert cfg.modflownwt.tgrid.lenper == [2592000.0, 2592000.0, 2592000.0]

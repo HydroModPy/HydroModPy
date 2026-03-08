@@ -276,7 +276,7 @@ class Modflow(Solver):
         """Build temporal discretization arrays from tgrid configuration."""
         launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
         if launcher_time_grid is not None:
-            perlen = np.asarray(list(launcher_time_grid.period_lengths_days), dtype=float)
+            perlen = np.asarray(list(launcher_time_grid.period_lengths_seconds), dtype=float)
             nper = int(perlen.size)
             if nper == 0:
                 raise ValueError("simulation.time grid produced an empty perlen vector.")
@@ -291,7 +291,7 @@ class Modflow(Solver):
                     steady[0] = True
 
             result = TemporalDiscretizationResult(
-                itmuni=4,  # days
+                itmuni=1,  # seconds
                 nper=nper,
                 perlen=perlen,
                 nstp=nstp,

@@ -155,6 +155,9 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
     )
     if success:
+        postprocess_cfg = getattr(getattr(ctx.state.cfg, "postprocess", None), "flow", None)
+        intermittency_cfg = getattr(postprocess_cfg, "intermittency", None)
+
         # Post-processing reads solver outputs from disk, so it only makes
         # sense after a successful solve.
         model_modflow.post_processing(
@@ -164,7 +167,18 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
                 seepage_areas=True,
                 outflow_drain=True,
                 accumulation_flux=True,
-                intermittency_monthly=True,
+                intermittency_yearly=bool(
+                    getattr(intermittency_cfg, "yearly", False)
+                ),
+                intermittency_monthly=bool(
+                    getattr(intermittency_cfg, "monthly", False)
+                ),
+                intermittency_weekly=bool(
+                    getattr(intermittency_cfg, "weekly", False)
+                ),
+                intermittency_daily=bool(
+                    getattr(intermittency_cfg, "daily", False)
+                ),
             )
         )
 

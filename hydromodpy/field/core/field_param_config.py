@@ -20,6 +20,7 @@ from hydromodpy.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
 )
+from hydromodpy.units.length import parse_length_to_m
 
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
@@ -126,7 +127,7 @@ class FieldHomogeneousSectionSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    value: float | None = Field(
+    value: object | None = Field(
         default=None,
         description="Scalar surface value used when kind='homogeneous'.",
     )
@@ -136,7 +137,16 @@ class FieldHomogeneousSectionSchema(BaseModel):
     def _validate_value(cls, value):
         if value is None:
             return None
-        return float(value)
+        if isinstance(value, bool):
+            raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            token = value.strip()
+            if token == "":
+                raise ValueError("field_homogeneous.value cannot be empty")
+            return token
+        raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
 
 
 class FieldHeterogeneousSectionSchema(BaseModel):
@@ -153,7 +163,7 @@ class FieldHeterogeneousSectionSchema(BaseModel):
             "Use 'inline' for TOML mapping or 'csv' for external table."
         ),
     )
-    values: dict[str, float] | None = Field(
+    values: dict[str, object] | None = Field(
         default=None,
         description=(
             "Inline key/value mapping used when values_source='inline'. "
@@ -200,7 +210,29 @@ class FieldHeterogeneousSectionSchema(BaseModel):
     def _validate_values(cls, value):
         if value is None:
             return None
-        values = {str(k): float(v) for k, v in dict(value).items()}
+        values: dict[str, object] = {}
+        for key, raw_value in dict(value).items():
+            key_text = str(key)
+            if isinstance(raw_value, bool):
+                raise TypeError(
+                    f"field_heterogeneous.values['{key_text}'] must be numeric "
+                    "or '<number> <unit>'"
+                )
+            if isinstance(raw_value, (int, float)):
+                values[key_text] = float(raw_value)
+                continue
+            if isinstance(raw_value, str):
+                token = raw_value.strip()
+                if token == "":
+                    raise ValueError(
+                        f"field_heterogeneous.values['{key_text}'] cannot be empty"
+                    )
+                values[key_text] = token
+                continue
+            raise TypeError(
+                f"field_heterogeneous.values['{key_text}'] must be numeric "
+                "or '<number> <unit>'"
+            )
         if len(values) == 0:
             raise ValueError("field_heterogeneous.values cannot be empty")
         if any(str(key).strip() == "" for key in values):
@@ -332,12 +364,16 @@ class FieldVerticalProfileSectionSchema(BaseModel):
             )
         return key
 
-    @field_validator("characteristic_depth")
+    @field_validator("characteristic_depth", mode="before")
     @classmethod
     def _validate_characteristic_depth(cls, value):
         if value is None:
             return None
-        numeric = float(value)
+        numeric = parse_length_to_m(
+            value,
+            default_unit="m",
+            label="field_vertical_profile.characteristic_depth",
+        )
         if numeric <= 0.0:
             raise ValueError("field_vertical_profile.characteristic_depth must be > 0")
         return numeric
@@ -466,11 +502,11 @@ class ResolvedFieldParamSchema(BaseModel):
         default=None,
         description="Resolved parameter unit (canonical token).",
     )
-    value: float | None = Field(
+    value: object | None = Field(
         default=None,
         description="Resolved scalar value for homogeneous kind.",
     )
-    values: dict[str, float] | None = Field(
+    values: dict[str, object] | None = Field(
         default=None,
         description="Resolved mapping for heterogeneous kind.",
     )
@@ -530,7 +566,25 @@ class ResolvedFieldParamSchema(BaseModel):
     def _validate_values(cls, value):
         if value is None:
             return None
-        values = {str(k): float(v) for k, v in dict(value).items()}
+        values: dict[str, object] = {}
+        for key, raw_value in dict(value).items():
+            key_text = str(key)
+            if isinstance(raw_value, bool):
+                raise TypeError(
+                    f"values['{key_text}'] must be numeric or '<number> <unit>'"
+                )
+            if isinstance(raw_value, (int, float)):
+                values[key_text] = float(raw_value)
+                continue
+            if isinstance(raw_value, str):
+                token = raw_value.strip()
+                if token == "":
+                    raise ValueError(f"values['{key_text}'] cannot be empty")
+                values[key_text] = token
+                continue
+            raise TypeError(
+                f"values['{key_text}'] must be numeric or '<number> <unit>'"
+            )
         if len(values) == 0:
             raise ValueError("values cannot be empty")
         if any(str(key).strip() == "" for key in values):
@@ -796,3 +850,18 @@ def validate_resolved_field_param_data(config_data: Mapping[str, Any]) -> dict[s
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
     return parsed.model_dump(mode="python", exclude_none=True)
+    @field_validator("value")
+    @classmethod
+    def _validate_value(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise TypeError("value must be numeric or '<number> <unit>'")
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            token = value.strip()
+            if token == "":
+                raise ValueError("value cannot be empty")
+            return token
+        raise TypeError("value must be numeric or '<number> <unit>'")

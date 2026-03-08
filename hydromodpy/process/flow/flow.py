@@ -77,6 +77,10 @@ from hydromodpy.process.flow.initial_conditions_config import (
 )
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
 from hydromodpy.process.prototype import BoundaryCondition, ProcessSpatial, SinkSource
+from hydromodpy.units.volumetric_flow import (
+    convert_to_m3_per_s,
+    normalize_m3_per_s_unit,
+)
 
 
 class Flow(ProcessSpatial):
@@ -322,13 +326,48 @@ class Flow(ProcessSpatial):
 
         Stores wells under `self.sinks_sources["wells"]` and recharge config
         under `self.sinks_sources["recharge"]`.
+
+        Well fluxes are converted to SI volumetric flow (`m3/s`) at load time
+        using each well `units` field.
         """
         if sinks_sources is None:
             self.sinks_sources["wells"] = {}
             self.sinks_sources["recharge"] = None
             return
 
-        self.sinks_sources["wells"] = dict(sinks_sources.wells)
+        normalized_wells = {}
+        for well_id, well_cfg in sinks_sources.wells.items():
+            raw_units = getattr(well_cfg, "units", "m3/s")
+            try:
+                canonical_units = normalize_m3_per_s_unit(raw_units)
+            except ValueError as exc:
+                raise ValueError(
+                    f"flow.sinks_sources.wells.{well_id}.units must be compatible with m3/s "
+                    f"(for example m3/day, m3/h, m3/s, l/s). Got: {raw_units!r}"
+                ) from exc
+
+            flux_payload = well_cfg.flux
+            if isinstance(flux_payload, list):
+                flux_si = [
+                    convert_to_m3_per_s(
+                        flux_item,
+                        unit=canonical_units,
+                        label=f"flow.sinks_sources.wells.{well_id}.flux[{idx}]",
+                    )
+                    for idx, flux_item in enumerate(flux_payload)
+                ]
+            else:
+                flux_si = convert_to_m3_per_s(
+                    flux_payload,
+                    unit=canonical_units,
+                    label=f"flow.sinks_sources.wells.{well_id}.flux",
+                )
+
+            normalized_wells[well_id] = well_cfg.model_copy(
+                update={"flux": flux_si, "units": "m3/s"}
+            )
+
+        self.sinks_sources["wells"] = normalized_wells
         self.sinks_sources["recharge"] = sinks_sources.recharge
 
     def set_recharge(self, recharge: FlowRechargeConfig | None) -> None:

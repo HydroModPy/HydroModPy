@@ -24,10 +24,9 @@ description = "Transient flow, particle tracking, and nitrate transport."
 start_datetime = "2003-01-01 00:00:00"
 # Simulation window upper datetime bound (inclusive, must be >= start_datetime).
 end_datetime = "2003-12-26 00:00:00"
-# Time-step multiplier used with step_unit (for example 6 hours, 30 days).
-step_value = 30
-# Canonical launcher time-step unit (hour/day/month/year).
-step_unit = "day"
+# Forcing/stress-period time-step written as inline scalar + unit.
+# Controls forcing aggregation (recharge/runoff) and stress-period duration.
+step_value = "30 day"
 # Behavior when recharge does not fully cover [start_datetime, end_datetime]:
 # 'error' raises, 'warn' emits a warning, 'ignore' skips checks.
 coverage_policy = "warn"
@@ -81,7 +80,7 @@ dem_init_path = "../../data/Brittany/dem/regional dem.tif"
 
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.
-cell_size = 100.0
+cell_size = "100.0 m"
 
 # X coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
@@ -93,11 +92,11 @@ y_outlet = 6784182.776
 
 # Maximum snapping distance (m) to move the outlet to the nearest stream cell.
 # Required for 'from_outlet_coord' mode.
-snap_dist = 50
+snap_dist = "50 m"
 
 # Buffer around the watershed polygon as a percentage of sqrt(area [km^2]).
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
-buff_area = 20.0
+buff_area = "20%"
 
 # Path to the watershed polygon shapefile.
 # Required for 'from_polyg_shp' mode.
@@ -140,7 +139,7 @@ type = "constant_thickness"
 
 # Constant aquifer thickness (m) applied below topography.
 # Used when type="constant_thickness".
-thickness = 50.0
+thickness = "50.0 m"
 
 # Flat substratum elevation (m) applied over the full domain.
 # Used when type="flat_substratum".
@@ -156,7 +155,7 @@ substratum_elevation = 0.0
 # (for example domain.zone_ids and flow.active_bc).
 # Allowed values: "geology", "hydrography", "hydrometry",
 # "intermittency", "oceanic", "piezometry".
-types = ["geology", "hydrography", "intermittency", "hydrometry"]
+types = ["geology", "hydrography", "hydrometry"]
 # Policy for inferred types not explicitly listed in data.types.
 # "warn"   = keep inferred types, continue if data.<type> section is missing.
 # "strict" = raise if an inferred type has no data.<type> section
@@ -282,19 +281,17 @@ param_list = ["K", "Ss", "Sy"]
 id = "K"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
-# Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
-unit = "m/s"
 
 [flow.param.K.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-value = 4.32
+value = "5e-5 m/s"
 
 [flow.param.K.field_heterogeneous]
 # Source for heterogeneous values.
 # Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
 # Inline key/value mapping used when values_source='inline'.
-values = { granite = 10.0, micaschists = 2.0 }
+values = { granite = "1.1574074074074073e-4 m/s", micaschists = "2.3148148148148148e-5 m/s" }
 # Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
 # CSV column name containing zone/material keys.
@@ -310,7 +307,7 @@ field_spatial_id = "field_geology"
 mode = "exponential"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 15.0
+characteristic_depth = "15.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 2e-4
@@ -332,19 +329,17 @@ interpolation = "linear"
 id = "Sy"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
-# Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
-unit = "-"
 
 [flow.param.Sy.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-value = 0.02
+value = "0.02 -"
 
 [flow.param.Sy.field_heterogeneous]
 # Source for heterogeneous values.
 # Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
 # Inline key/value mapping used when values_source='inline'.
-values = { zone1 = 0.15, zone2 = 0.08 }
+values = { zone1 = "0.15 -", zone2 = "0.08 -" }
 # Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "s_values.csv"
 # CSV column name containing zone/material keys.
@@ -360,7 +355,7 @@ field_spatial_id = "field_geology"
 mode = "exponential"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 30.0
+characteristic_depth = "30.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 5e-2
@@ -382,19 +377,17 @@ interpolation = "linear"
 id = "Ss"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
-# Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
-unit = "m-1"
 
 [flow.param.Ss.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-value = 1e-10
+value = "1e-10 m-1"
 
 [flow.param.Ss.field_heterogeneous]
 # Source for heterogeneous values.
 # Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
 # Inline key/value mapping used when values_source='inline'.
-values = { zone1 = 1e-10, zone2 = 5e-11 }
+values = { zone1 = "1e-10 m-1", zone2 = "5e-11 m-1" }
 # Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "ss_values.csv"
 # CSV column name containing zone/material keys.
@@ -410,7 +403,7 @@ field_spatial_id = "field_geology"
 mode = "none"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 30.0
+characteristic_depth = "30.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 1e-3
@@ -668,7 +661,7 @@ nwt_backflag = 0
 nwt_stoptol = 1e-10
 
 # DIS time unit code used by MODFLOW (ITMUNI).
-dis_itmuni = 0
+dis_itmuni = 1
 
 # BAS no-flow head sentinel value (HNOFLO).
 bas_hnoflo = -9999.0
@@ -704,7 +697,7 @@ lmt_output_format = "unformatted"
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 vka = 1.0
 # Extinction depth [L] used by the EVT package (EXDP).
-exdp = 1.0
+exdp = "1.0 m"
 
 [modflownwt.sgrid]
 # Length unit label propagated to FloPy (for example 'm').
@@ -838,7 +831,7 @@ datetime_format = true
 [postprocess.flow.intermittency]
 # Intermittency aggregation levels.
 yearly = false
-monthly = true
+monthly = false
 weekly = false
 daily = false
 
@@ -877,7 +870,7 @@ mass_accumulated = true
 [postprocess.transport.intermittency]
 # Intermittency aggregation levels.
 yearly = false
-monthly = true
+monthly = false
 weekly = false
 daily = false
 

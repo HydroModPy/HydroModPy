@@ -34,6 +34,7 @@ import numpy as np
 from hydromodpy.domain.surface import Surface
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
+from hydromodpy.units import to_modflow_itmuni
 
 
 @dataclass(slots=True)
@@ -139,43 +140,11 @@ def _coerce_itmuni(value: object, default_itmuni: int) -> int:
     """
     if value is None:
         return int(default_itmuni)
-    if isinstance(value, (int, np.integer)):
-        return int(value)
-    if isinstance(value, float):
-        if float(value).is_integer():
-            return int(value)
-        raise ValueError(f"Invalid non-integer ITMUNI value: {value!r}")
-
-    text = str(value).strip().lower()
+    text = str(value).strip()
     if text == "":
         return int(default_itmuni)
-
-    units_map = {
-        "s": 1,
-        "sec": 1,
-        "second": 1,
-        "seconds": 1,
-        "m": 2,
-        "min": 2,
-        "minute": 2,
-        "minutes": 2,
-        "h": 3,
-        "hr": 3,
-        "hour": 3,
-        "hours": 3,
-        "d": 4,
-        "day": 4,
-        "days": 4,
-        "y": 5,
-        "yr": 5,
-        "year": 5,
-        "years": 5,
-    }
-    if text in units_map:
-        return int(units_map[text])
-
     try:
-        return int(text)
+        return int(to_modflow_itmuni(value))
     except ValueError as exc:
         raise ValueError(
             f"Unsupported time_units value {value!r}. "

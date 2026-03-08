@@ -335,7 +335,7 @@ class Modflow6(Solver):
 		self.flow_regime = self._resolve_flow_regime() or "transient"
 		launcher_time_grid = self.time_grid
 		if launcher_time_grid is not None:
-			self.perlen = np.asarray(list(launcher_time_grid.period_lengths_days), dtype=float)
+			self.perlen = np.asarray(list(launcher_time_grid.period_lengths_seconds), dtype=float)
 			self.nper = int(self.perlen.size)
 			if self.nper == 0:
 				raise ValueError("simulation.time grid produced an empty perlen vector.")
@@ -347,7 +347,7 @@ class Modflow6(Solver):
 				firstpersteady = bool(getattr(getattr(self.modflow_config, "tgrid", None), "firstpersteady", True))
 				if firstpersteady:
 					self.steady[0] = True
-			time_units = "days"
+			time_units = "seconds"
 		else:
 			builder_kwargs = self.modflow_config.tgrid.to_builder_kwargs() if getattr(self.modflow_config, "tgrid", None) else {}
 			builder_kwargs["flow_regime"] = self.flow_regime

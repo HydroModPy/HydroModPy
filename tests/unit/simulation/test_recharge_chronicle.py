@@ -12,6 +12,9 @@ from hydromodpy.simulation.forcing import build_recharge_chronicle_payload
 from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
 
 
+MM_DAY_TO_M_S = 1.0e-3 / 86400.0
+
+
 def test_recharge_chronicle_payload_none_when_section_missing(tmp_path: Path) -> None:
     payload = build_recharge_chronicle_payload(
         {},
@@ -49,8 +52,8 @@ def test_recharge_chronicle_payload_builds_synthetic_generated_series(tmp_path: 
     assert payload.mode == "synthetic_generated"
     assert payload.recharge is not None
     assert payload.runoff is not None
-    assert np.allclose(payload.recharge.values, [0.001, 0.002])
-    assert np.allclose(payload.runoff.values, [0.0005, 0.0010])
+    assert np.allclose(payload.recharge.values, [1.0 * MM_DAY_TO_M_S, 2.0 * MM_DAY_TO_M_S])
+    assert np.allclose(payload.runoff.values, [0.5 * MM_DAY_TO_M_S, 1.0 * MM_DAY_TO_M_S])
 
 
 def test_recharge_chronicle_payload_rejects_legacy_values_mm_day_key(tmp_path: Path) -> None:
@@ -160,8 +163,14 @@ def test_recharge_chronicle_synthetic_generated_aligns_with_simulation_window(
         pd.Timestamp("2020-01-11 00:00:00"),
         pd.Timestamp("2020-01-21 00:00:00"),
     ]
-    assert np.allclose(payload.recharge.values, [0.001, 0.002, 0.003])
-    assert np.allclose(payload.runoff.values, [0.0002, 0.0004, 0.0006])
+    assert np.allclose(
+        payload.recharge.values,
+        [1.0 * MM_DAY_TO_M_S, 2.0 * MM_DAY_TO_M_S, 3.0 * MM_DAY_TO_M_S],
+    )
+    assert np.allclose(
+        payload.runoff.values,
+        [0.2 * MM_DAY_TO_M_S, 0.4 * MM_DAY_TO_M_S, 0.6 * MM_DAY_TO_M_S],
+    )
 
 
 def test_recharge_chronicle_observed_request_uses_simulation_window_time_grid(

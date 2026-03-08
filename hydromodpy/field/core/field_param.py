@@ -31,6 +31,8 @@ from hydromodpy.units.hydraulic_conductivity import (
     factor_to_m_per_s,
     normalize_m_per_s_unit,
 )
+from hydromodpy.units.scalar import parse_scalar_and_unit
+from hydromodpy.units.length import parse_length_to_m
 
 try:
     from hydromodpy.field.core.field_param_config import (
@@ -303,8 +305,8 @@ class FieldParam:
         identifier: str,
         kind: str,
         unit: str | None = None,
-        value: float | None = None,
-        values_by_key: Mapping[str, float] | None = None,
+        value: object | None = None,
+        values_by_key: Mapping[str, object] | None = None,
         field_spatial_id: str | None = None,
         vertical_profile: Mapping[str, Any] | None = None,
     ):
@@ -325,12 +327,17 @@ class FieldParam:
             self.unit,
             self._unit_factor_to_si,
         ) = self._resolve_unit_system(identifier=self.identifier, unit=unit)
+        explicit_unit_is_set = unit is not None
 
         if self.kind == "homogeneous":
             # Homogeneous case: exactly one scalar value is required.
             if value is None:
                 raise ValueError("Homogeneous field requires 'value'")
-            self.value = float(value) * self._unit_factor_to_si
+            self.value = self._convert_scalar_payload_to_si(
+                value,
+                location=f"{self.identifier}.value",
+                enforce_explicit_unit=explicit_unit_is_set,
+            )
             self.values_by_key = None
             self.field_spatial_id = None
             self.vertical_profile = self._normalize_vertical_profile(vertical_profile)
@@ -339,10 +346,14 @@ class FieldParam:
         # Heterogeneous case: dictionary key -> value is required.
         if values_by_key is None:
             raise ValueError("Heterogeneous field requires 'values_by_key'")
-        values = {
-            str(k): float(v) * self._unit_factor_to_si
-            for k, v in dict(values_by_key).items()
-        }
+        values: dict[str, float] = {}
+        for key, raw_value in dict(values_by_key).items():
+            zone_key = str(key)
+            values[zone_key] = self._convert_scalar_payload_to_si(
+                raw_value,
+                location=f"{self.identifier}.values[{zone_key}]",
+                enforce_explicit_unit=explicit_unit_is_set,
+            )
         if len(values) == 0:
             raise ValueError("'values_by_key' cannot be empty")
         if field_spatial_id is None or str(field_spatial_id).strip() == "":
@@ -351,6 +362,34 @@ class FieldParam:
         self.values_by_key = values
         self.field_spatial_id = str(field_spatial_id).strip()
         self.vertical_profile = self._normalize_vertical_profile(vertical_profile)
+
+    def _convert_scalar_payload_to_si(
+        self,
+        raw_value: object,
+        *,
+        location: str,
+        enforce_explicit_unit: bool,
+    ) -> float:
+        """Parse one scalar payload with optional inline unit and convert to SI."""
+        explicit_unit = self.input_unit if enforce_explicit_unit else None
+        scalar, resolved_unit = parse_scalar_and_unit(
+            raw_value,
+            location=location,
+            default_unit=self.input_unit,
+            explicit_unit=explicit_unit,
+        )
+        canonical_unit = self._normalize_unit(resolved_unit)
+        if canonical_unit not in _UNIT_TO_SI_UNIT:
+            allowed = ", ".join(SUPPORTED_PARAM_UNITS)
+            raise ValueError(f"Unsupported unit '{resolved_unit}'. Allowed units: {allowed}")
+
+        resolved_si_unit = _UNIT_TO_SI_UNIT[canonical_unit]
+        if resolved_si_unit != self.unit:
+            raise ValueError(
+                f"{location} unit '{resolved_unit}' is inconsistent with parameter "
+                f"'{self.identifier}'. Expected SI family '{self.unit}'."
+            )
+        return float(scalar) * float(_UNIT_TO_SI_FACTOR[canonical_unit])
 
     @property
     def is_homogeneous(self):
@@ -384,7 +423,11 @@ class FieldParam:
                 raise KeyError(
                     "vertical_profile mode='exponential' requires 'characteristic_depth'"
                 )
-            characteristic_depth = float(vertical_profile["characteristic_depth"])
+            characteristic_depth = parse_length_to_m(
+                vertical_profile["characteristic_depth"],
+                default_unit="m",
+                label="vertical_profile.characteristic_depth",
+            )
             if not np.isfinite(characteristic_depth) or characteristic_depth <= 0.0:
                 raise ValueError("vertical_profile.characteristic_depth must be > 0")
 
@@ -784,7 +827,7 @@ class FieldParam:
                 identifier=str(identifier),
                 kind=kind_key,
                 unit=unit,
-                value=float(config["value"]),
+                value=config["value"],
                 vertical_profile=vertical_profile,
             )
 

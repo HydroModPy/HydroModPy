@@ -17,6 +17,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.units import factor_to_seconds, to_pandas_timedelta_unit
+
 try:
     from flopy.discretization.modeltime import ModelTime
 except ModuleNotFoundError:  # pragma: no cover - used only in minimal local envs
@@ -84,7 +86,7 @@ def _inclusive_end_candidate(
     itmuni: str,
 ) -> pd.Timestamp:
     try:
-        return end_datetime + pd.to_timedelta(1, unit=itmuni)
+        return end_datetime + pd.to_timedelta(1, unit=to_pandas_timedelta_unit(itmuni))
     except Exception:
         # Conservative fallback for non-numeric units.
         return end_datetime + pd.to_timedelta(1, unit="d")
@@ -181,7 +183,15 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
                 )
             if not np.all(np.isfinite(lenper_vector)) or np.any(lenper_vector <= 0):
                 raise ValueError("synthetic_regular lenper values must be strictly positive.")
-        deltat = pd.to_timedelta(lenper_vector, unit=config.itmuni)
+        try:
+            deltat = pd.to_timedelta(
+                lenper_vector,
+                unit=to_pandas_timedelta_unit(config.itmuni),
+            )
+        except ValueError as exc:
+            raise ValueError(
+                f"Unsupported itmuni {config.itmuni!r} for synthetic_regular generation."
+            ) from exc
         if config.end_datetime is not None:
             end_datetime = _as_timestamp("end_datetime", config.end_datetime)
             expected = pd.to_timedelta(np.sum(deltat))
@@ -249,7 +259,7 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
         seconds = delta_values.dt.total_seconds().to_numpy(dtype=float)
     else:
         seconds = np.asarray(delta_values.total_seconds(), dtype=float)
-    perlen = seconds / 86400.0
+    perlen = seconds / factor_to_seconds(config.itmuni)
     if perlen.size == 0:
         raise ValueError("Temporal mesh requires at least one stress period.")
     if not np.all(np.isfinite(perlen)) or np.any(perlen <= 0):
