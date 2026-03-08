@@ -12,7 +12,7 @@ from hydromodpy.simulation.adapters.flow.modflow_common import (
     resolve_base_model_name,
     run_flow_model,
 )
-from hydromodpy.simulation.runtime.runtime_contracts import RunContext, RunExecutionResult
+from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow_nwt import Modflow
 
 

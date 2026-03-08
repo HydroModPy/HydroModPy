@@ -17,7 +17,7 @@ import pickle
 from pathlib import Path
 
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.runtime.runtime_contracts import RunContext, RunExecutionResult
+from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.modflow_nwt import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,

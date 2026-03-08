@@ -19,6 +19,20 @@ _ADAPTERS: dict[tuple[str, str], SolverAdapter] = {
 }
 
 
+def register_adapter(process_type: str, solver_name: str, adapter: SolverAdapter) -> None:
+    """Register a solver adapter for dynamic extension.
+
+    External modules can call this to add adapters for new process types
+    (e.g. postprocess, display) without modifying this file.
+    """
+    key = (process_type, solver_name)
+    if key in _ADAPTERS:
+        raise ValueError(
+            f"Adapter already registered for {process_type}/{solver_name}."
+        )
+    _ADAPTERS[key] = adapter
+
+
 def get_solver_adapter(process_type: str, solver_name: str) -> SolverAdapter:
     """Return the adapter registered for one ``(process_type, solver_name)`` pair."""
 

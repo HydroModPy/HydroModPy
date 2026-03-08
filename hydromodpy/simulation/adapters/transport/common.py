@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.runtime.runtime_contracts import RunContext
+from hydromodpy.simulation.planning.plan import RunContext
 
 
 def required_flow_model(ctx: RunContext):
