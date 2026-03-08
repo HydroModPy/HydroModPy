@@ -7,7 +7,6 @@ stays focused on orchestration order.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +15,7 @@ from pydantic import BaseModel
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.data_managers.plan import DataLoadPlan
 from hydromodpy.data_managers.oceanic import Oceanic
+from hydromodpy.simulation.time import resolve_simulation_time_window_dates
 from hydromodpy.simulation.workspace.path_registry import WorkspacePathRegistry
 
 if TYPE_CHECKING:
@@ -397,32 +397,7 @@ class DataManagersRuntimeLoader:
     def _resolve_simulation_time_window_dates(
         result: "LauncherRunState",
     ) -> tuple[str, str] | None:
-        simulation_cfg = getattr(result.cfg, "simulation", None)
-        time_cfg = getattr(simulation_cfg, "time", None)
-        if time_cfg is None:
-            return None
-        start_date = DataManagersRuntimeLoader._normalize_iso_date(
-            getattr(time_cfg, "start_datetime", None)
-        )
-        end_date = DataManagersRuntimeLoader._normalize_iso_date(
-            getattr(time_cfg, "end_datetime", None)
-        )
-        if start_date is None or end_date is None:
-            return None
-        return start_date, end_date
-
-    @staticmethod
-    def _normalize_iso_date(value: Any) -> str | None:
-        if isinstance(value, datetime):
-            return value.date().isoformat()
-        if isinstance(value, date):
-            return value.isoformat()
-        if isinstance(value, str):
-            text = value.strip()
-            if not text:
-                return None
-            return text.replace("T", " ").split(" ", 1)[0]
-        return None
+        return resolve_simulation_time_window_dates(result.cfg, strict=False)
 
     def _resolve_path_like(self, value: Any) -> Path:
         path = Path(str(value)).expanduser()

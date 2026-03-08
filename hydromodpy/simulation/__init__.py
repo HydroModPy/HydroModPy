@@ -17,6 +17,7 @@ from hydromodpy.simulation.state import (
     RunState,
     SetupContext,
 )
+from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
 from hydromodpy.simulation.workspace import Workspace, WorkspaceConfig
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "RunResult",
     "RunState",
     "SetupContext",
+    "ResolvedSimulationTimeWindow",
     "SimulationConfig",
     "SimulationPlan",
     "SimulationPlanner",

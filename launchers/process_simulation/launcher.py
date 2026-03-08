@@ -47,13 +47,9 @@ from __future__ import annotations
 
 import os
 import tomllib
-import warnings
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 import hydromodpy as hmp
-import pandas as pd
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.data_managers import (
     DataLoadPlan,
@@ -70,175 +66,16 @@ from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
 )
+from hydromodpy.simulation.forcing import build_recharge_chronicle_payload
 from hydromodpy.simulation import ProcessContextFactory, SimulationPlanner
 from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.state.run_state import LauncherRunState
 from hydromodpy.simulation.settings import Settings
-
-
-def _as_mapping(value: object, *, name: str) -> dict[str, Any]:
-    """Return a shallow dict copy from a mapping-like payload."""
-    if value is None:
-        return {}
-    if isinstance(value, Mapping):
-        return dict(value)
-    raise ValueError(f"{name} must be a mapping")
-
-
-def _resolve_config_path(
-    config_path: Path,
-    path_value: object,
-    *,
-    name: str,
-) -> Path:
-    """Resolve a path relative to the launcher TOML location."""
-    if not isinstance(path_value, str) or not path_value.strip():
-        raise ValueError(f"{name} must be a non-empty string path")
-    path = Path(path_value).expanduser()
-    if not path.is_absolute():
-        path = (config_path.parent / path).resolve()
-    return path
-
-
-def _to_m_per_day(series: pd.Series, *, units: object, label: str) -> pd.Series:
-    """Normalize recharge/runoff units to m/day."""
-    unit = str(units).strip().lower()
-    if unit in {"m/day", "m/d"}:
-        return series.astype(float)
-    if unit in {"mm/day", "mm/d"}:
-        return series.astype(float) / 1000.0
-    raise ValueError(f"{label} units must be 'mm/day' or 'm/day'. Got: {units!r}")
-
-
-def _normalize_recharge_mode(raw_toml: Mapping[str, Any]) -> str | None:
-    """Return recharge chronicle mode, or None when section is absent."""
-    cfg = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
-    if not cfg:
-        return None
-    mode = str(cfg.get("mode", "synthetic_generated")).strip().lower()
-    allowed = {"observed_csv", "synthetic_generated", "synthetic_csv"}
-    if mode not in allowed:
-        raise ValueError(
-            "recharge_chronicle.mode must be one of "
-            "'observed_csv', 'synthetic_generated', 'synthetic_csv'."
-        )
-    return mode
-
-
-def _build_synthetic_generated_series(
-    raw_toml: Mapping[str, Any],
-    *,
-    default_values: object | None = None,
-) -> tuple[pd.Series, pd.Series]:
-    """Build recharge/runoff series from inline synthetic payload."""
-    cfg_root = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
-    cfg = _as_mapping(
-        cfg_root.get("synthetic_generated"),
-        name="recharge_chronicle.synthetic_generated",
-    )
-
-    raw_values = cfg.get("values_mm_day", default_values)
-    if isinstance(raw_values, (list, tuple)):
-        values = [float(v) for v in raw_values]
-        periods = int(cfg.get("periods", len(values)))
-        if len(values) != periods:
-            raise ValueError(
-                "recharge_chronicle.synthetic_generated.values_mm_day length must match periods."
-            )
-    elif isinstance(raw_values, (int, float)) and not isinstance(raw_values, bool):
-        periods = int(cfg.get("periods", 12))
-        values = [float(raw_values)] * periods
-    else:
-        raise ValueError(
-            "recharge_chronicle.synthetic_generated.values_mm_day must be "
-            "a scalar or a list of numeric values."
-        )
-
-    start_date = str(cfg.get("start_date", "2003-01-01"))
-    freq = str(cfg.get("freq", "ME"))
-    index = pd.date_range(start=start_date, periods=periods, freq=freq)
-    recharge_raw = pd.Series(values, index=index, dtype=float)
-    recharge = _to_m_per_day(
-        recharge_raw,
-        units=cfg.get("units", "mm/day"),
-        label="synthetic_generated recharge",
-    )
-    runoff_ratio = float(cfg.get("runoff_ratio", 0.1))
-    runoff = recharge * runoff_ratio
-    return recharge, runoff
-
-
-def _build_synthetic_csv_series(
-    raw_toml: Mapping[str, Any],
-    *,
-    config_path: Path,
-) -> tuple[pd.Series, pd.Series]:
-    """Build recharge/runoff series from a CSV payload."""
-    cfg_root = _as_mapping(raw_toml.get("recharge_chronicle"), name="recharge_chronicle")
-    cfg = _as_mapping(
-        cfg_root.get("synthetic_csv"),
-        name="recharge_chronicle.synthetic_csv",
-    )
-
-    path_file = _resolve_config_path(
-        config_path,
-        cfg.get("path_file", ""),
-        name="recharge_chronicle.synthetic_csv.path_file",
-    )
-    sep = str(cfg.get("sep", ","))
-    date_column = str(cfg.get("date_column", "date"))
-    recharge_column = str(cfg.get("recharge_column", "recharge_mm_day"))
-    date_format = cfg.get("date_format")
-    runoff_column = cfg.get("runoff_column")
-
-    df = pd.read_csv(path_file, sep=sep)
-    if date_column not in df.columns:
-        raise ValueError(f"Column '{date_column}' not found in synthetic recharge CSV: {path_file}")
-    if recharge_column not in df.columns:
-        raise ValueError(
-            f"Column '{recharge_column}' not found in synthetic recharge CSV: {path_file}"
-        )
-
-    if date_format is None:
-        dates = pd.to_datetime(df[date_column])
-    else:
-        dates = pd.to_datetime(df[date_column], format=str(date_format))
-
-    recharge_raw = pd.Series(df[recharge_column].astype(float).values, index=dates).sort_index()
-    recharge = _to_m_per_day(
-        recharge_raw,
-        units=cfg.get("units", "mm/day"),
-        label="synthetic_csv recharge",
-    )
-
-    if isinstance(runoff_column, str) and runoff_column in df.columns:
-        runoff_raw = pd.Series(df[runoff_column].astype(float).values, index=dates).sort_index()
-        runoff = _to_m_per_day(
-            runoff_raw,
-            units=cfg.get("runoff_units", cfg.get("units", "mm/day")),
-            label="synthetic_csv runoff",
-        )
-    else:
-        runoff_ratio = float(cfg.get("runoff_ratio", 0.1))
-        runoff = recharge * runoff_ratio
-
-    time_step = cfg.get("time_step")
-    if isinstance(time_step, str) and time_step.strip():
-        recharge = recharge.resample(time_step).mean().ffill()
-        runoff = runoff.resample(time_step).mean().ffill()
-
-    return recharge, runoff
-
-
-def _as_timestamp(value: object, *, name: str) -> pd.Timestamp:
-    """Parse one timestamp-like value and validate it."""
-    try:
-        ts = pd.Timestamp(value)
-    except Exception as exc:
-        raise ValueError(f"{name} must be a valid datetime value.") from exc
-    if pd.isna(ts):
-        raise ValueError(f"{name} must be a valid datetime value.")
-    return ts
+from hydromodpy.simulation.time import (
+    apply_explicit_time_window_to_tgrids,
+    resolve_simulation_time_window,
+    validate_recharge_coverage,
+)
 
 
 class HydroModPyLauncher:
@@ -287,7 +124,7 @@ class HydroModPyLauncher:
         if out_path_env := os.environ.get("HYDROMODPY_OUT_PATH"):
             self.cfg.workspace.out_dir_path = Path(out_path_env)
 
-        self._apply_simulation_time_window_to_tgrids()
+        apply_explicit_time_window_to_tgrids(self.cfg)
 
         with self.config_path.open("rb") as fh:
             raw_toml = tomllib.load(fh)
@@ -315,124 +152,6 @@ class HydroModPyLauncher:
         self.run_state.data_plan = data_plan
         self.process_context_factory = ProcessContextFactory()
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
-
-    def _get_simulation_time_window(self) -> tuple[pd.Timestamp, pd.Timestamp, str] | None:
-        """Return canonical (start, end, policy) from `[simulation.time]` when configured."""
-        simulation_cfg = getattr(self.cfg, "simulation", None)
-        time_cfg = getattr(simulation_cfg, "time", None) if simulation_cfg is not None else None
-        if time_cfg is None:
-            return None
-        start = _as_timestamp(time_cfg.start_datetime, name="simulation.time.start_datetime")
-        end = _as_timestamp(time_cfg.end_datetime, name="simulation.time.end_datetime")
-        if end <= start:
-            raise ValueError("simulation.time.end_datetime must be greater than start_datetime.")
-        policy = str(getattr(time_cfg, "coverage_policy", "error")).strip().lower()
-        if policy not in {"error", "warn", "ignore"}:
-            raise ValueError("simulation.time.coverage_policy must be one of: error, warn, ignore.")
-        return start, end, policy
-
-    def _apply_simulation_time_window_to_tgrids(self) -> None:
-        """Propagate canonical simulation window to solver tgrid sections."""
-        window = self._get_simulation_time_window()
-        if window is None:
-            return
-        start, end, _ = window
-        for solver_section_name in ("modflownwt", "modflow6"):
-            solver_cfg = getattr(self.cfg, solver_section_name, None)
-            tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
-            if tgrid_cfg is None:
-                continue
-            tgrid_cfg.start_datetime = start.to_pydatetime()
-            tgrid_cfg.end_datetime = end.to_pydatetime()
-
-    @staticmethod
-    def _handle_recharge_coverage_violation(policy: str, message: str) -> None:
-        if policy == "ignore":
-            return
-        if policy == "warn":
-            warnings.warn(message, stacklevel=2)
-            return
-        raise ValueError(message)
-
-    def _validate_recharge_coverage(self, recharge: object) -> None:
-        """Check that recharge covers the configured simulation window."""
-        window = self._get_simulation_time_window()
-        if window is None:
-            return
-        start, end, policy = window
-        if policy == "ignore":
-            return
-
-        if recharge is None:
-            self._handle_recharge_coverage_violation(
-                policy,
-                "Recharge coverage check failed: recharge data is missing.",
-            )
-            return
-
-        if isinstance(recharge, pd.Series):
-            series = recharge.copy()
-        elif isinstance(recharge, pd.DataFrame):
-            if recharge.empty:
-                self._handle_recharge_coverage_violation(
-                    policy,
-                    "Recharge coverage check failed: recharge DataFrame is empty.",
-                )
-                return
-            series = recharge.iloc[:, 0].copy()
-        else:
-            # Scalar/mapping recharge cannot be validated against a datetime window.
-            self._handle_recharge_coverage_violation(
-                policy,
-                "Recharge coverage check requires a datetime-indexed Series/DataFrame "
-                f"for window [{start}, {end}], got {type(recharge).__name__}.",
-            )
-            return
-
-        if not isinstance(series.index, pd.DatetimeIndex):
-            try:
-                series.index = pd.to_datetime(series.index)
-            except Exception:
-                self._handle_recharge_coverage_violation(
-                    policy,
-                    "Recharge coverage check failed: recharge index is not datetime-like.",
-                )
-                return
-
-        series = series.sort_index()
-        if series.empty:
-            self._handle_recharge_coverage_violation(
-                policy,
-                "Recharge coverage check failed: recharge series is empty.",
-            )
-            return
-
-        series_start = pd.Timestamp(series.index.min())
-        series_end = pd.Timestamp(series.index.max())
-        if series_start > start or series_end < end:
-            self._handle_recharge_coverage_violation(
-                policy,
-                "Recharge coverage check failed: recharge range "
-                f"[{series_start}, {series_end}] does not fully cover "
-                f"simulation window [{start}, {end}].",
-            )
-            return
-
-        window_values = series.loc[(series.index >= start) & (series.index <= end)]
-        if window_values.empty:
-            self._handle_recharge_coverage_violation(
-                policy,
-                "Recharge coverage check failed: no recharge values inside simulation window "
-                f"[{start}, {end}].",
-            )
-            return
-
-        if window_values.isna().any():
-            self._handle_recharge_coverage_violation(
-                policy,
-                "Recharge coverage check failed: recharge contains NaN values within "
-                f"simulation window [{start}, {end}].",
-            )
 
     @staticmethod
     def _log_data_plan(data_plan: DataLoadPlan) -> None:
@@ -578,10 +297,6 @@ class HydroModPyLauncher:
     def _apply_recharge_chronicle_from_toml(self) -> None:
         """Optionally materialize climatic recharge from [recharge_chronicle]."""
         run_state = self.run_state
-        mode = _normalize_recharge_mode(run_state.raw_toml)
-        if mode is None:
-            return
-
         climatic = run_state.loaded_data.climatic
         if climatic is None:
             raise RuntimeError(
@@ -595,63 +310,57 @@ class HydroModPyLauncher:
             else None
         )
         default_values = getattr(recharge_cfg, "values", None) if recharge_cfg is not None else None
-
-        if mode == "observed_csv":
-            cfg_root = _as_mapping(
-                run_state.raw_toml.get("recharge_chronicle"),
-                name="recharge_chronicle",
-            )
-            cfg = _as_mapping(
-                cfg_root.get("observed_csv"),
-                name="recharge_chronicle.observed_csv",
-            )
-            default_path = run_state.cfg.workspace.data_path / "_climate_REANALYSIS.csv"
-            path_file = _resolve_config_path(
-                self.config_path,
-                cfg.get("path_file", str(default_path)),
-                name="recharge_chronicle.observed_csv.path_file",
-            )
-            clim_mod = str(cfg.get("clim_mod", "REA"))
-            clim_sce = str(cfg.get("clim_sce", "historic"))
-            first_year = int(cfg.get("first_year", 2003))
-            last_year = int(cfg.get("last_year", first_year))
-            time_step = str(cfg.get("time_step", "ME"))
-            sim_state = str(cfg.get("sim_state", run_state.setup.flow.flow_regime))
-
-            climatic.update_recharge_reanalysis(
-                path_file=path_file,
-                clim_mod=clim_mod,
-                clim_sce=clim_sce,
-                first_year=first_year,
-                last_year=last_year,
-                time_step=time_step,
-                sim_state=sim_state,
-            )
-            climatic.update_runoff_reanalysis(
-                path_file=path_file,
-                clim_mod=clim_mod,
-                clim_sce=clim_sce,
-                first_year=first_year,
-                last_year=last_year,
-                time_step=time_step,
-                sim_state=sim_state,
-            )
-            self._validate_recharge_coverage(climatic.recharge)
+        sim_state = run_state.setup.flow.flow_regime
+        payload = build_recharge_chronicle_payload(
+            run_state.raw_toml,
+            config_path=self.config_path,
+            default_values=default_values,
+            default_observed_path=run_state.cfg.workspace.data_path / "_climate_REANALYSIS.csv",
+            default_sim_state=sim_state,
+        )
+        if payload is None:
             return
 
-        if mode == "synthetic_generated":
-            recharge, runoff = _build_synthetic_generated_series(
-                run_state.raw_toml,
-                default_values=default_values,
-            )
-        else:
-            recharge, runoff = _build_synthetic_csv_series(
-                run_state.raw_toml,
-                config_path=self.config_path,
-            )
+        window = resolve_simulation_time_window(self.cfg)
 
-        sim_state = run_state.setup.flow.flow_regime
-        self._validate_recharge_coverage(recharge)
+        if payload.mode == "observed_csv":
+            observed = payload.observed
+            if observed is None:
+                raise RuntimeError("Observed recharge payload is missing for mode='observed_csv'.")
+            climatic.update_recharge_reanalysis(
+                path_file=observed.path_file,
+                clim_mod=observed.clim_mod,
+                clim_sce=observed.clim_sce,
+                first_year=observed.first_year,
+                last_year=observed.last_year,
+                time_step=observed.time_step,
+                sim_state=observed.sim_state,
+            )
+            climatic.update_runoff_reanalysis(
+                path_file=observed.path_file,
+                clim_mod=observed.clim_mod,
+                clim_sce=observed.clim_sce,
+                first_year=observed.first_year,
+                last_year=observed.last_year,
+                time_step=observed.time_step,
+                sim_state=observed.sim_state,
+            )
+            validate_recharge_coverage(
+                climatic.recharge,
+                window,
+            )
+            return
+
+        recharge = payload.recharge
+        runoff = payload.runoff
+        if recharge is None or runoff is None:
+            raise RuntimeError(
+                f"Synthetic recharge payload is incomplete for mode='{payload.mode}'."
+            )
+        validate_recharge_coverage(
+            recharge,
+            window,
+        )
         climatic.update_recharge(recharge, sim_state=sim_state)
         climatic.update_runoff(runoff, sim_state=sim_state)
 
