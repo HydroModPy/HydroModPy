@@ -267,10 +267,6 @@ class HydroModPyLauncher:
         simulation_name = "_".join(str(cfg.simulation.name).strip().split())
         if simulation_name:
             setup_state.model_name = simulation_name
-            # Keep mirroring for compatibility with code paths still reading
-            # settings.model_name directly.
-            if hasattr(setup_state.settings, "model_name"):
-                setup_state.settings.model_name = simulation_name
         # Eagerly create Flow/Transport so data binders can reference them.
         ensure_flow(run_state)
         ensure_transport(run_state)
