@@ -348,23 +348,24 @@ python -m hydromodpy.launchers simulation config.toml
 L'utilisateur ne touche pas de Python. Le TOML est la specification
 complete du workflow.
 
-### 5.2 Architecture actuelle de simulation/
+### 5.2 Architecture de simulation/
 
 ```
 simulation/
   planning/
     config.py          SimulationConfig (Pydantic, section [simulation])
-    plan.py            ProcessRun, SimulationPlan (frozen dataclasses)
+    plan.py            ProcessRun, SimulationPlan, RunContext, RunExecutionResult
     planner.py         SimulationPlanner : config -> plan ordonne
   runtime/
-    runner.py           SimulationRunner : execute le plan
-    runtime_contracts.py  Protocols (SimulationState, RunContext...)
-    process_context.py  ProcessContextFactory
+    runner.py           SimulationRunner + ProcessContextFactory (inline)
   adapters/
     base.py            SolverAdapter (Protocol)
-    registry.py        Registre statique {(type, solver) -> adapter}
+    registry.py        Registre dynamique {(type, solver) -> adapter}
+                       + register_adapter() pour extension
     flow/              ModflowNwtFlowAdapter, Modflow6FlowAdapter
     transport/         ModpathAdapter, Mt3dmsAdapter, Modflow6GwtAdapter
+    postprocess/       TimeseriesPostprocessAdapter, NetcdfPostprocessAdapter (stubs)
+    display/           FlowDisplayAdapter, TransportDisplayAdapter (stubs)
   state/
     run_state.py       LauncherRunState (3 scopes)
     setup.py           SetupContext
@@ -374,25 +375,41 @@ simulation/
     config.py          WorkspaceConfig
     path_registry.py   WorkspacePathRegistry (frozen)
     workspace.py       Workspace (creation dossiers)
-  settings.py          Settings (options preprocessing)
+  forcing/
+    recharge_chronicle.py  Parsing recharge (observed, synthetic)
+  time/
+    window.py          Resolution fenetre temporelle + validation couverture
+  settings.py          Settings (options preprocessing legacy)
 ```
 
-### 5.3 Ce qui est bien et a garder
+### 5.3 Decisions architecturales
 
-**Adapter pattern + registry** : la meilleure decision architecturale.
+**Adapter pattern + registry dynamique** : la meilleure decision architecturale.
 Ajouter un solveur = 1 fichier adapter + 1 ligne dans le registre. Le
-runner reste generique.
+runner reste generique. Le registre est extensible dynamiquement :
 
 ```python
-# registry.py
-ADAPTER_REGISTRY: dict[tuple[str, str], SolverAdapter] = {
+# Registre existant (charge au demarrage)
+_ADAPTERS = {
     ("flow", "modflownwt"): ModflowNwtFlowAdapter(),
     ("flow", "modflow6"):   Modflow6FlowAdapter(),
-    ("transport", "modpath"):     ModpathAdapter(),
-    ("transport", "mt3dms"):      Mt3dmsAdapter(),
-    ("transport", "modflow6gwt"): Modflow6GwtAdapter(),
+    ("transport", "modpath"):     ModpathTransportAdapter(),
+    ("transport", "mt3dms"):      Mt3dmsTransportAdapter(),
+    ("transport", "modflow6gwt"): Modflow6GwtTransportAdapter(),
 }
+
+# Extension dynamique depuis un module externe
+from hydromodpy.simulation.adapters import register_adapter
+from hydromodpy.solver.compatibility import register_process_solver
+
+register_process_solver("postprocess", "timeseries")
+register_adapter("postprocess", "timeseries", MyTimeseriesAdapter())
 ```
+
+**Type de process extensible** : `SimulationProcessConfig.type` est un `str`
+valide dynamiquement contre le registre `solver/compatibility.py`, plus un
+`Literal["flow", "transport"]`. Ajouter un nouveau type (postprocess, display,
+etc.) ne necessite aucune modification du code simulation/ existant.
 
 **Trois scopes d'etat** (SetupContext, LoadedDataContext, ExecutionRegistry) :
 separation claire entre objets structurels, donnees chargees, et resultats
@@ -410,53 +427,66 @@ ProcessRun avec `depends_on` explicite supporte les dependances non-lineaires
 de donnees actifs depuis la configuration domain/flow. Reduit le boilerplate
 TOML.
 
-### 5.4 Ce qui est a simplifier
+**RunContext / RunExecutionResult** dans `planning/plan.py` : contrats
+partages entre le runner et les adapters. Co-localises avec ProcessRun et
+SimulationPlan pour eviter les dependances circulaires.
 
-#### ProcessContextFactory (64 lignes) -> a supprimer
+**ProcessContextFactory inline dans runner.py** : materialise les objets
+process (Flow, Transport) a la demande. Accepte silencieusement les types
+inconnus (no-op) pour supporter les nouvelles phases sans modification.
 
-Actuellement une classe avec factory pattern pour 2 branches if/else.
-A remplacer par une methode de 10 lignes dans le runner :
+### 5.4 A evoluer
 
-```python
-# Dans SimulationRunner, remplacer ProcessContextFactory par :
-def _ensure_process_context(self, process_type: str) -> None:
-    if process_type == "flow" and self.state.setup.flow is None:
-        self.state.setup.flow = Flow(config=self.state.cfg.flow)
-    elif process_type == "transport" and self.state.setup.transport is None:
-        self.state.setup.transport = Transport(config=self.state.cfg.transport)
-```
-
-#### runtime_contracts.py (79 lignes de Protocols) -> a supprimer
-
-Les Protocols n'ont qu'une seule implementation concrete (LauncherRunState).
-Ils ajoutent une couche d'indirection sans valeur. Si demain on a un
-MockSimulationState pour les tests, on pourra les reintroduire.
-
-En attendant, le runner importe directement LauncherRunState.
-
-#### Planner : renommer ou fusionner
+#### Planner : fusionner eventuellement
 
 Le `SimulationPlanner` ne planifie pas (il ne reordonne pas, ne parallelise
-pas). Il **valide et aplatit**. Deux options :
+pas). Il **valide et aplatit**. Option future : fusionner `planner.py` +
+`plan.py` en un seul module (~100 lignes au lieu de 170). Pas prioritaire.
 
-- **Option A** : renommer en `SimulationPlanBuilder` (plus honnete)
-- **Option B** : fusionner `planner.py` + `plan.py` en un seul module
-  `simulation_plan.py` (~100 lignes au lieu de 170)
+#### settings.py : a deprecer
 
-#### Bilan : reduction cible
+`Settings` est un vestige pre-Pydantic. Ses champs (`box`, `sink_fill`,
+`check_grid`) sont deja modelises dans `FlowConfig` et
+`ModflowPreprocessOptions`. Encore utilise par `modflow_common.py` et le
+launcher — a migrer progressivement.
 
-| Fichier | Actuel | Cible |
-|---|---|---|
-| process_context.py | 64L (classe) | 0L (inline dans runner) |
-| runtime_contracts.py | 79L (Protocols) | 0L (import direct) |
-| planner.py + plan.py | 172L (2 fichiers) | ~100L (1 fichier) |
-| **Total economise** | **~215 lignes** | |
+### 5.5 Extensibilite
 
-Le reste (adapters, runner, state, workspace) est justifie.
+#### Ajouter un nouveau type de process (ex: postprocess)
 
-### 5.5 Ce qui est a rajouter
+1. Enregistrer la paire dans la matrice de compatibilite :
+   ```python
+   from hydromodpy.solver.compatibility import register_process_solver
+   register_process_solver("postprocess", "timeseries")
+   ```
 
-#### Hooks lifecycle (optionnel, basse priorite)
+2. Creer l'adapter :
+   ```python
+   class TimeseriesPostprocessAdapter:
+       process_type = "postprocess"
+       solver_name = "timeseries"
+       def execute(self, ctx: RunContext) -> RunExecutionResult:
+           # wrapper autour de FlowTimeseriesPostprocess...
+           return RunExecutionResult(primary_model=result)
+   ```
+
+3. Enregistrer l'adapter :
+   ```python
+   from hydromodpy.simulation.adapters import register_adapter
+   register_adapter("postprocess", "timeseries", TimeseriesPostprocessAdapter())
+   ```
+
+4. L'utilisateur peut maintenant declarer dans son TOML :
+   ```toml
+   [[simulation.process]]
+   id = "post_ts"
+   type = "postprocess"
+   solvers = ["timeseries"]
+   ```
+
+**Zero modification du code simulation/ existant.**
+
+### 5.6 Hooks lifecycle (optionnel, basse priorite)
 
 Un hook est un point d'insertion ou l'utilisateur glisse du code Python
 entre les phases du launcher (ex: `on_after_data`, `on_before_simulation`).
@@ -469,14 +499,8 @@ flexibilite (injecter des donnees, debugger, exporter) ecrit un script
 Python directement. Le launcher TOML est reserve aux workflows standards
 et reproductibles — la ou justement on ne veut pas de code custom.
 
-Les hooks sont courants dans les projets ou l'utilisateur ne controle
-pas le flux (Django signals, Git pre-commit, Webpack plugins). Dans les
-projets scientifiques avec interface scriptable (scikit-learn, PyTorch,
-FloPy), les hooks sont rares car le script offre deja toute la flexibilite.
-
-Si le besoin se confirme plus tard (ex: un utilisateur non-developpeur
-veut personnaliser un workflow TOML sans ecrire un script complet), on
-pourra les reintroduire sous cette forme :
+Si le besoin se confirme plus tard, on pourra les reintroduire sous cette
+forme :
 
 ```python
 @dataclass
@@ -488,7 +512,7 @@ class LauncherCallbacks:
 
 Avec auto-decouverte d'un fichier `hooks.py` a cote du TOML.
 
-#### Workflow partiel
+### 5.7 Workflow partiel
 
 Permettre de n'executer qu'une partie du pipeline depuis le TOML :
 
@@ -501,7 +525,7 @@ phases = ["setup", "data"]
 Ou via CLI :
 
 ```bash
-python -m hydromodpy.launchers simulation config.toml --until data
+hmp simulation config.toml --until data
 ```
 
 Cela couvre le cas "je veux juste exporter les donnees climatiques
@@ -839,16 +863,15 @@ solvers = ["modflownwt"]
 
 [[simulation.process]]
 id = "particles"
-type = "flow"
+type = "transport"
 solvers = ["modpath"]
-depends_on = ["flow_steady"]
 
 [postprocess]
 enabled = true
 ```
 
 ```bash
-python -m hydromodpy.launchers simulation config.toml
+hmp simulation config.toml
 ```
 
 ---
@@ -907,23 +930,33 @@ Chaque nouveau module doit avoir :
 
 ## 13. Feuille de route architecturale
 
+### Fait
+
+- [x] `ProcessContextFactory` inline dans `runner.py` (suppression de `process_context.py`)
+- [x] `runtime_contracts.py` supprime (`RunContext`/`RunExecutionResult` dans `plan.py`)
+- [x] `SimulationProcessConfig.type` extensible (`str` valide dynamiquement)
+- [x] `register_adapter()` et `register_process_solver()` pour extension dynamique
+- [x] Stubs adapters pour `postprocess/` et `display/`
+- [x] Matrice de compatibilite etendue (postprocess, display)
+
 ### Court terme (a faire)
 
-- [ ] Ajouter `hmp simulation config.toml` dans le CLI (remplace `python -m hydromodpy.launchers`)
+- [x] Ajouter `hmp simulation config.toml` dans le CLI (remplace `python -m hydromodpy.launchers`)
 - [ ] Ajouter `hmp case <module> [sous-cas]` dans le CLI (decouverte auto des cases/)
-- [ ] Supprimer `ProcessContextFactory` (inline dans runner)
-- [ ] Supprimer `runtime_contracts.py` (import direct)
-- [ ] Fusionner `planner.py` + `plan.py` en `simulation_plan.py`
 - [ ] Ajouter `--until <phase>` au CLI launcher
+- [ ] Implementer les adapters postprocess (timeseries, netcdf) — wrapping des modules existants
+- [ ] Implementer les adapters display (flow, transport)
 - [ ] Converger hydrometry/piezometry vers une seule API (Manager + PointRecord)
-- [ ] Nettoyer les marqueurs de conflit dans docs/ et process/
-- [ ] Hooks lifecycle optionnels (~30 lignes, auto-decouverte hooks.py)
+- [ ] Deprecer `settings.py` au profit de `FlowConfig` + `ModflowPreprocessOptions`
+- [x] Nettoyer les marqueurs de conflit dans docs/ et process/ (aucun conflit reel trouve)
 
 ### Moyen terme
 
+- [ ] Fusionner `planner.py` + `plan.py` si la taille le justifie
 - [ ] Planner avec resolution de DAG (si workflows non-lineaires confirmes)
 - [ ] Parallelisation de processus independants dans le runner
 - [ ] Support PyHELP comme data manager (recharge calculee)
+- [ ] Hooks lifecycle optionnels (~30 lignes, auto-decouverte hooks.py)
 
 ### Long terme
 
