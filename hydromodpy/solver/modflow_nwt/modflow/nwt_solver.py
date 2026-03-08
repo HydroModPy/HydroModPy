@@ -303,6 +303,9 @@ class Modflow(Solver):
 
     def _build_dis_package(self, sgrid, temporal_dis: Mapping[str, object]) -> None:
         """Create FLOPY DIS package from spatial and temporal discretization."""
+        # TGrid/TMesh fields consumed here:
+        # - itmuni, nper, perlen, nstp, steady, start_datetime.
+        # Current implementation does not forward tsmult to ModflowDis.
         self.dis = flopy.modflow.ModflowDis(
             self.mf,
             # Spatial grid parameters

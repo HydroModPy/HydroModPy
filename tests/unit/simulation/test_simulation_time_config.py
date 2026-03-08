@@ -13,6 +13,7 @@ def test_simulation_time_window_parses_from_mapping() -> None:
             "name": "time-window",
             "description": "test",
             "time": {
+                "mode": "explicit",
                 "start_datetime": "2020-01-01 00:00:00",
                 "end_datetime": "2020-01-02 00:00:00",
                 "coverage_policy": "warn",
@@ -22,6 +23,7 @@ def test_simulation_time_window_parses_from_mapping() -> None:
     )
 
     assert cfg.time is not None
+    assert cfg.time.mode == "explicit"
     assert cfg.time.coverage_policy == "warn"
 
 
@@ -31,9 +33,41 @@ def test_simulation_time_window_rejects_inverted_bounds() -> None:
             {
                 "name": "bad-window",
                 "time": {
+                    "mode": "explicit",
                     "start_datetime": "2020-01-02 00:00:00",
                     "end_datetime": "2020-01-01 00:00:00",
                 },
                 "process": [],
             }
         )
+
+
+def test_simulation_time_window_explicit_requires_bounds() -> None:
+    with pytest.raises(ValueError, match="required when simulation.time.mode='explicit'"):
+        _ = SimulationConfig.model_validate(
+            {
+                "name": "explicit-without-bounds",
+                "time": {
+                    "mode": "explicit",
+                },
+                "process": [],
+            }
+        )
+
+
+def test_simulation_time_window_from_modflow_allows_omitted_bounds() -> None:
+    cfg = SimulationConfig.model_validate(
+        {
+            "name": "from-modflow",
+            "time": {
+                "mode": "from_modflow",
+                "coverage_policy": "warn",
+            },
+            "process": [],
+        }
+    )
+
+    assert cfg.time is not None
+    assert cfg.time.mode == "from_modflow"
+    assert cfg.time.start_datetime is None
+    assert cfg.time.end_datetime is None

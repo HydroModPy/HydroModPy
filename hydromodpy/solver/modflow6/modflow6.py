@@ -370,6 +370,11 @@ class Modflow6(Solver):
 		runtime = getattr(self.modflow_config, "runtime", None)
 		sim_name = self.model_name_mf6
 		self.sim = flopy.mf6.MFSimulation(sim_name=sim_name, sim_ws=self.full_path, exe_name=self.exe)
+		# TGrid/TMesh fields consumed here:
+		# - perlen (stress-period length),
+		# - nstp (time-step count),
+		# - itmuni (time_units metadata).
+		# Current implementation keeps MF6 TDIS tsmult fixed to 1.0.
 		self.tdis = flopy.mf6.ModflowTdis(
 			self.sim,
 			nper=int(self.nper),
