@@ -28,16 +28,80 @@ mixing generic orchestration with solver-specific API calls.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable, Protocol
 
 from hydromodpy.simulation.adapters import get_solver_adapter
-from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.runtime.process_context import ProcessContextFactory
-from hydromodpy.simulation.runtime.runtime_contracts import (
+from hydromodpy.simulation.planning.plan import (
+    ProcessRun,
     RunContext,
     RunExecutionResult,
-    SimulationState,
+    SimulationPlan,
 )
+
+from hydromodpy.process import Flow, Transport
+
+
+# ---------------------------------------------------------------------------
+# Process-context materialization (inlined from former process_context.py)
+# ---------------------------------------------------------------------------
+
+_REQUIRED_COMPONENTS_BY_PROCESS: dict[str, tuple[str, ...]] = {
+    "flow": ("flow",),
+    # Transport callbacks and adapters commonly need both transport settings and
+    # the shared flow process context.
+    "transport": ("flow", "transport"),
+}
+
+
+class _ProcessContextState(Protocol):
+    """Minimal state shape required to materialize process objects."""
+
+    cfg: Any
+    setup: Any
+
+
+class ProcessContextFactory:
+    """Idempotent factory for process-level runtime objects.
+
+    Kept as a class for backward compatibility with launcher code that
+    instantiates and calls it directly.
+    """
+
+    def ensure_for_process(self, state: _ProcessContextState, process_type: str) -> None:
+        """Ensure all process objects required by ``process_type`` exist.
+
+        Process types not listed in ``_REQUIRED_COMPONENTS_BY_PROCESS`` are
+        silently accepted — they simply have no components to materialize.
+        This allows extensible process types (postprocess, display, etc.)
+        without modifying this factory.
+        """
+        components = _REQUIRED_COMPONENTS_BY_PROCESS.get(process_type, ())
+        for component_name in components:
+            self._ensure_component(state, component_name)
+
+    def ensure_flow(self, state: _ProcessContextState) -> None:
+        """Create ``state.setup.flow`` from ``state.cfg.flow`` when missing."""
+        if state.setup.flow is None:
+            state.setup.flow = Flow(config=state.cfg.flow)
+
+    def ensure_transport(self, state: _ProcessContextState) -> None:
+        """Create ``state.setup.transport`` from ``state.cfg.transport`` when missing."""
+        if state.setup.transport is None:
+            state.setup.transport = Transport(config=state.cfg.transport)
+
+    def _ensure_component(self, state: _ProcessContextState, component_name: str) -> None:
+        if component_name == "flow":
+            self.ensure_flow(state)
+            return
+        if component_name == "transport":
+            self.ensure_transport(state)
+            return
+        raise ValueError(f"Unsupported process component '{component_name}'.")
+
+
+# ---------------------------------------------------------------------------
+# Runner
+# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -80,7 +144,7 @@ class SimulationRunner:
         self.callbacks = callbacks or ProcessCallbacks()
         self.process_context_factory = process_context_factory or ProcessContextFactory()
 
-    def execute(self, plan: SimulationPlan, state: SimulationState) -> None:
+    def execute(self, plan: SimulationPlan, state: Any) -> None:
         """Execute each planned run in order against ``state``.
 
         The plan is assumed to be pre-validated by ``SimulationPlanner``.
@@ -149,7 +213,7 @@ class SimulationRunner:
     def _run_process_run(
         self,
         plan: SimulationPlan,
-        state: SimulationState,
+        state: Any,
         run: ProcessRun,
     ) -> None:
         """Execute one resolved process run through its registered adapter.
@@ -179,7 +243,7 @@ class SimulationRunner:
 
     def _resolve_dependency_models(
         self,
-        state: SimulationState,
+        state: Any,
         run: ProcessRun,
     ) -> tuple[object, ...]:
         """Resolve the concrete upstream models referenced by ``run.depends_on``.
@@ -204,7 +268,7 @@ class SimulationRunner:
 
     def _record_run_output(
         self,
-        state: SimulationState,
+        state: Any,
         run: ProcessRun,
         result: RunExecutionResult,
     ) -> None:
