@@ -35,7 +35,7 @@ class TMeshConfig:
     flow_regime: str = "transient"
     genmtd: str = "synthetic_regular"
     nper: int = 1
-    lenper: float | int | None = 1
+    lenper: float | int | list[float] | np.ndarray | None = 1
     chron_path: str | None = None
     chron_dateformat: str = "%Y-%m-%d %H:%M:%S"
     chron_colsep: str = "\t"
@@ -78,6 +78,18 @@ def _as_timestamp(name: str, value: Any) -> pd.Timestamp:
     return ts
 
 
+def _inclusive_end_candidate(
+    end_datetime: pd.Timestamp,
+    *,
+    itmuni: str,
+) -> pd.Timestamp:
+    try:
+        return end_datetime + pd.to_timedelta(1, unit=itmuni)
+    except Exception:
+        # Conservative fallback for non-numeric units.
+        return end_datetime + pd.to_timedelta(1, unit="d")
+
+
 def _validate_config(config: TMeshConfig) -> None:
     if str(config.itmuni).strip() == "":
         raise ValueError("itmuni cannot be empty.")
@@ -95,15 +107,26 @@ def _validate_config(config: TMeshConfig) -> None:
         _as_positive_int("nper", config.nper)
         if config.lenper is None:
             raise ValueError("lenper cannot be None for genmtd='synthetic_regular'.")
-        _as_positive_float("lenper", config.lenper)
+        if np.isscalar(config.lenper):
+            _as_positive_float("lenper", config.lenper)
+        else:
+            lenper_arr = np.asarray(config.lenper, dtype=float).reshape(-1)
+            if lenper_arr.size == 0:
+                raise ValueError("lenper list cannot be empty for genmtd='synthetic_regular'.")
+            if lenper_arr.size != int(config.nper):
+                raise ValueError(
+                    f"lenper length mismatch: expected nper={int(config.nper)}, got {lenper_arr.size}."
+                )
+            if not np.all(np.isfinite(lenper_arr)) or np.any(lenper_arr <= 0):
+                raise ValueError("lenper values must be strictly positive.")
     if config.genmtd == "from_chron":
         if config.chron_path is None or str(config.chron_path).strip() == "":
             raise ValueError("chron_path is required for genmtd='from_chron'.")
     if config.start_datetime is not None and config.end_datetime is not None:
         start = _as_timestamp("start_datetime", config.start_datetime)
         end = _as_timestamp("end_datetime", config.end_datetime)
-        if end <= start:
-            raise ValueError("end_datetime must be strictly greater than start_datetime.")
+        if end < start:
+            raise ValueError("end_datetime must be greater than or equal to start_datetime.")
 
 
 def _read_chron_dates(config: TMeshConfig) -> pd.Series:
@@ -146,23 +169,46 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
             else _as_timestamp("start_datetime", config.start_datetime)
         )
         nper = _as_positive_int("nper", config.nper)
-        lenper = _as_positive_float("lenper", config.lenper)
-        deltat = pd.to_timedelta(np.full(nper, lenper, dtype=float), unit=config.itmuni)
+        if np.isscalar(config.lenper):
+            lenper = _as_positive_float("lenper", config.lenper)
+            lenper_vector = np.full(nper, lenper, dtype=float)
+        else:
+            lenper_vector = np.asarray(config.lenper, dtype=float).reshape(-1)
+            if lenper_vector.size != nper:
+                raise ValueError(
+                    "synthetic_regular lenper length mismatch: "
+                    f"expected nper={nper}, got {lenper_vector.size}."
+                )
+            if not np.all(np.isfinite(lenper_vector)) or np.any(lenper_vector <= 0):
+                raise ValueError("synthetic_regular lenper values must be strictly positive.")
+        deltat = pd.to_timedelta(lenper_vector, unit=config.itmuni)
         if config.end_datetime is not None:
             end_datetime = _as_timestamp("end_datetime", config.end_datetime)
             expected = pd.to_timedelta(np.sum(deltat))
             actual = end_datetime - start_datetime
-            if actual <= pd.Timedelta(0):
-                raise ValueError("end_datetime must be strictly greater than start_datetime.")
-            if not np.isclose(
+            inclusive_actual = _inclusive_end_candidate(
+                end_datetime,
+                itmuni=str(config.itmuni),
+            ) - start_datetime
+            if actual < pd.Timedelta(0):
+                raise ValueError("end_datetime must be greater than or equal to start_datetime.")
+            matches_exclusive = np.isclose(
                 actual.total_seconds(),
                 expected.total_seconds(),
                 rtol=0.0,
                 atol=1e-6,
-            ):
+            )
+            matches_inclusive = np.isclose(
+                inclusive_actual.total_seconds(),
+                expected.total_seconds(),
+                rtol=0.0,
+                atol=1e-6,
+            )
+            if not (matches_exclusive or matches_inclusive):
                 raise ValueError(
-                    "synthetic_regular window mismatch: end_datetime - start_datetime "
-                    "must equal nper * lenper."
+                    "synthetic_regular window mismatch: expected nper/lenper duration "
+                    "must match either exclusive bounds [start, end) or inclusive "
+                    "bounds [start, end]."
                 )
     elif config.genmtd == "from_chron":
         dates = _read_chron_dates(config).reset_index(drop=True)
@@ -177,8 +223,8 @@ def _build_period_lengths(config: TMeshConfig) -> tuple[Any, str, np.ndarray]:
                 if config.end_datetime is None
                 else _as_timestamp("end_datetime", config.end_datetime)
             )
-            if end_bound <= start_bound:
-                raise ValueError("end_datetime must be strictly greater than start_datetime.")
+            if end_bound < start_bound:
+                raise ValueError("end_datetime must be greater than or equal to start_datetime.")
             if start_bound < dates.iloc[0] or end_bound > dates.iloc[-1]:
                 raise ValueError(
                     "Chronicle does not cover requested [start_datetime, end_datetime] window."
