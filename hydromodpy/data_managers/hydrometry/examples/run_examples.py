@@ -189,7 +189,7 @@ def example_custom_unit_conversion():
 def example_hubeau_api():
     """Load hydrometry from Hub'Eau API (requires internet).
 
-    Uses station J7214001 (Vilaine at Pont Réan) as a known example.
+    Uses station J709063002 (Vilaine at Cesson-Sévigné) as a known example.
     """
     print("\n=== Example: Hub'Eau API ===")
     print("  (requires internet connection)")
@@ -201,7 +201,7 @@ def example_hubeau_api():
         HydrometrySourceConfig(
             source="hubeau",
             product="QmnJ",
-            station_ids=["J7214001"],
+            station_ids=["J709063002"],
         )
     ])
     catalog = DataCatalog()
