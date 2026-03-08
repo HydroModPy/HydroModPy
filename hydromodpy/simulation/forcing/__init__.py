@@ -11,4 +11,3 @@ __all__ = [
     "RechargeChroniclePayload",
     "build_recharge_chronicle_payload",
 ]
-
