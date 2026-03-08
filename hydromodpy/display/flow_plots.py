@@ -118,12 +118,15 @@ def plot_piezometry(
     options: DisplayOptions,
     save_path: Path | None = None,
     factor: int = 30,
+    observed_piezometry: pd.DataFrame | None = None,
 ) -> None:
     """Plot simulated water-table depth together with recharge forcing.
 
     This figure helps relate aquifer response to climatic forcing:
 - the main axis shows simulated water-table depth over time;
 - the secondary axis shows recharge as bars over the same period.
+- if *observed_piezometry* is provided (DataFrame with datetime index
+  and one column per station), the observed levels are overlaid.
 
     The recharge axis is mirrored so the visual reading remains natural for the
     hydrogeology convention used in the rest of the project.
@@ -134,14 +137,20 @@ def plot_piezometry(
 
     fig, ax = plt.subplots(figsize=(12, 3.5), dpi=options.dpi)
     ax.plot(watertable_depth, marker="o", color="red", lw=2, label="Simulated: watertable")
+
+    if observed_piezometry is not None and not observed_piezometry.empty:
+        colors = plt.cm.tab10(np.linspace(0, 1, min(len(observed_piezometry.columns), 10)))
+        for i, col in enumerate(observed_piezometry.columns):
+            ax.plot(observed_piezometry[col], lw=1.5, ls="--",
+                    color=colors[i % len(colors)], label=f"Obs: {col}")
+
     ax.xaxis.set_major_locator(mdates.YearLocator(1))
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    ax.set_xlim(pd.to_datetime("2000"), pd.to_datetime("2005"))
     ax.set_xlabel("Date")
     ax.set_ylabel("WT depth [m]")
     ax.invert_yaxis()
-    ax.legend(loc="upper left")
+    ax.legend(loc="upper left", fontsize=7)
     ax.set_title(model_label, fontsize=10)
 
     # Overlay recharge on a mirrored secondary axis for quick visual comparison.
