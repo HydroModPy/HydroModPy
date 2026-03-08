@@ -18,6 +18,21 @@ name = "Example 12 launcher normal fast"
 # Short free-text description of the simulation intent.
 description = "Shorter transient window with transport/wells retained for fast normal regression."
 
+[simulation.time]
+# Time-window source policy:
+# "explicit" = use start_datetime/end_datetime declared below.
+# "from_modflow" = derive from active flow solver tgrid settings.
+mode = "explicit"
+# Simulation window lower datetime bound.
+start_datetime = "2003-01-01 00:00:00"
+# Simulation window upper datetime bound (must be > start_datetime).
+# In synthetic_regular setups, enforce:
+# end_datetime - start_datetime = nper * lenper
+end_datetime = "2003-01-31 00:00:00"
+# Behavior when recharge does not fully cover [start_datetime, end_datetime]:
+# 'error' raises, 'warn' emits a warning, 'ignore' skips checks.
+coverage_policy = "warn"
+
 [[simulation.process]]
 # Unique identifier for this process within the simulation plan.
 id = "flow_main"
@@ -761,7 +776,8 @@ nodata = -9999.0
 [modflow6.tgrid]
 # Time unit label propagated to FloPy (for example 'd').
 itmuni = "days"
-# Flow regime for temporal settings: steady | transient.
+# Flow regime is defined globally in [flow].flow_regime during launcher runs.
+# This local field is kept for standalone TMesh/TGrid use-cases.
 flow_regime = "transient"
 # Temporal mesh generation method.
 genmtd = "synthetic_regular"
@@ -784,6 +800,7 @@ end_datetime = "2003-01-31 00:00:00"
 # Keep first stress period in steady state when relevant.
 firstpersteady = true
 # Time-step multiplier per period (scalar or list).
+# Current MODFLOW6 wrapper writes TDIS with tsmult=1.0 for all periods.
 tsmult = 1.0
 # Number of time steps per period (scalar or list).
 ntsp = 1

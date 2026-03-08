@@ -141,6 +141,16 @@ def _clip_cache_is_valid(*, source_path: str, mask_path: str, output_path: str) 
     return output_mtime >= max(source_mtime, mask_mtime)
 
 
+def _clip_vector_with_geopandas(*, source_path: str, mask_path: str, output_path: str) -> None:
+    """Fallback vector clip based on GeoPandas when Whitebox output is missing."""
+    source_gdf = gpd.read_file(source_path)
+    mask_gdf = gpd.read_file(mask_path)
+    if source_gdf.crs is not None and mask_gdf.crs is not None and source_gdf.crs != mask_gdf.crs:
+        mask_gdf = mask_gdf.to_crs(source_gdf.crs)
+    clipped = gpd.clip(source_gdf, mask_gdf)
+    clipped.to_file(output_path)
+
+
 class Intermittency:
     """Extract, structure, and visualize stream intermittency observations.
 
@@ -225,7 +235,21 @@ class Intermittency:
             WBT.clip(onde_data, geographic.watershed_shp, self.onde_clip)
 
         if not os.path.exists(self.onde_clip):
-            raise FileNotFoundError(f"Intermittency clip output was not created: {self.onde_clip}")
+            logger.warning(
+                "Whitebox clip did not create output, falling back to GeoPandas clip: %s",
+                self.onde_clip,
+            )
+            _clip_vector_with_geopandas(
+                source_path=onde_data,
+                mask_path=geographic.watershed_shp,
+                output_path=self.onde_clip,
+            )
+
+        if not os.path.exists(self.onde_clip):
+            raise FileNotFoundError(
+                "Intermittency clip output was not created after Whitebox and GeoPandas fallback: "
+                f"{self.onde_clip}"
+            )
 
         intermit_bv = gpd.read_file(self.onde_clip)
         cols = _resolve_onde_columns(list(intermit_bv.columns))
