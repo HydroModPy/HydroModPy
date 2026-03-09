@@ -544,7 +544,8 @@ negative_to_evt = true
 #
 # mode options:
 # - "observed_csv"        : load natural observed chronicle from CSV
-# - "synthetic_generated" : generate synthetic chronicle from inline values
+# - "synthetic_generated" : generate synthetic chronicle from a generator
+#                           or from legacy inline values
 # - "synthetic_csv"       : load synthetic chronicle from dedicated CSV
 # ----------------------------------------------------------------------
 [recharge_chronicle]
@@ -562,12 +563,21 @@ sim_state = "transient"
 runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_generated]
-# NOTE (launcher mode): start_date/freq/periods are auto-managed from
+# NOTE (launcher mode): start_date/end_date are auto-managed from
 # [simulation.time] and are intentionally not exposed here.
+# Generator used to produce a fine synthetic chronicle on the simulation window.
+generator = "seasonal_step"
+# Internal generation step before aggregation on stress periods.
+# Keep "30 day" here to preserve the historical 3-value launcher example.
+generation_step = "30 day"
 units = "mm/day"
-# (Jan..Dec): [2, 2, 0, 0, 0, 0, -1, 0, 0, 0, 2, 2]
-values = [2.0, 2.0, 0.0]
 runoff_ratio = 0.1
+
+[recharge_chronicle.synthetic_generated.seasonal_step]
+# Wet months chosen so the 3 launcher periods reproduce [2.0, 2.0, 0.0].
+wet_months = [1,2,3,4,11,12]
+wet_value = "2.0 mm/day"
+dry_value = "0.0 mm/day"
 
 [recharge_chronicle.synthetic_csv]
 # Active only when mode = "synthetic_csv".
