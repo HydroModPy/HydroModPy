@@ -1,0 +1,36 @@
+@startuml
+title Simulation Time Cycle - Structure Diagram
+skinparam componentStyle rectangle
+
+component "Launcher TOML\n[simulation.time]" as TomlTime
+component "HydroModPyConfig\n(Pydantic tree)" as TypedConfig
+component "Time Core\nhydromodpy.simulation.time.window" as TimeCore
+component "Launcher Orchestrator\nHydroModPyLauncher" as Launcher
+component "Runtime State\nsetup.time_grid" as RuntimeState
+component "Solver TGrid Sections\nmodflownwt.tgrid / modflow6.tgrid" as SolverTgrid
+component "Data Managers Runtime Loader\nruntime_loader" as DataLoader
+component "Recharge Chronicle Builder\nsimulation.forcing.recharge_chronicle" as RechargeBuilder
+component "Coverage Guard\nvalidate_recharge_coverage()" as CoverageGuard
+component "Flow Solver Wrappers\nModflow / Modflow6" as FlowSolvers
+database "Climatic Forcing Series\nrecharge / runoff" as ForcingSeries
+
+TomlTime --> TypedConfig : SimulationTimeConfig values
+TypedConfig --> TimeCore : resolve_simulation_time_window/grid
+
+TimeCore --> Launcher : ResolvedSimulationTimeGrid
+Launcher --> RuntimeState : persist canonical grid
+
+Launcher --> TimeCore : apply_explicit_time_window_to_tgrids()
+TimeCore --> SolverTgrid : sync nper,lenper,itmuni,genmtd,ntsp,tsmult
+
+Launcher --> DataLoader : load_all(run_state)
+DataLoader --> TimeCore : resolve_simulation_time_window_dates()
+
+Launcher --> RechargeBuilder : build_recharge_chronicle_payload(..., window)
+RechargeBuilder --> ForcingSeries : aligned to simulation periods
+ForcingSeries --> CoverageGuard : recharge coverage check
+CoverageGuard --> Launcher : pass/warn/error
+
+RuntimeState --> FlowSolvers : preprocess options.time_grid
+FlowSolvers --> SolverTgrid : fallback only when no time_grid
+@enduml

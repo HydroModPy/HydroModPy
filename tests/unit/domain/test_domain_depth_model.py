@@ -26,6 +26,22 @@ def test_domain_builds_top_and_bottom_with_constant_thickness():
     np.testing.assert_allclose(domain.substratum.as_array(), dem - 30.0)
 
 
+def test_domain_builds_top_and_bottom_with_constant_thickness_unit_string():
+    dem = np.array([[110.0, 120.0], [100.0, 90.0]], dtype=float)
+    cfg = DomainConfig.model_validate(
+        {
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "30.0 m",
+            }
+        }
+    )
+
+    domain = Domain(config=cfg, surface_topo=Surface(name="surface_topo", values=dem))
+    np.testing.assert_allclose(domain.surface_topo.as_array(), dem)
+    np.testing.assert_allclose(domain.substratum.as_array(), dem - 30.0)
+
+
 def test_domain_builds_flat_substratum():
     dem = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=float)
     cfg = DomainConfig.model_validate(

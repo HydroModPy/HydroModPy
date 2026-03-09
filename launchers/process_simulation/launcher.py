@@ -50,6 +50,7 @@ import tomllib
 from pathlib import Path
 
 import hydromodpy as hmp
+import pandas as pd
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.data_managers import (
     DataLoadPlan,
@@ -66,12 +67,17 @@ from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
 )
-from hydromodpy.simulation.forcing import build_recharge_chronicle_payload
+from hydromodpy.geographic_synthethic import build_synthetic_geographic
+from hydromodpy.simulation.forcing import (
+    align_forcing_series_to_simulation_window,
+    build_recharge_chronicle_payload,
+)
 from hydromodpy.simulation import SimulationPlanner, ensure_flow, ensure_transport
 from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.state.run_state import LauncherRunState
 from hydromodpy.simulation.time import (
     apply_explicit_time_window_to_tgrids,
+    resolve_simulation_time_grid,
     resolve_simulation_time_window,
     validate_recharge_coverage,
 )
@@ -124,6 +130,7 @@ class HydroModPyLauncher:
             self.cfg.workspace.out_dir_path = Path(out_path_env)
 
         apply_explicit_time_window_to_tgrids(self.cfg)
+        self.time_grid = resolve_simulation_time_grid(self.cfg)
 
         with self.config_path.open("rb") as fh:
             raw_toml = tomllib.load(fh)
@@ -148,6 +155,7 @@ class HydroModPyLauncher:
             config_path=self.config_path,
             raw_toml=raw_toml,
         )
+        self.run_state.setup.time_grid = self.time_grid
         self.run_state.data_plan = data_plan
         self.postprocess_runner = PostprocessRunner(self.cfg.postprocess)
 
@@ -219,6 +227,18 @@ class HydroModPyLauncher:
 
         return run_state
 
+    def _build_geographic_runtime(self, workspace):
+        """Build the geographic runtime selected by the validated TOML config."""
+        geographic_cfg = self.cfg.geographic
+        uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
+        if callable(uses_synthetic) and uses_synthetic():
+            return build_synthetic_geographic(
+                config=geographic_cfg.synthetic,
+                output_dir=Path(workspace.stable_folder) / "geographic",
+                workspace=workspace,
+            )
+        return hmp.Geographic(geographic_cfg, workspace)
+
     def _run_setup(self) -> None:
         """Initialise the structural objects shared by all later process runs.
 
@@ -239,7 +259,7 @@ class HydroModPyLauncher:
         cfg = self.cfg
 
         setup_state.workspace = hmp.Workspace(config=cfg.workspace)
-        setup_state.geographic = hmp.Geographic(cfg.geographic, setup_state.workspace)
+        setup_state.geographic = self._build_geographic_runtime(setup_state.workspace)
         setup_state.domain_geographic = setup_state.geographic.get_domain_geographic_context()
         surface_topo = setup_state.domain_geographic.surface_topo
 
@@ -302,17 +322,18 @@ class HydroModPyLauncher:
         )
         default_values = getattr(recharge_cfg, "values", None) if recharge_cfg is not None else None
         sim_state = run_state.setup.flow.flow_regime
+        resolved_grid = getattr(run_state.setup, "time_grid", None)
+        window = resolved_grid.window if resolved_grid is not None else resolve_simulation_time_window(self.cfg)
         payload = build_recharge_chronicle_payload(
             run_state.raw_toml,
             config_path=self.config_path,
             default_values=default_values,
             default_observed_path=run_state.cfg.workspace.data_path / "_climate_REANALYSIS.csv",
             default_sim_state=sim_state,
+            simulation_window=window,
         )
         if payload is None:
             return
-
-        window = resolve_simulation_time_window(self.cfg)
 
         if payload.mode == "observed_csv":
             observed = payload.observed
@@ -336,6 +357,19 @@ class HydroModPyLauncher:
                 time_step=observed.time_step,
                 sim_state=observed.sim_state,
             )
+            if window is not None:
+                if isinstance(climatic.recharge, pd.Series):
+                    climatic.recharge = align_forcing_series_to_simulation_window(
+                        climatic.recharge,
+                        simulation_window=window,
+                        label="observed recharge",
+                    )
+                if isinstance(climatic.runoff, pd.Series):
+                    climatic.runoff = align_forcing_series_to_simulation_window(
+                        climatic.runoff,
+                        simulation_window=window,
+                        label="observed runoff",
+                    )
             validate_recharge_coverage(
                 climatic.recharge,
                 window,

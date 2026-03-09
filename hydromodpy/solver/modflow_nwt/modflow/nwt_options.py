@@ -22,6 +22,7 @@ Design philosophy
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -42,11 +43,16 @@ class ModflowPreprocessOptions:
         Enable/disable depression filling used before flow setup.
     check_grid:
         Enable internal grid consistency checks.
+    time_grid:
+        Optional canonical simulation-time grid injected by launcher runtime.
+        When provided, flow solvers should prioritize this grid over manual
+        tgrid settings for stress-period construction.
     """
 
     box: bool = True
     sink_fill: bool = False
     check_grid: bool = True
+    time_grid: Any = None
 
 
 @dataclass(slots=True)

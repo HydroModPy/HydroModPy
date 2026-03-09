@@ -14,21 +14,19 @@
 # ----------------------------------------------------------------------
 [simulation]
 # Human-readable simulation name.
-name = "Example 12 launcher normal fast"
+name = "Example 12 launcher normal 3 months"
 # Short free-text description of the simulation intent.
-description = "Shorter transient window with transport/wells retained for fast normal regression."
+description = "Standard baseline shortened to first 3 months with coarser grid and 2 layers."
 
 [simulation.time]
-# Time-window source policy:
-# "explicit" = use start_datetime/end_datetime declared below.
-# "from_modflow" = derive from active flow solver tgrid settings.
-mode = "explicit"
+# Time-window is explicit in launcher mode (start/end declared below).
 # Simulation window lower datetime bound.
 start_datetime = "2003-01-01 00:00:00"
-# Simulation window upper datetime bound (must be > start_datetime).
-# In synthetic_regular setups, enforce:
-# end_datetime - start_datetime = nper * lenper
-end_datetime = "2003-01-31 00:00:00"
+# Simulation window upper datetime bound (inclusive, must be >= start_datetime).
+end_datetime = "2003-03-31 00:00:00"
+# Forcing/stress-period time-step written as inline scalar + unit.
+# Controls forcing aggregation (recharge/runoff) and stress-period duration.
+step_value = "30 day"
 # Behavior when recharge does not fully cover [start_datetime, end_datetime]:
 # 'error' raises, 'warn' emits a warning, 'ignore' skips checks.
 coverage_policy = "warn"
@@ -67,6 +65,12 @@ data_path = "../../examples_legacy/example12/data/"
 # Geographic configuration for watershed delineation.
 # ----------------------------------------------------------------------
 [geographic]
+# Geographic runtime mode.
+# "standard" keeps the historical watershed delineation workflow.
+# "synthetic" builds one analytical support from [geographic.synthetic].
+# NOTE: synthetic mode is incompatible with postprocess.flow.matching_streams=true.
+source_mode = "standard"
+
 # Catchment definition mode.
 # 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
 # 'from_outlet_coord' = watershed from outlet coordinates
@@ -82,7 +86,7 @@ dem_init_path = "../../data/Brittany/dem/regional dem.tif"
 
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.
-cell_size = 150.0
+cell_size = "150.0 m"
 
 # X coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
@@ -94,11 +98,11 @@ y_outlet = 6784182.776
 
 # Maximum snapping distance (m) to move the outlet to the nearest stream cell.
 # Required for 'from_outlet_coord' mode.
-snap_dist = 50
+snap_dist = "50 m"
 
 # Buffer around the watershed polygon as a percentage of sqrt(area [km^2]).
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
-buff_area = 20.0
+buff_area = "20%"
 
 # Path to the watershed polygon shapefile.
 # Required for 'from_polyg_shp' mode.
@@ -121,6 +125,25 @@ bottom_path = "../../data/Brittany/dem/regional_dem_full.tif"
 # When set, rasters are loaded instead of recomputed.
 reg_fold = "../../data/Brittany/dem/correcflow"
 
+[geographic.synthetic]
+# Used only when geographic.source_mode = "synthetic".
+case_id = "launcher_synthetic"
+
+[geographic.synthetic.grid]
+length_x = "3.0 km"
+length_y = "3.0 km"
+nx = 30
+ny = 30
+xmin = 0.0
+ymin = 0.0
+crs = "EPSG:2154"
+nodata = -9999.0
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
+
 
 # ----------------------------------------------------------------------
 # Domain configuration.
@@ -141,7 +164,7 @@ type = "constant_thickness"
 
 # Constant aquifer thickness (m) applied below topography.
 # Used when type="constant_thickness".
-thickness = 50.0
+thickness = "50.0 m"
 
 # Flat substratum elevation (m) applied over the full domain.
 # Used when type="flat_substratum".
@@ -157,7 +180,7 @@ substratum_elevation = 0.0
 # (for example domain.zone_ids and flow.active_bc).
 # Allowed values: "geology", "hydrography", "hydrometry",
 # "intermittency", "oceanic", "piezometry".
-types = ["geology", "hydrography", "intermittency", "hydrometry"]
+types = ["geology", "hydrography", "hydrometry"]
 # Policy for inferred types not explicitly listed in data.types.
 # "warn"   = keep inferred types, continue if data.<type> section is missing.
 # "strict" = raise if an inferred type has no data.<type> section
@@ -213,47 +236,31 @@ msl_source = "local"
 msl_local_csv = "data/oceanic/sealevel_shom_152_20030101_20030130_H.csv"
 # If true, derive msl_start_date/msl_end_date from [simulation.time].
 # If [simulation.time] is missing, fallback to explicit dates below.
-msl_use_simulation_time_window = false
-# Inclusive start date (YYYY-MM-DD) for mean sea-level retrieval.
-msl_start_date = "2003-01-01"
-# Inclusive end date (YYYY-MM-DD) for mean sea-level retrieval.
-msl_end_date = "2003-01-30"
+msl_use_simulation_time_window = true
+# Optional fallback dates (used when msl_use_simulation_time_window=false or
+# when [simulation.time] cannot be resolved).
+# msl_start_date = "2003-01-01"
+# msl_end_date = "2003-01-30"
 # Fallback sea-level value used when retrieval fails (SI unit: meter).
 msl_default = 0.0
 
 
 # ----------------------------------------------------------------------
-# Hydrometry station-set configuration.
+# Hydrometry configuration.
 # ----------------------------------------------------------------------
 [data.hydrometry]
-# Hydrometric variable requested from the source (for example daily discharge code).
-variable = "QmnJ"
-# If true, display diagnostic information while loading station data.
-display = false
-# Optional inclusive start date filter applied to the requested time series.
-date_start = "2003-01-01"
-# Optional inclusive end date filter applied to the requested time series.
-date_end = "2003-12-31"
+# Optional date window (ISO format). When omitted in launcher mode,
+# dates can be derived from [simulation.time] via runtime_loader.
+# date_start = "2019-01-01"
+# date_end = "2025-12-31"
 
-[data.hydrometry.source]
-# Hydrometry source mode: remote API lookup or local exported files.
-mode = "api"
-# Local directory containing previously exported station files when mode='local'.
-local_data_dir = "hydrometry_exports"
-
-[data.hydrometry.selection]
-# Station selection mode: explicit station ids or spatial mask filtering.
-mode = "stations"
-# Explicit list of hydrometric station identifiers used when mode='stations'.
-station_ids = ["J561831001"]
-
-[data.hydrometry.output]
-# If true, export the loaded station series to disk after selection.
-enabled = false
-# Destination directory for exported hydrometry files.
-path = "../results/example12/results_stable/hydrometry"
-# Export payload level: 'lite' for compact outputs, 'full' for all available files.
-export_mode = "lite"
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
+station_ids = ["J736422001"]
+# mask_path set dynamically from Geographic watershed shapefile
 
 
 # ----------------------------------------------------------------------
@@ -281,19 +288,17 @@ param_list = ["K", "Ss", "Sy"]
 id = "K"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
-# Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
-unit = "m/s"
 
 [flow.param.K.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-value = 4.32
+value = "5e-5 m/s"
 
 [flow.param.K.field_heterogeneous]
 # Source for heterogeneous values.
 # Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
 # Inline key/value mapping used when values_source='inline'.
-values = { granite = 10.0, micaschists = 2.0 }
+values = { granite = "1.1574074074074073e-4 m/s", micaschists = "2.3148148148148148e-5 m/s" }
 # Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
 # CSV column name containing zone/material keys.
@@ -309,7 +314,7 @@ field_spatial_id = "field_geology"
 mode = "exponential"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 15.0
+characteristic_depth = "15.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 2e-4
@@ -331,19 +336,17 @@ interpolation = "linear"
 id = "Sy"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
-# Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
-unit = "-"
 
 [flow.param.Sy.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-value = 0.02
+value = "0.02 -"
 
 [flow.param.Sy.field_heterogeneous]
 # Source for heterogeneous values.
 # Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
 # Inline key/value mapping used when values_source='inline'.
-values = { zone1 = 0.15, zone2 = 0.08 }
+values = { zone1 = "0.15 -", zone2 = "0.08 -" }
 # Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "s_values.csv"
 # CSV column name containing zone/material keys.
@@ -359,7 +362,7 @@ field_spatial_id = "field_geology"
 mode = "exponential"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 30.0
+characteristic_depth = "30.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 5e-2
@@ -381,19 +384,17 @@ interpolation = "linear"
 id = "Ss"
 # Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
-# Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).
-unit = "m-1"
 
 [flow.param.Ss.field_homogeneous]
 # Scalar surface value used when kind='homogeneous'.
-value = 1e-10
+value = "1e-10 m-1"
 
 [flow.param.Ss.field_heterogeneous]
 # Source for heterogeneous values.
 # Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
 # Inline key/value mapping used when values_source='inline'.
-values = { zone1 = 1e-10, zone2 = 5e-11 }
+values = { zone1 = "1e-10 m-1", zone2 = "5e-11 m-1" }
 # Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "ss_values.csv"
 # CSV column name containing zone/material keys.
@@ -409,7 +410,7 @@ field_spatial_id = "field_geology"
 mode = "none"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 30.0
+characteristic_depth = "30.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 1e-3
@@ -430,10 +431,8 @@ interpolation = "linear"
 # Type of initial condition ('top', 'bottom', or 'custom').
 # 'top' means a full aquifer, 'bottom' means an empty aquifer.
 type = "top"
-# Value of the initial condition.
-value = 1.0
-# Units of the initial condition.
-unit = "m"
+# Value of the initial condition (single field: "<value> <unit>").
+value = "1.0 m"
 
 
 # ----------------------------------------------------------------------
@@ -448,7 +447,7 @@ unit = "m"
 # - [flow.bc.<custom_id>] (generic fallback)
 #
 # Required/validated keys:
-# - value (required, numeric)
+# - value (required): numeric, or "<value> <unit>"
 # - application_domain in {top, north side, south side, east side, west side}
 #   (for dirichlet side/ocean/stream entries, domain is inferred if omitted)
 # - type:
@@ -457,28 +456,25 @@ unit = "m"
 #   dirichlet/cauchy/robin for generic fallback
 # - unit or units (optional):
 #   defaults to "m" for dirichlet and "m2/s" for cauchy/robin
+#   only needed when value has no inline unit
 #
 # Copy/paste examples:
 # [flow.bc.dirichlet.west_side]
-# value = 5.0
+# value = "5.0 m"
 # type = "dirichlet"
 # application_domain = "west side"
-# unit = "m"
 #
 # [flow.bc.custom_boundary]
-# value = 1e-6
+# value = "1e-6 m2/s"
 # type = "robin"
 # application_domain = "top"
-# unit = "m2/s"
 [flow.bc.cauchy.drainage]
 # Domain of application for boundary condition.
 application_domain = "top"
 # Type of the boundary condition (for example Dirichlet, Neumann, Cauchy).
 type = "cauchy"
 # Value of the boundary condition.
-value = 0.0
-# Units of the boundary condition.
-unit = "m2/s"
+value = "0.0 m2/s"
 # If true, boundary-condition value is sourced from data.
 data_value = false
 
@@ -487,9 +483,7 @@ data_value = false
 # Type of the boundary condition (fixed head for ocean stage).
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = true
 
@@ -540,27 +534,27 @@ mode = "synthetic_generated"
 
 [recharge_chronicle.observed_csv]
 # Example natural chronicle used by launcher_simulation.
+# NOTE (launcher mode): first_year/last_year/time_step are auto-derived from
+# [simulation.time] and are intentionally not exposed here.
 path_file = "../../examples_legacy/example12/data/_climate_REANALYSIS.csv"
 clim_mod = "REA"
 clim_sce = "historic"
-first_year = 2003
-last_year = 2003
-time_step = "ME"
 sim_state = "transient"
 # Used only if runoff column is unavailable.
 runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_generated]
-start_date = "2003-01-01"
-freq = "ME"
-periods = 3
+# NOTE (launcher mode): start_date/freq/periods are auto-managed from
+# [simulation.time] and are intentionally not exposed here.
 units = "mm/day"
 # (Jan..Dec): [2, 2, 0, 0, 0, 0, -1, 0, 0, 0, 2, 2]
-values_mm_day = [2.0, 0.0, -1.0]
+values = [2.0, 2.0, 0.0]
 runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_csv]
 # Active only when mode = "synthetic_csv".
+# NOTE (launcher mode): final forcing vectors are always aligned to
+# [simulation.time] stress periods.
 path_file = "../../examples_legacy/example12/data/recharge_synthetic_2003.csv"
 sep = ","
 date_column = "date"
@@ -571,7 +565,8 @@ units = "mm/day"
 runoff_column = "runoff_mm_day"
 runoff_units = "mm/day"
 runoff_ratio = 0.1
-# Optional resampling frequency ("D", "W", "ME", ...). Leave empty to keep CSV cadence.
+# Optional pre-alignment resampling frequency ("D", "W", "ME", ...).
+# Leave empty to directly align raw CSV values to [simulation.time].
 time_step = ""
 
 # ----------------------------------------------------------------------
@@ -673,7 +668,7 @@ nwt_backflag = 0
 nwt_stoptol = 1e-10
 
 # DIS time unit code used by MODFLOW (ITMUNI).
-dis_itmuni = 0
+dis_itmuni = 1
 
 # BAS no-flow head sentinel value (HNOFLO).
 bas_hnoflo = -9999.0
@@ -709,7 +704,7 @@ lmt_output_format = "unformatted"
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 vka = 1.0
 # Extinction depth [L] used by the EVT package (EXDP).
-exdp = 1.0
+exdp = "1.0 m"
 
 [modflownwt.sgrid]
 # Length unit label propagated to FloPy (for example 'm').
@@ -724,24 +719,10 @@ lay_decay = 1.2
 nodata = -9999.0
 
 [modflownwt.tgrid]
-# Time unit label propagated to FloPy (for example 'd').
-itmuni = "days"
-# Temporal mesh generation method ("synthetic_regular" or "from_chron").
-genmtd = "synthetic_regular"
-# Number of stress periods.
-nper = 3
-# Length of each stress period when genmtd = "synthetic_regular".
-lenper = 10.0
-# Chronicle file path used when genmtd = "from_chron".
-chron_path = "data/recharge_chronicle.tsv"
-# Datetime format used to parse the chronicle time column.
-chron_dateformat = "%Y-%m-%d %H:%M:%S"
-# Column separator used in the chronicle file.
-chron_colsep = "\t"
-# Time-column name in the chronicle file.
-chron_time_col = "Date"
-# Optional explicit start datetime (leave commented to keep default None).
-start_datetime = "2003-01-01 00:00:00"
+# NOTE (launcher mode): nper/lenper/itmuni/genmtd/ntsp/tsmult and
+# start/end datetimes are auto-managed from [simulation.time].
+# Keep first stress period in steady state when flow_regime is transient.
+firstpersteady = true
 
 # ----------------------------------------------------------------------
 # MODFLOW 6 expert configuration
@@ -774,38 +755,10 @@ lay_proportions = [0.1, 0.2, 0.3, 0.4]
 nodata = -9999.0
 
 [modflow6.tgrid]
-# Time unit label propagated to FloPy (for example 'd').
-itmuni = "days"
-# Flow regime is defined globally in [flow].flow_regime during launcher runs.
-# This local field is kept for standalone TMesh/TGrid use-cases.
-flow_regime = "transient"
-# Temporal mesh generation method.
-genmtd = "synthetic_regular"
-# Number of stress periods.
-nper = 3
-# Length of each stress period when genmtd='synthetic_regular'.
-lenper = 10.0
-# Chronicle file path used when genmtd='from_chron'.
-chron_path = "data/recharge_chronicle.tsv"
-# Datetime format used to parse the chronicle time column.
-chron_dateformat = "%Y-%m-%d %H:%M:%S"
-# Column separator used in the chronicle file.
-chron_colsep = "\t"
-# Time-column name in the chronicle file.
-chron_time_col = "Date"
-# Optional explicit start datetime.
-start_datetime = "2003-01-01 00:00:00"
-# Optional explicit end datetime.
-end_datetime = "2003-01-31 00:00:00"
+# NOTE (launcher mode): nper/lenper/itmuni/genmtd/ntsp/tsmult and
+# start/end datetimes are auto-managed from [simulation.time].
 # Keep first stress period in steady state when relevant.
 firstpersteady = true
-# Time-step multiplier per period (scalar or list).
-# Current MODFLOW6 wrapper writes TDIS with tsmult=1.0 for all periods.
-tsmult = 1.0
-# Number of time steps per period (scalar or list).
-ntsp = 1
-# No-data sentinel used for temporal arrays.
-temporal_nodata = -9999.0
 
 
 # ----------------------------------------------------------------------
@@ -815,9 +768,7 @@ temporal_nodata = -9999.0
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -825,9 +776,7 @@ data_value = false
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -835,9 +784,7 @@ data_value = false
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -845,9 +792,7 @@ data_value = false
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -855,9 +800,7 @@ data_value = false
 # Type of the boundary condition.
 type = "dirichlet"
 # Boundary-condition value.
-value = 1.0
-# Boundary-condition units.
-unit = "m"
+value = "1.0 m"
 # If True, boundary-condition values are sourced from data.
 data_value = false
 
@@ -868,11 +811,11 @@ data_value = false
 [postprocess]
 # Master switch for launcher-managed postprocess after process-family runs.
 # Keep false to disable optional postprocess tasks.
-enabled = false
+enabled = true
 
 [postprocess.flow]
 # Enable postprocess tasks after the flow process family.
-enabled = false
+enabled = true
 # Run MatchingStreams diagnostics after flow outputs are produced.
 matching_streams = true
 # Run display.flow suite (guarded by [display] options).
@@ -895,7 +838,7 @@ datetime_format = true
 [postprocess.flow.intermittency]
 # Intermittency aggregation levels.
 yearly = false
-monthly = true
+monthly = false
 weekly = false
 daily = false
 
@@ -934,7 +877,7 @@ mass_accumulated = true
 [postprocess.transport.intermittency]
 # Intermittency aggregation levels.
 yearly = false
-monthly = true
+monthly = false
 weekly = false
 daily = false
 
@@ -945,9 +888,9 @@ daily = false
 # ----------------------------------------------------------------------
 [display]
 # Master switch for all optional plotting features.
-enabled = false
+enabled = true
 # Show interactive figures/windows when rendering is enabled.
-show = false
+show = true
 # Save figures/animations to disk when rendering is enabled.
 save = true
 # Output resolution used when saving raster figures.

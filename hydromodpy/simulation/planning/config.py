@@ -3,11 +3,82 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.solver.compatibility import known_process_types
+from hydromodpy.units import normalize_time_unit, parse_scalar_and_unit
+
+
+_VALID_STEP_UNITS = {"hour", "day", "month", "year"}
+
+
+def _normalize_step_unit_token(raw_step_unit: object) -> Literal["hour", "day", "month", "year"]:
+    token = str(raw_step_unit).strip().lower()
+    if token == "":
+        raise ValueError("simulation.time.step_unit cannot be empty.")
+    if token in {"m", "mo", "mon", "month", "months"}:
+        return "month"
+
+    try:
+        canonical = normalize_time_unit(token)
+    except ValueError as exc:
+        raise ValueError(
+            "simulation.time.step_unit must be one of: hour, day, month, year."
+        ) from exc
+
+    map_to_step_unit = {
+        "hours": "hour",
+        "days": "day",
+        "years": "year",
+    }
+    step_unit = map_to_step_unit.get(canonical)
+    if step_unit is None:
+        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
+    return step_unit
+
+
+def _normalize_step_value_scalar(raw_step_value: object) -> int:
+    if isinstance(raw_step_value, bool):
+        raise ValueError("simulation.time.step_value must be a positive integer.")
+    try:
+        parsed = float(raw_step_value)
+    except Exception as exc:
+        raise ValueError("simulation.time.step_value must be a positive integer.") from exc
+    if not parsed.is_integer() or parsed <= 0:
+        raise ValueError("simulation.time.step_value must be a positive integer.")
+    return int(parsed)
+
+
+def _parse_step_spec(
+    *,
+    raw_step_value: object,
+    raw_step_unit: object,
+) -> tuple[int, Literal["hour", "day", "month", "year"]]:
+    explicit_unit_raw: str | None = None
+    if raw_step_unit is not None and str(raw_step_unit).strip() != "":
+        explicit_unit_raw = str(raw_step_unit).strip()
+
+    default_unit = explicit_unit_raw or "day"
+    scalar, resolved_unit = parse_scalar_and_unit(
+        raw_step_value,
+        location="simulation.time.step_value",
+        default_unit=default_unit,
+    )
+    step_value = _normalize_step_value_scalar(scalar)
+    parsed_step_unit = _normalize_step_unit_token(resolved_unit)
+
+    if explicit_unit_raw is not None:
+        explicit_step_unit = _normalize_step_unit_token(explicit_unit_raw)
+        if parsed_step_unit != explicit_step_unit:
+            raise ValueError(
+                "simulation.time.step_value unit conflicts with simulation.time.step_unit."
+            )
+    if parsed_step_unit not in _VALID_STEP_UNITS:
+        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
+    return step_value, parsed_step_unit
 
 
 class SimulationTimeConfig(BaseModel):
@@ -15,14 +86,6 @@ class SimulationTimeConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Literal["explicit", "from_modflow"] = Field(
-        default="explicit",
-        description=(
-            "Time-window source policy. "
-            "'explicit' reads start_datetime/end_datetime from this section; "
-            "'from_modflow' derives the window from active flow solver tgrid settings."
-        ),
-    )
     start_datetime: datetime | None = Field(
         default=None,
         description=(
@@ -33,8 +96,24 @@ class SimulationTimeConfig(BaseModel):
     end_datetime: datetime | None = Field(
         default=None,
         description=(
-            "Simulation window upper datetime bound. Must be strictly greater "
-            "than start_datetime."
+            "Simulation window upper datetime bound, interpreted as inclusive. "
+            "Must be greater than or equal to start_datetime."
+        ),
+    )
+    step_value: int | float | str = Field(
+        default=1,
+        description=(
+            "Forcing/stress-period time-step scalar or inline token '<value> <unit>' "
+            "(for example '30 day'). "
+            "This controls the temporal aggregation step for forcing series "
+            "(for example recharge/runoff) and the resulting stress periods."
+        ),
+    )
+    step_unit: Literal["hour", "day", "month", "year"] | None = Field(
+        default=None,
+        description=(
+            "Optional forcing/stress-period base time unit used with step_value "
+            "when step_value is provided without an inline unit."
         ),
     )
     coverage_policy: Literal["error", "warn", "ignore"] = Field(
@@ -48,14 +127,26 @@ class SimulationTimeConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate_window_order(self):
-        if self.mode == "explicit":
-            if self.start_datetime is None or self.end_datetime is None:
-                raise ValueError(
-                    "simulation.time.start_datetime and simulation.time.end_datetime "
-                    "are required when simulation.time.mode='explicit'."
-                )
-        if self.start_datetime is not None and self.end_datetime is not None and self.end_datetime <= self.start_datetime:
-            raise ValueError("simulation.time.end_datetime must be greater than start_datetime.")
+        step_value, step_unit = _parse_step_spec(
+            raw_step_value=self.step_value,
+            raw_step_unit=self.step_unit,
+        )
+        self.step_value = int(step_value)
+        self.step_unit = step_unit
+
+        if self.start_datetime is None or self.end_datetime is None:
+            raise ValueError(
+                "simulation.time.start_datetime and simulation.time.end_datetime "
+                "are required when [simulation.time] is declared."
+            )
+        if (
+            self.start_datetime is not None
+            and self.end_datetime is not None
+            and self.end_datetime < self.start_datetime
+        ):
+            raise ValueError(
+                "simulation.time.end_datetime must be greater than or equal to start_datetime."
+            )
         return self
 
 

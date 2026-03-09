@@ -16,6 +16,7 @@ def test_preprocess_options_defaults_are_stable():
     assert options.box is True
     assert options.sink_fill is False
     assert options.check_grid is True
+    assert options.time_grid is None
 
 
 def test_preprocess_options_no_recharge_or_first_clim_fields():

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.units.length import parse_length_to_m
 
 
 class ConstantThicknessDepthModel(BaseModel):
@@ -29,6 +30,15 @@ class ConstantThicknessDepthModel(BaseModel):
             "Constant aquifer thickness (m) applied below topography."
         ),
     )
+
+    @field_validator("thickness", mode="before")
+    @classmethod
+    def _parse_thickness_to_m(cls, value):
+        return parse_length_to_m(
+            value,
+            default_unit="m",
+            label="domain.depth_model.thickness",
+        )
 
 
 class FlatSubstratumDepthModel(BaseModel):
@@ -58,4 +68,3 @@ DepthModelConfig: TypeAlias = Annotated[
     ConstantThicknessDepthModel | FlatSubstratumDepthModel,
     Field(discriminator="type"),
 ]
-

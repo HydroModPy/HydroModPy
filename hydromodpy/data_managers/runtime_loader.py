@@ -301,6 +301,8 @@ class DataManagersRuntimeLoader:
             )
             return
 
+        self._apply_simulation_window_dates(raw_section, result, "hydrometry")
+
         try:
             hydro_cfg = HydrometryConfig.model_validate(raw_section)
             period = None
@@ -311,6 +313,7 @@ class DataManagersRuntimeLoader:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
             manager = HydrometryManager(
                 config=hydro_cfg,
+                catalog=None,
                 project_period=period,
                 project_extent=None,
             )
@@ -334,6 +337,8 @@ class DataManagersRuntimeLoader:
             )
             return
 
+        self._apply_simulation_window_dates(raw_section, result, "piezometry")
+
         try:
             piezo_cfg = PiezometryConfig.model_validate(raw_section)
             period = None
@@ -344,6 +349,7 @@ class DataManagersRuntimeLoader:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
             manager = PiezometryManager(
                 config=piezo_cfg,
+                catalog=None,
                 project_period=period,
                 project_extent=None,
             )
@@ -398,6 +404,74 @@ class DataManagersRuntimeLoader:
         result: "LauncherRunState",
     ) -> tuple[str, str] | None:
         return resolve_simulation_time_window_dates(result.cfg, strict=False)
+
+    def _apply_simulation_window_dates(
+        self,
+        section: dict[str, Any],
+        result: "LauncherRunState",
+        manager_type: str,
+    ) -> None:
+        """Inject date_start/date_end from [simulation.time] when not explicit.
+
+        In launcher mode, data managers benefit from an automatic date window
+        derived from the simulation time config. This avoids requiring the
+        user to repeat dates in both [simulation.time] and [data.<type>].
+        """
+        if section.get("date_start") and section.get("date_end"):
+            return
+        simulation_dates = self._resolve_simulation_time_window_dates(result)
+        if simulation_dates is None:
+            return
+        date_start, date_end = simulation_dates
+        if not section.get("date_start"):
+            section["date_start"] = date_start
+        if not section.get("date_end"):
+            section["date_end"] = date_end
+
+    @staticmethod
+    def _coerce_optional_bool(value: Any) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            token = value.strip().lower()
+            if token in {"1", "true", "yes", "on"}:
+                return True
+            if token in {"0", "false", "no", "off"}:
+                return False
+        return None
+
+    def _apply_simulation_window_to_station_section(
+        self,
+        *,
+        result: "LauncherRunState",
+        payload: dict[str, Any],
+        root_key: str,
+        manager_type: str,
+    ) -> None:
+        section_raw = payload.get(root_key)
+        if not isinstance(section_raw, Mapping):
+            return
+        section = dict(section_raw)
+        payload[root_key] = section
+
+        use_window = self._coerce_optional_bool(section.get("use_simulation_time_window"))
+        if use_window is None:
+            use_window = False
+        if not use_window:
+            return
+
+        simulation_dates = self._resolve_simulation_time_window_dates(result)
+        if simulation_dates is None:
+            print(
+                "[DataManagersPlanner] Warning: data."
+                f"{manager_type}.use_simulation_time_window=true but [simulation.time] "
+                "is missing or invalid; using explicit date_start/date_end when provided."
+            )
+            return
+
+        date_start, date_end = simulation_dates
+        section["date_start"] = date_start
+        section["date_end"] = date_end
 
     def _resolve_path_like(self, value: Any) -> Path:
         path = Path(str(value)).expanduser()

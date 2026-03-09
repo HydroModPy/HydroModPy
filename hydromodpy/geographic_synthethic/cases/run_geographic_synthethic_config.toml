@@ -1,0 +1,23 @@
+[synthetic_geographic]
+case_id = "flat20"
+
+[synthetic_geographic.grid]
+length_x = "100 m"
+length_y = "1 m"
+nx = 100
+ny = 1
+xmin = 0.0
+ymin = 0.0
+crs = "EPSG:2154"
+nodata = -9999.0
+
+[synthetic_geographic.topography]
+kind = "flat"
+base_elevation = 20.0
+right_to_left_amplitude = 0.0
+
+# Preview of the next supported law:
+# [synthetic_geographic.topography]
+# kind = "linear"
+# base_elevation = 20.0
+# right_to_left_amplitude = 5.0

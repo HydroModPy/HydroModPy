@@ -23,4 +23,5 @@ class SetupContext:
     flow: Flow | None = None
     transport: Transport | None = None
     model_name: str = "default"
+    time_grid: Any = None
 

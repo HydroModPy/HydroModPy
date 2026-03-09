@@ -38,6 +38,7 @@ from hydromodpy.data_managers.geology.geology_processing import (
     uniformize_sea_zone_on_dataframe,
 )
 from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.units import parse_length_to_m
 
 
 DEFAULT_GEOLOGY_CONFIG_FILE = "run_geology_case.toml"
@@ -258,16 +259,17 @@ def _load_display_geology(args, geology_config_path):
     window_polygon = None
 
     if not bool(args.global_map):
+        window_m = float(parse_length_to_m(args.window_km, default_unit="km", label="window_km"))
         gdf, window_polygon = clip_square_window(
             gdf,
             center_x=float(args.center_x),
             center_y=float(args.center_y),
-            window_km=float(args.window_km),
+            window_m=window_m,
         )
         print(
             "local_window: "
             f"center=({float(args.center_x):.1f}, {float(args.center_y):.1f}), "
-            f"side={float(args.window_km):.1f} km"
+            f"side={window_m / 1000.0:.1f} km"
         )
 
     gdf, sea_info = uniformize_sea_zone_on_dataframe(
