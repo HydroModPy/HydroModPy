@@ -1,14 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Shared hydrological forcing utilities reusable across calibration2 cases.
-
-This module centralizes forcing-generation logic previously specific to the
-reservoir case so other cases (for example groundwater_1d) can reuse:
-- synthetic precipitation chronicle generation,
-- hydrological-year date support,
-- rainfall-to-effective-runoff conversion,
-- seasonal step forcing builders.
-"""
+"""Shared hydrological forcing utilities reusable across workflows."""
 
 from __future__ import annotations
 
@@ -18,9 +9,7 @@ import numpy as np
 
 
 def generate_daily_precipitation(n_days: int = 365, seed: int = 42) -> np.ndarray:
-    """
-    Generate a synthetic daily precipitation series [mm/day].
-    """
+    """Generate a synthetic daily precipitation series [mm/day]."""
     rng = np.random.default_rng(int(seed))
     day = np.arange(int(n_days))
 
@@ -49,9 +38,7 @@ def enforce_annual_precipitation_total(
     precip_mm_day: np.ndarray,
     target_annual_mm: float = 800.0,
 ) -> np.ndarray:
-    """
-    Rescale daily precipitation so cumulative annual rainfall matches target.
-    """
+    """Rescale daily precipitation so cumulative annual rainfall matches target."""
     precip = np.asarray(precip_mm_day, dtype=float).ravel()
     if precip.size == 0:
         raise ValueError("precip_mm_day cannot be empty")
@@ -68,9 +55,7 @@ def build_hydrological_year_dates(
     n_days: int,
     start_year: int = 2000,
 ) -> np.ndarray:
-    """
-    Build daily dates for one hydrological year starting on October 1st.
-    """
+    """Build daily dates for one hydrological year starting on October 1st."""
     start = date(int(start_year), 10, 1)
     return np.array([start + timedelta(days=i) for i in range(int(n_days))], dtype=object)
 
@@ -82,9 +67,7 @@ def precipitation_to_inflow(
     losses_mm_day: float = 1.5,
     losses_months: tuple[int, ...] = (4, 5, 6, 7, 8, 9),
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Convert precipitation [mm/day] to effective rainfall and inflow Qin [mm/day].
-    """
+    """Convert precipitation [mm/day] to effective rainfall and inflow Qin [mm/day]."""
     runoff_coeff = float(runoff_coeff)
     if not (0.0 <= runoff_coeff <= 1.0):
         raise ValueError("runoff_coeff must be in [0, 1]")
@@ -110,13 +93,7 @@ def build_hydrological_step_series(
     wet_value: float = 0.003,
     dry_value: float = 0.0004,
 ) -> np.ndarray:
-    """
-    Build a seasonal step forcing with wet/dry hydrological periods.
-
-    Default convention:
-    - wet season: Oct-Mar
-    - dry season: Apr-Sep
-    """
+    """Build a seasonal step forcing with wet/dry hydrological periods."""
     dates = np.asarray(dates, dtype=object).ravel()
     if dates.size == 0:
         raise ValueError("dates cannot be empty")
@@ -127,8 +104,8 @@ def build_hydrological_step_series(
 
     wet_value = float(wet_value)
     dry_value = float(dry_value)
-    if wet_value < 0.0 or dry_value < 0.0:
-        raise ValueError("wet_value and dry_value must be >= 0")
+    if not np.isfinite(wet_value) or not np.isfinite(dry_value):
+        raise ValueError("wet_value and dry_value must be finite")
 
     wet_mask = np.array([int(d.month) in wet_months for d in dates], dtype=bool)
     return np.where(wet_mask, wet_value, dry_value).astype(float)
@@ -145,15 +122,7 @@ def build_recharge_from_reservoir_chronicle(
     losses_months: tuple[int, ...] = (4, 5, 6, 7, 8, 9),
     scale_to_m_per_day: float = 1.0e-3,
 ) -> dict[str, np.ndarray]:
-    """
-    Build recharge using the same synthetic precipitation chronicle logic as reservoir.
-
-    Returns
-    -------
-    dict
-        Contains `dates`, `precip_mm_day`, `peff_mm_day`, `qin_mm_day`,
-        and `recharge_m_per_day` (= `qin_mm_day * scale_to_m_per_day`).
-    """
+    """Build recharge using the reservoir synthetic precipitation chronicle logic."""
     dates = build_hydrological_year_dates(n_days=n_days, start_year=start_year)
     precip_raw = generate_daily_precipitation(n_days=n_days, seed=precip_seed)
     precip_mm_day = enforce_annual_precipitation_total(
@@ -178,9 +147,7 @@ def build_recharge_from_reservoir_chronicle(
 
 
 def make_piecewise_constant_daily_qin(qin_daily_mm_day: np.ndarray):
-    """
-    Build Qin(t) callable from daily values (piecewise constant by day).
-    """
+    """Build Qin(t) callable from daily values (piecewise constant by day)."""
     qin_daily = np.asarray(qin_daily_mm_day, dtype=float).ravel()
     if qin_daily.size == 0:
         raise ValueError("qin_daily_mm_day cannot be empty")
@@ -194,12 +161,11 @@ def make_piecewise_constant_daily_qin(qin_daily_mm_day: np.ndarray):
 
 
 __all__ = (
-    "build_hydrological_year_dates",
     "build_hydrological_step_series",
+    "build_hydrological_year_dates",
     "build_recharge_from_reservoir_chronicle",
     "enforce_annual_precipitation_total",
     "generate_daily_precipitation",
     "make_piecewise_constant_daily_qin",
     "precipitation_to_inflow",
 )
-

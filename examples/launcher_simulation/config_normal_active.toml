@@ -122,7 +122,15 @@ units = "m3/day"
 mode = "synthetic_generated"
 
 [recharge_chronicle.synthetic_generated]
-values = [2.0, 2.0, 0.0]
+generator = "seasonal_step"
+generation_step = "30 day"
+units = "mm/day"
+runoff_ratio = 0.1
+
+[recharge_chronicle.synthetic_generated.seasonal_step]
+wet_months = [1, 2]
+wet_value = "2.0 mm/day"
+dry_value = "0.0 mm/day"
 
 [transport.modpath.parameters]
 zone_partic = "seepage_clip"

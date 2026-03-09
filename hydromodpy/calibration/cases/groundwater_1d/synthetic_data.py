@@ -16,7 +16,7 @@ from hydromodpy.calibration.cases.groundwater_1d.model import (
     Hydro1DParameters,
     simulate,
 )
-from hydromodpy.calibration.cases.utils.forcing import (
+from hydromodpy.hydrology.synthetic.forcing import (
     build_hydrological_step_series,
     build_hydrological_year_dates,
     build_recharge_from_reservoir_chronicle,
@@ -80,12 +80,20 @@ def _build_recharge_series(chronicle_cfg, t):
             losses_months=tuple(chronicle_cfg["losses_months"]),
             scale_to_m_per_day=1.0e-3,
         )
+        precip_mm_day = np.asarray(forcing_data["precip_mm_day"], dtype=float)
+        peff_mm_day = np.asarray(forcing_data["peff_mm_day"], dtype=float)
+        qin_mm_day = np.asarray(forcing_data["qin_mm_day"], dtype=float)
         forcing_metadata = {
             "recharge_mode": mode,
             "dates": forcing_data["dates"],
-            "precip_mm_day": forcing_data["precip_mm_day"],
-            "peff_mm_day": forcing_data["peff_mm_day"],
-            "qin_mm_day": forcing_data["qin_mm_day"],
+            "precip_mm_day": precip_mm_day,
+            "peff_mm_day": peff_mm_day,
+            # Actual losses applied by the simple bucket logic.
+            "etr_mm_day": np.maximum(precip_mm_day - peff_mm_day, 0.0),
+            # In this simplified forcing chain, runoff is the Qin term later
+            # rescaled to become recharge for the groundwater case.
+            "runoff_mm_day": qin_mm_day,
+            "qin_mm_day": qin_mm_day,
         }
         return forcing_data["dates"], forcing_data["recharge_m_per_day"], forcing_metadata
 
