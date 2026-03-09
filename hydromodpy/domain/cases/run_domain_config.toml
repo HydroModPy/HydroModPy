@@ -45,11 +45,11 @@ y_outlet = 6816518.749
 
 # Maximum snapping distance (m) to move the outlet to the nearest stream cell.
 # Required for 'from_outlet_coord' mode.
-snap_dist = 50
+snap_dist = "50 m"
 
 # Buffer around the watershed polygon as a percentage of sqrt(area [km2]).
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
-buff_area = 20.0
+buff_area = "20%"
 
 # Target projected CRS for all outputs (e.g. 'EPSG:2154').
 # If not set, derived from the input DEM.

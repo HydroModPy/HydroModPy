@@ -13,8 +13,8 @@ catch_def = "from_outlet_coord"
 dem_init_path = "data/regional dem.tif"
 x_outlet = 127348.427
 y_outlet = 6835802.564
-snap_dist = 150
-buff_area = 20.0
+snap_dist = "150 m"
+buff_area = "20%"
 crs_project = "EPSG:2154"
 dem_correc_type = "breach"
 
@@ -23,7 +23,7 @@ zone_ids = ["geology"]
 
 [domain.depth_model]
 type = "constant_thickness"
-thickness = 50.0
+thickness = "50.0 m"
 
 [data]
 types = ["geology", "hydrography", "hydrometry", "intermittency", "oceanic"]
