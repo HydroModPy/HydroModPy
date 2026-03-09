@@ -504,7 +504,7 @@ class Watershed:
             grid_patch, # ex. {"dem": dem_path, "CN":75}
             compress_level: int = 4,
     ):
-        from hydromodpy.pyhelp import pyhelp_netcdf
+        from hydromodpy.hydrology.pyhelp import pyhelp_netcdf
 
         # 1) compatibilité ancien nom
         if grid_csv is None:

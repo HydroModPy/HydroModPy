@@ -68,25 +68,22 @@ class OceanicConfig(BaseModel):
         description=(
             "If true, derive msl_start_date and msl_end_date from "
             "[simulation.time] canonical window using "
-            "[simulation.time].start_datetime/end_datetime. If "
-            "[simulation.time] is missing or unresolved, fallback to the explicit "
-            "msl_start_date/msl_end_date values below."
+            "[simulation.time].start_datetime/end_datetime. Requires a valid "
+            "[simulation.time] section."
         ),
     )
     msl_start_date: Annotated[str, ParamLevel("user")] = Field(
         default="2003-01-01",
         description=(
             "Inclusive mean sea-level start date in ISO format (YYYY-MM-DD). "
-            "Used directly when msl_use_simulation_time_window=false or as "
-            "fallback otherwise."
+            "Used directly when msl_use_simulation_time_window=false."
         ),
     )
     msl_end_date: Annotated[str, ParamLevel("user")] = Field(
         default="2003-01-30",
         description=(
             "Inclusive mean sea-level end date in ISO format (YYYY-MM-DD). "
-            "Used directly when msl_use_simulation_time_window=false or as "
-            "fallback otherwise."
+            "Used directly when msl_use_simulation_time_window=false."
         ),
     )
     msl_default: Annotated[float, ParamLevel("user")] = Field(

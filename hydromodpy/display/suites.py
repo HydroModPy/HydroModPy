@@ -15,7 +15,10 @@ from __future__ import annotations
 
 import pandas as pd
 
-from hydromodpy.display.common import resolve_model_figure_dir
+from hydromodpy.display.common import (
+    resolve_flow_base_raster,
+    resolve_model_figure_dir,
+)
 from hydromodpy.display.flow_plots import (
     plot_cross_section,
     plot_piezometry,
@@ -97,12 +100,13 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
     flow_model = _resolve_flow_model(result)
     model_name = flow_model.model_name
     output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
+    base_raster = resolve_flow_base_raster(flow_model, result.setup.geographic)
     simulated_timeseries = _load_flow_timeseries(result)
     observed_streamflow = _load_observed_streamflow(result)
 
     if options.flow.is_enabled("cross_section", default=True):
         plot_cross_section(
-            watershed_dem_path=result.setup.geographic.watershed_dem,
+            watershed_dem_path=base_raster,
             watertable_npy_path=(
                 result.setup.workspace.simulations_folder
                 / model_name
@@ -156,7 +160,7 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
         pathlines_shp=pathlines_shp,
         endpoints_shp=endpoints_shp,
         watershed_shp=result.setup.geographic.watershed_shp,
-        dem_raster=result.setup.geographic.watershed_box_buff_dem,
+        dem_raster=resolve_flow_base_raster(flow_model, result.setup.geographic),
         options=options,
         save_path=output_dir / "pathlines.png",
     )
@@ -202,6 +206,7 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
         geographic=result.setup.geographic,
         hydrography=result.data.hydrography,
         recharge_series=result.data.climatic.recharge,
+        base_raster_path=resolve_flow_base_raster(flow_model, result.setup.geographic),
         output_dir=output_dir,
         prefix="concentration",
         dpi=options.dpi,

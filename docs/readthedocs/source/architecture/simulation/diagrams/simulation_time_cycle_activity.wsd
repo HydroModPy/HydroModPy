@@ -20,28 +20,46 @@ if (Has [simulation.time]?) then (yes)
   endif
 
   :apply_explicit_time_window_to_tgrids();
+  :require_flow_simulation_time_grid();
   :Store time_grid in run_state.setup.time_grid;
 else (no)
-  :time_grid remains None\n(fallback mode);
+  if (Flow process declared?) then (yes)
+    :Raise ValueError;
+    stop
+  else (no)
+    :Skip canonical time-grid resolution;
+  endif
 endif
 
 :Load data managers;
 if (oceanic/hydrometry/piezometry\nuse_simulation_time_window?) then (yes)
   :resolve_simulation_time_window_dates();
   if (window unresolved?) then (yes)
-    :Warn and keep explicit fallback dates;
+    :Raise ValueError;
+    stop
   else (no)
     :Inject canonical date_start/date_end;
   endif
 endif
 
 :Build recharge chronicle payload\nwith simulation_window;
+:Validate recharge_chronicle through\nPydantic models;
 if (mode = observed_csv?) then (yes)
   :Derive first_year/last_year/time_step\nfrom simulation window;
 else (no)
   if (mode = synthetic_generated?) then (yes)
-    :Derive period index from simulation boundaries;
+    if (generator configured?) then (yes)
+      :Normalize inline units and\nseasonal generator parameters;
+      :Build fine synthetic chronicle\nfrom hydrology.synthetic.forcing;
+      :Convert recharge/runoff to m/s;
+      :Aggregate series to simulation boundaries;
+    else (legacy values)
+      :Normalize explicit values to target units;
+      :Build one value per stress period;
+      :Convert recharge/runoff to m/s;
+    endif
   else (synthetic_csv)
+    :Normalize CSV units;
     :Resample and align series to\nsimulation boundaries;
   endif
 endif
@@ -59,7 +77,8 @@ while (Next ProcessRun?) is (yes)
     if (time_grid available?) then (yes)
       :Use canonical nper/perlen from time_grid;
     else (no)
-      :Build temporal mesh from solver tgrid;
+      :Raise ValueError;
+      stop
     endif
     :Execute flow solver;
   else (transport)

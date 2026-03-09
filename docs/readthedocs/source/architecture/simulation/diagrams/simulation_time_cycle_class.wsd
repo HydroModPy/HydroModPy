@@ -33,6 +33,7 @@ package "hydromodpy.simulation.time.window" {
   class "Time Window Services" as TimeWindowServices <<module>> {
     +resolve_simulation_time_window(cfg)
     +resolve_simulation_time_grid(cfg)
+    +require_flow_simulation_time_grid(cfg)
     +apply_explicit_time_window_to_tgrids(cfg)
     +resolve_simulation_time_window_dates(cfg)
     +validate_recharge_coverage(recharge, window)
@@ -46,6 +47,50 @@ package "launchers.process_simulation" {
     +run()
     +_run_data()
     +_apply_recharge_chronicle_from_toml()
+  }
+}
+
+package "hydromodpy.simulation.forcing.recharge_chronicle_config" {
+  class SeasonalStepRechargeChronicleConfig {
+    +wet_months: list[int]
+    +wet_value: float
+    +dry_value: float
+  }
+
+  class SyntheticGeneratedRechargeChronicleConfig {
+    +values: float|list[float]|None
+    +units: str
+    +runoff_ratio: float
+    +generator: str?
+    +generation_step: str
+    +seasonal_step: SeasonalStepRechargeChronicleConfig?
+  }
+
+  class ObservedRechargeChronicleConfig {
+    +path_file: str
+    +clim_mod: str
+    +clim_sce: str
+    +first_year: int?
+    +last_year: int?
+    +time_step: str?
+  }
+
+  class SyntheticCsvRechargeChronicleConfig {
+    +path_file: str
+    +units: str
+    +runoff_units: str?
+    +time_step: str?
+  }
+
+  class RechargeChronicleConfig {
+    +mode: observed_csv|synthetic_generated|synthetic_csv
+    +observed_csv: ObservedRechargeChronicleConfig?
+    +synthetic_generated: SyntheticGeneratedRechargeChronicleConfig?
+    +synthetic_csv: SyntheticCsvRechargeChronicleConfig?
+  }
+
+  class "Recharge Chronicle Validation" as RechargeValidation <<module>> {
+    +validate_recharge_chronicle_section(value)
   }
 }
 
@@ -69,6 +114,13 @@ package "hydromodpy.simulation.forcing.recharge_chronicle" {
   }
 }
 
+package "hydromodpy.hydrology.synthetic.forcing" {
+  class "Synthetic Forcing Builders" as HydrologyForcing <<module>> {
+    +build_hydrological_step_series(dates, wet_months, wet_value, dry_value)
+    +build_recharge_from_reservoir_chronicle(...)
+  }
+}
+
 package "hydromodpy.data_managers.runtime_loader" {
   class DataManagersRuntimeLoader {
     +_resolve_simulation_time_window_dates(result)
@@ -85,18 +137,25 @@ SimulationTimeConfig --> TimeWindowServices : input section
 TimeWindowServices ..> ResolvedSimulationTimeWindow : creates
 TimeWindowServices ..> ResolvedSimulationTimeGrid : creates
 
-HydroModPyLauncher --> TimeWindowServices : resolve/apply
+HydroModPyLauncher --> TimeWindowServices : require_flow_time_grid/apply
 HydroModPyLauncher --> ResolvedSimulationTimeGrid : stores on launcher state
 
 HydroModPyLauncher --> RechargeServices : passes simulation_window
+RechargeServices --> RechargeValidation : validates raw section
+RechargeValidation ..> RechargeChronicleConfig : returns
 RechargeServices ..> ResolvedSimulationTimeWindow : aligns forcing series
 RechargeServices ..> RechargeChroniclePayload : returns payload
+RechargeServices ..> HydrologyForcing : seasonal generator path
 RechargeChroniclePayload *-- ObservedRechargeChronicleRequest
+RechargeChronicleConfig *-- ObservedRechargeChronicleConfig
+RechargeChronicleConfig *-- SyntheticGeneratedRechargeChronicleConfig
+RechargeChronicleConfig *-- SyntheticCsvRechargeChronicleConfig
+SyntheticGeneratedRechargeChronicleConfig *-- SeasonalStepRechargeChronicleConfig
 
 DataManagersRuntimeLoader --> TimeWindowServices : date bounds lookup
 
-HydroModPyLauncher --> Modflow : passes preprocess options.time_grid
-HydroModPyLauncher --> Modflow6 : passes preprocess options.time_grid
+HydroModPyLauncher --> Modflow : passes required preprocess options.time_grid
+HydroModPyLauncher --> Modflow6 : passes required preprocess options.time_grid
 Modflow ..> ResolvedSimulationTimeGrid : consumes nper/perlen
 Modflow6 ..> ResolvedSimulationTimeGrid : consumes nper/perlen
 @enduml

@@ -76,7 +76,7 @@ from hydromodpy.solver import SolverEngine
 from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
-from hydromodpy.pyhelp import preprocessing_pyhelp, PyhelpGridParams
+from hydromodpy.hydrology.pyhelp import preprocessing_pyhelp, PyhelpGridParams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 config_path = Path(__file__).parent / "config.toml"

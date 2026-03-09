@@ -51,6 +51,23 @@ def resolve_shared_figure_dir(workspace) -> Path:
     return workspace.simulations_folder / "_figures"
 
 
+def resolve_flow_base_raster(flow_model, geographic) -> Path:
+    """Return the raster template aligned with the active flow solver grid.
+
+    New solver runs can decouple their planar discretization from the native
+    geographic DEM. When that happens, plots must use the solver template
+    raster instead of the original geographic raster, otherwise overlays and
+    array-based diagnostics drift out of alignment.
+    """
+
+    path = getattr(flow_model, "dem_watershed_path", None)
+    if path is None:
+        path = getattr(geographic, "watershed_dem", None)
+    if path is None:
+        raise ValueError("Unable to resolve a base raster for flow display outputs")
+    return Path(path)
+
+
 def finalize_figure(
     fig,
     *,

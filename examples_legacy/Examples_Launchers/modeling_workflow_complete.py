@@ -38,7 +38,7 @@ from hydromodpy.solver.modflow_nwt import Mt3dms
 from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+from hydromodpy.hydrology.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 

@@ -14,6 +14,12 @@ package "Configuration Layer" {
   component "Section Normalizers\n(param / ic / bc / sinks_sources)" as Normalizers
 }
 
+package "Conceptual Hydrology Layer" {
+  component "Recharge Chronicle Config\nsimulation.forcing.recharge_chronicle_config" as RechargeChronicleConfig
+  component "Recharge Chronicle Adapter\nsimulation.forcing.recharge_chronicle" as RechargeChronicleAdapter
+  component "Synthetic Forcing\nhydrology.synthetic.forcing" as HydrologySyntheticForcing
+}
+
 package "Runtime Process Layer" {
   component "ProcessSpatial" as ProcessSpatial
   component "Flow" as Flow
@@ -36,8 +42,11 @@ ApiCalls --> HydroModPyConfig
 
 HydroModPyConfig --> FlowConfig
 HydroModPyConfig --> TransportConfig
+HydroModPyConfig --> RechargeChronicleConfig
 FlowConfig --> Normalizers
 TransportConfig --> Normalizers
+RechargeChronicleConfig --> RechargeChronicleAdapter
+RechargeChronicleAdapter --> HydrologySyntheticForcing
 
 FlowConfig --> Flow
 TransportConfig --> Transport
@@ -50,6 +59,8 @@ Flow --> FlowAdapterNwt
 Flow --> Mf6Helpers
 RuntimePayloads --> FlowAdapterNwt
 RuntimePayloads --> Mf6Helpers
+RechargeChronicleAdapter --> FlowAdapterNwt
+RechargeChronicleAdapter --> Mf6Helpers
 
 FlowAdapterNwt --> ModflowNwtWrapper
 Mf6Helpers --> Modflow6Wrapper

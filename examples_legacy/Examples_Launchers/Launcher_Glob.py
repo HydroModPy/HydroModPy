@@ -84,7 +84,7 @@ from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+from hydromodpy.hydrology.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 #import importlib
 # Import complete workflow functions from modeling_workflow_complete.py (relative import)

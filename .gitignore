@@ -114,6 +114,7 @@ hydromodpy/mesh/cartesian_grid/output/
 !tests/regression/reference/**/*.nam
 
 # Temporary files
+tmp*/
 *.tmp
 *.prof
 *.bak

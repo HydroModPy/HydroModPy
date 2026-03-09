@@ -101,6 +101,14 @@ fontprop = FontProperties()
 fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
 
+
+def _raster_nodata_mask(data: np.ndarray, nodata: float | None) -> np.ndarray:
+    """Return the nodata mask for one raster array."""
+
+    if nodata is None:
+        return data < 0
+    return np.isclose(data.astype(float), float(nodata))
+
 #%% FUNCTIONS
 
 def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Optional[StationSet]=None):
@@ -130,6 +138,8 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     except:
         pass
     dem = rasterio.open(geographic.watershed_box_buff_dem)
+    dem_array = dem.read(1)
+    dem_masked = np.ma.masked_where(_raster_nodata_mask(dem_array, dem.nodata), dem_array)
     bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
@@ -140,9 +150,9 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     ax.set(aspect='equal') 
-    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
+    image_hidden = ax.imshow(dem_masked, 
                               cmap='terrain')
-    show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
+    show(dem_masked, ax=ax, transform=dem.transform, 
           cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
     legend_handles = []
     try:
@@ -209,7 +219,7 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
     cbar.ax.get_ymajorticklabels()
     list(cbar.get_ticks())
-    val = np.ma.masked_where(geographic.dem_box_buff_data < 0, geographic.dem_box_buff_data)
+    val = dem_masked
     minVal =  int(round(np.min(val[np.nonzero(val)],0)))
     maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
     meanVal = int(round(minVal+((maxVal-minVal)/2),0))
@@ -288,6 +298,7 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     ax = plt.gca()
     dem = rasterio.open(geographic.watershed_box_buff_dem)
+    dem_array = dem.read(1)
     polyg = gpd.read_file(geographic.watershed_shp)
     contour = gpd.read_file(geographic.watershed_contour_shp)
     crs = contour.crs
@@ -384,6 +395,7 @@ def watershed_zones(BV):
     except:
         pass
     dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
+    dem_array = dem.read(1)
     bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
@@ -456,7 +468,7 @@ def watershed_zones(BV):
     cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
     cbar.ax.get_ymajorticklabels()
     list(cbar.get_ticks())
-    val = np.ma.masked_where(BV.geographic.dem_box_buff_data < 0, BV.geographic.dem_box_buff_data)
+    val = np.ma.masked_where(_raster_nodata_mask(dem_array, dem.nodata), dem_array)
     minVal =  int(round(np.min(val[np.nonzero(val)],0)))
     maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
     meanVal = int(round(minVal+((maxVal-minVal)/2),0))

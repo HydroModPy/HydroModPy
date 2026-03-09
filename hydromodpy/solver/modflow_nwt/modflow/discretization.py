@@ -21,8 +21,8 @@ Main outputs
 ------------
 - ``TemporalDiscretizationResult`` for DIS time arguments
   (``itmuni``, ``nper``, ``perlen``, ``nstp``, ``steady``, ``start_datetime``).
-- ``SpatialDiscretizationResult`` for structured grid geometry
-  (``sgrid``, dimensions, ``zbot``, ``bottom_layer``).
+- ``SolverGridContext`` for structured grid geometry and solver-aligned
+  top/bottom support.
 """
 
 from __future__ import annotations
@@ -32,6 +32,12 @@ from dataclasses import dataclass
 import numpy as np
 
 from hydromodpy.domain.surface import Surface
+from hydromodpy.solver.modflow_common import GridReference, SolverGridContext
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
+    PlanarGridConfig,
+    SolverSGridConfig,
+    VerticalGridConfig,
+)
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
 from hydromodpy.units import to_modflow_itmuni
@@ -90,46 +96,6 @@ class TemporalDiscretizationResult:
         }
 
 
-@dataclass(slots=True)
-class SpatialDiscretizationResult:
-    """
-    Typed spatial discretization container.
-
-    Notes
-    -----
-    - ``dem`` is the validated top support used for adaptation stages.
-    - ``zbot`` stores full layer bottoms.
-    - ``bottom_layer`` is a convenience 2D slice of the deepest layer.
-
-    Attributes
-    ----------
-    sgrid : object
-        Structured grid object returned by ``StructuredGridBuilder``
-        (contains spacing, offsets, top and bottom arrays).
-    dem : np.ndarray
-        2D top-elevation support array, validated against domain surfaces.
-    nlay : int
-        Number of model layers.
-    nrow : int
-        Number of model rows.
-    ncol : int
-        Number of model columns.
-    zbot : np.ndarray
-        3D bottom-elevation array with shape ``(nlay, nrow, ncol)``.
-    bottom_layer : np.ndarray
-        2D bottom elevation of the deepest layer (``zbot[-1]``), used by
-        startup and boundary helpers.
-    """
-
-    sgrid: object
-    dem: np.ndarray
-    nlay: int
-    nrow: int
-    ncol: int
-    zbot: np.ndarray
-    bottom_layer: np.ndarray
-
-
 def _coerce_itmuni(value: object, default_itmuni: int) -> int:
     """Convert temporal unit payload to MODFLOW ITMUNI integer code.
 
@@ -152,10 +118,51 @@ def _coerce_itmuni(value: object, default_itmuni: int) -> int:
         ) from exc
 
 
+def build_temporal_discretization_from_time_grid(
+    *,
+    time_grid: object,
+    flow_regime: str,
+    firstpersteady: bool,
+) -> TemporalDiscretizationResult:
+    """Build solver temporal arrays directly from canonical launcher time-grid."""
+    if time_grid is None:
+        raise ValueError(
+            "preprocess_options.time_grid derived from [simulation.time] is required "
+            "for launcher flow preprocessing."
+        )
+
+    perlen = np.asarray(getattr(time_grid, "period_lengths_seconds", ()), dtype=float)
+    nper = int(perlen.size)
+    if nper == 0:
+        raise ValueError("simulation.time grid produced an empty perlen vector.")
+
+    nstp = np.ones((nper,), dtype=int)
+    flow_regime_text = str(flow_regime).strip().lower()
+    if flow_regime_text == "steady":
+        steady = np.ones((nper,), dtype=bool)
+    else:
+        steady = np.zeros((nper,), dtype=bool)
+        if firstpersteady:
+            steady[0] = True
+
+    window = getattr(time_grid, "window", None)
+    start_datetime = getattr(window, "start", None)
+    if start_datetime is not None and hasattr(start_datetime, "to_pydatetime"):
+        start_datetime = start_datetime.to_pydatetime()
+
+    return TemporalDiscretizationResult(
+        itmuni=1,  # seconds
+        nper=nper,
+        perlen=perlen,
+        nstp=nstp,
+        steady=steady,
+        start_datetime=start_datetime,
+    )
+
+
 def resolve_domain_surfaces(
     *,
     domain: object,
-    dem_shape: tuple[int, int],
 ) -> tuple[Surface, Surface]:
     """
     Validate and return top/substratum surfaces used by spatial gridding.
@@ -164,8 +171,7 @@ def resolve_domain_surfaces(
     -----------------
     - both ``surface_topo`` and ``substratum`` must exist,
     - both must be ``Surface`` instances,
-    - both arrays must share the same shape,
-    - shape must match active DEM support shape used by the solver.
+    - both arrays must share the same shape.
     """
     if domain is None:
         raise ValueError("Modflow spatial geometry is domain-only: a Domain object is required.")
@@ -186,15 +192,39 @@ def resolve_domain_surfaces(
     bot = np.asarray(substratum.as_array(), dtype=float)
     if top.shape != bot.shape:
         raise ValueError(f"Domain surface mismatch: top{top.shape} != substratum{bot.shape}.")
-    if top.shape != dem_shape:
-        raise ValueError(
-            "Domain surface shape must match active DEM support "
-            f"({top.shape} vs {dem_shape})."
-        )
 
     # Ensure both surfaces are defined on the same geographic support.
     surface_topo.assert_same_geographic_domain(substratum)
     return surface_topo, substratum
+
+
+def project_surfaces_to_planar_grid(
+    *,
+    top_surface: Surface,
+    bottom_surface: Surface,
+    planar_config: PlanarGridConfig | None,
+    nodata: float,
+) -> tuple[Surface, Surface]:
+    """Project domain surfaces to the target solver planar grid when requested."""
+    if planar_config is None or planar_config.mode == "surface_native":
+        return top_surface, bottom_surface
+
+    resampled_top = top_surface.resample_to_shape(
+        int(planar_config.ny),
+        int(planar_config.nx),
+        resampling=str(planar_config.resampling),
+        nodata=float(nodata),
+        name=top_surface.name,
+    )
+    resampled_bottom = bottom_surface.resample_to_shape(
+        int(planar_config.ny),
+        int(planar_config.nx),
+        resampling=str(planar_config.resampling),
+        nodata=float(nodata),
+        name=bottom_surface.name,
+    )
+    resampled_top.assert_same_geographic_domain(resampled_bottom)
+    return resampled_top, resampled_bottom
 
 
 def build_temporal_discretization(
@@ -258,9 +288,8 @@ def build_temporal_discretization(
 def build_spatial_discretization(
     *,
     domain: object,
-    dem_shape: tuple[int, int],
-    vertical_config: object,
-) -> SpatialDiscretizationResult:
+    sgrid_config: SolverSGridConfig | None,
+) -> SolverGridContext:
     """
     Build normalized structured spatial discretization from domain surfaces.
 
@@ -268,17 +297,34 @@ def build_spatial_discretization(
     ----------
     domain : object
         Runtime domain object exposing top/substratum surfaces.
-    dem_shape : tuple[int, int]
-        Active DEM support shape used for consistency checks.
-    vertical_config : object
-        Typed vertical-grid config consumed by ``StructuredGridBuilder``.
+    sgrid_config : SolverSGridConfig | None
+        Solver-facing grid configuration split into planar and vertical
+        discretization.
     """
+    vertical_config: VerticalGridConfig | None = None
+    planar_config: PlanarGridConfig | None = None
+    if sgrid_config is not None:
+        vertical_config = sgrid_config.vertical
+        planar_config = sgrid_config.planar
+
+    nodata = float(
+        vertical_config.nodata
+        if vertical_config is not None
+        else -9999.0
+    )
+
     # Validate and retrieve surfaces before invoking grid builder.
     top_surface, bottom_surface = resolve_domain_surfaces(
         domain=domain,
-        dem_shape=dem_shape,
     )
-    dem = np.asarray(top_surface.as_array(), dtype=float)
+    top_surface, bottom_surface = project_surfaces_to_planar_grid(
+        top_surface=top_surface,
+        bottom_surface=bottom_surface,
+        planar_config=planar_config,
+        nodata=nodata,
+    )
+    top = np.asarray(top_surface.as_array(), dtype=float)
+    bottom = np.asarray(bottom_surface.as_array(), dtype=float)
 
     # Build full structured grid (top, botm, dimensions, spacing, offsets).
     sgrid = StructuredGridBuilder().build_from_surfaces(
@@ -287,14 +333,18 @@ def build_spatial_discretization(
         vertical_config=vertical_config,
     )
     zbot = np.asarray(sgrid.botm, dtype=float)
+    inactive_mask = (
+        ~np.isfinite(top)
+        | ~np.isfinite(bottom)
+        | (top <= nodata)
+        | (bottom <= nodata)
+    )
 
-    # Return one typed payload consumed by Modflow orchestration.
-    return SpatialDiscretizationResult(
+    return SolverGridContext(
+        grid=GridReference.from_surface(top_surface, nodata=nodata),
+        top_surface=top_surface,
+        bottom_surface=bottom_surface,
         sgrid=sgrid,
-        dem=dem,
-        nlay=int(sgrid.nlay),
-        nrow=int(sgrid.nrow),
-        ncol=int(sgrid.ncol),
         zbot=zbot,
-        bottom_layer=np.asarray(zbot[-1], dtype=float),
+        inactive_mask=np.asarray(inactive_mask, dtype=bool),
     )

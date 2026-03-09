@@ -165,16 +165,10 @@ class DataManagersRuntimeLoader:
                     msl_use_simulation_time_window = False
 
         if msl_use_simulation_time_window:
-            simulation_dates = self._resolve_simulation_time_window_dates(result)
-            if simulation_dates is None:
-                print(
-                    "[DataManagersPlanner] Warning: data.oceanic."
-                    "msl_use_simulation_time_window=true but [simulation.time] "
-                    "is missing or invalid; using data.oceanic.msl_start_date/"
-                    "msl_end_date."
-                )
-            else:
-                msl_start_date, msl_end_date = simulation_dates
+            msl_start_date, msl_end_date = self._require_simulation_time_window_dates(
+                result,
+                option_name="data.oceanic.msl_use_simulation_time_window",
+            )
 
         try:
             oceanic = Oceanic()
@@ -407,7 +401,25 @@ class DataManagersRuntimeLoader:
     def _resolve_simulation_time_window_dates(
         result: "LauncherRunState",
     ) -> tuple[str, str] | None:
-        return resolve_simulation_time_window_dates(result.cfg, strict=False)
+        return resolve_simulation_time_window_dates(result.cfg)
+
+    def _require_simulation_time_window_dates(
+        self,
+        result: "LauncherRunState",
+        *,
+        option_name: str,
+    ) -> tuple[str, str]:
+        try:
+            simulation_dates = self._resolve_simulation_time_window_dates(result)
+        except ValueError as exc:
+            raise ValueError(
+                f"{option_name}=true requires a valid [simulation.time] section."
+            ) from exc
+        if simulation_dates is None:
+            raise ValueError(
+                f"{option_name}=true requires a valid [simulation.time] section."
+            )
+        return simulation_dates
 
     @staticmethod
     def _coerce_optional_bool(value: Any) -> bool | None:
@@ -441,16 +453,10 @@ class DataManagersRuntimeLoader:
         if not use_window:
             return
 
-        simulation_dates = self._resolve_simulation_time_window_dates(result)
-        if simulation_dates is None:
-            print(
-                "[DataManagersPlanner] Warning: data."
-                f"{manager_type}.use_simulation_time_window=true but [simulation.time] "
-                "is missing or invalid; using explicit date_start/date_end when provided."
-            )
-            return
-
-        date_start, date_end = simulation_dates
+        date_start, date_end = self._require_simulation_time_window_dates(
+            result,
+            option_name=f"data.{manager_type}.use_simulation_time_window",
+        )
         section["date_start"] = date_start
         section["date_end"] = date_end
 

@@ -47,7 +47,7 @@ sys.path.append(root_dir)
 import xarray as xr
 import rioxarray as rxr
 
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+from hydromodpy.hydrology.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root_legacy

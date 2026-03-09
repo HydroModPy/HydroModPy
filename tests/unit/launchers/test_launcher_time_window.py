@@ -9,6 +9,7 @@ import pytest
 
 from hydromodpy.simulation.time import (
     apply_explicit_time_window_to_tgrids,
+    require_flow_simulation_time_grid,
     resolve_simulation_time_grid,
     resolve_simulation_time_window,
     validate_recharge_coverage,
@@ -158,6 +159,22 @@ def test_resolve_simulation_time_grid_rejects_from_modflow_mode() -> None:
 
     with pytest.raises(ValueError, match="must be 'explicit'"):
         _ = resolve_simulation_time_grid(cfg)
+
+
+def test_require_flow_simulation_time_grid_requires_window_for_flow_process() -> None:
+    cfg = _make_cfg_with_time()
+    cfg.simulation.time = None
+
+    with pytest.raises(ValueError, match=r"Launcher flow processes require a valid \[simulation\.time\] section"):
+        require_flow_simulation_time_grid(cfg)
+
+
+def test_require_flow_simulation_time_grid_keeps_window_optional_without_flow_process() -> None:
+    cfg = _make_cfg_with_time()
+    cfg.simulation.time = None
+    cfg.simulation.process = [SimpleNamespace(type="transport", solvers=["mt3dms"])]
+
+    assert require_flow_simulation_time_grid(cfg) is None
 
 
 def test_apply_simulation_time_window_raises_when_end_not_aligned_with_step() -> None:

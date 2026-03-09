@@ -42,6 +42,11 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         self.model_folder = model_modflow.model_folder
         self.datetime_format = datetime_format
         self.recharge = model_modflow.recharge
+        self.base_raster_path = getattr(
+            model_modflow,
+            "dem_watershed_path",
+            geographic.watershed_dem,
+        )
 
         self.full_path = os.path.join(self.model_folder, self.model_name)
         self.save_file = os.path.join(self.full_path, "_postprocess")
@@ -97,7 +102,7 @@ class FlowNetcdfPostprocess(NetcdfWriter):
         try:
             self.export_netcdf(
                 data,
-                base_path=self.geographic.watershed_dem,
+                base_path=self.base_raster_path,
                 out_path=os.path.join(self.netcdf_file, f"{name}.nc"),
                 base_crs=self.geographic.crs_proj,
                 times=times,

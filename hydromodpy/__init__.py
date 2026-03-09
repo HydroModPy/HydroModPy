@@ -265,6 +265,7 @@ from hydromodpy import tools
 from hydromodpy import calibration
 from hydromodpy import data_managers
 from hydromodpy import domain
+from hydromodpy import hydrology
 from hydromodpy import geographic
 from hydromodpy import geographic_synthethic
 
@@ -298,11 +299,11 @@ _LAZY_IMPORTS = {
 def _load_pyhelp_module():
     """Lazy-load optional pyhelp module."""
     try:
-        module = importlib.import_module("hydromodpy.pyhelp")
+        module = importlib.import_module("hydromodpy.hydrology.pyhelp")
     except ModuleNotFoundError as exc:
         if getattr(exc, "name", None) == "h5py":
             raise ModuleNotFoundError(
-                "hydromodpy.pyhelp requires optional dependency 'h5py'. "
+                "hydromodpy.hydrology.pyhelp requires optional dependency 'h5py'. "
                 "Install it to enable PyHELP workflows."
             ) from exc
         raise
@@ -329,6 +330,7 @@ __all__ = [
     "calibration",
     "data_managers",
     "domain",
+    "hydrology",
     "geographic",
     "geographic_synthethic",
     "log_manager",

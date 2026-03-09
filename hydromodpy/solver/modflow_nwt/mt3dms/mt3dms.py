@@ -194,8 +194,8 @@ class Mt3dms:
                                       nlay=self.mf.nlay,
                                       nrow=self.mf.nrow,
                                       ncol=self.mf.ncol,
-                                      delr=self.model_modflow.resolution,
-                                      delc=self.model_modflow.resolution,
+                                      delr=np.asarray(self.model_modflow.dis.delr.array, dtype=float),
+                                      delc=np.asarray(self.model_modflow.dis.delc.array, dtype=float),
                                       nper=self.mf.nper,                        # mf.nper*new_stepsize+1
                                       nprs=self.mf.nper,                        # mf.nper*new_stepsize+1
                                       nstp=self.model_modflow.nstp,
@@ -325,7 +325,6 @@ class Mt3dms:
         model_mt3dms : object
             MT3DMS python object.
         """
-
         # Create folders
         self.save_file = os.path.join(self.full_path, '_postprocess')
         toolbox.create_folder(self.save_file)
@@ -348,7 +347,10 @@ class Mt3dms:
         self.path_file = os.path.join(self.full_path, self.model_name_mt+'.UCN')
 
         # Files have been output in the processing phase and are re-read here
-        self.dem_mask = (self.model_modflow.dem<-9999)
+        self.dem_mask = np.asarray(
+            getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
+            dtype=bool,
+        )
 
         # Fluxes
         self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
@@ -410,12 +412,15 @@ class Mt3dms:
                 self.dict_mass_seepage[i] = massobj_1c_fil_surf
 
             if mass_accumulated==True:
+                routing_ctx = self.model_modflow._ensure_solver_routing_context()
 
                 accumulated_mass = masstransfer.Masstransfer(self.geographic,
                                                               'mass_seepage_t('+the_time+').tif',
                                                               'tracept_conc_t('+the_time+').shp',
                                                               'mass_accumulated_t('+the_time+').tif',
-                                                              extraction_folder=self.save_file)
+                                                              extraction_folder=self.save_file,
+                                                              routing_fill_path=routing_ctx.correc_path,
+                                                              routing_direc_path=routing_ctx.direc_path)
                 accumulated_mass.trace_cumulated()
                 output_path = self.tifs_file+'/mass_accumulated_t('+the_time+').tif'
                 with rasterio.open(output_path) as src:

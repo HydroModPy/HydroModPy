@@ -194,7 +194,9 @@ class SimulationConfig(BaseModel):
         default=None,
         description=(
             "Optional canonical simulation window used to align solver temporal "
-            "settings and validate forcing coverage."
+            "settings and validate forcing coverage. Required for launcher "
+            "flow processes and for runtime features that explicitly consume "
+            "simulation-window dates."
         ),
     )
     process: list[SimulationProcessConfig] = Field(
