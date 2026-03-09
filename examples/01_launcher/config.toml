@@ -44,8 +44,8 @@ catch_def = "from_outlet_coord"
 dem_init_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
 x_outlet = 327816.965
 y_outlet = 6777886.670
-snap_dist = 150
-buff_area = 10.0
+snap_dist = "150 m"
+buff_area = "10%"
 crs_project = "EPSG:2154"
 dem_correc_type = "breach"
 
@@ -58,7 +58,7 @@ zone_ids = ["geology"]
 [domain.depth_model]
 type = "constant_thickness"
 # Legacy: BV.hydraulic.update_thick(50)
-thickness = 50.0
+thickness = "50.0 m"
 
 
 # ── Data managers ─────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ value = 1.728
 [flow.param.K.field_vertical_profile]
 mode = "exponential"
 # Legacy: BV.hydraulic.update_hk_decay(1/20)  →  characteristic depth = 20 m
-characteristic_depth = 20.0
+characteristic_depth = "20.0 m"
 
 
 # — Sy (specific yield) ——————————————————————————————————————————————
@@ -124,7 +124,7 @@ value = 0.01
 [flow.param.Sy.field_vertical_profile]
 mode = "exponential"
 # Legacy: BV.hydraulic.update_sy_decay(1/20)
-characteristic_depth = 20.0
+characteristic_depth = "20.0 m"
 
 
 # — Ss (specific storage) ————————————————————————————————————————————
@@ -140,7 +140,7 @@ value = 1e-5
 [flow.param.Ss.field_vertical_profile]
 mode = "exponential"
 # Legacy: BV.hydraulic.update_ss_decay(1/20)
-characteristic_depth = 20.0
+characteristic_depth = "20.0 m"
 
 
 # — Initial conditions ———————————————————————————————————————————————

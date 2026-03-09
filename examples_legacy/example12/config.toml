@@ -37,7 +37,7 @@ dem_init_path = "../../data/Brittany/dem/regional dem.tif"
 
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.
-cell_size = 100.0
+cell_size = "100.0 m"
 
 # X coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
@@ -49,11 +49,11 @@ y_outlet = 6784182.776
 
 # Maximum snapping distance (m) to move the outlet to the nearest stream cell.
 # Required for 'from_outlet_coord' mode.
-snap_dist = 50
+snap_dist = "50 m"
 
 # Buffer around the watershed polygon as a percentage of sqrt(area [km^2]).
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
-buff_area = 20.0
+buff_area = "20%"
 
 # Path to the watershed polygon shapefile.
 # Required for 'from_polyg_shp' mode.
@@ -96,7 +96,7 @@ type = "constant_thickness"
 
 # Constant aquifer thickness (m) applied below topography.
 # Used when type="constant_thickness".
-thickness = 50.0
+thickness = "50.0 m"
 
 # Flat substratum elevation (m) applied over the full domain.
 # Used when type="flat_substratum".
@@ -208,7 +208,7 @@ field_spatial_id = "field_geology"
 mode = "exponential"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 15.0
+characteristic_depth = "15.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 2e-4
@@ -258,7 +258,7 @@ field_spatial_id = "field_geology"
 mode = "exponential"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 30.0
+characteristic_depth = "30.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 5e-2
@@ -308,7 +308,7 @@ field_spatial_id = "field_geology"
 mode = "none"
 # Characteristic depth for exponential mode.
 # Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = 30.0
+characteristic_depth = "30.0 m"
 # Optional floor factor for exponential mode.
 # If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 1e-3
@@ -557,7 +557,7 @@ lmt_output_format = "unformatted"
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 vka = 1.0
 # Extinction depth [L] used by the EVT package (EXDP).
-exdp = 1.0
+exdp = "1.0 m"
 
 [modflownwt.sgrid]
 # Length unit label propagated to FloPy (for example 'm').
