@@ -74,44 +74,49 @@ def plot_forcing_chronicle(chronicle, output_png, show_plot=True):
         x_label = "Time [day]"
 
     precip_mm_day = forcing_metadata.get("precip_mm_day")
-    peff_mm_day = forcing_metadata.get("peff_mm_day")
-    qin_mm_day = forcing_metadata.get("qin_mm_day")
+    etr_mm_day = forcing_metadata.get("etr_mm_day")
+    runoff_mm_day = forcing_metadata.get("runoff_mm_day", forcing_metadata.get("qin_mm_day"))
     has_reservoir_chain = (
         mode == "reservoir_chronicle"
         and precip_mm_day is not None
-        and peff_mm_day is not None
-        and qin_mm_day is not None
+        and etr_mm_day is not None
+        and runoff_mm_day is not None
     )
 
     if has_reservoir_chain:
         precip_mm_day = np.asarray(precip_mm_day, dtype=float).ravel()
-        peff_mm_day = np.asarray(peff_mm_day, dtype=float).ravel()
-        qin_mm_day = np.asarray(qin_mm_day, dtype=float).ravel()
-        fig, axes = plt.subplots(3, 1, figsize=(11, 8), sharex=True, dpi=140)
-        ax0, ax1, ax2 = axes
+        etr_mm_day = np.asarray(etr_mm_day, dtype=float).ravel()
+        runoff_mm_day = np.asarray(runoff_mm_day, dtype=float).ravel()
+        fig, axes = plt.subplots(4, 1, figsize=(11, 9.5), sharex=True, dpi=140)
+        ax0, ax1, ax2, ax3 = axes
 
-        ax0.bar(x_values, precip_mm_day, width=1.0, color="tab:blue", alpha=0.70, label="P [mm/day]")
-        ax0.plot(x_values, peff_mm_day, color="tab:cyan", lw=1.6, label="Peff [mm/day]")
-        ax0.set_ylabel("Water input [mm/day]")
+        ax0.bar(x_values, precip_mm_day, width=1.0, color="tab:blue", alpha=0.70, label="Precipitation [mm/day]")
+        ax0.set_ylabel("P [mm/day]")
         ax0.set_title("Reservoir-like forcing chain used by groundwater_1d")
         ax0.grid(True, ls=":", alpha=0.45)
         ax0.legend(loc="upper right")
 
-        ax1.plot(x_values, qin_mm_day, color="tab:green", lw=1.8, label="Qin [mm/day]")
-        ax1.set_ylabel("Inflow [mm/day]")
+        ax1.plot(x_values, etr_mm_day, color="tab:red", lw=1.8, label="ETR / losses [mm/day]")
+        ax1.set_ylabel("ETR [mm/day]")
         ax1.grid(True, ls=":", alpha=0.45)
         ax1.legend(loc="upper right")
 
-        ax2.plot(x_values, recharge_series, color="tab:olive", lw=1.9, label="Recharge [m/day]")
-        ax2.set_xlabel(x_label)
-        ax2.set_ylabel("Recharge [m/day]")
+        ax2.plot(x_values, runoff_mm_day, color="tab:green", lw=1.8, label="Runoff / Qin [mm/day]")
+        ax2.set_ylabel("Runoff [mm/day]")
         ax2.grid(True, ls=":", alpha=0.45)
         ax2.legend(loc="upper right")
+
+        ax3.plot(x_values, recharge_series, color="tab:olive", lw=1.9, label="Recharge [m/day]")
+        ax3.set_xlabel(x_label)
+        ax3.set_ylabel("Recharge [m/day]")
+        ax3.grid(True, ls=":", alpha=0.45)
+        ax3.legend(loc="upper right")
 
         summary_lines = [
             f"mode={mode}",
             f"annual P={float(np.sum(precip_mm_day)):.1f} mm",
-            f"annual Qin={float(np.sum(qin_mm_day)):.1f} mm",
+            f"annual ETR={float(np.sum(etr_mm_day)):.1f} mm",
+            f"annual runoff={float(np.sum(runoff_mm_day)):.1f} mm",
             f"annual recharge={float(np.sum(recharge_series)):.3f} m",
         ]
     else:
@@ -125,6 +130,7 @@ def plot_forcing_chronicle(chronicle, output_png, show_plot=True):
 
         summary_lines = [
             f"mode={mode}",
+            "P/ETR/runoff unavailable in this forcing mode",
             f"n_steps={int(recharge_series.size)}",
             f"mean recharge={float(np.mean(recharge_series)):.5f} m/day",
             f"min/max recharge={float(np.min(recharge_series)):.5f}/{float(np.max(recharge_series)):.5f} m/day",
