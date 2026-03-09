@@ -63,6 +63,10 @@ Initial condition:
   - case adapter used by generic `core/case_orchestrator.py`
 - `plotting.py`
   - calibration figure helper
+- `run_forcing.py`
+  - forcing-only demonstration
+  - shows either the recharge step chronicle or the full
+    `P -> Peff -> Qin -> recharge` chain
 - `run_forward.py`
   - forward-only demonstration
 - `run_calibration.py`
@@ -75,14 +79,16 @@ Initial condition:
 From repository root:
 
 ```bash
-python hydromodpy/calibration2/cases/groundwater_1d/run_forward.py
-python hydromodpy/calibration2/cases/groundwater_1d/run_calibration.py
+python hydromodpy/calibration/cases/groundwater_1d/run_forcing.py
+python hydromodpy/calibration/cases/groundwater_1d/run_forward.py
+python hydromodpy/calibration/cases/groundwater_1d/run_calibration.py
 ```
 
 Optional custom config:
 
 ```bash
-python hydromodpy/calibration2/cases/groundwater_1d/run_calibration.py --config-file config_calibration.toml
+python hydromodpy/calibration/cases/groundwater_1d/run_forcing.py --config-file config_calibration.toml
+python hydromodpy/calibration/cases/groundwater_1d/run_calibration.py --config-file config_calibration.toml
 ```
 
 ## Calibration-Ready Inputs

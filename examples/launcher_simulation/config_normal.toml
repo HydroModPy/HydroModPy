@@ -316,7 +316,7 @@ value = "5e-5 m/s"
 # Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
 # Inline key/value mapping used when values_source='inline'.
-values = { granite = "1.1574074074074073e-4 m/s", micaschists = "2.3148148148148148e-5 m/s" }
+values = { granite = "1.15e-4 m/s", micaschists = "2.31e-5 m/s" }
 # Path to CSV mapping file used when values_source='csv'.
 values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
 # CSV column name containing zone/material keys.
