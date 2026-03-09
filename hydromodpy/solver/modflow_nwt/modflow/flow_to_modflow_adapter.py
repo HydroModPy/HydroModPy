@@ -96,6 +96,8 @@ from numbers import Real
 import numpy as np
 import pandas as pd
 
+from hydromodpy.solver.modflow_common.grid_context import GridReference
+
 from .property_mapping import (
     resolve_flow_property_arrays,
 )
@@ -189,6 +191,7 @@ class FlowToModflowAdapter:
         nrow: int,
         ncol: int,
         nper: int,
+        grid: GridReference | None = None,
         resolution: float,
         sink_fill: bool,
         sink=None,
@@ -212,6 +215,9 @@ class FlowToModflowAdapter:
             MODFLOW grid dimensions.
         nper : int
             Number of stress periods.
+        grid : GridReference | None
+            Solver-grid geometry. When provided, conductance and cell-area
+            calculations use ``dx``/``dy`` rather than a scalar proxy.
         resolution : float
             Horizontal cell-size proxy used in default DRN conductance formula.
         sink_fill : bool
@@ -232,9 +238,21 @@ class FlowToModflowAdapter:
         self.nrow = int(nrow)
         self.ncol = int(ncol)
         self.nper = int(nper)
-        self.resolution = float(resolution)
+        self.grid = grid
+        if self.grid is None:
+            self.cell_area = float(resolution) ** 2
+            self.characteristic_length = float(resolution)
+        else:
+            self.cell_area = float(self.grid.cell_area)
+            self.characteristic_length = float(self.grid.characteristic_length)
+        self.resolution = float(self.characteristic_length)
         self.sink_fill = bool(sink_fill)
         self.sink = None if sink is None else np.asarray(sink, dtype=float)
+        self.inactive_mask = (
+            ~np.isfinite(self.dem)
+            | ~np.isfinite(self.bottom_layer)
+            | (self.dem <= -1000.0)
+        )
 
     @property
     def _boundary_conditions(self) -> Mapping[str, object]:
@@ -305,11 +323,14 @@ class FlowToModflowAdapter:
             ibound[:, -1, :] = -1
             strt[:, -1, :] = float(south_side.value)
 
-        # Cells under the DEM sentinel threshold are set inactive.
+        # Cells under the DEM sentinel threshold, or undefined after resampling,
+        # are treated as inactive everywhere in the stack.
         for ilay in range(self.nlay):
-            ibound[ilay][self.dem < -1000] = 0
+            ibound[ilay][self.inactive_mask] = 0
+            strt[ilay][self.inactive_mask] = 0.0
 
         drain_array = np.ones((self.nrow, self.ncol), dtype=float)
+        drain_array[self.inactive_mask] = 0.0
         return ibound, strt, drain_array
 
     @staticmethod
@@ -474,7 +495,7 @@ class FlowToModflowAdapter:
         Conductance policy
         ------------------
         - If drainage BC value > 0: use this explicit conductance.
-        - Otherwise: derive conductance from ``hk * resolution^2``.
+        - Otherwise: derive conductance from ``hk * cell_area``.
         - With ``sink_fill=True``: cells flagged as sink receive zero
           conductance (disabled drainage).
 
@@ -527,7 +548,7 @@ class FlowToModflowAdapter:
                     if drainage_value > 0:
                         drn_data[count, 4] = drainage_value
                     else:
-                        drn_data[count, 4] = hk[0, i, j] * self.resolution**2
+                        drn_data[count, 4] = hk[0, i, j] * self.cell_area
                 else:
                     # Sink-filled cells should not drain.
                     if self.sink[i, j] > 0:
@@ -535,7 +556,7 @@ class FlowToModflowAdapter:
                     elif drainage_value > 0:
                         drn_data[count, 4] = drainage_value
                     else:
-                        drn_data[count, 4] = hk[0, i, j] * self.resolution**2
+                        drn_data[count, 4] = hk[0, i, j] * self.cell_area
                 count += 1
 
         return {0: drn_data}

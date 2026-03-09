@@ -302,6 +302,52 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
     )
 
 
+def _iter_simulation_processes(cfg: Any) -> tuple[Any, ...]:
+    """Return declared simulation processes as a stable tuple."""
+    simulation_cfg = getattr(cfg, "simulation", None)
+    processes = getattr(simulation_cfg, "process", None) if simulation_cfg is not None else None
+    if processes is None:
+        return ()
+    if isinstance(processes, tuple):
+        return processes
+    if isinstance(processes, list):
+        return tuple(processes)
+    return (processes,)
+
+
+def _process_type(process_cfg: Any) -> str:
+    """Return normalized process type from typed objects or mappings."""
+    if isinstance(process_cfg, dict):
+        raw_type = process_cfg.get("type", "")
+    else:
+        raw_type = getattr(process_cfg, "type", "")
+    return str(raw_type).strip().lower()
+
+
+def has_flow_simulation_process(cfg: Any) -> bool:
+    """Return ``True`` when the simulation plan declares at least one flow process."""
+    return any(_process_type(process_cfg) == "flow" for process_cfg in _iter_simulation_processes(cfg))
+
+
+def require_flow_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
+    """Return canonical launcher time-grid, enforcing it for flow runs.
+
+    Launcher flow solvers no longer accept solver ``tgrid`` sections as a
+    fallback source for stress periods. When at least one flow process is
+    declared, ``[simulation.time]`` must therefore resolve to one canonical
+    ``ResolvedSimulationTimeGrid``.
+    """
+    grid = resolve_simulation_time_grid(cfg)
+    if not has_flow_simulation_process(cfg):
+        return grid
+    if grid is None:
+        raise ValueError(
+            "Launcher flow processes require a valid [simulation.time] section. "
+            "Solver tgrid fallback is no longer supported."
+        )
+    return grid
+
+
 def build_simulation_time_boundaries(
     window: ResolvedSimulationTimeWindow,
 ) -> list[pd.Timestamp]:

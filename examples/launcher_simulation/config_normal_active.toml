@@ -143,7 +143,11 @@ diffu_coeff = 8.64e-06
 react_order = 1
 rate_decay = 0.00136986301369863
 
-[modflownwt.sgrid]
+[modflownwt.sgrid.planar]
+mode = "surface_native"
+resampling = "bilinear"
+
+[modflownwt.sgrid.vertical]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

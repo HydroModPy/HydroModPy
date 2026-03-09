@@ -13,9 +13,8 @@ Usage (hmp and hydromodpy are interchangeable):
     hmp test regression --normal
     hmp test regression --extensive
     hmp test regression --list
-    hmp test regression example_09
-    hmp test regression example12
-    hmp test regression example_09 --short
+    hmp test regression launcher_simulation_normal --normal
+    hmp test regression launcher_simulation --extensive
     hmp test regression --update-goldens
 """
 
@@ -356,7 +355,11 @@ def main() -> None:
     test_parser.add_argument(
         "name",
         nargs="?",
-        help="Regression test name (e.g. example_09, example12). Use --list to see available.",
+        help=(
+            "Regression test name "
+            "(e.g. launcher_simulation_normal, launcher_simulation). "
+            "Use --list to see available."
+        ),
     )
     test_parser.add_argument(
         "--list",

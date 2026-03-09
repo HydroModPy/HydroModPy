@@ -135,14 +135,16 @@ class HydroModPyConfig(BaseModel):
         default_factory=ModflowConfig,
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
-            "[modflownwt.runtime], [modflownwt.process_specific], [modflownwt.sgrid]."
+            "[modflownwt.runtime], [modflownwt.process_specific], "
+            "[modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical]."
         ),
     )
     modflow6: Modflow6Config = Field(
         default_factory=Modflow6Config,
         description=(
             "Expert MODFLOW 6 package configuration loaded from "
-            "[modflow6.runtime], [modflow6.process_specific], [modflow6.sgrid]."
+            "[modflow6.runtime], [modflow6.process_specific], "
+            "[modflow6.sgrid.planar], and [modflow6.sgrid.vertical]."
         ),
     )
     run: RunConfig = Field(
@@ -169,19 +171,6 @@ class HydroModPyConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_cross_section_constraints(self) -> "HydroModPyConfig":
         """Validate constraints that depend on several top-level sections."""
-        if (
-            self.geographic.uses_synthetic_geographic()
-            and self.postprocess.enabled
-            and self.postprocess.flow.enabled
-            and self.postprocess.flow.matching_streams
-        ):
-            raise ValueError(
-                "geographic.source_mode='synthetic' does not generate the "
-                "watershed_fill/watershed_direc rasters required by "
-                "postprocess.flow.matching_streams. Set "
-                "[postprocess.flow].matching_streams = false or use "
-                "geographic.source_mode = 'standard'."
-            )
         return self
 
     @classmethod

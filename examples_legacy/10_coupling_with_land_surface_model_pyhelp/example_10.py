@@ -74,7 +74,7 @@ from hydromodpy.tools import toolbox
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+from hydromodpy.hydrology.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 #%% PERSONAL
 

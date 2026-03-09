@@ -13,13 +13,22 @@ import flopy.utils.binaryfile as bf
 import numpy as np
 from flopy.utils import postprocessing as pp
 
-from hydromodpy.domain.surface import Surface
-from hydromodpy.solver.modflow_common import masstransfer
+from hydromodpy.solver.modflow_common import (
+	masstransfer,
+	SolverGridContext,
+	SolverRoutingContext,
+	build_solver_routing_context,
+	write_grid_array_to_raster,
+)
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow_nwt.modflow import (
 	ModflowPostprocessOptions,
 	ModflowPreprocessOptions,
 	ModflowRunOptions,
+)
+from hydromodpy.solver.modflow_nwt.modflow.discretization import (
+	build_spatial_discretization,
+	build_temporal_discretization_from_time_grid,
 )
 from hydromodpy.solver.modflow6.modflow6_config import (
 	Modflow6Config,
@@ -31,8 +40,6 @@ from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
 from hydromodpy.solver.modflow_common.runtime_arrays import (
 	build_concentration_runtime_overrides,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
-from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
 from hydromodpy.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
@@ -87,6 +94,8 @@ class Modflow6(Solver):
 
 		self.full_path = os.path.join(model_folder, model_name)
 		self.dem_watershed_path = None
+		self.grid_ctx: SolverGridContext | None = None
+		self.routing_ctx: SolverRoutingContext | None = None
 
 		self.modflow_config = _coerce_modflow6_config(modflow_config)
 		runtime = self.modflow_config.runtime
@@ -139,26 +148,34 @@ class Modflow6(Solver):
 		self.check_grid = bool(options.check_grid)
 		self._select_active_dem(box=bool(options.box))
 
-	def _get_domain_surfaces(self):
-		if self.domain is None:
-			raise ValueError("Modflow6 spatial geometry is domain-only: a Domain object is required.")
+	def _write_solver_grid_template(self) -> str:
+		if self.grid_ctx is None:
+			raise ValueError("grid_ctx must exist before writing a solver grid template")
+		os.makedirs(self.full_path, exist_ok=True)
+		template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
+		write_grid_array_to_raster(
+			grid=self.grid_ctx.grid,
+			data=np.asarray(self.grid_ctx.top_elevation, dtype=float),
+			output_path=template_path,
+			nodata=float(self.grid_ctx.grid.nodata),
+		)
+		self.grid_ctx.template_raster_path = template_path
+		return template_path
 
-		surface_topo = getattr(self.domain, "surface_topo", None)
-		substratum = getattr(self.domain, "substratum", None)
-		if surface_topo is None or substratum is None:
-			raise ValueError("domain.surface_topo and domain.substratum are required.")
-		if not isinstance(surface_topo, Surface) or not isinstance(substratum, Surface):
-			raise TypeError("Domain surfaces must be Surface instances.")
+	def _ensure_solver_routing_context(self) -> SolverRoutingContext:
+		"""Build hydrologic routing rasters aligned with the solver grid."""
+		if self.routing_ctx is not None:
+			return self.routing_ctx
+		if self.grid_ctx is None:
+			raise ValueError("grid_ctx must exist before building solver routing products")
 
-		top = np.asarray(surface_topo.as_array(), dtype=float)
-		bot = np.asarray(substratum.as_array(), dtype=float)
-		if top.shape != bot.shape:
-			raise ValueError(f"Domain surface mismatch: top{top.shape} != substratum{bot.shape}.")
-		if top.shape != self.dem.shape:
-			raise ValueError("Domain surface shape must match active DEM support.")
-
-		surface_topo.assert_same_geographic_domain(substratum)
-		return surface_topo, substratum
+		self.routing_ctx = build_solver_routing_context(
+			dem_path=self.dem_watershed_path,
+			output_dir=os.path.join(self.full_path, "_solver_routing"),
+			dem_correc_type=str(getattr(self.geographic, "dem_correc_type", "breach")),
+			crs_project=getattr(self.geographic, "crs_proj", None),
+		)
+		return self.routing_ctx
 
 	def _resolve_flow_regime(self) -> str | None:
 		if self.flow is None:
@@ -177,6 +194,17 @@ class Modflow6(Solver):
 		if flow_regime_text not in {"steady", "transient"}:
 			raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
 		return flow_regime_text
+
+	def _validate_pre_processing_inputs(self) -> None:
+		if self.flow is None:
+			raise ValueError("pre_processing requires a configured Flow object.")
+		if self.domain is None:
+			raise ValueError("pre_processing requires a configured Domain object.")
+		if self.time_grid is None:
+			raise ValueError(
+				"Launcher flow preprocessing requires preprocess_options.time_grid "
+				"derived from [simulation.time]. Solver tgrid fallback is no longer supported."
+			)
 
 	def _build_well_stress_period_data(self, n_stress_periods: int) -> dict[int, list[list[float]]]:
 		if n_stress_periods <= 0 or self.flow is None:
@@ -331,49 +359,36 @@ class Modflow6(Solver):
 		self.domain = domain
 		active_options = self.preprocess_options if options is None else options
 		self._apply_preprocess_options(active_options)
+		self._validate_pre_processing_inputs()
 
 		self.flow_regime = self._resolve_flow_regime() or "transient"
 		launcher_time_grid = self.time_grid
-		if launcher_time_grid is not None:
-			self.perlen = np.asarray(list(launcher_time_grid.period_lengths_seconds), dtype=float)
-			self.nper = int(self.perlen.size)
-			if self.nper == 0:
-				raise ValueError("simulation.time grid produced an empty perlen vector.")
-			self.nstp = np.ones((self.nper,), dtype=int)
-			if self.flow_regime == "steady":
-				self.steady = np.ones((self.nper,), dtype=bool)
-			else:
-				self.steady = np.zeros((self.nper,), dtype=bool)
-				firstpersteady = bool(getattr(getattr(self.modflow_config, "tgrid", None), "firstpersteady", True))
-				if firstpersteady:
-					self.steady[0] = True
-			time_units = "seconds"
-		else:
-			builder_kwargs = self.modflow_config.tgrid.to_builder_kwargs() if getattr(self.modflow_config, "tgrid", None) else {}
-			builder_kwargs["flow_regime"] = self.flow_regime
-			tgrid = TMesh_Generation(**builder_kwargs).run() if builder_kwargs else None
-
-			if tgrid is not None:
-				self.nper = int(np.asarray(getattr(tgrid, "perlen", []), dtype=float).size)
-				self.perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
-				self.nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
-				self.steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
-			else:
-				self.nper = 1
-				self.perlen = np.asarray([1.0], dtype=float)
-				self.nstp = np.asarray([1], dtype=int)
-				self.steady = np.asarray([self.flow_regime == "steady"], dtype=bool)
-			time_units = getattr(getattr(self.modflow_config, "tgrid", None), "itmuni", "days")
-
-		surface_topo, bottom_surface = self._get_domain_surfaces()
-		sgrid = StructuredGridBuilder().build_from_surfaces(
-			top_surface=surface_topo,
-			bottom_surface=bottom_surface,
-			vertical_config=getattr(self.modflow_config, "sgrid", None),
+		temporal = build_temporal_discretization_from_time_grid(
+			time_grid=launcher_time_grid,
+			flow_regime=self.flow_regime,
+			firstpersteady=bool(getattr(getattr(self.modflow_config, "tgrid", None), "firstpersteady", True)),
 		)
-		self.nlay = int(sgrid.nlay)
-		self.nrow = int(sgrid.nrow)
-		self.ncol = int(sgrid.ncol)
+		self.perlen = temporal.perlen
+		self.nper = temporal.nper
+		self.nstp = temporal.nstp
+		self.steady = temporal.steady
+		time_units = "seconds"
+
+		self.grid_ctx = build_spatial_discretization(
+			domain=self.domain,
+			sgrid_config=getattr(self.modflow_config, "sgrid", None),
+		)
+		sgrid = self.grid_ctx.sgrid
+		self.top_elevation = self.grid_ctx.top_elevation
+		self.inactive_mask = self.grid_ctx.inactive_mask
+		self.nlay = int(self.grid_ctx.nlay)
+		self.nrow = int(self.grid_ctx.nrow)
+		self.ncol = int(self.grid_ctx.ncol)
+		self.cell_area = float(self.grid_ctx.grid.cell_area)
+		self.resolution = float(self.grid_ctx.grid.characteristic_length)
+		self.dem = self.top_elevation
+		self.dem_mask = self.inactive_mask
+		self.dem_watershed_path = self._write_solver_grid_template()
 
 		flow_params = resolve_flow_property_arrays(
 			flow=self.flow,
@@ -471,10 +486,13 @@ class Modflow6(Solver):
 			for kper in range(int(self.nper)):
 				period_cells = []
 				top = np.asarray(sgrid.top, dtype=float)
-				cond = np.maximum(self.hk[0] * (np.asarray(sgrid.delr)[None, :] * np.asarray(sgrid.delc)[:, None]) / np.maximum(self.resolution, 1e-6), 1e-12)
+				cond = np.maximum(
+					self.hk[0] * float(self.cell_area) / np.maximum(self.resolution, 1e-6),
+					1e-12,
+				)
 				for i in range(self.nrow):
 					for j in range(self.ncol):
-						if top[i, j] <= -9999:
+						if bool(self.dem_mask[i, j]):
 							continue
 						period_cells.append([0, i, j, float(top[i, j]), float(cond[i, j])])
 				drn_spd[kper] = period_cells
@@ -558,13 +576,16 @@ class Modflow6(Solver):
 			head = head_fpu.get_data(totim=time)
 			wt = pp.get_water_table(head, -9999)
 			wt[np.isnan(wt)] = -9999
+			dem_mask = np.asarray(self.dem_mask, dtype=bool)
 			if options.watertable_elevation:
+				wt = wt.copy()
+				wt[dem_mask] = -9999
 				dict_watertable_elevation[item] = wt
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, wt, os.path.join(self.tifs_file, f"watertable_elevation_t({item}).tif"), -9999)
 
 			if options.watertable_depth:
-				wtd = np.where(self.dem <= -9999, -9999, np.maximum(self.dem - wt, 0))
+				wtd = np.where(dem_mask, -9999, np.maximum(self.dem - wt, 0))
 				dict_watertable_depth[item] = wtd
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, wtd, os.path.join(self.tifs_file, f"watertable_depth_t({item}).tif"), -9999)
@@ -590,8 +611,8 @@ class Modflow6(Solver):
 				except Exception:
 					pass
 
-			outflow[self.dem <= -9999] = -9999
-			seepage[self.dem <= -9999] = -9999
+			outflow[dem_mask] = -9999
+			seepage[dem_mask] = -9999
 
 			if options.outflow_drain:
 				dict_outflow_drain[item] = outflow
@@ -788,7 +809,10 @@ class Modflow6Transport:
 		conc_last_idx = max(int(concobj_1c.shape[0]) - 1, 0)
 
 		outflow_drain = np.load(os.path.join(self.save_file, "outflow_drain.npy"), allow_pickle=True).item()
-		dem_mask = self.model_modflow.dem < -9999
+		dem_mask = np.asarray(
+			getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
+			dtype=bool,
+		)
 
 		dict_concentration_seepage = {}
 		dict_mass_seepage = {}
@@ -818,12 +842,15 @@ class Modflow6Transport:
 					toolbox.export_tif(self.model_modflow.dem_watershed_path, mass_surf, os.path.join(self.tifs_file, f"mass_seepage_t({the_time}).tif"), -9999)
 
 			if mass_accumulated:
+				routing_ctx = self.model_modflow._ensure_solver_routing_context()
 				accumulated_mass = masstransfer.Masstransfer(
 					self.model_modflow.geographic,
 					f"mass_seepage_t({the_time}).tif",
 					f"tracept_conc_t({the_time}).shp",
 					f"mass_accumulated_t({the_time}).tif",
 					extraction_folder=self.save_file,
+					routing_fill_path=routing_ctx.correc_path,
+					routing_direc_path=routing_ctx.direc_path,
 				)
 				accumulated_mass.trace_cumulated()
 				with bf.HeadFile(os.path.join(self.tifs_file, f"mass_accumulated_t({the_time}).tif")) as src:

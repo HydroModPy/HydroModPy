@@ -20,7 +20,7 @@ Module overview
   mass-transfer routing, MT3DMS transport, and time-series utilities.
 - :doc:`hydromodpy.display <api/hydromodpy-display>` - visualisation routines
   for descriptors and simulation results plus VTU/VTK exporters.
-- :doc:`hydromodpy.pyhelp <api/hydromodpy-pyhelp>` - coupling layer with the HELP
+- :doc:`hydromodpy.hydrology.pyhelp <api/hydromodpy-pyhelp>` - coupling layer with the HELP
   land-surface model, NetCDF conversion tools, rainfall-runoff post-processing,
   and CLI entry points.
 - :doc:`hydromodpy.tools <api/hydromodpy-tools>` - shared toolbox for filesystem

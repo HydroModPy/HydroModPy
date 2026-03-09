@@ -78,7 +78,7 @@ from hydromodpy.simulation.state.run_state import LauncherRunState
 from hydromodpy.simulation.settings import Settings
 from hydromodpy.simulation.time import (
     apply_explicit_time_window_to_tgrids,
-    resolve_simulation_time_grid,
+    require_flow_simulation_time_grid,
     resolve_simulation_time_window,
     validate_recharge_coverage,
 )
@@ -131,7 +131,7 @@ class HydroModPyLauncher:
             self.cfg.workspace.out_dir_path = Path(out_path_env)
 
         apply_explicit_time_window_to_tgrids(self.cfg)
-        self.time_grid = resolve_simulation_time_grid(self.cfg)
+        self.time_grid = require_flow_simulation_time_grid(self.cfg)
 
         with self.config_path.open("rb") as fh:
             raw_toml = tomllib.load(fh)

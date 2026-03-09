@@ -62,6 +62,9 @@ Implementation note:
 - `RasterGridReader` isolates raster I/O (`rasterio`) from builder logic.
 - `PlanarDiscretizer` handles `nx/ny` re-discretization and interpolation policy.
 - `StructuredGridBuilder` performs only deterministic construction from validated config.
+- Solver launchers now use a narrower nested contract:
+  `[...sgrid.planar]` + `[...sgrid.vertical]`, because domain surfaces are
+  already available at runtime and do not need `top_path`/`bot_path`.
 
 ## FieldParam Discretization: 2D Support, 3D Evaluation
 

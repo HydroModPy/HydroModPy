@@ -13,8 +13,8 @@
 Current non-regression tests:
 - `normal/test_launcher_simulation_normal_regression.py` (runtime-reduced, keeps flow+transport+wells)
 - `extensive/test_launcher_simulation_regression.py`
-- `extensive/test_example12_npy_regression.py`
 - `extensive/test_launcher_data_overview_regression.py`
+- `extensive/test_run_geographic_case_metrics_regression.py`
 - Golden references are no longer meant to be shared between tiers when
   signatures differ.
 - Legacy folders `test/` and `test-old/` are no longer part of the active test workflow.
@@ -112,7 +112,7 @@ Examples:
 ```powershell
 python -m pytest -m regression -q -n auto
 python -m pytest -m fast -q -n 4
-python -m pytest tests/regression/extensive/test_example12_npy_regression.py -q -n 1
+python -m pytest tests/regression/extensive/test_launcher_simulation_regression.py -q -n 1
 ```
 
 ## Marker selection (`-m`) with multiple conditions
@@ -152,7 +152,7 @@ python -m pytest -m regression -q -n auto --update-goldens
 Update one golden file from one test:
 
 ```powershell
-python -m pytest tests/regression/extensive/test_example12_npy_regression.py -q --update-goldens
+python -m pytest tests/regression/extensive/test_launcher_simulation_regression.py -q --update-goldens
 python -m pytest tests/regression/normal/test_launcher_simulation_normal_regression.py -q --update-goldens
 ```
 

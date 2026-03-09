@@ -80,6 +80,7 @@ class PostprocessRunner:
                 geographic=state.setup.geographic,
                 hydrography=state.data.hydrography,
                 workspace=state.setup.workspace,
+                model_modflow=flow_model,
                 iteration_label=flow_model.model_name,
                 from_calib=False,
             )

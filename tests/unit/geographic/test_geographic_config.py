@@ -48,7 +48,7 @@ def test_geographic_config_standard_mode_requires_catch_def():
         GeographicConfig.model_validate({"source_mode": "standard"})
 
 
-def test_hydromodpy_config_rejects_matching_streams_with_synthetic_geographic(
+def test_hydromodpy_config_accepts_matching_streams_with_synthetic_geographic(
     tmp_path,
 ):
     toml_path = tmp_path / "config.toml"
@@ -74,5 +74,7 @@ def test_hydromodpy_config_rejects_matching_streams_with_synthetic_geographic(
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="matching_streams"):
-        HydroModPyConfig.from_toml(toml_path)
+    cfg = HydroModPyConfig.from_toml(toml_path)
+
+    assert cfg.geographic.uses_synthetic_geographic() is True
+    assert cfg.postprocess.flow.matching_streams is True

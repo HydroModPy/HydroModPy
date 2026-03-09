@@ -43,6 +43,8 @@ class Masstransfer:
         mass_rast_name: str,
         extraction_folder: str = None,
         label: str = "conc",
+        routing_fill_path: str | None = None,
+        routing_direc_path: str | None = None,
     ):
         """
         Parameters
@@ -65,18 +67,33 @@ class Masstransfer:
         self.extraction_folder = extraction_folder
         label_suffix = f"_{label}" if label else ""
 
-        self.watershed_direc_surflow = geographic.watershed_direc
-        self.watershed_buff_fill_surflow = geographic.watershed_buff_fill
+        self.watershed_direc_surflow = routing_direc_path or getattr(
+            geographic,
+            "watershed_direc",
+            None,
+        )
+        self.watershed_buff_fill_surflow = routing_fill_path or getattr(
+            geographic,
+            "watershed_buff_fill",
+            None,
+        )
 
-        try:
-            self.watershed_direc_surflow = (
-                geographic.watershed_box_buff_direc
-            )  # geographic.watershed_direc
-            self.watershed_buff_fill_surflow = (
-                geographic.watershed_box_buff_fill
-            )  # geographic.watershed_buff_fill
-        except:
-            pass
+        if routing_direc_path is None:
+            try:
+                self.watershed_direc_surflow = geographic.watershed_box_buff_direc
+            except Exception:
+                pass
+        if routing_fill_path is None:
+            try:
+                self.watershed_buff_fill_surflow = geographic.watershed_box_buff_fill
+            except Exception:
+                pass
+
+        if self.watershed_direc_surflow is None or self.watershed_buff_fill_surflow is None:
+            raise ValueError(
+                "Masstransfer requires routing_fill_path and routing_direc_path, "
+                "or equivalent routing rasters on the geographic object."
+            )
 
         #### CHANGE HARD DISK ####
         # self.watershed_direc_surflow = self.watershed_direc_surflow.replace('G','I',1)

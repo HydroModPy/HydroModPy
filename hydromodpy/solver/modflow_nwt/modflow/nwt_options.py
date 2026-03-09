@@ -44,9 +44,9 @@ class ModflowPreprocessOptions:
     check_grid:
         Enable internal grid consistency checks.
     time_grid:
-        Optional canonical simulation-time grid injected by launcher runtime.
-        When provided, flow solvers should prioritize this grid over manual
-        tgrid settings for stress-period construction.
+        Canonical simulation-time grid injected by launcher runtime.
+        Launcher flow runs require this grid; solver ``tgrid`` sections are no
+        longer used as a fallback source for stress-period construction.
     """
 
     box: bool = True

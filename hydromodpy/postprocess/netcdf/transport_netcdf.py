@@ -83,7 +83,7 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
         if value_column is None:
             return None
 
-        with rio.open(self.geographic.watershed_dem, "r") as base:
+        with rio.open(self.base_raster_path, "r") as base:
             shape = (base.height, base.width)
             transform = base.transform
             nodata = base.nodata
@@ -122,7 +122,7 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
             try:
                 self.export_netcdf(
                     data,
-                    base_path=self.geographic.watershed_dem,
+                    base_path=self.base_raster_path,
                     out_path=os.path.join(self.netcdf_file, "residence_times.nc"),
                     base_crs=self.geographic.crs_proj,
                     times=[0],

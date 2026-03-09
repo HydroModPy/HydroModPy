@@ -27,24 +27,21 @@ class HydrometrySectionSchema(BaseModel):
         default=False,
         description=(
             "If true, derive date_start/date_end from [simulation.time] canonical "
-            "window in launcher mode. If the simulation window is missing or "
-            "invalid, fallback to explicit date_start/date_end when provided."
+            "window in launcher mode. Requires a valid [simulation.time] section."
         ),
     )
     date_start: str | None = Field(
         default=None,
         description=(
             "Optional inclusive start date filter applied to the requested time "
-            "series. Used directly when use_simulation_time_window=false or as "
-            "fallback otherwise."
+            "series. Used directly when use_simulation_time_window=false."
         ),
     )
     date_end: str | None = Field(
         default=None,
         description=(
             "Optional inclusive end date filter applied to the requested time "
-            "series. Used directly when use_simulation_time_window=false or as "
-            "fallback otherwise."
+            "series. Used directly when use_simulation_time_window=false."
         ),
     )
 
