@@ -70,7 +70,6 @@ from hydromodpy.simulation.forcing import build_recharge_chronicle_payload
 from hydromodpy.simulation import SimulationPlanner, ensure_flow, ensure_transport
 from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.state.run_state import LauncherRunState
-from hydromodpy.simulation.settings import Settings
 from hydromodpy.simulation.time import (
     apply_explicit_time_window_to_tgrids,
     resolve_simulation_time_window,
@@ -261,7 +260,6 @@ class HydroModPyLauncher:
             geographic=setup_state.domain_geographic,
         )
 
-        setup_state.settings = Settings()
         # Use [simulation].name as the default model/folder base name.
         # Canonical runtime location is setup.model_name.
         simulation_name = "_".join(str(cfg.simulation.name).strip().split())

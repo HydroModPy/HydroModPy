@@ -3,7 +3,7 @@
 This module intentionally contains only solver-agnostic flow logic:
 
 - derive stable model names from the resolved simulation plan,
-- translate shared launcher settings into flow pre-processing options,
+- build flow pre-processing options for solver backends,
 - persist the legacy pickle payload expected by older utilities,
 - run the common pre/process/post sequence once a concrete flow model exists.
 
@@ -80,19 +80,14 @@ def resolve_base_model_name(setup) -> str:
 
 
 def build_preprocess_options(state) -> ModflowPreprocessOptions:
-    """Build the flow pre-processing options from the shared runtime settings.
+    """Build the flow pre-processing options from the runtime setup.
 
     Both supported flow backends consume the same preprocessing contract, so
     this helper keeps the mapping from launcher state to solver options in one
-    place.
+    place.  Uses ``ModflowPreprocessOptions`` defaults directly.
     """
 
-    settings = state.setup.settings
-    return ModflowPreprocessOptions(
-        box=settings.box,
-        sink_fill=settings.sink_fill,
-        check_grid=settings.check_grid,
-    )
+    return ModflowPreprocessOptions()
 
 
 def _persist_pre_run_payload(workspace, model_name: str, model_modflow) -> None:

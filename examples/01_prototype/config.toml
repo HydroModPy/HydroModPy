@@ -1,0 +1,168 @@
+# ======================================================================
+# HydroModPy Configuration — Example 01 (Canut catchment) — Prototype
+#
+# Tous les paramètres sont définis ici (workspace, geographic, domain,
+# data, flow, transport, solver, recharge). Seule la section [simulation]
+# est absente : c'est le script Python (example_01.py) qui orchestre
+# l'exécution des solveurs directement.
+# ======================================================================
+
+
+# ── Workspace ─────────────────────────────────────────────────────────
+
+[workspace]
+catch_name = "Example_01_Canut"
+out_dir_path = "../results"
+data_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/"
+
+
+# ── Geographic ────────────────────────────────────────────────────────
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
+x_outlet = 327816.965
+y_outlet = 6777886.670
+snap_dist = 150
+buff_area = 10.0
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+
+# ── Domain ────────────────────────────────────────────────────────────
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = 50.0
+
+
+# ── Data managers ─────────────────────────────────────────────────────
+
+[data]
+types = ["geology", "hydrography", "intermittency"]
+inference_mode = "warn"
+
+[data.geology]
+id = "field_geology"
+geo_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/"
+types_obs = "GEO1M.shp"
+fields_obs = "CODE_LEG"
+
+[data.hydrography]
+types_obs = ["regional stream network"]
+fields_obs = ["FID"]
+
+[data.intermittency]
+file_name = "regional onde stations.shp"
+
+
+# ── Flow configuration ───────────────────────────────────────────────
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+param_list = ["K", "Sy", "Ss"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/d"
+
+[flow.param.K.field_homogeneous]
+# Legacy: 2e-5 m/s = 1.728 m/d
+value = 1.728
+
+[flow.param.K.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = 20.0
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+
+[flow.param.Sy.field_homogeneous]
+value = 0.01
+
+[flow.param.Sy.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = 20.0
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+
+[flow.param.Ss.field_homogeneous]
+value = 1e-5
+
+[flow.param.Ss.field_vertical_profile]
+mode = "exponential"
+characteristic_depth = 20.0
+
+[flow.ic]
+type = "top"
+value = 1.0
+unit = "m"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+type = "cauchy"
+value = 0.0
+unit = "m2/s"
+data_value = false
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+
+# ── Recharge chronicle ────────────────────────────────────────────────
+
+[recharge_chronicle]
+mode = "synthetic_generated"
+
+[recharge_chronicle.synthetic_generated]
+start_date = "2000-01-01"
+freq = "YE"
+periods = 1
+units = "mm/day"
+values_mm_day = [0.9589]
+runoff_ratio = 0.0
+
+
+# ── Transport (particle tracking) ────────────────────────────────────
+
+[transport.modpath.parameters]
+zone_partic = "seepage_clip"
+track_dir = "backward"
+cell_div = 1
+zloc_div = false
+
+
+# ── MODFLOW-NWT solver ────────────────────────────────────────────────
+
+[modflownwt.runtime]
+mf_version = "mfnwt"
+nwt_headtol = 1e-4
+nwt_fluxtol = 500.0
+nwt_maxiterout = 5000
+nwt_thickfact = 1e-5
+nwt_options = "COMPLEX"
+
+[modflownwt.sgrid]
+lenuni = "m"
+genmtd_lay = "decay"
+nlay = 5
+lay_decay = 1.5
+nodata = -9999.0
+
+[modflownwt.tgrid]
+itmuni = "days"
+genmtd = "synthetic_regular"
+nper = 1
+lenper = 1.0

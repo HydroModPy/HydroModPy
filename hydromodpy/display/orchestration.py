@@ -15,6 +15,10 @@ from __future__ import annotations
 
 import pandas as pd
 
+from hydromodpy.display.adapters import (
+    observed_discharge_series,
+    observed_piezometry_series,
+)
 from hydromodpy.display.common import resolve_model_figure_dir
 from hydromodpy.display.flow_plots import (
     plot_cross_section,
@@ -39,24 +43,20 @@ def _resolve_flow_model(result):
     return flow_model
 
 
-def _load_observed_streamflow(result) -> pd.DataFrame:
-    """Load and normalize the observed discharge series for flow diagnostics.
+def _load_observed_streamflow(result) -> pd.DataFrame | None:
+    """Load observed discharge from PointRecords.
 
-    The helper reads the reference discharge file used by the current example
-    workflows, builds a proper datetime index, then rescales the raw values to
-    monthly ``mm/month`` over the modeled catchment area.
-
-    Returning a normalized series here avoids repeating the same data-wrangling
-    steps in each flow plotting function.
+    When ``result.loaded_data.hydrometry`` contains ``PointRecord`` objects,
+    the adapter extracts a monthly discharge series normalised over the
+    catchment area.  Returns *None* when no observed data is available.
     """
 
-    area = int(round(result.setup.geographic.catch_area))
-    qobs_path = result.cfg.workspace.data_path / "Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt"
-    qobs = pd.read_csv(qobs_path, sep=";", header=None)
-    qobs.index = pd.to_datetime(qobs[0] + " " + qobs[1], format="%d/%m/%Y %H:%M:%S")
-    qobs = qobs[2].to_frame(name="Q")
-    qobs = qobs / 1000 / (area * 1_000_000)
-    return qobs.resample("ME").mean() * 30 * 1000
+    hydrometry = getattr(result.loaded_data, "hydrometry", None)
+    if not hydrometry:
+        return None
+
+    area_m2 = float(result.setup.geographic.catch_area) * 1_000_000
+    return observed_discharge_series(hydrometry, freq="ME", area_m2=area_m2)
 
 
 def _load_flow_timeseries(result) -> pd.DataFrame:
@@ -113,7 +113,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
             save_path=output_dir / "cross_section.png",
         )
 
-    if options.flow.is_enabled("streamflow", default=True):
+    if options.flow.is_enabled("streamflow", default=True) and observed_streamflow is not None:
         plot_streamflow(
             observed_streamflow=observed_streamflow,
             simulated_timeseries=simulated_timeseries,
@@ -123,11 +123,18 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
         )
 
     if options.flow.is_enabled("piezometry", default=True):
+        # Build observed piezometry from PointRecords when available
+        obs_piezo = None
+        piezometry = getattr(result.loaded_data, "piezometry", None)
+        if piezometry:
+            obs_piezo = observed_piezometry_series(piezometry, freq="ME")
+
         plot_piezometry(
             simulated_timeseries=simulated_timeseries,
             model_label=model_name.upper(),
             options=options,
             save_path=output_dir / "piezometry.png",
+            observed_piezometry=obs_piezo,
         )
 
 

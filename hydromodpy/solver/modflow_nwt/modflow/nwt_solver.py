@@ -27,6 +27,17 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
+# Map MODFLOW ITMUNI codes to seconds per time unit.
+# Used to convert FieldParam SI values (m/s) to solver time units.
+_ITMUNI_TO_SECONDS: dict[int, float] = {
+    0: 1.0,         # undefined → treat as seconds
+    1: 1.0,         # seconds
+    2: 60.0,        # minutes
+    3: 3600.0,      # hours
+    4: 86400.0,     # days
+    5: 31557600.0,  # years (365.25 days)
+}
+
 from hydromodpy.tools import toolbox, get_logger
 from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver import Solver
@@ -383,6 +394,11 @@ class Modflow(Solver):
         # %% Flow adaptation (process -> solver-ready payloads)
         flow_inputs = self._build_flow_modflow_inputs(sgrid)
 
+        # FieldParam stores hydraulic properties in SI (m/s). MODFLOW
+        # interprets values according to itmuni. Convert K (and derived
+        # conductances) from SI to solver time units.
+        _si_to_solver = _ITMUNI_TO_SECONDS.get(self.dis_itmuni, 1.0)
+
         # Boundary conditions arrays
         self.drain_array = flow_inputs.drain_array
 
@@ -411,8 +427,8 @@ class Modflow(Solver):
         self.laywet = np.zeros(self.nlay)  # wettable
         self.laytype = np.ones(self.nlay)  # convertible
 
-        self.hk = flow_inputs.hk
-        self.hk_value = flow_inputs.hk_value
+        self.hk = flow_inputs.hk * _si_to_solver
+        self.hk_value = flow_inputs.hk_value * _si_to_solver
         self.sy = flow_inputs.sy
         self.sy_value = flow_inputs.sy_value
         self.ss = flow_inputs.ss
@@ -465,6 +481,10 @@ class Modflow(Solver):
 
         # DRN is applied to all the surface of the model: enables seepage on the top layer
         if flow_inputs.drn_spd is not None:
+            # Drainage conductance [L²/T] was derived from hk in SI;
+            # convert to solver time units (column index 4 = conductance).
+            for _kper_data in flow_inputs.drn_spd.values():
+                _kper_data[:, 4] *= _si_to_solver
             self.drn = flopy.modflow.ModflowDrn(
                 self.mf,
                 stress_period_data=flow_inputs.drn_spd,

@@ -14,8 +14,10 @@ graphiques utilises apres l'execution des simulations HydroModPy.
   historiques.
 - `transport_plots.py`: export des cartes de concentration, GIF et animation
   HTML.
-- `suites.py`: orchestration haut niveau des suites `flow`, `particles` et
-  `transport`.
+- `orchestration.py`: orchestration haut niveau des groupes `flow`, `particles`
+  et `transport`.
+- `adapters.py`: bridge `list[PointRecord]` → DataFrames pour les fonctions
+  de visualisation (observed_discharge_series, observed_piezometry_series).
 - `visualization_results.py`: viewer 2D/3D historique reutilise par certains
   affichages.
 - `visualization_watershed.py`: outils de visualisation geographique du bassin.
