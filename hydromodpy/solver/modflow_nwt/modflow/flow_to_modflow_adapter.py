@@ -592,10 +592,22 @@ class FlowToModflowAdapter:
         if not wells:
             return {}
 
+        grid = self.grid
+        if grid is None and self.sgrid is not None:
+            grid = GridReference.from_sgrid(self.sgrid)
+
         # Broadcast scalar / single-value flux to nper; reject length mismatches.
         normalized_wells: list[tuple[str, tuple[int, int, int], np.ndarray]] = []
         for well_id, well in wells.items():
-            cell: tuple[int, int, int] = well.cell
+            if getattr(well, "cell", None) is not None:
+                cell = well.cell
+            else:
+                if grid is None:
+                    raise ValueError(
+                        f"flow.sinks_sources.wells.{well_id} uses coordinate-based addressing "
+                        "but solver grid geometry is unavailable"
+                    )
+                cell = well.resolve_cell(grid)
             flux = well.flux
             if isinstance(flux, list):
                 flux_vector = np.asarray(flux, dtype=float)

@@ -210,6 +210,10 @@ class Modflow6(Solver):
 		if n_stress_periods <= 0 or self.flow is None:
 			return {}
 
+		active = getattr(self.flow, "active_sinks_sources", [])
+		if "wells" not in active:
+			return {}
+
 		sinks_sources = getattr(self.flow, "sinks_sources", {})
 		if not isinstance(sinks_sources, Mapping):
 			return {}
@@ -221,14 +225,22 @@ class Modflow6(Solver):
 			raise TypeError("flow.sinks_sources['wells'] must be a mapping of well ids to payloads.")
 		if len(wells) == 0:
 			return {}
+		grid = None if self.grid_ctx is None else self.grid_ctx.grid
 
 		normalized_wells: list[tuple[tuple[int, int, int], np.ndarray]] = []
-		for _, raw_well_payload in wells.items():
+		for well_id, raw_well_payload in wells.items():
 			cell_payload = getattr(raw_well_payload, "cell", None)
 			flux_payload = getattr(raw_well_payload, "flux", None)
 			if cell_payload is None and isinstance(raw_well_payload, Mapping):
 				cell_payload = raw_well_payload.get("cell")
 				flux_payload = raw_well_payload.get("flux")
+			if cell_payload is None and hasattr(raw_well_payload, "resolve_cell"):
+				if grid is None:
+					raise ValueError(
+						f"flow.sinks_sources.wells.{well_id} uses coordinate-based addressing "
+						"but solver grid geometry is unavailable."
+					)
+				cell_payload = raw_well_payload.resolve_cell(grid)
 			if cell_payload is None or flux_payload is None:
 				continue
 

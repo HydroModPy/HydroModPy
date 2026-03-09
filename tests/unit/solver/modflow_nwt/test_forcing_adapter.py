@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
+from hydromodpy.solver.modflow_common.grid_context import GridReference
 from hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter import FlowToModflowAdapter
 
 
@@ -182,7 +183,6 @@ def test_recharge_not_activated_ignores_configured_values():
 
 def test_wells_not_activated_returns_empty_spd():
     """When 'wells' is absent from active_sinks_sources, WEL payload is empty."""
-    from hydromodpy.process.flow.sinks_sources import FlowWellConfig
 
     flow = types.SimpleNamespace(
         sinks_sources={
@@ -211,6 +211,91 @@ def test_wells_not_activated_returns_empty_spd():
     wel_spd = adapter._build_well_stress_period_data()
 
     assert wel_spd == {}
+
+
+def test_well_absolute_xy_is_resolved_to_solver_cell():
+    flow = types.SimpleNamespace(
+        sinks_sources={
+            "recharge": None,
+            "wells": {
+                "W1": FlowWellConfig(
+                    location_mode="absolute_xy",
+                    layer=1,
+                    x=125.0,
+                    y=365.0,
+                    flux=-1e-4,
+                )
+            },
+        },
+        flow_regime="transient",
+        active_sinks_sources=["wells"],
+        config=None,
+    )
+    dem = np.zeros((4, 5))
+    adapter = FlowToModflowAdapter(
+        flow=flow,
+        domain=None,
+        sgrid=None,
+        dem=dem,
+        bottom_layer=dem,
+        nlay=2,
+        nrow=4,
+        ncol=5,
+        nper=2,
+        grid=GridReference(nrow=4, ncol=5, dx=50.0, dy=100.0, xmin=0.0, ymin=0.0, crs=None),
+        resolution=1.0,
+        sink_fill=False,
+    )
+
+    wel_spd = adapter._build_well_stress_period_data()
+
+    assert wel_spd[0] == [[1, 0, 2, pytest.approx(-1e-4)]]
+    assert wel_spd[1] == [[1, 0, 2, pytest.approx(-1e-4)]]
+
+
+def test_well_relative_xy_is_resolved_to_solver_cell():
+    flow = types.SimpleNamespace(
+        sinks_sources={
+            "recharge": None,
+            "wells": {
+                "W1": FlowWellConfig(
+                    location_mode="relative_xy",
+                    layer=0,
+                    x_rel=0.4,
+                    y_rel=0.25,
+                    flux=[-1e-4, -2e-4],
+                )
+            },
+        },
+        flow_regime="transient",
+        active_sinks_sources=["wells"],
+        config=None,
+    )
+    dem = np.zeros((4, 5))
+    adapter = FlowToModflowAdapter(
+        flow=flow,
+        domain=None,
+        sgrid=None,
+        dem=dem,
+        bottom_layer=dem,
+        nlay=1,
+        nrow=4,
+        ncol=5,
+        nper=2,
+        grid=GridReference(nrow=4, ncol=5, dx=10.0, dy=10.0, xmin=100.0, ymin=200.0, crs=None),
+        resolution=1.0,
+        sink_fill=False,
+    )
+
+    wel_spd = adapter._build_well_stress_period_data()
+
+    assert wel_spd[0] == [[0, 3, 2, pytest.approx(-1e-4)]]
+    assert wel_spd[1] == [[0, 3, 2, pytest.approx(-2e-4)]]
+
+
+def test_well_relative_xy_defaults_to_layer_zero():
+    well = FlowWellConfig(location_mode="relative_xy", x_rel=0.5, y_rel=0.5, flux=-1e-4)
+    assert well.layer == 0
 
 
 # ---------------------------------------------------------------------------

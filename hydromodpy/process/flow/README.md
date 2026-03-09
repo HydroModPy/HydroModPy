@@ -64,7 +64,7 @@ type = "cauchy"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.wells.W1]
-cell = [0, 39, 39]                  # [lay, row, col], 0-based
+cell = [0, 39, 39]                  # legacy: [lay, row, col], 0-based
 flux = -200.0                       # scalar or list
 units = "m3/day"
 ```
@@ -194,7 +194,9 @@ After parsing, IDs are canonicalized:
 
 Each well payload:
 
-- `cell`: `[lay, row, col]`, integer, 0-based, non-negative.
+- legacy `cell`: `[lay, row, col]`, integer, 0-based, non-negative.
+- or `location_mode = "absolute_xy"` with `layer`, `x`, `y`.
+- or `location_mode = "relative_xy"` with `layer`, `x_rel`, `y_rel` in `[0,1]`.
 - `flux`: numeric scalar or non-empty list of numerics.
 - `units`: optional string (default `m3/s`).
 - `description`: optional string.
@@ -203,6 +205,7 @@ Runtime note:
 
 - scalar `flux` is expanded later by solver code across stress periods.
 - list length consistency with `nper` is checked at solver preprocessing time.
+- coordinate-based well locations are resolved to the solver cell after grid generation.
 
 
 ## 7. Complete Example
@@ -232,7 +235,10 @@ type = "cauchy"
 value = "1e-6 m2/s"
 
 [flow.sinks_sources.wells.P1]
-cell = [0, 25, 40]
+location_mode = "relative_xy"
+layer = 0
+x_rel = 0.62
+y_rel = 0.35
 flux = -500.0
 units = "m3/day"
 ```
@@ -253,8 +259,8 @@ units = "m3/day"
   - use exactly one of:
     `top`, `north side`, `south side`, `east side`, `west side`.
 
-- `well.cell must contain exactly 3 values: [lay, row, col]`
-  - cell definition format is invalid.
+- `well location requires either cell=[lay,row,col] or location_mode with coordinate fields`
+  - add either the legacy `cell` field or one of the coordinate-based modes.
 
 
 ## 9. Programmatic Usage
