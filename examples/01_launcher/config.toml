@@ -1,0 +1,250 @@
+# ======================================================================
+# HydroModPy Configuration — Example 01 (Canut catchment)
+#
+# Steady-state groundwater flow with backward particle tracking.
+# Ported from: examples_legacy/01_simplified_example_presented_in_the_paper/
+#
+# Original study: single-catchment steady-state flow on Canut (Brittany),
+# 5-layer exponential K/Sy/Ss decay, constant recharge 350 mm/yr,
+# MODPATH backward tracking from seepage areas.
+#
+# Run with:  hmp simulation config.toml
+# ======================================================================
+
+
+# ── Simulation orchestration ──────────────────────────────────────────
+
+[simulation]
+name = "Example_01_Canut"
+description = "Steady-state flow on Canut catchment with backward particle tracking."
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+[[simulation.process]]
+id = "transport_main"
+type = "transport"
+solvers = ["modpath"]
+
+
+# ── Workspace ─────────────────────────────────────────────────────────
+
+[workspace]
+catch_name = "Example_01_Canut"
+out_dir_path = "../results"
+data_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/"
+
+
+# ── Geographic ────────────────────────────────────────────────────────
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
+x_outlet = 327816.965
+y_outlet = 6777886.670
+snap_dist = 150
+buff_area = 10.0
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+
+# ── Domain ────────────────────────────────────────────────────────────
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+type = "constant_thickness"
+# Legacy: BV.hydraulic.update_thick(50)
+thickness = 50.0
+
+
+# ── Data managers ─────────────────────────────────────────────────────
+
+[data]
+types = ["geology", "hydrography", "intermittency"]
+inference_mode = "warn"
+
+[data.geology]
+id = "field_geology"
+geo_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/"
+types_obs = "GEO1M.shp"
+fields_obs = "CODE_LEG"
+
+[data.hydrography]
+types_obs = ["regional stream network"]
+fields_obs = ["FID"]
+
+[data.intermittency]
+file_name = "regional onde stations.shp"
+
+
+# ── Flow configuration ───────────────────────────────────────────────
+
+[flow]
+# Legacy: BV.settings.update_simulation_state('steady')
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+# Legacy: BV.settings.update_bc_sides(None, None) + BV.add_oceanic('None')
+# → no side BCs, no ocean; only drainage (DRN package).
+active_bc = ["drainage"]
+param_list = ["K", "Sy", "Ss"]
+
+
+# — K (hydraulic conductivity) ————————————————————————————————————————
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/d"
+
+[flow.param.K.field_homogeneous]
+# Legacy: BV.hydraulic.update_hk(2e-5 * 24 * 3600)  →  1.728 m/d
+value = 1.728
+
+[flow.param.K.field_vertical_profile]
+mode = "exponential"
+# Legacy: BV.hydraulic.update_hk_decay(1/20)  →  characteristic depth = 20 m
+characteristic_depth = 20.0
+
+
+# — Sy (specific yield) ——————————————————————————————————————————————
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+
+[flow.param.Sy.field_homogeneous]
+# Legacy: BV.hydraulic.update_sy(1/100)
+value = 0.01
+
+[flow.param.Sy.field_vertical_profile]
+mode = "exponential"
+# Legacy: BV.hydraulic.update_sy_decay(1/20)
+characteristic_depth = 20.0
+
+
+# — Ss (specific storage) ————————————————————————————————————————————
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+
+[flow.param.Ss.field_homogeneous]
+value = 1e-5
+
+[flow.param.Ss.field_vertical_profile]
+mode = "exponential"
+# Legacy: BV.hydraulic.update_ss_decay(1/20)
+characteristic_depth = 20.0
+
+
+# — Initial conditions ———————————————————————————————————————————————
+
+[flow.ic]
+type = "top"
+value = 1.0
+unit = "m"
+
+
+# — Boundary conditions ——————————————————————————————————————————————
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+type = "cauchy"
+value = 0.0
+unit = "m2/s"
+data_value = false
+
+
+# — Recharge configuration ———————————————————————————————————————————
+
+[flow.sinks_sources.recharge]
+# Legacy: BV.climatic.update_first_clim('mean')
+first_clim = "mean"
+negative_to_evt = true
+
+
+# ── Recharge chronicle ────────────────────────────────────────────────
+
+[recharge_chronicle]
+mode = "synthetic_generated"
+
+[recharge_chronicle.synthetic_generated]
+start_date = "2000-01-01"
+freq = "YE"
+periods = 1
+units = "mm/day"
+# Legacy: 350 mm/yr ÷ 365 d/yr ≈ 0.9589 mm/d
+values_mm_day = [0.9589]
+runoff_ratio = 0.0
+
+
+# ── Transport (particle tracking) ────────────────────────────────────
+
+[transport.modpath.parameters]
+# Legacy: zone_partic = seepage_areas_t(0).tif, track_dir = 'backward'
+zone_partic = "seepage_clip"
+track_dir = "backward"
+cell_div = 1
+zloc_div = false
+
+
+# ── MODFLOW-NWT solver ────────────────────────────────────────────────
+
+[modflownwt.runtime]
+mf_version = "mfnwt"
+nwt_headtol = 1e-4
+nwt_fluxtol = 500.0
+nwt_maxiterout = 5000
+nwt_thickfact = 1e-5
+nwt_options = "COMPLEX"
+
+[modflownwt.sgrid]
+lenuni = "m"
+# Legacy: BV.hydraulic.update_nlay(5), BV.hydraulic.update_lay_decay(1.5)
+genmtd_lay = "decay"
+nlay = 5
+lay_decay = 1.5
+nodata = -9999.0
+
+[modflownwt.tgrid]
+itmuni = "days"
+genmtd = "synthetic_regular"
+# Steady-state: single stress period.
+nper = 1
+lenper = 1.0
+
+
+# ── Launcher-managed postprocess ─────────────────────────────────────
+
+[postprocess]
+enabled = true
+
+[postprocess.flow]
+enabled = true
+display = false
+
+[postprocess.flow.timeseries]
+enabled = true
+# Steady-state: no datetime dimension.
+datetime_format = false
+subbasin_results = true
+
+[postprocess.flow.netcdf]
+enabled = true
+datetime_format = false
+
+[postprocess.transport]
+enabled = true
+display_particles = false
+
+[postprocess.transport.timeseries]
+enabled = true
+datetime_format = false
+subbasin_results = true
+residence_times = true
