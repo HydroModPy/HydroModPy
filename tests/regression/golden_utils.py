@@ -27,10 +27,13 @@ from __future__ import annotations
 import json
 import os
 import platform
+import gc
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import geopandas as gpd
@@ -55,6 +58,54 @@ DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "groundwater_storage",
     "accumulation_flux",
 ]
+
+
+def _rmtree_onerror(func, path, exc_info) -> None:
+    """Retry one failed ``rmtree`` step after clearing a read-only bit.
+
+    Windows test runs sometimes inherit read-only flags on generated artefacts.
+    ``shutil.rmtree`` can recover from that case by marking the current path
+    writable and replaying the failed removal callback once.
+    """
+
+    del exc_info
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def remove_tree_with_retry(
+    path: Path,
+    *,
+    retries: int = 5,
+    base_delay_s: float = 0.2,
+) -> None:
+    """Remove one directory tree with a few retries for transient Windows locks.
+
+    HydroModPy regression outputs contain GIS artefacts (`.shp`, `.dbf`, `.tif`)
+    that can remain briefly locked on Windows after a previous run, even though
+    the producing process has already exited. Retrying the cleanup avoids
+    spurious test failures when the lock clears a fraction of a second later.
+    """
+
+    if not path.exists():
+        return
+
+    last_error: PermissionError | None = None
+    for attempt in range(retries):
+        try:
+            shutil.rmtree(path, onerror=_rmtree_onerror)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError as exc:
+            last_error = exc
+            gc.collect()
+            if attempt == retries - 1:
+                raise
+            time.sleep(base_delay_s * (attempt + 1))
+
+    if last_error is not None:
+        raise last_error
 
 
 def load_golden_reference(path: Path) -> dict:
@@ -123,7 +174,7 @@ def resolve_tiered_results_dir(
     tier = "extensive" if "extensive" in file_parts else "normal"
     out_dir = results_root / tier / str(run_name)
     if out_dir.exists():
-        shutil.rmtree(out_dir)
+        remove_tree_with_retry(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     return out_dir
 

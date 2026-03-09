@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.geographic_synthethic.config import SyntheticGeographicConfig
 from hydromodpy.units import parse_length_to_m
 
 
@@ -17,11 +18,23 @@ class GeographicConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    catch_def: Annotated[
-        Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"], ParamLevel("user")
+    source_mode: Annotated[
+        Literal["standard", "synthetic"], ParamLevel("user")
     ] = Field(
+        default="standard",
         description=(
-            "Catchment definition mode. "
+            "Geographic runtime mode. "
+            "'standard' keeps the historical DEM/outlet/polygon workflow. "
+            "'synthetic' builds one analytical support from [geographic.synthetic]."
+        ),
+    )
+    catch_def: Annotated[
+        Optional[Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"]],
+        ParamLevel("user"),
+    ] = Field(
+        default=None,
+        description=(
+            "Catchment definition mode used when source_mode='standard'. "
             "'dem' = model domain defined directly from a DEM raster (dem_init_path required). "
             "'txt' = model domain from an XYZ text file (dem_init_path, cell_size required). "
             "'from_outlet_coord' = watershed from outlet coordinates "
@@ -89,6 +102,17 @@ class GeographicConfig(BaseModel):
         default=None,
         description="Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.",
     )
+    synthetic: Annotated[SyntheticGeographicConfig, ParamLevel("user")] = Field(
+        default_factory=SyntheticGeographicConfig,
+        description=(
+            "Synthetic geographic support used when source_mode='synthetic'. "
+            "This analytical mode bypasses watershed delineation from external DEM files."
+        ),
+    )
+
+    def uses_synthetic_geographic(self) -> bool:
+        """Return True when the analytical synthetic geographic mode is selected."""
+        return str(self.source_mode).strip().lower() == "synthetic"
 
     @field_validator("snap_dist", mode="before")
     @classmethod
@@ -151,7 +175,14 @@ class GeographicConfig(BaseModel):
         ValueError
             If required parameters are missing for the selected mode.
         """
+        if self.uses_synthetic_geographic():
+            return self
+
         mode = self.catch_def
+        if mode is None:
+            raise ValueError(
+                "geographic.catch_def is required when geographic.source_mode='standard'."
+            )
 
         if mode in ("dem", "txt"):
             if not self.dem_init_path:

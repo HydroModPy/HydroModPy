@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.geographic import GeographicConfig
 
 
@@ -26,3 +27,52 @@ def test_geographic_config_txt_accepts_cell_size_with_km_unit():
     )
     assert float(cfg.cell_size) == pytest.approx(150.0)
 
+
+def test_geographic_config_synthetic_mode_accepts_missing_standard_fields():
+    cfg = GeographicConfig.model_validate(
+        {
+            "source_mode": "synthetic",
+        }
+    )
+
+    assert cfg.uses_synthetic_geographic() is True
+    assert cfg.catch_def is None
+    assert cfg.synthetic.case_id == "flat20"
+
+
+def test_geographic_config_standard_mode_requires_catch_def():
+    with pytest.raises(
+        ValueError,
+        match="geographic.catch_def is required when geographic.source_mode='standard'",
+    ):
+        GeographicConfig.model_validate({"source_mode": "standard"})
+
+
+def test_hydromodpy_config_rejects_matching_streams_with_synthetic_geographic(
+    tmp_path,
+):
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        "\n".join(
+            [
+                "[workspace]",
+                'catch_name = "synthetic_case"',
+                'out_dir_path = "results"',
+                'data_path = "data"',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+                "",
+                "[postprocess]",
+                "enabled = true",
+                "",
+                "[postprocess.flow]",
+                "enabled = true",
+                "matching_streams = true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="matching_streams"):
+        HydroModPyConfig.from_toml(toml_path)

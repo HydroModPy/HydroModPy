@@ -85,3 +85,43 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
     assert float(watershed_gdf.geometry.area.sum() / 1_000_000.0) == pytest.approx(
         context.catchment_area_km2
     )
+
+
+def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
+    workspace = Workspace(
+        WorkspaceConfig(
+            catch_name="synthetic_case",
+            out_dir_path=tmp_path / "results",
+            data_path=tmp_path / "data",
+        )
+    )
+    config = GeographicConfig(
+        source_mode="synthetic",
+        synthetic={
+            "case_id": "domain_synth",
+            "grid": {
+                "length_x": "100 m",
+                "length_y": "100 m",
+                "nx": 2,
+                "ny": 2,
+                "xmin": 100.0,
+                "ymin": 200.0,
+            },
+            "topography": {
+                "kind": "flat",
+                "base_elevation": 20.0,
+            },
+        },
+    )
+
+    context = build_domain_geographic_context(
+        config=config,
+        workspace=workspace,
+    )
+
+    assert context.catch_def == "synthetic"
+    assert context.zone_kind == "uniform"
+    assert context.catchment_area_km2 == pytest.approx(0.01)
+    assert Path(context.watershed_box_buff_dem).exists()
+    assert Path(context.watershed_shp).exists()
+    np.testing.assert_allclose(context.surface_topo.as_array(), np.full((2, 2), 20.0))

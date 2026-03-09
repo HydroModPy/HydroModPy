@@ -65,6 +65,12 @@ data_path = "../../examples_legacy/example12/data/"
 # Geographic configuration for watershed delineation.
 # ----------------------------------------------------------------------
 [geographic]
+# Geographic runtime mode.
+# "standard" keeps the historical watershed delineation workflow.
+# "synthetic" builds one analytical support from [geographic.synthetic].
+# NOTE: synthetic mode is incompatible with postprocess.flow.matching_streams=true.
+source_mode = "standard"
+
 # Catchment definition mode.
 # 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
 # 'from_outlet_coord' = watershed from outlet coordinates
@@ -118,6 +124,25 @@ bottom_path = "../../data/Brittany/dem/regional_dem_full.tif"
 # Folder with pre-computed regional flow rasters.
 # When set, rasters are loaded instead of recomputed.
 reg_fold = "../../data/Brittany/dem/correcflow"
+
+[geographic.synthetic]
+# Used only when geographic.source_mode = "synthetic".
+case_id = "launcher_synthetic"
+
+[geographic.synthetic.grid]
+length_x = "3.0 km"
+length_y = "3.0 km"
+nx = 30
+ny = 30
+xmin = 0.0
+ymin = 0.0
+crs = "EPSG:2154"
+nodata = -9999.0
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 5.0
 
 
 # ----------------------------------------------------------------------

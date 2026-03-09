@@ -1,4 +1,4 @@
-"""Golden non-regression test for geographic case metrics."""
+"""Extensive non-regression test for multi-case geographic metrics."""
 
 from __future__ import annotations
 
@@ -8,14 +8,15 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.geographic.cases.run_geographic_case import run_geographic_cases_from_toml
+from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-# Keep unit coverage focused on the largest basin only for runtime reasons.
-GOLDEN_FILE = (
-    Path(__file__).resolve().parent / "golden" / "run_geographic_case_metrics_nancon_golden.json"
+GOLDEN_REFERENCE_FILE = resolve_tiered_golden_file(
+    test_file=__file__,
+    filename="run_geographic_case_metrics_signatures.json",
 )
-CASE_IDS = ["nancon"]
+
+CASE_IDS = ["base", "canut", "nancon", "aber"]
 ABS_TOL_AREA_KM2 = 1e-4
 ABS_TOL_ELEV_M = 1e-2
 ABS_TOL_SUM_ELEV_M = 1e-1
@@ -70,7 +71,7 @@ def _write_tmp_config(tmp_path: Path) -> Path:
         "\n".join(
             [
                 "[workspace]",
-                'catch_name = "example12_geographic_case_test"',
+                'catch_name = "example12_geographic_case_regression"',
                 f'out_dir_path = "{out_path}"',
                 f'data_path = "{data_path}"',
                 "",
@@ -91,14 +92,12 @@ def _write_tmp_config(tmp_path: Path) -> Path:
     return config_path
 
 
+@pytest.mark.regression
+@pytest.mark.extensive
 @pytest.mark.slow
-def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
-    """
-    Validate DEM-sensitive geographic metrics on the largest geographic case.
-
-    Kept as one-case unit test to keep execution time bounded.
-    Full 4-case non-regression is covered in regression/extensive tests.
-    """
+@pytest.mark.coverage
+def test_run_geographic_case_metrics_regression(update_goldens, tmp_path):
+    """Validate metrics stability on all geographic demo cases."""
     config_path = _write_tmp_config(tmp_path)
     summaries = run_geographic_cases_from_toml(
         config_path,
@@ -118,16 +117,16 @@ def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
     }
 
     if update_goldens:
-        _write_json(GOLDEN_FILE, actual)
+        _write_json(GOLDEN_REFERENCE_FILE, actual)
         return
 
-    if not GOLDEN_FILE.exists():
+    if not GOLDEN_REFERENCE_FILE.exists():
         pytest.fail(
-            f"Missing golden reference file: {GOLDEN_FILE}. "
+            f"Missing golden reference file: {GOLDEN_REFERENCE_FILE}. "
             "Run tests with --update-goldens to generate it."
         )
 
-    expected = _load_json(GOLDEN_FILE)
+    expected = _load_json(GOLDEN_REFERENCE_FILE)
     assert set(actual.keys()) == set(expected.keys())
     for case_id in CASE_IDS:
         assert actual[case_id]["catchment_area_km2"] == pytest.approx(
@@ -149,4 +148,3 @@ def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
             )
         for key in COUNT_METRIC_KEYS:
             assert actual[case_id][key] == expected[case_id][key]
-

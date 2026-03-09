@@ -12,6 +12,9 @@ from launchers.process_simulation.launcher import HydroModPyLauncher
 class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
+        self.catch_folder = Path("workspace")
+        self.stable_folder = self.catch_folder / "results_stable"
+        self.simulations_folder = self.catch_folder / "results_simulations"
 
 
 class _DummyGeographic:
@@ -42,6 +45,10 @@ class _DummyDomain:
         self.surface_topo = surface_topo
 
 
+def _standard_geographic_cfg() -> SimpleNamespace:
+    return SimpleNamespace(uses_synthetic_geographic=lambda: False)
+
+
 def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.hmp.Workspace",
@@ -58,7 +65,7 @@ def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
-        geographic=SimpleNamespace(),
+        geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
         simulation=SimpleNamespace(name="simulation_name_from_toml"),
     )
@@ -98,7 +105,7 @@ def test_run_setup_replaces_spaces_in_simulation_name(monkeypatch) -> None:
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
-        geographic=SimpleNamespace(),
+        geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
         simulation=SimpleNamespace(name="simulation  name   with spaces"),
     )
@@ -150,7 +157,7 @@ def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> Non
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
-        geographic=SimpleNamespace(),
+        geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
         simulation=SimpleNamespace(name="simulation_name_from_toml"),
     )
@@ -174,3 +181,72 @@ def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> Non
     assert captured["domain"] is run_state.setup.domain
     assert captured["geographic"] is run_state.setup.domain_geographic
     assert captured["zone_id"] == "catchment"
+
+
+def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Workspace",
+        _DummyWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.Domain",
+        _DummyDomain,
+    )
+
+    def _unexpected_geographic(*args, **kwargs):
+        raise AssertionError("standard geographic runtime should not be built")
+
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Geographic",
+        _unexpected_geographic,
+    )
+
+    synthetic_runtime = _DummyGeographic(config=None, workspace=None)
+
+    def _fake_build_synthetic_geographic(*, config, output_dir, workspace):
+        captured["config"] = config
+        captured["output_dir"] = output_dir
+        captured["workspace"] = workspace
+        return synthetic_runtime
+
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.build_synthetic_geographic",
+        _fake_build_synthetic_geographic,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        lambda **kwargs: None,
+    )
+
+    geographic_cfg = SimpleNamespace(
+        synthetic=SimpleNamespace(case_id="synthetic_launcher"),
+        uses_synthetic_geographic=lambda: True,
+    )
+    cfg = SimpleNamespace(
+        workspace=SimpleNamespace(),
+        geographic=geographic_cfg,
+        domain=SimpleNamespace(zone_ids=[]),
+        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+    )
+    run_state = LauncherRunState(
+        cfg=cfg,
+        config_path=Path("config.toml"),
+        raw_toml={},
+    )
+
+    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
+    launcher.cfg = cfg
+    launcher.run_state = run_state
+    launcher.process_context_factory = SimpleNamespace(
+        ensure_flow=lambda state: None,
+        ensure_transport=lambda state: None,
+    )
+
+    launcher._run_setup()
+
+    assert run_state.setup.geographic is synthetic_runtime
+    assert captured["config"] is geographic_cfg.synthetic
+    assert captured["workspace"] is run_state.setup.workspace
+    assert captured["output_dir"] == Path("workspace") / "results_stable" / "geographic"

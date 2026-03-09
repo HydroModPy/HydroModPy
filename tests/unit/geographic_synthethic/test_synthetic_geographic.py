@@ -87,6 +87,21 @@ def test_domain_context_is_uniform_and_uses_synthetic_surface(tmp_path: Path) ->
     np.testing.assert_allclose(context.surface_topo.as_array(), np.full((2, 2), 20.0))
 
 
+def test_synthetic_runtime_exposes_launcher_compatibility_metadata(tmp_path: Path) -> None:
+    geographic = build_synthetic_geographic(
+        config=SyntheticGeographicConfig(),
+        output_dir=tmp_path / "compat",
+    )
+
+    assert geographic.nodata == -9999.0
+    assert geographic.watershed_box_shp.endswith("watershed_box.shp")
+    assert geographic.box_buff.endswith("watershed_box_buff.shp")
+    assert geographic.watershed_contour_shp.endswith("watershed_contour.shp")
+    assert Path(geographic.watershed_contour_tif).exists()
+    assert geographic.centroid_long_lat is not None
+    assert geographic.centroid_long_lat_Greenwich is not None
+
+
 def test_grid_lengths_accept_unit_strings_and_derive_cell_size() -> None:
     grid = SyntheticGridConfig(
         length_x="0.1 km",
