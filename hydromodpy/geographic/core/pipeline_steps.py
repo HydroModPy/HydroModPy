@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import rasterio
 
-from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
@@ -24,6 +24,9 @@ from hydromodpy.geographic.core.catchment_from_point import (
 )
 from hydromodpy.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
 from hydromodpy.tools import toolbox
+
+if TYPE_CHECKING:
+    from hydromodpy.geographic.geographic_config import GeographicConfig
 
 
 @dataclass(frozen=True)

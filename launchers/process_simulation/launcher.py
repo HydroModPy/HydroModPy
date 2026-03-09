@@ -67,6 +67,7 @@ from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
 )
+from hydromodpy.geographic_synthethic import build_synthetic_geographic
 from hydromodpy.simulation.forcing import (
     align_forcing_series_to_simulation_window,
     build_recharge_chronicle_payload,
@@ -229,6 +230,18 @@ class HydroModPyLauncher:
 
         return run_state
 
+    def _build_geographic_runtime(self, workspace):
+        """Build the geographic runtime selected by the validated TOML config."""
+        geographic_cfg = self.cfg.geographic
+        uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
+        if callable(uses_synthetic) and uses_synthetic():
+            return build_synthetic_geographic(
+                config=geographic_cfg.synthetic,
+                output_dir=Path(workspace.stable_folder) / "geographic",
+                workspace=workspace,
+            )
+        return hmp.Geographic(geographic_cfg, workspace)
+
     def _run_setup(self) -> None:
         """Initialise the structural objects shared by all later process runs.
 
@@ -249,7 +262,7 @@ class HydroModPyLauncher:
         cfg = self.cfg
 
         setup_state.workspace = hmp.Workspace(config=cfg.workspace)
-        setup_state.geographic = hmp.Geographic(cfg.geographic, setup_state.workspace)
+        setup_state.geographic = self._build_geographic_runtime(setup_state.workspace)
         setup_state.domain_geographic = setup_state.geographic.get_domain_geographic_context()
         surface_topo = setup_state.domain_geographic.surface_topo
 
