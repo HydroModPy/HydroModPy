@@ -25,7 +25,7 @@ h0_m = 6.0
 # Recharge forcing options:
 # - "hydro_step": seasonal step (wet/dry hydrological periods)
 # - "reservoir_chronicle": recharge derived from reservoir synthetic chronicle
-recharge_mode = "hydro_step"
+recharge_mode = "reservoir_chronicle"
 
 # Parameters for recharge_mode="hydro_step"
 recharge_wet_m_per_day = 0.0030
