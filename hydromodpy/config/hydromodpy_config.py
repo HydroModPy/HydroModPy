@@ -24,7 +24,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Callable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
 from hydromodpy.domain.domain_config import DomainConfig
@@ -153,6 +153,24 @@ class HydroModPyConfig(BaseModel):
             "[postprocess] section."
         ),
     )
+
+    @model_validator(mode="after")
+    def _validate_cross_section_constraints(self) -> "HydroModPyConfig":
+        """Validate constraints that depend on several top-level sections."""
+        if (
+            self.geographic.uses_synthetic_geographic()
+            and self.postprocess.enabled
+            and self.postprocess.flow.enabled
+            and self.postprocess.flow.matching_streams
+        ):
+            raise ValueError(
+                "geographic.source_mode='synthetic' does not generate the "
+                "watershed_fill/watershed_direc rasters required by "
+                "postprocess.flow.matching_streams. Set "
+                "[postprocess.flow].matching_streams = false or use "
+                "geographic.source_mode = 'standard'."
+            )
+        return self
 
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":

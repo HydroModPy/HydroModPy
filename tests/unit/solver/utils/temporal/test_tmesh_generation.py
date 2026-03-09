@@ -63,6 +63,25 @@ def test_synthetic_regular_builds_expected_arrays(monkeypatch):
     assert builder._tgrid_created is True
 
 
+def test_synthetic_regular_with_seconds_itmuni_keeps_second_lengths(monkeypatch):
+    mod = _load_tmesh_module()
+    monkeypatch.setattr(mod, "ModelTime", _FakeModelTime)
+
+    cfg = mod.TMeshConfig(
+        itmuni="seconds",
+        genmtd="synthetic_regular",
+        flow_regime="transient",
+        nper=2,
+        lenper=3600,
+        ntsp=1,
+        tsmult=1.0,
+    )
+    builder = mod.TMesh_Generation.from_config(cfg)
+    tmesh = builder.run()
+
+    assert np.allclose(tmesh.perlen, np.array([3600.0, 3600.0]))
+
+
 def test_from_chron_parses_dates_and_computes_perlen(monkeypatch, tmp_path: Path):
     mod = _load_tmesh_module()
     monkeypatch.setattr(mod, "ModelTime", _FakeModelTime)

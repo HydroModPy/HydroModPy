@@ -67,9 +67,8 @@ class OceanicConfig(BaseModel):
         default=False,
         description=(
             "If true, derive msl_start_date and msl_end_date from "
-            "[simulation.time] canonical window. With simulation.time.mode='explicit', "
-            "the window comes from [simulation.time].start_datetime/end_datetime; "
-            "with mode='from_modflow', it is resolved from flow solver tgrid settings. If "
+            "[simulation.time] canonical window using "
+            "[simulation.time].start_datetime/end_datetime. If "
             "[simulation.time] is missing or unresolved, fallback to the explicit "
             "msl_start_date/msl_end_date values below."
         ),

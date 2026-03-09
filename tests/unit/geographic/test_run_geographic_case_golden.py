@@ -11,8 +11,11 @@ from hydromodpy.geographic.cases.run_geographic_case import run_geographic_cases
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_geographic_case_metrics_golden.json"
-CASE_IDS = ["base", "canut", "nancon", "aber"]
+# Keep unit coverage focused on the largest basin only for runtime reasons.
+GOLDEN_FILE = (
+    Path(__file__).resolve().parent / "golden" / "run_geographic_case_metrics_nancon_golden.json"
+)
+CASE_IDS = ["nancon"]
 ABS_TOL_AREA_KM2 = 1e-4
 ABS_TOL_ELEV_M = 1e-2
 ABS_TOL_SUM_ELEV_M = 1e-1
@@ -91,13 +94,10 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 @pytest.mark.slow
 def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
     """
-    Validate DEM-sensitive geographic metrics on 4 geographic cases.
+    Validate DEM-sensitive geographic metrics on the largest geographic case.
 
-    Cases:
-    - base: outlet from TOML
-    - canut: polygon shapefile (from_polyg_shp)
-    - nancon: outlet coordinates
-    - aber: outlet coordinates
+    Kept as one-case unit test to keep execution time bounded.
+    Full 4-case non-regression is covered in regression/extensive tests.
     """
     config_path = _write_tmp_config(tmp_path)
     summaries = run_geographic_cases_from_toml(

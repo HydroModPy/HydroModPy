@@ -9,20 +9,23 @@ the monolithic legacy ``Geographic`` class.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from hydromodpy.domain.surface import Surface
 from hydromodpy.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.geographic.core.direct_dem_domain import build_direct_dem_domain
 from hydromodpy.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.geographic.core.flow_products import build_regional_flow_products
-from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.geographic.core.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
 from hydromodpy.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.simulation.workspace.workspace import Workspace
+
+if TYPE_CHECKING:
+    from hydromodpy.geographic.geographic_config import GeographicConfig
+    from hydromodpy.simulation.workspace.workspace import Workspace
 
 
 @dataclass(frozen=True)
@@ -69,11 +72,23 @@ def build_domain_geographic_context(
     """Compute all geographic products required by one domain run.
 
     The sequence depends on the selected mode:
+    - ``synthetic``: build one analytical support and reuse its exported
+      compatibility artifacts;
     - ``dem``: derive domain footprint directly from the DEM and build one
       uniform zone support;
     - catchment modes: generate flow rasters, build catchment polygons,
       derive buffered supports, then clip the DEM on the box-buffer support.
     """
+    if config.uses_synthetic_geographic():
+        from hydromodpy.geographic_synthethic import build_synthetic_geographic
+
+        geographic = build_synthetic_geographic(
+            config=config.synthetic,
+            output_dir=workspace.stable_folder / "geographic",
+            workspace=workspace,
+        )
+        return geographic.get_domain_geographic_context()
+
     if config.dem_init_path is None:
         raise ValueError("geographic.dem_init_path is required")
 

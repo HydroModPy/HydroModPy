@@ -12,3 +12,4 @@ For runtime views that include the top-level launcher, see
    :maxdepth: 2
 
    launcher-simulation-class-diagram
+   simulation-time-cycle-diagrams

@@ -62,7 +62,11 @@ class Modflow6Config(BaseModel):
     )
     tgrid: Annotated[TMeshConfigModel | None, ParamLevel("user")] = Field(
         default=None,
-        description="Optional temporal discretization payload as TMeshConfigModel.",
+        description=(
+            "Optional temporal discretization payload as TMeshConfigModel. In "
+            "launcher mode, most tgrid fields are generally auto-managed from "
+            "[simulation.time] and are not intended for manual editing."
+        ),
     )
 
 

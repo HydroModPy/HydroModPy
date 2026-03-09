@@ -85,7 +85,7 @@ class FlowConfig(ProcessSpatialConfig):
             "south_side, east_side, west_side; "
             "[flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; "
             "and generic [flow.bc.<custom_id>] payloads. "
-            "Common required key: value. "
+            "Common required key: value (numeric or '<value> <unit>'). "
             "Dirichlet keys may omit application_domain when <id> implies it "
             "(for example west_side -> 'west side'). "
             "Drainage (cauchy/robin) requires application_domain explicitly. "
@@ -399,7 +399,8 @@ def _parse_flow_ic_section(ic_cfg: Mapping[str, object]) -> FlowInitialCondition
     Parse and normalize one single `[flow.ic]` payload.
 
     Supported shapes:
-    - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`.
+    - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`,
+      where `value` can be numeric or `"<value> <unit>"`.
     """
     return normalize_flow_initial_conditions(ic_cfg, location_prefix="flow.ic")
 

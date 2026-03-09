@@ -8,7 +8,7 @@ import tomllib
 from typing import Any, Literal
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 
 def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
@@ -35,20 +35,81 @@ class TMeshConfigModel(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    itmuni: str = "d"
-    flow_regime: Literal["steady", "transient"] = "transient"
-    genmtd: Literal["synthetic_regular", "from_chron"] = "synthetic_regular"
-    nper: int = 1
-    lenper: float | int | None = 1
-    chron_path: str | None = None
+    itmuni: str = Field(
+        default="d",
+        description=(
+            "Time unit used to interpret lenper values. In launcher mode this field is "
+            "generally auto-managed from [simulation.time] and should not be edited."
+        ),
+    )
+    flow_regime: Literal["steady", "transient"] = Field(
+        default="transient",
+        description=(
+            "Flow regime used to derive the steady/transient stress-period flags. "
+            "In launcher mode this field is generally derived from [flow].flow_regime."
+        ),
+    )
+    genmtd: Literal["synthetic_regular", "from_chron"] = Field(
+        default="synthetic_regular",
+        description=(
+            "Temporal generation method. In launcher mode this is generally auto-managed "
+            "from [simulation.time] and should not be edited."
+        ),
+    )
+    nper: int = Field(
+        default=1,
+        description=(
+            "Stress-period count. In launcher mode this is generally auto-managed from "
+            "[simulation.time] and should not be edited."
+        ),
+    )
+    lenper: float | int | list[int] | list[float] | None = Field(
+        default=1,
+        description=(
+            "Stress-period length(s) interpreted with itmuni. Scalar means one regular "
+            "step length repeated nper times; list means one explicit value per stress period. "
+            "In launcher mode this is generally auto-managed from [simulation.time]."
+        ),
+    )
+    chron_path: str | None = Field(
+        default=None,
+        description=(
+            "Chronicle file path used when genmtd='from_chron'. In launcher mode this field "
+            "is generally not used."
+        ),
+    )
     chron_dateformat: str = "%Y-%m-%d %H:%M:%S"
     chron_colsep: str = "\t"
     chron_time_col: str = "Date"
-    start_datetime: Any | None = None
-    end_datetime: Any | None = None
+    start_datetime: Any | None = Field(
+        default=None,
+        description=(
+            "Lower datetime bound used by the temporal mesh. In launcher mode this field is "
+            "generally auto-managed from [simulation.time] and should not be edited."
+        ),
+    )
+    end_datetime: Any | None = Field(
+        default=None,
+        description=(
+            "Upper datetime bound used by the temporal mesh. In launcher mode this field is "
+            "generally auto-managed from [simulation.time] and should not be edited."
+        ),
+    )
     firstpersteady: bool = True
-    tsmult: int | float | list[int] | list[float] = 1
-    ntsp: int | list[int] = 1
+    tsmult: int | float | list[int] | list[float] = Field(
+        default=1,
+        description=(
+            "Time-step multiplier per stress period (scalar or list). In launcher mode this "
+            "field is currently forced to 1.0 and generally not intended for manual editing."
+        ),
+    )
+    ntsp: int | list[int] = Field(
+        default=1,
+        description=(
+            "Number of time steps per stress period (scalar or list). In launcher mode this "
+            "field is currently forced to 1 and generally not intended for manual editing."
+        ),
+    )
     temporal_nodata: float = -9999.0
 
     @field_validator("itmuni", "chron_dateformat", "chron_time_col")
@@ -90,6 +151,13 @@ class TMeshConfigModel(BaseModel):
     def _validate_positive_lenper(cls, value):
         if value is None:
             return None
+        if isinstance(value, list):
+            if len(value) == 0:
+                raise ValueError("lenper list cannot be empty")
+            out = [float(v) for v in value]
+            if any(v <= 0.0 for v in out):
+                raise ValueError("lenper values must be > 0")
+            return out
         out = float(value)
         if out <= 0.0:
             raise ValueError("lenper must be > 0")
@@ -130,6 +198,8 @@ class TMeshConfigModel(BaseModel):
         if self.genmtd == "synthetic_regular":
             if self.lenper is None:
                 raise ValueError("lenper is required when genmtd='synthetic_regular'")
+            if isinstance(self.lenper, list) and int(self.nper) != len(self.lenper):
+                raise ValueError("nper must match lenper list length when lenper is a list.")
         if self.genmtd == "from_chron" and self.chron_path is None:
             raise ValueError("chron_path is required when genmtd='from_chron'")
         if self.start_datetime is not None and self.end_datetime is not None:
@@ -144,8 +214,8 @@ class TMeshConfigModel(BaseModel):
                 raise ValueError(
                     "start_datetime and end_datetime must be valid datetime values."
                 )
-            if end <= start:
-                raise ValueError("end_datetime must be strictly greater than start_datetime")
+            if end < start:
+                raise ValueError("end_datetime must be greater than or equal to start_datetime")
         return self
 
     def to_builder_kwargs(self) -> dict[str, Any]:
