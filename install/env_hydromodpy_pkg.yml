@@ -37,4 +37,5 @@ dependencies:
   - pysheds
   - pip
   - pip:
+      - whitebox-workflows
       - -e ..

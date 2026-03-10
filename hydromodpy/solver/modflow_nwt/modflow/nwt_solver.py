@@ -113,7 +113,7 @@ class Modflow(Solver):
 
         self.model_folder = model_folder
         if not os.path.exists(self.model_folder):
-            toolbox.create(self.model_folder)
+            toolbox.create_folder(self.model_folder)
 
         self.model_name = model_name
 
@@ -828,10 +828,12 @@ class Modflow(Solver):
 
         # %% Persistency index
 
-        if options.persistency_index:
+        accumulation_flux_path = os.path.join(self.save_file, "accumulation_flux.npy")
+
+        if options.persistency_index and os.path.exists(accumulation_flux_path):
             logger.info("Exporting persistency index maps")
             acc_npy_raw = np.load(
-                os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
+                accumulation_flux_path, allow_pickle=True
             ).item()
             acc_npy = list(acc_npy_raw.items())[:]
             mask = np.asarray(self.dem_mask, dtype=bool)
@@ -860,12 +862,13 @@ class Modflow(Solver):
             or options.intermittency_monthly
             or options.intermittency_yearly
         )
-        if _any_intermittency:
+        acc_npy_raw = None
+        if _any_intermittency and os.path.exists(accumulation_flux_path):
             acc_npy_raw = np.load(
-                os.path.join(self.save_file, "accumulation_flux.npy"), allow_pickle=True
+                accumulation_flux_path, allow_pickle=True
             ).item()
 
-        if options.intermittency_daily:
+        if options.intermittency_daily and acc_npy_raw is not None:
             export_intermittency(
                 label="daily",
                 window_size=365,
@@ -878,7 +881,7 @@ class Modflow(Solver):
                 toolbox=toolbox,
             )
 
-        if options.intermittency_weekly:
+        if options.intermittency_weekly and acc_npy_raw is not None:
             export_intermittency(
                 label="weekly",
                 window_size=52,
@@ -891,7 +894,7 @@ class Modflow(Solver):
                 toolbox=toolbox,
             )
 
-        if options.intermittency_monthly:
+        if options.intermittency_monthly and acc_npy_raw is not None:
             export_intermittency(
                 label="monthly",
                 window_size=12,
@@ -904,7 +907,7 @@ class Modflow(Solver):
                 toolbox=toolbox,
             )
 
-        if options.intermittency_yearly:
+        if options.intermittency_yearly and acc_npy_raw is not None:
             export_intermittency(
                 label="yearly",
                 window_size=1,

@@ -12,6 +12,7 @@
 
 Current non-regression tests:
 - `normal/test_launcher_simulation_normal_regression.py` (runtime-reduced, keeps flow+transport+wells)
+- `normal/test_launcher_simulation_analytical_validation_regression.py` (cas synthétique, comparaison directe à une solution analytique)
 - `extensive/test_launcher_simulation_regression.py`
 - `extensive/test_launcher_data_overview_regression.py`
 - `extensive/test_run_geographic_case_metrics_regression.py`
