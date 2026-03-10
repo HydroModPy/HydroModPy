@@ -66,6 +66,7 @@ from hydromodpy.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
+    apply_simulation_time_to_flow_wells,
 )
 from hydromodpy.geographic_synthethic import build_synthetic_geographic
 from hydromodpy.simulation.forcing import (
@@ -406,6 +407,10 @@ class HydroModPyLauncher:
         apply_geology_to_domain(domain=setup_state.domain, geology=data_state.geology)
         self.process_context_factory.ensure_flow(run_state)
         apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
+        apply_simulation_time_to_flow_wells(
+            flow=setup_state.flow,
+            simulation_window=getattr(setup_state.time_grid, "window", None),
+        )
         apply_climatic_to_flow_recharge(flow=setup_state.flow, climatic=data_state.climatic)
 
     def _create_simulation_plan(self):

@@ -347,6 +347,9 @@ class Flow(ProcessSpatial):
                 ) from exc
 
             flux_payload = well_cfg.flux
+            if flux_payload is None:
+                normalized_wells[well_id] = well_cfg
+                continue
             if isinstance(flux_payload, list):
                 flux_si = [
                     convert_to_m3_per_s(

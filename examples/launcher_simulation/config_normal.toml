@@ -16,7 +16,7 @@
 # Human-readable simulation name.
 name = "Example 12 launcher normal 3 months"
 # Short free-text description of the simulation intent.
-description = "Standard baseline shortened to first 3 months with coarser grid and 2 layers."
+description = "Standard baseline shortened to first 3 months with an explicit 60x60 solver grid and 2 layers."
 
 [simulation.time]
 # Time-window is explicit in launcher mode (start/end declared below).
@@ -514,10 +514,18 @@ location_mode = "absolute_xy"
 layer = 0
 x = 265611.933
 y = 6784182.776
-# Well rate [L3/T]. Scalar for constant rate, or one value per stress period.
-flux = [-200.0, -1000.0, -100.0]
 # Units of flux values.
 units = "m3/day"
+
+[flow.sinks_sources.wells.W1.forcing]
+# CSV chronicle with potentially irregular dates, aggregated on [simulation.time].
+mode = "csv"
+path_file = "data/wells/normal_wells_2003.csv"
+sep = ","
+date_column = "date"
+date_format = "%Y-%m-%d"
+value_column = "W1_m3_day"
+aggregate = "mean"
 
 [flow.sinks_sources.wells.W2]
 # Well location relative to the model extent: x_rel in [0,1] west->east,
@@ -526,11 +534,18 @@ location_mode = "relative_xy"
 layer = 0
 x_rel = 0.33
 y_rel = 0.33
-# Well rate [L3/T]. Scalar for constant rate, or one value per stress period.
-# Negative = pumping, positive = injection.
-flux = [0.0, -1000.0, 0.0]
 # Units of flux values.
 units = "m3/day"
+
+[flow.sinks_sources.wells.W2.forcing]
+# Negative = pumping, positive = injection.
+mode = "csv"
+path_file = "data/wells/normal_wells_2003.csv"
+sep = ","
+date_column = "date"
+date_format = "%Y-%m-%d"
+value_column = "W2_m3_day"
+aggregate = "mean"
 
 # ----------------------------------------------------------------------
 # Flow sinks/sources (recharge).
@@ -744,11 +759,11 @@ exdp = "1.0 m"
 # Planar discretization mode for the solver grid.
 # "surface_native" keeps the native Domain surface support.
 # "shape" resamples surfaces to explicit solver dimensions.
-mode = "surface_native"
+mode = "shape"
 # Target number of columns when mode="shape".
-# nx = 80
+nx = 60
 # Target number of rows when mode="shape".
-# ny = 60
+ny = 60
 # Resampling rule when mode="shape".
 resampling = "bilinear"
 
@@ -789,9 +804,9 @@ vka = 1.0
 
 [modflow6.sgrid.planar]
 # Planar discretization mode for the solver grid.
-mode = "surface_native"
-# nx = 80
-# ny = 60
+mode = "shape"
+nx = 60
+ny = 60
 resampling = "bilinear"
 
 [modflow6.sgrid.vertical]
