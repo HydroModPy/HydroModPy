@@ -85,8 +85,12 @@ class PiezometryConfig(BaseModel):
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "PiezometryConfig":
-        """Load config from a TOML file."""
-        path = Path(path)
+        """Load config from a TOML file.
+
+        Relative paths (``path``, ``mask_path``) are resolved relative
+        to the TOML file's directory.
+        """
+        path = Path(path).resolve()
         if sys.version_info >= (3, 11):
             import tomllib
         else:
@@ -97,4 +101,15 @@ class PiezometryConfig(BaseModel):
         with open(path, "rb") as f:
             data = tomllib.load(f)
         section = data.get("piezometry", data)
-        return cls.model_validate(section)
+        cfg = cls.model_validate(section)
+        _resolve_paths(cfg, path.parent)
+        return cfg
+
+
+def _resolve_paths(cfg: "PiezometryConfig", toml_dir: Path) -> None:
+    """Resolve relative paths in source configs relative to the TOML directory."""
+    for src in cfg.sources:
+        if src.path is not None and not src.path.is_absolute():
+            src.path = (toml_dir / src.path).resolve()
+        if src.mask_path is not None and not src.mask_path.is_absolute():
+            src.mask_path = (toml_dir / src.mask_path).resolve()
