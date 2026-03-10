@@ -514,10 +514,18 @@ location_mode = "absolute_xy"
 layer = 0
 x = 265611.933
 y = 6784182.776
-# Well rate [L3/T]. Scalar for constant rate, or one value per stress period.
-flux = [-200.0, -1000.0, -100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1000.0]
 # Units of flux values.
 units = "m3/day"
+
+[flow.sinks_sources.wells.W1.forcing]
+# CSV chronicle with potentially irregular dates, aggregated on [simulation.time].
+mode = "csv"
+path_file = "data/wells/standard_wells_2003.csv"
+sep = ","
+date_column = "date"
+date_format = "%Y-%m-%d"
+value_column = "W1_m3_day"
+aggregate = "mean"
 
 [flow.sinks_sources.wells.W2]
 # Well location relative to the model extent: x_rel in [0,1] west->east,
@@ -526,11 +534,18 @@ location_mode = "relative_xy"
 layer = 0
 x_rel = 0.70
 y_rel = 0.70
-# Well rate [L3/T]. Scalar for constant rate, or one value per stress period.
-# Negative = pumping, positive = injection.
-flux = [0.0, -1000.0, 0.0, -500.0, 0.0, 0.0, -500.0, 0.0, 0.0, 0.0, 0.0, -1000.0]
 # Units of flux values.
 units = "m3/day"
+
+[flow.sinks_sources.wells.W2.forcing]
+# Negative = pumping, positive = injection.
+mode = "csv"
+path_file = "data/wells/standard_wells_2003.csv"
+sep = ","
+date_column = "date"
+date_format = "%Y-%m-%d"
+value_column = "W2_m3_day"
+aggregate = "mean"
 
 # ----------------------------------------------------------------------
 # Flow sinks/sources (recharge).

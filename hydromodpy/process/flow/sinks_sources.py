@@ -43,6 +43,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from numbers import Real
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -101,11 +102,19 @@ class FlowWellConfig(BaseModel):
         default=None,
         description="Relative Y position in [0,1] from south to north when location_mode='relative_xy'.",
     )
-    flux: float | list[float] = Field(
-        ...,
+    flux: float | list[float] | None = Field(
+        default=None,
         description=(
             "Well rate [L³/T]. Scalar for constant rate, or one value per stress period. "
             "Negative = pumping, positive = injection."
+        ),
+    )
+    forcing: "FlowWellForcingConfig | None" = Field(
+        default=None,
+        description=(
+            "Optional runtime forcing declaration. Supported modes: "
+            "'constant' and 'csv'. The launcher resolves this payload to "
+            "well.flux using [simulation.time]."
         ),
     )
     units: str = Field(default="m3/s", description="Units of flux values.")
@@ -224,6 +233,8 @@ class FlowWellConfig(BaseModel):
         - A list/tuple is converted to ``list[float]``.
         - Empty lists and non-numeric items are rejected.
         """
+        if value is None:
+            return None
         # Booleans would pass `isinstance(value, Real)`; block them first.
         if isinstance(value, bool):
             raise TypeError("well.flux must be numeric or a list of numeric values")
@@ -279,6 +290,11 @@ class FlowWellConfig(BaseModel):
             if self.x is not None or self.y is not None:
                 raise ValueError("well.location_mode='relative_xy' cannot be combined with x/y")
 
+        if self.flux is None and self.forcing is None:
+            raise ValueError("well requires either flux or forcing")
+        if self.flux is not None and self.forcing is not None:
+            raise ValueError("well.flux and well.forcing are mutually exclusive")
+
         return self
 
     def resolve_cell(self, grid: "GridReference") -> tuple[int, int, int]:
@@ -300,6 +316,96 @@ class FlowWellConfig(BaseModel):
         col = min(max(col, 0), int(grid.ncol) - 1)
         row = min(max(row, 0), int(grid.nrow) - 1)
         return (int(self.layer), row, col)
+
+
+class FlowWellForcingConstantConfig(BaseModel):
+    """One constant well-rate forcing applied to every stress period."""
+
+    value: float = Field(
+        ...,
+        description="Constant well rate in the same units as the parent well.",
+    )
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _validate_value(cls, value):
+        if isinstance(value, bool) or not isinstance(value, Real):
+            raise TypeError("well.forcing.value must be numeric")
+        return float(value)
+
+
+class FlowWellForcingCsvConfig(BaseModel):
+    """CSV-backed well forcing resolved at runtime against simulation.time."""
+
+    path_file: Path = Field(..., description="Path to the CSV chronicle file.")
+    sep: str = Field(default=",", description="CSV delimiter.")
+    date_column: str = Field(default="date", description="CSV column containing timestamps.")
+    date_format: str | None = Field(
+        default=None,
+        description="Optional datetime format passed to pandas.to_datetime.",
+    )
+    value_column: str = Field(default="value", description="CSV column containing well rates.")
+    fill_method: Literal["ffill", "bfill"] = Field(
+        default="ffill",
+        description="Gap-filling policy used when a stress period has no direct sample.",
+    )
+    aggregate: Literal["mean", "last"] = Field(
+        default="mean",
+        description="Stress-period aggregation method.",
+    )
+
+    @field_validator("sep", "date_column", "value_column", mode="before")
+    @classmethod
+    def _validate_text_fields(cls, value, info):
+        text = str(value).strip()
+        if text == "":
+            raise ValueError(f"well.forcing.{info.field_name} cannot be empty")
+        return text
+
+
+class FlowWellForcingConfig(BaseModel):
+    """Launcher-facing well forcing declaration."""
+
+    mode: Literal["constant", "csv"] = Field(
+        ...,
+        description="Well forcing mode consumed by launcher runtime.",
+    )
+    value: float | None = Field(default=None)
+    path_file: Path | None = Field(default=None)
+    sep: str = Field(default=",")
+    date_column: str = Field(default="date")
+    date_format: str | None = Field(default=None)
+    value_column: str = Field(default="value")
+    fill_method: Literal["ffill", "bfill"] = Field(default="ffill")
+    aggregate: Literal["mean", "last"] = Field(default="mean")
+
+    @model_validator(mode="after")
+    def _validate_mode_payload(self):
+        if self.mode == "constant":
+            if self.value is None:
+                raise ValueError("well.forcing.mode='constant' requires value")
+            return self
+        if self.path_file is None:
+            raise ValueError("well.forcing.mode='csv' requires path_file")
+        return self
+
+    def as_constant(self) -> FlowWellForcingConstantConfig:
+        if self.mode != "constant":
+            raise ValueError("well forcing is not in constant mode")
+        return FlowWellForcingConstantConfig(value=self.value)
+
+    def as_csv(self) -> FlowWellForcingCsvConfig:
+        if self.mode != "csv":
+            raise ValueError("well forcing is not in csv mode")
+        return FlowWellForcingCsvConfig(
+            path_file=self.path_file,
+            sep=self.sep,
+            date_column=self.date_column,
+            date_format=self.date_format,
+            value_column=self.value_column,
+            fill_method=self.fill_method,
+            aggregate=self.aggregate,
+        )
 
 
 class FlowRechargeConfig(BaseModel):

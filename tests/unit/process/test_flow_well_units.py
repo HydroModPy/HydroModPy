@@ -66,3 +66,24 @@ def test_flow_rejects_unsupported_well_units() -> None:
 
     with pytest.raises(ValueError, match="flow.sinks_sources.wells.W1.units must be compatible with m3/s"):
         _ = Flow(cfg)
+
+
+def test_flow_accepts_well_forcing_without_flux() -> None:
+    cfg = FlowConfig(
+        sinks_sources=FlowSinksSourcesConfig(
+            wells={
+                "W1": {
+                    "cell": [0, 0, 0],
+                    "units": "m3/day",
+                    "forcing": {"mode": "constant", "value": -100.0},
+                }
+            }
+        )
+    )
+
+    flow = Flow(cfg)
+    well = flow.sinks_sources["wells"]["W1"]
+
+    assert well.flux is None
+    assert well.forcing is not None
+    assert well.units == "m3/day"
