@@ -14,7 +14,6 @@ class TestScaffold:
         assert (root / "data" / "hydrometry").is_dir()
         assert (root / "data" / "piezometry").is_dir()
         assert (root / "data" / "water_quality").is_dir()
-        assert (root / "cache").is_dir()
         assert (root / "bv_example").is_dir()
         assert (root / "bv_example" / "data_managers.toml").exists()
 

@@ -25,13 +25,14 @@ def example_custom_csv():
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
 
-        # Location file
+        # Location file (unit column required)
         pd.DataFrame({
             "id": ["BSS001", "BSS002"],
             "x": [-1.5, -1.6],
             "y": [48.1, 48.2],
             "crs": ["EPSG:4326", "EPSG:4326"],
             "name": ["Piézo Nord", "Piézo Sud"],
+            "unit": ["m", "m"],
         }).to_csv(data_dir / "piezometry_custom_LOC.csv", index=False)
 
         # Chronicle files
@@ -60,28 +61,37 @@ def example_custom_csv():
 
 
 def example_custom_constant():
-    """Load piezometry with constant values."""
-    print("\n=== Example: Piezometry Constant ===")
+    """Load piezometry with a single-line CSV (constant value)."""
+    print("\n=== Example: Piezometry Constant (single-line CSV) ===")
     from hydromodpy.data_managers.piezometry.config import PiezometrySourceConfig, PiezometryConfig
     from hydromodpy.data_managers.piezometry.manager import PiezometryManager
     from hydromodpy.data_managers.registry.catalog import DataCatalog
 
-    cfg = PiezometryConfig(sources=[
-        PiezometrySourceConfig(
-            source="custom",
-            fixed_values={"PZ_A": 18.0, "PZ_B": 25.0},
-        )
-    ])
-    catalog = DataCatalog()
-    mgr = PiezometryManager(
-        config=cfg,
-        catalog=catalog,
-        project_period=(datetime(2020, 1, 1), datetime(2020, 3, 31)),
-    )
-    records = mgr.load()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        data_dir = Path(tmpdir)
 
-    for r in records:
-        print(f"    {r.station_id}: value={r.data['value'].iloc[0]} {r.unit}, is_constant={r.is_constant}")
+        pd.DataFrame({
+            "id": ["PZ_A"], "x": [-1.5], "y": [48.1],
+            "crs": ["EPSG:4326"], "unit": ["m"],
+        }).to_csv(data_dir / "piezometry_custom_LOC.csv", index=False)
+
+        pd.DataFrame({"datetime": ["2020-01-01"], "value": [18.0]}).to_csv(
+            data_dir / "piezometry_custom_PZ_A_20200101_20200331_D.csv", index=False
+        )
+
+        cfg = PiezometryConfig(sources=[
+            PiezometrySourceConfig(source="custom", path=data_dir)
+        ])
+        catalog = DataCatalog()
+        mgr = PiezometryManager(
+            config=cfg,
+            catalog=catalog,
+            project_period=(datetime(2020, 1, 1), datetime(2020, 3, 31)),
+        )
+        records = mgr.load()
+
+        for r in records:
+            print(f"    {r.station_id}: value={r.data['value'].iloc[0]} {r.unit}, is_constant={r.is_constant}")
 
 
 def example_hubeau_api():

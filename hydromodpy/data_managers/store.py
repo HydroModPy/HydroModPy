@@ -1,4 +1,15 @@
-"""DataStore: unified entry point for all data loading operations."""
+"""DataStore: unified entry point for all data loading operations.
+
+The DataStore is the main interface for loading data. It manages the catalog
+(metadata registry) and delegates to variable-specific managers.
+
+If *workspace_root* is provided (path to an ``hmp init`` workspace), API
+results are persisted as CSV files in ``data/<variable>/`` and registered
+in ``catalog.db`` at the workspace root. Custom data stays at the path
+specified by the user in the TOML.
+
+If *workspace_root* is None, data is loaded in memory only (no persistence).
+"""
 
 from __future__ import annotations
 
@@ -11,27 +22,67 @@ from hydromodpy.data_managers.contracts.timeseries import PointRecord
 from hydromodpy.data_managers.registry.catalog import DataCatalog
 
 
+def _find_workspace_root(start_path: Path) -> Path | None:
+    """Walk up from *start_path* looking for a directory containing ``catalog.db``
+    and ``data/``.  Returns the workspace root or None."""
+    current = start_path.resolve()
+    if current.is_file():
+        current = current.parent
+    for _ in range(10):  # limit depth
+        if (current / "catalog.db").exists() and (current / "data").is_dir():
+            return current
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    return None
+
+
 class DataStore:
-    """Central coordinator for data loading, caching, and project clipping."""
+    """Central coordinator for data loading, caching, and project clipping.
+
+    Parameters
+    ----------
+    workspace_root : Path or str, optional
+        Root of the HydroModPy workspace (created by ``hmp init``).
+        If provided, ``catalog.db`` is opened at this location and API
+        results are saved as CSV in ``data/<variable>/``.
+        If *None*, the catalog is in-memory and nothing is persisted.
+    project_extent : tuple, optional
+        Bounding box (xmin, ymin, xmax, ymax) for spatial filtering.
+    project_period : tuple[datetime, datetime], optional
+        (start, end) for temporal filtering.
+    """
 
     def __init__(
         self,
         *,
-        data_dir: str | Path,
-        project_data_dir: str | Path | None = None,
+        workspace_root: str | Path | None = None,
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
     ):
-        self.data_dir = Path(data_dir).expanduser().resolve()
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-
-        self.project_data_dir = Path(project_data_dir).resolve() if project_data_dir else None
-        if self.project_data_dir:
-            self.project_data_dir.mkdir(parents=True, exist_ok=True)
+        if workspace_root is not None:
+            self.workspace_root = Path(workspace_root).expanduser().resolve()
+            if not (self.workspace_root / "data").is_dir():
+                raise FileNotFoundError(
+                    f"Workspace invalide : dossier 'data/' introuvable dans "
+                    f"{self.workspace_root}. Lancez 'hmp init' ou verifiez le chemin."
+                )
+            self.catalog = DataCatalog(self.workspace_root / "catalog.db")
+        else:
+            self.workspace_root = None
+            self.catalog = DataCatalog()  # in-memory
 
         self.project_extent = project_extent
         self.project_period = project_period
-        self.catalog = DataCatalog(self.data_dir / "catalog.db")
+
+    def _data_dir(self, variable_name: str) -> Path | None:
+        """Return ``workspace_root/data/<variable>/`` or None."""
+        if self.workspace_root is None:
+            return None
+        d = self.workspace_root / "data" / variable_name
+        d.mkdir(parents=True, exist_ok=True)
+        return d
 
     def load_hydrometry(self, config) -> list[PointRecord]:
         from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
@@ -39,6 +90,7 @@ class DataStore:
             config=config, catalog=self.catalog,
             project_extent=self.project_extent,
             project_period=self.project_period,
+            data_dir=self._data_dir("hydrometry"),
         )
         return mgr.load()
 
@@ -48,6 +100,7 @@ class DataStore:
             config=config, catalog=self.catalog,
             project_extent=self.project_extent,
             project_period=self.project_period,
+            data_dir=self._data_dir("piezometry"),
         )
         return mgr.load()
 
@@ -57,11 +110,36 @@ class DataStore:
             config=config, catalog=self.catalog,
             project_extent=self.project_extent,
             project_period=self.project_period,
+            data_dir=self._data_dir("water_quality"),
         )
         return mgr.load()
 
     def cache_info(self, variable: str | None = None) -> pd.DataFrame:
+        """Show catalog entries."""
         return self.catalog.list_entries(variable=variable)
+
+    def get_completeness_report(
+        self, records: list[PointRecord],
+    ) -> pd.DataFrame:
+        """Compute per-station completeness stats for a list of records."""
+        from hydromodpy.data_managers.common.validation import compute_completeness
+
+        start = self.project_period[0] if self.project_period else None
+        end = self.project_period[1] if self.project_period else None
+
+        rows = []
+        for rec in records:
+            stats = compute_completeness(
+                rec.data, station_id=rec.station_id,
+                start_date=start or rec.date_start,
+                end_date=end or rec.date_end,
+            )
+            stats["variable"] = rec.variable
+            stats["source"] = rec.source
+            stats["is_constant"] = rec.is_constant
+            rows.append(stats)
+
+        return pd.DataFrame(rows)
 
     def clear_cache(
         self,
@@ -70,6 +148,7 @@ class DataStore:
         source: str | None = None,
         delete_files: bool = False,
     ) -> int:
+        """Remove catalog entries (and optionally their files)."""
         return self.catalog.invalidate(
             variable=variable, source=source, delete_files=delete_files,
         )

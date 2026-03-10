@@ -35,15 +35,47 @@ class TestHydrometryCustomCSV:
         assert len(records) == 1
         assert records[0].station_id == "ST001"
 
-    def test_unit_conversion(self, sample_hydro_dir, project_period):
-        cfg = HydrometrySourceConfig(
-            source="custom", path=sample_hydro_dir,
-            source_unit="L/s", target_unit="m3/s",
+    def test_unit_conversion_via_loc(self, tmp_path, project_period):
+        """Unit from LOC column; conversion L/s -> m3/s."""
+        d = tmp_path / "hydro_ls"
+        d.mkdir()
+
+        pd.DataFrame({
+            "id": ["ST_LS"],
+            "x": [-1.5],
+            "y": [48.1],
+            "crs": ["EPSG:4326"],
+            "unit": ["L/s"],
+        }).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
+
+        dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
+        pd.DataFrame({"datetime": dates, "value": 2500.0}).to_csv(
+            d / "hydrometry_custom_ST_LS_20200101_20200331_D.csv", index=False,
         )
+
+        cfg = HydrometrySourceConfig(source="custom", path=d)
         records = load_custom(cfg, project_period=project_period)
-        # ST001 has value 2.5 L/s → 0.0025 m³/s
-        st1 = [r for r in records if r.station_id == "ST001"][0]
-        assert st1.data["value"].iloc[0] == pytest.approx(0.0025)
+        # 2500 L/s -> 2.5 m3/s
+        assert records[0].data["value"].iloc[0] == pytest.approx(2.5)
+        assert records[0].unit == "m3/s"
+
+    def test_missing_unit_raises(self, tmp_path, project_period):
+        """LOC without 'unit' column must raise ValueError."""
+        d = tmp_path / "no_unit"
+        d.mkdir()
+
+        pd.DataFrame({
+            "id": ["ST01"], "x": [-1.5], "y": [48.1], "crs": ["EPSG:4326"],
+        }).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
+
+        dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
+        pd.DataFrame({"datetime": dates, "value": 1.0}).to_csv(
+            d / "hydrometry_custom_ST01_20200101_20200331_D.csv", index=False,
+        )
+
+        cfg = HydrometrySourceConfig(source="custom", path=d)
+        with pytest.raises(ValueError, match="No unit"):
+            load_custom(cfg, project_period=project_period)
 
 
 class TestHydrometryCustomConstant:
@@ -51,9 +83,10 @@ class TestHydrometryCustomConstant:
         d = tmp_path / "const"
         d.mkdir()
 
-        pd.DataFrame({"id": ["C1"], "x": [0], "y": [0], "crs": ["EPSG:4326"]}).to_csv(
-            d / "hydrometry_custom_LOC.csv", index=False
-        )
+        pd.DataFrame({
+            "id": ["C1"], "x": [0], "y": [0], "crs": ["EPSG:4326"], "unit": ["m3/s"],
+        }).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
+
         pd.DataFrame({"datetime": ["2020-01-01"], "value": [9.9]}).to_csv(
             d / "hydrometry_custom_C1_20200101_20200331_D.csv", index=False
         )
@@ -64,22 +97,6 @@ class TestHydrometryCustomConstant:
         assert len(records) == 1
         assert records[0].is_constant
         assert records[0].n_records == 91  # Jan-Mar 2020
-
-    def test_fixed_values_config(self, project_period):
-        cfg = HydrometrySourceConfig(
-            source="custom",
-            fixed_values={"A": 1.0, "B": 2.0},
-        )
-        records = load_custom(cfg, project_period=project_period)
-        assert len(records) == 2
-        assert all(r.is_constant for r in records)
-
-    def test_fixed_value_requires_period(self):
-        cfg = HydrometrySourceConfig(
-            source="custom", fixed_value=1.0, station_ids=["X"],
-        )
-        with pytest.raises(ValueError, match="project_period"):
-            load_custom(cfg, project_period=None)
 
 
 class TestHydrometryCustomErrors:
@@ -94,3 +111,7 @@ class TestHydrometryCustomErrors:
         cfg = HydrometrySourceConfig(source="custom", path=d)
         with pytest.raises(FileNotFoundError, match="hydrometry_custom_LOC"):
             load_custom(cfg, project_period=project_period)
+
+    def test_custom_requires_path(self):
+        with pytest.raises(ValueError, match="path"):
+            HydrometrySourceConfig(source="custom")
