@@ -14,6 +14,8 @@ _CONVERSIONS: dict[tuple[str, str], float] = {
     ("m", "cm"): 100.0,
     ("mm", "m"): 0.001,
     ("m", "mm"): 1000.0,
+    ("ug/L", "mg/L"): 0.001,
+    ("mg/L", "ug/L"): 1000.0,
 }
 
 

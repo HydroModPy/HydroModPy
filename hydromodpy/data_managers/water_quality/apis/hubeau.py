@@ -33,10 +33,19 @@ def fetch(
     date_start: datetime,
     date_end: datetime,
     parameters: list[str] | None = None,
+    nearest_to: tuple[float, float] | None = None,
+    fallback_search_radius_km: float | None = None,
 ) -> list[PointRecord]:
     """Fetch water quality data from Hub'Eau.
 
     Returns one PointRecord per (station, parameter) combination.
+
+    Parameters
+    ----------
+    nearest_to : tuple | None
+        ``(lon, lat)`` to keep only the nearest station.
+    fallback_search_radius_km : float | None
+        If no station found in bbox, expand by this radius and retry.
     """
     is_river = site_type.startswith("river")
 
@@ -44,8 +53,20 @@ def fetch(
         if bbox is None:
             raise ValueError("Either station_ids or bbox required.")
         station_ids = _discover_stations(bbox, is_river=is_river)
+        if not station_ids and fallback_search_radius_km:
+            from hydromodpy.data_managers.common.geo_helpers import expand_bbox
+            expanded = expand_bbox(bbox, fallback_search_radius_km)
+            print(f"  Hub'Eau WQ: no stations in bbox, expanding by {fallback_search_radius_km} km")
+            station_ids = _discover_stations(expanded, is_river=is_river)
         if not station_ids:
             print("  Hub'Eau WQ: no stations in bbox")
+            return []
+
+    # nearest_to: keep only the closest station to the target point
+    if nearest_to and station_ids:
+        station_ids = _keep_nearest(station_ids, nearest_to, is_river=is_river)
+        if not station_ids:
+            print("  Hub'Eau WQ: no station with coordinates for nearest selection.")
             return []
 
     print(f"  Hub'Eau WQ ({site_type}): {len(station_ids)} stations")
@@ -94,6 +115,35 @@ def fetch(
 
     print(f"  Hub'Eau WQ: {len(records)} total records")
     return records
+
+
+def _keep_nearest(
+    ids: list[str],
+    nearest_to: tuple[float, float],
+    *,
+    is_river: bool,
+) -> list[str]:
+    """Keep only the station closest to *nearest_to* ``(lon, lat)``."""
+    from hydromodpy.data_managers.common.geo_helpers import haversine_km
+
+    target_lon, target_lat = nearest_to
+    best_id: str | None = None
+    best_dist = float("inf")
+
+    for sid in ids:
+        loc = _fetch_station_location(sid, is_river=is_river)
+        if loc is None:
+            continue
+        dist = haversine_km(target_lon, target_lat, loc.x, loc.y)
+        if dist < best_dist:
+            best_dist = dist
+            best_id = sid
+
+    if best_id is None:
+        return []
+    print(f"  Hub'Eau WQ: nearest to ({target_lon:.4f}, {target_lat:.4f}) "
+          f"→ {best_id} ({best_dist:.1f} km)")
+    return [best_id]
 
 
 def _discover_stations(bbox: tuple, *, is_river: bool, max_stations: int = 50) -> list[str]:
