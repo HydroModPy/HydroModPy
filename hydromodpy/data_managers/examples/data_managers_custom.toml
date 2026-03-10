@@ -27,6 +27,12 @@
 #   ST001,-1.68,48.12,EPSG:4326,m3/s
 #   ST002,-1.75,48.05,EPSG:4326,L/s
 #
+# La colonne "unit" est OBLIGATOIRE pour chaque station.
+#
+# Pour une station constante (condition limite), creer un CSV avec une
+# seule ligne de donnee. Elle sera automatiquement detectee et expandee
+# sur toute la periode du projet.
+#
 # Format des chroniques CSV :
 #   datetime,value
 #   2015-01-01,2.35
@@ -52,9 +58,6 @@ path = "data/hydro"
 # col_value = "value"        # defaut
 # default_crs = "EPSG:4326"  # defaut
 
-# Unite source (optionnel si colonne "unit" dans le LOC)
-# source_unit = "m3/s"
-
 # Filtrer certaines stations (optionnel, sinon toutes les stations du LOC)
 # station_ids = ["ST001", "ST002"]
 
@@ -68,7 +71,6 @@ path = "data/hydro"
 [[piezometry.sources]]
 source = "custom"
 path = "data/piezo"
-# source_unit = "m"  # optionnel si colonne "unit" dans le LOC
 
 # Exemple avec des noms de colonnes non standards
 # col_id = "code_bss"
@@ -78,25 +80,9 @@ path = "data/piezo"
 # col_value = "niveau_m"
 
 
-# --- Piezometry : valeur fixe (alternative aux CSV) ---
-# Utile pour imposer une condition limite constante
-# [[piezometry.sources]]
-# source = "custom"
-# fixed_value = 15.0
-# station_ids = ["BSS_CL_01", "BSS_CL_02"]
-
-# Ou des valeurs differentes par station :
-# [[piezometry.sources]]
-# source = "custom"
-# [piezometry.sources.fixed_values]
-# BSS_CL_01 = 15.0
-# BSS_CL_02 = 22.5
-
-
 # --- Water quality : qualite d'eau depuis des CSV ---
 [water_quality]
 
 [[water_quality.sources]]
 source = "custom"
 path = "data/wq"
-# source_unit = "mg/L"  # optionnel si colonne "unit" dans le LOC
