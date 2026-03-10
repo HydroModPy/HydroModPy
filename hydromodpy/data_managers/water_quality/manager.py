@@ -25,41 +25,67 @@ class WaterQualityManager(BaseVariableManager):
         raise ValueError(f"Unknown water quality source: {source_cfg.source}")
 
     def _fetch_hubeau(self, source_cfg: WaterQualitySourceConfig) -> list[PointRecord]:
-        """Fetch from Hub'Eau with cache support."""
+        """Fetch from Hub'Eau with smart cache (partial coverage + merge)."""
         from hydromodpy.data_managers.water_quality.apis.hubeau import fetch
 
         if self.project_period is None:
             raise ValueError("project_period required for Hub'Eau.")
 
-        # Try cache for explicitly requested station_ids
-        if source_cfg.station_ids and not source_cfg.force_refresh:
-            cached = []
-            missing_ids = []
-            for sid in source_cfg.station_ids:
-                rec = self._load_cached_api_record(source="hubeau", station_id=sid)
-                if rec is not None:
-                    cached.append(rec)
-                    print(f"  Hub'Eau cache hit: {sid}")
-                else:
-                    missing_ids.append(sid)
-            if not missing_ids:
-                return self._apply_mask(cached, source_cfg)
-            bbox = self._resolve_bbox(source_cfg)
-            records = fetch(
-                site_type=source_cfg.site_type, bbox=bbox,
-                station_ids=missing_ids,
-                date_start=self.project_period[0], date_end=self.project_period[1],
+        def _fetch_for(sids, start, end):
+            return fetch(
+                site_type=source_cfg.site_type, bbox=self._resolve_bbox(source_cfg),
+                station_ids=sids, date_start=start, date_end=end,
                 parameters=source_cfg.parameters,
             )
-            self._persist_api_records(records, "hubeau")
-            return self._apply_mask(cached + records, source_cfg)
 
-        bbox = self._resolve_bbox(source_cfg)
-        records = fetch(
-            site_type=source_cfg.site_type, bbox=bbox,
-            station_ids=source_cfg.station_ids,
-            date_start=self.project_period[0], date_end=self.project_period[1],
-            parameters=source_cfg.parameters,
+        # Try cache for explicitly requested station_ids
+        if source_cfg.station_ids and not source_cfg.force_refresh:
+            ready = []
+            missing_ids = []
+            to_persist = []
+            for sid in source_cfg.station_ids:
+                if self._is_empty_sentinel(source="hubeau", station_id=sid):
+                    print(f"  Hub'Eau no-data (cached): {sid}")
+                    continue
+                rec = self._load_cached_api_record(source="hubeau", station_id=sid)
+                if rec is not None:
+                    gaps = self._compute_missing_periods(rec.date_start, rec.date_end)
+                    if not gaps:
+                        ready.append(rec)
+                        print(f"  Hub'Eau cache hit: {sid}")
+                    else:
+                        parts = []
+                        for gs, ge in gaps:
+                            parts.extend(_fetch_for([sid], gs, ge))
+                        if parts:
+                            merged = self._merge_into_record(rec, *parts)
+                            ready.append(merged)
+                            to_persist.append(merged)
+                            print(f"  Hub'Eau cache merge: {sid} (+{len(gaps)} period(s))")
+                        else:
+                            ready.append(rec)
+                else:
+                    missing_ids.append(sid)
+
+            if to_persist:
+                self._persist_api_records(to_persist, "hubeau")
+            if not missing_ids:
+                return self._apply_mask(ready, source_cfg)
+
+            records = _fetch_for(
+                missing_ids, self.project_period[0], self.project_period[1],
+            )
+            self._persist_api_records(records, "hubeau")
+            fetched_ids = {r.station_id for r in records}
+            empty_ids = [s for s in missing_ids if s not in fetched_ids]
+            if empty_ids:
+                self._register_empty_api_stations(empty_ids, "hubeau")
+            return self._apply_mask(ready + records, source_cfg)
+
+        # No cache for bbox-based discovery — always discover, then persist
+        records = _fetch_for(
+            source_cfg.station_ids,
+            self.project_period[0], self.project_period[1],
         )
         self._persist_api_records(records, "hubeau")
         return self._apply_mask(records, source_cfg)

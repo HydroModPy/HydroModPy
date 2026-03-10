@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -85,19 +85,78 @@ class BaseVariableManager(ABC):
         ...
 
     # ------------------------------------------------------------------
+    # Smart cache: partial coverage detection + merge
+    # ------------------------------------------------------------------
+
+    def _compute_missing_periods(
+        self,
+        cached_start: datetime,
+        cached_end: datetime,
+    ) -> list[tuple[datetime, datetime]]:
+        """Return date ranges from project_period not covered by the cache.
+
+        Returns an empty list if the cache fully covers the requested period.
+        """
+        if self.project_period is None:
+            return []
+        req_start, req_end = self.project_period
+        missing: list[tuple[datetime, datetime]] = []
+        if req_start < cached_start:
+            missing.append((req_start, cached_start - timedelta(days=1)))
+        if req_end > cached_end:
+            missing.append((cached_end + timedelta(days=1), req_end))
+        return missing
+
+    def _merge_into_record(
+        self,
+        base: PointRecord,
+        *others: PointRecord,
+    ) -> PointRecord:
+        """Merge multiple PointRecords for the same station.
+
+        Concatenates data, deduplicates by datetime, and sorts.
+        Returns a single PointRecord covering the full period.
+        """
+        dfs = [base.data] + [r.data for r in others]
+        merged = (
+            pd.concat(dfs, ignore_index=True)
+            .drop_duplicates(subset="datetime")
+            .sort_values("datetime")
+            .reset_index(drop=True)
+        )
+        return PointRecord(
+            station_id=base.station_id,
+            variable=base.variable,
+            source=base.source,
+            unit=base.unit,
+            frequency=base.frequency,
+            data=merged,
+            date_start=merged["datetime"].min().to_pydatetime(),
+            date_end=merged["datetime"].max().to_pydatetime(),
+            location=base.location or (others[0].location if others else None),
+        )
+
+    # ------------------------------------------------------------------
     # Persistence: save API results as CSV and register in catalog
     # ------------------------------------------------------------------
 
     def _persist_api_records(
         self, records: list[PointRecord], source: str,
     ) -> None:
-        """Save API records as CSV files in data_dir and register in catalog."""
+        """Save API records as CSV files in data_dir and register in catalog.
+
+        If a previous CSV exists for the same station (different period),
+        the old file is deleted before saving the new one.
+        """
         if self.data_dir is None or not records:
             return
         self.data_dir.mkdir(parents=True, exist_ok=True)
         prefix = _VAR_FILE_PREFIX.get(self.VARIABLE_NAME, self.VARIABLE_NAME)
 
         for r in records:
+            # Delete old CSV if it exists with a different filename
+            self._cleanup_old_api_file(source, r.station_id)
+
             # Save chronicle CSV
             safe_id = safe_file_token(r.station_id)
             start_str = r.date_start.strftime("%Y%m%d")
@@ -112,8 +171,69 @@ class BaseVariableManager(ABC):
             if r.location:
                 self._upsert_api_loc(r.location, source)
 
-            # Register in catalog
-            self._register_one(r, filepath)
+            # Register in catalog (store filename only for portability)
+            self._register_one(r, Path(filename))
+
+    def _cleanup_old_api_file(self, source: str, station_id: str) -> None:
+        """Delete old API CSV if a previous download exists for this station."""
+        if self.catalog is None:
+            return
+        entry = self.catalog.find_cached(
+            variable=self.VARIABLE_NAME,
+            source=source,
+            station_id=station_id,
+        )
+        if entry is None:
+            return
+        old_path = self._resolve_catalog_path(entry.file_path)
+        if old_path.exists():
+            old_path.unlink()
+
+    def _resolve_catalog_path(self, file_path: str) -> Path:
+        """Resolve a catalog file_path to an absolute path.
+
+        If file_path is a sentinel ("custom", "empty") or already absolute,
+        return as-is. Otherwise, resolve relative to data_dir.
+        """
+        if file_path in ("custom", "empty"):
+            return Path(file_path)
+        p = Path(file_path)
+        if p.is_absolute():
+            return p
+        if self.data_dir is not None:
+            return self.data_dir / p
+        return p
+
+    def _register_empty_api_stations(
+        self, station_ids: list[str], source: str,
+    ) -> None:
+        """Register stations that returned no data from the API.
+
+        Creates a catalog entry with file_path="empty" so that subsequent
+        runs don't re-fetch stations known to have no data.
+        Use force_refresh=True to bypass this sentinel.
+        """
+        if self.catalog is None:
+            return
+        for sid in station_ids:
+            self.catalog.register(
+                variable=self.VARIABLE_NAME,
+                source=source,
+                station_id=sid,
+                file_path="empty",
+                is_custom=False,
+            )
+
+    def _is_empty_sentinel(self, source: str, station_id: str) -> bool:
+        """Check if a station was previously marked as having no data."""
+        if self.catalog is None:
+            return False
+        entry = self.catalog.find_cached(
+            variable=self.VARIABLE_NAME,
+            source=source,
+            station_id=station_id,
+        )
+        return entry is not None and entry.file_path == "empty"
 
     def _upsert_api_loc(self, loc: StationLocation, source: str) -> None:
         """Add or update a station in the API LOC file."""
@@ -165,6 +285,9 @@ class BaseVariableManager(ABC):
         if r.location:
             bbox = (r.location.x, r.location.y, r.location.x, r.location.y)
             crs = r.location.crs
+        # Compute mtime from the actual file on disk (resolve relative path)
+        actual_path = self._resolve_catalog_path(str(file_path))
+        mtime = actual_path.stat().st_mtime if actual_path.exists() else None
         self.catalog.register(
             variable=self.VARIABLE_NAME,
             source=r.source,
@@ -177,6 +300,7 @@ class BaseVariableManager(ABC):
             bbox=bbox,
             crs=crs,
             is_custom=(r.source == "custom"),
+            file_mtime=mtime,
         )
 
     # ------------------------------------------------------------------
@@ -189,22 +313,38 @@ class BaseVariableManager(ABC):
         source: str,
         station_id: str,
     ) -> PointRecord | None:
-        """Try to load a single station from cached CSV via the catalog."""
+        """Try to load a single station from cached CSV via the catalog.
+
+        Does NOT filter by date — returns whatever is cached. The caller
+        uses _compute_missing_periods() to detect partial coverage.
+        """
         if self.catalog is None or self.data_dir is None:
             return None
         entry = self.catalog.find_cached(
             variable=self.VARIABLE_NAME,
             source=source,
             station_id=station_id,
-            date_start=self.project_period[0] if self.project_period else None,
-            date_end=self.project_period[1] if self.project_period else None,
         )
         if entry is None:
             return None
 
-        filepath = Path(entry.file_path)
+        filepath = self._resolve_catalog_path(entry.file_path)
         if not filepath.exists():
+            # File deleted externally — clean up stale entry
+            self.catalog.invalidate(
+                variable=self.VARIABLE_NAME, source=source, station_id=station_id,
+            )
             return None
+
+        # Check if file was modified externally (mtime mismatch)
+        if entry.file_mtime is not None:
+            current_mtime = filepath.stat().st_mtime
+            if abs(current_mtime - entry.file_mtime) > 1.0:
+                # File modified externally — invalidate and re-fetch
+                self.catalog.invalidate(
+                    variable=self.VARIABLE_NAME, source=source, station_id=station_id,
+                )
+                return None
 
         from hydromodpy.data_managers.common.io_helpers import read_timeseries_csv
         df = read_timeseries_csv(filepath)

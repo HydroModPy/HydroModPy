@@ -102,29 +102,70 @@ class DataCatalog:
         frequency: str | None = None,
         unit: str | None = None,
         is_custom: bool = False,
+        file_mtime: float | None = None,
     ) -> int:
-        """Register a data file. Returns entry id."""
+        """Register a data file (upsert). Returns entry id.
+
+        If an entry with the same (variable, source, station_id) already exists,
+        it is updated. Otherwise a new entry is created.
+
+        file_path can be relative (just the filename) for portability.
+        If file_mtime is not provided, it is read from the file if it exists.
+        """
         file_path = Path(file_path)
-        mtime = file_path.stat().st_mtime if file_path.exists() else None
-        entry = CatalogEntry(
-            variable=variable,
-            source=source,
-            station_id=station_id,
-            bbox_xmin=bbox[0] if bbox else None,
-            bbox_ymin=bbox[1] if bbox else None,
-            bbox_xmax=bbox[2] if bbox else None,
-            bbox_ymax=bbox[3] if bbox else None,
-            crs=crs,
-            date_start=_dt_to_str(date_start),
-            date_end=_dt_to_str(date_end),
-            frequency=frequency,
-            unit=unit,
-            file_path=str(file_path),
-            file_mtime=mtime,
-            is_custom=1 if is_custom else 0,
-        )
+        if file_mtime is None:
+            mtime = file_path.stat().st_mtime if file_path.exists() else None
+        else:
+            mtime = file_mtime
+
         with self._SessionFactory() as session:
-            session.add(entry)
+            # Look for existing entry with same key
+            q = session.query(CatalogEntry).filter(
+                CatalogEntry.variable == variable,
+                CatalogEntry.source == source,
+            )
+            if station_id is not None:
+                q = q.filter(CatalogEntry.station_id == station_id)
+            else:
+                q = q.filter(CatalogEntry.station_id.is_(None))
+
+            entry = q.first()
+
+            if entry is not None:
+                # Update existing
+                entry.bbox_xmin = bbox[0] if bbox else None
+                entry.bbox_ymin = bbox[1] if bbox else None
+                entry.bbox_xmax = bbox[2] if bbox else None
+                entry.bbox_ymax = bbox[3] if bbox else None
+                entry.crs = crs
+                entry.date_start = _dt_to_str(date_start)
+                entry.date_end = _dt_to_str(date_end)
+                entry.frequency = frequency
+                entry.unit = unit
+                entry.file_path = str(file_path)
+                entry.file_mtime = mtime
+                entry.is_custom = 1 if is_custom else 0
+            else:
+                # Insert new
+                entry = CatalogEntry(
+                    variable=variable,
+                    source=source,
+                    station_id=station_id,
+                    bbox_xmin=bbox[0] if bbox else None,
+                    bbox_ymin=bbox[1] if bbox else None,
+                    bbox_xmax=bbox[2] if bbox else None,
+                    bbox_ymax=bbox[3] if bbox else None,
+                    crs=crs,
+                    date_start=_dt_to_str(date_start),
+                    date_end=_dt_to_str(date_end),
+                    frequency=frequency,
+                    unit=unit,
+                    file_path=str(file_path),
+                    file_mtime=mtime,
+                    is_custom=1 if is_custom else 0,
+                )
+                session.add(entry)
+
             session.commit()
             session.refresh(entry)
             return entry.id
@@ -216,6 +257,25 @@ class DataCatalog:
                 session.delete(entry)
             session.commit()
         return count
+
+
+    def cleanup(self) -> int:
+        """Remove catalog entries whose files no longer exist on disk.
+
+        Sentinel entries (file_path="custom" or "empty") are skipped.
+        Returns the number of removed entries.
+        """
+        removed = 0
+        with self._SessionFactory() as session:
+            entries = session.query(CatalogEntry).all()
+            for entry in entries:
+                if entry.file_path in ("custom", "empty"):
+                    continue
+                if not Path(entry.file_path).exists():
+                    session.delete(entry)
+                    removed += 1
+            session.commit()
+        return removed
 
 
 def _dt_to_str(dt: datetime | str | None) -> str | None:
