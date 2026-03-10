@@ -46,6 +46,18 @@ class WaterQualitySourceConfig(BaseModel):
         default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
     )
 
+    # --- API fallback / nearest ---
+    require_observations: bool = Field(
+        default=True, description="Only keep stations that have observations in the period."
+    )
+    fallback_search_radius_km: Optional[float] = Field(
+        default=None, description="If no station found in bbox, expand search by this radius (km)."
+    )
+    nearest: bool = Field(
+        default=False,
+        description="Keep only the nearest station to the extent centroid.",
+    )
+
     # --- Common fields ---
     station_ids: Optional[list[str]] = Field(default=None, description="Explicit station ids.")
     extent: Optional[Literal["watershed", "study_area"]] = Field(default=None)

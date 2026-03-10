@@ -66,6 +66,10 @@ def fetch(
     else:
         raise ValueError("Either bbox or station_ids must be provided.")
 
+    # nearest_to: keep only the closest piezometer to the target point
+    if nearest_to and ids:
+        ids = _keep_nearest(ids, nearest_to)
+
     if not ids:
         print("  Hub'Eau piezo: no piezometers found.")
         return []
@@ -97,6 +101,44 @@ def fetch(
 
     print(f"  Hub'Eau piézo: {len(records)} records loaded.")
     return records
+
+
+# ---------------------------------------------------------------------------
+# Nearest selection
+# ---------------------------------------------------------------------------
+def _keep_nearest(
+    ids: list[str],
+    nearest_to: tuple[float, float],
+) -> list[str]:
+    """Fetch locations for all candidates and keep only the closest one.
+
+    Parameters
+    ----------
+    ids : list[str]
+        Candidate BSS codes discovered in the bbox.
+    nearest_to : tuple[float, float]
+        ``(lon, lat)`` target point.
+    """
+    from hydromodpy.data_managers.common.geo_helpers import haversine_km
+
+    target_lon, target_lat = nearest_to
+    best_id: str | None = None
+    best_dist = float("inf")
+
+    for bss_id in ids:
+        loc = _fetch_piezometer_location(bss_id)
+        if loc is None:
+            continue
+        dist = haversine_km(target_lon, target_lat, loc.x, loc.y)
+        if dist < best_dist:
+            best_dist = dist
+            best_id = bss_id
+
+    if best_id is None:
+        return []
+    print(f"  Hub'Eau piezo: nearest to ({target_lon:.4f}, {target_lat:.4f}) "
+          f"→ {best_id} ({best_dist:.1f} km)")
+    return [best_id]
 
 
 # ---------------------------------------------------------------------------
