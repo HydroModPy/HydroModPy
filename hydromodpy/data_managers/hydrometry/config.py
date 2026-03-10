@@ -20,51 +20,51 @@ class HydrometrySourceConfig(BaseModel):
 
     # --- Custom source fields ---
     path: Optional[Path] = Field(
-        None, description="Directory containing location file and chronicle CSVs."
+        default=None, description="Directory containing location file and chronicle CSVs."
     )
-    col_id: str = Field("id", description="Column name for station identifier in location file.")
-    col_x: str = Field("x", description="Column name for X coordinate in location CSV.")
-    col_y: str = Field("y", description="Column name for Y coordinate in location CSV.")
-    col_crs: str = Field("crs", description="Column name for CRS in location CSV.")
-    default_crs: str = Field("EPSG:4326", description="Default CRS when not specified in location file.")
-    col_datetime: str = Field("datetime", description="Column name for datetime in chronicle CSVs.")
-    col_value: str = Field("value", description="Column name for value in chronicle CSVs.")
-    source_unit: str = Field("m3/s", description="Unit of the source data.")
-    target_unit: str = Field("m3/s", description="Target unit after conversion.")
+    col_id: str = Field(default="id", description="Column name for station identifier in location file.")
+    col_x: str = Field(default="x", description="Column name for X coordinate in location CSV.")
+    col_y: str = Field(default="y", description="Column name for Y coordinate in location CSV.")
+    col_crs: str = Field(default="crs", description="Column name for CRS in location CSV.")
+    default_crs: str = Field(default="EPSG:4326", description="Default CRS when not specified in location file.")
+    col_datetime: str = Field(default="datetime", description="Column name for datetime in chronicle CSVs.")
+    col_value: str = Field(default="value", description="Column name for value in chronicle CSVs.")
+    source_unit: str = Field(default="m3/s", description="Unit of the source data.")
+    target_unit: str = Field(default="m3/s", description="Target unit after conversion.")
 
     # Fixed value (alternative to chronicle files)
     fixed_value: Optional[float] = Field(
-        None, description="Single constant value applied to all stations."
+        default=None, description="Single constant value applied to all stations."
     )
     fixed_values: Optional[dict[str, float]] = Field(
-        None, description="Per-station constant values: {station_id: value}."
+        default=None, description="Per-station constant values: {station_id: value}."
     )
 
     # --- Spatial mask ---
     mask_path: Optional[Path] = Field(
-        None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
+        default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
     )
 
     # --- API source fields ---
     product: Optional[str] = Field(
-        None,
+        default=None,
         description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
     )
     require_observations: bool = Field(
-        True, description="Only keep stations that have observations in the period."
+        default=True, description="Only keep stations that have observations in the period."
     )
     fallback_search_radius_km: Optional[float] = Field(
-        None, description="If no station found in bbox, expand search by this radius (km)."
+        default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
 
     # --- Common fields ---
     station_ids: Optional[list[str]] = Field(
-        None, description="Explicit list of station ids to load."
+        default=None, description="Explicit list of station ids to load."
     )
     extent: Optional[Literal["watershed", "study_area"]] = Field(
-        None, description="Spatial selection mode."
+        default=None, description="Spatial selection mode."
     )
-    force_refresh: bool = Field(False, description="Ignore cache and re-download.")
+    force_refresh: bool = Field(default=False, description="Ignore cache and re-download.")
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> "HydrometrySourceConfig":
@@ -89,10 +89,10 @@ class HydrometryConfig(BaseModel):
         ..., min_length=1, description="At least one data source."
     )
     date_start: Optional[str] = Field(
-        None, description="Project start date (ISO format, e.g. '2019-01-01')."
+        default=None, description="Project start date (ISO format, e.g. '2019-01-01')."
     )
     date_end: Optional[str] = Field(
-        None, description="Project end date (ISO format, e.g. '2025-12-31')."
+        default=None, description="Project end date (ISO format, e.g. '2025-12-31')."
     )
 
     @classmethod

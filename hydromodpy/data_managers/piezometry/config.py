@@ -20,46 +20,46 @@ class PiezometrySourceConfig(BaseModel):
 
     # --- Custom source fields ---
     path: Optional[Path] = Field(
-        None, description="Directory containing location file and chronicle CSVs."
+        default=None, description="Directory containing location file and chronicle CSVs."
     )
-    col_id: str = Field("id", description="Column name for piezometer identifier.")
-    col_x: str = Field("x", description="Column name for X coordinate in location CSV.")
-    col_y: str = Field("y", description="Column name for Y coordinate in location CSV.")
-    col_crs: str = Field("crs", description="Column name for CRS in location CSV.")
-    default_crs: str = Field("EPSG:4326", description="Default CRS.")
-    col_datetime: str = Field("datetime", description="Column name for datetime in chronicle CSVs.")
-    col_value: str = Field("value", description="Column name for value in chronicle CSVs.")
-    source_unit: str = Field("m", description="Unit of the source data.")
-    target_unit: str = Field("m", description="Target unit after conversion.")
+    col_id: str = Field(default="id", description="Column name for piezometer identifier.")
+    col_x: str = Field(default="x", description="Column name for X coordinate in location CSV.")
+    col_y: str = Field(default="y", description="Column name for Y coordinate in location CSV.")
+    col_crs: str = Field(default="crs", description="Column name for CRS in location CSV.")
+    default_crs: str = Field(default="EPSG:4326", description="Default CRS.")
+    col_datetime: str = Field(default="datetime", description="Column name for datetime in chronicle CSVs.")
+    col_value: str = Field(default="value", description="Column name for value in chronicle CSVs.")
+    source_unit: str = Field(default="m", description="Unit of the source data.")
+    target_unit: str = Field(default="m", description="Target unit after conversion.")
 
     # Fixed value
-    fixed_value: Optional[float] = Field(None, description="Single constant value.")
-    fixed_values: Optional[dict[str, float]] = Field(None, description="Per-station constants.")
+    fixed_value: Optional[float] = Field(default=None, description="Single constant value.")
+    fixed_values: Optional[dict[str, float]] = Field(default=None, description="Per-station constants.")
 
     # --- Spatial mask ---
     mask_path: Optional[Path] = Field(
-        None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
+        default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
     )
 
     # --- API source fields ---
     product: Optional[Literal["level", "depth"]] = Field(
-        None, description="Hub'Eau measurement type: 'level' or 'depth'."
+        default=None, description="Hub'Eau measurement type: 'level' or 'depth'."
     )
     require_observations: bool = Field(
-        True, description="Only keep stations that have observations in the period."
+        default=True, description="Only keep stations that have observations in the period."
     )
     fallback_search_radius_km: Optional[float] = Field(
-        None, description="If no station found in bbox, expand search by this radius (km)."
+        default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
 
     # --- Common fields ---
-    station_ids: Optional[list[str]] = Field(None, description="Explicit station ids.")
-    extent: Optional[Literal["watershed", "study_area"]] = Field(None)
+    station_ids: Optional[list[str]] = Field(default=None, description="Explicit station ids.")
+    extent: Optional[Literal["watershed", "study_area"]] = Field(default=None)
     nearest: bool = Field(
-        False,
+        default=False,
         description="Include the nearest piezometer even if outside the extent.",
     )
-    force_refresh: bool = Field(False)
+    force_refresh: bool = Field(default=False)
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> "PiezometrySourceConfig":
@@ -81,10 +81,10 @@ class PiezometryConfig(BaseModel):
         ..., min_length=1, description="At least one data source."
     )
     date_start: Optional[str] = Field(
-        None, description="Project start date (ISO format, e.g. '2019-01-01')."
+        default=None, description="Project start date (ISO format, e.g. '2019-01-01')."
     )
     date_end: Optional[str] = Field(
-        None, description="Project end date (ISO format, e.g. '2025-12-31')."
+        default=None, description="Project end date (ISO format, e.g. '2025-12-31')."
     )
 
     @classmethod
