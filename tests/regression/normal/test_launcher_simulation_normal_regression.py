@@ -138,7 +138,10 @@ def test_launcher_simulation_regression_on_npy_outputs(update_goldens, config_pa
         script_path=LAUNCHER_SIMULATION_SCRIPT,
         out_path=out_path,
         out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
+        extra_env={
+            "HYDROMODPY_NO_DISPLAY": "1",
+            "HYDROMODPY_NO_SAVE": "1",
+        },
         script_args=[str(config_path)],
         timeout=3600,
     )

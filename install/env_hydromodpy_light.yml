@@ -28,3 +28,5 @@ dependencies:
   - xarray
   - pysheds
   - pip
+  - pip:
+      - whitebox-workflows

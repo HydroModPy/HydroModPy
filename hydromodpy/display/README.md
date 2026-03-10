@@ -52,6 +52,9 @@ web_animation = false
 `HYDROMODPY_NO_DISPLAY=1` force `show = false` si
 `respect_env_no_display = true`, ce qui permet des executions CI/headless sans
 ouvrir de fenetres.
+`HYDROMODPY_NO_SAVE=1` force `save = false` si `respect_env_no_save = true`,
+empêchant les exports de figures lorsque les runs CI/headless doivent rester
+propres.
 
 ## Flux d'execution
 

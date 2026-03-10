@@ -224,8 +224,6 @@ class Modpath(Solver):
 
     def _resolve_seepage_clip_raster(self):
         """Build and return clipped seepage raster path for particle injection."""
-        import whitebox
-
         seepage_tif = os.path.join(
             self.full_path,
             '_postprocess',
@@ -234,15 +232,18 @@ class Modpath(Solver):
         )
         if not os.path.isfile(seepage_tif):
             raise FileNotFoundError(
-                "Cannot resolve zone_partic='seepage_clip': "
-                f"missing seepage raster at {seepage_tif}."
+                "zone_partic='seepage_clip' requested but missing seepage raster at "
+                f"{seepage_tif}."
             )
 
         watershed_shp = self._get_watershed_shp()
         if watershed_shp is None:
-            raise ValueError(
-                "Cannot resolve zone_partic='seepage_clip': watershed polygon is not available."
+            logger.warning(
+                "zone_partic='seepage_clip' requested but watershed polygon is unavailable; "
+                "using raw seepage raster %s.",
+                seepage_tif,
             )
+            return seepage_tif
 
         seepage_clip_tif = os.path.join(
             self.full_path,
@@ -250,14 +251,25 @@ class Modpath(Solver):
             '_rasters',
             'seepage_areas_t(0)_clip.tif',
         )
-        wbt = whitebox.WhiteboxTools()
-        wbt.verbose = False
-        wbt.clip_raster_to_polygon(
-            str(seepage_tif),
-            str(watershed_shp),
-            str(seepage_clip_tif),
-            maintain_dimensions=True,
-        )
+        try:
+            import whitebox
+
+            wbt = whitebox.WhiteboxTools()
+            wbt.verbose = False
+            wbt.clip_raster_to_polygon(
+                str(seepage_tif),
+                str(watershed_shp),
+                str(seepage_clip_tif),
+                maintain_dimensions=True,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to build clipped seepage raster for zone_partic='seepage_clip'; "
+                "using raw seepage raster %s instead. Error: %s",
+                seepage_tif,
+                exc,
+            )
+            return seepage_tif
         return seepage_clip_tif
 
     def _resolve_zone_partic(self, zone_partic_val):

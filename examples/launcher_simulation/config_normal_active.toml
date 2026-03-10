@@ -112,7 +112,7 @@ flux = [-200.0, -1000.0, -100.0]
 units = "m3/day"
 
 [flow.sinks_sources.wells.W2]
-cell = [0, 64, 64]
+cell = [0, 20, 20]
 flux = [0.0, -1000.0, 0.0]
 units = "m3/day"
 
@@ -144,10 +144,14 @@ react_order = 1
 rate_decay = 0.00136986301369863
 
 [modflownwt.sgrid.planar]
-mode = "surface_native"
+mode = "shape"
+nx = 60
+ny = 60
 resampling = "bilinear"
 
 [modflownwt.sgrid.vertical]
+lenuni = "m"
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2
+nodata = -9999.0
