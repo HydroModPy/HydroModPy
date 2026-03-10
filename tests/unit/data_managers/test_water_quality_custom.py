@@ -37,6 +37,7 @@ class TestWaterQualityCustomConstant:
         cfg = WaterQualitySourceConfig(
             source="custom",
             fixed_values={"S1": 7.0, "S2": 6.5},
+            source_unit="mg/L",
         )
         records = load_custom(cfg, project_period=project_period)
         assert len(records) == 2

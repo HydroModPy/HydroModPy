@@ -29,8 +29,10 @@ class PiezometrySourceConfig(BaseModel):
     default_crs: str = Field(default="EPSG:4326", description="Default CRS.")
     col_datetime: str = Field(default="datetime", description="Column name for datetime in chronicle CSVs.")
     col_value: str = Field(default="value", description="Column name for value in chronicle CSVs.")
-    source_unit: str = Field(default="m", description="Unit of the source data.")
-    target_unit: str = Field(default="m", description="Target unit after conversion.")
+    source_unit: Optional[str] = Field(
+        default=None,
+        description="Unit of the source data (fallback if not specified per-station in LOC file).",
+    )
 
     # Fixed value
     fixed_value: Optional[float] = Field(default=None, description="Single constant value.")

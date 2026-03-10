@@ -10,11 +10,15 @@ from hydromodpy.data_managers.hydrometry.config import HydrometryConfig, Hydrome
 class HydrometryManager(BaseVariableManager):
 
     VARIABLE_NAME = "hydrometry"
+    INTERNAL_UNIT = "m3/s"
 
     def _fetch_from_source(self, source_cfg: HydrometrySourceConfig) -> list[PointRecord]:
         if source_cfg.source == "custom":
             from hydromodpy.data_managers.hydrometry.custom import load_custom
-            records = load_custom(source_cfg, project_period=self.project_period)
+            records = load_custom(
+                source_cfg, project_period=self.project_period,
+                internal_unit=self.INTERNAL_UNIT,
+            )
             return self._apply_mask(records, source_cfg)
         elif source_cfg.source == "hubeau":
             from hydromodpy.data_managers.hydrometry.apis.hubeau import fetch

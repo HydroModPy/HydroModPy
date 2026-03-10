@@ -18,8 +18,7 @@ VARIABLES = [
     ("water_quality", "waterquality_custom", "mg/L", "qualite des eaux"),
 ]
 
-LOC_HEADER = "id,x,y,crs\n"
-LOC_EXAMPLE = "# STATION_01,-1.68,48.12,EPSG:4326\n"
+LOC_HEADER = "id,x,y,crs,unit\n"
 
 CHRONICLE_HEADER = "datetime,value\n"
 CHRONICLE_EXAMPLE = "# 2020-01-01,0.0\n"
@@ -56,8 +55,6 @@ BV_CONFIG_TEMPLATE = """\
 [[hydrometry.sources]]
 source = "custom"
 path = "{data_path}/hydrometry"
-source_unit = "m3/s"
-target_unit = "m3/s"
 
 # Filtrer certaines stations (optionnel)
 # station_ids = ["ST001", "ST002"]
@@ -80,8 +77,6 @@ target_unit = "m3/s"
 [[piezometry.sources]]
 source = "custom"
 path = "{data_path}/piezometry"
-source_unit = "m"
-target_unit = "m"
 
 # [[piezometry.sources]]
 # source = "hubeau"
@@ -97,8 +92,6 @@ target_unit = "m"
 [[water_quality.sources]]
 source = "custom"
 path = "{data_path}/water_quality"
-source_unit = "mg/L"
-target_unit = "mg/L"
 
 # [[water_quality.sources]]
 # source = "hubeau"
@@ -147,7 +140,7 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
                 f"# Localisation des stations - {label}\n"
                 f"# Remplir une ligne par station\n"
                 + LOC_HEADER
-                + LOC_EXAMPLE
+                + f"# STATION_01,-1.68,48.12,EPSG:4326,{unit}\n"
             )
 
         example_path = var_dir / f"{prefix}_EXAMPLE_20200101_20201231_D.csv"

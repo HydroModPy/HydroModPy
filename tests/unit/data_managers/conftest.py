@@ -27,6 +27,7 @@ def sample_hydro_dir(tmp_path):
         "x": [-1.5, -1.6],
         "y": [48.1, 48.2],
         "crs": ["EPSG:4326", "EPSG:4326"],
+        "unit": ["m3/s", "m3/s"],
     }).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
 
     dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
@@ -50,6 +51,7 @@ def sample_piezo_dir(tmp_path):
         "x": [-1.5, -1.6],
         "y": [48.1, 48.2],
         "crs": ["EPSG:4326", "EPSG:4326"],
+        "unit": ["m", "m"],
     }).to_csv(d / "piezometry_custom_LOC.csv", index=False)
 
     dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
@@ -73,6 +75,7 @@ def sample_wq_dir(tmp_path):
         "x": [2.35, 2.40],
         "y": [48.85, 48.90],
         "crs": ["EPSG:4326", "EPSG:4326"],
+        "unit": ["mg/L", "mg/L"],
     }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
 
     dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")

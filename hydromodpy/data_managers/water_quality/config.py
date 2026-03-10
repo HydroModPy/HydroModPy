@@ -40,8 +40,10 @@ class WaterQualitySourceConfig(BaseModel):
     default_crs: str = Field(default="EPSG:4326", description="Default CRS when not in location file.")
     col_datetime: str = Field(default="datetime", description="Column name for datetime in chronicles.")
     col_value: str = Field(default="value", description="Column name for value in chronicles.")
-    source_unit: str = Field(default="mg/L", description="Unit of the source data.")
-    target_unit: str = Field(default="mg/L", description="Target unit after conversion.")
+    source_unit: Optional[str] = Field(
+        default=None,
+        description="Unit of the source data (fallback if not specified per-station in LOC file).",
+    )
 
     # Fixed value (alternative to chronicle files)
     fixed_value: Optional[float] = Field(default=None, description="Single constant value.")

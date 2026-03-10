@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -43,7 +44,27 @@ class BaseVariableManager(ABC):
                 results.extend(records)
             else:
                 results.append(records)
+        self._warn_stations_outside_extent(results)
         return results
+
+    def _warn_stations_outside_extent(self, records: list[PointRecord]) -> None:
+        """Warn if any loaded stations fall outside project_extent."""
+        if self.project_extent is None:
+            return
+        xmin, ymin, xmax, ymax = self.project_extent
+        outside = []
+        for r in records:
+            if r.location is None:
+                continue
+            x, y = r.location.x, r.location.y
+            if not (xmin <= x <= xmax and ymin <= y <= ymax):
+                outside.append(r.station_id)
+        if outside:
+            warnings.warn(
+                f"{self.VARIABLE_NAME}: {len(outside)} station(s) outside "
+                f"project_extent {self.project_extent}: {outside}",
+                stacklevel=2,
+            )
 
     @abstractmethod
     def _fetch_from_source(self, source_cfg: Any) -> Any:

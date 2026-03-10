@@ -10,11 +10,15 @@ from hydromodpy.data_managers.piezometry.config import PiezometryConfig, Piezome
 class PiezometryManager(BaseVariableManager):
 
     VARIABLE_NAME = "piezometry"
+    INTERNAL_UNIT = "m"
 
     def _fetch_from_source(self, source_cfg: PiezometrySourceConfig) -> list[PointRecord]:
         if source_cfg.source == "custom":
             from hydromodpy.data_managers.piezometry.custom import load_custom
-            records = load_custom(source_cfg, project_period=self.project_period)
+            records = load_custom(
+                source_cfg, project_period=self.project_period,
+                internal_unit=self.INTERNAL_UNIT,
+            )
             return self._apply_mask(records, source_cfg)
         elif source_cfg.source == "hubeau":
             from hydromodpy.data_managers.piezometry.apis.hubeau import fetch

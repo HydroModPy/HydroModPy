@@ -10,11 +10,15 @@ from hydromodpy.data_managers.water_quality.config import WaterQualityConfig, Wa
 class WaterQualityManager(BaseVariableManager):
 
     VARIABLE_NAME = "water_quality"
+    INTERNAL_UNIT = "mg/L"
 
     def _fetch_from_source(self, source_cfg: WaterQualitySourceConfig) -> list[PointRecord]:
         if source_cfg.source == "custom":
             from hydromodpy.data_managers.water_quality.custom import load_custom
-            records = load_custom(source_cfg, project_period=self.project_period)
+            records = load_custom(
+                source_cfg, project_period=self.project_period,
+                internal_unit=self.INTERNAL_UNIT,
+            )
             return self._apply_mask(records, source_cfg)
         elif source_cfg.source == "hubeau":
             from hydromodpy.data_managers.water_quality.apis.hubeau import fetch

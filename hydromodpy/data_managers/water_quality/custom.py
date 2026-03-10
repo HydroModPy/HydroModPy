@@ -2,6 +2,11 @@
 
 Same conventions as hydrometry/piezometry: location file + chronicle CSVs.
 Single-row CSVs are expanded as constants over the project period.
+
+Unit resolution per station:
+  1. ``unit`` column in LOC file (per-station metadata)
+  2. ``source_unit`` field in TOML config (applies to all stations)
+  3. Error if neither is specified
 """
 
 from __future__ import annotations
@@ -15,19 +20,38 @@ from hydromodpy.data_managers.common.io_helpers import (
     parse_chronicle_filename, read_locations, read_timeseries_csv, safe_file_token,
 )
 from hydromodpy.data_managers.common.unit_helpers import get_conversion_factor
+from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 from hydromodpy.data_managers.water_quality.config import WaterQualitySourceConfig
+
+
+def _resolve_station_unit(
+    loc: StationLocation, config: WaterQualitySourceConfig,
+) -> str:
+    """Return the source unit for *loc*, or raise if unspecified."""
+    unit = loc.metadata.get("unit")
+    if unit is not None and str(unit).strip():
+        return str(unit).strip()
+    if config.source_unit is not None:
+        return config.source_unit
+    raise ValueError(
+        f"No unit for site {loc.id!r}. "
+        f"Add a 'unit' column in the LOC file or set 'source_unit' in the TOML."
+    )
 
 
 def load_custom(
     config: WaterQualitySourceConfig,
     *,
     project_period: tuple[datetime, datetime] | None = None,
+    internal_unit: str = "mg/L",
 ) -> list[PointRecord]:
     """Load water quality records from user files or fixed values."""
 
     if config.fixed_value is not None or config.fixed_values is not None:
-        return _load_fixed_values(config, project_period=project_period)
+        return _load_fixed_values(
+            config, project_period=project_period, internal_unit=internal_unit,
+        )
 
     data_dir = Path(config.path)
     if not data_dir.is_dir():
@@ -45,7 +69,6 @@ def load_custom(
 
     print(f"  Custom: {len(locations)} water quality sites from {loc_file.name}")
 
-    factor = get_conversion_factor(config.source_unit, config.target_unit)
     records: list[PointRecord] = []
 
     for loc in locations:
@@ -60,6 +83,8 @@ def load_custom(
         if df.empty:
             continue
 
+        source_unit = _resolve_station_unit(loc, config)
+        factor = get_conversion_factor(source_unit, internal_unit)
         if factor != 1.0:
             df["value"] = df["value"] * factor
 
@@ -73,7 +98,7 @@ def load_custom(
         records.append(
             PointRecord(
                 station_id=loc.id, variable="water_quality", source="custom",
-                unit=config.target_unit, frequency=freq, data=df,
+                unit=internal_unit, frequency=freq, data=df,
                 date_start=df["datetime"].min().to_pydatetime(),
                 date_end=df["datetime"].max().to_pydatetime(),
                 location=loc, is_constant=is_constant,
@@ -88,9 +113,14 @@ def _load_fixed_values(
     config: WaterQualitySourceConfig,
     *,
     project_period: tuple[datetime, datetime] | None,
+    internal_unit: str,
 ) -> list[PointRecord]:
     if project_period is None:
         raise ValueError("project_period required to expand fixed values.")
+    if config.source_unit is None:
+        raise ValueError(
+            "source_unit required for fixed values (no LOC file to read unit from)."
+        )
 
     entries: dict[str, float] = {}
     if config.fixed_values:
@@ -100,14 +130,14 @@ def _load_fixed_values(
             raise ValueError("fixed_value requires station_ids.")
         entries = {sid: config.fixed_value for sid in config.station_ids}
 
-    factor = get_conversion_factor(config.source_unit, config.target_unit)
+    factor = get_conversion_factor(config.source_unit, internal_unit)
     records: list[PointRecord] = []
     for station_id, val in entries.items():
         df = _expand_constant(val * factor, project_period)
         records.append(
             PointRecord(
                 station_id=station_id, variable="water_quality", source="custom",
-                unit=config.target_unit, frequency="D", data=df,
+                unit=internal_unit, frequency="D", data=df,
                 date_start=project_period[0], date_end=project_period[1],
                 is_constant=True,
             )

@@ -23,9 +23,9 @@
 #       waterquality_custom_SITE01_20150101_20231231_D.csv
 #
 # Format du fichier LOC.csv (colonnes par defaut) :
-#   id,x,y,crs
-#   ST001,-1.68,48.12,EPSG:4326
-#   ST002,-1.75,48.05,EPSG:4326
+#   id,x,y,crs,unit
+#   ST001,-1.68,48.12,EPSG:4326,m3/s
+#   ST002,-1.75,48.05,EPSG:4326,L/s
 #
 # Format des chroniques CSV :
 #   datetime,value
@@ -52,9 +52,8 @@ path = "data/hydro"
 # col_value = "value"        # defaut
 # default_crs = "EPSG:4326"  # defaut
 
-# Conversion d'unites (optionnel)
-source_unit = "m3/s"
-target_unit = "m3/s"
+# Unite source (optionnel si colonne "unit" dans le LOC)
+# source_unit = "m3/s"
 
 # Filtrer certaines stations (optionnel, sinon toutes les stations du LOC)
 # station_ids = ["ST001", "ST002"]
@@ -69,8 +68,7 @@ target_unit = "m3/s"
 [[piezometry.sources]]
 source = "custom"
 path = "data/piezo"
-source_unit = "m"
-target_unit = "m"
+# source_unit = "m"  # optionnel si colonne "unit" dans le LOC
 
 # Exemple avec des noms de colonnes non standards
 # col_id = "code_bss"
@@ -101,5 +99,4 @@ target_unit = "m"
 [[water_quality.sources]]
 source = "custom"
 path = "data/wq"
-source_unit = "mg/L"
-target_unit = "mg/L"
+# source_unit = "mg/L"  # optionnel si colonne "unit" dans le LOC

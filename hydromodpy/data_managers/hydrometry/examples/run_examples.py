@@ -27,13 +27,14 @@ def example_custom_csv():
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
 
-        # Create location file
+        # Create location file (unit column required)
         loc_df = pd.DataFrame({
             "id": ["ST001", "ST002"],
             "x": [-1.5, -1.6],
             "y": [48.1, 48.2],
             "crs": ["EPSG:4326", "EPSG:4326"],
             "name": ["Station Amont", "Station Aval"],
+            "unit": ["m3/s", "m3/s"],
         })
         loc_df.to_csv(data_dir / "hydrometry_custom_LOC.csv", index=False)
 
@@ -52,8 +53,6 @@ def example_custom_csv():
             HydrometrySourceConfig(
                 source="custom",
                 path=data_dir,
-                source_unit="m3/s",
-                target_unit="m3/s",
             )
         ])
         catalog = DataCatalog()  # in-memory
@@ -84,7 +83,6 @@ def example_custom_constant():
             source="custom",
             fixed_values={"ST_A": 1.5, "ST_B": 3.0},
             source_unit="L/s",
-            target_unit="m3/s",
         )
     ])
     catalog = DataCatalog()
@@ -126,7 +124,7 @@ def example_custom_csv_one_line():
         }).to_csv(data_dir / "hydrometry_custom_CONST01_20200101_20201231_D.csv", index=False)
 
         cfg = HydrometryConfig(sources=[
-            HydrometrySourceConfig(source="custom", path=data_dir)
+            HydrometrySourceConfig(source="custom", path=data_dir, source_unit="m3/s")
         ])
         catalog = DataCatalog()
         mgr = HydrometryManager(
@@ -156,6 +154,7 @@ def example_custom_unit_conversion():
             "x": [-1.5],
             "y": [48.1],
             "crs": ["EPSG:4326"],
+            "unit": ["L/s"],
         }).to_csv(data_dir / "hydrometry_custom_LOC.csv", index=False)
 
         # Value in L/s
@@ -169,8 +168,6 @@ def example_custom_unit_conversion():
             HydrometrySourceConfig(
                 source="custom",
                 path=data_dir,
-                source_unit="L/s",
-                target_unit="m3/s",
             )
         ])
         catalog = DataCatalog()

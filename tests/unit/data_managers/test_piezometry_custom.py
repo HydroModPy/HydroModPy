@@ -37,6 +37,7 @@ class TestPiezometryCustomConstant:
         cfg = PiezometrySourceConfig(
             source="custom",
             fixed_values={"PZ1": 10.0},
+            source_unit="m",
             product=None,
         )
         records = load_custom(cfg, project_period=project_period)
