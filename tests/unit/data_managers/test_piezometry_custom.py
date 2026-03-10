@@ -33,13 +33,19 @@ class TestPiezometryCustomCSV:
 
 
 class TestPiezometryCustomConstant:
-    def test_fixed_values(self, project_period):
-        cfg = PiezometrySourceConfig(
-            source="custom",
-            fixed_values={"PZ1": 10.0},
-            source_unit="m",
-            product=None,
+    def test_single_line_csv(self, tmp_path, project_period):
+        d = tmp_path / "const_piezo"
+        d.mkdir()
+
+        pd.DataFrame({
+            "id": ["PZ1"], "x": [0], "y": [0], "crs": ["EPSG:4326"], "unit": ["m"],
+        }).to_csv(d / "piezometry_custom_LOC.csv", index=False)
+
+        pd.DataFrame({"datetime": ["2020-01-01"], "value": [10.0]}).to_csv(
+            d / "piezometry_custom_PZ1_20200101_20200331_D.csv", index=False
         )
+
+        cfg = PiezometrySourceConfig(source="custom", path=d, product=None)
         records = load_custom(cfg, project_period=project_period)
         assert len(records) == 1
         assert records[0].is_constant

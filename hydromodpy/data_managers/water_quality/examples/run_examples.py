@@ -20,12 +20,13 @@ def example_custom_csv():
     with tempfile.TemporaryDirectory() as tmpdir:
         d = Path(tmpdir)
 
-        # Location file
+        # Location file (unit column required)
         pd.DataFrame({
             "id": ["SITE01", "SITE02"],
             "x": [2.35, 2.40],
             "y": [48.85, 48.90],
             "crs": ["EPSG:4326", "EPSG:4326"],
+            "unit": ["mg/L", "mg/L"],
         }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
 
         # Chronicle files
@@ -46,20 +47,29 @@ def example_custom_csv():
 
 
 def example_custom_constant():
-    """Load water quality from fixed values in config."""
+    """Load water quality with a single-line CSV (constant value)."""
     from hydromodpy.data_managers.water_quality.config import WaterQualitySourceConfig
     from hydromodpy.data_managers.water_quality.custom import load_custom
 
-    cfg = WaterQualitySourceConfig(
-        source="custom",
-        fixed_values={"SITE01": 7.0, "SITE02": 6.5},
-    )
-    period = (datetime(2020, 1, 1), datetime(2020, 12, 31))
-    records = load_custom(cfg, project_period=period)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        d = Path(tmpdir)
 
-    print(f"\n--- Constant: {len(records)} records ---")
-    for r in records:
-        print(f"  {r.station_id}: constant={r.is_constant}, rows={len(r.data)}")
+        pd.DataFrame({
+            "id": ["SITE01"], "x": [2.35], "y": [48.85],
+            "crs": ["EPSG:4326"], "unit": ["mg/L"],
+        }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
+
+        pd.DataFrame({"datetime": ["2020-01-01"], "value": [7.0]}).to_csv(
+            d / "waterquality_custom_SITE01_20200101_20201231_D.csv", index=False
+        )
+
+        cfg = WaterQualitySourceConfig(source="custom", path=d)
+        period = (datetime(2020, 1, 1), datetime(2020, 12, 31))
+        records = load_custom(cfg, project_period=period)
+
+        print(f"\n--- Constant: {len(records)} records ---")
+        for r in records:
+            print(f"  {r.station_id}: constant={r.is_constant}, rows={len(r.data)}")
 
 
 def example_hubeau_river_api():

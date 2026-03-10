@@ -1,13 +1,11 @@
-"""Custom data loader for hydrometry (user-provided CSV/SHP files).
+"""Custom data loader for hydrometry (user-provided CSV files).
 
 Expects a location file (hydrometry_custom_LOC.*) and chronicle CSVs
 per station following the naming convention. Single-row CSVs are
 treated as constant values expanded over the project period.
 
-Unit resolution per station:
-  1. ``unit`` column in LOC file (per-station metadata)
-  2. ``source_unit`` field in TOML config (applies to all stations)
-  3. Error if neither is specified
+Unit resolution: each station **must** have a ``unit`` column in the
+LOC file.  Error if missing.
 """
 
 from __future__ import annotations
@@ -26,18 +24,14 @@ from hydromodpy.data_managers.contracts.timeseries import PointRecord
 from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig
 
 
-def _resolve_station_unit(
-    loc: StationLocation, config: HydrometrySourceConfig,
-) -> str:
-    """Return the source unit for *loc*, or raise if unspecified."""
+def _resolve_station_unit(loc: StationLocation) -> str:
+    """Return the source unit from LOC metadata, or raise."""
     unit = loc.metadata.get("unit")
     if unit is not None and str(unit).strip():
         return str(unit).strip()
-    if config.source_unit is not None:
-        return config.source_unit
     raise ValueError(
         f"No unit for station {loc.id!r}. "
-        f"Add a 'unit' column in the LOC file or set 'source_unit' in the TOML."
+        f"Add a 'unit' column in the LOC file."
     )
 
 
@@ -47,12 +41,7 @@ def load_custom(
     project_period: tuple[datetime, datetime] | None = None,
     internal_unit: str = "m3/s",
 ) -> list[PointRecord]:
-    """Load hydrometry records from user files or fixed values."""
-
-    if config.fixed_value is not None or config.fixed_values is not None:
-        return _load_fixed_values(
-            config, project_period=project_period, internal_unit=internal_unit,
-        )
+    """Load hydrometry records from user CSV files."""
 
     data_dir = Path(config.path)
     if not data_dir.is_dir():
@@ -84,7 +73,7 @@ def load_custom(
         if df.empty:
             continue
 
-        source_unit = _resolve_station_unit(loc, config)
+        source_unit = _resolve_station_unit(loc)
         factor = get_conversion_factor(source_unit, internal_unit)
         if factor != 1.0:
             df["value"] = df["value"] * factor
@@ -107,42 +96,6 @@ def load_custom(
         )
 
     print(f"  Custom: loaded {len(records)} station records")
-    return records
-
-
-def _load_fixed_values(
-    config: HydrometrySourceConfig,
-    *,
-    project_period: tuple[datetime, datetime] | None,
-    internal_unit: str,
-) -> list[PointRecord]:
-    if project_period is None:
-        raise ValueError("project_period required to expand fixed values.")
-    if config.source_unit is None:
-        raise ValueError(
-            "source_unit required for fixed values (no LOC file to read unit from)."
-        )
-
-    entries: dict[str, float] = {}
-    if config.fixed_values:
-        entries = dict(config.fixed_values)
-    elif config.fixed_value is not None:
-        if not config.station_ids:
-            raise ValueError("fixed_value requires station_ids.")
-        entries = {sid: config.fixed_value for sid in config.station_ids}
-
-    factor = get_conversion_factor(config.source_unit, internal_unit)
-    records: list[PointRecord] = []
-    for station_id, val in entries.items():
-        df = _expand_constant(val * factor, project_period)
-        records.append(
-            PointRecord(
-                station_id=station_id, variable="discharge", source="custom",
-                unit=internal_unit, frequency="D", data=df,
-                date_start=project_period[0], date_end=project_period[1],
-                is_constant=True,
-            )
-        )
     return records
 
 

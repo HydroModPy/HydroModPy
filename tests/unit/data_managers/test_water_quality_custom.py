@@ -33,13 +33,21 @@ class TestWaterQualityCustomCSV:
 
 
 class TestWaterQualityCustomConstant:
-    def test_fixed_values(self, project_period):
-        cfg = WaterQualitySourceConfig(
-            source="custom",
-            fixed_values={"S1": 7.0, "S2": 6.5},
-            source_unit="mg/L",
+    def test_single_line_csv(self, tmp_path, project_period):
+        d = tmp_path / "const_wq"
+        d.mkdir()
+
+        pd.DataFrame({
+            "id": ["S1"], "x": [2.35], "y": [48.85],
+            "crs": ["EPSG:4326"], "unit": ["mg/L"],
+        }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
+
+        pd.DataFrame({"datetime": ["2020-01-01"], "value": [7.0]}).to_csv(
+            d / "waterquality_custom_S1_20200101_20200331_D.csv", index=False
         )
+
+        cfg = WaterQualitySourceConfig(source="custom", path=d)
         records = load_custom(cfg, project_period=project_period)
-        assert len(records) == 2
+        assert len(records) == 1
         assert records[0].is_constant
         assert records[0].data["value"].iloc[0] == pytest.approx(7.0)

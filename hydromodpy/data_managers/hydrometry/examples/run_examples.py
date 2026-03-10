@@ -71,34 +71,6 @@ def example_custom_csv():
                 print(f"      Location: ({r.location.x}, {r.location.y}) {r.location.crs}")
 
 
-def example_custom_constant():
-    """Load hydrometry with a single constant value per station."""
-    print("\n=== Example: Custom Constant Value ===")
-    from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
-    from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
-    from hydromodpy.data_managers.registry.catalog import DataCatalog
-
-    cfg = HydrometryConfig(sources=[
-        HydrometrySourceConfig(
-            source="custom",
-            fixed_values={"ST_A": 1.5, "ST_B": 3.0},
-            source_unit="L/s",
-        )
-    ])
-    catalog = DataCatalog()
-    mgr = HydrometryManager(
-        config=cfg,
-        catalog=catalog,
-        project_period=(datetime(2020, 1, 1), datetime(2020, 3, 31)),
-    )
-    records = mgr.load()
-
-    print(f"  Loaded {len(records)} records")
-    for r in records:
-        print(f"    {r.station_id}: {r.n_records} points, value={r.data['value'].iloc[0]:.6f} {r.unit}, "
-              f"is_constant={r.is_constant}")
-
-
 def example_custom_csv_one_line():
     """Load hydrometry with a single-line CSV (constant value in file)."""
     print("\n=== Example: Custom CSV Single Line (Constant) ===")
@@ -109,12 +81,13 @@ def example_custom_csv_one_line():
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir)
 
-        # Location
+        # Location (unit column required)
         pd.DataFrame({
             "id": ["CONST01"],
             "x": [-1.5],
             "y": [48.1],
             "crs": ["EPSG:4326"],
+            "unit": ["m3/s"],
         }).to_csv(data_dir / "hydrometry_custom_LOC.csv", index=False)
 
         # Single-line chronicle → treated as constant
@@ -124,7 +97,7 @@ def example_custom_csv_one_line():
         }).to_csv(data_dir / "hydrometry_custom_CONST01_20200101_20201231_D.csv", index=False)
 
         cfg = HydrometryConfig(sources=[
-            HydrometrySourceConfig(source="custom", path=data_dir, source_unit="m3/s")
+            HydrometrySourceConfig(source="custom", path=data_dir)
         ])
         catalog = DataCatalog()
         mgr = HydrometryManager(
@@ -221,7 +194,6 @@ def example_hubeau_api():
 
 if __name__ == "__main__":
     example_custom_csv()
-    example_custom_constant()
     example_custom_csv_one_line()
     example_custom_unit_conversion()
     example_hubeau_api()

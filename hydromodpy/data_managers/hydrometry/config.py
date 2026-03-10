@@ -29,18 +29,6 @@ class HydrometrySourceConfig(BaseModel):
     default_crs: str = Field(default="EPSG:4326", description="Default CRS when not specified in location file.")
     col_datetime: str = Field(default="datetime", description="Column name for datetime in chronicle CSVs.")
     col_value: str = Field(default="value", description="Column name for value in chronicle CSVs.")
-    source_unit: Optional[str] = Field(
-        default=None,
-        description="Unit of the source data (fallback if not specified per-station in LOC file).",
-    )
-
-    # Fixed value (alternative to chronicle files)
-    fixed_value: Optional[float] = Field(
-        default=None, description="Single constant value applied to all stations."
-    )
-    fixed_values: Optional[dict[str, float]] = Field(
-        default=None, description="Per-station constant values: {station_id: value}."
-    )
 
     # --- Spatial mask ---
     mask_path: Optional[Path] = Field(
@@ -71,10 +59,9 @@ class HydrometrySourceConfig(BaseModel):
     @model_validator(mode="after")
     def _check_source_requirements(self) -> "HydrometrySourceConfig":
         if self.source == "custom":
-            if self.path is None and self.fixed_value is None and self.fixed_values is None:
+            if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles) "
-                    "or 'fixed_value'/'fixed_values'."
+                    "Custom source requires 'path' (directory with location + chronicles)."
                 )
         if self.source == "hubeau":
             if self.product is None:

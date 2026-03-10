@@ -40,14 +40,6 @@ class WaterQualitySourceConfig(BaseModel):
     default_crs: str = Field(default="EPSG:4326", description="Default CRS when not in location file.")
     col_datetime: str = Field(default="datetime", description="Column name for datetime in chronicles.")
     col_value: str = Field(default="value", description="Column name for value in chronicles.")
-    source_unit: Optional[str] = Field(
-        default=None,
-        description="Unit of the source data (fallback if not specified per-station in LOC file).",
-    )
-
-    # Fixed value (alternative to chronicle files)
-    fixed_value: Optional[float] = Field(default=None, description="Single constant value.")
-    fixed_values: Optional[dict[str, float]] = Field(default=None, description="Per-station constants.")
 
     # --- Spatial mask ---
     mask_path: Optional[Path] = Field(
@@ -62,10 +54,9 @@ class WaterQualitySourceConfig(BaseModel):
     @model_validator(mode="after")
     def _check_source_requirements(self) -> "WaterQualitySourceConfig":
         if self.source == "custom":
-            if self.path is None and self.fixed_value is None and self.fixed_values is None:
+            if self.path is None:
                 raise ValueError(
-                    "Custom source requires 'path' (directory with location + chronicles) "
-                    "or 'fixed_value'/'fixed_values'."
+                    "Custom source requires 'path' (directory with location + chronicles)."
                 )
         return self
 

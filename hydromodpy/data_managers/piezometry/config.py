@@ -29,14 +29,6 @@ class PiezometrySourceConfig(BaseModel):
     default_crs: str = Field(default="EPSG:4326", description="Default CRS.")
     col_datetime: str = Field(default="datetime", description="Column name for datetime in chronicle CSVs.")
     col_value: str = Field(default="value", description="Column name for value in chronicle CSVs.")
-    source_unit: Optional[str] = Field(
-        default=None,
-        description="Unit of the source data (fallback if not specified per-station in LOC file).",
-    )
-
-    # Fixed value
-    fixed_value: Optional[float] = Field(default=None, description="Single constant value.")
-    fixed_values: Optional[dict[str, float]] = Field(default=None, description="Per-station constants.")
 
     # --- Spatial mask ---
     mask_path: Optional[Path] = Field(
@@ -66,8 +58,10 @@ class PiezometrySourceConfig(BaseModel):
     @model_validator(mode="after")
     def _check_source_requirements(self) -> "PiezometrySourceConfig":
         if self.source == "custom":
-            if self.path is None and self.fixed_value is None and self.fixed_values is None:
-                raise ValueError("Custom source requires 'path' or fixed value(s).")
+            if self.path is None:
+                raise ValueError(
+                    "Custom source requires 'path' (directory with location + chronicles)."
+                )
         if self.source == "hubeau":
             if self.product is None:
                 raise ValueError("Hub'Eau source requires 'product' ('level' or 'depth').")
