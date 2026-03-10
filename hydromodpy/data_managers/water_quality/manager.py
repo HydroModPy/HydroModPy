@@ -31,11 +31,15 @@ class WaterQualityManager(BaseVariableManager):
         if self.project_period is None:
             raise ValueError("project_period required for Hub'Eau.")
 
+        nearest_to = self._resolve_nearest_to(source_cfg) if source_cfg.nearest else None
+
         def _fetch_for(sids, start, end):
             return fetch(
                 site_type=source_cfg.site_type, bbox=self._resolve_bbox(source_cfg),
                 station_ids=sids, date_start=start, date_end=end,
                 parameters=source_cfg.parameters,
+                nearest_to=nearest_to,
+                fallback_search_radius_km=source_cfg.fallback_search_radius_km,
             )
 
         # Try cache for explicitly requested station_ids
@@ -89,6 +93,16 @@ class WaterQualityManager(BaseVariableManager):
         )
         self._persist_api_records(records, "hubeau")
         return self._apply_mask(records, source_cfg)
+
+    def _resolve_nearest_to(self, source_cfg) -> tuple[float, float] | None:
+        """Compute centroid of the project extent for nearest-station search."""
+        bbox = self._resolve_bbox(source_cfg)
+        if bbox is None and self.project_extent is not None:
+            bbox = self.project_extent
+        if bbox is None:
+            return None
+        xmin, ymin, xmax, ymax = bbox
+        return ((xmin + xmax) / 2, (ymin + ymax) / 2)
 
     def _resolve_bbox(self, source_cfg) -> tuple | None:
         if source_cfg.mask_path:
