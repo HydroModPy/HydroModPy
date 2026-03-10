@@ -31,19 +31,20 @@ BV_CONFIG_TEMPLATE = """\
 # Bassin versant : {bv_name}
 #
 # Les donnees custom sont dans le dossier partage ../data/
-# Les telechargements API sont caches dans ../cache/
+# Les telechargements API sont aussi sauves dans ../data/<variable>/
+# Le registre de metadonnees est dans ../catalog.db
 #
 # Utilisation :
 #
-#   from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
 #   from hydromodpy.data_managers.store import DataStore
+#   from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
 #
-#   cfg = HydrometryConfig.from_toml("data_managers.toml")
 #   store = DataStore(
-#       data_dir="{root_path}/cache",
+#       workspace_root="{root_path}",
 #       project_period=(datetime(2015, 1, 1), datetime(2023, 12, 31)),
 #       project_extent=(-1.9, 47.8, -1.3, 48.4),  # bbox du bassin
 #   )
+#   cfg = HydrometryConfig.from_toml("data_managers.toml")
 #   records = store.load_hydrometry(cfg)
 #
 # ===========================================================================
@@ -106,6 +107,7 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
 
     Structure:
         hydromodpy/
+            catalog.db                          <- registre central (SQLite)
             data/
                 hydrometry/
                     hydrometry_custom_LOC.csv
@@ -116,7 +118,6 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
                 water_quality/
                     waterquality_custom_LOC.csv
                     waterquality_custom_EXAMPLE_20200101_20201231_D.csv
-            cache/
             bv_example/
                 data_managers.toml
 
@@ -124,9 +125,6 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
     """
     root = Path(root_dir).resolve() if root_dir else DEFAULT_ROOT
     root.mkdir(parents=True, exist_ok=True)
-
-    # cache/
-    (root / "cache").mkdir(exist_ok=True)
 
     # data/ with variable subdirectories
     data_dir = root / "data"
