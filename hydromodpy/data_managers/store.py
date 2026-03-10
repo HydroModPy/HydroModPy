@@ -141,6 +141,10 @@ class DataStore:
 
         return pd.DataFrame(rows)
 
+    def cleanup(self) -> int:
+        """Remove catalog entries whose files no longer exist on disk."""
+        return self.catalog.cleanup()
+
     def clear_cache(
         self,
         *,
