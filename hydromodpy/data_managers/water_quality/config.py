@@ -6,7 +6,11 @@ import sys
 from pathlib import Path
 from typing import Literal, Optional
 
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from hydromodpy.config.param_level import ParamLevel
 
 
 class WaterQualitySourceConfig(BaseModel):
@@ -33,13 +37,13 @@ class WaterQualitySourceConfig(BaseModel):
     path: Optional[Path] = Field(
         default=None, description="Directory containing location file and chronicle CSVs."
     )
-    col_id: str = Field(default="id", description="Column name for station identifier in location file.")
-    col_x: str = Field(default="x", description="Column name for X coordinate in location CSV.")
-    col_y: str = Field(default="y", description="Column name for Y coordinate in location CSV.")
-    col_crs: str = Field(default="crs", description="Column name for CRS in location CSV.")
-    default_crs: str = Field(default="EPSG:4326", description="Default CRS when not in location file.")
-    col_datetime: str = Field(default="datetime", description="Column name for datetime in chronicles.")
-    col_value: str = Field(default="value", description="Column name for value in chronicles.")
+    col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
+    col_x: Annotated[str, ParamLevel("dev")] = Field(default="x", description="Column name for X coordinate in location CSV.")
+    col_y: Annotated[str, ParamLevel("dev")] = Field(default="y", description="Column name for Y coordinate in location CSV.")
+    col_crs: Annotated[str, ParamLevel("dev")] = Field(default="crs", description="Column name for CRS in location CSV.")
+    default_crs: Annotated[str, ParamLevel("dev")] = Field(default="EPSG:4326", description="Default CRS when not in location file.")
+    col_datetime: Annotated[str, ParamLevel("dev")] = Field(default="datetime", description="Column name for datetime in chronicles.")
+    col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicles.")
 
     # --- Spatial mask ---
     mask_path: Optional[Path] = Field(
@@ -47,9 +51,6 @@ class WaterQualitySourceConfig(BaseModel):
     )
 
     # --- API fallback / nearest ---
-    require_observations: bool = Field(
-        default=True, description="Only keep stations that have observations in the period."
-    )
     fallback_search_radius_km: Optional[float] = Field(
         default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
@@ -60,8 +61,14 @@ class WaterQualitySourceConfig(BaseModel):
 
     # --- Common fields ---
     station_ids: Optional[list[str]] = Field(default=None, description="Explicit station ids.")
-    extent: Optional[Literal["watershed", "study_area"]] = Field(default=None)
-    force_refresh: bool = Field(default=False, description="Ignore cache and re-download.")
+    extent: Optional[Literal["watershed", "study_area"]] = Field(
+        default=None,
+        description="Enable bbox-based station discovery using the project extent.",
+    )
+    force_refresh: bool = Field(
+        default=False,
+        description="Ignore cache and re-download from API.",
+    )
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> "WaterQualitySourceConfig":

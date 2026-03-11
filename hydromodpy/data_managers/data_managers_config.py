@@ -30,6 +30,7 @@ SUPPORTED_DATA_MANAGER_TYPES = (
     "intermittency",
     "oceanic",
     "piezometry",
+    "water_quality",
 )
 
 
@@ -169,9 +170,9 @@ class DataManagersConfig(BaseModel):
         default=None,
         description="Reserved configuration mapping for hydrography data-manager.",
     )
-    hydrometry: Annotated[dict[str, Any] | None, ParamLevel("dev")] = Field(
+    hydrometry: Annotated["HydrometryConfig | None", ParamLevel("user")] = Field(
         default=None,
-        description="Reserved configuration mapping for hydrometry data-manager.",
+        description="Hydrometry configuration (discharge time-series).",
     )
     intermittency: Annotated[dict[str, Any] | None, ParamLevel("dev")] = Field(
         default=None,
@@ -183,9 +184,13 @@ class DataManagersConfig(BaseModel):
             "Oceanic configuration used when 'oceanic' is listed in data.types."
         ),
     )
-    piezometry: Annotated[dict[str, Any] | None, ParamLevel("dev")] = Field(
+    piezometry: Annotated["PiezometryConfig | None", ParamLevel("user")] = Field(
         default=None,
-        description="Reserved configuration mapping for piezometry data-manager.",
+        description="Piezometry configuration (groundwater level time-series).",
+    )
+    water_quality: Annotated["WaterQualityConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Water quality configuration (physico-chemical parameters).",
     )
 
     @field_validator("types", mode="before")
@@ -237,19 +242,20 @@ class DataManagersConfig(BaseModel):
     def _validate_declared_sections(self) -> "DataManagersConfig":
         # Post-validation coherence:
         # - active geology always has a typed config object (default if omitted),
-        # - active oceanic uses its dedicated typed schema when provided,
-        # - remaining active families must be mappings until typed schemas exist.
+        # - typed configs (oceanic, hydrometry, piezometry, water_quality) are
+        #   accepted as BaseModel instances,
+        # - remaining untyped families must be mappings.
         for type_name in self.types:
             if type_name == "geology":
                 if self.geology is None:
                     self.geology = GeologyConfig()
                 continue
-            if type_name == "oceanic":
-                if self.oceanic is not None and not isinstance(self.oceanic, OceanicConfig):
-                    raise ValueError("data.oceanic must follow OceanicConfig schema")
+            section_value = getattr(self, type_name, None)
+            if section_value is None:
                 continue
-            section_value = getattr(self, type_name)
-            if section_value is not None and not isinstance(section_value, dict):
+            if isinstance(section_value, BaseModel):
+                continue
+            if not isinstance(section_value, dict):
                 raise ValueError(f"data.{type_name} must be a mapping when provided")
         return self
 
@@ -299,37 +305,74 @@ class DataManagersConfig(BaseModel):
         normalized_types = cls._normalize_types(cls._validate_types_list(raw_types))
         payload["types"] = normalized_types
 
+        # Typed config models for data families that have dedicated schemas.
+        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.piezometry.config import PiezometryConfig
+        from hydromodpy.data_managers.water_quality.config import WaterQualityConfig
+
+        _TYPED_SECTIONS: dict[str, type[BaseModel]] = {
+            "geology": GeologyConfig,
+            "oceanic": OceanicConfig,
+            "hydrometry": HydrometryConfig,
+            "piezometry": PiezometryConfig,
+            "water_quality": WaterQualityConfig,
+        }
+
         # Validate/normalize only active families to keep config permissive for
         # inactive optional sections.
         for type_name in normalized_types:
-            if type_name == "geology":
-                geology_payload = payload.get("geology")
-                if geology_payload is None:
-                    payload["geology"] = GeologyConfig()
-                    continue
-                if not isinstance(geology_payload, Mapping):
-                    raise ValueError("TOML section 'data.geology' must be a mapping")
-                geology_dict = dict(geology_payload)
-                _resolve_section_paths(geology_dict, GeologyConfig, base_dir)
-                payload["geology"] = GeologyConfig(**geology_dict)
-                continue
-            if type_name == "oceanic":
-                oceanic_payload = payload.get("oceanic")
-                if oceanic_payload is None:
-                    continue
-                if not isinstance(oceanic_payload, Mapping):
-                    raise ValueError("TOML section 'data.oceanic' must be a mapping")
-                payload["oceanic"] = OceanicConfig.model_validate(dict(oceanic_payload))
+            section_payload = payload.get(type_name)
+
+            if type_name == "geology" and section_payload is None:
+                payload["geology"] = GeologyConfig()
                 continue
 
-            section_value = payload.get(type_name)
-            if section_value is None:
+            if section_payload is None:
                 continue
-            if not isinstance(section_value, Mapping):
+            if not isinstance(section_payload, Mapping):
                 raise ValueError(f"TOML section 'data.{type_name}' must be a mapping")
-            payload[type_name] = dict(section_value)
+
+            section_dict = dict(section_payload)
+            model_cls = _TYPED_SECTIONS.get(type_name)
+
+            if model_cls is not None:
+                _resolve_section_paths(section_dict, model_cls, base_dir)
+                payload[type_name] = model_cls.model_validate(section_dict)
+            else:
+                payload[type_name] = section_dict
+
+        # Also validate typed sections that are present even if not in types
+        # (e.g. user provides [data.hydrometry] without adding "hydrometry" to types).
+        for type_name, model_cls in _TYPED_SECTIONS.items():
+            if type_name in normalized_types:
+                continue
+            section_payload = payload.get(type_name)
+            if section_payload is None or isinstance(section_payload, BaseModel):
+                continue
+            if isinstance(section_payload, Mapping):
+                section_dict = dict(section_payload)
+                _resolve_section_paths(section_dict, model_cls, base_dir)
+                payload[type_name] = model_cls.model_validate(section_dict)
 
         return cls.model_validate(payload)
+
+
+def _rebuild_forward_refs() -> None:
+    """Resolve forward references for typed data-manager config fields."""
+    from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+    from hydromodpy.data_managers.piezometry.config import PiezometryConfig
+    from hydromodpy.data_managers.water_quality.config import WaterQualityConfig
+
+    DataManagersConfig.model_rebuild(
+        _types_namespace={
+            "HydrometryConfig": HydrometryConfig,
+            "PiezometryConfig": PiezometryConfig,
+            "WaterQualityConfig": WaterQualityConfig,
+        }
+    )
+
+
+_rebuild_forward_refs()
 
 
 def _is_path_field(annotation) -> bool:

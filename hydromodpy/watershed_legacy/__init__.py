@@ -10,9 +10,7 @@ from hydromodpy.data_managers.climatic.driaseau import Driaseau
 from hydromodpy.watershed_legacy.geology_config import GeologyConfig
 from hydromodpy.watershed_legacy.hydraulic import Hydraulic
 from hydromodpy.data_managers.hydrography import Hydrography
-from hydromodpy.data_managers.hydrometry.hydrometry import Hydrometry
 from hydromodpy.data_managers.intermittency import Intermittency
-from hydromodpy.data_managers.piezometry.piezometry import Piezometry
 from hydromodpy.data_managers.climatic.safransurfex import SafranSurfex
 
-__all__ = ['Driasclimat', 'Driaseau', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Hydrometry', 'Intermittency', 'Piezometry', 'SafranSurfex']
+__all__ = ['Driasclimat', 'Driaseau', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Intermittency', 'SafranSurfex']
