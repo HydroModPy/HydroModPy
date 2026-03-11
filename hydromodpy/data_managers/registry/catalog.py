@@ -259,6 +259,55 @@ class DataCatalog:
         return count
 
 
+    def subsume_entries(
+        self,
+        *,
+        variable: str,
+        source: str,
+        bbox: tuple,
+        date_start: str | None,
+        date_end: str | None,
+        exclude_id: int | None = None,
+    ) -> int:
+        """Delete grid entries fully contained within the given bbox+dates.
+
+        Used after registering a new (larger) grid to remove smaller grids
+        that are now redundant.  Deletes both catalog entries and files on disk.
+        Returns the number of removed entries.
+        """
+        with self._SessionFactory() as session:
+            q = session.query(CatalogEntry).filter(
+                CatalogEntry.variable == variable,
+                CatalogEntry.source == source,
+                CatalogEntry.station_id.is_(None),  # grid data only
+            )
+            if exclude_id is not None:
+                q = q.filter(CatalogEntry.id != exclude_id)
+            # Spatial subset: existing bbox fully inside new bbox
+            if bbox is not None:
+                q = q.filter(
+                    CatalogEntry.bbox_xmin >= bbox[0],
+                    CatalogEntry.bbox_ymin >= bbox[1],
+                    CatalogEntry.bbox_xmax <= bbox[2],
+                    CatalogEntry.bbox_ymax <= bbox[3],
+                )
+            # Temporal subset: existing dates fully inside new dates
+            if date_start is not None:
+                q = q.filter(CatalogEntry.date_start >= date_start)
+            if date_end is not None:
+                q = q.filter(CatalogEntry.date_end <= date_end)
+
+            entries = q.all()
+            count = 0
+            for entry in entries:
+                p = Path(entry.file_path)
+                if p.exists():
+                    p.unlink()
+                session.delete(entry)
+                count += 1
+            session.commit()
+        return count
+
     def cleanup(self) -> int:
         """Remove catalog entries whose files no longer exist on disk.
 

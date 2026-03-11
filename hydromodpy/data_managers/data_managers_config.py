@@ -24,13 +24,22 @@ from hydromodpy.watershed_legacy.geology_config import GeologyConfig
 
 
 SUPPORTED_DATA_MANAGER_TYPES = (
+    "etp",
     "geology",
+    "humidity",
     "hydrography",
     "hydrometry",
     "intermittency",
     "oceanic",
     "piezometry",
+    "precipitation",
+    "radiation",
+    "recharge",
+    "runoff",
+    "soil_moisture",
+    "temperature",
     "water_quality",
+    "wind",
 )
 
 
@@ -148,8 +157,7 @@ class DataManagersConfig(BaseModel):
             "The launcher may append inferred types deduced from other sections "
             "(for example domain.zone_ids, flow.active_bc). "
             "Allowed values: "
-            "'geology', 'hydrography', 'hydrometry', 'intermittency', "
-            "'oceanic', 'piezometry'."
+            + ", ".join(f"'{t}'" for t in SUPPORTED_DATA_MANAGER_TYPES) + "."
         ),
     )
     inference_mode: Annotated[Literal["warn", "strict"], ParamLevel("dev")] = Field(
@@ -191,6 +199,42 @@ class DataManagersConfig(BaseModel):
     water_quality: Annotated["WaterQualityConfig | None", ParamLevel("user")] = Field(
         default=None,
         description="Water quality configuration (physico-chemical parameters).",
+    )
+    recharge: Annotated["RechargeConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Recharge configuration (drainage / soil infiltration time series).",
+    )
+    runoff: Annotated["RunoffConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Runoff configuration (surface runoff time series).",
+    )
+    precipitation: Annotated["PrecipitationConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Precipitation configuration (liquid and solid precipitation).",
+    )
+    etp: Annotated["EtpConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="ETP configuration (potential evapotranspiration).",
+    )
+    temperature: Annotated["TemperatureConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Temperature configuration (air temperature time series).",
+    )
+    wind: Annotated["WindConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Wind configuration (wind speed time series).",
+    )
+    humidity: Annotated["HumidityConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Humidity configuration (relative humidity time series).",
+    )
+    radiation: Annotated["RadiationConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Radiation configuration (atmospheric and visible radiation).",
+    )
+    soil_moisture: Annotated["SoilMoistureConfig | None", ParamLevel("user")] = Field(
+        default=None,
+        description="Soil moisture configuration (soil moisture index).",
     )
 
     @field_validator("types", mode="before")
@@ -309,6 +353,15 @@ class DataManagersConfig(BaseModel):
         from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
         from hydromodpy.data_managers.piezometry.config import PiezometryConfig
         from hydromodpy.data_managers.water_quality.config import WaterQualityConfig
+        from hydromodpy.data_managers.recharge.config import RechargeConfig
+        from hydromodpy.data_managers.runoff.config import RunoffConfig
+        from hydromodpy.data_managers.precipitation.config import PrecipitationConfig
+        from hydromodpy.data_managers.etp.config import EtpConfig
+        from hydromodpy.data_managers.temperature.config import TemperatureConfig
+        from hydromodpy.data_managers.wind.config import WindConfig
+        from hydromodpy.data_managers.humidity.config import HumidityConfig
+        from hydromodpy.data_managers.radiation.config import RadiationConfig
+        from hydromodpy.data_managers.soil_moisture.config import SoilMoistureConfig
 
         _TYPED_SECTIONS: dict[str, type[BaseModel]] = {
             "geology": GeologyConfig,
@@ -316,6 +369,15 @@ class DataManagersConfig(BaseModel):
             "hydrometry": HydrometryConfig,
             "piezometry": PiezometryConfig,
             "water_quality": WaterQualityConfig,
+            "recharge": RechargeConfig,
+            "runoff": RunoffConfig,
+            "precipitation": PrecipitationConfig,
+            "etp": EtpConfig,
+            "temperature": TemperatureConfig,
+            "wind": WindConfig,
+            "humidity": HumidityConfig,
+            "radiation": RadiationConfig,
+            "soil_moisture": SoilMoistureConfig,
         }
 
         # Validate/normalize only active families to keep config permissive for
@@ -362,12 +424,30 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
     from hydromodpy.data_managers.piezometry.config import PiezometryConfig
     from hydromodpy.data_managers.water_quality.config import WaterQualityConfig
+    from hydromodpy.data_managers.recharge.config import RechargeConfig
+    from hydromodpy.data_managers.runoff.config import RunoffConfig
+    from hydromodpy.data_managers.precipitation.config import PrecipitationConfig
+    from hydromodpy.data_managers.etp.config import EtpConfig
+    from hydromodpy.data_managers.temperature.config import TemperatureConfig
+    from hydromodpy.data_managers.wind.config import WindConfig
+    from hydromodpy.data_managers.humidity.config import HumidityConfig
+    from hydromodpy.data_managers.radiation.config import RadiationConfig
+    from hydromodpy.data_managers.soil_moisture.config import SoilMoistureConfig
 
     DataManagersConfig.model_rebuild(
         _types_namespace={
             "HydrometryConfig": HydrometryConfig,
             "PiezometryConfig": PiezometryConfig,
             "WaterQualityConfig": WaterQualityConfig,
+            "RechargeConfig": RechargeConfig,
+            "RunoffConfig": RunoffConfig,
+            "PrecipitationConfig": PrecipitationConfig,
+            "EtpConfig": EtpConfig,
+            "TemperatureConfig": TemperatureConfig,
+            "WindConfig": WindConfig,
+            "HumidityConfig": HumidityConfig,
+            "RadiationConfig": RadiationConfig,
+            "SoilMoistureConfig": SoilMoistureConfig,
         }
     )
 
