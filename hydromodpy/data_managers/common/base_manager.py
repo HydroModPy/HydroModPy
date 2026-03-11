@@ -12,6 +12,7 @@ import pandas as pd
 
 from hydromodpy.data_managers.common.io_helpers import safe_file_token
 from hydromodpy.data_managers.common.validation import compute_completeness
+from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
@@ -47,8 +48,11 @@ class BaseVariableManager(ABC):
         self.project_period = project_period
         self.data_dir = Path(data_dir) if data_dir else None
 
-    def load(self) -> list[PointRecord]:
-        """Load data from all configured sources. Returns list of records."""
+    def load(self) -> LoadResult:
+        """Load data from all configured sources.
+
+        Returns a LoadResult (points only for station-based variables).
+        """
         results: list[PointRecord] = []
         for source_cfg in self.config.sources:
             records = self._fetch_from_source(source_cfg)
@@ -58,7 +62,7 @@ class BaseVariableManager(ABC):
                 results.append(records)
         self._warn_stations_outside_extent(results)
         self._register_records(results)
-        return results
+        return LoadResult(points=results)
 
     def _warn_stations_outside_extent(self, records: list[PointRecord]) -> None:
         """Warn if any loaded stations fall outside project_extent."""
@@ -391,8 +395,11 @@ class BaseVariableManager(ABC):
     # Reporting and export
     # ------------------------------------------------------------------
 
-    def get_completeness_report(self, records: list[PointRecord]) -> pd.DataFrame:
+    def get_completeness_report(self, records: LoadResult | list[PointRecord]) -> pd.DataFrame:
         """Compute per-station completeness stats."""
+        if isinstance(records, LoadResult):
+            records = records.points
+
         start = self.project_period[0] if self.project_period else None
         end = self.project_period[1] if self.project_period else None
 
@@ -412,10 +419,12 @@ class BaseVariableManager(ABC):
 
     def export(
         self,
-        records: list[PointRecord],
+        records: LoadResult | list[PointRecord],
         output_dir: str | Path,
     ) -> dict[str, Path]:
         """Export records to CSV (chronicles + metadata + table of contents)."""
+        if isinstance(records, LoadResult):
+            records = records.points
         from hydromodpy.data_managers.common.export import export_records
         return export_records(
             records, output_dir,

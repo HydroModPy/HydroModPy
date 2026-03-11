@@ -1,4 +1,4 @@
-"""Custom data loader for soil moisture (user-provided CSV files)."""
+"""Custom data loader for soil moisture (CSV directory, NetCDF, or GeoTIFF)."""
 
 from __future__ import annotations
 
@@ -15,6 +15,8 @@ from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 from hydromodpy.data_managers.soil_moisture.config import SoilMoistureSourceConfig
 
+VARIABLE_NAME = "soil_moisture"
+
 
 def _resolve_station_unit(loc: StationLocation) -> str:
     unit = loc.metadata.get("unit")
@@ -24,6 +26,26 @@ def _resolve_station_unit(loc: StationLocation) -> str:
 
 
 def load_custom(
+    config: SoilMoistureSourceConfig,
+    *,
+    project_period: tuple[datetime, datetime] | None = None,
+    internal_unit: str = "%",
+) -> list:
+    """Load custom data: CSV directory, NetCDF, or GeoTIFF."""
+    path = Path(config.path)
+    if path.is_dir():
+        return _load_csv(config, project_period=project_period, internal_unit=internal_unit)
+    elif path.suffix == ".nc":
+        from hydromodpy.data_managers.common.custom_grid_loader import load_custom_nc
+        return load_custom_nc(path, variable=VARIABLE_NAME, unit=internal_unit, project_period=project_period)
+    elif path.suffix in (".tif", ".tiff"):
+        from hydromodpy.data_managers.common.custom_grid_loader import load_custom_tif
+        return load_custom_tif(path, variable=VARIABLE_NAME, unit=internal_unit)
+    else:
+        raise ValueError(f"Unsupported custom format: {path.suffix}. Use a directory (CSV), .nc, or .tif.")
+
+
+def _load_csv(
     config: SoilMoistureSourceConfig,
     *,
     project_period: tuple[datetime, datetime] | None = None,

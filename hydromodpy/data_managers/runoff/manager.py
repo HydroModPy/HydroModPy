@@ -20,7 +20,7 @@ class RunoffManager(BaseFieldManager):
                 project_period=self.project_period,
                 internal_unit=self.INTERNAL_UNIT,
             )
-            return self._apply_mask(records, source_cfg)
+            return self._handle_custom_results(records, source_cfg)
         elif source_cfg.source == "sim2":
             from hydromodpy.data_managers.runoff.apis.sim2 import fetch
             return self._load_or_fetch_fields(source_cfg, "sim2", fetch)

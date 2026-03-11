@@ -1,4 +1,4 @@
-"""Custom data loader for runoff (user-provided CSV files)."""
+"""Custom data loader for runoff (CSV directory, NetCDF, or GeoTIFF)."""
 
 from __future__ import annotations
 
@@ -15,6 +15,8 @@ from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 from hydromodpy.data_managers.runoff.config import RunoffSourceConfig
 
+VARIABLE_NAME = "runoff"
+
 
 def _resolve_station_unit(loc: StationLocation) -> str:
     unit = loc.metadata.get("unit")
@@ -24,6 +26,26 @@ def _resolve_station_unit(loc: StationLocation) -> str:
 
 
 def load_custom(
+    config: RunoffSourceConfig,
+    *,
+    project_period: tuple[datetime, datetime] | None = None,
+    internal_unit: str = "mm/day",
+) -> list:
+    """Load custom data: CSV directory, NetCDF, or GeoTIFF."""
+    path = Path(config.path)
+    if path.is_dir():
+        return _load_csv(config, project_period=project_period, internal_unit=internal_unit)
+    elif path.suffix == ".nc":
+        from hydromodpy.data_managers.common.custom_grid_loader import load_custom_nc
+        return load_custom_nc(path, variable=VARIABLE_NAME, unit=internal_unit, project_period=project_period)
+    elif path.suffix in (".tif", ".tiff"):
+        from hydromodpy.data_managers.common.custom_grid_loader import load_custom_tif
+        return load_custom_tif(path, variable=VARIABLE_NAME, unit=internal_unit)
+    else:
+        raise ValueError(f"Unsupported custom format: {path.suffix}. Use a directory (CSV), .nc, or .tif.")
+
+
+def _load_csv(
     config: RunoffSourceConfig,
     *,
     project_period: tuple[datetime, datetime] | None = None,
@@ -74,7 +96,7 @@ def load_custom(
 
         records.append(
             PointRecord(
-                station_id=loc.id, variable="runoff", source="custom",
+                station_id=loc.id, variable=VARIABLE_NAME, source="custom",
                 unit=internal_unit, frequency=freq, data=df,
                 date_start=df["datetime"].min().to_pydatetime(),
                 date_end=df["datetime"].max().to_pydatetime(),

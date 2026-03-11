@@ -128,6 +128,9 @@ class DataCatalog:
                 q = q.filter(CatalogEntry.station_id == station_id)
             else:
                 q = q.filter(CatalogEntry.station_id.is_(None))
+                # For grid data (no station_id), also match on file_path
+                # so that two different files don't overwrite each other.
+                q = q.filter(CatalogEntry.file_path == str(file_path))
 
             entry = q.first()
 
@@ -280,6 +283,7 @@ class DataCatalog:
                 CatalogEntry.variable == variable,
                 CatalogEntry.source == source,
                 CatalogEntry.station_id.is_(None),  # grid data only
+                CatalogEntry.is_custom == 0,  # never subsume user data
             )
             if exclude_id is not None:
                 q = q.filter(CatalogEntry.id != exclude_id)

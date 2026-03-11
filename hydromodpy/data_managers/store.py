@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 from hydromodpy.data_managers.registry.catalog import DataCatalog
 
@@ -84,7 +85,7 @@ class DataStore:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def load_hydrometry(self, config) -> list[PointRecord]:
+    def load_hydrometry(self, config) -> LoadResult:
         from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
         mgr = HydrometryManager(
             config=config, catalog=self.catalog,
@@ -94,7 +95,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_piezometry(self, config) -> list[PointRecord]:
+    def load_piezometry(self, config) -> LoadResult:
         from hydromodpy.data_managers.piezometry.manager import PiezometryManager
         mgr = PiezometryManager(
             config=config, catalog=self.catalog,
@@ -104,7 +105,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_water_quality(self, config) -> list[PointRecord]:
+    def load_water_quality(self, config) -> LoadResult:
         from hydromodpy.data_managers.water_quality.manager import WaterQualityManager
         mgr = WaterQualityManager(
             config=config, catalog=self.catalog,
@@ -114,7 +115,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_recharge(self, config) -> list:
+    def load_recharge(self, config) -> LoadResult:
         from hydromodpy.data_managers.recharge.manager import RechargeManager
         mgr = RechargeManager(
             config=config, catalog=self.catalog,
@@ -124,7 +125,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_runoff(self, config) -> list:
+    def load_runoff(self, config) -> LoadResult:
         from hydromodpy.data_managers.runoff.manager import RunoffManager
         mgr = RunoffManager(
             config=config, catalog=self.catalog,
@@ -134,7 +135,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_precipitation(self, config) -> list:
+    def load_precipitation(self, config) -> LoadResult:
         from hydromodpy.data_managers.precipitation.manager import PrecipitationManager
         mgr = PrecipitationManager(
             config=config, catalog=self.catalog,
@@ -144,7 +145,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_etp(self, config) -> list:
+    def load_etp(self, config) -> LoadResult:
         from hydromodpy.data_managers.etp.manager import EtpManager
         mgr = EtpManager(
             config=config, catalog=self.catalog,
@@ -154,7 +155,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_temperature(self, config) -> list:
+    def load_temperature(self, config) -> LoadResult:
         from hydromodpy.data_managers.temperature.manager import TemperatureManager
         mgr = TemperatureManager(
             config=config, catalog=self.catalog,
@@ -164,7 +165,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_wind(self, config) -> list:
+    def load_wind(self, config) -> LoadResult:
         from hydromodpy.data_managers.wind.manager import WindManager
         mgr = WindManager(
             config=config, catalog=self.catalog,
@@ -174,7 +175,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_humidity(self, config) -> list:
+    def load_humidity(self, config) -> LoadResult:
         from hydromodpy.data_managers.humidity.manager import HumidityManager
         mgr = HumidityManager(
             config=config, catalog=self.catalog,
@@ -184,7 +185,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_radiation(self, config) -> list:
+    def load_radiation(self, config) -> LoadResult:
         from hydromodpy.data_managers.radiation.manager import RadiationManager
         mgr = RadiationManager(
             config=config, catalog=self.catalog,
@@ -194,7 +195,7 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_soil_moisture(self, config) -> list:
+    def load_soil_moisture(self, config) -> LoadResult:
         from hydromodpy.data_managers.soil_moisture.manager import SoilMoistureManager
         mgr = SoilMoistureManager(
             config=config, catalog=self.catalog,
@@ -209,10 +210,13 @@ class DataStore:
         return self.catalog.list_entries(variable=variable)
 
     def get_completeness_report(
-        self, records: list[PointRecord],
+        self, records: LoadResult | list[PointRecord],
     ) -> pd.DataFrame:
-        """Compute per-station completeness stats for a list of records."""
+        """Compute per-station completeness stats for point records."""
         from hydromodpy.data_managers.common.validation import compute_completeness
+
+        if isinstance(records, LoadResult):
+            records = records.points
 
         start = self.project_period[0] if self.project_period else None
         end = self.project_period[1] if self.project_period else None
