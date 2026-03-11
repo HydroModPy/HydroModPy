@@ -34,3 +34,5 @@ dependencies:
 - pyside6
 - pysheds
 - pip
+- pip:
+  - whitebox-workflows

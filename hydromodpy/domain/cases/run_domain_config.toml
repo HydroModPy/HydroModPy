@@ -1,35 +1,111 @@
 # ----------------------------------------------------------------------
-# Domain-only case extracted from examples/example12/config.toml
+# Domain-only case extracted from examples_legacy/example12/config.toml
 # ----------------------------------------------------------------------
 
 [workspace]
+# Name of the watershed/catchment (used as folder name).
 catch_name = "example12_domain_case"
+
+# Root output directory where all results will be stored.
 out_dir_path = "../../../examples/results"
-data_path = "../../../examples/example12/data"
+
+# Path to the input data folder (observations, climate, GIS layers, etc.).
+data_path = "../../../examples_legacy/example12/data"
 
 [geographic]
+# Catchment definition mode.
+# 'dem' = model domain defined directly from a DEM raster (dem_init_path required).
+# 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
+# 'from_outlet_coord' = watershed from outlet coordinates
+# (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required).
+# 'from_polyg_shp' = watershed from a polygon shapefile
+# (dem_init_path, polyg_shp_path, buff_area required).
 catch_def = "from_outlet_coord"
-dem_init_path = "../../../data/Brittany/dem/regional dem.tif"
-x_outlet = 265611.933
-y_outlet = 6784182.776
+
+# Path to the DEM raster used as input.
+# For 'dem' and 'txt' modes: defines the model domain directly.
+# For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
+# Previous local DEM (too small for nancon):
+# dem_init_path = "../../../data/Brittany/dem/regional dem.tif"
+# Previous wide DEM:
+# dem_init_path = "../../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
+dem_init_path = "../../../data/domain_case_reduced/nancon_4x/regional_dem_4x.tif"
+
+# Base/example12 outlet kept for reference:
+# x_outlet = 265611.933
+# y_outlet = 6784182.776
+
+# X coordinate of the watershed outlet in the projected CRS.
+# Required for 'from_outlet_coord' mode.
+x_outlet = 389285.910
+
+# Y coordinate of the watershed outlet in the projected CRS.
+# Required for 'from_outlet_coord' mode.
+y_outlet = 6816518.749
+
+# Maximum snapping distance (m) to move the outlet to the nearest stream cell.
+# Required for 'from_outlet_coord' mode.
 snap_dist = 50
+
+# Buffer around the watershed polygon as a percentage of sqrt(area [km2]).
+# Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 buff_area = 20.0
+
+# Target projected CRS for all outputs (e.g. 'EPSG:2154').
+# If not set, derived from the input DEM.
 crs_project = "EPSG:2154"
+
+# DEM depression correction method.
+# 'breach' (recommended) preserves natural flow paths.
+# 'fill' raises sinks to their pour point.
 dem_correc_type = "breach"
 
 [domain]
+# Ordered list of zone identifiers loaded in the domain.
+# Supported values currently include: 'geology'.
 zone_ids = ["geology"]
 
 [domain.depth_model]
-type = "constant_thickness"
-thickness = 50.0
+# Vertical domain model configuration.
+# Use 'constant_thickness' or 'flat_substratum'.
+
+# Depth-model type selector.
+# Use 'flat_substratum' to define one constant bottom elevation.
+type = "flat_substratum"
+
+# Flat substratum elevation (m) applied over the full domain.
+substratum_elevation = 0.0
+
+# Alternative depth model:
+# type = "constant_thickness"
+# thickness = 50.0
+# Constant aquifer thickness (m) applied below topography.
 
 [data]
+# Ordered list of data-manager types explicitly requested in [data].
+# The launcher may append inferred types deduced from other sections
+# (for example domain.zone_ids, flow.active_bc).
+# Allowed values: 'geology', 'hydrography', 'hydrometry',
+# 'intermittency', 'oceanic', 'piezometry'.
 types = ["geology"]
 
 [data.geology]
+# Identifier of the geology spatial field.
 id = "field_geology"
-geo_path = "../../../data/France/geology"
-types_obs = "GEO1M.shp"
+
+# Path to the geology data directory.
+# Previous full geology dataset:
+# geo_path = "../../../data/France/geology"
+geo_path = "../../../data/domain_case_reduced/nancon_4x/geology"
+
+# Geology shapefile name inside `geo_path`.
+# Previous full shapefile:
+# types_obs = "GEO1M.shp"
+types_obs = "GEO1M_4x.shp"
+
+# Attribute field used to encode geology classes.
 fields_obs = "CODE_LEG"
+
+# Sub-sampling density passed to geology_field.on_mesh(...).
+# Higher values improve interface resolution but increase runtime.
 cell_samples_per_axis = 8

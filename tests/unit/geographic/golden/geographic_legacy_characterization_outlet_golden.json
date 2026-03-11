@@ -1,0 +1,27 @@
+{
+  "catch_area_km2": 0.25,
+  "crs_proj": "EPSG:2154",
+  "dep_code": 35,
+  "shape_box_buff": [
+    10,
+    10
+  ],
+  "shape_buff": [
+    10,
+    10
+  ],
+  "shape_core": [
+    10,
+    10
+  ],
+  "dx": 100.0,
+  "dy": 100.0,
+  "xmin": 0.0,
+  "xmax": 1000.0,
+  "ymin": 0.0,
+  "ymax": 1000.0,
+  "mean_box_buff": 67.5,
+  "mean_core": 72.0,
+  "top_left_box_buff": -9999.0,
+  "center_core": -9999.0
+}

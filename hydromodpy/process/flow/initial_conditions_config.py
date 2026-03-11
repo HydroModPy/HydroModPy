@@ -12,11 +12,11 @@ structure `FlowInitialConditions`.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from numbers import Real
 from hydromodpy.process.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
 )
+from hydromodpy.units import parse_scalar_and_unit
 
 
 def normalize_flow_initial_conditions(
@@ -33,6 +33,7 @@ def normalize_flow_initial_conditions(
     - `FlowInitialConditions` -> passthrough
     - `FlowInitialCondition` -> wrapped as `{"h": ...}`
     - flat mapping with keys `type`, `value`, `unit|units`, `description`
+      where `value` can be numeric or a string like `"12.5 m"`
     """
     if value is None:
         return None
@@ -84,19 +85,28 @@ def _normalize_single_ic_payload(
             f"{location_prefix}.type must be one of: 'top', 'bottom', 'custom'"
         )
 
+    explicit_units = _extract_explicit_units(payload_dict)
     if ic_type == "custom":
         if "value" not in payload_dict:
             raise ValueError(f"{location_prefix}.value is required when type='custom'")
-        raw_value = payload_dict["value"]
-        if isinstance(raw_value, bool) or not isinstance(raw_value, Real):
-            raise TypeError(f"{location_prefix}.value must be a numeric value")
-        payload_dict["value"] = float(raw_value)
+        scalar_value, resolved_units = parse_scalar_and_unit(
+            payload_dict["value"],
+            location=f"{location_prefix}.value",
+            default_unit="m",
+            explicit_unit=explicit_units,
+        )
+        payload_dict["value"] = scalar_value
+        payload_dict["units"] = resolved_units
     else:
         if "value" in payload_dict:
-            raw_value = payload_dict["value"]
-            if isinstance(raw_value, bool) or not isinstance(raw_value, Real):
-                raise TypeError(f"{location_prefix}.value must be a numeric value when provided")
-            payload_dict["value"] = float(raw_value)
+            scalar_value, resolved_units = parse_scalar_and_unit(
+                payload_dict["value"],
+                location=f"{location_prefix}.value",
+                default_unit="m",
+                explicit_unit=explicit_units,
+            )
+            payload_dict["value"] = scalar_value
+            payload_dict["units"] = resolved_units
         else:
             payload_dict.pop("value", None)
 
@@ -108,3 +118,11 @@ def _normalize_single_ic_payload(
     payload_dict.setdefault("description", "Initial condition 'h'")
     payload_dict["type"] = ic_type
     return payload_dict
+
+
+def _extract_explicit_units(payload: Mapping[str, object]) -> str | None:
+    if "units" in payload:
+        return str(payload["units"])
+    if "unit" in payload:
+        return str(payload["unit"])
+    return None

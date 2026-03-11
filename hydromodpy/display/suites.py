@@ -15,7 +15,10 @@ from __future__ import annotations
 
 import pandas as pd
 
-from hydromodpy.display.common import resolve_model_figure_dir
+from hydromodpy.display.common import (
+    resolve_flow_base_raster,
+    resolve_model_figure_dir,
+)
 from hydromodpy.display.flow_plots import (
     plot_cross_section,
     plot_piezometry,
@@ -30,6 +33,15 @@ from hydromodpy.display.transport_plots import (
 )
 
 
+def _resolve_flow_model(result):
+    """Return the configured flow model using explicit solver lookup."""
+
+    flow_model = result.get_model_for_solver("modflownwt")
+    if flow_model is None:
+        flow_model = result.get_model_for_solver("modflow6")
+    return flow_model
+
+
 def _load_observed_streamflow(result) -> pd.DataFrame:
     """Load and normalize the observed discharge series for flow diagnostics.
 
@@ -41,7 +53,7 @@ def _load_observed_streamflow(result) -> pd.DataFrame:
     steps in each flow plotting function.
     """
 
-    area = int(round(result.geographic.catch_area))
+    area = int(round(result.setup.geographic.catch_area))
     qobs_path = result.cfg.workspace.data_path / "Debit_Exu_Kervidy_Aghrys_LJr_2024-04.txt"
     qobs = pd.read_csv(qobs_path, sep=";", header=None)
     qobs.index = pd.to_datetime(qobs[0] + " " + qobs[1], format="%d/%m/%Y %H:%M:%S")
@@ -58,9 +70,9 @@ def _load_flow_timeseries(result) -> pd.DataFrame:
     the flow diagnostic plots.
     """
 
-    model_name = result.model_modflow.model_name
+    model_name = _resolve_flow_model(result).model_name
     smod_path = (
-        result.workspace.simulations_folder
+        result.setup.workspace.simulations_folder
         / model_name
         / "_postprocess"
         / "_timeseries"
@@ -85,16 +97,18 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
     if not options.should_render():
         return
 
-    model_name = result.model_modflow.model_name
-    output_dir = resolve_model_figure_dir(result.workspace, model_name)
+    flow_model = _resolve_flow_model(result)
+    model_name = flow_model.model_name
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
+    base_raster = resolve_flow_base_raster(flow_model, result.setup.geographic)
     simulated_timeseries = _load_flow_timeseries(result)
     observed_streamflow = _load_observed_streamflow(result)
 
     if options.flow.is_enabled("cross_section", default=True):
         plot_cross_section(
-            watershed_dem_path=result.geographic.watershed_dem,
+            watershed_dem_path=base_raster,
             watertable_npy_path=(
-                result.workspace.simulations_folder
+                result.setup.workspace.simulations_folder
                 / model_name
                 / "_postprocess"
                 / "watertable_elevation.npy"
@@ -127,10 +141,11 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
     if not options.should_render():
         return
 
-    model_name = result.model_modflow.model_name
-    output_dir = resolve_model_figure_dir(result.workspace, model_name)
+    flow_model = _resolve_flow_model(result)
+    model_name = flow_model.model_name
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
     particles_dir = (
-        result.workspace.simulations_folder
+        result.setup.workspace.simulations_folder
         / model_name
         / "_postprocess"
         / "_particles"
@@ -144,8 +159,8 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
     plot_pathlines(
         pathlines_shp=pathlines_shp,
         endpoints_shp=endpoints_shp,
-        watershed_shp=result.geographic.watershed_shp,
-        dem_raster=result.geographic.watershed_box_buff_dem,
+        watershed_shp=result.setup.geographic.watershed_shp,
+        dem_raster=resolve_flow_base_raster(flow_model, result.setup.geographic),
         options=options,
         save_path=output_dir / "pathlines.png",
     )
@@ -163,7 +178,14 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     concentration rendering work is done only once per run.
     """
 
-    if not options.should_render() or result.model_transport is None:
+    if not options.should_render():
+        return
+
+    flow_model = _resolve_flow_model(result)
+    transport_model = result.get_model_for_solver("mt3dms")
+    if transport_model is None:
+        transport_model = result.get_model_for_solver("modflow6gwt")
+    if transport_model is None:
         return
 
     run_concentration = options.transport.is_enabled("concentration", default=False)
@@ -172,18 +194,19 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     if not any([run_concentration, run_gif, run_web_animation]):
         return
 
-    model_name = result.model_modflow.model_name
-    output_dir = resolve_model_figure_dir(result.workspace, model_name) / "transport"
+    model_name = flow_model.model_name
+    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name) / "transport"
     save_frame_files = options.save or run_gif or run_web_animation
     show_last_frame = run_concentration and options.show
 
     # Frame generation is shared by the static images, GIF, and HTML slider.
     frame_paths = plot_concentration_frames(
-        model_transport=result.model_transport,
-        model_modflow=result.model_modflow,
-        geographic=result.geographic,
-        hydrography=result.hydrography,
-        recharge_series=result.climatic.recharge,
+        model_transport=transport_model,
+        model_modflow=flow_model,
+        geographic=result.setup.geographic,
+        hydrography=result.data.hydrography,
+        recharge_series=result.data.climatic.recharge,
+        base_raster_path=resolve_flow_base_raster(flow_model, result.setup.geographic),
         output_dir=output_dir,
         prefix="concentration",
         dpi=options.dpi,

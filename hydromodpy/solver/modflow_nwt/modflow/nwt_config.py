@@ -6,11 +6,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
+from hydromodpy.units.length import parse_length_to_m
 
 
 class ModflowRuntimeConfig(BaseModel):
@@ -150,6 +151,16 @@ class ModflowProcessSpecificConfig(BaseModel):
         description="Extinction depth [L] used by the EVT package (EXDP).",
     )
 
+    @field_validator("exdp", mode="before")
+    @classmethod
+    def _normalize_exdp(cls, value):
+        if value is None:
+            return None
+        exdp_m = float(parse_length_to_m(value, default_unit="m", label="modflownwt.process_specific.exdp"))
+        if exdp_m <= 0.0:
+            raise ValueError("modflownwt.process_specific.exdp must be > 0.")
+        return exdp_m
+
 
 class ModflowConfig(BaseModel):
     """Expert-level MODFLOW configuration organized by concern."""
@@ -164,18 +175,20 @@ class ModflowConfig(BaseModel):
         default_factory=ModflowProcessSpecificConfig,
         description="Process-specific package controls (currently UPW/EVT knobs).",
     )
-    sgrid: Annotated[VerticalGridConfig | None, ParamLevel("user")] = Field(
+    sgrid: Annotated[SolverSGridConfig | None, ParamLevel("user")] = Field(
         default=None,
         description=(
-            "Optional vertical discretization payload as one validated "
-            "`VerticalGridConfig` model."
+            "Optional spatial-grid payload split into `[...sgrid.planar]` and "
+            "`[...sgrid.vertical]`."
         ),
     )
     tgrid: Annotated[TMeshConfigModel | None, ParamLevel("user")] = Field(
         default=None,
         description=(
             "Optional temporal discretization payload as one validated "
-            "`TMeshConfigModel` model."
+            "`TMeshConfigModel` model. In launcher mode, stress periods are "
+            "driven by [simulation.time]; this section is mirrored for "
+            "compatibility and mainly keeps `firstpersteady`."
         ),
     )
 
@@ -255,7 +268,7 @@ class ModflowSpecifParams:
 
     runtime: ModflowRuntimeParams = ModflowRuntimeParams()
     process_specific: ModflowProcessSpecificParams = ModflowProcessSpecificParams()
-    sgrid: VerticalGridConfig | None = None
+    sgrid: SolverSGridConfig | None = None
     tgrid: TMeshConfigModel | None = None
 
     @classmethod

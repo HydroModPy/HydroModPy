@@ -1,0 +1,72 @@
+# ======================================================================
+# HydroModPy Configuration (data-only example)
+# launcher_data_overtiew: setup + domain + data loading, without process execution.
+# ======================================================================
+
+[workspace]
+catch_name = "launcher_data_overtiew"
+out_dir_path = "../results"
+data_path = "data/"
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "data/regional dem.tif"
+x_outlet = 127348.427
+y_outlet = 6835802.564
+snap_dist = 150
+buff_area = 20.0
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = 50.0
+
+[data]
+types = ["geology", "hydrography", "hydrometry", "intermittency", "oceanic"]
+inference_mode = "strict"
+
+[data.geology]
+id = "field_geology"
+geo_path = "../../data/France/geology"
+types_obs = "GEO1M.shp"
+fields_obs = "CODE_LEG"
+cell_samples_per_axis = 8
+
+[data.hydrography]
+types_obs = ["regional stream network"]
+fields_obs = ["FID"]
+hydro_path = "data/"
+
+[data.hydrometry]
+variable = "QmnJ"
+display = false
+date_start = "2019-01-01"
+date_end = "2025-12-31"
+
+[data.hydrometry.source]
+mode = "api"
+local_data_dir = "hydrometry_exports"
+
+[data.hydrometry.selection]
+mode = "mask"
+
+[data.hydrometry.output]
+enabled = true
+path = "../results/launcher_data_overtiew/results_stable/hydrometry"
+export_mode = "lite"
+
+[data.intermittency]
+intermittency_path = "data/"
+file_name = "regional onde stations.shp"
+
+[data.oceanic]
+oceanic_path = "data/"
+msl_source = "web"
+msl_use_simulation_time_window = false
+msl_start_date = "2003-01-01"
+msl_end_date = "2003-01-30"
+msl_default = 0.0

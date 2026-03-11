@@ -1,69 +1,34 @@
-# Piezometry Module
+# Piezometry Data Manager
 
 `hydromodpy.data_managers.piezometry` provides tools to load, inspect, and export
-piezometric time series as piezometer-level datasets.
+piezometric time series as station-level datasets.
 
-## Main Entry Point
+## Current layout
 
-- `piezometer_set.py`: contains `PiezometerSet`, the high-level orchestrator
-  for multi-piezometer loading from:
-  - Hub'Eau API (`source_mode="api"`)
-  - local exported CSV files (`source_mode="local"`)
-- `run_piezometry_example.py`: executable example script for a full
-  load/report/plot run.
+- `piezometer.py`: single station object (`Piezometer`).
+- `piezometer_set.py`: multi-station orchestrator (`PiezometerSet`).
+- `loaders_api.py` / `loaders_local.py`: source-specific loaders.
+- `piezometry_config.py`: TOML schema + validation.
+- `piezometry.py`: backward-compatible import location for legacy class.
+- `cases/run_piezometry_case.py`: executable case runner.
+- `cases/run_piezometry_config.toml`: case configuration file.
+- `cases/outputs/` and `cases/exports/`: case outputs.
 
-## Core Data Object
+## Backward compatibility
 
-- `piezometer.py`: contains `Piezometer`, a single-piezometer object with:
-  - metadata normalization
-  - date filtering
-  - completeness diagnostics
-  - plotting helper
+- `run_piezometry_example.py` is kept as a shim and delegates to
+  `cases/run_piezometry_case.py`.
+- Existing imports of `Piezometer` and `PiezometerSet` are unchanged.
 
-## Loaders
+## Run the case
 
-Loaders are available directly in `piezometry`:
-
-- `loaders_api.py`: API loading + normalization.
-- `loaders_local.py`: local CSV loading + normalization.
-
-## Shared Core
-
-Piezometry now reuses shared components from `hydromodpy.data_managers.common`:
-
-- `BaseStation`: shared station-level parsing/completeness/georeferencing utilities.
-- `BaseStationSet`: shared geometry-mask and load-summary helpers.
-- `BaseApiLoader` / `BaseLocalLoader`: shared status/date/reference helper methods.
-
-## Configuration
-
-- `piezometry_config.toml`: example configuration file.
-- `piezometry_config.py`: parser and validator for TOML configuration.
-
-## Minimal Example
-
-```python
-from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
-
-piezometers = PiezometerSet.from_toml(
-    "hydromodpy/data_managers/piezometry/piezometry_config.toml"
-)
-report = piezometers.get_missing_data_summary()
+```bash
+python hydromodpy/data_managers/piezometry/cases/run_piezometry_case.py
 ```
 
-## Discover Valid IDs
+Or via legacy shim:
 
-When input IDs are outdated or unknown, discover valid `code_bss` first:
-
-```python
-from hydromodpy.data_managers.piezometry.piezometer_set import PiezometerSet
-
-ids = PiezometerSet.discover_piezometer_ids(
-    bbox=(-1.90, 48.00, -1.70, 48.20),  # EPSG:4326
-    require_observations=True,
-    date_start="2020-01-01",
-    date_end="2025-12-31",
-    max_ids=10,
-)
-print(ids)
+```bash
+python hydromodpy/data_managers/piezometry/run_piezometry_example.py
 ```
+

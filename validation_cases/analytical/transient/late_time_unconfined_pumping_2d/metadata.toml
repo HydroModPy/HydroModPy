@@ -1,0 +1,35 @@
+case_id = "late_time_unconfined_pumping_2d"
+category = "analytical"
+regime = "transient"
+dimension = "2d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+
+[workspace]
+watershed_name = "val_late_time_unconfined_pumping_2d"
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_periods = 30
+expected_spatial_shape = [101, 101]
+
+[time]
+dt_seconds = 43200.0
+
+[reference]
+xmin = 0.0
+xmax = 2000.0
+ymin = 0.0
+ymax = 2000.0
+center_x_m = 1000.0
+center_y_m = 1000.0
+base_head_m = 30.0
+hydraulic_conductivity_m_per_s = 1e-4
+reference_saturated_thickness_m = 30.0
+specific_yield = 0.15
+pumping_rate_m3_day = 1000.0
+compare_start_day = 4.0
+
+[plot]
+monitor_offsets_cells = [3, 5, 8, 12]

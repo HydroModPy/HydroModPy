@@ -133,6 +133,83 @@ class VerticalGridConfig(BaseModel):
         return cls.model_validate(payload)
 
 
+class PlanarGridConfig(BaseModel):
+    """Planar discretization contract for solver-facing grids."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["surface_native", "shape"] = Field(
+        default="surface_native",
+        description=(
+            "Planar solver-grid mode: keep the native domain surface support or "
+            "resample to an explicit (ny, nx) target shape."
+        ),
+    )
+    nx: int | None = Field(
+        default=None,
+        ge=1,
+        description="Target number of columns when planar mode is 'shape'.",
+    )
+    ny: int | None = Field(
+        default=None,
+        ge=1,
+        description="Target number of rows when planar mode is 'shape'.",
+    )
+    resampling: Literal["bilinear", "average", "nearest"] = Field(
+        default="bilinear",
+        description="Resampling rule applied when planar mode is 'shape'.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_cross_fields(self):
+        if self.mode == "shape":
+            self.nx = _require_positive_int(self.nx, name="nx")
+            self.ny = _require_positive_int(self.ny, name="ny")
+        elif self.nx is not None or self.ny is not None:
+            raise ValueError("nx and ny must be omitted when planar.mode='surface_native'")
+        return self
+
+
+def coerce_solver_sgrid_payload(value: Any) -> Any:
+    """Normalize old vertical-only payloads to the nested solver sgrid layout."""
+    if value is None or isinstance(value, SolverSGridConfig):
+        return value
+    if isinstance(value, VerticalGridConfig):
+        return {"vertical": value.model_dump(mode="python")}
+    if isinstance(value, Mapping):
+        payload = dict(value)
+        if "planar" in payload or "vertical" in payload:
+            return payload
+        # Backward compatibility: legacy payloads were vertical-only.
+        return {"vertical": payload}
+    return value
+
+
+class SolverSGridConfig(BaseModel):
+    """Solver-facing grid configuration split into planar and vertical parts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    planar: PlanarGridConfig = Field(
+        default_factory=PlanarGridConfig,
+        description="Planar discretization of the solver grid.",
+    )
+    vertical: VerticalGridConfig = Field(
+        default_factory=VerticalGridConfig,
+        description="Vertical layering of the solver grid.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_payload(cls, value):
+        return coerce_solver_sgrid_payload(value)
+
+    @classmethod
+    def from_mapping(cls, config_data: Mapping[str, Any]):
+        payload = dict(config_data.get("sgrid", config_data))
+        return cls.model_validate(payload)
+
+
 class SGridConfig(BaseModel):
     """
     Single source of truth for structured-grid configuration validation.

@@ -1,4 +1,4 @@
-"""Auto-generate commented TOML templates from Pydantic models.
+﻿"""Auto-generate commented TOML templates from Pydantic models.
 
 Reads field names, types, defaults, descriptions, and ParamLevel metadata
 directly from Pydantic model_fields. Supports filtering by module and profile.
@@ -38,8 +38,8 @@ def _get_registry() -> dict[str, type[BaseModel]]:
         from hydromodpy.process.transport.transport_config import TransportConfig
         from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
         from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-        from hydromodpy.solver.solver_config import SolverConfig
-        from hydromodpy.watershed.workspace_config import WorkspaceConfig
+        from hydromodpy.solver.prototype.solver_config import SolverConfig
+        from hydromodpy.simulation.workspace.config import WorkspaceConfig
         _MODULE_REGISTRY = {
             "workspace": WorkspaceConfig,
             "geographic": GeographicConfig,
@@ -150,7 +150,7 @@ def generate_toml_from_instances(
         from hydromodpy.config.generate_toml import generate_toml_from_instances
         content = generate_toml_from_instances(
             {"workspace": workspace_cfg, "geographic": geo_cfg},
-            output_path="examples/01S_short/config.toml",
+            output_path="examples_legacy/01S_short/config.toml",
         )
     """
     overrides = {
@@ -311,7 +311,7 @@ def _placeholder(field_info: FieldInfo) -> str:
             if all(isinstance(a, (str, int, float)) for a in args):
                 return _fmt(args[0])
     elif origin is not None:
-        # Non-union parameterised type (list, dict, etc.) — check for Literal
+        # Non-union parameterised type (list, dict, etc.) â€” check for Literal
         args = get_args(annotation)
         if args and all(isinstance(a, (str, int, float)) for a in args):
             return _fmt(args[0])
@@ -364,7 +364,7 @@ def _resolve_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
     """Return the concrete BaseModel subclass if the field holds one, else None.
 
     Container fields (``list[M]``, ``dict[str, M]``) are **not** considered
-    nested model fields — only direct ``M`` or ``Optional[M]`` / ``Union[M, N]``.
+    nested model fields â€” only direct ``M`` or ``Optional[M]`` / ``Union[M, N]``.
     """
     annotation = field_info.annotation
 
@@ -376,7 +376,7 @@ def _resolve_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
     if origin is None:
         return None
 
-    # Skip container types (list, dict, set, tuple, …)
+    # Skip container types (list, dict, set, tuple, â€¦)
     if isinstance(origin, type) and issubclass(origin, (list, dict, set, tuple, frozenset)):
         return None
 
@@ -500,7 +500,7 @@ def _section(
 
             default = _default_value(field_info)
 
-            # Value line — prefer override value when provided
+            # Value line â€” prefer override value when provided
             if values is not None and name in values and values[name] is not None:
                 lines.append(f"{name} = {_fmt(values[name])}")
             elif default is not _UNDEFINED and default is not None:
@@ -561,3 +561,4 @@ def _section(
             )
 
     return lines
+

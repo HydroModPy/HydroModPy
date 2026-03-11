@@ -10,6 +10,7 @@ backends.
 It focuses on:
 
 - runtime construction of ``Flow`` from validated config,
+- recharge chronicle preparation before solver assembly,
 - adapter-level transformation into solver payloads,
 - backend-specific execution path (MODFLOW-NWT or MODFLOW 6).
 
@@ -27,6 +28,8 @@ Notes
 
 - The sequence is logical and backend-agnostic at the high level.
 - Payload conversion is explicitly separated from process runtime state.
+- Recharge forcing is prepared before solver assembly and injected as
+  already-aligned series.
 - Solver wrappers remain consumers of already-normalized process data.
 - For detailed DIS payload semantics, see
   ``docs/developers/modflow_discretization_contract.md``.

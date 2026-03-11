@@ -1,0 +1,52 @@
+@startuml
+title Launcher - Simulation Orchestration Activity
+
+start
+
+:Load config and raw TOML;
+:Initialize launcher state;
+
+if (Simulation config has at least one process?) then (yes)
+else (no)
+  :Raise ValueError;
+  stop
+endif
+
+:Build SimulationPlan\nwith SimulationPlanner.build();
+:Store simulation_plan and\nprocess_runs_by_id on launcher;
+
+:Create shared setup objects\n(workspace, geographic,\ndomain, flow, settings, transport);
+:Default settings.model_name\nfrom [simulation].name when non-empty;
+
+:Load shared data\n(climatic, oceanic, mean sea level);
+if (Flow has ocean boundary?) then (yes)
+  :Inject oceanic.MSL into\nflow ocean boundary;
+endif
+
+:Create SimulationRunner\nwith process callbacks;
+
+while (Remaining ProcessRun?) is (yes)
+  :Load next run in plan order;
+  :Open or close process-family callbacks\nif the run enters a new contiguous block;
+
+  if (run.process_type is flow?) then (yes)
+    :Instantiate flow solver\nfrom run.solver;
+    :Pre-process, solve,\nand post-process if successful;
+    :Store model_modflow and\nmodels_by_run_id[run.id];
+  else (transport)
+    :Resolve upstream flow model\nfrom run.depends_on[0];
+    if (run.solver is modpath?) then (yes)
+      :Instantiate Modpath and execute;
+      :Store model_modpath and\nmodels_by_run_id[run.id];
+    else (concentration)
+      :Instantiate Mt3dms or\nModflow6Transport and execute;
+      :Store model_transport and\nmodels_by_run_id[run.id];
+    endif
+  endif
+endwhile (no)
+
+:Close final process-family callback\nif one is active;
+:Return from run();
+
+stop
+@enduml

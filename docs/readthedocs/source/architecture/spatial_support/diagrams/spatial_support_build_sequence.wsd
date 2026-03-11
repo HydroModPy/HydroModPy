@@ -1,0 +1,56 @@
+@startuml
+title Spatial Support - Build Sequence Diagram
+
+actor User
+participant "HydroModPyLauncher" as Launcher
+participant "DomainConfig" as DomainCfg
+participant "DataManagersPlanner" as Planner
+participant "DataManagersRuntimeLoader" as Loader
+participant "Domain" as Domain
+participant "Structure binders" as Binders
+participant "SpatialSupportProviderRegistry" as Registry
+participant "Provider" as Provider
+participant "loaded_data.geology" as Geology
+
+User -> Launcher: run()
+Launcher -> DomainCfg: validate support_mode / supports
+Launcher -> Planner: build(... domain_support_mode,\nprovider_names,\nrequested_support_ids)
+Planner --> Launcher: data load plan
+
+Launcher -> Domain: Domain(config, surface_topo)
+Launcher -> Binders: apply_catchment_zones_to_domain(domain, geographic)
+alt catchment zone artifacts available
+  Binders -> Domain: set_zone("catchment", CatchmentZonesField)
+end
+
+loop for each requested support with build_phase = setup
+  Launcher -> Registry: get(provider_name)
+  Registry --> Launcher: provider
+  Launcher -> Provider: build(support_id, config, context)
+  alt generated_bands / generated_rings
+    Provider --> Launcher: Generated*SupportField
+  else catchment_zones
+    Provider -> Domain: get_zone(source_zone_id)
+    Provider --> Launcher: RasterZonesSupportField
+  end
+  Launcher -> Domain: set_zone(support_id, support_field)
+end
+
+alt geology data required
+  Launcher -> Loader: load_all(run_state)
+  Loader --> Launcher: loaded_data
+  Launcher -> Binders: apply_geology_to_domain(domain, geology)
+  Binders -> Domain: set_zone("geology", GeologyField)
+
+  loop for each requested support with build_phase = data
+    Launcher -> Registry: get(provider_name)
+    Registry --> Launcher: provider
+    Launcher -> Provider: build(support_id, config, context)
+    Provider -> Geology: use loaded geology field
+    Provider --> Launcher: GeologyField or AliasedSpatialSupportField
+    Launcher -> Domain: set_zone(support_id, support_field)
+  end
+end
+
+Launcher --> User: Domain ready with spatial supports
+@enduml

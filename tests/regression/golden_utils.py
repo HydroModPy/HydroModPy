@@ -1,4 +1,4 @@
-"""
+﻿"""
 Shared utilities for regression tests based on golden references.
 
 Why this file exists
@@ -27,9 +27,13 @@ from __future__ import annotations
 import json
 import os
 import platform
+import gc
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 import geopandas as gpd
@@ -39,6 +43,11 @@ import pytest
 
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
+REGRESSION_GOLDENS_ROOT = (
+    Path(__file__).resolve().parent
+    / "reference"
+    / "golden_references"
+)
 
 # Common MODFLOW outputs checked by many tests.
 # Individual tests can override this list when needed.
@@ -49,6 +58,54 @@ DEFAULT_MODFLOW_OUTPUT_NAMES = [
     "groundwater_storage",
     "accumulation_flux",
 ]
+
+
+def _rmtree_onerror(func, path, exc_info) -> None:
+    """Retry one failed ``rmtree`` step after clearing a read-only bit.
+
+    Windows test runs sometimes inherit read-only flags on generated artefacts.
+    ``shutil.rmtree`` can recover from that case by marking the current path
+    writable and replaying the failed removal callback once.
+    """
+
+    del exc_info
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def remove_tree_with_retry(
+    path: Path,
+    *,
+    retries: int = 5,
+    base_delay_s: float = 0.2,
+) -> None:
+    """Remove one directory tree with a few retries for transient Windows locks.
+
+    HydroModPy regression outputs contain GIS artefacts (`.shp`, `.dbf`, `.tif`)
+    that can remain briefly locked on Windows after a previous run, even though
+    the producing process has already exited. Retrying the cleanup avoids
+    spurious test failures when the lock clears a fraction of a second later.
+    """
+
+    if not path.exists():
+        return
+
+    last_error: PermissionError | None = None
+    for attempt in range(retries):
+        try:
+            shutil.rmtree(path, onerror=_rmtree_onerror)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError as exc:
+            last_error = exc
+            gc.collect()
+            if attempt == retries - 1:
+                raise
+            time.sleep(base_delay_s * (attempt + 1))
+
+    if last_error is not None:
+        raise last_error
 
 
 def load_golden_reference(path: Path) -> dict:
@@ -67,6 +124,59 @@ def load_golden_reference(path: Path) -> dict:
     """
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def resolve_tiered_golden_file(
+    *,
+    test_file: str | Path,
+    filename: str,
+) -> Path:
+    """
+    Build the canonical golden path for one regression test file.
+
+    Goldens are tiered by test location:
+    - tests under ``tests/regression/extensive`` -> ``.../golden_references/extensive/``
+    - all other regression tests -> ``.../golden_references/normal/``
+    """
+    file_path = Path(test_file).resolve()
+    file_parts = set(file_path.parts)
+    tier = "extensive" if "extensive" in file_parts else "normal"
+    return REGRESSION_GOLDENS_ROOT / tier / str(filename)
+
+
+def resolve_tiered_results_dir(
+    *,
+    test_file: str | Path,
+    run_name: str,
+) -> Path:
+    """
+    Build and prepare one deterministic output directory for a regression test.
+
+    Outputs are tiered by test location under ``HYDROMODPY_OUT_PATH`` when set:
+    - ``.../normal/<run_name>/``
+    - ``.../extensive/<run_name>/``
+
+    If ``HYDROMODPY_OUT_PATH`` is not set, a deterministic temporary root is
+    used: ``<tempdir>/hydromodpy_regression_outputs``.
+
+    The target directory is cleaned before each run to avoid stale artifacts.
+    """
+    base_out_path = os.environ.get("HYDROMODPY_OUT_PATH")
+    if base_out_path:
+        results_root = Path(base_out_path).expanduser().resolve()
+    else:
+        results_root = (
+            Path(tempfile.gettempdir())
+            / "hydromodpy_regression_outputs"
+        )
+    file_path = Path(test_file).resolve()
+    file_parts = set(file_path.parts)
+    tier = "extensive" if "extensive" in file_parts else "normal"
+    out_dir = results_root / tier / str(run_name)
+    if out_dir.exists():
+        remove_tree_with_retry(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir
 
 
 def write_golden_reference(path: Path, payload: dict) -> None:
@@ -267,9 +377,15 @@ def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> N
         assert_stats(actual["time"], expected["time"])
 
 
-def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
+def assert_required_executables(
+    repo_root: Path = REPO_ROOT,
+    *,
+    require_modflow: bool = True,
+    require_modpath: bool = True,
+    require_mt3dms: bool = False,
+) -> None:
     """
-    Ensure bundled MODFLOW/MODPATH executables are available for this platform.
+    Ensure bundled solver executables are available for this platform.
 
     The function *skips* the test (instead of failing) when binaries are
     missing, because this is an environment issue, not a model-regression
@@ -279,16 +395,27 @@ def assert_required_executables(repo_root: Path = REPO_ROOT) -> None:
     if platform.system() == "Windows":
         mf_exe = repo_root / "bin" / "win" / "mfnwt.exe"
         mp_exe = repo_root / "bin" / "win" / "mp6.exe"
+        mt_exe = repo_root / "bin" / "win" / "mt3d-usgs_1.1.0_64.exe"
     elif platform.system() == "Linux":
         mf_exe = repo_root / "bin" / "linux" / "mfnwt"
         mp_exe = repo_root / "bin" / "linux" / "mp6"
+        mt_exe = repo_root / "bin" / "linux" / "mt3dusgs"
     elif platform.system() == "Darwin":
         mf_exe = repo_root / "bin" / "mac" / "mfnwt"
         mp_exe = repo_root / "bin" / "mac" / "mp6"
+        mt_exe = repo_root / "bin" / "mac" / "mt3dusgs"
     else:
         pytest.skip(f"Unsupported platform for bundled executables: {platform.system()}")
 
-    missing = [str(p) for p in (mf_exe, mp_exe) if not p.exists()]
+    required_paths = []
+    if require_modflow:
+        required_paths.append(mf_exe)
+    if require_modpath:
+        required_paths.append(mp_exe)
+    if require_mt3dms:
+        required_paths.append(mt_exe)
+
+    missing = [str(p) for p in required_paths if not p.exists()]
     if missing:
         pytest.skip(f"Required executables are missing: {missing}")
 
@@ -439,6 +566,7 @@ def run_example_script(
     out_path: Path,
     out_env_var: str,
     extra_env: dict | None = None,
+    script_args: list[str] | None = None,
     timeout: int = 1200,
     cwd: Path = REPO_ROOT,
 ) -> None:
@@ -450,7 +578,7 @@ def run_example_script(
     - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
-    # Redirect outputs into a pytest temporary directory.
+    # Redirect outputs into the per-test output directory.
     env[out_env_var] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
@@ -461,11 +589,12 @@ def run_example_script(
     # When coverage is active, use a wrapper that starts coverage
     # programmatically before any project imports.  This avoids the numpy
     # double-load crashes caused by .pth files or "coverage run".
+    run_args = [] if script_args is None else list(script_args)
     if os.environ.get("HYDROMODPY_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
-        command = [sys.executable, str(wrapper), str(script_path)]
+        command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
-        command = [sys.executable, str(script_path)]
+        command = [sys.executable, str(script_path), *run_args]
     completed = subprocess.run(
         command,
         cwd=str(cwd),
@@ -497,7 +626,7 @@ def run_legacy_example_script(
     extra_env: dict | None = None,
 ) -> None:
     """
-    Run a legacy example script that hardcodes `examples/results`.
+    Run a legacy example script that hardcodes `examples_legacy/results`.
 
     Legacy scripts are executed through an inline wrapper. The wrapper:
     1. redirects only the canonical hardcoded results path,
@@ -544,7 +673,7 @@ orig_join = os.path.join
 
 def patched_join(*parts):
     # Redirect only the canonical hardcoded pattern, keep all other joins intact.
-    if len(parts) == 3 and parts[1] == "examples" and parts[2] == "results":
+    if len(parts) == 3 and parts[1] == "examples_legacy" and parts[2] == "results":
         return str(out_path)
     return orig_join(*parts)
 
@@ -572,7 +701,7 @@ if patch_ipython_inline:
     except Exception:
         pass
 
-from hydromodpy.watershed_root import Watershed
+from hydromodpy.watershed_legacy.watershed_root_legacy import Watershed
 assert hasattr(Watershed, stop_method), f"Unknown Watershed method: {stop_method}"
 orig_method = getattr(Watershed, stop_method)
 stop_counter = {"calls": 0}
@@ -627,4 +756,7 @@ except SystemExit as exc:
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"
     )
+
+
+
 

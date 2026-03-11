@@ -115,13 +115,13 @@ class TransportDisplayConfig(BaseModel):
 
 
 class DisplayConfig(BaseModel):
-    """Validated ``[display]`` section used by launcher plotting hooks."""
+    """Validated ``[display]`` section used by launcher plotting suites."""
 
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(
         default=True,
-        description="Master switch for all optional plotting hooks.",
+        description="Master switch for all optional plotting suites.",
     )
     show: bool = Field(
         default=True,
@@ -139,6 +139,10 @@ class DisplayConfig(BaseModel):
     respect_env_no_display: bool = Field(
         default=True,
         description="If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.",
+    )
+    respect_env_no_save: bool = Field(
+        default=True,
+        description="If true, honor HYDROMODPY_NO_SAVE=1 by forcing save=false in headless runs.",
     )
     flow: FlowDisplayConfig = Field(
         default_factory=FlowDisplayConfig,
@@ -174,14 +178,18 @@ class DisplayConfig(BaseModel):
         """Convert the validated config into runtime display options."""
 
         show = self.show
+        save = self.save
         if self.respect_env_no_display and os.environ.get("HYDROMODPY_NO_DISPLAY") == "1":
             # Allow CI/headless runs to keep saving figures while disabling windows.
             show = False
+        if self.respect_env_no_save and os.environ.get("HYDROMODPY_NO_SAVE") == "1":
+            # Allow headless runs to skip file exports when requested.
+            save = False
 
         return DisplayOptions(
             enabled=self.enabled,
             show=show,
-            save=self.save,
+            save=save,
             dpi=self.dpi,
             respect_env_no_display=self.respect_env_no_display,
             flow=self.flow.to_section_options(),

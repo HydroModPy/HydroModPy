@@ -1,0 +1,36 @@
+case_id = "lu_recharge_periodic_1d"
+category = "analytical"
+regime = "transient"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+
+[workspace]
+watershed_name = "val_lu_recharge_periodic"
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_periods = 40
+expected_spatial_shape = [5, 50]
+
+[time]
+dt_seconds = 86400.0
+
+[reference]
+xmin = 0.0
+xmax = 100.0
+base_head_m = 10.0
+mean_recharge_mm_day = 5.0
+amplitude_mm_day = 5.0
+period_days = 10.0
+phase_radians = 0.0
+hydraulic_conductivity_m_per_s = 1e-4
+reference_saturated_thickness_m = 10.0
+specific_yield = 0.10
+profile_axis = 0
+n_terms = 400
+
+[plot]
+profile_times_days = [30.0, 32.0, 35.0, 38.0, 40.0]
+monitor_positions_m = [25.0, 50.0, 75.0]

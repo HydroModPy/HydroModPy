@@ -1,4 +1,4 @@
-"""Top-level Pydantic configuration object for HydroModPy.
+﻿"""Top-level Pydantic configuration object for HydroModPy.
 
 Aggregates all sub-configs into a single hierarchical model.
 Relative paths in the TOML are resolved against the TOML file location;
@@ -9,7 +9,7 @@ Usage::
 
     from hydromodpy.config import HydroModPyConfig
 
-    cfg = HydroModPyConfig.from_toml("examples/01S_short/config.toml")
+    cfg = HydroModPyConfig.from_toml("examples_legacy/01S_short/config.toml")
     cfg.workspace.catch_name
     cfg.geographic.catch_def
     cfg.geographic.dem_init_path
@@ -24,19 +24,25 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Callable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
 from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.data_managers.data_managers_config import DataManagersConfig
 from hydromodpy.display.options import DisplayConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
+from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
+from hydromodpy.simulation.forcing.recharge_chronicle_config import (
+    RechargeChronicleConfig,
+    validate_recharge_chronicle_section,
+)
+from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
-from hydromodpy.solver.solver_config import SolverConfig
-from hydromodpy.watershed.workspace_config import WorkspaceConfig
+from hydromodpy.solver.prototype.solver_config import SolverConfig
+from hydromodpy.simulation.workspace.config import WorkspaceConfig
 
 
 class RunConfig(BaseModel):
@@ -73,15 +79,18 @@ class HydroModPyConfig(BaseModel):
     domain: DomainConfig = Field(
         default_factory=DomainConfig,
         description=(
-            "Domain configuration defining which thematic zones are loaded "
-            "(for example 'geology')."
+            "Domain configuration defining domain depth plus the spatial-support "
+            "mode used for heterogeneous parameter mapping "
+            "(`none`, `geology`, or `zones`)."
         ),
     )
     data: DataManagersConfig = Field(
         default_factory=DataManagersConfig,
         description=(
-            "Data-managers configuration. Use `data.types` to declare active "
-            "families (for example `geology`) and their nested sections."
+            "Data-managers configuration. Use `data.types` to declare requested "
+            "families (for example `geology`). The launcher can also infer extra "
+            "families from other sections (domain, flow), controlled by "
+            "`data.inference_mode` ('warn' or 'strict')."
         ),
     )
     flow: FlowConfig = Field(
@@ -95,8 +104,25 @@ class HydroModPyConfig(BaseModel):
     transport: TransportConfig = Field(
         default_factory=TransportConfig,
         description=(
-            "Transport process configuration, including particle-tracking "
-            "parameters under [transport.particle.parameters]."
+            "Transport process configuration, with solver-specific parameter "
+            "blocks under [transport.modpath.parameters], "
+            "[transport.mt3dms.parameters], and [transport.modflow6gwt.parameters]."
+        ),
+    )
+    simulation: SimulationConfig = Field(
+        default_factory=SimulationConfig,
+        description=(
+            "Optional simulation orchestration block loaded from [simulation] "
+            "and [[simulation.process]]. When absent, the launcher keeps its "
+            "legacy fixed phase order."
+        ),
+    )
+    recharge_chronicle: RechargeChronicleConfig | None = Field(
+        default=None,
+        description=(
+            "Optional launcher recharge chronicle block loaded from "
+            "[recharge_chronicle]. Supports observed CSV, synthetic CSV, "
+            "and synthetic generated payloads."
         ),
     )
     solver: SolverConfig = Field(
@@ -110,14 +136,16 @@ class HydroModPyConfig(BaseModel):
         default_factory=ModflowConfig,
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
-            "[modflownwt.runtime], [modflownwt.process_specific], [modflownwt.sgrid]."
+            "[modflownwt.runtime], [modflownwt.process_specific], "
+            "[modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical]."
         ),
     )
     modflow6: Modflow6Config = Field(
         default_factory=Modflow6Config,
         description=(
             "Expert MODFLOW 6 package configuration loaded from "
-            "[modflow6.runtime], [modflow6.process_specific], [modflow6.sgrid]."
+            "[modflow6.runtime], [modflow6.process_specific], "
+            "[modflow6.sgrid.planar], and [modflow6.sgrid.vertical]."
         ),
     )
     run: RunConfig = Field(
@@ -133,6 +161,18 @@ class HydroModPyConfig(BaseModel):
             "Optional display and export toggles loaded from the [display] section."
         ),
     )
+    postprocess: PostprocessConfig = Field(
+        default_factory=PostprocessConfig,
+        description=(
+            "Optional launcher-managed postprocess workflow loaded from the "
+            "[postprocess] section."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_cross_section_constraints(self) -> "HydroModPyConfig":
+        """Validate constraints that depend on several top-level sections."""
+        return self
 
     @classmethod
     def from_toml(cls, toml_path: "Path | str") -> "HydroModPyConfig":
@@ -183,11 +223,23 @@ class HydroModPyConfig(BaseModel):
                 {},
                 lambda data, b: _load_standard_section(data, TransportConfig, b),
             ),
+            "simulation": (
+                {},
+                lambda data, b: _load_standard_section(data, SimulationConfig, b),
+            ),
+            "recharge_chronicle": (
+                None,
+                _load_recharge_chronicle_section,
+            ),
             "solver": ({}, _load_solver_section),
             "modflownwt": ({}, _load_modflow_nwt_section),
             "modflow6": ({}, _load_modflow6_section),
             "run": ({}, lambda data, b: _load_standard_section(data, RunConfig, b)),
             "display": ({}, lambda data, b: _load_standard_section(data, DisplayConfig, b)),
+            "postprocess": (
+                {},
+                lambda data, b: _load_standard_section(data, PostprocessConfig, b),
+            ),
         }
 
         parsed_sections: dict[str, Any] = {}
@@ -196,17 +248,6 @@ class HydroModPyConfig(BaseModel):
             parsed_sections[section_name] = loader(section_data, base)
 
         return cls(**parsed_sections)
-
-    @property
-    def initializing(self) -> WorkspaceConfig:
-        """Backward-compatible alias. Prefer `workspace`."""
-        return self.workspace
-
-    @property
-    def modflow(self) -> ModflowConfig:
-        """Backward-compatible alias. Prefer `modflownwt`."""
-        return self.modflownwt
-
 
 def _is_path_field(field_info: FieldInfo) -> bool:
     """
@@ -288,3 +329,12 @@ def _load_modflow6_section(section_data: Any, base: Path) -> Modflow6Config:
     if not isinstance(section_data, Mapping):
         raise ValueError("TOML section must be a mapping for Modflow6Config")
     return Modflow6Config.model_validate(dict(section_data))
+
+
+def _load_recharge_chronicle_section(
+    section_data: Any,
+    base: Path,
+) -> RechargeChronicleConfig | None:
+    """Load the recharge chronicle section with dedicated validation."""
+    return validate_recharge_chronicle_section(section_data)
+

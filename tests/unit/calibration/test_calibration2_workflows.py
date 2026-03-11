@@ -340,7 +340,12 @@ def _assert_vectors_close(actual, expected, abs_tol):
 
 def _assert_signature_close(actual, expected, abs_tol):
     assert actual["method"] == expected["method"]
-    assert int(actual["n_evaluations"]) == int(expected["n_evaluations"])
+    # Nelder-Mead (and similar optimisers) may converge in a slightly
+    # different number of evaluations across platforms due to floating-point
+    # rounding differences.  We tolerate a 5 % relative margin.
+    n_actual = int(actual["n_evaluations"])
+    n_expected = int(expected["n_evaluations"])
+    assert n_actual == pytest.approx(n_expected, rel=0.05)
     _assert_vectors_close(actual["x_best"], expected["x_best"], abs_tol=abs_tol)
     assert float(actual["cost_best"]) == pytest.approx(float(expected["cost_best"]), abs=abs_tol, rel=0.0)
 

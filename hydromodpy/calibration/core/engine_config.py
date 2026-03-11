@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from hydromodpy.calibration.core.parameters import CalibrationParameterSet
 from hydromodpy.calibration.core.objective_function import ObjectiveFunction
+from hydromodpy.calibration.core.objective_transformations import normalize_transform_name
 from hydromodpy.calibration.core.methods_config import (
     is_supported_method,
     normalize_format_method_kwargs,
@@ -129,6 +130,63 @@ class OutputSectionSchema(BaseModel):
         return int(value)
 
 
+class ObjectiveSectionSchema(BaseModel):
+    """
+    Typed schema for optional `[objective]` transformation settings.
+
+    This section controls pre-metric transformations applied to both observed
+    and simulated series before objective evaluation.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    transform: str = "identity"
+    transform_params: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator("transform")
+    @classmethod
+    def _validate_transform(cls, value):
+        return normalize_transform_name(value)
+
+    @field_validator("transform_params")
+    @classmethod
+    def _validate_transform_params_mapping(cls, value):
+        if not isinstance(value, Mapping):
+            raise ValueError("transform_params must be a mapping")
+        out: dict[str, float] = {}
+        for raw_key, raw_value in dict(value).items():
+            key = str(raw_key).strip()
+            if not key:
+                raise ValueError("transform_params keys cannot be empty")
+            if not isinstance(raw_value, (int, float)):
+                raise ValueError("transform_params values must be numeric")
+            out[key] = float(raw_value)
+        return out
+
+    @model_validator(mode="after")
+    def _validate_transform_params_against_transform(self):
+        allowed_keys = {
+            "identity": frozenset(),
+            "sqrt": frozenset(),
+            "log": frozenset({"epsilon"}),
+            "inverse": frozenset({"epsilon"}),
+            "box_cox": frozenset({"lambda_param"}),
+        }
+        params = dict(self.transform_params)
+        keys = set(params.keys())
+        allowed = allowed_keys[self.transform]
+        extra = sorted(keys - allowed)
+        if extra:
+            raise ValueError(
+                f"Unsupported transform_params for transform '{self.transform}': {extra}. "
+                f"Allowed keys: {sorted(allowed)}"
+            )
+        if self.transform in {"log", "inverse"} and "epsilon" in params:
+            if params["epsilon"] <= 0.0:
+                raise ValueError("transform_params.epsilon must be > 0")
+        return self
+
+
 class CalibrationTomlSchema(BaseModel):
     """
     Top-level schema shared by calibration examples.
@@ -144,6 +202,7 @@ class CalibrationTomlSchema(BaseModel):
     bounds: dict[str, tuple[float, float] | list[float]]
     calibration_method: dict[str, dict[str, Any]] = Field(default_factory=dict)
     output: OutputSectionSchema = Field(default_factory=OutputSectionSchema)
+    objective: ObjectiveSectionSchema = Field(default_factory=ObjectiveSectionSchema)
 
     @field_validator("chronicle")
     @classmethod
@@ -258,6 +317,18 @@ def resolve_calibration_settings(
     """
     calibration_cfg = config["calibration"]
     method_cfg = config["calibration_method"]
+    objective_cfg = dict(
+        config.get(
+            "objective",
+            {
+                "transform": "identity",
+                "transform_params": {},
+            },
+        )
+    )
+    objective_cfg = ObjectiveSectionSchema.model_validate(objective_cfg).model_dump(
+        mode="python"
+    )
     model_order = tuple(str(name) for name in model_parameter_order)
 
     objective_metric = str(calibration_cfg["objective_metric"])
@@ -309,6 +380,7 @@ def resolve_calibration_settings(
 
     return {
         "objective_metric": objective_metric,
+        "objective": objective_cfg,
         "method": method,
         "bounds": bounds,
         "parameter_names": parameter_names,

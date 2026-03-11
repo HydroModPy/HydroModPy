@@ -1,0 +1,52 @@
+# ======================================================================
+# Field Parameter Configuration (Geology case)
+# Auto-documented from Pydantic schema descriptions.
+# ======================================================================
+
+# Structure:
+# - [field]
+# - [field_homogeneous] or [field_heterogeneous]
+# - [field_vertical_profile] (optional)
+#
+# This example is configured as heterogeneous with CSV value source.
+
+[field]
+# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
+id = "K"
+# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
+kind = "heterogeneous"
+# Unit of parameter values. Typical examples: "m/s" (K), "-" (Sy), "m-1" (Ss).
+unit = "m/s"
+
+[field_homogeneous]
+# Scalar surface value used when kind='homogeneous'.
+value = 12.5
+
+[field_heterogeneous]
+# Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
+values_source = "csv"
+# Inline key/value mapping used when values_source='inline'.
+# values = { granite = 10.0, micaschists = 2.0 }
+# Path to CSV mapping file used when values_source='csv'. Relative paths are resolved from TOML directory.
+values_csv_file = "data/geology_property_values.csv"
+# CSV column name containing zone/material keys.
+csv_key_column = "zone_key"
+# CSV column name containing numeric parameter values.
+csv_value_column = "K_value"
+# Identifier of the spatial field used to map heterogeneous values.
+field_spatial_id = "field_geology"
+
+[field_vertical_profile]
+# Depth dependency mode shared over the full domain.
+mode = "none"
+# Characteristic depth for exponential mode (factor = exp(-depth/characteristic_depth)).
+# characteristic_depth = 30.0
+# Optional minimum factor floor for exponential mode:
+# factor = max(exp(-depth/characteristic_depth), min_factor)
+# min_factor = 1e-3
+# Depth nodes for tabulated mode (first value must be 0).
+# depths = [0.0, 10.0, 30.0]
+# Multiplicative factors aligned with depths (first value must be 1 at depth 0).
+# factors = [1.0, 0.8, 0.5]
+# Interpolation strategy for tabulated mode: "linear" or "step".
+# interpolation = "linear"

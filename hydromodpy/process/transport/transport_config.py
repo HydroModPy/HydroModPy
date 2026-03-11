@@ -10,8 +10,8 @@ from hydromodpy.config.param_level import ParamLevel
 from hydromodpy.process.prototype import ProcessSpatialConfig
 
 
-class ParticleParametersConfig(BaseModel):
-    """Configuration payload for MODPATH particle-tracking inputs."""
+class ModpathParametersConfig(BaseModel):
+    """Configuration payload for the Modpath transport solver."""
 
     zone_partic: Annotated[str, ParamLevel("dev")] = Field(
         default="domain",
@@ -48,17 +48,17 @@ class ParticleParametersConfig(BaseModel):
     )
 
 
-class TransportParticleConfig(BaseModel):
-    """Container for particle-tracking settings."""
+class TransportModpathConfig(BaseModel):
+    """Container for Modpath solver settings."""
 
-    parameters: ParticleParametersConfig = Field(
-        default_factory=ParticleParametersConfig,
-        description="Particle-tracking parameter block used by Modpath.",
+    parameters: ModpathParametersConfig = Field(
+        default_factory=ModpathParametersConfig,
+        description="Solver parameter block used by Modpath.",
     )
 
 
-class ConcParametersConfig(BaseModel):
-    """Configuration payload for MT3DMS concentration settings."""
+class ConcentrationTransportParametersConfig(BaseModel):
+    """Configuration payload shared by concentration transport solvers."""
 
     spc_name: Annotated[str, ParamLevel("dev")] = Field(
         default="NO3",
@@ -102,12 +102,21 @@ class ConcParametersConfig(BaseModel):
     )
 
 
-class TransportConcConfig(BaseModel):
-    """Container for MT3DMS concentration settings."""
+class TransportMt3dmsConfig(BaseModel):
+    """Container for MT3DMS solver settings."""
 
-    parameters: ConcParametersConfig = Field(
-        default_factory=ConcParametersConfig,
-        description="Concentration/transport parameter block used by Mt3dms.",
+    parameters: ConcentrationTransportParametersConfig = Field(
+        default_factory=ConcentrationTransportParametersConfig,
+        description="Solver parameter block used by Mt3dms.",
+    )
+
+
+class TransportModflow6GwtConfig(BaseModel):
+    """Container for MODFLOW 6 GWT solver settings."""
+
+    parameters: ConcentrationTransportParametersConfig = Field(
+        default_factory=ConcentrationTransportParametersConfig,
+        description="Solver parameter block used by Modflow6Transport.",
     )
 
 
@@ -122,11 +131,15 @@ class TransportConfig(ProcessSpatialConfig):
     bc: dict[str, object] = Field(default_factory=dict, exclude=True)
     sinks_sources: dict[str, object] = Field(default_factory=dict, exclude=True)
 
-    particle: TransportParticleConfig = Field(
-        default_factory=TransportParticleConfig,
-        description="Particle-tracking configuration block.",
+    modpath: TransportModpathConfig = Field(
+        default_factory=TransportModpathConfig,
+        description="Modpath solver configuration block.",
     )
-    conc: TransportConcConfig = Field(
-        default_factory=TransportConcConfig,
-        description="Concentration transport configuration block.",
+    mt3dms: TransportMt3dmsConfig = Field(
+        default_factory=TransportMt3dmsConfig,
+        description="MT3DMS solver configuration block.",
+    )
+    modflow6gwt: TransportModflow6GwtConfig = Field(
+        default_factory=TransportModflow6GwtConfig,
+        description="MODFLOW 6 GWT solver configuration block.",
     )

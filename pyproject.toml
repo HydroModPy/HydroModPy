@@ -55,6 +55,7 @@ dependencies = [
     "numpy>=2.0",
     "pandas",
     "plotly",
+    "pint",
     "pyproj",
     "pyshp",
     "pysheds",
@@ -71,6 +72,7 @@ dependencies = [
     "pytest",
     "pytest-xdist",
     "dask",
+    "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -111,7 +113,7 @@ include = ["hydromodpy*", "launchers*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*"]
-"hydromodpy.pyhelp" = ["*.FOR"]
+"hydromodpy.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.calibration.devkit" = ["templates/case/*.tmpl"]
 
 [tool.pytest.ini_options]
@@ -120,16 +122,22 @@ python_files = ["test_*.py"]
 addopts = "-ra"
 markers = [
     "regression: non-regression tests based on reference datasets",
-    "fast: quick-running regression cases",
-    "slow: long-running integration or regression tests",
+    "validation: scientific or benchmark validation tests against a reference solution",
+    "analytical: validation test compared to an analytical reference solution",
+    "normal: default regression tier (subset used for routine runs)",
+    "extensive: extended regression checks for deeper validation",
+    "steady: steady-state validation or regression case",
+    "transient: transient validation or regression case",
+    "fast: quick-running validation, integration, or regression cases",
+    "slow: long-running validation, integration, or regression tests",
+    "integration: tests that call external services or systems",
     "coverage: long-running coverage tests",
 ]
 
 [tool.coverage.run]
 source = [
-    "hydromodpy.watershed",
+    "hydromodpy.watershed_legacy",
     "hydromodpy.tools",
-    "hydromodpy.modeling",
     "hydromodpy.display",
 ]
 parallel = true

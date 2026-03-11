@@ -23,3 +23,24 @@ partir de la convention de nommage retenue :
 
 Cette arborescence prepare une separation claire des responsabilites sans
 modifier le launcher principal existant.
+
+## CLI
+
+Commande recommandee pour la famille simulation :
+
+`python -m launchers simulation run <path/to/config.toml>`
+
+## Separation loading/update
+
+- Le chargement des donnees reste dans `hydromodpy/data_managers/runtime_loader.py`.
+- Les mises a jour structurelles issues de ces donnees (ex. geology->domain,
+  oceanic->flow) sont portees par les modules metier:
+  `hydromodpy/domain/structure_binders.py` et
+  `hydromodpy/process/flow/structure_binders.py`.
+- Le launcher orchestre l'ordre: chargement data puis binders structurels.
+
+## Postprocess
+
+- Les post-traitements standards apres `flow`/`transport` sont pilotes par
+  `[postprocess]` dans le TOML et executes par `hydromodpy/postprocess/runner.py`.
+- Ce mecanisme remplace les anciens scripts projet-specifiques.

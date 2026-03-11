@@ -6,7 +6,6 @@ Creation Date: 2025-04-08
 Description: Station set wrapper for Hub'Eau hydrometry API and local files.
 """
 #%% Import libraries
-import requests
 import pandas as pd
 from datetime import datetime
 from typing import Dict, List, Union, Optional, Mapping, Any
@@ -14,20 +13,33 @@ from pathlib import Path
 
 try:
    from ..common.base_station_set import BaseStationSet
+   from .discovery import (
+       discover_station_ids as discover_station_ids_in_area,
+       normalize_station_ids,
+       select_station_ids_from_mask,
+   )
    from .station import Station
    from .loaders_api import ApiStationLoader
    from .loaders_local import LocalStationLoader
+   from hydromodpy.units import parse_length_to_m
 except ImportError:
    import sys
    _manager_root = Path(__file__).resolve().parents[1]
    _this_dir = Path(__file__).resolve().parent
-   for _path in (str(_manager_root), str(_this_dir)):
+   _repo_root = Path(__file__).resolve().parents[3]
+   for _path in (str(_manager_root), str(_this_dir), str(_repo_root)):
        if _path not in sys.path:
            sys.path.insert(0, _path)
    from common.base_station_set import BaseStationSet
+   from discovery import (
+       discover_station_ids as discover_station_ids_in_area,
+       normalize_station_ids,
+       select_station_ids_from_mask,
+   )
    from station import Station
    from loaders_api import ApiStationLoader
    from loaders_local import LocalStationLoader
+   from hydromodpy.units import parse_length_to_m
 
 #%% Constants
 API_BASE_URL = "https://hubeau.eaufrance.fr/api/v2/"
@@ -110,6 +122,7 @@ class StationSet(BaseStationSet):
 
        station_ids = None
        mask_path = None
+       fallback_search_radius_m = selection_cfg.get("fallback_search_radius")
        if selection_cfg["mode"] == "stations":
            station_ids = selection_cfg["station_ids"]
        else:
@@ -132,6 +145,7 @@ class StationSet(BaseStationSet):
            output=output_value,
            source_mode=source_cfg["mode"],
            local_data_dir=source_cfg.get("local_data_dir"),
+           fallback_search_radius_m=fallback_search_radius_m,
        )
 
    @classmethod
@@ -141,135 +155,41 @@ class StationSet(BaseStationSet):
        bbox: Optional[tuple[float, float, float, float]] = None,
        mask_path: Optional[Union[str, Path]] = None,
        center_point: Optional[tuple[float, float]] = None,
-       fallback_search_radius_km: float = 10.0,
+       fallback_search_radius_m: Optional[Any] = None,
+       fallback_search_radius_km: Optional[Any] = None,
        require_observations: bool = False,
        date_start: Optional[str] = None,
        date_end: Optional[str] = None,
        max_ids: Optional[int] = 20,
        timeout: int = 30,
    ) -> List[str]:
-       """
-       Discover valid Hub'Eau hydrometric station identifiers in a geographic area.
-
-       Parameters
-       ----------
-       bbox : tuple(float, float, float, float), optional
-           Bounding box in EPSG:4326 as ``(minx, miny, maxx, maxy)``.
-       mask_path : str or Path, optional
-           Optional vector/raster mask. When provided, bounds are derived from
-           this mask and candidates are spatially filtered by geometry.
-       center_point : tuple(float, float), optional
-           Center point as (lon, lat). When provided, results are automatically
-           sorted by distance to this point (or mask centroid if no center_point).
-       fallback_search_radius_km : float, default 10.0
-           If no stations found in the initial area and this value > 0,
-           automatically search in a buffered area around the zone.
-           Results are sorted by distance to the reference point.
-           Default 10 km. User can adjust this value (e.g., 5, 20, 50 km).
-           Set to 0 to disable fallback (returns empty list if zone empty).
-       require_observations : bool, default False
-           If True, keep only IDs with at least one observation in
-           ``[date_start, date_end]``.
-       date_start, date_end : str, optional
-           Date filters used when ``require_observations=True``.
-           Format: ``YYYY-MM-DD``.
-       max_ids : int or None, default 20
-           Maximum number of IDs returned. If None, returns all discovered IDs.
-       timeout : int, default 30
-           HTTP timeout in seconds.
-
-       Returns
-       -------
-       list[str]
-           Discovered valid ``code_station`` identifiers, sorted by distance if
-           center_point or mask_path provided.
-       """
-       if max_ids is not None and max_ids < 1:
-           raise ValueError("max_ids must be None or >= 1")
-
-       helper = object.__new__(cls)
-       mask_gdf = None
-       original_bbox = bbox  # Save original bbox for fallback
-
-       if mask_path is not None:
-           mask_gdf = helper._load_mask_geometry(mask_path)
-           if mask_gdf is None:
-               raise ValueError("Failed to load mask geometry")
-
-       if bbox is None:
-           if mask_gdf is None:
-               raise ValueError("Either 'bbox' or 'mask_path' must be provided")
-           bounds = mask_gdf.total_bounds
+       """Discover valid Hub'Eau hydrometric station identifiers in a geographic area."""
+       if fallback_search_radius_m is not None and fallback_search_radius_km is not None:
+           raise ValueError("Use either fallback_search_radius_m or fallback_search_radius_km, not both.")
+       if fallback_search_radius_m is None and fallback_search_radius_km is None:
+           fallback_search_radius_km = 10.0
+       if fallback_search_radius_m is None:
+           radius_m = parse_length_to_m(
+               fallback_search_radius_km,
+               default_unit="km",
+               label="fallback_search_radius_km",
+           )
        else:
-           bounds = bbox
-
-       try:
-           minx, miny, maxx, maxy = bounds
-       except Exception as exc:
-           raise ValueError(f"Invalid bbox format: {exc}")
-
-       if minx >= maxx or miny >= maxy:
-           raise ValueError(f"Invalid bbox: minx={minx} >= maxx={maxx} or miny={miny} >= maxy={maxy}")
-
-       # Determine reference point for distance sorting
-       reference_point = center_point
-       if reference_point is None and mask_gdf is not None:
-           # Use mask centroid
-           centroid = mask_gdf.unary_union.centroid
-           reference_point = (centroid.x, centroid.y)
-
-       # Search in the defined area
-       candidate_data = cls._search_stations_in_bbox(
-           minx, miny, maxx, maxy,
-           mask_gdf,
-           timeout
-       )
-
-       # Fallback if area is empty: search with buffer
-       if not candidate_data and fallback_search_radius_km > 0 and reference_point is not None:
-           print(f"No stations found in initial area. Trying with {fallback_search_radius_km} km buffer...")
-           
-           from math import radians, cos, sin, degrees
-           
-           lon, lat = reference_point
-           lat_offset = fallback_search_radius_km / 111.0  # ~111 km per degree latitude
-           lon_offset = fallback_search_radius_km / (111.0 * cos(radians(lat)))
-           
-           buffered_bbox = (
-               lon - lon_offset,
-               lat - lat_offset,
-               lon + lon_offset,
-               lat + lat_offset
+           radius_m = parse_length_to_m(
+               fallback_search_radius_m,
+               default_unit="m",
+               label="fallback_search_radius_m",
            )
-           
-           candidate_data = cls._search_stations_in_bbox(
-               buffered_bbox[0], buffered_bbox[1], buffered_bbox[2], buffered_bbox[3],
-               None,  # No geometry filtering on fallback
-               timeout
-           )
-
-       # Auto-sort by distance if reference_point available
-       if reference_point is not None and candidate_data and all(d["coords"] is not None for d in candidate_data):
-           def sort_key(item):
-               return cls._haversine_distance(
-                   reference_point[0], reference_point[1],
-                   item["coords"][0], item["coords"][1]
-               )
-           candidate_data.sort(key=sort_key)
-
-       candidate_ids = [item["id"] for item in candidate_data]
-
-       if not require_observations:
-           if max_ids is None:
-               return candidate_ids
-           return candidate_ids[:max_ids]
-
-       return cls._filter_by_observations(
-           candidate_ids,
-           date_start,
-           date_end,
-           max_ids,
-           timeout
+       return discover_station_ids_in_area(
+           bbox=bbox,
+           mask_path=mask_path,
+           center_point=center_point,
+           fallback_search_radius_m=radius_m,
+           require_observations=require_observations,
+           date_start=date_start,
+           date_end=date_end,
+           max_ids=max_ids,
+           timeout=timeout,
        )
 
    def __init__(self,
@@ -283,6 +203,7 @@ class StationSet(BaseStationSet):
                 output: Optional[Union[str, List[str], None]] = None,
                 source_mode: str = "api",
                 local_data_dir: Optional[Union[str, Path, None]] = None,
+                fallback_search_radius_m: Optional[Any] = None,
                 ):
        """
        Initialize StationSet instance.
@@ -329,6 +250,20 @@ class StationSet(BaseStationSet):
        self.output = output
        self.source_mode = str(source_mode).strip().lower()
        self.local_data_dir = Path(local_data_dir).expanduser().resolve() if local_data_dir else None
+       if fallback_search_radius_m is None:
+           self.fallback_search_radius_m = float(
+               parse_length_to_m(10.0, default_unit="km", label="fallback_search_radius_default")
+           )
+       else:
+           self.fallback_search_radius_m = float(
+               parse_length_to_m(
+                   fallback_search_radius_m,
+                   default_unit="m",
+                   label="fallback_search_radius_m",
+               )
+           )
+       if self.fallback_search_radius_m < 0.0:
+           raise ValueError("fallback_search_radius_m must be >= 0.")
 
        if self.source_mode not in ("api", "local"):
            raise ValueError("source_mode must be 'api' or 'local'.")
@@ -347,7 +282,10 @@ class StationSet(BaseStationSet):
 
        # Process IDs or mask
        if mask is not None:
-           self.station_id, self.site_id = self._get_stations_from_mask(mask)
+           self.station_id, self.site_id = self._get_stations_from_mask(
+               mask,
+               fallback_search_radius_m=self.fallback_search_radius_m,
+           )
        elif id is not None:
            self.station_id, self.site_id = self._process_ids(id)
        else:
@@ -360,443 +298,40 @@ class StationSet(BaseStationSet):
        if self.output:
            self._export_data()
 
-   @staticmethod
-   def _haversine_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-       """
-       Calculate distance in km between two points using Haversine formula.
-
-       Parameters
-       ----------
-       lon1, lat1 : float
-           Longitude and latitude of first point in degrees
-       lon2, lat2 : float
-           Longitude and latitude of second point in degrees
-
-       Returns
-       -------
-       float
-           Distance in kilometers
-       """
-       from math import radians, cos, sin, asin, sqrt
-
-       lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-       dlon = lon2 - lon1
-       dlat = lat2 - lat1
-       a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-       c = 2 * asin(sqrt(a))
-       r = 6371  # Earth radius in kilometers
-       return c * r
-
-   @classmethod
-   def _search_stations_in_bbox(
-       cls,
-       minx: float,
-       miny: float,
-       maxx: float,
-       maxy: float,
-       mask_gdf: Optional[Any] = None,
-       timeout: int = 30,
-   ) -> List[dict]:
-       """
-       Search for hydrometric stations in a bounding box, optionally filtered by mask geometry.
-
-       Parameters
-       ----------
-       minx, miny, maxx, maxy : float
-           Bounding box coordinates in EPSG:4326
-       mask_gdf : GeoDataFrame, optional
-           Optional mask geometry to filter results (within/intersects)
-       timeout : int, default 30
-           HTTP timeout in seconds
-
-       Returns
-       -------
-       list[dict]
-           List of dicts with keys: 'id', 'coords', 'row'
-       """
-       params = {
-           "bbox": f"{minx},{miny},{maxx},{maxy}",
-           "size": 10000,
-           "format": "json",
-       }
-       url = f"{API_BASE_URL}hydrometrie/referentiel/stations"
-       
-       try:
-           response = requests.get(url, params=params, timeout=timeout)
-       except requests.exceptions.RequestException as exc:
-           raise RuntimeError(f"Failed to query Hub'Eau API: {exc}")
-
-       if response.status_code not in (200, 206):
-           status_msg = STATUS_MESSAGES.get(
-               response.status_code,
-               f"Unknown error {response.status_code}"
-           )
-           raise RuntimeError(f"API request failed: {status_msg}")
-
-       station_rows = response.json().get("data", [])
-       if not station_rows:
-           return []
-
-       # Apply mask filtering if provided
-       if mask_gdf is not None:
-           try:
-               gpd, Point = object.__new__(cls)._load_geographic_libraries()
-               
-               # Build GeoDataFrame from stations
-               points = []
-               valid_rows = []
-               for row in station_rows:
-                   lon = row.get("longitude_station")
-                   lat = row.get("latitude_station")
-                   if lon is not None and lat is not None:
-                       try:
-                           points.append(Point(float(lon), float(lat)))
-                           valid_rows.append(row)
-                       except (ValueError, TypeError):
-                           continue
-               
-               if not valid_rows:
-                   return []
-               
-               stations_gdf = gpd.GeoDataFrame(valid_rows, geometry=points, crs="EPSG:4326")
-               
-               # Spatial join
-               try:
-                   stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="within")
-               except Exception:
-                   stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how="inner", predicate="intersects")
-               
-               station_rows = stations_in_mask.to_dict("records")
-           except ImportError:
-               pass  # Skip geometry filtering if geopandas not available
-
-       # Build candidate data list
-       seen = set()
-       candidate_data: List[dict] = []
-       for row in station_rows:
-           station_id = row.get("code_station")
-           if station_id is None:
-               continue
-           if station_id in seen:
-               continue
-           seen.add(station_id)
-           
-           lon = row.get("longitude_station")
-           lat = row.get("latitude_station")
-           coords = (float(lon), float(lat)) if lon is not None and lat is not None else None
-           
-           candidate_data.append({
-               "id": str(station_id),
-               "coords": coords,
-               "row": row
-           })
-
-       return candidate_data
-
-   @classmethod
-   def _filter_by_observations(
-       cls,
-       candidate_ids: List[str],
-       date_start: Optional[str],
-       date_end: Optional[str],
-       max_ids: Optional[int],
-       timeout: int,
-   ) -> List[str]:
-       """
-       Filter station IDs by observation availability in date range.
-
-       Parameters
-       ----------
-       candidate_ids : list[str]
-           List of station IDs to filter
-       date_start, date_end : str, optional
-           Date range for observations (YYYY-MM-DD format)
-       max_ids : int or None
-           Maximum number of IDs to return. If None, returns all valid IDs.
-       timeout : int
-           HTTP timeout in seconds
-
-       Returns
-       -------
-       list[str]
-           Filtered IDs with available observations
-       """
-       start = cls._normalize_api_date(date_start, default="1900-01-01")
-       end = cls._normalize_api_date(date_end, default=datetime.now().strftime("%Y-%m-%d"))
-       discovered: List[str] = []
-
-       for sid in candidate_ids:
-           params = {
-               "code_station": sid,
-               "date_debut_obs": start,
-               "date_fin_obs": end,
-               "size": 1,
-               "format": "json"
-           }
-           url = f"{API_BASE_URL}hydrometrie/obs_elab"
-           
-           try:
-               response = requests.get(url, params=params, timeout=timeout)
-               if response.status_code in (200, 206):
-                   data = response.json().get("data", [])
-                   if data:
-                       discovered.append(sid)
-           except requests.exceptions.RequestException:
-               pass  # Skip stations with connection errors
-
-           if max_ids is not None and len(discovered) >= max_ids:
-               break
-
-       return discovered
-
-   @staticmethod
-   def _normalize_api_date(value: Optional[str], *, default: str) -> str:
-       """Normalize date string to API YYYY-MM-DD format."""
-       if value is None:
-           return default
-       parsed = pd.to_datetime(value, errors="coerce")
-       if pd.isna(parsed):
-           return default
-       return parsed.strftime("%Y-%m-%d")
-
-   def _load_geographic_libraries(self):
-       """Import optional vector-geometry dependencies on demand.
-
-       Returns
-       -------
-       tuple
-           ``(geopandas_module, shapely.geometry.Point)``.
-       """
-       return super()._load_geographic_libraries()
-
-   def _load_raster_libraries(self):
-       """Import optional raster dependencies on demand.
-
-       Returns
-       -------
-       tuple
-           ``(rasterio_module, rasterio.features.shapes, shapely.shape)``.
-       """
-       return super()._load_raster_libraries()
-
-   def _is_raster_file(self, file_path):
-       """Return ``True`` when the mask path looks like a raster dataset."""
-       return super()._is_raster_file(file_path)
-
-   def _get_stations_from_mask(self, mask_path, fallback_search_radius_km: float = 10.0):
+   def _get_stations_from_mask(
+       self,
+       mask_path,
+       *,
+       fallback_search_radius_m: Optional[float] = None,
+   ):
        """Select stations located inside a mask geometry.
 
        The method dispatches station filtering according to ``source_mode``:
        API-based station catalogue lookup or local station catalogue lookup.
        """
-       print(f"Loading geographic mask from: {mask_path}")
-       mask_gdf = self._load_mask_geometry(mask_path)
-       if self.source_mode == "api":
-           return self._filter_stations_with_geometry_api(mask_gdf, fallback_search_radius_km)
-       if self.source_mode == "local":
-           return self._filter_stations_with_geometry_local(mask_gdf)
-       raise ValueError(f"Unsupported source_mode: {self.source_mode}")
-
-   def _load_mask_geometry(self, mask_path):
-       """Load mask geometry from vector or raster path in EPSG:4326."""
-       return super()._load_mask_geometry(mask_path)
-
-   def _load_mask_from_vector(self, mask_path):
-       """Read a vector mask and reproject it to WGS84 (EPSG:4326)."""
-       return super()._load_mask_from_vector(mask_path)
-
-   def _load_mask_from_raster(self, mask_path):
-       """Convert a raster mask to polygons in WGS84 (EPSG:4326).
-
-       Non-zero and non-nodata pixels are vectorized, dissolved into one
-       geometry layer, then returned as a GeoDataFrame.
-       """
-       return super()._load_mask_from_raster(mask_path)
-
-   def _filter_stations_with_geometry_api(self, mask_gdf, fallback_search_radius_km: float = 10.0):
-       """Filter Hub'Eau stations intersecting the provided mask geometry.
-
-       A first query uses the mask bounding box; a spatial join then refines
-       matches to the actual mask polygon(s).
-       """
-       gpd, Point = self._load_geographic_libraries()
-
-       # Get bounding box
-       bounds = mask_gdf.total_bounds  # [minx, miny, maxx, maxy]
-
-       print(f"Searching stations in bounding box: {bounds}")
-
-       # Query stations within bounding box
-       url = f"{API_BASE_URL}hydrometrie/referentiel/stations"
-       params = {
-           'bbox': f"{bounds[0]},{bounds[1]},{bounds[2]},{bounds[3]}",
-           'size': 10000,
-           'format': 'json'
-       }
-
-       response = requests.get(url, params=params)
-       if not self.__check_status_code(response.status_code):
-           raise RuntimeError("Failed to retrieve stations from API")
-
-       stations_data = response.json().get('data', [])
-
-       if not stations_data:
-           print("No stations found in bounding box area")
-           stations_gdf = gpd.GeoDataFrame([], geometry=[], crs='EPSG:4326')
-           stations_in_mask = stations_gdf
-       else:
-           print(f"Found {len(stations_data)} stations in bounding box")
-
-           # Create GeoDataFrame from stations
-           stations_gdf = gpd.GeoDataFrame(
-               stations_data,
-               geometry=[Point(s['longitude_station'], s['latitude_station']) for s in stations_data],
-               crs='EPSG:4326'
-           )
-
-           # Filter stations within mask geometry (spatial join with polygon)
-           try:
-               stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how='inner', predicate='within')
-           except Exception as e:
-               print(f"Warning: Spatial join failed ({e}), using intersection instead")
-               stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how='inner', predicate='intersects')
-
-       # Fallback: if no stations found after spatial join, search in 50 km radius
-       if stations_in_mask.empty:
-           print("No stations found within the mask polygon.")
-           print(f"Activating automatic fallback search: {fallback_search_radius_km} km radius buffer...")
-           
-           from math import radians, cos
-           
-           # Calculate centroid and create buffer
-           centroid = mask_gdf.unary_union.centroid
-           ref_lon, ref_lat = centroid.x, centroid.y
-           
-           # Convert radius to degrees (1 deg ≈ 111 km at equator)
-           lat_offset = fallback_search_radius_km / 111.0
-           lon_offset = fallback_search_radius_km / (111.0 * cos(radians(ref_lat)))
-           
-           fallback_bbox = (
-               ref_lon - lon_offset,
-               ref_lat - lat_offset,
-               ref_lon + lon_offset,
-               ref_lat + lat_offset
-           )
-           
-           # Query API with fallback bbox
-           fallback_params = {
-               'bbox': f"{fallback_bbox[0]},{fallback_bbox[1]},{fallback_bbox[2]},{fallback_bbox[3]}",
-               'size': 10000,
-               'format': 'json'
-           }
-           fallback_response = requests.get(url, params=fallback_params)
-           fallback_stations = fallback_response.json().get('data', [])
-           
-           if fallback_stations:
-               print(f"Found {len(fallback_stations)} stations in fallback area")
-               # Distance sort: keep all stations sorted by distance
-               distances = []
-               for station in fallback_stations:
-                   try:
-                       lon = float(station.get('longitude_station', ref_lon))
-                       lat = float(station.get('latitude_station', ref_lat))
-                       dist = self._haversine_distance(ref_lon, ref_lat, lon, lat)
-                       distances.append((station, dist))
-                   except (ValueError, TypeError):
-                       continue
-               
-               # Sort by distance and keep ALL stations (no limit)
-               distances.sort(key=lambda x: x[1])
-               fallback_stations = [s for s, _ in distances]  # Keep all stations
-               
-               # Rebuild stations_gdf with fallback data
-               stations_gdf = gpd.GeoDataFrame(
-                   fallback_stations,
-                   geometry=[Point(s['longitude_station'], s['latitude_station']) for s in fallback_stations],
-                   crs='EPSG:4326'
-               )
-               print(f"Using all {len(fallback_stations)} stations from fallback search (sorted by distance)")
-               stations_in_mask = stations_gdf  # Include all fallback stations
-           else:
-               raise ValueError(f"No stations found within the specified geographic mask or in {fallback_search_radius_km} km fallback radius")
-
-       station_ids = stations_in_mask['code_station'].tolist()
-       site_ids = [sid[:8] for sid in station_ids]
-
-       print(f"Found {len(station_ids)} stations within geographic mask")
-
-       return station_ids, site_ids
-
-   def _load_local_station_catalog(self):
-       """
-       Load local station catalogue (station_id, lon, lat) for mask filtering.
-
-       Requires local full export tables:
-       - stations_info.csv (preferred), or
-       - metadata.csv with x_wgs84/y_wgs84 columns.
-       """
-       if self.local_data_dir is None:
-           raise ValueError("local_data_dir is required for local station catalogue.")
-
-       stations_info_path = self.local_data_dir / "stations_info.csv"
-       metadata_path = self.local_data_dir / "metadata.csv"
-
-       if stations_info_path.exists():
-           df = pd.read_csv(stations_info_path)
-           station_col = "station_id" if "station_id" in df.columns else "code_station"
-           lon_col = "longitude_station"
-           lat_col = "latitude_station"
-           if station_col not in df.columns or lon_col not in df.columns or lat_col not in df.columns:
-               raise ValueError(
-                   "stations_info.csv must contain station id and longitude/latitude columns."
-               )
-           out = df[[station_col, lon_col, lat_col]].copy()
-           out.columns = ["station_id", "lon", "lat"]
-       elif metadata_path.exists():
-           df = pd.read_csv(metadata_path)
-           if "station_id" not in df.columns or "x_wgs84" not in df.columns or "y_wgs84" not in df.columns:
-               raise ValueError(
-                   "metadata.csv must contain station_id, x_wgs84 and y_wgs84 columns."
-               )
-           out = df[["station_id", "x_wgs84", "y_wgs84"]].copy()
-           out.columns = ["station_id", "lon", "lat"]
-       else:
-           raise FileNotFoundError(
-               "Local mask mode requires stations_info.csv or metadata.csv in local_data_dir. "
-               f"Missing in: {self.local_data_dir}"
-           )
-
-       out["station_id"] = out["station_id"].astype(str)
-       out["lon"] = pd.to_numeric(out["lon"], errors="coerce")
-       out["lat"] = pd.to_numeric(out["lat"], errors="coerce")
-       out = out.dropna(subset=["lon", "lat"])
-       if out.empty:
-           raise ValueError("No valid station coordinates found in local catalogue.")
-       return out
-
-   def _filter_stations_with_geometry_local(self, mask_gdf):
-       """Filter locally available stations intersecting the mask geometry."""
-       gpd, Point = self._load_geographic_libraries()
-       station_catalog = self._load_local_station_catalog()
-
-       stations_gdf = gpd.GeoDataFrame(
-           station_catalog.copy(),
-           geometry=[Point(xy) for xy in zip(station_catalog["lon"], station_catalog["lat"])],
-           crs="EPSG:4326",
+       radius_m = (
+           self.fallback_search_radius_m
+           if fallback_search_radius_m is None
+           else float(fallback_search_radius_m)
        )
-
        try:
-           stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how='inner', predicate='within')
-       except Exception:
-           stations_in_mask = gpd.sjoin(stations_gdf, mask_gdf, how='inner', predicate='intersects')
-
-       if stations_in_mask.empty:
-           raise ValueError("No local stations found within the specified geographic mask.")
-
-       station_ids = sorted(stations_in_mask["station_id"].astype(str).unique().tolist())
-       site_ids = [sid[:8] for sid in station_ids]
-       print(f"Found {len(station_ids)} local stations within geographic mask")
-       return station_ids, site_ids
+           return select_station_ids_from_mask(
+               mask_path=mask_path,
+               source_mode=self.source_mode,
+               local_data_dir=self.local_data_dir,
+               fallback_search_radius_m=radius_m,
+           )
+       except TypeError as exc:
+           # Backward-compatibility path for call sites/tests still exposing
+           # the legacy kilometer keyword.
+           if "unexpected keyword argument 'fallback_search_radius_m'" not in str(exc):
+               raise
+           return select_station_ids_from_mask(
+               mask_path=mask_path,
+               source_mode=self.source_mode,
+               local_data_dir=self.local_data_dir,
+               fallback_search_radius_km=float(radius_m) / 1000.0,
+           )
 
    def _process_ids(self, id):
        """Normalize station/site identifiers into parallel station/site lists.
@@ -804,24 +339,7 @@ class StationSet(BaseStationSet):
        Input ids with 8 characters are treated as site ids and expanded to the
        default ``XX...01`` station id convention.
        """
-       if isinstance(id, str):
-           id = [id]
-
-       station_id = []
-       site_id = []
-
-       for id_val in id:
-           if len(id_val) == 10:
-               station_id.append(id_val)
-               site_id.append(id_val[:-2])
-           elif len(id_val) == 8:
-               station_id.append(id_val + "01")
-               site_id.append(id_val)
-               print(f"{id_val} is a site ID, by default, the station ID is {station_id[-1]}")
-           else:
-               raise ValueError(f"Invalid ID length: {id_val}. Expected 8 or 10 characters.")
-
-       return station_id, site_id
+       return normalize_station_ids(id)
 
    def __load_all_data(self):
        """Dispatch loading flow according to ``source_mode``."""
@@ -875,18 +393,6 @@ class StationSet(BaseStationSet):
    def _print_load_summary(self, *, header: str, **extra_values):
        """Print a standardized loading summary block."""
        super()._print_load_summary(header=header, **extra_values)
-
-
-   def __check_status_code(self, status_code) -> bool:
-       """Validate Hub'Eau HTTP status code and print readable diagnostics."""
-       message = STATUS_MESSAGES.get(status_code, f"Unknown error {status_code}: Check the API documentation")
-       is_success = status_code in (200, 206)
-
-       if not is_success:
-           print(f"Error {status_code}: {message}")
-
-       return is_success
-
    def get_station(self, station_id: Union[str, int]) -> Station:
        """Return a loaded :class:`Station` for one station id.
 
@@ -1006,8 +512,11 @@ class StationSet(BaseStationSet):
            start_date = "00000000"
            end_date = "00000000"
        
+       # Make station_id filesystem-safe by replacing slash and backslash with underscore
+       safe_id = str(station_id).replace("/", "_").replace("\\", "_")
+       
        # Build filename
-       filename = f"hydrometry_{api_name}_{station_id}_{start_date}_{end_date}_{freq}.csv"
+       filename = f"hydrometry_{api_name}_{safe_id}_{start_date}_{end_date}_{freq}.csv"
        return filename
 
    def _export_data(self):

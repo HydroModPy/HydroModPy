@@ -1,0 +1,44 @@
+{
+  "source_file_name": "regional onde stations.shp",
+  "watershed_mode": "square_mask",
+  "station_count": 10,
+  "flowing_rows": 67,
+  "flowing_cols": 10,
+  "flowing_date_start": "2012-05-25",
+  "flowing_date_end": "2021-09-27",
+  "flow_code_min": 1,
+  "flow_code_max": 5,
+  "clip_row_count": 437,
+  "clip_station_unique": 10,
+  "clip_date_start": "2012-05-25",
+  "clip_date_end": "2021-09-27",
+  "obs_label_hist": {
+    "Assec": 22,
+    "Ecoulement non visible": 12,
+    "Ecoulement visible": 337,
+    "Ecoulement visible acceptable": 64,
+    "Ecoulement visible faible": 2
+  },
+  "obs_code_hist": {
+    "1": 22,
+    "2": 12,
+    "3": 2,
+    "4": 64,
+    "5": 337
+  },
+  "station_obs_count": {
+    "J5412121": 44,
+    "J5432111": 44,
+    "J5606811": 44,
+    "J5618321": 44,
+    "J5618322": 44,
+    "J5620001": 44,
+    "J6020001": 44,
+    "J8030001": 41,
+    "J8202341": 44,
+    "J8202342": 44
+  },
+  "overview_figure_saved": true,
+  "figure_count": 11,
+  "station_plot_count": 10
+}

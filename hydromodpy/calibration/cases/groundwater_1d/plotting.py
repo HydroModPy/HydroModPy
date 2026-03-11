@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -21,6 +22,142 @@ def _extract_columns_at_nodes(values_matrix, node_indices, target_nodes):
         column = int(np.argmin(np.abs(node_indices - int(node))))
         out[:, j] = values_matrix[:, column]
     return out
+
+
+def _looks_like_calendar_axis(values) -> bool:
+    values = np.asarray(values, dtype=object).ravel()
+    if values.size == 0:
+        return False
+    sample = values[0]
+    return all(hasattr(sample, attr) for attr in ("year", "month", "day"))
+
+
+def _apply_time_axis_style(axes, *, use_calendar_axis: bool) -> None:
+    if not use_calendar_axis:
+        return
+    month_locator = mdates.MonthLocator(interval=1)
+    month_formatter = mdates.DateFormatter("%b")
+    for ax in np.atleast_1d(axes).ravel():
+        ax.xaxis.set_major_locator(month_locator)
+        ax.xaxis.set_major_formatter(month_formatter)
+
+
+def plot_forcing_chronicle(chronicle, output_png, show_plot=True):
+    """
+    Plot the groundwater_1d forcing chronicle only.
+
+    Supported modes
+    ---------------
+    - ``hydro_step``: plot the synthetic wet/dry recharge series.
+    - ``reservoir_chronicle``: plot the full chain
+      precipitation -> effective rainfall -> Qin -> recharge.
+    """
+    output_png = Path(output_png)
+    output_png.parent.mkdir(parents=True, exist_ok=True)
+
+    t = np.asarray(chronicle["t"], dtype=float).ravel()
+    recharge_series = np.asarray(chronicle["recharge_series"], dtype=float).ravel()
+    forcing_metadata = dict(chronicle.get("forcing_metadata", {}) or {})
+    mode = str(forcing_metadata.get("recharge_mode", "unknown")).strip().lower()
+
+    raw_dates = forcing_metadata.get("dates", chronicle.get("dates", ()))
+    dates = np.asarray(raw_dates, dtype=object).ravel()
+    if dates.size != recharge_series.size:
+        dates = np.asarray(chronicle.get("dates", ()), dtype=object).ravel()
+    use_calendar_axis = dates.size == recharge_series.size and _looks_like_calendar_axis(dates)
+
+    if use_calendar_axis:
+        x_values = dates
+        x_label = "Hydrological year (start: 1 Oct)"
+    else:
+        x_values = t
+        x_label = "Time [day]"
+
+    precip_mm_day = forcing_metadata.get("precip_mm_day")
+    etr_mm_day = forcing_metadata.get("etr_mm_day")
+    runoff_mm_day = forcing_metadata.get("runoff_mm_day", forcing_metadata.get("qin_mm_day"))
+    has_reservoir_chain = (
+        mode == "reservoir_chronicle"
+        and precip_mm_day is not None
+        and etr_mm_day is not None
+        and runoff_mm_day is not None
+    )
+
+    if has_reservoir_chain:
+        precip_mm_day = np.asarray(precip_mm_day, dtype=float).ravel()
+        etr_mm_day = np.asarray(etr_mm_day, dtype=float).ravel()
+        runoff_mm_day = np.asarray(runoff_mm_day, dtype=float).ravel()
+        fig, axes = plt.subplots(4, 1, figsize=(11, 9.5), sharex=True, dpi=140)
+        ax0, ax1, ax2, ax3 = axes
+
+        ax0.bar(x_values, precip_mm_day, width=1.0, color="tab:blue", alpha=0.70, label="Precipitation [mm/day]")
+        ax0.set_ylabel("P [mm/day]")
+        ax0.set_title("Reservoir-like forcing chain used by groundwater_1d")
+        ax0.grid(True, ls=":", alpha=0.45)
+        ax0.legend(loc="upper right")
+
+        ax1.plot(x_values, etr_mm_day, color="tab:red", lw=1.8, label="ETR / losses [mm/day]")
+        ax1.set_ylabel("ETR [mm/day]")
+        ax1.grid(True, ls=":", alpha=0.45)
+        ax1.legend(loc="upper right")
+
+        ax2.plot(x_values, runoff_mm_day, color="tab:green", lw=1.8, label="Runoff / Qin [mm/day]")
+        ax2.set_ylabel("Runoff [mm/day]")
+        ax2.grid(True, ls=":", alpha=0.45)
+        ax2.legend(loc="upper right")
+
+        ax3.plot(x_values, recharge_series, color="tab:olive", lw=1.9, label="Recharge [m/day]")
+        ax3.set_xlabel(x_label)
+        ax3.set_ylabel("Recharge [m/day]")
+        ax3.grid(True, ls=":", alpha=0.45)
+        ax3.legend(loc="upper right")
+
+        summary_lines = [
+            f"mode={mode}",
+            f"annual P={float(np.sum(precip_mm_day)):.1f} mm",
+            f"annual ETR={float(np.sum(etr_mm_day)):.1f} mm",
+            f"annual runoff={float(np.sum(runoff_mm_day)):.1f} mm",
+            f"annual recharge={float(np.sum(recharge_series)):.3f} m",
+        ]
+    else:
+        fig, ax = plt.subplots(1, 1, figsize=(11, 4.5), dpi=140)
+        ax.step(x_values, recharge_series, where="post", color="tab:green", lw=2.0)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel("Recharge [m/day]")
+        ax.set_title(f"Groundwater recharge forcing ({mode})")
+        ax.grid(True, ls=":", alpha=0.45)
+        axes = np.array([ax])
+
+        summary_lines = [
+            f"mode={mode}",
+            "P/ETR/runoff unavailable in this forcing mode",
+            f"n_steps={int(recharge_series.size)}",
+            f"mean recharge={float(np.mean(recharge_series)):.5f} m/day",
+            f"min/max recharge={float(np.min(recharge_series)):.5f}/{float(np.max(recharge_series)):.5f} m/day",
+        ]
+
+    _apply_time_axis_style(axes, use_calendar_axis=use_calendar_axis)
+    if use_calendar_axis:
+        fig.autofmt_xdate()
+
+    fig.text(
+        0.5,
+        0.01,
+        "  |  ".join(summary_lines),
+        ha="center",
+        va="bottom",
+        fontsize=9,
+        family="monospace",
+        bbox={"boxstyle": "round,pad=0.30", "fc": "white", "ec": "0.7", "alpha": 0.95},
+    )
+    fig.tight_layout(rect=[0, 0.06, 1, 0.98])
+    fig.savefig(output_png, bbox_inches="tight")
+    backend = str(plt.get_backend()).lower()
+    can_show = "agg" not in backend
+    if show_plot and can_show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def plot_calibration_result(chronicle, calibration, output_png, show_plot=True):

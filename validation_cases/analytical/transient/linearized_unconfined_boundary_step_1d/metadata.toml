@@ -1,0 +1,33 @@
+case_id = "lu_boundary_step_1d"
+category = "analytical"
+regime = "transient"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+
+[workspace]
+watershed_name = "val_lu_boundary_step"
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_periods = 40
+expected_spatial_shape = [5, 50]
+
+[time]
+dt_seconds = 43200.0
+
+[reference]
+xmin = 0.0
+xmax = 100.0
+base_head_m = 10.0
+west_head_m = 10.10
+hydraulic_conductivity_m_per_s = 1e-4
+reference_saturated_thickness_m = 10.0
+specific_yield = 0.10
+profile_axis = 0
+n_terms = 400
+
+[plot]
+profile_times_days = [0.5, 1.0, 4.0, 10.0, 20.0]
+monitor_positions_m = [25.0, 50.0, 75.0]

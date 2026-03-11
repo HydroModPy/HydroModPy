@@ -1,0 +1,95 @@
+@startuml
+title Data Definition And Transfer - Class Diagram
+
+package "launchers" {
+  class HydroModPyLauncher {
+    +cfg: HydroModPyConfig
+    +data_plan: DataLoadPlan
+    +run_state: LauncherRunState
+    +_run_setup()
+    +_run_data()
+    +_apply_structural_updates_from_data()
+  }
+}
+
+package "hydromodpy.simulation.state" {
+  class LauncherRunState {
+    +raw_toml: dict
+    +data_plan: DataLoadPlan
+    +setup: SetupContext
+    +loaded_data: LoadedDataContext
+  }
+
+  class SetupContext {
+    +domain
+    +flow
+  }
+
+  class LoadedDataContext {
+    +geology
+    +oceanic
+    +climatic
+    +hydrometry
+  }
+}
+
+package "hydromodpy.data_managers" {
+  class DataManagersPlanner {
+    +build(config, domain_zone_ids, raw_toml, flow_active_bc)
+  }
+
+  class DataLoadPlan {
+    +types: tuple[str, ...]
+    +inferred_types: tuple[str, ...]
+    +reasons_by_type
+  }
+
+  class DataManagersRuntimeLoader {
+    +load_all(run_state)
+  }
+}
+
+package "hydromodpy.data_managers.geology" {
+  class GeologyField {
+    +from_watershed_config(...)
+  }
+}
+
+package "hydromodpy.data_managers.hydrometry" {
+  class StationSet {
+    +from_config(config_data)
+  }
+}
+
+package "hydromodpy.domain" {
+  class Domain {
+    +set_zone(name, zone)
+  }
+
+  class DomainBinders {
+    +apply_geology_to_domain(domain, geology)
+  }
+}
+
+package "hydromodpy.process.flow" {
+  class FlowBinders {
+    +apply_oceanic_to_flow(flow, oceanic)
+    +apply_climatic_to_flow_recharge(flow, climatic)
+  }
+}
+
+HydroModPyLauncher --> DataManagersPlanner : build(...)
+DataManagersPlanner ..> DataLoadPlan : returns
+HydroModPyLauncher --> LauncherRunState : stores raw_toml\nand data_plan
+HydroModPyLauncher --> DataManagersRuntimeLoader : load_all(run_state)
+DataManagersRuntimeLoader --> LauncherRunState : fills loaded_data
+
+DataManagersRuntimeLoader ..> GeologyField : builds if geology active
+DataManagersRuntimeLoader ..> StationSet : builds if hydrometry active
+
+HydroModPyLauncher --> DomainBinders : apply_geology_to_domain(...)
+DomainBinders --> Domain : set_zone("geology", geology)
+HydroModPyLauncher --> FlowBinders : apply_oceanic/climatic(...)
+
+LauncherRunState ..> DataLoadPlan : resolved activation trace
+@enduml
