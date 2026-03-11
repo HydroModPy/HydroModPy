@@ -6,15 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import rasterio
-import whitebox
 
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.geographic.geographic_io import ensure_crs
 from hydromodpy.geographic.geographic_paths import GeographicPaths
 from hydromodpy.geographic.core.domain_dem import clip_dem_to_box_buffer
 from hydromodpy.tools import toolbox
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 
 @dataclass(frozen=True)
@@ -41,11 +38,11 @@ def _clip_raster(
     maintain_dimensions: bool,
     crs_project: str | None,
     nodata: float | None,
-    wbt_tool: object,
+    backend: WhiteboxBackend,
 ) -> None:
     """Clip one raster and enforce CRS / nodata conventions."""
     dst_path = str(dst)
-    wbt_tool.clip_raster_to_polygon(
+    backend.clip_raster_to_polygon(
         str(src),
         str(polygon),
         dst_path,
@@ -53,7 +50,7 @@ def _clip_raster(
     )
     ensure_crs(dst_path, crs_project)
     if nodata is not None:
-        wbt_tool.modify_no_data_value(dst_path, new_value=float(nodata))
+        backend.modify_no_data_value(dst_path, new_value=float(nodata))
 
 
 def _export_reshaped_rasters(
@@ -87,14 +84,17 @@ def build_legacy_domain_rasters(
     watershed_buff_shp: str | Path,
     paths: GeographicPaths,
     crs_project: str | None = None,
-    wbt_tool: object | None = None,
+    backend: WhiteboxBackend | None = None,
+    wbt_tool: WhiteboxBackend | None = None,
 ) -> LegacyDomainRasterProducts:
     """
     Build the full legacy raster bundle used by solvers and postprocess.
 
     The generated files preserve historical names and nodata conventions.
     """
-    tool = wbt if wbt_tool is None else wbt_tool
+    if backend is not None and wbt_tool is not None:
+        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
+    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
 
     clip_dem_to_box_buffer(
         dem_init_path=dem_init_path,
@@ -102,7 +102,7 @@ def build_legacy_domain_rasters(
         output_dem_path=paths.watershed_box_buff_dem,
         crs_project=crs_project,
         nodata=-9999.0,
-        wbt_tool=tool,
+        backend=tool,
     )
 
     jobs = [
@@ -123,7 +123,7 @@ def build_legacy_domain_rasters(
             maintain_dimensions=maintain_dimensions,
             crs_project=crs_project,
             nodata=nodata,
-            wbt_tool=tool,
+            backend=tool,
         )
 
     tool.vector_lines_to_raster(

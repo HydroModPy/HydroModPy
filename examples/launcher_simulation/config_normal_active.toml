@@ -34,14 +34,11 @@ buff_area = "20%"
 crs_project = "EPSG:2154"
 
 [domain]
-zone_ids = ["geology"]
+support_mode = "none"
 
 [data]
-types = ["geology", "hydrography", "hydrometry"]
+types = ["hydrography", "hydrometry"]
 inference_mode = "warn"
-
-[data.geology]
-geo_path = "../../data/France/geology"
 
 [data.hydrography]
 types_obs = ["botopage2024_naizin_streams_perennial-intermittent"]

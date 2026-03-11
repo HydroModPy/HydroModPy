@@ -30,17 +30,13 @@ def _configure_whitebox_single_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MKL_NUM_THREADS", "1")
     monkeypatch.setenv("NUMEXPR_NUM_THREADS", "1")
 
-    # WhiteboxTools instances are created at import time in these modules.
-    # We force them to one worker explicitly.
-    import hydromodpy.geographic.geographic as geo_mod
-    import hydromodpy.geographic.core.catchment_from_point as point_mod
+    # The default backend is a singleton; force it to one worker explicitly.
+    from hydromodpy.backends import get_whitebox_backend
 
-    for tool in (getattr(geo_mod, "wbt", None), getattr(point_mod, "wbt", None)):
-        if tool is None:
-            continue
-        setter = getattr(tool, "set_max_procs", None)
-        if callable(setter):
-            setter(1)
+    tool = get_whitebox_backend()
+    setter = getattr(getattr(tool, "_tool", None), "set_max_procs", None)
+    if callable(setter):
+        setter(1)
 
 
 def _write_json(path: Path, payload: dict) -> None:

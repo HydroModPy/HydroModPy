@@ -147,9 +147,22 @@ def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
     model.domain = object()
     model.sgrid_config = object()
     model._apply_preprocess_options(model.preprocess_options)
+    model.flow.config.flow_regime = "transient"
 
     with pytest.raises(
         ValueError,
-        match=r"preprocess_options\.time_grid derived from \[simulation\.time\].*fallback is no longer supported",
+        match=r"preprocess_options\.time_grid derived from \[simulation\.time\] for transient flow runs",
     ):
         model._validate_pre_processing_inputs()
+
+
+def test_modflow_accepts_missing_time_grid_for_steady_launcher_flow_preprocessing():
+    dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
+    geo = _DummyGeographic(dem)
+    model = Modflow(geographic=geo, model_folder=".")
+    model.flow = SimpleNamespace(config=SimpleNamespace(flow_regime="steady"))
+    model.domain = object()
+    model.sgrid_config = object()
+    model._apply_preprocess_options(model.preprocess_options)
+
+    model._validate_pre_processing_inputs()

@@ -23,6 +23,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
         dem_out_dir_path,
         dem_correc_type,
         crs_project,
+        backend,
         wbt_tool,
     ):
         captured.update(
@@ -31,6 +32,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
                 "dem_out_dir_path": str(dem_out_dir_path),
                 "dem_correc_type": dem_correc_type,
                 "crs_project": crs_project,
+                "backend": backend,
                 "wbt_tool": wbt_tool,
             }
         )
@@ -50,7 +52,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
         output_dir=tmp_path / "routing",
         dem_correc_type="breach",
         crs_project="EPSG:2154",
-        wbt_tool="fake-wbt",
+        backend="fake-wbt",
     )
 
     assert isinstance(ctx, SolverRoutingContext)
@@ -61,7 +63,8 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
     assert captured["dem_init_path"] == str(dem_path)
     assert captured["dem_correc_type"] == "breach"
     assert captured["crs_project"] == "EPSG:2154"
-    assert captured["wbt_tool"] == "fake-wbt"
+    assert captured["backend"] == "fake-wbt"
+    assert captured["wbt_tool"] is None
 
 
 def test_build_solver_routing_context_requires_existing_dem(tmp_path: Path):

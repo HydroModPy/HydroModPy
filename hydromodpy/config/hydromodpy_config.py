@@ -79,8 +79,9 @@ class HydroModPyConfig(BaseModel):
     domain: DomainConfig = Field(
         default_factory=DomainConfig,
         description=(
-            "Domain configuration defining which thematic zones are loaded "
-            "(for example 'geology')."
+            "Domain configuration defining domain depth plus the spatial-support "
+            "mode used for heterogeneous parameter mapping "
+            "(`none`, `geology`, or `zones`)."
         ),
     )
     data: DataManagersConfig = Field(

@@ -9,6 +9,7 @@ from hydromodpy.domain.structure_binders import (
 from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
+    apply_simulation_time_to_flow_boundary_conditions,
     apply_simulation_time_to_flow_wells,
 )
 
@@ -20,5 +21,6 @@ __all__ = [
     "apply_geology_to_domain",
     "apply_climatic_to_flow_recharge",
     "apply_oceanic_to_flow",
+    "apply_simulation_time_to_flow_boundary_conditions",
     "apply_simulation_time_to_flow_wells",
 ]

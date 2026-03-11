@@ -15,12 +15,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-import whitebox
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 
 from hydromodpy.geographic.geographic_io import ensure_crs
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 
 @dataclass(frozen=True)
@@ -48,7 +45,8 @@ def build_regional_flow_products(
     dem_out_dir_path: str | Path,
     dem_correc_type: str,
     crs_project: str | None = None,
-    wbt_tool: object | None = None,
+    backend: WhiteboxBackend | None = None,
+    wbt_tool: WhiteboxBackend | None = None,
 ) -> FlowProducts:
     """Generate corrected DEM, D8 direction and D8 accumulation rasters.
 
@@ -64,10 +62,14 @@ def build_regional_flow_products(
         - ``"breach"``: carves narrow paths through barriers/depressions.
     crs_project:
         Optional CRS to enforce on output metadata.
+    backend:
+        Optional Whitebox backend injected for runtime/tests.
     wbt_tool:
-        Optional Whitebox-like object injected for tests.
+        Legacy alias for ``backend`` kept for backward compatibility.
     """
-    tool = wbt if wbt_tool is None else wbt_tool
+    if backend is not None and wbt_tool is not None:
+        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
+    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
 
     dem_in = str(dem_init_path)
     out_dir = Path(dem_out_dir_path)

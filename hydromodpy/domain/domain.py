@@ -118,3 +118,37 @@ class Domain:
                 f"Zone '{normalized}' is not declared in domain.zone_ids: {self.config.zone_ids}"
             )
         self.zones[normalized] = zone_obj
+
+    def get_zone(self, zone_id: str) -> object | None:
+        """Return one registered zone by canonical zone id."""
+        normalized = str(zone_id).strip().lower()
+        if normalized == "":
+            raise ValueError("zone_id cannot be empty")
+        return self.zones.get(normalized)
+
+    def resolve_spatial_support(self, support_id: str) -> object | None:
+        """Resolve one spatial support from zone id or field identifier.
+
+        The launcher stores heterogeneous supports in ``Domain.zones`` under a
+        semantic zone key (for example ``"geology"``), while field parameters
+        reference the support through ``field_spatial_id`` (for example
+        ``"field_geology"``). This method bridges both naming schemes.
+        """
+        normalized = str(support_id).strip()
+        if normalized == "":
+            raise ValueError("support_id cannot be empty")
+
+        zone_match = self.zones.get(normalized.lower())
+        if zone_match is not None:
+            return zone_match
+
+        matches = [
+            zone_obj
+            for zone_obj in self.zones.values()
+            if str(getattr(zone_obj, "identifier", "")).strip() == normalized
+        ]
+        if len(matches) > 1:
+            raise ValueError(
+                f"Multiple domain zones match spatial support '{normalized}'."
+            )
+        return matches[0] if matches else None

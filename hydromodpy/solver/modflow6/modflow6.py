@@ -13,6 +13,7 @@ import flopy.utils.binaryfile as bf
 import numpy as np
 from flopy.utils import postprocessing as pp
 
+from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common import (
 	masstransfer,
 	SolverGridContext,
@@ -35,10 +36,15 @@ from hydromodpy.solver.modflow6.modflow6_config import (
 	_coerce_modflow6_config,
 )
 from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+	resolve_required_flow_properties,
 	resolve_flow_property_arrays,
 )
 from hydromodpy.solver.modflow_common.runtime_arrays import (
 	build_concentration_runtime_overrides,
+)
+from hydromodpy.units.volumetric_flow import (
+	convert_to_m3_per_s,
+	normalize_m3_per_s_unit,
 )
 from hydromodpy.tools import get_logger, toolbox
 
@@ -200,10 +206,14 @@ class Modflow6(Solver):
 			raise ValueError("pre_processing requires a configured Flow object.")
 		if self.domain is None:
 			raise ValueError("pre_processing requires a configured Domain object.")
-		if self.time_grid is None:
+		flow_regime = self._resolve_flow_regime()
+		if flow_regime is None:
+			raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
+		self.flow_regime = flow_regime
+		if self.time_grid is None and self.flow_regime != "steady":
 			raise ValueError(
 				"Launcher flow preprocessing requires preprocess_options.time_grid "
-				"derived from [simulation.time]. Solver tgrid fallback is no longer supported."
+				"derived from [simulation.time] for transient flow runs. Solver tgrid fallback is no longer supported."
 			)
 
 	def _build_well_stress_period_data(self, n_stress_periods: int) -> dict[int, list[list[float]]]:
@@ -231,9 +241,11 @@ class Modflow6(Solver):
 		for well_id, raw_well_payload in wells.items():
 			cell_payload = getattr(raw_well_payload, "cell", None)
 			flux_payload = getattr(raw_well_payload, "flux", None)
+			forcing_payload = getattr(raw_well_payload, "forcing", None)
 			if cell_payload is None and isinstance(raw_well_payload, Mapping):
 				cell_payload = raw_well_payload.get("cell")
 				flux_payload = raw_well_payload.get("flux")
+				forcing_payload = raw_well_payload.get("forcing")
 			if cell_payload is None and hasattr(raw_well_payload, "resolve_cell"):
 				if grid is None:
 					raise ValueError(
@@ -241,7 +253,7 @@ class Modflow6(Solver):
 						"but solver grid geometry is unavailable."
 					)
 				cell_payload = raw_well_payload.resolve_cell(grid)
-			if cell_payload is None or flux_payload is None:
+			if cell_payload is None or (flux_payload is None and forcing_payload is None):
 				continue
 
 			cell_seq = list(cell_payload)
@@ -249,7 +261,26 @@ class Modflow6(Solver):
 				continue
 			cell = (int(cell_seq[0]), int(cell_seq[1]), int(cell_seq[2]))
 
-			if isinstance(flux_payload, Real) and not isinstance(flux_payload, bool):
+			if forcing_payload is not None:
+				raw_values = resolve_period_values_from_forcing(
+					forcing=forcing_payload,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(n_stress_periods),
+					label=f"flow.sinks_sources.wells.{well_id}.forcing",
+				)
+				canonical_units = normalize_m3_per_s_unit(getattr(raw_well_payload, "units", "m3/s"))
+				flux_vector = np.asarray(
+					[
+						convert_to_m3_per_s(
+							value,
+							unit=canonical_units,
+							label=f"flow.sinks_sources.wells.{well_id}.forcing[{idx}]",
+						)
+						for idx, value in enumerate(raw_values)
+					],
+					dtype=float,
+				)
+			elif isinstance(flux_payload, Real) and not isinstance(flux_payload, bool):
 				flux_vector = np.full((n_stress_periods,), float(flux_payload), dtype=float)
 			else:
 				raw_flux_seq = list(flux_payload)
@@ -267,6 +298,115 @@ class Modflow6(Solver):
 		for t in range(n_stress_periods):
 			spd[t] = [[cell[0], cell[1], cell[2], float(flux_vector[t])] for cell, flux_vector in normalized_wells]
 		return spd
+
+	@staticmethod
+	def _is_scalar_number(value: object) -> bool:
+		return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
+
+	def _boundary_conditions_mapping(self) -> Mapping[str, object]:
+		boundary_conditions = getattr(self.flow, "boundary_conditions", {})
+		if not isinstance(boundary_conditions, Mapping):
+			raise TypeError("flow.boundary_conditions must be a mapping")
+		return boundary_conditions
+
+	def _is_bc_active(self, bc_id: str) -> bool:
+		active = getattr(self.flow, "active_bc", [])
+		return bc_id in active
+
+	def _boundary_period_series(self, *, value: object, label: str) -> np.ndarray:
+		if self._is_scalar_number(value):
+			return np.full((int(self.nper),), float(value), dtype=float)
+		if not isinstance(value, (np.ndarray, list, tuple)):
+			raise TypeError(f"{label} must be numeric or a sequence of numeric values")
+		series = np.asarray(value, dtype=float).reshape(-1)
+		if series.size == 0:
+			raise ValueError(f"{label} cannot be empty when using time series")
+		if series.size == 1:
+			return np.full((int(self.nper),), float(series[0]), dtype=float)
+		if series.size != int(self.nper):
+			raise ValueError(
+				f"{label} length ({series.size}) must be 1 or match nper ({int(self.nper)})"
+			)
+		return series.astype(float)
+
+	def _boundary_start_value(self, *, value: object, label: str) -> float:
+		return float(self._boundary_period_series(value=value, label=label)[0])
+
+	def _resolve_side_boundary_series(self, *, boundary: object, bc_id: str) -> np.ndarray:
+		forcing = getattr(boundary, "forcing", None)
+		if forcing is not None:
+			return np.asarray(
+				resolve_period_values_from_forcing(
+					forcing=forcing,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(self.nper),
+					label=f"flow.bc.{bc_id}.forcing",
+				),
+				dtype=float,
+			)
+		return self._boundary_period_series(
+			value=getattr(boundary, "value", None),
+			label=f"flow.bc.{bc_id}.value",
+		)
+
+	def _iter_side_boundary_cells(self, bc_id: str):
+		if bc_id == "west_side":
+			for ilay in range(int(self.nlay)):
+				for i in range(int(self.nrow)):
+					yield ilay, i, 0
+			return
+		if bc_id == "east_side":
+			for ilay in range(int(self.nlay)):
+				for i in range(int(self.nrow)):
+					yield ilay, i, int(self.ncol) - 1
+			return
+		if bc_id == "north_side":
+			for ilay in range(int(self.nlay)):
+				for j in range(int(self.ncol)):
+					yield ilay, 0, j
+			return
+		if bc_id == "south_side":
+			for ilay in range(int(self.nlay)):
+				for j in range(int(self.ncol)):
+					yield ilay, int(self.nrow) - 1, j
+			return
+		raise ValueError(f"Unsupported side boundary id: {bc_id}")
+
+	def _apply_side_boundary_start_heads(self, strt: np.ndarray) -> np.ndarray:
+		bc = self._boundary_conditions_mapping()
+		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+			if not self._is_bc_active(bc_id):
+				continue
+			boundary = bc.get(bc_id)
+			if boundary is None:
+				continue
+			start_value = float(self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)[0])
+			if bc_id == "west_side":
+				strt[:, :, 0] = start_value
+			elif bc_id == "east_side":
+				strt[:, :, -1] = start_value
+			elif bc_id == "north_side":
+				strt[:, 0, :] = start_value
+			elif bc_id == "south_side":
+				strt[:, -1, :] = start_value
+		return strt
+
+	def _build_side_boundary_chd_spd(self) -> dict[int, list[list[float]]]:
+		bc = self._boundary_conditions_mapping()
+		spd = {kper: {} for kper in range(int(self.nper))}
+		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+			if not self._is_bc_active(bc_id):
+				continue
+			boundary = bc.get(bc_id)
+			if boundary is None:
+				continue
+			series = self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)
+			for kper, head in enumerate(series):
+				for ilay, row, col in self._iter_side_boundary_cells(bc_id):
+					if bool(self.dem_mask[row, col]):
+						continue
+					spd[kper][(ilay, row, col)] = [ilay, row, col, float(head)]
+		return {kper: list(period_map.values()) for kper, period_map in spd.items()}
 
 	def _scalar_to_2d(self, value: float) -> np.ndarray:
 		return np.full((self.nrow, self.ncol), float(value), dtype=float)
@@ -406,6 +546,8 @@ class Modflow6(Solver):
 			flow=self.flow,
 			domain=self.domain,
 			sgrid=sgrid,
+			required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
+			optional_fill_values={"Sy": 0.0, "Ss": 0.0},
 		)
 		self.hk = flow_params["hk"]
 		self.sy = flow_params["sy"]
@@ -465,6 +607,7 @@ class Modflow6(Solver):
 			strt = np.repeat(bottom[-1][np.newaxis, :, :], self.nlay, axis=0)
 		else:
 			strt = np.full((self.nlay, self.nrow, self.ncol), float(h_ic.value), dtype=float)
+		strt = self._apply_side_boundary_start_heads(strt)
 		self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
 
 		self.npf = flopy.mf6.ModflowGwfnpf(
@@ -510,27 +653,7 @@ class Modflow6(Solver):
 				drn_spd[kper] = period_cells
 			self.drn = flopy.mf6.ModflowGwfdrn(self.gwf, stress_period_data=drn_spd, save_flows=True)
 
-		chd_spd = {}
-		bc = self.flow.boundary_conditions
-		for kper in range(int(self.nper)):
-			entries = []
-			if "west_boundary" in bc:
-				val = float(getattr(bc["west_boundary"], "value", 0.0))
-				for i in range(self.nrow):
-					entries.append([0, i, 0, val])
-			if "east_boundary" in bc:
-				val = float(getattr(bc["east_boundary"], "value", 0.0))
-				for i in range(self.nrow):
-					entries.append([0, i, self.ncol - 1, val])
-			if "north_boundary" in bc:
-				val = float(getattr(bc["north_boundary"], "value", 0.0))
-				for j in range(self.ncol):
-					entries.append([0, 0, j, val])
-			if "south_boundary" in bc:
-				val = float(getattr(bc["south_boundary"], "value", 0.0))
-				for j in range(self.ncol):
-					entries.append([0, self.nrow - 1, j, val])
-			chd_spd[kper] = entries
+		chd_spd = self._build_side_boundary_chd_spd()
 		if any(len(v) > 0 for v in chd_spd.values()):
 			self.chd = flopy.mf6.ModflowGwfchd(self.gwf, stress_period_data=chd_spd, save_flows=True)
 

@@ -28,11 +28,7 @@ import numpy as np
 from os.path import dirname, abspath
 import rasterio
 import flopy.utils.binaryfile as bf
-import whitebox
 import shutil
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 # Root
 df = dirname(dirname(abspath(__file__)))

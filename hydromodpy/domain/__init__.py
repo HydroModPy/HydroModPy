@@ -9,6 +9,20 @@ from hydromodpy.domain.depth_model import (
     FlatSubstratumDepthModel,
 )
 from hydromodpy.domain.raster_support import RasterSupport
+from hydromodpy.domain.spatial_support import (
+    GeneratedBandsSupportField,
+    GeneratedRingsSupportField,
+    RasterZonesSupportField,
+    SupportBuildContext,
+    build_default_spatial_support_provider_registry,
+)
+from hydromodpy.domain.spatial_support_config import (
+    CatchmentZonesSupportConfig,
+    DomainSupportConfig,
+    GeneratedBandsSupportConfig,
+    GeneratedRingsSupportConfig,
+    GeologySupportConfig,
+)
 from hydromodpy.domain.surface import Surface
 
 __all__ = [
@@ -20,4 +34,14 @@ __all__ = [
     "FlatSubstratumDepthModel",
     "RasterSupport",
     "Surface",
+    "DomainSupportConfig",
+    "GeneratedBandsSupportConfig",
+    "GeneratedRingsSupportConfig",
+    "CatchmentZonesSupportConfig",
+    "GeologySupportConfig",
+    "RasterZonesSupportField",
+    "GeneratedBandsSupportField",
+    "GeneratedRingsSupportField",
+    "SupportBuildContext",
+    "build_default_spatial_support_provider_registry",
 ]

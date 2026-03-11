@@ -24,11 +24,8 @@ import time
 import glob
 import ssl
 import matplotlib.pyplot as plt
-import whitebox
 from pyproj import Transformer
 from shapely.geometry import Polygon, Point
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger

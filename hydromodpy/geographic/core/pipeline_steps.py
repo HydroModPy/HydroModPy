@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import rasterio
 
+from hydromodpy.backends import WhiteboxBackend
 from hydromodpy.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
@@ -86,10 +87,15 @@ def build_standard_catchment(
     direc_path: str | Path,
     acc_path: str | Path,
     crs_project: str | None,
-    wbt_tool: object | None = None,
+    backend: WhiteboxBackend | None = None,
+    wbt_tool: WhiteboxBackend | None = None,
     unsupported_mode: str = "error",
 ) -> CatchmentFromPointProducts | str | None:
     """Build the canonical watershed geometry from outlet or polygon config."""
+    if backend is not None and wbt_tool is not None:
+        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
+    tool = backend or wbt_tool
+
     if config.catch_def == "from_outlet_coord":
         if config.x_outlet is None or config.y_outlet is None or config.snap_dist is None:
             raise ValueError(
@@ -107,7 +113,7 @@ def build_standard_catchment(
             outlet_snap_name="outlet_snap.shp",
             watershed_tif_name=Path(paths.watershed).name,
             watershed_shp_name=Path(paths.watershed_shp).name,
-            wbt_tool=wbt_tool,
+            backend=tool,
         )
 
     if config.catch_def == "from_polyg_shp":

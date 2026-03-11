@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from hydromodpy.simulation.state.run_state import LauncherRunState
 from launchers.process_simulation.launcher import HydroModPyLauncher
 
@@ -250,3 +252,156 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     assert captured["config"] is geographic_cfg.synthetic
     assert captured["workspace"] is run_state.setup.workspace
     assert captured["output_dir"] == Path("workspace") / "results_stable" / "geographic"
+
+
+def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Workspace",
+        _DummyWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Geographic",
+        _DummyGeographic,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.Domain",
+        _DummyDomain,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        lambda **kwargs: None,
+    )
+
+    cfg = SimpleNamespace(
+        workspace=SimpleNamespace(),
+        geographic=_standard_geographic_cfg(),
+        domain=SimpleNamespace(zone_ids=[], support_mode="geology"),
+        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+    )
+    run_state = LauncherRunState(
+        cfg=cfg,
+        config_path=Path("config.toml"),
+        raw_toml={},
+    )
+
+    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
+    launcher.cfg = cfg
+    launcher.run_state = run_state
+    launcher.data_plan = SimpleNamespace(types=("geology",))
+    launcher.process_context_factory = SimpleNamespace(
+        ensure_flow=lambda state: None,
+        ensure_transport=lambda state: None,
+    )
+
+    launcher._run_setup()
+
+    assert run_state.setup.domain.config.zone_ids == ["catchment"]
+
+
+def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Workspace",
+        _DummyWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Geographic",
+        _DummyGeographic,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.Domain",
+        _DummyDomain,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        lambda **kwargs: None,
+    )
+
+    cfg = SimpleNamespace(
+        workspace=SimpleNamespace(),
+        geographic=_standard_geographic_cfg(),
+        domain=SimpleNamespace(zone_ids=[], support_mode="geology"),
+        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+    )
+    run_state = LauncherRunState(
+        cfg=cfg,
+        config_path=Path("config.toml"),
+        raw_toml={},
+    )
+
+    def _ensure_flow(state) -> None:
+        state.setup.flow = SimpleNamespace(
+            parameters={
+                "K": SimpleNamespace(
+                    is_heterogeneous=True,
+                    field_spatial_id="field_geology",
+                )
+            }
+        )
+
+    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
+    launcher.cfg = cfg
+    launcher.run_state = run_state
+    launcher.data_plan = SimpleNamespace(types=("geology",))
+    launcher.requested_spatial_support_ids = ("field_geology",)
+    launcher.requested_domain_supports = {}
+    launcher.process_context_factory = SimpleNamespace(
+        ensure_flow=_ensure_flow,
+        ensure_transport=lambda state: None,
+    )
+
+    launcher._run_setup()
+
+    assert run_state.setup.domain.config.zone_ids == ["catchment", "field_geology"]
+
+
+def test_run_setup_rejects_heterogeneous_flow_when_support_mode_is_none(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Workspace",
+        _DummyWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Geographic",
+        _DummyGeographic,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.Domain",
+        _DummyDomain,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        lambda **kwargs: None,
+    )
+
+    cfg = SimpleNamespace(
+        workspace=SimpleNamespace(),
+        geographic=_standard_geographic_cfg(),
+        domain=SimpleNamespace(zone_ids=[], support_mode="none"),
+        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+    )
+    run_state = LauncherRunState(
+        cfg=cfg,
+        config_path=Path("config.toml"),
+        raw_toml={},
+    )
+
+    def _ensure_flow(state) -> None:
+        state.setup.flow = SimpleNamespace(
+            parameters={
+                "K": SimpleNamespace(
+                    is_heterogeneous=True,
+                    field_spatial_id="field_geology",
+                )
+            }
+        )
+
+    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
+    launcher.cfg = cfg
+    launcher.run_state = run_state
+    launcher.data_plan = SimpleNamespace(types=())
+    launcher.process_context_factory = SimpleNamespace(
+        ensure_flow=_ensure_flow,
+        ensure_transport=lambda state: None,
+    )
+
+    with pytest.raises(ValueError, match="domain.support_mode='geology'"):
+        launcher._run_setup()

@@ -381,7 +381,10 @@ class FlowConfig(ProcessSpatialConfig):
         #   detections (for example normalized key "drainage" seen as deprecated
         #   input on second pass).
         parsed_ic = raw_ic
-        parsed_bc = raw_bc
+        parsed_bc = _resolve_boundary_condition_forcing_paths(
+            raw_bc,
+            base_dir=base_dir,
+        )
         parsed_sinks_sources = _resolve_well_forcing_paths(
             raw_sinks_sources,
             base_dir=base_dir,
@@ -437,6 +440,45 @@ def _resolve_well_forcing_paths(
             well_payload["forcing"] = forcing_payload
         resolved_wells[str(well_id)] = well_payload
     payload["wells"] = resolved_wells
+    return payload
+
+
+def _resolve_boundary_condition_forcing_paths(
+    raw_bc: Mapping[str, object],
+    *,
+    base_dir: Path,
+) -> dict[str, object]:
+    """Resolve relative CSV paths declared under flow.bc.*.forcing."""
+    payload = dict(raw_bc)
+
+    def _resolve_forcing_mapping(item: object) -> object:
+        if not isinstance(item, Mapping):
+            return item
+        item_payload = dict(item)
+        forcing = item_payload.get("forcing")
+        if isinstance(forcing, Mapping):
+            forcing_payload = dict(forcing)
+            path_value = forcing_payload.get("path_file")
+            if isinstance(path_value, str) and path_value.strip() != "":
+                path = Path(path_value).expanduser()
+                if not path.is_absolute():
+                    path = (base_dir / path).resolve()
+                forcing_payload["path_file"] = path
+            item_payload["forcing"] = forcing_payload
+        return item_payload
+
+    dirichlet = payload.get("dirichlet")
+    if isinstance(dirichlet, Mapping):
+        resolved_dirichlet: dict[str, object] = {}
+        for bc_id, raw_item in dirichlet.items():
+            resolved_dirichlet[str(bc_id)] = _resolve_forcing_mapping(raw_item)
+        payload["dirichlet"] = resolved_dirichlet
+
+    for key, raw_item in list(payload.items()):
+        if key in {"dirichlet", "cauchy", "robin"}:
+            continue
+        payload[key] = _resolve_forcing_mapping(raw_item)
+
     return payload
 
 
