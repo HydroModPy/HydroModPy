@@ -27,7 +27,12 @@ class ModpathTransportAdapter:
             bin_path=state.setup.workspace.bin_path,
         )
         model_modpath.pre_processing()
-        model_modpath.processing(write_model=True, run_model=True)
+        success = model_modpath.processing(write_model=True, run_model=True)
+        if not success:
+            raise RuntimeError(
+                f"Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+                f"See {getattr(model_modpath, 'full_path', '<unknown>')} for diagnostics."
+            )
         model_modpath.post_processing(
             model_modpath,
             ending_point=True,

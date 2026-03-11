@@ -30,6 +30,11 @@ class Modflow6GwtTransportAdapter:
             suffix_name=transport_output_suffix(ctx.plan, ctx.run),
         )
         model_transport.pre_processing()
-        model_transport.processing(write_model=True, run_model=True, verbose=True)
+        success = model_transport.processing(write_model=True, run_model=True, verbose=True)
+        if not success:
+            raise RuntimeError(
+                f"Transport solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+                f"See {getattr(model_transport, 'full_path', '<unknown>')} for diagnostics."
+            )
         model_transport.post_processing(model_transport)
         return RunExecutionResult(primary_model=model_transport)

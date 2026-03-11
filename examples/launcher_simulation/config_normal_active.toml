@@ -1,4 +1,4 @@
-# Same launcher simulation as config_normal.toml, reduced to active/effective inputs.
+# Same launcher simulation as config_normal_nwt.toml, reduced to active/effective inputs.
 
 [simulation]
 name = "Example 12 launcher normal 3 months"

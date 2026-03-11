@@ -115,6 +115,7 @@ hydromodpy/mesh/cartesian_grid/output/
 
 # Temporary files
 tmp*/
+pytest_tmp_local/
 *.tmp
 *.prof
 *.bak
