@@ -39,10 +39,9 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.utils.raster_grid_reader import
 
 DEFAULT_TOP_PATH = "watershed_box_buff_dem.tif"
 DEFAULT_CRS = "EPSG:2154"
-DEFAULT_PLAN_DISCRETIZATION_MODE = "shape"
+DEFAULT_PLAN_DISCRETIZATION_MODE = "resample_to_shape"
 DEFAULT_NX = 150
 DEFAULT_NY = 150
-DEFAULT_LENUNI = "m"
 DEFAULT_NODATA = -9999.0
 
 DEFAULT_SCENARIOS = [
@@ -172,11 +171,12 @@ def _build_top_surface(
         support=support,
         name="surface_topo",
     )
-    if plan_mode == "raster_native":
+    if plan_mode == "keep_native":
         return top_surface
-    if plan_mode != "shape":
+    if plan_mode != "resample_to_shape":
         raise ValueError(
-            f"Unsupported plan_discretization_mode '{plan_mode}'. Allowed: raster_native, shape."
+            "Unsupported plan_discretization_mode "
+            f"'{plan_mode}'. Allowed: keep_native, resample_to_shape."
         )
     return top_surface.resample_to_shape(
         int(ny),
@@ -208,7 +208,6 @@ def _build_bottom_surface(top_surface: Surface, scenario: dict) -> Surface:
 
 def _build_vertical_config(scenario: dict) -> VerticalGridConfig:
     payload = {
-        "lenuni": DEFAULT_LENUNI,
         "nodata": DEFAULT_NODATA,
         "genmtd_lay": scenario["genmtd_lay"],
     }

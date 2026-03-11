@@ -206,7 +206,7 @@ def project_surfaces_to_planar_grid(
     nodata: float,
 ) -> tuple[Surface, Surface]:
     """Project domain surfaces to the target solver planar grid when requested."""
-    if planar_config is None or planar_config.mode == "surface_native":
+    if planar_config is None or planar_config.mode == "keep_native":
         return top_surface, bottom_surface
 
     resampled_top = top_surface.resample_to_shape(

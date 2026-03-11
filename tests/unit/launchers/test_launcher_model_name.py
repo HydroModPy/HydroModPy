@@ -275,7 +275,7 @@ def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(zone_ids=[], support_mode="geology"),
+        domain=SimpleNamespace(zone_ids=[]),
         simulation=SimpleNamespace(name="simulation_name_from_toml"),
     )
     run_state = LauncherRunState(
@@ -319,7 +319,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(zone_ids=[], support_mode="geology"),
+        domain=SimpleNamespace(zone_ids=[]),
         simulation=SimpleNamespace(name="simulation_name_from_toml"),
     )
     run_state = LauncherRunState(
@@ -343,7 +343,10 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
     launcher.run_state = run_state
     launcher.data_plan = SimpleNamespace(types=("geology",))
     launcher.requested_spatial_support_ids = ("field_geology",)
-    launcher.requested_domain_supports = {}
+    launcher.requested_domain_supports = {
+        "field_geology": SimpleNamespace(provider="geology")
+    }
+    launcher._build_domain_spatial_supports = lambda *, phase: None
     launcher.process_context_factory = SimpleNamespace(
         ensure_flow=_ensure_flow,
         ensure_transport=lambda state: None,
@@ -354,7 +357,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
     assert run_state.setup.domain.config.zone_ids == ["catchment", "field_geology"]
 
 
-def test_run_setup_rejects_heterogeneous_flow_when_support_mode_is_none(monkeypatch) -> None:
+def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeypatch) -> None:
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.hmp.Workspace",
         _DummyWorkspace,
@@ -375,7 +378,7 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_mode_is_none(monkeypa
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
-        domain=SimpleNamespace(zone_ids=[], support_mode="none"),
+        domain=SimpleNamespace(zone_ids=[]),
         simulation=SimpleNamespace(name="simulation_name_from_toml"),
     )
     run_state = LauncherRunState(
@@ -398,10 +401,12 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_mode_is_none(monkeypa
     launcher.cfg = cfg
     launcher.run_state = run_state
     launcher.data_plan = SimpleNamespace(types=())
+    launcher.requested_spatial_support_ids = ("field_geology",)
+    launcher.requested_domain_supports = {}
     launcher.process_context_factory = SimpleNamespace(
         ensure_flow=_ensure_flow,
         ensure_transport=lambda state: None,
     )
 
-    with pytest.raises(ValueError, match="domain.support_mode='geology'"):
+    with pytest.raises(ValueError, match="domain.supports"):
         launcher._run_setup()

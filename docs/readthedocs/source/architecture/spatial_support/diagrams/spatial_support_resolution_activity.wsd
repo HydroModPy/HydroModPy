@@ -1,5 +1,5 @@
 @startuml
-title Spatial Support - support_mode Activity Diagram
+title Spatial Support - Support Resolution Activity Diagram
 
 start
 
@@ -7,19 +7,18 @@ start
 :Inspect flow parameters and\nrequested field_spatial_id values;
 
 if (Any heterogeneous FieldParam?) then (yes)
-  if (support_mode == none?) then (yes)
-    :Reject configuration;\nheterogeneous mapping requires\nsupport_mode = geology or zones;
+  if (Any requested support missing in\ndomain.supports?) then (yes)
+    :Reject configuration;\neach heterogeneous field_spatial_id\nmust match a declared domain support;
     stop
   else (no)
-    if (support_mode == geology?) then (yes)
+    :Attach setup-time zone sources\n(catchment and custom domain zones);
+
+    if (Any requested support uses\nprovider = geology?) then (yes)
       :Infer/load geology data\nthrough DataManagersPlanner\nand runtime loader;
       :Attach GeologyField to Domain;
-      :Build requested geology supports\n(implicit or explicit aliases);
-    else (zones)
-      :Attach setup-time zone sources\n(catchment and custom domain zones);
-      :Build explicit non-geology supports\nusing generated_bands,\ngenerated_rings, or catchment_zones providers;
     endif
 
+    :Build requested explicit supports\nusing generated_bands,\ngenerated_rings, catchment_zones,\nor geology providers;
     :Domain now exposes support ids\nthrough zones + resolve_spatial_support(...);
     :During property mapping,\nresolve field_spatial_id on Domain;
 

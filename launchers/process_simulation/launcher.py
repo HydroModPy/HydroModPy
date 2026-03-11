@@ -62,7 +62,6 @@ from hydromodpy.domain.spatial_support import (
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
 )
-from hydromodpy.domain.spatial_support_config import GeologySupportConfig
 from hydromodpy.domain.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
@@ -155,7 +154,6 @@ class HydroModPyLauncher:
         data_plan = DataManagersPlanner().build(
             self.cfg.data,
             domain_zone_ids=self.cfg.domain.zone_ids,
-            domain_support_mode=getattr(self.cfg.domain, "support_mode", None),
             domain_support_provider_names=self._support_provider_names(
                 self.requested_domain_supports
             ),
@@ -320,7 +318,6 @@ class HydroModPyLauncher:
             str(support_id).strip().lower(): support_cfg
             for support_id, support_cfg in explicit_supports.items()
         }
-        support_mode = self._normalize_domain_support_mode(domain_cfg)
 
         resolved: dict[str, object] = {}
         for support_id in requested_support_ids:
@@ -328,19 +325,11 @@ class HydroModPyLauncher:
             if support_cfg is not None:
                 resolved[support_id] = support_cfg
                 continue
-            if support_mode == "geology":
-                resolved[support_id] = GeologySupportConfig(provider="geology")
-                continue
             raise ValueError(
                 f"Missing domain support declaration for '{support_id}'. "
-                "Declare [domain.supports.<id>] or use domain.support_mode='geology'."
+                "Declare [domain.supports.<id>] with an explicit provider."
             )
         return resolved
-
-    @staticmethod
-    def _normalize_domain_support_mode(domain_cfg: object) -> str:
-        """Return one canonical domain support mode."""
-        return str(getattr(domain_cfg, "support_mode", "none")).strip().lower() or "none"
 
     @staticmethod
     def _flow_requires_spatial_support(flow: object | None) -> bool:
@@ -376,14 +365,41 @@ class HydroModPyLauncher:
         return domain_cfg
 
     def _validate_domain_support_contract(self, *, domain_cfg: object, flow: object | None) -> None:
-        """Fail early when flow parameters require a support mode that is disabled."""
+        """Fail early when heterogeneous flow parameters reference undeclared supports."""
+        _ = domain_cfg
         if not self._flow_requires_spatial_support(flow):
             return
-        support_mode = self._normalize_domain_support_mode(domain_cfg)
-        if support_mode == "none":
+        parameters = getattr(flow, "parameters", {})
+        if not isinstance(parameters, dict):
+            return
+
+        declared_supports = {
+            str(support_id).strip().lower()
+            for support_id in getattr(self, "requested_domain_supports", {})
+            if str(support_id).strip()
+        }
+        missing_supports: list[str] = []
+        seen: set[str] = set()
+        for param in parameters.values():
+            if not bool(getattr(param, "is_heterogeneous", False)):
+                continue
+            support_id = str(getattr(param, "field_spatial_id", "")).strip()
+            if support_id == "":
+                raise ValueError(
+                    "Heterogeneous flow parameters require a non-empty field_spatial_id."
+                )
+            normalized_support_id = support_id.lower()
+            if normalized_support_id in declared_supports or normalized_support_id in seen:
+                continue
+            seen.add(normalized_support_id)
+            missing_supports.append(support_id)
+
+        if missing_supports:
             raise ValueError(
-                "Heterogeneous flow parameters require domain.support_mode='geology' "
-                "or domain.support_mode='zones'."
+                "Heterogeneous flow parameters require explicit "
+                "[domain.supports.<id>] declarations for: "
+                + ", ".join(missing_supports)
+                + "."
             )
 
     def _build_domain_spatial_supports(self, *, phase: str) -> None:

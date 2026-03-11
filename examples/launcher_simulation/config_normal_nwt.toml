@@ -1,999 +1,180 @@
-# ======================================================================
-# HydroModPy Configuration
-# Profile: expert | Modules: simulation, workspace, geographic, domain, data, flow, transport, modflownwt, modflow6
-# Auto-generated from Pydantic models.
-# Edit values below. Comments describe each parameter.
-# Descriptions follow Pydantic field descriptions unless a clearer project-specific note is more useful.
-# ======================================================================
-
-# ----------------------------------------------------------------------
-# Simulation orchestration.
-# Process declarations drive the launcher order and active solver backends.
-# This example keeps the historical behavior: MODFLOW-NWT, then transport
-# solved by MODPATH and MT3DMS.
-# ----------------------------------------------------------------------
 [simulation]
-# Human-readable simulation name.
 name = "Example 12 launcher normal 3 months"
-# Short free-text description of the simulation intent.
-description = "Standard baseline shortened to first 3 months with an explicit 60x60 solver grid and 2 layers."
 
 [simulation.time]
-# Time-window is explicit in launcher mode (start/end declared below).
-# Simulation window lower datetime bound.
 start_datetime = "2003-01-01 00:00:00"
-# Simulation window upper datetime bound (inclusive, must be >= start_datetime).
 end_datetime = "2003-03-31 00:00:00"
-# Forcing/stress-period time-step written as inline scalar + unit.
-# Controls forcing aggregation (recharge/runoff) and stress-period duration.
 step_value = "30 day"
-# Behavior when recharge does not fully cover [start_datetime, end_datetime]:
-# 'error' raises, 'warn' emits a warning, 'ignore' skips checks.
 coverage_policy = "warn"
 
 [[simulation.process]]
-# Unique identifier for this process within the simulation plan.
 id = "flow_main"
-# Requested process family executed by the launcher.
 type = "flow"
-# Ordered list of active solver names for this process.
-# Each listed solver is executed.
 solvers = ["modflownwt"]
 
 [[simulation.process]]
-# Unique identifier for this process within the simulation plan.
 id = "transport_main"
-# Requested process family executed by the launcher.
 type = "transport"
-# Ordered list of active solver names for this process.
-# Each listed solver is executed.
 solvers = ["modpath", "mt3dms"]
 
-# ----------------------------------------------------------------------
-# Workspace configuration for watershed project structure.
-# ----------------------------------------------------------------------
 [workspace]
-# Name of the watershed/catchment (used as folder name).
 catch_name = "example12"
-# Root output directory where all results will be stored.
 out_dir_path = "../results"
-# Path to the input data folder (observations, climate, GIS layers, etc.).
 data_path = "../../examples_legacy/example12/data/"
 
-
-# ----------------------------------------------------------------------
-# Geographic configuration for watershed delineation.
-# ----------------------------------------------------------------------
 [geographic]
-# Geographic runtime mode.
-# "standard" keeps the historical watershed delineation workflow.
-# "synthetic" builds one analytical support from [geographic.synthetic].
-# NOTE: synthetic mode is incompatible with postprocess.flow.matching_streams=true.
-source_mode = "standard"
-
-# Catchment definition mode.
-# 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required).
-# 'from_outlet_coord' = watershed from outlet coordinates
-# (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required).
-# 'from_polyg_shp' = watershed from a polygon shapefile
-# (dem_init_path, polyg_shp_path, buff_area required).
 catch_def = "from_outlet_coord"
-
-# Path to the DEM raster used as input.
-# For 'dem' and 'txt' modes: defines the model domain directly.
-# For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
 dem_init_path = "../../data/Brittany/dem/regional dem.tif"
-
-# Grid cell size in metres used to rasterise the XYZ point cloud.
-# Required for 'txt' mode.
-cell_size = "150.0 m"
-
-# X coordinate of the watershed outlet in the projected CRS.
-# Required for 'from_outlet_coord' mode.
 x_outlet = 265611.933
-
-# Y coordinate of the watershed outlet in the projected CRS.
-# Required for 'from_outlet_coord' mode.
 y_outlet = 6784182.776
-
-# Maximum snapping distance (m) to move the outlet to the nearest stream cell.
-# Required for 'from_outlet_coord' mode.
 snap_dist = "50 m"
-
-# Buffer around the watershed polygon as a percentage of sqrt(area [km^2]).
-# Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 buff_area = "20%"
-
-# Path to the watershed polygon shapefile.
-# Required for 'from_polyg_shp' mode.
-polyg_shp_path = "../../data/Brittany/shape/watershed.shp"
-
-# Target projected CRS for all outputs (for example 'EPSG:2154').
-# If not set, derived from the input DEM.
 crs_project = "EPSG:2154"
 
-# DEM depression correction method.
-# 'breach' (recommended) preserves natural flow paths.
-# 'fill' raises sinks to their pour point.
-dem_correc_type = "breach"
-
-# Path to a raster representing the aquifer bottom elevation.
-# Must share the same grid as the model domain.
-bottom_path = "../../data/Brittany/dem/regional_dem_full.tif"
-
-# Folder with pre-computed regional flow rasters.
-# When set, rasters are loaded instead of recomputed.
-reg_fold = "../../data/Brittany/dem/correcflow"
-
-[geographic.synthetic]
-# Used only when geographic.source_mode = "synthetic".
-case_id = "launcher_synthetic"
-
-[geographic.synthetic.grid]
-length_x = "3.0 km"
-length_y = "3.0 km"
-nx = 30
-ny = 30
-xmin = 0.0
-ymin = 0.0
-crs = "EPSG:2154"
-nodata = -9999.0
-
-[geographic.synthetic.topography]
-kind = "linear"
-base_elevation = 20.0
-right_to_left_amplitude = 5.0
-
-
-# ----------------------------------------------------------------------
-# Domain configuration.
-# ----------------------------------------------------------------------
 [domain]
-# Spatial support used by heterogeneous parameter mapping.
-# Use "geology" to activate [data.geology], "zones" for non-geology zonations,
-# or "none" when all parameters are homogeneous.
-support_mode = "geology"
 
-[domain.supports.field_geology]
-provider = "geology"
-
-
-# ----------------------------------------------------------------------
-# Domain vertical model configuration.
-# ----------------------------------------------------------------------
 [domain.depth_model]
-# Depth-model type selector.
-# Use 'constant_thickness' to define bottom as top-thickness.
 type = "constant_thickness"
-
-# Constant aquifer thickness (m) applied below topography.
-# Used when type="constant_thickness".
 thickness = "50.0 m"
 
-# Flat substratum elevation (m) applied over the full domain.
-# Used when type="flat_substratum".
-substratum_elevation = 0.0
-
-
-# ----------------------------------------------------------------------
-# Data managers configuration.
-# ----------------------------------------------------------------------
 [data]
-# Ordered list of data types explicitly declared in [data].
-# The launcher can infer additional types from other sections
-# (for example domain.support_mode and flow.active_bc).
-# Allowed values: "geology", "hydrography", "hydrometry",
-# "intermittency", "oceanic", "piezometry".
-types = ["geology", "hydrography", "hydrometry"]
-# Policy for inferred types not explicitly listed in data.types.
-# "warn"   = keep inferred types, continue if data.<type> section is missing.
-# "strict" = raise if an inferred type has no data.<type> section
-#            (except geology, which can use default config).
-inference_mode = "warn"
+types = ["hydrography", "hydrometry"]
 
-
-# ----------------------------------------------------------------------
-# Geology configuration.
-# ----------------------------------------------------------------------
-[data.geology]
-# Identifier of the geology spatial field.
-id = "field_geology"
-# Path to the geology data directory.
-geo_path = "../../data/France/geology"
-# Geology shapefile name inside `geo_path`.
-types_obs = "GEO1M.shp"
-# Attribute field used to encode geology classes.
-fields_obs = "CODE_LEG"
-# Sub-sampling density passed to geology_field.on_mesh(...).
-# Higher values improve interface resolution but increase runtime.
-cell_samples_per_axis = 8
-# Legacy land/sea activation flag.
-landsea = false
-
-
-# ----------------------------------------------------------------------
-# Hydrography configuration.
-# ----------------------------------------------------------------------
 [data.hydrography]
-# Observation layer identifiers searched in hydro_path.
 types_obs = ["botopage2024_naizin_streams_perennial-intermittent"]
-# Attribute names associated with each observation layer.
 fields_obs = ["FID"]
 
-
-# ----------------------------------------------------------------------
-# Intermittency configuration.
-# ----------------------------------------------------------------------
-[data.intermittency]
-# Intermittency observation filename.
-file_name = "regional onde stations.shp"
-
 [data.oceanic]
-# Optional folder containing local oceanic support files used during extraction.
-# Relative paths are resolved from this TOML file location.
-# oceanic_path = "data/"
-
-# Mean sea-level source policy:
-# "local" = read CSV from msl_local_csv, "web" = SHOM API, "auto" = local then web.
 msl_source = "local"
-# Path to a pre-downloaded SHOM CSV used in "local" or "auto" mode.
 msl_local_csv = "data/oceanic/sealevel_shom_152_20030101_20030130_H.csv"
-# If true, derive msl_start_date/msl_end_date from [simulation.time].
-# Requires a valid [simulation.time] section.
 msl_use_simulation_time_window = true
-# Optional explicit dates used when msl_use_simulation_time_window=false.
-# msl_start_date = "2003-01-01"
-# msl_end_date = "2003-01-30"
-# Fallback sea-level value used when retrieval fails (SI unit: meter).
-msl_default = 0.0
 
-
-# ----------------------------------------------------------------------
-# Hydrometry station-set configuration.
-# ----------------------------------------------------------------------
 [data.hydrometry]
-# Hydrometric variable requested from the source (for example daily discharge code).
 variable = "QmnJ"
-# If true, display diagnostic information while loading station data.
-display = false
-# If true, derive hydrometry date_start/date_end from [simulation.time].
-# Requires a valid [simulation.time] section.
 use_simulation_time_window = true
-# Optional explicit date window used when use_simulation_time_window=false.
-# date_start = "2019-01-01"
-# date_end = "2025-12-31"
-
-[data.hydrometry.source]
-# Hydrometry source mode: remote API lookup or local exported files.
-mode = "api"
-# Local directory containing previously exported station files when mode='local'.
-local_data_dir = "hydrometry_exports"
 
 [data.hydrometry.selection]
-# Station selection mode: explicit station ids or spatial mask filtering.
 mode = "mask"
-# Explicit list of hydrometric station identifiers used when mode='stations'.
-station_ids = ["J736422001"]
 
 [data.hydrometry.output]
-# If true, export the loaded station series to disk after selection.
 enabled = true
-# Destination directory for exported hydrometry files.
-path = "../results/example12/results_stable/hydrometry"
-# Export payload level: 'lite' for compact outputs, 'full' for all available files.
-export_mode = "lite"
 
-
-# ----------------------------------------------------------------------
-# Flow configuration.
-# ----------------------------------------------------------------------
 [flow]
-# Global flow simulation regime used by solvers consuming [flow]
-# (steady or transient).
 flow_regime = "transient"
-# Sink/source packages explicitly activated for this run.
-# Allowed values: "recharge", "wells".  An empty list disables all packages.
 active_sinks_sources = ["recharge", "wells"]
-# Boundary-condition packages explicitly activated for this run.
-# Allowed values: "ocean", "stream", "north_side", "south_side", "east_side", "west_side", "drainage".
 active_bc = ["ocean", "drainage"]
-# Declared flow parameters (order used at runtime construction).
 param_list = ["K", "Ss", "Sy"]
 
-
-# ----------------------------------------------------------------------
-# Flow parameter K (FieldParam schema)
-# ----------------------------------------------------------------------
 [flow.param.K.field]
-# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
-id = "K"
-# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
 
 [flow.param.K.field_homogeneous]
-# Scalar surface value used when kind='homogeneous'.
 value = "5e-5 m/s"
 
-[flow.param.K.field_heterogeneous]
-# Source for heterogeneous values.
-# Use 'inline' for TOML mapping or 'csv' for external table.
-values_source = "inline"
-# Inline key/value mapping used when values_source='inline'.
-values = { granite = "1.15e-4 m/s", micaschists = "2.31e-5 m/s" }
-# Path to CSV mapping file used when values_source='csv'.
-values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
-# CSV column name containing zone/material keys.
-csv_key_column = "zone_key"
-# CSV column name containing numeric parameter values.
-csv_value_column = "K_value"
-# Identifier of the spatial field used to map heterogeneous values.
-field_spatial_id = "field_geology"
-
 [flow.param.K.field_vertical_profile]
-# Depth dependency mode shared over the full domain.
-# Allowed values: 'none', 'exponential', 'tabulated'.
 mode = "exponential"
-# Characteristic depth for exponential mode.
-# Vertical factor is exp(-depth/characteristic_depth).
 characteristic_depth = "15.0 m"
-# Optional floor factor for exponential mode.
-# If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
 min_factor = 2e-4
-# Depth nodes for tabulated mode (meters, first value must be 0).
-depths = [0.0, 10.0, 30.0]
-# Multiplicative factors aligned with `depths` for tabulated mode
-# (first value must be 1 at depth 0).
-factors = [1.0, 0.8, 0.5]
-# Interpolation strategy for tabulated mode.
-# Allowed values: 'linear' or 'step'.
-interpolation = "linear"
 
-
-# ----------------------------------------------------------------------
-# Flow parameter Sy (FieldParam schema)
-# ----------------------------------------------------------------------
-[flow.param.Sy.field]
-# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
-id = "Sy"
-# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
-kind = "homogeneous"
-
-[flow.param.Sy.field_homogeneous]
-# Scalar surface value used when kind='homogeneous'.
-value = "0.02 -"
-
-[flow.param.Sy.field_heterogeneous]
-# Source for heterogeneous values.
-# Use 'inline' for TOML mapping or 'csv' for external table.
-values_source = "inline"
-# Inline key/value mapping used when values_source='inline'.
-values = { zone1 = "0.15 -", zone2 = "0.08 -" }
-# Path to CSV mapping file used when values_source='csv'.
-values_csv_file = "s_values.csv"
-# CSV column name containing zone/material keys.
-csv_key_column = "zone_key"
-# CSV column name containing numeric parameter values.
-csv_value_column = "value"
-# Identifier of the spatial field used to map heterogeneous values.
-field_spatial_id = "field_geology"
-
-[flow.param.Sy.field_vertical_profile]
-# Depth dependency mode shared over the full domain.
-# Allowed values: 'none', 'exponential', 'tabulated'.
-mode = "exponential"
-# Characteristic depth for exponential mode.
-# Vertical factor is exp(-depth/characteristic_depth).
-characteristic_depth = "30.0 m"
-# Optional floor factor for exponential mode.
-# If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
-min_factor = 5e-2
-# Depth nodes for tabulated mode (meters, first value must be 0).
-depths = [0.0, 10.0, 30.0]
-# Multiplicative factors aligned with `depths` for tabulated mode
-# (first value must be 1 at depth 0).
-factors = [1.0, 0.8, 0.5]
-# Interpolation strategy for tabulated mode.
-# Allowed values: 'linear' or 'step'.
-interpolation = "linear"
-
-
-# ----------------------------------------------------------------------
-# Flow parameter Ss (FieldParam schema)
-# ----------------------------------------------------------------------
 [flow.param.Ss.field]
-# Parameter identifier used in outputs and logs (for example 'K', 'Sy').
-id = "Ss"
-# Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.
 kind = "homogeneous"
 
 [flow.param.Ss.field_homogeneous]
-# Scalar surface value used when kind='homogeneous'.
 value = "1e-10 m-1"
 
-[flow.param.Ss.field_heterogeneous]
-# Source for heterogeneous values.
-# Use 'inline' for TOML mapping or 'csv' for external table.
-values_source = "inline"
-# Inline key/value mapping used when values_source='inline'.
-values = { zone1 = "1e-10 m-1", zone2 = "5e-11 m-1" }
-# Path to CSV mapping file used when values_source='csv'.
-values_csv_file = "ss_values.csv"
-# CSV column name containing zone/material keys.
-csv_key_column = "zone_key"
-# CSV column name containing numeric parameter values.
-csv_value_column = "value"
-# Identifier of the spatial field used to map heterogeneous values.
-field_spatial_id = "field_geology"
+[flow.param.Sy.field]
+kind = "homogeneous"
 
-[flow.param.Ss.field_vertical_profile]
-# Depth dependency mode shared over the full domain.
-# Allowed values: 'none', 'exponential', 'tabulated'.
-mode = "none"
-# Characteristic depth for exponential mode.
-# Vertical factor is exp(-depth/characteristic_depth).
+[flow.param.Sy.field_homogeneous]
+value = "0.02 -"
+
+[flow.param.Sy.field_vertical_profile]
+mode = "exponential"
 characteristic_depth = "30.0 m"
-# Optional floor factor for exponential mode.
-# If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
-min_factor = 1e-3
-# Depth nodes for tabulated mode (meters, first value must be 0).
-depths = [0.0, 10.0, 30.0]
-# Multiplicative factors aligned with `depths` for tabulated mode
-# (first value must be 1 at depth 0).
-factors = [1.0, 0.8, 0.5]
-# Interpolation strategy for tabulated mode.
-# Allowed values: 'linear' or 'step'.
-interpolation = "linear"
+min_factor = 5e-2
 
-
-# ----------------------------------------------------------------------
-# Flow initial conditions.
-# ----------------------------------------------------------------------
 [flow.ic]
-# Type of initial condition ('top', 'bottom', or 'custom').
-# 'top' means a full aquifer, 'bottom' means an empty aquifer.
 type = "top"
-# Value of the initial condition (single field: "<value> <unit>").
-value = "1.0 m"
 
-
-# ----------------------------------------------------------------------
-# Flow boundary conditions.
-# ----------------------------------------------------------------------
-# Supported sections:
-# - [flow.bc.dirichlet.<id>] with <id> in:
-#   ocean, stream, north_side, south_side, east_side, west_side
-#   (legacy aliases north_boundary/south_boundary/east_boundary/west_boundary also accepted)
-# - [flow.bc.cauchy.drainage]
-# - [flow.bc.robin.drainage]
-# - [flow.bc.<custom_id>] (generic fallback)
-#
-# Required/validated keys:
-# - value (required): numeric, or "<value> <unit>"
-# - application_domain in {top, north side, south side, east side, west side}
-#   (for dirichlet side/ocean/stream entries, domain is inferred if omitted)
-# - type:
-#   dirichlet for [flow.bc.dirichlet.*]
-#   cauchy or robin for drainage
-#   dirichlet/cauchy/robin for generic fallback
-# - unit or units (optional):
-#   defaults to "m" for dirichlet and "m2/s" for cauchy/robin
-#   only needed when value has no inline unit
-#
-# Copy/paste examples:
-# [flow.bc.dirichlet.west_side]
-# value = "5.0 m"
-# type = "dirichlet"
-# application_domain = "west side"
-#
-# [flow.bc.custom_boundary]
-# value = "1e-6 m2/s"
-# type = "robin"
-# application_domain = "top"
 [flow.bc.cauchy.drainage]
-# Domain of application for boundary condition.
 application_domain = "top"
-# Type of the boundary condition (for example Dirichlet, Neumann, Cauchy).
-type = "cauchy"
-# Value of the boundary condition.
 value = "0.0 m2/s"
-# If true, boundary-condition value is sourced from data.
-data_value = false
 
 [flow.bc.dirichlet.ocean]
-# application_domain defaults to "top" for ocean
-# Type of the boundary condition (fixed head for ocean stage).
-type = "dirichlet"
-# Boundary-condition value.
 value = "1.0 m"
-# If True, boundary-condition values are sourced from data.
 data_value = true
 
-
-# ----------------------------------------------------------------------
-# Flow sinks/sources (wells).
-# ----------------------------------------------------------------------
 [flow.sinks_sources.wells.W1]
-# Well location using projected coordinates on the solver/domain support.
 location_mode = "absolute_xy"
-layer = 0
 x = 265611.933
 y = 6784182.776
-# Units of flux values.
 units = "m3/day"
 
 [flow.sinks_sources.wells.W1.forcing]
-# CSV chronicle with potentially irregular dates, aggregated on [simulation.time].
 mode = "csv"
 path_file = "data/wells/normal_wells_2003.csv"
-sep = ","
 date_column = "date"
 date_format = "%Y-%m-%d"
 value_column = "W1_m3_day"
 aggregate = "mean"
 
 [flow.sinks_sources.wells.W2]
-# Well location relative to the model extent: x_rel in [0,1] west->east,
-# y_rel in [0,1] south->north.
 location_mode = "relative_xy"
-layer = 0
 x_rel = 0.33
 y_rel = 0.33
-# Units of flux values.
 units = "m3/day"
 
 [flow.sinks_sources.wells.W2.forcing]
-# Negative = pumping, positive = injection.
 mode = "csv"
 path_file = "data/wells/normal_wells_2003.csv"
-sep = ","
 date_column = "date"
 date_format = "%Y-%m-%d"
 value_column = "W2_m3_day"
 aggregate = "mean"
 
-# ----------------------------------------------------------------------
-# Flow sinks/sources (recharge).
-# ----------------------------------------------------------------------
 [flow.sinks_sources.recharge]
-# Policy for stress-period 0 when values come from a dynamic series.
-# Accepted values: "mean" (series average), "first" (first element),
-# or a numeric scalar (explicit long-term average, e.g. 0.0005).
 first_clim = "mean"
-
-# When true (default), negative values feed the MODFLOW EVT package
-# and the RCH value for that period is clipped to 0.
 negative_to_evt = true
 
-# ----------------------------------------------------------------------
-# Recharge chronicle source/mode consumed by launcher runtime.
-#
-# mode options:
-# - "observed_csv"        : load natural observed chronicle from CSV
-# - "synthetic_generated" : generate synthetic chronicle from a generator
-#                           or from legacy inline values
-# - "synthetic_csv"       : load synthetic chronicle from dedicated CSV
-# ----------------------------------------------------------------------
 [recharge_chronicle]
 mode = "synthetic_generated"
 
-[recharge_chronicle.observed_csv]
-# Example natural chronicle used by launcher_simulation.
-# NOTE (launcher mode): first_year/last_year/time_step are auto-derived from
-# [simulation.time] and are intentionally not exposed here.
-path_file = "../../examples_legacy/example12/data/_climate_REANALYSIS.csv"
-clim_mod = "REA"
-clim_sce = "historic"
-sim_state = "transient"
-# Used only if runoff column is unavailable.
-runoff_ratio = 0.1
-
 [recharge_chronicle.synthetic_generated]
-# NOTE (launcher mode): start_date/end_date are auto-managed from
-# [simulation.time] and are intentionally not exposed here.
-# Generator used to produce a fine synthetic chronicle on the simulation window.
 generator = "seasonal_step"
-# Internal generation step before aggregation on stress periods.
-# Keep "30 day" here to preserve the historical 3-value launcher example.
 generation_step = "30 day"
 units = "mm/day"
 runoff_ratio = 0.1
 
 [recharge_chronicle.synthetic_generated.seasonal_step]
-# Wet months chosen so the 3 launcher periods reproduce [2.0, 2.0, 0.0].
-wet_months = [1,2,3,4,11,12]
+wet_months = [1, 2, 3, 4, 11, 12]
 wet_value = "2.0 mm/day"
 dry_value = "0.0 mm/day"
 
-[recharge_chronicle.synthetic_csv]
-# Active only when mode = "synthetic_csv".
-# NOTE (launcher mode): final forcing vectors are always aligned to
-# [simulation.time] stress periods.
-path_file = "../../examples_legacy/example12/data/recharge_synthetic_2003.csv"
-sep = ","
-date_column = "date"
-date_format = "%Y-%m-%d"
-recharge_column = "recharge_mm_day"
-units = "mm/day"
-# Optional runoff column. If absent, runoff_ratio is used instead.
-runoff_column = "runoff_mm_day"
-runoff_units = "mm/day"
-runoff_ratio = 0.1
-# Optional pre-alignment resampling frequency ("D", "W", "ME", ...).
-# Leave empty to directly align raw CSV values to [simulation.time].
-time_step = ""
-
-# ----------------------------------------------------------------------
-# Transport solver configuration
-# ----------------------------------------------------------------------
-
 [transport.modpath.parameters]
-# Particle injection zone selector:
-# - "domain": inject over full active domain
-# - "seepage_clip": use clipped seepage raster created in example12.py
-# - any other string: interpreted as raster path
 zone_partic = "seepage_clip"
-
-# Particle tracking direction.
-# Allowed values: "forward", "backward", "custom"
 track_dir = "backward"
 
-# Number of particles per axis in each active cell.
-cell_div = 1
-
-# If true, also subdivides vertically for particle injection.
-zloc_div = false
-
-# Optional list of bore depths (m) for vertical injection mode.
-# bore_depth = [0.0, 5.0, 10.0]
-
-# Optional random selection count of particles to keep.
-# sel_random = 1000
-
-# Optional slicing step for particle selection.
-# sel_slice = 10
-
 [transport.mt3dms.parameters]
-# MT3DMS species name.
 spc_name = "NO3"
-
-# Initial concentration and recharge concentration defaults.
-# Scalars declared here are expanded at runtime to full grid-shaped payloads
-# using the upstream flow model dimensions.
-# sconc_init -> 3D array (nlay, nrow, ncol)
-# sconc_input -> dict[stress_period] of 2D arrays (nrow, ncol), with stress
-# period 0 left to solver defaults unless explicitly provided as a mapping.
 sconc_init = 0.1
 sconc_input = 0.05
-
-# Dispersion and diffusion parameters.
-# Longitudinal dispersivity [L].
-disp_long = 0.0
-# Horizontal transverse dispersivity ratio.
-disp_transh = 0.0
-# Vertical transverse dispersivity ratio.
-disp_transv = 0.0
-# Molecular diffusion coefficient [L2/T].
 diffu_coeff = 8.64e-06
-
-# Reaction settings: None (no reaction), 0 (zero-order), 1 (first-order)
 react_order = 1
-# Scalar decay rate expanded at runtime to a 3D array (nlay, nrow, ncol).
 rate_decay = 0.00136986301369863
 
-# Plot concentration outputs.
-# Enable concentration plotting outputs.
-plot_conc = true
-
-# ----------------------------------------------------------------------
-# MODFLOW-NWT expert configuration
-# ----------------------------------------------------------------------
-
 [modflownwt.runtime]
-
-# MODFLOW executable/version identifier passed to FloPy.
-mf_version = "mfnwt"
-# Fortran unit number used for the MODFLOW list file.
-mf_listunit = 2
-# Enable verbose FloPy logging for model setup.
-mf_verbose = false
-
-# Head closure criterion for the NWT nonlinear solver.
-nwt_headtol = 1e-4
-# Flux closure criterion for the NWT nonlinear solver.
-nwt_fluxtol = 500.0
-# Maximum outer nonlinear iterations in the NWT solver.
-nwt_maxiterout = 5000
-# NWT wetting/thickness factor controlling nonlinear updates.
-nwt_thickfact = 1e-5
-# Linear solver choice for NWT.
-nwt_linmeth = 1
-# NWT print flag controlling iteration diagnostics in listing outputs.
-nwt_iprnwt = 1
-# NWT option for averaging saturated thickness at the cell bottom.
-nwt_ibotav = 1
-# NWT nonlinear option keyword (for example SIMPLE or COMPLEX).
-nwt_options = "COMPLEX"
-# If true, continue NWT iterations on partially converged stress periods.
-nwt_continue = false
-# NWT backtracking activation flag.
-nwt_backflag = 0
-# NWT backtracking stopping tolerance.
-nwt_stoptol = 1e-10
-
-# DIS time unit code used by MODFLOW (ITMUNI).
 dis_itmuni = 1
 
-# BAS no-flow head sentinel value (HNOFLO).
-bas_hnoflo = -9999.0
-
-# UPW dry-cell head output flag (IPHDRY).
-upw_iphdry = 1
-# UPW dry-cell head value (HDRY).
-upw_hdry = -100.0
-# UPW flag controlling VKA interpretation per layer (LAYVKA).
-upw_layvka = 1
-
-# EVT option code that defines how ET extinction depth is applied (NEVTOP).
-evt_nevtop = 3
-# EVT integer array selector used when NEVTOP requires layer indices (IEVT).
-evt_ievt = 1
-# EVT cell-by-cell budget output flag (IPAKCB).
-evt_ipakcb = 1
-
-# Enable compact budget format in OC outputs.
-oc_compact = true
-
-# WEL cell-by-cell budget output flag (IPAKCB).
-wel_ipakcb = 1
-
-# LMT output filename used to couple MODFLOW to MT3DMS.
-lmt_output_file_name = "mt3d_link.ftl"
-# LMT package filename extension.
-lmt_extension = "lmt8"
-# LMT file format (typically 'formatted' or 'unformatted').
-lmt_output_format = "unformatted"
-
-[modflownwt.process_specific]
-# Vertical hydraulic conductivity control passed to the UPW package (VKA).
-vka = 1.0
-# Extinction depth [L] used by the EVT package (EXDP).
-exdp = "1.0 m"
-
 [modflownwt.sgrid.planar]
-# Planar discretization mode for the solver grid.
-# "surface_native" keeps the native Domain surface support.
-# "shape" resamples surfaces to explicit solver dimensions.
-mode = "shape"
-# Target number of columns when mode="shape".
+mode = "resample_to_shape"
 nx = 60
-# Target number of rows when mode="shape".
 ny = 60
-# Resampling rule when mode="shape".
-resampling = "bilinear"
 
 [modflownwt.sgrid.vertical]
-# Length unit label propagated to FloPy (for example 'm').
-lenuni = "m"
-# Vertical-layering method.
 genmtd_lay = "decay"
-# Number of model layers for constant/decay layering.
 nlay = 2
-# Decay exponent (>1) for progressively thicker layers with depth.
 lay_decay = 1.2
-# No-data sentinel value used to mask invalid raster cells.
-nodata = -9999.0
 
-[modflownwt.tgrid]
-# NOTE (launcher mode): nper/lenper/itmuni/genmtd/ntsp/tsmult and
-# start/end datetimes are auto-managed from [simulation.time].
-# They are mirrored here and are not used as a fallback source.
-# Keep first stress period in steady state when flow_regime is transient.
-firstpersteady = true
-
-# ----------------------------------------------------------------------
-# MODFLOW 6 expert configuration
-# ----------------------------------------------------------------------
-
-[modflow6.runtime]
-# MODFLOW 6 executable name (or absolute path).
-mf6_executable_name = "mf6"
-# IMS complexity keyword for MF6.
-mf6_ims_complexity = "COMPLEX"
-# Enable verbose FloPy logging for model setup.
-mf_verbose = false
-
-[modflow6.process_specific]
-# Vertical anisotropy factor used to derive k33 from k.
-vka = 1.0
-
-[modflow6.sgrid.planar]
-# Planar discretization mode for the solver grid.
-mode = "shape"
-nx = 60
-ny = 60
-resampling = "bilinear"
-
-[modflow6.sgrid.vertical]
-# Length unit label propagated to FloPy (for example 'm').
-lenuni = "m"
-# Vertical-layering strategy.
-genmtd_lay = "decay"
-# Number of layers (required for constant/decay, ignored for list).
-nlay = 2
-# Decay exponent (>1) for decay layering.
-lay_decay = 1.2
-# Explicit layer fractions when genmtd_lay='list' (must sum to 1).
-lay_proportions = [0.1, 0.2, 0.3, 0.4]
-# No-data sentinel value.
-nodata = -9999.0
-
-[modflow6.tgrid]
-# NOTE (launcher mode): nper/lenper/itmuni/genmtd/ntsp/tsmult and
-# start/end datetimes are auto-managed from [simulation.time].
-# They are mirrored here and are not used as a fallback source.
-# Keep first stress period in steady state when relevant.
-firstpersteady = true
-
-
-# ----------------------------------------------------------------------
-# Reference templates not consumed by runtime.
-# ----------------------------------------------------------------------
-[flow_templates.bc.dirichlet.stream]
-# Type of the boundary condition.
-type = "dirichlet"
-# Boundary-condition value.
-value = "1.0 m"
-# If True, boundary-condition values are sourced from data.
-data_value = false
-
-[flow_templates.bc.dirichlet.north_side]
-# Type of the boundary condition.
-type = "dirichlet"
-# Boundary-condition value.
-value = "1.0 m"
-# If True, boundary-condition values are sourced from data.
-data_value = false
-
-[flow_templates.bc.dirichlet.south_side]
-# Type of the boundary condition.
-type = "dirichlet"
-# Boundary-condition value.
-value = "1.0 m"
-# If True, boundary-condition values are sourced from data.
-data_value = false
-
-[flow_templates.bc.dirichlet.east_side]
-# Type of the boundary condition.
-type = "dirichlet"
-# Boundary-condition value.
-value = "1.0 m"
-# If True, boundary-condition values are sourced from data.
-data_value = false
-
-[flow_templates.bc.dirichlet.west_side]
-# Type of the boundary condition.
-type = "dirichlet"
-# Boundary-condition value.
-value = "1.0 m"
-# If True, boundary-condition values are sourced from data.
-data_value = false
-
-# ----------------------------------------------------------------------
-# Launcher-managed postprocess workflows.
-# This section replaces legacy project-specific postprocess scripts.
-# ----------------------------------------------------------------------
 [postprocess]
-# Master switch for launcher-managed postprocess after process-family runs.
-# Keep false to disable optional postprocess tasks.
 enabled = true
 
-[postprocess.flow]
-# Enable postprocess tasks after the flow process family.
-enabled = true
-# Run MatchingStreams diagnostics after flow outputs are produced.
-matching_streams = true
-# Run display.flow suite (guarded by [display] options).
-display = true
-
-[postprocess.flow.timeseries]
-# Export flow timeseries after flow postprocess.
-enabled = true
-# Export datetimes when available.
-datetime_format = true
-# Also export subbasin-level timeseries.
-subbasin_results = true
-
-[postprocess.flow.netcdf]
-# Export flow NetCDF files from _postprocess/*.npy.
-enabled = false
-# Export datetimes when available.
-datetime_format = true
-
-[postprocess.flow.intermittency]
-# Intermittency aggregation levels.
-yearly = false
-monthly = false
-weekly = false
-daily = false
-
-[postprocess.transport]
-# Enable postprocess tasks after the transport process family.
-enabled = true
-# Run display.particles suite when Modpath outputs exist.
-display_particles = true
-# Run display.transport suite when concentration outputs exist.
-display_transport = true
-
-[postprocess.transport.timeseries]
-# Export transport timeseries after transport postprocess.
-enabled = true
-# Historical suffix used by example12 launcher outputs.
-suffix_name = "s1"
-# Export datetimes when available.
-datetime_format = true
-# Also export subbasin-level timeseries.
-subbasin_results = true
-# Additional transport indicators.
-residence_times = true
-concentration_seepage = true
-mass_accumulated = true
-
-[postprocess.transport.netcdf]
-# Export transport NetCDF files (flow + transport variables).
-enabled = false
-# Export datetimes when available.
-datetime_format = true
-# Additional transport indicators.
-residence_times = true
-concentration_seepage = true
-mass_accumulated = true
-
-[postprocess.transport.intermittency]
-# Intermittency aggregation levels.
-yearly = false
-monthly = false
-weekly = false
-daily = false
-
-# ----------------------------------------------------------------------
-# Display configuration for reusable plotting options.
-# This section is validated by hydromodpy.display.options.DisplayConfig
-# and consumed by launcher postprocess display suites.
-# ----------------------------------------------------------------------
-[display]
-# Master switch for all optional plotting features.
-enabled = true
-# Show interactive figures/windows when rendering is enabled.
-show = true
-# Save figures/animations to disk when rendering is enabled.
-save = true
-# Output resolution used when saving raster figures.
-dpi = 300
-# If true, honor HYDROMODPY_NO_DISPLAY=1 by forcing show=false in headless runs.
-respect_env_no_display = true
-
-[display.flow]
-# Master switch for the flow plotting group.
-enabled = true
-# Render the flow cross-section plot.
-cross_section = true
-# Render the streamflow comparison plot.
-streamflow = true
-# Render the piezometry plot.
-piezometry = true
-
-[display.particles]
-# Master switch for the particle plotting group.
-enabled = true
-# Render particle pathlines.
-pathlines = true
-
-[display.transport]
-# Master switch for the transport plotting group.
-enabled = true
-# Render concentration plots.
-concentration = true
-# Export concentration GIF animation.
-gif = true
-# Export browser-friendly web animation for concentration outputs.
-web_animation = true

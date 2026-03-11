@@ -1,7 +1,7 @@
 @startuml
 title Spatial Support - Context Diagram
 
-component "DomainConfig\nsupport_mode, zone_ids, supports" as DomainConfig
+component "DomainConfig\nzone_ids, supports" as DomainConfig
 component "DomainSupportConfig\nprovider-specific declarations" as SupportConfig
 component "HydroModPyLauncher" as Launcher
 component "DataManagersPlanner" as Planner

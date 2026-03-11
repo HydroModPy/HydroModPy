@@ -1,9 +1,9 @@
 {
   "nancon": {
-    "catchment_area_km2": 64.636875,
-    "mean_elevation_catchment_m": 155.57790452238265,
+    "catchment_area_km2": 64.625625,
+    "mean_elevation_catchment_m": 155.57105064475098,
     "mean_elevation_box_buff_m": 156.56468641555915,
-    "std_elevation_catchment_m": 18.04582044933147,
+    "std_elevation_catchment_m": 18.037439563128085,
     "std_elevation_box_buff_m": 20.426430467855315,
     "min_elevation_catchment_m": 106.69999694824219,
     "max_elevation_catchment_m": 235.0,
@@ -15,10 +15,10 @@
     "q05_elevation_box_buff_m": 126.0,
     "q50_elevation_box_buff_m": 155.6999969482422,
     "q95_elevation_box_buff_m": 190.8000030517578,
-    "sum_elevation_catchment_m": 1787745.7008666992,
+    "sum_elevation_catchment_m": 1787355.800857544,
     "sum_elevation_box_buff_m": 5320694.303146362,
-    "valid_pixel_count_catchment": 11491,
-    "nodata_pixel_count_catchment": 22493,
+    "valid_pixel_count_catchment": 11489,
+    "nodata_pixel_count_catchment": 22495,
     "valid_pixel_count_box_buff": 33984,
     "nodata_pixel_count_box_buff": 0
   }

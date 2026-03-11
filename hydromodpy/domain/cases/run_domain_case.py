@@ -48,7 +48,7 @@ def run_domain_case_from_toml(
         Path to the HydroModPy configuration file.
     build_geology:
         If ``True``, attempt to build and attach the ``geology`` zone when
-        ``domain.support_mode='geology'``.
+        ``domain.zone_ids`` or ``domain.supports`` declare a geology-backed zone.
 
     Returns
     -------
@@ -81,10 +81,14 @@ def run_domain_case_from_toml(
     domain_cfg = cfg.domain.model_copy(deep=True)
     if "catchment" not in domain_cfg.zone_ids:
         domain_cfg.zone_ids.append("catchment")
-    if (
-        str(getattr(domain_cfg, "support_mode", "none")).strip().lower() == "geology"
-        and "geology" not in domain_cfg.zone_ids
-    ):
+    geology_requested = "geology" in {
+        str(zone_id).strip().lower()
+        for zone_id in domain_cfg.zone_ids
+    } or any(
+        str(getattr(support_cfg, "provider", "")).strip().lower() == "geology"
+        for support_cfg in getattr(domain_cfg, "supports", {}).values()
+    )
+    if geology_requested and "geology" not in domain_cfg.zone_ids:
         domain_cfg.zone_ids.append("geology")
     domain = Domain(
         config=domain_cfg,
@@ -98,11 +102,9 @@ def run_domain_case_from_toml(
     # 3) Optionally attach the geology zone if requested and configured.
     geology_loaded = False
     geology_reason: str | None = None
-    if build_geology and str(getattr(domain_cfg, "support_mode", "none")).strip().lower() == "geology":
+    if build_geology and geology_requested:
         if cfg.data.geology is None:
-            geology_reason = (
-                "domain.support_mode='geology' but [data.geology] is missing"
-            )
+            geology_reason = "Geology-backed domain declarations require [data.geology]"
         else:
             from hydromodpy.data_managers.geology.geology_field import GeologyField
 
