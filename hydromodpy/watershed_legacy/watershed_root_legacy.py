@@ -50,7 +50,6 @@ sys.path.append(root_dir)
 # HydroModPy
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.climatic.driaseau import Driaseau
-from hydromodpy.data_managers.piezometry.piezometry import Piezometry
 from hydromodpy.data_managers.climatic import driasclimat, safransurfex
 from hydromodpy.postprocess import netcdf
 from hydromodpy.tools import toolbox, get_logger
@@ -439,14 +438,13 @@ class Watershed:
         """
         Public method to add piezometric data.
 
-        Returns
-        -------
-        None.
+        .. deprecated:: Legacy Piezometry class removed.
+            Use ``hydromodpy.data_managers.piezometry.manager.PiezometryManager`` instead.
         """
-        self.piezometry = Piezometry(out_path=self.watershed_folder,
-                                                geographic=self.geographic)
-        self.elt_def.append('piezometry')
-        self.save_object()
+        raise NotImplementedError(
+            "Legacy Piezometry class has been removed. "
+            "Use PiezometryManager with PiezometryConfig instead."
+        )
 
     def add_safransurfex(self, safransurfex_path):
         """
