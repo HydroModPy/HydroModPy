@@ -1,0 +1,24 @@
+case_id = "dupuit_fixed_head_1d"
+category = "analytical"
+regime = "steady"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+
+[workspace]
+watershed_name = "validation_linear_head"
+results_folder_name = "results_simulations"
+model_name = "Analytical_linear_head_validation"
+
+[output]
+observable_name = "watertable_elevation"
+expected_shape = [5, 40]
+
+[reference]
+xmin = 0.0
+xmax = 400.0
+west_head = 10.0
+east_head = 5.0
+hydraulic_conductivity_m_per_s = 1e-4
+aquifer_thickness_m = 20.0
+profile_axis = 0

@@ -19,12 +19,10 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
-import whitebox
+
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 
 from hydromodpy.geographic.geographic_io import ensure_crs
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 
 @dataclass(frozen=True)
@@ -50,7 +48,8 @@ def extract_catchment_from_point(
     outlet_snap_name: str = "outlet_snap.shp",
     watershed_tif_name: str = "watershed.tif",
     watershed_shp_name: str = "watershed.shp",
-    wbt_tool: object | None = None,
+    backend: WhiteboxBackend | None = None,
+    wbt_tool: WhiteboxBackend | None = None,
 ) -> CatchmentFromPointProducts:
     """Delineate a catchment polygon from one outlet point.
 
@@ -68,10 +67,14 @@ def extract_catchment_from_point(
         Optional CRS enforced on generated files.
     *_name:
         Filenames used inside ``output_dir``.
+    backend:
+        Optional Whitebox backend for runtime/tests.
     wbt_tool:
-        Optional Whitebox-like object for testing/injection.
+        Legacy alias for ``backend`` kept for backward compatibility.
     """
-    tool = wbt if wbt_tool is None else wbt_tool
+    if backend is not None and wbt_tool is not None:
+        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
+    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
 
     # Prepare deterministic output paths used by the rest of the pipeline.
     out_dir = Path(output_dir)

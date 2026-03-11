@@ -21,9 +21,7 @@ import pandas as pd
 import geopandas as gpd
 import glob
 import shutil
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+from hydromodpy.backends import get_whitebox_backend
 
 # Root
 from os.path import dirname, abspath
@@ -67,6 +65,7 @@ class Subbasin:
             Path of the HydroModPy outputs.
         """
         logger.info('Extracting subbasin definitions for watershed')
+        self._backend = get_whitebox_backend()
 
         self.sub_snap_dist = sub_snap_dist
 
@@ -142,7 +141,7 @@ class Subbasin:
         gdf.to_file(outlet_shp)
         # Snap the outlet shapefile from the flow accumulation
         outlet_snap_shp = outpath + 'outlet_snap.shp'
-        wbt.snap_pour_points(outlet_shp,
+        self._backend.snap_pour_points(outlet_shp,
                              os.path.join(geographic.correcflow_path, 'dem_acc.tif'),
                              outlet_snap_shp,
                              sub_snap_dist
@@ -152,24 +151,34 @@ class Subbasin:
                     os.path.join(geographic.correcflow_path, 'dem_acc.tif'))
         # Generate raster watershed
         watershed = outpath + 'watershed.tif'
-        wbt.watershed(os.path.join(geographic.correcflow_path, 'dem_direc.tif'), outlet_snap_shp, watershed, esri_pntr=False)
+        self._backend.watershed(
+            os.path.join(geographic.correcflow_path, 'dem_direc.tif'),
+            outlet_snap_shp,
+            watershed,
+            esri_pntr=False,
+        )
 
         # Create shapefile polygon of the watershed
         watershed_shp = outpath + 'watershed.shp'
         logger.debug('Creating watershed shapefile: %s', watershed_shp)
-        wbt.raster_to_vector_polygons(watershed, watershed_shp)
+        self._backend.raster_to_vector_polygons(watershed, watershed_shp)
         shp = gpd.read_file(watershed_shp)
         shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
         shp.to_file(watershed_shp)
-        wbt.polygon_area(watershed_shp)
+        self._backend.polygon_area(watershed_shp)
         area = gpd.read_file(watershed_shp).AREA[0]/1000000
         area = np.abs(area)
         # Create shapefile polyline of the watershed
         watershed_contour_shp = outpath + 'watershed_contour.shp'
-        wbt.polygons_to_lines(watershed_shp, watershed_contour_shp)
+        self._backend.polygons_to_lines(watershed_shp, watershed_contour_shp)
         # Clip buffer watershed DEM from watershed shapefile polygon
         watershed_dem = outpath + 'watershed_dem.tif'
-        wbt.clip_raster_to_polygon(geographic.watershed_buff_dem, watershed_shp, watershed_dem, maintain_dimensions=True)
+        self._backend.clip_raster_to_polygon(
+            geographic.watershed_buff_dem,
+            watershed_shp,
+            watershed_dem,
+            maintain_dimensions=True,
+        )
 
     #%% SUB-CATCHMENT FROM XY POINT
 

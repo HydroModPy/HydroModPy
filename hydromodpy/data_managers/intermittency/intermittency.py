@@ -22,13 +22,11 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import whitebox
+from hydromodpy.backends import get_whitebox_backend
 
 from hydromodpy.tools import get_logger
 
 logger = get_logger(__name__)
-WBT = whitebox.WhiteboxTools()
-WBT.verbose = False
 
 
 def _normalize_col_token(value: object) -> str:
@@ -181,6 +179,7 @@ class Intermittency:
         geographic: object,
     ):
         logger.info("Extracting stream intermittency data from %s", intermittency_path)
+        self._backend = get_whitebox_backend()
 
         data_folder = os.path.join(out_path, "results_stable", "intermittency")
         os.makedirs(data_folder, exist_ok=True)
@@ -232,7 +231,7 @@ class Intermittency:
             logger.info("Intermittency clip cache hit, reusing %s", self.onde_clip)
         else:
             logger.info("Intermittency clip cache miss, running Whitebox clip")
-            WBT.clip(onde_data, geographic.watershed_shp, self.onde_clip)
+            self._backend.clip(onde_data, geographic.watershed_shp, self.onde_clip)
 
         if not os.path.exists(self.onde_clip):
             logger.warning(

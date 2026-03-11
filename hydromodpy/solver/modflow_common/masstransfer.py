@@ -16,10 +16,7 @@
 import os
 
 import rasterio
-import whitebox
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 
 # HydroModPy
 from hydromodpy.tools import get_logger, toolbox
@@ -45,6 +42,8 @@ class Masstransfer:
         label: str = "conc",
         routing_fill_path: str | None = None,
         routing_direc_path: str | None = None,
+        backend: WhiteboxBackend | None = None,
+        wbt_tool: WhiteboxBackend | None = None,
     ):
         """
         Parameters
@@ -63,8 +62,11 @@ class Masstransfer:
             Optional tag injected into intermediate filenames to distinguish
             runs (default keeps historical '_conc' suffixes).
         """
+        if backend is not None and wbt_tool is not None:
+            raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
         self.geographic = geographic
         self.extraction_folder = extraction_folder
+        self._backend = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
         label_suffix = f"_{label}" if label else ""
 
         self.watershed_direc_surflow = routing_direc_path or getattr(
@@ -94,10 +96,6 @@ class Masstransfer:
                 "Masstransfer requires routing_fill_path and routing_direc_path, "
                 "or equivalent routing rasters on the geographic object."
             )
-
-        #### CHANGE HARD DISK ####
-        # self.watershed_direc_surflow = self.watershed_direc_surflow.replace('G','I',1)
-        # self.watershed_buff_fill_surflow = self.watershed_buff_fill_surflow.replace('G','I',1)
 
         self.shp_folder = os.path.join(self.extraction_folder, "_temporary")
         toolbox.create_folder(self.shp_folder)
@@ -142,7 +140,7 @@ class Masstransfer:
         im[im >= 0] = 0
         toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
         ### d8massflux ###
-        wbt.d8_mass_flux(
+        self._backend.d8_mass_flux(
             self.watershed_buff_fill_surflow,
             self.load_rast_path,
             self.eff_rast_path,
@@ -157,26 +155,23 @@ class Masstransfer:
         Generate continuous hydrographic network with downslope flowpaths.
         """
         # Sim to points
-        wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
+        self._backend.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
         logger.info(
             "raster_to_vector_points: created %s from %s", self.raw_pt_path, self.raw_rast_path
         )
 
         # Trace downslope sim
-        wbt.trace_downslope_flowpaths(
+        self._backend.trace_downslope_flowpaths(
             self.raw_pt_path, self.watershed_direc_surflow, self.out_rast_path
         )
         logger.info("trace_downslope_flowpaths: traced flowpaths to %s", self.out_rast_path)
 
         # Simflow to points
-        wbt.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
+        self._backend.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
         logger.info(
             "raster_to_vector_points: created %s from %s", self.out_pt_path, self.out_rast_path
         )
 
-        # Extra (disabled by default)
-        # wbt.add_point_coordinates_to_table(self.out_pt_path)
-        # wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
         logger.debug(
             "Optional extras (add_point_coordinates_to_table, "
             "extract_raster_values_at_points) are available but disabled."

@@ -8,12 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import whitebox
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 
 from hydromodpy.geographic.geographic_io import ensure_crs
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 
 def clip_dem_to_box_buffer(
@@ -23,7 +20,8 @@ def clip_dem_to_box_buffer(
     output_dem_path: str | Path,
     crs_project: str | None = None,
     nodata: float = -9999.0,
-    wbt_tool: object | None = None,
+    backend: WhiteboxBackend | None = None,
+    wbt_tool: WhiteboxBackend | None = None,
 ) -> str:
     """Clip source DEM to domain rectangle and normalize metadata.
 
@@ -39,15 +37,19 @@ def clip_dem_to_box_buffer(
         Optional CRS override.
     nodata:
         Nodata value enforced on output.
+    backend:
+        Optional Whitebox backend for runtime/tests.
     wbt_tool:
-        Optional Whitebox-like object for testing/injection.
+        Legacy alias for ``backend`` kept for backward compatibility.
 
     Returns
     -------
     str
         Path to the clipped DEM raster.
     """
-    tool = wbt if wbt_tool is None else wbt_tool
+    if backend is not None and wbt_tool is not None:
+        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
+    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
 
     src_dem = str(dem_init_path)
     clip_poly = str(box_buff_shp)

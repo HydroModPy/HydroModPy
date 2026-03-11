@@ -20,16 +20,11 @@ from __future__ import annotations
 
 import os
 
-import whitebox
-
+from hydromodpy.backends import get_whitebox_backend
 from hydromodpy.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.hydrography import Hydrography
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
-
 
 class MatchingStreams:
     """Compute bidirectional stream-distance diagnostics.
@@ -105,6 +100,7 @@ class MatchingStreams:
                 "MatchingStreams requires base DEM, routing fill, and routing "
                 "direction rasters."
             )
+        self._backend = get_whitebox_backend()
 
         # Full execution pipeline (kept eager for backward compatibility).
         self.prepare_files()
@@ -148,11 +144,11 @@ class MatchingStreams:
 
         # Convert observed stream pixels to points and trace their downslope paths.
         self.pt_obs = os.path.join(self.dichotomy_folder, "obs_pt.shp")
-        wbt.raster_to_vector_points(self.tif_obs, self.pt_obs)
+        self._backend.raster_to_vector_points(self.tif_obs, self.pt_obs)
         self.pt_obsf = os.path.join(self.dichotomy_folder, "obs_ptf.shp")
-        wbt.raster_to_vector_points(self.tif_obs, self.pt_obsf)
+        self._backend.raster_to_vector_points(self.tif_obs, self.pt_obsf)
         self.obs_flow = os.path.join(self.dichotomy_folder, "obsflow.tif")
-        wbt.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
+        self._backend.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
 
         # Simulated stream support comes from seepage raster at t(0).
         tif_sim = os.path.join(self.results_folder, "_rasters", "seepage_areas_t(0).tif")
@@ -164,11 +160,11 @@ class MatchingStreams:
             bool(self.model_modflow is not None),
         )
         self.pt_sim = os.path.join(self.dichotomy_folder, "sim_pt.shp")
-        wbt.raster_to_vector_points(self.tif_sim, self.pt_sim)
+        self._backend.raster_to_vector_points(self.tif_sim, self.pt_sim)
         self.pt_simf = os.path.join(self.dichotomy_folder, "sim_ptf.shp")
-        wbt.raster_to_vector_points(self.tif_sim, self.pt_simf)
+        self._backend.raster_to_vector_points(self.tif_sim, self.pt_simf)
         self.sim_flow = os.path.join(self.dichotomy_folder, "simflow.tif")
-        wbt.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)
+        self._backend.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)
 
     def sim_to_obs(self):
         """Measure simulated support against observed-network distances.
@@ -184,29 +180,33 @@ class MatchingStreams:
         """
 
         self.pt_sim_flow = os.path.join(self.dichotomy_folder, "simflow.shp")
-        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)
+        self._backend.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)
         self.pt_sim_flowf = os.path.join(self.dichotomy_folder, "simflowf.shp")
-        wbt.raster_to_vector_points(self.sim_flow, self.pt_sim_flowf)
+        self._backend.raster_to_vector_points(self.sim_flow, self.pt_sim_flowf)
 
         # Distance-to-observed-stream maps on filled DEM support.
         self.dist_dem_obs = os.path.join(self.dichotomy_folder, "dist_dem_obs.tif")
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_obs, self.dist_dem_obs)
+        self._backend.downslope_distance_to_stream(
+            self.watershed_fill,
+            self.tif_obs,
+            self.dist_dem_obs,
+        )
 
         self.dist_dem_obsflow = os.path.join(self.dichotomy_folder, "dist_dem_obsflow.tif")
-        wbt.downslope_distance_to_stream(
+        self._backend.downslope_distance_to_stream(
             self.watershed_fill, self.obs_flow, self.dist_dem_obsflow
         )
 
         # Sample observed-distance rasters at simulated points and flowpath points.
-        wbt.add_point_coordinates_to_table(self.pt_sim)
-        wbt.extract_raster_values_at_points(self.dist_dem_obs, self.pt_sim)
-        wbt.add_point_coordinates_to_table(self.pt_simf)
-        wbt.extract_raster_values_at_points(self.dist_dem_obsflow, self.pt_simf)
+        self._backend.add_point_coordinates_to_table(self.pt_sim)
+        self._backend.extract_raster_values_at_points(self.dist_dem_obs, self.pt_sim)
+        self._backend.add_point_coordinates_to_table(self.pt_simf)
+        self._backend.extract_raster_values_at_points(self.dist_dem_obsflow, self.pt_simf)
 
-        wbt.add_point_coordinates_to_table(self.pt_sim_flow)
-        wbt.extract_raster_values_at_points(self.dist_dem_obs, self.pt_sim_flow)
-        wbt.add_point_coordinates_to_table(self.pt_sim_flowf)
-        wbt.extract_raster_values_at_points(self.dist_dem_obsflow, self.pt_sim_flowf)
+        self._backend.add_point_coordinates_to_table(self.pt_sim_flow)
+        self._backend.extract_raster_values_at_points(self.dist_dem_obs, self.pt_sim_flow)
+        self._backend.add_point_coordinates_to_table(self.pt_sim_flowf)
+        self._backend.extract_raster_values_at_points(self.dist_dem_obsflow, self.pt_sim_flowf)
 
     def obs_to_sim(self):
         """Measure observed support against simulated-network distances.
@@ -217,26 +217,30 @@ class MatchingStreams:
         """
 
         self.pt_obs_flow = os.path.join(self.dichotomy_folder, "obsflow.shp")
-        wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
+        self._backend.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
         self.pt_obs_flowf = os.path.join(self.dichotomy_folder, "obsflowf.shp")
-        wbt.raster_to_vector_points(self.obs_flow, self.pt_obs_flowf)
+        self._backend.raster_to_vector_points(self.obs_flow, self.pt_obs_flowf)
 
         self.dist_dem_sim = os.path.join(self.dichotomy_folder, "dist_dem_sim.tif")
-        wbt.downslope_distance_to_stream(self.watershed_fill, self.tif_sim, self.dist_dem_sim)
+        self._backend.downslope_distance_to_stream(
+            self.watershed_fill,
+            self.tif_sim,
+            self.dist_dem_sim,
+        )
         self.dist_dem_simflow = os.path.join(self.dichotomy_folder, "dist_dem_simflow.tif")
-        wbt.downslope_distance_to_stream(
+        self._backend.downslope_distance_to_stream(
             self.watershed_fill, self.sim_flow, self.dist_dem_simflow
         )
 
-        wbt.add_point_coordinates_to_table(self.pt_obs)
-        wbt.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs)
-        wbt.add_point_coordinates_to_table(self.pt_obsf)
-        wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obsf)
+        self._backend.add_point_coordinates_to_table(self.pt_obs)
+        self._backend.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs)
+        self._backend.add_point_coordinates_to_table(self.pt_obsf)
+        self._backend.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obsf)
 
-        wbt.add_point_coordinates_to_table(self.pt_obs_flow)
-        wbt.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs_flow)
-        wbt.add_point_coordinates_to_table(self.pt_obs_flowf)
-        wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obs_flowf)
+        self._backend.add_point_coordinates_to_table(self.pt_obs_flow)
+        self._backend.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs_flow)
+        self._backend.add_point_coordinates_to_table(self.pt_obs_flowf)
+        self._backend.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obs_flowf)
 
 
 def run_matching_streams(

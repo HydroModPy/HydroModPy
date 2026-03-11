@@ -7,6 +7,7 @@ from pathlib import Path
 
 from geopy.geocoders import Nominatim
 
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.geographic.geographic_paths import GeographicPaths
 from hydromodpy.geographic.legacy.dem_metadata import (
@@ -60,7 +61,8 @@ def build_legacy_geographic_context(
     *,
     config: GeographicConfig,
     out_dir_path: str | Path,
-    wbt_tool: object | None = None,
+    backend: WhiteboxBackend | None = None,
+    wbt_tool: WhiteboxBackend | None = None,
     locator_factory: object = Nominatim,
 ) -> LegacyGeographicContext:
     """
@@ -74,12 +76,16 @@ def build_legacy_geographic_context(
         out_dir_path=out_dir_path,
     )
 
+    if backend is not None and wbt_tool is not None:
+        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
+    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
+
     flow_products = build_regional_flow_products(
         dem_init_path=setup.dem_init_path,
         dem_out_dir_path=setup.paths.correcflow_path,
         dem_correc_type=str(config.dem_correc_type),
         crs_project=setup.crs_project,
-        wbt_tool=wbt_tool,
+        backend=tool,
     )
 
     build_standard_catchment(
@@ -88,19 +94,11 @@ def build_legacy_geographic_context(
         direc_path=flow_products.direc,
         acc_path=flow_products.acc,
         crs_project=setup.crs_project,
-        wbt_tool=wbt_tool,
+        backend=tool,
         unsupported_mode="ignore",
     )
 
-    tool = wbt_tool
-    if tool is not None:
-        tool.polygons_to_lines(setup.paths.watershed_shp, setup.paths.watershed_contour_shp)
-    else:
-        import whitebox
-
-        default_tool = whitebox.WhiteboxTools()
-        default_tool.verbose = False
-        default_tool.polygons_to_lines(setup.paths.watershed_shp, setup.paths.watershed_contour_shp)
+    tool.polygons_to_lines(setup.paths.watershed_shp, setup.paths.watershed_contour_shp)
     catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
 
     domain_products = build_standard_domain_polygons(
@@ -118,7 +116,7 @@ def build_legacy_geographic_context(
         watershed_buff_shp=domain_products.watershed_buff_shp,
         paths=setup.paths,
         crs_project=setup.crs_project,
-        wbt_tool=wbt_tool,
+        backend=tool,
     )
 
     dem_metadata = read_legacy_dem_metadata(

@@ -233,18 +233,6 @@ class Modflow(Solver):
         if self.domain is None:
             raise ValueError("pre_processing requires a configured Domain object.")
 
-        launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
-        if launcher_time_grid is None:
-            raise ValueError(
-                "Launcher flow preprocessing requires preprocess_options.time_grid "
-                "derived from [simulation.time]. Solver tgrid fallback is no longer supported."
-            )
-        if self.sgrid_config is None:
-            raise ValueError(
-                "Missing [modflownwt.sgrid] configuration: a typed SolverSGridConfig "
-                "is required to generate the structured grid."
-            )
-
         flow_regime = self._resolve_flow_regime()
         if flow_regime is None:
             raise ValueError(
@@ -252,6 +240,19 @@ class Modflow(Solver):
                 "must be driven by [flow].flow_regime."
             )
         self.flow_regime = flow_regime
+
+        launcher_time_grid = getattr(self.preprocess_options, "time_grid", None)
+        if launcher_time_grid is None and self.flow_regime != "steady":
+            raise ValueError(
+                "Launcher flow preprocessing requires preprocess_options.time_grid "
+                "derived from [simulation.time] for transient flow runs. "
+                "Solver tgrid fallback is no longer supported."
+            )
+        if self.sgrid_config is None:
+            raise ValueError(
+                "Missing [modflownwt.sgrid] configuration: a typed SolverSGridConfig "
+                "is required to generate the structured grid."
+            )
 
     def _initialize_solver_packages(self) -> None:
         """Initialize FLOPY MODFLOW and NWT solver packages."""
@@ -390,6 +391,7 @@ class Modflow(Solver):
             ncol=self.ncol,
             nper=int(self.nper),
             grid=None if self.grid_ctx is None else self.grid_ctx.grid,
+            simulation_window=None if self.time_grid is None else self.time_grid.window,
             resolution=float(self.resolution),
             sink_fill=bool(self.sink_fill),
             sink=getattr(self, "sink", None),

@@ -17,10 +17,8 @@ import os
 import datetime
 import pandas as pd
 import geopandas as gpd
-import whitebox
+from hydromodpy.backends import get_whitebox_backend
 from hydromodpy.tools import get_logger
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 logger = get_logger(__name__)
 
@@ -47,6 +45,7 @@ class Hydrometry:
         """
         
         logger.info('Extracting hydrometry data from %s', hydrometry_path)
+        self._backend = get_whitebox_backend()
         
         data_folder = os.path.join(out_path,'results_stable','hydrometry')
         if not os.path.exists(data_folder):
@@ -81,7 +80,7 @@ class Hydrometry:
         """
         hydrometric_data = os.path.join(hydrometry_path, file_name)
         self.hydrometric_clip = os.path.join(data_folder, file_name)
-        wbt.clip(hydrometric_data, geographic.watershed_shp, self.hydrometric_clip)
+        self._backend.clip(hydrometric_data, geographic.watershed_shp, self.hydrometric_clip)
         # try:
         hydromet_bv = gpd.read_file(self.hydrometric_clip)
         hydromet_bv = hydromet_bv.copy()

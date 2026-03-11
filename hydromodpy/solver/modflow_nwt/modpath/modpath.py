@@ -34,6 +34,7 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
+from hydromodpy.backends import get_whitebox_backend
 from hydromodpy.tools import toolbox, get_logger
 logger = get_logger(__name__)
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -222,6 +223,45 @@ class Modpath(Solver):
             )
         return raster_path
 
+    def _get_base_raster_path(self):
+        """Resolve the raster template used to export seepage products."""
+        base_raster = getattr(self.model_modflow, 'dem_watershed_path', None)
+        if base_raster is not None:
+            return base_raster
+
+        geo = self._get_geographic()
+        if geo is None:
+            return None
+        for attr_name in ('watershed_dem', 'watershed_box_buff_dem', 'watershed_buff_dem'):
+            candidate = getattr(geo, attr_name, None)
+            if candidate is not None:
+                return candidate
+        return None
+
+    def _restore_seepage_raster_from_npy(self, seepage_tif: str) -> bool:
+        """Try rebuilding the seepage GeoTIFF from ``seepage_areas.npy``."""
+        seepage_npy = os.path.join(self.full_path, '_postprocess', 'seepage_areas.npy')
+        base_raster = self._get_base_raster_path()
+        if not os.path.isfile(seepage_npy) or base_raster is None or not os.path.isfile(base_raster):
+            return False
+
+        try:
+            payload = np.load(seepage_npy, allow_pickle=True).item()
+            if not payload:
+                return False
+            first_key = sorted(payload)[0]
+            seepage_array = np.asarray(payload[first_key], dtype=float)
+            toolbox.export_tif(base_raster, seepage_array, seepage_tif, -9999.0)
+        except Exception as exc:
+            logger.warning(
+                "Failed to rebuild seepage raster from %s for zone_partic='seepage_clip'. "
+                "Error: %s",
+                seepage_npy,
+                exc,
+            )
+            return False
+        return os.path.isfile(seepage_tif)
+
     def _resolve_seepage_clip_raster(self):
         """Build and return clipped seepage raster path for particle injection."""
         seepage_tif = os.path.join(
@@ -231,10 +271,12 @@ class Modpath(Solver):
             'seepage_areas_t(0).tif',
         )
         if not os.path.isfile(seepage_tif):
-            raise FileNotFoundError(
-                "zone_partic='seepage_clip' requested but missing seepage raster at "
-                f"{seepage_tif}."
-            )
+            rebuilt = self._restore_seepage_raster_from_npy(seepage_tif)
+            if not rebuilt:
+                raise FileNotFoundError(
+                    "zone_partic='seepage_clip' requested but missing seepage raster at "
+                    f"{seepage_tif}."
+                )
 
         watershed_shp = self._get_watershed_shp()
         if watershed_shp is None:
@@ -252,11 +294,7 @@ class Modpath(Solver):
             'seepage_areas_t(0)_clip.tif',
         )
         try:
-            import whitebox
-
-            wbt = whitebox.WhiteboxTools()
-            wbt.verbose = False
-            wbt.clip_raster_to_polygon(
+            get_whitebox_backend().clip_raster_to_polygon(
                 str(seepage_tif),
                 str(watershed_shp),
                 str(seepage_clip_tif),

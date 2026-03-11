@@ -2,6 +2,7 @@
 
 Current inference scope (V3)
 ----------------------------
+- ``domain.support_mode == "geology"`` -> activate ``geology``
 - ``domain.zone_ids`` containing ``geology`` -> activate ``geology``
 - ``flow.active_bc`` containing ``stream`` -> activate ``hydrography``
 - ``flow.active_bc`` containing ``ocean`` -> activate ``oceanic``
@@ -24,6 +25,9 @@ class DataManagersPlanner:
         config: DataManagersConfig,
         *,
         domain_zone_ids: Sequence[str] | None = None,
+        domain_support_mode: str | None = None,
+        domain_support_provider_names: Sequence[str] | None = None,
+        requested_spatial_support_ids: Sequence[str] | None = None,
         raw_toml: Mapping[str, Any] | None = None,
         flow_active_bc: Sequence[str] | None = None,
     ) -> DataLoadPlan:
@@ -35,6 +39,16 @@ class DataManagersPlanner:
             Validated declarative `data` config (`data.types`, nested sections).
         domain_zone_ids:
             Normalized `domain.zone_ids` list used for zone-driven inference.
+        domain_support_mode:
+            Normalized `domain.support_mode` used to infer whether geology data
+            is required for heterogeneous mapping.
+        domain_support_provider_names:
+            Provider names declared in `domain.supports`, used to infer data
+            dependencies from explicit support declarations.
+        requested_spatial_support_ids:
+            Spatial support ids actually referenced by heterogeneous parameters.
+            When provided, geology is inferred only if at least one support is
+            requested.
         raw_toml:
             Raw untyped TOML dictionary used for custom-section inference
             (for example custom hook payloads).
@@ -48,7 +62,34 @@ class DataManagersPlanner:
 
         # Never infer over explicitly declared types.
         explicit_set = set(explicit_types)
-        if self._domain_requests_geology(domain_zone_ids) and "geology" not in explicit_set:
+        normalized_support_mode = self._normalize_support_mode(domain_support_mode)
+        requested_supports = self._normalize_tokens(requested_spatial_support_ids)
+        support_required = requested_spatial_support_ids is None or bool(requested_supports)
+        provider_names = self._normalize_tokens(domain_support_provider_names)
+
+        if (
+            support_required
+            and "geology" in provider_names
+            and "geology" not in explicit_set
+        ):
+            self._add_inference(
+                inferred_types,
+                reasons_by_type,
+                "geology",
+                "inferred from domain.supports provider='geology'",
+            )
+        elif support_required and normalized_support_mode == "geology" and "geology" not in explicit_set:
+            self._add_inference(
+                inferred_types,
+                reasons_by_type,
+                "geology",
+                "inferred from domain.support_mode='geology'",
+            )
+        elif (
+            support_required
+            and self._domain_requests_geology(domain_zone_ids)
+            and "geology" not in explicit_set
+        ):
             self._add_inference(
                 inferred_types,
                 reasons_by_type,
@@ -87,6 +128,15 @@ class DataManagersPlanner:
     @staticmethod
     def _domain_requests_geology(domain_zone_ids: Sequence[str] | None) -> bool:
         return "geology" in DataManagersPlanner._normalize_tokens(domain_zone_ids)
+
+    @staticmethod
+    def _normalize_support_mode(value: str | None) -> str:
+        if value is None:
+            return "none"
+        normalized = str(value).strip().lower()
+        if normalized == "":
+            return "none"
+        return normalized
 
     @staticmethod
     def _normalize_tokens(values: Sequence[str] | None) -> set[str]:

@@ -1,0 +1,186 @@
+[simulation]
+name = "Analytical Dupuit divide-river validation"
+description = "Synthetic steady-state unconfined flow with west-side divide, east-side fixed head, and uniform recharge."
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-02 00:00:00"
+step_value = "1 day"
+coverage_policy = "ignore"
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+catch_name = "validation_dupuit_divide_river"
+out_dir_path = "../results"
+data_path = "."
+
+[geographic]
+source_mode = "synthetic"
+crs_project = "EPSG:2154"
+
+[geographic.synthetic]
+case_id = "validation_dupuit_divide_river"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "50.0 m"
+nx = 40
+ny = 5
+xmin = 265400.0
+ymin = 6784100.0
+crs = "EPSG:2154"
+nodata = -9999.0
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+right_to_left_amplitude = 0.0
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "20.0 m"
+
+[data]
+types = ["geology"]
+inference_mode = "warn"
+
+[data.geology]
+id = "field_geology"
+geo_path = "../../../../data/France/geology"
+types_obs = "GEO1M.shp"
+fields_obs = "CODE_LEG"
+cell_samples_per_axis = 4
+landsea = false
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["east_side"]
+param_list = ["K", "Ss", "Sy"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "1e-4 m/s"
+
+[flow.param.K.field_vertical_profile]
+mode = "none"
+characteristic_depth = "10.0 m"
+min_factor = 1.0
+depths = [0.0, 10.0, 20.0]
+factors = [1.0, 1.0, 1.0]
+interpolation = "linear"
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+
+[flow.param.Ss.field_homogeneous]
+value = "1e-10 m-1"
+
+[flow.param.Ss.field_vertical_profile]
+mode = "none"
+characteristic_depth = "10.0 m"
+min_factor = 1.0
+depths = [0.0, 10.0, 20.0]
+factors = [1.0, 1.0, 1.0]
+interpolation = "linear"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+
+[flow.param.Sy.field_homogeneous]
+value = "0.10 -"
+
+[flow.param.Sy.field_vertical_profile]
+mode = "none"
+characteristic_depth = "10.0 m"
+min_factor = 1.0
+depths = [0.0, 10.0, 20.0]
+factors = [1.0, 1.0, 1.0]
+interpolation = "linear"
+
+[flow.ic]
+type = "custom"
+value = "9.0 m"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+[recharge_chronicle]
+mode = "synthetic_generated"
+
+[recharge_chronicle.synthetic_generated]
+values = "1.0 mm/day"
+units = "mm/day"
+runoff_ratio = 0.0
+
+[modflownwt.runtime]
+mf_version = "mfnwt"
+mf_listunit = 2
+mf_verbose = false
+nwt_headtol = 1e-6
+nwt_fluxtol = 1e-4
+nwt_maxiterout = 1000
+nwt_thickfact = 1e-5
+nwt_linmeth = 1
+nwt_iprnwt = 0
+nwt_ibotav = 1
+nwt_options = "COMPLEX"
+nwt_continue = false
+nwt_backflag = 0
+nwt_stoptol = 1e-10
+dis_itmuni = 1
+bas_hnoflo = -9999.0
+upw_iphdry = 1
+upw_hdry = -100.0
+upw_layvka = 1
+evt_nevtop = 3
+evt_ievt = 1
+evt_ipakcb = 1
+oc_compact = true
+wel_ipakcb = 1
+lmt_output_file_name = "mt3d_link.ftl"
+lmt_extension = "lmt8"
+lmt_output_format = "unformatted"
+
+[modflownwt.process_specific]
+vka = 1.0
+exdp = "1.0 m"
+
+[modflownwt.sgrid.planar]
+mode = "shape"
+nx = 40
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+lenuni = "m"
+genmtd_lay = "constant"
+nlay = 1
+lay_decay = 1.0
+nodata = -9999.0
+
+[modflownwt.tgrid]
+firstpersteady = true
+
+[postprocess]
+enabled = false
+
+[display]
+enabled = false

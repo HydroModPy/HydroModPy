@@ -33,9 +33,7 @@ from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
 import pandas as pd
 import numpy as np
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+from hydromodpy.backends import get_whitebox_backend
 
 from .log_manager import get_logger
 
@@ -72,7 +70,12 @@ def clip_tif(tif_path, shp_path, out_path, maintain_dimensions):
     maintain_dimensions : bool
         Maintain the raster dimension or not.
     """
-    wbt.clip_raster_to_polygon(tif_path, shp_path, out_path, maintain_dimensions=maintain_dimensions)
+    get_whitebox_backend().clip_raster_to_polygon(
+        tif_path,
+        shp_path,
+        out_path,
+        maintain_dimensions=maintain_dimensions,
+    )
 
 def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
     """

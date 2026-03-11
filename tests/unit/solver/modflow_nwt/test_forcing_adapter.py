@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
 from hydromodpy.solver.modflow_common.grid_context import GridReference
 from hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter import FlowToModflowAdapter
@@ -298,11 +299,48 @@ def test_well_relative_xy_defaults_to_layer_zero():
     assert well.layer == 0
 
 
+def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
+    flow = types.SimpleNamespace(
+        sinks_sources={
+            "recharge": None,
+            "wells": {
+                "W1": FlowWellConfig(
+                    cell=(0, 0, 0),
+                    units="m3/day",
+                    forcing={"mode": "constant", "value": -86400.0},
+                )
+            },
+        },
+        flow_regime="transient",
+        active_sinks_sources=["wells"],
+        config=None,
+    )
+    dem = np.zeros((1, 1))
+    adapter = FlowToModflowAdapter(
+        flow=flow,
+        domain=None,
+        sgrid=None,
+        dem=dem,
+        bottom_layer=dem,
+        nlay=1,
+        nrow=1,
+        ncol=1,
+        nper=2,
+        resolution=1.0,
+        sink_fill=False,
+    )
+
+    wel_spd = adapter._build_well_stress_period_data()
+
+    assert wel_spd[0] == [[0, 0, 0, pytest.approx(-1.0)]]
+    assert wel_spd[1] == [[0, 0, 0, pytest.approx(-1.0)]]
+
+
 # ---------------------------------------------------------------------------
 # active_bc gate tests
 # ---------------------------------------------------------------------------
 
-def _make_bc_adapter(boundary_conditions, active_bc, nper=1):
+def _make_bc_adapter(boundary_conditions, active_bc, nper=1, simulation_window=None):
     """Build a minimal FlowToModflowAdapter focused on the BC path."""
     dem = np.zeros((3, 3))
     flow = types.SimpleNamespace(
@@ -326,6 +364,7 @@ def _make_bc_adapter(boundary_conditions, active_bc, nper=1):
         nrow=3,
         ncol=3,
         nper=nper,
+        simulation_window=simulation_window,
         resolution=1.0,
         sink_fill=False,
     )
@@ -375,3 +414,74 @@ def test_west_side_not_activated_leaves_ibound_unchanged():
 
     # Column 0 must NOT be constant-head (-1) since west_side is inactive
     assert np.all(ibound[:, :, 0] != -1)
+
+
+def test_transient_west_side_uses_chd_and_keeps_face_active():
+    west_bc = types.SimpleNamespace(value=[5.0, 6.0])
+    adapter = _make_bc_adapter({"west_side": west_bc}, active_bc=["west_side"], nper=2)
+
+    ibound, strt, _ = adapter._build_initial_heads_and_sides()
+    chd_spd = adapter._build_side_chd()
+
+    assert np.all(ibound[:, :, 0] == 1.0)
+    assert np.all(strt[:, :, 0] == 5.0)
+    assert chd_spd is not None
+    assert chd_spd[0][0] == [0, 0, 0, pytest.approx(5.0), pytest.approx(5.0)]
+    assert chd_spd[1][0] == [0, 0, 0, pytest.approx(6.0), pytest.approx(6.0)]
+
+
+def test_boundary_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
+    west_bc = FlowBoundaryConditionConfig(
+        id="west_side",
+        type="dirichlet",
+        units="m",
+        application_domain="west side",
+        forcing={"mode": "constant", "value": 5.0},
+    )
+    adapter = _make_bc_adapter({"west_side": west_bc}, active_bc=["west_side"], nper=2)
+
+    ibound, strt, _ = adapter._build_initial_heads_and_sides()
+    chd_spd = adapter._build_side_chd()
+
+    assert np.all(ibound[:, :, 0] == 1.0)
+    assert np.all(strt[:, :, 0] == 5.0)
+    assert chd_spd == {
+        0: [[0, 0, 0, 5.0, 5.0], [0, 1, 0, 5.0, 5.0], [0, 2, 0, 5.0, 5.0]],
+        1: [[0, 0, 0, 5.0, 5.0], [0, 1, 0, 5.0, 5.0], [0, 2, 0, 5.0, 5.0]],
+    }
+
+
+def test_boundary_forcing_csv_requires_simulation_window():
+    west_bc = FlowBoundaryConditionConfig(
+        id="west_side",
+        type="dirichlet",
+        units="m",
+        application_domain="west side",
+        forcing={
+            "mode": "csv",
+            "path_file": "dummy.csv",
+        },
+    )
+    adapter = _make_bc_adapter({"west_side": west_bc}, active_bc=["west_side"], nper=2)
+
+    with pytest.raises(ValueError, match="simulation.time is required"):
+        adapter._build_initial_heads_and_sides()
+
+
+def test_merge_chd_payloads_lets_side_override_ocean_corner_cell():
+    adapter = _make_bc_adapter({}, active_bc=[], nper=2)
+    ocean_chd = {
+        0: [[0, 0, 0, 1.0, 1.0]],
+        1: [[0, 0, 0, 2.0, 2.0]],
+    }
+    side_chd = {
+        0: [[0, 0, 0, 5.0, 5.0]],
+        1: [[0, 0, 0, 6.0, 6.0]],
+    }
+
+    merged = adapter._merge_chd_payloads(ocean_chd, side_chd)
+
+    assert merged == {
+        0: [[0, 0, 0, 5.0, 5.0]],
+        1: [[0, 0, 0, 6.0, 6.0]],
+    }

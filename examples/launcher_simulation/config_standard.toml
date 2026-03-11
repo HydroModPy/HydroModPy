@@ -149,9 +149,13 @@ right_to_left_amplitude = 5.0
 # Domain configuration.
 # ----------------------------------------------------------------------
 [domain]
-# Ordered list of zone identifiers loaded in the domain.
-# Supported values currently include: 'geology'.
-zone_ids = ["geology"]
+# Spatial support used by heterogeneous parameter mapping.
+# Use "geology" to activate [data.geology], "zones" for non-geology zonations,
+# or "none" when all parameters are homogeneous.
+support_mode = "geology"
+
+[domain.supports.field_geology]
+provider = "geology"
 
 
 # ----------------------------------------------------------------------
@@ -177,7 +181,7 @@ substratum_elevation = 0.0
 [data]
 # Ordered list of data types explicitly declared in [data].
 # The launcher can infer additional types from other sections
-# (for example domain.zone_ids and flow.active_bc).
+# (for example domain.support_mode and flow.active_bc).
 # Allowed values: "geology", "hydrography", "hydrometry",
 # "intermittency", "oceanic", "piezometry".
 types = ["geology", "hydrography", "hydrometry"]

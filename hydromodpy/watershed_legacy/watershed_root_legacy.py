@@ -18,29 +18,6 @@ import os
 import pickle
 import geopandas as gpd
 import rasterio
-import whitebox
-
-
-_wbt = None
-
-
-def _get_wbt():
-    """Create WhiteboxTools only when first needed."""
-    global _wbt
-    if _wbt is None:
-        _wbt = whitebox.WhiteboxTools()
-        _wbt.verbose = False
-    return _wbt
-
-
-class _LazyWhiteboxTools:
-    """Backwards-compatible proxy delaying WhiteboxTools initialization."""
-
-    def __getattr__(self, name):
-        return getattr(_get_wbt(), name)
-
-
-wbt = _LazyWhiteboxTools()
 
 # Root
 from os.path import dirname, abspath
