@@ -113,12 +113,14 @@ class SyntheticTopographyConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["flat", "linear"] = Field(
+    kind: Literal["flat", "linear", "radial_island"] = Field(
         default="flat",
         description=(
             "Analytical topography law. "
             "'flat' keeps one constant elevation. "
-            "'linear' increases from right to left with a linear profile."
+            "'linear' increases from right to left with a linear profile. "
+            "'radial_island' builds one circular emerged island surrounded by "
+            "submerged ocean cells."
         ),
     )
     base_elevation: float = Field(
@@ -126,7 +128,8 @@ class SyntheticTopographyConfig(BaseModel):
         description=(
             "Reference elevation (m). "
             "For 'flat' this is the constant surface elevation. "
-            "For 'linear' this is the elevation on the right boundary."
+            "For 'linear' this is the elevation on the right boundary. "
+            "For 'radial_island' this is the submerged ocean-floor elevation."
         ),
     )
     right_to_left_amplitude: float = Field(
@@ -137,6 +140,64 @@ class SyntheticTopographyConfig(BaseModel):
             "to left."
         ),
     )
+    island_radius: float | None = Field(
+        default=None,
+        description=(
+            "Circular shoreline radius (m) used by 'radial_island'. "
+            "Defaults to 35% of the smallest domain length."
+        ),
+    )
+    crest_elevation: float = Field(
+        default=10.0,
+        description=(
+            "Central island elevation (m) used by 'radial_island'. "
+            "The land surface decays nonlinearly to sea level at the shoreline."
+        ),
+    )
+    center_x: float | None = Field(
+        default=None,
+        description=(
+            "Optional x coordinate of the radial-island center. "
+            "Defaults to the grid midpoint."
+        ),
+    )
+    center_y: float | None = Field(
+        default=None,
+        description=(
+            "Optional y coordinate of the radial-island center. "
+            "Defaults to the grid midpoint."
+        ),
+    )
+
+    @field_validator("island_radius", "center_x", "center_y", mode="before")
+    @classmethod
+    def _normalize_optional_lengths_to_m(cls, value, info):
+        """Parse optional user-friendly length values into meters."""
+        if value is None:
+            return None
+        label = f"synthetic_geographic.topography.{info.field_name}"
+        return float(parse_length_to_m(value, default_unit="m", label=label))
+
+    @model_validator(mode="after")
+    def _validate_radial_island_payload(self) -> "SyntheticTopographyConfig":
+        """Validate radial-island specific parameters when that law is used."""
+        if self.kind != "radial_island":
+            return self
+        if self.island_radius is not None and float(self.island_radius) <= 0.0:
+            raise ValueError("synthetic_geographic.topography.island_radius must be > 0.")
+        if float(self.crest_elevation) <= 0.0:
+            raise ValueError("synthetic_geographic.topography.crest_elevation must be > 0.")
+        if float(self.base_elevation) >= 0.0:
+            raise ValueError(
+                "synthetic_geographic.topography.base_elevation must be < 0 for "
+                "'radial_island' so ocean cells remain submerged."
+            )
+        if float(self.crest_elevation) <= float(self.base_elevation):
+            raise ValueError(
+                "synthetic_geographic.topography.crest_elevation must be above "
+                "base_elevation for 'radial_island'."
+            )
+        return self
 
 
 class SyntheticGeographicConfig(BaseModel):

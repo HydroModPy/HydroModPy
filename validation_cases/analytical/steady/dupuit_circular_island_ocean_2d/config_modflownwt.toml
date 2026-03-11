@@ -1,0 +1,158 @@
+[simulation]
+name = "Analytical circular island ocean validation"
+description = "Synthetic steady-state unconfined flow on a circular island with uniform recharge and sea level imposed through the ocean boundary condition."
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-02 00:00:00"
+step_value = "1 day"
+coverage_policy = "ignore"
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+catch_name = "validation_circular_island_ocean"
+out_dir_path = "../results"
+data_path = "."
+
+[geographic]
+source_mode = "synthetic"
+crs_project = "EPSG:2154"
+
+[geographic.synthetic]
+case_id = "validation_circular_island_ocean"
+
+[geographic.synthetic.grid]
+length_x = "610.0 m"
+length_y = "610.0 m"
+nx = 61
+ny = 61
+xmin = 265400.0
+ymin = 6784100.0
+crs = "EPSG:2154"
+nodata = -9999.0
+
+[geographic.synthetic.topography]
+kind = "radial_island"
+base_elevation = -1.0
+crest_elevation = 12.0
+island_radius = "200.0 m"
+center_x = 265705.0
+center_y = 6784405.0
+
+[domain]
+support_mode = "none"
+
+[domain.depth_model]
+type = "flat_substratum"
+substratum_elevation = -5.0
+
+[data]
+types = ["oceanic"]
+inference_mode = "strict"
+
+[data.oceanic]
+oceanic_path = "../../../../examples/launcher_data_overtiew/data"
+msl_source = "local"
+msl_local_csv = "ocean_msl_local.csv"
+msl_use_simulation_time_window = true
+msl_default = 0.0
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["ocean"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "5e-6 m/s"
+
+[flow.param.K.field_vertical_profile]
+mode = "none"
+characteristic_depth = "10.0 m"
+min_factor = 1.0
+depths = [0.0, 10.0, 20.0]
+factors = [1.0, 1.0, 1.0]
+interpolation = "linear"
+
+[flow.ic]
+type = "custom"
+value = "1.0 m"
+
+[flow.bc.dirichlet.ocean]
+type = "dirichlet"
+value = "0.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+negative_to_evt = true
+
+[recharge_chronicle]
+mode = "synthetic_generated"
+
+[recharge_chronicle.synthetic_generated]
+values = "1.0 mm/day"
+units = "mm/day"
+runoff_ratio = 0.0
+
+[modflownwt.runtime]
+mf_version = "mfnwt"
+mf_listunit = 2
+mf_verbose = false
+nwt_headtol = 1e-6
+nwt_fluxtol = 1e-4
+nwt_maxiterout = 1000
+nwt_thickfact = 1e-5
+nwt_linmeth = 1
+nwt_iprnwt = 0
+nwt_ibotav = 1
+nwt_options = "COMPLEX"
+nwt_continue = false
+nwt_backflag = 0
+nwt_stoptol = 1e-10
+dis_itmuni = 1
+bas_hnoflo = -9999.0
+upw_iphdry = 1
+upw_hdry = -100.0
+upw_layvka = 1
+evt_nevtop = 3
+evt_ievt = 1
+evt_ipakcb = 1
+oc_compact = true
+wel_ipakcb = 1
+lmt_output_file_name = "mt3d_link.ftl"
+lmt_extension = "lmt8"
+lmt_output_format = "unformatted"
+
+[modflownwt.process_specific]
+vka = 1.0
+exdp = "1.0 m"
+
+[modflownwt.sgrid.planar]
+mode = "shape"
+nx = 61
+ny = 61
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+lenuni = "m"
+genmtd_lay = "constant"
+nlay = 1
+lay_decay = 1.0
+nodata = -9999.0
+
+[modflownwt.tgrid]
+firstpersteady = true
+
+[postprocess]
+enabled = false
+
+[display]
+enabled = false
