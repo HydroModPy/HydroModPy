@@ -2,12 +2,6 @@
 name = "Analytical Dupuit divide-river validation"
 description = "Synthetic steady-state unconfined flow with west-side divide, east-side fixed head, and uniform recharge."
 
-[simulation.time]
-start_datetime = "2003-01-01 00:00:00"
-end_datetime = "2003-01-02 00:00:00"
-step_value = "1 day"
-coverage_policy = "ignore"
-
 [[simulation.process]]
 id = "flow_validation"
 type = "flow"

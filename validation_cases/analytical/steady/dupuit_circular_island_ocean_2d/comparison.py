@@ -7,8 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.geographic_synthethic import SyntheticGridConfig, SyntheticTopographyConfig
-from hydromodpy.geographic_synthethic.topography import build_topography_values
+from hydromodpy.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
+from hydromodpy.geographic.synthetic.topography import build_topography_values
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,

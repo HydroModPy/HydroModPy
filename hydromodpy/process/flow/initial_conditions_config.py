@@ -16,7 +16,7 @@ from hydromodpy.process.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
 )
-from hydromodpy.units import parse_scalar_and_unit
+from hydromodpy.support.units import parse_scalar_and_unit
 
 
 def normalize_flow_initial_conditions(

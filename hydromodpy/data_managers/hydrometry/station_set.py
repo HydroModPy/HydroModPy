@@ -1,4 +1,4 @@
-﻿"""
+"""
 File Name: station_set.py
 Author: Bastien Boivin
 Email: bastien.boivin@univ-rennes.fr | @proton.me
@@ -21,7 +21,7 @@ try:
    from .station import Station
    from .loaders_api import ApiStationLoader
    from .loaders_local import LocalStationLoader
-   from hydromodpy.units import parse_length_to_m
+   from hydromodpy.support.units import parse_length_to_m
 except ImportError:
    import sys
    _manager_root = Path(__file__).resolve().parents[1]
@@ -39,7 +39,7 @@ except ImportError:
    from station import Station
    from loaders_api import ApiStationLoader
    from loaders_local import LocalStationLoader
-   from hydromodpy.units import parse_length_to_m
+   from hydromodpy.support.units import parse_length_to_m
 
 #%% Constants
 API_BASE_URL = "https://hubeau.eaufrance.fr/api/v2/"

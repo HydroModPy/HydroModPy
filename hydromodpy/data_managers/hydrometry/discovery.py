@@ -12,7 +12,7 @@ import requests
 
 try:
     from ..common.base_station_set import BaseStationSet
-    from hydromodpy.units import parse_length_to_m
+    from hydromodpy.support.units import parse_length_to_m
 except ImportError:
     import sys
 
@@ -22,7 +22,7 @@ except ImportError:
         if _path not in sys.path:
             sys.path.insert(0, _path)
     from common.base_station_set import BaseStationSet
-    from hydromodpy.units import parse_length_to_m
+    from hydromodpy.support.units import parse_length_to_m
 
 
 API_BASE_URL = "https://hubeau.eaufrance.fr/api/v2/"

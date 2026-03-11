@@ -40,7 +40,7 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
-from hydromodpy.units import to_modflow_itmuni
+from hydromodpy.support.units import to_modflow_itmuni
 
 
 @dataclass(slots=True)

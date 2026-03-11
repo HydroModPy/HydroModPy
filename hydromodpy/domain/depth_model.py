@@ -5,7 +5,7 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import BaseModel, Field, field_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.units.length import parse_length_to_m
+from hydromodpy.support.units.length import parse_length_to_m
 
 
 class ConstantThicknessDepthModel(BaseModel):

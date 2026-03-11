@@ -42,11 +42,11 @@ from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
 from hydromodpy.solver.modflow_common.runtime_arrays import (
 	build_concentration_runtime_overrides,
 )
-from hydromodpy.units.volumetric_flow import (
+from hydromodpy.support.units.volumetric_flow import (
 	convert_to_m3_per_s,
 	normalize_m3_per_s_unit,
 )
-from hydromodpy.tools import get_logger, toolbox
+from hydromodpy.support.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
 

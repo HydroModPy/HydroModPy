@@ -9,7 +9,7 @@ import geopandas as gpd
 import pandas as pd
 import os 
 import sys
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 from os.path import dirname, abspath
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)

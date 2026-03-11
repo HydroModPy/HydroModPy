@@ -19,7 +19,7 @@ import rasterio
 from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 
 # HydroModPy
-from hydromodpy.tools import get_logger, toolbox
+from hydromodpy.support.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
 

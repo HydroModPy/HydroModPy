@@ -34,7 +34,7 @@ from hydromodpy.geographic import Geographic
 from hydromodpy.simulation.workspace import Workspace, WorkspaceConfig
 from hydromodpy.geographic import GeographicConfig
 from hydromodpy.display import visualization_watershed, visualization_results
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from pathlib import Path
 
 fontprop = toolbox.plot_params(8, 15, 18, 20)
@@ -467,6 +467,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 #%% ---- NOTES
 
 os.chdir(root_dir)
+
 
 
 

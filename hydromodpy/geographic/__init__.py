@@ -11,15 +11,15 @@ import importlib
 
 from hydromodpy.geographic.geographic import DEM_correcflow_analysis, Geographic
 from hydromodpy.geographic.geographic_config import GeographicConfig
-from hydromodpy.geographic.legacy.dem_metadata import (
+from hydromodpy.legacy.geographic.dem_metadata import (
     LegacyDemMetadata,
     read_legacy_dem_metadata,
 )
-from hydromodpy.geographic.legacy.domain_rasters import (
+from hydromodpy.legacy.geographic.domain_rasters import (
     LegacyDomainRasterProducts,
     build_legacy_domain_rasters,
 )
-from hydromodpy.geographic.legacy.pipeline import (
+from hydromodpy.legacy.geographic.pipeline import (
     LegacyGeographicContext,
     build_legacy_geographic_context,
 )

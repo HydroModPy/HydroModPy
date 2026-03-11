@@ -52,7 +52,7 @@ import importlib
 importlib.reload(src)
 
 # Import HydroModPy modules
-from hydromodpy.watershed_legacy import watershed_root_legacy
+from hydromodpy.legacy.watershed import watershed_root_legacy
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
 
@@ -485,6 +485,7 @@ os.chdir(root_dir)
 #     forms=True, 
 #     residuals=False, 
 # )
+
 
 
 

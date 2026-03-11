@@ -16,12 +16,12 @@ from geopy.geocoders import Nominatim
 
 from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.geographic.geographic_config import GeographicConfig
-from hydromodpy.geographic.legacy.dem_metadata import read_legacy_dem_metadata
-from hydromodpy.geographic.legacy.pipeline import build_legacy_geographic_context
+from hydromodpy.legacy.geographic.dem_metadata import read_legacy_dem_metadata
+from hydromodpy.legacy.geographic.pipeline import build_legacy_geographic_context
 from hydromodpy.geographic.core.domain_geographic_pipeline import DomainGeographicContext
 from hydromodpy.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Created on Fri Mar 21 10:39:38 2025
 
@@ -48,7 +48,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed_legacy import \
+from hydromodpy.legacy.watershed import \
     Driasclimat, Driaseau, Hydrometry, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Transport
@@ -57,7 +57,7 @@ from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.postprocess import netcdf
@@ -308,11 +308,11 @@ interactive = True
 
 import sqlite3
 
-# Créer / connecter à la base
+# CrÃ©er / connecter Ã  la base
 conn = sqlite3.connect("ma_base.db")
 cursor = conn.cursor()
 
-# Créer une table
+# CrÃ©er une table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS utilisateurs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -323,7 +323,7 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
 
 conn.commit()
 
-# Ajouter des données
+# Ajouter des donnÃ©es
 cursor.execute("INSERT INTO utilisateurs (nom, age) VALUES (?, ?)", ("Alice", 25))
 cursor.execute("INSERT INTO utilisateurs (nom, age) VALUES (?, ?)", ("Bob", 30))
 
@@ -338,3 +338,4 @@ for ligne in resultats:
 conn.close()
 
 #%% ---- NOTES
+

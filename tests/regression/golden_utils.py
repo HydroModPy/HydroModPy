@@ -1,4 +1,4 @@
-﻿"""
+"""
 Shared utilities for regression tests based on golden references.
 
 Why this file exists
@@ -719,7 +719,7 @@ if patch_ipython_inline:
     except Exception:
         pass
 
-from hydromodpy.watershed_legacy.watershed_root_legacy import Watershed
+from hydromodpy.legacy.watershed.watershed_root_legacy import Watershed
 assert hasattr(Watershed, stop_method), f"Unknown Watershed method: {stop_method}"
 orig_method = getattr(Watershed, stop_method)
 stop_counter = {"calls": 0}

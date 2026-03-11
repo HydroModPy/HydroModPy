@@ -27,7 +27,7 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.solver.modflow_common import (
     SolverGridContext,
     SolverRoutingContext,

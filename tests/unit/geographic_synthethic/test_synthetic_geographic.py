@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.geographic_synthethic import (
+from hydromodpy.geographic.synthetic import (
     SyntheticGeographicConfig,
     SyntheticGridConfig,
     SyntheticTopographyConfig,

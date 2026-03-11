@@ -20,7 +20,7 @@ import geopandas as gpd
 from netCDF4 import Dataset
 import sys
 import matplotlib.pyplot as plt
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 # Root
 from os.path import dirname, abspath
@@ -28,7 +28,7 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 import requests
 from datetime import datetime, timedelta
 

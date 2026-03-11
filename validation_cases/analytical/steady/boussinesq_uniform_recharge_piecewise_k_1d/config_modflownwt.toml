@@ -2,12 +2,6 @@
 name = "Bsq recharge piecewise K 1D"
 description = "Synthetic steady-state unconfined flow with uniform recharge, fixed heads, and piecewise-constant hydraulic conductivity."
 
-[simulation.time]
-start_datetime = "2003-01-01 00:00:00"
-end_datetime = "2003-01-02 00:00:00"
-step_value = "1 day"
-coverage_policy = "ignore"
-
 [[simulation.process]]
 id = "flow_validation"
 type = "flow"

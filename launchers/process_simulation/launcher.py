@@ -68,7 +68,7 @@ from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
 )
-from hydromodpy.geographic_synthethic import build_synthetic_geographic
+from hydromodpy.geographic.synthetic import build_synthetic_geographic
 from hydromodpy.simulation.forcing import (
     align_forcing_series_to_simulation_window,
     build_recharge_chronicle_payload,

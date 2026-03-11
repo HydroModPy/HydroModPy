@@ -42,7 +42,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root_legacy
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 example_path = os.path.join(root_dir, "examples_legacy", "01_simplified_example_presented_in_the_paper/")
@@ -458,6 +458,7 @@ visu.interactive_cross_section(dem_data, watertable_data, stream_data, interacti
 os.chdir(root_dir)
 
 # %%
+
 
 
 

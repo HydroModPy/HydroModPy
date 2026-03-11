@@ -42,7 +42,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root_legacy
 from hydromodpy.display import export_vtuvtk, visualization_watershed, visualization_results
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 # Keep this example deterministic for regression checks.
@@ -552,6 +552,7 @@ visu.interactive_cross_section(dem_data, watertable_data, stream_data, interacti
 #%% ---- NOTES
 
 os.chdir(root_dir)
+
 
 
 
