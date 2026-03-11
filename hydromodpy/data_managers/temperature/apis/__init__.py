@@ -1,0 +1,1 @@
+"""Temperature API adapters."""

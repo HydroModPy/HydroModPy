@@ -114,6 +114,96 @@ class DataStore:
         )
         return mgr.load()
 
+    def load_recharge(self, config) -> list:
+        from hydromodpy.data_managers.recharge.manager import RechargeManager
+        mgr = RechargeManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("recharge"),
+        )
+        return mgr.load()
+
+    def load_runoff(self, config) -> list:
+        from hydromodpy.data_managers.runoff.manager import RunoffManager
+        mgr = RunoffManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("runoff"),
+        )
+        return mgr.load()
+
+    def load_precipitation(self, config) -> list:
+        from hydromodpy.data_managers.precipitation.manager import PrecipitationManager
+        mgr = PrecipitationManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("precipitation"),
+        )
+        return mgr.load()
+
+    def load_etp(self, config) -> list:
+        from hydromodpy.data_managers.etp.manager import EtpManager
+        mgr = EtpManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("etp"),
+        )
+        return mgr.load()
+
+    def load_temperature(self, config) -> list:
+        from hydromodpy.data_managers.temperature.manager import TemperatureManager
+        mgr = TemperatureManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("temperature"),
+        )
+        return mgr.load()
+
+    def load_wind(self, config) -> list:
+        from hydromodpy.data_managers.wind.manager import WindManager
+        mgr = WindManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("wind"),
+        )
+        return mgr.load()
+
+    def load_humidity(self, config) -> list:
+        from hydromodpy.data_managers.humidity.manager import HumidityManager
+        mgr = HumidityManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("humidity"),
+        )
+        return mgr.load()
+
+    def load_radiation(self, config) -> list:
+        from hydromodpy.data_managers.radiation.manager import RadiationManager
+        mgr = RadiationManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("radiation"),
+        )
+        return mgr.load()
+
+    def load_soil_moisture(self, config) -> list:
+        from hydromodpy.data_managers.soil_moisture.manager import SoilMoistureManager
+        mgr = SoilMoistureManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("soil_moisture"),
+        )
+        return mgr.load()
+
     def cache_info(self, variable: str | None = None) -> pd.DataFrame:
         """Show catalog entries."""
         return self.catalog.list_entries(variable=variable)
