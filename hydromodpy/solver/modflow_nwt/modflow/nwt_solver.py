@@ -65,6 +65,7 @@ from .postprocess import (
 )
 
 logger = get_logger(__name__)
+MODFLOW_LENUNI_METERS = 2
 
 # %% CLASS
 
@@ -250,8 +251,9 @@ class Modflow(Solver):
             )
         if self.sgrid_config is None:
             raise ValueError(
-                "Missing [modflownwt.sgrid] configuration: a typed SolverSGridConfig "
-                "is required to generate the structured grid."
+                "Missing solver-grid configuration: "
+                "[modflownwt.sgrid.planar] and [modflownwt.sgrid.vertical] "
+                "define the typed SolverSGridConfig required to generate the structured grid."
             )
 
     def _initialize_solver_packages(self) -> None:
@@ -359,7 +361,7 @@ class Modflow(Solver):
         self.dis = flopy.modflow.ModflowDis(
             self.mf,
             # Spatial grid parameters
-            lenuni=sgrid.lenuni,
+            lenuni=MODFLOW_LENUNI_METERS,
             nlay=sgrid.nlay,
             nrow=sgrid.nrow,
             ncol=sgrid.ncol,

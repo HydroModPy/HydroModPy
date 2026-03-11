@@ -115,7 +115,7 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
         domain=domain,
         sgrid_config=SolverSGridConfig(
             planar=PlanarGridConfig(
-                mode="shape",
+                mode="resample_to_shape",
                 nx=4,
                 ny=3,
                 resampling="bilinear",
@@ -124,7 +124,6 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
                 genmtd_lay="constant",
                 nlay=2,
                 nodata=-9999.0,
-                lenuni="m",
             ),
         ),
     )

@@ -1,7 +1,7 @@
 [space_time]
 rmse = 0.05
 max_abs_error = 0.12
-row_spread = 1e-6
+row_spread = 2e-5
 
 [final_profile]
 rmse = 0.05

@@ -502,8 +502,6 @@ vka = 1.0
 exdp = 1.0
 
 [modflow.sgrid]
-# Length unit label propagated to FloPy (for example 'm').
-lenuni = "m"
 # Vertical-layering method.
 genmtd_lay = "decay"
 # Number of model layers for constant/decay layering.

@@ -65,7 +65,7 @@ def _build_sgrid(
         "nlay": int(nlay),
     }
     if nx is not None and ny is not None:
-        cfg_kwargs["plan_discretization_mode"] = "shape"
+        cfg_kwargs["plan_discretization_mode"] = "resample_to_shape"
         cfg_kwargs["nx"] = int(nx)
         cfg_kwargs["ny"] = int(ny)
     return build_sgrid_from_config(SGridConfig(**cfg_kwargs))

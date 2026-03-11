@@ -39,7 +39,7 @@ def _build_domain() -> Domain:
         support=support,
     )
     return Domain(
-        config=DomainConfig.model_validate({"support_mode": "zones", "zone_ids": ["catchment"]}),
+        config=DomainConfig.model_validate({"zone_ids": ["catchment"]}),
         surface_topo=surface,
     )
 

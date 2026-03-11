@@ -579,9 +579,7 @@ vka = 1.0
 # Extinction depth [L] used by the EVT package (EXDP).
 exdp = 1.0
 
-[modflownwt.sgrid]
-# Length unit label propagated to FloPy (for example 'm').
-lenuni = "m"
+[modflownwt.sgrid.vertical]
 # Vertical-layering method.
 genmtd_lay = "decay"
 # Number of model layers for constant/decay layering.
@@ -627,9 +625,7 @@ mf_verbose = false
 # Vertical anisotropy factor used to derive k33 from k.
 vka = 1.0
 
-[modflow6.sgrid]
-# Length unit label propagated to FloPy (for example 'm').
-lenuni = "m"
+[modflow6.sgrid.vertical]
 # Vertical-layering strategy.
 genmtd_lay = "decay"
 # Number of layers (required for constant/decay, ignored for list).

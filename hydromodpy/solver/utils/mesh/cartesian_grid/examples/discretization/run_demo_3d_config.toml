@@ -47,7 +47,6 @@ characteristic_depth = 45.0
 
 [case.sgrid]
 sgrid_type = "structured"
-lenuni = "m"
 genmtd_top = "filepath"
 top_path = "demo_top_bretagne_10km.tif"
 crs = "EPSG:2154"

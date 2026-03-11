@@ -19,6 +19,84 @@ from validation_cases.shared.loaders import load_case_metadata
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+_NWT_VALIDATION_PROFILE_SIMPLE = """[modflownwt.runtime]
+mf_version = "mfnwt"
+mf_listunit = 2
+mf_verbose = false
+nwt_headtol = 1e-6
+nwt_fluxtol = 1e-4
+nwt_maxiterout = 500
+nwt_thickfact = 1e-5
+nwt_linmeth = 1
+nwt_iprnwt = 0
+nwt_ibotav = 1
+nwt_options = "SIMPLE"
+nwt_continue = false
+nwt_backflag = 0
+nwt_stoptol = 1e-10
+dis_itmuni = 1
+bas_hnoflo = -9999.0
+upw_iphdry = 1
+upw_hdry = -100.0
+upw_layvka = 1
+evt_nevtop = 3
+evt_ievt = 1
+evt_ipakcb = 1
+oc_compact = true
+wel_ipakcb = 1
+lmt_output_file_name = "mt3d_link.ftl"
+lmt_extension = "lmt8"
+lmt_output_format = "unformatted"
+
+[modflownwt.process_specific]
+vka = 1.0
+exdp = "1.0 m"
+"""
+
+_NWT_VALIDATION_PROFILE_COMPLEX = """[modflownwt.runtime]
+mf_version = "mfnwt"
+mf_listunit = 2
+mf_verbose = false
+nwt_headtol = 1e-6
+nwt_fluxtol = 1e-4
+nwt_maxiterout = 1000
+nwt_thickfact = 1e-5
+nwt_linmeth = 1
+nwt_iprnwt = 0
+nwt_ibotav = 1
+nwt_options = "COMPLEX"
+nwt_continue = false
+nwt_backflag = 0
+nwt_stoptol = 1e-10
+dis_itmuni = 1
+bas_hnoflo = -9999.0
+upw_iphdry = 1
+upw_hdry = -100.0
+upw_layvka = 1
+evt_nevtop = 3
+evt_ievt = 1
+evt_ipakcb = 1
+oc_compact = true
+wel_ipakcb = 1
+lmt_output_file_name = "mt3d_link.ftl"
+lmt_extension = "lmt8"
+lmt_output_format = "unformatted"
+
+[modflownwt.process_specific]
+vka = 1.0
+exdp = "1.0 m"
+"""
+
+_NWT_VALIDATION_PROFILES_BY_CASE: dict[str, str] = {
+    "boussinesq_fixed_head_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+    "boussinesq_uniform_recharge_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+    "dupuit_divide_river_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
+    "dupuit_fixed_head_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+    "dupuit_uniform_recharge_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+    "linearized_unconfined_drainage_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+    "linearized_unconfined_boundary_piecewise_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+}
+
 
 def _rmtree_onerror(func, path, exc_info) -> None:
     """Retry one failed ``rmtree`` step after clearing a read-only bit."""
@@ -55,6 +133,35 @@ def remove_tree_with_retry(
         raise last_error
 
 
+def remove_file_with_retry(
+    path: Path,
+    *,
+    retries: int = 5,
+    base_delay_s: float = 0.2,
+) -> None:
+    """Remove one file with retries for transient Windows locks/read-only bits."""
+    if not path.exists():
+        return
+
+    last_error: PermissionError | None = None
+    for attempt in range(retries):
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            path.unlink()
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError as exc:
+            last_error = exc
+            gc.collect()
+            if attempt == retries - 1:
+                raise
+            time.sleep(base_delay_s * (attempt + 1))
+
+    if last_error is not None:
+        raise last_error
+
+
 @dataclass(frozen=True, slots=True)
 class ValidationRunResult:
     """Resolved workspace paths for one completed validation run."""
@@ -64,6 +171,9 @@ class ValidationRunResult:
     model_ws: Path
     postprocess_dir: Path
     particles_dir: Path
+    run_returncode: int = 0
+    run_stdout: str = ""
+    run_stderr: str = ""
 
 
 def _short_validation_name(value: str | Path, *, max_length: int = 28) -> str:
@@ -141,7 +251,7 @@ def run_example_script(
     script_args: list[str] | None = None,
     timeout: int = 1200,
     cwd: Path = REPO_ROOT,
-) -> None:
+) -> subprocess.CompletedProcess[str]:
     """Run one HydroModPy launcher script as a subprocess."""
     env = os.environ.copy()
     env[out_env_var] = str(out_path)
@@ -166,12 +276,49 @@ def run_example_script(
         timeout=timeout,
     )
 
-    assert completed.returncode == 0, (
+    return completed
+
+
+def _format_subprocess_failure(
+    *,
+    script_path: Path,
+    command: list[str],
+    completed: subprocess.CompletedProcess[str],
+    workspace_error: AssertionError | None = None,
+) -> str:
+    message = (
         f"{script_path.name} failed.\n"
         f"Command: {' '.join(command)}\n"
+        f"Return code: {completed.returncode}\n"
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"
     )
+    if workspace_error is not None:
+        message += f"\nWorkspace resolution failed: {workspace_error}"
+    return message
+
+
+def _build_validation_launcher_config(
+    *,
+    case_dir: Path,
+    config_path: Path,
+) -> Path:
+    """Materialize one temporary launcher config with validation-only overrides."""
+    profile_block = _NWT_VALIDATION_PROFILES_BY_CASE.get(case_dir.name)
+    if profile_block is None:
+        return config_path
+
+    config_text = config_path.read_text(encoding="utf-8")
+    marker = "[modflownwt.sgrid.planar]"
+    insert_at = config_text.find(marker)
+    if insert_at < 0:
+        return config_path
+
+    tmp_name = f".__validation_runtime_{config_path.stem}_{os.getpid()}.toml"
+    tmp_path = case_dir / tmp_name
+    tmp_text = f"{config_text[:insert_at]}{profile_block}\n{config_text[insert_at:]}"
+    tmp_path.write_text(tmp_text, encoding="utf-8", newline="\n")
+    return tmp_path
 
 
 def run_launcher_validation_case(
@@ -190,28 +337,59 @@ def run_launcher_validation_case(
     case_id = str(metadata.get("case_id", case_dir.name))
     out_path = resolve_validation_results_dir(test_file=test_file, run_name=case_id)
 
-    run_example_script(
-        script_path=launcher_script,
-        out_path=out_path,
-        out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={
-            "HYDROMODPY_NO_DISPLAY": "1",
-            "HYDROMODPY_NO_SAVE": "1",
-        },
-        script_args=[str(case_dir / config_file)],
-        timeout=timeout,
-    )
+    config_path = case_dir / config_file
+    run_config_path = _build_validation_launcher_config(case_dir=case_dir, config_path=config_path)
+    run_args = [str(run_config_path)]
+    extra_env = {
+        "HYDROMODPY_NO_DISPLAY": "1",
+        "HYDROMODPY_NO_SAVE": "1",
+    }
+    try:
+        completed = run_example_script(
+            script_path=launcher_script,
+            out_path=out_path,
+            out_env_var="HYDROMODPY_OUT_PATH",
+            extra_env=extra_env,
+            script_args=run_args,
+            timeout=timeout,
+        )
+    finally:
+        if run_config_path != config_path and run_config_path.exists():
+            try:
+                remove_file_with_retry(run_config_path)
+            except PermissionError:
+                pass
 
-    model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
-        out_path,
-        watershed_name=workspace_cfg.get("watershed_name"),
-        results_folder_name=str(workspace_cfg.get("results_folder_name", "results_simulations")),
-        model_name=workspace_cfg.get("model_name"),
-    )
+    try:
+        model_ws, postprocess_dir, particles_dir = resolve_model_workspace(
+            out_path,
+            watershed_name=workspace_cfg.get("watershed_name"),
+            results_folder_name=str(workspace_cfg.get("results_folder_name", "results_simulations")),
+            model_name=workspace_cfg.get("model_name"),
+        )
+    except AssertionError as exc:
+        if completed.returncode != 0:
+            command = (
+                [sys.executable, str(Path(__file__).resolve().parent / "coverage_runner.py"), str(launcher_script), *run_args]
+                if os.environ.get("HYDROMODPY_COVERAGE")
+                else [sys.executable, str(launcher_script), *run_args]
+            )
+            raise AssertionError(
+                _format_subprocess_failure(
+                    script_path=launcher_script,
+                    command=command,
+                    completed=completed,
+                    workspace_error=exc,
+                )
+            ) from exc
+        raise
     return ValidationRunResult(
         case_dir=case_dir,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,
         particles_dir=particles_dir,
+        run_returncode=int(completed.returncode),
+        run_stdout=str(completed.stdout),
+        run_stderr=str(completed.stderr),
     )

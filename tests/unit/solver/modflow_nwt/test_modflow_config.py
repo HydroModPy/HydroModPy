@@ -67,14 +67,12 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 "exdp = 3.0",
                 "",
                 "[modflownwt.sgrid.planar]",
-                'mode = "shape"',
+                'mode = "resample_to_shape"',
                 "nx = 6",
                 "ny = 5",
                 'resampling = "nearest"',
                 "",
                 "[modflownwt.sgrid.vertical]",
-                'lenuni = "m"',
-                "nodata = -9999.0",
                 'genmtd_lay = "decay"',
                 "nlay = 3",
                 "lay_decay = 1.8",
@@ -100,7 +98,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflownwt.process_specific.exdp == 3.0
     assert cfg.modflownwt.runtime.nwt_options == "SIMPLE"
     assert isinstance(cfg.modflownwt.sgrid, SolverSGridConfig)
-    assert cfg.modflownwt.sgrid.planar.mode == "shape"
+    assert cfg.modflownwt.sgrid.planar.mode == "resample_to_shape"
     assert cfg.modflownwt.sgrid.planar.nx == 6
     assert cfg.modflownwt.sgrid.planar.ny == 5
     assert cfg.modflownwt.sgrid.planar.resampling == "nearest"
@@ -113,7 +111,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflownwt.tgrid.ntsp == [1, 2, 2, 3]
 
 
-def test_hydromodpy_config_accepts_legacy_vertical_only_sgrid_payload(tmp_path: Path):
+def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()
 
@@ -142,13 +140,45 @@ def test_hydromodpy_config_accepts_legacy_vertical_only_sgrid_payload(tmp_path: 
         encoding="utf-8",
     )
 
-    cfg = HydroModPyConfig.from_toml(toml_path)
+    with pytest.raises(ValueError):
+        HydroModPyConfig.from_toml(toml_path)
 
-    assert isinstance(cfg.modflownwt.sgrid, SolverSGridConfig)
-    assert cfg.modflownwt.sgrid.planar.mode == "surface_native"
-    assert cfg.modflownwt.sgrid.vertical.genmtd_lay == "decay"
-    assert cfg.modflownwt.sgrid.vertical.nlay == 4
-    assert cfg.modflownwt.sgrid.vertical.lay_decay == 1.5
+
+def test_hydromodpy_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        "\n".join(
+            [
+                "[workspace]",
+                'catch_name = "demo"',
+                'out_dir_path = "out"',
+                'data_path = "data"',
+                "",
+                "[geographic]",
+                'catch_def = "dem"',
+                'dem_init_path = "dem.tif"',
+                "",
+                "[solver]",
+                'solver_engine = "modflownwt"',
+                "",
+                "[modflownwt.sgrid.planar]",
+                'mode = "shape"',
+                "nx = 6",
+                "ny = 5",
+                "",
+                "[modflownwt.sgrid.vertical]",
+                'genmtd_lay = "constant"',
+                "nlay = 1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="resample_to_shape"):
+        HydroModPyConfig.from_toml(toml_path)
 
 
 def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):

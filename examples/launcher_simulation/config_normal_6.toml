@@ -149,10 +149,8 @@ right_to_left_amplitude = 5.0
 # Domain configuration.
 # ----------------------------------------------------------------------
 [domain]
-# Spatial support used by heterogeneous parameter mapping.
-# Use "geology" to activate [data.geology], "zones" for non-geology zonations,
-# or "none" when all parameters are homogeneous.
-support_mode = "geology"
+# Spatial supports used by heterogeneous parameter mapping.
+# Each heterogeneous field_spatial_id must match one declaration below.
 
 [domain.supports.field_geology]
 provider = "geology"
@@ -181,7 +179,7 @@ substratum_elevation = 0.0
 [data]
 # Ordered list of data types explicitly declared in [data].
 # The launcher can infer additional types from other sections
-# (for example domain.support_mode and flow.active_bc).
+# (for example domain.supports and flow.active_bc).
 # Allowed values: "geology", "hydrography", "hydrometry",
 # "intermittency", "oceanic", "piezometry".
 types = ["geology", "hydrography", "hydrometry"]
@@ -764,19 +762,17 @@ exdp = "1.0 m"
 
 [modflownwt.sgrid.planar]
 # Planar discretization mode for the solver grid.
-# "surface_native" keeps the native Domain surface support.
-# "shape" resamples surfaces to explicit solver dimensions.
-mode = "shape"
-# Target number of columns when mode="shape".
+# "keep_native" keeps the native Domain surface support.
+# "resample_to_shape" resamples surfaces to explicit solver dimensions.
+mode = "resample_to_shape"
+# Target number of columns when mode="resample_to_shape".
 nx = 60
-# Target number of rows when mode="shape".
+# Target number of rows when mode="resample_to_shape".
 ny = 60
-# Resampling rule when mode="shape".
+# Resampling rule when mode="resample_to_shape".
 resampling = "bilinear"
 
 [modflownwt.sgrid.vertical]
-# Length unit label propagated to FloPy (for example 'm').
-lenuni = "m"
 # Vertical-layering method.
 genmtd_lay = "decay"
 # Number of model layers for constant/decay layering.
@@ -811,14 +807,12 @@ vka = 1.0
 
 [modflow6.sgrid.planar]
 # Planar discretization mode for the solver grid.
-mode = "shape"
+mode = "resample_to_shape"
 nx = 60
 ny = 60
 resampling = "bilinear"
 
 [modflow6.sgrid.vertical]
-# Length unit label propagated to FloPy (for example 'm').
-lenuni = "m"
 # Vertical-layering strategy.
 genmtd_lay = "decay"
 # Number of layers (required for constant/decay, ignored for list).
@@ -1002,3 +996,4 @@ concentration = true
 gif = true
 # Export browser-friendly web animation for concentration outputs.
 web_animation = true
+

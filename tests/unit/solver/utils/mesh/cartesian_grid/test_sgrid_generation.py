@@ -112,14 +112,14 @@ def test_config_raises_for_invalid_lay_proportions_sum(tmp_path: Path):
         )
 
 
-def test_config_shape_mode_requires_nx_ny(tmp_path: Path):
+def test_config_resample_to_shape_mode_requires_nx_ny(tmp_path: Path):
     top_path = tmp_path / "top.tif"
     _write_tif(top_path, np.array([[10, 11], [12, 13]], dtype=float))
 
     with pytest.raises(ValueError, match="nx and ny are required"):
         _ = SGridConfig(
             top_path=str(top_path),
-            plan_discretization_mode="shape",
+            plan_discretization_mode="resample_to_shape",
             nx=4,
             genmtd_bot="constant_altitude",
             zbot=0.0,
@@ -128,16 +128,42 @@ def test_config_shape_mode_requires_nx_ny(tmp_path: Path):
         )
 
 
-def test_config_raster_native_rejects_nx_ny(tmp_path: Path):
+def test_config_keep_native_rejects_nx_ny(tmp_path: Path):
     top_path = tmp_path / "top.tif"
     _write_tif(top_path, np.array([[10, 11], [12, 13]], dtype=float))
 
     with pytest.raises(ValueError, match="must not be provided"):
         _ = SGridConfig(
             top_path=str(top_path),
-            plan_discretization_mode="raster_native",
+            plan_discretization_mode="keep_native",
             nx=4,
             ny=3,
+            genmtd_bot="constant_altitude",
+            zbot=0.0,
+            genmtd_lay="constant",
+            nlay=2,
+        )
+
+
+def test_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
+    top_path = tmp_path / "top.tif"
+    _write_tif(top_path, np.array([[10, 11], [12, 13]], dtype=float))
+
+    with pytest.raises(ValueError, match="resample_to_shape"):
+        _ = SGridConfig(
+            top_path=str(top_path),
+            plan_discretization_mode="shape",
+            nx=4,
+            ny=3,
+            genmtd_bot="constant_altitude",
+            zbot=0.0,
+            genmtd_lay="constant",
+            nlay=2,
+        )
+    with pytest.raises(ValueError, match="keep_native"):
+        _ = SGridConfig(
+            top_path=str(top_path),
+            plan_discretization_mode="raster_native",
             genmtd_bot="constant_altitude",
             zbot=0.0,
             genmtd_lay="constant",
@@ -185,7 +211,7 @@ def test_builder_with_bottom_raster_array(tmp_path: Path):
     assert np.allclose(sgrid.botm[-1], bot)
 
 
-def test_builder_shape_mode_resamples_top_and_bottom_filepath(tmp_path: Path):
+def test_builder_resample_to_shape_mode_resamples_top_and_bottom_filepath(tmp_path: Path):
     top = np.array([[20.0, 24.0], [22.0, 26.0]], dtype=float)
     bot = np.array([[10.0, 14.0], [12.0, 16.0]], dtype=float)
     top_path = tmp_path / "top.tif"
@@ -195,7 +221,7 @@ def test_builder_shape_mode_resamples_top_and_bottom_filepath(tmp_path: Path):
 
     cfg = SGridConfig(
         top_path=str(top_path),
-        plan_discretization_mode="shape",
+        plan_discretization_mode="resample_to_shape",
         nx=4,
         ny=3,
         genmtd_bot="filepath",
@@ -273,7 +299,6 @@ def test_build_from_surfaces_uses_absolute_top_and_bottom():
             genmtd_lay="constant",
             nlay=3,
             nodata=-9999.0,
-            lenuni="m",
         ),
     )
 
@@ -306,7 +331,6 @@ def test_config_from_toml_builds_valid_grid(tmp_path: Path):
             f"""
             [sgrid]
             sgrid_type = "structured"
-            lenuni = "m"
             genmtd_top = "filepath"
             top_path = "{top_path.name}"
             crs = "EPSG:2154"
@@ -327,7 +351,7 @@ def test_config_from_toml_builds_valid_grid(tmp_path: Path):
     assert sgrid.ncol == 2
 
 
-def test_config_from_toml_shape_mode_builds_resampled_grid(tmp_path: Path):
+def test_config_from_toml_resample_to_shape_mode_builds_resampled_grid(tmp_path: Path):
     top_path = tmp_path / "top.tif"
     _write_tif(top_path, np.array([[100.0, 101.0], [102.0, 103.0]], dtype=float))
 
@@ -337,10 +361,9 @@ def test_config_from_toml_shape_mode_builds_resampled_grid(tmp_path: Path):
             f"""
             [sgrid]
             sgrid_type = "structured"
-            lenuni = "m"
             genmtd_top = "filepath"
             top_path = "{top_path.name}"
-            plan_discretization_mode = "shape"
+            plan_discretization_mode = "resample_to_shape"
             nx = 5
             ny = 4
             genmtd_bot = "constant_altitude"
@@ -367,7 +390,6 @@ def test_config_from_mapping_builds_valid_grid_from_nested_mapping(tmp_path: Pat
     config_data = {
         "sgrid": {
             "sgrid_type": "structured",
-            "lenuni": "m",
             "genmtd_top": "filepath",
             "top_path": str(top_path),
             "crs": "EPSG:2154",

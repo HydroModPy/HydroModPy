@@ -356,11 +356,11 @@ Behavior:
 - `nodata` masking is propagated to generated `botm`.
 - To avoid non-physical layers, ensure input bottom definition produces
   `bot(i,j) < top(i,j)` on valid cells.
+- Grid geometry is interpreted in SI metres throughout this module.
 
 ### Configuration Parameters (`SGridConfig`)
 
 - `sgrid_type`: grid family selector (currently `structured` only).
-- `lenuni`: length unit label stored in FloPy grid metadata.
 - `genmtd_top`: top-surface method (`filepath` only for now).
 - `top_path`: path to the top DEM raster (required).
 - `crs`: optional CRS string stored in resulting grid metadata.
@@ -423,7 +423,7 @@ Associated files:
 `StructuredGridBuilder.build_from_surfaces(...)` returns a FloPy `StructuredGrid` exposing standard
 attributes used downstream by MODFLOW setup:
 
-- `lenuni`, `nlay`, `nrow`, `ncol`,
+- `nlay`, `nrow`, `ncol`,
 - `delr`, `delc`,
 - `top`, `botm`,
 - offsets and extent metadata.
