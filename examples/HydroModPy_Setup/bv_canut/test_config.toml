@@ -1,0 +1,236 @@
+# ======================================================================
+# HydroModPy Configuration
+# Profile: user | Modules: data
+# Auto-generated from Pydantic models.
+# Edit values below. Comments describe each parameter.
+# ======================================================================
+
+
+# ----------------------------------------------------------------------
+# Top-level configuration for data-manager families.
+# ----------------------------------------------------------------------
+
+[data]
+# Ordered list of data-manager types explicitly requested in [data].
+# The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc).
+# Allowed values: 'geology', 'hydrography', 'hydrometry', 'intermittency', 'oceanic', 'piezometry'.
+# Type: list[str] | REQUIRED
+types = []
+
+
+# Geology configuration used when 'geology' is listed in data.types.
+
+[data.geology]
+# Identifier of the geology spatial field.
+# Type: string | Default: "field_geology"
+id = "field_geology"
+
+# Path to the geology data directory.
+# Type: path | Default: "data/France/geology"
+geo_path = "data/France/geology"
+
+# Geology shapefile name inside `geo_path`.
+# Type: string | Default: "GEO1M.shp"
+types_obs = "GEO1M.shp"
+
+# Attribute field used to encode geology classes.
+# Type: string | Default: "CODE_LEG"
+fields_obs = "CODE_LEG"
+
+
+# Hydrometry configuration (discharge time-series).
+
+[data.hydrometry]
+# Project start date (ISO format, e.g.
+# '2019-01-01').
+# Type: string (optional) | Optional
+date_start = ""
+
+# Project end date (ISO format, e.g.
+# '2025-12-31').
+# Type: string (optional) | Optional
+date_end = ""
+
+
+# At least one data source.
+[[data.hydrometry.sources]]
+# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "custom"
+
+# Directory containing location file and chronicle CSVs.
+# Type: path (optional) | Optional
+path = ""
+
+# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
+# Type: path (optional) | Optional
+mask_path = ""
+
+# Hub'Eau variable code (e.g.
+# 'QmnJ', 'QmM', 'HmnJ').
+# Type: string (optional) | Optional
+product = ""
+
+# Only keep stations that have observations in the period.
+# Type: bool | Default: true
+require_observations = true
+
+# If no station found in bbox, expand search by this radius (km).
+# Type: float (optional) | Optional
+fallback_search_radius_km = 0.0
+
+# Explicit list of station ids to load.
+# Type: list (optional) | Optional
+station_ids = []
+
+# Spatial selection mode.
+# Type: Literal (optional) | Optional
+extent = "watershed"
+
+# Ignore cache and re-download.
+# Type: bool | Default: false
+force_refresh = false
+
+
+# Oceanic configuration used when 'oceanic' is listed in data.types.
+
+[data.oceanic]
+# Optional folder containing local oceanic support files used by Oceanic.extract_local_data.
+# Relative paths are resolved from the TOML file directory.
+# Type: string (optional) | Optional
+oceanic_path = ""
+
+# Mean sea-level source policy.
+# 'local' reads the CSV from msl_local_csv, 'web' queries SHOM, 'auto' tries local first then falls back to web.
+# Type: Literal['auto', 'local', 'web'] | one of: "auto", "local", "web" | Default: "auto"
+msl_source = "auto"
+
+# Path to a pre-downloaded SHOM CSV file used when msl_source is 'local' or 'auto'.
+# Relative paths are resolved from the TOML file directory.
+# Type: string (optional) | Optional
+msl_local_csv = ""
+
+# If true, derive msl_start_date and msl_end_date from [simulation.time] canonical window using [simulation.time].start_datetime/end_datetime.
+# If [simulation.time] is missing or unresolved, fallback to the explicit msl_start_date/msl_end_date values below.
+# Type: bool | Default: false
+msl_use_simulation_time_window = false
+
+# Inclusive mean sea-level start date in ISO format (YYYY-MM-DD).
+# Used directly when msl_use_simulation_time_window=false or as fallback otherwise.
+# Type: string | Default: "2003-01-01"
+msl_start_date = "2003-01-01"
+
+# Inclusive mean sea-level end date in ISO format (YYYY-MM-DD).
+# Used directly when msl_use_simulation_time_window=false or as fallback otherwise.
+# Type: string | Default: "2003-01-30"
+msl_end_date = "2003-01-30"
+
+# Fallback mean sea-level value used when acquisition fails (SI unit: meter).
+# Type: float | Default: 0.0
+msl_default = 0.0
+
+
+# Piezometry configuration (groundwater level time-series).
+
+[data.piezometry]
+# Project start date (ISO format, e.g.
+# '2019-01-01').
+# Type: string (optional) | Optional
+date_start = ""
+
+# Project end date (ISO format, e.g.
+# '2025-12-31').
+# Type: string (optional) | Optional
+date_end = ""
+
+
+# At least one data source.
+[[data.piezometry.sources]]
+# Data provider.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "custom"
+
+# Directory containing location file and chronicle CSVs.
+# Type: path (optional) | Optional
+path = ""
+
+# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
+# Type: path (optional) | Optional
+mask_path = ""
+
+# Hub'Eau measurement type: 'level' or 'depth'.
+# Type: Literal (optional) | Optional
+product = "level"
+
+# Only keep stations that have observations in the period.
+# Type: bool | Default: true
+require_observations = true
+
+# If no station found in bbox, expand search by this radius (km).
+# Type: float (optional) | Optional
+fallback_search_radius_km = 0.0
+
+# Explicit station ids.
+# Type: list (optional) | Optional
+station_ids = []
+
+# Type: Literal (optional) | Optional
+extent = "watershed"
+
+# Include the nearest piezometer even if outside the extent.
+# Type: bool | Default: false
+nearest = false
+
+# Type: bool | Default: false
+force_refresh = false
+
+
+# Water quality configuration (physico-chemical parameters).
+
+# At least one data source.
+[[data.water_quality.sources]]
+# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "custom"
+
+# Type of site: 'river' (qualite_rivieres) or 'piezometer' (qualite_nappes).
+# Type: Literal['river', 'piezometer'] | one of: "river", "piezometer" | Default: "river"
+site_type = "river"
+
+# Parameters to keep (e.g.
+# ['pH', 'Nitrates']).
+# None = all parameters.
+# Type: list (optional) | Optional
+parameters = []
+
+# Directory containing location file and chronicle CSVs.
+# Type: path (optional) | Optional
+path = ""
+
+# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
+# Type: path (optional) | Optional
+mask_path = ""
+
+# Only keep stations that have observations in the period.
+# Type: bool | Default: true
+require_observations = true
+
+# If no station found in bbox, expand search by this radius (km).
+# Type: float (optional) | Optional
+fallback_search_radius_km = 0.0
+
+# Keep only the nearest station to the extent centroid.
+# Type: bool | Default: false
+nearest = false
+
+# Explicit station ids.
+# Type: list (optional) | Optional
+station_ids = []
+
+# Type: Literal (optional) | Optional
+extent = "watershed"
+
+# Ignore cache and re-download.
+# Type: bool | Default: false
+force_refresh = false
+

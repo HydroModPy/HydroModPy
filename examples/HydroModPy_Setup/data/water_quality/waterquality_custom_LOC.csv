@@ -1,0 +1,7 @@
+id,x,y,crs,name,unit
+WQ_NO3,-1.684,48.129,EPSG:4326,Nitrates Canut Amont,mg/L
+WQ_NO3B,-1.673,48.120,EPSG:4326,Nitrates Canut Aval,mg/L
+WQ_CONST,-1.679,48.126,EPSG:4326,Qualite Constante,mg/L
+WQ_GAPS,-1.677,48.132,EPSG:4326,Nitrates avec lacunes,mg/L
+WQ_UGL,-1.689,48.127,EPSG:4326,Nitrates en microgrammes,ug/L
+RENNES_WQ,-1.751,48.199,EPSG:4326,Qualite Rennes hors emprise,mg/L
