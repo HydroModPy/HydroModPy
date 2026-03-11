@@ -24,8 +24,8 @@ import numpy as np
 import rasterio
 
 from hydromodpy.backends import get_whitebox_backend
-from hydromodpy.tools import get_logger
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import get_logger
+from hydromodpy.support.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.hydrography import Hydrography

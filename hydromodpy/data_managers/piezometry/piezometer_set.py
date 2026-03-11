@@ -22,7 +22,7 @@ try:
     from .piezometer import Piezometer
     from .loaders_api import ApiPiezometerLoader
     from .loaders_local import LocalPiezometerLoader
-    from hydromodpy.units import parse_length_to_m
+    from hydromodpy.support.units import parse_length_to_m
 except ImportError:
     import sys
 
@@ -42,7 +42,7 @@ except ImportError:
     from piezometer import Piezometer
     from loaders_api import ApiPiezometerLoader
     from loaders_local import LocalPiezometerLoader
-    from hydromodpy.units import parse_length_to_m
+    from hydromodpy.support.units import parse_length_to_m
 
 
 API_BASE_URL = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/"

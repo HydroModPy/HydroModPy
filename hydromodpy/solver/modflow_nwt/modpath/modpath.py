@@ -35,7 +35,7 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.backends import get_whitebox_backend
-from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.support.tools import toolbox, get_logger
 logger = get_logger(__name__)
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 

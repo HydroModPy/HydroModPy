@@ -39,7 +39,7 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.postprocess.netcdf import NetcdfWriter
 
 logger = get_logger(__name__)

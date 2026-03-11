@@ -28,7 +28,7 @@ from pyproj import Transformer
 from shapely.geometry import Polygon, Point
 
 # HydroModPy
-from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.support.tools import toolbox, get_logger
 import requests
 
 logger = get_logger(__name__)

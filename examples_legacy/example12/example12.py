@@ -49,14 +49,14 @@ sys.path.append(root_dir)
 import hydromodpy as hmp
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
+from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.domain import (
     Domain,
 )
@@ -1361,5 +1361,6 @@ if __name__ == '__main__':
 #%% ---- END OF SCRIPT
 
 #%% ---- NOTES
+
 
 

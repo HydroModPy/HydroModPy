@@ -29,7 +29,7 @@ root_dir = dirname(dirname(abspath(__file__)))
 sys.path.append(root_dir)
 
 # HydroModPy
-from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.support.tools import toolbox, get_logger
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 logger = get_logger(__name__)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.units.volumetric_flow import (
+from hydromodpy.support.units.volumetric_flow import (
     convert_to_m3_per_s,
     factor_to_m3_per_s,
     normalize_m3_per_s_unit,

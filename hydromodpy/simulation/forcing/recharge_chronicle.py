@@ -22,7 +22,7 @@ from hydromodpy.hydrology.synthetic.forcing import build_hydrological_step_serie
 from hydromodpy.simulation.forcing.recharge_chronicle_config import (
     validate_recharge_chronicle_section,
 )
-from hydromodpy.units import factor_to_m_per_s, normalize_time_unit, parse_scalar_and_unit
+from hydromodpy.support.units import factor_to_m_per_s, normalize_time_unit, parse_scalar_and_unit
 
 
 RechargeChronicleMode = Literal["observed_csv", "synthetic_generated", "synthetic_csv"]

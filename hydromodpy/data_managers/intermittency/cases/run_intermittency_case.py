@@ -21,7 +21,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from hydromodpy.data_managers.intermittency import Intermittency
-from hydromodpy.units import parse_length_to_m
+from hydromodpy.support.units import parse_length_to_m
 
 
 @dataclass(slots=True)

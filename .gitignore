@@ -114,14 +114,21 @@ hydromodpy/mesh/cartesian_grid/output/
 !tests/regression/reference/**/*.nam
 
 # Temporary files
+.pytest_tmp/
+.pytest_tmp*/
+pytest_tmp*/
+codex_pytest_tmp*/
 tmp*/
 pytest_tmp_local/
 *.tmp
 *.prof
 *.bak
 *.old
+.codex_*/
 validation_cases/**/.__validation_runtime_*.toml
 reports/
+reports*/
+hydromodpy.egg-info/
 _profile_launcher_*/
 _profiling_out/
 examples/examples/results/11S_short/hydromodpy_debug.log

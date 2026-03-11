@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
- * Copyright (c) 2023 Alexandre Gauvain, Ronan AbhervÃ©, Jean-Raynald de Dreuzy
+ * Copyright (c) 2023 Alexandre Gauvain, Ronan AbhervÃƒÂ©, Jean-Raynald de Dreuzy
  * HydroModPy Launcher - Example 12 STANDALONE
  * Complete example 12 with ALL functions from launcher.py, only adapted for ex12
 """
@@ -67,14 +67,14 @@ import hydromodpy as hmp
 from hydromodpy import watershed_root_legacy
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
+from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
     SafranSurfex, Transport
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.domain import (
     Domain,
 )
@@ -112,7 +112,7 @@ fontprop = toolbox.plot_params(8, 15, 18, 20)
 # ============================================================================
 # CHOOSE EXAMPLE TO RUN (ex03, ex09, ex12) - MUST BE BEFORE CONFIG LOADING
 # ============================================================================
-EXAMPLE_TO_RUN = "ex12"  # â† CHANGE THIS TO SWITCH EXAMPLES
+EXAMPLE_TO_RUN = "ex12"  # Ã¢â€ Â CHANGE THIS TO SWITCH EXAMPLES
 
 # Load configuration from dynamic config file (config03.toml, config09.toml, config12.toml)
 config_number = EXAMPLE_TO_RUN[-2:]  # Extract "03", "09", "12"
@@ -351,12 +351,12 @@ PARAMS = {
         },
     },
     "ex09": {
-        "base_path": "examples_legacy/09S_short",  # â† SHORT version (plus rapide)
+        "base_path": "examples_legacy/09S_short",  # Ã¢â€ Â SHORT version (plus rapide)
         "dem_filename": "regional dem.tif",
         "dem_coordinates": [265611.933, 6784182.776, 50, 20, 'EPSG:2154'],
         "watershed_name": "09S_short",
-        "recharge_first_year": 2003,       # â† 09S_short SHORT version
-        "recharge_last_year": 2003,        # â† Single year for speed
+        "recharge_first_year": 2003,       # Ã¢â€ Â 09S_short SHORT version
+        "recharge_last_year": 2003,        # Ã¢â€ Â Single year for speed
         "recharge_time_step": "ME",
         "clim_mod":"REA",
         "clim_sce": "historic",
@@ -364,12 +364,12 @@ PARAMS = {
         # Modeling
         "box": True,
         "sink_fill": False,
-        "sim_state": "transient",         # â† TRANSIENT = long calcul
+        "sim_state": "transient",         # Ã¢â€ Â TRANSIENT = long calcul
         "plot_cross": True,
         "cross_ylim": [0, 150],
         "check_grid": True,
         "dis_perlen": True,
-        "nlay": 10,                       # â† 10 couches = long calcul
+        "nlay": 10,                       # Ã¢â€ Â 10 couches = long calcul
         "lay_decay": 1.2,
         "cond_drain": None,
         "bottom": 0,
@@ -1390,29 +1390,29 @@ def watershed(example_id):
     print(f"\n EXAMPLE {example_id} - WATERSHED EXTRACTION ")
 
     try:
-        # 1. ParamÃ¨tres et Chemins
+        # 1. ParamÃƒÂ¨tres et Chemins
         p = PARAMS[example_id]
         example_path = os.path.join(root_dir, p["base_path"])
         absolute_data_path = os.path.join(example_path, "data")
 
-        # Mise Ã  jour de la config globale pour les objets HMP
+        # Mise ÃƒÂ  jour de la config globale pour les objets HMP
         cfg.workspace.data_path = Path(absolute_data_path)
         cfg.workspace.catch_name = p.get("catch_name", cfg.workspace.catch_name)
 
         if not os.path.exists(absolute_data_path):
-            print(f"âœ— Data path not found: {absolute_data_path}\n")
+            print(f"Ã¢Å“â€” Data path not found: {absolute_data_path}\n")
             return None
 
-        # 2. CrÃ©ation du Workspace (Remplace Initializing)
+        # 2. CrÃƒÂ©ation du Workspace (Remplace Initializing)
         workspace_object = hmp.Workspace(config=cfg.workspace)
 
-        # 3. Geographic et Domain (avec GÃ©ologie)
+        # 3. Geographic et Domain (avec GÃƒÂ©ologie)
         geographic_object = hmp.Geographic(cfg.geographic, workspace_object)
         surface_topo = geographic_object.get_domain_surface_topo()
 
         domain = Domain(config=cfg.domain, surface_topo=surface_topo)
 
-        # IntÃ©gration de la GÃ©ologie si configurÃ©e
+        # IntÃƒÂ©gration de la GÃƒÂ©ologie si configurÃƒÂ©e
         if "geology" in cfg.data.types:
             print(" Integrating Geology field...")
             geology = GeologyField.from_watershed_config(
@@ -1440,7 +1440,7 @@ def watershed(example_id):
             oceanic_path=str(absolute_data_path)
         )
         try:
-            # On essaye de rÃ©cupÃ©rer les donnÃ©es marÃ©es
+            # On essaye de rÃƒÂ©cupÃƒÂ©rer les donnÃƒÂ©es marÃƒÂ©es
             oceanic.download_SHOM_data(geographic=geographic_object, start_date='2003-01-01', end_date='2003-01-30')
             oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
         except Exception as e:
@@ -1470,7 +1470,7 @@ def watershed(example_id):
         else:
             hydrometry = None
 
-        # 7. PrÃ©paration des rÃ©sultats
+        # 7. PrÃƒÂ©paration des rÃƒÂ©sultats
         results = {
             'workspace': workspace_object,
             'geographic': geographic_object,
@@ -1505,7 +1505,7 @@ def _resolve_reference(ref_str, results):
     if not ref_str: return None
 
     parts = ref_str.split('.')
-    # GÃ©rer la transition historique si nÃ©cessaire
+    # GÃƒÂ©rer la transition historique si nÃƒÂ©cessaire
     if parts[0] == 'initializing': parts[0] = 'workspace'
 
     obj = results.get(parts[0])
@@ -1554,9 +1554,9 @@ def data(results):
         geographic = results.get('geographic')
         if geographic:
             results['area'] = int(round(geographic.catch_area))
-            print(f" Catchment Area: {results['area']} mÂ²")
+            print(f" Catchment Area: {results['area']} mÃ‚Â²")
 
-        # 3. Visualisations (Version mise Ã  jour)
+        # 3. Visualisations (Version mise ÃƒÂ  jour)
         print("\nCreating watershed visualizations...")
         try:
             visualization_watershed.watershed_local(
@@ -1589,12 +1589,12 @@ def surfaces(results):
         return None
 
     try:
-        # 1. RÃ©cupÃ©rer la clÃ© de l'exemple (ex: "ex12")
+        # 1. RÃƒÂ©cupÃƒÂ©rer la clÃƒÂ© de l'exemple (ex: "ex12")
         example_key = results.get('example_key')
 
-        # 2. RÃ©cupÃ©rer le paramÃ¨tre thickness spÃ©cifique Ã  cet exemple
+        # 2. RÃƒÂ©cupÃƒÂ©rer le paramÃƒÂ¨tre thickness spÃƒÂ©cifique ÃƒÂ  cet exemple
         # On cherche dans PARAMS["ex12"]["thickness"]
-        # On met 50 par dÃ©faut si jamais le paramÃ¨tre est oubliÃ© dans config.toml
+        # On met 50 par dÃƒÂ©faut si jamais le paramÃƒÂ¨tre est oubliÃƒÂ© dans config.toml
         thickness = PARAMS.get(example_key, {}).get("thickness", 50)
 
         geographic = results.get('geographic')
@@ -1602,17 +1602,17 @@ def surfaces(results):
         print(f"Example: {example_key}")
         print(f"Applying thickness from PARAMS: {thickness}m")
 
-        # 3. CrÃ©ation de l'objet Surfaces
+        # 3. CrÃƒÂ©ation de l'objet Surfaces
         surfaces_object = Surfaces(
             aquifer_top = geographic.dem_box_buff_data,
             aquifer_bottom = geographic.dem_box_buff_data - thickness
         )
 
-        # 4. Stockage dans le dictionnaire de rÃ©sultats
+        # 4. Stockage dans le dictionnaire de rÃƒÂ©sultats
         results['surfaces'] = surfaces_object
         results['aquifer_top'] = surfaces_object.aquifer_top
         results['aquifer_bottom'] = surfaces_object.aquifer_bottom
-        results['thickness'] = thickness # Optionnel : pour mÃ©moire
+        results['thickness'] = thickness # Optionnel : pour mÃƒÂ©moire
 
         print("Surfaces created successfully")
         return results
@@ -1641,7 +1641,7 @@ def atmosphere(results):  # sourcery skip: extract-method
 
         print(f"Updating reanalysis for {example_id} ")
 
-        # Appel de la mÃ©thode
+        # Appel de la mÃƒÂ©thode
         climatic.update_sim2_reanalysis(
             var_list=p.get("var_list",[]),
             nc_data_path=Path(workspace.catch_folder) / 'results_stable' / 'climatic',
@@ -1775,7 +1775,7 @@ def recharge_sim2(results):
 
         print(f"Updating recharge with SIM2 for {example_key} ")
 
-        # Appel de la mÃ©thode
+        # Appel de la mÃƒÂ©thode
         climatic.update_sim2_reanalysis(
             var_list=p.get("var_list_sim2",[]),
             nc_data_path=Path(workspace.catch_folder) / 'results_stable' / 'climatic',
@@ -1792,10 +1792,10 @@ def recharge_sim2(results):
             if val is not None:
                 setattr(climatic, attr, val / 1000.0)
 
-        # Mise Ã  jour des rÃ©sultats finaux
+        # Mise ÃƒÂ  jour des rÃƒÂ©sultats finaux
         results['R_mm_day'] = climatic.recharge
         results['runoff']   = climatic.runoff
-        results['climatic'] = climatic # On renvoie l'objet mis Ã  jour
+        results['climatic'] = climatic # On renvoie l'objet mis ÃƒÂ  jour
 
         print("Recharge SIM2 updated")
         return results
@@ -2193,7 +2193,7 @@ def modpath_ex12(results):
 
 def mt3dms_ex12(results):
     """SPECIALIZED MT3DMS for Example 12 - uses transport_object configuration"""
-    print("\n  â€¢ Executing MT3DMS for Example 12...")
+    print("\n  Ã¢â‚¬Â¢ Executing MT3DMS for Example 12...")
     try:
         # Get individual objects
         geographic_object = results['geographic']
@@ -2203,7 +2203,7 @@ def mt3dms_ex12(results):
         transport_object = results.get('transport')
 
         if not model_modflow or not results.get('success_modflow'):
-            print("  âš  MODFLOW incomplete - skipping MT3DMS")
+            print("  Ã¢Å¡Â  MODFLOW incomplete - skipping MT3DMS")
             results['success_mt3dms'] = False
             return results
 
@@ -2282,7 +2282,7 @@ def ex12_postprocessing_timeseries_modflow(results):
             return results
 
         # Call complete_timeseries from modeling_workflow (model_modpath=None, model_mt3dms=None)
-        # scenario=None for MODFLOW-only â†’ creates _simulated_timeseries.csv (without suffix)
+        # scenario=None for MODFLOW-only Ã¢â€ â€™ creates _simulated_timeseries.csv (without suffix)
         ts_result = complete_timeseries(
             geographic=geographic_object,
             model_modflow=model_modflow,
@@ -2885,7 +2885,7 @@ def print_workflow_definition():
     config = CONFIG
     example_key = config["example"]
     workflow = WORKFLOW_DEFINITION.get(example_key, [])
-    """Affiche la dÃ©finition du workflow"""
+    """Affiche la dÃƒÂ©finition du workflow"""
     print("\n" + "="*70)
     print("WORKFLOW DEFINITION - {workflow}".center(70))
     print("="*70)
@@ -2912,7 +2912,7 @@ def validate_results_state(results, expected_keys, step_name=""):
 
     return True
 def trace_workflow_execution(sections):
-    """Trace et valide l'ordre d'exÃ©cution"""
+    """Trace et valide l'ordre d'exÃƒÂ©cution"""
     print("\n" + "="*70)
     print("WORKFLOW EXECUTION PLAN".center(70))
     print("="*70)
@@ -2920,23 +2920,23 @@ def trace_workflow_execution(sections):
     workflow = WORKFLOW_DEFINITION.get("ex12", [])
 
     print(f"\n  Example: {workflow}")
-    print(f"  Sections activÃ©es: {[k for k, v in sections.items() if v]}\n")
+    print(f"  Sections activÃƒÂ©es: {[k for k, v in sections.items() if v]}\n")
 
     enabled_steps = []
     for step in workflow:
         is_enabled = sections.get(step['section'], False)
-        status = "ACTIVÃ‰E" if is_enabled else "DÃ‰SACTIVÃ‰E"
+        status = "ACTIVÃƒâ€°E" if is_enabled else "DÃƒâ€°SACTIVÃƒâ€°E"
         print(f"  [{step['step']}] {step['section']:25s} {status}")
 
         if is_enabled:
             enabled_steps.append(step)
 
-    print("\n  Ordre d'exÃ©cution:")
+    print("\n  Ordre d'exÃƒÂ©cution:")
     for i, step in enumerate(enabled_steps, 1):
         print(f"    {i}. {step['function']}")
 
-    # Validation des dÃ©pendances
-    print("\n  Validation des dÃ©pendances:")
+    # Validation des dÃƒÂ©pendances
+    print("\n  Validation des dÃƒÂ©pendances:")
     accumulated_keys = []
     valid = True
 
@@ -2947,16 +2947,16 @@ def trace_workflow_execution(sections):
             print(f" {step['section']}: Manque {missing}")
             valid = False
         else:
-            print(f"{step['section']}: DÃ©pendances satisfaites")
+            print(f"{step['section']}: DÃƒÂ©pendances satisfaites")
 
         for key in step['provides']:
             if key not in accumulated_keys:
                 accumulated_keys.append(key)
 
     if valid:
-        print("\n Toutes les dÃ©pendances sont satisfaites - Workflow VALIDE")
+        print("\n Toutes les dÃƒÂ©pendances sont satisfaites - Workflow VALIDE")
     else:
-        print("\n Certaines dÃ©pendances manquent - VÃ©rifiez la configuration")
+        print("\n Certaines dÃƒÂ©pendances manquent - VÃƒÂ©rifiez la configuration")
 
     return valid, enabled_steps
 
@@ -3009,7 +3009,7 @@ def main():
     sections = config.get("sections", {})
     workflow = WORKFLOW_DEFINITION.get(example_key, [])
 
-    # Extraire les paramÃ¨tres globaux pour les plots
+    # Extraire les paramÃƒÂ¨tres globaux pour les plots
     vers = config.get("vers", "v1")
     factor = config.get("factor", 1.0)
 
@@ -3018,7 +3018,7 @@ def main():
     print("="*70)
     print(f"\nEnabled sections in config: {[s for s, v in sections.items() if v]}\n")
 
-    # Initialisation des rÃ©sultats
+    # Initialisation des rÃƒÂ©sultats
     results = {
         'success_modflow': False,
         'success_modpath': False,
@@ -3035,7 +3035,7 @@ def main():
         if not sections.get(section, False):
             continue
 
-        # DÃ©pendances critiques
+        # DÃƒÂ©pendances critiques
         critical_sections = ["matching_streams", "modpath", "mt3dms"]
         if section in critical_sections and not results.get('success_modflow'):
             print(f"\n[STEP {step_counter}] Skipping {section} (MODFLOW failed)")
@@ -3044,12 +3044,12 @@ def main():
 
         print(f"\n[STEP {step_counter}] Section: {section.upper()} | Executing: {function_name}")
 
-        # --- BLOC PLOT CORRIGÃ‰ ---
+        # --- BLOC PLOT CORRIGÃƒâ€° ---
         if section == "plot":
             import plot_ex12
 
             if "recharge" in function_name:
-                # Le plot de recharge s'exÃ©cute car il ne dÃ©pend pas de MODFLOW
+                # Le plot de recharge s'exÃƒÂ©cute car il ne dÃƒÂ©pend pas de MODFLOW
                 plot_ex12.plot_recharge_summary(
                     results.get("R_mm_day"),
                     results.get("r_mm_day"),
@@ -3083,7 +3083,7 @@ def main():
 
             elif "concentration" in function_name:
                 if results.get('success_mt3dms'):
-                    # PrÃ©paration des donnÃ©es MT3DMS avant le plot
+                    # PrÃƒÂ©paration des donnÃƒÂ©es MT3DMS avant le plot
                     results = ex12_prepare_concentration_data(results)
 
                     plot_ex12.plot_concentration(
@@ -3154,7 +3154,7 @@ def run_launcher_glob(example_key: str, out_path: str = None, display_plots: boo
     CONFIG["example"] = example_key
 
     # Reload configuration for the requested example
-    # Extract example number: ex00 â†’ "00", ex12 â†’ "12"
+    # Extract example number: ex00 Ã¢â€ â€™ "00", ex12 Ã¢â€ â€™ "12"
     config_number = example_key[-2:] if example_key.startswith("ex") else example_key
     cfg = HydroModPyConfig.from_toml(Path(__file__).parent / f"config{config_number}.toml")
 
@@ -3178,6 +3178,7 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
 
 
 

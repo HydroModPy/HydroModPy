@@ -39,7 +39,7 @@ from hydromodpy.data_managers.geology.geology_processing import (
     build_zone_class_index_on_dataframe,
     uniformize_sea_zone_on_dataframe,
 )
-from hydromodpy.units import parse_length_to_m
+from hydromodpy.support.units import parse_length_to_m
 
 
 DEFAULT_CONFIG_FILE = "run_geology_case.toml"

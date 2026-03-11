@@ -42,7 +42,7 @@ except:
     pass
 
 # HydroModPy
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.hydrography import Hydrography

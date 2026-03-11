@@ -14,7 +14,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 

@@ -24,7 +24,7 @@ from hydromodpy.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
 from hydromodpy.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 
 if TYPE_CHECKING:
     from hydromodpy.geographic.geographic_config import GeographicConfig

@@ -40,7 +40,7 @@ import matplotlib as mpl
 from matplotlib import rcsetup
 
 # HydroModPy
-from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.hydrography import Hydrography
