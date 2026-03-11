@@ -182,7 +182,7 @@ substratum_elevation = 0.0
 # (for example domain.supports and flow.active_bc).
 # Allowed values: "geology", "hydrography", "hydrometry",
 # "intermittency", "oceanic", "piezometry".
-types = ["geology", "hydrography", "hydrometry"]
+types = ["geology", "hydrography"]
 # Policy for inferred types not explicitly listed in data.types.
 # "warn"   = keep inferred types, continue if data.<type> section is missing.
 # "strict" = raise if an inferred type has no data.<type> section
@@ -249,39 +249,6 @@ msl_default = 0.0
 # ----------------------------------------------------------------------
 # Hydrometry station-set configuration.
 # ----------------------------------------------------------------------
-[data.hydrometry]
-# Hydrometric variable requested from the source (for example daily discharge code).
-variable = "QmnJ"
-# If true, display diagnostic information while loading station data.
-display = false
-# If true, derive hydrometry date_start/date_end from [simulation.time].
-# Requires a valid [simulation.time] section.
-use_simulation_time_window = true
-# Optional explicit date window used when use_simulation_time_window=false.
-# date_start = "2019-01-01"
-# date_end = "2025-12-31"
-
-[data.hydrometry.source]
-# Hydrometry source mode: remote API lookup or local exported files.
-mode = "api"
-# Local directory containing previously exported station files when mode='local'.
-local_data_dir = "hydrometry_exports"
-
-[data.hydrometry.selection]
-# Station selection mode: explicit station ids or spatial mask filtering.
-mode = "mask"
-# Explicit list of hydrometric station identifiers used when mode='stations'.
-station_ids = ["J736422001"]
-
-[data.hydrometry.output]
-# If true, export the loaded station series to disk after selection.
-enabled = true
-# Destination directory for exported hydrometry files.
-path = "../results/example12/results_stable/hydrometry"
-# Export payload level: 'lite' for compact outputs, 'full' for all available files.
-export_mode = "lite"
-
-
 # ----------------------------------------------------------------------
 # Flow configuration.
 # ----------------------------------------------------------------------
