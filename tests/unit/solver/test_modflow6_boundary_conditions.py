@@ -6,6 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.process.flow.initial_conditions import (
+    FlowInitialCondition,
+    FlowInitialConditions,
+)
+from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.process.flow.sinks_sources import FlowWellConfig
 from hydromodpy.solver.modflow6 import Modflow6
@@ -118,3 +123,81 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
 
     assert wel_spd[0] == [[0, 0, 0, pytest.approx(-1.0)]]
     assert wel_spd[1] == [[0, 0, 0, pytest.approx(-1.0)]]
+
+
+def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        initial_conditions=FlowInitialConditions(
+            h=FlowInitialCondition(id="h", type="top")
+        ),
+        boundary_conditions={},
+        active_bc=[],
+    )
+    sgrid = SimpleNamespace(
+        top=np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float),
+        botm=np.array([[[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]], dtype=float),
+    )
+
+    strt = model._build_start_heads(sgrid)
+
+    assert strt.shape == (1, 2, 3)
+    assert np.allclose(strt[0], sgrid.top)
+
+
+def test_modflow6_accepts_bottom_initial_condition_name() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        initial_conditions=FlowInitialConditions(
+            h=FlowInitialCondition(id="h", type="bottom")
+        ),
+        boundary_conditions={},
+        active_bc=[],
+    )
+    sgrid = SimpleNamespace(
+        top=np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float),
+        botm=np.array(
+            [
+                [[6.0, 6.0, 6.0], [6.0, 6.0, 6.0]],
+                [[2.0, 3.0, 4.0], [5.0, 6.0, 7.0]],
+            ],
+            dtype=float,
+        ),
+    )
+
+    strt = model._build_start_heads(sgrid)
+
+    assert np.allclose(strt[0], sgrid.botm[-1])
+
+
+def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        sinks_sources={
+            "recharge": FlowRechargeConfig(
+                values=pd.Series([0.5, 0.3], dtype=float),
+                first_clim="first",
+            )
+        },
+        active_sinks_sources=["recharge"],
+    )
+
+    model._bind_recharge_from_flow()
+    spd = model._recharge_to_spd()
+
+    assert np.allclose(spd[0], 0.5)
+    assert np.allclose(spd[1], 0.3)
+
+
+def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        sinks_sources={},
+        active_sinks_sources=[],
+    )
+
+    model._bind_recharge_from_flow()
+    spd = model._recharge_to_spd()
+
+    assert np.allclose(spd[0], 0.0)
+    assert np.allclose(spd[1], 0.0)

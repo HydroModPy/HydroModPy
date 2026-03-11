@@ -187,7 +187,10 @@ class FlowTimeseriesPostprocess:
                 index=range(len(self.recharge)),
             )
 
-        runoff = recharge * np.nan
+        try:
+            runoff = recharge * np.nan
+        except TypeError:
+            runoff = np.nan
         if self.runoff is not None and (
             not isinstance(self.runoff, pd.DataFrame) or not self.runoff.empty
         ):

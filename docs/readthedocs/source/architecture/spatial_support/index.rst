@@ -8,4 +8,5 @@ parameter mapping.
 .. toctree::
    :maxdepth: 2
 
+   support-selection-guide
    spatial-support-uml-diagrams

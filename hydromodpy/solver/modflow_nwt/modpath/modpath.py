@@ -200,7 +200,8 @@ class Modpath(Solver):
 
     def _get_geographic(self):
         """Return geographic context from MODFLOW model when available."""
-        return getattr(self.model_modflow, 'geographic', None)
+        model_modflow = getattr(self, 'model_modflow', None)
+        return getattr(model_modflow, 'geographic', None)
 
     def _get_crs_proj(self):
         """Resolve CRS from geographic context, else from domain support."""
@@ -225,7 +226,8 @@ class Modpath(Solver):
 
     def _get_base_raster_path(self):
         """Resolve the raster template used to export seepage products."""
-        base_raster = getattr(self.model_modflow, 'dem_watershed_path', None)
+        model_modflow = getattr(self, 'model_modflow', None)
+        base_raster = getattr(model_modflow, 'dem_watershed_path', None)
         if base_raster is not None:
             return base_raster
 

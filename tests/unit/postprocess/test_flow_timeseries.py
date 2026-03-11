@@ -90,3 +90,15 @@ def test_flow_timeseries_aligns_subbasin_masks_to_solver_grid(tmp_path: Path) ->
     assert recorder.calls[0]["cell"] == 4
     assert recorder.calls[1]["shape"] == (2, 2)
     assert recorder.calls[1]["cell"] == 2
+
+
+def test_flow_timeseries_accepts_missing_recharge() -> None:
+    postprocess = object.__new__(FlowTimeseriesPostprocess)
+    postprocess.recharge = None
+    postprocess.runoff = None
+
+    time, recharge, runoff = postprocess._normalize_forcing_series()
+
+    assert time == [0]
+    assert recharge is None
+    assert np.isnan(runoff)
