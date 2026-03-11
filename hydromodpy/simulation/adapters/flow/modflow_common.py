@@ -154,6 +154,14 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     success = model_modflow.processing(
         options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
     )
+    if not success:
+        diagnostics_path = Path(getattr(model_modflow, "full_path", "")).resolve()
+        if ctx.run.solver == "modflow6":
+            diagnostics_path = diagnostics_path / "mfsim.lst"
+        raise RuntimeError(
+            f"Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+            f"See {diagnostics_path} for diagnostics."
+        )
     if success:
         active_bc = {
             str(name).strip().lower()

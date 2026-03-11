@@ -381,6 +381,7 @@ def assert_required_executables(
     repo_root: Path = REPO_ROOT,
     *,
     require_modflow: bool = True,
+    require_modflow6: bool = False,
     require_modpath: bool = True,
     require_mt3dms: bool = False,
 ) -> None:
@@ -394,14 +395,17 @@ def assert_required_executables(
     # Resolve executable names from OS-specific bundled folders.
     if platform.system() == "Windows":
         mf_exe = repo_root / "bin" / "win" / "mfnwt.exe"
+        mf6_exe = repo_root / "bin" / "win" / "mf6.exe"
         mp_exe = repo_root / "bin" / "win" / "mp6.exe"
         mt_exe = repo_root / "bin" / "win" / "mt3d-usgs_1.1.0_64.exe"
     elif platform.system() == "Linux":
         mf_exe = repo_root / "bin" / "linux" / "mfnwt"
+        mf6_exe = repo_root / "bin" / "linux" / "mf6"
         mp_exe = repo_root / "bin" / "linux" / "mp6"
         mt_exe = repo_root / "bin" / "linux" / "mt3dusgs"
     elif platform.system() == "Darwin":
         mf_exe = repo_root / "bin" / "mac" / "mfnwt"
+        mf6_exe = repo_root / "bin" / "mac" / "mf6"
         mp_exe = repo_root / "bin" / "mac" / "mp6"
         mt_exe = repo_root / "bin" / "mac" / "mt3dusgs"
     else:
@@ -410,6 +414,8 @@ def assert_required_executables(
     required_paths = []
     if require_modflow:
         required_paths.append(mf_exe)
+    if require_modflow6:
+        required_paths.append(mf6_exe)
     if require_modpath:
         required_paths.append(mp_exe)
     if require_mt3dms:
@@ -547,6 +553,18 @@ def update_or_assert_goldens(
     if "modpath_expected" in actual:
         assert "modpath_expected" in expected
         assert_modpath_signatures(actual["modpath_expected"], expected["modpath_expected"])
+
+    if "transport_expected" in actual:
+        expected_transport = expected.get("transport_expected", expected.get("mt3dms_expected"))
+        assert expected_transport is not None
+        # Transport solvers (advection-dispersion) are inherently noisier
+        # than flow solvers; allow a wider tolerance for transport outputs.
+        assert_modflow_signatures(
+            actual["transport_expected"],
+            expected_transport,
+            rel=5e-4,
+            abs_tol=1e-5,
+        )
 
     if "mt3dms_expected" in actual:
         assert "mt3dms_expected" in expected

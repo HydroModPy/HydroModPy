@@ -3,7 +3,13 @@
 `hydromodpy/backends/` contains thin adapters around optional third-party
 runtime dependencies.
 
-Today the package exposes one backend family: WhiteboxTools.
+Today the package exposes one backend family with two concrete implementations:
+
+- `whitebox`: adapter around `whitebox.WhiteboxTools`,
+- `whitebox_workflows`: adapter around `whitebox_workflows.WbEnvironment`.
+
+The default runtime backend is `whitebox_workflows`. Set
+`HYDROMODPY_WHITEBOX_BACKEND=whitebox` to force the legacy WhiteboxTools path.
 
 ## Why this package exists
 
@@ -29,8 +35,11 @@ contract. This gives three practical benefits:
   Defines `WhiteboxBackend`, a `Protocol` that documents the operations
   expected by HydroModPy runtime code.
 - `whitebox_tools_backend.py`
-  Provides `WhiteboxToolsBackend`, the default adapter implemented with
-  `whitebox.WhiteboxTools`.
+  Provides `WhiteboxToolsBackend`, the legacy adapter implemented with
+  `whitebox.WhiteboxTools`, plus the runtime selection helper.
+- `whitebox_workflows_backend.py`
+  Provides `WhiteboxWorkflowsBackend`, the default adapter implemented with
+  `whitebox_workflows.WbEnvironment`.
 - `__init__.py`
   Re-exports the public backend API for callers.
 
@@ -44,15 +53,16 @@ vectors are materialized on disk and then consumed by the next pipeline step.
 
 ### Thin adapter on purpose
 
-`WhiteboxToolsBackend` intentionally contains almost no business logic. Its job
-is only to translate HydroModPy method names and keyword arguments to the
-underlying WhiteboxTools object.
+Both concrete backends intentionally contain almost no business logic. Their
+job is only to translate HydroModPy method names and keyword arguments to the
+underlying third-party implementation.
 
 ### Shared default instance
 
 `get_whitebox_backend()` caches a single adapter instance per Python process.
 That keeps the default runtime path simple while still allowing explicit
-dependency injection where needed.
+dependency injection where needed. The selected implementation depends on the
+optional `kind` argument or on `HYDROMODPY_WHITEBOX_BACKEND`.
 
 ## Typical usage
 

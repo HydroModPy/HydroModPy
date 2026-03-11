@@ -41,6 +41,7 @@ from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
 
 #%% CLASS
 
@@ -299,7 +300,7 @@ class Mt3dms:
                 logger.info("Running MT3DMS transport simulation")
             success_model, tempo = self.mt.run_model(silent=not verbose, pause=False,
                                                      # report=True,
-                                                     normal_msg='normal termination') # True without msg
+                                                     normal_msg=MT3DMS_NORMAL_MESSAGES) # True without msg
 
         shutil.copy(os.path.join(self.full_path, 'MT3D001.UCN'), os.path.join(self.full_path, self.model_name_mt+'.UCN'))
 

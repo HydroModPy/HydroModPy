@@ -391,6 +391,44 @@ class Modflow6(Solver):
 				strt[:, -1, :] = start_value
 		return strt
 
+	def _resolve_head_initial_condition(self):
+		"""Return the head initial-condition payload from typed or legacy containers."""
+		initial_conditions = getattr(self.flow, "initial_conditions", None)
+		if initial_conditions is None:
+			return None
+		if isinstance(initial_conditions, Mapping):
+			return initial_conditions.get("h")
+		return getattr(initial_conditions, "h", None)
+
+	@staticmethod
+	def _initial_condition_field(initial_condition, field_name: str, default=None):
+		"""Read one field from either a mapping payload or a typed IC object."""
+		if isinstance(initial_condition, Mapping):
+			return initial_condition.get(field_name, default)
+		return getattr(initial_condition, field_name, default)
+
+	def _build_start_heads(self, sgrid) -> np.ndarray:
+		"""Build MF6 starting heads from the canonical flow initial-condition schema."""
+		h_ic = self._resolve_head_initial_condition()
+		if h_ic is None:
+			raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
+
+		initial_type = str(self._initial_condition_field(h_ic, "type", "")).strip().lower()
+		if initial_type == "top":
+			strt = np.repeat(np.asarray(sgrid.top, dtype=float)[np.newaxis, :, :], self.nlay, axis=0)
+		elif initial_type in {"bot", "bottom"}:
+			bottom = np.asarray(sgrid.botm, dtype=float)
+			strt = np.repeat(bottom[-1][np.newaxis, :, :], self.nlay, axis=0)
+		elif initial_type == "custom":
+			strt = np.full(
+				(self.nlay, self.nrow, self.ncol),
+				float(self._initial_condition_field(h_ic, "value")),
+				dtype=float,
+			)
+		else:
+			raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
+		return self._apply_side_boundary_start_heads(strt)
+
 	def _build_side_boundary_chd_spd(self) -> dict[int, list[list[float]]]:
 		bc = self._boundary_conditions_mapping()
 		spd = {kper: {} for kper in range(int(self.nper))}
@@ -407,6 +445,114 @@ class Modflow6(Solver):
 						continue
 					spd[kper][(ilay, row, col)] = [ilay, row, col, float(head)]
 		return {kper: list(period_map.values()) for kper, period_map in spd.items()}
+
+	@staticmethod
+	def _copy_runtime_payload(payload: object) -> object:
+		"""Return a detached copy of one runtime payload when possible."""
+		if isinstance(payload, Mapping):
+			return {
+				key: Modflow6._copy_runtime_payload(value)
+				for key, value in payload.items()
+			}
+		if hasattr(payload, "copy"):
+			try:
+				return payload.copy()
+			except Exception:
+				pass
+		return payload
+
+	@staticmethod
+	def _sanitize_numeric_payload(payload: object) -> object:
+		"""Replace unsupported/invalid numeric payload values by finite MF6-safe values."""
+		if payload is None:
+			return 0.0
+		if isinstance(payload, Mapping):
+			return {
+				key: Modflow6._sanitize_numeric_payload(value)
+				for key, value in payload.items()
+			}
+		if isinstance(payload, Real) and not isinstance(payload, bool):
+			scalar = float(payload)
+			return 0.0 if not np.isfinite(scalar) else scalar
+		if hasattr(payload, "replace") and hasattr(payload, "fillna"):
+			series = payload.copy()
+			series = series.astype(float)
+			return series.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+		arr = np.asarray(payload, dtype=float)
+		if arr.ndim == 0:
+			scalar = float(arr)
+			return 0.0 if not np.isfinite(scalar) else scalar
+		return np.nan_to_num(arr.astype(float, copy=False), nan=0.0, posinf=0.0, neginf=0.0)
+
+	@staticmethod
+	def _payload_has_negative_values(payload: object) -> bool:
+		"""Return True when a recharge payload contains at least one negative value."""
+		if isinstance(payload, Mapping):
+			return any(Modflow6._payload_has_negative_values(value) for value in payload.values())
+		if isinstance(payload, Real) and not isinstance(payload, bool):
+			return float(payload) < 0.0
+		arr = np.asarray(payload, dtype=float)
+		return bool(np.any(arr < 0.0))
+
+	@staticmethod
+	def _clip_negative_payload(payload: object) -> object:
+		"""Clip negative recharge values to zero for MF6 RCH compatibility."""
+		if isinstance(payload, Mapping):
+			return {
+				key: Modflow6._clip_negative_payload(value)
+				for key, value in payload.items()
+			}
+		if isinstance(payload, Real) and not isinstance(payload, bool):
+			return max(float(payload), 0.0)
+		if hasattr(payload, "clip"):
+			try:
+				return payload.clip(lower=0.0)
+			except TypeError:
+				pass
+
+		arr = np.asarray(payload, dtype=float)
+		if arr.ndim == 0:
+			return max(float(arr), 0.0)
+		return np.maximum(arr, 0.0)
+
+	def _bind_recharge_from_flow(self) -> None:
+		"""Resolve recharge inputs from the canonical flow recharge configuration."""
+		if self.recharge is not None:
+			self.recharge = self._sanitize_numeric_payload(self.recharge)
+			if self.first_clim is None:
+				self.first_clim = "mean"
+			return
+
+		active = getattr(self.flow, "active_sinks_sources", [])
+		if "recharge" not in active:
+			self.recharge = 0.0
+			if self.first_clim is None:
+				self.first_clim = "mean"
+			return
+
+		sinks_sources = getattr(self.flow, "sinks_sources", {})
+		recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
+		if recharge_cfg is None:
+			self.recharge = 0.0
+			if self.first_clim is None:
+				self.first_clim = "mean"
+			return
+
+		payload = self._copy_runtime_payload(getattr(recharge_cfg, "values", 0.0))
+		payload = self._sanitize_numeric_payload(payload)
+		if bool(getattr(recharge_cfg, "negative_to_evt", False)) and self._payload_has_negative_values(payload):
+			logger.info(
+				"MF6 flow recharge clips negative values to 0.0; EVT routing is not yet implemented in this adapter"
+			)
+			payload = self._clip_negative_payload(payload)
+
+		self.recharge = payload
+		self.first_clim = getattr(
+			recharge_cfg,
+			"first_clim",
+			self.first_clim if self.first_clim is not None else "mean",
+		)
 
 	def _scalar_to_2d(self, value: float) -> np.ndarray:
 		return np.full((self.nrow, self.ncol), float(value), dtype=float)
@@ -512,6 +658,7 @@ class Modflow6(Solver):
 		active_options = self.preprocess_options if options is None else options
 		self._apply_preprocess_options(active_options)
 		self._validate_pre_processing_inputs()
+		self._bind_recharge_from_flow()
 
 		self.flow_regime = self._resolve_flow_regime() or "transient"
 		launcher_time_grid = self.time_grid
@@ -597,17 +744,7 @@ class Modflow6(Solver):
 			length_units="METERS",
 		)
 
-		h_ic = self.flow.initial_conditions.get("h")
-		if h_ic is None:
-			raise ValueError("flow.ic.h is required for Modflow6 pre_processing")
-		if h_ic.type == "top":
-			strt = np.repeat(np.asarray(sgrid.top, dtype=float)[np.newaxis, :, :], self.nlay, axis=0)
-		elif h_ic.type == "bot":
-			bottom = np.asarray(sgrid.botm, dtype=float)
-			strt = np.repeat(bottom[-1][np.newaxis, :, :], self.nlay, axis=0)
-		else:
-			strt = np.full((self.nlay, self.nrow, self.ncol), float(h_ic.value), dtype=float)
-		strt = self._apply_side_boundary_start_heads(strt)
+		strt = self._build_start_heads(sgrid)
 		self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
 
 		self.npf = flopy.mf6.ModflowGwfnpf(

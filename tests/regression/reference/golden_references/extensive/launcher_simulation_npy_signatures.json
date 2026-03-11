@@ -54,7 +54,7 @@
     },
     "accumulation_flux": {
       "count": 6468,
-      "mean": 0.000152971990501139,
+      "mean": 0.00015152387940392404,
       "p50": 0.0,
       "p95": 0.0,
       "shape": [
@@ -63,7 +63,7 @@
       ],
       "timestep": 11,
       "available_timesteps": 12,
-      "sum": 0.9894228345613669
+      "sum": 0.9800564519845807
     }
   },
   "modpath_expected": {
