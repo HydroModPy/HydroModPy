@@ -121,6 +121,7 @@ pytest_tmp_local/
 *.bak
 *.old
 validation_cases/**/.__validation_runtime_*.toml
+reports/
 _profile_launcher_*/
 _profiling_out/
 examples/examples/results/11S_short/hydromodpy_debug.log
