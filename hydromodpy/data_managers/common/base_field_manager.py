@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
@@ -49,16 +50,22 @@ class BaseFieldManager(ABC):
         self.project_period = project_period
         self.data_dir = Path(data_dir) if data_dir else None
 
-    def load(self) -> list:
-        """Load data from all configured sources."""
-        results: list = []
+    def load(self) -> LoadResult:
+        """Load data from all configured sources.
+
+        Returns a LoadResult separating point records from gridded fields.
+        """
+        result = LoadResult()
         for source_cfg in self.config.sources:
             records = self._fetch_from_source(source_cfg)
-            if isinstance(records, list):
-                results.extend(records)
-            else:
-                results.append(records)
-        return results
+            if not isinstance(records, list):
+                records = [records]
+            for rec in records:
+                if isinstance(rec, FieldRecord):
+                    result.fields.append(rec)
+                else:
+                    result.points.append(rec)
+        return result
 
     @abstractmethod
     def _fetch_from_source(self, source_cfg: Any) -> list:
@@ -98,6 +105,18 @@ class BaseFieldManager(ABC):
             r for r in records
             if r.location is None or r.station_id in valid_ids
         ]
+
+    def _handle_custom_results(self, records: list, source_cfg) -> list:
+        """Dispatch custom results: mask PointRecords, register FieldRecords."""
+        point_records = [r for r in records if isinstance(r, PointRecord)]
+        field_records = [r for r in records if isinstance(r, FieldRecord)]
+        result: list = []
+        if point_records:
+            result.extend(self._apply_mask(point_records, source_cfg))
+        if field_records:
+            self._register_custom_fields(field_records)
+            result.extend(field_records)
+        return result
 
     # ------------------------------------------------------------------
     # Grid cache: check catalog → load .nc or fetch API → persist
@@ -269,6 +288,28 @@ class BaseFieldManager(ABC):
             unit=rec.unit,
             is_custom=False,
         )
+
+    def _register_custom_fields(self, records: list[FieldRecord]) -> None:
+        """Register custom FieldRecords in the catalog (metadata only).
+
+        Points to the user's original file — no copy, no subsumption.
+        """
+        if self.catalog is None:
+            return
+        for rec in records:
+            file_path = str(rec.data) if rec.is_file_reference else "custom"
+            self.catalog.register(
+                variable=rec.variable,
+                source="custom",
+                file_path=file_path,
+                bbox=rec.bbox,
+                crs=rec.crs,
+                date_start=rec.date_start,
+                date_end=rec.date_end,
+                frequency=rec.frequency,
+                unit=rec.unit,
+                is_custom=True,
+            )
 
     def _resolve_nc_path(self, file_path: str) -> Path:
         """Resolve a catalog file_path to absolute."""

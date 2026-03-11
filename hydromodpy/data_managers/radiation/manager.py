@@ -20,7 +20,7 @@ class RadiationManager(BaseFieldManager):
         if source_cfg.source == "custom":
             from hydromodpy.data_managers.radiation.custom import load_custom
             records = load_custom(source_cfg, project_period=self.project_period, internal_unit=self.INTERNAL_UNIT)
-            return self._apply_mask(records, source_cfg)
+            return self._handle_custom_results(records, source_cfg)
         elif source_cfg.source == "sim2":
             from hydromodpy.data_managers.radiation.apis.sim2 import fetch
             variable_names = [f"radiation_{c}" for c in source_cfg.components]
