@@ -38,7 +38,7 @@ type = "constant_thickness"
 thickness = "50.0 m"
 
 [data]
-types = ["hydrography", "hydrometry"]
+types = ["hydrography"]
 
 [data.hydrography]
 types_obs = ["botopage2024_naizin_streams_perennial-intermittent"]
@@ -48,16 +48,6 @@ fields_obs = ["FID"]
 msl_source = "local"
 msl_local_csv = "data/oceanic/sealevel_shom_152_20030101_20030130_H.csv"
 msl_use_simulation_time_window = true
-
-[data.hydrometry]
-variable = "QmnJ"
-use_simulation_time_window = true
-
-[data.hydrometry.selection]
-mode = "mask"
-
-[data.hydrometry.output]
-enabled = true
 
 [flow]
 flow_regime = "transient"
