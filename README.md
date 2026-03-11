@@ -146,6 +146,36 @@ Execute Python scripts following the examples below:
  - 11_for_run_from_scratch_without_plots
 ```
 
+## Validation and Testing
+
+HydroModPy uses three complementary test families:
+
+- `tests/unit/`: local API and behavior checks on isolated components.
+- `tests/regression/`: non-regression checks against reference outputs and
+  workflows.
+- `tests/validation/`: scientific benchmark tests against analytical or trusted
+  physical references.
+
+Validation tests are backed by reusable cases stored in `validation_cases/`.
+They run deterministic launcher configurations, load the generated model
+outputs, compute comparison metrics, and fail only when those metrics exceed
+explicit tolerances.
+
+Typical commands:
+
+```bash
+python -m pytest tests/unit -q
+python -m pytest tests/regression -q
+python -m pytest tests/validation -q
+python -m pytest -m "validation and fast" -q
+```
+
+For the detailed validation workflow, available analytical cases, and guidance
+to add a new benchmark, see:
+
+- `tests/validation/README.md`
+- `validation_cases/README.md`
+
 ## Linked publications
 
 Papers published using HydroModPy.

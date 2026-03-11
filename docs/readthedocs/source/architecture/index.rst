@@ -9,6 +9,7 @@ This section groups design-level diagrams for HydroModPy modules.
    overview/index
    launchers/index
    data_loading/index
+   spatial_support/index
    field/index
    calibration/index
    process/index
