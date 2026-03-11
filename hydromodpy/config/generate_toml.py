@@ -1,16 +1,26 @@
-﻿"""Auto-generate commented TOML templates from Pydantic models.
+"""Auto-generate commented TOML templates from Pydantic models.
 
 Reads field names, types, defaults, descriptions, and ParamLevel metadata
 directly from Pydantic model_fields. Supports filtering by module and profile.
+
+Supports ``list[BaseModel]`` fields, rendered as TOML array-of-tables
+(``[[section.field]]``).
 
 Usage::
 
     from hydromodpy.config.generate_toml import generate_toml
     print(generate_toml(modules=["geographic"], profile="user"))
+
+    from hydromodpy.config.generate_toml import generate_toml_from_instances
+    generate_toml_from_instances(
+        {"hydrometry": cfg_h, "piezometry": cfg_p},
+        output_path="config.toml",
+    )
 """
 
 from __future__ import annotations
 
+import os
 import types as _stdlib_types
 import typing
 from enum import Enum
@@ -122,21 +132,33 @@ def generate_toml_from_instances(
     instances: dict[str, "BaseModel"],
     output_path: str | Path | None = None,
     profile: str = "user",
+    *,
+    exclude_defaults: bool = False,
+    exclude_none: bool = False,
+    comment: str | None = None,
 ) -> str:
-    """Generate a fully-filled commented TOML from instantiated Pydantic models.
+    """Generate a fully-filled TOML from instantiated Pydantic models.
 
-    Each model's actual field values are written into the TOML alongside the
-    usual description and type comments.  Optional fields left as ``None`` are
-    commented out (same as the template behaviour).
+    Works with **any** Pydantic model -- not limited to registered modules.
+    Supports ``list[BaseModel]`` fields (rendered as ``[[section.sources]]``).
+
+    When *output_path* is given, ``Path`` values are automatically
+    relativised to the output directory.
 
     Parameters
     ----------
     instances : dict of {section_name: model_instance}
-        E.g. ``{"workspace": workspace_cfg, "geographic": geo_cfg}``.
+        E.g. ``{"hydrometry": cfg_h, "piezometry": cfg_p}``.
     output_path : str, Path, or None
         If provided, write the result to this file.
     profile : str
         Visibility profile controlling which fields are included.
+    exclude_defaults : bool
+        Omit fields that equal their default value (cleaner output).
+    exclude_none : bool
+        Omit fields whose value is ``None``.
+    comment : str or None
+        Optional header comment (may be multi-line).
 
     Returns
     -------
@@ -148,21 +170,45 @@ def generate_toml_from_instances(
     ::
 
         from hydromodpy.config.generate_toml import generate_toml_from_instances
-        content = generate_toml_from_instances(
-            {"workspace": workspace_cfg, "geographic": geo_cfg},
-            output_path="examples_legacy/01S_short/config.toml",
+        generate_toml_from_instances(
+            {"hydrometry": cfg_h, "piezometry": cfg_p},
+            output_path="config.toml",
+            exclude_defaults=True, exclude_none=True,
+            comment="My project config",
         )
     """
-    overrides = {
-        section: model.model_dump()
-        for section, model in instances.items()
-    }
-    return generate_toml(
-        output_path=output_path,
-        modules=list(instances.keys()),
-        profile=profile,
-        overrides=overrides,
-    )
+    if profile not in PROFILES:
+        raise ValueError(f"Unknown profile '{profile}'. Choose from: {', '.join(PROFILES)}")
+
+    toml_dir = Path(output_path).resolve().parent if output_path else None
+    threshold = PROFILES[profile]
+
+    lines: list[str] = []
+    if comment:
+        lines.append("# " + "=" * 70)
+        for cline in comment.split("\n"):
+            lines.append(f"# {cline}")
+        lines.append("# " + "=" * 70)
+        lines.append("# Generated from Pydantic config export.")
+        lines.append("")
+    else:
+        lines.extend(_header(profile, list(instances.keys())))
+
+    for section_name, model in instances.items():
+        values = model.model_dump(
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
+        if toml_dir:
+            _relativize_paths_in_dict(values, toml_dir)
+        lines.extend(
+            _section(section_name, type(model), threshold, values=values)
+        )
+
+    content = "\n".join(lines) + "\n"
+    if output_path:
+        Path(output_path).write_text(content, encoding="utf-8")
+    return content
 
 
 # =====================================================================
@@ -311,7 +357,7 @@ def _placeholder(field_info: FieldInfo) -> str:
             if all(isinstance(a, (str, int, float)) for a in args):
                 return _fmt(args[0])
     elif origin is not None:
-        # Non-union parameterised type (list, dict, etc.) â€” check for Literal
+        # Non-union parameterised type (list, dict, etc.) -- check for Literal
         args = get_args(annotation)
         if args and all(isinstance(a, (str, int, float)) for a in args):
             return _fmt(args[0])
@@ -360,11 +406,37 @@ def _placeholder(field_info: FieldInfo) -> str:
     return '""'
 
 
+def _resolve_list_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
+    """If field is ``list[SomeBaseModel]``, return the item class, else None."""
+    origin = get_origin(field_info.annotation)
+    if origin is not list:
+        return None
+    args = get_args(field_info.annotation)
+    if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+        return args[0]
+    return None
+
+
+def _relativize_paths_in_dict(d: dict, toml_dir: Path) -> None:
+    """In-place: convert absolute Path/str paths to relative strings."""
+    for key, val in d.items():
+        if isinstance(val, Path):
+            d[key] = os.path.relpath(str(val), str(toml_dir))
+        elif isinstance(val, str) and os.path.isabs(val):
+            d[key] = os.path.relpath(val, str(toml_dir))
+        elif isinstance(val, dict):
+            _relativize_paths_in_dict(val, toml_dir)
+        elif isinstance(val, list):
+            for item in val:
+                if isinstance(item, dict):
+                    _relativize_paths_in_dict(item, toml_dir)
+
+
 def _resolve_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
     """Return the concrete BaseModel subclass if the field holds one, else None.
 
     Container fields (``list[M]``, ``dict[str, M]``) are **not** considered
-    nested model fields â€” only direct ``M`` or ``Optional[M]`` / ``Union[M, N]``.
+    nested model fields -- only direct ``M`` or ``Optional[M]`` / ``Union[M, N]``.
     """
     annotation = field_info.annotation
 
@@ -376,7 +448,7 @@ def _resolve_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
     if origin is None:
         return None
 
-    # Skip container types (list, dict, set, tuple, â€¦)
+    # Skip container types (list, dict, set, tuple, ...)
     if isinstance(origin, type) and issubclass(origin, (list, dict, set, tuple, frozenset)):
         return None
 
@@ -466,6 +538,7 @@ def _section(
     # ----- classify fields ------------------------------------------------
     scalar_fields: list[tuple[str, FieldInfo, str]] = []   # (name, info, level)
     nested_fields: list[tuple[str, FieldInfo, str, type[BaseModel]]] = []
+    array_fields: list[tuple[str, FieldInfo, str, type[BaseModel]]] = []
 
     for name, field_info in model_cls.model_fields.items():
         # Skip fields explicitly excluded from serialisation (e.g. Transport)
@@ -474,6 +547,12 @@ def _section(
 
         level = _get_param_level(field_info)
         if PROFILES.get(level, 0) > threshold:
+            continue
+
+        # list[BaseModel] -> array of tables [[section.name]]
+        list_cls = _resolve_list_basemodel_type(field_info)
+        if list_cls is not None:
+            array_fields.append((name, field_info, level, list_cls))
             continue
 
         nested_cls = _resolve_basemodel_type(field_info)
@@ -490,6 +569,8 @@ def _section(
         lines.append(f"# {title}")
         lines.append("# " + "-" * 70)
 
+    has_content = scalar_fields or nested_fields or array_fields
+
     # Emit [section_name] when there are scalar fields (or nothing at all)
     if scalar_fields:
         lines.append("")
@@ -500,7 +581,7 @@ def _section(
 
             default = _default_value(field_info)
 
-            # Value line â€” prefer override value when provided
+            # Value line -- prefer override value when provided
             if values is not None and name in values and values[name] is not None:
                 lines.append(f"{name} = {_fmt(values[name])}")
             elif default is not _UNDEFINED and default is not None:
@@ -512,7 +593,7 @@ def _section(
 
             lines.append("")
 
-    elif not nested_fields:
+    elif not has_content:
         # No fields at all at this profile level
         lines.append("")
         lines.append(f"[{section_name}]")
@@ -548,9 +629,13 @@ def _section(
                     lines.append(f"# {desc_line}")
 
         if is_truly_optional and sub_values is None:
-            # Optional with no default and no override: comment out
-            lines.append(f"# [{sub_section}]")
-            lines.append("")
+            # Optional with no override: expand with defaults (uncommented)
+            lines.extend(
+                _section(
+                    sub_section, nested_cls, threshold,
+                    values=None, _depth=_depth + 1,
+                )
+            )
         else:
             # Has a default_factory or concrete override: expand recursively
             lines.extend(
@@ -559,6 +644,53 @@ def _section(
                     values=sub_values, _depth=_depth + 1,
                 )
             )
+
+    # ----- array-of-tables ([[section.name]]) --------------------------------
+    for name, field_info, level, item_cls in array_fields:
+        sub_section = f"{section_name}.{name}"
+
+        # Description comment
+        desc = field_info.description or ""
+        if desc:
+            lines.append("")
+            for desc_line in desc.split(". "):
+                desc_line = desc_line.strip()
+                if desc_line:
+                    if not desc_line.endswith("."):
+                        desc_line += "."
+                    lines.append(f"# {desc_line}")
+
+        items: list[dict] | None = None
+        if values is not None and name in values:
+            raw = values[name]
+            if isinstance(raw, list):
+                items = raw
+
+        if items:
+            for item_dict in items:
+                lines.append(f"[[{sub_section}]]")
+                for key, val in item_dict.items():
+                    # Add field description from the item model class
+                    if key in item_cls.model_fields:
+                        _render_field_comment(lines, item_cls.model_fields[key])
+                    lines.append(f"{key} = {_fmt(val)}")
+                    lines.append("")
+        else:
+            # Template mode: show an example entry with defaults
+            lines.append(f"[[{sub_section}]]")
+            for fname, finfo in item_cls.model_fields.items():
+                if getattr(finfo, "exclude", False):
+                    continue
+                flevel = _get_param_level(finfo)
+                if PROFILES.get(flevel, 0) > threshold:
+                    continue
+                _render_field_comment(lines, finfo)
+                default = _default_value(finfo)
+                if default is not _UNDEFINED and default is not None:
+                    lines.append(f"{fname} = {_fmt(default)}")
+                else:
+                    lines.append(f"{fname} = {_placeholder(finfo)}")
+                lines.append("")
 
     return lines
 
