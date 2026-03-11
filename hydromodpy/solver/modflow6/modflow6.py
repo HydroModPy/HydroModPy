@@ -13,23 +13,39 @@ import flopy.utils.binaryfile as bf
 import numpy as np
 from flopy.utils import postprocessing as pp
 
-from hydromodpy.domain.surface import Surface
-from hydromodpy.modeling import masstransfer
+from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common import (
+	masstransfer,
+	SolverGridContext,
+	SolverRoutingContext,
+	build_solver_routing_context,
+	write_grid_array_to_raster,
+)
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow_nwt.modflow import (
 	ModflowPostprocessOptions,
 	ModflowPreprocessOptions,
 	ModflowRunOptions,
 )
+from hydromodpy.solver.modflow_nwt.modflow.discretization import (
+	build_spatial_discretization,
+	build_temporal_discretization_from_time_grid,
+)
 from hydromodpy.solver.modflow6.modflow6_config import (
 	Modflow6Config,
 	_coerce_modflow6_config,
 )
 from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+	resolve_required_flow_properties,
 	resolve_flow_property_arrays,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
-from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
+from hydromodpy.solver.modflow_common.runtime_arrays import (
+	build_concentration_runtime_overrides,
+)
+from hydromodpy.units.volumetric_flow import (
+	convert_to_m3_per_s,
+	normalize_m3_per_s_unit,
+)
 from hydromodpy.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
@@ -84,6 +100,8 @@ class Modflow6(Solver):
 
 		self.full_path = os.path.join(model_folder, model_name)
 		self.dem_watershed_path = None
+		self.grid_ctx: SolverGridContext | None = None
+		self.routing_ctx: SolverRoutingContext | None = None
 
 		self.modflow_config = _coerce_modflow6_config(modflow_config)
 		runtime = self.modflow_config.runtime
@@ -130,33 +148,40 @@ class Modflow6(Solver):
 
 		self.preprocess_options = options
 		self.sink_fill = bool(options.sink_fill)
-		self.recharge = options.recharge
-		self.first_clim = options.first_clim
-		self.plot_cross = bool(options.plot_cross)
-		self.cross_ylim = [] if options.cross_ylim is None else list(options.cross_ylim)
+		self.recharge = getattr(options, "recharge", None)
+		self.first_clim = getattr(options, "first_clim", None)
+		self.time_grid = getattr(options, "time_grid", None)
 		self.check_grid = bool(options.check_grid)
 		self._select_active_dem(box=bool(options.box))
 
-	def _get_domain_surfaces(self):
-		if self.domain is None:
-			raise ValueError("Modflow6 spatial geometry is domain-only: a Domain object is required.")
+	def _write_solver_grid_template(self) -> str:
+		if self.grid_ctx is None:
+			raise ValueError("grid_ctx must exist before writing a solver grid template")
+		os.makedirs(self.full_path, exist_ok=True)
+		template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
+		write_grid_array_to_raster(
+			grid=self.grid_ctx.grid,
+			data=np.asarray(self.grid_ctx.top_elevation, dtype=float),
+			output_path=template_path,
+			nodata=float(self.grid_ctx.grid.nodata),
+		)
+		self.grid_ctx.template_raster_path = template_path
+		return template_path
 
-		surface_topo = getattr(self.domain, "surface_topo", None)
-		substratum = getattr(self.domain, "substratum", None)
-		if surface_topo is None or substratum is None:
-			raise ValueError("domain.surface_topo and domain.substratum are required.")
-		if not isinstance(surface_topo, Surface) or not isinstance(substratum, Surface):
-			raise TypeError("Domain surfaces must be Surface instances.")
+	def _ensure_solver_routing_context(self) -> SolverRoutingContext:
+		"""Build hydrologic routing rasters aligned with the solver grid."""
+		if self.routing_ctx is not None:
+			return self.routing_ctx
+		if self.grid_ctx is None:
+			raise ValueError("grid_ctx must exist before building solver routing products")
 
-		top = np.asarray(surface_topo.as_array(), dtype=float)
-		bot = np.asarray(substratum.as_array(), dtype=float)
-		if top.shape != bot.shape:
-			raise ValueError(f"Domain surface mismatch: top{top.shape} != substratum{bot.shape}.")
-		if top.shape != self.dem.shape:
-			raise ValueError("Domain surface shape must match active DEM support.")
-
-		surface_topo.assert_same_geographic_domain(substratum)
-		return surface_topo, substratum
+		self.routing_ctx = build_solver_routing_context(
+			dem_path=self.dem_watershed_path,
+			output_dir=os.path.join(self.full_path, "_solver_routing"),
+			dem_correc_type=str(getattr(self.geographic, "dem_correc_type", "breach")),
+			crs_project=getattr(self.geographic, "crs_proj", None),
+		)
+		return self.routing_ctx
 
 	def _resolve_flow_regime(self) -> str | None:
 		if self.flow is None:
@@ -176,8 +201,27 @@ class Modflow6(Solver):
 			raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
 		return flow_regime_text
 
+	def _validate_pre_processing_inputs(self) -> None:
+		if self.flow is None:
+			raise ValueError("pre_processing requires a configured Flow object.")
+		if self.domain is None:
+			raise ValueError("pre_processing requires a configured Domain object.")
+		flow_regime = self._resolve_flow_regime()
+		if flow_regime is None:
+			raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
+		self.flow_regime = flow_regime
+		if self.time_grid is None and self.flow_regime != "steady":
+			raise ValueError(
+				"Launcher flow preprocessing requires preprocess_options.time_grid "
+				"derived from [simulation.time] for transient flow runs. Solver tgrid fallback is no longer supported."
+			)
+
 	def _build_well_stress_period_data(self, n_stress_periods: int) -> dict[int, list[list[float]]]:
 		if n_stress_periods <= 0 or self.flow is None:
+			return {}
+
+		active = getattr(self.flow, "active_sinks_sources", [])
+		if "wells" not in active:
 			return {}
 
 		sinks_sources = getattr(self.flow, "sinks_sources", {})
@@ -191,15 +235,25 @@ class Modflow6(Solver):
 			raise TypeError("flow.sinks_sources['wells'] must be a mapping of well ids to payloads.")
 		if len(wells) == 0:
 			return {}
+		grid = None if self.grid_ctx is None else self.grid_ctx.grid
 
 		normalized_wells: list[tuple[tuple[int, int, int], np.ndarray]] = []
-		for _, raw_well_payload in wells.items():
+		for well_id, raw_well_payload in wells.items():
 			cell_payload = getattr(raw_well_payload, "cell", None)
 			flux_payload = getattr(raw_well_payload, "flux", None)
+			forcing_payload = getattr(raw_well_payload, "forcing", None)
 			if cell_payload is None and isinstance(raw_well_payload, Mapping):
 				cell_payload = raw_well_payload.get("cell")
 				flux_payload = raw_well_payload.get("flux")
-			if cell_payload is None or flux_payload is None:
+				forcing_payload = raw_well_payload.get("forcing")
+			if cell_payload is None and hasattr(raw_well_payload, "resolve_cell"):
+				if grid is None:
+					raise ValueError(
+						f"flow.sinks_sources.wells.{well_id} uses coordinate-based addressing "
+						"but solver grid geometry is unavailable."
+					)
+				cell_payload = raw_well_payload.resolve_cell(grid)
+			if cell_payload is None or (flux_payload is None and forcing_payload is None):
 				continue
 
 			cell_seq = list(cell_payload)
@@ -207,7 +261,26 @@ class Modflow6(Solver):
 				continue
 			cell = (int(cell_seq[0]), int(cell_seq[1]), int(cell_seq[2]))
 
-			if isinstance(flux_payload, Real) and not isinstance(flux_payload, bool):
+			if forcing_payload is not None:
+				raw_values = resolve_period_values_from_forcing(
+					forcing=forcing_payload,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(n_stress_periods),
+					label=f"flow.sinks_sources.wells.{well_id}.forcing",
+				)
+				canonical_units = normalize_m3_per_s_unit(getattr(raw_well_payload, "units", "m3/s"))
+				flux_vector = np.asarray(
+					[
+						convert_to_m3_per_s(
+							value,
+							unit=canonical_units,
+							label=f"flow.sinks_sources.wells.{well_id}.forcing[{idx}]",
+						)
+						for idx, value in enumerate(raw_values)
+					],
+					dtype=float,
+				)
+			elif isinstance(flux_payload, Real) and not isinstance(flux_payload, bool):
 				flux_vector = np.full((n_stress_periods,), float(flux_payload), dtype=float)
 			else:
 				raw_flux_seq = list(flux_payload)
@@ -225,6 +298,115 @@ class Modflow6(Solver):
 		for t in range(n_stress_periods):
 			spd[t] = [[cell[0], cell[1], cell[2], float(flux_vector[t])] for cell, flux_vector in normalized_wells]
 		return spd
+
+	@staticmethod
+	def _is_scalar_number(value: object) -> bool:
+		return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
+
+	def _boundary_conditions_mapping(self) -> Mapping[str, object]:
+		boundary_conditions = getattr(self.flow, "boundary_conditions", {})
+		if not isinstance(boundary_conditions, Mapping):
+			raise TypeError("flow.boundary_conditions must be a mapping")
+		return boundary_conditions
+
+	def _is_bc_active(self, bc_id: str) -> bool:
+		active = getattr(self.flow, "active_bc", [])
+		return bc_id in active
+
+	def _boundary_period_series(self, *, value: object, label: str) -> np.ndarray:
+		if self._is_scalar_number(value):
+			return np.full((int(self.nper),), float(value), dtype=float)
+		if not isinstance(value, (np.ndarray, list, tuple)):
+			raise TypeError(f"{label} must be numeric or a sequence of numeric values")
+		series = np.asarray(value, dtype=float).reshape(-1)
+		if series.size == 0:
+			raise ValueError(f"{label} cannot be empty when using time series")
+		if series.size == 1:
+			return np.full((int(self.nper),), float(series[0]), dtype=float)
+		if series.size != int(self.nper):
+			raise ValueError(
+				f"{label} length ({series.size}) must be 1 or match nper ({int(self.nper)})"
+			)
+		return series.astype(float)
+
+	def _boundary_start_value(self, *, value: object, label: str) -> float:
+		return float(self._boundary_period_series(value=value, label=label)[0])
+
+	def _resolve_side_boundary_series(self, *, boundary: object, bc_id: str) -> np.ndarray:
+		forcing = getattr(boundary, "forcing", None)
+		if forcing is not None:
+			return np.asarray(
+				resolve_period_values_from_forcing(
+					forcing=forcing,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(self.nper),
+					label=f"flow.bc.{bc_id}.forcing",
+				),
+				dtype=float,
+			)
+		return self._boundary_period_series(
+			value=getattr(boundary, "value", None),
+			label=f"flow.bc.{bc_id}.value",
+		)
+
+	def _iter_side_boundary_cells(self, bc_id: str):
+		if bc_id == "west_side":
+			for ilay in range(int(self.nlay)):
+				for i in range(int(self.nrow)):
+					yield ilay, i, 0
+			return
+		if bc_id == "east_side":
+			for ilay in range(int(self.nlay)):
+				for i in range(int(self.nrow)):
+					yield ilay, i, int(self.ncol) - 1
+			return
+		if bc_id == "north_side":
+			for ilay in range(int(self.nlay)):
+				for j in range(int(self.ncol)):
+					yield ilay, 0, j
+			return
+		if bc_id == "south_side":
+			for ilay in range(int(self.nlay)):
+				for j in range(int(self.ncol)):
+					yield ilay, int(self.nrow) - 1, j
+			return
+		raise ValueError(f"Unsupported side boundary id: {bc_id}")
+
+	def _apply_side_boundary_start_heads(self, strt: np.ndarray) -> np.ndarray:
+		bc = self._boundary_conditions_mapping()
+		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+			if not self._is_bc_active(bc_id):
+				continue
+			boundary = bc.get(bc_id)
+			if boundary is None:
+				continue
+			start_value = float(self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)[0])
+			if bc_id == "west_side":
+				strt[:, :, 0] = start_value
+			elif bc_id == "east_side":
+				strt[:, :, -1] = start_value
+			elif bc_id == "north_side":
+				strt[:, 0, :] = start_value
+			elif bc_id == "south_side":
+				strt[:, -1, :] = start_value
+		return strt
+
+	def _build_side_boundary_chd_spd(self) -> dict[int, list[list[float]]]:
+		bc = self._boundary_conditions_mapping()
+		spd = {kper: {} for kper in range(int(self.nper))}
+		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+			if not self._is_bc_active(bc_id):
+				continue
+			boundary = bc.get(bc_id)
+			if boundary is None:
+				continue
+			series = self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)
+			for kper, head in enumerate(series):
+				for ilay, row, col in self._iter_side_boundary_cells(bc_id):
+					if bool(self.dem_mask[row, col]):
+						continue
+					spd[kper][(ilay, row, col)] = [ilay, row, col, float(head)]
+		return {kper: list(period_map.values()) for kper, period_map in spd.items()}
 
 	def _scalar_to_2d(self, value: float) -> np.ndarray:
 		return np.full((self.nrow, self.ncol), float(value), dtype=float)
@@ -329,38 +511,43 @@ class Modflow6(Solver):
 		self.domain = domain
 		active_options = self.preprocess_options if options is None else options
 		self._apply_preprocess_options(active_options)
+		self._validate_pre_processing_inputs()
 
 		self.flow_regime = self._resolve_flow_regime() or "transient"
-
-		builder_kwargs = self.modflow_config.tgrid.to_builder_kwargs() if getattr(self.modflow_config, "tgrid", None) else {}
-		builder_kwargs["flow_regime"] = self.flow_regime
-		tgrid = TMesh_Generation(**builder_kwargs).run() if builder_kwargs else None
-
-		if tgrid is not None:
-			self.nper = int(np.asarray(getattr(tgrid, "perlen", []), dtype=float).size)
-			self.perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
-			self.nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
-			self.steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
-		else:
-			self.nper = 1
-			self.perlen = np.asarray([1.0], dtype=float)
-			self.nstp = np.asarray([1], dtype=int)
-			self.steady = np.asarray([self.flow_regime == "steady"], dtype=bool)
-
-		surface_topo, bottom_surface = self._get_domain_surfaces()
-		sgrid = StructuredGridBuilder().build_from_surfaces(
-			top_surface=surface_topo,
-			bottom_surface=bottom_surface,
-			vertical_config=getattr(self.modflow_config, "sgrid", None),
+		launcher_time_grid = self.time_grid
+		temporal = build_temporal_discretization_from_time_grid(
+			time_grid=launcher_time_grid,
+			flow_regime=self.flow_regime,
+			firstpersteady=bool(getattr(getattr(self.modflow_config, "tgrid", None), "firstpersteady", True)),
 		)
-		self.nlay = int(sgrid.nlay)
-		self.nrow = int(sgrid.nrow)
-		self.ncol = int(sgrid.ncol)
+		self.perlen = temporal.perlen
+		self.nper = temporal.nper
+		self.nstp = temporal.nstp
+		self.steady = temporal.steady
+		time_units = "seconds"
+
+		self.grid_ctx = build_spatial_discretization(
+			domain=self.domain,
+			sgrid_config=getattr(self.modflow_config, "sgrid", None),
+		)
+		sgrid = self.grid_ctx.sgrid
+		self.top_elevation = self.grid_ctx.top_elevation
+		self.inactive_mask = self.grid_ctx.inactive_mask
+		self.nlay = int(self.grid_ctx.nlay)
+		self.nrow = int(self.grid_ctx.nrow)
+		self.ncol = int(self.grid_ctx.ncol)
+		self.cell_area = float(self.grid_ctx.grid.cell_area)
+		self.resolution = float(self.grid_ctx.grid.characteristic_length)
+		self.dem = self.top_elevation
+		self.dem_mask = self.inactive_mask
+		self.dem_watershed_path = self._write_solver_grid_template()
 
 		flow_params = resolve_flow_property_arrays(
 			flow=self.flow,
 			domain=self.domain,
 			sgrid=sgrid,
+			required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
+			optional_fill_values={"Sy": 0.0, "Ss": 0.0},
 		)
 		self.hk = flow_params["hk"]
 		self.sy = flow_params["sy"]
@@ -369,11 +556,16 @@ class Modflow6(Solver):
 		runtime = getattr(self.modflow_config, "runtime", None)
 		sim_name = self.model_name_mf6
 		self.sim = flopy.mf6.MFSimulation(sim_name=sim_name, sim_ws=self.full_path, exe_name=self.exe)
+		# TGrid/TMesh fields consumed here:
+		# - perlen (stress-period length),
+		# - nstp (time-step count),
+		# - itmuni (time_units metadata).
+		# Current implementation keeps MF6 TDIS tsmult fixed to 1.0.
 		self.tdis = flopy.mf6.ModflowTdis(
 			self.sim,
 			nper=int(self.nper),
 			perioddata=[(float(self.perlen[i]), int(self.nstp[i]), 1.0) for i in range(int(self.nper))],
-			time_units=getattr(getattr(self.modflow_config, "tgrid", None), "itmuni", "days"),
+			time_units=time_units,
 		)
 		self.ims = flopy.mf6.ModflowIms(
 			self.sim,
@@ -415,6 +607,7 @@ class Modflow6(Solver):
 			strt = np.repeat(bottom[-1][np.newaxis, :, :], self.nlay, axis=0)
 		else:
 			strt = np.full((self.nlay, self.nrow, self.ncol), float(h_ic.value), dtype=float)
+		strt = self._apply_side_boundary_start_heads(strt)
 		self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
 
 		self.npf = flopy.mf6.ModflowGwfnpf(
@@ -448,36 +641,19 @@ class Modflow6(Solver):
 			for kper in range(int(self.nper)):
 				period_cells = []
 				top = np.asarray(sgrid.top, dtype=float)
-				cond = np.maximum(self.hk[0] * (np.asarray(sgrid.delr)[None, :] * np.asarray(sgrid.delc)[:, None]) / np.maximum(self.resolution, 1e-6), 1e-12)
+				cond = np.maximum(
+					self.hk[0] * float(self.cell_area) / np.maximum(self.resolution, 1e-6),
+					1e-12,
+				)
 				for i in range(self.nrow):
 					for j in range(self.ncol):
-						if top[i, j] <= -9999:
+						if bool(self.dem_mask[i, j]):
 							continue
 						period_cells.append([0, i, j, float(top[i, j]), float(cond[i, j])])
 				drn_spd[kper] = period_cells
 			self.drn = flopy.mf6.ModflowGwfdrn(self.gwf, stress_period_data=drn_spd, save_flows=True)
 
-		chd_spd = {}
-		bc = self.flow.boundary_conditions
-		for kper in range(int(self.nper)):
-			entries = []
-			if "west_boundary" in bc:
-				val = float(getattr(bc["west_boundary"], "value", 0.0))
-				for i in range(self.nrow):
-					entries.append([0, i, 0, val])
-			if "east_boundary" in bc:
-				val = float(getattr(bc["east_boundary"], "value", 0.0))
-				for i in range(self.nrow):
-					entries.append([0, i, self.ncol - 1, val])
-			if "north_boundary" in bc:
-				val = float(getattr(bc["north_boundary"], "value", 0.0))
-				for j in range(self.ncol):
-					entries.append([0, 0, j, val])
-			if "south_boundary" in bc:
-				val = float(getattr(bc["south_boundary"], "value", 0.0))
-				for j in range(self.ncol):
-					entries.append([0, self.nrow - 1, j, val])
-			chd_spd[kper] = entries
+		chd_spd = self._build_side_boundary_chd_spd()
 		if any(len(v) > 0 for v in chd_spd.values()):
 			self.chd = flopy.mf6.ModflowGwfchd(self.gwf, stress_period_data=chd_spd, save_flows=True)
 
@@ -535,13 +711,16 @@ class Modflow6(Solver):
 			head = head_fpu.get_data(totim=time)
 			wt = pp.get_water_table(head, -9999)
 			wt[np.isnan(wt)] = -9999
+			dem_mask = np.asarray(self.dem_mask, dtype=bool)
 			if options.watertable_elevation:
+				wt = wt.copy()
+				wt[dem_mask] = -9999
 				dict_watertable_elevation[item] = wt
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, wt, os.path.join(self.tifs_file, f"watertable_elevation_t({item}).tif"), -9999)
 
 			if options.watertable_depth:
-				wtd = np.where(self.dem <= -9999, -9999, np.maximum(self.dem - wt, 0))
+				wtd = np.where(dem_mask, -9999, np.maximum(self.dem - wt, 0))
 				dict_watertable_depth[item] = wtd
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, wtd, os.path.join(self.tifs_file, f"watertable_depth_t({item}).tif"), -9999)
@@ -567,8 +746,8 @@ class Modflow6(Solver):
 				except Exception:
 					pass
 
-			outflow[self.dem <= -9999] = -9999
-			seepage[self.dem <= -9999] = -9999
+			outflow[dem_mask] = -9999
+			seepage[dem_mask] = -9999
 
 			if options.outflow_drain:
 				dict_outflow_drain[item] = outflow
@@ -598,7 +777,7 @@ class Modflow6(Solver):
 
 
 class Modflow6Transport:
-	"""Transport solver based on MODFLOW 6 GWT and `transport.conc.parameters`."""
+	"""Transport solver based on MODFLOW 6 GWT and `transport.modflow6gwt.parameters`."""
 
 	def __init__(
 		self,
@@ -623,10 +802,16 @@ class Modflow6Transport:
 		self.exe = getattr(model_modflow, "exe", "mf6")
 
 		conc_params = {}
-		comp = getattr(transport, "conc", None)
-		if comp is not None and isinstance(getattr(comp, "parameters", None), Mapping):
+		comp = transport.modflow6gwt
+		if isinstance(getattr(comp, "parameters", None), Mapping):
 			conc_params = dict(comp.parameters)
 		conc_params.update(kwargs)
+		conc_params.update(
+			build_concentration_runtime_overrides(
+				conc_params,
+				model_modflow,
+			)
+		)
 
 		self.spc_name = conc_params.get("spc_name", "NO3")
 		self.sconc_init = conc_params.get("sconc_init", 0.0)
@@ -759,7 +944,10 @@ class Modflow6Transport:
 		conc_last_idx = max(int(concobj_1c.shape[0]) - 1, 0)
 
 		outflow_drain = np.load(os.path.join(self.save_file, "outflow_drain.npy"), allow_pickle=True).item()
-		dem_mask = self.model_modflow.dem < -9999
+		dem_mask = np.asarray(
+			getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
+			dtype=bool,
+		)
 
 		dict_concentration_seepage = {}
 		dict_mass_seepage = {}
@@ -789,12 +977,15 @@ class Modflow6Transport:
 					toolbox.export_tif(self.model_modflow.dem_watershed_path, mass_surf, os.path.join(self.tifs_file, f"mass_seepage_t({the_time}).tif"), -9999)
 
 			if mass_accumulated:
+				routing_ctx = self.model_modflow._ensure_solver_routing_context()
 				accumulated_mass = masstransfer.Masstransfer(
 					self.model_modflow.geographic,
 					f"mass_seepage_t({the_time}).tif",
 					f"tracept_conc_t({the_time}).shp",
 					f"mass_accumulated_t({the_time}).tif",
 					extraction_folder=self.save_file,
+					routing_fill_path=routing_ctx.correc_path,
+					routing_direc_path=routing_ctx.direc_path,
 				)
 				accumulated_mass.trace_cumulated()
 				with bf.HeadFile(os.path.join(self.tifs_file, f"mass_accumulated_t({the_time}).tif")) as src:

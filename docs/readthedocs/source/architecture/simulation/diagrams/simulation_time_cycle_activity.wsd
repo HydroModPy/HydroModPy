@@ -1,0 +1,91 @@
+@startuml
+title Simulation Time Cycle - Activity
+
+start
+
+:Load TOML and build HydroModPyConfig;
+:Initialize launcher state;
+
+if (Has [simulation.time]?) then (yes)
+  :resolve_simulation_time_window();
+  if (window invalid?) then (yes)
+    :Raise ValueError;
+    stop
+  endif
+
+  :resolve_simulation_time_grid();
+  if (step alignment mismatch?) then (yes)
+    :Raise ValueError;
+    stop
+  endif
+
+  :apply_explicit_time_window_to_tgrids();
+  :require_flow_simulation_time_grid();
+  :Store time_grid in run_state.setup.time_grid;
+else (no)
+  if (Flow process declared?) then (yes)
+    :Raise ValueError;
+    stop
+  else (no)
+    :Skip canonical time-grid resolution;
+  endif
+endif
+
+:Load data managers;
+if (oceanic/hydrometry/piezometry\nuse_simulation_time_window?) then (yes)
+  :resolve_simulation_time_window_dates();
+  if (window unresolved?) then (yes)
+    :Raise ValueError;
+    stop
+  else (no)
+    :Inject canonical date_start/date_end;
+  endif
+endif
+
+:Build recharge chronicle payload\nwith simulation_window;
+:Validate recharge_chronicle through\nPydantic models;
+if (mode = observed_csv?) then (yes)
+  :Derive first_year/last_year/time_step\nfrom simulation window;
+else (no)
+  if (mode = synthetic_generated?) then (yes)
+    if (generator configured?) then (yes)
+      :Normalize inline units and\nseasonal generator parameters;
+      :Build fine synthetic chronicle\nfrom hydrology.synthetic.forcing;
+      :Convert recharge/runoff to m/s;
+      :Aggregate series to simulation boundaries;
+    else (legacy values)
+      :Normalize explicit values to target units;
+      :Build one value per stress period;
+      :Convert recharge/runoff to m/s;
+    endif
+  else (synthetic_csv)
+    :Normalize CSV units;
+    :Resample and align series to\nsimulation boundaries;
+  endif
+endif
+
+:validate_recharge_coverage();
+if (coverage_policy = error and invalid?) then (yes)
+  :Raise ValueError;
+  stop
+elseif (coverage_policy = warn and invalid?) then (warn)
+  :Emit warning and continue;
+endif
+
+while (Next ProcessRun?) is (yes)
+  if (Flow solver run?) then (yes)
+    if (time_grid available?) then (yes)
+      :Use canonical nper/perlen from time_grid;
+    else (no)
+      :Raise ValueError;
+      stop
+    endif
+    :Execute flow solver;
+  else (transport)
+    :Resolve upstream flow model;
+    :Execute transport solver;
+  endif
+endwhile (no)
+
+stop
+@enduml

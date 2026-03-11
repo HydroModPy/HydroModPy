@@ -120,7 +120,7 @@ class GeologyField(Field):
     Build from TOML and discretize on a mesh:
 
     >>> field = GeologyField.from_toml(
-    ...     "hydromodpy/data_managers/geology/geology_config.toml",
+    ...     "hydromodpy/data_managers/geology/cases/run_geology_case.toml",
     ...     section="geology",
     ... )
     >>> discretization = field.on_mesh(mesh, cell_samples_per_axis=10)
@@ -419,7 +419,7 @@ class GeologyField(Field):
         Example
         -------
         field = GeologyField.from_toml(
-            "hydromodpy/data_managers/geology/geology_config.toml",
+            "hydromodpy/data_managers/geology/cases/run_geology_case.toml",
             section="geology",
         )
         """
@@ -441,7 +441,7 @@ class GeologyField(Field):
         its own config block, while the target spatial reduction/rasterization
         window is defined by the domain topographic support.
         """
-        from hydromodpy.watershed.geology_config import GeologyConfig
+        from hydromodpy.watershed_legacy.geology_config import GeologyConfig
 
         if geology_config is None:
             geology_cfg = GeologyConfig()

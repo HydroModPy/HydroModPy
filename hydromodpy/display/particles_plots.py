@@ -49,7 +49,12 @@ def plot_pathlines(
     watershed = gpd.read_file(watershed_shp)
 
     with rasterio.open(dem_raster) as dem_rio:
-        dem_data = np.ma.masked_where(dem_rio.read(1) < 0, dem_rio.read(1))
+        nodata = dem_rio.nodata
+        dem_array = dem_rio.read(1)
+        if nodata is None:
+            dem_data = np.ma.masked_where(dem_array < 0, dem_array)
+        else:
+            dem_data = np.ma.masked_where(np.isclose(dem_array, float(nodata)), dem_array)
 
         norm = mcolors.LogNorm(vmin=0.1, vmax=100)
         scalar_mappable = cm.ScalarMappable(cmap="jet", norm=norm)

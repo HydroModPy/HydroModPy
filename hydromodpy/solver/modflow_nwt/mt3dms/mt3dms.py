@@ -28,11 +28,7 @@ import numpy as np
 from os.path import dirname, abspath
 import rasterio
 import flopy.utils.binaryfile as bf
-import whitebox
 import shutil
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 # Root
 df = dirname(dirname(abspath(__file__)))
@@ -40,7 +36,10 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.tools import toolbox, get_logger
-from hydromodpy.modeling import masstransfer
+from hydromodpy.solver.modflow_common import masstransfer
+from hydromodpy.solver.modflow_common.runtime_arrays import (
+    build_concentration_runtime_overrides,
+)
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% CLASS
@@ -110,30 +109,45 @@ class Mt3dms:
             self.exe = os.path.join(bin_path, 'mac' ,'mt3dusgs')
 
         conc_params = {}
-        transport_conc = getattr(transport, 'conc', None)
-        if transport_conc is not None:
-            raw_params = getattr(transport_conc, 'parameters', None)
-            if isinstance(raw_params, Mapping):
-                conc_params = dict(raw_params)
+        raw_params = getattr(transport.mt3dms, 'parameters', None)
+        if isinstance(raw_params, Mapping):
+            conc_params = dict(raw_params)
 
-        def _pick(key, explicit, default):
-            if explicit is not None:
-                return explicit
-            return conc_params.get(key, default)
+        explicit_params = {
+            'spc_name': spc_name,
+            'sconc_init': sconc_init,
+            'sconc_input': sconc_input,
+            'disp_long': disp_long,
+            'disp_transh': disp_transh,
+            'disp_transv': disp_transv,
+            'diffu_coeff': diffu_coeff,
+            'react_order': react_order,
+            'rate_decay': rate_decay,
+            'plot_conc': plot_conc,
+        }
+        for key, value in explicit_params.items():
+            if value is not None:
+                conc_params[key] = value
 
-        self.spc_name = _pick('spc_name', spc_name, 'NO3')
-        self.sconc_init = _pick('sconc_init', sconc_init, 0)
-        self.sconc_input = _pick('sconc_input', sconc_input, 0)
+        runtime_overrides = build_concentration_runtime_overrides(
+            conc_params,
+            model_modflow,
+        )
+        conc_params.update(runtime_overrides)
 
-        self.disp_long = _pick('disp_long', disp_long, 0)
-        self.disp_transh = _pick('disp_transh', disp_transh, 0)
-        self.disp_transv = _pick('disp_transv', disp_transv, 0)
-        self.diffu_coeff = _pick('diffu_coeff', diffu_coeff, 0)
+        self.spc_name = conc_params.get('spc_name', 'NO3')
+        self.sconc_init = conc_params.get('sconc_init', 0)
+        self.sconc_input = conc_params.get('sconc_input', 0)
 
-        self.react_order = _pick('react_order', react_order, None)
-        self.rate_decay = _pick('rate_decay', rate_decay, 0)
+        self.disp_long = conc_params.get('disp_long', 0)
+        self.disp_transh = conc_params.get('disp_transh', 0)
+        self.disp_transv = conc_params.get('disp_transv', 0)
+        self.diffu_coeff = conc_params.get('diffu_coeff', 0)
 
-        self.plot_conc = _pick('plot_conc', plot_conc, True)
+        self.react_order = conc_params.get('react_order', None)
+        self.rate_decay = conc_params.get('rate_decay', 0)
+
+        self.plot_conc = conc_params.get('plot_conc', True)
 
         self.mf = model_modflow.mf
 
@@ -176,8 +190,8 @@ class Mt3dms:
                                       nlay=self.mf.nlay,
                                       nrow=self.mf.nrow,
                                       ncol=self.mf.ncol,
-                                      delr=self.model_modflow.resolution,
-                                      delc=self.model_modflow.resolution,
+                                      delr=np.asarray(self.model_modflow.dis.delr.array, dtype=float),
+                                      delc=np.asarray(self.model_modflow.dis.delc.array, dtype=float),
                                       nper=self.mf.nper,                        # mf.nper*new_stepsize+1
                                       nprs=self.mf.nper,                        # mf.nper*new_stepsize+1
                                       nstp=self.model_modflow.nstp,
@@ -307,7 +321,6 @@ class Mt3dms:
         model_mt3dms : object
             MT3DMS python object.
         """
-
         # Create folders
         self.save_file = os.path.join(self.full_path, '_postprocess')
         toolbox.create_folder(self.save_file)
@@ -330,7 +343,10 @@ class Mt3dms:
         self.path_file = os.path.join(self.full_path, self.model_name_mt+'.UCN')
 
         # Files have been output in the processing phase and are re-read here
-        self.dem_mask = (self.model_modflow.dem<-9999)
+        self.dem_mask = np.asarray(
+            getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
+            dtype=bool,
+        )
 
         # Fluxes
         self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
@@ -392,12 +408,15 @@ class Mt3dms:
                 self.dict_mass_seepage[i] = massobj_1c_fil_surf
 
             if mass_accumulated==True:
+                routing_ctx = self.model_modflow._ensure_solver_routing_context()
 
                 accumulated_mass = masstransfer.Masstransfer(self.geographic,
                                                               'mass_seepage_t('+the_time+').tif',
                                                               'tracept_conc_t('+the_time+').shp',
                                                               'mass_accumulated_t('+the_time+').tif',
-                                                              extraction_folder=self.save_file)
+                                                              extraction_folder=self.save_file,
+                                                              routing_fill_path=routing_ctx.correc_path,
+                                                              routing_direc_path=routing_ctx.direc_path)
                 accumulated_mass.trace_cumulated()
                 output_path = self.tifs_file+'/mass_accumulated_t('+the_time+').tif'
                 with rasterio.open(output_path) as src:

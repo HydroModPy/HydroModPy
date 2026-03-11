@@ -11,10 +11,41 @@ from hydromodpy.geographic.cases.run_geographic_case import run_geographic_cases
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_geographic_case_metrics_golden.json"
-CASE_IDS = ["base", "canut", "nancon", "aber"]
+# Keep unit coverage focused on the largest basin only for runtime reasons.
+GOLDEN_FILE = (
+    Path(__file__).resolve().parent / "golden" / "run_geographic_case_metrics_nancon_golden.json"
+)
+CASE_IDS = ["nancon"]
 ABS_TOL_AREA_KM2 = 1e-4
 ABS_TOL_ELEV_M = 1e-2
+ABS_TOL_SUM_ELEV_M = 1e-1
+
+ELEV_METRIC_KEYS = [
+    "mean_elevation_catchment_m",
+    "mean_elevation_box_buff_m",
+    "std_elevation_catchment_m",
+    "std_elevation_box_buff_m",
+    "min_elevation_catchment_m",
+    "max_elevation_catchment_m",
+    "min_elevation_box_buff_m",
+    "max_elevation_box_buff_m",
+    "q05_elevation_catchment_m",
+    "q50_elevation_catchment_m",
+    "q95_elevation_catchment_m",
+    "q05_elevation_box_buff_m",
+    "q50_elevation_box_buff_m",
+    "q95_elevation_box_buff_m",
+]
+SUM_METRIC_KEYS = [
+    "sum_elevation_catchment_m",
+    "sum_elevation_box_buff_m",
+]
+COUNT_METRIC_KEYS = [
+    "valid_pixel_count_catchment",
+    "nodata_pixel_count_catchment",
+    "valid_pixel_count_box_buff",
+    "nodata_pixel_count_box_buff",
+]
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -32,7 +63,7 @@ def _load_json(path: Path) -> dict:
 def _write_tmp_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "run_geographic_config.toml"
     dem_path = (REPO_ROOT / "data" / "Brittany" / "dem" / "regional dem.tif").as_posix()
-    data_path = (REPO_ROOT / "examples" / "example12" / "data").as_posix()
+    data_path = (REPO_ROOT / "examples_legacy" / "example12" / "data").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
     config_path.write_text(
@@ -63,13 +94,10 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 @pytest.mark.slow
 def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
     """
-    Validate catchment area and mean catchment elevation on 4 geographic cases.
+    Validate DEM-sensitive geographic metrics on the largest geographic case.
 
-    Cases:
-    - base: outlet from TOML
-    - canut: polygon shapefile (from_polyg_shp)
-    - nancon: outlet coordinates
-    - aber: outlet coordinates
+    Kept as one-case unit test to keep execution time bounded.
+    Full 4-case non-regression is covered in regression/extensive tests.
     """
     config_path = _write_tmp_config(tmp_path)
     summaries = run_geographic_cases_from_toml(
@@ -82,7 +110,9 @@ def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
     actual = {
         case_id: {
             "catchment_area_km2": float(summaries[case_id]["catchment_area_km2"]),
-            "mean_elevation_catchment_m": float(summaries[case_id]["mean_elevation_catchment_m"]),
+            **{key: float(summaries[case_id][key]) for key in ELEV_METRIC_KEYS},
+            **{key: float(summaries[case_id][key]) for key in SUM_METRIC_KEYS},
+            **{key: int(summaries[case_id][key]) for key in COUNT_METRIC_KEYS},
         }
         for case_id in CASE_IDS
     }
@@ -105,8 +135,18 @@ def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
             abs=ABS_TOL_AREA_KM2,
             rel=0.0,
         )
-        assert actual[case_id]["mean_elevation_catchment_m"] == pytest.approx(
-            expected[case_id]["mean_elevation_catchment_m"],
-            abs=ABS_TOL_ELEV_M,
-            rel=0.0,
-        )
+        for key in ELEV_METRIC_KEYS:
+            assert actual[case_id][key] == pytest.approx(
+                expected[case_id][key],
+                abs=ABS_TOL_ELEV_M,
+                rel=0.0,
+            )
+        for key in SUM_METRIC_KEYS:
+            assert actual[case_id][key] == pytest.approx(
+                expected[case_id][key],
+                abs=ABS_TOL_SUM_ELEV_M,
+                rel=0.0,
+            )
+        for key in COUNT_METRIC_KEYS:
+            assert actual[case_id][key] == expected[case_id][key]
+

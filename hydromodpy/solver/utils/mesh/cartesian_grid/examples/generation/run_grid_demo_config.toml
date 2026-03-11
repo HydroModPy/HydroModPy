@@ -1,14 +1,7 @@
 # This file is kept only as reference.
 #
-# The generation demo now hardcodes:
-# - top raster path,
-# - CRS,
-# - horizontal plan discretization,
-# - nodata sentinel,
-# - bottom-construction scenarios.
-#
-# See:
-# hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo.py
+# Use this payload with:
+# hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config.build_sgrid_from_config
 
 [demo]
-description = "run_grid_demo.py is now surface-driven and no longer reads this TOML for grid generation."
+description = "Reference TOML for build_sgrid_from_config."

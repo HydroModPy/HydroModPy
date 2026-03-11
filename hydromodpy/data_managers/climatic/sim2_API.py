@@ -6,7 +6,6 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Optional
-from hydromodpy.watershed import initializing
 
 # Variable mapping: SIM2 variable names -> user-friendly names
 VAR_MAPPING = {
@@ -48,7 +47,16 @@ class Sim2_API:
     
     """
 
-    def __init__(self, box, crs, var_list, formatting, date, coords: Optional[str] = None):
+    def __init__(
+        self,
+        box,
+        crs,
+        var_list,
+        formatting,
+        date,
+        coords: Optional[str] = None,
+        stable_folder: str | Path | None = None,
+    ):
         
         print('Initializing SIM2 API client')
         self.coords = coords
@@ -58,7 +66,7 @@ class Sim2_API:
         self.var_list = self._convert_var_names(var_list)  # Convert to SIM2 names for API
         self.formatting = formatting
         self.date = date
-        self.stable_folder   = initializing.stable_folder
+        self.stable_folder = Path(stable_folder) if stable_folder is not None else Path.cwd()
         self.metadata, self.data = self._download_from_box()
         self._save_data_by_variable()
 

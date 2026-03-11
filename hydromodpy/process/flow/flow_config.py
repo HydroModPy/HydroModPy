@@ -85,7 +85,7 @@ class FlowConfig(ProcessSpatialConfig):
             "south_side, east_side, west_side; "
             "[flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; "
             "and generic [flow.bc.<custom_id>] payloads. "
-            "Common required key: value. "
+            "Common required key: value (numeric or '<value> <unit>'). "
             "Dirichlet keys may omit application_domain when <id> implies it "
             "(for example west_side -> 'west side'). "
             "Drainage (cauchy/robin) requires application_domain explicitly. "
@@ -381,8 +381,14 @@ class FlowConfig(ProcessSpatialConfig):
         #   detections (for example normalized key "drainage" seen as deprecated
         #   input on second pass).
         parsed_ic = raw_ic
-        parsed_bc = raw_bc
-        parsed_sinks_sources = raw_sinks_sources
+        parsed_bc = _resolve_boundary_condition_forcing_paths(
+            raw_bc,
+            base_dir=base_dir,
+        )
+        parsed_sinks_sources = _resolve_well_forcing_paths(
+            raw_sinks_sources,
+            base_dir=base_dir,
+        )
         raw_flow_regime = flow_section.get("flow_regime", "transient")
         return cls(
             flow_regime=raw_flow_regime,
@@ -399,8 +405,80 @@ def _parse_flow_ic_section(ic_cfg: Mapping[str, object]) -> FlowInitialCondition
     Parse and normalize one single `[flow.ic]` payload.
 
     Supported shapes:
-    - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`.
+    - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`,
+      where `value` can be numeric or `"<value> <unit>"`.
     """
     return normalize_flow_initial_conditions(ic_cfg, location_prefix="flow.ic")
+
+
+def _resolve_well_forcing_paths(
+    raw_sinks_sources: Mapping[str, object],
+    *,
+    base_dir: Path,
+) -> dict[str, object]:
+    """Resolve relative CSV paths declared under flow.sinks_sources.wells.*.forcing."""
+    payload = dict(raw_sinks_sources)
+    wells = payload.get("wells")
+    if not isinstance(wells, Mapping):
+        return payload
+
+    resolved_wells: dict[str, object] = {}
+    for well_id, raw_well in wells.items():
+        if not isinstance(raw_well, Mapping):
+            resolved_wells[str(well_id)] = raw_well
+            continue
+        well_payload = dict(raw_well)
+        forcing = well_payload.get("forcing")
+        if isinstance(forcing, Mapping):
+            forcing_payload = dict(forcing)
+            path_value = forcing_payload.get("path_file")
+            if isinstance(path_value, str) and path_value.strip() != "":
+                path = Path(path_value).expanduser()
+                if not path.is_absolute():
+                    path = (base_dir / path).resolve()
+                forcing_payload["path_file"] = path
+            well_payload["forcing"] = forcing_payload
+        resolved_wells[str(well_id)] = well_payload
+    payload["wells"] = resolved_wells
+    return payload
+
+
+def _resolve_boundary_condition_forcing_paths(
+    raw_bc: Mapping[str, object],
+    *,
+    base_dir: Path,
+) -> dict[str, object]:
+    """Resolve relative CSV paths declared under flow.bc.*.forcing."""
+    payload = dict(raw_bc)
+
+    def _resolve_forcing_mapping(item: object) -> object:
+        if not isinstance(item, Mapping):
+            return item
+        item_payload = dict(item)
+        forcing = item_payload.get("forcing")
+        if isinstance(forcing, Mapping):
+            forcing_payload = dict(forcing)
+            path_value = forcing_payload.get("path_file")
+            if isinstance(path_value, str) and path_value.strip() != "":
+                path = Path(path_value).expanduser()
+                if not path.is_absolute():
+                    path = (base_dir / path).resolve()
+                forcing_payload["path_file"] = path
+            item_payload["forcing"] = forcing_payload
+        return item_payload
+
+    dirichlet = payload.get("dirichlet")
+    if isinstance(dirichlet, Mapping):
+        resolved_dirichlet: dict[str, object] = {}
+        for bc_id, raw_item in dirichlet.items():
+            resolved_dirichlet[str(bc_id)] = _resolve_forcing_mapping(raw_item)
+        payload["dirichlet"] = resolved_dirichlet
+
+    for key, raw_item in list(payload.items()):
+        if key in {"dirichlet", "cauchy", "robin"}:
+            continue
+        payload[key] = _resolve_forcing_mapping(raw_item)
+
+    return payload
 
 

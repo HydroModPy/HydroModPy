@@ -1,4 +1,4 @@
-Install
+﻿Install
 =======
 
 Requirements
@@ -90,7 +90,7 @@ Command recipes
 ---------------
 
 Pick the setup that matches your workflow. Replace ``<env>`` with your
-environment name, set ``<py>`` to the desired Python version (3.11–3.13), and switch
+environment name, set ``<py>`` to the desired Python version (3.11â€“3.13), and switch
 ``hydromodpy`` to ``"hydromodpy[docs]"`` if you need the documentation extras.
 
 .. dropdown:: Conda + YAML
@@ -187,7 +187,7 @@ Check the installation
 .. code-block:: python
 
    import hydromodpy
-   from hydromodpy import watershed_root
+   from hydromodpy.watershed_legacy import watershed_root_legacy
    # Examples of submodule imports
    from hydromodpy.display import visualization_watershed, visualization_results
    from hydromodpy.tools import toolbox
@@ -224,3 +224,5 @@ older interpreters.
    Known ``pyproj`` / ``proj.db`` issues observed in earlier releases were fixed
    from v0.3.0 onward. Upgrade to this version (or newer) to avoid the missing
    database errors that appeared on some conda setups.
+
+

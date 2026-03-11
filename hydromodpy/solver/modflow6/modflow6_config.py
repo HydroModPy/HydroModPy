@@ -9,7 +9,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
 
 
@@ -56,13 +56,18 @@ class Modflow6Config(BaseModel):
         default_factory=Modflow6ProcessSpecificConfig,
         description="Process-specific controls for MODFLOW 6 flow packages.",
     )
-    sgrid: Annotated[VerticalGridConfig | None, ParamLevel("user")] = Field(
+    sgrid: Annotated[SolverSGridConfig | None, ParamLevel("user")] = Field(
         default=None,
-        description="Optional vertical discretization payload as VerticalGridConfig.",
+        description="Optional solver-grid payload split into planar and vertical sections.",
     )
     tgrid: Annotated[TMeshConfigModel | None, ParamLevel("user")] = Field(
         default=None,
-        description="Optional temporal discretization payload as TMeshConfigModel.",
+        description=(
+            "Optional temporal discretization payload as TMeshConfigModel. In "
+            "launcher mode, stress periods are driven by [simulation.time]; "
+            "this section is mirrored for compatibility and mainly keeps "
+            "`firstpersteady`."
+        ),
     )
 
 
@@ -100,7 +105,7 @@ class Modflow6SpecifParams:
 
     runtime: Modflow6RuntimeParams = Modflow6RuntimeParams()
     process_specific: Modflow6ProcessSpecificParams = Modflow6ProcessSpecificParams()
-    sgrid: VerticalGridConfig | None = None
+    sgrid: SolverSGridConfig | None = None
     tgrid: TMeshConfigModel | None = None
 
     @classmethod

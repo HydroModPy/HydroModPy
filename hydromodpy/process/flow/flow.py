@@ -68,6 +68,7 @@ Non-goals
 """
 
 from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.process.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
@@ -77,11 +78,22 @@ from hydromodpy.process.flow.initial_conditions_config import (
 )
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
 from hydromodpy.process.prototype import BoundaryCondition, ProcessSpatial, SinkSource
+from hydromodpy.units.volumetric_flow import (
+    convert_to_m3_per_s,
+    normalize_m3_per_s_unit,
+)
 
 
 class Flow(ProcessSpatial):
     """
     Runtime flow-process object built from a validated ``FlowConfig``.
+
+    Quick reading guide
+    -------------------
+    For a first pass, focus on these three methods:
+    - ``set_config``: one-shot synchronization from ``FlowConfig`` to runtime.
+    - ``_build_boundary_conditions``: validation and normalization of BC payloads.
+    - ``set_sinks_sources``: runtime storage of wells and recharge payloads.
 
     Inherits from ``ProcessSpatial``, which initializes the base containers
     (``parameters``, ``initial_conditions``, ``boundary_conditions``,
@@ -107,7 +119,7 @@ class Flow(ProcessSpatial):
     initial_condition_types : dict[str, str]
         Compact cache ``{"h": type_str}``; allows fast IC-type inspection
         without traversing the full ``FlowInitialConditions`` object.
-    boundary_conditions : dict[str, BoundaryCondition]
+    boundary_conditions : dict[str, FlowBoundaryConditionConfig]
         Typed BC objects keyed by BC id.
     boundary_condition_application_domains : dict[str, str]
         Optional per-BC spatial domain strings (e.g. ``"top"``,
@@ -209,7 +221,7 @@ class Flow(ProcessSpatial):
     def _build_boundary_conditions(
         self,
         boundary_conditions_cfg: dict[str, object],
-    ) -> tuple[dict[str, BoundaryCondition], dict[str, str]]:
+    ) -> tuple[dict[str, FlowBoundaryConditionConfig], dict[str, str]]:
         """
         Convert raw boundary-condition payloads into typed runtime structures.
 
@@ -230,24 +242,29 @@ class Flow(ProcessSpatial):
 
         Returns
         -------
-        tuple[dict[str, BoundaryCondition], dict[str, str]]
+        tuple[dict[str, FlowBoundaryConditionConfig], dict[str, str]]
             - typed BC objects keyed by BC id,
             - per-BC application-domain strings keyed by the same BC id.
         """
-        parsed: dict[str, BoundaryCondition] = {}
+        parsed: dict[str, FlowBoundaryConditionConfig] = {}
         application_domains: dict[str, str] = {}
 
         for bc_id, raw_payload in boundary_conditions_cfg.items():
             # Allow already-instantiated typed payloads.
-            if isinstance(raw_payload, BoundaryCondition):
+            if isinstance(raw_payload, FlowBoundaryConditionConfig):
                 parsed[bc_id] = raw_payload
+                continue
+            if isinstance(raw_payload, BoundaryCondition):
+                parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(
+                    raw_payload.model_dump(mode="python")
+                )
                 continue
             # For mapping payloads, enforce `id` from section key to keep
             # one stable identifier path.
             payload = dict(raw_payload)
             raw_application_domain = payload.pop("application_domain", None)
             payload["id"] = bc_id
-            parsed[bc_id] = BoundaryCondition.model_validate(payload)
+            parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(payload)
 
             # Keep domain information in a dedicated runtime map for explicit
             # downstream usage.
@@ -283,7 +300,7 @@ class Flow(ProcessSpatial):
 
     def set_boundary_conditions(
         self,
-        boundary_conditions: dict[str, BoundaryCondition] | None = None,
+        boundary_conditions: dict[str, FlowBoundaryConditionConfig] | None = None,
         *,
         application_domains: dict[str, str] | None = None,
     ) -> None:
@@ -292,7 +309,7 @@ class Flow(ProcessSpatial):
 
         Parameters
         ----------
-        boundary_conditions : dict[str, BoundaryCondition] | None
+        boundary_conditions : dict[str, FlowBoundaryConditionConfig] | None
             Typed BC payloads keyed by BC id.
         application_domains : dict[str, str] | None
             Optional per-BC domain targets (for example `top`, `west side`).
@@ -315,13 +332,51 @@ class Flow(ProcessSpatial):
 
         Stores wells under `self.sinks_sources["wells"]` and recharge config
         under `self.sinks_sources["recharge"]`.
+
+        Well fluxes are converted to SI volumetric flow (`m3/s`) at load time
+        using each well `units` field.
         """
         if sinks_sources is None:
             self.sinks_sources["wells"] = {}
             self.sinks_sources["recharge"] = None
             return
 
-        self.sinks_sources["wells"] = dict(sinks_sources.wells)
+        normalized_wells = {}
+        for well_id, well_cfg in sinks_sources.wells.items():
+            raw_units = getattr(well_cfg, "units", "m3/s")
+            try:
+                canonical_units = normalize_m3_per_s_unit(raw_units)
+            except ValueError as exc:
+                raise ValueError(
+                    f"flow.sinks_sources.wells.{well_id}.units must be compatible with m3/s "
+                    f"(for example m3/day, m3/h, m3/s, l/s). Got: {raw_units!r}"
+                ) from exc
+
+            flux_payload = well_cfg.flux
+            if flux_payload is None:
+                normalized_wells[well_id] = well_cfg
+                continue
+            if isinstance(flux_payload, list):
+                flux_si = [
+                    convert_to_m3_per_s(
+                        flux_item,
+                        unit=canonical_units,
+                        label=f"flow.sinks_sources.wells.{well_id}.flux[{idx}]",
+                    )
+                    for idx, flux_item in enumerate(flux_payload)
+                ]
+            else:
+                flux_si = convert_to_m3_per_s(
+                    flux_payload,
+                    unit=canonical_units,
+                    label=f"flow.sinks_sources.wells.{well_id}.flux",
+                )
+
+            normalized_wells[well_id] = well_cfg.model_copy(
+                update={"flux": flux_si, "units": "m3/s"}
+            )
+
+        self.sinks_sources["wells"] = normalized_wells
         self.sinks_sources["recharge"] = sinks_sources.recharge
 
     def set_recharge(self, recharge: FlowRechargeConfig | None) -> None:

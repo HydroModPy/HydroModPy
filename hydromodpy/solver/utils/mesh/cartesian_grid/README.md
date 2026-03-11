@@ -15,11 +15,9 @@ hydromodpy/solver/utils/mesh/cartesian_grid/
 |-- sgrid_fieldparam_discretization.py
 |-- examples/
 |   |-- generation/
-|   |   |-- run_grid_demo.py
 |   |   |-- run_grid_demo_config.toml
 |   |   `-- watershed_box_buff_dem.tif
 |   `-- discretization/
-|       |-- run_demo_2d.py
 |       |-- run_demo_config.py
 |       `-- run_demo_config_2d.toml
 |-- __init__.py
@@ -64,6 +62,9 @@ Implementation note:
 - `RasterGridReader` isolates raster I/O (`rasterio`) from builder logic.
 - `PlanarDiscretizer` handles `nx/ny` re-discretization and interpolation policy.
 - `StructuredGridBuilder` performs only deterministic construction from validated config.
+- Solver launchers now use a narrower nested contract:
+  `[...sgrid.planar]` + `[...sgrid.vertical]`, because domain surfaces are
+  already available at runtime and do not need `top_path`/`bot_path`.
 
 ## FieldParam Discretization: 2D Support, 3D Evaluation
 
@@ -386,19 +387,14 @@ Temporal discretization is now separated from cartesian mesh tools and lives in:
 ## Minimal Example (Spatial Grid)
 
 ```python
-from pathlib import Path
-import subprocess
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import build_sgrid_from_config
 
-repo_root = Path("hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation")
-subprocess.run(
-    [
-        "python",
-        str(repo_root / "run_grid_demo.py"),
-        "--config",
-        str(repo_root / "run_grid_demo_config.toml"),
-    ],
-    check=True,
+cfg = SGridConfig.from_toml(
+    "hydromodpy/solver/utils/mesh/cartesian_grid/examples/generation/run_grid_demo_config.toml"
 )
+sgrid = build_sgrid_from_config(cfg)
+print(sgrid.nlay, sgrid.nrow, sgrid.ncol)
 ```
 
 ## TOML + Pydantic Interface (Spatial Grid)

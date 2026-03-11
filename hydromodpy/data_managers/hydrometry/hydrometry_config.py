@@ -7,6 +7,7 @@ import tomllib
 from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from hydromodpy.units import parse_length_to_m
 
 
 class HydrometrySectionSchema(BaseModel):
@@ -22,13 +23,26 @@ class HydrometrySectionSchema(BaseModel):
         default=False,
         description="If true, display diagnostic information while loading station data.",
     )
+    use_simulation_time_window: bool = Field(
+        default=False,
+        description=(
+            "If true, derive date_start/date_end from [simulation.time] canonical "
+            "window in launcher mode. Requires a valid [simulation.time] section."
+        ),
+    )
     date_start: str | None = Field(
         default=None,
-        description="Optional inclusive start date filter applied to the requested time series.",
+        description=(
+            "Optional inclusive start date filter applied to the requested time "
+            "series. Used directly when use_simulation_time_window=false."
+        ),
     )
     date_end: str | None = Field(
         default=None,
-        description="Optional inclusive end date filter applied to the requested time series.",
+        description=(
+            "Optional inclusive end date filter applied to the requested time "
+            "series. Used directly when use_simulation_time_window=false."
+        ),
     )
 
     @field_validator("variable")
@@ -98,6 +112,21 @@ class SelectionSectionSchema(BaseModel):
         default=None,
         description="Path to the polygon mask used to keep stations intersecting the study area when mode='mask'.",
     )
+    fallback_search_radius: Any | None = Field(
+        default=None,
+        description=(
+            "Fallback search radius around the mask when no station is found. "
+            "Accepts SI-friendly values (for example 10000, '10 km', '500 m', or {value, unit}). "
+            "Normalized internally to meters."
+        ),
+    )
+    fallback_search_radius_km: float | None = Field(
+        default=None,
+        description=(
+            "Deprecated compatibility key interpreted in kilometers. "
+            "Prefer 'fallback_search_radius'."
+        ),
+    )
 
     @field_validator("station_ids")
     @classmethod
@@ -127,6 +156,29 @@ class SelectionSectionSchema(BaseModel):
             raise ValueError("selection.station_ids is required when selection.mode='stations'")
         if self.mode == "mask" and self.mask_path is None:
             raise ValueError("selection.mask_path is required when selection.mode='mask'")
+        if self.fallback_search_radius is not None and self.fallback_search_radius_km is not None:
+            raise ValueError(
+                "selection.fallback_search_radius and selection.fallback_search_radius_km "
+                "cannot both be provided."
+            )
+        raw_radius = self.fallback_search_radius
+        raw_default_unit = "m"
+        if raw_radius is None and self.fallback_search_radius_km is not None:
+            raw_radius = self.fallback_search_radius_km
+            raw_default_unit = "km"
+        if raw_radius is None:
+            raw_radius = 10.0
+            raw_default_unit = "km"
+
+        radius_m = parse_length_to_m(
+            raw_radius,
+            default_unit=raw_default_unit,
+            label="selection.fallback_search_radius",
+        )
+        if radius_m < 0.0:
+            raise ValueError("selection.fallback_search_radius must be >= 0.")
+        self.fallback_search_radius = float(radius_m)
+        self.fallback_search_radius_km = None
         return self
 
 
@@ -205,8 +257,9 @@ def load_hydrometry_toml(config_path: str | Path) -> dict[str, Any]:
     Relative paths are resolved against the TOML file directory.
     """
     path = Path(config_path).expanduser().resolve()
-    with path.open("rb") as stream:
-        payload = tomllib.load(stream)
+    # Use utf-8-sig to accept files saved with a UTF-8 BOM
+    # (otherwise tomllib.load on bytes can fail at line 1, column 1).
+    payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
 
     try:
         cfg = validate_hydrometry_config_data(payload)

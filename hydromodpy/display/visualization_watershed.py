@@ -14,17 +14,27 @@
 
 # Python
 import os
-from typing import Optional
+from typing import Any, Optional
 import numpy as np
 import geopandas as gpd
 import rasterio
 from rasterio.plot import show
-import contextily as cx
+try:
+    import contextily as cx
+except ModuleNotFoundError:  # optional dependency for basemap backgrounds
+    cx = None
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib_scalebar.scalebar import ScaleBar
+try:
+    from matplotlib_scalebar.scalebar import ScaleBar
+except ModuleNotFoundError:  # optional dependency for map scale bars
+    from matplotlib.artist import Artist
+
+    class ScaleBar(Artist):  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):
+            super().__init__()
 import matplotlib.patches as mpatches
 try:
     from colormap.colors import rgb2hex, hex2rgb
@@ -33,7 +43,11 @@ except:
 
 # HydroModPy
 from hydromodpy.tools import toolbox
-from hydromodpy.watershed import Workspace, Geographic, Hydrography, Intermittency, Piezometry, Geology
+from hydromodpy.simulation.workspace import Workspace
+from hydromodpy.geographic.geographic import Geographic
+from hydromodpy.data_managers.hydrography import Hydrography
+from hydromodpy.data_managers.piezometry.piezometry import Piezometry
+from hydromodpy.data_managers.intermittency import Intermittency
 from hydromodpy.data_managers.hydrometry.station_set import StationSet
 
 #%% PLOT SETTINGS
@@ -87,6 +101,14 @@ fontprop = FontProperties()
 fontprop.set_family('serif') # for x and y label
 fontdic = {'family' : 'serif'} # for legend
 
+
+def _raster_nodata_mask(data: np.ndarray, nodata: float | None) -> np.ndarray:
+    """Return the nodata mask for one raster array."""
+
+    if nodata is None:
+        return data < 0
+    return np.isclose(data.astype(float), float(nodata))
+
 #%% FUNCTIONS
 
 def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Piezometry=None, intermittency: Intermittency=None, hydrometry: Optional[StationSet]=None):
@@ -116,6 +138,8 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     except:
         pass
     dem = rasterio.open(geographic.watershed_box_buff_dem)
+    dem_array = dem.read(1)
+    dem_masked = np.ma.masked_where(_raster_nodata_mask(dem_array, dem.nodata), dem_array)
     bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
@@ -126,9 +150,9 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     ax.set(aspect='equal') 
-    image_hidden = ax.imshow(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), 
+    image_hidden = ax.imshow(dem_masked, 
                               cmap='terrain')
-    show(np.ma.masked_where(dem.read(1) < -100, dem.read(1)), ax=ax, transform=dem.transform, 
+    show(dem_masked, ax=ax, transform=dem.transform, 
           cmap='terrain', alpha=0.75, zorder=2, aspect="auto")
     legend_handles = []
     try:
@@ -195,7 +219,7 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
     cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
     cbar.ax.get_ymajorticklabels()
     list(cbar.get_ticks())
-    val = np.ma.masked_where(geographic.dem_box_buff_data < 0, geographic.dem_box_buff_data)
+    val = dem_masked
     minVal =  int(round(np.min(val[np.nonzero(val)],0)))
     maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
     meanVal = int(round(minVal+((maxVal-minVal)/2),0))
@@ -257,7 +281,7 @@ def watershed_local(regional_dem_path, initializing: Workspace, geographic: Geog
     fig.savefig(os.path.join(initializing.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
     
-def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Geology, hydrography: Hydrography=None, piezometry: Piezometry=None):
+def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Any, hydrography: Hydrography=None, piezometry: Piezometry=None):
     """
     Plot lithology of the watershed from specific geological map at FRance scale.
 
@@ -267,13 +291,14 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
         Workspace object of the model domain (watershed).
     geographic : Geographic
         Geographic object of the model domain (watershed).
-    geology : Geology
-        Geology object of the model domain (watershed).
+    geology : object
+        Geology-like object exposing a ``geol_file`` path.
     """
     fontprop = toolbox.plot_params(8,15,18,20)
     fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=300)
     ax = plt.gca()
     dem = rasterio.open(geographic.watershed_box_buff_dem)
+    dem_array = dem.read(1)
     polyg = gpd.read_file(geographic.watershed_shp)
     contour = gpd.read_file(geographic.watershed_contour_shp)
     crs = contour.crs
@@ -285,7 +310,8 @@ def watershed_geology(initializing: Workspace, geographic: Geographic, geology: 
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     ax.set(aspect='equal') 
-    cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+    if cx is not None:
+        cx.add_basemap(ax,crs=crs,source='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
     geol = gpd.read_file(geology.geol_file)
     try:
         geol['hex']
@@ -369,6 +395,7 @@ def watershed_zones(BV):
     except:
         pass
     dem = rasterio.open(BV.geographic.watershed_box_buff_dem)
+    dem_array = dem.read(1)
     bounds = dem.bounds
     xlim = ([bounds[0], bounds[2]])
     ylim = ([bounds[1], bounds[3]])
@@ -441,7 +468,7 @@ def watershed_zones(BV):
     cbar = fig.colorbar(image_hidden, cax=cax, orientation="vertical")
     cbar.ax.get_ymajorticklabels()
     list(cbar.get_ticks())
-    val = np.ma.masked_where(BV.geographic.dem_box_buff_data < 0, BV.geographic.dem_box_buff_data)
+    val = np.ma.masked_where(_raster_nodata_mask(dem_array, dem.nodata), dem_array)
     minVal =  int(round(np.min(val[np.nonzero(val)],0)))
     maxVal =  int(round(np.max(val[np.nonzero(val)],0)))
     meanVal = int(round(minVal+((maxVal-minVal)/2),0))

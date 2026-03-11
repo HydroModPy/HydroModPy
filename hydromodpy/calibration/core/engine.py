@@ -8,7 +8,7 @@ import numpy as np
 from hydromodpy.calibration.core.parameters import CalibrationParameterSet
 from hydromodpy.calibration.core.results import CalibrationResults
 from hydromodpy.calibration.core.methods_dispatcher import DEFAULT_CALIBRATION_METHOD
-from hydromodpy.calibration.core.objective_function import ObjectiveFunction
+from hydromodpy.calibration.core.objective_wrappers import build_objective
 
 
 def as_1d_array(values, name):
@@ -92,6 +92,9 @@ class CalibrationEngine:
     objective_metric : str, default="nse"
         Objective metric. Supported canonical values:
         `nse`, `nse_log`, `kge`, `rmse`.
+    objective_config : Mapping[str, Any] or None
+        Optional objective wrapper settings (for example pre-metric series
+        transformation). When omitted, no wrapper is applied.
     parameter_names : list[str] or None
         Explicit parameter order when `bounds` is a sequence.
     parameter_set : CalibrationParameterSet or compatible bounds definition, optional
@@ -107,13 +110,17 @@ class CalibrationEngine:
         simulator,
         bounds=None,
         objective_metric="nse",
+        objective_config=None,
         parameter_names=None,
         parameter_set=None,
         calibration_method=None,
     ):
         self.observed = as_1d_array(observed, "observed")
         self.simulator = simulator
-        self.objective = ObjectiveFunction(metric=objective_metric)
+        self.objective = build_objective(
+            metric=objective_metric,
+            objective_options=objective_config,
+        )
         self.parameter_set = self._resolve_parameter_set(
             bounds=bounds,
             parameter_names=parameter_names,

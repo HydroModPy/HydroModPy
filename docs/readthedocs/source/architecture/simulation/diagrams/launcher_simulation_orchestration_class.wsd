@@ -1,0 +1,80 @@
+@startuml
+title Launcher - Simulation Orchestration Class Diagram
+
+package "launchers" {
+  class HydroModPyLauncher {
+    +cfg: HydroModPyConfig
+    +run()
+    +_create_simulation_plan()
+    +_run_setup()
+    +_run_data()
+  }
+}
+
+package "hydromodpy.simulation" {
+  class SimulationPlanner {
+    +build(config)
+  }
+
+  class SimulationPlan {
+    +name: str
+    +description: str
+    +runs: tuple[ProcessRun, ...]
+  }
+
+  class ProcessRun {
+    +id: str
+    +process_id: str
+    +process_type: str
+    +solver: str
+    +depends_on: tuple[str, ...]
+  }
+
+  class SimulationRunner {
+    +execute(plan, runtime_state)
+  }
+}
+
+package "hydromodpy.process" {
+  class Flow
+  class Transport
+}
+
+package "hydromodpy.solver" {
+  interface "Flow Solver Wrapper" as FlowSolver
+  class Modflow
+  class Modflow6
+
+  interface "Transport Solver Wrapper" as TransportSolver
+  class Modpath
+  class Mt3dms
+  class Modflow6Transport
+}
+
+HydroModPyLauncher --> SimulationPlanner : builds
+HydroModPyLauncher --> SimulationRunner : delegates execution
+
+SimulationPlanner ..> SimulationPlan : returns
+SimulationPlanner ..> ProcessRun : produces
+
+SimulationPlan *-- "0..*" ProcessRun : runs
+
+HydroModPyLauncher --> SimulationPlan : stores active plan
+HydroModPyLauncher --> ProcessRun : indexes runs by id
+HydroModPyLauncher --> Flow : prepares runtime process
+HydroModPyLauncher --> Transport : prepares runtime process
+
+SimulationRunner ..> SimulationPlan : consumes ordered runs
+SimulationRunner ..> ProcessRun : dispatches
+SimulationRunner ..> Flow : uses runtime process
+SimulationRunner ..> Transport : uses runtime process
+SimulationRunner ..> FlowSolver : instantiates from run.solver
+SimulationRunner ..> TransportSolver : instantiates from run.solver
+
+FlowSolver <|.. Modflow
+FlowSolver <|.. Modflow6
+
+TransportSolver <|.. Modpath
+TransportSolver <|.. Mt3dms
+TransportSolver <|.. Modflow6Transport
+@enduml

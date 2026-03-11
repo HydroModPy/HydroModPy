@@ -61,6 +61,7 @@ def plot_concentration_frames(
     geographic,
     hydrography,
     recharge_series,
+    base_raster_path: Path | None = None,
     output_dir: Path,
     prefix: str,
     dpi: int = 300,
@@ -114,7 +115,11 @@ def plot_concentration_frames(
     watershed = gpd.read_file(geographic.watershed_shp)
     streams = gpd.read_file(hydrography.streams) if hydrography is not None else None
 
-    dem_path = Path(geographic.watershed_dem)
+    dem_path = Path(
+        base_raster_path
+        if base_raster_path is not None
+        else getattr(model_modflow, "dem_watershed_path", geographic.watershed_dem)
+    )
     frame_paths: list[Path] = []
     all_box_stats: list[tuple[float, list[dict[str, float | list[float]]]]] = []
     mean_vals: list[float] = []
@@ -123,7 +128,8 @@ def plot_concentration_frames(
 
     with rasterio.open(dem_path) as dem:
         dem_data = dem.read(1)
-        dem_mask = np.ma.masked_where(dem_data < 0, dem_data)
+        nodata = dem.nodata if dem.nodata is not None else -9999.0
+        dem_mask = np.ma.masked_where(np.isclose(dem_data, float(nodata)), dem_data)
 
         for i in range(nframes):
             seep_path = Path(model_modflow.full_path) / "_postprocess" / "_rasters" / f"outflow_drain_t({i}).tif"
@@ -222,7 +228,7 @@ def plot_concentration_frames(
             )
 
             rasterio.plot.show(
-                np.ma.masked_where(dem_data < 0, concentration_surface.copy()),
+                np.ma.masked_where(np.isclose(dem_data, float(nodata)), concentration_surface.copy()),
                 ax=ax[1],
                 transform=dem.transform,
                 cmap="turbo",

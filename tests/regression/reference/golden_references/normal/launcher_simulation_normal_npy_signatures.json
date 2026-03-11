@@ -1,0 +1,117 @@
+{
+  "modflow_expected": {
+    "watertable_elevation": {
+      "count": 3600,
+      "mean": 118.29673519346449,
+      "p50": 120.20234298706055,
+      "p95": 128.3691734313965,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 425868.24669647217
+    },
+    "watertable_depth": {
+      "count": 3600,
+      "mean": 3.349231844663351,
+      "p50": 3.5121546522533507,
+      "p95": 6.677997902729676,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 12057.234640788063
+    },
+    "seepage_areas": {
+      "count": 3600,
+      "mean": 0.06194444444444445,
+      "p50": 0.0,
+      "p95": 1.0,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 223.0
+    },
+    "outflow_drain": {
+      "count": 3600,
+      "mean": 2.504231451843629e-05,
+      "p50": 0.0,
+      "p95": 0.00012285573102417362,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 0.09015233226637065
+    },
+    "accumulation_flux": {
+      "count": 3600,
+      "mean": 0.0004327125198501057,
+      "p50": 0.0,
+      "p95": 0.0002293678800924676,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 1.5577650714603806
+    }
+  },
+  "modpath_expected": {
+    "starting.dbf": {
+      "n_rows": 85,
+      "time": {
+        "count": 85,
+        "mean": 234021947.67058823,
+        "p50": 215925792.0,
+        "p95": 345284864.0
+      }
+    },
+    "ending.dbf": {
+      "n_rows": 85,
+      "time": {
+        "count": 85,
+        "mean": 234021947.67058823,
+        "p50": 215925792.0,
+        "p95": 345284864.0
+      }
+    }
+  },
+  "mt3dms_expected": {
+    "concentration_seepage": {
+      "count": 223,
+      "mean": 2.7143368112321914e-06,
+      "p50": 2.714374431889155e-06,
+      "p95": 2.714581410145911e-06,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 0.0006052971089047787
+    },
+    "mass_seepage": {
+      "count": 3600,
+      "mean": -9379.617499999931,
+      "p50": -9999.0,
+      "p95": 3.3349893201556425e-10,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": -33766622.999999754
+    }
+  }
+}

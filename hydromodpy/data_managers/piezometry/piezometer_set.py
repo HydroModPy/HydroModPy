@@ -10,27 +10,39 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Union
 
 import pandas as pd
-import requests
 
 try:
     from ..common.base_station_set import BaseStationSet
     from ..common.utils import safe_file_token
+    from .discovery import (
+        discover_piezometer_ids as discover_piezometer_ids_in_area,
+        normalize_piezometer_ids,
+        select_piezometer_ids_from_mask,
+    )
     from .piezometer import Piezometer
     from .loaders_api import ApiPiezometerLoader
     from .loaders_local import LocalPiezometerLoader
+    from hydromodpy.units import parse_length_to_m
 except ImportError:
     import sys
 
     _manager_root = Path(__file__).resolve().parents[1]
     _this_dir = Path(__file__).resolve().parent
-    for _path in (str(_manager_root), str(_this_dir)):
+    _repo_root = Path(__file__).resolve().parents[3]
+    for _path in (str(_manager_root), str(_this_dir), str(_repo_root)):
         if _path not in sys.path:
             sys.path.insert(0, _path)
     from common.base_station_set import BaseStationSet
     from common.utils import safe_file_token
+    from discovery import (
+        discover_piezometer_ids as discover_piezometer_ids_in_area,
+        normalize_piezometer_ids,
+        select_piezometer_ids_from_mask,
+    )
     from piezometer import Piezometer
     from loaders_api import ApiPiezometerLoader
     from loaders_local import LocalPiezometerLoader
+    from hydromodpy.units import parse_length_to_m
 
 
 API_BASE_URL = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/"
@@ -76,6 +88,7 @@ class PiezometerSet(BaseStationSet):
 
         piezometer_ids = None
         mask_path = None
+        fallback_search_radius_m = selection_cfg.get("fallback_search_radius")
         if selection_cfg["mode"] == "stations":
             piezometer_ids = selection_cfg["piezometer_ids"]
         else:
@@ -98,6 +111,7 @@ class PiezometerSet(BaseStationSet):
             output=output_value,
             source_mode=source_cfg["mode"],
             local_data_dir=source_cfg.get("local_data_dir"),
+            fallback_search_radius_m=fallback_search_radius_m,
         )
 
     @classmethod
@@ -107,7 +121,8 @@ class PiezometerSet(BaseStationSet):
         bbox: Optional[tuple[float, float, float, float]] = None,
         mask_path: Optional[Union[str, Path]] = None,
         center_point: Optional[tuple[float, float]] = None,
-        fallback_search_radius_km: float = 25.0,
+        fallback_search_radius_m: Optional[Any] = None,
+        fallback_search_radius_km: Optional[Any] = None,
         require_observations: bool = False,
         date_start: Optional[str] = None,
         date_end: Optional[str] = None,
@@ -149,100 +164,33 @@ class PiezometerSet(BaseStationSet):
             Discovered valid ``code_bss`` identifiers, sorted by distance if
             center_point or mask_path provided.
         """
-        if max_ids is not None and max_ids < 1:
-            raise ValueError("max_ids must be None or >= 1")
-
-        helper = object.__new__(cls)
-        mask_gdf = None
-        original_bbox = bbox  # Sauvegarder la bbox originale pour fallback
-        
-        if mask_path is not None:
-            mask_gdf = helper._load_mask_geometry(mask_path)
-            bounds = mask_gdf.total_bounds
-            bbox = (float(bounds[0]), float(bounds[1]), float(bounds[2]), float(bounds[3]))
-
-        if bbox is None:
-            raise ValueError("Either bbox or mask_path must be provided.")
-
-        try:
-            minx, miny, maxx, maxy = [float(v) for v in bbox]
-        except Exception as exc:
-            raise ValueError("bbox must be a 4-float tuple: (minx, miny, maxx, maxy)") from exc
-        if minx >= maxx or miny >= maxy:
-            raise ValueError("Invalid bbox values: require minx < maxx and miny < maxy.")
-
-        # Déterminer le point de référence pour le tri par distance
-        reference_point = center_point
-        if reference_point is None and mask_gdf is not None:
-            bounds = mask_gdf.total_bounds
-            reference_point = ((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)
-
-        # Recherche dans la zone définie
-        candidate_data = cls._search_piezometers_in_bbox(
-            minx, miny, maxx, maxy, 
-            mask_gdf, 
-            timeout
-        )
-
-        # Fallback si la zone est vide : chercher avec un buffer
-        if not candidate_data and fallback_search_radius_km > 0 and reference_point is not None:
-            print(f"No piezometers found in the initial search area.")
-            print(f"Searching in a {fallback_search_radius_km} km buffer around the area...")
-            # Convertir buffer en degrés (approximation : 1 degré ≈ 111 km à l'équateur)
-            buffer_deg = fallback_search_radius_km / 111.0
-            fallback_bbox = (
-                minx - buffer_deg,
-                miny - buffer_deg,
-                maxx + buffer_deg,
-                maxy + buffer_deg,
+        if fallback_search_radius_m is not None and fallback_search_radius_km is not None:
+            raise ValueError("Use either fallback_search_radius_m or fallback_search_radius_km, not both.")
+        if fallback_search_radius_m is None and fallback_search_radius_km is None:
+            fallback_search_radius_km = 25.0
+        if fallback_search_radius_m is None:
+            radius_m = parse_length_to_m(
+                fallback_search_radius_km,
+                default_unit="km",
+                label="fallback_search_radius_km",
             )
-            candidate_data = cls._search_piezometers_in_bbox(
-                fallback_bbox[0], fallback_bbox[1], 
-                fallback_bbox[2], fallback_bbox[3],
-                None,  # Pas de mask pour le fallback
-                timeout
+        else:
+            radius_m = parse_length_to_m(
+                fallback_search_radius_m,
+                default_unit="m",
+                label="fallback_search_radius_m",
             )
-            if candidate_data:
-                print(f"Found {len(candidate_data)} piezometers in buffered search area.")
 
-        # Appliquer le tri par distance automatiquement si reference_point est disponible
-        if reference_point is not None and candidate_data and all(d["coords"] is not None for d in candidate_data):
-            try:
-                ref_lon, ref_lat = reference_point
-                distances = []
-                for item in candidate_data:
-                    if item["coords"] is not None:
-                        lon, lat = item["coords"]
-                        dist = cls._haversine_distance(ref_lon, ref_lat, lon, lat)
-                        distances.append((item["id"], dist))
-                distances.sort(key=lambda x: x[1])
-                candidate_ids = [cid for cid, _ in distances[:max_ids]]
-                print(f"Discovered {len(candidate_ids)} closest piezometers sorted by distance to reference point")
-                
-                # Appliquer le filtre require_observations si nécessaire
-                if require_observations:
-                    return cls._filter_by_observations(
-                        candidate_ids, 
-                        date_start, 
-                        date_end, 
-                        max_ids, 
-                        timeout
-                    )
-                return candidate_ids
-            except Exception as exc:
-                print(f"Warning: distance sorting failed: {exc}. Returning unsorted results.")
-
-        candidate_ids = [item["id"] for item in candidate_data]
-
-        if not require_observations:
-            return candidate_ids[:max_ids]
-
-        return cls._filter_by_observations(
-            candidate_ids, 
-            date_start, 
-            date_end, 
-            max_ids, 
-            timeout
+        return discover_piezometer_ids_in_area(
+            bbox=bbox,
+            mask_path=mask_path,
+            center_point=center_point,
+            fallback_search_radius_m=radius_m,
+            require_observations=require_observations,
+            date_start=date_start,
+            date_end=date_end,
+            max_ids=max_ids,
+            timeout=timeout,
         )
 
     def __init__(
@@ -257,6 +205,7 @@ class PiezometerSet(BaseStationSet):
         output: Optional[Union[str, List[str], None]] = None,
         source_mode: str = "api",
         local_data_dir: Optional[Union[str, Path, None]] = None,
+        fallback_search_radius_m: Optional[Any] = None,
     ):
         """
         Initialize PiezometerSet instance.
@@ -294,6 +243,20 @@ class PiezometerSet(BaseStationSet):
         self.output = output
         self.source_mode = str(source_mode).strip().lower()
         self.local_data_dir = Path(local_data_dir).expanduser().resolve() if local_data_dir else None
+        if fallback_search_radius_m is None:
+            self.fallback_search_radius_m = float(
+                parse_length_to_m(25.0, default_unit="km", label="fallback_search_radius_default")
+            )
+        else:
+            self.fallback_search_radius_m = float(
+                parse_length_to_m(
+                    fallback_search_radius_m,
+                    default_unit="m",
+                    label="fallback_search_radius_m",
+                )
+            )
+        if self.fallback_search_radius_m < 0.0:
+            raise ValueError("fallback_search_radius_m must be >= 0.")
 
         if self.source_mode not in ("api", "local"):
             raise ValueError("source_mode must be 'api' or 'local'.")
@@ -309,7 +272,10 @@ class PiezometerSet(BaseStationSet):
         self.piezometers: Dict[str, Piezometer] = {}
 
         if mask is not None:
-            self.piezometer_id = self._get_piezometers_from_mask(mask)
+            self.piezometer_id = self._get_piezometers_from_mask(
+                mask,
+                fallback_search_radius_m=self.fallback_search_radius_m,
+            )
         elif id is not None:
             self.piezometer_id = self._process_ids(id)
         else:
@@ -365,7 +331,7 @@ class PiezometerSet(BaseStationSet):
     @staticmethod
     def _haversine_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
         """
-        Calculate distance in km between two points using Haversine formula.
+        Calculate distance in meters between two points using Haversine formula.
 
         Parameters
         ----------
@@ -377,7 +343,7 @@ class PiezometerSet(BaseStationSet):
         Returns
         -------
         float
-            Distance in kilometers
+            Distance in meters
         """
         from math import radians, cos, sin, asin, sqrt
 
@@ -386,7 +352,7 @@ class PiezometerSet(BaseStationSet):
         dlat = lat2 - lat1
         a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
         c = 2 * asin(sqrt(a))
-        r = 6371  # Earth radius in kilometers
+        r = 6_371_000.0  # Earth radius in meters
         return c * r
 
     @classmethod
@@ -526,15 +492,36 @@ class PiezometerSet(BaseStationSet):
 
         return discovered
 
-    def _get_piezometers_from_mask(self, mask_path, fallback_search_radius_km: float = 25.0):
+    def _get_piezometers_from_mask(
+        self,
+        mask_path,
+        *,
+        fallback_search_radius_m: Optional[float] = None,
+    ):
         """Select piezometers located inside a mask geometry."""
-        print(f"Loading geographic mask from: {mask_path}")
-        mask_gdf = self._load_mask_geometry(mask_path)
-        if self.source_mode == "api":
-            return self._filter_piezometers_with_geometry_api(mask_gdf, fallback_search_radius_km)
-        if self.source_mode == "local":
-            return self._filter_piezometers_with_geometry_local(mask_gdf)
-        raise ValueError(f"Unsupported source_mode: {self.source_mode}")
+        radius_m = (
+            self.fallback_search_radius_m
+            if fallback_search_radius_m is None
+            else float(fallback_search_radius_m)
+        )
+        try:
+            return select_piezometer_ids_from_mask(
+                mask_path=mask_path,
+                source_mode=self.source_mode,
+                local_data_dir=self.local_data_dir,
+                fallback_search_radius_m=radius_m,
+            )
+        except TypeError as exc:
+            # Backward-compatibility path for call sites/tests still exposing
+            # the legacy kilometer keyword.
+            if "unexpected keyword argument 'fallback_search_radius_m'" not in str(exc):
+                raise
+            return select_piezometer_ids_from_mask(
+                mask_path=mask_path,
+                source_mode=self.source_mode,
+                local_data_dir=self.local_data_dir,
+                fallback_search_radius_km=float(radius_m) / 1000.0,
+            )
 
     def _load_mask_geometry(self, mask_path):
         """Load mask geometry from vector or raster path in EPSG:4326."""
@@ -738,6 +725,7 @@ class PiezometerSet(BaseStationSet):
     @staticmethod
     def _process_ids(id_values):
         """Normalize piezometer identifiers into a list of strings."""
+        return normalize_piezometer_ids(id_values)
         if isinstance(id_values, str):
             id_values = [id_values]
         normalized = [str(v).strip() for v in id_values]
@@ -886,7 +874,7 @@ class PiezometerSet(BaseStationSet):
         Returns
         -------
         str
-            Standardized CSV filename
+            Standardized CSV filename (filesystem-safe)
         """
         # Determine API name
         api_name = "HUBEAU" if self.source_mode == "api" else "custom"
@@ -909,8 +897,11 @@ class PiezometerSet(BaseStationSet):
             start_date = "00000000"
             end_date = "00000000"
         
+        # Make piezometer_id filesystem-safe by replacing slash and backslash with underscore
+        safe_id = str(piezometer_id).replace("/", "_").replace("\\", "_")
+        
         # Build filename
-        filename = f"piezometry_{api_name}_{piezometer_id}_{start_date}_{end_date}_{freq}.csv"
+        filename = f"piezometry_{api_name}_{safe_id}_{start_date}_{end_date}_{freq}.csv"
         return filename
 
     def _export_data(self):
