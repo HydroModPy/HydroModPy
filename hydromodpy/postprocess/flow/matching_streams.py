@@ -20,11 +20,27 @@ from __future__ import annotations
 
 import os
 
+import numpy as np
+import rasterio
+
 from hydromodpy.backends import get_whitebox_backend
+from hydromodpy.tools import get_logger
 from hydromodpy.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.hydrography import Hydrography
+
+
+logger = get_logger(__name__)
+
+
+def _raster_has_active_support(raster_path: str) -> bool:
+    """Return ``True`` when a raster contains at least one non-zero valid cell."""
+
+    with rasterio.open(raster_path) as src:
+        data = np.ma.masked_invalid(src.read(1, masked=True))
+    return bool(np.any(data.filled(0.0) != 0.0))
+
 
 class MatchingStreams:
     """Compute bidirectional stream-distance diagnostics.
@@ -101,6 +117,8 @@ class MatchingStreams:
                 "direction rasters."
             )
         self._backend = get_whitebox_backend()
+        self.has_observed_support = False
+        self.has_simulated_support = False
 
         # Full execution pipeline (kept eager for backward compatibility).
         self.prepare_files()
@@ -144,11 +162,18 @@ class MatchingStreams:
 
         # Convert observed stream pixels to points and trace their downslope paths.
         self.pt_obs = os.path.join(self.dichotomy_folder, "obs_pt.shp")
-        self._backend.raster_to_vector_points(self.tif_obs, self.pt_obs)
         self.pt_obsf = os.path.join(self.dichotomy_folder, "obs_ptf.shp")
-        self._backend.raster_to_vector_points(self.tif_obs, self.pt_obsf)
         self.obs_flow = os.path.join(self.dichotomy_folder, "obsflow.tif")
-        self._backend.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
+        self.has_observed_support = _raster_has_active_support(self.tif_obs)
+        if self.has_observed_support:
+            self._backend.raster_to_vector_points(self.tif_obs, self.pt_obs)
+            self._backend.raster_to_vector_points(self.tif_obs, self.pt_obsf)
+            self._backend.trace_downslope_flowpaths(self.pt_obs, self.watershed_direc, self.obs_flow)
+        else:
+            logger.warning(
+                "MatchingStreams found no observed stream pixels after clipping; "
+                "diagnostics using observed support will be skipped."
+            )
 
         # Simulated stream support comes from seepage raster at t(0).
         tif_sim = os.path.join(self.results_folder, "_rasters", "seepage_areas_t(0).tif")
@@ -160,11 +185,18 @@ class MatchingStreams:
             bool(self.model_modflow is not None),
         )
         self.pt_sim = os.path.join(self.dichotomy_folder, "sim_pt.shp")
-        self._backend.raster_to_vector_points(self.tif_sim, self.pt_sim)
         self.pt_simf = os.path.join(self.dichotomy_folder, "sim_ptf.shp")
-        self._backend.raster_to_vector_points(self.tif_sim, self.pt_simf)
         self.sim_flow = os.path.join(self.dichotomy_folder, "simflow.tif")
-        self._backend.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)
+        self.has_simulated_support = _raster_has_active_support(self.tif_sim)
+        if self.has_simulated_support:
+            self._backend.raster_to_vector_points(self.tif_sim, self.pt_sim)
+            self._backend.raster_to_vector_points(self.tif_sim, self.pt_simf)
+            self._backend.trace_downslope_flowpaths(self.pt_sim, self.watershed_direc, self.sim_flow)
+        else:
+            logger.warning(
+                "MatchingStreams found no simulated stream pixels after clipping; "
+                "diagnostics using simulated support will be skipped."
+            )
 
     def sim_to_obs(self):
         """Measure simulated support against observed-network distances.
@@ -178,6 +210,18 @@ class MatchingStreams:
         If a sampled value is `0`, the simulated point is already on observed
         network support. Larger values indicate farther downslope mismatch.
         """
+        if not self.has_simulated_support:
+            logger.warning(
+                "Skipping MatchingStreams simulated-to-observed diagnostics "
+                "because simulated support is empty."
+            )
+            return
+        if not self.has_observed_support:
+            logger.warning(
+                "Skipping MatchingStreams simulated-to-observed diagnostics "
+                "because observed support is empty."
+            )
+            return
 
         self.pt_sim_flow = os.path.join(self.dichotomy_folder, "simflow.shp")
         self._backend.raster_to_vector_points(self.sim_flow, self.pt_sim_flow)
@@ -215,6 +259,18 @@ class MatchingStreams:
         asymmetry, e.g. "simulation misses observed channels" vs
         "simulation produces extra channels".
         """
+        if not self.has_observed_support:
+            logger.warning(
+                "Skipping MatchingStreams observed-to-simulated diagnostics "
+                "because observed support is empty."
+            )
+            return
+        if not self.has_simulated_support:
+            logger.warning(
+                "Skipping MatchingStreams observed-to-simulated diagnostics "
+                "because simulated support is empty."
+            )
+            return
 
         self.pt_obs_flow = os.path.join(self.dichotomy_folder, "obsflow.shp")
         self._backend.raster_to_vector_points(self.obs_flow, self.pt_obs_flow)
