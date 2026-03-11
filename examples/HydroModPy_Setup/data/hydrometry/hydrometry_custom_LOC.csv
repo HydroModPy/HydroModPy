@@ -1,0 +1,7 @@
+id,x,y,crs,name,unit,constant
+CANUT01,-1.685,48.128,EPSG:4326,Canut Amont,m3/s,false
+CANUT02,-1.672,48.121,EPSG:4326,Canut Aval,m3/s,false
+CONST01,-1.680,48.125,EPSG:4326,Station Constante,m3/s,true
+CANUT_GAPS,-1.678,48.130,EPSG:4326,Canut avec lacunes,m3/s,false
+CANUT_LS,-1.690,48.126,EPSG:4326,Canut Litre par seconde,L/s,false
+RENNES01,-1.750,48.200,EPSG:4326,Station Rennes hors emprise,m3/s,false
