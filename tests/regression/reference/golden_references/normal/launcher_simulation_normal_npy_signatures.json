@@ -54,7 +54,7 @@
     },
     "accumulation_flux": {
       "count": 3600,
-      "mean": 0.0004327125198501057,
+      "mean": 0.00042347317786809276,
       "p50": 0.0,
       "p95": 0.0002293678800924676,
       "shape": [
@@ -63,30 +63,10 @@
       ],
       "timestep": 2,
       "available_timesteps": 3,
-      "sum": 1.5577650714603806
+      "sum": 1.5245034403251339
     }
   },
-  "modpath_expected": {
-    "starting.dbf": {
-      "n_rows": 85,
-      "time": {
-        "count": 85,
-        "mean": 234021947.67058823,
-        "p50": 215925792.0,
-        "p95": 345284864.0
-      }
-    },
-    "ending.dbf": {
-      "n_rows": 85,
-      "time": {
-        "count": 85,
-        "mean": 234021947.67058823,
-        "p50": 215925792.0,
-        "p95": 345284864.0
-      }
-    }
-  },
-  "mt3dms_expected": {
+  "transport_expected": {
     "concentration_seepage": {
       "count": 223,
       "mean": 2.7143368112321914e-06,

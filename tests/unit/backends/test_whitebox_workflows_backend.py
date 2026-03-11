@@ -9,6 +9,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point, box
 
 from hydromodpy.backends import get_whitebox_backend
+from hydromodpy.backends.whitebox_tools_backend import _get_cached_whitebox_backend
 
 
 def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> None:
@@ -27,8 +28,16 @@ def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> N
         dst.write(data, 1)
 
 
+def test_get_whitebox_backend_defaults_to_workflows(monkeypatch) -> None:
+    monkeypatch.delenv("HYDROMODPY_WHITEBOX_BACKEND", raising=False)
+    _get_cached_whitebox_backend.cache_clear()
+    backend = get_whitebox_backend()
+    assert backend.__class__.__name__ == "WhiteboxWorkflowsBackend"
+
+
 def test_get_whitebox_backend_supports_workflows_selection(monkeypatch) -> None:
     monkeypatch.setenv("HYDROMODPY_WHITEBOX_BACKEND", "whitebox_workflows")
+    _get_cached_whitebox_backend.cache_clear()
     backend = get_whitebox_backend()
     assert backend.__class__.__name__ == "WhiteboxWorkflowsBackend"
 

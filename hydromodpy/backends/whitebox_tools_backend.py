@@ -236,7 +236,10 @@ class WhiteboxToolsBackend:
 
 
 def _resolve_whitebox_backend_kind(kind: str | None = None) -> str:
-    value = kind if kind is not None else os.environ.get("HYDROMODPY_WHITEBOX_BACKEND", "whitebox")
+    value = kind if kind is not None else os.environ.get(
+        "HYDROMODPY_WHITEBOX_BACKEND",
+        "whitebox_workflows",
+    )
     normalized = str(value).strip().lower().replace("-", "_")
     aliases = {
         "whitebox": "whitebox",

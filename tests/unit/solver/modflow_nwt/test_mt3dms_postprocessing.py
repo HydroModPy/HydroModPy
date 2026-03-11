@@ -42,6 +42,37 @@ class _FakeUcnFile:
         )
 
 
+def test_mt3dms_processing_accepts_program_completed_normal_message(tmp_path: Path) -> None:
+    model = Mt3dms.__new__(Mt3dms)
+    model.full_path = str(tmp_path)
+    model.model_name_mt = "demo_mt"
+    Path(model.full_path).mkdir(parents=True, exist_ok=True)
+    (Path(model.full_path) / "MT3D001.UCN").write_bytes(b"ucn")
+
+    captured: dict[str, object] = {}
+
+    class _FakeMt:
+        def write_input(self) -> None:
+            captured["write_input"] = True
+
+        def run_model(self, **kwargs):
+            captured["run_model_kwargs"] = kwargs
+            return True, ["Program completed.   Total CPU time:  000 minutes  0.672 seconds"]
+
+    model.mt = _FakeMt()
+
+    success = model.processing(write_model=True, run_model=True, verbose=True)
+
+    assert success is True
+    assert captured["write_input"] is True
+    assert captured["run_model_kwargs"] == {
+        "silent": False,
+        "pause": False,
+        "normal_msg": ["normal termination", "program completed"],
+    }
+    assert (Path(model.full_path) / "demo_mt.UCN").exists()
+
+
 def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: Path) -> None:
     model = Mt3dms.__new__(Mt3dms)
     model.model_folder = str(tmp_path / "results")
