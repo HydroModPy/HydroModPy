@@ -1,0 +1,43 @@
+@startuml
+title Spatial Support - Context Diagram
+
+component "DomainConfig\nsupport_mode, zone_ids, supports" as DomainConfig
+component "DomainSupportConfig\nprovider-specific declarations" as SupportConfig
+component "HydroModPyLauncher" as Launcher
+component "DataManagersPlanner" as Planner
+component "DataManagersRuntimeLoader" as Loader
+component "Structure binders\napply_catchment_zones_to_domain\napply_geology_to_domain" as Binders
+component "Domain\nzones registry\nresolve_spatial_support(...)" as Domain
+component "SpatialSupportProviderRegistry" as Registry
+component "Support providers\nGeneratedBands / Rings /\nCatchmentZones / Geology" as Providers
+component "Field\nspatial support contract" as Field
+component "FieldParam\nhomogeneous / heterogeneous values" as FieldParam
+component "discretize_fieldparam_on_sgrid" as Discretizer
+component "resolve_flow_property_arrays" as PropertyMapping
+component "Solver property arrays\nhk / sy / ss" as SolverArrays
+
+DomainConfig --> SupportConfig : declares named supports
+Launcher --> Planner : infer required data types
+Planner --> Loader : geology when required
+Launcher --> Domain : build runtime domain
+Launcher --> Binders : attach domain-side zone sources
+Binders --> Domain : set_zone(...)
+Launcher --> Registry : resolve providers
+Registry --> Providers : get(provider_name)
+Providers --> Field : build support objects\ncompatible with Field
+Providers --> Domain : register supports as zones
+PropertyMapping --> FieldParam : select flow parameter
+PropertyMapping --> Domain : resolve_spatial_support(field_spatial_id)
+PropertyMapping --> Discretizer : project + evaluate values
+Discretizer --> Field : on_mesh(...)
+Discretizer --> FieldParam : to_mesh_field(...)
+PropertyMapping --> SolverArrays : store 2D/3D property arrays
+
+note right of Field
+Support objects are consumed through the
+generic Field interface, even when they
+originate from domain-side concepts
+(geology, catchment, generated supports).
+end note
+
+@enduml
