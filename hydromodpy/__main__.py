@@ -419,7 +419,7 @@ def main() -> None:
     sim_parser.add_argument(
         "--out",
         default=None,
-        help="Override output directory (sets HYDROMODPY_OUT_PATH)",
+         help="Override output directory (sets HYDROMODPY_OUT_PATH)",
     )
 
     # --- test subcommand ---
