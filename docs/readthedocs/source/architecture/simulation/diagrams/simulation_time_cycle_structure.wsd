@@ -9,7 +9,7 @@ component "Launcher Orchestrator\nHydroModPyLauncher" as Launcher
 component "Runtime State\nsetup.time_grid" as RuntimeState
 component "Solver TGrid Sections\nmodflownwt.tgrid / modflow6.tgrid" as SolverTgrid
 component "Data Managers Runtime Loader\nruntime_loader" as DataLoader
-component "Recharge Chronicle Builder\nsimulation.forcing.recharge_chronicle" as RechargeBuilder
+component "Recharge Chronicle Builder\nforcing.recharge_chronicle" as RechargeBuilder
 component "Coverage Guard\nvalidate_recharge_coverage()" as CoverageGuard
 component "Flow Solver Wrappers\nModflow / Modflow6" as FlowSolvers
 database "Climatic Forcing Series\nrecharge / runoff" as ForcingSeries

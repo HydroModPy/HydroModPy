@@ -18,6 +18,7 @@ import numpy as np
 import os
 from scipy.optimize import curve_fit
 import re
+import warnings
 from hydromodpy.tools import get_logger
 
 logger = get_logger(__name__)
@@ -36,6 +37,13 @@ class Climatic:
         out_path : str
             Path of the HydroModPy outputs.
         """
+        warnings.warn(
+            "Climatic is deprecated. "
+            "Use the new variable-specific data managers instead "
+            "(recharge/, precipitation/, etp/, etc.).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         logger.info('Initializing climatic module parameters')
 
         self.data_folder = os.path.join(out_path, 'results_stable/climatic/')

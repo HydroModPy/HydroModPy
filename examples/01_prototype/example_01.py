@@ -40,7 +40,7 @@ from hydromodpy.domain.structure_binders import (
 from hydromodpy.process.flow import Flow
 from hydromodpy.process.flow.structure_binders import apply_climatic_to_flow_recharge
 from hydromodpy.process.transport import Transport
-from hydromodpy.simulation.forcing import build_recharge_chronicle_payload
+from hydromodpy.forcing import build_recharge_chronicle_payload
 from hydromodpy.simulation.state.run_state import LauncherRunState
 from hydromodpy.solver.modflow_nwt import (
     Modflow,

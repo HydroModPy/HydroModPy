@@ -49,7 +49,7 @@ package "launchers.process_simulation" {
   }
 }
 
-package "hydromodpy.simulation.forcing.recharge_chronicle" {
+package "hydromodpy.forcing.recharge_chronicle" {
   class ObservedRechargeChronicleRequest {
     +first_year: int
     +last_year: int
