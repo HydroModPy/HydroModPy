@@ -86,10 +86,17 @@ def _inclusive_end_candidate(
     itmuni: str,
 ) -> pd.Timestamp:
     try:
-        return end_datetime + pd.to_timedelta(1, unit=to_pandas_timedelta_unit(itmuni))
+        unit = to_pandas_timedelta_unit(itmuni)
     except Exception:
-        # Conservative fallback for non-numeric units.
-        return end_datetime + pd.to_timedelta(1, unit="d")
+        unit = "d"
+    # When itmuni is sub-day (seconds, minutes, hours), the inclusive-end
+    # convention still works at the *day* granularity because user-facing
+    # simulation windows are always specified as dates.  Adding +1 second
+    # when the launcher normalised itmuni to "seconds" would produce a
+    # negligible offset that never matches the expected period sum.
+    if unit in ("s", "ms", "us", "ns", "min"):
+        unit = "d"
+    return end_datetime + pd.to_timedelta(1, unit=unit)
 
 
 def _validate_config(config: TMeshConfig) -> None:
