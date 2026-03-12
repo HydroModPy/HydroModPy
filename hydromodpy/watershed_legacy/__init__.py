@@ -12,5 +12,6 @@ from hydromodpy.watershed_legacy.hydraulic import Hydraulic
 from hydromodpy.data_managers.hydrography import Hydrography
 from hydromodpy.data_managers.intermittency import Intermittency
 from hydromodpy.data_managers.climatic.safransurfex import SafranSurfex
+from hydromodpy.simulation.settings import Settings
 
-__all__ = ['Driasclimat', 'Driaseau', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Intermittency', 'SafranSurfex']
+__all__ = ['Driasclimat', 'Driaseau', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Intermittency', 'SafranSurfex', 'Settings']

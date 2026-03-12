@@ -66,9 +66,10 @@ from hydromodpy.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
+    apply_recharge_load_result_to_flow,
 )
 from hydromodpy.geographic_synthethic import build_synthetic_geographic
-from hydromodpy.simulation.forcing import (
+from hydromodpy.forcing import (
     align_forcing_series_to_simulation_window,
     build_recharge_chronicle_payload,
 )
@@ -397,7 +398,23 @@ class HydroModPyLauncher:
         apply_geology_to_domain(domain=setup_state.domain, geology=data_state.geology)
         ensure_flow(run_state)
         apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
-        apply_climatic_to_flow_recharge(flow=setup_state.flow, climatic=data_state.climatic)
+
+        # Try new data-manager recharge path first; fall back to legacy climatic.
+        resolved_grid = getattr(setup_state, "time_grid", None)
+        window = (
+            resolved_grid.window
+            if resolved_grid is not None
+            else resolve_simulation_time_window(self.cfg)
+        )
+        used_new_path = apply_recharge_load_result_to_flow(
+            flow=setup_state.flow,
+            recharge_result=data_state.recharge,
+            simulation_window=window,
+        )
+        if not used_new_path:
+            apply_climatic_to_flow_recharge(
+                flow=setup_state.flow, climatic=data_state.climatic,
+            )
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.

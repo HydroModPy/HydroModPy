@@ -55,8 +55,13 @@ def _load_observed_streamflow(result) -> pd.DataFrame | None:
     if not hydrometry:
         return None
 
+    # LoadResult or list[PointRecord] — extract points if needed.
+    records = getattr(hydrometry, "points", hydrometry)
+    if not records:
+        return None
+
     area_m2 = float(result.setup.geographic.catch_area) * 1_000_000
-    return observed_discharge_series(hydrometry, freq="ME", area_m2=area_m2)
+    return observed_discharge_series(records, freq="ME", area_m2=area_m2)
 
 
 def _load_flow_timeseries(result) -> pd.DataFrame:
@@ -207,8 +212,8 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
         model_transport=transport_model,
         model_modflow=flow_model,
         geographic=result.setup.geographic,
-        hydrography=result.data.hydrography,
-        recharge_series=result.data.climatic.recharge,
+        hydrography=result.loaded_data.hydrography,
+        recharge_series=result.loaded_data.climatic.recharge,
         output_dir=output_dir,
         prefix="concentration",
         dpi=options.dpi,

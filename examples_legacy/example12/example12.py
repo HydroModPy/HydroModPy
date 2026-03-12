@@ -50,7 +50,7 @@ import hydromodpy as hmp
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
-    Hydrography, Intermittency, Piezometry, Settings, \
+    Hydrography, Intermittency, Settings, \
     SafranSurfex
 from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
 from hydromodpy.data_managers.hydrometry.manager import HydrometryManager

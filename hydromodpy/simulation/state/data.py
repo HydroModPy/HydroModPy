@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hydromodpy.data_managers.climatic import Climatic
-    from hydromodpy.data_managers.contracts.timeseries import PointRecord
+    from hydromodpy.data_managers.contracts.load_result import LoadResult
     from hydromodpy.data_managers.geology.geology_field import GeologyField
     from hydromodpy.data_managers.intermittency import Intermittency
     from hydromodpy.data_managers.oceanic import Oceanic
@@ -23,5 +23,14 @@ class LoadedDataContext:
     oceanic: Oceanic | None = None
     hydrography: Hydrography | None = None
     intermittency: Intermittency | None = None
-    hydrometry: list[PointRecord] | None = None
-    piezometry: list[PointRecord] | None = None
+    hydrometry: LoadResult | None = None
+    piezometry: LoadResult | None = None
+    recharge: LoadResult | None = None
+    runoff: LoadResult | None = None
+    precipitation: LoadResult | None = None
+    etp: LoadResult | None = None
+    temperature: LoadResult | None = None
+    wind: LoadResult | None = None
+    humidity: LoadResult | None = None
+    radiation: LoadResult | None = None
+    soil_moisture: LoadResult | None = None

@@ -59,6 +59,33 @@ class DataManagersRuntimeLoader:
             if type_name == "piezometry":
                 self._load_piezometry_data(result)
                 continue
+            if type_name == "recharge":
+                self._load_recharge_data(result)
+                continue
+            if type_name == "runoff":
+                self._load_runoff_data(result)
+                continue
+            if type_name == "precipitation":
+                self._load_climatic_variable(result, "precipitation")
+                continue
+            if type_name == "etp":
+                self._load_climatic_variable(result, "etp")
+                continue
+            if type_name == "temperature":
+                self._load_climatic_variable(result, "temperature")
+                continue
+            if type_name == "wind":
+                self._load_climatic_variable(result, "wind")
+                continue
+            if type_name == "humidity":
+                self._load_climatic_variable(result, "humidity")
+                continue
+            if type_name == "radiation":
+                self._load_climatic_variable(result, "radiation")
+                continue
+            if type_name == "soil_moisture":
+                self._load_climatic_variable(result, "soil_moisture")
+                continue
             print(f"[DataManagersPlanner] Warning: unsupported data type '{type_name}' in plan.")
 
     def _load_geology_data(self, result: "LauncherRunState") -> None:
@@ -356,6 +383,169 @@ class DataManagersRuntimeLoader:
             result.loaded_data.piezometry = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "piezometry", exc)
+
+    def _load_recharge_data(self, result: "LauncherRunState") -> None:
+        """Load recharge data from ``data.recharge`` payload."""
+        from datetime import datetime as dt
+
+        from hydromodpy.data_managers.recharge.config import RechargeConfig
+        from hydromodpy.data_managers.recharge.manager import RechargeManager
+
+        raw_section = self._get_data_section(result, "recharge")
+        if raw_section is None:
+            self._handle_missing_data_section(
+                result,
+                "recharge",
+                "missing [data.recharge] section",
+            )
+            return
+
+        self._apply_simulation_window_dates(raw_section, result, "recharge")
+
+        try:
+            recharge_cfg = RechargeConfig.model_validate(raw_section)
+            period = None
+            if recharge_cfg.date_start and recharge_cfg.date_end:
+                period = (dt.fromisoformat(recharge_cfg.date_start), dt.fromisoformat(recharge_cfg.date_end))
+            for src in recharge_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+            manager = RechargeManager(
+                config=recharge_cfg,
+                catalog=None,
+                project_period=period,
+                project_extent=None,
+            )
+            result.loaded_data.recharge = manager.load()
+        except Exception as exc:
+            self._handle_data_loading_error(result, "recharge", exc)
+
+    def _load_runoff_data(self, result: "LauncherRunState") -> None:
+        """Load runoff data from ``data.runoff`` payload."""
+        from datetime import datetime as dt
+
+        from hydromodpy.data_managers.runoff.config import RunoffConfig
+        from hydromodpy.data_managers.runoff.manager import RunoffManager
+
+        raw_section = self._get_data_section(result, "runoff")
+        if raw_section is None:
+            self._handle_missing_data_section(
+                result,
+                "runoff",
+                "missing [data.runoff] section",
+            )
+            return
+
+        self._apply_simulation_window_dates(raw_section, result, "runoff")
+
+        try:
+            runoff_cfg = RunoffConfig.model_validate(raw_section)
+            period = None
+            if runoff_cfg.date_start and runoff_cfg.date_end:
+                period = (dt.fromisoformat(runoff_cfg.date_start), dt.fromisoformat(runoff_cfg.date_end))
+            for src in runoff_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+            manager = RunoffManager(
+                config=runoff_cfg,
+                catalog=None,
+                project_period=period,
+                project_extent=None,
+            )
+            result.loaded_data.runoff = manager.load()
+        except Exception as exc:
+            self._handle_data_loading_error(result, "runoff", exc)
+
+    # -- Registry of climatic variable managers & configs -----------------
+    # Used by _load_climatic_variable() to avoid 7 identical methods.
+    _CLIMATIC_REGISTRY: dict[str, tuple[str, str]] = {
+        "precipitation": (
+            "hydromodpy.data_managers.precipitation.config",
+            "hydromodpy.data_managers.precipitation.manager",
+        ),
+        "etp": (
+            "hydromodpy.data_managers.etp.config",
+            "hydromodpy.data_managers.etp.manager",
+        ),
+        "temperature": (
+            "hydromodpy.data_managers.temperature.config",
+            "hydromodpy.data_managers.temperature.manager",
+        ),
+        "wind": (
+            "hydromodpy.data_managers.wind.config",
+            "hydromodpy.data_managers.wind.manager",
+        ),
+        "humidity": (
+            "hydromodpy.data_managers.humidity.config",
+            "hydromodpy.data_managers.humidity.manager",
+        ),
+        "radiation": (
+            "hydromodpy.data_managers.radiation.config",
+            "hydromodpy.data_managers.radiation.manager",
+        ),
+        "soil_moisture": (
+            "hydromodpy.data_managers.soil_moisture.config",
+            "hydromodpy.data_managers.soil_moisture.manager",
+        ),
+    }
+
+    def _load_climatic_variable(
+        self, result: "LauncherRunState", variable: str,
+    ) -> None:
+        """Generic loader for climatic variables (precipitation, etp, etc.).
+
+        All 7 variables follow the same pattern: config with sources +
+        date_start/date_end, manager extending BaseFieldManager.
+        """
+        import importlib
+        from datetime import datetime as dt
+
+        entry = self._CLIMATIC_REGISTRY.get(variable)
+        if entry is None:
+            print(f"[DataManagersPlanner] Warning: unknown climatic variable '{variable}'.")
+            return
+
+        config_module_path, manager_module_path = entry
+
+        raw_section = self._get_data_section(result, variable)
+        if raw_section is None:
+            self._handle_missing_data_section(
+                result, variable, f"missing [data.{variable}] section",
+            )
+            return
+
+        self._apply_simulation_window_dates(raw_section, result, variable)
+
+        try:
+            # Dynamic import of config and manager classes
+            config_mod = importlib.import_module(config_module_path)
+            manager_mod = importlib.import_module(manager_module_path)
+
+            # Config class is named {Variable}Config (e.g. PrecipitationConfig)
+            config_cls_name = variable.title().replace("_", "") + "Config"
+            config_cls = getattr(config_mod, config_cls_name)
+            # Manager class is named {Variable}Manager
+            manager_cls_name = variable.title().replace("_", "") + "Manager"
+            manager_cls = getattr(manager_mod, manager_cls_name)
+
+            cfg = config_cls.model_validate(raw_section)
+            period = None
+            if cfg.date_start and cfg.date_end:
+                period = (dt.fromisoformat(cfg.date_start), dt.fromisoformat(cfg.date_end))
+
+            for src in cfg.sources:
+                if not getattr(src, "mask_path", None) and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+
+            manager = manager_cls(
+                config=cfg,
+                catalog=None,
+                project_period=period,
+                project_extent=None,
+            )
+            setattr(result.loaded_data, variable, manager.load())
+        except Exception as exc:
+            self._handle_data_loading_error(result, variable, exc)
 
     def _handle_missing_data_section(
         self,
