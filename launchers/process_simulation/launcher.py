@@ -97,7 +97,7 @@ class HydroModPyLauncher:
     The typical usage is:
 
     >>> from pathlib import Path
-    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config_standard.toml"))
+    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config_extensive.toml"))
     >>> run_state = launcher.run()
 
     After ``run()``, ``run_state`` contains both the shared objects created during

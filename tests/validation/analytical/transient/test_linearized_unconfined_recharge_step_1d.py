@@ -15,11 +15,24 @@ from validation_cases.analytical.transient.linearized_unconfined_recharge_step_1
 @pytest.mark.analytical
 @pytest.mark.transient
 @pytest.mark.slow
-def test_linearized_unconfined_recharge_step_1d_matches_reference_profiles() -> None:
-    """Run the launcher case and compare the full transient profile matrix."""
-    assert_required_executables(require_modpath=False, require_mt3dms=False)
+@pytest.mark.parametrize(
+    ("solver", "require_modflow", "require_modflow6"),
+    [
+        pytest.param("modflownwt", True, False, id="modflownwt"),
+        pytest.param("modflow6", False, True, id="modflow6"),
+    ],
+)
 
-    comparison = run_linearized_unconfined_recharge_step_comparison(caller_file=__file__)
+def test_linearized_unconfined_recharge_step_1d_matches_reference_profiles(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
+    """Run the launcher case and compare the full transient profile matrix."""
+    assert_required_executables(
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
+        require_modpath=False,
+        require_mt3dms=False,
+    )
+
+    comparison = run_linearized_unconfined_recharge_step_comparison(caller_file=__file__, solver=solver)
     space_time_tol = dict(comparison.tolerances.get("space_time", {}))
     final_profile_tol = dict(comparison.tolerances.get("final_profile", {}))
 
@@ -47,3 +60,6 @@ def test_linearized_unconfined_recharge_step_1d_matches_reference_profiles() -> 
         float(space_time_tol["row_spread"]),
         unit="m",
     )
+
+
+

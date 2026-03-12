@@ -4,6 +4,13 @@ regime = "transient"
 dimension = "1d"
 launcher = "launcher_simulation"
 config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+
 
 [workspace]
 watershed_name = "val_lu_boundary_step"
@@ -31,3 +38,4 @@ n_terms = 400
 [plot]
 profile_times_days = [0.5, 1.0, 4.0, 10.0, 20.0]
 monitor_positions_m = [25.0, 50.0, 75.0]
+

@@ -25,7 +25,7 @@ LAUNCHER_SIMULATION_DEFAULT_CONFIG = (
     REPO_ROOT
     / "examples"
     / "launcher_simulation"
-    / "config_normal_nwt.toml"
+    / "config_normal_6.toml"
 )
 
 GOLDEN_REFERENCE_FILE = (
@@ -114,7 +114,7 @@ def _ensure_local_oceanic_seed_csv(csv_path: Path) -> None:
     [
         pytest.param(
             LAUNCHER_SIMULATION_DEFAULT_CONFIG,
-            id="config_normal_nwt",
+            id="config_normal_6",
         ),
     ],
 )

@@ -93,10 +93,13 @@ def load_transient_profile_outputs(
     result: ValidationRunResult,
     metadata: dict | None = None,
     tolerances: dict | None = None,
+    solver: str | None = None,
 ) -> tuple[dict, dict, str, np.ndarray, np.ndarray, float]:
     """Load one transient `watertable_elevation` dictionary and validate its shape."""
     case_metadata = load_case_metadata(case_dir) if metadata is None else metadata
-    case_tolerances = load_case_tolerances(case_dir) if tolerances is None else tolerances
+    case_tolerances = (
+        load_case_tolerances(case_dir, solver=solver) if tolerances is None else tolerances
+    )
 
     output_cfg = dict(case_metadata.get("output", {}))
     time_cfg = dict(case_metadata.get("time", {}))

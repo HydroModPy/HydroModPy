@@ -62,7 +62,6 @@ def build_legacy_geographic_context(
     config: GeographicConfig,
     out_dir_path: str | Path,
     backend: WhiteboxBackend | None = None,
-    wbt_tool: WhiteboxBackend | None = None,
     locator_factory: object = Nominatim,
 ) -> LegacyGeographicContext:
     """
@@ -76,9 +75,7 @@ def build_legacy_geographic_context(
         out_dir_path=out_dir_path,
     )
 
-    if backend is not None and wbt_tool is not None:
-        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
-    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
+    tool = get_whitebox_backend() if backend is None else backend
 
     flow_products = build_regional_flow_products(
         dem_init_path=setup.dem_init_path,
@@ -93,6 +90,8 @@ def build_legacy_geographic_context(
         paths=setup.paths,
         direc_path=flow_products.direc,
         acc_path=flow_products.acc,
+        direc_data=flow_products.direc_data,
+        acc_data=flow_products.acc_data,
         crs_project=setup.crs_project,
         backend=tool,
         unsupported_mode="ignore",
@@ -112,6 +111,8 @@ def build_legacy_geographic_context(
         dem_init_path=setup.dem_init_path,
         correc_path=flow_products.correc,
         direc_path=flow_products.direc,
+        correc_data=flow_products.correc_data,
+        direc_data=flow_products.direc_data,
         watershed_shp=setup.paths.watershed_shp,
         watershed_buff_shp=domain_products.watershed_buff_shp,
         paths=setup.paths,

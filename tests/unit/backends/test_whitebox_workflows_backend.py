@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
+import sys
 
 import geopandas as gpd
 import numpy as np
@@ -8,8 +10,12 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point, box
 
+import hydromodpy.backends as backends_pkg
 from hydromodpy.backends import get_whitebox_backend
-from hydromodpy.backends.whitebox_tools_backend import _get_cached_whitebox_backend
+from hydromodpy.backends.whitebox_workflows_backend import (
+    WhiteboxWorkflowsBackend,
+    _get_cached_whitebox_backend,
+)
 
 
 def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> None:
@@ -28,18 +34,45 @@ def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> N
         dst.write(data, 1)
 
 
-def test_get_whitebox_backend_defaults_to_workflows(monkeypatch) -> None:
-    monkeypatch.delenv("HYDROMODPY_WHITEBOX_BACKEND", raising=False)
+def test_get_whitebox_backend_defaults_to_workflows() -> None:
     _get_cached_whitebox_backend.cache_clear()
     backend = get_whitebox_backend()
     assert backend.__class__.__name__ == "WhiteboxWorkflowsBackend"
 
 
-def test_get_whitebox_backend_supports_workflows_selection(monkeypatch) -> None:
-    monkeypatch.setenv("HYDROMODPY_WHITEBOX_BACKEND", "whitebox_workflows")
+def test_get_whitebox_backend_supports_workflows_selection() -> None:
     _get_cached_whitebox_backend.cache_clear()
-    backend = get_whitebox_backend()
+    backend = get_whitebox_backend("whitebox_workflows")
     assert backend.__class__.__name__ == "WhiteboxWorkflowsBackend"
+
+
+def test_get_whitebox_backend_rejects_legacy_whitebox_selection() -> None:
+    _get_cached_whitebox_backend.cache_clear()
+    try:
+        get_whitebox_backend("whitebox")
+    except ValueError as exc:
+        assert "only 'whitebox_workflows'" in str(exc)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("legacy whitebox backend selection should be rejected")
+
+
+def test_package_no_longer_exposes_whitebox_tools_alias() -> None:
+    try:
+        backends_pkg.WhiteboxToolsBackend
+    except AttributeError:
+        pass
+    else:  # pragma: no cover - defensive
+        raise AssertionError("WhiteboxToolsBackend alias should no longer be exposed")
+
+
+def test_whitebox_tools_backend_module_is_no_longer_importable() -> None:
+    sys.modules.pop("hydromodpy.backends.whitebox_tools_backend", None)
+    try:
+        importlib.import_module("hydromodpy.backends.whitebox_tools_backend")
+    except ModuleNotFoundError:
+        pass
+    else:  # pragma: no cover - defensive
+        raise AssertionError("legacy whitebox_tools_backend module should be removed")
 
 
 def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
@@ -153,3 +186,49 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
 
     point_cols = set(gpd.read_file(points_clip).columns)
     assert {"XCOORD", "YCOORD", "VALUE1"}.issubset(point_cols)
+
+
+def test_whitebox_workflows_backend_in_memory_chain(tmp_path: Path) -> None:
+    backend = get_whitebox_backend()
+    dem = tmp_path / "dem.tif"
+    polygon = tmp_path / "polygon.shp"
+    points = tmp_path / "points.shp"
+
+    _write_raster(
+        dem,
+        np.array(
+            [
+                [10.0, 9.0, 8.0, 7.0],
+                [11.0, 10.0, 9.0, 8.0],
+                [12.0, 11.0, 10.0, 9.0],
+                [13.0, 12.0, 11.0, 10.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+    gpd.GeoDataFrame({"id": [1]}, geometry=[box(0.0, 0.0, 3.0, 4.0)], crs="EPSG:2154").to_file(
+        polygon
+    )
+    gpd.GeoDataFrame(
+        {"id": [1]},
+        geometry=[Point(1.5, 2.5)],
+        crs="EPSG:2154",
+    ).to_file(points)
+
+    dem_data = backend.read_raster(str(dem))
+    polygon_data = backend.read_vector(str(polygon))
+    points_data = backend.read_vector(str(points))
+
+    dem_fill = backend.fill_depressions_raster(dem_data)
+    direc = backend.d8_pointer_raster(dem_fill)
+    acc = backend.d8_flow_accumulation_raster(dem_fill, log=True)
+    points_snap = backend.snap_pour_points_vector(points_data, acc, 2)
+    watershed = backend.watershed_raster(direc, points_snap)
+    watershed_poly = backend.raster_to_vector_polygons_raster(watershed)
+    clipped = backend.clip_raster_to_polygon_raster(dem_fill, polygon_data, maintain_dimensions=False)
+
+    backend.write_raster(clipped, str(tmp_path / "clipped.tif"))
+    backend.write_vector(watershed_poly, str(tmp_path / "watershed_mem.shp"))
+
+    assert (tmp_path / "clipped.tif").exists()
+    assert (tmp_path / "watershed_mem.shp").exists()

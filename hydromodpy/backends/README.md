@@ -3,13 +3,8 @@
 `hydromodpy/backends/` contains thin adapters around optional third-party
 runtime dependencies.
 
-Today the package exposes one backend family with two concrete implementations:
-
-- `whitebox`: adapter around `whitebox.WhiteboxTools`,
-- `whitebox_workflows`: adapter around `whitebox_workflows.WbEnvironment`.
-
-The default runtime backend is `whitebox_workflows`. Set
-`HYDROMODPY_WHITEBOX_BACKEND=whitebox` to force the legacy WhiteboxTools path.
+Today the package exposes one backend family implemented with
+`whitebox_workflows.WbEnvironment`.
 
 ## Why this package exists
 
@@ -20,9 +15,9 @@ HydroModPy uses Whitebox operations from several places:
 - legacy geographic helpers;
 - routing and mass-transfer post-processing on the solver side.
 
-Instead of letting those modules instantiate `whitebox.WhiteboxTools`
-directly, the project isolates the dependency behind a small file-based
-contract. This gives three practical benefits:
+Instead of letting those modules instantiate workflow objects directly, the
+project isolates the dependency behind a small HydroModPy contract. This gives
+three practical benefits:
 
 - runtime code depends on a narrow HydroModPy API, not on the full third-party
   surface;
@@ -34,35 +29,39 @@ contract. This gives three practical benefits:
 - `whitebox_backend.py`
   Defines `WhiteboxBackend`, a `Protocol` that documents the operations
   expected by HydroModPy runtime code.
-- `whitebox_tools_backend.py`
-  Provides `WhiteboxToolsBackend`, the legacy adapter implemented with
-  `whitebox.WhiteboxTools`, plus the runtime selection helper.
 - `whitebox_workflows_backend.py`
-  Provides `WhiteboxWorkflowsBackend`, the default adapter implemented with
+  Provides `WhiteboxWorkflowsBackend`, the runtime adapter implemented with
   `whitebox_workflows.WbEnvironment`.
 - `__init__.py`
   Re-exports the public backend API for callers.
 
 ## Design notes
 
-### File-oriented contract
+### Hybrid contract
 
-The backend methods operate on paths, not on in-memory arrays. That matches the
-way WhiteboxTools is used in HydroModPy pipelines: intermediate rasters and
-vectors are materialized on disk and then consumed by the next pipeline step.
+The public runtime contract remains file-oriented because HydroModPy still
+persists canonical rasters and vectors on disk. The workflows backend also
+exposes in-memory helpers so chained geographic operations can avoid redundant
+read/write cycles between intermediate steps.
 
 ### Thin adapter on purpose
 
-Both concrete backends intentionally contain almost no business logic. Their
-job is only to translate HydroModPy method names and keyword arguments to the
-underlying third-party implementation.
+The backend intentionally contains almost no business logic. Its job is to
+translate HydroModPy method names and keyword arguments to the underlying
+third-party implementation.
 
 ### Shared default instance
 
 `get_whitebox_backend()` caches a single adapter instance per Python process.
 That keeps the default runtime path simple while still allowing explicit
-dependency injection where needed. The selected implementation depends on the
-optional `kind` argument or on `HYDROMODPY_WHITEBOX_BACKEND`.
+dependency injection where needed.
+
+### Workflows-only runtime
+
+HydroModPy runtime code no longer selects between `whitebox` and
+`whitebox_workflows`. `get_whitebox_backend()` always resolves to the
+workflows-backed adapter and rejects the legacy `whitebox` selector. The old
+`WhiteboxToolsBackend` compatibility shim has been removed.
 
 ## Typical usage
 
@@ -74,6 +73,6 @@ wbt.fill_depressions("dem.tif", "dem_filled.tif")
 wbt.d8_pointer("dem_filled.tif", "flow_dir.tif")
 ```
 
-For testability, many HydroModPy functions accept a `wbt_tool` parameter typed
+For testability, many HydroModPy functions accept a `backend` parameter typed
 as `WhiteboxBackend | None`. Passing a fake implementation is the preferred way
 to isolate filesystem side effects in unit tests.

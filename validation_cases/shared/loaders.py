@@ -10,8 +10,8 @@ import numpy as np
 
 def _load_toml(path: Path) -> dict:
     """Load one TOML file into a plain dictionary."""
-    with path.open("rb") as stream:
-        return tomllib.load(stream)
+    with path.open("r", encoding="utf-8") as stream:
+        return tomllib.loads(stream.read().lstrip("\ufeff"))
 
 
 def load_case_metadata(case_dir: Path) -> dict:
@@ -19,8 +19,14 @@ def load_case_metadata(case_dir: Path) -> dict:
     return _load_toml(case_dir / "metadata.toml")
 
 
-def load_case_tolerances(case_dir: Path) -> dict:
+def load_case_tolerances(case_dir: Path, solver: str | None = None) -> dict:
     """Load tolerance thresholds for one validation case directory."""
+    if solver is not None:
+        solver_name = str(solver).strip().lower()
+        if solver_name:
+            solver_specific = case_dir / f"tolerances_{solver_name}.toml"
+            if solver_specific.exists():
+                return _load_toml(solver_specific)
     return _load_toml(case_dir / "tolerances.toml")
 
 

@@ -15,11 +15,24 @@ from validation_cases.analytical.transient.late_time_unconfined_pumping_2d.compa
 @pytest.mark.analytical
 @pytest.mark.transient
 @pytest.mark.slow
-def test_late_time_unconfined_pumping_2d_matches_late_time_reference() -> None:
-    """Run the launcher case and compare late-time radial drawdowns."""
-    assert_required_executables(require_modpath=False, require_mt3dms=False)
+@pytest.mark.parametrize(
+    ("solver", "require_modflow", "require_modflow6"),
+    [
+        pytest.param("modflownwt", True, False, id="modflownwt"),
+        pytest.param("modflow6", False, True, id="modflow6"),
+    ],
+)
 
-    comparison = run_late_time_unconfined_pumping_comparison(caller_file=__file__)
+def test_late_time_unconfined_pumping_2d_matches_late_time_reference(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
+    """Run the launcher case and compare late-time radial drawdowns."""
+    assert_required_executables(
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
+        require_modpath=False,
+        require_mt3dms=False,
+    )
+
+    comparison = run_late_time_unconfined_pumping_comparison(caller_file=__file__, solver=solver)
     space_time_tol = dict(comparison.tolerances.get("space_time", {}))
     final_time_tol = dict(comparison.tolerances.get("final_time", {}))
 
@@ -53,3 +66,6 @@ def test_late_time_unconfined_pumping_2d_matches_late_time_reference() -> None:
         float(space_time_tol["azimuthal_spread"]),
         unit="m",
     )
+
+
+

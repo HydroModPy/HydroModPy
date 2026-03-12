@@ -427,7 +427,56 @@ class Modflow6(Solver):
 			)
 		else:
 			raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
+		ocean_series = self._resolve_ocean_boundary_series()
+		ocean_support_mask = self._ocean_chd_support_mask(ocean_series)
+		if np.any(ocean_support_mask):
+			for ilay in range(int(self.nlay)):
+				strt[ilay][ocean_support_mask] = float(ocean_series[0])
 		return self._apply_side_boundary_start_heads(strt)
+
+	def _resolve_ocean_boundary_series(self) -> np.ndarray | None:
+		if not self._is_bc_active("ocean"):
+			return None
+		boundary = self._boundary_conditions_mapping().get("ocean")
+		if boundary is None:
+			return None
+		forcing = getattr(boundary, "forcing", None)
+		if forcing is not None:
+			return np.asarray(
+				resolve_period_values_from_forcing(
+					forcing=forcing,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(self.nper),
+					label="flow.bc.ocean.forcing",
+				),
+				dtype=float,
+			)
+		return self._boundary_period_series(
+			value=getattr(boundary, "value", None),
+			label="flow.bc.ocean.value",
+		)
+
+	def _ocean_chd_support_mask(self, ocean_series: np.ndarray | None) -> np.ndarray:
+		if ocean_series is None or np.asarray(ocean_series, dtype=float).size == 0:
+			return np.zeros((int(self.nrow), int(self.ncol)), dtype=bool)
+		sea_threshold = float(np.max(np.asarray(ocean_series, dtype=float)))
+		return (~np.asarray(self.dem_mask, dtype=bool)) & (np.asarray(self.dem, dtype=float) <= sea_threshold)
+
+	def _build_ocean_boundary_chd_spd(self) -> tuple[dict[int, list[list[float]]], np.ndarray]:
+		ocean_series = self._resolve_ocean_boundary_series()
+		ocean_support_mask = self._ocean_chd_support_mask(ocean_series)
+		spd = {kper: [] for kper in range(int(self.nper))}
+		if ocean_series is None or not np.any(ocean_support_mask):
+			return spd, ocean_support_mask
+
+		rows, cols = np.where(ocean_support_mask)
+		for kper, head in enumerate(np.asarray(ocean_series, dtype=float)):
+			period_cells: list[list[float]] = []
+			for ilay in range(int(self.nlay)):
+				for row, col in zip(rows.tolist(), cols.tolist()):
+					period_cells.append([ilay, int(row), int(col), float(head)])
+			spd[kper] = period_cells
+		return spd, ocean_support_mask
 
 	def _build_side_boundary_chd_spd(self) -> dict[int, list[list[float]]]:
 		bc = self._boundary_conditions_mapping()
@@ -729,6 +778,8 @@ class Modflow6(Solver):
 			print_flows=getattr(runtime, "mf_verbose", False),
 		)
 		self.sim.register_ims_package(self.ims, [self.gwf.name])
+		idomain = np.where(np.asarray(self.inactive_mask, dtype=bool), 0, 1).astype(int)
+		idomain = np.repeat(idomain[np.newaxis, :, :], int(self.nlay), axis=0)
 
 		self.dis = flopy.mf6.ModflowGwfdis(
 			self.gwf,
@@ -739,6 +790,7 @@ class Modflow6(Solver):
 			delc=np.asarray(sgrid.delc, dtype=float),
 			top=np.asarray(sgrid.top, dtype=float),
 			botm=np.asarray(sgrid.botm, dtype=float),
+			idomain=idomain,
 			xorigin=float(sgrid.xoffset),
 			yorigin=float(sgrid.yoffset),
 			length_units="METERS",
@@ -746,6 +798,7 @@ class Modflow6(Solver):
 
 		strt = self._build_start_heads(sgrid)
 		self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
+		ocean_chd_spd, ocean_support_mask = self._build_ocean_boundary_chd_spd()
 
 		self.npf = flopy.mf6.ModflowGwfnpf(
 			self.gwf,
@@ -784,13 +837,21 @@ class Modflow6(Solver):
 				)
 				for i in range(self.nrow):
 					for j in range(self.ncol):
-						if bool(self.dem_mask[i, j]):
+						if bool(self.dem_mask[i, j]) or bool(ocean_support_mask[i, j]):
 							continue
 						period_cells.append([0, i, j, float(top[i, j]), float(cond[i, j])])
 				drn_spd[kper] = period_cells
 			self.drn = flopy.mf6.ModflowGwfdrn(self.gwf, stress_period_data=drn_spd, save_flows=True)
 
-		chd_spd = self._build_side_boundary_chd_spd()
+		side_chd_spd = self._build_side_boundary_chd_spd()
+		chd_spd = {}
+		for kper in range(int(self.nper)):
+			period_map: dict[tuple[int, int, int], list[float]] = {}
+			for entry in ocean_chd_spd.get(kper, []):
+				period_map[(int(entry[0]), int(entry[1]), int(entry[2]))] = entry
+			for entry in side_chd_spd.get(kper, []):
+				period_map[(int(entry[0]), int(entry[1]), int(entry[2]))] = entry
+			chd_spd[kper] = list(period_map.values())
 		if any(len(v) > 0 for v in chd_spd.values()):
 			self.chd = flopy.mf6.ModflowGwfchd(self.gwf, stress_period_data=chd_spd, save_flows=True)
 
@@ -819,6 +880,17 @@ class Modflow6(Solver):
 		if options.run_model:
 			success_model, _ = self.sim.run_simulation(silent=not options.verbose)
 		return success_model
+
+	@staticmethod
+	def _get_budget_records_or_none(cbb: object, *, kstpkper: tuple[int, int], text: str):
+		"""Return one budget term, or None when the term is absent from the file."""
+		try:
+			return cbb.get_data(kstpkper=kstpkper, text=text)
+		except ValueError as exc:
+			message = str(exc)
+			if "text string is not in the budget file" in message.lower():
+				return None
+			raise
 
 	def post_processing(self, options: ModflowPostprocessOptions | None = None):
 		if options is None:
@@ -862,7 +934,11 @@ class Modflow6(Solver):
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, wtd, os.path.join(self.tifs_file, f"watertable_depth_t({item}).tif"), -9999)
 
-			drn = cbb.get_data(kstpkper=(item, item), text="DRN")
+			drn = self._get_budget_records_or_none(
+				cbb,
+				kstpkper=(item, item),
+				text="DRN",
+			)
 			outflow = np.zeros((self.nrow, self.ncol), dtype=float)
 			seepage = np.zeros((self.nrow, self.ncol), dtype=float)
 			if drn is not None and len(drn) > 0:

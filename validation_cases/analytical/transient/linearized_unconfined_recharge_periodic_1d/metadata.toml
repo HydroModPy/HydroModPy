@@ -4,6 +4,13 @@ regime = "transient"
 dimension = "1d"
 launcher = "launcher_simulation"
 config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+
 
 [workspace]
 watershed_name = "val_lu_recharge_periodic"
@@ -34,3 +41,4 @@ n_terms = 400
 [plot]
 profile_times_days = [30.0, 32.0, 35.0, 38.0, 40.0]
 monitor_positions_m = [25.0, 50.0, 75.0]
+

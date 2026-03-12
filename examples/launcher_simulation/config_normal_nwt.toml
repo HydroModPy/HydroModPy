@@ -1,3 +1,6 @@
+# Reduced MODFLOW-NWT / MODPATH / MT3DMS regression config.
+# This normal-tier case stays shorter than config_extensive.toml while keeping
+# the legacy solver family used by the extensive baseline.
 [simulation]
 name = "Example 12 launcher normal 3 months"
 
@@ -167,4 +170,7 @@ lay_decay = 1.2
 
 [postprocess]
 enabled = true
+
+[display]
+show = false
 

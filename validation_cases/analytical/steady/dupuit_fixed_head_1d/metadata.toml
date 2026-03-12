@@ -3,7 +3,12 @@ category = "analytical"
 regime = "steady"
 dimension = "1d"
 launcher = "launcher_simulation"
-config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_common.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
 
 [workspace]
 watershed_name = "validation_linear_head"
