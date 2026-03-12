@@ -23,29 +23,12 @@ def test_planner_infers_geology_from_domain_zone_ids() -> None:
     assert "domain.zone_ids" in plan.reasons_for("geology")[0]
 
 
-def test_planner_infers_geology_from_domain_support_mode() -> None:
-    cfg = DataManagersConfig(types=[])
-
-    plan = DataManagersPlanner().build(
-        cfg,
-        domain_zone_ids=[],
-        domain_support_mode="geology",
-        raw_toml={},
-    )
-
-    assert plan.explicit_types == ()
-    assert plan.inferred_types == ("geology",)
-    assert plan.types == ("geology",)
-    assert "domain.support_mode" in plan.reasons_for("geology")[0]
-
-
 def test_planner_infers_geology_from_explicit_geology_support_provider() -> None:
     cfg = DataManagersConfig(types=[])
 
     plan = DataManagersPlanner().build(
         cfg,
         domain_zone_ids=[],
-        domain_support_mode="zones",
         domain_support_provider_names=["geology"],
         requested_spatial_support_ids=["field_geology"],
         raw_toml={},
@@ -61,7 +44,6 @@ def test_planner_does_not_infer_geology_from_unused_support_provider() -> None:
     plan = DataManagersPlanner().build(
         cfg,
         domain_zone_ids=[],
-        domain_support_mode="zones",
         domain_support_provider_names=["geology"],
         requested_spatial_support_ids=[],
         raw_toml={},

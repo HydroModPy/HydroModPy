@@ -24,7 +24,6 @@ dependencies:
   - rioxarray
   - scikit-learn
   - selenium
-  - whitebox
   - xarray
   - pysheds
   - pip

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Created on Fri Mar 21 10:39:38 2025
 
@@ -52,7 +52,7 @@ from hydromodpy.watershed import Geographic, Initializing, Climatic, Driasclimat
     SafranSurfex, Subbasin, Transport
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.domain import Domain, Surfaces
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow import Modflow
@@ -60,7 +60,7 @@ from hydromodpy.modeling.modpath import Modpath
 from hydromodpy.modeling.mt3dms import Mt3dms
 from hydromodpy.modeling import timeseries, netcdf
 from hydromodpy.calibration.calibration_legacy.matching_stream import MatchingStreams
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+from hydromodpy.hydrology.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 cfg = HydroModPyConfig.from_toml(Path(__file__).parent / "config.toml")
@@ -199,7 +199,7 @@ if __name__ == '__main__':
         sim2_file_temp = 'x' # ton netcdf propre
         sim2_file_sr = 'x' # ton netcdf propre
         
-        # Peut-être ajouter à config.toml 
+        # Peut-Ãªtre ajouter Ã  config.toml 
         
         dem_path_modflow = geographic.watershed_box_buff_dem # pqth du dem modflow
         dem_path_pyhelp = os.path.join(initializing.stable_folder, "geographic", "watershed_box_buff_dem_250.tif")
@@ -265,11 +265,11 @@ if __name__ == '__main__':
         # hum4            %               Average quarterly relative humidity (Oct to Dec)
         # growth_start    julian day      First day of the growing season
         # growth_end      julian day      Last day of the growing season
-        # LAI             –               Maximum leaf area index
+        # LAI             â€“               Maximum leaf area index
         # EZD             cm              Evaporative zone depth
-        # CN              –               Curve Number
-        # nlayer          –               Number of hydrostratigraphic layers at cell cid
-        # lay_type{i}     –               Type of HELP layer of the ith soil layer
+        # CN              â€“               Curve Number
+        # nlayer          â€“               Number of hydrostratigraphic layers at cell cid
+        # lay_type{i}     â€“               Type of HELP layer of the ith soil layer
         # thick{i}        cm              Thickness of the ith soil layer
         # poro{i}         m3/m3           Total porosity of the ith soil layer
         # fc{i}           m3/m3           Field capacity of the ith soil layer
@@ -278,8 +278,8 @@ if __name__ == '__main__':
         # dist_dr         m               Distance to discharge
         # slope           %               Average slope
     
-        # run             –               Identify cells to be run with the HELP model
-        # context         –               Identify cells by context:
+        # run             â€“               Identify cells to be run with the HELP model
+        # context         â€“               Identify cells by context:
         #     0 - Water cell
         #     1 - Normal cell
         #     2 - Stream edge with superficial hypodermic runoff
@@ -1093,7 +1093,7 @@ if __name__ == '__main__':
     #%% PLOT CONCENTRATION
 
     if display_plots:
-        # Créer le GIF à la fin du processus
+        # CrÃ©er le GIF Ã  la fin du processus
         vgif_name = vers
         gif_name = vgif_name+'.gif'
 
@@ -1139,10 +1139,10 @@ if __name__ == '__main__':
 
         concobj_1c_fil_surf = dict(list(concobj_1c_fil_surf.items())[:])
 
-        # Liste pour accumuler les boxplots précédents
+        # Liste pour accumuler les boxplots prÃ©cÃ©dents
         all_box_stats = []
 
-        # Définir le répertoire de sauvegarde des images
+        # DÃ©finir le rÃ©pertoire de sauvegarde des images
         figures_dir = os.path.join(str(simulations_folder), '_figures/')
         if not os.path.exists(figures_dir):
             os.makedirs(figures_dir)
@@ -1188,10 +1188,10 @@ if __name__ == '__main__':
             mean_vals.append(mean)
             mean_times.append(xpos)
 
-            # Ajouter les boxplots cumulés à chaque itération
-            all_box_stats.append((xpos, box_stats))  # Conserver les résultats des boxplots précédents
+            # Ajouter les boxplots cumulÃ©s Ã  chaque itÃ©ration
+            all_box_stats.append((xpos, box_stats))  # Conserver les rÃ©sultats des boxplots prÃ©cÃ©dents
 
-            # Créer une nouvelle figure et des axes à chaque itération
+            # CrÃ©er une nouvelle figure et des axes Ã  chaque itÃ©ration
             fig, axs = plt.subplots(2, 1, figsize=(8, 12), dpi=300, gridspec_kw={'height_ratios': [1, 3]})
             ax = axs.ravel()
 
@@ -1202,7 +1202,7 @@ if __name__ == '__main__':
             axb.zorder = 0 # fills in back
             ax[0].patch.set_visible(False)
 
-            # Ajouter les boxplots précédents et actuels à la figure
+            # Ajouter les boxplots prÃ©cÃ©dents et actuels Ã  la figure
             for xpos, box_stat in all_box_stats:
                 ax[0].bxp(box_stat, positions=[xpos], widths=5, showfliers=False,
                         showmeans=True, meanline=False,
@@ -1211,19 +1211,19 @@ if __name__ == '__main__':
                         meanprops=dict(marker='o', markerfacecolor='k', markeredgecolor='k', markersize=5),
                         whiskerprops=dict(linestyle='-', linewidth=0),
                         capprops=dict(linewidth=0),
-                        zorder=1)  # low zorder → in background
+                        zorder=1)  # low zorder â†’ in background
 
-            # Mettre à jour la ligne verticale du premier graphique
+            # Mettre Ã  jour la ligne verticale du premier graphique
             ax[0].axvline(x=xpos, color='black', linestyle='--', lw=0.5, zorder=-1)
 
             ax[0].axhline(y=input_no3, color='darkorange', linestyle='-', lw=1, zorder=-1,
-                        label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans h., 0.05 m trans v. \nDiffusion: 10$^{-10}$ m²/s',
+                        label='Injection: 50 mg/L \nNO3 decay : 1/2 y$^{-1}$ \nDispersivity: 5 m longi., 0.5 m trans h., 0.05 m trans v. \nDiffusion: 10$^{-10}$ mÂ²/s',
                         )
 
             # if i==0:
             ax[0].legend(loc='upper center', frameon=False)
 
-            # Réglages pour le graphique de concentration
+            # RÃ©glages pour le graphique de concentration
             ax[0].set_ylabel('[NO3] mg/L', color='forestgreen')
             ax[0].set_title('Synthetic drought year - Initial: mean recharge and aquifer at 100 mg/L', fontsize=10)
             ax[0].xaxis.set_major_locator(mdates.MonthLocator(bymonthday=1))
@@ -1234,7 +1234,7 @@ if __name__ == '__main__':
             # Line connectant les moyennes
             ax[0].plot(mean_times, mean_vals, color='black', lw=2, linestyle='-', zorder=2)
 
-            # Placer la recharge en arrière-plan du graphique
+            # Placer la recharge en arriÃ¨re-plan du graphique
             # axb.step(R_mm_day.index, R_mm_day * 30, lw=2, color='dodgerblue', zorder=0)
             axb.step(R_mm_day_filt.index, R_mm_day_filt * 30, lw=2, color='dodgerblue', zorder=0)
             axb.set_ylabel('Recharge [mm/month]', color='dodgerblue')
@@ -1244,7 +1244,7 @@ if __name__ == '__main__':
             # New xi
             xi = conc_plt.copy()
 
-            # Créer un graphique avec la carte
+            # CrÃ©er un graphique avec la carte
             norm = mcolors.LogNorm(vmin=30, vmax=100)
             color_camp = 'turbo'
             sm = cm.ScalarMappable(cmap=color_camp, norm=norm)
@@ -1279,14 +1279,14 @@ if __name__ == '__main__':
             fig.tight_layout()
             fig.savefig(figures_dir+vgif_name+'_'+str(i)+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
 
-            # Fermer la figure pour économiser de la mémoire
+            # Fermer la figure pour Ã©conomiser de la mÃ©moire
             if i < (len(concobj_1c_fil_surf)-1):
                 plt.close(fig)
             else:
                 plt.show()
 
         if plot_gif == True:
-            # Créer le GIF à partir des images enregistrées
+            # CrÃ©er le GIF Ã  partir des images enregistrÃ©es
             begin_by = figures_dir + vgif_name
             filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
             images = []
@@ -1315,7 +1315,7 @@ if __name__ == '__main__':
         import base64
         from io import BytesIO
 
-        # Exemple : création de la liste des fichiers
+        # Exemple : crÃ©ation de la liste des fichiers
         figures_dir = os.path.join(str(simulations_folder), '_figures/')
         begin_by = figures_dir + vers
         filenames = sorted(glob.glob(begin_by+'*.png'), key=os.path.getmtime)
@@ -1353,7 +1353,7 @@ if __name__ == '__main__':
             for i, src in enumerate(image_sources)
         ]
 
-        # Première image (affichée par défaut)
+        # PremiÃ¨re image (affichÃ©e par dÃ©faut)
         fig = go.Figure(
             layout=go.Layout(
                 title="Slider to navigate between images",
@@ -1404,3 +1404,4 @@ if __name__ == '__main__':
 #%% ---- END OF SCRIPT
 
 #%% ---- NOTES
+

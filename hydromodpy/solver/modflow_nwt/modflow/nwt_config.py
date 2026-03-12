@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from hydromodpy.config.param_level import ParamLevel
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfigModel
-from hydromodpy.units.length import parse_length_to_m
+from hydromodpy.support.units.length import parse_length_to_m
 
 
 class ModflowRuntimeConfig(BaseModel):

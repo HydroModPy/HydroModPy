@@ -6,7 +6,7 @@ Scope
 
 These diagrams document the architecture around:
 
-- ``domain.support_mode`` and ``domain.supports``,
+- ``domain.supports`` and ``domain.zone_ids``,
 - the different support-definition cases (generated bands, rings, catchment,
   geology),
 - the bridge from domain-side supports to the generic ``Field`` contract,
@@ -37,15 +37,15 @@ support-field implementations, ``Field``, and ``FieldParam``.
    :language: text
    :caption: PlantUML (.wsd) source - spatial support class diagram
 
-Support-Mode Activity Diagram
------------------------------
+Support-Resolution Activity Diagram
+-----------------------------------
 
-Use this diagram to explain how ``support_mode = none|geology|zones`` drives
-runtime behavior and data dependencies.
+Use this diagram to explain how explicit support declarations drive runtime
+behavior and data dependencies.
 
-.. uml:: diagrams/spatial_support_mode_activity.wsd
+.. uml:: diagrams/spatial_support_resolution_activity.wsd
 
-.. literalinclude:: diagrams/spatial_support_mode_activity.wsd
+.. literalinclude:: diagrams/spatial_support_resolution_activity.wsd
    :language: text
    :caption: PlantUML (.wsd) source - spatial support mode activity diagram
 

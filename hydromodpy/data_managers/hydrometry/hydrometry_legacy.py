@@ -18,7 +18,7 @@ import datetime
 import pandas as pd
 import geopandas as gpd
 from hydromodpy.backends import get_whitebox_backend
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 

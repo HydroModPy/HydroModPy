@@ -26,12 +26,8 @@ def build_solver_routing_context(
     dem_correc_type: str,
     crs_project: str | None = None,
     backend: WhiteboxBackend | None = None,
-    wbt_tool: WhiteboxBackend | None = None,
 ) -> SolverRoutingContext:
     """Build flow-correction and D8 routing rasters from one solver DEM."""
-    if backend is not None and wbt_tool is not None:
-        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
-
     dem_in = Path(dem_path)
     if not dem_in.exists():
         raise FileNotFoundError(f"Solver DEM raster not found: {dem_in}")
@@ -44,8 +40,7 @@ def build_solver_routing_context(
         dem_out_dir_path=out_dir,
         dem_correc_type=str(dem_correc_type),
         crs_project=crs_project,
-        backend=backend or wbt_tool,
-        wbt_tool=None,
+        backend=backend,
     )
     return SolverRoutingContext(
         dem_path=str(dem_in),

@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.units import factor_to_m_per_s, normalize_m_per_s_unit, parse_scalar_and_unit
+from hydromodpy.support.units import factor_to_m_per_s, normalize_m_per_s_unit, parse_scalar_and_unit
 
 
 RechargeChronicleMode = Literal["observed_csv", "synthetic_generated", "synthetic_csv"]

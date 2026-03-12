@@ -1,4 +1,4 @@
-"""Comparison workflow for the late-time unconfined pumping 2D validation case."""
+﻿"""Comparison workflow for the late-time unconfined pumping 2D validation case."""
 
 from __future__ import annotations
 
@@ -24,9 +24,10 @@ CASE_DIR = Path(__file__).resolve().parent
 def build_late_time_unconfined_pumping_comparison(
     *,
     result,
+    solver: str | None = None,
 ) -> TransientRadialDrawdownComparison:
     """Load one completed run and compare the late-time drawdown to the reference."""
-    loaded = load_transient_profile_outputs(case_dir=CASE_DIR, result=result)
+    loaded = load_transient_profile_outputs(case_dir=CASE_DIR, result=result, solver=solver)
     metadata, tolerances, observable_name, period_indices_all, heads_all, dt_seconds = loaded
     reference_cfg = dict(metadata.get("reference", {}))
     plot_cfg = dict(metadata.get("plot", {}))
@@ -107,11 +108,16 @@ def run_late_time_unconfined_pumping_comparison(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    solver: str | None = None,
 ) -> TransientRadialDrawdownComparison:
     """Run the launcher case and return the full radial-drawdown comparison payload."""
     result = run_launcher_validation_case(
         case_dir=CASE_DIR,
         test_file=caller_file,
         timeout=timeout,
+        solver=solver,
     )
-    return build_late_time_unconfined_pumping_comparison(result=result)
+    return build_late_time_unconfined_pumping_comparison(result=result, solver=solver)
+
+
+

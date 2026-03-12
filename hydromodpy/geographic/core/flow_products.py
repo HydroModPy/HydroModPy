@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.backends import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
 
 from hydromodpy.geographic.geographic_io import ensure_crs
 
@@ -37,6 +37,9 @@ class FlowProducts:
     correc: str
     direc: str
     acc: str
+    correc_data: object | None = None
+    direc_data: object | None = None
+    acc_data: object | None = None
 
 
 def build_regional_flow_products(
@@ -46,7 +49,6 @@ def build_regional_flow_products(
     dem_correc_type: str,
     crs_project: str | None = None,
     backend: WhiteboxBackend | None = None,
-    wbt_tool: WhiteboxBackend | None = None,
 ) -> FlowProducts:
     """Generate corrected DEM, D8 direction and D8 accumulation rasters.
 
@@ -64,12 +66,8 @@ def build_regional_flow_products(
         Optional CRS to enforce on output metadata.
     backend:
         Optional Whitebox backend injected for runtime/tests.
-    wbt_tool:
-        Legacy alias for ``backend`` kept for backward compatibility.
     """
-    if backend is not None and wbt_tool is not None:
-        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
-    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
+    tool = get_whitebox_backend() if backend is None else backend
 
     dem_in = str(dem_init_path)
     out_dir = Path(dem_out_dir_path)
@@ -77,27 +75,53 @@ def build_regional_flow_products(
 
     if dem_correc_type == "fill":
         correc = str(out_dir / "dem_fill.tif")
-        # "fill": raise depression cells until drainage continuity is ensured.
-        tool.fill_depressions(dem_in, correc)
     elif dem_correc_type == "breach":
         correc = str(out_dir / "dem_breach.tif")
-        # "breach": cut short channels through barriers to restore connectivity.
-        tool.breach_depressions(dem_in, correc)
     else:
         raise ValueError(f"Unknown dem_correc_type={dem_correc_type!r}. Expected 'fill' or 'breach'.")
 
     direc = str(out_dir / "dem_direc.tif")
-    # D8 direction: each cell points to one of its 8 neighbors (steepest descent).
-    tool.d8_pointer(correc, direc, esri_pntr=False)
-
-    # D8 accumulation: upstream contributing area proxy used for outlet snapping.
-    # `log=True` keeps values in a compact range and matches legacy behavior.
     acc = str(out_dir / "dem_acc.tif")
-    tool.d8_flow_accumulation(correc, acc, log=True)
+
+    correc_data = None
+    direc_data = None
+    acc_data = None
+    if isinstance(tool, WhiteboxWorkflowsBackend):
+        dem_data = tool.read_raster(dem_in)
+        if dem_correc_type == "fill":
+            # "fill": raise depression cells until drainage continuity is ensured.
+            correc_data = tool.fill_depressions_raster(dem_data)
+        else:
+            # "breach": cut short channels through barriers to restore connectivity.
+            correc_data = tool.breach_depressions_raster(dem_data)
+        # D8 direction: each cell points to one of its 8 neighbors (steepest descent).
+        direc_data = tool.d8_pointer_raster(correc_data, esri_pntr=False)
+        # D8 accumulation: upstream contributing area proxy used for outlet snapping.
+        # `log=True` keeps values in a compact range and matches legacy behavior.
+        acc_data = tool.d8_flow_accumulation_raster(correc_data, log=True)
+        tool.write_raster(correc_data, correc)
+        tool.write_raster(direc_data, direc)
+        tool.write_raster(acc_data, acc)
+    else:
+        if dem_correc_type == "fill":
+            # "fill": raise depression cells until drainage continuity is ensured.
+            tool.fill_depressions(dem_in, correc)
+        else:
+            # "breach": cut short channels through barriers to restore connectivity.
+            tool.breach_depressions(dem_in, correc)
+        tool.d8_pointer(correc, direc, esri_pntr=False)
+        tool.d8_flow_accumulation(correc, acc, log=True)
 
     # Normalize CRS metadata to keep downstream GIS/raster steps predictable.
     ensure_crs(correc, crs_project)
     ensure_crs(direc, crs_project)
     ensure_crs(acc, crs_project)
 
-    return FlowProducts(correc=correc, direc=direc, acc=acc)
+    return FlowProducts(
+        correc=correc,
+        direc=direc,
+        acc=acc,
+        correc_data=correc_data,
+        direc_data=direc_data,
+        acc_data=acc_data,
+    )

@@ -45,14 +45,14 @@ sys.path.append(root_dir)
 from hydromodpy import watershed_root_legacy
 from hydromodpy.display import visualization_watershed, visualization_results
 from hydromodpy.solver.modflow_nwt import Modflow
-from hydromodpy.tools.io_utils import (
+from hydromodpy.support.tools.io_utils import (
     setup_paths, load_raster, load_csv,
     load_simulation_results, make_timeseries_data, extract_watershed
 )
-from hydromodpy.tools.visualization import (
+from hydromodpy.support.tools.visualization import (
     create_watershed_plot, create_map_plot, create_crosssection_plot, create_timeseries_plot
 )
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- LOGGING CONFIGURATION (OPTIONAL)
@@ -385,6 +385,7 @@ fig.tight_layout()
 #%% ---- NOTES
 
 os.chdir(root_dir)
+
 
 
 

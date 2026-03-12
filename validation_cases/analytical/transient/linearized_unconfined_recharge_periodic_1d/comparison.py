@@ -1,4 +1,4 @@
-"""Comparison workflow for the 1D linearized unconfined periodic-recharge case."""
+﻿"""Comparison workflow for the 1D linearized unconfined periodic-recharge case."""
 
 from __future__ import annotations
 
@@ -21,9 +21,10 @@ CASE_DIR = Path(__file__).resolve().parent
 def build_linearized_unconfined_recharge_periodic_comparison(
     *,
     result,
+    solver: str | None = None,
 ) -> TransientHead1DComparison:
     """Load one completed run and compare it against the linearized analytical solution."""
-    loaded = load_transient_profile_outputs(case_dir=CASE_DIR, result=result)
+    loaded = load_transient_profile_outputs(case_dir=CASE_DIR, result=result, solver=solver)
     metadata = loaded[0]
     reference_cfg = dict(metadata.get("reference", {}))
     period_indices = loaded[3]
@@ -61,11 +62,16 @@ def run_linearized_unconfined_recharge_periodic_comparison(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    solver: str | None = None,
 ) -> TransientHead1DComparison:
     """Run the launcher case and return the full comparison payload."""
     result = run_launcher_validation_case(
         case_dir=CASE_DIR,
         test_file=caller_file,
         timeout=timeout,
+        solver=solver,
     )
-    return build_linearized_unconfined_recharge_periodic_comparison(result=result)
+    return build_linearized_unconfined_recharge_periodic_comparison(result=result, solver=solver)
+
+
+

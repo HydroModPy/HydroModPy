@@ -26,7 +26,7 @@ except:
 import rasterio
 import matplotlib.pyplot as plt
 import gc
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 

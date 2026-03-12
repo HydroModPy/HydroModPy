@@ -4,6 +4,13 @@ regime = "steady"
 dimension = "2d"
 launcher = "launcher_simulation"
 config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+
 
 [workspace]
 watershed_name = "val_bsq_island_pk2d"
@@ -34,3 +41,4 @@ substratum_elevation_m = -5.0
 ring_radius_breaks_m = [70.0, 140.0]
 hydraulic_conductivity_m_per_s_by_ring = [8e-6, 4e-6, 1e-5]
 recharge_mm_day = 1.0
+

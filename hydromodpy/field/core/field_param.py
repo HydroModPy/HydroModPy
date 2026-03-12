@@ -26,13 +26,13 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
-from hydromodpy.units.hydraulic_conductivity import (
+from hydromodpy.support.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     factor_to_m_per_s,
     normalize_m_per_s_unit,
 )
-from hydromodpy.units.scalar import parse_scalar_and_unit
-from hydromodpy.units.length import parse_length_to_m
+from hydromodpy.support.units.scalar import parse_scalar_and_unit
+from hydromodpy.support.units.length import parse_length_to_m
 
 try:
     from hydromodpy.field.core.field_param_config import (

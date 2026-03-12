@@ -24,7 +24,6 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
         dem_correc_type,
         crs_project,
         backend,
-        wbt_tool,
     ):
         captured.update(
             {
@@ -33,7 +32,6 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
                 "dem_correc_type": dem_correc_type,
                 "crs_project": crs_project,
                 "backend": backend,
-                "wbt_tool": wbt_tool,
             }
         )
         return FlowProducts(
@@ -64,7 +62,6 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
     assert captured["dem_correc_type"] == "breach"
     assert captured["crs_project"] == "EPSG:2154"
     assert captured["backend"] == "fake-wbt"
-    assert captured["wbt_tool"] is None
 
 
 def test_build_solver_routing_context_requires_existing_dem(tmp_path: Path):

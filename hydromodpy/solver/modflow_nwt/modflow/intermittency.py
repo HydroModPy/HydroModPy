@@ -23,7 +23,7 @@ import os
 import numpy as np
 import rasterio
 
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 from .postprocess import NODATA
 

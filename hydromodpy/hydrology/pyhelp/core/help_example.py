@@ -19,7 +19,7 @@ import pandas as pd
 from .managers import HelpManager
 from .bilan import calc_yearly_streamflow
 from .daily_output import calc_area_daily_avg
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 

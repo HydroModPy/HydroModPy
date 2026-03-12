@@ -35,7 +35,7 @@ from rasterio.enums import Resampling
 from rasterio.warp import reproject
 
 from hydromodpy.postprocess.flow.intermittency import apply_intermittency_columns
-from hydromodpy.tools import get_logger, toolbox
+from hydromodpy.support.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
 # Silence pandas masked-to-nan spam when handling masked arrays

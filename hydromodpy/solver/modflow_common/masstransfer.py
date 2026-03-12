@@ -19,7 +19,7 @@ import rasterio
 from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 
 # HydroModPy
-from hydromodpy.tools import get_logger, toolbox
+from hydromodpy.support.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,6 @@ class Masstransfer:
         routing_fill_path: str | None = None,
         routing_direc_path: str | None = None,
         backend: WhiteboxBackend | None = None,
-        wbt_tool: WhiteboxBackend | None = None,
     ):
         """
         Parameters
@@ -62,11 +61,9 @@ class Masstransfer:
             Optional tag injected into intermediate filenames to distinguish
             runs (default keeps historical '_conc' suffixes).
         """
-        if backend is not None and wbt_tool is not None:
-            raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
         self.geographic = geographic
         self.extraction_folder = extraction_folder
-        self._backend = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
+        self._backend = get_whitebox_backend() if backend is None else backend
         label_suffix = f"_{label}" if label else ""
 
         self.watershed_direc_surflow = routing_direc_path or getattr(

@@ -99,7 +99,7 @@ import pandas as pd
 
 from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common.grid_context import GridReference
-from hydromodpy.units.volumetric_flow import (
+from hydromodpy.support.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )

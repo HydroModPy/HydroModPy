@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.backends import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
 
 from hydromodpy.geographic.geographic_io import ensure_crs
 
@@ -21,7 +21,6 @@ def clip_dem_to_box_buffer(
     crs_project: str | None = None,
     nodata: float = -9999.0,
     backend: WhiteboxBackend | None = None,
-    wbt_tool: WhiteboxBackend | None = None,
 ) -> str:
     """Clip source DEM to domain rectangle and normalize metadata.
 
@@ -39,31 +38,35 @@ def clip_dem_to_box_buffer(
         Nodata value enforced on output.
     backend:
         Optional Whitebox backend for runtime/tests.
-    wbt_tool:
-        Legacy alias for ``backend`` kept for backward compatibility.
-
     Returns
     -------
     str
         Path to the clipped DEM raster.
     """
-    if backend is not None and wbt_tool is not None:
-        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
-    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
+    tool = get_whitebox_backend() if backend is None else backend
 
     src_dem = str(dem_init_path)
     clip_poly = str(box_buff_shp)
     dst_dem = str(output_dem_path)
     Path(dst_dem).parent.mkdir(parents=True, exist_ok=True)
 
-    # `maintain_dimensions=False` keeps only the effective clipped extent.
-    tool.clip_raster_to_polygon(
-        src_dem,
-        clip_poly,
-        dst_dem,
-        maintain_dimensions=False,
-    )
+    if isinstance(tool, WhiteboxWorkflowsBackend):
+        clipped = tool.clip_raster_to_polygon_raster(
+            tool.read_raster(src_dem),
+            tool.read_vector(clip_poly),
+            maintain_dimensions=False,
+        )
+        clipped = tool.modify_no_data_value_raster(clipped, new_value=float(nodata))
+        tool.write_raster(clipped, dst_dem)
+    else:
+        # `maintain_dimensions=False` keeps only the effective clipped extent.
+        tool.clip_raster_to_polygon(
+            src_dem,
+            clip_poly,
+            dst_dem,
+            maintain_dimensions=False,
+        )
+        tool.modify_no_data_value(dst_dem, new_value=float(nodata))
 
     ensure_crs(dst_dem, crs_project)
-    tool.modify_no_data_value(dst_dem, new_value=float(nodata))
     return dst_dem

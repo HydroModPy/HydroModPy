@@ -21,7 +21,7 @@ xr.set_options(keep_attrs = True)
 from shapely.geometry import mapping
 import numpy as np
 import gc
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 

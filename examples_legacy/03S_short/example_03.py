@@ -39,7 +39,7 @@ sys.path.append(root_dir)
 # HYDROMODPY MODULES
 from hydromodpy import watershed_root_legacy
 from hydromodpy.display import visualization_watershed, visualization_results
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 #%% ---- PATHS
@@ -458,6 +458,7 @@ for model_name, success_modflow, model_modflow in zip(list_model_name,
 #%% ---- NOTES
 
 os.chdir(root_dir)
+
 
 
 

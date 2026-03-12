@@ -315,7 +315,6 @@ autodoc_mock_imports = [
     "pyside6",
     "vedo",
     "vtk",
-    "whitebox",
     "whitebox_workflows",
     "xarray",
     "pysheds",

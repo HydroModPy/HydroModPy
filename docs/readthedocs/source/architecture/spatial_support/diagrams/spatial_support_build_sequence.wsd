@@ -13,8 +13,8 @@ participant "Provider" as Provider
 participant "loaded_data.geology" as Geology
 
 User -> Launcher: run()
-Launcher -> DomainCfg: validate support_mode / supports
-Launcher -> Planner: build(... domain_support_mode,\nprovider_names,\nrequested_support_ids)
+Launcher -> DomainCfg: validate supports / zone_ids
+Launcher -> Planner: build(... provider_names,\nrequested_support_ids)
 Planner --> Launcher: data load plan
 
 Launcher -> Domain: Domain(config, surface_topo)

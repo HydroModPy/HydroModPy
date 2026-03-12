@@ -64,7 +64,7 @@ dependencies = [
     "scikit-learn",
     "selenium",
     "vedo",
-    "whitebox",
+    "whitebox-workflows",
     "xarray",
     "pydantic>=2.0",
     "pyside6",
@@ -136,8 +136,8 @@ markers = [
 
 [tool.coverage.run]
 source = [
-    "hydromodpy.watershed_legacy",
-    "hydromodpy.tools",
+    "hydromodpy.legacy.watershed",
+    "hydromodpy.support.tools",
     "hydromodpy.display",
 ]
 parallel = true
@@ -159,3 +159,4 @@ exclude_lines = [
     "raise NotImplementedError",
     "\\.\\.\\.",
 ]
+

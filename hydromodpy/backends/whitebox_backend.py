@@ -1,19 +1,19 @@
-"""File-oriented Whitebox backend contract used across HydroModPy.
+"""Whitebox-style backend contract used across HydroModPy.
 
 Why this file exists
 --------------------
-HydroModPy uses a small subset of WhiteboxTools operations in several runtime
+HydroModPy uses a small subset of Whitebox-style operations in several runtime
 pipelines (catchment delineation, DEM clipping, routing products, mass-flux
 accumulation, ...).  The rest of the code should not depend directly on the
-third-party ``whitebox.WhiteboxTools`` object, because that would:
+third-party backend object, because that would:
 
 - couple domain logic to one concrete dependency;
 - make tests harder to isolate;
 - prevent replacing the implementation with a mock or another adapter.
 
 This module therefore defines the minimal file-based protocol expected by the
-runtime.  Implementations are free to delegate to WhiteboxTools, a fake test
-double, or another backend exposing the same side effects on disk.
+runtime. Implementations are free to delegate to whitebox_workflows, a fake
+test double, or another backend exposing the same side effects on disk.
 """
 
 from __future__ import annotations
