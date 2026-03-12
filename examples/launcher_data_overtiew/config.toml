@@ -42,22 +42,14 @@ fields_obs = ["FID"]
 hydro_path = "data/"
 
 [data.hydrometry]
-variable = "QmnJ"
-display = false
 date_start = "2019-01-01"
 date_end = "2025-12-31"
 
-[data.hydrometry.source]
-mode = "api"
-local_data_dir = "hydrometry_exports"
-
-[data.hydrometry.selection]
-mode = "mask"
-
-[data.hydrometry.output]
-enabled = true
-path = "../results/launcher_data_overtiew/results_stable/hydrometry"
-export_mode = "lite"
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "watershed"
+require_observations = true
 
 [data.intermittency]
 intermittency_path = "data/"
