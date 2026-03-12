@@ -11,6 +11,7 @@ from numbers import Real
 import flopy
 import flopy.utils.binaryfile as bf
 import numpy as np
+import rasterio
 from flopy.utils import postprocessing as pp
 
 from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
@@ -997,20 +998,31 @@ class Modflow6(Solver):
 			outflow[dem_mask] = -9999
 			seepage[dem_mask] = -9999
 
+			outflow_tif_path = os.path.join(self.tifs_file, f"outflow_drain_t({item}).tif")
 			if options.outflow_drain:
 				dict_outflow_drain[item] = outflow
-				if options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, outflow, os.path.join(self.tifs_file, f"outflow_drain_t({item}).tif"), -9999)
+			if options.outflow_drain or options.accumulation_flux:
+				if options.accumulation_flux or options.export_all_tif or item == 0:
+					toolbox.export_tif(self.dem_watershed_path, outflow, outflow_tif_path, -9999)
 			if options.seepage_areas:
 				dict_seepage_areas[item] = seepage
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, seepage, os.path.join(self.tifs_file, f"seepage_areas_t({item}).tif"), -9999)
 
 			if options.accumulation_flux:
-				acc = np.where(outflow == -9999, -9999, outflow)
-				dict_accumulation_flux[item] = acc
-				if options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, acc, os.path.join(self.tifs_file, f"accumulation_flux_t({item}).tif"), -9999)
+				routing_ctx = self._ensure_solver_routing_context()
+				accumulated_flow = masstransfer.Masstransfer(
+					self.geographic,
+					f"outflow_drain_t({item}).tif",
+					f"tracept_t({item}).shp",
+					f"accumulation_flux_t({item}).tif",
+					extraction_folder=self.save_file,
+					routing_fill_path=routing_ctx.correc_path,
+					routing_direc_path=routing_ctx.direc_path,
+				)
+				accumulated_flow.trace_cumulated()
+				with rasterio.open(os.path.join(self.tifs_file, f"accumulation_flux_t({item}).tif")) as src:
+					dict_accumulation_flux[item] = src.read(1)
 
 		if options.watertable_elevation:
 			np.save(os.path.join(self.save_file, "watertable_elevation"), dict_watertable_elevation)

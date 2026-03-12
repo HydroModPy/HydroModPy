@@ -46,12 +46,12 @@ The launcher itself does not hard-code "run flow then transport". It only:
 from __future__ import annotations
 
 import os
-import tomllib
 from pathlib import Path
 
 import hydromodpy as hmp
 import pandas as pd
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config.toml_loader import load_toml_with_base_config
 from hydromodpy.data_managers import (
     DataLoadPlan,
     DataManagersPlanner,
@@ -83,6 +83,10 @@ from hydromodpy.simulation.time import (
     resolve_simulation_time_window,
     validate_recharge_coverage,
 )
+from launchers.output_paths import (
+    build_repo_output_redirect_notice,
+    resolve_launcher_output_root,
+)
 
 
 class HydroModPyLauncher:
@@ -97,7 +101,7 @@ class HydroModPyLauncher:
     The typical usage is:
 
     >>> from pathlib import Path
-    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config_extensive.toml"))
+    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config_extensive_nwt.toml"))
     >>> run_state = launcher.run()
 
     After ``run()``, ``run_state`` contains both the shared objects created during
@@ -127,15 +131,22 @@ class HydroModPyLauncher:
         self.config_path = Path(config_path).resolve()
         self.cfg = HydroModPyConfig.from_toml(self.config_path)
 
-        # HYDROMODPY_OUT_PATH allows redirecting outputs without editing the launcher TOML.
-        if out_path_env := os.environ.get("HYDROMODPY_OUT_PATH"):
-            self.cfg.workspace.out_dir_path = Path(out_path_env)
+        resolved_out_dir, resolution = resolve_launcher_output_root(
+            self.cfg.workspace.out_dir_path,
+        )
+        self.cfg.workspace.out_dir_path = resolved_out_dir
+        if resolution == "repo_redirect":
+            print(
+                build_repo_output_redirect_notice(
+                    entrypoint_name="HydroModPyLauncher",
+                    resolved_out_dir=resolved_out_dir,
+                )
+            )
 
         apply_explicit_time_window_to_tgrids(self.cfg)
         self.time_grid = require_flow_simulation_time_grid(self.cfg)
 
-        with self.config_path.open("rb") as fh:
-            raw_toml = tomllib.load(fh)
+        raw_toml = load_toml_with_base_config(self.config_path)
 
         self.spatial_support_provider_registry = (
             build_default_spatial_support_provider_registry()

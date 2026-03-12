@@ -38,22 +38,25 @@ Filter by speed/tier:
 ```bash
 hmp test regression --fast
 hmp test regression --slow
-hmp test regression --normal
 hmp test regression --extensive
+hmp test regression --nwt
+hmp test regression --mf6
 ```
 
 Run a specific one:
 
 ```bash
-hmp test regression launcher_simulation --extensive
-hmp test regression launcher_simulation_normal --normal
+hmp test regression launcher_simulation_fast_nwt --fast --nwt
+hmp test regression launcher_simulation_fast_mf6 --fast --mf6
+hmp test regression launcher_simulation_extensive_nwt --extensive --nwt
+hmp test regression launcher_simulation_extensive_mf6 --extensive --mf6
 ```
 
-Run only the extensive suite folder (or normal suite folder when populated):
+Run only one tier:
 
 ```bash
+hmp test regression --fast
 hmp test regression --extensive
-hmp test regression --normal
 ```
 
 See what's available:
@@ -68,20 +71,21 @@ Parallel execution with `-j` (requires pytest-xdist):
 hmp test regression -j auto          # use all CPU cores
 hmp test regression --fast -j 4      # 4 workers
 hmp test unit -j auto
-hmp test regression launcher_simulation -j 1   # single worker, useful for debugging
+hmp test regression launcher_simulation_extensive_nwt -j 1   # single worker, useful for debugging
 ```
 
 Update golden references (careful, this overwrites the expected outputs):
 
 ```bash
 hmp test regression --update-goldens
-hmp test regression launcher_simulation --update-goldens
+hmp test regression launcher_simulation_fast_mf6 --update-goldens
 ```
 
 ### Notes
 
-- The current regression set is: `launcher_simulation_normal` (normal), plus `launcher_simulation`, `launcher_data_overview`, and `run_geographic_case_metrics` (extensive).
-- `--fast` and `--slow` match pytest markers, not individual examples.
-- `--normal` and `--extensive` select tests by directory (`tests/regression/normal` and `tests/regression/extensive`).
+- The current launcher regression set is: `launcher_simulation_fast_nwt`, `launcher_simulation_fast_mf6`, `launcher_simulation_extensive_nwt`, and `launcher_simulation_extensive_mf6`.
+- `--fast` and `--extensive` select regression tiers; `--slow` remains a pytest marker filter.
+- `--nwt` and `--mf6` filter regression tests by solver family.
+- `--normal` is kept as a deprecated alias for `--fast`.
 - `-j` maps to pytest-xdist `-n` flag. Without it, tests run sequentially.
 - The command prints the actual `pytest` invocation to stderr before running it.

@@ -117,13 +117,25 @@ hydromodpy/mesh/cartesian_grid/output/
 # Temporary files
 .pytest_tmp/
 .pytest_tmp*/
+.pytest-tmp/
 pytest_tmp*/
+pytest-cache-files-*/
+pytestscratch*/
 codex_pytest_tmp*/
+codex_validation_*/
+hmp_geo_*/
+hmp_wbw_*/
 scratch_probe*/
+scratch_pytest*/
+scratch_regression_outputs*/
+test_tmp*/
 tmp*/
+z/
 pytest_tmp_local/
 .codex_test_durations.xml
 .codex_test_durations_sorted.csv
+.tmp_lock_repro
+.tmp_launcher*
 *.tmp
 *.prof
 *.bak

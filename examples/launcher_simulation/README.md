@@ -1,13 +1,18 @@
 # `launcher_simulation` configs
 
-- `config_extensive.toml` is the canonical default launcher config for example12.
-  It is the git-tracked rename of the former `config_standard.toml`, with the
-  same long-run NWT/MT3DMS baseline behavior. The launcher default and the
-  extensive regression test both target this file.
-- `config_normal_nwt.toml` is the reduced NWT/MT3DMS variant kept for shorter
-  manual runs and solver-family comparisons against the historical baseline.
-- `config_normal_6.toml` is the reduced normal-tier regression config for the
-  MODFLOW 6 / GWT stack. It is intentionally minimal, and the fast normal
-  regression test targets this file.
-- `config_standard.toml` is intentionally removed. Update external scripts to
-  `config_extensive.toml` instead of keeping a silent alias.
+- `config_common.toml` contains the cross-solver and cross-tier settings shared
+  by all launcher regression variants.
+- `config_fast_common.toml` and `config_extensive_common.toml` specialize the
+  common base for the fast and extensive tiers.
+- `config_fast_nwt.toml` is the reduced NWT / MODPATH / MT3DMS regression
+  variant.
+- `config_fast_mf6.toml` is the reduced MODFLOW 6 / GWT regression variant.
+- `config_extensive_nwt.toml` is the canonical default launcher config for
+  example12. It keeps the historical long-run NWT / MT3DMS baseline behavior.
+- `config_extensive_mf6.toml` is the long-run MODFLOW 6 / GWT counterpart of
+  the canonical baseline.
+- Historical aliases have been removed. Update external scripts to the
+  canonical names directly: `config_fast_nwt.toml`, `config_fast_mf6.toml`,
+  `config_extensive_nwt.toml`, or `config_extensive_mf6.toml`.
+- `config_standard.toml` remains intentionally removed. Update external scripts
+  to `config_extensive_nwt.toml` instead of keeping a silent alias.

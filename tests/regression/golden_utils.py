@@ -136,11 +136,11 @@ def resolve_tiered_golden_file(
 
     Goldens are tiered by test location:
     - tests under ``tests/regression/extensive`` -> ``.../golden_references/extensive/``
-    - all other regression tests -> ``.../golden_references/normal/``
+    - tests under ``tests/regression/fast`` -> ``.../golden_references/fast/``
     """
     file_path = Path(test_file).resolve()
     file_parts = set(file_path.parts)
-    tier = "extensive" if "extensive" in file_parts else "normal"
+    tier = "extensive" if "extensive" in file_parts else "fast"
     return REGRESSION_GOLDENS_ROOT / tier / str(filename)
 
 
@@ -153,7 +153,7 @@ def resolve_tiered_results_dir(
     Build and prepare one deterministic output directory for a regression test.
 
     Outputs are tiered by test location under ``HYDROMODPY_OUT_PATH`` when set:
-    - ``.../normal/<run_name>/``
+    - ``.../fast/<run_name>/``
     - ``.../extensive/<run_name>/``
 
     If ``HYDROMODPY_OUT_PATH`` is not set, a deterministic temporary root is
@@ -171,7 +171,7 @@ def resolve_tiered_results_dir(
         )
     file_path = Path(test_file).resolve()
     file_parts = set(file_path.parts)
-    tier = "extensive" if "extensive" in file_parts else "normal"
+    tier = "extensive" if "extensive" in file_parts else "fast"
     out_dir = results_root / tier / str(run_name)
     if out_dir.exists():
         remove_tree_with_retry(out_dir)
