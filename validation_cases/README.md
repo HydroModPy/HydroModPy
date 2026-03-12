@@ -27,6 +27,47 @@ The same case can also be run manually through `run_case.py`, which generates a
 figure and prints a short metric summary. Cases with more than one configured
 solver variant may also expose `--solver`.
 
+## Running All Cases
+
+Use `validation_cases.run_cases` to execute every compatible `run_case.py`
+sequentially for one solver and one regime.
+
+List the selected cases without running them:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime both --list
+python -m validation_cases.run_cases --solver modflow6 --regime both --list
+```
+
+Run all steady or transient cases without interactive figures:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime steady --no-show
+python -m validation_cases.run_cases --solver modflownwt --regime transient --no-show
+python -m validation_cases.run_cases --solver modflow6 --regime steady --no-show
+python -m validation_cases.run_cases --solver modflow6 --regime transient --no-show
+```
+
+Run the full analytical inventory for one solver:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime both --no-show
+python -m validation_cases.run_cases --solver modflow6 --regime both --no-show
+```
+
+Run with figures enabled:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime transient --show
+python -m validation_cases.run_cases --solver modflow6 --regime steady --show
+```
+
+Stop the batch on the first failing case:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime both --no-show --stop-on-error
+```
+
 ## Current Scope
 
 Current cases are mostly:
