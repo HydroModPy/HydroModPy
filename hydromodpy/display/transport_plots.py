@@ -61,8 +61,13 @@ def _load_concentration_cube(model_transport):
         ucnobj = bf.UcnFile(path_ucn)
         concentration = ucnobj.get_alldata(mflay=None)
     except Exception:
-        headobj = bf.HeadFile(path_ucn, text="CONCENTRATION")
-        concentration = headobj.get_alldata(mflay=None)
+        # MF6-GWT concentration output can be stored as HeadFile with double precision.
+        try:
+            headobj = bf.HeadFile(path_ucn, text="CONCENTRATION", precision="double")
+            concentration = headobj.get_alldata(mflay=None)
+        except Exception:
+            headobj = bf.HeadFile(path_ucn, text="CONCENTRATION", precision="single")
+            concentration = headobj.get_alldata(mflay=None)
 
     concentration = concentration.astype(float)
     concentration[concentration >= 1e30] = float("nan")
