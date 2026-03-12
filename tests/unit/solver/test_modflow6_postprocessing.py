@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -60,8 +61,8 @@ class _DummyBudgetFileUnexpectedValueError:
         raise ValueError("Corrupted DRN record payload")
 
 
-def _workspace_dir(case_name: str) -> Path:
-    work_dir = Path("tmp") / case_name
+def _workspace_dir(tmp_path: Path, case_name: str) -> Path:
+    work_dir = tmp_path / case_name
     work_dir.mkdir(parents=True, exist_ok=True)
     return work_dir
 
@@ -97,12 +98,13 @@ def _patch_postprocess_runtime(monkeypatch, budget_file_cls: type[object]) -> No
 
 def test_modflow6_post_processing_tolerates_missing_drn_budget(
     monkeypatch,
+    tmp_path: Path,
 ) -> None:
-    work_dir = _workspace_dir("mf6_postprocess_missing_drn")
+    work_dir = _workspace_dir(tmp_path, "mf6_postprocess_missing_drn")
     model = _build_model(work_dir)
     _patch_postprocess_runtime(monkeypatch, _DummyBudgetFile)
 
-    model.post_processing(ModflowPostprocessOptions())
+    model.post_processing(ModflowPostprocessOptions(accumulation_flux=False))
 
     save_dir = Path(model.full_path) / "_postprocess"
     outflow = np.load(save_dir / "outflow_drain.npy", allow_pickle=True).item()
@@ -116,12 +118,13 @@ def test_modflow6_post_processing_tolerates_missing_drn_budget(
 
 def test_modflow6_post_processing_reads_drn_budget_when_present(
     monkeypatch,
+    tmp_path: Path,
 ) -> None:
-    work_dir = _workspace_dir("mf6_postprocess_with_drn")
+    work_dir = _workspace_dir(tmp_path, "mf6_postprocess_with_drn")
     model = _build_model(work_dir)
     _patch_postprocess_runtime(monkeypatch, _DummyBudgetFileWithDrn)
 
-    model.post_processing(ModflowPostprocessOptions())
+    model.post_processing(ModflowPostprocessOptions(accumulation_flux=False))
 
     save_dir = Path(model.full_path) / "_postprocess"
     outflow = np.load(save_dir / "outflow_drain.npy", allow_pickle=True).item()
@@ -139,10 +142,117 @@ def test_modflow6_post_processing_reads_drn_budget_when_present(
 
 def test_modflow6_post_processing_reraises_unexpected_budget_value_errors(
     monkeypatch,
+    tmp_path: Path,
 ) -> None:
-    work_dir = _workspace_dir("mf6_postprocess_unexpected_value_error")
+    work_dir = _workspace_dir(tmp_path, "mf6_postprocess_unexpected_value_error")
     model = _build_model(work_dir)
     _patch_postprocess_runtime(monkeypatch, _DummyBudgetFileUnexpectedValueError)
 
     with pytest.raises(ValueError, match="Corrupted DRN record payload"):
         model.post_processing(ModflowPostprocessOptions())
+
+
+def test_modflow6_post_processing_routes_accumulation_flux_via_masstransfer(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    work_dir = _workspace_dir(tmp_path, "mf6_postprocess_accumulation_flux")
+    model = _build_model(work_dir)
+    _patch_postprocess_runtime(monkeypatch, _DummyBudgetFileWithDrn)
+
+    exported_paths: list[Path] = []
+    masstransfer_calls: list[dict[str, object]] = []
+    accumulated = np.array([[5.0, 4.0], [3.0, -9999.0]], dtype=float)
+
+    def _fake_export_tif(_template, _data, output_path, _nodata):
+        exported_paths.append(Path(output_path))
+
+    class _FakeMasstransfer:
+        def __init__(
+            self,
+            geographic,
+            raw_rast_name,
+            trace_shp_name,
+            mass_rast_name,
+            *,
+            extraction_folder,
+            routing_fill_path,
+            routing_direc_path,
+        ) -> None:
+            masstransfer_calls.append(
+                {
+                    "geographic": geographic,
+                    "raw_rast_name": raw_rast_name,
+                    "trace_shp_name": trace_shp_name,
+                    "mass_rast_name": mass_rast_name,
+                    "extraction_folder": extraction_folder,
+                    "routing_fill_path": routing_fill_path,
+                    "routing_direc_path": routing_direc_path,
+                    "trace_cumulated_called": False,
+                }
+            )
+
+        def trace_cumulated(self) -> None:
+            masstransfer_calls[-1]["trace_cumulated_called"] = True
+
+    class _FakeRasterReader:
+        def __init__(self, path: str):
+            self.path = path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, band: int) -> np.ndarray:
+            assert band == 1
+            return accumulated
+
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        _fake_export_tif,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.masstransfer.Masstransfer",
+        _FakeMasstransfer,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.rasterio.open",
+        lambda path: _FakeRasterReader(path),
+    )
+    monkeypatch.setattr(
+        model,
+        "_ensure_solver_routing_context",
+        lambda: SimpleNamespace(correc_path="routing_fill.tif", direc_path="routing_direc.tif"),
+    )
+
+    model.post_processing(
+        ModflowPostprocessOptions(
+            outflow_drain=False,
+            accumulation_flux=True,
+            watertable_elevation=False,
+            watertable_depth=False,
+            seepage_areas=False,
+            groundwater_flux=False,
+            groundwater_storage=False,
+        )
+    )
+
+    save_dir = Path(model.full_path) / "_postprocess"
+    accumulation = np.load(save_dir / "accumulation_flux.npy", allow_pickle=True).item()
+
+    np.testing.assert_allclose(accumulation[0], accumulated)
+    assert masstransfer_calls == [
+        {
+            "geographic": model.geographic,
+            "raw_rast_name": "outflow_drain_t(0).tif",
+            "trace_shp_name": "tracept_t(0).shp",
+            "mass_rast_name": "accumulation_flux_t(0).tif",
+            "extraction_folder": str(save_dir),
+            "routing_fill_path": "routing_fill.tif",
+            "routing_direc_path": "routing_direc.tif",
+            "trace_cumulated_called": True,
+        }
+    ]
+    assert exported_paths == [save_dir / "_rasters" / "outflow_drain_t(0).tif"]

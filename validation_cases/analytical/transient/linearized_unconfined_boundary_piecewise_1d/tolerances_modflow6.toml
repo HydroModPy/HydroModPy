@@ -1,8 +1,8 @@
-﻿[space_time]
-rmse = 0.05
-max_abs_error = 0.12
-row_spread = 0.001
+[space_time]
+rmse = 0.008
+max_abs_error = 0.04
+row_spread = 1e-5
 
 [final_profile]
-rmse = 0.05
-max_abs_error = 0.10
+rmse = 0.003
+max_abs_error = 0.005

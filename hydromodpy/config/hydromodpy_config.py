@@ -19,7 +19,6 @@ Usage::
     cfg.modflownwt.process_specific.vka
 """
 
-import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Callable
@@ -43,6 +42,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
 from hydromodpy.solver.prototype.solver_config import SolverConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from hydromodpy.config.toml_loader import load_toml_with_base_config
 
 
 class RunConfig(BaseModel):
@@ -194,8 +194,7 @@ class HydroModPyConfig(BaseModel):
             The fully loaded and path-resolved configuration instance.
         """
         toml_path = Path(toml_path).resolve()
-        with toml_path.open("rb") as stream:
-            raw = tomllib.load(stream)
+        raw = load_toml_with_base_config(toml_path)
 
         base = toml_path.parent
         if "initializing" in raw:

@@ -15,6 +15,7 @@ import geopandas as gpd
 import numpy as np
 import pytest
 import rasterio
+from geopy.exc import GeocoderUnavailable
 from rasterio.errors import RasterioIOError
 from rasterio.features import geometry_mask, rasterize, shapes
 from rasterio.transform import from_origin
@@ -22,6 +23,7 @@ from shapely.geometry import box, shape as shapely_shape
 
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.geographic.geographic_config import GeographicConfig
+from hydromodpy.legacy.geographic.dem_metadata import _resolve_dep_code
 
 
 GOLDEN_FILE = (
@@ -44,6 +46,14 @@ class _FakeNominatim:
 
     def reverse(self, *_args, **_kwargs):
         return _FakeLocation()
+
+
+class _UnavailableNominatim:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def reverse(self, *_args, **_kwargs):
+        raise GeocoderUnavailable("offline")
 
 
 class _FakeWhiteboxBackend:
@@ -485,3 +495,14 @@ def test_geographic_legacy_missing_dem_file_raises(tmp_path: Path) -> None:
 
     with pytest.raises(RasterioIOError):
         Geographic(config=cfg, initializing=initializing)
+
+
+def test_resolve_dep_code_returns_none_when_geocoder_is_unavailable() -> None:
+    """Department lookup is best-effort and should not fail offline runs."""
+    assert (
+        _resolve_dep_code(
+            centroid_long_lat_Greenwich=[48.019638516018894, -2.8265621461935666],
+            locator_factory=_UnavailableNominatim,
+        )
+        is None
+    )
