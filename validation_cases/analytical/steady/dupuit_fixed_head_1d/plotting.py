@@ -9,6 +9,13 @@ import matplotlib.pyplot as plt
 from .comparison import DupuitFixedHeadComparison
 
 
+def _format_solver_name(solver_name: str) -> str:
+    normalized_solver = str(solver_name).strip().lower()
+    if normalized_solver == "modflownwt":
+        return "modflow_nwt"
+    return normalized_solver or "unknown"
+
+
 def _enable_interactive_backend(show_plot: bool) -> bool:
     if not show_plot:
         return False
@@ -51,6 +58,7 @@ def plot_dupuit_fixed_head_comparison(
         f"K={float(reference_cfg['hydraulic_conductivity_m_per_s']):.1e} m/s   "
         f"b={float(reference_cfg['aquifer_thickness_m']):.1f} m"
     )
+    solver_label = _format_solver_name(comparison.solver)
 
     fig, (ax_profile, ax_residual) = plt.subplots(
         2,
@@ -76,7 +84,7 @@ def plot_dupuit_fixed_head_comparison(
         color="tab:blue",
         edgecolors="white",
         linewidths=0.6,
-        label="Numerical mean profile",
+        label=f"Numerical mean profile ({solver_label})",
         zorder=3,
     )
     ax_profile.set_ylabel("Head [m]")

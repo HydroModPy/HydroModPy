@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,15 @@ def build_run_case_parser(*, description: str) -> argparse.ArgumentParser:
         type=int,
         default=1800,
         help="Maximum launcher runtime in seconds.",
+    )
+    parser.add_argument(
+        "--solver",
+        type=str,
+        default=None,
+        help=(
+            "Optional solver variant to run for cases that expose more than one "
+            "launcher backend."
+        ),
     )
     parser.add_argument(
         "--show",
@@ -68,6 +78,9 @@ def print_run_case_summary(
 ) -> None:
     """Print the standard runner summary and one case-specific metric block."""
     print(f"Saved figure: {saved_png}")
+    solver_name = getattr(comparison.result, "solver_name", None)
+    if solver_name:
+        print(f"Solver: {solver_name}")
     print(f"Results directory: {comparison.result.out_path}")
     print(f"Postprocess directory: {comparison.result.postprocess_dir}")
     for line in metric_lines:
@@ -85,11 +98,21 @@ def run_case_main(
     build_metric_lines: Callable[[Any], Iterable[str]],
 ) -> None:
     """Run one analytical validation case, plot it, and print a short summary."""
-    args = build_run_case_parser(description=description).parse_args(argv)
-    comparison = run_comparison(
-        caller_file=caller_file,
-        timeout=int(args.timeout),
-    )
+    parser = build_run_case_parser(description=description)
+    args = parser.parse_args(argv)
+    run_signature = inspect.signature(run_comparison)
+    supports_solver = "solver" in run_signature.parameters
+    if args.solver is not None and not supports_solver:
+        parser.error("--solver is not supported by this validation case.")
+
+    run_kwargs = {
+        "caller_file": caller_file,
+        "timeout": int(args.timeout),
+    }
+    if supports_solver and args.solver is not None:
+        run_kwargs["solver"] = str(args.solver)
+
+    comparison = run_comparison(**run_kwargs)
     output_png = resolve_output_png(
         args.output_png,
         default_dir=comparison.result.out_path,

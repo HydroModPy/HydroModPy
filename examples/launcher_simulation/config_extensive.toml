@@ -1,3 +1,6 @@
+# Canonical full launcher config for example12.
+# This file is the git-tracked rename of the former config_standard.toml and
+# preserves the historical long-run baseline used by the default launcher path.
 [simulation]
 name = "Example 12 launcher baseline"
 

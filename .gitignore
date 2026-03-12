@@ -118,6 +118,7 @@ hydromodpy/mesh/cartesian_grid/output/
 .pytest_tmp*/
 pytest_tmp*/
 codex_pytest_tmp*/
+scratch_probe*/
 tmp*/
 pytest_tmp_local/
 *.tmp

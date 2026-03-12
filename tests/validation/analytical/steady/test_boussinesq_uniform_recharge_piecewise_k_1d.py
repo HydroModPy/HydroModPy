@@ -15,11 +15,24 @@ from validation_cases.analytical.steady.boussinesq_uniform_recharge_piecewise_k_
 @pytest.mark.analytical
 @pytest.mark.steady
 @pytest.mark.fast
-def test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile() -> None:
-    """Run the launcher case and compare the final head profile to Boussinesq."""
-    assert_required_executables(require_modpath=False, require_mt3dms=False)
+@pytest.mark.parametrize(
+    ("solver", "require_modflow", "require_modflow6"),
+    [
+        pytest.param("modflownwt", True, False, id="modflownwt"),
+        pytest.param("modflow6", False, True, id="modflow6"),
+    ],
+)
 
-    comparison = run_boussinesq_uniform_recharge_piecewise_k_comparison(caller_file=__file__)
+def test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
+    """Run the launcher case and compare the final head profile to Boussinesq."""
+    assert_required_executables(
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
+        require_modpath=False,
+        require_mt3dms=False,
+    )
+
+    comparison = run_boussinesq_uniform_recharge_piecewise_k_comparison(caller_file=__file__, solver=solver)
     profile_tol = dict(comparison.tolerances.get("head_profile", {}))
 
     assert_metric_below("Head-profile RMSE", comparison.rms_error, float(profile_tol["rmse"]), unit="m")
@@ -35,3 +48,6 @@ def test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile() 
         float(profile_tol["row_spread"]),
         unit="m",
     )
+
+
+

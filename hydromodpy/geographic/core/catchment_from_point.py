@@ -20,7 +20,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
+from hydromodpy.backends import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
 
 from hydromodpy.geographic.geographic_io import ensure_crs
 
@@ -44,12 +44,13 @@ def extract_catchment_from_point(
     direc_path: str | Path,
     output_dir: str | Path,
     crs_project: str | None = None,
+    acc_data: object | None = None,
+    direc_data: object | None = None,
     outlet_name: str = "outlet.shp",
     outlet_snap_name: str = "outlet_snap.shp",
     watershed_tif_name: str = "watershed.tif",
     watershed_shp_name: str = "watershed.shp",
     backend: WhiteboxBackend | None = None,
-    wbt_tool: WhiteboxBackend | None = None,
 ) -> CatchmentFromPointProducts:
     """Delineate a catchment polygon from one outlet point.
 
@@ -69,12 +70,8 @@ def extract_catchment_from_point(
         Filenames used inside ``output_dir``.
     backend:
         Optional Whitebox backend for runtime/tests.
-    wbt_tool:
-        Legacy alias for ``backend`` kept for backward compatibility.
     """
-    if backend is not None and wbt_tool is not None:
-        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
-    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
+    tool = get_whitebox_backend() if backend is None else backend
 
     # Prepare deterministic output paths used by the rest of the pipeline.
     out_dir = Path(output_dir)
@@ -91,27 +88,52 @@ def extract_catchment_from_point(
     gdf.to_file(str(outlet_shp))
     ensure_crs(outlet_shp, crs_project)
 
-    # Snap stabilizes delineation when outlet is not exactly on a flow cell.
-    tool.snap_pour_points(
-        str(outlet_shp),
-        str(acc_path),
-        str(outlet_snap_shp),
-        int(snap_dist),
-    )
-    ensure_crs(outlet_snap_shp, crs_project)
+    if isinstance(tool, WhiteboxWorkflowsBackend):
+        outlet_data = tool.read_vector(str(outlet_shp))
+        acc_input = acc_data if acc_data is not None else tool.read_raster(str(acc_path))
+        snapped_outlet = tool.snap_pour_points_vector(
+            outlet_data,
+            acc_input,
+            int(snap_dist),
+        )
+        tool.write_vector(snapped_outlet, str(outlet_snap_shp))
+        ensure_crs(outlet_snap_shp, crs_project)
 
-    # D8 watershed delineation from snapped outlet.
-    tool.watershed(
-        str(direc_path),
-        str(outlet_snap_shp),
-        str(watershed_tif),
-        esri_pntr=False,
-    )
-    ensure_crs(watershed_tif, crs_project)
+        direc_input = direc_data if direc_data is not None else tool.read_raster(str(direc_path))
+        watershed_data = tool.watershed_raster(
+            direc_input,
+            snapped_outlet,
+            esri_pntr=False,
+        )
+        tool.write_raster(watershed_data, str(watershed_tif))
+        ensure_crs(watershed_tif, crs_project)
 
-    # Polygon output is the canonical boundary format used downstream.
-    tool.raster_to_vector_polygons(str(watershed_tif), str(watershed_shp))
-    ensure_crs(watershed_shp, crs_project)
+        # Polygon output is the canonical boundary format used downstream.
+        watershed_vector = tool.raster_to_vector_polygons_raster(watershed_data)
+        tool.write_vector(watershed_vector, str(watershed_shp))
+        ensure_crs(watershed_shp, crs_project)
+    else:
+        # Snap stabilizes delineation when outlet is not exactly on a flow cell.
+        tool.snap_pour_points(
+            str(outlet_shp),
+            str(acc_path),
+            str(outlet_snap_shp),
+            int(snap_dist),
+        )
+        ensure_crs(outlet_snap_shp, crs_project)
+
+        # D8 watershed delineation from snapped outlet.
+        tool.watershed(
+            str(direc_path),
+            str(outlet_snap_shp),
+            str(watershed_tif),
+            esri_pntr=False,
+        )
+        ensure_crs(watershed_tif, crs_project)
+
+        # Polygon output is the canonical boundary format used downstream.
+        tool.raster_to_vector_polygons(str(watershed_tif), str(watershed_shp))
+        ensure_crs(watershed_shp, crs_project)
 
     return CatchmentFromPointProducts(
         outlet_shp=str(outlet_shp),

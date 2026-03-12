@@ -38,7 +38,7 @@ def test_modpath_resolve_zone_partic_clips_seepage_raster(
 
     calls: dict[str, object] = {}
 
-    class _FakeWhiteboxTools:
+    class _FakeWhiteboxBackend:
         def clip_raster_to_polygon(
             self,
             in_raster: str,
@@ -54,7 +54,7 @@ def test_modpath_resolve_zone_partic_clips_seepage_raster(
 
     monkeypatch.setattr(
         "hydromodpy.solver.modflow_nwt.modpath.modpath.get_whitebox_backend",
-        lambda: _FakeWhiteboxTools(),
+        lambda: _FakeWhiteboxBackend(),
     )
 
     resolved = model._resolve_zone_partic("seepage_clip")
@@ -107,7 +107,7 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_npy(
         export_calls["data_nodata_val"] = data_nodata_val
         Path(data_tif_path).write_text("dummy")
 
-    class _FakeWhiteboxTools:
+    class _FakeWhiteboxBackend:
         def clip_raster_to_polygon(
             self,
             in_raster: str,
@@ -127,7 +127,7 @@ def test_modpath_resolve_zone_partic_rebuilds_seepage_raster_from_npy(
     )
     monkeypatch.setattr(
         "hydromodpy.solver.modflow_nwt.modpath.modpath.get_whitebox_backend",
-        lambda: _FakeWhiteboxTools(),
+        lambda: _FakeWhiteboxBackend(),
     )
 
     resolved = model._resolve_zone_partic("seepage_clip")

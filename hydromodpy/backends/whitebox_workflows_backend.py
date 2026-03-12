@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 import whitebox_workflows as wbw
@@ -18,7 +19,7 @@ _VECTOR_EXTENSIONS = {
 
 
 class WhiteboxWorkflowsBackend:
-    """File-based adapter around ``whitebox_workflows.WbEnvironment``."""
+    """Workflows-backed adapter with both in-memory and file-oriented helpers."""
 
     def __init__(self) -> None:
         self._env = wbw.WbEnvironment()
@@ -46,12 +47,172 @@ class WhiteboxWorkflowsBackend:
         self._ensure_parent(path)
         self._env.write_vector(vector, path)
 
+    # ------------------------------------------------------------------
+    # In-memory primitives
+    # ------------------------------------------------------------------
+    def read_raster(self, path: str):
+        return self._read_raster(path)
+
+    def write_raster(self, raster, path: str) -> None:
+        self._write_raster(raster, path)
+
+    def read_vector(self, path: str):
+        return self._read_vector(path)
+
+    def write_vector(self, vector, path: str) -> None:
+        self._write_vector(vector, path)
+
+    def fill_depressions_raster(self, dem):
+        return self._env.fill_depressions(dem)
+
+    def breach_depressions_raster(self, dem):
+        return self._env.breach_depressions_least_cost(dem)
+
+    def d8_pointer_raster(self, dem, *, esri_pntr: bool = False):
+        return self._env.d8_pointer(dem, esri_pointer=esri_pntr)
+
+    def d8_flow_accumulation_raster(self, dem, *, log: bool = True):
+        return self._env.d8_flow_accum(
+            dem,
+            out_type="cells",
+            log_transform=log,
+            clip=False,
+            input_is_pointer=False,
+            esri_pntr=False,
+        )
+
+    def clip_raster_to_polygon_raster(
+        self,
+        raster,
+        polygon,
+        *,
+        maintain_dimensions: bool = False,
+    ):
+        return self._env.clip_raster_to_polygon(
+            raster,
+            polygon,
+            maintain_dimensions=maintain_dimensions,
+        )
+
+    def modify_no_data_value_raster(self, raster, *, new_value: float):
+        return self._env.modify_nodata_value(raster, new_value=new_value)
+
+    def snap_pour_points_vector(self, pour_points, flow_accumulation, snap_dist: int):
+        return self._env.snap_pour_points(
+            pour_points,
+            flow_accumulation,
+            snap_dist=snap_dist,
+        )
+
+    def watershed_raster(self, d8_pntr, pour_pts, *, esri_pntr: bool = False):
+        return self._env.watershed(d8_pntr, pour_pts, esri_pntr=esri_pntr)
+
+    def raster_to_vector_polygons_raster(self, raster):
+        return self._env.raster_to_vector_polygons(raster)
+
+    def raster_to_vector_points_raster(self, raster):
+        return self._env.raster_to_vector_points(raster)
+
+    def trace_downslope_flowpaths_raster(self, input_points, d8_pntr):
+        return self._env.trace_downslope_flowpaths(input_points, d8_pntr)
+
+    def d8_mass_flux_raster(self, dem, loading, efficiency, absorption):
+        return self._env.d8_mass_flux(dem, loading, efficiency, absorption)
+
+    def polygons_to_lines_vector(self, vector):
+        return self._env.polygons_to_lines(vector)
+
+    def vector_lines_to_raster_vector(
+        self,
+        vector,
+        *,
+        field: str | None = None,
+        zero_background: bool | None = None,
+        cell_size: float | None = None,
+        base_raster=None,
+    ):
+        kwargs: dict[str, object] = {}
+        if field is not None:
+            kwargs["field_name"] = field
+        if zero_background is not None:
+            kwargs["zero_background"] = zero_background
+        if cell_size is not None:
+            kwargs["cell_size"] = cell_size
+        if base_raster is not None:
+            kwargs["base_raster"] = base_raster
+        return self._env.vector_lines_to_raster(vector, **kwargs)
+
+    def vector_polygons_to_raster_vector(
+        self,
+        vector,
+        *,
+        field: str | None = None,
+        zero_background: bool | None = None,
+        cell_size: float | None = None,
+        base_raster=None,
+    ):
+        kwargs: dict[str, object] = {}
+        if field is not None:
+            kwargs["field_name"] = field
+        if zero_background is not None:
+            kwargs["zero_background"] = zero_background
+        if cell_size is not None:
+            kwargs["cell_size"] = cell_size
+        if base_raster is not None:
+            kwargs["base_raster"] = base_raster
+        return self._env.vector_polygons_to_raster(vector, **kwargs)
+
+    def vector_points_to_raster_vector(
+        self,
+        vector,
+        *,
+        field: str | None = None,
+        assign_op: str | None = None,
+        zero_background: bool | None = None,
+        cell_size: float | None = None,
+        base_raster=None,
+    ):
+        kwargs: dict[str, object] = {}
+        if field is not None:
+            kwargs["field_name"] = field
+        if assign_op is not None:
+            kwargs["assign_op"] = assign_op
+        if zero_background is not None:
+            kwargs["zero_background"] = zero_background
+        if cell_size is not None:
+            kwargs["cell_size"] = cell_size
+        if base_raster is not None:
+            kwargs["base_raster"] = base_raster
+        return self._env.vector_points_to_raster(vector, **kwargs)
+
+    def set_nodata_value_raster(self, raster, *, back_value: float):
+        return self._env.set_nodata_value(raster, back_value=back_value)
+
+    def polygon_area_vector(self, vector):
+        return self._env.polygon_area(vector)
+
+    def downslope_distance_to_stream_raster(self, dem, streams, *, use_dinf: bool | None = None):
+        kwargs: dict[str, object] = {}
+        if use_dinf is not None:
+            kwargs["use_dinf"] = use_dinf
+        return self._env.downslope_distance_to_stream(dem, streams, **kwargs)
+
+    def add_point_coordinates_to_table_vector(self, vector):
+        return self._env.add_point_coordinates_to_table(vector)
+
+    def extract_raster_values_at_points_vector(self, rasters: list, points):
+        point_vector, _ = self._env.extract_raster_values_at_points(rasters, points)
+        return point_vector
+
     def fill_depressions(self, input_dem: str, output_dem: str) -> None:
-        self._write_raster(self._env.fill_depressions(self._read_raster(input_dem)), output_dem)
+        self._write_raster(
+            self.fill_depressions_raster(self._read_raster(input_dem)),
+            output_dem,
+        )
 
     def breach_depressions(self, input_dem: str, output_dem: str) -> None:
         self._write_raster(
-            self._env.breach_depressions_least_cost(self._read_raster(input_dem)),
+            self.breach_depressions_raster(self._read_raster(input_dem)),
             output_dem,
         )
 
@@ -63,7 +224,7 @@ class WhiteboxWorkflowsBackend:
         esri_pntr: bool = False,
     ) -> None:
         self._write_raster(
-            self._env.d8_pointer(self._read_raster(input_dem), esri_pointer=esri_pntr),
+            self.d8_pointer_raster(self._read_raster(input_dem), esri_pntr=esri_pntr),
             output_pointer,
         )
 
@@ -75,14 +236,7 @@ class WhiteboxWorkflowsBackend:
         log: bool = True,
     ) -> None:
         self._write_raster(
-            self._env.d8_flow_accum(
-                self._read_raster(input_dem),
-                out_type="cells",
-                log_transform=log,
-                clip=False,
-                input_is_pointer=False,
-                esri_pntr=False,
-            ),
+            self.d8_flow_accumulation_raster(self._read_raster(input_dem), log=log),
             output_acc,
         )
 
@@ -95,7 +249,7 @@ class WhiteboxWorkflowsBackend:
         maintain_dimensions: bool = False,
     ) -> None:
         self._write_raster(
-            self._env.clip_raster_to_polygon(
+            self.clip_raster_to_polygon_raster(
                 self._read_raster(input_raster),
                 self._read_vector(input_polygon),
                 maintain_dimensions=maintain_dimensions,
@@ -105,7 +259,7 @@ class WhiteboxWorkflowsBackend:
 
     def modify_no_data_value(self, raster_path: str, *, new_value: float) -> None:
         self._write_raster(
-            self._env.modify_nodata_value(self._read_raster(raster_path), new_value=new_value),
+            self.modify_no_data_value_raster(self._read_raster(raster_path), new_value=new_value),
             raster_path,
         )
 
@@ -117,10 +271,10 @@ class WhiteboxWorkflowsBackend:
         snap_dist: int,
     ) -> None:
         self._write_vector(
-            self._env.snap_pour_points(
+            self.snap_pour_points_vector(
                 self._read_vector(pour_points),
                 self._read_raster(flow_accumulation),
-                snap_dist=snap_dist,
+                snap_dist,
             ),
             output,
         )
@@ -134,7 +288,7 @@ class WhiteboxWorkflowsBackend:
         esri_pntr: bool = False,
     ) -> None:
         self._write_raster(
-            self._env.watershed(
+            self.watershed_raster(
                 self._read_raster(d8_pntr),
                 self._read_vector(pour_pts),
                 esri_pntr=esri_pntr,
@@ -144,13 +298,13 @@ class WhiteboxWorkflowsBackend:
 
     def raster_to_vector_polygons(self, input_raster: str, output_shp: str) -> None:
         self._write_vector(
-            self._env.raster_to_vector_polygons(self._read_raster(input_raster)),
+            self.raster_to_vector_polygons_raster(self._read_raster(input_raster)),
             output_shp,
         )
 
     def raster_to_vector_points(self, input_raster: str, output_shp: str) -> None:
         self._write_vector(
-            self._env.raster_to_vector_points(self._read_raster(input_raster)),
+            self.raster_to_vector_points_raster(self._read_raster(input_raster)),
             output_shp,
         )
 
@@ -161,7 +315,7 @@ class WhiteboxWorkflowsBackend:
         output_raster: str,
     ) -> None:
         self._write_raster(
-            self._env.trace_downslope_flowpaths(
+            self.trace_downslope_flowpaths_raster(
                 self._read_vector(input_points),
                 self._read_raster(d8_pntr),
             ),
@@ -177,7 +331,7 @@ class WhiteboxWorkflowsBackend:
         output: str,
     ) -> None:
         self._write_raster(
-            self._env.d8_mass_flux(
+            self.d8_mass_flux_raster(
                 self._read_raster(dem),
                 self._read_raster(loading),
                 self._read_raster(efficiency),
@@ -187,7 +341,7 @@ class WhiteboxWorkflowsBackend:
         )
 
     def polygons_to_lines(self, input_shp: str, output_shp: str) -> None:
-        self._write_vector(self._env.polygons_to_lines(self._read_vector(input_shp)), output_shp)
+        self._write_vector(self.polygons_to_lines_vector(self._read_vector(input_shp)), output_shp)
 
     def vector_lines_to_raster(
         self,
@@ -201,7 +355,7 @@ class WhiteboxWorkflowsBackend:
     ) -> None:
         kwargs: dict[str, object] = {}
         if field is not None:
-            kwargs["field_name"] = field
+            kwargs["field"] = field
         if zero_background is not None:
             kwargs["zero_background"] = zero_background
         if cell_size is not None:
@@ -209,7 +363,7 @@ class WhiteboxWorkflowsBackend:
         if base is not None:
             kwargs["base_raster"] = self._read_raster(base)
         self._write_raster(
-            self._env.vector_lines_to_raster(self._read_vector(input_path), **kwargs),
+            self.vector_lines_to_raster_vector(self._read_vector(input_path), **kwargs),
             output_raster,
         )
 
@@ -249,7 +403,7 @@ class WhiteboxWorkflowsBackend:
     ) -> None:
         kwargs: dict[str, object] = {}
         if field is not None:
-            kwargs["field_name"] = field
+            kwargs["field"] = field
         if zero_background is not None:
             kwargs["zero_background"] = zero_background
         if cell_size is not None:
@@ -257,7 +411,7 @@ class WhiteboxWorkflowsBackend:
         if base is not None:
             kwargs["base_raster"] = self._read_raster(base)
         self._write_raster(
-            self._env.vector_polygons_to_raster(self._read_vector(input_path), **kwargs),
+            self.vector_polygons_to_raster_vector(self._read_vector(input_path), **kwargs),
             output_raster,
         )
 
@@ -274,7 +428,7 @@ class WhiteboxWorkflowsBackend:
     ) -> None:
         kwargs: dict[str, object] = {}
         if field is not None:
-            kwargs["field_name"] = field
+            kwargs["field"] = field
         if assign_op is not None:
             kwargs["assign_op"] = assign_op
         if zero_background is not None:
@@ -284,7 +438,7 @@ class WhiteboxWorkflowsBackend:
         if base is not None:
             kwargs["base_raster"] = self._read_raster(base)
         self._write_raster(
-            self._env.vector_points_to_raster(self._read_vector(input_path), **kwargs),
+            self.vector_points_to_raster_vector(self._read_vector(input_path), **kwargs),
             output_raster,
         )
 
@@ -296,12 +450,12 @@ class WhiteboxWorkflowsBackend:
         back_value: float,
     ) -> None:
         self._write_raster(
-            self._env.set_nodata_value(self._read_raster(input_raster), back_value=back_value),
+            self.set_nodata_value_raster(self._read_raster(input_raster), back_value=back_value),
             output_raster,
         )
 
     def polygon_area(self, input_shp: str) -> None:
-        self._write_vector(self._env.polygon_area(self._read_vector(input_shp)), input_shp)
+        self._write_vector(self.polygon_area_vector(self._read_vector(input_shp)), input_shp)
 
     def downslope_distance_to_stream(
         self,
@@ -315,7 +469,7 @@ class WhiteboxWorkflowsBackend:
         if use_dinf is not None:
             kwargs["use_dinf"] = use_dinf
         self._write_raster(
-            self._env.downslope_distance_to_stream(
+            self.downslope_distance_to_stream_raster(
                 self._read_raster(dem),
                 self._read_raster(streams),
                 **kwargs,
@@ -325,7 +479,7 @@ class WhiteboxWorkflowsBackend:
 
     def add_point_coordinates_to_table(self, input_shp: str) -> None:
         self._write_vector(
-            self._env.add_point_coordinates_to_table(self._read_vector(input_shp)),
+            self.add_point_coordinates_to_table_vector(self._read_vector(input_shp)),
             input_shp,
         )
 
@@ -335,7 +489,7 @@ class WhiteboxWorkflowsBackend:
         points: str,
     ) -> None:
         raster_paths = [rasters] if isinstance(rasters, str) else list(rasters)
-        point_vector, _ = self._env.extract_raster_values_at_points(
+        point_vector = self.extract_raster_values_at_points_vector(
             [self._read_raster(path) for path in raster_paths],
             self._read_vector(points),
         )
@@ -343,3 +497,37 @@ class WhiteboxWorkflowsBackend:
 
     def set_compress_rasters(self, enabled: bool) -> None:
         self._compress_rasters = bool(enabled)
+
+
+def _normalize_whitebox_backend_kind(kind: str | None = None) -> str:
+    """Normalize backend selector while keeping HydroModPy workflows-only."""
+    value = "whitebox_workflows" if kind is None else str(kind)
+    normalized = value.strip().lower().replace("-", "_")
+    aliases = {
+        "whitebox_workflows",
+        "whiteboxworkflow",
+        "workflows",
+        "wbw",
+    }
+    if normalized not in aliases:
+        raise ValueError(
+            f"Unsupported whitebox backend {value!r}. "
+            "HydroModPy now supports only 'whitebox_workflows'."
+        )
+    return "whitebox_workflows"
+
+
+@lru_cache(maxsize=1)
+def _get_cached_whitebox_backend(kind: str = "whitebox_workflows") -> WhiteboxWorkflowsBackend:
+    _normalize_whitebox_backend_kind(kind)
+    return WhiteboxWorkflowsBackend()
+
+
+def clear_whitebox_backend_cache() -> None:
+    """Clear the shared workflows backend singleton."""
+    _get_cached_whitebox_backend.cache_clear()
+
+
+def get_whitebox_backend(kind: str | None = None) -> WhiteboxWorkflowsBackend:
+    """Return the shared workflows backend used by runtime code."""
+    return _get_cached_whitebox_backend(_normalize_whitebox_backend_kind(kind))

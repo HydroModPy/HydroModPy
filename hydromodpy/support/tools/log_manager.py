@@ -149,7 +149,17 @@ class LogManager:
 
         # Remove any existing simulation log handler
         for handler in self.logger.handlers[:]:
-            if isinstance(handler, logging.FileHandler) and handler.baseFilename == os.path.abspath(self.simulation_log_path):
+            is_simulation_handler = False
+            if hasattr(handler, "get_name") and handler.get_name() == "simulation_log":
+                is_simulation_handler = True
+            if getattr(handler, "_hydromodpy_simulation_log", False):
+                is_simulation_handler = True
+            if (
+                isinstance(handler, logging.FileHandler)
+                and handler.baseFilename == os.path.abspath(self.simulation_log_path)
+            ):
+                is_simulation_handler = True
+            if is_simulation_handler:
                 self.logger.removeHandler(handler)
                 handler.close()
 
@@ -157,10 +167,29 @@ class LogManager:
         file_formatter = logging.Formatter(
             "%(asctime)s [%(levelname)s] [%(name)s] [%(module)s:%(lineno)d] %(message)s"
         )
-        sim_handler = logging.FileHandler(self.simulation_log_path, mode='a', encoding='utf-8')
-        sim_handler.setLevel(logging.DEBUG)
-        sim_handler.setFormatter(file_formatter)
-        self.logger.addHandler(sim_handler)
+        candidate_paths = [
+            self.simulation_log_path,
+            os.path.join(watershed_folder, f"hydromodpy_debug_{os.getpid()}.log"),
+        ]
+        for candidate_path in candidate_paths:
+            try:
+                sim_handler = logging.FileHandler(candidate_path, mode='a', encoding='utf-8')
+            except PermissionError:
+                continue
+            self.simulation_log_path = candidate_path
+            sim_handler.setLevel(logging.DEBUG)
+            sim_handler.setFormatter(file_formatter)
+            if hasattr(sim_handler, "set_name"):
+                sim_handler.set_name("simulation_log")
+            sim_handler._hydromodpy_simulation_log = True
+            self.logger.addHandler(sim_handler)
+            return
+
+        self.simulation_log_path = None
+        self.logger.warning(
+            "Simulation log file is not writable in %s; continuing without file logging.",
+            watershed_folder,
+        )
 
     def set_console_level(self, mode):
         """

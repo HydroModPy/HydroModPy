@@ -64,7 +64,7 @@ dependencies = [
     "scikit-learn",
     "selenium",
     "vedo",
-    "whitebox",
+    "whitebox-workflows",
     "xarray",
     "pydantic>=2.0",
     "pyside6",

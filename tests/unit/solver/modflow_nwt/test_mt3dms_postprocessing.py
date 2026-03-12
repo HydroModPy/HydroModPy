@@ -128,7 +128,6 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
             routing_fill_path=None,
             routing_direc_path=None,
             backend=None,
-            wbt_tool=None,
         ) -> None:
             captured.append(
                 {
@@ -141,7 +140,6 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
                     "routing_fill_path": routing_fill_path,
                     "routing_direc_path": routing_direc_path,
                     "backend": backend,
-                    "wbt_tool": wbt_tool,
                 }
             )
             self._output = Path(extraction_folder) / "_rasters" / mass_rast_name

@@ -131,6 +131,8 @@ def build_domain_geographic_context(
         paths=setup.paths,
         direc_path=flow.direc,
         acc_path=flow.acc,
+        direc_data=flow.direc_data,
+        acc_data=flow.acc_data,
         crs_project=setup.crs_project,
     )
 

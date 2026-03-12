@@ -17,14 +17,15 @@ keeping the actual test files short and focused.
 For launcher-backed analytical cases, the usual workflow is:
 
 1. a pytest file imports one case-specific `run_*_comparison(...)` function,
-2. the comparison function loads `metadata.toml` and `tolerances.toml`,
+2. the comparison function loads `metadata.toml` and the applicable tolerance file,
 3. the shared runtime launches `examples/launcher_simulation`,
 4. postprocessed arrays are loaded from the generated workspace,
 5. the analytical reference is evaluated,
 6. metrics are returned to pytest for assertion.
 
 The same case can also be run manually through `run_case.py`, which generates a
-figure and prints a short metric summary.
+figure and prints a short metric summary. Cases with more than one configured
+solver variant may also expose `--solver`.
 
 ## Current Scope
 
@@ -33,7 +34,8 @@ Current cases are mostly:
 - analytical,
 - deterministic,
 - groundwater-flow oriented,
-- built around `modflownwt` launcher runs.
+- built around `modflownwt` launcher runs, with incremental `modflow6`
+  parity introduced case by case.
 
 One helper module, `analytical/transient/linearized_unconfined_1d.py`, is
 module-only and exists to share analytical formulas across transient cases.
@@ -42,13 +44,17 @@ module-only and exists to share analytical formulas across transient cases.
 
 Launcher-backed case directories typically contain:
 
-- `config_modflownwt.toml`: deterministic launcher configuration used by the
-  scientific benchmark,
+- `config_modflownwt.toml`: deterministic launcher configuration for the
+  `modflownwt` variant,
+- `config_modflow6.toml`: optional `modflow6` variant for the same benchmark
+  when solver parity is under validation,
 - `reference.py`: analytical solution and literature references,
 - `comparison.py`: case-specific execution and comparison logic,
 - `metadata.toml`: benchmark metadata used to rebuild reference geometry and
   find launcher outputs,
-- `tolerances.toml`: accepted thresholds used by pytest,
+- `tolerances.toml`: default accepted thresholds used by pytest,
+- `tolerances_<solver>.toml`: optional solver-specific thresholds when one
+  backend needs slightly different validation margins,
 - `plotting.py`: optional figure helper for manual inspection,
 - `run_case.py`: direct CLI entrypoint,
 - `README.md`: short case-level description and assumptions.
@@ -158,7 +164,8 @@ Scientifically, the current suite provides direct validation for:
 The current analytical inventory does not yet provide dedicated scientific
 validation for:
 
-- `modflow6` parity against the same benchmarks,
+- broad `modflow6` parity across the same benchmarks beyond the currently
+  enabled dual-solver cases,
 - a distinct `stream` top-boundary benchmark,
 - a truly differentiated `robin` drainage benchmark,
 - multi-layer analytical benchmarks,
