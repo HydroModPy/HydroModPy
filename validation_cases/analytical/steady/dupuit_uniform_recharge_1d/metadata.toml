@@ -15,7 +15,7 @@ modflow6 = "config_modflow6.toml"
 [workspace]
 watershed_name = "validation_dupuit_uniform_recharge"
 results_folder_name = "results_simulations"
-model_name = "Analytical_dupuit_uniform_recharge_validation"
+model_name = "Analytical_Dupuit_uniform_recharge_validation"
 
 [output]
 observable_name = "watertable_elevation"

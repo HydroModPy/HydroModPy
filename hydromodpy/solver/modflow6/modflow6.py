@@ -495,6 +495,28 @@ class Modflow6(Solver):
 					spd[kper][(ilay, row, col)] = [ilay, row, col, float(head)]
 		return {kper: list(period_map.values()) for kper, period_map in spd.items()}
 
+	def _resolve_drainage_conductance_series(self) -> np.ndarray | None:
+		if not self._is_bc_active("drainage"):
+			return None
+		boundary = self._boundary_conditions_mapping().get("drainage")
+		if boundary is None:
+			return None
+		forcing = getattr(boundary, "forcing", None)
+		if forcing is not None:
+			return np.asarray(
+				resolve_period_values_from_forcing(
+					forcing=forcing,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(self.nper),
+					label="flow.bc.drainage.forcing",
+				),
+				dtype=float,
+			)
+		return self._boundary_period_series(
+			value=getattr(boundary, "value", None),
+			label="flow.bc.drainage.value",
+		)
+
 	@staticmethod
 	def _copy_runtime_payload(payload: object) -> object:
 		"""Return a detached copy of one runtime payload when possible."""
@@ -767,6 +789,10 @@ class Modflow6(Solver):
 			self.sim,
 			print_option="SUMMARY" if getattr(runtime, "mf_verbose", False) else "NONE",
 			complexity=getattr(runtime, "mf6_ims_complexity", "COMPLEX"),
+			outer_dvclose=float(getattr(runtime, "mf6_outer_dvclose", 1e-4)),
+			inner_dvclose=float(getattr(runtime, "mf6_inner_dvclose", 1e-4)),
+			outer_maximum=int(getattr(runtime, "mf6_outer_maximum", 500)),
+			inner_maximum=int(getattr(runtime, "mf6_inner_maximum", 500)),
 			filename=f"{self.model_name_mf6}_gwf.ims",
 			pname="IMS_GWF",
 		)
@@ -826,20 +852,24 @@ class Modflow6(Solver):
 			pname="RCHA",
 		)
 
-		if "drainage" in self.flow.boundary_conditions:
+		drainage_cond_series = self._resolve_drainage_conductance_series()
+		if drainage_cond_series is not None:
 			drn_spd = {}
 			for kper in range(int(self.nper)):
 				period_cells = []
 				top = np.asarray(sgrid.top, dtype=float)
-				cond = np.maximum(
-					self.hk[0] * float(self.cell_area) / np.maximum(self.resolution, 1e-6),
-					1e-12,
-				)
+				configured_cond_value = float(drainage_cond_series[kper])
 				for i in range(self.nrow):
 					for j in range(self.ncol):
 						if bool(self.dem_mask[i, j]) or bool(ocean_support_mask[i, j]):
 							continue
-						period_cells.append([0, i, j, float(top[i, j]), float(cond[i, j])])
+						# Keep NWT-equivalent behavior: non-positive configured drainage
+						# conductance falls back to permeability-scaled conductance.
+						if configured_cond_value > 0.0:
+							cond_value = max(configured_cond_value, 1e-12)
+						else:
+							cond_value = max(float(self.hk[0, i, j]) * float(self.cell_area), 1e-12)
+						period_cells.append([0, i, j, float(top[i, j]), cond_value])
 				drn_spd[kper] = period_cells
 			self.drn = flopy.mf6.ModflowGwfdrn(self.gwf, stress_period_data=drn_spd, save_flows=True)
 
@@ -920,6 +950,7 @@ class Modflow6(Solver):
 			head = head_fpu.get_data(totim=time)
 			wt = pp.get_water_table(head, -9999)
 			wt[np.isnan(wt)] = -9999
+			wt[np.asarray(wt, dtype=float) <= -1e20] = -9999
 			dem_mask = np.asarray(self.dem_mask, dtype=bool)
 			if options.watertable_elevation:
 				wt = wt.copy()
@@ -936,7 +967,7 @@ class Modflow6(Solver):
 
 			drn = self._get_budget_records_or_none(
 				cbb,
-				kstpkper=(item, item),
+				kstpkper=(0, item),
 				text="DRN",
 			)
 			outflow = np.zeros((self.nrow, self.ncol), dtype=float)
@@ -944,9 +975,13 @@ class Modflow6(Solver):
 			if drn is not None and len(drn) > 0:
 				rec = drn[0]
 				try:
-					for r in rec:
-						node = int(r[0]) if len(r) > 1 else 0
-						q = float(r[1]) if len(r) > 1 else 0.0
+					if getattr(rec, "dtype", None) is not None and rec.dtype.names is not None:
+						node_field = "node" if "node" in rec.dtype.names else rec.dtype.names[0]
+						q_field = "q" if "q" in rec.dtype.names else rec.dtype.names[-1]
+						iterator = ((int(r[node_field]), float(r[q_field])) for r in rec)
+					else:
+						iterator = ((int(r[0]), float(r[-1])) for r in rec)
+					for node, q in iterator:
 						if node <= 0:
 							continue
 						layer = (node - 1) // (self.nrow * self.ncol)
@@ -1151,8 +1186,13 @@ class Modflow6Transport:
 			ucnobj = bf.UcnFile(path_ucn)
 			concobj_1c = ucnobj.get_alldata(mflay=None)
 		except Exception:
-			headobj = bf.HeadFile(path_ucn, text="CONCENTRATION")
-			concobj_1c = headobj.get_alldata(mflay=None)
+			# MF6-GWT concentration output may use HeadFile structure with double precision.
+			try:
+				headobj = bf.HeadFile(path_ucn, text="CONCENTRATION", precision="double")
+				concobj_1c = headobj.get_alldata(mflay=None)
+			except Exception:
+				headobj = bf.HeadFile(path_ucn, text="CONCENTRATION", precision="single")
+				concobj_1c = headobj.get_alldata(mflay=None)
 		concobj_1c[concobj_1c >= 1e30] = np.nan
 		conc_last_idx = max(int(concobj_1c.shape[0]) - 1, 0)
 
@@ -1169,7 +1209,8 @@ class Modflow6Transport:
 		for i in range(self.model_modflow.nper):
 			the_time = str(i + 1)
 			seep = outflow_drain.get(i, np.zeros((self.model_modflow.nrow, self.model_modflow.ncol), dtype=float))
-			conc_time_idx = min(i + 1, conc_last_idx)
+			# Keep concentration snapshot aligned with current stress period.
+			conc_time_idx = min(i, conc_last_idx)
 
 			if concentration_seepage:
 				conc_surf = concobj_1c[conc_time_idx][0].copy()

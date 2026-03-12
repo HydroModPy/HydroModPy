@@ -1,1 +1,531 @@
 2026-03-05 23:23:52,943 [INFO] [hydromodpy.data_managers.climatic.climatic] [climatic:39] Initializing climatic module parameters
+2026-03-12 12:15:34,696 [INFO] [hydromodpy.geographic.geographic] [geographic:89] Extracting geographic data for model area
+2026-03-12 12:15:38,130 [INFO] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:53] Extracting hydrography data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 12:15:38,205 [DEBUG] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:120] Processing line geometry type: LineString
+2026-03-12 12:15:38,212 [INFO] [hydromodpy.geographic.subbasin] [subbasin:67] Extracting subbasin definitions for watershed
+2026-03-12 12:15:38,212 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:91] No hydrometry subbasin or problem: 'NoneType' object has no attribute 'code_bh'
+2026-03-12 12:15:38,212 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:105] No intermittency subbasin or problem: 'NoneType' object has no attribute 'code_onde'
+2026-03-12 12:15:38,213 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:192] Loading coordinates from: /home/agauvain/Git/HydroModPy/examples_legacy/example12/data/france hydrometric stations.dbf
+2026-03-12 12:15:38,213 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:114] No personal subbasins or problem: 'utf-8' codec can't decode byte 0xec in position 4: invalid continuation byte
+2026-03-12 12:15:40,390 [INFO] [hydromodpy.data_managers.intermittency.intermittency] [intermittency:181] Extracting stream intermittency data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 12:15:40,391 [INFO] [hydromodpy.data_managers.intermittency.intermittency] [intermittency:233] Intermittency clip cache miss, running Whitebox clip
+2026-03-12 12:15:58,574 [INFO] [hydromodpy.geographic.geographic] [geographic:89] Extracting geographic data for model area
+2026-03-12 12:16:01,776 [INFO] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:53] Extracting hydrography data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 12:16:01,851 [DEBUG] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:120] Processing line geometry type: LineString
+2026-03-12 12:16:01,858 [INFO] [hydromodpy.geographic.subbasin] [subbasin:67] Extracting subbasin definitions for watershed
+2026-03-12 12:16:01,858 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:91] No hydrometry subbasin or problem: 'NoneType' object has no attribute 'code_bh'
+2026-03-12 12:16:01,859 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:105] No intermittency subbasin or problem: 'NoneType' object has no attribute 'code_onde'
+2026-03-12 12:16:01,859 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:192] Loading coordinates from: /home/agauvain/Git/HydroModPy/examples_legacy/example12/data/france hydrometric stations.dbf
+2026-03-12 12:16:01,860 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:114] No personal subbasins or problem: 'utf-8' codec can't decode byte 0xec in position 4: invalid continuation byte
+2026-03-12 12:16:02,999 [INFO] [hydromodpy.data_managers.intermittency.intermittency] [intermittency:181] Extracting stream intermittency data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 12:16:03,000 [INFO] [hydromodpy.data_managers.intermittency.intermittency] [intermittency:233] Intermittency clip cache miss, running Whitebox clip
+2026-03-12 13:07:05,990 [INFO] [hydromodpy.geographic.geographic] [geographic:89] Extracting geographic data for model area
+2026-03-12 13:07:09,703 [INFO] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:53] Extracting hydrography data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 13:07:09,779 [DEBUG] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:120] Processing line geometry type: LineString
+2026-03-12 13:07:09,786 [INFO] [hydromodpy.geographic.subbasin] [subbasin:67] Extracting subbasin definitions for watershed
+2026-03-12 13:07:09,786 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:91] No hydrometry subbasin or problem: 'NoneType' object has no attribute 'code_bh'
+2026-03-12 13:07:09,786 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:105] No intermittency subbasin or problem: 'NoneType' object has no attribute 'code_onde'
+2026-03-12 13:07:09,787 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:192] Loading coordinates from: /home/agauvain/Git/HydroModPy/examples_legacy/example12/data/france hydrometric stations.dbf
+2026-03-12 13:07:09,787 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:114] No personal subbasins or problem: 'utf-8' codec can't decode byte 0xec in position 4: invalid continuation byte
+2026-03-12 13:07:17,268 [INFO] [hydromodpy.data_managers.intermittency.intermittency] [intermittency:181] Extracting stream intermittency data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 13:07:17,269 [INFO] [hydromodpy.data_managers.intermittency.intermittency] [intermittency:233] Intermittency clip cache miss, running Whitebox clip
+2026-03-12 13:08:18,198 [INFO] [hydromodpy.geographic.geographic] [geographic:89] Extracting geographic data for model area
+2026-03-12 13:08:22,135 [INFO] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:53] Extracting hydrography data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 13:08:22,210 [DEBUG] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:120] Processing line geometry type: LineString
+2026-03-12 13:08:22,216 [INFO] [hydromodpy.geographic.subbasin] [subbasin:67] Extracting subbasin definitions for watershed
+2026-03-12 13:08:22,217 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:91] No hydrometry subbasin or problem: 'NoneType' object has no attribute 'code_bh'
+2026-03-12 13:08:22,217 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:105] No intermittency subbasin or problem: 'NoneType' object has no attribute 'code_onde'
+2026-03-12 13:08:22,217 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:192] Loading coordinates from: /home/agauvain/Git/HydroModPy/examples_legacy/example12/data/france hydrometric stations.dbf
+2026-03-12 13:08:22,218 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:114] No personal subbasins or problem: 'utf-8' codec can't decode byte 0xec in position 4: invalid continuation byte
+2026-03-12 13:08:24,121 [INFO] [hydromodpy.data_managers.climatic.climatic] [climatic:39] Initializing climatic module parameters
+2026-03-12 13:08:26,457 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.pyhelp_grid] [pyhelp_grid:131] Updated grid saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:08:26,458 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:142] Loading grid data from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:08:26,464 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:148] Grid data loaded successfully from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:08:26,464 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:168] Loading precipitation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_precip_input_data.csv
+2026-03-12 13:08:26,475 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:172] Loading air temperature inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_airtemp_input_data.csv
+2026-03-12 13:08:26,480 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:176] Loading solar radiation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_solrad_input_data.csv
+2026-03-12 13:08:26,539 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:226] Weather input datasets loaded successfully
+2026-03-12 13:08:26,539 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:231] Clearing HELP input cache in /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files
+2026-03-12 13:08:26,540 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:233] HELP input cache cleared
+2026-03-12 13:08:26,542 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:188] Formatting D10 and D11 data for cell 1 of 27 (3.7%)
+2026-03-12 13:08:26,545 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:194] D10 and D11 data formatting completed for 27 cells in 0.00 sec
+2026-03-12 13:08:31,399 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:235] Creating D10 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:08:31,399 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:236] D10 files created in 4.83 sec
+2026-03-12 13:08:31,412 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:250] Creating D11 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:08:31,412 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:251] D11 files created in 0.01 sec
+2026-03-12 13:08:31,463 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:303] Persisting D10/D11 connectivity tables
+2026-03-12 13:08:31,463 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:307] D10/D11 connectivity tables saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files/connect_table.json
+2026-03-12 13:08:31,464 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D4 HELP input files for precip
+2026-03-12 13:08:31,466 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D4 HELP input files for precip
+2026-03-12 13:08:31,466 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D7 HELP input files for airtemp
+2026-03-12 13:08:31,467 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D7 HELP input files for airtemp
+2026-03-12 13:08:31,467 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D13 HELP input files for solrad
+2026-03-12 13:08:31,469 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D13 HELP input files for solrad
+2026-03-12 13:08:31,469 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:370] Updating HELP input connectivity tables
+2026-03-12 13:08:31,470 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:372] HELP input connectivity tables updated
+2026-03-12 13:08:36,438 [DEBUG] [hydromodpy.hydrology.pyhelp.core.processing] [processing:76] HELP simulation in progress: 100.0% (0.0 min remaining)
+2026-03-12 13:08:37,973 [INFO] [hydromodpy.hydrology.pyhelp.core.processing] [processing:84] HELP simulation completed for 27 cells in 6.50 sec
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 1/27 (37728)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 2/27 (37729)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 3/27 (37731)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 4/27 (37730)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 5/27 (37732)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 6/27 (37733)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 7/27 (37734)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 8/27 (37735)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 9/27 (37737)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 10/27 (37736)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 11/27 (37738)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 12/27 (37739)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 13/27 (37740)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 14/27 (37741)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 15/27 (37742)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 16/27 (37743)
+2026-03-12 13:08:37,976 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 17/27 (37744)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 18/27 (37745)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 19/27 (37746)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 20/27 (37747)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 21/27 (37748)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 22/27 (37749)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 23/27 (37750)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 24/27 (37751)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 25/27 (37753)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 26/27 (37752)
+2026-03-12 13:08:37,977 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 27/27 (37754)
+2026-03-12 13:08:37,977 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:519] Post-processed HELP outputs for 27 cells
+2026-03-12 13:08:41,184 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.io] [io:383] NetCDF written to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_daily_out.nc
+2026-03-12 13:13:07,642 [INFO] [hydromodpy.geographic.geographic] [geographic:89] Extracting geographic data for model area
+2026-03-12 13:13:10,944 [INFO] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:53] Extracting hydrography data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 13:13:11,016 [DEBUG] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:120] Processing line geometry type: LineString
+2026-03-12 13:13:11,023 [INFO] [hydromodpy.geographic.subbasin] [subbasin:67] Extracting subbasin definitions for watershed
+2026-03-12 13:13:11,023 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:91] No hydrometry subbasin or problem: 'NoneType' object has no attribute 'code_bh'
+2026-03-12 13:13:11,024 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:105] No intermittency subbasin or problem: 'NoneType' object has no attribute 'code_onde'
+2026-03-12 13:13:11,024 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:192] Loading coordinates from: /home/agauvain/Git/HydroModPy/examples_legacy/example12/data/france hydrometric stations.dbf
+2026-03-12 13:13:11,025 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:114] No personal subbasins or problem: 'utf-8' codec can't decode byte 0xec in position 4: invalid continuation byte
+2026-03-12 13:13:13,182 [INFO] [hydromodpy.data_managers.climatic.climatic] [climatic:39] Initializing climatic module parameters
+2026-03-12 13:13:14,300 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.pyhelp_grid] [pyhelp_grid:131] Updated grid saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:13:14,301 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:142] Loading grid data from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:13:14,306 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:148] Grid data loaded successfully from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:13:14,306 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:168] Loading precipitation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_precip_input_data.csv
+2026-03-12 13:13:14,313 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:172] Loading air temperature inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_airtemp_input_data.csv
+2026-03-12 13:13:14,318 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:176] Loading solar radiation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_solrad_input_data.csv
+2026-03-12 13:13:14,371 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:226] Weather input datasets loaded successfully
+2026-03-12 13:13:14,372 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:231] Clearing HELP input cache in /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files
+2026-03-12 13:13:14,373 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:233] HELP input cache cleared
+2026-03-12 13:13:14,375 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:188] Formatting D10 and D11 data for cell 1 of 27 (3.7%)
+2026-03-12 13:13:14,378 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:194] D10 and D11 data formatting completed for 27 cells in 0.00 sec
+2026-03-12 13:13:19,266 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:235] Creating D10 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:13:19,267 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:236] D10 files created in 4.87 sec
+2026-03-12 13:13:19,292 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:250] Creating D11 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:13:19,292 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:251] D11 files created in 0.02 sec
+2026-03-12 13:13:19,344 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:303] Persisting D10/D11 connectivity tables
+2026-03-12 13:13:19,345 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:307] D10/D11 connectivity tables saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files/connect_table.json
+2026-03-12 13:13:19,345 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D4 HELP input files for precip
+2026-03-12 13:13:19,347 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D4 HELP input files for precip
+2026-03-12 13:13:19,347 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D7 HELP input files for airtemp
+2026-03-12 13:13:19,349 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D7 HELP input files for airtemp
+2026-03-12 13:13:19,349 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D13 HELP input files for solrad
+2026-03-12 13:13:19,351 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D13 HELP input files for solrad
+2026-03-12 13:13:19,351 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:370] Updating HELP input connectivity tables
+2026-03-12 13:13:19,351 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:372] HELP input connectivity tables updated
+2026-03-12 13:13:24,899 [DEBUG] [hydromodpy.hydrology.pyhelp.core.processing] [processing:76] HELP simulation in progress: 100.0% (0.0 min remaining)
+2026-03-12 13:13:26,380 [INFO] [hydromodpy.hydrology.pyhelp.core.processing] [processing:84] HELP simulation completed for 27 cells in 7.02 sec
+2026-03-12 13:13:26,382 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 1/27 (37728)
+2026-03-12 13:13:26,382 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 2/27 (37729)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 3/27 (37730)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 4/27 (37731)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 5/27 (37732)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 6/27 (37733)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 7/27 (37734)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 8/27 (37735)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 9/27 (37736)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 10/27 (37737)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 11/27 (37739)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 12/27 (37738)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 13/27 (37740)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 14/27 (37741)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 15/27 (37742)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 16/27 (37743)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 17/27 (37744)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 18/27 (37745)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 19/27 (37746)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 20/27 (37747)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 21/27 (37748)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 22/27 (37749)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 23/27 (37750)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 24/27 (37751)
+2026-03-12 13:13:26,383 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 25/27 (37752)
+2026-03-12 13:13:26,384 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 26/27 (37753)
+2026-03-12 13:13:26,384 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 27/27 (37754)
+2026-03-12 13:13:26,384 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:519] Post-processed HELP outputs for 27 cells
+2026-03-12 13:13:29,619 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.io] [io:383] NetCDF written to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_daily_out.nc
+2026-03-12 13:13:30,121 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Hydraulic conductivity mapped from flow.K using direct homogeneous mapping
+2026-03-12 13:13:30,122 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Specific yield mapped from flow.Sy using direct homogeneous mapping
+2026-03-12 13:13:30,123 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Specific storage mapped from flow.Ss using direct homogeneous mapping
+2026-03-12 13:13:30,140 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 0
+2026-03-12 13:13:30,200 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 1
+2026-03-12 13:13:30,259 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 2
+2026-03-12 13:13:30,320 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 3
+2026-03-12 13:13:30,378 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 4
+2026-03-12 13:13:30,434 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 5
+2026-03-12 13:13:30,488 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 6
+2026-03-12 13:13:30,542 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 7
+2026-03-12 13:13:30,595 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 8
+2026-03-12 13:13:30,649 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 9
+2026-03-12 13:13:30,702 [WARNING] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:560] MODFLOW grid connectivity check found 1 problematic cells
+2026-03-12 13:14:25,452 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:696] Post-processing MODFLOW: TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:14:25,452 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 1/12
+2026-03-12 13:14:25,507 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 2/12
+2026-03-12 13:14:25,539 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 3/12
+2026-03-12 13:14:25,573 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 4/12
+2026-03-12 13:14:25,605 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 5/12
+2026-03-12 13:14:25,637 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 6/12
+2026-03-12 13:14:25,672 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 7/12
+2026-03-12 13:14:25,714 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 8/12
+2026-03-12 13:14:25,759 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 9/12
+2026-03-12 13:14:25,808 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 10/12
+2026-03-12 13:14:25,851 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 11/12
+2026-03-12 13:14:25,891 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 12/12
+2026-03-12 13:14:25,925 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting watertable elevation time series
+2026-03-12 13:14:25,926 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting watertable depth time series
+2026-03-12 13:14:25,927 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting seepage areas time series
+2026-03-12 13:14:25,928 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting outflow drain time series
+2026-03-12 13:14:25,929 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting accumulation flux time series
+2026-03-12 13:14:25,930 [INFO] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:88] Exporting monthly intermittency maps
+2026-03-12 13:14:25,930 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:99] Processing monthly intermittency t: 0 / 1
+2026-03-12 13:14:26,026 [DEBUG] [hydromodpy.postprocess.flow.intermittency] [intermittency:115] Computing monthly intermittency: 0 / 1
+2026-03-12 13:14:26,039 [INFO] [hydromodpy.postprocess.timeseries.flow_timeseries] [flow_timeseries:153] Exported catchment time series to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_simulations/TRANS1_K5.0e-05_a15.0_Sy2.0/_postprocess/_timeseries
+2026-03-12 13:14:26,076 [DEBUG] [hydromodpy.postprocess.flow.intermittency] [intermittency:115] Computing monthly intermittency: 0 / 1
+2026-03-12 13:14:26,090 [INFO] [hydromodpy.postprocess.timeseries.flow_timeseries] [flow_timeseries:248] Exported time series for subbasin 1 to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_simulations/TRANS1_K5.0e-05_a15.0_Sy2.0/_subbasins/subbasin_NR4
+2026-03-12 13:16:29,733 [INFO] [hydromodpy.geographic.geographic] [geographic:89] Extracting geographic data for model area
+2026-03-12 13:16:33,120 [INFO] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:53] Extracting hydrography data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 13:16:33,192 [DEBUG] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:120] Processing line geometry type: LineString
+2026-03-12 13:16:33,201 [INFO] [hydromodpy.geographic.subbasin] [subbasin:67] Extracting subbasin definitions for watershed
+2026-03-12 13:16:33,202 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:91] No hydrometry subbasin or problem: 'NoneType' object has no attribute 'code_bh'
+2026-03-12 13:16:33,202 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:105] No intermittency subbasin or problem: 'NoneType' object has no attribute 'code_onde'
+2026-03-12 13:16:33,202 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:192] Loading coordinates from: /home/agauvain/Git/HydroModPy/examples_legacy/example12/data/france hydrometric stations.dbf
+2026-03-12 13:16:33,203 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:114] No personal subbasins or problem: 'utf-8' codec can't decode byte 0xec in position 4: invalid continuation byte
+2026-03-12 13:16:34,483 [INFO] [hydromodpy.data_managers.climatic.climatic] [climatic:39] Initializing climatic module parameters
+2026-03-12 13:16:35,633 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.pyhelp_grid] [pyhelp_grid:131] Updated grid saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:16:35,634 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:142] Loading grid data from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:16:35,639 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:148] Grid data loaded successfully from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:16:35,639 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:168] Loading precipitation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_precip_input_data.csv
+2026-03-12 13:16:35,646 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:172] Loading air temperature inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_airtemp_input_data.csv
+2026-03-12 13:16:35,651 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:176] Loading solar radiation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_solrad_input_data.csv
+2026-03-12 13:16:35,705 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:226] Weather input datasets loaded successfully
+2026-03-12 13:16:35,705 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:231] Clearing HELP input cache in /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files
+2026-03-12 13:16:35,706 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:233] HELP input cache cleared
+2026-03-12 13:16:35,708 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:188] Formatting D10 and D11 data for cell 1 of 27 (3.7%)
+2026-03-12 13:16:35,712 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:194] D10 and D11 data formatting completed for 27 cells in 0.00 sec
+2026-03-12 13:16:40,625 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:235] Creating D10 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:16:40,625 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:236] D10 files created in 4.89 sec
+2026-03-12 13:16:40,635 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:250] Creating D11 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:16:40,635 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:251] D11 files created in 0.01 sec
+2026-03-12 13:16:40,684 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:303] Persisting D10/D11 connectivity tables
+2026-03-12 13:16:40,685 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:307] D10/D11 connectivity tables saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files/connect_table.json
+2026-03-12 13:16:40,685 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D4 HELP input files for precip
+2026-03-12 13:16:40,687 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D4 HELP input files for precip
+2026-03-12 13:16:40,687 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D7 HELP input files for airtemp
+2026-03-12 13:16:40,689 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D7 HELP input files for airtemp
+2026-03-12 13:16:40,689 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D13 HELP input files for solrad
+2026-03-12 13:16:40,691 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D13 HELP input files for solrad
+2026-03-12 13:16:40,691 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:370] Updating HELP input connectivity tables
+2026-03-12 13:16:40,691 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:372] HELP input connectivity tables updated
+2026-03-12 13:16:46,067 [DEBUG] [hydromodpy.hydrology.pyhelp.core.processing] [processing:76] HELP simulation in progress: 100.0% (0.0 min remaining)
+2026-03-12 13:16:47,779 [INFO] [hydromodpy.hydrology.pyhelp.core.processing] [processing:84] HELP simulation completed for 27 cells in 7.08 sec
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 1/27 (37728)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 2/27 (37730)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 3/27 (37729)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 4/27 (37731)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 5/27 (37732)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 6/27 (37733)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 7/27 (37734)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 8/27 (37735)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 9/27 (37736)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 10/27 (37738)
+2026-03-12 13:16:47,783 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 11/27 (37737)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 12/27 (37739)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 13/27 (37740)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 14/27 (37741)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 15/27 (37742)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 16/27 (37743)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 17/27 (37744)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 18/27 (37747)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 19/27 (37745)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 20/27 (37746)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 21/27 (37748)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 22/27 (37749)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 23/27 (37750)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 24/27 (37753)
+2026-03-12 13:16:47,784 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 25/27 (37751)
+2026-03-12 13:16:47,785 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 26/27 (37752)
+2026-03-12 13:16:47,785 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 27/27 (37754)
+2026-03-12 13:16:47,785 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:519] Post-processed HELP outputs for 27 cells
+2026-03-12 13:16:51,769 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.io] [io:383] NetCDF written to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_daily_out.nc
+2026-03-12 13:16:52,434 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Hydraulic conductivity mapped from flow.K using direct homogeneous mapping
+2026-03-12 13:16:52,435 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Specific yield mapped from flow.Sy using direct homogeneous mapping
+2026-03-12 13:16:52,436 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Specific storage mapped from flow.Ss using direct homogeneous mapping
+2026-03-12 13:16:52,455 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 0
+2026-03-12 13:16:52,526 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 1
+2026-03-12 13:16:52,606 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 2
+2026-03-12 13:16:52,687 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 3
+2026-03-12 13:16:52,766 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 4
+2026-03-12 13:16:52,850 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 5
+2026-03-12 13:16:52,931 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 6
+2026-03-12 13:16:53,013 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 7
+2026-03-12 13:16:53,094 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 8
+2026-03-12 13:16:53,176 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 9
+2026-03-12 13:16:53,256 [WARNING] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:560] MODFLOW grid connectivity check found 1 problematic cells
+2026-03-12 13:17:50,649 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:696] Post-processing MODFLOW: TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:17:50,649 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 1/12
+2026-03-12 13:17:50,711 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 2/12
+2026-03-12 13:17:50,750 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 3/12
+2026-03-12 13:17:50,787 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 4/12
+2026-03-12 13:17:50,832 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 5/12
+2026-03-12 13:17:50,869 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 6/12
+2026-03-12 13:17:50,904 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 7/12
+2026-03-12 13:17:50,941 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 8/12
+2026-03-12 13:17:50,978 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 9/12
+2026-03-12 13:17:51,016 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 10/12
+2026-03-12 13:17:51,053 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 11/12
+2026-03-12 13:17:51,090 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 12/12
+2026-03-12 13:17:51,129 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting watertable elevation time series
+2026-03-12 13:17:51,130 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting watertable depth time series
+2026-03-12 13:17:51,132 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting seepage areas time series
+2026-03-12 13:17:51,133 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting outflow drain time series
+2026-03-12 13:17:51,134 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting accumulation flux time series
+2026-03-12 13:17:51,135 [INFO] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:88] Exporting monthly intermittency maps
+2026-03-12 13:17:51,135 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:99] Processing monthly intermittency t: 0 / 1
+2026-03-12 13:17:51,250 [DEBUG] [hydromodpy.postprocess.flow.intermittency] [intermittency:115] Computing monthly intermittency: 0 / 1
+2026-03-12 13:17:51,267 [INFO] [hydromodpy.postprocess.timeseries.flow_timeseries] [flow_timeseries:153] Exported catchment time series to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_simulations/TRANS1_K5.0e-05_a15.0_Sy2.0/_postprocess/_timeseries
+2026-03-12 13:17:51,315 [DEBUG] [hydromodpy.postprocess.flow.intermittency] [intermittency:115] Computing monthly intermittency: 0 / 1
+2026-03-12 13:17:51,333 [INFO] [hydromodpy.postprocess.timeseries.flow_timeseries] [flow_timeseries:248] Exported time series for subbasin 1 to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_simulations/TRANS1_K5.0e-05_a15.0_Sy2.0/_subbasins/subbasin_NR4
+2026-03-12 13:18:51,674 [INFO] [hydromodpy.geographic.geographic] [geographic:89] Extracting geographic data for model area
+2026-03-12 13:18:54,924 [INFO] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:53] Extracting hydrography data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 13:18:55,007 [DEBUG] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:120] Processing line geometry type: LineString
+2026-03-12 13:18:55,019 [INFO] [hydromodpy.geographic.subbasin] [subbasin:67] Extracting subbasin definitions for watershed
+2026-03-12 13:18:55,019 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:91] No hydrometry subbasin or problem: 'NoneType' object has no attribute 'code_bh'
+2026-03-12 13:18:55,019 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:105] No intermittency subbasin or problem: 'NoneType' object has no attribute 'code_onde'
+2026-03-12 13:18:55,020 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:192] Loading coordinates from: /home/agauvain/Git/HydroModPy/examples_legacy/example12/data/france hydrometric stations.dbf
+2026-03-12 13:18:55,020 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:114] No personal subbasins or problem: 'utf-8' codec can't decode byte 0xec in position 4: invalid continuation byte
+2026-03-12 13:18:56,297 [INFO] [hydromodpy.data_managers.climatic.climatic] [climatic:39] Initializing climatic module parameters
+2026-03-12 13:18:57,472 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.pyhelp_grid] [pyhelp_grid:131] Updated grid saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:18:57,473 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:142] Loading grid data from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:18:57,478 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:148] Grid data loaded successfully from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:18:57,478 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:168] Loading precipitation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_precip_input_data.csv
+2026-03-12 13:18:57,486 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:172] Loading air temperature inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_airtemp_input_data.csv
+2026-03-12 13:18:57,490 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:176] Loading solar radiation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_solrad_input_data.csv
+2026-03-12 13:18:57,545 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:226] Weather input datasets loaded successfully
+2026-03-12 13:18:57,545 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:231] Clearing HELP input cache in /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files
+2026-03-12 13:18:57,547 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:233] HELP input cache cleared
+2026-03-12 13:18:57,549 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:188] Formatting D10 and D11 data for cell 1 of 27 (3.7%)
+2026-03-12 13:18:57,552 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:194] D10 and D11 data formatting completed for 27 cells in 0.00 sec
+2026-03-12 13:19:02,483 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:235] Creating D10 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:19:02,483 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:236] D10 files created in 4.91 sec
+2026-03-12 13:19:02,487 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:250] Creating D11 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:19:02,487 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:251] D11 files created in 0.00 sec
+2026-03-12 13:19:02,531 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:303] Persisting D10/D11 connectivity tables
+2026-03-12 13:19:02,532 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:307] D10/D11 connectivity tables saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files/connect_table.json
+2026-03-12 13:19:02,533 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D4 HELP input files for precip
+2026-03-12 13:19:02,535 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D4 HELP input files for precip
+2026-03-12 13:19:02,535 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D7 HELP input files for airtemp
+2026-03-12 13:19:02,537 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D7 HELP input files for airtemp
+2026-03-12 13:19:02,537 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D13 HELP input files for solrad
+2026-03-12 13:19:02,539 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D13 HELP input files for solrad
+2026-03-12 13:19:02,539 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:370] Updating HELP input connectivity tables
+2026-03-12 13:19:02,539 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:372] HELP input connectivity tables updated
+2026-03-12 13:19:09,341 [DEBUG] [hydromodpy.hydrology.pyhelp.core.processing] [processing:76] HELP simulation in progress: 100.0% (0.0 min remaining)
+2026-03-12 13:19:11,326 [INFO] [hydromodpy.hydrology.pyhelp.core.processing] [processing:84] HELP simulation completed for 27 cells in 8.78 sec
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 1/27 (37728)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 2/27 (37729)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 3/27 (37730)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 4/27 (37731)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 5/27 (37732)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 6/27 (37733)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 7/27 (37734)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 8/27 (37735)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 9/27 (37736)
+2026-03-12 13:19:11,328 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 10/27 (37737)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 11/27 (37738)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 12/27 (37739)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 13/27 (37740)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 14/27 (37741)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 15/27 (37742)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 16/27 (37743)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 17/27 (37744)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 18/27 (37745)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 19/27 (37746)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 20/27 (37747)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 21/27 (37749)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 22/27 (37748)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 23/27 (37750)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 24/27 (37751)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 25/27 (37752)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 26/27 (37753)
+2026-03-12 13:19:11,329 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 27/27 (37754)
+2026-03-12 13:19:11,329 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:519] Post-processed HELP outputs for 27 cells
+2026-03-12 13:19:14,736 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.io] [io:383] NetCDF written to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_daily_out.nc
+2026-03-12 13:19:15,372 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Hydraulic conductivity mapped from flow.K using direct homogeneous mapping
+2026-03-12 13:19:15,374 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Specific yield mapped from flow.Sy using direct homogeneous mapping
+2026-03-12 13:19:15,375 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Specific storage mapped from flow.Ss using direct homogeneous mapping
+2026-03-12 13:19:15,406 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 0
+2026-03-12 13:19:15,509 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 1
+2026-03-12 13:19:15,587 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 2
+2026-03-12 13:19:15,666 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 3
+2026-03-12 13:19:15,745 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 4
+2026-03-12 13:19:15,824 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 5
+2026-03-12 13:19:15,912 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 6
+2026-03-12 13:19:15,992 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 7
+2026-03-12 13:19:16,071 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 8
+2026-03-12 13:19:16,150 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 9
+2026-03-12 13:19:16,229 [WARNING] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:560] MODFLOW grid connectivity check found 1 problematic cells
+2026-03-12 13:20:12,683 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:696] Post-processing MODFLOW: TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:20:12,683 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 1/12
+2026-03-12 13:20:12,738 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 2/12
+2026-03-12 13:20:12,772 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 3/12
+2026-03-12 13:20:12,815 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 4/12
+2026-03-12 13:20:12,851 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 5/12
+2026-03-12 13:20:12,889 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 6/12
+2026-03-12 13:20:12,927 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 7/12
+2026-03-12 13:20:12,966 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 8/12
+2026-03-12 13:20:13,003 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 9/12
+2026-03-12 13:20:13,043 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 10/12
+2026-03-12 13:20:13,082 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 11/12
+2026-03-12 13:20:13,122 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 12/12
+2026-03-12 13:20:13,164 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting watertable elevation time series
+2026-03-12 13:20:13,164 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting watertable depth time series
+2026-03-12 13:20:13,165 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting seepage areas time series
+2026-03-12 13:20:13,167 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting outflow drain time series
+2026-03-12 13:20:13,168 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting accumulation flux time series
+2026-03-12 13:20:13,168 [INFO] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:88] Exporting monthly intermittency maps
+2026-03-12 13:20:13,169 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:99] Processing monthly intermittency t: 0 / 1
+2026-03-12 13:20:13,284 [DEBUG] [hydromodpy.postprocess.flow.intermittency] [intermittency:115] Computing monthly intermittency: 0 / 1
+2026-03-12 13:20:13,302 [INFO] [hydromodpy.postprocess.timeseries.flow_timeseries] [flow_timeseries:153] Exported catchment time series to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_simulations/TRANS1_K5.0e-05_a15.0_Sy2.0/_postprocess/_timeseries
+2026-03-12 13:20:13,350 [DEBUG] [hydromodpy.postprocess.flow.intermittency] [intermittency:115] Computing monthly intermittency: 0 / 1
+2026-03-12 13:20:13,369 [INFO] [hydromodpy.postprocess.timeseries.flow_timeseries] [flow_timeseries:248] Exported time series for subbasin 1 to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_simulations/TRANS1_K5.0e-05_a15.0_Sy2.0/_subbasins/subbasin_NR4
+2026-03-12 13:24:14,604 [INFO] [hydromodpy.geographic.geographic] [geographic:89] Extracting geographic data for model area
+2026-03-12 13:24:18,029 [INFO] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:53] Extracting hydrography data from /home/agauvain/Git/HydroModPy/examples_legacy/example12/data
+2026-03-12 13:24:18,104 [DEBUG] [hydromodpy.data_managers.hydrography.hydrography] [hydrography:120] Processing line geometry type: LineString
+2026-03-12 13:24:18,112 [INFO] [hydromodpy.geographic.subbasin] [subbasin:67] Extracting subbasin definitions for watershed
+2026-03-12 13:24:18,112 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:91] No hydrometry subbasin or problem: 'NoneType' object has no attribute 'code_bh'
+2026-03-12 13:24:18,112 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:105] No intermittency subbasin or problem: 'NoneType' object has no attribute 'code_onde'
+2026-03-12 13:24:18,113 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:192] Loading coordinates from: /home/agauvain/Git/HydroModPy/examples_legacy/example12/data/france hydrometric stations.dbf
+2026-03-12 13:24:18,113 [DEBUG] [hydromodpy.geographic.subbasin] [subbasin:114] No personal subbasins or problem: 'utf-8' codec can't decode byte 0xec in position 4: invalid continuation byte
+2026-03-12 13:24:19,326 [INFO] [hydromodpy.data_managers.climatic.climatic] [climatic:39] Initializing climatic module parameters
+2026-03-12 13:24:20,384 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.pyhelp_grid] [pyhelp_grid:131] Updated grid saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:24:20,385 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:142] Loading grid data from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:24:20,390 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:148] Grid data loaded successfully from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_input_grid_ready.csv
+2026-03-12 13:24:20,390 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:168] Loading precipitation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_precip_input_data.csv
+2026-03-12 13:24:20,398 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:172] Loading air temperature inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_airtemp_input_data.csv
+2026-03-12 13:24:20,403 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:176] Loading solar radiation inputs from /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_solrad_input_data.csv
+2026-03-12 13:24:20,459 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:226] Weather input datasets loaded successfully
+2026-03-12 13:24:20,460 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:231] Clearing HELP input cache in /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files
+2026-03-12 13:24:20,461 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:233] HELP input cache cleared
+2026-03-12 13:24:20,463 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:188] Formatting D10 and D11 data for cell 1 of 27 (3.7%)
+2026-03-12 13:24:20,466 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:194] D10 and D11 data formatting completed for 27 cells in 0.00 sec
+2026-03-12 13:24:25,533 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:235] Creating D10 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:24:25,533 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:236] D10 files created in 5.05 sec
+2026-03-12 13:24:25,543 [DEBUG] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:250] Creating D11 input file for cell 27 of 27 (100.0%)
+2026-03-12 13:24:25,543 [INFO] [hydromodpy.hydrology.pyhelp.core.preprocessing] [preprocessing:251] D11 files created in 0.01 sec
+2026-03-12 13:24:25,592 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:303] Persisting D10/D11 connectivity tables
+2026-03-12 13:24:25,593 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:307] D10/D11 connectivity tables saved to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/help_input_files/connect_table.json
+2026-03-12 13:24:25,593 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D4 HELP input files for precip
+2026-03-12 13:24:25,595 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D4 HELP input files for precip
+2026-03-12 13:24:25,595 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D7 HELP input files for airtemp
+2026-03-12 13:24:25,597 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D7 HELP input files for airtemp
+2026-03-12 13:24:25,597 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:325] Generating D13 HELP input files for solrad
+2026-03-12 13:24:25,599 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:367] Generated D13 HELP input files for solrad
+2026-03-12 13:24:25,599 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:370] Updating HELP input connectivity tables
+2026-03-12 13:24:25,599 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:372] HELP input connectivity tables updated
+2026-03-12 13:24:30,641 [DEBUG] [hydromodpy.hydrology.pyhelp.core.processing] [processing:76] HELP simulation in progress: 100.0% (0.0 min remaining)
+2026-03-12 13:24:32,193 [INFO] [hydromodpy.hydrology.pyhelp.core.processing] [processing:84] HELP simulation completed for 27 cells in 6.59 sec
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 1/27 (37728)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 2/27 (37729)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 3/27 (37730)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 4/27 (37731)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 5/27 (37732)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 6/27 (37733)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 7/27 (37734)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 8/27 (37735)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 9/27 (37736)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 10/27 (37737)
+2026-03-12 13:24:32,195 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 11/27 (37738)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 12/27 (37739)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 13/27 (37740)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 14/27 (37741)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 15/27 (37742)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 16/27 (37743)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 17/27 (37744)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 18/27 (37745)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 19/27 (37746)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 20/27 (37747)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 21/27 (37748)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 22/27 (37749)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 23/27 (37750)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 24/27 (37751)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 25/27 (37752)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 26/27 (37753)
+2026-03-12 13:24:32,196 [DEBUG] [hydromodpy.hydrology.pyhelp.core.managers] [managers:501] Post-processing cell 27/27 (37754)
+2026-03-12 13:24:32,196 [INFO] [hydromodpy.hydrology.pyhelp.core.managers] [managers:519] Post-processed HELP outputs for 27 cells
+2026-03-12 13:24:35,490 [INFO] [hydromodpy.hydrology.pyhelp.preprocessing.io] [io:383] NetCDF written to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_pyhelp/_sim_/pyhelp_daily_out.nc
+2026-03-12 13:24:36,028 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Hydraulic conductivity mapped from flow.K using direct homogeneous mapping
+2026-03-12 13:24:36,029 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Specific yield mapped from flow.Sy using direct homogeneous mapping
+2026-03-12 13:24:36,030 [INFO] [hydromodpy.solver.modflow_nwt.modflow.property_mapping] [property_mapping:216] Specific storage mapped from flow.Ss using direct homogeneous mapping
+2026-03-12 13:24:36,049 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 0
+2026-03-12 13:24:36,120 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 1
+2026-03-12 13:24:36,191 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 2
+2026-03-12 13:24:36,268 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 3
+2026-03-12 13:24:36,343 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 4
+2026-03-12 13:24:36,413 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 5
+2026-03-12 13:24:36,476 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 6
+2026-03-12 13:24:36,530 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 7
+2026-03-12 13:24:36,583 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 8
+2026-03-12 13:24:36,636 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.diagnostics] [diagnostics:48] Checking layer 9
+2026-03-12 13:24:36,689 [WARNING] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:560] MODFLOW grid connectivity check found 1 problematic cells
+2026-03-12 13:25:34,065 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:696] Post-processing MODFLOW: TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:25:34,065 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 1/12
+2026-03-12 13:25:34,132 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 2/12
+2026-03-12 13:25:34,175 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 3/12
+2026-03-12 13:25:34,235 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 4/12
+2026-03-12 13:25:34,286 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 5/12
+2026-03-12 13:25:34,330 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 6/12
+2026-03-12 13:25:34,374 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 7/12
+2026-03-12 13:25:34,419 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 8/12
+2026-03-12 13:25:34,460 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 9/12
+2026-03-12 13:25:34,504 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 10/12
+2026-03-12 13:25:34,546 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 11/12
+2026-03-12 13:25:34,589 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:701] Post-processing stress period 12/12
+2026-03-12 13:25:34,632 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting watertable elevation time series
+2026-03-12 13:25:34,633 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting watertable depth time series
+2026-03-12 13:25:34,634 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting seepage areas time series
+2026-03-12 13:25:34,635 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting outflow drain time series
+2026-03-12 13:25:34,636 [INFO] [hydromodpy.solver.modflow_nwt.modflow.nwt_solver] [nwt_solver:830] Exporting accumulation flux time series
+2026-03-12 13:25:34,637 [INFO] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:88] Exporting monthly intermittency maps
+2026-03-12 13:25:34,637 [DEBUG] [hydromodpy.solver.modflow_nwt.modflow.intermittency] [intermittency:99] Processing monthly intermittency t: 0 / 1
+2026-03-12 13:25:34,762 [DEBUG] [hydromodpy.postprocess.flow.intermittency] [intermittency:115] Computing monthly intermittency: 0 / 1
+2026-03-12 13:25:34,781 [INFO] [hydromodpy.postprocess.timeseries.flow_timeseries] [flow_timeseries:153] Exported catchment time series to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_simulations/TRANS1_K5.0e-05_a15.0_Sy2.0/_postprocess/_timeseries
+2026-03-12 13:25:34,834 [DEBUG] [hydromodpy.postprocess.flow.intermittency] [intermittency:115] Computing monthly intermittency: 0 / 1
+2026-03-12 13:25:34,854 [INFO] [hydromodpy.postprocess.timeseries.flow_timeseries] [flow_timeseries:248] Exported time series for subbasin 1 to /home/agauvain/Git/HydroModPy/examples_legacy/results/example12/results_simulations/TRANS1_K5.0e-05_a15.0_Sy2.0/_subbasins/subbasin_NR4
+2026-03-12 13:25:35,382 [DEBUG] [hydromodpy.solver.modflow_nwt.modpath.modpath] [modpath:439] Modpath settings - track: 2, zone_opt: 1, zone_inj: <class 'int'>
+2026-03-12 13:25:36,418 [INFO] [hydromodpy.display.visualization_results] [visualization_results:121] Plotting 2D map visualizations for model TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:26:00,678 [INFO] [hydromodpy.display.export_vtuvtk] [export_vtuvtk:111] Exporting VTU/VTK grid mesh for model TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:26:04,894 [INFO] [hydromodpy.display.export_vtuvtk] [export_vtuvtk:113] Exporting VTU/VTK water table surfaces for model TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:26:59,404 [INFO] [hydromodpy.display.export_vtuvtk] [export_vtuvtk:116] Exporting VTU/VTK watershed boundary for model TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:26:59,469 [INFO] [hydromodpy.display.export_vtuvtk] [export_vtuvtk:122] Exported VTU/VTK pathlines for model TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:26:59,469 [INFO] [hydromodpy.display.export_vtuvtk] [export_vtuvtk:132] No piezometry data found on watershed; skipping VTU/VTK piezometers for model TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:26:59,478 [ERROR] [hydromodpy.display.export_vtuvtk] [export_vtuvtk:137] Failed to export VTU/VTK streams for model TRANS1_K5.0e-05_a15.0_Sy2.0
+Traceback (most recent call last):
+  File "/home/agauvain/Git/HydroModPy/hydromodpy/display/export_vtuvtk.py", line 134, in __init__
+    self.streams(save_file, hydrography, geographic)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/agauvain/Git/HydroModPy/hydromodpy/display/export_vtuvtk.py", line 603, in streams
+    for line in lineDf.iloc[0].geometry.geoms:
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'LineString' object has no attribute 'geoms'
+2026-03-12 13:26:59,479 [INFO] [hydromodpy.display.visualization_results] [visualization_results:463] Plotting 3D visualization for model TRANS1_K5.0e-05_a15.0_Sy2.0
+2026-03-12 13:27:01,406 [INFO] [hydromodpy.display.visualization_results] [visualization_results:685] Processing object grid
+2026-03-12 13:27:01,556 [INFO] [hydromodpy.display.visualization_results] [visualization_results:685] Processing object watertable
+2026-03-12 13:27:01,593 [INFO] [hydromodpy.display.visualization_results] [visualization_results:685] Processing object watertable_depth
+2026-03-12 13:27:01,630 [INFO] [hydromodpy.display.visualization_results] [visualization_results:685] Processing object surface_flow
+2026-03-12 13:27:01,669 [INFO] [hydromodpy.display.visualization_results] [visualization_results:685] Processing object drain_flow
+2026-03-12 13:27:01,711 [INFO] [hydromodpy.display.visualization_results] [visualization_results:685] Processing object pathlines
