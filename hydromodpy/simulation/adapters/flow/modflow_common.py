@@ -87,7 +87,8 @@ def build_preprocess_options(state) -> ModflowPreprocessOptions:
     place.  Uses ``ModflowPreprocessOptions`` defaults directly.
     """
 
-    return ModflowPreprocessOptions()
+    time_grid = getattr(state.setup, "time_grid", None)
+    return ModflowPreprocessOptions(time_grid=time_grid)
 
 
 def _persist_pre_run_payload(workspace, model_name: str, model_modflow) -> None:
