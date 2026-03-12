@@ -173,3 +173,66 @@ def test_postprocess_runner_calls_transport_netcdf_when_enabled(monkeypatch) -> 
     assert captured[0]["residence_times"] is True
     assert captured[0]["concentration_seepage"] is False
     assert captured[0]["mass_accumulated"] is True
+
+
+def test_postprocess_runner_passes_flow_model_to_matching_streams(monkeypatch) -> None:
+    cfg = PostprocessConfig.model_validate(
+        {
+            "enabled": True,
+            "flow": {
+                "timeseries": {"enabled": False},
+                "netcdf": {"enabled": False},
+                "matching_streams": True,
+                "display": False,
+            },
+            "transport": {"enabled": False},
+        }
+    )
+    runner = PostprocessRunner(cfg)
+
+    captured: list[dict] = []
+
+    def _fake_run_matching_streams(
+        *,
+        geographic,
+        hydrography,
+        workspace,
+        model_modflow,
+        iteration_label,
+        from_calib,
+    ):
+        captured.append(
+            {
+                "geographic": geographic,
+                "hydrography": hydrography,
+                "workspace": workspace,
+                "model_modflow": model_modflow,
+                "iteration_label": iteration_label,
+                "from_calib": from_calib,
+            }
+        )
+
+    monkeypatch.setattr("hydromodpy.postprocess.runner.run_matching_streams", _fake_run_matching_streams)
+
+    flow_model = SimpleNamespace(model_name="flow_main")
+    hydrography = SimpleNamespace()
+    geographic = SimpleNamespace()
+    workspace = SimpleNamespace()
+
+    class _State:
+        setup = SimpleNamespace(geographic=geographic, workspace=workspace)
+        data = SimpleNamespace(climatic=None, hydrography=hydrography)
+        cfg = SimpleNamespace(display=SimpleNamespace(to_runtime_options=lambda: SimpleNamespace()))
+
+        @staticmethod
+        def get_model_for_solver(name: str):
+            if name == "modflownwt":
+                return flow_model
+            return None
+
+    runner.after_process("flow", _State())
+
+    assert len(captured) == 1
+    assert captured[0]["model_modflow"] is flow_model
+    assert captured[0]["iteration_label"] == "flow_main"
+    assert captured[0]["from_calib"] is False

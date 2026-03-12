@@ -9,7 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.solver.compatibility import known_process_types
-from hydromodpy.units import normalize_time_unit, parse_scalar_and_unit
+from hydromodpy.support.units import normalize_time_unit, parse_scalar_and_unit
 
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
@@ -209,7 +209,9 @@ class SimulationConfig(BaseModel):
         default=None,
         description=(
             "Optional canonical simulation window used to align solver temporal "
-            "settings and validate forcing coverage."
+            "settings and validate forcing coverage. Required for launcher "
+            "flow processes and for runtime features that explicitly consume "
+            "simulation-window dates."
         ),
     )
     process: list[SimulationProcessConfig] = Field(

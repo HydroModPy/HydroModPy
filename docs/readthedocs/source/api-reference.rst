@@ -12,26 +12,26 @@ Module overview
   :class:`~hydromodpy.simulation.workspace.config.WorkspaceConfig`,
   :class:`~hydromodpy.geographic.geographic_config.GeographicConfig`)
   with validated fields, type constraints, and cross-field rules.
-- :doc:`hydromodpy.watershed_legacy <api/hydromodpy-watershed>` - watershed extraction,
+- :doc:`hydromodpy.legacy.watershed <api/hydromodpy-watershed>` - watershed extraction,
   basin descriptors (geography, geology, hydraulics, hydrography) plus
-  data-manager entry points used by :class:`hydromodpy.watershed_legacy.watershed_root_legacy.Watershed`.
+  data-manager entry points used by :class:`hydromodpy.legacy.watershed.watershed_root_legacy.Watershed`.
 - :doc:`hydromodpy.modeling <api/hydromodpy-modeling>` - preprocessing /
   processing / post-processing helpers for MODFLOW, MODPATH, surface
   mass-transfer routing, MT3DMS transport, and time-series utilities.
 - :doc:`hydromodpy.display <api/hydromodpy-display>` - visualisation routines
   for descriptors and simulation results plus VTU/VTK exporters.
-- :doc:`hydromodpy.pyhelp <api/hydromodpy-pyhelp>` - coupling layer with the HELP
+- :doc:`hydromodpy.hydrology.pyhelp <api/hydromodpy-pyhelp>` - coupling layer with the HELP
   land-surface model, NetCDF conversion tools, rainfall-runoff post-processing,
   and CLI entry points.
-- :doc:`hydromodpy.tools <api/hydromodpy-tools>` - shared toolbox for filesystem
+- :doc:`hydromodpy.support.tools <api/hydromodpy-tools>` - shared toolbox for filesystem
   helpers, raster reprojection, geomorphology metrics, ERA5 ingestion, and plot
   presets.
 
 Key entry points
 ----------------
 
-- :class:`hydromodpy.watershed_legacy.watershed_root_legacy.Watershed` - main object orchestrating every
-  example (accessible via :mod:`hydromodpy.watershed_legacy.watershed_root_legacy`).
+- :class:`hydromodpy.legacy.watershed.watershed_root_legacy.Watershed` - main object orchestrating every
+  example (accessible via :mod:`hydromodpy.legacy.watershed.watershed_root_legacy`).
 - :class:`hydromodpy.config.HydroModPyConfig` - top-level Pydantic config loaded
   from a TOML file.
 
@@ -47,4 +47,5 @@ Detailed documentation
    api/hydromodpy-display
    api/hydromodpy-pyhelp
    api/hydromodpy-tools
+
 

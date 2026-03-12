@@ -62,6 +62,9 @@ Implementation note:
 - `RasterGridReader` isolates raster I/O (`rasterio`) from builder logic.
 - `PlanarDiscretizer` handles `nx/ny` re-discretization and interpolation policy.
 - `StructuredGridBuilder` performs only deterministic construction from validated config.
+- Solver launchers now use a narrower nested contract:
+  `[...sgrid.planar]` + `[...sgrid.vertical]`, because domain surfaces are
+  already available at runtime and do not need `top_path`/`bot_path`.
 
 ## FieldParam Discretization: 2D Support, 3D Evaluation
 
@@ -353,11 +356,11 @@ Behavior:
 - `nodata` masking is propagated to generated `botm`.
 - To avoid non-physical layers, ensure input bottom definition produces
   `bot(i,j) < top(i,j)` on valid cells.
+- Grid geometry is interpreted in SI metres throughout this module.
 
 ### Configuration Parameters (`SGridConfig`)
 
 - `sgrid_type`: grid family selector (currently `structured` only).
-- `lenuni`: length unit label stored in FloPy grid metadata.
 - `genmtd_top`: top-surface method (`filepath` only for now).
 - `top_path`: path to the top DEM raster (required).
 - `crs`: optional CRS string stored in resulting grid metadata.
@@ -420,7 +423,7 @@ Associated files:
 `StructuredGridBuilder.build_from_surfaces(...)` returns a FloPy `StructuredGrid` exposing standard
 attributes used downstream by MODFLOW setup:
 
-- `lenuni`, `nlay`, `nrow`, `ncol`,
+- `nlay`, `nrow`, `ncol`,
 - `delr`, `delc`,
 - `top`, `botm`,
 - offsets and extent metadata.

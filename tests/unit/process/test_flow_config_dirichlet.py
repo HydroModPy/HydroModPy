@@ -5,8 +5,12 @@ import pytest
 from hydromodpy.process.flow.flow_config import FlowConfig
 
 
-def _build_flow_config(flow_section: dict[str, object]) -> FlowConfig:
-    return FlowConfig.from_toml_section(flow_section, base_dir=Path("."))
+def _build_flow_config(
+    flow_section: dict[str, object],
+    *,
+    base_dir: Path | None = None,
+) -> FlowConfig:
+    return FlowConfig.from_toml_section(flow_section, base_dir=Path(".") if base_dir is None else base_dir)
 
 
 def test_dirichlet_side_key_infers_application_domain() -> None:
@@ -120,6 +124,90 @@ def test_boundary_value_rejects_conflicting_units() -> None:
                         "ocean": {
                             "value": "1.0 m",
                             "unit": "cm",
+                        }
+                    }
+                }
+            }
+        )
+
+
+def test_dirichlet_side_forcing_constant_is_accepted_without_value() -> None:
+    cfg = _build_flow_config(
+        {
+            "bc": {
+                "dirichlet": {
+                    "west_side": {
+                        "forcing": {
+                            "mode": "constant",
+                            "value": 99.0,
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    west_side = cfg.bc["west_side"]
+    assert west_side["value"] is None
+    assert west_side["units"] == "m"
+    assert west_side["forcing"]["mode"] == "constant"
+    assert west_side["forcing"]["value"] == pytest.approx(99.0)
+
+
+def test_dirichlet_side_forcing_csv_resolves_relative_path(tmp_path: Path) -> None:
+    csv_path = tmp_path / "boundary.csv"
+    csv_path.write_text("date,value\n2003-01-01,10.0\n", encoding="utf-8")
+
+    cfg = _build_flow_config(
+        {
+            "bc": {
+                "dirichlet": {
+                    "east_side": {
+                        "forcing": {
+                            "mode": "csv",
+                            "path_file": "boundary.csv",
+                        }
+                    }
+                }
+            }
+        },
+        base_dir=tmp_path,
+    )
+
+    east_side = cfg.bc["east_side"]
+    assert east_side["forcing"]["path_file"] == csv_path.resolve()
+
+
+def test_dirichlet_side_forcing_rejects_value_plus_forcing() -> None:
+    with pytest.raises(ValueError, match="value and flow.bc.dirichlet.west_side.forcing are mutually exclusive"):
+        _build_flow_config(
+            {
+                "bc": {
+                    "dirichlet": {
+                        "west_side": {
+                            "value": 100.0,
+                            "forcing": {
+                                "mode": "constant",
+                                "value": 99.0,
+                            },
+                        }
+                    }
+                }
+            }
+        )
+
+
+def test_ocean_forcing_is_rejected() -> None:
+    with pytest.raises(ValueError, match="only supported for side Dirichlet boundaries"):
+        _build_flow_config(
+            {
+                "bc": {
+                    "dirichlet": {
+                        "ocean": {
+                            "forcing": {
+                                "mode": "constant",
+                                "value": 0.0,
+                            }
                         }
                     }
                 }

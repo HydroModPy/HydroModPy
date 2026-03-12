@@ -2,13 +2,15 @@
 """Example 12 simulation-launcher entry-point.
 
 Runs the full example12 study via :class:`HydroModPyLauncher`.
-Study behavior is configured directly in ``config_standard.toml``, including
-launcher-managed postprocess via `[postprocess]` and `[display]`.
+Study behavior is configured directly in ``config_extensive.toml``, the
+git-tracked successor of the former ``config_standard.toml``. This default
+config keeps the long-run baseline behavior, including launcher-managed
+postprocess via `[postprocess]` and `[display]`.
 
 Usage::
 
     python -m examples.launcher_simulation.launcher_simulation
-    python -m examples.launcher_simulation.launcher_simulation path/to/config_standard.toml
+    python -m examples.launcher_simulation.launcher_simulation path/to/config_extensive.toml
 
 The explicit module path above is the recommended command for this study-level
 launcher. The generic wrapper supports the explicit launcher-family form
@@ -29,6 +31,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from launchers import HydroModPyLauncher
 
 
+DEFAULT_CONFIG_NAME = "config_extensive.toml"
+LEGACY_CONFIG_NAME = "config_standard.toml"
+
+
+def _resolve_config_path(config: Path) -> Path:
+    """Resolve the requested config path and report the legacy rename clearly."""
+    resolved = config.expanduser().resolve()
+    if resolved.exists():
+        return resolved
+
+    if resolved.name != LEGACY_CONFIG_NAME:
+        return resolved
+
+    replacement = resolved.with_name(DEFAULT_CONFIG_NAME)
+    if replacement.exists():
+        raise FileNotFoundError(
+            f"'{LEGACY_CONFIG_NAME}' was renamed to '{DEFAULT_CONFIG_NAME}'. "
+            f"Use this path instead: {replacement}"
+        )
+    return resolved
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run the launcher_simulation workflow with a TOML config.",
@@ -37,8 +61,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "config",
         nargs="?",
         type=Path,
-        default=Path(__file__).parent / "config_standard.toml",
-        help="Path to the launcher TOML file (default: config_standard.toml).",
+        default=Path(__file__).parent / DEFAULT_CONFIG_NAME,
+        help=f"Path to the launcher TOML file (default: {DEFAULT_CONFIG_NAME}).",
     )
     return parser
 
@@ -46,7 +70,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     """Run example12 launcher with a provided TOML or default local config."""
     args = _build_parser().parse_args(argv)
-    config_path = args.config.expanduser().resolve()
+    config_path = _resolve_config_path(args.config)
     HydroModPyLauncher(config_path).run()
 
 

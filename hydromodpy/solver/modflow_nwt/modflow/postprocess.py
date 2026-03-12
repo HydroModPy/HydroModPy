@@ -61,7 +61,7 @@ def compute_watertable_depth(
     ----------
     wt_elev : np.ndarray
         Water table elevation array, shape ``(nrow, ncol)``.
-    dem : np.ndarray
+    top_elevation : np.ndarray
         Digital elevation model array, shape ``(nrow, ncol)``.
     dem_mask : np.ndarray
         Boolean mask of inactive/nodata DEM cells (``True`` = nodata).
@@ -96,8 +96,8 @@ def compute_seepage_areas(
     ----------
     wt_elev : np.ndarray
         Water table elevation, shape ``(nrow, ncol)``.
-    dem : np.ndarray
-        Digital elevation model, shape ``(nrow, ncol)``.
+    top_elevation : np.ndarray
+        Top elevation array on the solver grid, shape ``(nrow, ncol)``.
     dem_mask : np.ndarray
         Boolean nodata mask (``True`` = nodata cell).
 
@@ -221,8 +221,10 @@ def compute_groundwater_storage(
     wt_elev: np.ndarray,
     zbot: np.ndarray,
     sy: np.ndarray,
-    dem: np.ndarray,
-    resolution: float,
+    top_elevation: np.ndarray,
+    *,
+    cell_area: float | None = None,
+    resolution: float | None = None,
 ) -> np.ndarray:
     """
     Estimate volumetric groundwater storage per cell.
@@ -238,9 +240,9 @@ def compute_groundwater_storage(
         Bottom elevations array; ``zbot[-1]`` is the deepest layer bottom.
     sy : np.ndarray
         Specific yield array (``nlay, nrow, ncol``).
-    dem : np.ndarray
-        Digital elevation model, shape ``(nrow, ncol)``.
-    resolution : float
+    top_elevation : np.ndarray
+        Top elevation array on the solver grid, shape ``(nrow, ncol)``.
+    cell_area : float | None
         Cell size [m]; cell area = ``resolution²``.
 
     Returns
@@ -249,6 +251,10 @@ def compute_groundwater_storage(
         Volumetric groundwater storage per cell [m³].
     """
     wt_sto = wt_elev.copy()
-    wt_sto[dem < 0] = np.nan
-    wt_sto = (wt_sto - zbot[-1]) * (resolution**2) * np.nanmean(sy)
+    wt_sto[top_elevation < 0] = np.nan
+    if cell_area is None:
+        if resolution is None:
+            raise ValueError("compute_groundwater_storage requires cell_area or resolution")
+        cell_area = float(resolution) ** 2
+    wt_sto = (wt_sto - zbot[-1]) * float(cell_area) * np.nanmean(sy)
     return wt_sto

@@ -25,7 +25,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
-from hydromodpy.units import (
+from hydromodpy.support.units import (
     convert_seconds_to_unit,
     normalize_time_unit,
     parse_scalar_and_unit,
@@ -92,6 +92,42 @@ class ResolvedSimulationTimeGrid:
     def period_ends_exclusive(self) -> tuple[pd.Timestamp, ...]:
         """Period end timestamps (exclusive)."""
         return self.boundaries[1:]
+
+
+@dataclass(frozen=True)
+class ResolvedSteadySimulationTimeGrid:
+    """Dedicated steady launcher time representation when ``[simulation.time]`` is absent.
+
+    This keeps one explicit runtime contract for steady flow launchers without
+    forcing them to invent an artificial user-facing simulation window.
+    """
+
+    period_lengths_seconds: tuple[float, ...] = (1.0,)
+    boundaries: tuple[pd.Timestamp, ...] = ()
+    window: None = None
+
+    @property
+    def nper(self) -> int:
+        """Number of stress periods exposed to solver builders."""
+        return len(self.period_lengths_seconds)
+
+    @property
+    def period_lengths_days(self) -> tuple[float, ...]:
+        """Backward-compatible day-equivalent view of stress-period lengths."""
+        return tuple(
+            convert_seconds_to_unit(seconds, unit="days")
+            for seconds in self.period_lengths_seconds
+        )
+
+    @property
+    def period_starts(self) -> tuple[pd.Timestamp, ...]:
+        """Steady launcher runs without explicit window expose no absolute starts."""
+        return ()
+
+    @property
+    def period_ends_exclusive(self) -> tuple[pd.Timestamp, ...]:
+        """Steady launcher runs without explicit window expose no absolute ends."""
+        return ()
 
 
 def _as_timestamp(value: Any, *, name: str) -> pd.Timestamp:
@@ -300,6 +336,77 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
         boundaries=tuple(boundaries),
         period_lengths_seconds=tuple(perlen_seconds),
     )
+
+
+def _iter_simulation_processes(cfg: Any) -> tuple[Any, ...]:
+    """Return declared simulation processes as a stable tuple."""
+    simulation_cfg = getattr(cfg, "simulation", None)
+    processes = getattr(simulation_cfg, "process", None) if simulation_cfg is not None else None
+    if processes is None:
+        return ()
+    if isinstance(processes, tuple):
+        return processes
+    if isinstance(processes, list):
+        return tuple(processes)
+    return (processes,)
+
+
+def _process_type(process_cfg: Any) -> str:
+    """Return normalized process type from typed objects or mappings."""
+    if isinstance(process_cfg, dict):
+        raw_type = process_cfg.get("type", "")
+    else:
+        raw_type = getattr(process_cfg, "type", "")
+    return str(raw_type).strip().lower()
+
+
+def has_flow_simulation_process(cfg: Any) -> bool:
+    """Return ``True`` when the simulation plan declares at least one flow process."""
+    return any(_process_type(process_cfg) == "flow" for process_cfg in _iter_simulation_processes(cfg))
+
+
+def _flow_regime(cfg: Any) -> str | None:
+    """Return normalized launcher flow regime from the shared ``[flow]`` section."""
+    flow_cfg = getattr(cfg, "flow", None)
+    if flow_cfg is None:
+        return None
+    raw_regime = getattr(flow_cfg, "flow_regime", None)
+    if raw_regime is None:
+        return None
+    regime = str(raw_regime).strip().lower()
+    if regime in {"steady", "transient"}:
+        return regime
+    return None
+
+
+def require_flow_simulation_time_grid(
+    cfg: Any,
+) -> ResolvedSimulationTimeGrid | ResolvedSteadySimulationTimeGrid | None:
+    """Return canonical launcher time-grid, enforcing it for flow runs.
+
+    Launcher flow solvers no longer accept solver ``tgrid`` sections as a
+    fallback source for stress periods. When at least one flow process is
+    declared, ``[simulation.time]`` must therefore resolve to one canonical
+    ``ResolvedSimulationTimeGrid``.
+
+    Exception
+    ---------
+    Pure steady flow launcher runs may omit ``[simulation.time]`` entirely.
+    In that case, one dedicated steady runtime representation is returned so
+    downstream solvers still receive one explicit single-period contract.
+    """
+    grid = resolve_simulation_time_grid(cfg)
+    if not has_flow_simulation_process(cfg):
+        return grid
+    if grid is None and _flow_regime(cfg) == "steady":
+        return ResolvedSteadySimulationTimeGrid()
+    if grid is None:
+        raise ValueError(
+            "Launcher flow processes require a valid [simulation.time] section. "
+            "Steady flow runs may omit it, but transient runs still require it. "
+            "Solver tgrid fallback is no longer supported."
+        )
+    return grid
 
 
 def build_simulation_time_boundaries(

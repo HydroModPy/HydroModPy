@@ -28,23 +28,20 @@ import numpy as np
 from os.path import dirname, abspath
 import rasterio
 import flopy.utils.binaryfile as bf
-import whitebox
 import shutil
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 # Root
 df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.tools import toolbox, get_logger
+from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.solver.modflow_common import masstransfer
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
+MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
 
 #%% CLASS
 
@@ -194,8 +191,8 @@ class Mt3dms:
                                       nlay=self.mf.nlay,
                                       nrow=self.mf.nrow,
                                       ncol=self.mf.ncol,
-                                      delr=self.model_modflow.resolution,
-                                      delc=self.model_modflow.resolution,
+                                      delr=np.asarray(self.model_modflow.dis.delr.array, dtype=float),
+                                      delc=np.asarray(self.model_modflow.dis.delc.array, dtype=float),
                                       nper=self.mf.nper,                        # mf.nper*new_stepsize+1
                                       nprs=self.mf.nper,                        # mf.nper*new_stepsize+1
                                       nstp=self.model_modflow.nstp,
@@ -303,7 +300,7 @@ class Mt3dms:
                 logger.info("Running MT3DMS transport simulation")
             success_model, tempo = self.mt.run_model(silent=not verbose, pause=False,
                                                      # report=True,
-                                                     normal_msg='normal termination') # True without msg
+                                                     normal_msg=MT3DMS_NORMAL_MESSAGES) # True without msg
 
         shutil.copy(os.path.join(self.full_path, 'MT3D001.UCN'), os.path.join(self.full_path, self.model_name_mt+'.UCN'))
 
@@ -325,7 +322,6 @@ class Mt3dms:
         model_mt3dms : object
             MT3DMS python object.
         """
-
         # Create folders
         self.save_file = os.path.join(self.full_path, '_postprocess')
         toolbox.create_folder(self.save_file)
@@ -348,7 +344,10 @@ class Mt3dms:
         self.path_file = os.path.join(self.full_path, self.model_name_mt+'.UCN')
 
         # Files have been output in the processing phase and are re-read here
-        self.dem_mask = (self.model_modflow.dem<-9999)
+        self.dem_mask = np.asarray(
+            getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
+            dtype=bool,
+        )
 
         # Fluxes
         self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
@@ -410,12 +409,15 @@ class Mt3dms:
                 self.dict_mass_seepage[i] = massobj_1c_fil_surf
 
             if mass_accumulated==True:
+                routing_ctx = self.model_modflow._ensure_solver_routing_context()
 
                 accumulated_mass = masstransfer.Masstransfer(self.geographic,
                                                               'mass_seepage_t('+the_time+').tif',
                                                               'tracept_conc_t('+the_time+').shp',
                                                               'mass_accumulated_t('+the_time+').tif',
-                                                              extraction_folder=self.save_file)
+                                                              extraction_folder=self.save_file,
+                                                              routing_fill_path=routing_ctx.correc_path,
+                                                              routing_direc_path=routing_ctx.direc_path)
                 accumulated_mass.trace_cumulated()
                 output_path = self.tifs_file+'/mass_accumulated_t('+the_time+').tif'
                 with rasterio.open(output_path) as src:

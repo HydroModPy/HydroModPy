@@ -153,7 +153,7 @@ def _build_bottom_surface(
             nodata=nodata,
             name="bottom_surface",
         )
-        if cfg.plan_discretization_mode == "shape":
+        if cfg.plan_discretization_mode == "resample_to_shape":
             target_shape = np.asarray(top_surface.as_array(), dtype=float).shape
             src_shape = np.asarray(source_bottom.as_array(), dtype=float).shape
             source_bottom = source_bottom.resample_to_shape(
@@ -201,7 +201,7 @@ def _build_bottom_surface(
                 values=raw_bot,
                 support=source_support,
             )
-            if cfg.plan_discretization_mode == "shape":
+            if cfg.plan_discretization_mode == "resample_to_shape":
                 source_bottom = source_bottom.resample_to_shape(
                     int(target_shape[0]),
                     int(target_shape[1]),
@@ -256,11 +256,9 @@ def build_sgrid_from_config(config: SGridConfig | Mapping[str, object]):
             else None
         ),
         nodata=float(cfg.nodata),
-        lenuni=str(cfg.lenuni),
     )
     return StructuredGridBuilder().build_from_surfaces(
         top_surface=top_surface,
         bottom_surface=bottom_surface,
         vertical_config=vertical_cfg,
     )
-

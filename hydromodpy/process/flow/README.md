@@ -64,9 +64,12 @@ type = "cauchy"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.wells.W1]
-cell = [0, 39, 39]                  # [lay, row, col], 0-based
-flux = -200.0                       # scalar or list
+cell = [0, 39, 39]                  # legacy: [lay, row, col], 0-based
 units = "m3/day"
+
+[flow.sinks_sources.wells.W1.forcing]
+mode = "constant"
+value = -200.0
 ```
 
 
@@ -194,15 +197,57 @@ After parsing, IDs are canonicalized:
 
 Each well payload:
 
-- `cell`: `[lay, row, col]`, integer, 0-based, non-negative.
-- `flux`: numeric scalar or non-empty list of numerics.
+- legacy `cell`: `[lay, row, col]`, integer, 0-based, non-negative.
+- or `location_mode = "absolute_xy"` with `layer`, `x`, `y`.
+- or `location_mode = "relative_xy"` with `layer`, `x_rel`, `y_rel` in `[0,1]`.
+- preferred `forcing` block:
+  - `mode = "constant"` with one `value`
+  - or `mode = "csv"` with `path_file`, `date_column`, `value_column`
+- legacy `flux`: numeric scalar or non-empty list of numerics.
 - `units`: optional string (default `m3/s`).
 - `description`: optional string.
 
 Runtime note:
 
+- `forcing` is resolved by launcher runtime against `[simulation.time]`, then
+  converted internally to `flux`.
 - scalar `flux` is expanded later by solver code across stress periods.
 - list length consistency with `nper` is checked at solver preprocessing time.
+- coordinate-based well locations are resolved to the solver cell after grid generation.
+
+Example with constant forcing:
+
+```toml
+[flow.sinks_sources.wells.W1]
+location_mode = "absolute_xy"
+layer = 0
+x = 265611.933
+y = 6784182.776
+units = "m3/day"
+
+[flow.sinks_sources.wells.W1.forcing]
+mode = "constant"
+value = -200.0
+```
+
+Example with CSV forcing:
+
+```toml
+[flow.sinks_sources.wells.W2]
+location_mode = "relative_xy"
+layer = 0
+x_rel = 0.70
+y_rel = 0.70
+units = "m3/day"
+
+[flow.sinks_sources.wells.W2.forcing]
+mode = "csv"
+path_file = "data/wells/standard_wells_2003.csv"
+date_column = "date"
+date_format = "%Y-%m-%d"
+value_column = "W2_m3_day"
+aggregate = "mean"
+```
 
 
 ## 7. Complete Example
@@ -232,9 +277,15 @@ type = "cauchy"
 value = "1e-6 m2/s"
 
 [flow.sinks_sources.wells.P1]
-cell = [0, 25, 40]
-flux = -500.0
+location_mode = "relative_xy"
+layer = 0
+x_rel = 0.62
+y_rel = 0.35
 units = "m3/day"
+
+[flow.sinks_sources.wells.P1.forcing]
+mode = "constant"
+value = -500.0
 ```
 
 
@@ -253,8 +304,14 @@ units = "m3/day"
   - use exactly one of:
     `top`, `north side`, `south side`, `east side`, `west side`.
 
-- `well.cell must contain exactly 3 values: [lay, row, col]`
-  - cell definition format is invalid.
+- `well location requires either cell=[lay,row,col] or location_mode with coordinate fields`
+  - add either the legacy `cell` field or one of the coordinate-based modes.
+
+- `well requires either flux or forcing`
+  - add a legacy `flux` payload or a `forcing` block.
+
+- `well.flux and well.forcing are mutually exclusive`
+  - keep only one input mode in the user config.
 
 
 ## 9. Programmatic Usage

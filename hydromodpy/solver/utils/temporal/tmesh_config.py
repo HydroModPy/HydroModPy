@@ -38,8 +38,8 @@ class TMeshConfigModel(BaseModel):
     itmuni: str = Field(
         default="d",
         description=(
-            "Time unit used to interpret lenper values. In launcher mode this field is "
-            "generally auto-managed from [simulation.time] and should not be edited."
+            "Time unit used to interpret lenper values. In launcher mode stress periods "
+            "come from [simulation.time], so this field is mirrored only for compatibility."
         ),
     )
     flow_regime: Literal["steady", "transient"] = Field(
@@ -52,15 +52,15 @@ class TMeshConfigModel(BaseModel):
     genmtd: Literal["synthetic_regular", "from_chron"] = Field(
         default="synthetic_regular",
         description=(
-            "Temporal generation method. In launcher mode this is generally auto-managed "
-            "from [simulation.time] and should not be edited."
+            "Temporal generation method. In launcher mode stress periods come from "
+            "[simulation.time], so this field is mirrored only for compatibility."
         ),
     )
     nper: int = Field(
         default=1,
         description=(
-            "Stress-period count. In launcher mode this is generally auto-managed from "
-            "[simulation.time] and should not be edited."
+            "Stress-period count. In launcher mode this is mirrored from [simulation.time] "
+            "and is not the authoritative source."
         ),
     )
     lenper: float | int | list[int] | list[float] | None = Field(
@@ -68,7 +68,8 @@ class TMeshConfigModel(BaseModel):
         description=(
             "Stress-period length(s) interpreted with itmuni. Scalar means one regular "
             "step length repeated nper times; list means one explicit value per stress period. "
-            "In launcher mode this is generally auto-managed from [simulation.time]."
+            "In launcher mode this is mirrored from [simulation.time] and is not the "
+            "authoritative source."
         ),
     )
     chron_path: str | None = Field(
@@ -85,14 +86,14 @@ class TMeshConfigModel(BaseModel):
         default=None,
         description=(
             "Lower datetime bound used by the temporal mesh. In launcher mode this field is "
-            "generally auto-managed from [simulation.time] and should not be edited."
+            "mirrored from [simulation.time] and is not the authoritative source."
         ),
     )
     end_datetime: Any | None = Field(
         default=None,
         description=(
             "Upper datetime bound used by the temporal mesh. In launcher mode this field is "
-            "generally auto-managed from [simulation.time] and should not be edited."
+            "mirrored from [simulation.time] and is not the authoritative source."
         ),
     )
     firstpersteady: bool = True

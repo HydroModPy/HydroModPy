@@ -16,11 +16,11 @@ import tomllib
 from typing import Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
-from hydromodpy.units.hydraulic_conductivity import (
+from hydromodpy.support.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
 )
-from hydromodpy.units.length import parse_length_to_m
+from hydromodpy.support.units.length import parse_length_to_m
 
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")

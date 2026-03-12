@@ -1,0 +1,101 @@
+[simulation]
+name = "Analytical circular island ocean validation"
+description = "Synthetic steady-state unconfined flow on a circular island with uniform recharge and sea level imposed through the ocean boundary condition."
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-02 00:00:00"
+step_value = "1 day"
+coverage_policy = "ignore"
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+catch_name = "validation_circular_island_ocean"
+out_dir_path = "../results"
+data_path = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "validation_circular_island_ocean"
+
+[geographic.synthetic.grid]
+length_x = "610.0 m"
+length_y = "610.0 m"
+nx = 61
+ny = 61
+
+[geographic.synthetic.topography]
+kind = "radial_island"
+base_elevation = -1.0
+crest_elevation = 12.0
+island_radius = "200.0 m"
+
+[domain]
+
+[domain.depth_model]
+type = "flat_substratum"
+substratum_elevation = -5.0
+
+[data]
+types = ["oceanic"]
+inference_mode = "strict"
+
+[data.oceanic]
+oceanic_path = "../../../../examples/launcher_data_overtiew/data"
+msl_source = "local"
+msl_local_csv = "ocean_msl_local.csv"
+msl_use_simulation_time_window = true
+msl_default = 0.0
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["ocean"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "5e-6 m/s"
+
+[flow.ic]
+type = "custom"
+value = "1.0 m"
+
+[flow.bc.dirichlet.ocean]
+type = "dirichlet"
+value = "0.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[recharge_chronicle]
+mode = "synthetic_generated"
+
+[recharge_chronicle.synthetic_generated]
+values = "1.0 mm/day"
+units = "mm/day"
+runoff_ratio = 0.0
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 61
+ny = 61
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false
+
+
+

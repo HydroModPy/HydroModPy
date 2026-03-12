@@ -8,7 +8,9 @@ import pandas as pd
 import pytest
 
 from hydromodpy.simulation.time import (
+    ResolvedSteadySimulationTimeGrid,
     apply_explicit_time_window_to_tgrids,
+    require_flow_simulation_time_grid,
     resolve_simulation_time_grid,
     resolve_simulation_time_window,
     validate_recharge_coverage,
@@ -42,6 +44,7 @@ def _make_cfg_with_time(
         modflow6=SimpleNamespace(
             tgrid=SimpleNamespace(start_datetime=None, end_datetime=None),
         ),
+        flow=SimpleNamespace(flow_regime="transient"),
     )
 
 
@@ -158,6 +161,35 @@ def test_resolve_simulation_time_grid_rejects_from_modflow_mode() -> None:
 
     with pytest.raises(ValueError, match="must be 'explicit'"):
         _ = resolve_simulation_time_grid(cfg)
+
+
+def test_require_flow_simulation_time_grid_requires_window_for_flow_process() -> None:
+    cfg = _make_cfg_with_time()
+    cfg.simulation.time = None
+    cfg.flow = SimpleNamespace(flow_regime="transient")
+
+    with pytest.raises(ValueError, match=r"Launcher flow processes require a valid \[simulation\.time\] section"):
+        require_flow_simulation_time_grid(cfg)
+
+
+def test_require_flow_simulation_time_grid_keeps_window_optional_without_flow_process() -> None:
+    cfg = _make_cfg_with_time()
+    cfg.simulation.time = None
+    cfg.simulation.process = [SimpleNamespace(type="transport", solvers=["mt3dms"])]
+
+    assert require_flow_simulation_time_grid(cfg) is None
+
+
+def test_require_flow_simulation_time_grid_returns_dedicated_steady_grid_without_window() -> None:
+    cfg = _make_cfg_with_time()
+    cfg.simulation.time = None
+    cfg.flow = SimpleNamespace(flow_regime="steady")
+
+    grid = require_flow_simulation_time_grid(cfg)
+
+    assert isinstance(grid, ResolvedSteadySimulationTimeGrid)
+    assert grid.nper == 1
+    assert grid.period_lengths_seconds == (1.0,)
 
 
 def test_apply_simulation_time_window_raises_when_end_not_aligned_with_step() -> None:

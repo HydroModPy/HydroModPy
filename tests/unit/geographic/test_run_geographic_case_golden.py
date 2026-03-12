@@ -48,6 +48,23 @@ COUNT_METRIC_KEYS = [
 ]
 
 
+def _configure_whitebox_single_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reduce run-to-run variance by forcing the workflows backend to one worker."""
+    monkeypatch.setenv("RAYON_NUM_THREADS", "1")
+    monkeypatch.setenv("OMP_NUM_THREADS", "1")
+    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
+    monkeypatch.setenv("MKL_NUM_THREADS", "1")
+    monkeypatch.setenv("NUMEXPR_NUM_THREADS", "1")
+
+    from hydromodpy.backends import clear_whitebox_backend_cache, get_whitebox_backend
+
+    clear_whitebox_backend_cache()
+    tool = get_whitebox_backend()
+    env = getattr(tool, "_env", None)
+    if env is not None and hasattr(env, "max_procs"):
+        env.max_procs = 1
+
+
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
@@ -92,13 +109,14 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 
 
 @pytest.mark.slow
-def test_run_geographic_case_metrics_golden(update_goldens, tmp_path):
+def test_run_geographic_case_metrics_golden(update_goldens, tmp_path, monkeypatch: pytest.MonkeyPatch):
     """
     Validate DEM-sensitive geographic metrics on the largest geographic case.
 
     Kept as one-case unit test to keep execution time bounded.
     Full 4-case non-regression is covered in regression/extensive tests.
     """
+    _configure_whitebox_single_thread(monkeypatch)
     config_path = _write_tmp_config(tmp_path)
     summaries = run_geographic_cases_from_toml(
         config_path,

@@ -68,6 +68,7 @@ Non-goals
 """
 
 from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.process.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
@@ -77,7 +78,7 @@ from hydromodpy.process.flow.initial_conditions_config import (
 )
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
 from hydromodpy.process.prototype import BoundaryCondition, ProcessSpatial, SinkSource
-from hydromodpy.units.volumetric_flow import (
+from hydromodpy.support.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
@@ -118,7 +119,7 @@ class Flow(ProcessSpatial):
     initial_condition_types : dict[str, str]
         Compact cache ``{"h": type_str}``; allows fast IC-type inspection
         without traversing the full ``FlowInitialConditions`` object.
-    boundary_conditions : dict[str, BoundaryCondition]
+    boundary_conditions : dict[str, FlowBoundaryConditionConfig]
         Typed BC objects keyed by BC id.
     boundary_condition_application_domains : dict[str, str]
         Optional per-BC spatial domain strings (e.g. ``"top"``,
@@ -220,7 +221,7 @@ class Flow(ProcessSpatial):
     def _build_boundary_conditions(
         self,
         boundary_conditions_cfg: dict[str, object],
-    ) -> tuple[dict[str, BoundaryCondition], dict[str, str]]:
+    ) -> tuple[dict[str, FlowBoundaryConditionConfig], dict[str, str]]:
         """
         Convert raw boundary-condition payloads into typed runtime structures.
 
@@ -241,24 +242,29 @@ class Flow(ProcessSpatial):
 
         Returns
         -------
-        tuple[dict[str, BoundaryCondition], dict[str, str]]
+        tuple[dict[str, FlowBoundaryConditionConfig], dict[str, str]]
             - typed BC objects keyed by BC id,
             - per-BC application-domain strings keyed by the same BC id.
         """
-        parsed: dict[str, BoundaryCondition] = {}
+        parsed: dict[str, FlowBoundaryConditionConfig] = {}
         application_domains: dict[str, str] = {}
 
         for bc_id, raw_payload in boundary_conditions_cfg.items():
             # Allow already-instantiated typed payloads.
-            if isinstance(raw_payload, BoundaryCondition):
+            if isinstance(raw_payload, FlowBoundaryConditionConfig):
                 parsed[bc_id] = raw_payload
+                continue
+            if isinstance(raw_payload, BoundaryCondition):
+                parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(
+                    raw_payload.model_dump(mode="python")
+                )
                 continue
             # For mapping payloads, enforce `id` from section key to keep
             # one stable identifier path.
             payload = dict(raw_payload)
             raw_application_domain = payload.pop("application_domain", None)
             payload["id"] = bc_id
-            parsed[bc_id] = BoundaryCondition.model_validate(payload)
+            parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(payload)
 
             # Keep domain information in a dedicated runtime map for explicit
             # downstream usage.
@@ -294,7 +300,7 @@ class Flow(ProcessSpatial):
 
     def set_boundary_conditions(
         self,
-        boundary_conditions: dict[str, BoundaryCondition] | None = None,
+        boundary_conditions: dict[str, FlowBoundaryConditionConfig] | None = None,
         *,
         application_domains: dict[str, str] | None = None,
     ) -> None:
@@ -303,7 +309,7 @@ class Flow(ProcessSpatial):
 
         Parameters
         ----------
-        boundary_conditions : dict[str, BoundaryCondition] | None
+        boundary_conditions : dict[str, FlowBoundaryConditionConfig] | None
             Typed BC payloads keyed by BC id.
         application_domains : dict[str, str] | None
             Optional per-BC domain targets (for example `top`, `west side`).
@@ -347,6 +353,9 @@ class Flow(ProcessSpatial):
                 ) from exc
 
             flux_payload = well_cfg.flux
+            if flux_payload is None:
+                normalized_wells[well_id] = well_cfg
+                continue
             if isinstance(flux_payload, list):
                 flux_si = [
                     convert_to_m3_per_s(

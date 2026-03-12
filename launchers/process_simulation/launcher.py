@@ -58,17 +58,18 @@ from hydromodpy.data_managers import (
     DataManagersRuntimeLoader,
 )
 from hydromodpy.domain import Domain
-from hydromodpy.domain.structure_binders import (
-    apply_catchment_zones_to_domain,
-    apply_geology_to_domain,
+from hydromodpy.domain.spatial_support import (
+    SupportBuildContext,
+    build_default_spatial_support_provider_registry,
 )
+from hydromodpy.domain.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
-from hydromodpy.geographic_synthethic import build_synthetic_geographic
+from hydromodpy.geographic.synthetic import build_synthetic_geographic
 from hydromodpy.forcing import (
     align_forcing_series_to_simulation_window,
     build_recharge_chronicle_payload,
@@ -78,7 +79,7 @@ from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRun
 from hydromodpy.simulation.state.run_state import LauncherRunState
 from hydromodpy.simulation.time import (
     apply_explicit_time_window_to_tgrids,
-    resolve_simulation_time_grid,
+    require_flow_simulation_time_grid,
     resolve_simulation_time_window,
     validate_recharge_coverage,
 )
@@ -96,7 +97,7 @@ class HydroModPyLauncher:
     The typical usage is:
 
     >>> from pathlib import Path
-    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config_standard.toml"))
+    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config_extensive.toml"))
     >>> run_state = launcher.run()
 
     After ``run()``, ``run_state`` contains both the shared objects created during
@@ -131,10 +132,21 @@ class HydroModPyLauncher:
             self.cfg.workspace.out_dir_path = Path(out_path_env)
 
         apply_explicit_time_window_to_tgrids(self.cfg)
-        self.time_grid = resolve_simulation_time_grid(self.cfg)
+        self.time_grid = require_flow_simulation_time_grid(self.cfg)
 
         with self.config_path.open("rb") as fh:
             raw_toml = tomllib.load(fh)
+
+        self.spatial_support_provider_registry = (
+            build_default_spatial_support_provider_registry()
+        )
+        self.requested_spatial_support_ids = self._collect_requested_support_ids_from_flow_config(
+            self.cfg.flow
+        )
+        self.requested_domain_supports = self._resolve_requested_support_configs(
+            domain_cfg=self.cfg.domain,
+            requested_support_ids=self.requested_spatial_support_ids,
+        )
 
         # Resolve the effective data-manager activation set from:
         # - explicit [data].types declarations,
@@ -142,6 +154,10 @@ class HydroModPyLauncher:
         data_plan = DataManagersPlanner().build(
             self.cfg.data,
             domain_zone_ids=self.cfg.domain.zone_ids,
+            domain_support_provider_names=self._support_provider_names(
+                self.requested_domain_supports
+            ),
+            requested_spatial_support_ids=self.requested_spatial_support_ids,
             raw_toml=raw_toml,
             flow_active_bc=self.cfg.flow.active_bc,
         )
@@ -240,6 +256,193 @@ class HydroModPyLauncher:
             )
         return hmp.Geographic(geographic_cfg, workspace)
 
+    @staticmethod
+    def _collect_requested_support_ids_from_flow_config(flow_cfg: object) -> tuple[str, ...]:
+        """Return the ordered support ids referenced by heterogeneous flow parameters."""
+        raw_param_cfg = getattr(flow_cfg, "param", {})
+        if not isinstance(raw_param_cfg, dict):
+            return ()
+
+        requested: list[str] = []
+        seen: set[str] = set()
+        for param_cfg in raw_param_cfg.values():
+            if not isinstance(param_cfg, dict):
+                continue
+            kind = str(param_cfg.get("kind", "")).strip().lower()
+            if kind != "heterogeneous":
+                continue
+            support_id = str(param_cfg.get("field_spatial_id", "")).strip()
+            if support_id == "":
+                raise ValueError(
+                    "Heterogeneous flow parameters require a non-empty field_spatial_id."
+                )
+            normalized = support_id.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            requested.append(support_id)
+        return tuple(requested)
+
+    @staticmethod
+    def _support_provider_names(domain_supports: dict[str, object]) -> tuple[str, ...]:
+        """Return the ordered provider names declared by resolved support configs."""
+        provider_names: list[str] = []
+        seen: set[str] = set()
+        for support_cfg in domain_supports.values():
+            provider_name = str(getattr(support_cfg, "provider", "")).strip().lower()
+            if provider_name == "" or provider_name in seen:
+                continue
+            seen.add(provider_name)
+            provider_names.append(provider_name)
+        return tuple(provider_names)
+
+    def _resolve_requested_support_configs(
+        self,
+        *,
+        domain_cfg: object,
+        requested_support_ids: tuple[str, ...],
+    ) -> dict[str, object]:
+        """Resolve support configs actually needed by the current flow parameters."""
+        if not requested_support_ids:
+            return {}
+
+        explicit_supports = getattr(domain_cfg, "supports", {})
+        if explicit_supports is None:
+            explicit_supports = {}
+        if not isinstance(explicit_supports, dict):
+            raise TypeError("domain.supports must be a dictionary")
+
+        explicit_by_lower = {
+            str(support_id).strip().lower(): support_cfg
+            for support_id, support_cfg in explicit_supports.items()
+        }
+
+        resolved: dict[str, object] = {}
+        for support_id in requested_support_ids:
+            support_cfg = explicit_by_lower.get(str(support_id).strip().lower())
+            if support_cfg is not None:
+                resolved[support_id] = support_cfg
+                continue
+            raise ValueError(
+                f"Missing domain support declaration for '{support_id}'. "
+                "Declare [domain.supports.<id>] with an explicit provider."
+            )
+        return resolved
+
+    @staticmethod
+    def _flow_requires_spatial_support(flow: object | None) -> bool:
+        """Return True when at least one flow parameter is heterogeneous."""
+        if flow is None:
+            return False
+        parameters = getattr(flow, "parameters", {})
+        if not isinstance(parameters, dict):
+            return False
+        return any(bool(getattr(param, "is_heterogeneous", False)) for param in parameters.values())
+
+    def _augment_runtime_zone_ids(self, domain_cfg: object) -> object:
+        """Ensure runtime-only zone ids required by launcher bindings are declared."""
+        zone_ids = getattr(domain_cfg, "zone_ids", None)
+        if zone_ids is None:
+            zone_ids = []
+            setattr(domain_cfg, "zone_ids", zone_ids)
+        if not isinstance(zone_ids, list):
+            zone_ids = list(zone_ids)
+            setattr(domain_cfg, "zone_ids", zone_ids)
+
+        normalized_zone_ids = {str(item).strip().lower() for item in zone_ids}
+        if "catchment" not in normalized_zone_ids:
+            zone_ids.append("catchment")
+            normalized_zone_ids.add("catchment")
+
+        for support_id in getattr(self, "requested_spatial_support_ids", ()):
+            normalized_support_id = str(support_id).strip().lower()
+            if normalized_support_id in normalized_zone_ids:
+                continue
+            zone_ids.append(str(support_id).strip())
+            normalized_zone_ids.add(normalized_support_id)
+        return domain_cfg
+
+    def _validate_domain_support_contract(self, *, domain_cfg: object, flow: object | None) -> None:
+        """Fail early when heterogeneous flow parameters reference undeclared supports."""
+        _ = domain_cfg
+        if not self._flow_requires_spatial_support(flow):
+            return
+        parameters = getattr(flow, "parameters", {})
+        if not isinstance(parameters, dict):
+            return
+
+        declared_supports = {
+            str(support_id).strip().lower()
+            for support_id in getattr(self, "requested_domain_supports", {})
+            if str(support_id).strip()
+        }
+        missing_supports: list[str] = []
+        seen: set[str] = set()
+        for param in parameters.values():
+            if not bool(getattr(param, "is_heterogeneous", False)):
+                continue
+            support_id = str(getattr(param, "field_spatial_id", "")).strip()
+            if support_id == "":
+                raise ValueError(
+                    "Heterogeneous flow parameters require a non-empty field_spatial_id."
+                )
+            normalized_support_id = support_id.lower()
+            if normalized_support_id in declared_supports or normalized_support_id in seen:
+                continue
+            seen.add(normalized_support_id)
+            missing_supports.append(support_id)
+
+        if missing_supports:
+            raise ValueError(
+                "Heterogeneous flow parameters require explicit "
+                "[domain.supports.<id>] declarations for: "
+                + ", ".join(missing_supports)
+                + "."
+            )
+
+    def _build_domain_spatial_supports(self, *, phase: str) -> None:
+        """Materialize declared spatial supports for the requested launcher phase."""
+        requested_domain_supports = getattr(self, "requested_domain_supports", {})
+        if not requested_domain_supports:
+            return
+
+        run_state = self.run_state
+        setup_state = run_state.setup
+        context = SupportBuildContext(
+            cfg=self.cfg,
+            raw_toml=run_state.raw_toml,
+            workspace=setup_state.workspace,
+            geographic=setup_state.geographic,
+            domain_geographic=setup_state.domain_geographic,
+            domain=setup_state.domain,
+            flow=setup_state.flow,
+            loaded_data=run_state.loaded_data,
+            time_grid=setup_state.time_grid,
+        )
+
+        for support_id, support_cfg in requested_domain_supports.items():
+            existing_zone = None
+            domain_get_zone = getattr(setup_state.domain, "get_zone", None)
+            if callable(domain_get_zone):
+                existing_zone = domain_get_zone(support_id)
+            elif str(support_id).strip().lower() in getattr(setup_state.domain, "zones", {}):
+                existing_zone = setup_state.domain.zones[str(support_id).strip().lower()]
+            if existing_zone is not None and str(
+                getattr(existing_zone, "identifier", "")
+            ).strip() == str(support_id).strip():
+                continue
+            provider = self.spatial_support_provider_registry.get(
+                getattr(support_cfg, "provider", "")
+            )
+            if str(provider.build_phase).strip().lower() != str(phase).strip().lower():
+                continue
+            support_field = provider.build(
+                support_id=support_id,
+                config=support_cfg,
+                context=context,
+            )
+            setup_state.domain.set_zone(support_id, support_field)
+
     def _run_setup(self) -> None:
         """Initialise the structural objects shared by all later process runs.
 
@@ -265,15 +468,9 @@ class HydroModPyLauncher:
         surface_topo = setup_state.domain_geographic.surface_topo
 
         domain_cfg = cfg.domain
-        zone_ids = getattr(domain_cfg, "zone_ids", None)
-        if isinstance(zone_ids, list):
-            normalized_zone_ids = {str(item).strip().lower() for item in zone_ids}
-            if "catchment" not in normalized_zone_ids:
-                if hasattr(domain_cfg, "model_copy"):
-                    domain_cfg = domain_cfg.model_copy(deep=True)
-                    domain_cfg.zone_ids.append("catchment")
-                else:
-                    zone_ids.append("catchment")
+        if hasattr(domain_cfg, "model_copy"):
+            domain_cfg = domain_cfg.model_copy(deep=True)
+        domain_cfg = self._augment_runtime_zone_ids(domain_cfg)
 
         setup_state.domain = Domain(config=domain_cfg, surface_topo=surface_topo)
         apply_catchment_zones_to_domain(

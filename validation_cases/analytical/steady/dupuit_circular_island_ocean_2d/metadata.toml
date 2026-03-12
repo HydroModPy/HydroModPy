@@ -1,0 +1,43 @@
+case_id = "dupuit_circular_island_ocean_2d"
+category = "analytical"
+regime = "steady"
+dimension = "2d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+
+
+[workspace]
+watershed_name = "validation_circular_island_ocean"
+results_folder_name = "results_simulations"
+model_name = "Analytical_circular_island_ocean_validation"
+
+[output]
+observable_name = "watertable_elevation"
+expected_shape = [61, 61]
+
+[reference]
+crs = "EPSG:2154"
+xmin = 265400.0
+ymin = 6784100.0
+length_x_m = 610.0
+length_y_m = 610.0
+nx = 61
+ny = 61
+center_x_m = 265705.0
+center_y_m = 6784405.0
+sea_level_m = 0.0
+ocean_floor_elevation_m = -1.0
+crest_elevation_m = 12.0
+island_radius_m = 200.0
+comparison_radius_max_m = 190.0
+radial_bin_width_m = 10.0
+substratum_elevation_m = -5.0
+hydraulic_conductivity_m_per_s = 5e-6
+recharge_mm_day = 1.0
+

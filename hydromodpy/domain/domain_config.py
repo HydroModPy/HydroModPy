@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hydromodpy.config.param_level import ParamLevel
 from hydromodpy.domain.depth_model import ConstantThicknessDepthModel, DepthModelConfig
+from hydromodpy.domain.spatial_support_config import DomainSupportConfig
 
 
 class DomainConfig(BaseModel):
@@ -20,8 +21,17 @@ class DomainConfig(BaseModel):
     zone_ids: Annotated[list[str], ParamLevel("user")] = Field(
         default_factory=list,
         description=(
-            "Ordered list of zone identifiers loaded in the domain. "
-            "Supported values currently include: 'geology'."
+            "Ordered list of zone identifiers loaded in the domain registry. "
+            "Keep this list for actual runtime zones (for example 'catchment', "
+            "'geology', or custom zonations). Spatial-support declarations live "
+            "under domain.supports."
+        ),
+    )
+    supports: Annotated[dict[str, DomainSupportConfig], ParamLevel("user")] = Field(
+        default_factory=dict,
+        description=(
+            "Named spatial supports available to heterogeneous parameters. "
+            "Each key is a support identifier referenced by field_spatial_id."
         ),
     )
     depth_model: Annotated[DepthModelConfig, ParamLevel("user")] = Field(
@@ -54,4 +64,29 @@ class DomainConfig(BaseModel):
                 continue
             seen.add(zone_id)
             out.append(zone_id)
+        return out
+
+    @field_validator("supports", mode="before")
+    @classmethod
+    def _validate_supports_input(cls, value):
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("domain.supports must be a mapping")
+        return value
+
+    @field_validator("supports")
+    @classmethod
+    def _normalize_support_keys(cls, value: dict[str, DomainSupportConfig]) -> dict[str, DomainSupportConfig]:
+        out: dict[str, DomainSupportConfig] = {}
+        seen: set[str] = set()
+        for raw_key, support_cfg in value.items():
+            support_id = str(raw_key).strip()
+            if support_id == "":
+                raise ValueError("domain.supports cannot contain empty ids")
+            normalized_key = support_id.lower()
+            if normalized_key in seen:
+                raise ValueError(f"Duplicate domain support id '{support_id}'")
+            seen.add(normalized_key)
+            out[support_id] = support_cfg
         return out

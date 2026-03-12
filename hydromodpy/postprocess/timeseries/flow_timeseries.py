@@ -31,9 +31,11 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.enums import Resampling
+from rasterio.warp import reproject
 
 from hydromodpy.postprocess.flow.intermittency import apply_intermittency_columns
-from hydromodpy.tools import get_logger, toolbox
+from hydromodpy.support.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
 # Silence pandas masked-to-nan spam when handling masked arrays
@@ -97,6 +99,14 @@ class FlowTimeseriesPostprocess:
         self.model_name = model_modflow.model_name
         self.model_folder = model_modflow.model_folder
         self.resolution = model_modflow.resolution
+        self.cell_area = float(
+            getattr(model_modflow, "cell_area", float(model_modflow.resolution) ** 2)
+        )
+        self.base_raster_path = getattr(
+            model_modflow,
+            "dem_watershed_path",
+            geographic.watershed_dem,
+        )
         self.recharge = model_modflow.recharge
         self.runoff = runoff
 
@@ -129,11 +139,16 @@ class FlowTimeseriesPostprocess:
         self._load_flow_products()
         self._load_additional_products()
 
-        with rasterio.open(self.geographic.watershed_dem) as src:
+        with rasterio.open(self.base_raster_path) as src:
             dem_clip = src.read(1)
+            self.nodata = float(
+                src.nodata
+                if src.nodata is not None
+                else getattr(self.geographic, "nodata", -9999.0)
+            )
         # ``self.cell`` is used by intermittency postprocess helpers that need
         # normalized indicators (% flowing cells, etc.).
-        self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip < 0)).count()
+        self.cell = self._count_active_cells(dem_clip)
         self.extract_results(dem_clip, time, recharge, runoff_series, self.timeseries_file)
         logger.info("Exported catchment time series to %s", self.timeseries_file)
 
@@ -172,7 +187,10 @@ class FlowTimeseriesPostprocess:
                 index=range(len(self.recharge)),
             )
 
-        runoff = recharge * np.nan
+        try:
+            runoff = recharge * np.nan
+        except TypeError:
+            runoff = np.nan
         if self.runoff is not None and (
             not isinstance(self.runoff, pd.DataFrame) or not self.runoff.empty
         ):
@@ -222,11 +240,10 @@ class FlowTimeseriesPostprocess:
                 if not os.path.exists(sub_file):
                     toolbox.create_folder(sub_file)
                 try:
-                    with rasterio.open(
+                    dem_clip = self._load_mask_raster(
                         os.path.join(zones_folder, zone_name, "watershed_dem.tif")
-                    ) as src:
-                        dem_clip = src.read(1)
-                    self.cell = np.ma.masked_array(dem_clip, mask=(dem_clip < 0)).count()
+                    )
+                    self.cell = self._count_active_cells(dem_clip)
                     self.extract_results(dem_clip, time, recharge, runoff, sub_file)
                     logger.info(
                         "Exported time series for subbasin %s to %s", zi + 1, sub_file
@@ -236,9 +253,66 @@ class FlowTimeseriesPostprocess:
         except Exception:
             pass
 
+    def _active_mask(self, dem_clip: np.ndarray) -> np.ndarray:
+        """Return the boolean mask of valid cells for one reporting domain."""
+
+        data = np.asarray(dem_clip, dtype=float)
+        mask = np.isfinite(data)
+        if np.isfinite(self.nodata):
+            mask &= ~np.isclose(data, self.nodata)
+        return mask
+
+    def _count_active_cells(self, dem_clip: np.ndarray) -> int:
+        """Count valid cells on the current reporting mask."""
+
+        return int(np.count_nonzero(self._active_mask(dem_clip)))
+
+    def _load_mask_raster(self, raster_path: str) -> np.ndarray:
+        """Load one reporting mask and align it to the solver base raster.
+
+        Subbasin masks are stored in the stable geographic tree and can keep the
+        native geographic DEM resolution. They must be reprojected onto the
+        solver raster before aggregating solver-grid outputs.
+        """
+
+        with rasterio.open(self.base_raster_path) as base_src:
+            dst_profile = base_src.profile.copy()
+            dst_nodata = float(
+                base_src.nodata if base_src.nodata is not None else self.nodata
+            )
+            destination = np.full(
+                (base_src.height, base_src.width),
+                dst_nodata,
+                dtype=float,
+            )
+
+        with rasterio.open(raster_path) as src:
+            source = src.read(1).astype(float)
+            same_shape = (src.height, src.width) == (
+                dst_profile["height"],
+                dst_profile["width"],
+            )
+            same_transform = src.transform == dst_profile["transform"]
+            same_crs = src.crs == dst_profile["crs"] or src.crs is None or dst_profile["crs"] is None
+            if same_shape and same_transform and same_crs:
+                return source
+
+            reproject(
+                source=source,
+                destination=destination,
+                src_transform=src.transform,
+                src_crs=src.crs or dst_profile["crs"],
+                src_nodata=src.nodata if src.nodata is not None else self.nodata,
+                dst_transform=dst_profile["transform"],
+                dst_crs=dst_profile["crs"] or src.crs,
+                dst_nodata=dst_nodata,
+                resampling=Resampling.nearest,
+            )
+        return destination
+
     def _mask_grid(self, grid: np.ndarray, dem_clip: np.ndarray) -> np.ma.MaskedArray:
         """Apply DEM-based masking to one input grid."""
-        return toolbox.mask_by_dem(grid, dem_clip, "==", self.geographic.nodata)
+        return np.ma.masked_array(grid, mask=~self._active_mask(dem_clip))
 
     def _reduce_max(self, grid: np.ndarray, dem_clip: np.ndarray) -> float:
         masked = self._mask_grid(grid, dem_clip)
@@ -259,7 +333,7 @@ class FlowTimeseriesPostprocess:
         cell = masked.count()
         if cell <= 0:
             return float("nan")
-        return float(np.nansum(masked) / (cell * self.resolution**2))
+        return float(np.nansum(masked) / (cell * self.cell_area))
 
     def _reduce_percent(self, grid: np.ndarray, dem_clip: np.ndarray) -> float:
         masked = self._mask_grid(grid, dem_clip)

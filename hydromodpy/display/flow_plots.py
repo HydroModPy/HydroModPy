@@ -13,11 +13,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import imageio.v2 as imageio
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import rasterio
 
 from hydromodpy.display.common import finalize_figure
 from hydromodpy.display.options import DisplayOptions
@@ -29,7 +29,7 @@ def plot_cross_section(
     watertable_npy_path: Path,
     options: DisplayOptions,
     save_path: Path | None = None,
-    x_index: int = 50,
+    x_index: int | None = None,
 ) -> None:
     """Plot a vertical cross section from DEM and water-table rasters.
 
@@ -44,25 +44,44 @@ def plot_cross_section(
     """
 
     watertable = np.load(watertable_npy_path, allow_pickle=True).item()
-    dem_data = imageio.imread(watershed_dem_path)
+    with rasterio.open(watershed_dem_path) as dem_src:
+        dem_data = dem_src.read(1)
+        nodata = dem_src.nodata
+        row_spacing = abs(float(dem_src.transform.e)) if dem_src.transform.e else 1.0
 
     wt = watertable[2].astype(float)
     dem = dem_data.astype(float)
-    # Negative values are used as nodata markers in these rasters.
+    if nodata is not None:
+        dem[np.isclose(dem, float(nodata))] = np.nan
+    else:
+        dem[dem < 0] = np.nan
     wt[wt < 0] = np.nan
-    dem[dem < 0] = np.nan
 
-    x = np.arange(dem.shape[0]) * 75
+    if x_index is None:
+        x_index = dem.shape[1] // 2
+    x_index = int(np.clip(x_index, 0, max(dem.shape[1] - 1, 0)))
+
+    x = np.arange(dem.shape[0], dtype=float) * row_spacing
+    dem_section = dem[:, x_index]
+    wt_section = wt[:, x_index]
+    valid_values = np.concatenate([dem_section, wt_section])
+    valid_values = valid_values[np.isfinite(valid_values)]
+    if valid_values.size == 0:
+        base_level = 0.0
+        top_level = 1.0
+    else:
+        base_level = float(np.nanmin(valid_values) - 5.0)
+        top_level = float(np.nanmax(valid_values) + 5.0)
 
     fig, ax = plt.subplots(figsize=(6, 4), dpi=options.dpi)
-    ax.fill_between(x, dem[:, x_index] - 20, wt[:, x_index], color="dodgerblue", alpha=0.5, lw=0)
-    ax.plot(x, wt[:, x_index], color="navy", lw=1.5)
-    ax.plot(x, dem[:, x_index], color="saddlebrown", lw=1.5)
-    ax.fill_between(x, wt[:, x_index], dem[:, x_index], color="saddlebrown", alpha=0.5, lw=0)
-    ax.fill_between(x, 0, dem[:, x_index] - 20, color="lightgrey", alpha=0.5, lw=0)
-    ax.plot(x, dem[:, x_index] - 20, color="dimgray", lw=1.5)
-    ax.set_xlim(1500, 4900)
-    ax.set_ylim(90, 130)
+    ax.fill_between(x, base_level, wt_section, color="dodgerblue", alpha=0.5, lw=0)
+    ax.plot(x, wt_section, color="navy", lw=1.5)
+    ax.plot(x, dem_section, color="saddlebrown", lw=1.5)
+    ax.fill_between(x, wt_section, dem_section, color="saddlebrown", alpha=0.5, lw=0)
+    ax.fill_between(x, base_level, dem_section, color="lightgrey", alpha=0.5, lw=0)
+    ax.plot(x, np.full_like(x, base_level), color="dimgray", lw=1.0)
+    ax.set_xlim(float(x[0]), float(x[-1]) if len(x) else 0.0)
+    ax.set_ylim(base_level, top_level)
     ax.set_xlabel("Distance [m]")
     ax.set_ylabel("Elevation [m]")
     fig.tight_layout()

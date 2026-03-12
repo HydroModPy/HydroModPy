@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.units.time import (
+from hydromodpy.support.units.time import (
     convert_seconds_to_unit,
     convert_to_seconds,
     factor_to_seconds,

@@ -14,14 +14,41 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
+from hydromodpy.support.tools import get_logger
+
+logger = get_logger(__name__)
+
 
 def _resolve_ucn_path(model_transport) -> Path:
     """Resolve the binary concentration file path for a transport run."""
 
     path_file = getattr(model_transport, "path_file", None)
-    if path_file is None:
-        raise ValueError("Transport plotting now requires model_transport.path_file")
-    return Path(path_file)
+    if path_file is not None:
+        return Path(path_file)
+
+    full_path = getattr(model_transport, "full_path", None)
+    model_name_mt = getattr(model_transport, "model_name_mt", None)
+    candidates: list[Path] = []
+    if full_path is not None and model_name_mt is not None:
+        full_path = Path(full_path)
+        candidates.extend(
+            [
+                full_path / f"{model_name_mt}.UCN",
+                full_path / f"{model_name_mt}.ucn",
+            ]
+        )
+    if full_path is not None:
+        candidates.append(Path(full_path) / "MT3D001.UCN")
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    if candidates:
+        return candidates[0]
+    raise ValueError(
+        "Transport plotting requires model_transport.path_file "
+        "or full_path/model_name_mt."
+    )
 
 
 def _load_concentration_cube(model_transport):
@@ -30,8 +57,12 @@ def _load_concentration_cube(model_transport):
     import flopy.utils.binaryfile as bf
 
     path_ucn = _resolve_ucn_path(model_transport)
-    ucnobj = bf.UcnFile(path_ucn)
-    concentration = ucnobj.get_alldata(mflay=None)
+    try:
+        ucnobj = bf.UcnFile(path_ucn)
+        concentration = ucnobj.get_alldata(mflay=None)
+    except Exception:
+        headobj = bf.HeadFile(path_ucn, text="CONCENTRATION")
+        concentration = headobj.get_alldata(mflay=None)
 
     concentration = concentration.astype(float)
     concentration[concentration >= 1e30] = float("nan")
@@ -54,6 +85,49 @@ def _input_concentration_mg_l(model_transport) -> float:
     return float(sconc_input) * 1000
 
 
+def _load_outflow_drain_array(
+    model_modflow,
+    stress_period: int,
+    *,
+    fallback_shape: tuple[int, int] | None = None,
+    outflow_drain_cache: dict | None = None,
+):
+    """Load one flow outflow mask, preferring rasters and falling back to ``.npy``."""
+
+    import imageio.v2 as imageio
+    import numpy as np
+
+    postprocess_dir = Path(model_modflow.full_path) / "_postprocess"
+    raster_path = postprocess_dir / "_rasters" / f"outflow_drain_t({stress_period}).tif"
+    if raster_path.exists():
+        return imageio.imread(raster_path)
+
+    outflow_drain_path = postprocess_dir / "outflow_drain.npy"
+    if outflow_drain_cache is None:
+        if not outflow_drain_path.exists():
+            raise FileNotFoundError(
+                f"Missing flow outflow drainage outputs for stress period {stress_period}: "
+                f"neither {raster_path} nor {outflow_drain_path} exists."
+            )
+        outflow_drain_cache = np.load(outflow_drain_path, allow_pickle=True).item()
+
+    seep = outflow_drain_cache.get(stress_period)
+    if seep is not None:
+        return np.asarray(seep)
+
+    if fallback_shape is None:
+        nrow = getattr(model_modflow, "nrow", None)
+        ncol = getattr(model_modflow, "ncol", None)
+        if nrow is not None and ncol is not None:
+            fallback_shape = (int(nrow), int(ncol))
+    if fallback_shape is not None:
+        return np.zeros(fallback_shape, dtype=float)
+
+    raise KeyError(
+        f"Flow outflow drainage series does not contain stress period {stress_period}."
+    )
+
+
 def plot_concentration_frames(
     *,
     model_transport,
@@ -61,6 +135,7 @@ def plot_concentration_frames(
     geographic,
     hydrography,
     recharge_series,
+    base_raster_path: Path | None = None,
     output_dir: Path,
     prefix: str,
     dpi: int = 300,
@@ -86,7 +161,6 @@ def plot_concentration_frames(
 
     # Keep optional plotting/GIS dependencies local to this export routine.
     import geopandas as gpd
-    import imageio.v2 as imageio
     import matplotlib.cm as cm
     import matplotlib.colors as mcolors
     import matplotlib.dates as mdates
@@ -114,20 +188,33 @@ def plot_concentration_frames(
     watershed = gpd.read_file(geographic.watershed_shp)
     streams = gpd.read_file(hydrography.streams) if hydrography is not None else None
 
-    dem_path = Path(geographic.watershed_dem)
+    dem_path = Path(
+        base_raster_path
+        if base_raster_path is not None
+        else getattr(model_modflow, "dem_watershed_path", geographic.watershed_dem)
+    )
     frame_paths: list[Path] = []
     all_box_stats: list[tuple[float, list[dict[str, float | list[float]]]]] = []
     mean_vals: list[float] = []
     mean_times: list[float] = []
     last_figure = None
+    outflow_drain_cache: dict | None = None
+    outflow_drain_path = Path(model_modflow.full_path) / "_postprocess" / "outflow_drain.npy"
+    if outflow_drain_path.exists():
+        outflow_drain_cache = np.load(outflow_drain_path, allow_pickle=True).item()
 
     with rasterio.open(dem_path) as dem:
         dem_data = dem.read(1)
-        dem_mask = np.ma.masked_where(dem_data < 0, dem_data)
+        nodata = dem.nodata if dem.nodata is not None else -9999.0
+        dem_mask = np.ma.masked_where(np.isclose(dem_data, float(nodata)), dem_data)
 
         for i in range(nframes):
-            seep_path = Path(model_modflow.full_path) / "_postprocess" / "_rasters" / f"outflow_drain_t({i}).tif"
-            seep = imageio.imread(seep_path)
+            seep = _load_outflow_drain_array(
+                model_modflow,
+                i,
+                fallback_shape=dem_data.shape,
+                outflow_drain_cache=outflow_drain_cache,
+            )
 
             concentration_surface = concentration_cube[offset + i][0]
             concentration_surface = np.ma.masked_where(seep <= 0, concentration_surface)
@@ -222,7 +309,7 @@ def plot_concentration_frames(
             )
 
             rasterio.plot.show(
-                np.ma.masked_where(dem_data < 0, concentration_surface.copy()),
+                np.ma.masked_where(np.isclose(dem_data, float(nodata)), concentration_surface.copy()),
                 ax=ax[1],
                 transform=dem.transform,
                 cmap="turbo",
@@ -310,7 +397,13 @@ def plot_web_animation(
     if not frame_paths:
         return None
 
-    import plotly.graph_objects as go
+    try:
+        import plotly.graph_objects as go
+    except ModuleNotFoundError:
+        logger.warning(
+            "Skipping transport web animation because optional dependency 'plotly' is not installed."
+        )
+        return None
 
     def image_to_base64(path: Path) -> str:
         """Embed one PNG frame directly in the Plotly HTML payload.

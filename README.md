@@ -11,7 +11,7 @@ HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater m
 
 ## Presentation
 
-HydroModPy was initiated in 2018 to streamline the deployment of hydrological models in catchments across the crystalline basement regions of Normandy and Brittany, France. The platform integrates a wide range of open-source packages (FloPy, WhiteBoxTools, etc.), making them easily accessible and shareable among scientific communities.
+HydroModPy was initiated in 2018 to streamline the deployment of hydrological models in catchments across the crystalline basement regions of Normandy and Brittany, France. The platform integrates a wide range of open-source packages (FloPy, whitebox-workflows, etc.), making them easily accessible and shareable among scientific communities.
 The development of HydroModPy was driven by two primary objectives.
 
 First, it automates the extraction and discretization of watersheds from Digital Elevation Models (DEMs), while adding essential data available (e.g. piezometry, hydrography, geology) from local data to national and global databases. This ensures a standardized process for setting up and running simulation batches across different watersheds with uniform input data.
@@ -146,6 +146,36 @@ Execute Python scripts following the examples below:
  - 11_for_run_from_scratch_without_plots
 ```
 
+## Validation and Testing
+
+HydroModPy uses three complementary test families:
+
+- `tests/unit/`: local API and behavior checks on isolated components.
+- `tests/regression/`: non-regression checks against reference outputs and
+  workflows.
+- `tests/validation/`: scientific benchmark tests against analytical or trusted
+  physical references.
+
+Validation tests are backed by reusable cases stored in `validation_cases/`.
+They run deterministic launcher configurations, load the generated model
+outputs, compute comparison metrics, and fail only when those metrics exceed
+explicit tolerances.
+
+Typical commands:
+
+```bash
+python -m pytest tests/unit -q
+python -m pytest tests/regression -q
+python -m pytest tests/validation -q
+python -m pytest -m "validation and fast" -q
+```
+
+For the detailed validation workflow, available analytical cases, and guidance
+to add a new benchmark, see:
+
+- `tests/validation/README.md`
+- `validation_cases/README.md`
+
 ## Linked publications
 
 Papers published using HydroModPy.
@@ -170,7 +200,7 @@ For any questions regarding HydroModPy, please contact us at <alexandre.gauvain.
 
 The need for predictive models increases as the pressure of global change intensifies. Regional-scale modeling of shallow unconfined aquifers (10-100 m depth) remains challenging, especially in complex basement aquifers. Controlled both by topography and geology, groundwater flows are organized from hillslope to catchment scale. It is particularly the case in crystalline regions with low aquifer volumes and wet climates, resulting in significant subsurface-surface interactions with very few information available to constrain models.
 
-To address this, we present HydroModPy, an application developed in Python as a toolbox for automatic deployment of groundwater flow models. HydroModPy integrates geospatial processing (WhiteBoxTools) with groundwater flow and transport simulation tools (MODFLOW and MODPATH via FloPy). It is designed to call other groundwater flow solvers, facilitate multi-site deployment, integrate pre- and post-processing functions such as catchment extraction from a DEM and an advanced representation of head and flow results. Emphasis is placed on integrating aquifer geometry complexities and hydraulic properties heterogeneity (compartmentalization, exponential decay, implementation of a 3D geological model, etc.).
+To address this, we present HydroModPy, an application developed in Python as a toolbox for automatic deployment of groundwater flow models. HydroModPy integrates geospatial processing through whitebox-workflows-backed Whitebox operations with groundwater flow and transport simulation tools (MODFLOW and MODPATH via FloPy). It is designed to call other groundwater flow solvers, facilitate multi-site deployment, integrate pre- and post-processing functions such as catchment extraction from a DEM and an advanced representation of head and flow results. Emphasis is placed on integrating aquifer geometry complexities and hydraulic properties heterogeneity (compartmentalization, exponential decay, implementation of a 3D geological model, etc.).
 
 HydroModPy's user-friendly Python interface allows for testing and exploring various aquifer models across different geomorphological contexts and recharge conditions. Ongoing improvements include methods for calibrating and estimating hydraulic properties using multiple datasets such as hydrographic network maps, streamflow, and piezometric level data. HydroModPy is developed as an open-source toolkit. It is currently being used in climate change effects on groundwater-dependent ecosystems and water resource management issues. Collaborative development should enhance the modeling capacity of near-surface aquifers, facilitate their extension to the regional scale for predictive purposes.
 

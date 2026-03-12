@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import rasterio
 
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
@@ -23,7 +24,7 @@ from hydromodpy.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
 from hydromodpy.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 
 if TYPE_CHECKING:
     from hydromodpy.geographic.geographic_config import GeographicConfig
@@ -85,11 +86,15 @@ def build_standard_catchment(
     paths: GeographicPaths,
     direc_path: str | Path,
     acc_path: str | Path,
+    direc_data: object | None = None,
+    acc_data: object | None = None,
     crs_project: str | None,
-    wbt_tool: object | None = None,
+    backend: WhiteboxBackend | None = None,
     unsupported_mode: str = "error",
 ) -> CatchmentFromPointProducts | str | None:
     """Build the canonical watershed geometry from outlet or polygon config."""
+    tool = get_whitebox_backend() if backend is None else backend
+
     if config.catch_def == "from_outlet_coord":
         if config.x_outlet is None or config.y_outlet is None or config.snap_dist is None:
             raise ValueError(
@@ -101,13 +106,15 @@ def build_standard_catchment(
             snap_dist=int(config.snap_dist),
             acc_path=acc_path,
             direc_path=direc_path,
+            acc_data=acc_data,
+            direc_data=direc_data,
             output_dir=paths.geographic_path,
             crs_project=crs_project,
             outlet_name="outlet.shp",
             outlet_snap_name="outlet_snap.shp",
             watershed_tif_name=Path(paths.watershed).name,
             watershed_shp_name=Path(paths.watershed_shp).name,
-            wbt_tool=wbt_tool,
+            backend=tool,
         )
 
     if config.catch_def == "from_polyg_shp":

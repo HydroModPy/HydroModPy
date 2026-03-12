@@ -19,6 +19,8 @@ at the same level.
 - Used by launcher-level orchestration and forcing coverage checks.
 - In launcher mode, this window is explicit and copied from
   `simulation.time.start_datetime/end_datetime` into both solver tgrids.
+- Launcher flow solvers consume the canonical `time_grid` derived from this
+  section; solver `tgrid` is no longer a fallback path.
 
 2. Process regime: `[flow].flow_regime`
 - Authoritative for steady/transient behavior in launcher flows.
@@ -29,6 +31,8 @@ at the same level.
 
 3. Solver temporal mesh: `[modflownwt.tgrid]` / `[modflow6.tgrid]`
 - Defines stress-period structure (`nper`, `perlen`, `nstp`, `steady_state`).
+- In launcher mode, this section is mirrored from `[simulation.time]`; only
+  auxiliary flags such as `firstpersteady` remain relevant to flow wrappers.
 - Generation method:
   - `genmtd="synthetic_regular"`: regular periods from `nper` + `lenper`.
   - `genmtd="from_chron"`: variable periods from chronicle timestamp deltas.

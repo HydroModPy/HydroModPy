@@ -34,7 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.calibration.cases.utils.forcing import (
+from hydromodpy.hydrology.synthetic.forcing import (
     build_hydrological_year_dates,
     enforce_annual_precipitation_total,
     generate_daily_precipitation,
