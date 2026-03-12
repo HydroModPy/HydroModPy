@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.geographic_synthethic import (
+from hydromodpy.geographic.synthetic import (
     SyntheticGeographicConfig,
     SyntheticGridConfig,
     SyntheticTopographyConfig,
@@ -85,6 +85,36 @@ def test_domain_context_is_uniform_and_uses_synthetic_surface(tmp_path: Path) ->
     assert context.catch_def == "synthetic"
     assert context.catchment_area_km2 == 0.01
     np.testing.assert_allclose(context.surface_topo.as_array(), np.full((2, 2), 20.0))
+
+
+def test_radial_island_surface_is_emerged_at_center_and_submerged_offshore(tmp_path: Path) -> None:
+    config = SyntheticGeographicConfig(
+        case_id="radial-island",
+        grid=SyntheticGridConfig(
+            length_x="120 m",
+            length_y="120 m",
+            nx=12,
+            ny=12,
+            xmin=0.0,
+            ymin=0.0,
+        ),
+        topography=SyntheticTopographyConfig(
+            kind="radial_island",
+            base_elevation=-1.0,
+            crest_elevation=6.0,
+            island_radius="35 m",
+        ),
+    )
+
+    geographic = build_synthetic_geographic(config=config, output_dir=tmp_path / "radial")
+    surface = geographic.surface_topo.as_array()
+
+    assert surface.shape == (12, 12)
+    assert float(surface[6, 6]) > 5.0
+    assert float(surface[0, 0]) == -1.0
+    assert float(surface[-1, -1]) == -1.0
+    assert np.count_nonzero(surface > 0.0) > 0
+    assert np.count_nonzero(surface <= 0.0) > 0
 
 
 def test_synthetic_runtime_exposes_launcher_compatibility_metadata(tmp_path: Path) -> None:

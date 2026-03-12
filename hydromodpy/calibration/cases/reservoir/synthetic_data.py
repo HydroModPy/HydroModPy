@@ -18,7 +18,7 @@ from hydromodpy.calibration.cases.reservoir.case_config import (
     validate_reservoir_chronicle_config,
 )
 from hydromodpy.calibration.cases.reservoir.workflow import MODEL_REGISTRY
-from hydromodpy.calibration.cases.utils.forcing import (
+from hydromodpy.hydrology.synthetic.forcing import (
     build_hydrological_year_dates,
     enforce_annual_precipitation_total,
     generate_daily_precipitation,

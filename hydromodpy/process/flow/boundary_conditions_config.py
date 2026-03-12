@@ -19,9 +19,11 @@ from typing import cast
 from hydromodpy.process.flow.boundary_conditions import (
     ALLOWED_BC_APPLICATION_DOMAINS,
     DIRICHLET_BC_CANONICAL_DOMAINS,
+    SIDE_DIRICHLET_BC_IDS,
+    FlowBoundaryForcingConfig,
     FlowBoundaryConditionConfig,
 )
-from hydromodpy.units import parse_scalar_and_unit
+from hydromodpy.support.units import parse_scalar_and_unit
 
 
 def normalize_flow_boundary_conditions(
@@ -99,11 +101,27 @@ def _normalize_dirichlet_boundary_payload(
         location_prefix=location_prefix,
     )
 
-    value, units = _coerce_boundary_value_and_units(
+    forcing_payload = _extract_boundary_forcing(
         payload=payload,
         location_prefix=location_prefix,
-        default_units="m",
     )
+    if forcing_payload is None:
+        value, units = _coerce_boundary_value_and_units(
+            payload=payload,
+            location_prefix=location_prefix,
+            default_units="m",
+        )
+    else:
+        explicit_units = _extract_explicit_boundary_units(payload)
+        value = None
+        units = explicit_units.strip() if explicit_units is not None else "m"
+        if units == "":
+            raise ValueError(f"{location_prefix}.units cannot be empty")
+        if canonical_bc_id not in SIDE_DIRICHLET_BC_IDS:
+            raise ValueError(
+                f"{location_prefix}.forcing is only supported for side Dirichlet "
+                "boundaries (north_side, south_side, east_side, west_side)"
+            )
 
     raw_type = str(payload.get("type", "dirichlet")).strip().lower()
     if raw_type != "dirichlet":
@@ -148,6 +166,7 @@ def _normalize_dirichlet_boundary_payload(
         "units": units,
         "type": "dirichlet",
         "data_value": data_value,
+        "forcing": forcing_payload,
         "application_domain": application_domain,
     }
     return FlowBoundaryConditionConfig.model_validate(normalized_payload).model_dump(
@@ -213,6 +232,12 @@ def _normalize_generic_boundary_payload(
     if bc_type not in {"dirichlet", "cauchy", "robin"}:
         raise ValueError(f"{location_prefix}.type must be one of: dirichlet, cauchy, robin")
 
+    if "forcing" in payload:
+        raise ValueError(
+            f"{location_prefix}.forcing is only supported for canonical side Dirichlet "
+            "keys under flow.bc.dirichlet or direct flow.bc.<side_id> entries"
+        )
+
     default_units = "m2/s" if bc_type in {"cauchy", "robin"} else "m"
     value, units = _coerce_boundary_value_and_units(
         payload=payload,
@@ -242,6 +267,22 @@ def _normalize_generic_boundary_payload(
         normalized["application_domain"] = application_domain
 
     return FlowBoundaryConditionConfig.model_validate(normalized).model_dump(mode="python")
+
+
+def _extract_boundary_forcing(
+    *,
+    payload: Mapping[str, object],
+    location_prefix: str,
+) -> dict[str, object] | None:
+    """Validate and normalize an optional boundary forcing payload."""
+    forcing = payload.get("forcing")
+    if forcing is None:
+        return None
+    if "value" in payload and payload.get("value") is not None:
+        raise ValueError(f"{location_prefix}.value and {location_prefix}.forcing are mutually exclusive")
+    if not isinstance(forcing, Mapping):
+        raise TypeError(f"{location_prefix}.forcing must be a mapping")
+    return FlowBoundaryForcingConfig.model_validate(dict(forcing)).model_dump(mode="python")
 
 
 def _parse_flow_bc_sections(bc_cfg: Mapping[str, object]) -> dict[str, object]:

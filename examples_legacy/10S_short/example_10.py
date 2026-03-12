@@ -70,11 +70,11 @@ import importlib
 # Import HydroModPy modules
 from hydromodpy import watershed_root_legacy
 from hydromodpy.display import visualization_watershed
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+from hydromodpy.hydrology.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 
 #%% PERSONAL
 
@@ -909,6 +909,7 @@ for i, model_path in enumerate([model_name_ref]):
 #%% ---- NOTES
 
 os.chdir(DIR)
+
 
 
 

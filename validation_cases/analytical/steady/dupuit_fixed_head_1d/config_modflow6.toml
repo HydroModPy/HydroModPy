@@ -1,0 +1,18 @@
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf6_ims_complexity = "SIMPLE"
+mf_verbose = false
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 5
+resampling = "nearest"
+
+[modflow6.sgrid.vertical]
+nlay = 1

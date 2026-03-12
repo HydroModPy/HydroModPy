@@ -29,10 +29,11 @@ The package ships pre-compiled executables (`mf6`, `mfnwt`, `mp6`, `mt3dusgs`) i
 * **Matplotlib**: Depend on `matplotlib-base` to avoid pulling heavy Qt dependencies.
 * **License**: Path must be `LICENSE` (root of tarball), not `../LICENSE`.
 
-**Testing (Whitebox workaround)**
-The `whitebox` dependency attempts to download binaries upon import. CI environments have no internet access, causing build failure.
-* **Fix**: Inject `WBT_PATH` environment variable directly in the test command to bypass download logic.
-* **Command**: `python -c "import os; os.environ['WBT_PATH'] = os.path.join(r'{{ PREFIX }}', 'whitebox'); import hydromodpy..."`
+**Testing (`whitebox-workflows`)**
+HydroModPy now depends on `whitebox-workflows` instead of the legacy `whitebox`
+package. No binary download workaround or `WBT_PATH` injection is required at
+import time.
+* **Command**: `python -c "import hydromodpy; print(hydromodpy.__version__)"`
 
 ## 3. Build Matrix (`conda_build_config.yaml`)
 

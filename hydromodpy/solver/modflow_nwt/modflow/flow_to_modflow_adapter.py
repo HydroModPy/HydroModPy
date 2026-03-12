@@ -26,7 +26,7 @@ Inputs (process/runtime side):
   WEL rows ``[lay, row, col, flux]`` and RCH/EVT stress-period dicts.
 - ``domain`` + ``sgrid`` context:
   spatial support used to map process properties onto solver cells, including
-  geological zoning and structured-grid geometry.
+  spatial supports (geology or other zonations) and structured-grid geometry.
 
 Outputs (solver side):
 - 3D arrays:
@@ -92,13 +92,25 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from numbers import Real
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
+from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common.grid_context import GridReference
+from hydromodpy.support.units.volumetric_flow import (
+    convert_to_m3_per_s,
+    normalize_m3_per_s_unit,
+)
+
 from .property_mapping import (
+    resolve_required_flow_properties,
     resolve_flow_property_arrays,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
 
 
 @dataclass(slots=True)
@@ -171,7 +183,8 @@ class FlowToModflowAdapter:
     - optional ``flow.boundary_conditions`` and ``flow.sinks_sources``.
 
     Required domain payloads:
-    - ``domain.zones["geology"]`` when mapping heterogeneous properties.
+    - one spatial support attached to ``domain.zones`` when mapping
+      heterogeneous properties.
 
     The adapter assumes the caller already prepared the spatial/temporal
     context (grid dimensions, DEM/bottom arrays, stress-period count).
@@ -189,6 +202,8 @@ class FlowToModflowAdapter:
         nrow: int,
         ncol: int,
         nper: int,
+        grid: GridReference | None = None,
+        simulation_window: "ResolvedSimulationTimeWindow | None" = None,
         resolution: float,
         sink_fill: bool,
         sink=None,
@@ -201,7 +216,7 @@ class FlowToModflowAdapter:
         flow : object
             Runtime flow-process instance carrying IC/BC/parameters.
         domain : object
-            Runtime domain instance carrying spatial zones (including geology).
+            Runtime domain instance carrying spatial zones used by property mapping.
         sgrid : object
             Structured grid used for parameter discretization.
         dem : array-like
@@ -212,6 +227,9 @@ class FlowToModflowAdapter:
             MODFLOW grid dimensions.
         nper : int
             Number of stress periods.
+        grid : GridReference | None
+            Solver-grid geometry. When provided, conductance and cell-area
+            calculations use ``dx``/``dy`` rather than a scalar proxy.
         resolution : float
             Horizontal cell-size proxy used in default DRN conductance formula.
         sink_fill : bool
@@ -232,9 +250,22 @@ class FlowToModflowAdapter:
         self.nrow = int(nrow)
         self.ncol = int(ncol)
         self.nper = int(nper)
-        self.resolution = float(resolution)
+        self.grid = grid
+        self.simulation_window = simulation_window
+        if self.grid is None:
+            self.cell_area = float(resolution) ** 2
+            self.characteristic_length = float(resolution)
+        else:
+            self.cell_area = float(self.grid.cell_area)
+            self.characteristic_length = float(self.grid.characteristic_length)
+        self.resolution = float(self.characteristic_length)
         self.sink_fill = bool(sink_fill)
         self.sink = None if sink is None else np.asarray(sink, dtype=float)
+        self.inactive_mask = (
+            ~np.isfinite(self.dem)
+            | ~np.isfinite(self.bottom_layer)
+            | (self.dem <= -1000.0)
+        )
 
     @property
     def _boundary_conditions(self) -> Mapping[str, object]:
@@ -287,29 +318,40 @@ class FlowToModflowAdapter:
         # - forcing startup heads on the same faces.
         west_side = self._boundary_conditions.get("west_side") if self._is_bc_active("west_side") else None
         if west_side is not None:
-            ibound[:, :, 0] = -1
-            strt[:, :, 0] = float(west_side.value)
+            west_series = self._resolve_side_boundary_series(boundary=west_side, bc_id="west_side")
+            if self._side_boundary_is_static(west_side):
+                ibound[:, :, 0] = -1
+            strt[:, :, 0] = float(west_series[0])
 
         east_side = self._boundary_conditions.get("east_side") if self._is_bc_active("east_side") else None
         if east_side is not None:
-            ibound[:, :, -1] = -1
-            strt[:, :, -1] = float(east_side.value)
+            east_series = self._resolve_side_boundary_series(boundary=east_side, bc_id="east_side")
+            if self._side_boundary_is_static(east_side):
+                ibound[:, :, -1] = -1
+            strt[:, :, -1] = float(east_series[0])
 
         north_side = self._boundary_conditions.get("north_side") if self._is_bc_active("north_side") else None
         if north_side is not None:
-            ibound[:, 0, :] = -1
-            strt[:, 0, :] = float(north_side.value)
+            north_series = self._resolve_side_boundary_series(boundary=north_side, bc_id="north_side")
+            if self._side_boundary_is_static(north_side):
+                ibound[:, 0, :] = -1
+            strt[:, 0, :] = float(north_series[0])
 
         south_side = self._boundary_conditions.get("south_side") if self._is_bc_active("south_side") else None
         if south_side is not None:
-            ibound[:, -1, :] = -1
-            strt[:, -1, :] = float(south_side.value)
+            south_series = self._resolve_side_boundary_series(boundary=south_side, bc_id="south_side")
+            if self._side_boundary_is_static(south_side):
+                ibound[:, -1, :] = -1
+            strt[:, -1, :] = float(south_series[0])
 
-        # Cells under the DEM sentinel threshold are set inactive.
+        # Cells under the DEM sentinel threshold, or undefined after resampling,
+        # are treated as inactive everywhere in the stack.
         for ilay in range(self.nlay):
-            ibound[ilay][self.dem < -1000] = 0
+            ibound[ilay][self.inactive_mask] = 0
+            strt[ilay][self.inactive_mask] = 0.0
 
         drain_array = np.ones((self.nrow, self.ncol), dtype=float)
+        drain_array[self.inactive_mask] = 0.0
         return ibound, strt, drain_array
 
     @staticmethod
@@ -317,6 +359,77 @@ class FlowToModflowAdapter:
         """Return True for numeric scalar values (excluding booleans)."""
         return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(
             value, bool
+        )
+
+    def _normalize_boundary_series(
+        self,
+        *,
+        value: object,
+        label: str,
+    ) -> np.ndarray | None:
+        """Normalize one boundary value payload to an ``nper`` series when needed."""
+        if self._is_scalar_number(value):
+            return None
+        if not isinstance(value, (np.ndarray, pd.Series, list, tuple)):
+            raise TypeError(f"{label} must be numeric or a sequence of numeric values")
+
+        series = np.asarray(value, dtype=float).reshape(-1)
+        if series.size == 0:
+            raise ValueError(f"{label} cannot be empty when using time series")
+        if series.size == 1:
+            return np.full(self.nper, float(series[0]), dtype=float)
+        if series.size != self.nper:
+            raise ValueError(
+                f"{label} length ({series.size}) must be 1 or match nper ({self.nper})"
+            )
+        return series.astype(float)
+
+    def _boundary_start_value(
+        self,
+        *,
+        value: object,
+        label: str,
+    ) -> float:
+        """Return the startup head used on one boundary face."""
+        if self._is_scalar_number(value):
+            return float(value)
+        series = self._normalize_boundary_series(value=value, label=label)
+        if series is None:
+            raise ValueError(f"{label} must define a scalar or sequence value")
+        return float(series[0])
+
+    def _resolve_side_boundary_series(
+        self,
+        *,
+        boundary: object,
+        bc_id: str,
+    ) -> np.ndarray:
+        """Resolve one lateral boundary payload to one value per stress period."""
+        forcing = getattr(boundary, "forcing", None)
+        label = f"flow.bc.{bc_id}.forcing"
+        if forcing is not None:
+            return np.asarray(
+                resolve_period_values_from_forcing(
+                    forcing=forcing,
+                    simulation_window=self.simulation_window,
+                    nper=self.nper,
+                    label=label,
+                ),
+                dtype=float,
+            )
+
+        value = getattr(boundary, "value", None)
+        value_label = f"flow.bc.{bc_id}.value"
+        series = self._normalize_boundary_series(value=value, label=value_label)
+        if series is None:
+            return np.full(self.nper, float(value), dtype=float)
+        return series
+
+    def _side_boundary_is_static(self, boundary: object) -> bool:
+        """Return True when one side boundary is a scalar head without forcing."""
+        return (
+            getattr(boundary, "forcing", None) is None
+            and self._is_scalar_number(getattr(boundary, "value", None))
         )
 
     def _is_bc_active(self, bc_id: str) -> bool:
@@ -374,24 +487,14 @@ class FlowToModflowAdapter:
 
         # 2) CHD package data is only built for sequence-like inputs.
         # Scalar ocean forcing has already been fully applied in-place above.
-        if not isinstance(ocean_value, (int, float, np.ndarray, pd.Series, list, tuple)):
-            return None
-        if self._is_scalar_number(ocean_value):
+        ocean_series = self._normalize_boundary_series(
+            value=ocean_value,
+            label="flow.bc.ocean.value",
+        )
+        if ocean_series is None:
             return None
 
-        # 3) Normalize the ocean forcing vector to nper.
-        ocean_series = np.asarray(ocean_value, dtype=float).reshape(-1)
-        if ocean_series.size == 0:
-            raise ValueError("flow.bc.ocean.value cannot be empty when using time series")
-        if ocean_series.size == 1:
-            ocean_series = np.full(self.nper, float(ocean_series[0]), dtype=float)
-        elif ocean_series.size != self.nper:
-            raise ValueError(
-                f"flow.bc.ocean.value length ({ocean_series.size}) "
-                f"must be 1 or match nper ({self.nper})"
-            )
-
-        # Geometry mask is fixed from the highest sea level; transient heads are
+        # 3) Geometry mask is fixed from the highest sea level; transient heads are
         # then assigned period-by-period on that stable support.
         sea_threshold = float(np.max(ocean_series))
         chd_spd: dict[int, list[list[float]]] = {}
@@ -409,6 +512,88 @@ class FlowToModflowAdapter:
                         chd_kper.append([0, i, j, kper_head, kper_head])
             chd_spd[kper] = chd_kper
         return chd_spd
+
+    def _iter_side_boundary_cells(self, bc_id: str):
+        """Yield solver cells belonging to one lateral model face."""
+        if bc_id == "west_side":
+            for ilay in range(self.nlay):
+                for i in range(self.nrow):
+                    yield ilay, i, 0
+            return
+        if bc_id == "east_side":
+            for ilay in range(self.nlay):
+                for i in range(self.nrow):
+                    yield ilay, i, self.ncol - 1
+            return
+        if bc_id == "north_side":
+            for ilay in range(self.nlay):
+                for j in range(self.ncol):
+                    yield ilay, 0, j
+            return
+        if bc_id == "south_side":
+            for ilay in range(self.nlay):
+                for j in range(self.ncol):
+                    yield ilay, self.nrow - 1, j
+            return
+        raise ValueError(f"Unsupported side boundary id: {bc_id}")
+
+    def _build_side_chd(self) -> dict[int, list[list[float]]] | None:
+        """Build CHD stress-period data for transient lateral Dirichlet boundaries."""
+        per_period: dict[int, dict[tuple[int, int, int], list[float]]] = {
+            kper: {} for kper in range(self.nper)
+        }
+        has_entries = False
+
+        for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+            if not self._is_bc_active(bc_id):
+                continue
+            boundary = self._boundary_conditions.get(bc_id)
+            if boundary is None:
+                continue
+            if self._side_boundary_is_static(boundary):
+                continue
+            series = self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)
+
+            for kper, head in enumerate(series):
+                for ilay, row, col in self._iter_side_boundary_cells(bc_id):
+                    if self.inactive_mask[row, col]:
+                        continue
+                    per_period[kper][(ilay, row, col)] = [
+                        ilay,
+                        row,
+                        col,
+                        float(head),
+                        float(head),
+                    ]
+                    has_entries = True
+
+        if not has_entries:
+            return None
+        return {kper: list(cell_map.values()) for kper, cell_map in per_period.items()}
+
+    def _merge_chd_payloads(
+        self,
+        *payloads: dict[int, list[list[float]]] | None,
+    ) -> dict[int, list[list[float]]] | None:
+        """Merge CHD payloads with later inputs overriding earlier duplicate cells."""
+        merged: dict[int, list[list[float]]] = {}
+        has_entries = False
+
+        for kper in range(self.nper):
+            period_map: dict[tuple[int, int, int], list[float]] = {}
+            for payload in payloads:
+                if payload is None:
+                    continue
+                for row in payload.get(kper, []):
+                    key = (int(row[0]), int(row[1]), int(row[2]))
+                    period_map[key] = list(row)
+            merged[kper] = list(period_map.values())
+            if merged[kper]:
+                has_entries = True
+
+        if not has_entries:
+            return None
+        return merged
 
     def _validate_ibound_strt_contract(
         self,
@@ -474,7 +659,7 @@ class FlowToModflowAdapter:
         Conductance policy
         ------------------
         - If drainage BC value > 0: use this explicit conductance.
-        - Otherwise: derive conductance from ``hk * resolution^2``.
+        - Otherwise: derive conductance from ``hk * cell_area``.
         - With ``sink_fill=True``: cells flagged as sink receive zero
           conductance (disabled drainage).
 
@@ -527,7 +712,7 @@ class FlowToModflowAdapter:
                     if drainage_value > 0:
                         drn_data[count, 4] = drainage_value
                     else:
-                        drn_data[count, 4] = hk[0, i, j] * self.resolution**2
+                        drn_data[count, 4] = hk[0, i, j] * self.cell_area
                 else:
                     # Sink-filled cells should not drain.
                     if self.sink[i, j] > 0:
@@ -535,7 +720,7 @@ class FlowToModflowAdapter:
                     elif drainage_value > 0:
                         drn_data[count, 4] = drainage_value
                     else:
-                        drn_data[count, 4] = hk[0, i, j] * self.resolution**2
+                        drn_data[count, 4] = hk[0, i, j] * self.cell_area
                 count += 1
 
         return {0: drn_data}
@@ -571,23 +756,56 @@ class FlowToModflowAdapter:
         if not wells:
             return {}
 
+        grid = self.grid
+        if grid is None and self.sgrid is not None:
+            grid = GridReference.from_sgrid(self.sgrid)
+
         # Broadcast scalar / single-value flux to nper; reject length mismatches.
         normalized_wells: list[tuple[str, tuple[int, int, int], np.ndarray]] = []
         for well_id, well in wells.items():
-            cell: tuple[int, int, int] = well.cell
-            flux = well.flux
-            if isinstance(flux, list):
-                flux_vector = np.asarray(flux, dtype=float)
-                if flux_vector.size == 1:
-                    flux_vector = np.full(self.nper, float(flux_vector[0]), dtype=float)
-                elif flux_vector.size != self.nper:
-                    raise ValueError(
-                        f"flow.sinks_sources.wells.{well_id}.flux length ({flux_vector.size}) "
-                        f"must be 1 or match nper ({self.nper})"
-                    )
+            if getattr(well, "cell", None) is not None:
+                cell = well.cell
             else:
-                # Scalar flux: same rate for all stress periods.
-                flux_vector = np.full(self.nper, float(flux), dtype=float)
+                if grid is None:
+                    raise ValueError(
+                        f"flow.sinks_sources.wells.{well_id} uses coordinate-based addressing "
+                        "but solver grid geometry is unavailable"
+                    )
+                cell = well.resolve_cell(grid)
+            forcing = getattr(well, "forcing", None)
+            if forcing is not None:
+                raw_values = resolve_period_values_from_forcing(
+                    forcing=forcing,
+                    simulation_window=self.simulation_window,
+                    nper=self.nper,
+                    label=f"flow.sinks_sources.wells.{well_id}.forcing",
+                )
+                canonical_units = normalize_m3_per_s_unit(getattr(well, "units", "m3/s"))
+                flux_vector = np.asarray(
+                    [
+                        convert_to_m3_per_s(
+                            value,
+                            unit=canonical_units,
+                            label=f"flow.sinks_sources.wells.{well_id}.forcing[{idx}]",
+                        )
+                        for idx, value in enumerate(raw_values)
+                    ],
+                    dtype=float,
+                )
+            else:
+                flux = well.flux
+                if isinstance(flux, list):
+                    flux_vector = np.asarray(flux, dtype=float)
+                    if flux_vector.size == 1:
+                        flux_vector = np.full(self.nper, float(flux_vector[0]), dtype=float)
+                    elif flux_vector.size != self.nper:
+                        raise ValueError(
+                            f"flow.sinks_sources.wells.{well_id}.flux length ({flux_vector.size}) "
+                            f"must be 1 or match nper ({self.nper})"
+                        )
+                else:
+                    # Scalar flux: same rate for all stress periods.
+                    flux_vector = np.full(self.nper, float(flux), dtype=float)
             normalized_wells.append((well_id, cell, flux_vector))
 
         # Convert normalized wells to period-indexed LRCQ payload.
@@ -887,11 +1105,13 @@ class FlowToModflowAdapter:
         ibound, strt, drain_array = self._build_initial_heads_and_sides()
 
         # Stage 2: ocean BC may mutate startup arrays and produce CHD payload.
-        chd_spd = self._build_ocean_chd(
+        ocean_chd_spd = self._build_ocean_chd(
             ibound=ibound,
             strt=strt,
             drain_array=drain_array,
         )
+        side_chd_spd = self._build_side_chd()
+        chd_spd = self._merge_chd_payloads(ocean_chd_spd, side_chd_spd)
 
         # Enforce BAS input contract before continuing package payload assembly.
         self._validate_ibound_strt_contract(
@@ -901,10 +1121,15 @@ class FlowToModflowAdapter:
         )
 
         # Stage 3: resolve K/Sy/Ss arrays on solver support.
+        required_properties = resolve_required_flow_properties(
+            flow_regime=self._resolve_flow_regime(),
+        )
         properties = resolve_flow_property_arrays(
             flow=self.flow,
             domain=self.domain,
             sgrid=self.sgrid,
+            required_properties=required_properties,
+            optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         )
         hk = properties["hk"]
 

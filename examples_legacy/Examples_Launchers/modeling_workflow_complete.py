@@ -24,13 +24,13 @@ import hydromodpy as hmp
 from hydromodpy import watershed_root_legacy
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
+from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, \
     SafranSurfex, Transport
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow import Modflow
 from hydromodpy.solver.modflow_nwt import Modpath
@@ -38,7 +38,7 @@ from hydromodpy.solver.modflow_nwt import Mt3dms
 from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
-from hydromodpy.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
+from hydromodpy.hydrology.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
 
@@ -502,5 +502,6 @@ def complete_timeseries(geographic, model_modflow, runoff=None, model_modpath=No
         print(f"TIMESERIES error: {e}")
         traceback.print_exc()
         return {'timeseries_results': None, 'success': False}
+
 
 

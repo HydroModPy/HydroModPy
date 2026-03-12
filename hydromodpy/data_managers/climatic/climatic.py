@@ -19,7 +19,7 @@ import os
 from scipy.optimize import curve_fit
 import re
 import warnings
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 

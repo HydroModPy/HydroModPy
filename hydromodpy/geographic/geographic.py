@@ -12,19 +12,16 @@
 
 from __future__ import annotations
 
-import whitebox
 from geopy.geocoders import Nominatim
 
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.geographic.geographic_config import GeographicConfig
-from hydromodpy.geographic.legacy.dem_metadata import read_legacy_dem_metadata
-from hydromodpy.geographic.legacy.pipeline import build_legacy_geographic_context
+from hydromodpy.legacy.geographic.dem_metadata import read_legacy_dem_metadata
+from hydromodpy.legacy.geographic.pipeline import build_legacy_geographic_context
 from hydromodpy.geographic.core.domain_geographic_pipeline import DomainGeographicContext
 from hydromodpy.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.tools import get_logger
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 
@@ -33,6 +30,7 @@ def DEM_correcflow_analysis(
     dem_init_path: str,
     dem_out_dir_path: str,
     dem_correc_type: str,
+    backend: WhiteboxBackend | None = None,
 ) -> dict:
     """
     Build the 3 core regional rasters needed by watershed delineation.
@@ -63,11 +61,12 @@ def DEM_correcflow_analysis(
         Dictionary with output raster paths:
         ``{"correc": ..., "direc": ..., "acc": ...}``.
     """
+    tool = get_whitebox_backend() if backend is None else backend
     products = build_regional_flow_products(
         dem_init_path=dem_init_path,
         dem_out_dir_path=dem_out_dir_path,
         dem_correc_type=dem_correc_type,
-        wbt_tool=wbt,
+        backend=tool,
     )
     return {
         "correc": products.correc,
@@ -170,10 +169,11 @@ class Geographic:
 
     def processing(self):
         """Build and hydrate the full legacy geographic runtime payload."""
+        tool = get_whitebox_backend()
         context = build_legacy_geographic_context(
             config=self._config,
             out_dir_path=self.out_dir_path,
-            wbt_tool=wbt,
+            backend=tool,
             locator_factory=Nominatim,
         )
         for attr_name, value in context.legacy_attributes().items():

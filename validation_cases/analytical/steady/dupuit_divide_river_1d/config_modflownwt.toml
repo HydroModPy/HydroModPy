@@ -1,0 +1,95 @@
+[simulation]
+name = "Analytical Dupuit divide-river validation"
+description = "Synthetic steady-state unconfined flow with west-side divide, east-side fixed head, and uniform recharge."
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflownwt"]
+
+[workspace]
+catch_name = "validation_dupuit_divide_river"
+out_dir_path = "../results"
+data_path = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "validation_dupuit_divide_river"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "50.0 m"
+nx = 40
+ny = 5
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 20.0
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "20.0 m"
+
+[data]
+types = ["geology"]
+inference_mode = "warn"
+
+[data.geology]
+id = "field_geology"
+geo_path = "../../../../data/France/geology"
+types_obs = "GEO1M.shp"
+fields_obs = "CODE_LEG"
+cell_samples_per_axis = 4
+landsea = false
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["east_side"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+
+[flow.param.K.field_homogeneous]
+value = "1e-4 m/s"
+
+[flow.ic]
+type = "custom"
+value = "9.0 m"
+
+[flow.bc.dirichlet.east_side]
+type = "dirichlet"
+value = "5.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[recharge_chronicle]
+mode = "synthetic_generated"
+
+[recharge_chronicle.synthetic_generated]
+values = "1.0 mm/day"
+units = "mm/day"
+runoff_ratio = 0.0
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false
+
+
+

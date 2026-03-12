@@ -4,8 +4,8 @@ Planar discretization and raster regridding utilities for structured grids.
 
 This module transforms source rasters to the target planar grid requested by
 ``SGridConfig``:
-- native raster resolution (``raster_native``),
-- explicit shape (``shape`` with ``ny`` rows and ``nx`` columns).
+- keep native support (``keep_native``),
+- explicit target shape (``resample_to_shape`` with ``ny`` rows and ``nx`` columns).
 """
 
 from __future__ import annotations
@@ -34,16 +34,20 @@ class PlanarDiscretizer:
         fallback_crs: str | None = None,
     ) -> TopRasterGrid:
         """Return top raster metadata on the requested planar discretization."""
-        if mode == "raster_native":
+        if mode == "keep_native":
             return source_top_grid
 
-        if mode != "shape":
+        if mode != "resample_to_shape":
             raise ValueError(
-                f"Unsupported plan_discretization_mode '{mode}'. Allowed: raster_native, shape."
+                "Unsupported plan_discretization_mode "
+                f"'{mode}'. Allowed: keep_native, resample_to_shape."
             )
 
         if nx is None or ny is None:
-            raise ValueError("nx and ny are required when plan_discretization_mode='shape'")
+            raise ValueError(
+                "nx and ny are required when "
+                "plan_discretization_mode='resample_to_shape'"
+            )
 
         target_crs = source_top_grid.crs or fallback_crs
         if target_crs is None:

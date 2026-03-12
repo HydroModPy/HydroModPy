@@ -13,27 +13,40 @@ import flopy.utils.binaryfile as bf
 import numpy as np
 from flopy.utils import postprocessing as pp
 
-from hydromodpy.domain.surface import Surface
-from hydromodpy.solver.modflow_common import masstransfer
+from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.modflow_common import (
+	masstransfer,
+	SolverGridContext,
+	SolverRoutingContext,
+	build_solver_routing_context,
+	write_grid_array_to_raster,
+)
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow_nwt.modflow import (
 	ModflowPostprocessOptions,
 	ModflowPreprocessOptions,
 	ModflowRunOptions,
 )
+from hydromodpy.solver.modflow_nwt.modflow.discretization import (
+	build_spatial_discretization,
+	build_temporal_discretization_from_time_grid,
+)
 from hydromodpy.solver.modflow6.modflow6_config import (
 	Modflow6Config,
 	_coerce_modflow6_config,
 )
 from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
+	resolve_required_flow_properties,
 	resolve_flow_property_arrays,
 )
 from hydromodpy.solver.modflow_common.runtime_arrays import (
 	build_concentration_runtime_overrides,
 )
-from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
-from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
-from hydromodpy.tools import get_logger, toolbox
+from hydromodpy.support.units.volumetric_flow import (
+	convert_to_m3_per_s,
+	normalize_m3_per_s_unit,
+)
+from hydromodpy.support.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
 
@@ -87,6 +100,8 @@ class Modflow6(Solver):
 
 		self.full_path = os.path.join(model_folder, model_name)
 		self.dem_watershed_path = None
+		self.grid_ctx: SolverGridContext | None = None
+		self.routing_ctx: SolverRoutingContext | None = None
 
 		self.modflow_config = _coerce_modflow6_config(modflow_config)
 		runtime = self.modflow_config.runtime
@@ -139,26 +154,34 @@ class Modflow6(Solver):
 		self.check_grid = bool(options.check_grid)
 		self._select_active_dem(box=bool(options.box))
 
-	def _get_domain_surfaces(self):
-		if self.domain is None:
-			raise ValueError("Modflow6 spatial geometry is domain-only: a Domain object is required.")
+	def _write_solver_grid_template(self) -> str:
+		if self.grid_ctx is None:
+			raise ValueError("grid_ctx must exist before writing a solver grid template")
+		os.makedirs(self.full_path, exist_ok=True)
+		template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
+		write_grid_array_to_raster(
+			grid=self.grid_ctx.grid,
+			data=np.asarray(self.grid_ctx.top_elevation, dtype=float),
+			output_path=template_path,
+			nodata=float(self.grid_ctx.grid.nodata),
+		)
+		self.grid_ctx.template_raster_path = template_path
+		return template_path
 
-		surface_topo = getattr(self.domain, "surface_topo", None)
-		substratum = getattr(self.domain, "substratum", None)
-		if surface_topo is None or substratum is None:
-			raise ValueError("domain.surface_topo and domain.substratum are required.")
-		if not isinstance(surface_topo, Surface) or not isinstance(substratum, Surface):
-			raise TypeError("Domain surfaces must be Surface instances.")
+	def _ensure_solver_routing_context(self) -> SolverRoutingContext:
+		"""Build hydrologic routing rasters aligned with the solver grid."""
+		if self.routing_ctx is not None:
+			return self.routing_ctx
+		if self.grid_ctx is None:
+			raise ValueError("grid_ctx must exist before building solver routing products")
 
-		top = np.asarray(surface_topo.as_array(), dtype=float)
-		bot = np.asarray(substratum.as_array(), dtype=float)
-		if top.shape != bot.shape:
-			raise ValueError(f"Domain surface mismatch: top{top.shape} != substratum{bot.shape}.")
-		if top.shape != self.dem.shape:
-			raise ValueError("Domain surface shape must match active DEM support.")
-
-		surface_topo.assert_same_geographic_domain(substratum)
-		return surface_topo, substratum
+		self.routing_ctx = build_solver_routing_context(
+			dem_path=self.dem_watershed_path,
+			output_dir=os.path.join(self.full_path, "_solver_routing"),
+			dem_correc_type=str(getattr(self.geographic, "dem_correc_type", "breach")),
+			crs_project=getattr(self.geographic, "crs_proj", None),
+		)
+		return self.routing_ctx
 
 	def _resolve_flow_regime(self) -> str | None:
 		if self.flow is None:
@@ -178,8 +201,27 @@ class Modflow6(Solver):
 			raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
 		return flow_regime_text
 
+	def _validate_pre_processing_inputs(self) -> None:
+		if self.flow is None:
+			raise ValueError("pre_processing requires a configured Flow object.")
+		if self.domain is None:
+			raise ValueError("pre_processing requires a configured Domain object.")
+		flow_regime = self._resolve_flow_regime()
+		if flow_regime is None:
+			raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
+		self.flow_regime = flow_regime
+		if self.time_grid is None and self.flow_regime != "steady":
+			raise ValueError(
+				"Launcher flow preprocessing requires preprocess_options.time_grid "
+				"derived from [simulation.time] for transient flow runs. Solver tgrid fallback is no longer supported."
+			)
+
 	def _build_well_stress_period_data(self, n_stress_periods: int) -> dict[int, list[list[float]]]:
 		if n_stress_periods <= 0 or self.flow is None:
+			return {}
+
+		active = getattr(self.flow, "active_sinks_sources", [])
+		if "wells" not in active:
 			return {}
 
 		sinks_sources = getattr(self.flow, "sinks_sources", {})
@@ -193,15 +235,25 @@ class Modflow6(Solver):
 			raise TypeError("flow.sinks_sources['wells'] must be a mapping of well ids to payloads.")
 		if len(wells) == 0:
 			return {}
+		grid = None if self.grid_ctx is None else self.grid_ctx.grid
 
 		normalized_wells: list[tuple[tuple[int, int, int], np.ndarray]] = []
-		for _, raw_well_payload in wells.items():
+		for well_id, raw_well_payload in wells.items():
 			cell_payload = getattr(raw_well_payload, "cell", None)
 			flux_payload = getattr(raw_well_payload, "flux", None)
+			forcing_payload = getattr(raw_well_payload, "forcing", None)
 			if cell_payload is None and isinstance(raw_well_payload, Mapping):
 				cell_payload = raw_well_payload.get("cell")
 				flux_payload = raw_well_payload.get("flux")
-			if cell_payload is None or flux_payload is None:
+				forcing_payload = raw_well_payload.get("forcing")
+			if cell_payload is None and hasattr(raw_well_payload, "resolve_cell"):
+				if grid is None:
+					raise ValueError(
+						f"flow.sinks_sources.wells.{well_id} uses coordinate-based addressing "
+						"but solver grid geometry is unavailable."
+					)
+				cell_payload = raw_well_payload.resolve_cell(grid)
+			if cell_payload is None or (flux_payload is None and forcing_payload is None):
 				continue
 
 			cell_seq = list(cell_payload)
@@ -209,7 +261,26 @@ class Modflow6(Solver):
 				continue
 			cell = (int(cell_seq[0]), int(cell_seq[1]), int(cell_seq[2]))
 
-			if isinstance(flux_payload, Real) and not isinstance(flux_payload, bool):
+			if forcing_payload is not None:
+				raw_values = resolve_period_values_from_forcing(
+					forcing=forcing_payload,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(n_stress_periods),
+					label=f"flow.sinks_sources.wells.{well_id}.forcing",
+				)
+				canonical_units = normalize_m3_per_s_unit(getattr(raw_well_payload, "units", "m3/s"))
+				flux_vector = np.asarray(
+					[
+						convert_to_m3_per_s(
+							value,
+							unit=canonical_units,
+							label=f"flow.sinks_sources.wells.{well_id}.forcing[{idx}]",
+						)
+						for idx, value in enumerate(raw_values)
+					],
+					dtype=float,
+				)
+			elif isinstance(flux_payload, Real) and not isinstance(flux_payload, bool):
 				flux_vector = np.full((n_stress_periods,), float(flux_payload), dtype=float)
 			else:
 				raw_flux_seq = list(flux_payload)
@@ -227,6 +298,310 @@ class Modflow6(Solver):
 		for t in range(n_stress_periods):
 			spd[t] = [[cell[0], cell[1], cell[2], float(flux_vector[t])] for cell, flux_vector in normalized_wells]
 		return spd
+
+	@staticmethod
+	def _is_scalar_number(value: object) -> bool:
+		return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
+
+	def _boundary_conditions_mapping(self) -> Mapping[str, object]:
+		boundary_conditions = getattr(self.flow, "boundary_conditions", {})
+		if not isinstance(boundary_conditions, Mapping):
+			raise TypeError("flow.boundary_conditions must be a mapping")
+		return boundary_conditions
+
+	def _is_bc_active(self, bc_id: str) -> bool:
+		active = getattr(self.flow, "active_bc", [])
+		return bc_id in active
+
+	def _boundary_period_series(self, *, value: object, label: str) -> np.ndarray:
+		if self._is_scalar_number(value):
+			return np.full((int(self.nper),), float(value), dtype=float)
+		if not isinstance(value, (np.ndarray, list, tuple)):
+			raise TypeError(f"{label} must be numeric or a sequence of numeric values")
+		series = np.asarray(value, dtype=float).reshape(-1)
+		if series.size == 0:
+			raise ValueError(f"{label} cannot be empty when using time series")
+		if series.size == 1:
+			return np.full((int(self.nper),), float(series[0]), dtype=float)
+		if series.size != int(self.nper):
+			raise ValueError(
+				f"{label} length ({series.size}) must be 1 or match nper ({int(self.nper)})"
+			)
+		return series.astype(float)
+
+	def _boundary_start_value(self, *, value: object, label: str) -> float:
+		return float(self._boundary_period_series(value=value, label=label)[0])
+
+	def _resolve_side_boundary_series(self, *, boundary: object, bc_id: str) -> np.ndarray:
+		forcing = getattr(boundary, "forcing", None)
+		if forcing is not None:
+			return np.asarray(
+				resolve_period_values_from_forcing(
+					forcing=forcing,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(self.nper),
+					label=f"flow.bc.{bc_id}.forcing",
+				),
+				dtype=float,
+			)
+		return self._boundary_period_series(
+			value=getattr(boundary, "value", None),
+			label=f"flow.bc.{bc_id}.value",
+		)
+
+	def _iter_side_boundary_cells(self, bc_id: str):
+		if bc_id == "west_side":
+			for ilay in range(int(self.nlay)):
+				for i in range(int(self.nrow)):
+					yield ilay, i, 0
+			return
+		if bc_id == "east_side":
+			for ilay in range(int(self.nlay)):
+				for i in range(int(self.nrow)):
+					yield ilay, i, int(self.ncol) - 1
+			return
+		if bc_id == "north_side":
+			for ilay in range(int(self.nlay)):
+				for j in range(int(self.ncol)):
+					yield ilay, 0, j
+			return
+		if bc_id == "south_side":
+			for ilay in range(int(self.nlay)):
+				for j in range(int(self.ncol)):
+					yield ilay, int(self.nrow) - 1, j
+			return
+		raise ValueError(f"Unsupported side boundary id: {bc_id}")
+
+	def _apply_side_boundary_start_heads(self, strt: np.ndarray) -> np.ndarray:
+		bc = self._boundary_conditions_mapping()
+		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+			if not self._is_bc_active(bc_id):
+				continue
+			boundary = bc.get(bc_id)
+			if boundary is None:
+				continue
+			start_value = float(self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)[0])
+			if bc_id == "west_side":
+				strt[:, :, 0] = start_value
+			elif bc_id == "east_side":
+				strt[:, :, -1] = start_value
+			elif bc_id == "north_side":
+				strt[:, 0, :] = start_value
+			elif bc_id == "south_side":
+				strt[:, -1, :] = start_value
+		return strt
+
+	def _resolve_head_initial_condition(self):
+		"""Return the head initial-condition payload from typed or legacy containers."""
+		initial_conditions = getattr(self.flow, "initial_conditions", None)
+		if initial_conditions is None:
+			return None
+		if isinstance(initial_conditions, Mapping):
+			return initial_conditions.get("h")
+		return getattr(initial_conditions, "h", None)
+
+	@staticmethod
+	def _initial_condition_field(initial_condition, field_name: str, default=None):
+		"""Read one field from either a mapping payload or a typed IC object."""
+		if isinstance(initial_condition, Mapping):
+			return initial_condition.get(field_name, default)
+		return getattr(initial_condition, field_name, default)
+
+	def _build_start_heads(self, sgrid) -> np.ndarray:
+		"""Build MF6 starting heads from the canonical flow initial-condition schema."""
+		h_ic = self._resolve_head_initial_condition()
+		if h_ic is None:
+			raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
+
+		initial_type = str(self._initial_condition_field(h_ic, "type", "")).strip().lower()
+		if initial_type == "top":
+			strt = np.repeat(np.asarray(sgrid.top, dtype=float)[np.newaxis, :, :], self.nlay, axis=0)
+		elif initial_type in {"bot", "bottom"}:
+			bottom = np.asarray(sgrid.botm, dtype=float)
+			strt = np.repeat(bottom[-1][np.newaxis, :, :], self.nlay, axis=0)
+		elif initial_type == "custom":
+			strt = np.full(
+				(self.nlay, self.nrow, self.ncol),
+				float(self._initial_condition_field(h_ic, "value")),
+				dtype=float,
+			)
+		else:
+			raise ValueError("flow.initial_conditions.h.type must be one of: top, bottom, custom")
+		ocean_series = self._resolve_ocean_boundary_series()
+		ocean_support_mask = self._ocean_chd_support_mask(ocean_series)
+		if np.any(ocean_support_mask):
+			for ilay in range(int(self.nlay)):
+				strt[ilay][ocean_support_mask] = float(ocean_series[0])
+		return self._apply_side_boundary_start_heads(strt)
+
+	def _resolve_ocean_boundary_series(self) -> np.ndarray | None:
+		if not self._is_bc_active("ocean"):
+			return None
+		boundary = self._boundary_conditions_mapping().get("ocean")
+		if boundary is None:
+			return None
+		forcing = getattr(boundary, "forcing", None)
+		if forcing is not None:
+			return np.asarray(
+				resolve_period_values_from_forcing(
+					forcing=forcing,
+					simulation_window=None if self.time_grid is None else self.time_grid.window,
+					nper=int(self.nper),
+					label="flow.bc.ocean.forcing",
+				),
+				dtype=float,
+			)
+		return self._boundary_period_series(
+			value=getattr(boundary, "value", None),
+			label="flow.bc.ocean.value",
+		)
+
+	def _ocean_chd_support_mask(self, ocean_series: np.ndarray | None) -> np.ndarray:
+		if ocean_series is None or np.asarray(ocean_series, dtype=float).size == 0:
+			return np.zeros((int(self.nrow), int(self.ncol)), dtype=bool)
+		sea_threshold = float(np.max(np.asarray(ocean_series, dtype=float)))
+		return (~np.asarray(self.dem_mask, dtype=bool)) & (np.asarray(self.dem, dtype=float) <= sea_threshold)
+
+	def _build_ocean_boundary_chd_spd(self) -> tuple[dict[int, list[list[float]]], np.ndarray]:
+		ocean_series = self._resolve_ocean_boundary_series()
+		ocean_support_mask = self._ocean_chd_support_mask(ocean_series)
+		spd = {kper: [] for kper in range(int(self.nper))}
+		if ocean_series is None or not np.any(ocean_support_mask):
+			return spd, ocean_support_mask
+
+		rows, cols = np.where(ocean_support_mask)
+		for kper, head in enumerate(np.asarray(ocean_series, dtype=float)):
+			period_cells: list[list[float]] = []
+			for ilay in range(int(self.nlay)):
+				for row, col in zip(rows.tolist(), cols.tolist()):
+					period_cells.append([ilay, int(row), int(col), float(head)])
+			spd[kper] = period_cells
+		return spd, ocean_support_mask
+
+	def _build_side_boundary_chd_spd(self) -> dict[int, list[list[float]]]:
+		bc = self._boundary_conditions_mapping()
+		spd = {kper: {} for kper in range(int(self.nper))}
+		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+			if not self._is_bc_active(bc_id):
+				continue
+			boundary = bc.get(bc_id)
+			if boundary is None:
+				continue
+			series = self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)
+			for kper, head in enumerate(series):
+				for ilay, row, col in self._iter_side_boundary_cells(bc_id):
+					if bool(self.dem_mask[row, col]):
+						continue
+					spd[kper][(ilay, row, col)] = [ilay, row, col, float(head)]
+		return {kper: list(period_map.values()) for kper, period_map in spd.items()}
+
+	@staticmethod
+	def _copy_runtime_payload(payload: object) -> object:
+		"""Return a detached copy of one runtime payload when possible."""
+		if isinstance(payload, Mapping):
+			return {
+				key: Modflow6._copy_runtime_payload(value)
+				for key, value in payload.items()
+			}
+		if hasattr(payload, "copy"):
+			try:
+				return payload.copy()
+			except Exception:
+				pass
+		return payload
+
+	@staticmethod
+	def _sanitize_numeric_payload(payload: object) -> object:
+		"""Replace unsupported/invalid numeric payload values by finite MF6-safe values."""
+		if payload is None:
+			return 0.0
+		if isinstance(payload, Mapping):
+			return {
+				key: Modflow6._sanitize_numeric_payload(value)
+				for key, value in payload.items()
+			}
+		if isinstance(payload, Real) and not isinstance(payload, bool):
+			scalar = float(payload)
+			return 0.0 if not np.isfinite(scalar) else scalar
+		if hasattr(payload, "replace") and hasattr(payload, "fillna"):
+			series = payload.copy()
+			series = series.astype(float)
+			return series.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+		arr = np.asarray(payload, dtype=float)
+		if arr.ndim == 0:
+			scalar = float(arr)
+			return 0.0 if not np.isfinite(scalar) else scalar
+		return np.nan_to_num(arr.astype(float, copy=False), nan=0.0, posinf=0.0, neginf=0.0)
+
+	@staticmethod
+	def _payload_has_negative_values(payload: object) -> bool:
+		"""Return True when a recharge payload contains at least one negative value."""
+		if isinstance(payload, Mapping):
+			return any(Modflow6._payload_has_negative_values(value) for value in payload.values())
+		if isinstance(payload, Real) and not isinstance(payload, bool):
+			return float(payload) < 0.0
+		arr = np.asarray(payload, dtype=float)
+		return bool(np.any(arr < 0.0))
+
+	@staticmethod
+	def _clip_negative_payload(payload: object) -> object:
+		"""Clip negative recharge values to zero for MF6 RCH compatibility."""
+		if isinstance(payload, Mapping):
+			return {
+				key: Modflow6._clip_negative_payload(value)
+				for key, value in payload.items()
+			}
+		if isinstance(payload, Real) and not isinstance(payload, bool):
+			return max(float(payload), 0.0)
+		if hasattr(payload, "clip"):
+			try:
+				return payload.clip(lower=0.0)
+			except TypeError:
+				pass
+
+		arr = np.asarray(payload, dtype=float)
+		if arr.ndim == 0:
+			return max(float(arr), 0.0)
+		return np.maximum(arr, 0.0)
+
+	def _bind_recharge_from_flow(self) -> None:
+		"""Resolve recharge inputs from the canonical flow recharge configuration."""
+		if self.recharge is not None:
+			self.recharge = self._sanitize_numeric_payload(self.recharge)
+			if self.first_clim is None:
+				self.first_clim = "mean"
+			return
+
+		active = getattr(self.flow, "active_sinks_sources", [])
+		if "recharge" not in active:
+			self.recharge = 0.0
+			if self.first_clim is None:
+				self.first_clim = "mean"
+			return
+
+		sinks_sources = getattr(self.flow, "sinks_sources", {})
+		recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, Mapping) else None
+		if recharge_cfg is None:
+			self.recharge = 0.0
+			if self.first_clim is None:
+				self.first_clim = "mean"
+			return
+
+		payload = self._copy_runtime_payload(getattr(recharge_cfg, "values", 0.0))
+		payload = self._sanitize_numeric_payload(payload)
+		if bool(getattr(recharge_cfg, "negative_to_evt", False)) and self._payload_has_negative_values(payload):
+			logger.info(
+				"MF6 flow recharge clips negative values to 0.0; EVT routing is not yet implemented in this adapter"
+			)
+			payload = self._clip_negative_payload(payload)
+
+		self.recharge = payload
+		self.first_clim = getattr(
+			recharge_cfg,
+			"first_clim",
+			self.first_clim if self.first_clim is not None else "mean",
+		)
 
 	def _scalar_to_2d(self, value: float) -> np.ndarray:
 		return np.full((self.nrow, self.ncol), float(value), dtype=float)
@@ -331,54 +706,44 @@ class Modflow6(Solver):
 		self.domain = domain
 		active_options = self.preprocess_options if options is None else options
 		self._apply_preprocess_options(active_options)
+		self._validate_pre_processing_inputs()
+		self._bind_recharge_from_flow()
 
 		self.flow_regime = self._resolve_flow_regime() or "transient"
 		launcher_time_grid = self.time_grid
-		if launcher_time_grid is not None:
-			self.perlen = np.asarray(list(launcher_time_grid.period_lengths_seconds), dtype=float)
-			self.nper = int(self.perlen.size)
-			if self.nper == 0:
-				raise ValueError("simulation.time grid produced an empty perlen vector.")
-			self.nstp = np.ones((self.nper,), dtype=int)
-			if self.flow_regime == "steady":
-				self.steady = np.ones((self.nper,), dtype=bool)
-			else:
-				self.steady = np.zeros((self.nper,), dtype=bool)
-				firstpersteady = bool(getattr(getattr(self.modflow_config, "tgrid", None), "firstpersteady", True))
-				if firstpersteady:
-					self.steady[0] = True
-			time_units = "seconds"
-		else:
-			builder_kwargs = self.modflow_config.tgrid.to_builder_kwargs() if getattr(self.modflow_config, "tgrid", None) else {}
-			builder_kwargs["flow_regime"] = self.flow_regime
-			tgrid = TMesh_Generation(**builder_kwargs).run() if builder_kwargs else None
-
-			if tgrid is not None:
-				self.nper = int(np.asarray(getattr(tgrid, "perlen", []), dtype=float).size)
-				self.perlen = np.asarray(getattr(tgrid, "perlen", []), dtype=float)
-				self.nstp = np.asarray(getattr(tgrid, "nstp", []), dtype=int)
-				self.steady = np.asarray(getattr(tgrid, "steady_state", []), dtype=bool)
-			else:
-				self.nper = 1
-				self.perlen = np.asarray([1.0], dtype=float)
-				self.nstp = np.asarray([1], dtype=int)
-				self.steady = np.asarray([self.flow_regime == "steady"], dtype=bool)
-			time_units = getattr(getattr(self.modflow_config, "tgrid", None), "itmuni", "days")
-
-		surface_topo, bottom_surface = self._get_domain_surfaces()
-		sgrid = StructuredGridBuilder().build_from_surfaces(
-			top_surface=surface_topo,
-			bottom_surface=bottom_surface,
-			vertical_config=getattr(self.modflow_config, "sgrid", None),
+		temporal = build_temporal_discretization_from_time_grid(
+			time_grid=launcher_time_grid,
+			flow_regime=self.flow_regime,
+			firstpersteady=bool(getattr(getattr(self.modflow_config, "tgrid", None), "firstpersteady", True)),
 		)
-		self.nlay = int(sgrid.nlay)
-		self.nrow = int(sgrid.nrow)
-		self.ncol = int(sgrid.ncol)
+		self.perlen = temporal.perlen
+		self.nper = temporal.nper
+		self.nstp = temporal.nstp
+		self.steady = temporal.steady
+		time_units = "seconds"
+
+		self.grid_ctx = build_spatial_discretization(
+			domain=self.domain,
+			sgrid_config=getattr(self.modflow_config, "sgrid", None),
+		)
+		sgrid = self.grid_ctx.sgrid
+		self.top_elevation = self.grid_ctx.top_elevation
+		self.inactive_mask = self.grid_ctx.inactive_mask
+		self.nlay = int(self.grid_ctx.nlay)
+		self.nrow = int(self.grid_ctx.nrow)
+		self.ncol = int(self.grid_ctx.ncol)
+		self.cell_area = float(self.grid_ctx.grid.cell_area)
+		self.resolution = float(self.grid_ctx.grid.characteristic_length)
+		self.dem = self.top_elevation
+		self.dem_mask = self.inactive_mask
+		self.dem_watershed_path = self._write_solver_grid_template()
 
 		flow_params = resolve_flow_property_arrays(
 			flow=self.flow,
 			domain=self.domain,
 			sgrid=sgrid,
+			required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
+			optional_fill_values={"Sy": 0.0, "Ss": 0.0},
 		)
 		self.hk = flow_params["hk"]
 		self.sy = flow_params["sy"]
@@ -413,6 +778,8 @@ class Modflow6(Solver):
 			print_flows=getattr(runtime, "mf_verbose", False),
 		)
 		self.sim.register_ims_package(self.ims, [self.gwf.name])
+		idomain = np.where(np.asarray(self.inactive_mask, dtype=bool), 0, 1).astype(int)
+		idomain = np.repeat(idomain[np.newaxis, :, :], int(self.nlay), axis=0)
 
 		self.dis = flopy.mf6.ModflowGwfdis(
 			self.gwf,
@@ -423,22 +790,15 @@ class Modflow6(Solver):
 			delc=np.asarray(sgrid.delc, dtype=float),
 			top=np.asarray(sgrid.top, dtype=float),
 			botm=np.asarray(sgrid.botm, dtype=float),
+			idomain=idomain,
 			xorigin=float(sgrid.xoffset),
 			yorigin=float(sgrid.yoffset),
 			length_units="METERS",
 		)
 
-		h_ic = self.flow.initial_conditions.get("h")
-		if h_ic is None:
-			raise ValueError("flow.ic.h is required for Modflow6 pre_processing")
-		if h_ic.type == "top":
-			strt = np.repeat(np.asarray(sgrid.top, dtype=float)[np.newaxis, :, :], self.nlay, axis=0)
-		elif h_ic.type == "bot":
-			bottom = np.asarray(sgrid.botm, dtype=float)
-			strt = np.repeat(bottom[-1][np.newaxis, :, :], self.nlay, axis=0)
-		else:
-			strt = np.full((self.nlay, self.nrow, self.ncol), float(h_ic.value), dtype=float)
+		strt = self._build_start_heads(sgrid)
 		self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
+		ocean_chd_spd, ocean_support_mask = self._build_ocean_boundary_chd_spd()
 
 		self.npf = flopy.mf6.ModflowGwfnpf(
 			self.gwf,
@@ -471,36 +831,27 @@ class Modflow6(Solver):
 			for kper in range(int(self.nper)):
 				period_cells = []
 				top = np.asarray(sgrid.top, dtype=float)
-				cond = np.maximum(self.hk[0] * (np.asarray(sgrid.delr)[None, :] * np.asarray(sgrid.delc)[:, None]) / np.maximum(self.resolution, 1e-6), 1e-12)
+				cond = np.maximum(
+					self.hk[0] * float(self.cell_area) / np.maximum(self.resolution, 1e-6),
+					1e-12,
+				)
 				for i in range(self.nrow):
 					for j in range(self.ncol):
-						if top[i, j] <= -9999:
+						if bool(self.dem_mask[i, j]) or bool(ocean_support_mask[i, j]):
 							continue
 						period_cells.append([0, i, j, float(top[i, j]), float(cond[i, j])])
 				drn_spd[kper] = period_cells
 			self.drn = flopy.mf6.ModflowGwfdrn(self.gwf, stress_period_data=drn_spd, save_flows=True)
 
+		side_chd_spd = self._build_side_boundary_chd_spd()
 		chd_spd = {}
-		bc = self.flow.boundary_conditions
 		for kper in range(int(self.nper)):
-			entries = []
-			if "west_boundary" in bc:
-				val = float(getattr(bc["west_boundary"], "value", 0.0))
-				for i in range(self.nrow):
-					entries.append([0, i, 0, val])
-			if "east_boundary" in bc:
-				val = float(getattr(bc["east_boundary"], "value", 0.0))
-				for i in range(self.nrow):
-					entries.append([0, i, self.ncol - 1, val])
-			if "north_boundary" in bc:
-				val = float(getattr(bc["north_boundary"], "value", 0.0))
-				for j in range(self.ncol):
-					entries.append([0, 0, j, val])
-			if "south_boundary" in bc:
-				val = float(getattr(bc["south_boundary"], "value", 0.0))
-				for j in range(self.ncol):
-					entries.append([0, self.nrow - 1, j, val])
-			chd_spd[kper] = entries
+			period_map: dict[tuple[int, int, int], list[float]] = {}
+			for entry in ocean_chd_spd.get(kper, []):
+				period_map[(int(entry[0]), int(entry[1]), int(entry[2]))] = entry
+			for entry in side_chd_spd.get(kper, []):
+				period_map[(int(entry[0]), int(entry[1]), int(entry[2]))] = entry
+			chd_spd[kper] = list(period_map.values())
 		if any(len(v) > 0 for v in chd_spd.values()):
 			self.chd = flopy.mf6.ModflowGwfchd(self.gwf, stress_period_data=chd_spd, save_flows=True)
 
@@ -530,6 +881,17 @@ class Modflow6(Solver):
 			success_model, _ = self.sim.run_simulation(silent=not options.verbose)
 		return success_model
 
+	@staticmethod
+	def _get_budget_records_or_none(cbb: object, *, kstpkper: tuple[int, int], text: str):
+		"""Return one budget term, or None when the term is absent from the file."""
+		try:
+			return cbb.get_data(kstpkper=kstpkper, text=text)
+		except ValueError as exc:
+			message = str(exc)
+			if "text string is not in the budget file" in message.lower():
+				return None
+			raise
+
 	def post_processing(self, options: ModflowPostprocessOptions | None = None):
 		if options is None:
 			options = ModflowPostprocessOptions()
@@ -558,18 +920,25 @@ class Modflow6(Solver):
 			head = head_fpu.get_data(totim=time)
 			wt = pp.get_water_table(head, -9999)
 			wt[np.isnan(wt)] = -9999
+			dem_mask = np.asarray(self.dem_mask, dtype=bool)
 			if options.watertable_elevation:
+				wt = wt.copy()
+				wt[dem_mask] = -9999
 				dict_watertable_elevation[item] = wt
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, wt, os.path.join(self.tifs_file, f"watertable_elevation_t({item}).tif"), -9999)
 
 			if options.watertable_depth:
-				wtd = np.where(self.dem <= -9999, -9999, np.maximum(self.dem - wt, 0))
+				wtd = np.where(dem_mask, -9999, np.maximum(self.dem - wt, 0))
 				dict_watertable_depth[item] = wtd
 				if options.export_all_tif or item == 0:
 					toolbox.export_tif(self.dem_watershed_path, wtd, os.path.join(self.tifs_file, f"watertable_depth_t({item}).tif"), -9999)
 
-			drn = cbb.get_data(kstpkper=(item, item), text="DRN")
+			drn = self._get_budget_records_or_none(
+				cbb,
+				kstpkper=(item, item),
+				text="DRN",
+			)
 			outflow = np.zeros((self.nrow, self.ncol), dtype=float)
 			seepage = np.zeros((self.nrow, self.ncol), dtype=float)
 			if drn is not None and len(drn) > 0:
@@ -590,8 +959,8 @@ class Modflow6(Solver):
 				except Exception:
 					pass
 
-			outflow[self.dem <= -9999] = -9999
-			seepage[self.dem <= -9999] = -9999
+			outflow[dem_mask] = -9999
+			seepage[dem_mask] = -9999
 
 			if options.outflow_drain:
 				dict_outflow_drain[item] = outflow
@@ -788,7 +1157,10 @@ class Modflow6Transport:
 		conc_last_idx = max(int(concobj_1c.shape[0]) - 1, 0)
 
 		outflow_drain = np.load(os.path.join(self.save_file, "outflow_drain.npy"), allow_pickle=True).item()
-		dem_mask = self.model_modflow.dem < -9999
+		dem_mask = np.asarray(
+			getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
+			dtype=bool,
+		)
 
 		dict_concentration_seepage = {}
 		dict_mass_seepage = {}
@@ -818,12 +1190,15 @@ class Modflow6Transport:
 					toolbox.export_tif(self.model_modflow.dem_watershed_path, mass_surf, os.path.join(self.tifs_file, f"mass_seepage_t({the_time}).tif"), -9999)
 
 			if mass_accumulated:
+				routing_ctx = self.model_modflow._ensure_solver_routing_context()
 				accumulated_mass = masstransfer.Masstransfer(
 					self.model_modflow.geographic,
 					f"mass_seepage_t({the_time}).tif",
 					f"tracept_conc_t({the_time}).shp",
 					f"mass_accumulated_t({the_time}).tif",
 					extraction_folder=self.save_file,
+					routing_fill_path=routing_ctx.correc_path,
+					routing_direc_path=routing_ctx.direc_path,
 				)
 				accumulated_mass.trace_cumulated()
 				with bf.HeadFile(os.path.join(self.tifs_file, f"mass_accumulated_t({the_time}).tif")) as src:

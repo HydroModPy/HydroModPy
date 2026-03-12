@@ -23,6 +23,35 @@ def test_planner_infers_geology_from_domain_zone_ids() -> None:
     assert "domain.zone_ids" in plan.reasons_for("geology")[0]
 
 
+def test_planner_infers_geology_from_explicit_geology_support_provider() -> None:
+    cfg = DataManagersConfig(types=[])
+
+    plan = DataManagersPlanner().build(
+        cfg,
+        domain_zone_ids=[],
+        domain_support_provider_names=["geology"],
+        requested_spatial_support_ids=["field_geology"],
+        raw_toml={},
+    )
+
+    assert plan.inferred_types == ("geology",)
+    assert "domain.supports provider='geology'" in plan.reasons_for("geology")[0]
+
+
+def test_planner_does_not_infer_geology_from_unused_support_provider() -> None:
+    cfg = DataManagersConfig(types=[])
+
+    plan = DataManagersPlanner().build(
+        cfg,
+        domain_zone_ids=[],
+        domain_support_provider_names=["geology"],
+        requested_spatial_support_ids=[],
+        raw_toml={},
+    )
+
+    assert plan.inferred_types == ()
+
+
 def test_planner_does_not_infer_hydrometry_from_unrelated_raw_section() -> None:
     cfg = DataManagersConfig(types=[])
 

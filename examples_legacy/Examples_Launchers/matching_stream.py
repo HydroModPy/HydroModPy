@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
- * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan Abhervé, Jean-Raynald de Dreuzy
+ * Copyright (C) 2023-2025 Alexandre Gauvain, Ronan AbhervÃ©, Jean-Raynald de Dreuzy
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -18,10 +18,10 @@ import os
 import whitebox
 wbt = whitebox.WhiteboxTools()
 wbt.verbose = False
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic import Geographic
-from hydromodpy.watershed_legacy import Hydrography
+from hydromodpy.legacy.watershed import Hydrography
 
 class MatchingStreams:
         """
@@ -145,3 +145,4 @@ class MatchingStreams:
             wbt.extract_raster_values_at_points(self.dist_dem_sim, self.pt_obs_flow)
             wbt.add_point_coordinates_to_table(self.pt_obs_flowf)
             wbt.extract_raster_values_at_points(self.dist_dem_simflow, self.pt_obs_flowf)
+

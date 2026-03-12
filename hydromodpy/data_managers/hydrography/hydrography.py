@@ -20,10 +20,8 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 import rasterio
-import whitebox
-from hydromodpy.tools import get_logger
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+from hydromodpy.backends import get_whitebox_backend
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 
@@ -53,6 +51,7 @@ class Hydrography:
             Path of the folder with the hydrography data.
         """
         logger.info("Extracting hydrography data from %s", hydro_path)
+        self._backend = get_whitebox_backend()
 
         data_folder = Path(out_path) / 'results_stable' / 'hydrography'
         if not data_folder.exists():
@@ -93,7 +92,7 @@ class Hydrography:
         else:
             streams_file = gpd.read_file(streams)
         watshd_file = gpd.read_file(watershed_shp)
-        file_clipped = gpd.clip(streams_file, watshd_file) # wbt.clip(streams, watershed_shp, self.streams)
+        file_clipped = gpd.clip(streams_file, watshd_file)
 
         # Saves clipped file to the reuslts file structure
         file_clipped.to_file(self.streams)
@@ -111,28 +110,43 @@ class Hydrography:
         if (shp_type == 'MultiPolygon') | (shp_type == 'Polygon'): # if shp_type == 'LineString':
             logger.debug('Processing polygon geometry type: %s', shp_type)
             # e.g. wetlands and ponds
-            # wbt.dissolve(self.streams, self.streams)
-            wbt.vector_polygons_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
+            self._backend.vector_polygons_to_raster(
+                self.streams,
+                self.tif_streams,
+                field=field_obs,
+                base=watershed_dem,
+            )
         if (shp_type == 'MultiLineString') | (shp_type == 'LineString') | (shp_type == 'Line'):
             logger.debug('Processing line geometry type: %s', shp_type)
             # e.g. streams
-            wbt.vector_lines_to_raster(self.streams, self.tif_streams, field=field_obs,base=watershed_dem)
+            self._backend.vector_lines_to_raster(
+                self.streams,
+                self.tif_streams,
+                field=field_obs,
+                base=watershed_dem,
+            )
         if (shp_type == 'Point') | (shp_type == 'MultiPoint') :
             logger.debug('Processing point geometry type: %s', shp_type)
             # e.g. landslides, sources, wells
-            wbt.vector_points_to_raster(self.streams, self.tif_streams, field=field_obs, base=watershed_dem)
+            self._backend.vector_points_to_raster(
+                self.streams,
+                self.tif_streams,
+                field=field_obs,
+                base=watershed_dem,
+            )
 
-        wbt.set_nodata_value(
-                    self.tif_streams,
-                    self.tif_streams,
-                    back_value=-32768)
+        self._backend.set_nodata_value(
+            self.tif_streams,
+            self.tif_streams,
+            back_value=-32768,
+        )
 
         with rasterio.open(self.tif_streams) as dem_streams:
             self.streams_array = dem_streams.read(1).astype(float)
         self.streams_array[self.streams_array<0] = np.nan
 
         pt_streams = str(data_folder / (type_obs + '_pt.shp'))
-        wbt.raster_to_vector_points(self.tif_streams, pt_streams)
+        self._backend.raster_to_vector_points(self.tif_streams, pt_streams)
 
 #%% NOTES
 

@@ -80,7 +80,7 @@ def build_domain_geographic_context(
       derive buffered supports, then clip the DEM on the box-buffer support.
     """
     if config.uses_synthetic_geographic():
-        from hydromodpy.geographic_synthethic import build_synthetic_geographic
+        from hydromodpy.geographic.synthetic import build_synthetic_geographic
 
         geographic = build_synthetic_geographic(
             config=config.synthetic,
@@ -131,6 +131,8 @@ def build_domain_geographic_context(
         paths=setup.paths,
         direc_path=flow.direc,
         acc_path=flow.acc,
+        direc_data=flow.direc_data,
+        acc_data=flow.acc_data,
         crs_project=setup.crs_project,
     )
 

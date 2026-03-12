@@ -34,6 +34,10 @@ from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
+from hydromodpy.simulation.forcing.recharge_chronicle_config import (
+    RechargeChronicleConfig,
+    validate_recharge_chronicle_section,
+)
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
@@ -75,8 +79,9 @@ class HydroModPyConfig(BaseModel):
     domain: DomainConfig = Field(
         default_factory=DomainConfig,
         description=(
-            "Domain configuration defining which thematic zones are loaded "
-            "(for example 'geology')."
+            "Domain configuration defining domain depth plus the spatial-support "
+            "mode used for heterogeneous parameter mapping "
+            "(`none`, `geology`, or `zones`)."
         ),
     )
     data: DataManagersConfig = Field(
@@ -112,6 +117,14 @@ class HydroModPyConfig(BaseModel):
             "legacy fixed phase order."
         ),
     )
+    recharge_chronicle: RechargeChronicleConfig | None = Field(
+        default=None,
+        description=(
+            "Optional launcher recharge chronicle block loaded from "
+            "[recharge_chronicle]. Supports observed CSV, synthetic CSV, "
+            "and synthetic generated payloads."
+        ),
+    )
     solver: SolverConfig = Field(
         default_factory=SolverConfig,
         description=(
@@ -123,14 +136,16 @@ class HydroModPyConfig(BaseModel):
         default_factory=ModflowConfig,
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
-            "[modflownwt.runtime], [modflownwt.process_specific], [modflownwt.sgrid]."
+            "[modflownwt.runtime], [modflownwt.process_specific], "
+            "[modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical]."
         ),
     )
     modflow6: Modflow6Config = Field(
         default_factory=Modflow6Config,
         description=(
             "Expert MODFLOW 6 package configuration loaded from "
-            "[modflow6.runtime], [modflow6.process_specific], [modflow6.sgrid]."
+            "[modflow6.runtime], [modflow6.process_specific], "
+            "[modflow6.sgrid.planar], and [modflow6.sgrid.vertical]."
         ),
     )
     run: RunConfig = Field(
@@ -157,19 +172,6 @@ class HydroModPyConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_cross_section_constraints(self) -> "HydroModPyConfig":
         """Validate constraints that depend on several top-level sections."""
-        if (
-            self.geographic.uses_synthetic_geographic()
-            and self.postprocess.enabled
-            and self.postprocess.flow.enabled
-            and self.postprocess.flow.matching_streams
-        ):
-            raise ValueError(
-                "geographic.source_mode='synthetic' does not generate the "
-                "watershed_fill/watershed_direc rasters required by "
-                "postprocess.flow.matching_streams. Set "
-                "[postprocess.flow].matching_streams = false or use "
-                "geographic.source_mode = 'standard'."
-            )
         return self
 
     @classmethod
@@ -224,6 +226,10 @@ class HydroModPyConfig(BaseModel):
             "simulation": (
                 {},
                 lambda data, b: _load_standard_section(data, SimulationConfig, b),
+            ),
+            "recharge_chronicle": (
+                None,
+                _load_recharge_chronicle_section,
             ),
             "solver": ({}, _load_solver_section),
             "modflownwt": ({}, _load_modflow_nwt_section),
@@ -323,4 +329,12 @@ def _load_modflow6_section(section_data: Any, base: Path) -> Modflow6Config:
     if not isinstance(section_data, Mapping):
         raise ValueError("TOML section must be a mapping for Modflow6Config")
     return Modflow6Config.model_validate(dict(section_data))
+
+
+def _load_recharge_chronicle_section(
+    section_data: Any,
+    base: Path,
+) -> RechargeChronicleConfig | None:
+    """Load the recharge chronicle section with dedicated validation."""
+    return validate_recharge_chronicle_section(section_data)
 

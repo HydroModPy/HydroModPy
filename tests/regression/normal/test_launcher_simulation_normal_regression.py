@@ -7,7 +7,6 @@ from tests.regression.golden_utils import (
     REPO_ROOT,
     assert_required_executables,
     collect_modflow_signatures,
-    collect_modpath_signatures,
     require_url_available,
     resolve_tiered_golden_file,
     resolve_tiered_results_dir,
@@ -26,7 +25,7 @@ LAUNCHER_SIMULATION_DEFAULT_CONFIG = (
     REPO_ROOT
     / "examples"
     / "launcher_simulation"
-    / "config_normal.toml"
+    / "config_normal_6.toml"
 )
 
 GOLDEN_REFERENCE_FILE = (
@@ -44,12 +43,7 @@ MODFLOW_OUTPUT_NAMES = [
     "accumulation_flux",
 ]
 
-MODPATH_SNAPSHOT_FILES = [
-    "starting.dbf",
-    "ending.dbf",
-]
-
-MT3DMS_OUTPUT_NAMES = [
+TRANSPORT_OUTPUT_NAMES = [
     "concentration_seepage",
     "mass_seepage",
 ]
@@ -120,13 +114,18 @@ def _ensure_local_oceanic_seed_csv(csv_path: Path) -> None:
     [
         pytest.param(
             LAUNCHER_SIMULATION_DEFAULT_CONFIG,
-            id="config_normal",
+            id="config_normal_6",
         ),
     ],
 )
 def test_launcher_simulation_regression_on_npy_outputs(update_goldens, config_path):
     """Run launcher_simulation, then compare or refresh its own golden signatures."""
-    assert_required_executables(require_mt3dms=True)
+    assert_required_executables(
+        require_modflow=False,
+        require_modflow6=True,
+        require_modpath=False,
+        require_mt3dms=False,
+    )
     _ensure_local_oceanic_seed_csv(OCEANIC_LOCAL_CSV)
     require_url_available(HUBEAU_HEALTHCHECK_URL)
 
@@ -138,12 +137,15 @@ def test_launcher_simulation_regression_on_npy_outputs(update_goldens, config_pa
         script_path=LAUNCHER_SIMULATION_SCRIPT,
         out_path=out_path,
         out_env_var="HYDROMODPY_OUT_PATH",
-        extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
+        extra_env={
+            "HYDROMODPY_NO_DISPLAY": "1",
+            "HYDROMODPY_NO_SAVE": "1",
+        },
         script_args=[str(config_path)],
         timeout=3600,
     )
 
-    _, postprocess_dir, particles_dir = resolve_model_workspace(
+    _, postprocess_dir, _ = resolve_model_workspace(
         out_path,
         watershed_name="example12",
         results_folder_name="results_simulations",
@@ -151,8 +153,7 @@ def test_launcher_simulation_regression_on_npy_outputs(update_goldens, config_pa
 
     actual = {
         "modflow_expected": collect_modflow_signatures(postprocess_dir, MODFLOW_OUTPUT_NAMES),
-        "modpath_expected": collect_modpath_signatures(particles_dir, MODPATH_SNAPSHOT_FILES),
-        "mt3dms_expected": collect_modflow_signatures(postprocess_dir, MT3DMS_OUTPUT_NAMES),
+        "transport_expected": collect_modflow_signatures(postprocess_dir, TRANSPORT_OUTPUT_NAMES),
     }
     update_or_assert_goldens(
         actual=actual,

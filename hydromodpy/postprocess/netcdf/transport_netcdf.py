@@ -13,7 +13,7 @@ import rasterio as rio
 from rasterio.features import rasterize
 
 from hydromodpy.postprocess.netcdf.flow_netcdf import FlowNetcdfPostprocess
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 
@@ -83,7 +83,7 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
         if value_column is None:
             return None
 
-        with rio.open(self.geographic.watershed_dem, "r") as base:
+        with rio.open(self.base_raster_path, "r") as base:
             shape = (base.height, base.width)
             transform = base.transform
             nodata = base.nodata
@@ -122,7 +122,7 @@ class TransportNetcdfPostprocess(FlowNetcdfPostprocess):
             try:
                 self.export_netcdf(
                     data,
-                    base_path=self.geographic.watershed_dem,
+                    base_path=self.base_raster_path,
                     out_path=os.path.join(self.netcdf_file, "residence_times.nc"),
                     base_crs=self.geographic.crs_proj,
                     times=[0],

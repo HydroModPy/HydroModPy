@@ -50,7 +50,9 @@ class VerticalGridConfig(BaseModel):
     This model is used by surface-driven SGrid generation:
     - layering strategy (`genmtd_lay`),
     - layer count or proportions,
-    - nodata/lenuni metadata.
+    - nodata masking metadata.
+
+    All geometric quantities are interpreted in SI metres.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -75,18 +77,6 @@ class VerticalGridConfig(BaseModel):
         default=-9999.0,
         description="No-data sentinel value.",
     )
-    lenuni: str = Field(
-        default="m",
-        description="Length unit label propagated to FloPy.",
-    )
-
-    @field_validator("lenuni")
-    @classmethod
-    def _validate_lenuni(cls, value):
-        text = str(value).strip()
-        if not text:
-            raise ValueError("lenuni cannot be empty")
-        return text
 
     @field_validator("lay_proportions")
     @classmethod
@@ -133,6 +123,63 @@ class VerticalGridConfig(BaseModel):
         return cls.model_validate(payload)
 
 
+class PlanarGridConfig(BaseModel):
+    """Planar discretization contract for solver-facing grids."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["keep_native", "resample_to_shape"] = Field(
+        default="keep_native",
+        description=(
+            "Planar solver-grid mode: keep the native domain support or "
+            "resample to an explicit (ny, nx) target shape."
+        ),
+    )
+    nx: int | None = Field(
+        default=None,
+        ge=1,
+        description="Target number of columns when planar mode is 'resample_to_shape'.",
+    )
+    ny: int | None = Field(
+        default=None,
+        ge=1,
+        description="Target number of rows when planar mode is 'resample_to_shape'.",
+    )
+    resampling: Literal["bilinear", "average", "nearest"] = Field(
+        default="bilinear",
+        description="Resampling rule applied when planar mode is 'resample_to_shape'.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_cross_fields(self):
+        if self.mode == "resample_to_shape":
+            self.nx = _require_positive_int(self.nx, name="nx")
+            self.ny = _require_positive_int(self.ny, name="ny")
+        elif self.nx is not None or self.ny is not None:
+            raise ValueError("nx and ny must be omitted when planar.mode='keep_native'")
+        return self
+
+
+class SolverSGridConfig(BaseModel):
+    """Solver-facing grid configuration split into explicit planar and vertical parts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    planar: PlanarGridConfig = Field(
+        default_factory=PlanarGridConfig,
+        description="Planar discretization of the solver grid.",
+    )
+    vertical: VerticalGridConfig = Field(
+        default_factory=VerticalGridConfig,
+        description="Vertical layering of the solver grid.",
+    )
+
+    @classmethod
+    def from_mapping(cls, config_data: Mapping[str, Any]):
+        payload = dict(config_data.get("sgrid", config_data))
+        return cls.model_validate(payload)
+
+
 class SGridConfig(BaseModel):
     """
     Single source of truth for structured-grid configuration validation.
@@ -140,6 +187,8 @@ class SGridConfig(BaseModel):
     Each field below maps one explicit model parameter with constrained type and
     semantic description. Cross-field dependencies are validated in
     ``_validate_cross_fields``.
+
+    All geometric quantities are interpreted in SI metres.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -147,10 +196,6 @@ class SGridConfig(BaseModel):
     sgrid_type: Literal["structured"] = Field(
         default="structured",
         description="Spatial grid family. Only 'structured' is supported.",
-    )
-    lenuni: str = Field(
-        default="m",
-        description="Length unit label propagated to FloPy (for example 'm').",
     )
     genmtd_top: Literal["filepath"] = Field(
         default="filepath",
@@ -164,22 +209,22 @@ class SGridConfig(BaseModel):
         default=None,
         description="Optional CRS identifier (for example 'EPSG:2154').",
     )
-    plan_discretization_mode: Literal["raster_native", "shape"] = Field(
-        default="raster_native",
+    plan_discretization_mode: Literal["keep_native", "resample_to_shape"] = Field(
+        default="keep_native",
         description=(
-            "Planar discretization strategy: keep native raster shape or "
-            "resample to explicit (ny, nx) shape."
+            "Planar discretization strategy: keep native support or "
+            "resample to explicit (ny, nx) target shape."
         ),
     )
     nx: int | None = Field(
         default=None,
         ge=1,
-        description="Target number of columns when plan_discretization_mode='shape'.",
+        description="Target number of columns when plan_discretization_mode='resample_to_shape'.",
     )
     ny: int | None = Field(
         default=None,
         ge=1,
-        description="Target number of rows when plan_discretization_mode='shape'.",
+        description="Target number of rows when plan_discretization_mode='resample_to_shape'.",
     )
 
     genmtd_bot: Literal["filepath", "raster", "constant_thickness", "constant_altitude"] = Field(
@@ -227,7 +272,7 @@ class SGridConfig(BaseModel):
         description="No-data sentinel value used to mask invalid raster cells.",
     )
 
-    @field_validator("lenuni", "top_path")
+    @field_validator("top_path")
     @classmethod
     def _validate_required_non_empty_text(cls, value):
         text = str(value).strip()
@@ -276,16 +321,17 @@ class SGridConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate_cross_fields(self):
-        if self.plan_discretization_mode == "shape":
+        if self.plan_discretization_mode == "resample_to_shape":
             if self.nx is None or self.ny is None:
                 raise ValueError(
-                    "nx and ny are required when plan_discretization_mode='shape'"
+                    "nx and ny are required when "
+                    "plan_discretization_mode='resample_to_shape'"
                 )
-        if self.plan_discretization_mode == "raster_native":
+        if self.plan_discretization_mode == "keep_native":
             if self.nx is not None or self.ny is not None:
                 raise ValueError(
                     "nx and ny must not be provided when "
-                    "plan_discretization_mode='raster_native'"
+                    "plan_discretization_mode='keep_native'"
                 )
 
         self._require_existing_file(

@@ -27,3 +27,5 @@ Notes
 - Runtime boundary conditions stored by ``ProcessSpatial`` use prototype ``BoundaryCondition``.
 - Runtime sink/source storage is generic (``dict[str, object]``), with process-specific payloads
   injected by child classes.
+- Recharge chronicle preparation stays outside this inheritance tree and is
+  handled by simulation forcing services before solver assembly.

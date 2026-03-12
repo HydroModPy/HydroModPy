@@ -49,7 +49,7 @@ sys.path.append(root_dir)
 import hydromodpy as hmp
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
+from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Hydrography, Intermittency, Settings, \
     SafranSurfex
 from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
@@ -57,7 +57,7 @@ from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.domain import (
     Domain,
 )
@@ -77,7 +77,7 @@ from hydromodpy.solver import SolverEngine
 from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
 from hydromodpy.postprocess.flow.matching_streams import MatchingStreams
-from hydromodpy.pyhelp import preprocessing_pyhelp, PyhelpGridParams
+from hydromodpy.hydrology.pyhelp import preprocessing_pyhelp, PyhelpGridParams
 fontprop = toolbox.plot_params(8,15,18,20)  # small, medium, interm, large
 
 config_path = Path(__file__).parent / "config.toml"
@@ -1352,5 +1352,6 @@ if __name__ == '__main__':
 #%% ---- END OF SCRIPT
 
 #%% ---- NOTES
+
 
 

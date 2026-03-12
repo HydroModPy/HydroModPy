@@ -1,0 +1,165 @@
+@startuml
+title Spatial Support - Class Diagram
+
+package "hydromodpy.domain.domain_config" {
+  class DomainConfig {
+    +zone_ids: list[str]
+    +supports: dict[str, DomainSupportConfig]
+  }
+}
+
+package "hydromodpy.domain.spatial_support_config" {
+  abstract class DomainSupportBaseConfig {
+    +provider: str
+  }
+
+  class GeneratedBandsSupportConfig {
+    +axis: x | y
+    +coordinate_mode: relative | absolute
+    +breaks: list[float]
+    +labels: list[str]
+  }
+
+  class GeneratedRingsSupportConfig {
+    +coordinate_mode: relative | absolute
+    +radii: list[float]
+    +labels: list[str]
+    +center_x: float | None
+    +center_y: float | None
+  }
+
+  class CatchmentZonesSupportConfig {
+    +source_zone_id: str
+  }
+
+  class GeologySupportConfig
+
+  class DomainSupportConfig <<union>>
+}
+
+package "hydromodpy.domain.spatial_support" {
+  interface SpatialSupportProvider {
+    +provider_name
+    +build_phase
+    +required_data_types(config)
+    +build(support_id, config, context)
+  }
+
+  class SpatialSupportProviderRegistry {
+    +register(provider)
+    +get(provider_name)
+  }
+
+  class AliasedSpatialSupportField
+  class RasterZonesSupportField
+  class GeneratedBandsSupportField
+  class GeneratedRingsSupportField
+
+  class GeneratedBandsSupportProvider
+  class GeneratedRingsSupportProvider
+  class CatchmentZonesSupportProvider
+  class GeologySupportProvider
+}
+
+package "hydromodpy.domain.domain" {
+  class Domain {
+    +zones: dict[str, object]
+    +set_zone(zone_id, zone_obj)
+    +get_zone(zone_id)
+    +resolve_spatial_support(support_id)
+  }
+}
+
+package "hydromodpy.domain.catchment_zones_field" {
+  class CatchmentZonesField {
+    +identifier: str
+    +encoded_codes: np.ndarray
+    +encoded_to_zone: Mapping[int, str]
+    +zone_keys
+  }
+}
+
+package "hydromodpy.data_managers.geology.geology_field" {
+  class GeologyField {
+    +identifier: str
+    +encoded_codes: np.ndarray
+    +encoded_to_zone: dict[int, str]
+    +zone_id(x, y)
+    +on_mesh(mesh, cell_samples_per_axis)
+  }
+}
+
+package "hydromodpy.field.core.field_spatial" {
+  abstract class Field {
+    +identifier: str
+    +on_mesh(mesh, cell_samples_per_axis)
+  }
+
+  abstract class FieldDiscretization {
+    +mesh
+    +field_id
+    +aggregation
+    +weighted_components()
+  }
+}
+
+package "hydromodpy.field.core.field_spatial_weighted_discretization" {
+  class WeightedAverageFieldDiscretization {
+    +zone_keys: tuple[str, ...]
+    +fractions_by_zone: dict[str, np.ndarray]
+  }
+}
+
+package "hydromodpy.field.core.field_param" {
+  class FieldParam {
+    +identifier: str
+    +kind: homogeneous | heterogeneous
+    +field_spatial_id: str | None
+    +values_by_key: dict[str, float] | None
+    +to_array(...)
+    +to_mesh_field(...)
+    +map_zone_ids(zone_ids)
+  }
+}
+
+DomainConfig --> DomainSupportConfig : supports[*]
+DomainSupportBaseConfig <|-- GeneratedBandsSupportConfig
+DomainSupportBaseConfig <|-- GeneratedRingsSupportConfig
+DomainSupportBaseConfig <|-- CatchmentZonesSupportConfig
+DomainSupportBaseConfig <|-- GeologySupportConfig
+DomainSupportConfig ..> DomainSupportBaseConfig
+
+SpatialSupportProviderRegistry o-- SpatialSupportProvider
+SpatialSupportProvider <|.. GeneratedBandsSupportProvider
+SpatialSupportProvider <|.. GeneratedRingsSupportProvider
+SpatialSupportProvider <|.. CatchmentZonesSupportProvider
+SpatialSupportProvider <|.. GeologySupportProvider
+
+GeneratedBandsSupportProvider --> GeneratedBandsSupportField : builds
+GeneratedRingsSupportProvider --> GeneratedRingsSupportField : builds
+CatchmentZonesSupportProvider --> RasterZonesSupportField : builds
+CatchmentZonesSupportProvider ..> CatchmentZonesField : adapts source zone
+GeologySupportProvider --> AliasedSpatialSupportField : optional alias
+GeologySupportProvider ..> GeologyField : returns or delegates
+
+Field <|-- AliasedSpatialSupportField
+Field <|-- RasterZonesSupportField
+Field <|-- GeneratedBandsSupportField
+Field <|-- GeneratedRingsSupportField
+Field <|-- GeologyField
+
+FieldDiscretization <|-- WeightedAverageFieldDiscretization
+Field --> WeightedAverageFieldDiscretization : on_mesh(...)
+FieldParam ..> Field : support selected by field_spatial_id
+FieldParam ..> FieldDiscretization : heterogeneous mapping
+
+Domain o-- "0..*" Field : stores Field-compatible supports in zones
+Domain o-- "0..*" CatchmentZonesField : may store source zonations
+
+note bottom of CatchmentZonesField
+CatchmentZonesField is a compact semantic zone matrix.
+It is not itself a Field implementation; the
+CatchmentZonesSupportProvider adapts it to RasterZonesSupportField.
+end note
+
+@enduml

@@ -143,7 +143,21 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
     success = model_modflow.processing(
         options=ModflowRunOptions(write_model=True, run_model=True, link_mt3dms=True)
     )
+    if not success:
+        diagnostics_path = Path(getattr(model_modflow, "full_path", "")).resolve()
+        if ctx.run.solver == "modflow6":
+            diagnostics_path = diagnostics_path / "mfsim.lst"
+        raise RuntimeError(
+            f"Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'. "
+            f"See {diagnostics_path} for diagnostics."
+        )
     if success:
+        active_bc = {
+            str(name).strip().lower()
+            for name in getattr(state.setup.flow, "active_bc", [])
+            if str(name).strip()
+        }
+        has_drainage = "drainage" in active_bc
         postprocess_cfg = getattr(getattr(ctx.state.cfg, "postprocess", None), "flow", None)
         intermittency_cfg = getattr(postprocess_cfg, "intermittency", None)
 
@@ -154,8 +168,8 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
                 watertable_elevation=True,
                 watertable_depth=True,
                 seepage_areas=True,
-                outflow_drain=True,
-                accumulation_flux=True,
+                outflow_drain=has_drainage,
+                accumulation_flux=has_drainage,
                 intermittency_yearly=bool(
                     getattr(intermittency_cfg, "yearly", False)
                 ),

@@ -16,13 +16,10 @@
 import os
 
 import rasterio
-import whitebox
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
+from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 
 # HydroModPy
-from hydromodpy.tools import get_logger, toolbox
+from hydromodpy.support.tools import get_logger, toolbox
 
 logger = get_logger(__name__)
 
@@ -43,6 +40,9 @@ class Masstransfer:
         mass_rast_name: str,
         extraction_folder: str = None,
         label: str = "conc",
+        routing_fill_path: str | None = None,
+        routing_direc_path: str | None = None,
+        backend: WhiteboxBackend | None = None,
     ):
         """
         Parameters
@@ -63,24 +63,36 @@ class Masstransfer:
         """
         self.geographic = geographic
         self.extraction_folder = extraction_folder
+        self._backend = get_whitebox_backend() if backend is None else backend
         label_suffix = f"_{label}" if label else ""
 
-        self.watershed_direc_surflow = geographic.watershed_direc
-        self.watershed_buff_fill_surflow = geographic.watershed_buff_fill
+        self.watershed_direc_surflow = routing_direc_path or getattr(
+            geographic,
+            "watershed_direc",
+            None,
+        )
+        self.watershed_buff_fill_surflow = routing_fill_path or getattr(
+            geographic,
+            "watershed_buff_fill",
+            None,
+        )
 
-        try:
-            self.watershed_direc_surflow = (
-                geographic.watershed_box_buff_direc
-            )  # geographic.watershed_direc
-            self.watershed_buff_fill_surflow = (
-                geographic.watershed_box_buff_fill
-            )  # geographic.watershed_buff_fill
-        except:
-            pass
+        if routing_direc_path is None:
+            try:
+                self.watershed_direc_surflow = geographic.watershed_box_buff_direc
+            except Exception:
+                pass
+        if routing_fill_path is None:
+            try:
+                self.watershed_buff_fill_surflow = geographic.watershed_box_buff_fill
+            except Exception:
+                pass
 
-        #### CHANGE HARD DISK ####
-        # self.watershed_direc_surflow = self.watershed_direc_surflow.replace('G','I',1)
-        # self.watershed_buff_fill_surflow = self.watershed_buff_fill_surflow.replace('G','I',1)
+        if self.watershed_direc_surflow is None or self.watershed_buff_fill_surflow is None:
+            raise ValueError(
+                "Masstransfer requires routing_fill_path and routing_direc_path, "
+                "or equivalent routing rasters on the geographic object."
+            )
 
         self.shp_folder = os.path.join(self.extraction_folder, "_temporary")
         toolbox.create_folder(self.shp_folder)
@@ -125,7 +137,7 @@ class Masstransfer:
         im[im >= 0] = 0
         toolbox.export_tif(self.watershed_buff_fill_surflow, im, self.abs_rast_path, -99999)
         ### d8massflux ###
-        wbt.d8_mass_flux(
+        self._backend.d8_mass_flux(
             self.watershed_buff_fill_surflow,
             self.load_rast_path,
             self.eff_rast_path,
@@ -140,26 +152,23 @@ class Masstransfer:
         Generate continuous hydrographic network with downslope flowpaths.
         """
         # Sim to points
-        wbt.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
+        self._backend.raster_to_vector_points(self.raw_rast_path, self.raw_pt_path)
         logger.info(
             "raster_to_vector_points: created %s from %s", self.raw_pt_path, self.raw_rast_path
         )
 
         # Trace downslope sim
-        wbt.trace_downslope_flowpaths(
+        self._backend.trace_downslope_flowpaths(
             self.raw_pt_path, self.watershed_direc_surflow, self.out_rast_path
         )
         logger.info("trace_downslope_flowpaths: traced flowpaths to %s", self.out_rast_path)
 
         # Simflow to points
-        wbt.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
+        self._backend.raster_to_vector_points(self.out_rast_path, self.out_pt_path)
         logger.info(
             "raster_to_vector_points: created %s from %s", self.out_pt_path, self.out_rast_path
         )
 
-        # Extra (disabled by default)
-        # wbt.add_point_coordinates_to_table(self.out_pt_path)
-        # wbt.extract_raster_values_at_points(self.raw_rast_path, self.out_pt_path)
         logger.debug(
             "Optional extras (add_point_coordinates_to_table, "
             "extract_raster_values_at_points) are available but disabled."

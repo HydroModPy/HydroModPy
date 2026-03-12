@@ -4,8 +4,8 @@ from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.geographic_synthethic.config import SyntheticGeographicConfig
-from hydromodpy.units import parse_length_to_m
+from hydromodpy.geographic.synthetic.config import SyntheticGeographicConfig
+from hydromodpy.support.units import parse_length_to_m
 
 
 class GeographicConfig(BaseModel):

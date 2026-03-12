@@ -8,12 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import whitebox
+from hydromodpy.backends import WhiteboxBackend, WhiteboxWorkflowsBackend, get_whitebox_backend
 
 from hydromodpy.geographic.geographic_io import ensure_crs
-
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
 
 
 def clip_dem_to_box_buffer(
@@ -23,7 +20,7 @@ def clip_dem_to_box_buffer(
     output_dem_path: str | Path,
     crs_project: str | None = None,
     nodata: float = -9999.0,
-    wbt_tool: object | None = None,
+    backend: WhiteboxBackend | None = None,
 ) -> str:
     """Clip source DEM to domain rectangle and normalize metadata.
 
@@ -39,29 +36,37 @@ def clip_dem_to_box_buffer(
         Optional CRS override.
     nodata:
         Nodata value enforced on output.
-    wbt_tool:
-        Optional Whitebox-like object for testing/injection.
-
+    backend:
+        Optional Whitebox backend for runtime/tests.
     Returns
     -------
     str
         Path to the clipped DEM raster.
     """
-    tool = wbt if wbt_tool is None else wbt_tool
+    tool = get_whitebox_backend() if backend is None else backend
 
     src_dem = str(dem_init_path)
     clip_poly = str(box_buff_shp)
     dst_dem = str(output_dem_path)
     Path(dst_dem).parent.mkdir(parents=True, exist_ok=True)
 
-    # `maintain_dimensions=False` keeps only the effective clipped extent.
-    tool.clip_raster_to_polygon(
-        src_dem,
-        clip_poly,
-        dst_dem,
-        maintain_dimensions=False,
-    )
+    if isinstance(tool, WhiteboxWorkflowsBackend):
+        clipped = tool.clip_raster_to_polygon_raster(
+            tool.read_raster(src_dem),
+            tool.read_vector(clip_poly),
+            maintain_dimensions=False,
+        )
+        clipped = tool.modify_no_data_value_raster(clipped, new_value=float(nodata))
+        tool.write_raster(clipped, dst_dem)
+    else:
+        # `maintain_dimensions=False` keeps only the effective clipped extent.
+        tool.clip_raster_to_polygon(
+            src_dem,
+            clip_poly,
+            dst_dem,
+            maintain_dimensions=False,
+        )
+        tool.modify_no_data_value(dst_dem, new_value=float(nodata))
 
     ensure_crs(dst_dem, crs_project)
-    tool.modify_no_data_value(dst_dem, new_value=float(nodata))
     return dst_dem
