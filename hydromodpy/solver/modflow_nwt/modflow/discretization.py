@@ -40,7 +40,7 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
 )
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.temporal.tmesh_generation import TMesh_Generation
-from hydromodpy.units import to_modflow_itmuni
+from hydromodpy.support.units import to_modflow_itmuni
 
 
 @dataclass(slots=True)
@@ -206,7 +206,7 @@ def project_surfaces_to_planar_grid(
     nodata: float,
 ) -> tuple[Surface, Surface]:
     """Project domain surfaces to the target solver planar grid when requested."""
-    if planar_config is None or planar_config.mode == "surface_native":
+    if planar_config is None or planar_config.mode == "keep_native":
         return top_surface, bottom_surface
 
     resampled_top = top_surface.resample_to_shape(

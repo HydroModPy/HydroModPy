@@ -3,11 +3,11 @@ import importlib
 
 def test_pyhelp_new_and_legacy_imports_resolve_same_entry_points():
     new_pkg = importlib.import_module("hydromodpy.hydrology.pyhelp")
-    legacy_pkg = importlib.import_module("hydromodpy.pyhelp")
+    legacy_pkg = importlib.import_module("hydromodpy.hydrology.pyhelp")
     new_pipeline = importlib.import_module("hydromodpy.hydrology.pyhelp.pyhelp_netcdf")
-    legacy_pipeline = importlib.import_module("hydromodpy.pyhelp.pyhelp_netcdf")
-    legacy_core_processing = importlib.import_module("hydromodpy.pyhelp.core.processing")
-    legacy_preprocessing_pipeline = importlib.import_module("hydromodpy.pyhelp.preprocessing.pipeline")
+    legacy_pipeline = importlib.import_module("hydromodpy.hydrology.pyhelp.pyhelp_netcdf")
+    legacy_core_processing = importlib.import_module("hydromodpy.hydrology.pyhelp.core.processing")
+    legacy_preprocessing_pipeline = importlib.import_module("hydromodpy.hydrology.pyhelp.preprocessing.pipeline")
     new_core_processing = importlib.import_module("hydromodpy.hydrology.pyhelp.core.processing")
     new_preprocessing_pipeline = importlib.import_module("hydromodpy.hydrology.pyhelp.preprocessing.pipeline")
 

@@ -25,7 +25,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
-from hydromodpy.units import (
+from hydromodpy.support.units import (
     convert_seconds_to_unit,
     normalize_time_unit,
     parse_scalar_and_unit,

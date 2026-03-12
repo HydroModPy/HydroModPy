@@ -2,7 +2,7 @@
 
 Goal:
 - lock the current public contract of the legacy class before migration,
-- avoid runtime dependency on external WhiteboxTools binary by mocking it.
+- avoid runtime dependency on the concrete Whitebox backend by mocking it.
 """
 
 from __future__ import annotations
@@ -46,8 +46,8 @@ class _FakeNominatim:
         return _FakeLocation()
 
 
-class _FakeWhiteboxTools:
-    """Deterministic in-test substitute for WhiteboxTools file-based API."""
+class _FakeWhiteboxBackend:
+    """Deterministic in-test substitute for the Whitebox backend file API."""
 
     verbose = False
 
@@ -257,7 +257,7 @@ def _write_json(path: Path, payload: dict) -> None:
 def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
     import hydromodpy.geographic.geographic as geo_mod
 
-    fake_wbt = _FakeWhiteboxTools()
+    fake_wbt = _FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
     monkeypatch.setattr(geo_mod, "Nominatim", _FakeNominatim)
 
@@ -281,7 +281,7 @@ def _build_geographic_legacy_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 def _build_geographic_legacy_outlet_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Geographic:
     import hydromodpy.geographic.geographic as geo_mod
 
-    fake_wbt = _FakeWhiteboxTools()
+    fake_wbt = _FakeWhiteboxBackend()
     monkeypatch.setattr(geo_mod, "get_whitebox_backend", lambda: fake_wbt)
     monkeypatch.setattr(geo_mod, "Nominatim", _FakeNominatim)
 

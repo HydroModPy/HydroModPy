@@ -31,12 +31,13 @@ def _configure_whitebox_single_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NUMEXPR_NUM_THREADS", "1")
 
     # The default backend is a singleton; force it to one worker explicitly.
-    from hydromodpy.backends import get_whitebox_backend
+    from hydromodpy.backends import clear_whitebox_backend_cache, get_whitebox_backend
 
+    clear_whitebox_backend_cache()
     tool = get_whitebox_backend()
-    setter = getattr(getattr(tool, "_tool", None), "set_max_procs", None)
-    if callable(setter):
-        setter(1)
+    env = getattr(tool, "_env", None)
+    if env is not None and hasattr(env, "max_procs"):
+        env.max_procs = 1
 
 
 def _write_json(path: Path, payload: dict) -> None:

@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.units import parse_length_to_m
+from hydromodpy.support.units import parse_length_to_m
 
 
 class DomainSupportBaseConfig(BaseModel):

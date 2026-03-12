@@ -31,7 +31,6 @@ dependencies:
   - spyder-kernels
   - spyder
   - vedo
-  - whitebox
   - xarray
   - pyside6
   - pysheds

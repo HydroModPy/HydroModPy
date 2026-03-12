@@ -130,6 +130,48 @@ python -m pytest tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py
 python -m pytest tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py -q
 ```
 
+## Running All Cases Outside Pytest
+
+Use `validation_cases.run_cases` when you want to execute every compatible
+`run_case.py` sequentially, print the per-case metrics, and optionally open the
+diagnostic figures.
+
+List the selected cases without running them:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime both --list
+python -m validation_cases.run_cases --solver modflow6 --regime both --list
+```
+
+Run all steady or transient cases for one solver without interactive figures:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime steady --no-show
+python -m validation_cases.run_cases --solver modflownwt --regime transient --no-show
+python -m validation_cases.run_cases --solver modflow6 --regime steady --no-show
+python -m validation_cases.run_cases --solver modflow6 --regime transient --no-show
+```
+
+Run the full analytical inventory for one solver:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime both --no-show
+python -m validation_cases.run_cases --solver modflow6 --regime both --no-show
+```
+
+Run with diagnostic figures enabled:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime transient --show
+python -m validation_cases.run_cases --solver modflow6 --regime steady --show
+```
+
+Stop the batch on the first failing case:
+
+```powershell
+python -m validation_cases.run_cases --solver modflownwt --regime both --no-show --stop-on-error
+```
+
 ## Running One Case Outside Pytest
 
 Every launcher-backed case also exposes a direct runner under

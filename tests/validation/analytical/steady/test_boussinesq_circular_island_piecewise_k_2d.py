@@ -15,11 +15,24 @@ from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2
 @pytest.mark.analytical
 @pytest.mark.steady
 @pytest.mark.fast
-def test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile() -> None:
-    """Run the launcher case and compare the final annular profile to Boussinesq."""
-    assert_required_executables(require_modpath=False, require_mt3dms=False)
+@pytest.mark.parametrize(
+    ("solver", "require_modflow", "require_modflow6"),
+    [
+        pytest.param("modflownwt", True, False, id="modflownwt"),
+        pytest.param("modflow6", False, True, id="modflow6"),
+    ],
+)
 
-    comparison = run_boussinesq_circular_island_piecewise_k_comparison(caller_file=__file__)
+def test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
+    """Run the launcher case and compare the final annular profile to Boussinesq."""
+    assert_required_executables(
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
+        require_modpath=False,
+        require_mt3dms=False,
+    )
+
+    comparison = run_boussinesq_circular_island_piecewise_k_comparison(caller_file=__file__, solver=solver)
     profile_tol = dict(comparison.tolerances.get("radial_profile", {}))
 
     assert_metric_below("Radial head-profile RMSE", comparison.rms_error, float(profile_tol["rmse"]), unit="m")
@@ -45,3 +58,6 @@ def test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile() -
         "Minimum land freeboard is below the configured tolerance: "
         f"{comparison.land_clearance_min:.4f} m < {float(profile_tol['min_land_clearance']):.4f} m"
     )
+
+
+

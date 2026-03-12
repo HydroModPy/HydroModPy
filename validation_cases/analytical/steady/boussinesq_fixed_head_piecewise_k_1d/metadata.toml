@@ -4,6 +4,13 @@ regime = "steady"
 dimension = "1d"
 launcher = "launcher_simulation"
 config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+
 
 [workspace]
 watershed_name = "val_bsq_fx_head_pk1d"
@@ -23,3 +30,4 @@ x_zone_breaks_m = [120.0, 280.0]
 hydraulic_conductivity_m_per_s_by_zone = [2e-4, 5e-5, 1e-4]
 aquifer_thickness_m = 20.0
 profile_axis = 0
+

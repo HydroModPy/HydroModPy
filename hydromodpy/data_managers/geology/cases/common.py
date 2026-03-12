@@ -15,7 +15,7 @@ from pathlib import Path
 
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from shapely.geometry import box
-from hydromodpy.units import parse_length_to_m
+from hydromodpy.support.units import parse_length_to_m
 
 
 def resolve_case_path(path_like):

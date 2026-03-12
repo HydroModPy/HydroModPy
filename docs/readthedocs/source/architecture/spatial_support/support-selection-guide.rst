@@ -12,8 +12,7 @@ case, ``field_spatial_id`` must reference a support known by the ``Domain``.
 
 Relevant code paths:
 
-- ``domain.support_mode`` and ``domain.supports`` are validated in
-  ``hydromodpy.domain.domain_config``.
+- support declarations are validated in ``hydromodpy.domain.domain_config``.
 - support definitions are modeled in ``hydromodpy.domain.spatial_support_config``.
 - runtime support objects are built in ``hydromodpy.domain.spatial_support``.
 - heterogeneous mapping is consumed through ``FieldParam.field_spatial_id`` and
@@ -22,14 +21,14 @@ Relevant code paths:
 When To Use Each Support
 ------------------------
 
-Use ``support_mode = "none"`` when all parameters are homogeneous.
+If all parameters are homogeneous, no spatial support declaration is needed.
 
-Use ``support_mode = "geology"`` when the zones come from the geology dataset
+Declare a ``geology`` support when the zones come from the geology dataset
 managed by the domain workflow. This is the right choice when the support is
 not synthetic and should be derived from geology loading/binding.
 
-Use ``support_mode = "zones"`` when the zones are explicitly declared in
-``domain.supports``. This covers the synthetic and user-defined cases below.
+Declare one or more non-geology supports in ``domain.supports`` for synthetic
+or user-defined zonations.
 
 Choose ``generated_bands`` when the domain is partitioned along one axis:
 
@@ -63,8 +62,9 @@ point.
 Prefer ``catchment_zones`` if the support already exists as a watershed or
 management partition.
 
-Do not mix geology supports into ``support_mode = "zones"``. Likewise, do not
-declare non-geology supports under ``support_mode = "geology"``.
+It is valid to mix geology-backed and synthetic supports in the same
+``domain.supports`` mapping. Each heterogeneous ``FieldParam`` simply points to
+the support it needs through ``field_spatial_id``.
 
 Minimal Configuration Patterns
 ------------------------------
@@ -74,14 +74,12 @@ Homogeneous parameter, no support needed:
 .. code-block:: toml
 
    [domain]
-   support_mode = "none"
 
 Bands support:
 
 .. code-block:: toml
 
    [domain]
-   support_mode = "zones"
 
    [domain.supports.k_x]
    provider = "generated_bands"
@@ -95,7 +93,6 @@ Rings support:
 .. code-block:: toml
 
    [domain]
-   support_mode = "zones"
 
    [domain.supports.k_r]
    provider = "generated_rings"
@@ -110,7 +107,6 @@ Catchment zones support:
 .. code-block:: toml
 
    [domain]
-   support_mode = "zones"
 
    [domain.supports.management]
    provider = "catchment_zones"
@@ -121,7 +117,6 @@ Geology support:
 .. code-block:: toml
 
    [domain]
-   support_mode = "geology"
 
    [domain.supports.field_geology]
    provider = "geology"
@@ -140,11 +135,11 @@ The value keys must match the support labels.
 Common Mistakes
 ---------------
 
-Declaring ``domain.supports`` while keeping ``support_mode = "none"``. This is
-rejected by ``DomainConfig``.
-
 Using ``field_spatial_id`` for a heterogeneous parameter without registering a
 support under the same identifier.
+
+Expecting geology supports to be inferred implicitly. Geology-backed supports
+must now be declared explicitly under ``domain.supports``.
 
 Choosing ``generated_bands`` for a truly radial case, or ``generated_rings``
 for a zoning that is really tied to catchment data rather than geometry.

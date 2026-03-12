@@ -57,6 +57,37 @@ def test_recharge_chronicle_payload_builds_synthetic_generated_series(tmp_path: 
     assert np.allclose(payload.runoff.values, [0.5 * MM_DAY_TO_M_S, 1.0 * MM_DAY_TO_M_S])
 
 
+def test_recharge_chronicle_payload_builds_one_scalar_steady_series_without_window(
+    tmp_path: Path,
+) -> None:
+    raw_toml = {
+        "recharge_chronicle": {
+            "mode": "synthetic_generated",
+            "synthetic_generated": {
+                "values": "3.0 mm/day",
+                "units": "mm/day",
+                "runoff_ratio": 0.0,
+            },
+        }
+    }
+
+    payload = build_recharge_chronicle_payload(
+        raw_toml,
+        config_path=tmp_path / "launcher.toml",
+        default_observed_path=tmp_path / "default.csv",
+        default_sim_state="steady",
+    )
+
+    assert payload is not None
+    assert payload.mode == "synthetic_generated"
+    assert payload.recharge is not None
+    assert payload.runoff is not None
+    assert len(payload.recharge) == 1
+    assert len(payload.runoff) == 1
+    assert np.allclose(payload.recharge.values, [3.0 * MM_DAY_TO_M_S])
+    assert np.allclose(payload.runoff.values, [0.0])
+
+
 def test_recharge_chronicle_payload_rejects_legacy_values_mm_day_key(tmp_path: Path) -> None:
     raw_toml = {
         "recharge_chronicle": {

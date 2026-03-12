@@ -16,12 +16,12 @@ from geopy.geocoders import Nominatim
 
 from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.geographic.geographic_config import GeographicConfig
-from hydromodpy.geographic.legacy.dem_metadata import read_legacy_dem_metadata
-from hydromodpy.geographic.legacy.pipeline import build_legacy_geographic_context
+from hydromodpy.legacy.geographic.dem_metadata import read_legacy_dem_metadata
+from hydromodpy.legacy.geographic.pipeline import build_legacy_geographic_context
 from hydromodpy.geographic.core.domain_geographic_pipeline import DomainGeographicContext
 from hydromodpy.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 
@@ -31,7 +31,6 @@ def DEM_correcflow_analysis(
     dem_out_dir_path: str,
     dem_correc_type: str,
     backend: WhiteboxBackend | None = None,
-    wbt_tool: WhiteboxBackend | None = None,
 ) -> dict:
     """
     Build the 3 core regional rasters needed by watershed delineation.
@@ -62,9 +61,7 @@ def DEM_correcflow_analysis(
         Dictionary with output raster paths:
         ``{"correc": ..., "direc": ..., "acc": ...}``.
     """
-    if backend is not None and wbt_tool is not None:
-        raise ValueError("Pass either 'backend' or legacy alias 'wbt_tool', not both.")
-    tool = get_whitebox_backend() if backend is None and wbt_tool is None else (backend or wbt_tool)
+    tool = get_whitebox_backend() if backend is None else backend
     products = build_regional_flow_products(
         dem_init_path=dem_init_path,
         dem_out_dir_path=dem_out_dir_path,

@@ -1,4 +1,4 @@
-"""Comparison workflow for the steady Dupuit fixed-head validation case."""
+﻿"""Comparison workflow for the steady Dupuit fixed-head validation case."""
 
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ class DupuitFixedHeadComparison:
     result: ValidationRunResult
     metadata: dict
     tolerances: dict
+    solver: str
     timestep: int
     observable_name: str
     heads: np.ndarray
@@ -53,7 +54,7 @@ def build_dupuit_fixed_head_comparison(
 ) -> DupuitFixedHeadComparison:
     """Load one completed run and compare it to the analytical Dupuit profile."""
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
-    case_tolerances = load_case_tolerances(CASE_DIR) if tolerances is None else tolerances
+    case_tolerances = load_case_tolerances(CASE_DIR, solver=solver) if tolerances is None else tolerances
 
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
@@ -87,6 +88,7 @@ def build_dupuit_fixed_head_comparison(
         result=result,
         metadata=case_metadata,
         tolerances=case_tolerances,
+        solver=result.solver_name,
         timestep=timestep,
         observable_name=observable_name,
         heads=np.asarray(heads, dtype=float),
@@ -105,17 +107,22 @@ def run_dupuit_fixed_head_comparison(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    solver: str | None = None,
 ) -> DupuitFixedHeadComparison:
     """Run the launcher case and return the full comparison payload."""
     metadata = load_case_metadata(CASE_DIR)
-    tolerances = load_case_tolerances(CASE_DIR)
+    tolerances = load_case_tolerances(CASE_DIR, solver=solver)
     result = run_launcher_validation_case(
         case_dir=CASE_DIR,
         test_file=caller_file,
         timeout=timeout,
+        solver=solver,
     )
     return build_dupuit_fixed_head_comparison(
         result=result,
         metadata=metadata,
         tolerances=tolerances,
     )
+
+
+

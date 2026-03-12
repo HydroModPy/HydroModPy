@@ -23,7 +23,7 @@ from hydromodpy.process.flow.boundary_conditions import (
     FlowBoundaryForcingConfig,
     FlowBoundaryConditionConfig,
 )
-from hydromodpy.units import parse_scalar_and_unit
+from hydromodpy.support.units import parse_scalar_and_unit
 
 
 def normalize_flow_boundary_conditions(

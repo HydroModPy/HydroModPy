@@ -53,13 +53,13 @@ from hydromodpy.hydrology.pyhelp.pyhelp_netcdf import preprocessing_pyhelp
 from hydromodpy import watershed_root_legacy
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
-from hydromodpy.watershed_legacy import Driasclimat, Driaseau, \
+from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, SafranSurfex, Transport
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig, GeographicConfig
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
-from hydromodpy.tools import toolbox
+from hydromodpy.support.tools import toolbox
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.postprocess import netcdf
 from hydromodpy.postprocess import timeseries
@@ -1395,5 +1395,6 @@ if display_plots:
 #     run_example10(out_path=out_path, display_plots=True, display_3D=True)
 
 #%% ---- NOTES
+
 
 

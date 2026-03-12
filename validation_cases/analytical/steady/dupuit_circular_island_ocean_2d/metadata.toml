@@ -4,6 +4,13 @@ regime = "steady"
 dimension = "2d"
 launcher = "launcher_simulation"
 config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+
 
 [workspace]
 watershed_name = "validation_circular_island_ocean"
@@ -33,3 +40,4 @@ radial_bin_width_m = 10.0
 substratum_elevation_m = -5.0
 hydraulic_conductivity_m_per_s = 5e-6
 recharge_mm_day = 1.0
+

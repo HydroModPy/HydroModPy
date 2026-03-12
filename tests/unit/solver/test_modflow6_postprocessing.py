@@ -1,0 +1,148 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.modflow_nwt.modflow import ModflowPostprocessOptions
+
+
+class _DummyGeographic:
+    def __init__(self, dem: np.ndarray):
+        self.dem_res = 1.0
+        self.xmin = 0.0
+        self.ymax = float(dem.shape[0])
+        self.dem_box_buff_data = np.asarray(dem, dtype=float)
+        self.dem_data = np.asarray(dem, dtype=float)
+        self.watershed_box_buff_dem = "dummy_box.tif"
+        self.watershed_buff_dem = "dummy_buff.tif"
+
+
+class _DummyHeadFile:
+    def __init__(self, path: str):
+        self.path = path
+
+    def get_times(self) -> list[float]:
+        return [1.0]
+
+    def get_data(self, *, totim: float) -> np.ndarray:
+        del totim
+        return np.array([[[9.0, 8.5], [8.0, 7.5]]], dtype=float)
+
+
+class _DummyBudgetFile:
+    def __init__(self, path: str):
+        self.path = path
+
+    def get_data(self, *, kstpkper, text: str):
+        del kstpkper, text
+        raise ValueError("The specified text string is not in the budget file")
+
+
+class _DummyBudgetFileWithDrn:
+    def __init__(self, path: str):
+        self.path = path
+
+    def get_data(self, *, kstpkper, text: str):
+        del kstpkper
+        assert text == "DRN"
+        return [np.array([[1.0, -2.5], [4.0, 1.0]], dtype=float)]
+
+
+class _DummyBudgetFileUnexpectedValueError:
+    def __init__(self, path: str):
+        self.path = path
+
+    def get_data(self, *, kstpkper, text: str):
+        del kstpkper, text
+        raise ValueError("Corrupted DRN record payload")
+
+
+def _workspace_dir(case_name: str) -> Path:
+    work_dir = Path("tmp") / case_name
+    work_dir.mkdir(parents=True, exist_ok=True)
+    return work_dir
+
+
+def _build_model(work_dir: Path) -> Modflow6:
+    dem = np.array([[10.0, 10.0], [10.0, 10.0]], dtype=float)
+    geo = _DummyGeographic(dem)
+    model = Modflow6(geographic=geo, model_folder=str(work_dir), model_name="Demo")
+    model.full_path = str(work_dir / "Demo")
+    model.dem = dem
+    model.dem_mask = np.zeros((2, 2), dtype=bool)
+    model.dem_watershed_path = str(work_dir / "grid.tif")
+    model.nrow = 2
+    model.ncol = 2
+    return model
+
+
+def _patch_postprocess_runtime(monkeypatch, budget_file_cls: type[object]) -> None:
+    monkeypatch.setattr("hydromodpy.solver.modflow6.modflow6.bf.HeadFile", _DummyHeadFile)
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.bf.CellBudgetFile",
+        budget_file_cls,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.pp.get_water_table",
+        lambda head, nodata: np.asarray(head[0], dtype=float),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.solver.modflow6.modflow6.toolbox.export_tif",
+        lambda *args, **kwargs: None,
+    )
+
+
+def test_modflow6_post_processing_tolerates_missing_drn_budget(
+    monkeypatch,
+) -> None:
+    work_dir = _workspace_dir("mf6_postprocess_missing_drn")
+    model = _build_model(work_dir)
+    _patch_postprocess_runtime(monkeypatch, _DummyBudgetFile)
+
+    model.post_processing(ModflowPostprocessOptions())
+
+    save_dir = Path(model.full_path) / "_postprocess"
+    outflow = np.load(save_dir / "outflow_drain.npy", allow_pickle=True).item()
+    seepage = np.load(save_dir / "seepage_areas.npy", allow_pickle=True).item()
+    watertable = np.load(save_dir / "watertable_elevation.npy", allow_pickle=True).item()
+
+    assert np.allclose(outflow[0], 0.0)
+    assert np.allclose(seepage[0], 0.0)
+    assert np.allclose(watertable[0], np.array([[9.0, 8.5], [8.0, 7.5]], dtype=float))
+
+
+def test_modflow6_post_processing_reads_drn_budget_when_present(
+    monkeypatch,
+) -> None:
+    work_dir = _workspace_dir("mf6_postprocess_with_drn")
+    model = _build_model(work_dir)
+    _patch_postprocess_runtime(monkeypatch, _DummyBudgetFileWithDrn)
+
+    model.post_processing(ModflowPostprocessOptions())
+
+    save_dir = Path(model.full_path) / "_postprocess"
+    outflow = np.load(save_dir / "outflow_drain.npy", allow_pickle=True).item()
+    seepage = np.load(save_dir / "seepage_areas.npy", allow_pickle=True).item()
+
+    np.testing.assert_allclose(
+        outflow[0],
+        np.array([[2.5, 0.0], [0.0, 0.0]], dtype=float),
+    )
+    np.testing.assert_allclose(
+        seepage[0],
+        np.array([[1.0, 0.0], [0.0, 0.0]], dtype=float),
+    )
+
+
+def test_modflow6_post_processing_reraises_unexpected_budget_value_errors(
+    monkeypatch,
+) -> None:
+    work_dir = _workspace_dir("mf6_postprocess_unexpected_value_error")
+    model = _build_model(work_dir)
+    _patch_postprocess_runtime(monkeypatch, _DummyBudgetFileUnexpectedValueError)
+
+    with pytest.raises(ValueError, match="Corrupted DRN record payload"):
+        model.post_processing(ModflowPostprocessOptions())

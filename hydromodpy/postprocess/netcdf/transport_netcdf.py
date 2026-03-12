@@ -13,7 +13,7 @@ import rasterio as rio
 from rasterio.features import rasterize
 
 from hydromodpy.postprocess.netcdf.flow_netcdf import FlowNetcdfPostprocess
-from hydromodpy.tools import get_logger
+from hydromodpy.support.tools import get_logger
 
 logger = get_logger(__name__)
 

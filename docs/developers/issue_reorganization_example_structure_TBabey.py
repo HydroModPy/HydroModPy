@@ -34,10 +34,6 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 import flopy
 import imageio
 
-import whitebox
-wbt = whitebox.WhiteboxTools()
-wbt.verbose = False
-
 #%% ROOT
 
 from os.path import dirname, abspath
@@ -52,10 +48,12 @@ import importlib
 importlib.reload(src)
 
 # Import HydroModPy modules
-from hydromodpy.watershed_legacy import watershed_root_legacy
+from hydromodpy.backends import get_whitebox_backend
+from hydromodpy.legacy.watershed import watershed_root_legacy
 from src.display import visualization_watershed, visualization_results, export_vtuvtk
 from src.tools import toolbox, folder_root
 
+wbt = get_whitebox_backend()
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 
 #%% ---- PATHS
@@ -485,6 +483,7 @@ os.chdir(root_dir)
 #     forms=True, 
 #     residuals=False, 
 # )
+
 
 
 

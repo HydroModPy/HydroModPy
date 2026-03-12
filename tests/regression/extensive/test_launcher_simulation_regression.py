@@ -26,7 +26,7 @@ LAUNCHER_SIMULATION_DEFAULT_CONFIG = (
     REPO_ROOT
     / "examples"
     / "launcher_simulation"
-    / "config_standard.toml"
+    / "config_extensive.toml"
 )
 
 GOLDEN_REFERENCE_FILE = (
@@ -121,7 +121,7 @@ def _ensure_local_oceanic_seed_csv(csv_path: Path) -> None:
     [
         pytest.param(
             LAUNCHER_SIMULATION_DEFAULT_CONFIG,
-            id="config_standard",
+            id="config_extensive",
         ),
     ],
 )

@@ -7,7 +7,7 @@ import tomllib
 from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
-from hydromodpy.units import parse_length_to_m
+from hydromodpy.support.units import parse_length_to_m
 
 
 class PiezometrySectionSchema(BaseModel):

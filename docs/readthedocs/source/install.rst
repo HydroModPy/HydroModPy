@@ -187,10 +187,10 @@ Check the installation
 .. code-block:: python
 
    import hydromodpy
-   from hydromodpy.watershed_legacy import watershed_root_legacy
+   from hydromodpy.legacy.watershed import watershed_root_legacy
    # Examples of submodule imports
    from hydromodpy.display import visualization_watershed, visualization_results
-   from hydromodpy.tools import toolbox
+   from hydromodpy.support.tools import toolbox
 
    font_sizes = toolbox.plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
    print(hydromodpy.__version__)
@@ -224,5 +224,6 @@ older interpreters.
    Known ``pyproj`` / ``proj.db`` issues observed in earlier releases were fixed
    from v0.3.0 onward. Upgrade to this version (or newer) to avoid the missing
    database errors that appeared on some conda setups.
+
 
 

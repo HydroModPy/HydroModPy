@@ -1,4 +1,4 @@
-"""Comparison workflow for the steady circular-island ocean validation case."""
+﻿"""Comparison workflow for the steady circular-island ocean validation case."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.geographic_synthethic import SyntheticGridConfig, SyntheticTopographyConfig
-from hydromodpy.geographic_synthethic.topography import build_topography_values
+from hydromodpy.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
+from hydromodpy.geographic.synthetic.topography import build_topography_values
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
@@ -138,7 +138,7 @@ def build_dupuit_circular_island_ocean_comparison(
 ) -> DupuitCircularIslandOceanComparison:
     """Load one completed run and compare it to the radial Dupuit profile."""
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
-    case_tolerances = load_case_tolerances(CASE_DIR) if tolerances is None else tolerances
+    case_tolerances = load_case_tolerances(CASE_DIR, solver=solver) if tolerances is None else tolerances
 
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
@@ -206,17 +206,22 @@ def run_dupuit_circular_island_ocean_comparison(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    solver: str | None = None,
 ) -> DupuitCircularIslandOceanComparison:
     """Run the launcher case and return the full comparison payload."""
     metadata = load_case_metadata(CASE_DIR)
-    tolerances = load_case_tolerances(CASE_DIR)
+    tolerances = load_case_tolerances(CASE_DIR, solver=solver)
     result = run_launcher_validation_case(
         case_dir=CASE_DIR,
         test_file=caller_file,
         timeout=timeout,
+        solver=solver,
     )
     return build_dupuit_circular_island_ocean_comparison(
         result=result,
         metadata=metadata,
         tolerances=tolerances,
     )
+
+
+

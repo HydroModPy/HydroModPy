@@ -3,7 +3,6 @@ title Spatial Support - Class Diagram
 
 package "hydromodpy.domain.domain_config" {
   class DomainConfig {
-    +support_mode: none | geology | zones
     +zone_ids: list[str]
     +supports: dict[str, DomainSupportConfig]
   }
