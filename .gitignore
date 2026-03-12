@@ -121,6 +121,8 @@ codex_pytest_tmp*/
 scratch_probe*/
 tmp*/
 pytest_tmp_local/
+.codex_test_durations.xml
+.codex_test_durations_sorted.csv
 *.tmp
 *.prof
 *.bak
