@@ -22,7 +22,12 @@ from hydromodpy.hydrology.synthetic.forcing import build_hydrological_step_serie
 from hydromodpy.simulation.forcing.recharge_chronicle_config import (
     validate_recharge_chronicle_section,
 )
-from hydromodpy.support.units import factor_to_m_per_s, normalize_time_unit, parse_scalar_and_unit
+from hydromodpy.support.units import (
+    convert_payload_to_m_per_s,
+    factor_to_m_per_s,
+    normalize_time_unit,
+    parse_scalar_and_unit,
+)
 
 
 RechargeChronicleMode = Literal["observed_csv", "synthetic_generated", "synthetic_csv"]
@@ -39,6 +44,8 @@ class ObservedRechargeChronicleRequest:
     last_year: int
     time_step: str
     sim_state: str
+    units: str
+    runoff_units: str
 
 
 @dataclass(frozen=True)
@@ -77,14 +84,10 @@ def _resolve_config_path(
 
 def _to_m_per_s(series: pd.Series, *, units: object, label: str) -> pd.Series:
     """Normalize recharge/runoff units to m/s."""
-    try:
-        factor = factor_to_m_per_s(units)
-    except ValueError as exc:
-        raise ValueError(
-            f"{label} units must be compatible with m/s (for example mm/day, m/day, m/s). "
-            f"Got: {units!r}"
-        ) from exc
-    return series.astype(float) * float(factor)
+    converted = convert_payload_to_m_per_s(series, unit=str(units), label=label)
+    if not isinstance(converted, pd.Series):
+        raise TypeError(f"{label} must resolve to a pandas Series.")
+    return converted
 
 
 def _normalize_recharge_mode(raw_toml: Mapping[str, Any]) -> RechargeChronicleMode | None:
@@ -518,6 +521,8 @@ def _build_observed_request(
         last_year = int(simulation_window.end.year)
         time_step = simulation_time_pandas_frequency(simulation_window, anchor="start")
     sim_state = str(cfg.get("sim_state", default_sim_state))
+    units = str(cfg["units"])
+    runoff_units = str(cfg.get("runoff_units", units))
 
     return ObservedRechargeChronicleRequest(
         path_file=path_file,
@@ -527,6 +532,8 @@ def _build_observed_request(
         last_year=last_year,
         time_step=time_step,
         sim_state=sim_state,
+        units=units,
+        runoff_units=runoff_units,
     )
 
 

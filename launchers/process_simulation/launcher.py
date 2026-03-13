@@ -83,6 +83,7 @@ from hydromodpy.simulation.time import (
     resolve_simulation_time_window,
     validate_recharge_coverage,
 )
+from hydromodpy.support.units import convert_payload_to_m_per_s
 from launchers.output_paths import (
     build_repo_output_redirect_notice,
     resolve_launcher_output_root,
@@ -592,6 +593,18 @@ class HydroModPyLauncher:
                         simulation_window=window,
                         label="observed runoff",
                     )
+            if climatic.recharge is not None:
+                climatic.recharge = convert_payload_to_m_per_s(
+                    climatic.recharge,
+                    unit=observed.units,
+                    label="observed recharge",
+                )
+            if climatic.runoff is not None:
+                climatic.runoff = convert_payload_to_m_per_s(
+                    climatic.runoff,
+                    unit=observed.runoff_units,
+                    label="observed runoff",
+                )
             validate_recharge_coverage(
                 climatic.recharge,
                 window,

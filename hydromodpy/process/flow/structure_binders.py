@@ -10,6 +10,11 @@ from hydromodpy.process.flow.sinks_sources import FlowSinksSourcesConfig
 from hydromodpy.process.flow.time_forcing import (
     resolve_period_values_from_forcing,
 )
+from hydromodpy.support.units import convert_payload_to_m, normalize_length_unit
+from hydromodpy.support.units.volumetric_flow import (
+    convert_to_m3_per_s,
+    normalize_m3_per_s_unit,
+)
 from hydromodpy.simulation.time import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
@@ -92,9 +97,20 @@ def apply_simulation_time_to_flow_wells(
             nper=len(build_simulation_time_boundaries(simulation_window)) - 1,
             label=label,
         )
+        source_units = normalize_m3_per_s_unit(
+            str(getattr(forcing, "units", None) or getattr(well_cfg, "units", "m3/s"))
+        )
+        flux_si = [
+            convert_to_m3_per_s(
+                value,
+                unit=source_units,
+                label=f"{label}[{idx}]",
+            )
+            for idx, value in enumerate(resolved_flux)
+        ]
 
         updated_wells[well_id] = well_cfg.model_copy(
-            update={"flux": resolved_flux, "forcing": None}
+            update={"flux": flux_si, "forcing": None, "units": "m3/s"}
         )
         changed = True
 
@@ -137,9 +153,21 @@ def apply_simulation_time_to_flow_boundary_conditions(
             nper=len(build_simulation_time_boundaries(simulation_window)) - 1,
             label=label,
         )
+        updated_units = getattr(boundary_cfg, "units", "m")
+        boundary_type = str(getattr(boundary_cfg, "type", "dirichlet")).strip().lower()
+        if boundary_type == "dirichlet":
+            source_units = normalize_length_unit(
+                str(getattr(forcing, "units", None) or updated_units or "m")
+            )
+            resolved_values = convert_payload_to_m(
+                resolved_values,
+                unit=source_units,
+                label=f"{label}.values",
+            )
+            updated_units = "m"
 
         updated_boundaries[bc_id] = boundary_cfg.model_copy(
-            update={"value": resolved_values, "forcing": None}
+            update={"value": resolved_values, "forcing": None, "units": updated_units}
         )
         changed = True
 

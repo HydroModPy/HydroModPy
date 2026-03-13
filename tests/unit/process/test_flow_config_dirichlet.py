@@ -102,7 +102,7 @@ def test_boundary_value_accepts_inline_unit() -> None:
             "bc": {
                 "cauchy": {
                     "drainage": {
-                        "value": "1e-6 m2/s",
+                        "value": "10 cm2/day",
                         "application_domain": "top",
                     }
                 }
@@ -111,7 +111,7 @@ def test_boundary_value_accepts_inline_unit() -> None:
     )
 
     drainage = cfg.bc["drainage"]
-    assert drainage["value"] == pytest.approx(1e-6)
+    assert drainage["value"] == pytest.approx(1.0e-3 / 86400.0)
     assert drainage["units"] == "m2/s"
 
 
@@ -152,6 +152,63 @@ def test_dirichlet_side_forcing_constant_is_accepted_without_value() -> None:
     assert west_side["units"] == "m"
     assert west_side["forcing"]["mode"] == "constant"
     assert west_side["forcing"]["value"] == pytest.approx(99.0)
+    assert west_side["forcing"]["units"] == "m"
+
+
+def test_dirichlet_value_is_converted_to_meters() -> None:
+    cfg = _build_flow_config(
+        {
+            "bc": {
+                "dirichlet": {
+                    "west_side": {
+                        "value": "100 cm",
+                    }
+                }
+            }
+        }
+    )
+
+    west_side = cfg.bc["west_side"]
+    assert west_side["value"] == pytest.approx(1.0)
+    assert west_side["units"] == "m"
+
+
+def test_dirichlet_side_forcing_preserves_normalized_source_unit() -> None:
+    cfg = _build_flow_config(
+        {
+            "bc": {
+                "dirichlet": {
+                    "west_side": {
+                        "unit": "centimeter",
+                        "forcing": {
+                            "mode": "constant",
+                            "value": 120.0,
+                        },
+                    }
+                }
+            }
+        }
+    )
+
+    west_side = cfg.bc["west_side"]
+    assert west_side["value"] is None
+    assert west_side["units"] == "m"
+    assert west_side["forcing"]["units"] == "cm"
+
+
+def test_boundary_value_rejects_unknown_units() -> None:
+    with pytest.raises(ValueError, match="Unsupported length unit"):
+        _build_flow_config(
+            {
+                "bc": {
+                    "dirichlet": {
+                        "ocean": {
+                            "value": "1.0 furlong",
+                        }
+                    }
+                }
+            }
+        )
 
 
 def test_dirichlet_side_forcing_csv_resolves_relative_path(tmp_path: Path) -> None:

@@ -110,13 +110,13 @@ def test_recharge_transient_mapping_returned_as_dict():
 
 
 def test_recharge_scalar_broadcast_to_all_periods():
-    cfg = FlowRechargeConfig(values=0.001)
+    cfg = FlowRechargeConfig(values=0.001, units="mm/day")
     adapter = _make_adapter(cfg, "transient", nper=3)
 
     rch_data, evt_spd = adapter._build_recharge_payload()
 
     assert evt_spd is None
-    assert all(rch_data[k] == pytest.approx(0.001) for k in range(3))
+    assert all(rch_data[k] == pytest.approx(1.0e-6 / 86400.0) for k in range(3))
 
 
 def test_recharge_none_gives_none_payload():
@@ -434,7 +434,7 @@ def test_boundary_forcing_constant_is_resolved_in_adapter_without_runtime_bindin
     west_bc = FlowBoundaryConditionConfig(
         id="west_side",
         type="dirichlet",
-        units="m",
+        units="cm",
         application_domain="west side",
         forcing={"mode": "constant", "value": 5.0},
     )
@@ -444,10 +444,10 @@ def test_boundary_forcing_constant_is_resolved_in_adapter_without_runtime_bindin
     chd_spd = adapter._build_side_chd()
 
     assert np.all(ibound[:, :, 0] == 1.0)
-    assert np.all(strt[:, :, 0] == 5.0)
+    assert np.all(strt[:, :, 0] == 0.05)
     assert chd_spd == {
-        0: [[0, 0, 0, 5.0, 5.0], [0, 1, 0, 5.0, 5.0], [0, 2, 0, 5.0, 5.0]],
-        1: [[0, 0, 0, 5.0, 5.0], [0, 1, 0, 5.0, 5.0], [0, 2, 0, 5.0, 5.0]],
+        0: [[0, 0, 0, 0.05, 0.05], [0, 1, 0, 0.05, 0.05], [0, 2, 0, 0.05, 0.05]],
+        1: [[0, 0, 0, 0.05, 0.05], [0, 1, 0, 0.05, 0.05], [0, 2, 0, 0.05, 0.05]],
     }
 
 

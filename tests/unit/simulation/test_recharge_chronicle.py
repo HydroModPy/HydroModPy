@@ -125,6 +125,7 @@ def test_recharge_chronicle_payload_builds_observed_request(tmp_path: Path) -> N
                 "first_year": 2001,
                 "last_year": 2002,
                 "time_step": "ME",
+                "units": "mm/day",
             },
         }
     }
@@ -143,12 +144,34 @@ def test_recharge_chronicle_payload_builds_observed_request(tmp_path: Path) -> N
     assert payload.observed.first_year == 2001
     assert payload.observed.last_year == 2002
     assert payload.observed.sim_state == "transient"
+    assert payload.observed.units == "mm/day"
+    assert payload.observed.runoff_units == "mm/day"
 
 
 def test_recharge_chronicle_payload_rejects_invalid_mode(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="recharge_chronicle.mode must be one of"):
         build_recharge_chronicle_payload(
             {"recharge_chronicle": {"mode": "unknown_mode"}},
+            config_path=tmp_path / "launcher.toml",
+            default_observed_path=tmp_path / "default.csv",
+            default_sim_state="transient",
+        )
+
+
+def test_recharge_chronicle_payload_requires_observed_units(tmp_path: Path) -> None:
+    with pytest.raises(
+        ValueError,
+        match="recharge_chronicle.observed_csv.units is required",
+    ):
+        build_recharge_chronicle_payload(
+            {
+                "recharge_chronicle": {
+                    "mode": "observed_csv",
+                    "observed_csv": {
+                        "path_file": "inputs/reanalysis.csv",
+                    },
+                }
+            },
             config_path=tmp_path / "launcher.toml",
             default_observed_path=tmp_path / "default.csv",
             default_sim_state="transient",
@@ -322,6 +345,7 @@ def test_recharge_chronicle_observed_request_uses_simulation_window_time_grid(
                 "first_year": 1980,
                 "last_year": 1985,
                 "time_step": "ME",
+                "units": "mm/day",
             },
         }
     }
@@ -346,3 +370,30 @@ def test_recharge_chronicle_observed_request_uses_simulation_window_time_grid(
     assert payload.observed.first_year == 2020
     assert payload.observed.last_year == 2020
     assert payload.observed.time_step == "10D"
+    assert payload.observed.units == "mm/day"
+    assert payload.observed.runoff_units == "mm/day"
+
+
+def test_recharge_chronicle_observed_request_normalizes_explicit_units(tmp_path: Path) -> None:
+    raw_toml = {
+        "recharge_chronicle": {
+            "mode": "observed_csv",
+            "observed_csv": {
+                "path_file": "inputs/reanalysis.csv",
+                "units": "m/day",
+                "runoff_units": "cm/day",
+            },
+        }
+    }
+
+    payload = build_recharge_chronicle_payload(
+        raw_toml,
+        config_path=tmp_path / "launcher.toml",
+        default_observed_path=tmp_path / "default.csv",
+        default_sim_state="transient",
+    )
+
+    assert payload is not None
+    assert payload.observed is not None
+    assert payload.observed.units == "m/day"
+    assert payload.observed.runoff_units == "cm/day"
