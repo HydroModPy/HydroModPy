@@ -27,7 +27,7 @@ def test_launcher_simulation_uses_default_config_when_no_argument(monkeypatch) -
 
     module.main([])
 
-    expected = (Path(module.__file__).resolve().parent / "config_extensive.toml").resolve()
+    expected = (Path(module.__file__).resolve().parent / "config_extensive_nwt.toml").resolve()
     assert captured["config_path"] == expected
     assert captured["run_called"] is True
 
@@ -36,7 +36,7 @@ def test_launcher_simulation_accepts_config_from_cli(monkeypatch) -> None:
     module = _load_module()
     captured: dict[str, object] = {}
 
-    custom_config = Path(module.__file__).resolve().parent / "config_normal_6.toml"
+    custom_config = Path(module.__file__).resolve().parent / "config_fast_mf6.toml"
 
     class DummyLauncher:
         def __init__(self, config_path: Path) -> None:
@@ -58,5 +58,5 @@ def test_launcher_simulation_reports_legacy_config_rename() -> None:
 
     legacy_config = Path(module.__file__).resolve().parent / "config_standard.toml"
 
-    with pytest.raises(FileNotFoundError, match="config_extensive.toml"):
+    with pytest.raises(FileNotFoundError, match="config_extensive_nwt.toml"):
         module.main([str(legacy_config)])

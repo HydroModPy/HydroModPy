@@ -30,6 +30,26 @@ class Modflow6RuntimeConfig(BaseModel):
         default=False,
         description="Enable verbose FloPy logging for MODFLOW 6 setup and execution.",
     )
+    mf6_outer_dvclose: Annotated[float, ParamLevel("expert")] = Field(
+        default=1e-4,
+        gt=0.0,
+        description="IMS outer-iteration head-change convergence criterion.",
+    )
+    mf6_inner_dvclose: Annotated[float, ParamLevel("expert")] = Field(
+        default=1e-4,
+        gt=0.0,
+        description="IMS inner-iteration head-change convergence criterion.",
+    )
+    mf6_outer_maximum: Annotated[int, ParamLevel("expert")] = Field(
+        default=500,
+        ge=1,
+        description="Maximum number of IMS outer iterations.",
+    )
+    mf6_inner_maximum: Annotated[int, ParamLevel("expert")] = Field(
+        default=500,
+        ge=1,
+        description="Maximum number of IMS inner iterations.",
+    )
 
 
 class Modflow6ProcessSpecificConfig(BaseModel):
@@ -90,6 +110,10 @@ class Modflow6RuntimeParams:
     mf6_executable_name: str = "mf6"
     mf6_ims_complexity: str = "COMPLEX"
     mf_verbose: bool = False
+    mf6_outer_dvclose: float = 1e-4
+    mf6_inner_dvclose: float = 1e-4
+    mf6_outer_maximum: int = 500
+    mf6_inner_maximum: int = 500
 
 
 @dataclass(frozen=True)

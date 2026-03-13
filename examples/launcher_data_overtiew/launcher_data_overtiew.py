@@ -28,15 +28,27 @@ from hydromodpy.display import visualization_watershed
 from hydromodpy.domain import Domain
 from hydromodpy.domain.structure_binders import apply_geology_to_domain
 from hydromodpy.simulation.state.run_state import LauncherRunState
+from launchers.output_paths import (
+    build_repo_output_redirect_notice,
+    resolve_launcher_output_root,
+)
 
 
 def _build_run_state(config_path: Path) -> LauncherRunState:
     # 1) Parse and validate TOML into the canonical HydroModPy config object.
     cfg = HydroModPyConfig.from_toml(config_path)
 
-    # Optional output override for test runs and CI.
-    if out_override := os.environ.get("HYDROMODPY_OUT_PATH"):
-        cfg.workspace.out_dir_path = Path(out_override)
+    resolved_out_dir, resolution = resolve_launcher_output_root(
+        cfg.workspace.out_dir_path,
+    )
+    cfg.workspace.out_dir_path = resolved_out_dir
+    if resolution == "repo_redirect":
+        print(
+            build_repo_output_redirect_notice(
+                entrypoint_name="launcher_data_overtiew",
+                resolved_out_dir=resolved_out_dir,
+            )
+        )
 
     # Keep raw TOML for planner diagnostics and compatibility checks.
     with config_path.open("rb") as stream:

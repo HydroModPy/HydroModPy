@@ -15,12 +15,16 @@ Usage (hmp and hydromodpy are interchangeable):
     hmp test unit
     hmp test regression
     hmp test regression --fast
-    hmp test regression --slow
-    hmp test regression --normal
     hmp test regression --extensive
+    hmp test regression --slow
+    hmp test regression --nwt
+    hmp test regression --mf6
+    hmp test regression --normal
     hmp test regression --list
-    hmp test regression launcher_simulation_normal --normal
-    hmp test regression launcher_simulation --extensive
+    hmp test regression launcher_simulation_fast_nwt --fast --nwt
+    hmp test regression launcher_simulation_fast_mf6 --fast --mf6
+    hmp test regression launcher_simulation_extensive_nwt --extensive --nwt
+    hmp test regression launcher_simulation_extensive_mf6 --extensive --mf6
     hmp test regression --update-goldens
 """
 
@@ -56,18 +60,17 @@ _RE_REGRESSION = re.compile(
     r"\.py$"
 )
 
-_REGRESSION_TIERS = ("normal", "extensive")
+_REGRESSION_TIERS = ("fast", "extensive")
 
 
-def _selected_tiers(normal: bool, extensive: bool) -> list[str]:
+def _selected_tiers(normal: bool, extensive: bool, fast: bool) -> list[str]:
     """Return regression tiers requested from CLI flags."""
-    if normal and extensive:
-        return ["normal", "extensive"]
-    if normal:
-        return ["normal"]
+    tiers: list[str] = []
+    if normal or fast:
+        tiers.append("fast")
     if extensive:
-        return ["extensive"]
-    return ["normal", "extensive"]
+        tiers.append("extensive")
+    return tiers or ["fast", "extensive"]
 
 
 def _append_marker_filter(
@@ -76,21 +79,29 @@ def _append_marker_filter(
     extensive: bool,
     fast: bool,
     slow: bool,
+    nwt: bool,
+    mf6: bool,
 ) -> None:
     """Append pytest marker filters from CLI flags."""
-    if fast and slow:
+    if (normal or fast) and slow:
         print("Cannot use --fast and --slow together.", file=sys.stderr)
+        sys.exit(2)
+    if nwt and mf6:
+        print("Cannot use --nwt and --mf6 together.", file=sys.stderr)
         sys.exit(2)
 
     markers: list[str] = []
-    if normal and not extensive:
-        markers.append("normal")
-    elif extensive and not normal:
-        markers.append("extensive")
-    if fast:
+    selected_tiers = _selected_tiers(normal, extensive, fast)
+    if selected_tiers == ["fast"]:
         markers.append("fast")
+    elif selected_tiers == ["extensive"]:
+        markers.append("extensive")
     if slow:
         markers.append("slow")
+    if nwt:
+        markers.append("nwt")
+    if mf6:
+        markers.append("mf6")
 
     if markers:
         pytest_args.extend(["-m", " and ".join(markers)])
@@ -125,11 +136,12 @@ def _list_regression_tests(
     *,
     normal: bool = False,
     extensive: bool = False,
+    fast: bool = False,
 ) -> None:
     """Print available regression test names."""
     tests = _discover_regression_tests(
         regression_dir,
-        selected_tiers=_selected_tiers(normal, extensive),
+        selected_tiers=_selected_tiers(normal, extensive, fast),
     )
     if not tests:
         print("No regression tests found.", file=sys.stderr)
@@ -204,9 +216,10 @@ def _append_regression_directory_selection(
     regression_dir: Path,
     normal: bool,
     extensive: bool,
+    fast: bool,
 ) -> None:
     """Append one or more regression tier directories to pytest selection."""
-    tiers = _selected_tiers(normal, extensive)
+    tiers = _selected_tiers(normal, extensive, fast)
     selected = False
 
     for tier in tiers:
@@ -304,7 +317,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
     """Run tests via pytest."""
     root = _find_project_root()
     pytest_args = ["pytest", "-v"]
-    tiers = _selected_tiers(args.normal, args.extensive)
+    tiers = _selected_tiers(args.normal, args.extensive, args.fast)
 
     if args.suite == "unit":
         pytest_args.append(str(root / "tests" / "unit"))
@@ -317,6 +330,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
                 regression_dir,
                 normal=args.normal,
                 extensive=args.extensive,
+                fast=args.fast,
             )
             return
         if args.name is not None:
@@ -333,6 +347,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
                 regression_dir=regression_dir,
                 normal=args.normal,
                 extensive=args.extensive,
+                fast=args.fast,
             )
 
         _append_marker_filter(
@@ -341,6 +356,8 @@ def _cmd_test(args: argparse.Namespace) -> None:
             extensive=args.extensive,
             fast=args.fast,
             slow=args.slow,
+            nwt=args.nwt,
+            mf6=args.mf6,
         )
 
         if args.update_goldens:
@@ -436,7 +453,7 @@ def main() -> None:
         nargs="?",
         help=(
             "Regression test name "
-            "(e.g. launcher_simulation_normal, launcher_simulation). "
+            "(e.g. launcher_simulation_fast_nwt, launcher_simulation_extensive_mf6). "
             "Use --list to see available."
         ),
     )
@@ -448,7 +465,7 @@ def main() -> None:
     test_parser.add_argument(
         "--fast",
         action="store_true",
-        help="Only run fast regression tests",
+        help="Only run fast-tier regression tests",
     )
     test_parser.add_argument(
         "--slow",
@@ -458,12 +475,22 @@ def main() -> None:
     test_parser.add_argument(
         "--normal",
         action="store_true",
-        help="Only run normal regression tests",
+        help="Deprecated alias for --fast",
     )
     test_parser.add_argument(
         "--extensive",
         action="store_true",
         help="Only run extensive regression tests",
+    )
+    test_parser.add_argument(
+        "--nwt",
+        action="store_true",
+        help="Only run MODFLOW-NWT / MODPATH / MT3DMS regression tests",
+    )
+    test_parser.add_argument(
+        "--mf6",
+        action="store_true",
+        help="Only run MODFLOW 6 / GWT regression tests",
     )
     test_parser.add_argument(
         "--short",

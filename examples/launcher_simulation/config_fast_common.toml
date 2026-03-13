@@ -1,0 +1,37 @@
+base_config = "config_common.toml"
+
+[simulation]
+name = "Example 12 launcher fast"
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-03-31 00:00:00"
+step_value = "30 day"
+coverage_policy = "warn"
+
+[flow.sinks_sources.wells.W1.forcing]
+path_file = "data/wells/normal_wells_2003.csv"
+
+[flow.sinks_sources.wells.W2]
+x_rel = 0.33
+y_rel = 0.33
+
+[flow.sinks_sources.wells.W2.forcing]
+path_file = "data/wells/normal_wells_2003.csv"
+
+[recharge_chronicle]
+mode = "synthetic_generated"
+
+[recharge_chronicle.synthetic_generated]
+generator = "seasonal_step"
+generation_step = "30 day"
+units = "mm/day"
+runoff_ratio = 0.1
+
+[recharge_chronicle.synthetic_generated.seasonal_step]
+wet_months = [1, 2, 3, 4, 11, 12]
+wet_value = "2.0 mm/day"
+dry_value = "0.0 mm/day"
+
+[display]
+show = false
