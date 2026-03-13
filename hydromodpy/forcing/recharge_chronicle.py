@@ -19,7 +19,7 @@ from hydromodpy.simulation.time import (
     simulation_time_pandas_frequency,
 )
 from hydromodpy.hydrology.synthetic.forcing import build_hydrological_step_series
-from hydromodpy.simulation.forcing.recharge_chronicle_config import (
+from hydromodpy.forcing.recharge_chronicle_config import (
     validate_recharge_chronicle_section,
 )
 from hydromodpy.support.units import factor_to_m_per_s, normalize_time_unit, parse_scalar_and_unit

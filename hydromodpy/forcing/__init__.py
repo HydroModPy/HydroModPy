@@ -5,10 +5,16 @@ process objects (Flow, Transport) that consume forcing payloads.
 It handles unit conversion, temporal alignment, and aggregation modes.
 """
 
-from hydromodpy.forcing.recharge_bridge import (
-    build_recharge_series,
-    build_runoff_series,
+from hydromodpy.forcing.forcing_bridge import (
+    ResolvedForcing,
+    _MM_PER_DAY_TO_M_PER_S,
+    build_forcing_series,
+    extract_homogeneous_series,
+    extract_homogeneous_series_from_fields,
+    has_located_points,
+    resolve_forcing,
 )
+
 from hydromodpy.forcing.recharge_chronicle import (
     ObservedRechargeChronicleRequest,
     RechargeChroniclePayload,
@@ -17,10 +23,15 @@ from hydromodpy.forcing.recharge_chronicle import (
 )
 
 __all__ = [
+    "ResolvedForcing",
+    "_MM_PER_DAY_TO_M_PER_S",
+    "build_forcing_series",
+    "extract_homogeneous_series",
+    "extract_homogeneous_series_from_fields",
+    "has_located_points",
+    "resolve_forcing",
     "ObservedRechargeChronicleRequest",
     "RechargeChroniclePayload",
     "align_forcing_series_to_simulation_window",
     "build_recharge_chronicle_payload",
-    "build_recharge_series",
-    "build_runoff_series",
 ]
