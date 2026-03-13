@@ -113,6 +113,45 @@ if TYPE_CHECKING:
     from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
 
 
+def _discretize_heterogeneous_source(
+    het_source: object,
+    *,
+    sgrid: object,
+    nper: int,
+    simulation_window: object,
+    method: str = "nearest",
+) -> dict[int, np.ndarray]:
+    """Dispatch heterogeneous discretization for fields or located points."""
+    from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
+        discretize_fields_on_sgrid,
+        discretize_points_on_sgrid,
+    )
+
+    # Prefer fields when available.
+    if getattr(het_source, "has_fields", False):
+        return discretize_fields_on_sgrid(
+            load_result=het_source,
+            sgrid=sgrid,
+            nper=nper,
+            simulation_window=simulation_window,
+            method=method,
+        )
+
+    # Fall back to located points.
+    if getattr(het_source, "has_points", False):
+        return discretize_points_on_sgrid(
+            load_result=het_source,
+            sgrid=sgrid,
+            nper=nper,
+            simulation_window=simulation_window,
+            method=method,
+        )
+
+    nrow = int(getattr(sgrid, "nrow"))
+    ncol = int(getattr(sgrid, "ncol"))
+    return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
+
+
 @dataclass(slots=True)
 class FlowModflowInputs:
     """
@@ -922,6 +961,9 @@ class FlowToModflowAdapter:
         """
         Build RCH and EVT payloads from ``flow.sinks_sources["recharge"]``.
 
+        Supports both homogeneous (scalar/series) and heterogeneous (2-D
+        per-cell arrays from :class:`LoadResult` FieldRecords) recharge.
+
         Returns
         -------
         tuple[rch_data, evt_spd]
@@ -937,10 +979,106 @@ class FlowToModflowAdapter:
         if recharge_cfg is None:
             return None, None
 
+        # Heterogeneous path: gridded FieldRecords from data managers.
+        het_source = getattr(recharge_cfg, "heterogeneous_source", None)
+        if het_source is not None and getattr(het_source, "has_fields", False):
+            return self._build_heterogeneous_recharge_payload(recharge_cfg)
+
+        # Homogeneous path (existing behavior).
         recharge_payload = self._copy_payload(recharge_cfg.values)
         recharge_payload, evt_spd = self._extract_evt_payload(recharge_payload, recharge_cfg.negative_to_evt)
         rch_data = self._assemble_rch_data(recharge_payload, recharge_cfg.first_clim, self._resolve_flow_regime())
         return rch_data, evt_spd
+
+    def _build_heterogeneous_recharge_payload(
+        self, recharge_cfg: object,
+    ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
+        """Discretize gridded FieldRecords onto the MODFLOW grid.
+
+        Returns ``(rch_data, evt_spd)`` where ``rch_data`` is
+        ``{kper: ndarray(nrow, ncol)}`` in solver time units.
+        """
+        het_source = recharge_cfg.heterogeneous_source
+        interp_method = getattr(recharge_cfg, "interpolation_method", "nearest")
+        raw_arrays = _discretize_heterogeneous_source(
+            het_source,
+            sgrid=self.sgrid,
+            nper=self.nper,
+            simulation_window=self.simulation_window,
+            method=interp_method,
+        )
+
+        # Apply first_clim policy.
+        rch_data = self._apply_first_clim_2d(
+            raw_arrays,
+            getattr(recharge_cfg, "first_clim", "mean"),
+            self._resolve_flow_regime(),
+        )
+
+        # Element-wise EVT routing for negative cells.
+        rch_data, evt_spd = self._extract_evt_payload_2d(
+            rch_data,
+            getattr(recharge_cfg, "negative_to_evt", True),
+        )
+
+        return rch_data, evt_spd
+
+    def _apply_first_clim_2d(
+        self,
+        raw_arrays: dict[int, np.ndarray],
+        first_clim: object,
+        flow_regime: str,
+    ) -> dict[int, np.ndarray]:
+        """Apply ``first_clim`` policy to period 0 of 2-D recharge arrays."""
+        if flow_regime == "steady" or self.nper <= 1:
+            if raw_arrays:
+                all_vals = np.stack(list(raw_arrays.values()), axis=0)
+                mean_arr = np.nanmean(all_vals, axis=0)
+            else:
+                mean_arr = np.zeros((self.nrow, self.ncol), dtype=float)
+            return {0: mean_arr}
+
+        result = dict(raw_arrays)
+        if 0 not in result:
+            return result
+
+        if first_clim == "mean" and len(raw_arrays) > 0:
+            all_vals = np.stack(list(raw_arrays.values()), axis=0)
+            result[0] = np.nanmean(all_vals, axis=0)
+        elif first_clim == "first":
+            pass  # Keep period 0 as-is.
+        elif self._is_scalar_number(first_clim):
+            result[0] = np.full((self.nrow, self.ncol), float(first_clim), dtype=float)
+
+        return result
+
+    def _extract_evt_payload_2d(
+        self,
+        rch_data: dict[int, np.ndarray],
+        negative_to_evt: bool,
+    ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
+        """Element-wise EVT routing for 2-D recharge arrays.
+
+        Negative cell values are moved to EVT; RCH cells clipped to 0.
+        Period 0 EVT is always zero (warm-up convention).
+        """
+        if not negative_to_evt:
+            return rch_data, None
+
+        has_negative = any(np.any(arr < 0) for arr in rch_data.values())
+        if not has_negative:
+            return rch_data, None
+
+        evt_data: dict[int, np.ndarray] = {}
+        clipped_rch: dict[int, np.ndarray] = {}
+        for kper, arr in rch_data.items():
+            if kper == 0:
+                evt_data[kper] = np.zeros_like(arr)
+            else:
+                evt_data[kper] = np.abs(np.minimum(arr, 0.0))
+            clipped_rch[kper] = np.maximum(arr, 0.0)
+
+        return clipped_rch, evt_data
 
     def _extract_evt_payload(
         self, payload: object, negative_to_evt: bool
