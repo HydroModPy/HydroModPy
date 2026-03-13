@@ -1,0 +1,4 @@
+id,x,y,crs,name,unit
+RECH01,-1.685,48.128,EPSG:4326,Station Recharge Nord,mm/day
+RECH02,-1.672,48.121,EPSG:4326,Station Recharge Sud,mm/day
+RECH03,-1.678,48.130,EPSG:4326,Station Recharge Centre,mm/day
