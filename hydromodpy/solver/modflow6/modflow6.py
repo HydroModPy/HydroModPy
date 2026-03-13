@@ -588,6 +588,12 @@ class Modflow6(Solver):
 				self.first_clim = "mean"
 			return
 
+		# Heterogeneous path: gridded FieldRecords from data managers.
+		het_source = getattr(recharge_cfg, "heterogeneous_source", None)
+		if het_source is not None and getattr(het_source, "has_fields", False):
+			self._bind_heterogeneous_recharge(recharge_cfg)
+			return
+
 		payload = self._copy_runtime_payload(getattr(recharge_cfg, "values", 0.0))
 		payload = self._sanitize_numeric_payload(payload)
 		if bool(getattr(recharge_cfg, "negative_to_evt", False)) and self._payload_has_negative_values(payload):
@@ -602,6 +608,76 @@ class Modflow6(Solver):
 			"first_clim",
 			self.first_clim if self.first_clim is not None else "mean",
 		)
+
+	def _bind_heterogeneous_recharge(self, recharge_cfg: object) -> None:
+		"""Store heterogeneous source for deferred discretization.
+
+		The actual discretization is performed in
+		:meth:`_resolve_deferred_heterogeneous_recharge` after the
+		structured grid is built.
+		"""
+		self._heterogeneous_recharge_source = recharge_cfg.heterogeneous_source
+		self._heterogeneous_negative_to_evt = bool(
+			getattr(recharge_cfg, "negative_to_evt", False)
+		)
+		self._heterogeneous_interpolation_method = getattr(
+			recharge_cfg, "interpolation_method", "nearest"
+		)
+		self.recharge = 0.0  # placeholder; replaced after sgrid construction
+		self.first_clim = getattr(
+			recharge_cfg,
+			"first_clim",
+			self.first_clim if self.first_clim is not None else "mean",
+		)
+
+	def _resolve_deferred_heterogeneous_recharge(self) -> None:
+		"""Discretize stored heterogeneous recharge after sgrid is available."""
+		het_source = getattr(self, "_heterogeneous_recharge_source", None)
+		if het_source is None:
+			return
+
+		from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
+			discretize_fields_on_sgrid,
+			discretize_points_on_sgrid,
+		)
+
+		sim_window = self.time_grid.window if self.time_grid is not None else None
+		interp_method = getattr(self, "_heterogeneous_interpolation_method", "nearest")
+
+		# Prefer fields; fall back to located points.
+		if getattr(het_source, "has_fields", False):
+			raw_arrays = discretize_fields_on_sgrid(
+				load_result=het_source,
+				sgrid=self.grid_ctx.sgrid,
+				nper=int(self.nper),
+				simulation_window=sim_window,
+				method=interp_method,
+			)
+		elif getattr(het_source, "has_points", False):
+			raw_arrays = discretize_points_on_sgrid(
+				load_result=het_source,
+				sgrid=self.grid_ctx.sgrid,
+				nper=int(self.nper),
+				simulation_window=sim_window,
+				method=interp_method,
+			)
+		else:
+			self._heterogeneous_recharge_source = None
+			return
+
+		# Clip negative values (MF6 RCH doesn't support negative recharge).
+		if getattr(self, "_heterogeneous_negative_to_evt", False):
+			logger.info(
+				"MF6 heterogeneous recharge: clipping negative values to 0.0; "
+				"EVT routing not yet implemented for 2D arrays."
+			)
+			for kper in raw_arrays:
+				raw_arrays[kper] = np.maximum(raw_arrays[kper], 0.0)
+
+		# _recharge_to_spd handles Mapping {kper: ndarray(nrow,ncol)}
+		# via _as_recharge_2d which accepts 2D arrays directly.
+		self.recharge = raw_arrays
+		self._heterogeneous_recharge_source = None
 
 	def _scalar_to_2d(self, value: float) -> np.ndarray:
 		return np.full((self.nrow, self.ncol), float(value), dtype=float)
@@ -737,6 +813,9 @@ class Modflow6(Solver):
 		self.dem = self.top_elevation
 		self.dem_mask = self.inactive_mask
 		self.dem_watershed_path = self._write_solver_grid_template()
+
+		# Deferred heterogeneous recharge: discretize now that sgrid is built.
+		self._resolve_deferred_heterogeneous_recharge()
 
 		flow_params = resolve_flow_property_arrays(
 			flow=self.flow,
