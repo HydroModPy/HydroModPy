@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.geographic.cases.run_geographic_case import run_geographic_cases_from_toml
+from tests.support.whitebox import configure_whitebox_single_thread
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -46,23 +47,6 @@ COUNT_METRIC_KEYS = [
     "valid_pixel_count_box_buff",
     "nodata_pixel_count_box_buff",
 ]
-
-
-def _configure_whitebox_single_thread(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Reduce run-to-run variance by forcing the workflows backend to one worker."""
-    monkeypatch.setenv("RAYON_NUM_THREADS", "1")
-    monkeypatch.setenv("OMP_NUM_THREADS", "1")
-    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
-    monkeypatch.setenv("MKL_NUM_THREADS", "1")
-    monkeypatch.setenv("NUMEXPR_NUM_THREADS", "1")
-
-    from hydromodpy.backends import clear_whitebox_backend_cache, get_whitebox_backend
-
-    clear_whitebox_backend_cache()
-    tool = get_whitebox_backend()
-    env = getattr(tool, "_env", None)
-    if env is not None and hasattr(env, "max_procs"):
-        env.max_procs = 1
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -116,7 +100,7 @@ def test_run_geographic_case_metrics_golden(update_goldens, tmp_path, monkeypatc
     Kept as one-case unit test to keep execution time bounded.
     Full 4-case non-regression is covered in regression/extensive tests.
     """
-    _configure_whitebox_single_thread(monkeypatch)
+    configure_whitebox_single_thread(monkeypatch)
     config_path = _write_tmp_config(tmp_path)
     summaries = run_geographic_cases_from_toml(
         config_path,

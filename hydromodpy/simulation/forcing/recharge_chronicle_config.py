@@ -184,7 +184,22 @@ class ObservedRechargeChronicleConfig(BaseModel):
     last_year: int | None = Field(default=None)
     time_step: str | None = Field(default=None)
     sim_state: str = Field(default="transient")
+    units: str = Field(...)
+    runoff_units: str | None = Field(default=None)
     runoff_ratio: float = Field(default=0.1)
+
+    @model_validator(mode="after")
+    def _normalize_units(self):
+        self.units = _normalize_rate_unit(
+            self.units,
+            location="recharge_chronicle.observed_csv.units",
+        )
+        if self.runoff_units is not None:
+            self.runoff_units = _normalize_rate_unit(
+                self.runoff_units,
+                location="recharge_chronicle.observed_csv.runoff_units",
+            )
+        return self
 
 
 class SyntheticCsvRechargeChronicleConfig(BaseModel):
@@ -230,7 +245,7 @@ class RechargeChronicleConfig(BaseModel):
     @model_validator(mode="after")
     def _ensure_mode_payload(self):
         if self.mode == "observed_csv" and self.observed_csv is None:
-            self.observed_csv = ObservedRechargeChronicleConfig()
+            raise ValueError("recharge_chronicle.mode='observed_csv' requires observed_csv")
         if self.mode == "synthetic_generated" and self.synthetic_generated is None:
             self.synthetic_generated = SyntheticGeneratedRechargeChronicleConfig()
         if self.mode == "synthetic_csv" and self.synthetic_csv is None:
@@ -263,6 +278,11 @@ def validate_recharge_chronicle_section(
                 raise ValueError(
                     "recharge_chronicle.synthetic_generated.values must be "
                     "a scalar or a list of numeric values."
+                ) from exc
+            if location == ("observed_csv", "units"):
+                raise ValueError(
+                    "recharge_chronicle.observed_csv.units is required when "
+                    "recharge_chronicle.mode='observed_csv'."
                 ) from exc
         raise ValueError(str(exc)) from exc
 

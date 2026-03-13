@@ -89,7 +89,7 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
             "east_side": FlowBoundaryConditionConfig(
                 id="east_side",
                 type="dirichlet",
-                units="m",
+                units="cm",
                 application_domain="east side",
                 forcing={"mode": "constant", "value": 20.0},
             )
@@ -99,8 +99,8 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
 
     chd_spd = model._build_side_boundary_chd_spd()
 
-    assert chd_spd[0][-1] == [0, 1, 2, pytest.approx(20.0)]
-    assert chd_spd[1][-1] == [0, 1, 2, pytest.approx(20.0)]
+    assert chd_spd[0][-1] == [0, 1, 2, pytest.approx(0.2)]
+    assert chd_spd[1][-1] == [0, 1, 2, pytest.approx(0.2)]
 
 
 def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
@@ -177,6 +177,7 @@ def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
             "recharge": FlowRechargeConfig(
                 values=pd.Series([0.5, 0.3], dtype=float),
                 first_clim="first",
+                units="mm/day",
             )
         },
         active_sinks_sources=["recharge"],
@@ -185,8 +186,8 @@ def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
     model._bind_recharge_from_flow()
     spd = model._recharge_to_spd()
 
-    assert np.allclose(spd[0], 0.5)
-    assert np.allclose(spd[1], 0.3)
+    assert np.allclose(spd[0], 0.5e-3 / 86400.0)
+    assert np.allclose(spd[1], 0.3e-3 / 86400.0)
 
 
 def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:

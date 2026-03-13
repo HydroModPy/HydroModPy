@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from hydromodpy.support.units import normalize_length_unit, normalize_m2_per_s_unit
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",
@@ -126,6 +127,10 @@ class FlowBoundaryForcingConfig(BaseModel):
     mode: Literal["constant", "csv"] = Field(
         ...,
         description="Boundary forcing mode consumed by launcher runtime.",
+    )
+    units: str | None = Field(
+        default=None,
+        description="Source units of forcing values before runtime conversion.",
     )
     value: float | None = Field(default=None)
     path_file: Path | None = Field(default=None)
@@ -255,5 +260,44 @@ class FlowBoundaryConditionConfig(BaseModel):
             )
         if self.value is None and self.forcing is None:
             raise ValueError("boundary requires either value or forcing")
+        if self.type == "dirichlet":
+            if self.forcing is None:
+                normalized_units = normalize_length_unit(str(self.units).strip() or "m")
+                if normalized_units != "m":
+                    raise ValueError(
+                        "boundary.units must be normalized to 'm' for runtime Dirichlet values"
+                    )
+                self.units = "m"
+            else:
+                parent_units = str(self.units).strip() or "m"
+                forcing_units = getattr(self.forcing, "units", None)
+                parent_units_explicit = "units" in self.model_fields_set
+                forcing_units_explicit = "units" in self.forcing.model_fields_set
+                if forcing_units_explicit:
+                    normalized_forcing_units = normalize_length_unit(
+                        str(forcing_units).strip() or "m"
+                    )
+                    if parent_units_explicit:
+                        normalized_parent_units = normalize_length_unit(parent_units)
+                        if (
+                            normalized_parent_units != "m"
+                            and normalized_parent_units != normalized_forcing_units
+                        ):
+                            raise ValueError(
+                                "boundary.units conflicts with boundary.forcing.units"
+                            )
+                else:
+                    normalized_forcing_units = normalize_length_unit(parent_units)
+                self.forcing = self.forcing.model_copy(
+                    update={"units": normalized_forcing_units}
+                )
+                self.units = "m"
+        else:
+            normalized_units = normalize_m2_per_s_unit(str(self.units).strip() or "m2/s")
+            if normalized_units != "m2/s":
+                raise ValueError(
+                    "boundary.units must be normalized to 'm2/s' for runtime Cauchy/Robin values"
+                )
+            self.units = "m2/s"
         return self
 
