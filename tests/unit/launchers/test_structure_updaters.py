@@ -15,7 +15,6 @@ from hydromodpy.process.flow.flow import Flow
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.flow.sinks_sources import FlowSinksSourcesConfig
 from hydromodpy.process.flow.structure_binders import (
-    apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
     apply_simulation_time_to_flow_boundary_conditions,
     apply_simulation_time_to_flow_wells,
@@ -183,27 +182,6 @@ class _DummyFlow:
 
     def set_recharge(self, recharge) -> None:
         self.bound_recharge = recharge
-
-
-def test_apply_climatic_to_flow_recharge_binds_loaded_series() -> None:
-    flow = _DummyFlow()
-    climatic = SimpleNamespace(recharge=[0.001, 0.002, 0.003])
-
-    apply_climatic_to_flow_recharge(flow=flow, climatic=climatic)
-
-    assert flow.bound_recharge is not None
-    assert flow.bound_recharge.values == [0.001, 0.002, 0.003]
-    assert flow.bound_recharge.first_clim == "mean"
-    assert flow.bound_recharge.negative_to_evt is True
-
-
-def test_apply_climatic_to_flow_recharge_is_noop_without_climatic_recharge() -> None:
-    flow = _DummyFlow()
-    climatic = SimpleNamespace(recharge=None)
-
-    apply_climatic_to_flow_recharge(flow=flow, climatic=climatic)
-
-    assert flow.bound_recharge is None
 
 
 def test_apply_simulation_time_to_flow_wells_binds_constant_forcing() -> None:

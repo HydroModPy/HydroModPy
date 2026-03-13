@@ -7,12 +7,32 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 from hydromodpy.display import plot_flow_suite, plot_particles_suite, plot_transport_suite
 from hydromodpy.postprocess.flow.matching_streams import run_matching_streams
 from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 
 if TYPE_CHECKING:
+    from hydromodpy.data_managers.contracts.load_result import LoadResult
     from hydromodpy.simulation.state.run_state import LauncherRunState
+
+
+def _extract_runoff_series_m_per_day(
+    runoff_result: "LoadResult | None",
+) -> pd.Series | None:
+    """Extract a runoff time series in m/day from a LoadResult.
+
+    Data managers output mm/day; this converts to m/day to match the
+    unit expected by the postprocess layer.
+    """
+    if runoff_result is None:
+        return None
+    from hydromodpy.forcing.forcing_bridge import build_forcing_series
+
+    return build_forcing_series(
+        runoff_result, unit_conversion_factor=0.001, label="runoff"
+    )
 
 
 class PostprocessRunner:
@@ -53,7 +73,7 @@ class PostprocessRunner:
         if cfg.timeseries.enabled:
             from hydromodpy.postprocess.timeseries import FlowTimeseriesPostprocess
 
-            runoff = state.loaded_data.climatic.runoff if state.loaded_data.climatic is not None else None
+            runoff = _extract_runoff_series_m_per_day(state.loaded_data.runoff)
             FlowTimeseriesPostprocess(
                 state.setup.geographic,
                 model_modflow=flow_model,
@@ -108,7 +128,7 @@ class PostprocessRunner:
                 TransportTimeseriesPostprocess,
             )
 
-            runoff = state.loaded_data.climatic.runoff if state.loaded_data.climatic is not None else None
+            runoff = _extract_runoff_series_m_per_day(state.loaded_data.runoff)
             TransportTimeseriesPostprocess(
                 state.setup.geographic,
                 model_modflow=flow_model,

@@ -5,13 +5,10 @@ implementations progressively move to dedicated ``hydromodpy.data_managers``
 packages.
 """
 
-from hydromodpy.data_managers.climatic.driasclimat import Driasclimat
-from hydromodpy.data_managers.climatic.driaseau import Driaseau
 from hydromodpy.legacy.watershed.geology_config import GeologyConfig
 from hydromodpy.legacy.watershed.hydraulic import Hydraulic
 from hydromodpy.data_managers.hydrography import Hydrography
 from hydromodpy.data_managers.intermittency import Intermittency
-from hydromodpy.data_managers.climatic.safransurfex import SafranSurfex
 from hydromodpy.simulation.settings import Settings
 
-__all__ = ['Driasclimat', 'Driaseau', 'GeologyConfig', 'Hydraulic', 'Hydrography', 'Intermittency', 'SafranSurfex', 'Settings']
+__all__ = ['GeologyConfig', 'Hydraulic', 'Hydrography', 'Intermittency', 'Settings']

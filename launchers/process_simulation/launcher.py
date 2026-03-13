@@ -65,7 +65,6 @@ from hydromodpy.domain.spatial_support import (
 from hydromodpy.domain.structure_binders import apply_catchment_zones_to_domain, apply_geology_to_domain
 from hydromodpy.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
-    apply_climatic_to_flow_recharge,
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
@@ -87,6 +86,80 @@ from launchers.output_paths import (
     build_repo_output_redirect_notice,
     resolve_launcher_output_root,
 )
+
+
+def _read_reanalysis_csv_series(
+    observed,
+    *,
+    prefix: str,
+    label: str,
+) -> pd.Series:
+    """Read one variable (REC or RUN) from a reanalysis CSV.
+
+    Replicates the column-matching logic of the former Climatic class
+    (``update_recharge_reanalysis`` / ``update_runoff_reanalysis``).
+    Returns a pd.Series in the CSV's native unit (m/day).
+    """
+    import re as _re
+
+    df = pd.read_csv(observed.path_file, sep=";", index_col=0)
+    sample = df.index[0]
+    if _re.match(r"^\d{4}-\d{2}-\d{2}$", str(sample)):
+        df.index = pd.to_datetime(df.index, format="%Y-%m-%d")
+    elif _re.match(r"^\d{2}/\d{2}/\d{4}$", str(sample)):
+        df.index = pd.to_datetime(df.index, format="%d/%m/%Y")
+    else:
+        df.index = pd.to_datetime(df.index)
+
+    candidates = [f"{prefix}_{observed.clim_mod}_{observed.clim_sce}",
+                  f"{observed.clim_mod}_{observed.clim_sce}"]
+    col = None
+    for c in candidates:
+        if c in df.columns:
+            col = c
+            break
+    if col is None:
+        suffix = f"_{observed.clim_sce}"
+        for c in df.columns:
+            if str(c).endswith(suffix):
+                col = c
+                break
+    if col is None:
+        raise KeyError(
+            f"Column not found for {prefix}/{observed.clim_mod}/{observed.clim_sce}. "
+            f"Available: {list(df.columns)}"
+        )
+    series = df[col].astype(float)
+    series = series[(series.index.year >= observed.first_year) & (series.index.year <= observed.last_year)]
+    series = series.resample(observed.time_step).mean().ffill()
+    return series
+
+
+def _series_to_load_result(
+    series: pd.Series,
+    *,
+    variable: str,
+    source: str,
+) -> "LoadResult":
+    """Wrap a pd.Series (mm/day) into a LoadResult with a single PointRecord."""
+    from hydromodpy.data_managers.contracts.load_result import LoadResult
+    from hydromodpy.data_managers.contracts.timeseries import PointRecord
+
+    data = pd.DataFrame({
+        "datetime": series.index,
+        "value": series.values,
+    })
+    record = PointRecord(
+        station_id="chronicle",
+        variable=variable,
+        source=source,
+        unit="mm/day",
+        frequency="variable",
+        data=data,
+        date_start=series.index[0].to_pydatetime(),
+        date_end=series.index[-1].to_pydatetime(),
+    )
+    return LoadResult(points=[record])
 
 
 class HydroModPyLauncher:
@@ -517,13 +590,10 @@ class HydroModPyLauncher:
         self._apply_structural_updates_from_data()
 
     def _apply_recharge_chronicle_from_toml(self) -> None:
-        """Optionally materialize climatic recharge from [recharge_chronicle]."""
+        """Optionally materialize recharge from [recharge_chronicle] into LoadResult."""
+        from hydromodpy.data_managers.contracts.load_result import LoadResult
+
         run_state = self.run_state
-        climatic = run_state.loaded_data.climatic
-        if climatic is None:
-            raise RuntimeError(
-                "Launcher internal error: loaded_data.climatic is not initialized."
-            )
 
         sinks_sources = getattr(run_state.setup.flow, "sinks_sources", {})
         recharge_cfg = (
@@ -550,40 +620,31 @@ class HydroModPyLauncher:
             observed = payload.observed
             if observed is None:
                 raise RuntimeError("Observed recharge payload is missing for mode='observed_csv'.")
-            climatic.update_recharge_reanalysis(
-                path_file=observed.path_file,
-                clim_mod=observed.clim_mod,
-                clim_sce=observed.clim_sce,
-                first_year=observed.first_year,
-                last_year=observed.last_year,
-                time_step=observed.time_step,
-                sim_state=observed.sim_state,
+            recharge_series = _read_reanalysis_csv_series(
+                observed, prefix="REC", label="recharge",
             )
-            climatic.update_runoff_reanalysis(
-                path_file=observed.path_file,
-                clim_mod=observed.clim_mod,
-                clim_sce=observed.clim_sce,
-                first_year=observed.first_year,
-                last_year=observed.last_year,
-                time_step=observed.time_step,
-                sim_state=observed.sim_state,
+            runoff_series = _read_reanalysis_csv_series(
+                observed, prefix="RUN", label="runoff",
             )
+            if sim_state == "steady":
+                recharge_series = pd.Series([float(recharge_series.mean())], index=recharge_series.index[:1])
+                runoff_series = pd.Series([float(runoff_series.mean())], index=runoff_series.index[:1])
             if window is not None:
-                if isinstance(climatic.recharge, pd.Series):
-                    climatic.recharge = align_forcing_series_to_simulation_window(
-                        climatic.recharge,
-                        simulation_window=window,
-                        label="observed recharge",
+                if isinstance(recharge_series, pd.Series) and not recharge_series.empty:
+                    recharge_series = align_forcing_series_to_simulation_window(
+                        recharge_series, simulation_window=window, label="observed recharge",
                     )
-                if isinstance(climatic.runoff, pd.Series):
-                    climatic.runoff = align_forcing_series_to_simulation_window(
-                        climatic.runoff,
-                        simulation_window=window,
-                        label="observed runoff",
+                if isinstance(runoff_series, pd.Series) and not runoff_series.empty:
+                    runoff_series = align_forcing_series_to_simulation_window(
+                        runoff_series, simulation_window=window, label="observed runoff",
                     )
-            validate_recharge_coverage(
-                climatic.recharge,
-                window,
+            validate_recharge_coverage(recharge_series, window)
+            # Unit: reanalysis CSV is in m/day → convert to mm/day for LoadResult
+            run_state.loaded_data.recharge = _series_to_load_result(
+                recharge_series * 1000.0, variable="recharge", source="observed_csv",
+            )
+            run_state.loaded_data.runoff = _series_to_load_result(
+                runoff_series * 1000.0, variable="runoff", source="observed_csv",
             )
             return
 
@@ -593,12 +654,18 @@ class HydroModPyLauncher:
             raise RuntimeError(
                 f"Synthetic recharge payload is incomplete for mode='{payload.mode}'."
             )
-        validate_recharge_coverage(
-            recharge,
-            window,
+        validate_recharge_coverage(recharge, window)
+        if sim_state == "steady":
+            recharge = pd.Series([float(recharge.mean())], index=recharge.index[:1])
+            runoff = pd.Series([float(runoff.mean())], index=runoff.index[:1])
+        # Unit: synthetic series are in m/s → convert to mm/day for LoadResult
+        factor_m_s_to_mm_day = 1000.0 * 86400.0
+        run_state.loaded_data.recharge = _series_to_load_result(
+            recharge * factor_m_s_to_mm_day, variable="recharge", source=payload.mode,
         )
-        climatic.update_recharge(recharge, sim_state=sim_state)
-        climatic.update_runoff(runoff, sim_state=sim_state)
+        run_state.loaded_data.runoff = _series_to_load_result(
+            runoff * factor_m_s_to_mm_day, variable="runoff", source=payload.mode,
+        )
 
     def _apply_structural_updates_from_data(self) -> None:
         """Bind loaded data objects to runtime structures using explicit updaters."""
@@ -609,22 +676,17 @@ class HydroModPyLauncher:
         ensure_flow(run_state)
         apply_oceanic_to_flow(flow=setup_state.flow, oceanic=data_state.oceanic)
 
-        # Try new data-manager recharge path first; fall back to legacy climatic.
         resolved_grid = getattr(setup_state, "time_grid", None)
         window = (
             resolved_grid.window
             if resolved_grid is not None
             else resolve_simulation_time_window(self.cfg)
         )
-        used_new_path = apply_recharge_load_result_to_flow(
+        apply_recharge_load_result_to_flow(
             flow=setup_state.flow,
             recharge_result=data_state.recharge,
             simulation_window=window,
         )
-        if not used_new_path:
-            apply_climatic_to_flow_recharge(
-                flow=setup_state.flow, climatic=data_state.climatic,
-            )
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.

@@ -271,9 +271,6 @@ _MODULE_EXPORTS = {
 
 _LAZY_IMPORTS = {
     # watershed classes
-    "Climatic": "hydromodpy.data_managers.climatic",
-    "Driasclimat": "hydromodpy.data_managers.climatic.driasclimat",
-    "Driaseau": "hydromodpy.data_managers.climatic.driaseau",
     "Geographic": "hydromodpy.geographic.geographic",
     "Hydraulic": "hydromodpy.legacy.watershed.hydraulic",
     "Hydrography": "hydromodpy.data_managers.hydrography",
@@ -282,7 +279,6 @@ _LAZY_IMPORTS = {
     "Intermittency": "hydromodpy.data_managers.intermittency",
     "Oceanic": "hydromodpy.data_managers.oceanic",
     "Piezometry": "hydromodpy.data_managers.piezometry.piezometry",
-    "SafranSurfex": "hydromodpy.data_managers.climatic.safransurfex",
     "Subbasin": "hydromodpy.geographic.subbasin",
     # config
     "HydroModPyConfig": "hydromodpy.config.hydromodpy_config",
