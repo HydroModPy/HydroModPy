@@ -244,7 +244,9 @@ class HydroModPyLauncher:
         execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
 
         self._run_setup()
+        self._build_domain_spatial_supports(phase="setup")
         self._run_data()
+        self._build_domain_spatial_supports(phase="data")
         # The runner owns the fine-grained solver dispatch. The launcher
         # only provides process-family callbacks for managed postprocess.
         SimulationRunner(
