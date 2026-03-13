@@ -69,7 +69,7 @@ def test_build_run_command_includes_solver_timeout_and_show_flag(tmp_path: Path)
     )
 
     assert command == [
-        "C:\\Python\\python.exe",
+        str(Path("C:/Python/python.exe")),
         str(case.run_case_path),
         "--solver",
         "modflow6",

@@ -996,7 +996,7 @@ class Modflow6(Solver):
 		"""Return one budget term, or None when the term is absent from the file."""
 		try:
 			return cbb.get_data(kstpkper=kstpkper, text=text)
-		except ValueError as exc:
+		except Exception as exc:
 			message = str(exc)
 			if "text string is not in the budget file" in message.lower():
 				return None
@@ -1201,7 +1201,6 @@ class Modflow6Transport:
 					("ims6", self.ims.filename, self.gwt.name),
 				],
 				key=0,
-				replace=True,
 			)
 
 		dis = self.model_modflow.dis

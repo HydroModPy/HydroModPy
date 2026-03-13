@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.data_managers.plan import DataLoadPlan
 from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.simulation.time import resolve_simulation_time_window_dates
@@ -37,7 +36,6 @@ class DataManagersRuntimeLoader:
     def load_all(self, result: "LauncherRunState") -> None:
         """Load active data-manager families into ``result``."""
         workspace_paths = self._workspace_paths(result)
-        result.loaded_data.climatic = Climatic(out_path=workspace_paths.catch_folder)
 
         active_types = tuple(self.data_plan.types)
         for type_name in active_types:

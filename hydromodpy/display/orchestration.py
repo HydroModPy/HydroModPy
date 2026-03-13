@@ -20,6 +20,7 @@ from hydromodpy.display.adapters import (
     observed_piezometry_series,
 )
 from hydromodpy.display.common import (
+    _extract_recharge_series_m_per_day,
     resolve_flow_base_raster,
     resolve_model_figure_dir,
 )
@@ -217,7 +218,7 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
         model_modflow=flow_model,
         geographic=result.setup.geographic,
         hydrography=result.loaded_data.hydrography,
-        recharge_series=result.loaded_data.climatic.recharge,
+        recharge_series=_extract_recharge_series_m_per_day(result.loaded_data.recharge),
         base_raster_path=resolve_flow_base_raster(flow_model, result.setup.geographic),
         output_dir=output_dir,
         prefix="concentration",

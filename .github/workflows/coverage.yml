@@ -2,7 +2,7 @@ name: pytest
 
 on:
   push:
-    branches: [master, dev-refact]
+    branches: [master, dev-refact, dev-data]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -96,7 +96,8 @@ jobs:
           HYDROMODPY_COVERAGE: "1"
         run: |
           python -m pytest \
-            tests/regression/test_example12_npy_regression.py -v
+            tests/regression/fast/ \
+            tests/regression/extensive/ -v
 
       - name: Combine and report coverage
         if: always()

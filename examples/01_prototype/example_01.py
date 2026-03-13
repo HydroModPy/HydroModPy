@@ -38,7 +38,7 @@ from hydromodpy.domain.structure_binders import (
     apply_geology_to_domain,
 )
 from hydromodpy.process.flow import Flow
-from hydromodpy.process.flow.structure_binders import apply_climatic_to_flow_recharge
+from hydromodpy.process.flow.structure_binders import apply_recharge_load_result_to_flow
 from hydromodpy.process.transport import Transport
 from hydromodpy.forcing import build_recharge_chronicle_payload
 from hydromodpy.simulation.state.run_state import LauncherRunState
@@ -118,32 +118,8 @@ transport = Transport(config=cfg.transport)
 # flow.parameters["K"].field_homogeneous.value = 2.0
 # flow.config.flow_regime = "transient"
 
-# -- Recharge (chronique définie dans [recharge_chronicle] du TOML) --
-climatic = loaded_data.climatic
-recharge_payload = build_recharge_chronicle_payload(
-    raw_toml,
-    config_path=config_path.resolve(),
-    default_values=None,
-    default_observed_path=cfg.workspace.data_path / "_climate_REANALYSIS.csv",
-    default_sim_state=cfg.flow.flow_regime,
-)
-if recharge_payload is not None:
-    if recharge_payload.mode == "observed_csv" and recharge_payload.observed is not None:
-        obs = recharge_payload.observed
-        climatic.update_recharge_reanalysis(
-            path_file=obs.path_file,
-            clim_mod=obs.clim_mod,
-            clim_sce=obs.clim_sce,
-            first_year=obs.first_year,
-            last_year=obs.last_year,
-            time_step=obs.time_step,
-            sim_state=obs.sim_state,
-        )
-    else:
-        climatic.update_recharge(recharge_payload.recharge, sim_state=cfg.flow.flow_regime)
-        climatic.update_runoff(recharge_payload.runoff, sim_state=cfg.flow.flow_regime)
-
-apply_climatic_to_flow_recharge(flow=flow, climatic=climatic)
+# -- Recharge (via LoadResult from data managers) --
+apply_recharge_load_result_to_flow(flow=flow, recharge_result=loaded_data.recharge)
 
 
 # =====================================================================
@@ -321,16 +297,9 @@ else:
 
 reanalysis_file = data_path / "_climate_REANALYSIS.csv"
 if reanalysis_file.exists():
-    climatic.update_recharge_reanalysis(
-        path_file=reanalysis_file,
-        clim_mod="REA",
-        clim_sce="historic",
-        first_year=1990,
-        last_year=2019,
-        time_step="D",
-        sim_state="transient",
-    )
-    R = climatic.recharge
+    _df = pd.read_csv(reanalysis_file, sep=";", index_col=0, parse_dates=True)
+    _col = next((c for c in _df.columns if "REC_REA" in c or c.startswith("REA_")), _df.columns[0])
+    R = _df[_col].loc["1990":"2019"].resample("D").mean().ffill()
 
     fig, ax = plt.subplots(1, 1, figsize=(6, 2), dpi=300)
     ax.patch.set_visible(False)

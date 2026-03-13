@@ -23,17 +23,11 @@ def _build_result(
         watershed_shp=Path("watershed.shp"),
     )
     workspace = SimpleNamespace(simulations_folder=Path("simulations"))
-    climatic = SimpleNamespace(
-        recharge=pd.Series(
-            [0.1],
-            index=pd.to_datetime(["2000-01-31"]),
-        )
-    )
     hydrography = SimpleNamespace(streams=Path("streams.shp"))
 
     class _Result:
         setup = SimpleNamespace(geographic=geographic, workspace=workspace)
-        data = SimpleNamespace(climatic=climatic, hydrography=hydrography)
+        data = SimpleNamespace(hydrography=hydrography, recharge=None)
         cfg = SimpleNamespace(workspace=SimpleNamespace(data_path=Path(".")))
 
         @staticmethod

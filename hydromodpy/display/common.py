@@ -12,10 +12,32 @@ they can stay focused on data extraction and figure composition.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from hydromodpy.display.options import DisplayOptions
+
+if TYPE_CHECKING:
+    from hydromodpy.data_managers.contracts.load_result import LoadResult
+
+
+def _extract_recharge_series_m_per_day(
+    recharge_result: "LoadResult | None",
+) -> pd.Series | None:
+    """Extract a recharge time series in m/day from a LoadResult.
+
+    Data managers output mm/day; this converts to m/day to match the
+    unit expected by the display layer.
+    """
+    if recharge_result is None:
+        return None
+    from hydromodpy.forcing.forcing_bridge import build_forcing_series
+
+    return build_forcing_series(
+        recharge_result, unit_conversion_factor=0.001, label="recharge"
+    )
 
 
 def ensure_dir(path: Path) -> Path:

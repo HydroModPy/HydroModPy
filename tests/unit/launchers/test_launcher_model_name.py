@@ -256,6 +256,14 @@ def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
         "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
         lambda **kwargs: None,
     )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_flow",
+        lambda state: None,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_transport",
+        lambda state: None,
+    )
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
@@ -273,10 +281,6 @@ def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
     launcher.cfg = cfg
     launcher.run_state = run_state
     launcher.data_plan = SimpleNamespace(types=("geology",))
-    launcher.process_context_factory = SimpleNamespace(
-        ensure_flow=lambda state: None,
-        ensure_transport=lambda state: None,
-    )
 
     launcher._run_setup()
 
@@ -323,6 +327,15 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
             }
         )
 
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_flow",
+        _ensure_flow,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_transport",
+        lambda state: None,
+    )
+
     launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
     launcher.cfg = cfg
     launcher.run_state = run_state
@@ -332,10 +345,6 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         "field_geology": SimpleNamespace(provider="geology")
     }
     launcher._build_domain_spatial_supports = lambda *, phase: None
-    launcher.process_context_factory = SimpleNamespace(
-        ensure_flow=_ensure_flow,
-        ensure_transport=lambda state: None,
-    )
 
     launcher._run_setup()
 
@@ -382,16 +391,21 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
             }
         )
 
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_flow",
+        _ensure_flow,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_transport",
+        lambda state: None,
+    )
+
     launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
     launcher.cfg = cfg
     launcher.run_state = run_state
     launcher.data_plan = SimpleNamespace(types=())
     launcher.requested_spatial_support_ids = ("field_geology",)
     launcher.requested_domain_supports = {}
-    launcher.process_context_factory = SimpleNamespace(
-        ensure_flow=_ensure_flow,
-        ensure_transport=lambda state: None,
-    )
 
     with pytest.raises(ValueError, match="domain.supports"):
         launcher._run_setup()
