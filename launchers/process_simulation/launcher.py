@@ -572,6 +572,9 @@ class HydroModPyLauncher:
         # Eagerly create Flow/Transport so data binders can reference them.
         ensure_flow(run_state)
         ensure_transport(run_state)
+        self._validate_domain_support_contract(
+            domain_cfg=domain_cfg, flow=setup_state.flow,
+        )
 
     def _run_data(self) -> None:
         """Load the external forcings shared by all process runs.
