@@ -464,6 +464,15 @@ class FlowRechargeConfig(BaseModel):
             "mapping {kper: value}, or runtime series."
         ),
     )
+    heterogeneous_source: Any = Field(
+        default=None,
+        description=(
+            "Optional raw data source for heterogeneous (2D per-cell) recharge. "
+            "When set, the solver adapter discretizes FieldRecords onto the "
+            "MODFLOW grid instead of using the scalar 'values' field. "
+            "Expected: LoadResult with FieldRecords."
+        ),
+    )
     first_clim: str | float = Field(
         default="mean",
         description=(
@@ -482,6 +491,38 @@ class FlowRechargeConfig(BaseModel):
             "Ignored for mapping payloads."
         ),
     )
+    spatial_mode: str = Field(
+        default="auto",
+        description=(
+            "How to interpret spatial data: 'auto' (points→homogeneous, "
+            "fields→heterogeneous), 'homogeneous' (force spatial averaging), "
+            "'heterogeneous' (force per-cell discretization, including "
+            "point-to-grid interpolation when stations have coordinates)."
+        ),
+    )
+    interpolation_method: str = Field(
+        default="nearest",
+        description=(
+            "Spatial interpolation method for gridded/point data onto the "
+            "MODFLOW grid. Options: 'nearest', 'linear', 'idw'."
+        ),
+    )
+
+    @field_validator("spatial_mode", mode="before")
+    @classmethod
+    def _validate_spatial_mode(cls, value):
+        v = str(value).strip().lower()
+        if v not in {"auto", "homogeneous", "heterogeneous"}:
+            raise ValueError("spatial_mode must be 'auto', 'homogeneous', or 'heterogeneous'.")
+        return v
+
+    @field_validator("interpolation_method", mode="before")
+    @classmethod
+    def _validate_interpolation_method(cls, value):
+        v = str(value).strip().lower()
+        if v not in {"nearest", "linear", "idw"}:
+            raise ValueError("interpolation_method must be 'nearest', 'linear', or 'idw'.")
+        return v
 
     @field_validator("first_clim", mode="before")
     @classmethod

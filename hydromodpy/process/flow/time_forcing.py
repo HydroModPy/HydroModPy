@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.simulation.forcing.recharge_chronicle import (
+from hydromodpy.forcing.recharge_chronicle import (
     align_forcing_series_to_simulation_window,
 )
 from hydromodpy.simulation.time import (
