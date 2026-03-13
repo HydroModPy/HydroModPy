@@ -623,7 +623,7 @@ class TestRechargeBridge:
     """Tests for the forcing bridge (LoadResult → flow-ready series)."""
 
     def test_extract_single_station(self):
-        from hydromodpy.forcing.recharge_bridge import extract_homogeneous_series
+        from hydromodpy.forcing.forcing_bridge import extract_homogeneous_series
 
         rec = _make_point_record("A", n=5)
         result = LoadResult(points=[rec])
@@ -634,7 +634,7 @@ class TestRechargeBridge:
         assert series.iloc[4] == 4.0
 
     def test_extract_multiple_stations_averages(self):
-        from hydromodpy.forcing.recharge_bridge import extract_homogeneous_series
+        from hydromodpy.forcing.forcing_bridge import extract_homogeneous_series
 
         dates = pd.date_range("2020-01-01", periods=3, freq="D")
         rec1 = PointRecord(
@@ -657,44 +657,50 @@ class TestRechargeBridge:
         assert series.iloc[1] == pytest.approx(30.0)
 
     def test_extract_no_points_returns_none(self):
-        from hydromodpy.forcing.recharge_bridge import extract_homogeneous_series
+        from hydromodpy.forcing.forcing_bridge import extract_homogeneous_series
 
         result = LoadResult(fields=[_make_field_record()])
         assert extract_homogeneous_series(result) is None
 
     def test_extract_empty_result_returns_none(self):
-        from hydromodpy.forcing.recharge_bridge import extract_homogeneous_series
+        from hydromodpy.forcing.forcing_bridge import extract_homogeneous_series
 
         result = LoadResult()
         assert extract_homogeneous_series(result) is None
 
-    def test_build_recharge_series_converts_units(self):
-        from hydromodpy.forcing.recharge_bridge import (
-            build_recharge_series,
+    def test_build_forcing_series_converts_units(self):
+        from hydromodpy.forcing.forcing_bridge import (
+            build_forcing_series,
             _MM_PER_DAY_TO_M_PER_S,
         )
 
         rec = _make_point_record("A", n=3)
         result = LoadResult(points=[rec])
-        series = build_recharge_series(result)
+        series = build_forcing_series(
+            result, unit_conversion_factor=_MM_PER_DAY_TO_M_PER_S, label="recharge",
+        )
         assert series is not None
         # Value 1 (mm/day) → 1 * _MM_PER_DAY_TO_M_PER_S (m/s)
         assert series.iloc[1] == pytest.approx(1.0 * _MM_PER_DAY_TO_M_PER_S)
 
-    def test_build_recharge_series_no_points_returns_none(self):
-        from hydromodpy.forcing.recharge_bridge import build_recharge_series
+    def test_build_forcing_series_no_points_returns_none(self):
+        from hydromodpy.forcing.forcing_bridge import build_forcing_series, _MM_PER_DAY_TO_M_PER_S
 
         result = LoadResult(fields=[_make_field_record()])
-        assert build_recharge_series(result) is None
+        assert build_forcing_series(
+            result, unit_conversion_factor=_MM_PER_DAY_TO_M_PER_S, label="recharge",
+        ) is None
 
-    def test_build_runoff_series_converts_units(self):
-        from hydromodpy.forcing.recharge_bridge import (
-            build_runoff_series,
+    def test_build_forcing_series_runoff_converts_units(self):
+        from hydromodpy.forcing.forcing_bridge import (
+            build_forcing_series,
             _MM_PER_DAY_TO_M_PER_S,
         )
 
         rec = _make_point_record("A", n=3)
         result = LoadResult(points=[rec])
-        series = build_runoff_series(result)
+        series = build_forcing_series(
+            result, unit_conversion_factor=_MM_PER_DAY_TO_M_PER_S, label="runoff",
+        )
         assert series is not None
         assert series.iloc[2] == pytest.approx(2.0 * _MM_PER_DAY_TO_M_PER_S)
