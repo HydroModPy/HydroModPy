@@ -5,7 +5,7 @@
 
 [workspace]
 catch_name = "launcher_data_overtiew"
-out_dir_path = "../results"
+out_dir_path = "~/HydroModPy_outputs"
 data_path = "data/"
 
 [geographic]

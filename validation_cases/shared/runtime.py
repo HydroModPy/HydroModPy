@@ -354,7 +354,17 @@ def resolve_model_workspace(
 
     if model_name is not None:
         model_ws = results_dir / model_name
-        assert model_ws.is_dir(), f"Model folder not found: {model_ws}"
+        if not model_ws.is_dir():
+            target = str(model_name).lower()
+            case_insensitive_matches = [
+                p
+                for p in results_dir.iterdir()
+                if p.is_dir() and p.name.lower() == target
+            ]
+            if len(case_insensitive_matches) == 1:
+                model_ws = case_insensitive_matches[0]
+            else:
+                assert model_ws.is_dir(), f"Model folder not found: {model_ws}"
     else:
         model_dirs = sorted(
             p

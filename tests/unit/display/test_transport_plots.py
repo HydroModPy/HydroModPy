@@ -44,9 +44,10 @@ def test_load_concentration_cube_falls_back_to_headfile_reader() -> None:
             raise OSError("UcnFile cannot read this concentration output")
 
     class _FakeHeadFile:
-        def __init__(self, path, text=None) -> None:
+        def __init__(self, path, text=None, precision=None) -> None:
             captured["head_path"] = path
             captured["head_text"] = text
+            captured["head_precision"] = precision
 
         def get_alldata(self, mflay=None):
             captured["head_mflay"] = mflay
@@ -61,6 +62,7 @@ def test_load_concentration_cube_falls_back_to_headfile_reader() -> None:
     assert captured["ucn_path"] == Path("demo_mt.ucn")
     assert captured["head_path"] == Path("demo_mt.ucn")
     assert captured["head_text"] == "CONCENTRATION"
+    assert captured["head_precision"] == "double"
     assert captured["head_mflay"] is None
     assert np.isnan(concentration[0, 0, 0, 0])
     assert concentration[0, 0, 0, 1] == 2.0

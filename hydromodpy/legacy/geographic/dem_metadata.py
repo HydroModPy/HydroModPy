@@ -10,6 +10,7 @@ import certifi
 import geopy.geocoders
 import numpy as np
 import rasterio
+from geopy.exc import GeocoderServiceError
 from geopy.geocoders import Nominatim
 from pyproj import Transformer
 
@@ -147,19 +148,26 @@ def _resolve_dep_code(
             f"{centroid_long_lat_Greenwich[0]},{centroid_long_lat_Greenwich[1]}",
             timeout=120,
         )
+    except OSError:
         try:
-            return int(location.address.split(",")[-2][0:3])
+            ctx = ssl.create_default_context(cafile=certifi.where())
+            geopy.geocoders.options.default_ssl_context = ctx
+            locator = locator_factory(user_agent="google")
+            location = locator.reverse(
+                f"{centroid_long_lat_Greenwich[0]},{centroid_long_lat_Greenwich[1]}",
+                timeout=120,
+            )
         except Exception:
             return None
-    except OSError:
-        ctx = ssl.create_default_context(cafile=certifi.where())
-        geopy.geocoders.options.default_ssl_context = ctx
-        locator = locator_factory(user_agent="google")
-        location = locator.reverse(
-            f"{centroid_long_lat_Greenwich[0]},{centroid_long_lat_Greenwich[1]}",
-            timeout=120,
-        )
+    except GeocoderServiceError:
+        return None
+    except Exception:
+        return None
+
+    try:
         return int(location.address.split(",")[-2][0:3])
+    except Exception:
+        return None
 
 
 def read_legacy_dem_metadata(

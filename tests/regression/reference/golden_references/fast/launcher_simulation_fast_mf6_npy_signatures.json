@@ -1,0 +1,97 @@
+{
+  "modflow_expected": {
+    "watertable_elevation": {
+      "count": 3600,
+      "mean": 115.4912930509804,
+      "p50": 120.21310586564275,
+      "p95": 128.36299458581098,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 415768.6549835295
+    },
+    "watertable_depth": {
+      "count": 3600,
+      "mean": 6.155640689130759,
+      "p50": 3.515942632947656,
+      "p95": 6.707426745215457,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 22160.30648087073
+    },
+    "seepage_areas": {
+      "count": 3600,
+      "mean": 0.06388888888888888,
+      "p50": 0.0,
+      "p95": 1.0,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 230.0
+    },
+    "outflow_drain": {
+      "count": 3600,
+      "mean": 2.5444786011662816e-05,
+      "p50": 0.0,
+      "p95": 0.00012817012212529283,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 0.09160122964198614
+    },
+    "accumulation_flux": {
+      "count": 3600,
+      "mean": 0.00043185704449260557,
+      "p50": 0.0,
+      "p95": 0.0002434251138765813,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": 1.55468536017338
+    }
+  },
+  "transport_expected": {
+    "concentration_seepage": {
+      "count": 3600,
+      "mean": -9360.174999826582,
+      "p50": -9999.0,
+      "p95": 2.714228710270291e-06,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": -33696629.99937569
+    },
+    "mass_seepage": {
+      "count": 3600,
+      "mean": -9360.17499999993,
+      "p50": -9999.0,
+      "p95": 3.479110717775194e-10,
+      "shape": [
+        60,
+        60
+      ],
+      "timestep": 2,
+      "available_timesteps": 3,
+      "sum": -33696629.99999975
+    }
+  }
+}
