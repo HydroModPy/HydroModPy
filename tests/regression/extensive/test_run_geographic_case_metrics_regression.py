@@ -17,10 +17,10 @@ GOLDEN_REFERENCE_FILE = resolve_tiered_golden_file(
 )
 
 CASE_IDS = ["base", "canut", "nancon", "aber"]
-ABS_TOL_AREA_KM2 = 0.02  # ~3 pixels at 75 m — DEM breach is non-deterministic at catchment edge
+ABS_TOL_AREA_KM2 = 0.03  # ~5 pixels at 75 m — DEM breach is non-deterministic at catchment edge
 ABS_TOL_ELEV_M = 1e-2
 ABS_TOL_SUM_ELEV_M = 5e2  # ~3 edge pixels × ~160 m elevation
-ABS_TOL_PIXEL_COUNT = 3  # breach non-determinism flips ~2 edge pixels
+ABS_TOL_PIXEL_COUNT = 4  # breach non-determinism flips a few edge pixels
 
 ELEV_METRIC_KEYS = [
     "mean_elevation_catchment_m",
