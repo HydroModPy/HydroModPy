@@ -65,6 +65,7 @@ class BaseFieldManager(ABC):
                     result.fields.append(rec)
                 else:
                     result.points.append(rec)
+        self._register_point_records(result.points)
         return result
 
     @abstractmethod
@@ -288,6 +289,35 @@ class BaseFieldManager(ABC):
             unit=rec.unit,
             is_custom=False,
         )
+
+    def _register_point_records(self, records: list[PointRecord]) -> None:
+        """Register all PointRecords in the catalog (metadata only).
+
+        Mirrors BaseVariableManager._register_records: ensures every loaded
+        station is visible in the catalog regardless of source type.
+        """
+        if self.catalog is None:
+            return
+        for r in records:
+            bbox = None
+            crs = None
+            if r.location is not None:
+                bbox = (r.location.x, r.location.y, r.location.x, r.location.y)
+                crs = r.location.crs
+            fp = str(r.file_path) if r.file_path is not None else r.source
+            self.catalog.register(
+                variable=self.VARIABLE_NAME,
+                source=r.source,
+                station_id=r.station_id,
+                file_path=fp,
+                date_start=r.date_start,
+                date_end=r.date_end,
+                unit=r.unit,
+                frequency=r.frequency,
+                bbox=bbox,
+                crs=crs,
+                is_custom=(r.source == "custom"),
+            )
 
     def _register_custom_fields(self, records: list[FieldRecord]) -> None:
         """Register custom FieldRecords in the catalog (metadata only).

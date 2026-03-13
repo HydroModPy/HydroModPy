@@ -73,39 +73,53 @@ def apply_recharge_load_result_to_flow(
 ) -> bool:
     """Inject recharge from a data-manager LoadResult into flow.
 
-    Converts homogeneous point data from mm/day to m/s and aligns to
-    simulation stress periods. Preserves solver-side recharge policy
-    (first_clim, negative_to_evt) from the existing flow configuration.
+    Uses the generic :func:`forcing_bridge.resolve_forcing` to handle
+    spatial_mode dispatch (auto / homogeneous / heterogeneous).
 
-    Returns True if recharge was successfully injected, False otherwise
-    (e.g. only grid data available, which requires adapter-level handling).
+    Preserves solver-side recharge policy (first_clim, negative_to_evt)
+    from the existing flow configuration.
+
+    Returns True if recharge was successfully injected, False otherwise.
     """
-    if recharge_result is None or not recharge_result.has_points:
+    if recharge_result is None:
         return False
 
-    from hydromodpy.forcing.recharge_bridge import build_recharge_series
-
-    series = build_recharge_series(
-        recharge_result, simulation_window=simulation_window,
-    )
-    if series is None:
-        return False
+    from hydromodpy.forcing.forcing_bridge import resolve_forcing
+    from hydromodpy.forcing.forcing_bridge import _MM_PER_DAY_TO_M_PER_S
 
     sinks_sources = getattr(flow, "sinks_sources", {})
     recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, dict) else None
 
     first_clim = "mean"
     negative_to_evt = True
+    spatial_mode = "auto"
+    interpolation_method = "nearest"
     if recharge_cfg is not None:
         first_clim = getattr(recharge_cfg, "first_clim", "mean")
         negative_to_evt = getattr(recharge_cfg, "negative_to_evt", True)
+        spatial_mode = getattr(recharge_cfg, "spatial_mode", "auto")
+        interpolation_method = getattr(recharge_cfg, "interpolation_method", "nearest")
+
+    resolved = resolve_forcing(
+        recharge_result,
+        unit_conversion_factor=_MM_PER_DAY_TO_M_PER_S,
+        simulation_window=simulation_window,
+        spatial_mode=spatial_mode,
+        interpolation_method=interpolation_method,
+        label="recharge",
+    )
+    if resolved is None:
+        return False
 
     flow.set_recharge(
         FlowRechargeConfig(
-            values=series,
+            values=resolved.series if resolved.series is not None else 0.0,
             first_clim=first_clim,
             units="m/s",
             negative_to_evt=negative_to_evt,
+            heterogeneous_source=resolved.heterogeneous_source,
+            spatial_mode=resolved.spatial_mode,
+            interpolation_method=resolved.interpolation_method,
         )
     )
     return True

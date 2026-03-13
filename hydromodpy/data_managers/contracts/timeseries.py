@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -30,6 +31,7 @@ class PointRecord:
     date_end: datetime
     location: Optional[StationLocation] = None
     is_constant: bool = False
+    file_path: Optional[Path] = None
 
     def __post_init__(self):
         missing = [c for c in REQUIRED_COLUMNS if c not in self.data.columns]
@@ -65,4 +67,5 @@ class PointRecord:
             date_end=end,
             location=self.location,
             is_constant=self.is_constant,
+            file_path=self.file_path,
         )

@@ -271,14 +271,11 @@ class BaseVariableManager(ABC):
         if self.catalog is None:
             return
         for r in records:
-            # For custom records loaded from user files, we don't have a
-            # single file_path readily available.  Skip registration for
-            # records that were already registered in _persist_api_records.
+            # API records are already registered in _persist_api_records.
             if r.source != "custom":
                 continue
-            # Register custom records with a sentinel path (the source dir).
-            # This lets cache_info() show what custom data is loaded.
-            self._register_one(r, file_path=Path("custom"))
+            fp = r.file_path if r.file_path is not None else Path("custom")
+            self._register_one(r, file_path=fp)
 
     def _register_one(self, r: PointRecord, file_path: Path) -> None:
         """Register a single record in the catalog."""

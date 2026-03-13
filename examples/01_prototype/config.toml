@@ -131,7 +131,7 @@ start_date = "2000-01-01"
 freq = "YE"
 periods = 1
 units = "mm/day"
-values_mm_day = [0.9589]
+values = [0.9589]
 runoff_ratio = 0.0
 
 

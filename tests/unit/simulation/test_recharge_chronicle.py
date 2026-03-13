@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.forcing import build_recharge_chronicle_payload
 from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
 

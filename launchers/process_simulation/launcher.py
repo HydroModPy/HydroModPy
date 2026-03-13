@@ -62,7 +62,7 @@ from hydromodpy.domain.spatial_support import (
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
 )
-from hydromodpy.domain.structure_binders import apply_catchment_zones_to_domain
+from hydromodpy.domain.structure_binders import apply_catchment_zones_to_domain, apply_geology_to_domain
 from hydromodpy.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
     apply_climatic_to_flow_recharge,

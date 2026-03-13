@@ -180,7 +180,7 @@ freq = "YE"
 periods = 1
 units = "mm/day"
 # Legacy: 350 mm/yr ÷ 365 d/yr ≈ 0.9589 mm/d
-values_mm_day = [0.9589]
+values = [0.9589]
 runoff_ratio = 0.0
 
 

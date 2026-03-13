@@ -34,7 +34,7 @@ from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
-from hydromodpy.simulation.forcing.recharge_chronicle_config import (
+from hydromodpy.forcing.recharge_chronicle_config import (
     RechargeChronicleConfig,
     validate_recharge_chronicle_section,
 )

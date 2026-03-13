@@ -104,6 +104,7 @@ def _load_csv(
                 date_start=df["datetime"].min().to_pydatetime(),
                 date_end=df["datetime"].max().to_pydatetime(),
                 location=loc, is_constant=is_constant,
+                file_path=chronicle_path,
             )
         )
 
