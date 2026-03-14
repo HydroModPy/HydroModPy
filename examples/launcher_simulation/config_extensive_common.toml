@@ -19,10 +19,11 @@ y_rel = 0.70
 [flow.sinks_sources.wells.W2.forcing]
 path_file = "data/wells/standard_wells_2003.csv"
 
-[recharge_chronicle]
-mode = "synthetic_generated"
+[data]
+types = ["hydrography", "recharge"]
 
-[recharge_chronicle.synthetic_generated]
-units = "mm/day"
+[[data.recharge.sources]]
+source = "synthetic"
 values = [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 2.0, 2.0]
+freq = "MS"
 runoff_ratio = 0.1

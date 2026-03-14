@@ -19,19 +19,14 @@ y_rel = 0.33
 [flow.sinks_sources.wells.W2.forcing]
 path_file = "data/wells/normal_wells_2003.csv"
 
-[recharge_chronicle]
-mode = "synthetic_generated"
+[data]
+types = ["hydrography", "recharge"]
 
-[recharge_chronicle.synthetic_generated]
-generator = "seasonal_step"
-generation_step = "30 day"
-units = "mm/day"
+[[data.recharge.sources]]
+source = "synthetic"
+values = [2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]
+freq = "MS"
 runoff_ratio = 0.1
-
-[recharge_chronicle.synthetic_generated.seasonal_step]
-wet_months = [1, 2, 3, 4, 11, 12]
-wet_value = "2.0 mm/day"
-dry_value = "0.0 mm/day"
 
 [display]
 show = false

@@ -54,7 +54,7 @@ from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     SafranSurfex
 from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
 from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
-from hydromodpy.data_managers.oceanic import Oceanic
+from hydromodpy.data_managers.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.support.tools import toolbox
@@ -211,20 +211,22 @@ if __name__ == '__main__':
 
     #%% OCEANIC
 
-    oceanic = Oceanic()
-    oceanic.extract_local_data(out_path=workspace.catch_folder,
-                                 geographic=geographic,
-                                 oceanic_path=data_path)
+    from datetime import datetime as _dt_oceanic
     try:
-        oceanic.download_SHOM_data(geographic=geographic,
-                                    start_date='2003-01-01',
-                                    end_date='2003-01-30')
-        oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+        source_cfg = OceanicSourceConfig(source="shom")
+        oceanic_cfg = OceanicConfig(sources=[source_cfg], date_start="2003-01-01", date_end="2003-01-30")
+        oceanic_manager = OceanicManager(
+            config=oceanic_cfg,
+            project_period=(_dt_oceanic(2003, 1, 1), _dt_oceanic(2003, 1, 30)),
+            geographic=geographic,
+        )
+        oceanic_result = oceanic_manager.load()
+        msl = oceanic_result.points[0].data["value"].mean()
     except Exception as _shom_exc:
         print(f"SHOM download failed ({_shom_exc}), using default MSL=0.0")
-        oceanic.update_MSL(0.0)
+        msl = 0.0
 
-    flow.boundary_conditions["ocean"].value = oceanic.MSL
+    flow.boundary_conditions["ocean"].value = msl
 
     #%% WATERSHED OBJECT
 
