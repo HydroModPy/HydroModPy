@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.field.cases.square.field_mesh_square import StructuredFieldMesh
+from hydromodpy.field.meshes import StructuredFieldMesh
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_mesh_adapter import (
     build_field_mesh_from_sgrid,
 )

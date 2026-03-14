@@ -1,0 +1,100 @@
+"""Concrete triangular planar meshes shared across field workflows."""
+
+from __future__ import annotations
+
+import matplotlib.tri as mtri
+import numpy as np
+
+from hydromodpy.field.core.field_mesh import BaseFieldMesh, MeshCell
+from hydromodpy.field.meshes.structured_field_mesh import _set_axes_limits_from_mesh
+
+
+class _TriangularBaseFieldMesh(BaseFieldMesh):
+    """Common behavior for triangular meshes."""
+
+    def __init__(
+        self,
+        *,
+        x_plot,
+        y_plot,
+        triangulation: mtri.Triangulation,
+        target_n_cells: int | None = None,
+        resolution_hint: int | None = None,
+        seed: int | None = None,
+    ):
+        if triangulation is None:
+            raise ValueError("triangular mesh requires triangulation")
+        super().__init__(
+            x_plot=x_plot,
+            y_plot=y_plot,
+            target_n_cells=target_n_cells,
+            resolution_hint=resolution_hint,
+            seed=seed,
+        )
+        self.triangulation = triangulation
+
+    @property
+    def n_cells(self) -> int:
+        return int(self.triangulation.triangles.shape[0])
+
+    def iter_cells(self):
+        x = np.asarray(self.triangulation.x, dtype=float)
+        y = np.asarray(self.triangulation.y, dtype=float)
+        for idx, nodes in enumerate(np.asarray(self.triangulation.triangles, dtype=int)):
+            vertices = np.column_stack((x[nodes], y[nodes]))
+            centroid = (float(vertices[:, 0].mean()), float(vertices[:, 1].mean()))
+            yield MeshCell(
+                index=int(idx),
+                kind="triangle",
+                node_indices=tuple(int(v) for v in nodes),
+                vertices=vertices,
+                centroid=centroid,
+            )
+
+    def cell_centroids(self):
+        cx = np.array([cell.centroid[0] for cell in self.cells], dtype=float)
+        cy = np.array([cell.centroid[1] for cell in self.cells], dtype=float)
+        return cx, cy
+
+    def to_cell_values(self, values):
+        arr = np.asarray(values)
+        flat = arr.reshape(-1)
+        if flat.size != self.n_cells:
+            raise ValueError("Triangular cell values must contain one value per cell")
+        return flat
+
+    def plot_cell_values(
+        self,
+        ax,
+        cell_values,
+        *,
+        cmap="viridis",
+        show_mesh=False,
+        vmin=None,
+        vmax=None,
+    ):
+        values1d = np.asarray(self.to_cell_values(cell_values), dtype=float)
+        mappable = ax.tripcolor(
+            self.triangulation,
+            facecolors=values1d,
+            shading="flat",
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        if show_mesh:
+            ax.triplot(self.triangulation, color="0.70", lw=0.35)
+        _set_axes_limits_from_mesh(ax, x_plot=self.triangulation.x, y_plot=self.triangulation.y)
+        return mappable
+
+
+class TriangularStructuredFieldMesh(_TriangularBaseFieldMesh):
+    """Triangular mesh from structured node grid."""
+
+    _kind = "triangular_structured"
+
+
+class TriangularUnstructuredFieldMesh(_TriangularBaseFieldMesh):
+    """Triangular mesh from irregular node cloud."""
+
+    _kind = "triangular_unstructured"

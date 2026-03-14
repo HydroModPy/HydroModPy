@@ -1,5 +1,19 @@
 @startuml
-title Field Spatial Classes - Parent + Square + Geology
+title Field Square Case - Relation To Core
+
+package "hydromodpy.field.core.field_mesh" {
+  abstract class BaseFieldMesh {
+    +n_cells
+    +cells
+    +to_cell_values(values)
+    +attach_cell_values(values, label=None)
+  }
+
+  abstract class FieldMesh {
+    +from_unit_square(target_n_cells, mesh_kind="structured", seed=42)
+    +from_dict(config)
+  }
+}
 
 package "hydromodpy.field.core.field_spatial" {
   abstract class Field {
@@ -26,12 +40,12 @@ package "hydromodpy.field.core.field_spatial_weighted_discretization" {
   }
 }
 
-package "hydromodpy.field.core.field_mesh" {
-  abstract class BaseFieldMesh {
-    +n_cells
-    +cells
-    +to_cell_values(values)
-    +attach_cell_values(values, label=None)
+package "hydromodpy.field.core.field_param" {
+  class FieldParam {
+    +identifier: str
+    +kind: str
+    +field_spatial_id: str | None
+    +to_mesh_field(field_discretization=None, mesh=None, label=None)
   }
 }
 
@@ -42,36 +56,45 @@ package "hydromodpy.field.cases.square.field_spatial_square" {
     +zone1_name: str
     +zone2_name: str
     +zone_id(x, y)
+    +zone_display(n_plot=320)
     +on_mesh(mesh, cell_samples_per_axis=10)
   }
 }
 
-package "hydromodpy.data_managers.geology.geology_field" {
-  class GeologyField {
-    +encoded_codes: np.ndarray
-    +encoded_to_zone: dict[int, str]
-    +transform
-    +zone_id(x, y)
-    +on_mesh(mesh, cell_samples_per_axis=10)
+package "hydromodpy.field.cases.square.field_mesh_square" {
+  class FieldMeshSquare {
+    +from_unit_square(target_n_cells, mesh_kind, seed)
+    +from_dict(config)
   }
 }
 
-package "hydromodpy.data_managers.geology.geology_mesh" {
-  class GeologyStructuredMesh {
-    +from_bounds(bounds, target_n_cells=400)
-  }
+package "hydromodpy.field.meshes.structured_field_mesh" {
+  class StructuredFieldMesh
+}
+
+package "hydromodpy.field.meshes.triangular_field_mesh" {
+  abstract class _TriangularBaseFieldMesh
+  class TriangularStructuredFieldMesh
+  class TriangularUnstructuredFieldMesh
 }
 
 Field <|-- FieldSquare
-Field <|-- GeologyField
-
 FieldDiscretization <|-- WeightedAverageFieldDiscretization
-WeightedAverageFieldDiscretization --> BaseFieldMesh
+FieldDiscretization --> BaseFieldMesh
 
 FieldSquare --> WeightedAverageFieldDiscretization : on_mesh(...)
-GeologyField --> WeightedAverageFieldDiscretization : on_mesh(...)
 
-BaseFieldMesh <|-- GeologyStructuredMesh
-GeologyField ..> GeologyStructuredMesh : projected on
+FieldMesh <|.. FieldMeshSquare
+BaseFieldMesh <|-- StructuredFieldMesh
+BaseFieldMesh <|-- _TriangularBaseFieldMesh
+_TriangularBaseFieldMesh <|-- TriangularStructuredFieldMesh
+_TriangularBaseFieldMesh <|-- TriangularUnstructuredFieldMesh
+
+FieldMeshSquare ..> StructuredFieldMesh : builds
+FieldMeshSquare ..> TriangularStructuredFieldMesh : builds
+FieldMeshSquare ..> TriangularUnstructuredFieldMesh : builds
+
+FieldParam ..> BaseFieldMesh : homogeneous mapping
+FieldParam ..> WeightedAverageFieldDiscretization : heterogeneous mapping
 
 @enduml

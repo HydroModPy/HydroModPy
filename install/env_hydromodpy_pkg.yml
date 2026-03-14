@@ -36,5 +36,7 @@ dependencies:
   - pysheds
   - pip
   - pip:
+      - gmsh
+      - meshio
       - whitebox-workflows
       - -e ..
