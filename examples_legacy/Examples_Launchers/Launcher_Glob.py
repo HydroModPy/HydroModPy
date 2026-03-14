@@ -72,7 +72,7 @@ from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     SafranSurfex, Transport
 from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
 from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
-from hydromodpy.data_managers.oceanic import Oceanic
+from hydromodpy.data_managers.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.support.tools import toolbox
@@ -1434,21 +1434,22 @@ def watershed(example_id):
         climatic_object = Climatic(out_path=workspace_object.catch_folder)
 
         # 5. Oceanic (avec SHOM)
-        oceanic = Oceanic()
-        oceanic.extract_local_data(
-            out_path=workspace_object.catch_folder,
-            geographic=geographic_object,
-            oceanic_path=str(absolute_data_path)
-        )
+        from datetime import datetime as _dt_oceanic
         try:
-            # On essaye de rÃƒÂ©cupÃƒÂ©rer les donnÃƒÂ©es marÃƒÂ©es
-            oceanic.download_SHOM_data(geographic=geographic_object, start_date='2003-01-01', end_date='2003-01-30')
-            oceanic.update_MSL(oceanic.SHOM_data['value'].mean())
+            source_cfg = OceanicSourceConfig(source="shom")
+            oceanic_cfg = OceanicConfig(sources=[source_cfg], date_start="2003-01-01", date_end="2003-01-30")
+            oceanic_manager = OceanicManager(
+                config=oceanic_cfg,
+                project_period=(_dt_oceanic(2003, 1, 1), _dt_oceanic(2003, 1, 30)),
+                geographic=geographic_object,
+            )
+            oceanic_result = oceanic_manager.load()
+            msl = oceanic_result.points[0].data["value"].mean()
         except Exception as e:
             print(f"SHOM download failed ({e}), using default MSL=0.0")
-            oceanic.update_MSL(0.0)
+            msl = 0.0
 
-        flow.boundary_conditions["ocean"].value = oceanic.MSL
+        flow.boundary_conditions["ocean"].value = msl
 
         # 6. Hydrometry
         hydro_section = raw_toml.get("hydrometry", {})
@@ -1481,7 +1482,7 @@ def watershed(example_id):
             'hydraulic': hydraulic_object,
             'domain': domain,
             'flow': flow,
-            'oceanic': oceanic,
+            'msl': msl,
             'climatic': climatic_object,
             'transport': transport,
             'hydrometry': hydrometry,
@@ -1828,7 +1829,7 @@ def parametrization(results):
         settings_object = results['settings']
         hydraulic_object = results['hydraulic']
         climatic_object = results.get('climatic')
-        oceanic_object = results['oceanic']
+        msl_value = results['msl']
 
         if climatic_object is None:
             workspace_object = results['workspace']
@@ -1987,7 +1988,7 @@ def modeling(results):
         hydraulic_object = results['hydraulic']
         settings_object = results['settings']
         climatic_object = results['climatic']
-        oceanic_object = results['oceanic']
+        msl_value = results['msl']
         workspace_object = results['workspace']
 
         p = PARAMS[example_key]
@@ -2022,7 +2023,7 @@ def modeling(results):
                 hydraulic=hydraulic_object,
                 settings=settings_object,
                 climatic=climatic_object,
-                oceanic_object=oceanic_object,
+                msl_value=msl_value,
                 workspace=workspace_object,
                 model_name=model_name,
                 bin_path=CONFIG.get("bin_path", workspace_object.bin_path),
@@ -2058,7 +2059,7 @@ def modeling(results):
                         hydraulic=hydraulic_object,
                         settings=settings_object,
                         climatic=climatic_object,
-                        oceanic_object=oceanic_object,
+                        msl_value=msl_value,
                         workspace=workspace_object,
                         model_name=model_name,
                         hk_value=hk_value,
@@ -2088,7 +2089,7 @@ def modeling(results):
                         hydraulic=hydraulic_object,
                         settings=settings_object,
                         climatic=climatic_object,
-                        oceanic_object=oceanic_object,
+                        msl_value=msl_value,
                         workspace=workspace_object,
                         model_name=model_name,
                         hk_value=hk_fixed,  # Use fixed HK for ex04
