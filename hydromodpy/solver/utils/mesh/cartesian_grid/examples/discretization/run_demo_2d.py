@@ -6,12 +6,32 @@ import argparse
 from pathlib import Path
 import sys
 
+import matplotlib
 import geopandas as gpd
-import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import matplotlib.ticker as mticker
 import numpy as np
 from shapely.geometry import box
+
+
+def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
+    """Pick one GUI backend early when interactive display is expected."""
+    if "--no-show-plot" in argv:
+        return
+    backend = str(matplotlib.get_backend()).strip().lower()
+    if ("inline" not in backend) and ("agg" not in backend):
+        return
+    for candidate in ("TkAgg", "QtAgg"):
+        try:
+            matplotlib.use(candidate, force=True)
+            return
+        except Exception:
+            continue
+
+
+_configure_matplotlib_backend_from_argv(sys.argv[1:])
+
+import matplotlib.pyplot as plt
 
 # Ensure repository root is importable when script is launched directly.
 def _find_repo_root() -> Path:
@@ -108,6 +128,20 @@ def _resolve_output_path(raw_output: str, *, config_path: Path) -> Path:
         output = (config_path.parent / output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     return output
+
+
+def _ensure_gui_backend_for_blocking_show() -> None:
+    """Switch away from inline/non-GUI backends before blocking `show()`."""
+    backend = str(plt.get_backend()).strip().lower()
+    if ("inline" not in backend) and ("agg" not in backend):
+        return
+
+    for candidate in ("TkAgg", "QtAgg"):
+        try:
+            plt.switch_backend(candidate)
+            return
+        except Exception:
+            continue
 
 
 def _disable_axis_offset(ax) -> None:
@@ -379,8 +413,8 @@ def _plot_geology_and_result(
     values_2d: np.ndarray,
     output_path: Path,
     show_plot: bool,
-) -> None:
-    fig, axes = plt.subplots(1, 3, figsize=(21.0, 8.4), dpi=140)
+):
+    fig, axes = plt.subplots(1, 3, figsize=(24.0, 9.4), dpi=150)
     ax_left, ax_center, ax_right = axes
 
     cartouches = _plot_left_raw_geology(
@@ -411,20 +445,47 @@ def _plot_geology_and_result(
     fig.savefig(output_path)
     print(f"saved_figure={output_path}")
 
-    if show_plot:
-        plt.show()
-    else:
+    if not show_plot:
+        plt.close(fig)
+        return None
+    return fig
+
+
+def _show_figures_blocking(*figures) -> None:
+    visible = [fig for fig in figures if fig is not None]
+    if not visible:
+        return
+    print(f"matplotlib_backend={plt.get_backend()}")
+    print("showing_figure=interactive_blocking")
+    # Force blocking behavior even when an interactive backend is active.
+    plt.ioff()
+    for fig in visible:
+        try:
+            manager = getattr(fig.canvas, "manager", None)
+            if manager is not None and hasattr(manager, "show"):
+                manager.show()
+            fig.show()
+        except Exception:
+            continue
+    plt.pause(0.05)
+    plt.show(block=True)
+    for fig in visible:
         plt.close(fig)
 
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
+    if not bool(args.no_show_plot):
+        _ensure_gui_backend_for_blocking_show()
     config_path = _resolve_config_path(args.config_file)
     cfg = SGridFieldParamDiscretizationConfig.from_toml(config_path, section=args.section)
 
+    print(f"config={config_path}")
+    print("step=run_discretization_case")
     result = run_discretization_case(cfg)
     geology_field = GeologyField.from_dict(cfg.geology)
     field_param = FieldParam.from_dict(cfg.field_param)
+    print("step=field_param_to_mesh")
     mesh_values = field_param.to_mesh_field(
         result.field_discretization,
         depth=float(cfg.depth),
@@ -438,7 +499,8 @@ def main(argv=None) -> int:
     print(f"max={float(np.nanmax(arr)):.6g}")
 
     output_path = _resolve_output_path(args.output_figure, config_path=config_path)
-    _plot_geology_and_result(
+    print("step=build_figure")
+    fig = _plot_geology_and_result(
         cfg=cfg,
         geology_field=geology_field,
         mesh=result.mesh,
@@ -447,6 +509,8 @@ def main(argv=None) -> int:
         output_path=output_path,
         show_plot=(not bool(args.no_show_plot)),
     )
+    if not bool(args.no_show_plot):
+        _show_figures_blocking(fig)
     return 0
 
 

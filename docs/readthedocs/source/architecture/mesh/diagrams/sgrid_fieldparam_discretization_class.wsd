@@ -51,7 +51,7 @@ package "hydromodpy.field.core.field_mesh" {
   }
 }
 
-package "hydromodpy.field.square.field_mesh_square" {
+package "hydromodpy.field.cases.square.field_mesh_square" {
   class StructuredFieldMesh
 }
 

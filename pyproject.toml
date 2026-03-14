@@ -51,6 +51,7 @@ dependencies = [
     "ipython",
     "matplotlib",
     "matplotlib-scalebar",
+    "meshio",
     "netCDF4",
     "numpy>=2.0",
     "pandas",

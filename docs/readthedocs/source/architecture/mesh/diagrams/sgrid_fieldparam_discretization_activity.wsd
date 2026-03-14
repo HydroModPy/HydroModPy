@@ -3,10 +3,10 @@ title Spatial Discretization - Activity (SGrid to FieldParam 3D values)
 
 start
 
-:Validate runtime contracts\n(geology_field, field_param, sgrid);
+:Validate runtime contracts\n(support_field, field_param, sgrid);
 
 if (Heterogeneous and strict id match?) then (yes)
-  :Compare field_param.field_spatial_id\nwith geology_field.identifier;
+  :Compare field_param.field_spatial_id\nwith support_field.identifier;
   if (Mismatch?) then (yes)
     :Raise ValueError;
     stop
@@ -14,9 +14,9 @@ if (Heterogeneous and strict id match?) then (yes)
 endif
 
 :Build planar mesh view from solver grid\nbuild_field_mesh_from_sgrid(sgrid);
-:Project geology on this mesh\nfield_discretization = geology_field.on_mesh(...);
+:Project support field on this mesh\nfield_discretization = support_field.on_mesh(...);
 
-:Compute legacy planar map\nvalues_2d = field_param.to_mesh_field(..., depth);
+:Compute planar reference map\nvalues_2d = field_param.to_mesh_field(..., depth);
 
 :Read sgrid dimensions\n(nlay, nrow, ncol);
 :Compute layer-center depths from top/botm\n+ global depth offset;

@@ -10,6 +10,9 @@ These diagrams describe how HydroModPy bridges:
 - planar field meshes (field/geology side),
 - ``Field``/``FieldParam`` value mapping for solver-ready arrays.
 
+For a narrower static view centered on the solver grid itself, see
+:doc:`structured-grid-class-diagram`.
+
 Class Diagram
 -------------
 
