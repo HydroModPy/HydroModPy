@@ -94,40 +94,22 @@ force_refresh = false
 
 # Oceanic configuration used when 'oceanic' is listed in data.types.
 
-[data.oceanic]
-# Optional folder containing local oceanic support files used by Oceanic.extract_local_data.
-# Relative paths are resolved from the TOML file directory.
-# Type: string (optional) | Optional
-oceanic_path = ""
+# [data.oceanic]
+# [[data.oceanic.sources]]
+# source = "constant"
+# value = 0.0
 
-# Mean sea-level source policy.
-# 'local' reads the CSV from msl_local_csv, 'web' queries SHOM, 'auto' tries local first then falls back to web.
-# Type: Literal['auto', 'local', 'web'] | one of: "auto", "local", "web" | Default: "auto"
-msl_source = "auto"
+# Ou custom CSV/NC/TIF :
+# [[data.oceanic.sources]]
+# source = "custom"
+# path = "data/oceanic"
+# col_datetime = "timestamp"
 
-# Path to a pre-downloaded SHOM CSV file used when msl_source is 'local' or 'auto'.
-# Relative paths are resolved from the TOML file directory.
-# Type: string (optional) | Optional
-msl_local_csv = ""
-
-# If true, derive msl_start_date and msl_end_date from [simulation.time] canonical window using [simulation.time].start_datetime/end_datetime.
-# If [simulation.time] is missing or unresolved, fallback to the explicit msl_start_date/msl_end_date values below.
-# Type: bool | Default: false
-msl_use_simulation_time_window = false
-
-# Inclusive mean sea-level start date in ISO format (YYYY-MM-DD).
-# Used directly when msl_use_simulation_time_window=false or as fallback otherwise.
-# Type: string | Default: "2003-01-01"
-msl_start_date = "2003-01-01"
-
-# Inclusive mean sea-level end date in ISO format (YYYY-MM-DD).
-# Used directly when msl_use_simulation_time_window=false or as fallback otherwise.
-# Type: string | Default: "2003-01-30"
-msl_end_date = "2003-01-30"
-
-# Fallback mean sea-level value used when acquisition fails (SI unit: meter).
-# Type: float | Default: 0.0
-msl_default = 0.0
+# Ou API SHOM :
+# [[data.oceanic.sources]]
+# source = "shom"
+# nearest = true
+# fallback_search_radius_km = 100.0
 
 
 # Piezometry configuration (groundwater level time-series).

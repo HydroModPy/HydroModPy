@@ -42,7 +42,7 @@ thickness = "50.0 m"
 # ── Data managers ─────────────────────────────────────────────────────
 
 [data]
-types = ["geology", "hydrography", "intermittency"]
+types = ["geology", "hydrography", "intermittency", "recharge"]
 inference_mode = "warn"
 
 [data.geology]
@@ -121,17 +121,14 @@ first_clim = "mean"
 negative_to_evt = true
 
 
-# ── Recharge chronicle ────────────────────────────────────────────────
+# ── Recharge data ────────────────────────────────────────────────────
 
-[recharge_chronicle]
-mode = "synthetic_generated"
-
-[recharge_chronicle.synthetic_generated]
+[[data.recharge.sources]]
+source = "synthetic"
+values = [0.9589]
 start_date = "2000-01-01"
 freq = "YE"
 periods = 1
-units = "mm/day"
-values = [0.9589]
 runoff_ratio = 0.0
 
 

@@ -28,9 +28,10 @@ types_obs = ["botopage2024_naizin_streams_perennial-intermittent"]
 fields_obs = ["FID"]
 
 [data.oceanic]
-msl_source = "local"
-msl_local_csv = "data/oceanic/sealevel_shom_152_20030101_20030130_H.csv"
-msl_use_simulation_time_window = true
+[[data.oceanic.sources]]
+source = "custom"
+path = "data/oceanic"
+col_datetime = "timestamp"
 
 [data.hydrometry]
 

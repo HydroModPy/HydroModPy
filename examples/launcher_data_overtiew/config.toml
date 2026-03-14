@@ -56,9 +56,9 @@ intermittency_path = "data/"
 file_name = "regional onde stations.shp"
 
 [data.oceanic]
-oceanic_path = "data/"
-msl_source = "web"
-msl_use_simulation_time_window = false
-msl_start_date = "2003-01-01"
-msl_end_date = "2003-01-30"
-msl_default = 0.0
+date_start = "2003-01-01"
+date_end = "2003-01-30"
+
+[[data.oceanic.sources]]
+source = "shom"
+nearest = true
