@@ -27,7 +27,7 @@ from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, \
     SafranSurfex, Transport
-from hydromodpy.data_managers.oceanic import Oceanic
+from hydromodpy.data_managers.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.support.tools import toolbox
@@ -47,12 +47,12 @@ wbt.verbose = False
 # COMPLETE MODFLOW - EnchaÃ®ne: preprocessing â†’ processing â†’ postprocessing
 # ============================================================================
 
-def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,oceanic_object,
+def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,msl_value,
                     model_name, bin_path, workspace,config,cfg):
     """
-    Complete MODFLOW workflow: Pre-processing â†’ Processing â†’ Post-processing
+    Complete MODFLOW workflow: Pre-processing -> Processing -> Post-processing
 
-    EnchaÃ®ne directement les 3 Ã©tapes: preprocessing, processing, postprocessing
+    Enchaine directement les 3 etapes: preprocessing, processing, postprocessing
 
     Parameters
     ----------
@@ -62,7 +62,8 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,ocean
     hydraulic : Hydraulic object
     settings : Settings object
     climatic : Climatic object
-    oceanic : Oceanic object
+    msl_value : float or None
+        Mean sea level value in metres.
     workspace : Workspace-like object
     model_name : str
         Model identification name
@@ -71,7 +72,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,ocean
     bin_path : str
         Path to MODFLOW binaries
     config : dict
-        Configuration with 'processing' and 'postprocessing_modflow' keys
+        Configuration with ‘processing’ and ‘postprocessing_modflow’ keys
 
     Returns
     -------
@@ -108,7 +109,7 @@ def complete_modflow(geographic,flow,domain, hydraulic, settings, climatic,ocean
             # Output settings
             check_grid=settings.check_grid,
             # Boundary settings
-            sea_level=oceanic.MSL if oceanic else None,
+            sea_level=msl_value,
             # Climatic settings
             recharge=climatic.recharge,
             first_clim=climatic.first_clim,
