@@ -1,4 +1,13 @@
-"""3D values attached to one extruded prism mesh for postprocessing/export."""
+"""Attach scalar values to an extruded prism mesh and export the result.
+
+The mesh geometry lives in `extruded_prism_mesh`; this module adds the data
+layer on top of it. It stores one scalar per prism, reshapes values between a
+flat 3D ordering and a `(n_layers, n_cells_2d)` view, and computes compact
+summaries for diagnostics.
+
+It is the module to use once a 3D mesh already exists and the remaining task
+is inspection, postprocessing, or export to formats such as `.npy` or `.vtu`.
+"""
 
 from __future__ import annotations
 

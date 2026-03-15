@@ -1,4 +1,13 @@
-"""Compare cartesian and Gmsh 2D discretizations on the same Brittany geology base."""
+"""Compare structured-grid and Gmsh discretizations on the same geology input.
+
+This script is a side-by-side benchmark for the 2D workflow. It runs the
+existing cartesian example and the Gmsh example from comparable configs, then
+collects summaries, plots both meshes, and highlights how the discretized
+geology and resulting values differ.
+
+Use it when the question is not "does the Gmsh path run?" but rather "how does
+it behave relative to the structured baseline on the same field data?".
+"""
 
 from __future__ import annotations
 
@@ -13,22 +22,16 @@ import numpy as np
 
 
 def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
-    if "--no-show-plot" in argv:
-        return
-    backend = str(matplotlib.get_backend()).strip().lower()
-    if ("inline" not in backend) and ("agg" not in backend):
-        return
-    for candidate in ("TkAgg", "QtAgg"):
-        try:
-            matplotlib.use(candidate, force=True)
-            return
-        except Exception:
-            continue
+    try:
+        matplotlib.use("Agg", force=True)
+    except Exception:
+        pass
 
 
 _configure_matplotlib_backend_from_argv(sys.argv[1:])
 
 from matplotlib import pyplot as plt
+plt.switch_backend("Agg")
 from matplotlib.lines import Line2D
 
 
@@ -61,6 +64,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_
     _maybe_scientific_colorbar,
     _plot_left_raw_geology,
     build_reference_case_state_from_toml,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
+    ensure_interactive_backend_for_show,
 )
 
 
@@ -706,6 +712,7 @@ def _show_figures_blocking(*figures) -> None:
     visible = [fig for fig in figures if fig is not None]
     if not visible:
         return
+    ensure_interactive_backend_for_show()
     plt.ioff()
     for fig in visible:
         try:

@@ -1,4 +1,13 @@
-"""Reference 3D prism extrusion case built from the 2D Gmsh reference mesh."""
+"""Build the reference 3D prism mesh from the reference 2D Gmsh mesh.
+
+This script isolates the geometric extrusion step. Starting from the 2D case,
+it reads the planar mesh, applies the configured vertical interfaces, and
+returns a prism mesh plus a small summary describing its layers and
+connectivity.
+
+Use it when the goal is to validate the 3D mesh itself before attaching any
+FieldParam values to it.
+"""
 
 from __future__ import annotations
 

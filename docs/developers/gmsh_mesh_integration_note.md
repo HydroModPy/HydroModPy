@@ -1025,6 +1025,82 @@ Le bon niveau de comparaison est plutot :
 - memes structures heterogenes globales
 - signatures statistiques compatibles
 
+## Cas de postprocessing : `comparison_cartesian_vs_gmsh_3d`
+
+Une variante 3D legere est utile une fois les deux workflows 3D disponibles :
+
+- le workflow cartesien structure existant
+- le workflow Gmsh extrude deja discretise en 3D
+
+Ce cas doit rester dans une couche de **cas / postprocessing**.
+Il ne doit pas pousser de logique de comparaison dans :
+
+- `Field`
+- `FieldParam`
+- `BaseFieldMesh`
+- les objets coeur du maillage 3D
+
+Le bon niveau de comparaison pour ce cas 3D n'est toujours **pas**
+l'egalite cellule a cellule.
+
+Le niveau cible est plutot :
+
+- comparaison des shapes de grilles / maillages 3D
+- comparaison de l'emprise spatiale XY
+- comparaison des stats globales
+- comparaison des stats par couche
+- comparaison de signatures numeriques compactes
+- comparaison de quelques profils verticaux sur des positions XY partagees
+
+Les sorties attendues sont alors :
+
+- un JSON de comparaison 3D
+- des figures par couche
+- une figure de profils verticaux compares
+- une figure synthetique de comparaison
+
+La regle importante est la suivante :
+
+- le runner 3D compare des **coupes et agregats**
+- il ne construit pas de carte de difference cellule a cellule entre
+  cartesian et Gmsh
+- il reutilise les structures de valeurs 3D deja disponibles de chaque cote
+  pour faire seulement du QA visuel et numerique
+
+Cette limite de comparaison doit rester explicite dans la doc et dans les
+sorties JSON, afin d'eviter de surinterpreter les ecarts lies a des maillages
+de nature differente.
+
+## Visualisation 3D legere
+
+La premiere V1 ne doit pas introduire de rendu 3D interactif.
+
+La bonne cible est une couche de visualisation simple, reutilisable, fondee
+sur des coupes 2D :
+
+- cartes par couche
+- profils verticaux sur quelques cellules 2D sources
+- figures compactes de QA
+
+Cette couche doit etre factorisee dans un module dedie, par exemple :
+
+- `extruded_mesh_visualization.py`
+
+Elle doit consommer :
+
+- `ExtrudedPrismMeshWithValues`
+
+et fournir des helpers du type :
+
+- `build_layer_maps_figure(...)`
+- `build_vertical_profiles_figure(...)`
+- `build_visualization_summary(...)`
+
+L'objectif est double :
+
+- eviter que la logique de trace reste enfouie dans les runners de cas
+- donner une base simple pour le postprocessing manuel hors solveur
+
 ## Cas secondaire leger : `synthetic_2d`
 
 ### Role du cas synthetique
@@ -1244,6 +1320,13 @@ API publique minimale recommandee :
 - `GmshPlanarMesh2D.from_meshio(mesh)`
 - `GmshPlanarMesh2D.to_meshio()`
 
+En plus de ces methodes de classe, une V1 exploitable peut exposer des helpers
+de plus haut niveau via un module dedie, par exemple :
+
+- `exchange_api.py`
+- `load_planar_mesh(path)`
+- `save_planar_mesh(mesh, path)`
+
 ### 2.bis Couche maillage 3D d'extrusion
 
 Fichier :
@@ -1276,6 +1359,19 @@ API publique minimale recommandee :
 - `ExtrudedPrismMesh3D.from_file(path)`
 - `ExtrudedPrismMesh3D.to_file(path)`
 - `ExtrudedPrismMesh3D.to_meshio()`
+
+Pour l'usage "collegue externe", il est utile de completer cette API par :
+
+- `load_extruded_mesh(path)`
+- `save_extruded_mesh(mesh, path)`
+- `load_extruded_mesh_values(path)`
+- `save_extruded_mesh_values(mesh_with_values, path)`
+- `save_extruded_values_npy(mesh_with_values, path)`
+- `save_extruded_values_summary(mesh_with_values, path)`
+
+Un petit exemple de lecture seule doit accompagner cette API, par exemple :
+
+- `examples/read_only_example.py`
 
 Remarque importante :
 
@@ -1486,6 +1582,18 @@ Helpers cibles :
 - stats par couche
 - signature compacte pour les tests et le debug
 
+La couche de visualisation legere doit rester separee de cette couche de
+stockage. Une implementation cible peut vivre dans :
+
+- `extruded_mesh_visualization.py`
+
+avec des responsabilites limitees a :
+
+- construire des figures par couche
+- construire des profils verticaux
+- produire un petit resume JSON des coupes affichees
+- reutiliser `ExtrudedPrismMeshWithValues` sans y melanger la logique de trace
+
 Export cible :
 
 - `.vtu` avec une valeur par prisme dans `cell_data`
@@ -1495,12 +1603,14 @@ Export cible :
 Runner de reference recommande :
 
 - `cases/reference_3d_fieldparam/run_postprocess_3d.py`
+- `cases/reference_3d_fieldparam/run_visualize_3d.py`
 
 Ce runner doit reutiliser :
 
 - le cas `reference_3d_fieldparam` pour la discretisation
 - la nouvelle structure `ExtrudedPrismMeshWithValues` pour l'export et les
   aides de postprocessing
+- la couche `extruded_mesh_visualization.py` pour les figures
 
 Si `meshio` n'est pas disponible, l'export `.vtu` peut etre saute proprement,
 mais la couche de postprocessing doit rester testable via `.npy` et `.json`.

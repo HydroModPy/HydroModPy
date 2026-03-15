@@ -1,4 +1,12 @@
-"""Reference 3D FieldParam discretization case on an extruded prism mesh."""
+"""Run the reference 3D FieldParam discretization on an extruded prism mesh.
+
+This case builds on the 2D reference case and the 3D extrusion case. It reuses
+the planar geology support, creates the prism mesh, evaluates the FieldParam at
+prism-center depths, and writes compact outputs that are easy to inspect.
+
+It is the clearest example of how the 2D Gmsh workflow extends into 3D without
+introducing a full groundwater solver.
+"""
 
 from __future__ import annotations
 
@@ -15,23 +23,18 @@ import numpy as np
 
 
 def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
-    if "--show-plot" not in argv:
-        return
-    backend = str(matplotlib.get_backend()).strip().lower()
-    if ("inline" not in backend) and ("agg" not in backend):
-        return
-    for candidate in ("TkAgg", "QtAgg"):
-        try:
-            matplotlib.use(candidate, force=True)
-            return
-        except Exception:
-            continue
+    # Use a non-interactive backend by default. Interactive display, when
+    # explicitly requested, is handled later through `show_figures_blocking`.
+    try:
+        matplotlib.use("Agg", force=True)
+    except Exception:
+        pass
 
 
 _configure_matplotlib_backend_from_argv(sys.argv[1:])
 
 from matplotlib import pyplot as plt
-
+plt.switch_backend("Agg")
 
 def _find_repo_root() -> Path:
     current = Path(__file__).resolve()
@@ -51,13 +54,16 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
     discretize_fieldparam_on_extruded_mesh,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
-    _disable_axis_offset,
-    _maybe_scientific_colorbar,
-    _show_figures_blocking,
     build_reference_case_state_from_toml,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_mesh.run_case_3d_mesh import (
     build_reference_3d_mesh_state_from_toml,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
+    disable_axis_offset,
+    ensure_interactive_backend_for_show,
+    maybe_scientific_colorbar,
+    show_figures_blocking,
 )
 
 
@@ -256,7 +262,7 @@ def _plot_layer_panel(
     ax.set_ylabel("y [m]", fontsize=14)
     ax.tick_params(labelsize=12)
     ax.set_aspect("equal")
-    _disable_axis_offset(ax)
+    disable_axis_offset(ax)
     return mappable
 
 
@@ -344,7 +350,7 @@ def _build_reference_3d_fieldparam_figure(
     cbar = fig.colorbar(mappable, cax=ax_cbar, orientation="vertical")
     cbar.set_label("Field parameter value", fontsize=14, rotation=90, labelpad=14)
     cbar.ax.tick_params(labelsize=12)
-    _maybe_scientific_colorbar(cbar, flat_values)
+    maybe_scientific_colorbar(cbar, flat_values)
 
     center_source = int(mesh_with_values.n_cells_2d // 2)
     center_profile = mesh_with_values.extract_vertical_profile(center_source)
@@ -483,6 +489,8 @@ def run_reference_3d_fieldparam_case_from_toml(
         np.save(values_path, np.asarray(result.values_3d, dtype=float))
         summary["output_values_npy"] = str(values_path)
     if overview_path is not None or show_plot:
+        if show_plot:
+            ensure_interactive_backend_for_show()
         fig = _build_reference_3d_fieldparam_figure(
             mesh_with_values=mesh_with_values,
             summary=summary,
@@ -491,7 +499,7 @@ def run_reference_3d_fieldparam_case_from_toml(
             fig.savefig(overview_path)
             summary["output_overview_png"] = str(overview_path)
         if show_plot:
-            _show_figures_blocking(fig)
+            show_figures_blocking(fig)
         else:
             plt.close(fig)
     return summary

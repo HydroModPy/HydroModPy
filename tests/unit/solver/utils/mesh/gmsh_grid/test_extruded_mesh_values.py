@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import tempfile
 
 import numpy as np
 import pytest
@@ -86,19 +85,18 @@ def test_extruded_mesh_values_vtu_roundtrip_if_meshio_available():
         prism_center_depths=np.array([[2.5, 2.5], [10.0, 10.0]], dtype=float),
     )
 
-    scratch_root = Path.cwd() / "scratch_tests" / "extruded_mesh_values"
-    scratch_root.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=scratch_root) as tmp_dir:
-        path = Path(tmp_dir) / "values_3d.vtu"
-        attached.to_file(path, value_name="K_value", depth_name="depth_center")
-        reread = ExtrudedPrismMeshWithValues.from_file(
-            path,
-            value_name="K_value",
-            depth_name="depth_center",
-            label="K_3d",
-        )
+    output_dir = Path.cwd() / "scratch_tests" / "extruded_mesh_values" / "runtime"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "values_3d.vtu"
+    attached.to_file(path, value_name="K_value", depth_name="depth_center")
+    reread = ExtrudedPrismMeshWithValues.from_file(
+        path,
+        value_name="K_value",
+        depth_name="depth_center",
+        label="K_3d",
+    )
 
-        assert reread.label == "K_3d"
-        assert reread.mesh.n_prisms == attached.mesh.n_prisms
-        assert np.allclose(reread.values_3d, attached.values_3d)
-        assert np.allclose(reread.prism_center_depths, attached.prism_center_depths)
+    assert reread.label == "K_3d"
+    assert reread.mesh.n_prisms == attached.mesh.n_prisms
+    assert np.allclose(reread.values_3d, attached.values_3d)
+    assert np.allclose(reread.prism_center_depths, attached.prism_center_depths)

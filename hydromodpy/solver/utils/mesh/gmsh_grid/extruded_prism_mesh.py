@@ -1,4 +1,14 @@
-"""3D prism extrusion helpers built from one validated planar 2D mesh."""
+"""Build and persist 3D prism meshes obtained by extruding one 2D Gmsh mesh.
+
+This module takes a validated planar mesh and repeats it along the vertical
+axis to create wedge or hexahedron prisms, depending on whether the base mesh
+uses triangles or quads.
+
+Besides creating the geometry, it keeps the bookkeeping needed to go back and
+forth between 3D prisms, their source 2D cells, and their vertical layers.
+That metadata is what later modules use to attach values or reconstruct
+profiles layer by layer.
+"""
 
 from __future__ import annotations
 
