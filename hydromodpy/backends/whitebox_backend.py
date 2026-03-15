@@ -113,6 +113,65 @@ class WhiteboxBackend(Protocol):
         """Trace downslope flowpaths from point seeds over a D8 pointer raster."""
         ...
 
+    def extract_streams(
+        self,
+        flow_accumulation: str,
+        output_raster: str,
+        *,
+        threshold: float | int | None = None,
+        zero_background: bool | None = None,
+    ) -> None:
+        """Extract one stream raster from accumulation values and one threshold."""
+        ...
+
+    def raster_streams_to_vector(
+        self,
+        streams_raster: str,
+        d8_pointer: str,
+        output_vector: str,
+        *,
+        esri_pointer: bool | None = None,
+        all_vertices: bool | None = None,
+    ) -> None:
+        """Convert one stream raster + D8 pointer support into one vector network."""
+        ...
+
+    def strahler_stream_order(
+        self,
+        d8_pointer: str,
+        streams_raster: str,
+        output_raster: str,
+        *,
+        esri_pntr: bool | None = None,
+        zero_background: bool | None = None,
+    ) -> None:
+        """Compute one Strahler stream-order raster."""
+        ...
+
+    def stream_link_identifier(
+        self,
+        d8_pointer: str,
+        streams_raster: str,
+        output_raster: str,
+        *,
+        esri_pntr: bool | None = None,
+        zero_background: bool | None = None,
+    ) -> None:
+        """Compute one stream-link identifier raster."""
+        ...
+
+    def remove_short_streams(
+        self,
+        d8_pointer: str,
+        streams_raster: str,
+        output_raster: str,
+        *,
+        min_length: float | int | None = None,
+        esri_pntr: bool | None = None,
+    ) -> None:
+        """Remove short stream segments from one stream raster."""
+        ...
+
     def d8_mass_flux(
         self,
         dem: str,
