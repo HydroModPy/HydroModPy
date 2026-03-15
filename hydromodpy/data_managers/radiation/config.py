@@ -16,18 +16,18 @@ class RadiationSourceConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Literal["custom", "sim2"] = Field(
+    source: Annotated[Literal["custom", "sim2"], ParamLevel("user")] = Field(
         ..., description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
     )
 
     # --- Radiation-specific ---
-    components: list[Literal["atmospheric", "visible"]] = Field(
+    components: Annotated[list[Literal["atmospheric", "visible"]], ParamLevel("user")] = Field(
         default=["atmospheric", "visible"],
         description="Radiation components: 'atmospheric' (DLI_Q) and/or 'visible' (SSI_Q).",
     )
 
     # --- Custom source fields ---
-    path: Optional[Path] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
+    path: Annotated[Optional[Path], ParamLevel("user")] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
     col_x: Annotated[str, ParamLevel("dev")] = Field(default="x", description="Column name for X coordinate in location CSV.")
     col_y: Annotated[str, ParamLevel("dev")] = Field(default="y", description="Column name for Y coordinate in location CSV.")
@@ -37,14 +37,14 @@ class RadiationSourceConfig(BaseModel):
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicle CSVs.")
 
     # --- Spatial mask ---
-    mask_path: Optional[Path] = Field(default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.")
+    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.")
 
     # --- Common fields ---
-    station_ids: Optional[list[str]] = Field(default=None, description="Explicit station ids (custom source).")
-    extent: Optional[Literal["watershed", "study_area"]] = Field(
+    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(default=None, description="Explicit station ids (custom source).")
+    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
         default=None, description="Enable bbox-based data retrieval using the project extent.",
     )
-    force_refresh: bool = Field(default=False, description="Ignore cache and re-download from API.")
+    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(default=False, description="Ignore cache and re-download from API.")
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> "RadiationSourceConfig":
@@ -59,9 +59,9 @@ class RadiationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: list[RadiationSourceConfig] = Field(..., min_length=1, description="At least one data source.")
-    date_start: Optional[str] = Field(default=None, description="Project start date (ISO format, e.g. '2019-01-01').")
-    date_end: Optional[str] = Field(default=None, description="Project end date (ISO format, e.g. '2025-12-31').")
+    sources: Annotated[list[RadiationSourceConfig], ParamLevel("user")] = Field(..., min_length=1, description="At least one data source.")
+    date_start: Annotated[Optional[str], ParamLevel("user")] = Field(default=None, description="Project start date (ISO format, e.g. '2019-01-01').")
+    date_end: Annotated[Optional[str], ParamLevel("user")] = Field(default=None, description="Project end date (ISO format, e.g. '2025-12-31').")
 
     @field_validator("date_start", "date_end", mode="after")
     @classmethod
@@ -73,6 +73,14 @@ class RadiationConfig(BaseModel):
             except ValueError:
                 raise ValueError(f"Invalid ISO date: '{v}'. Expected YYYY-MM-DD.")
         return v
+
+    @model_validator(mode="after")
+    def _check_date_order(self) -> "RadiationConfig":
+        if self.date_start and self.date_end:
+            from datetime import datetime
+            if datetime.fromisoformat(self.date_start) >= datetime.fromisoformat(self.date_end):
+                raise ValueError("date_start must be before date_end")
+        return self
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "RadiationConfig":

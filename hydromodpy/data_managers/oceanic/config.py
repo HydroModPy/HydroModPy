@@ -1,4 +1,4 @@
-"""Pydantic configuration for runoff data sources."""
+"""Pydantic configuration for oceanic data sources."""
 
 from __future__ import annotations
 
@@ -11,18 +11,18 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from hydromodpy.config.param_level import ParamLevel
 
 
-class RunoffSourceConfig(BaseModel):
-    """Configuration for ONE runoff data source."""
+class OceanicSourceConfig(BaseModel):
+    """Configuration for ONE oceanic data source."""
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Annotated[Literal["custom", "sim2"], ParamLevel("user")] = Field(
-        ..., description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+    source: Annotated[Literal["custom", "shom", "constant"], ParamLevel("user")] = Field(
+        ..., description="Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.",
     )
 
     # --- Custom source fields ---
     path: Annotated[Optional[Path], ParamLevel("user")] = Field(
-        default=None, description="Directory containing location file and chronicle CSVs.",
+        default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
     )
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
     col_x: Annotated[str, ParamLevel("dev")] = Field(default="x", description="Column name for X coordinate in location CSV.")
@@ -32,13 +32,31 @@ class RunoffSourceConfig(BaseModel):
     col_datetime: Annotated[str, ParamLevel("dev")] = Field(default="datetime", description="Column name for datetime in chronicle CSVs.")
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicle CSVs.")
 
+    # --- Constant source fields ---
+    value: Annotated[Optional[float], ParamLevel("user")] = Field(
+        default=None, description="Constant mean sea-level value in metres.",
+    )
+
+    # --- SHOM API fields ---
+    nearest: Annotated[bool, ParamLevel("dev")] = Field(
+        default=True, description="Use nearest tide gauge to watershed centroid.",
+    )
+    fallback_search_radius_km: Annotated[Optional[float], ParamLevel("dev")] = Field(
+        default=None, description="Maximum search radius (km) for nearest tide gauge.",
+    )
+    require_observations: Annotated[bool, ParamLevel("dev")] = Field(
+        default=True, description="Raise if SHOM returns no observations.",
+    )
+
     # --- Spatial mask ---
     mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
     )
 
     # --- Common fields ---
-    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(default=None, description="Explicit station ids (custom source).")
+    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(
+        default=None, description="Explicit station ids to load (custom source).",
+    )
     extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
         default=None, description="Enable bbox-based data retrieval using the project extent.",
     )
@@ -47,26 +65,29 @@ class RunoffSourceConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _check_source_requirements(self) -> "RunoffSourceConfig":
+    def _check_source_requirements(self) -> "OceanicSourceConfig":
         if self.source == "custom":
             if self.path is None:
-                raise ValueError("Custom source requires 'path' (directory with location + chronicles).")
+                raise ValueError("Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file).")
+        if self.source == "constant":
+            if self.value is None:
+                raise ValueError("Constant source requires 'value' (mean sea-level in metres).")
         return self
 
 
-class RunoffConfig(BaseModel):
-    """Top-level runoff configuration."""
+class OceanicConfig(BaseModel):
+    """Top-level oceanic configuration."""
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: Annotated[list[RunoffSourceConfig], ParamLevel("user")] = Field(
+    sources: Annotated[list[OceanicSourceConfig], ParamLevel("user")] = Field(
         ..., min_length=1, description="At least one data source.",
     )
     date_start: Annotated[Optional[str], ParamLevel("user")] = Field(
-        default=None, description="Project start date (ISO format, e.g. '2019-01-01').",
+        default=None, description="Project start date (ISO format, e.g. '2003-01-01').",
     )
     date_end: Annotated[Optional[str], ParamLevel("user")] = Field(
-        default=None, description="Project end date (ISO format, e.g. '2025-12-31').",
+        default=None, description="Project end date (ISO format, e.g. '2003-01-30').",
     )
 
     @field_validator("date_start", "date_end", mode="after")
@@ -81,7 +102,7 @@ class RunoffConfig(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def _check_date_order(self) -> "RunoffConfig":
+    def _check_date_order(self) -> "OceanicConfig":
         if self.date_start and self.date_end:
             from datetime import datetime
             if datetime.fromisoformat(self.date_start) >= datetime.fromisoformat(self.date_end):
@@ -89,7 +110,7 @@ class RunoffConfig(BaseModel):
         return self
 
     @classmethod
-    def from_toml(cls, path: str | Path) -> "RunoffConfig":
+    def from_toml(cls, path: str | Path) -> "OceanicConfig":
         """Load config from a TOML file."""
         path = Path(path).resolve()
         if sys.version_info >= (3, 11):
@@ -101,13 +122,14 @@ class RunoffConfig(BaseModel):
                 import tomli as tomllib
         with open(path, "rb") as f:
             data = tomllib.load(f)
-        section = data.get("runoff", data)
+        section = data.get("oceanic", data)
         cfg = cls.model_validate(section)
         _resolve_paths(cfg, path.parent)
         return cfg
 
 
-def _resolve_paths(cfg: "RunoffConfig", toml_dir: Path) -> None:
+def _resolve_paths(cfg: "OceanicConfig", toml_dir: Path) -> None:
+    """Resolve relative paths in source configs relative to the TOML directory."""
     for src in cfg.sources:
         if src.path is not None and not src.path.is_absolute():
             src.path = (toml_dir / src.path).resolve()
