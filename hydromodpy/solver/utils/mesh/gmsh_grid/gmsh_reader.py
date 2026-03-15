@@ -1,4 +1,13 @@
-"""Low-level read/write helpers for planar 2D meshes handled via meshio."""
+"""Read, normalize and write simple 2D Gmsh meshes.
+
+This module is the low-level I/O layer for planar Gmsh support. It converts
+between external mesh representations (`meshio` objects or ASCII `.msh`
+content) and one small internal payload (`GmshMeshData`).
+
+Its job is deliberately narrow: accept triangles or quads, normalize their
+connectivity, reject unsupported mixed cases, and keep file handling separate
+from the higher-level mesh classes.
+"""
 
 from __future__ import annotations
 

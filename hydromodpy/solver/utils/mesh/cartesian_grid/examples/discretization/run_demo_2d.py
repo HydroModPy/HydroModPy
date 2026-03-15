@@ -15,23 +15,17 @@ from shapely.geometry import box
 
 
 def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
-    """Pick one GUI backend early when interactive display is expected."""
-    if "--no-show-plot" in argv:
-        return
-    backend = str(matplotlib.get_backend()).strip().lower()
-    if ("inline" not in backend) and ("agg" not in backend):
-        return
-    for candidate in ("TkAgg", "QtAgg"):
-        try:
-            matplotlib.use(candidate, force=True)
-            return
-        except Exception:
-            continue
+    """Use a non-interactive backend by default; switch later only for show()."""
+    try:
+        matplotlib.use("Agg", force=True)
+    except Exception:
+        pass
 
 
 _configure_matplotlib_backend_from_argv(sys.argv[1:])
 
 import matplotlib.pyplot as plt
+plt.switch_backend("Agg")
 
 # Ensure repository root is importable when script is launched directly.
 def _find_repo_root() -> Path:
@@ -414,6 +408,11 @@ def _plot_geology_and_result(
     output_path: Path,
     show_plot: bool,
 ):
+    if not show_plot:
+        try:
+            plt.switch_backend("Agg")
+        except Exception:
+            pass
     fig, axes = plt.subplots(1, 3, figsize=(24.0, 9.4), dpi=150)
     ax_left, ax_center, ax_right = axes
 

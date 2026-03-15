@@ -1,4 +1,13 @@
-"""Planar-to-3D extrusion of FieldParam values on one prism mesh."""
+"""Project one FieldParam onto every layer of an extruded prism mesh.
+
+The key idea in this module is that the spatial support stays planar even when
+the final values are 3D. The support field is first discretized on the base
+2D mesh, then the FieldParam is reevaluated at the center depth of each prism
+to build a full `(n_layers, n_cells_2d)` result.
+
+This keeps the workflow simple: reuse the mature 2D discretization logic, then
+add the vertical dimension only where depth-dependent values are needed.
+"""
 
 from __future__ import annotations
 

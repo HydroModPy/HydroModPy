@@ -1,4 +1,12 @@
-"""Reference 2D geology-driven Gmsh case outside the solver workflow."""
+"""Run the reference 2D geology-to-mesh workflow on a planar Gmsh mesh.
+
+This script is the didactic starting point for the Gmsh backend. It loads a
+mesh and a geology source from TOML config, discretizes the geology support and
+the target FieldParam on the mesh, then builds figures and summary JSON files.
+
+It stays outside the solver stack on purpose, so the reader can understand the
+field-to-mesh pipeline without mixing in transport or MODFLOW concerns.
+"""
 
 from __future__ import annotations
 

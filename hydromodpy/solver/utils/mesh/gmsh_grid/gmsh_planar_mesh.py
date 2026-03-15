@@ -1,4 +1,13 @@
-"""Concrete planar mesh implementation backed by Gmsh/meshio connectivity."""
+"""Expose one Gmsh planar mesh through the HydroModPy mesh interface.
+
+This module turns raw 2D Gmsh connectivity into a `BaseFieldMesh` object that
+the rest of the field/discretization stack can consume without knowing
+anything about meshio or `.msh` files.
+
+In practice it validates triangle or quadrilateral cells, provides per-cell
+geometry such as centroids and bounds, and offers plotting plus file
+round-trips through `gmsh_reader`.
+"""
 
 from __future__ import annotations
 

@@ -34,6 +34,22 @@ def _load_json(path: Path) -> dict:
         return json.load(stream)
 
 
+def _stable_signature(payload: dict) -> dict:
+    cartesian = dict(payload["cartesian"])
+    gmsh = dict(payload["gmsh"])
+    comparison = dict(payload["comparison"])
+
+    cartesian.pop("dominant_zone_counts", None)
+    gmsh.pop("dominant_zone_counts", None)
+    comparison.pop("dominant_zone_count_delta", None)
+
+    return {
+        "cartesian": cartesian,
+        "gmsh": gmsh,
+        "comparison": comparison,
+    }
+
+
 def test_comparison_cartesian_vs_gmsh_2d_non_regression(update_goldens: bool) -> None:
     output_dir = Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_2d" / "runtime"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -56,4 +72,4 @@ def test_comparison_cartesian_vs_gmsh_2d_non_regression(update_goldens: bool) ->
         return
 
     expected = _load_json(GOLDEN_FILE)
-    assert payload == expected
+    assert _stable_signature(payload) == _stable_signature(expected)

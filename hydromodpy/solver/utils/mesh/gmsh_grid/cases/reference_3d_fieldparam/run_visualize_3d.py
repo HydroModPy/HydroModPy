@@ -1,13 +1,4 @@
-"""Build the reference 3D prism mesh from the reference 2D Gmsh mesh.
-
-This script isolates the geometric extrusion step. Starting from the 2D case,
-it reads the planar mesh, applies the configured vertical interfaces, and
-returns a prism mesh plus a small summary describing its layers and
-connectivity.
-
-Use it when the goal is to validate the 3D mesh itself before attaching any
-FieldParam values to it.
-"""
+"""Build lightweight QA figures from the 3D postprocessed reference case."""
 
 from __future__ import annotations
 
@@ -19,7 +10,19 @@ import sys
 import tomllib
 from typing import Any
 
-import numpy as np
+import matplotlib
+
+
+def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
+    # Use a non-interactive backend by default. Interactive display, when
+    # explicitly requested, is handled later through `show_figures_blocking`.
+    try:
+        matplotlib.use("Agg", force=True)
+    except Exception:
+        pass
+
+
+_configure_matplotlib_backend_from_argv(sys.argv[1:])
 
 
 def _find_repo_root() -> Path:
@@ -34,24 +37,32 @@ REPO_ROOT = _find_repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.solver.utils.mesh.gmsh_grid import ExtrudedPrismMesh3D
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
-    build_reference_mesh_from_toml,
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_postprocess_3d import (
+    build_reference_3d_postprocess_state_from_toml,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_mesh_visualization import (
+    build_layer_maps_figure,
+    build_source_cell_marker_specs,
+    build_vertical_profiles_figure,
+    build_visualization_summary,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import show_figures_blocking
 
 
-DEFAULT_CONFIG_FILE = "case_config_3d_mesh.toml"
+DEFAULT_CONFIG_FILE = "case_visualization_3d.toml"
 DEFAULT_SECTION = "case"
 
 
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="Extrude the 2D Gmsh reference mesh into one 3D prism mesh."
+        description="Build lightweight layer/profile figures from the 3D postprocessed reference case."
     )
     parser.add_argument("--config-file", default=DEFAULT_CONFIG_FILE)
     parser.add_argument("--section", default=DEFAULT_SECTION)
     parser.add_argument("--output-summary-json", default=None)
-    parser.add_argument("--output-mesh", default=None)
+    parser.add_argument("--output-layers-png", default=None)
+    parser.add_argument("--output-profiles-png", default=None)
+    parser.add_argument("--show-plot", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -59,15 +70,12 @@ def _resolve_config_path(raw_config: str | Path) -> Path:
     candidate = Path(raw_config).expanduser()
     if candidate.is_absolute() and candidate.exists():
         return candidate.resolve()
-
     cwd_candidate = candidate.resolve()
     if cwd_candidate.exists():
         return cwd_candidate
-
     script_candidate = (Path(__file__).resolve().parent / candidate).resolve()
     if script_candidate.exists():
         return script_candidate
-
     raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
 
 
@@ -89,11 +97,7 @@ def _resolve_relative_path(raw_path: str | Path, *, base_dir: Path) -> str:
     return str(path)
 
 
-def _resolve_optional_output_path(
-    config_toml: Path,
-    config_value: Any,
-    override_value: str | None,
-) -> Path | None:
+def _resolve_optional_output_path(config_toml: Path, config_value: Any, override_value: str | None) -> Path | None:
     raw = override_value if override_value is not None else config_value
     if raw is None:
         return None
@@ -110,15 +114,18 @@ def _resolve_optional_output_path(
 def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[str, Any]:
     payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
     section_cfg = dict(_get_nested_section(payload, section))
-    layer_thicknesses = np.asarray(section_cfg.get("layer_thicknesses", []), dtype=float).reshape(-1)
-    if layer_thicknesses.size == 0:
-        raise ValueError("layer_thicknesses cannot be empty for the 3D reference mesh case")
     return {
-        "reference_2d_config": _resolve_relative_path(section_cfg["reference_2d_config"], base_dir=config_toml.parent),
-        "reference_2d_section": str(section_cfg.get("reference_2d_section", "case")).strip() or "case",
-        "top_z": float(section_cfg.get("top_z", 0.0)),
-        "layer_thicknesses": [float(v) for v in layer_thicknesses],
+        "reference_3d_postprocess_config": _resolve_relative_path(
+            section_cfg["reference_3d_postprocess_config"],
+            base_dir=config_toml.parent,
+        ),
+        "reference_3d_postprocess_section": str(
+            section_cfg.get("reference_3d_postprocess_section", "case")
+        ).strip()
+        or "case",
         "output_summary_json": section_cfg.get("output_summary_json"),
+        "output_layers_png": section_cfg.get("output_layers_png"),
+        "output_profiles_png": section_cfg.get("output_profiles_png"),
     }
 
 
@@ -129,72 +136,44 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         stream.write("\n")
 
 
-def _build_summary(
-    *,
-    mesh_3d: ExtrudedPrismMesh3D,
-    reference_2d_config: Path,
-) -> dict[str, Any]:
-    return {
-        "mesh_kind": str(mesh_3d.kind),
-        "cell_type_2d": str(mesh_3d.cell_type_2d),
-        "cell_type_3d": str(mesh_3d.cell_type_3d),
-        "n_layers": int(mesh_3d.n_layers),
-        "n_nodes_2d": int(mesh_3d.planar_mesh.n_nodes),
-        "n_cells_2d": int(mesh_3d.planar_mesh.n_cells),
-        "n_nodes_3d": int(mesh_3d.n_nodes),
-        "n_cells_3d": int(mesh_3d.n_prisms),
-        "bounds": [round(float(v), 6) for v in mesh_3d.bounds],
-        "z_interfaces": [round(float(v), 6) for v in mesh_3d.z_interfaces],
-        "layer_centers_z": [round(float(v), 6) for v in mesh_3d.layer_centers_z],
-        "source_2d_case_config": reference_2d_config.name,
-        "layer_index_head": [int(v) for v in mesh_3d.layer_indices[:8]],
-        "source_cell_index_head": [int(v) for v in mesh_3d.source_cell_indices[:8]],
-        "prism_connectivity_head": [
-            [int(v) for v in row]
-            for row in np.asarray(mesh_3d.prism_connectivity[:3], dtype=int)
-        ],
-    }
-
-
-def build_reference_3d_mesh_state_from_toml(
+def build_reference_3d_visualization_state_from_toml(
     config_toml: str | Path,
     *,
     section: str = "case",
 ) -> dict[str, Any]:
     config_path = _resolve_config_path(config_toml)
     cfg = _resolve_case_config(config_path, section=section)
-    reference_2d_config = Path(str(cfg["reference_2d_config"])).resolve()
-    planar_mesh = build_reference_mesh_from_toml(
-        reference_2d_config,
-        section=str(cfg["reference_2d_section"]),
+    postprocess_state = build_reference_3d_postprocess_state_from_toml(
+        cfg["reference_3d_postprocess_config"],
+        section=str(cfg["reference_3d_postprocess_section"]),
     )
-    mesh_3d = ExtrudedPrismMesh3D.from_layer_thicknesses(
-        planar_mesh,
-        top_z=float(cfg["top_z"]),
-        layer_thicknesses=cfg["layer_thicknesses"],
-    )
-    summary = _build_summary(mesh_3d=mesh_3d, reference_2d_config=reference_2d_config)
+    mesh_with_values = postprocess_state["mesh_with_values"]
+    marker_specs = build_source_cell_marker_specs(mesh_with_values)
+    summary = build_visualization_summary(mesh_with_values, marker_specs=marker_specs)
     return {
         "config_path": config_path,
         "config": cfg,
-        "reference_2d_config": reference_2d_config,
-        "planar_mesh": planar_mesh,
-        "mesh_3d": mesh_3d,
+        "postprocess_state": postprocess_state,
+        "mesh_with_values": mesh_with_values,
+        "marker_specs": marker_specs,
         "summary": summary,
     }
 
 
-def run_reference_3d_mesh_case_from_toml(
+def run_reference_3d_visualization_from_toml(
     config_toml: str | Path,
     *,
     section: str = "case",
     output_summary_json: str | Path | None = None,
-    output_mesh: str | Path | None = None,
+    output_layers_png: str | Path | None = None,
+    output_profiles_png: str | Path | None = None,
+    show_plot: bool = False,
 ) -> dict[str, Any]:
-    state = build_reference_3d_mesh_state_from_toml(config_toml, section=section)
+    state = build_reference_3d_visualization_state_from_toml(config_toml, section=section)
     config_path = Path(state["config_path"])
     cfg = dict(state["config"])
-    mesh_3d = state["mesh_3d"]
+    mesh_with_values = state["mesh_with_values"]
+    marker_specs = list(state["marker_specs"])
     summary = dict(state["summary"])
 
     summary_path = _resolve_optional_output_path(
@@ -202,28 +181,57 @@ def run_reference_3d_mesh_case_from_toml(
         cfg.get("output_summary_json"),
         None if output_summary_json is None else str(output_summary_json),
     )
-    mesh_path = _resolve_optional_output_path(
+    layers_path = _resolve_optional_output_path(
         config_path,
-        None,
-        None if output_mesh is None else str(output_mesh),
+        cfg.get("output_layers_png"),
+        None if output_layers_png is None else str(output_layers_png),
+    )
+    profiles_path = _resolve_optional_output_path(
+        config_path,
+        cfg.get("output_profiles_png"),
+        None if output_profiles_png is None else str(output_profiles_png),
+    )
+
+    layers_fig = build_layer_maps_figure(
+        mesh_with_values,
+        marker_specs=marker_specs,
+        title="Reference 3D layers on the extruded prism mesh",
+    )
+    profiles_fig = build_vertical_profiles_figure(
+        mesh_with_values,
+        marker_specs=marker_specs,
+        title="Reference 3D vertical profiles",
     )
 
     if summary_path is not None:
         _write_json(summary_path, summary)
         summary["output_summary_json"] = str(summary_path)
-    if mesh_path is not None:
-        mesh_3d.to_file(mesh_path)
-        summary["output_mesh"] = str(mesh_path)
+    if layers_path is not None:
+        layers_fig.savefig(layers_path)
+        summary["output_layers_png"] = str(layers_path)
+    if profiles_path is not None:
+        profiles_fig.savefig(profiles_path)
+        summary["output_profiles_png"] = str(profiles_path)
+
+    if show_plot:
+        show_figures_blocking(layers_fig, profiles_fig)
+    else:
+        from matplotlib import pyplot as plt
+
+        plt.close(layers_fig)
+        plt.close(profiles_fig)
     return summary
 
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
-    summary = run_reference_3d_mesh_case_from_toml(
+    summary = run_reference_3d_visualization_from_toml(
         args.config_file,
         section=args.section,
         output_summary_json=args.output_summary_json,
-        output_mesh=args.output_mesh,
+        output_layers_png=args.output_layers_png,
+        output_profiles_png=args.output_profiles_png,
+        show_plot=bool(args.show_plot),
     )
     print(json.dumps(summary, ensure_ascii=True, indent=2))
     return 0

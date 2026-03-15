@@ -1,4 +1,12 @@
-"""Reference 3D postprocessing/export runner on the extruded prism mesh."""
+"""Postprocess and export the values produced by the 3D reference case.
+
+This script assumes the 3D FieldParam discretization already exists. Its role
+is to attach those values to the prism mesh, compute summary diagnostics, and
+export inspection-friendly artifacts such as `.npy`, JSON, or `.vtu`.
+
+In other words, this is the "take the computed 3D field and package it for
+analysis" stage of the example workflow.
+"""
 
 from __future__ import annotations
 

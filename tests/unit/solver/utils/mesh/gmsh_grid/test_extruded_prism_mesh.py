@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import tempfile
 
 import numpy as np
 import pytest
@@ -93,17 +92,16 @@ def test_extruded_prism_mesh_roundtrip_vtu_if_meshio_available():
         layer_thicknesses=[4.0, 6.0],
     )
 
-    scratch_root = Path.cwd() / "scratch_tests" / "extruded_prism_mesh"
-    scratch_root.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=scratch_root) as tmp_dir:
-        path = Path(tmp_dir) / "extruded_reference.vtu"
-        mesh_3d.to_file(path)
-        reread = ExtrudedPrismMesh3D.from_file(path)
+    output_dir = Path.cwd() / "scratch_tests" / "extruded_prism_mesh" / "runtime"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "extruded_reference.vtu"
+    mesh_3d.to_file(path)
+    reread = ExtrudedPrismMesh3D.from_file(path)
 
-        assert reread.cell_type_2d == mesh_3d.cell_type_2d
-        assert reread.n_layers == mesh_3d.n_layers
-        assert reread.n_prisms == mesh_3d.n_prisms
-        assert np.allclose(reread.points_xyz, mesh_3d.points_xyz)
-        assert np.array_equal(reread.prism_connectivity, mesh_3d.prism_connectivity)
-        assert np.array_equal(reread.layer_indices, mesh_3d.layer_indices)
-        assert np.array_equal(reread.source_cell_indices, mesh_3d.source_cell_indices)
+    assert reread.cell_type_2d == mesh_3d.cell_type_2d
+    assert reread.n_layers == mesh_3d.n_layers
+    assert reread.n_prisms == mesh_3d.n_prisms
+    assert np.allclose(reread.points_xyz, mesh_3d.points_xyz)
+    assert np.array_equal(reread.prism_connectivity, mesh_3d.prism_connectivity)
+    assert np.array_equal(reread.layer_indices, mesh_3d.layer_indices)
+    assert np.array_equal(reread.source_cell_indices, mesh_3d.source_cell_indices)
