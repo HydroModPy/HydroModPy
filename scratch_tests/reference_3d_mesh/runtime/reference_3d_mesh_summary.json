@@ -1,0 +1,76 @@
+{
+  "mesh_kind": "extruded_prism_3d",
+  "cell_type_2d": "triangle",
+  "cell_type_3d": "triangular_prism",
+  "n_layers": 3,
+  "n_nodes_2d": 441,
+  "n_cells_2d": 800,
+  "n_nodes_3d": 1764,
+  "n_cells_3d": 2400,
+  "bounds": [
+    350000.0,
+    6710000.0,
+    -85.0,
+    360000.0,
+    6720000.0,
+    15.0
+  ],
+  "z_interfaces": [
+    15.0,
+    -10.0,
+    -45.0,
+    -85.0
+  ],
+  "layer_centers_z": [
+    2.5,
+    -27.5,
+    -65.0
+  ],
+  "source_2d_case_config": "case_config_gmsh.toml",
+  "layer_index_head": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "source_cell_index_head": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "prism_connectivity_head": [
+    [
+      0,
+      1,
+      22,
+      441,
+      442,
+      463
+    ],
+    [
+      0,
+      22,
+      21,
+      441,
+      463,
+      462
+    ],
+    [
+      1,
+      2,
+      23,
+      442,
+      443,
+      464
+    ]
+  ]
+}

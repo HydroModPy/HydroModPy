@@ -7,7 +7,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_po
     run_reference_3d_postprocess_from_toml,
 )
 
-
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "reference_3d_postprocess_signature.json"
 CASE_TOML = (

@@ -1,0 +1,36 @@
+[case]
+output_mesh = "outputs/reference_2d_geology_conformal.msh"
+output_summary_json = "outputs/reference_2d_geology_conformal_summary.json"
+output_figure = "outputs/reference_2d_geology_conformal.png"
+
+[case.domain]
+clip_bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]
+
+[case.zone_meshing]
+algorithm = "delaunay"
+global_size = 250.0
+min_size = 125.0
+max_size = 400.0
+simplify_tolerance = 0.0
+heal_tolerance = 0.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 90.0
+interface_distance = 450.0
+interface_sampling = 96
+
+[case.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[case.geology.source]
+path = "C:/codes/HydroModPy-GH/data/Brittany_small_test_example/geology/GEO1M_brittany.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../../cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif"
+all_touched = false
+
+[case.geology.landsea]
+enabled = false
+sea_value = 0
+override_code = "1"

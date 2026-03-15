@@ -13,6 +13,7 @@ import argparse
 from pathlib import Path
 import sys
 
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.ticker import FuncFormatter, MaxNLocator, ScalarFormatter
@@ -33,6 +34,74 @@ from hydromodpy.geographic.core.domain_geographic_pipeline import (
     build_domain_geographic_context,
 )
 from hydromodpy.simulation.workspace import Workspace
+from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
+
+
+def _is_non_interactive_backend(backend_name: str) -> bool:
+    """Return True for known non-interactive/inline Matplotlib backends."""
+    key = str(backend_name).strip().lower()
+    if "inline" in key:
+        return True
+    return key in {
+        "agg",
+        "cairo",
+        "pdf",
+        "pgf",
+        "ps",
+        "svg",
+        "template",
+    }
+
+
+def _ensure_gui_backend_for_blocking_show() -> None:
+    """Switch from inline/Agg to a GUI backend before interactive display."""
+    backend = str(matplotlib.get_backend()).strip()
+    if not _is_non_interactive_backend(backend):
+        return
+    for candidate in ("TkAgg", "QtAgg"):
+        try:
+            plt.switch_backend(candidate)
+            return
+        except Exception:
+            continue
+
+
+def _show_figures_blocking(*figures) -> None:
+    """Display one or many figures in blocking mode and maximize windows."""
+    visible = [fig for fig in figures if fig is not None]
+    if not visible:
+        return
+
+    _ensure_gui_backend_for_blocking_show()
+    backend = str(plt.get_backend()).strip()
+    if _is_non_interactive_backend(backend):
+        print(
+            "Interactive figure display is unavailable with backend "
+            f"'{plt.get_backend()}'; PNG files were saved only."
+        )
+        for fig in visible:
+            plt.close(fig)
+        return
+
+    plt.ioff()
+    for fig in visible:
+        manager = getattr(getattr(fig, "canvas", None), "manager", None)
+        if manager is not None:
+            show = getattr(manager, "show", None)
+            if callable(show):
+                try:
+                    show()
+                except Exception:
+                    pass
+        try:
+            fig.show()
+        except Exception:
+            pass
+    maximize_figure_windows(*visible)
+    plt.pause(0.05)
+    plt.show(block=True)
+    for fig in visible:
+        plt.close(fig)
 
 
 def run_domain_case_from_toml(
@@ -301,6 +370,9 @@ def plot_domain_summary(
     A fourth subplot is added when a geology zone with ``encoded_codes`` is present.
     When ``geographic`` is provided, the watershed boundary is overlaid on maps.
     """
+    if show_plot:
+        _ensure_gui_backend_for_blocking_show()
+
     output_dir.mkdir(parents=True, exist_ok=True)
     fig_path = output_dir / f"{case_id}_domain_summary.png"
 
@@ -482,7 +554,7 @@ def plot_domain_summary(
     fig.savefig(fig_path, bbox_inches="tight", pad_inches=0.03)
     # ``show_plot`` is useful for interactive runs; tests can disable it.
     if show_plot:
-        plt.show(block=True)
+        _show_figures_blocking(fig)
     else:
         plt.close(fig)
     return fig_path
@@ -524,6 +596,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """CLI entrypoint used by ``python .../run_domain_case.py``."""
     args = _build_parser().parse_args(argv)
+    if not bool(args.no_show_plot):
+        _ensure_gui_backend_for_blocking_show()
     # Core pipeline: config -> workspace/geographic/domain (+ optional geology).
     workspace, geographic_context, domain, summary = run_domain_case_from_toml(
         args.config,

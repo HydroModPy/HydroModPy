@@ -55,6 +55,7 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
 )
+from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 
 
 DEFAULT_CONFIG_FILE = "run_demo_3d_config.toml"
@@ -519,6 +520,7 @@ def _show_figures_blocking(*figures) -> None:
             fig.show()
         except Exception:
             continue
+    maximize_figure_windows(*visible)
     plt.pause(0.05)
     plt.show(block=True)
     for fig in visible:

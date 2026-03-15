@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -91,4 +89,3 @@ def test_extruded_mesh_visualization_helpers_build_summary_and_figures():
     assert len(profile_fig.axes) == 2
     plt.close(layer_fig)
     plt.close(profile_fig)
-

@@ -1,33 +1,23 @@
-"""Minimal read-only example for colleagues who only need mesh I/O and inspection."""
+"""Provide the smallest read-only example for colleagues using exported meshes.
+
+This module shows how to open the stable exchange formats without touching the
+full HydroModPy workflow. It is meant for users who only need mesh reading,
+basic value inspection, and a compact summary of what is stored on disk.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-import sys
 
 import numpy as np
-
-
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     load_extruded_mesh,
     load_extruded_mesh_values,
     load_planar_mesh,
 )
-
 
 DEFAULT_PLANAR_MESH = (
     Path(__file__).resolve().parents[1]
@@ -62,7 +52,9 @@ def build_read_only_summary(
 ) -> dict[str, object]:
     planar_mesh = load_planar_mesh(planar_mesh_path)
     extruded_mesh = load_extruded_mesh(values_vtu_path)
-    mesh_with_values = load_extruded_mesh_values(values_vtu_path, label="field_param_value")
+    mesh_with_values = load_extruded_mesh_values(
+        values_vtu_path, label="field_param_value"
+    )
     center_source = int(mesh_with_values.n_cells_2d // 2)
     center_profile = mesh_with_values.extract_vertical_profile(center_source)
     return {
@@ -76,10 +68,15 @@ def build_read_only_summary(
         "extruded_cell_type": str(extruded_mesh.cell_type_3d),
         "extruded_n_layers": int(extruded_mesh.n_layers),
         "extruded_n_cells_3d": int(extruded_mesh.n_prisms),
-        "values_shape_3d": [int(v) for v in np.asarray(mesh_with_values.values_3d).shape],
-        "values_mean": round(float(np.mean(np.asarray(mesh_with_values.values_3d, dtype=float))), 12),
+        "values_shape_3d": [
+            int(v) for v in np.asarray(mesh_with_values.values_3d).shape
+        ],
+        "values_mean": round(
+            float(np.mean(np.asarray(mesh_with_values.values_3d, dtype=float))), 12
+        ),
         "layer_mean_sequence": [
-            round(float(layer_stats["mean"]), 12) for layer_stats in mesh_with_values.layer_stats()
+            round(float(layer_stats["mean"]), 12)
+            for layer_stats in mesh_with_values.layer_stats()
         ],
         "center_profile": [round(float(v), 12) for v in center_profile["values"]],
         "center_depth_profile": [
@@ -100,4 +97,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

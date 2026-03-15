@@ -1,4 +1,10 @@
-"""Build lightweight QA figures from the 3D postprocessed reference case."""
+"""Build lightweight QA figures from the postprocessed 3D reference outputs.
+
+This script is the non-interactive visual companion to the 3D reference case.
+It creates layer maps and vertical profiles from already attached 3D prism
+values, which makes it useful for quick review and non-regression outputs
+without requiring a 3D viewer.
+"""
 
 from __future__ import annotations
 
@@ -6,36 +12,10 @@ import argparse
 from collections.abc import Mapping
 import json
 from pathlib import Path
-import sys
 import tomllib
 from typing import Any
 
-import matplotlib
-
-
-def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
-    # Use a non-interactive backend by default. Interactive display, when
-    # explicitly requested, is handled later through `show_figures_blocking`.
-    try:
-        matplotlib.use("Agg", force=True)
-    except Exception:
-        pass
-
-
-_configure_matplotlib_backend_from_argv(sys.argv[1:])
-
-
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from matplotlib import pyplot as plt
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_postprocess_3d import (
     build_reference_3d_postprocess_state_from_toml,
@@ -46,7 +26,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_mesh_visualization import (
     build_vertical_profiles_figure,
     build_visualization_summary,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import show_figures_blocking
+from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
+    ensure_interactive_backend_for_show,
+    show_figures_blocking,
+)
+
+plt.switch_backend("Agg")
 
 
 DEFAULT_CONFIG_FILE = "case_visualization_3d.toml"
@@ -79,7 +64,9 @@ def _resolve_config_path(raw_config: str | Path) -> Path:
     raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
 
 
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
+def _get_nested_section(
+    payload: Mapping[str, Any], dotted_path: str
+) -> Mapping[str, Any]:
     current: Any = payload
     for token in str(dotted_path).split("."):
         if not isinstance(current, Mapping) or token not in current:
@@ -97,7 +84,9 @@ def _resolve_relative_path(raw_path: str | Path, *, base_dir: Path) -> str:
     return str(path)
 
 
-def _resolve_optional_output_path(config_toml: Path, config_value: Any, override_value: str | None) -> Path | None:
+def _resolve_optional_output_path(
+    config_toml: Path, config_value: Any, override_value: str | None
+) -> Path | None:
     raw = override_value if override_value is not None else config_value
     if raw is None:
         return None
@@ -169,7 +158,9 @@ def run_reference_3d_visualization_from_toml(
     output_profiles_png: str | Path | None = None,
     show_plot: bool = False,
 ) -> dict[str, Any]:
-    state = build_reference_3d_visualization_state_from_toml(config_toml, section=section)
+    state = build_reference_3d_visualization_state_from_toml(
+        config_toml, section=section
+    )
     config_path = Path(state["config_path"])
     cfg = dict(state["config"])
     mesh_with_values = state["mesh_with_values"]
@@ -191,6 +182,8 @@ def run_reference_3d_visualization_from_toml(
         cfg.get("output_profiles_png"),
         None if output_profiles_png is None else str(output_profiles_png),
     )
+    if show_plot:
+        ensure_interactive_backend_for_show()
 
     layers_fig = build_layer_maps_figure(
         mesh_with_values,

@@ -1,0 +1,50 @@
+{
+  "label": "K_3d",
+  "shape_3d": [
+    2,
+    2
+  ],
+  "n_layers": 2,
+  "n_cells_2d": 2,
+  "n_cells_3d": 4,
+  "mesh_kind": "extruded_prism_3d",
+  "cell_type_3d": "triangular_prism",
+  "stats": {
+    "min": 8.0,
+    "max": 20.0,
+    "mean": 13.5,
+    "sum": 54.0
+  },
+  "layer_stats": [
+    {
+      "min": 10.0,
+      "max": 20.0,
+      "mean": 15.0,
+      "sum": 30.0
+    },
+    {
+      "min": 8.0,
+      "max": 16.0,
+      "mean": 12.0,
+      "sum": 24.0
+    }
+  ],
+  "values_signature_head": [
+    10.0,
+    20.0,
+    8.0,
+    16.0
+  ],
+  "depth_stats": {
+    "min": 1.5,
+    "max": 5.5,
+    "mean": 3.5,
+    "sum": 14.0
+  },
+  "depth_signature_head": [
+    1.5,
+    1.5,
+    5.5,
+    5.5
+  ]
+}

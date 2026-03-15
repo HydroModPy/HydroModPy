@@ -12,10 +12,13 @@ add the vertical dimension only where depth-dependent values are needed.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import ExtrudedPrismMesh3D
+from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import (
+    ExtrudedPrismMesh3D,
+)
 
 
 @dataclass(frozen=True)
@@ -40,7 +43,9 @@ def _compute_prism_center_depths(mesh_3d: ExtrudedPrismMesh3D) -> np.ndarray:
 
     n_layers = int(mesh_3d.n_layers)
     n_cells_2d = int(mesh_3d.planar_mesh.n_cells)
-    depth_grid = np.full((n_layers, n_cells_2d), np.nan, dtype=float)
+    depth_grid: np.ndarray[Any, Any] = np.full(
+        (n_layers, n_cells_2d), np.nan, dtype=float
+    )
 
     for prism_idx, (layer_idx, source_idx) in enumerate(
         zip(mesh_3d.layer_indices, mesh_3d.source_cell_indices, strict=True)
@@ -79,7 +84,9 @@ def discretize_fieldparam_on_extruded_mesh(
     3. values are reevaluated on every prism layer using prism-center depths.
     """
     if support_field is not None and geology_field is not None:
-        raise ValueError("Use either 'support_field' or legacy 'geology_field', not both.")
+        raise ValueError(
+            "Use either 'support_field' or legacy 'geology_field', not both."
+        )
     if support_field is None:
         support_field = geology_field
 
@@ -99,14 +106,22 @@ def discretize_fieldparam_on_extruded_mesh(
     if is_heterogeneous and strict_field_spatial_id_match:
         required_field_id = str(getattr(field_param, "field_spatial_id", "")).strip()
         support_field_id = str(getattr(support_field, "identifier", "")).strip()
-        if required_field_id and support_field_id and required_field_id != support_field_id:
+        if (
+            required_field_id
+            and support_field_id
+            and required_field_id != support_field_id
+        ):
             raise ValueError(
                 "field_param.field_spatial_id does not match support_field.identifier: "
                 f"{required_field_id!r} != {support_field_id!r}"
             )
 
     planar_mesh = mesh_3d.planar_mesh
-    default_n_sub = int(getattr(support_field, "default_cell_samples_per_axis", 8)) if support_field is not None else 8
+    default_n_sub = (
+        int(getattr(support_field, "default_cell_samples_per_axis", 8))
+        if support_field is not None
+        else 8
+    )
     n_sub = max(2, int(cell_samples_per_axis or default_n_sub))
 
     field_discretization = None
@@ -117,18 +132,22 @@ def discretize_fieldparam_on_extruded_mesh(
         )
 
     if field_discretization is None:
-        planar_mesh_values = field_param.to_mesh_field(mesh=planar_mesh, depth=float(depth))
+        planar_mesh_values = field_param.to_mesh_field(
+            mesh=planar_mesh, depth=float(depth)
+        )
     else:
         planar_mesh_values = field_param.to_mesh_field(
             field_discretization,
             depth=float(depth),
         )
-    values_2d = np.asarray(planar_mesh.to_cell_values(planar_mesh_values.cell_values), dtype=float).reshape(-1)
+    values_2d = np.asarray(
+        planar_mesh.to_cell_values(planar_mesh_values.cell_values), dtype=float
+    ).reshape(-1)
 
     prism_center_depths = _compute_prism_center_depths(mesh_3d) + float(depth)
     n_layers = int(mesh_3d.n_layers)
     n_cells_2d = int(planar_mesh.n_cells)
-    values_3d = np.empty((n_layers, n_cells_2d), dtype=float)
+    values_3d: np.ndarray[Any, Any] = np.empty((n_layers, n_cells_2d), dtype=float)
 
     for layer_idx in range(n_layers):
         layer_depth = np.asarray(prism_center_depths[layer_idx], dtype=float)

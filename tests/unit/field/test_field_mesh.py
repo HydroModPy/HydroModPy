@@ -38,7 +38,9 @@ def test_structured_mesh_geometry_and_cells():
 
 
 def test_triangular_mesh_geometry_and_cells():
-    mesh = FieldMeshSquare.from_unit_square(target_n_cells=18, mesh_kind="triangular_structured")
+    mesh = FieldMeshSquare.from_unit_square(
+        target_n_cells=18, mesh_kind="triangular_structured"
+    )
 
     assert mesh.kind == "triangular_structured"
     assert mesh.shape == (4, 4)
@@ -55,7 +57,9 @@ def test_triangular_mesh_geometry_and_cells():
 
 
 def test_to_grid_accepts_node_vector():
-    mesh = FieldMeshSquare.from_unit_square(target_n_cells=32, mesh_kind="triangular_structured")
+    mesh = FieldMeshSquare.from_unit_square(
+        target_n_cells=32, mesh_kind="triangular_structured"
+    )
     values = np.arange(mesh.n_nodes, dtype=float)
     as_grid = mesh.to_grid(values)
     assert as_grid.shape == mesh.shape
@@ -80,7 +84,9 @@ def test_structured_cell_centroids_and_values():
 
 
 def test_triangular_cell_values_are_per_cell():
-    mesh = FieldMeshSquare.from_unit_square(target_n_cells=18, mesh_kind="triangular_structured")
+    mesh = FieldMeshSquare.from_unit_square(
+        target_n_cells=18, mesh_kind="triangular_structured"
+    )
     values_by_cell = np.arange(mesh.n_cells, dtype=float)
     as_cells = mesh.to_cell_values(values_by_cell)
     assert as_cells.shape == (mesh.n_cells,)
@@ -91,13 +97,11 @@ def test_triangular_cell_values_are_per_cell():
 def test_mesh_from_toml(tmp_path: Path):
     path = tmp_path / "mesh.toml"
     path.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             [mesh]
             kind = "triangular_structured"
             target_n_cells = 50
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     mesh = FieldMeshSquare.from_toml(path, section="mesh")

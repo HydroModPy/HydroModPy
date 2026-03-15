@@ -57,7 +57,9 @@ class GmshPlanarMesh2D(BaseFieldMesh):
             raise ValueError(
                 f"{normalized_cell_type} connectivity must have shape (n_cells, {expected_width})"
             )
-        if np.any(connectivity_arr < 0) or np.any(connectivity_arr >= points_arr.shape[0]):
+        if np.any(connectivity_arr < 0) or np.any(
+            connectivity_arr >= points_arr.shape[0]
+        ):
             raise ValueError("connectivity references node indices outside points_xy")
 
         super().__init__(
@@ -93,7 +95,9 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         return cls.from_mesh_data(meshio_to_mesh_data(mesh, cell_type=cell_type))
 
     @classmethod
-    def from_file(cls, path: str | Path, *, cell_type: str | None = None) -> "GmshPlanarMesh2D":
+    def from_file(
+        cls, path: str | Path, *, cell_type: str | None = None
+    ) -> "GmshPlanarMesh2D":
         return cls.from_mesh_data(read_gmsh_2d_mesh(path, cell_type=cell_type))
 
     @property
@@ -157,7 +161,10 @@ class GmshPlanarMesh2D(BaseFieldMesh):
             if show_mesh:
                 ax.triplot(self.triangulation, color="0.70", lw=0.35)
         else:
-            polygons = [self.points_xy[nodes] for nodes in np.asarray(self.connectivity, dtype=int)]
+            polygons = [
+                self.points_xy[nodes]
+                for nodes in np.asarray(self.connectivity, dtype=int)
+            ]
             edge_color = "0.70" if show_mesh else "face"
             edge_width = 0.35 if show_mesh else 0.0
             collection = mcollections.PolyCollection(
@@ -171,13 +178,17 @@ class GmshPlanarMesh2D(BaseFieldMesh):
                 collection.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(collection)
             mappable = collection
-        _set_axes_limits_from_mesh(ax, x_plot=self.points_xy[:, 0], y_plot=self.points_xy[:, 1])
+        _set_axes_limits_from_mesh(
+            ax, x_plot=self.points_xy[:, 0], y_plot=self.points_xy[:, 1]
+        )
         return mappable
 
     def to_mesh_data(self) -> GmshMeshData:
         return GmshMeshData(
             points_xy=self.points_xy,
-            cell_blocks=(GmshCellBlock(cell_type=self.cell_type, connectivity=self.connectivity),),
+            cell_blocks=(
+                GmshCellBlock(cell_type=self.cell_type, connectivity=self.connectivity),
+            ),
             source_path=self.source_path,
         )
 
@@ -193,7 +204,9 @@ class GmshPlanarMesh2D(BaseFieldMesh):
             {
                 "cell_type": self.cell_type,
                 "bounds": tuple(float(v) for v in self.bounds),
-                "source_path": None if self.source_path is None else str(self.source_path),
+                "source_path": (
+                    None if self.source_path is None else str(self.source_path)
+                ),
             }
         )
         return payload

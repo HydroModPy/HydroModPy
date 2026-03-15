@@ -51,10 +51,14 @@ def test_attach_extruded_values_supports_layer_and_profile_queries():
     assert attached.n_layers == 2
     assert attached.n_cells_2d == 2
     assert attached.n_cells_3d == 4
-    assert np.allclose(attached.flat_values, np.array([10.0, 20.0, 8.0, 16.0], dtype=float))
+    assert np.allclose(
+        attached.flat_values, np.array([10.0, 20.0, 8.0, 16.0], dtype=float)
+    )
 
     layer0 = attached.extract_layer(0)
-    assert np.allclose(np.asarray(layer0.cell_values, dtype=float).reshape(-1), np.array([10.0, 20.0]))
+    assert np.allclose(
+        np.asarray(layer0.cell_values, dtype=float).reshape(-1), np.array([10.0, 20.0])
+    )
 
     profile = attached.extract_vertical_profile(1)
     assert profile["source_cell_index"] == 1

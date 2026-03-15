@@ -1615,6 +1615,58 @@ Ce runner doit reutiliser :
 Si `meshio` n'est pas disponible, l'export `.vtu` peut etre saute proprement,
 mais la couche de postprocessing doit rester testable via `.npy` et `.json`.
 
+### 5.quinquies Visualisation 3D interactive locale
+
+Fichier :
+
+- `interactive_3d_viewer.py`
+
+Responsabilites :
+
+- convertir un `ExtrudedPrismMesh3D` ou un `ExtrudedPrismMeshWithValues` vers
+  une structure PyVista
+- fournir un petit viewer local pour inspection interactive du maillage 3D
+- exposer quelques operations de base utiles pour le controle visuel :
+  coupe plane, seuil, selection d'une couche, exageration verticale
+
+Contraintes :
+
+- cette couche reste strictement optionnelle
+- elle ne doit pas etre requise pour la lecture, l'ecriture, la
+  discretisation, ou le postprocessing non interactif
+- elle ne doit pas introduire de dependance de `Field` ou `FieldParam` vers
+  PyVista
+
+API publique recommandee :
+
+- `build_pyvista_grid(mesh_3d)`
+- `build_pyvista_grid_with_values(mesh_with_values, ...)`
+- `show_interactive_mesh_3d(mesh_3d, ...)`
+- `show_interactive_values_3d(mesh_with_values, ...)`
+- `add_layer_slice(...)`
+- `add_threshold(...)`
+- `add_clip_plane(...)`
+- `add_vertical_exaggeration(...)`
+
+Metadonnees a conserver dans la structure PyVista :
+
+- `layer_index`
+- `source_cell_index`
+- `prism_center_depth`
+- la ou les valeurs de `FieldParam`
+
+Runner de reference recommande :
+
+- `cases/reference_3d_fieldparam/run_interactive_viewer.py`
+- `cases/reference_3d_fieldparam/case_interactive_viewer.toml`
+
+Dependance recommandee :
+
+- dependance optionnelle `viewer3d = ["pyvista"]`
+
+Le viewer doit etre testable sans ouverture de fenetre, avec `off_screen=True`,
+et les tests doivent etre sautes proprement si `pyvista` n'est pas installe.
+
 ### 6. Dossier `cases/reference_2d_geology_base`
 
 Structure recommandee :

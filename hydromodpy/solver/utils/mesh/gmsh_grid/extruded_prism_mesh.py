@@ -57,14 +57,24 @@ def _resolve_z_interfaces(
 ) -> np.ndarray:
     if z_interfaces is not None:
         if top_z is not None or layer_thicknesses is not None:
-            raise ValueError("Pass either z_interfaces or top_z/layer_thicknesses, not both")
+            raise ValueError(
+                "Pass either z_interfaces or top_z/layer_thicknesses, not both"
+            )
         arr = np.asarray(z_interfaces, dtype=float).reshape(-1)
     else:
         if top_z is None or layer_thicknesses is None:
-            raise ValueError("top_z and layer_thicknesses are required when z_interfaces is omitted")
+            raise ValueError(
+                "top_z and layer_thicknesses are required when z_interfaces is omitted"
+            )
         thicknesses = np.asarray(layer_thicknesses, dtype=float).reshape(-1)
-        if thicknesses.size == 0 or np.any(~np.isfinite(thicknesses)) or np.any(thicknesses <= 0.0):
-            raise ValueError("layer_thicknesses must contain strictly positive finite values")
+        if (
+            thicknesses.size == 0
+            or np.any(~np.isfinite(thicknesses))
+            or np.any(thicknesses <= 0.0)
+        ):
+            raise ValueError(
+                "layer_thicknesses must contain strictly positive finite values"
+            )
         arr = np.empty(thicknesses.size + 1, dtype=float)
         arr[0] = float(top_z)
         arr[1:] = float(top_z) - np.cumsum(thicknesses)
@@ -126,31 +136,48 @@ class ExtrudedPrismMeshData:
 
         prism_connectivity = np.asarray(self.prism_connectivity, dtype=int)
         expected_width = _NODES_PER_3D_CELL[cell_type_2d]
-        if prism_connectivity.ndim != 2 or prism_connectivity.shape[1] != expected_width:
+        if (
+            prism_connectivity.ndim != 2
+            or prism_connectivity.shape[1] != expected_width
+        ):
             raise ValueError(
                 f"{cell_type_2d} extrusion connectivity must have shape (n_cells, {expected_width})"
             )
-        if np.any(prism_connectivity < 0) or np.any(prism_connectivity >= points_xyz.shape[0]):
-            raise ValueError("prism connectivity references point indices outside points_xyz")
+        if np.any(prism_connectivity < 0) or np.any(
+            prism_connectivity >= points_xyz.shape[0]
+        ):
+            raise ValueError(
+                "prism connectivity references point indices outside points_xyz"
+            )
 
-        z_interfaces = _resolve_z_interfaces(z_interfaces=self.z_interfaces, top_z=None, layer_thicknesses=None)
+        z_interfaces = _resolve_z_interfaces(
+            z_interfaces=self.z_interfaces, top_z=None, layer_thicknesses=None
+        )
         n_prisms = int(prism_connectivity.shape[0])
         n_points = int(points_xyz.shape[0])
 
         layer_indices = np.asarray(self.layer_indices, dtype=int).reshape(-1)
-        source_cell_indices = np.asarray(self.source_cell_indices, dtype=int).reshape(-1)
-        point_layer_indices = np.asarray(self.point_layer_indices, dtype=int).reshape(-1)
+        source_cell_indices = np.asarray(self.source_cell_indices, dtype=int).reshape(
+            -1
+        )
+        point_layer_indices = np.asarray(self.point_layer_indices, dtype=int).reshape(
+            -1
+        )
         point_base_indices = np.asarray(self.point_base_indices, dtype=int).reshape(-1)
 
         if layer_indices.size != n_prisms or source_cell_indices.size != n_prisms:
-            raise ValueError("layer_indices and source_cell_indices must match the number of prisms")
+            raise ValueError(
+                "layer_indices and source_cell_indices must match the number of prisms"
+            )
         if point_layer_indices.size != n_points or point_base_indices.size != n_points:
             raise ValueError("point metadata must match the number of 3D points")
         if np.any(layer_indices < 0) or np.any(layer_indices >= z_interfaces.size - 1):
             raise ValueError("layer_indices contain invalid layer ids")
         if np.any(source_cell_indices < 0):
             raise ValueError("source_cell_indices must be non-negative")
-        if np.any(point_layer_indices < 0) or np.any(point_layer_indices >= z_interfaces.size):
+        if np.any(point_layer_indices < 0) or np.any(
+            point_layer_indices >= z_interfaces.size
+        ):
             raise ValueError("point_layer_indices contain invalid vertical ids")
         if np.any(point_base_indices < 0):
             raise ValueError("point_base_indices must be non-negative")
@@ -197,27 +224,44 @@ def _build_default_components(
 
     points_xyz = np.vstack(
         [
-            np.column_stack((planar_mesh.points_xy, np.full(n_planar_nodes, float(z_value), dtype=float)))
+            np.column_stack(
+                (
+                    planar_mesh.points_xy,
+                    np.full(n_planar_nodes, float(z_value), dtype=float),
+                )
+            )
             for z_value in z_interfaces
         ]
     )
-    point_layer_indices = np.repeat(np.arange(n_levels, dtype=int), n_planar_nodes)
-    point_base_indices = np.tile(np.arange(n_planar_nodes, dtype=int), n_levels)
+    point_layer_indices: np.ndarray[Any, Any] = np.repeat(
+        np.arange(n_levels, dtype=int), n_planar_nodes
+    )
+    point_base_indices: np.ndarray[Any, Any] = np.tile(
+        np.arange(n_planar_nodes, dtype=int), n_levels
+    )
 
-    prism_connectivity = np.empty(
+    prism_connectivity: np.ndarray[Any, Any] = np.empty(
         (n_layers * n_planar_cells, _NODES_PER_3D_CELL[planar_mesh.cell_type]),
         dtype=int,
     )
-    layer_indices = np.empty(n_layers * n_planar_cells, dtype=int)
-    source_cell_indices = np.empty(n_layers * n_planar_cells, dtype=int)
-    base_connectivity = np.asarray(planar_mesh.connectivity, dtype=int)
+    layer_indices: np.ndarray[Any, Any] = np.empty(n_layers * n_planar_cells, dtype=int)
+    source_cell_indices: np.ndarray[Any, Any] = np.empty(
+        n_layers * n_planar_cells, dtype=int
+    )
+    base_connectivity: np.ndarray[Any, Any] = np.asarray(
+        planar_mesh.connectivity, dtype=int
+    )
     for layer_idx in range(n_layers):
         offset_top = layer_idx * n_planar_nodes
         offset_bot = (layer_idx + 1) * n_planar_nodes
         start = layer_idx * n_planar_cells
         stop = start + n_planar_cells
-        prism_connectivity[start:stop, : base_connectivity.shape[1]] = base_connectivity + offset_top
-        prism_connectivity[start:stop, base_connectivity.shape[1] :] = base_connectivity + offset_bot
+        prism_connectivity[start:stop, : base_connectivity.shape[1]] = (
+            base_connectivity + offset_top
+        )
+        prism_connectivity[start:stop, base_connectivity.shape[1] :] = (
+            base_connectivity + offset_bot
+        )
         layer_indices[start:stop] = layer_idx
         source_cell_indices[start:stop] = np.arange(n_planar_cells, dtype=int)
     return (
@@ -239,13 +283,17 @@ def _extract_cell_block(mesh: Any) -> tuple[int, str, np.ndarray]:
         elif block_type == "hexahedron":
             supported.append((idx, "quadrilateral", np.asarray(block.data, dtype=int)))
     if not supported:
-        raise ValueError("Mesh does not contain supported 3D wedge/hexahedron cell blocks")
+        raise ValueError(
+            "Mesh does not contain supported 3D wedge/hexahedron cell blocks"
+        )
     if len(supported) > 1:
         raise ValueError("Mixed 3D extruded cell blocks are not supported in one mesh")
     return supported[0]
 
 
-def _extract_one_cell_data(mesh: Any, *, key: str, block_index: int) -> np.ndarray | None:
+def _extract_one_cell_data(
+    mesh: Any, *, key: str, block_index: int
+) -> np.ndarray | None:
     cell_data = getattr(mesh, "cell_data", {})
     values = cell_data.get(key)
     if values is None:
@@ -263,8 +311,11 @@ def _build_planar_mesh_from_data(mesh_data: ExtrudedPrismMeshData) -> GmshPlanar
         raise ValueError("Extruded mesh does not expose any node on layer interface 0")
     order = np.argsort(base_order)
     base_points = base_points[order]
-    base_connectivity = np.empty(
-        (int(np.max(mesh_data.source_cell_indices)) + 1, 3 if mesh_data.cell_type_2d == "triangle" else 4),
+    base_connectivity: np.ndarray[Any, Any] = np.empty(
+        (
+            int(np.max(mesh_data.source_cell_indices)) + 1,
+            3 if mesh_data.cell_type_2d == "triangle" else 4,
+        ),
         dtype=int,
     )
     point_base_by_node = np.asarray(mesh_data.point_base_indices, dtype=int)
@@ -272,11 +323,15 @@ def _build_planar_mesh_from_data(mesh_data: ExtrudedPrismMeshData) -> GmshPlanar
     if not np.any(layer0_mask):
         raise ValueError("Extruded mesh does not expose any prism on layer 0")
     first_half_width = base_connectivity.shape[1]
-    layer0_conn = np.asarray(mesh_data.prism_connectivity[layer0_mask, :first_half_width], dtype=int)
+    layer0_conn = np.asarray(
+        mesh_data.prism_connectivity[layer0_mask, :first_half_width], dtype=int
+    )
     layer0_source = np.asarray(mesh_data.source_cell_indices[layer0_mask], dtype=int)
     sort_order = np.argsort(layer0_source)
     for idx, source_cell in enumerate(layer0_source[sort_order]):
-        base_connectivity[source_cell] = point_base_by_node[layer0_conn[sort_order[idx]]]
+        base_connectivity[source_cell] = point_base_by_node[
+            layer0_conn[sort_order[idx]]
+        ]
     return GmshPlanarMesh2D(
         points_xy=base_points,
         connectivity=base_connectivity,
@@ -295,29 +350,56 @@ def _infer_mesh_data(mesh: Any) -> ExtrudedPrismMeshData:
     point_data = getattr(mesh, "point_data", {})
     point_layer_indices = point_data.get(_POINT_LAYER_KEY)
     point_base_indices = point_data.get(_POINT_BASE_KEY)
-    layer_indices = _extract_one_cell_data(mesh, key=_CELL_LAYER_KEY, block_index=block_index)
-    source_cell_indices = _extract_one_cell_data(mesh, key=_CELL_SOURCE_KEY, block_index=block_index)
+    layer_indices = _extract_one_cell_data(
+        mesh, key=_CELL_LAYER_KEY, block_index=block_index
+    )
+    source_cell_indices = _extract_one_cell_data(
+        mesh, key=_CELL_SOURCE_KEY, block_index=block_index
+    )
 
     if point_layer_indices is not None and point_base_indices is not None:
         point_layer_indices = np.asarray(point_layer_indices, dtype=int).reshape(-1)
         point_base_indices = np.asarray(point_base_indices, dtype=int).reshape(-1)
-        if point_layer_indices.size != points_xyz.shape[0] or point_base_indices.size != points_xyz.shape[0]:
-            raise ValueError("Point extrusion metadata does not match the number of points")
+        if (
+            point_layer_indices.size != points_xyz.shape[0]
+            or point_base_indices.size != points_xyz.shape[0]
+        ):
+            raise ValueError(
+                "Point extrusion metadata does not match the number of points"
+            )
         level_ids = np.unique(point_layer_indices)
         z_interfaces = np.array(
-            [float(np.mean(points_xyz[point_layer_indices == level_idx, 2])) for level_idx in np.sort(level_ids)],
+            [
+                float(np.mean(points_xyz[point_layer_indices == level_idx, 2]))
+                for level_idx in np.sort(level_ids)
+            ],
             dtype=float,
         )
     else:
         z_interfaces = _stable_unique(points_xyz[:, 2])
-        counts = [int(np.count_nonzero(np.isclose(points_xyz[:, 2], z_value, rtol=0.0, atol=1e-9))) for z_value in z_interfaces]
+        counts = [
+            int(
+                np.count_nonzero(
+                    np.isclose(points_xyz[:, 2], z_value, rtol=0.0, atol=1e-9)
+                )
+            )
+            for z_value in z_interfaces
+        ]
         if len(set(counts)) != 1:
-            raise ValueError("Cannot infer layered point layout from the 3D mesh without hydromodpy metadata")
+            raise ValueError(
+                "Cannot infer layered point layout from the 3D mesh without hydromodpy metadata"
+            )
         n_base_nodes = counts[0]
         if n_base_nodes * z_interfaces.size != points_xyz.shape[0]:
-            raise ValueError("Cannot infer layered point layout from the 3D mesh without hydromodpy metadata")
-        point_layer_indices = np.repeat(np.arange(z_interfaces.size, dtype=int), n_base_nodes)
-        point_base_indices = np.tile(np.arange(n_base_nodes, dtype=int), z_interfaces.size)
+            raise ValueError(
+                "Cannot infer layered point layout from the 3D mesh without hydromodpy metadata"
+            )
+        point_layer_indices = np.repeat(
+            np.arange(z_interfaces.size, dtype=int), n_base_nodes
+        )
+        point_base_indices = np.tile(
+            np.arange(n_base_nodes, dtype=int), z_interfaces.size
+        )
 
     n_layers = int(z_interfaces.size - 1)
     if n_layers <= 0:
@@ -325,7 +407,9 @@ def _infer_mesh_data(mesh: Any) -> ExtrudedPrismMeshData:
 
     if layer_indices is None or source_cell_indices is None:
         if prism_connectivity.shape[0] % n_layers != 0:
-            raise ValueError("Cannot infer prism ordering from the 3D mesh without hydromodpy metadata")
+            raise ValueError(
+                "Cannot infer prism ordering from the 3D mesh without hydromodpy metadata"
+            )
         n_base_cells = prism_connectivity.shape[0] // n_layers
         layer_indices = np.repeat(np.arange(n_layers, dtype=int), n_base_cells)
         source_cell_indices = np.tile(np.arange(n_base_cells, dtype=int), n_layers)
@@ -380,7 +464,9 @@ def write_extruded_prism_mesh(
 ) -> Path:
     meshio = _require_meshio()
     path_obj = Path(path).resolve()
-    meshio.write(path_obj, extruded_mesh_data_to_meshio(mesh_data), file_format=file_format)
+    meshio.write(
+        path_obj, extruded_mesh_data_to_meshio(mesh_data), file_format=file_format
+    )
     return path_obj
 
 
@@ -404,7 +490,9 @@ class ExtrudedPrismMesh3D:
     ) -> None:
         if not isinstance(planar_mesh, GmshPlanarMesh2D):
             raise TypeError("planar_mesh must be a GmshPlanarMesh2D instance")
-        z_arr = _resolve_z_interfaces(z_interfaces=z_interfaces, top_z=None, layer_thicknesses=None)
+        z_arr = _resolve_z_interfaces(
+            z_interfaces=z_interfaces, top_z=None, layer_thicknesses=None
+        )
 
         if points_xyz is None:
             (
@@ -415,7 +503,16 @@ class ExtrudedPrismMesh3D:
                 point_layer_indices,
                 point_base_indices,
             ) = _build_default_components(planar_mesh, z_arr)
-        elif any(v is None for v in (prism_connectivity, layer_indices, source_cell_indices, point_layer_indices, point_base_indices)):
+        elif any(
+            v is None
+            for v in (
+                prism_connectivity,
+                layer_indices,
+                source_cell_indices,
+                point_layer_indices,
+                point_base_indices,
+            )
+        ):
             raise ValueError("Explicit 3D components must be passed together")
 
         mesh_data = ExtrudedPrismMeshData(
@@ -437,7 +534,11 @@ class ExtrudedPrismMesh3D:
         self.source_cell_indices = np.asarray(mesh_data.source_cell_indices, dtype=int)
         self.point_layer_indices = np.asarray(mesh_data.point_layer_indices, dtype=int)
         self.point_base_indices = np.asarray(mesh_data.point_base_indices, dtype=int)
-        self.source_path = None if mesh_data.source_path is None else Path(mesh_data.source_path).resolve()
+        self.source_path = (
+            None
+            if mesh_data.source_path is None
+            else Path(mesh_data.source_path).resolve()
+        )
         self._prisms_cache: tuple[PrismCell3D, ...] | None = None
 
     @classmethod
@@ -544,7 +645,9 @@ class ExtrudedPrismMesh3D:
         return self._prisms_cache
 
     def iter_prisms(self):
-        for prism_idx, node_ids in enumerate(np.asarray(self.prism_connectivity, dtype=int)):
+        for prism_idx, node_ids in enumerate(
+            np.asarray(self.prism_connectivity, dtype=int)
+        ):
             vertices = np.asarray(self.points_xyz[node_ids], dtype=float)
             centroid = (
                 float(np.mean(vertices[:, 0])),
@@ -570,7 +673,9 @@ class ExtrudedPrismMesh3D:
         expected_shape = (self.n_layers, self.planar_mesh.n_cells)
         if arr.ndim == 2:
             if arr.shape != expected_shape:
-                raise ValueError("3D prism values must match shape (n_layers, n_cells_2d)")
+                raise ValueError(
+                    "3D prism values must match shape (n_layers, n_cells_2d)"
+                )
             return arr
         flat = arr.reshape(-1)
         if flat.size != self.n_prisms:
@@ -594,7 +699,9 @@ class ExtrudedPrismMesh3D:
         return extruded_mesh_data_to_meshio(self.to_mesh_data())
 
     def to_file(self, path: str | Path, *, file_format: str | None = None) -> Path:
-        return write_extruded_prism_mesh(path, self.to_mesh_data(), file_format=file_format)
+        return write_extruded_prism_mesh(
+            path, self.to_mesh_data(), file_format=file_format
+        )
 
     def as_dict(self):
         return {

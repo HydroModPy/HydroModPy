@@ -31,16 +31,24 @@ class _TriangularBaseFieldMesh(BaseFieldMesh):
             resolution_hint=resolution_hint,
             seed=seed,
         )
-        self.triangulation = triangulation
+        self.triangulation: mtri.Triangulation = triangulation
+
+    def _require_triangulation(self) -> mtri.Triangulation:
+        triangulation = self.triangulation
+        if triangulation is None:
+            raise RuntimeError("triangulation is not initialized")
+        return triangulation
 
     @property
     def n_cells(self) -> int:
-        return int(self.triangulation.triangles.shape[0])
+        triangulation = self._require_triangulation()
+        return int(triangulation.triangles.shape[0])
 
     def iter_cells(self):
-        x = np.asarray(self.triangulation.x, dtype=float)
-        y = np.asarray(self.triangulation.y, dtype=float)
-        for idx, nodes in enumerate(np.asarray(self.triangulation.triangles, dtype=int)):
+        triangulation = self._require_triangulation()
+        x = np.asarray(triangulation.x, dtype=float)
+        y = np.asarray(triangulation.y, dtype=float)
+        for idx, nodes in enumerate(np.asarray(triangulation.triangles, dtype=int)):
             vertices = np.column_stack((x[nodes], y[nodes]))
             centroid = (float(vertices[:, 0].mean()), float(vertices[:, 1].mean()))
             yield MeshCell(
@@ -73,9 +81,10 @@ class _TriangularBaseFieldMesh(BaseFieldMesh):
         vmin=None,
         vmax=None,
     ):
+        triangulation = self._require_triangulation()
         values1d = np.asarray(self.to_cell_values(cell_values), dtype=float)
         mappable = ax.tripcolor(
-            self.triangulation,
+            triangulation,
             facecolors=values1d,
             shading="flat",
             cmap=cmap,
@@ -83,8 +92,12 @@ class _TriangularBaseFieldMesh(BaseFieldMesh):
             vmax=vmax,
         )
         if show_mesh:
-            ax.triplot(self.triangulation, color="0.70", lw=0.35)
-        _set_axes_limits_from_mesh(ax, x_plot=self.triangulation.x, y_plot=self.triangulation.y)
+            ax.triplot(triangulation, color="0.70", lw=0.35)
+        _set_axes_limits_from_mesh(
+            ax,
+            x_plot=triangulation.x,
+            y_plot=triangulation.y,
+        )
         return mappable
 
 

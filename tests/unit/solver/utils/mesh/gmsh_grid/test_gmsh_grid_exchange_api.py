@@ -22,7 +22,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.examples.read_only_example import (
     build_read_only_summary,
 )
 
-
 REFERENCE_PLANAR_MSH = (
     Path(__file__).resolve().parents[6]
     / "hydromodpy"
@@ -76,7 +75,10 @@ def test_exchange_api_can_read_reference_assets():
     assert planar_mesh.n_cells > 0
     assert extruded_mesh.n_layers > 0
     assert mesh_with_values.n_cells_3d == extruded_mesh.n_prisms
-    assert np.asarray(mesh_with_values.values_3d, dtype=float).shape[0] == extruded_mesh.n_layers
+    assert (
+        np.asarray(mesh_with_values.values_3d, dtype=float).shape[0]
+        == extruded_mesh.n_layers
+    )
 
 
 def test_exchange_api_roundtrip_with_meshio_available():

@@ -8,6 +8,7 @@ import sys
 
 import matplotlib
 import geopandas as gpd
+from matplotlib.colors import ListedColormap
 from matplotlib.patches import Rectangle
 import matplotlib.ticker as mticker
 import numpy as np
@@ -48,6 +49,7 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_ru
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_demo_config import (
     SGridFieldParamDiscretizationConfig,
 )
+from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 
 
 DEFAULT_CONFIG_FILE = "run_demo_config_2d.toml"
@@ -170,7 +172,7 @@ def _select_name_field(gdf, *, code_field: str) -> str | None:
 
 
 def _build_zone_name_by_key(gdf, *, code_field: str, name_field: str | None) -> dict[str, str]:
-    keys = gdf[code_field].astype(str).str.strip()
+    keys = gdf[code_field].map(_normalize_zone_key)
     unique_keys = sorted(np.unique(keys.to_numpy()).tolist())
     if name_field is None:
         return {key: key for key in unique_keys}
@@ -185,6 +187,17 @@ def _build_zone_name_by_key(gdf, *, code_field: str, name_field: str | None) -> 
         names = names[(names != "") & (names.str.lower() != "nan") & (names.str.lower() != "none")]
         out[key] = str(names.value_counts().index[0]) if not names.empty else key
     return out
+
+
+def _normalize_zone_key(raw: object) -> str:
+    if isinstance(raw, (int, np.integer)):
+        return str(int(raw))
+    if isinstance(raw, (float, np.floating)):
+        value = float(raw)
+        if np.isfinite(value) and value.is_integer():
+            return str(int(value))
+        return str(value)
+    return str(raw).strip()
 
 
 def _add_zone_cartouches(ax, entries: list[tuple[tuple[float, float, float, float], str]]) -> int:
@@ -260,7 +273,7 @@ def _plot_left_raw_geology(
     cfg: SGridFieldParamDiscretizationConfig,
     geology_field: GeologyField,
     mesh,
-) -> list[tuple[tuple[float, float, float, float], str]]:
+) -> tuple[list[tuple[tuple[float, float, float, float], str]], dict[str, tuple[float, float, float, float]]]:
     """Left panel: raw geology polygons in real coordinates."""
     source_cfg = dict(cfg.geology.get("source", {}))
     source_kind = str(source_cfg.get("kind", "auto")).strip().lower()
@@ -275,12 +288,13 @@ def _plot_left_raw_geology(
 
     plotted = False
     cartouches: list[tuple[tuple[float, float, float, float], str]] = []
+    zone_color_by_key: dict[str, tuple[float, float, float, float]] = {}
     if source_kind in {"vector", "auto"} and source_path.exists():
         gdf = gpd.read_file(source_path)
         if not gdf.empty and code_field in gdf.columns:
             gdf_sel = gdf[gdf.intersects(mesh_bbox)].copy()
             if not gdf_sel.empty:
-                zone = gdf_sel[code_field].astype(str).str.strip()
+                zone = gdf_sel[code_field].map(_normalize_zone_key)
                 unique_keys = sorted(np.unique(zone.to_numpy()).tolist())
                 key_to_idx = {key: idx for idx, key in enumerate(unique_keys)}
                 gdf_plot = gdf_sel.copy()
@@ -305,6 +319,7 @@ def _plot_left_raw_geology(
                 for key in unique_keys:
                     idx = key_to_idx[key]
                     rgba = cmap_geo(float(idx) / denom)
+                    zone_color_by_key[key] = rgba
                     name = zone_name_by_key.get(key, key)
                     cartouches.append((rgba, f"{name} [{key}]"))
                 plotted = True
@@ -326,6 +341,9 @@ def _plot_left_raw_geology(
         # Build coarse fallback cartouches from encoded classes only.
         unique_codes = np.unique(np.asarray(geology_codes[geology_codes > 0], dtype=int))
         denom = max(float(len(unique_codes) - 1), 1.0)
+        for idx, code in enumerate(unique_codes):
+            rgba = cmap_geo(float(idx) / denom)
+            zone_color_by_key[_normalize_zone_key(code)] = rgba
         for idx, code in enumerate(unique_codes[:18]):
             rgba = cmap_geo(float(idx) / denom)
             cartouches.append((rgba, f"class {int(code)}"))
@@ -339,30 +357,94 @@ def _plot_left_raw_geology(
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
     _disable_axis_offset(ax)
-    return cartouches
+    return cartouches, zone_color_by_key
 
 
-def _plot_center_mesh_discretization(ax, *, mesh, mesh_values, fig) -> None:
+def _plot_center_mesh_discretization(
+    ax,
+    *,
+    mesh,
+    mesh_values,
+    field_discretization,
+    zone_color_by_key: dict[str, tuple[float, float, float, float]],
+    fig,
+) -> None:
     """Center panel: FieldParam mapped on intermediate mesh, real coordinates."""
-    cell_values = np.asarray(mesh.to_cell_values(mesh_values.cell_values), dtype=float)
-    img = ax.pcolormesh(
-        mesh.x_plot,
-        mesh.y_plot,
-        cell_values,
-        shading="flat",
-        cmap="hsv",
-    )
+    used_geology_colors = False
+    img = None
+    if field_discretization is not None and hasattr(field_discretization, "weighted_components"):
+        try:
+            zone_keys_raw, fractions_by_zone = field_discretization.weighted_components()
+            zone_keys = [_normalize_zone_key(key) for key in zone_keys_raw]
+            if len(zone_keys) > 0:
+                fallback_cmap = plt.get_cmap("tab20", max(2, min(20, len(zone_keys))))
+                denom = max(float(len(zone_keys) - 1), 1.0)
+                zone_colors = [
+                    zone_color_by_key.get(key, fallback_cmap(float(idx) / denom))
+                    for idx, key in enumerate(zone_keys)
+                ]
+                dominant_idx = np.full(int(mesh.n_cells), -1, dtype=int)
+                dominant_frac = np.zeros(int(mesh.n_cells), dtype=float)
+                for idx, raw_key in enumerate(zone_keys_raw):
+                    frac = np.asarray(
+                        mesh.to_cell_values(fractions_by_zone[raw_key]),
+                        dtype=float,
+                    ).reshape(-1)
+                    valid = np.isfinite(frac)
+                    better = valid & (frac > dominant_frac)
+                    dominant_frac[better] = frac[better]
+                    dominant_idx[better] = idx
+
+                dominant_grid = np.asarray(
+                    mesh.to_cell_values(dominant_idx.astype(float)),
+                    dtype=float,
+                )
+                dominant_masked = np.ma.masked_where(dominant_grid < 0.0, dominant_grid)
+                vmax = 0.5 if len(zone_colors) == 1 else float(len(zone_colors) - 0.5)
+                img = ax.pcolormesh(
+                    mesh.x_plot,
+                    mesh.y_plot,
+                    dominant_masked,
+                    shading="flat",
+                    cmap=ListedColormap(zone_colors),
+                    vmin=-0.5,
+                    vmax=vmax,
+                )
+                cbar = fig.colorbar(img, ax=ax, shrink=0.72, pad=0.02)
+                cbar.set_label("dominant geology zone on intermediary mesh", fontsize=LABEL_FONTSIZE)
+                cbar.ax.tick_params(labelsize=TICK_FONTSIZE)
+                if len(zone_keys) <= 12:
+                    cbar.set_ticks(np.arange(len(zone_keys), dtype=float))
+                    cbar.set_ticklabels(zone_keys)
+                else:
+                    cbar.set_ticks([])
+                used_geology_colors = True
+        except Exception:
+            used_geology_colors = False
+
+    if not used_geology_colors:
+        cell_values = np.asarray(mesh.to_cell_values(mesh_values.cell_values), dtype=float)
+        img = ax.pcolormesh(
+            mesh.x_plot,
+            mesh.y_plot,
+            cell_values,
+            shading="flat",
+            cmap="hsv",
+        )
+        cbar = fig.colorbar(img, ax=ax, shrink=0.72, pad=0.02)
+        cbar.set_label("parameter on intermediary mesh", fontsize=LABEL_FONTSIZE)
+        cbar.ax.tick_params(labelsize=TICK_FONTSIZE)
+        _maybe_scientific_colorbar(cbar, cell_values)
+
     for j in range(mesh.x_plot.shape[0]):
         ax.plot(mesh.x_plot[j, :], mesh.y_plot[j, :], color="0.80", lw=0.25)
     for i in range(mesh.x_plot.shape[1]):
         ax.plot(mesh.x_plot[:, i], mesh.y_plot[:, i], color="0.80", lw=0.25)
 
-    cbar = fig.colorbar(img, ax=ax, shrink=0.72, pad=0.02)
-    cbar.set_label("parameter on intermediary mesh", fontsize=LABEL_FONTSIZE)
-    cbar.ax.tick_params(labelsize=TICK_FONTSIZE)
-    _maybe_scientific_colorbar(cbar, cell_values)
-
-    ax.set_title("Discretization on intermediary mesh", fontsize=TITLE_FONTSIZE)
+    if used_geology_colors:
+        ax.set_title("Discretization on intermediary mesh (geology colors)", fontsize=TITLE_FONTSIZE)
+    else:
+        ax.set_title("Discretization on intermediary mesh", fontsize=TITLE_FONTSIZE)
     ax.set_xlabel("x [m]", fontsize=LABEL_FONTSIZE)
     ax.set_ylabel("y [m]", fontsize=LABEL_FONTSIZE)
     ax.tick_params(labelsize=TICK_FONTSIZE)
@@ -404,6 +486,7 @@ def _plot_geology_and_result(
     geology_field: GeologyField,
     mesh,
     mesh_values,
+    field_discretization,
     values_2d: np.ndarray,
     output_path: Path,
     show_plot: bool,
@@ -416,7 +499,7 @@ def _plot_geology_and_result(
     fig, axes = plt.subplots(1, 3, figsize=(24.0, 9.4), dpi=150)
     ax_left, ax_center, ax_right = axes
 
-    cartouches = _plot_left_raw_geology(
+    cartouches, zone_color_by_key = _plot_left_raw_geology(
         ax_left,
         cfg=cfg,
         geology_field=geology_field,
@@ -426,6 +509,8 @@ def _plot_geology_and_result(
         ax_center,
         mesh=mesh,
         mesh_values=mesh_values,
+        field_discretization=field_discretization,
+        zone_color_by_key=zone_color_by_key,
         fig=fig,
     )
     _plot_right_final_grid(
@@ -466,6 +551,7 @@ def _show_figures_blocking(*figures) -> None:
             fig.show()
         except Exception:
             continue
+    maximize_figure_windows(*visible)
     plt.pause(0.05)
     plt.show(block=True)
     for fig in visible:
@@ -504,6 +590,7 @@ def main(argv=None) -> int:
         geology_field=geology_field,
         mesh=result.mesh,
         mesh_values=mesh_values,
+        field_discretization=result.field_discretization,
         values_2d=arr,
         output_path=output_path,
         show_plot=(not bool(args.no_show_plot)),

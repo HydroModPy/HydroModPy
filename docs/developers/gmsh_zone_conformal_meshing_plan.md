@@ -2,6 +2,31 @@
 
 Status: design note, no implementation in this document.
 
+## Current implementation constraints (phase-aligned)
+
+The implementation currently follows these project decisions:
+
+- metadata stays sidecar-only (summary/result object), no extension of `GmshPlanarMesh2D` reader path;
+- only interface-based local mesh refinement is enabled in scope;
+- geometry cleaning mode is tolerant but explicit through tolerance parameters;
+- domain contract is restricted to three modes:
+  - `bbox`
+  - `polygon`
+  - `vector` (`path`, `id_field`, `selected_id`);
+- `clip_bbox` has been removed from the domain contract;
+  use:
+  - `domain.kind = "bbox"`
+  - `domain.bbox = [xmin, ymin, xmax, ymax]`;
+- no advanced domain mask logic beyond polygon/union is in scope.
+
+Migration note for existing configs:
+
+```toml
+[case.domain]
+kind = "bbox"
+bbox = [xmin, ymin, xmax, ymax]
+```
+
 ## Installation status in this workspace
 
 - The Python package `gmsh` is now available and importable.

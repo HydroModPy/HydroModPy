@@ -180,9 +180,11 @@ def gp_mapping_calibrate(
     y_train = -cost_train
 
     # Step 3: initial GP fit.
+    # Keep a permissive lower bound on transformed-space length scales to avoid
+    # systematic convergence to the boundary on sharp objective landscapes.
     kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(
         length_scale=np.ones(n_dim, dtype=float),
-        length_scale_bounds=(1e-3, 1e3),
+        length_scale_bounds=(1e-5, 1e3),
     )
     gp = GaussianProcessRegressor(
         kernel=kernel,
@@ -251,4 +253,3 @@ def gp_mapping_calibrate(
             "surrogate": gp,
         },
     )
-

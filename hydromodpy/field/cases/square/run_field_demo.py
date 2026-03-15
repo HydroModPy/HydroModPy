@@ -1,30 +1,37 @@
 """
-Launcher to visualize field values on meshes for square-case geometry.
+Visual launcher for the pedagogical square-domain field examples.
+
+This module has two roles:
+- provide a direct script entrypoint for one square-field demonstration;
+- expose a reusable `run_field_demo_case(...)` helper so the root
+  `field/cases/review_cases.py` launcher can chain several examples in
+  blocking mode for manual review.
 
 Run from repository root:
-    python hydromodpy/field/cases/square/run_field_demo.py
+    python -m hydromodpy.field.cases.square.run_field_demo
 """
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import sys
 
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
+
+try:
+    matplotlib.use("Agg", force=True)
+except Exception:
+    pass
+
+from matplotlib import pyplot as plt
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
-# Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[4]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from hydromodpy.field.cases.square.field_spatial_square import FieldSquare
 from hydromodpy.field.cases.square.field_mesh_square import FieldMeshSquare
+from hydromodpy.field.cases.square.field_spatial_square import FieldSquare
 from hydromodpy.field.core.field_param import FieldParam
-
+from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 
 DEFAULT_FIELD_PARAM_CONFIG_FILE = "field_param_config.toml"
 DEFAULT_MESH_CONFIG_FILE = "mesh_config.toml"
@@ -89,6 +96,45 @@ def _resolve_path(path_like):
     return (Path(__file__).resolve().parent / raw).resolve()
 
 
+def _ensure_interactive_backend_for_show() -> None:
+    """Switch from inline/Agg to one GUI backend before figures are created."""
+    backend = str(matplotlib.get_backend()).strip().lower()
+    if ("inline" not in backend) and ("agg" not in backend):
+        return
+    for candidate in ("TkAgg", "QtAgg"):
+        try:
+            plt.switch_backend(candidate)
+            return
+        except Exception:
+            continue
+
+
+def _show_figures_blocking(*figures) -> None:
+    """Display one or many figures in blocking mode and maximize them."""
+    visible = [fig for fig in figures if fig is not None]
+    if not visible:
+        return
+    plt.ioff()
+    for fig in visible:
+        manager = getattr(getattr(fig, "canvas", None), "manager", None)
+        if manager is not None:
+            show = getattr(manager, "show", None)
+            if callable(show):
+                try:
+                    show()
+                except Exception:
+                    pass
+        try:
+            fig.show()
+        except Exception:
+            pass
+    maximize_figure_windows(*visible)
+    plt.pause(0.05)
+    plt.show(block=True)
+    for fig in visible:
+        plt.close(fig)
+
+
 def _plot_interface_line(ax, *, line_name):
     line_key = str(line_name).strip().lower()
     if line_key == "diag_main":
@@ -105,7 +151,13 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
     """
     Create the 3-panel visualization figure.
     """
-    fig, axes = plt.subplots(1, 3, figsize=(15.5, 4.8), dpi=140)
+    fig, axes = plt.subplots(
+        1,
+        3,
+        figsize=(18.0, 6.8),
+        dpi=140,
+        gridspec_kw={"width_ratios": (1.1, 0.9, 1.45)},
+    )
     ax_left, ax_mid, ax_right = axes
     ax_mid.axis("off")
 
@@ -146,11 +198,16 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
 
         lines = [
             f'"{k}"  ->  {float(v):g}'
-            for k, v in sorted(field_param.values_by_key.items(), key=lambda kv: str(kv[0]))
+            for k, v in sorted(
+                field_param.values_by_key.items(), key=lambda kv: str(kv[0])
+            )
         ]
         values_dict_txt = f'"id"  ->  "{field_param.identifier}"\n' + "\n".join(lines)
         values_txt = ", ".join(
-            f"{k}={v:g}" for k, v in sorted(field_param.values_by_key.items(), key=lambda kv: str(kv[0]))
+            f"{k}={v:g}"
+            for k, v in sorted(
+                field_param.values_by_key.items(), key=lambda kv: str(kv[0])
+            )
         )
         suptitle = (
             f"mesh={mesh.kind} | param_id={field_param.identifier} | "
@@ -169,7 +226,9 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
             interpolation="nearest",
             aspect="equal",
         )
-        legend_handles = [Patch(facecolor=domain_color, edgecolor="0.45", label="domain")]
+        legend_handles = [
+            Patch(facecolor=domain_color, edgecolor="0.45", label="domain")
+        ]
         ax_left.legend(
             handles=legend_handles,
             title="Zones",
@@ -217,23 +276,43 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
     ax_right.set_ylabel("y")
 
     fig.suptitle(suptitle, fontsize=10)
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.tight_layout(rect=[0.01, 0.01, 0.99, 0.95])
     return fig
 
 
-def main(argv=None):
-    args = _parse_args(argv)
-
-    field_param_config_path = _resolve_path(args.field_param_config_file)
-    mesh_config_path = _resolve_path(args.mesh_config_file)
-    out_path = _resolve_path(args.output_file)
+def load_field_demo_inputs_from_toml(
+    *,
+    field_param_config_file: str | Path = DEFAULT_FIELD_PARAM_CONFIG_FILE,
+    mesh_config_file: str | Path = DEFAULT_MESH_CONFIG_FILE,
+    mesh_section: str = DEFAULT_MESH_SECTION,
+    field_config_file: str | Path = DEFAULT_FIELD_CONFIG_FILE,
+    field_section: str = DEFAULT_FIELD_SECTION,
+) -> dict[str, object]:
+    """Load one square-field demonstration case from TOML files."""
+    field_param_config_path = _resolve_path(field_param_config_file)
+    mesh_config_path = _resolve_path(mesh_config_file)
 
     field_param = FieldParam.from_toml(field_param_config_path)
-    mesh = FieldMeshSquare.from_toml(mesh_config_path, section=args.mesh_section)
+    mesh = FieldMeshSquare.from_toml(mesh_config_path, section=mesh_section)
     field = None
     if field_param.is_heterogeneous:
-        field_config_path = _resolve_path(args.field_config_file)
-        field = FieldSquare.from_toml(field_config_path, section=args.field_section)
+        field_config_path = _resolve_path(field_config_file)
+        field = FieldSquare.from_toml(field_config_path, section=field_section)
+
+    return {
+        "field_param": field_param,
+        "mesh": mesh,
+        "field": field,
+    }
+
+
+def _resolve_mesh_values(*, field_param, mesh, field=None):
+    """Map one field parameter onto the provided square-case mesh."""
+    if field_param.is_heterogeneous:
+        if field is None:
+            raise ValueError(
+                "field must be provided for heterogeneous field parameters"
+            )
 
         if field_param.field_spatial_id != field.identifier:
             raise ValueError(
@@ -243,8 +322,29 @@ def main(argv=None):
 
         field_discretization = field.on_mesh(mesh)
         values_mesh = field_param.to_mesh_field(field_discretization)
-    else:
-        values_mesh = field_param.to_mesh_field(mesh=mesh)
+        return field_discretization, values_mesh
+
+    values_mesh = field_param.to_mesh_field(mesh=mesh)
+    return None, values_mesh
+
+
+def run_field_demo_case(
+    *,
+    field_param,
+    mesh,
+    field=None,
+    output_file: str | Path | None = DEFAULT_OUTPUT_FILE,
+    show_plot: bool = False,
+) -> dict[str, object]:
+    """Render one square-field example, optionally showing it in blocking mode."""
+    if show_plot:
+        _ensure_interactive_backend_for_show()
+
+    field_discretization, values_mesh = _resolve_mesh_values(
+        field_param=field_param,
+        mesh=mesh,
+        field=field,
+    )
 
     fig = _create_figure(
         field_param=field_param,
@@ -253,12 +353,68 @@ def main(argv=None):
         field=field,
     )
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, bbox_inches="tight")
-    print(f"Saved figure: {out_path}")
+    out_path = None
+    if output_file is not None:
+        out_path = _resolve_path(output_file)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_path, bbox_inches="tight")
+        print(f"Saved figure: {out_path}")
 
-    if not args.no_show_plot:
-        plt.show()
+    if show_plot:
+        _show_figures_blocking(fig)
+    else:
+        plt.close(fig)
+
+    return {
+        "field_param_id": str(field_param.identifier),
+        "field_id": None if field is None else str(field.identifier),
+        "mesh_kind": str(mesh.kind),
+        "n_cells": int(mesh.n_cells),
+        "is_heterogeneous": bool(field_param.is_heterogeneous),
+        "output_file": None if out_path is None else str(out_path),
+        "field_discretization": field_discretization,
+        "values_mesh": values_mesh,
+    }
+
+
+def run_field_demo_from_toml(
+    *,
+    field_param_config_file: str | Path = DEFAULT_FIELD_PARAM_CONFIG_FILE,
+    mesh_config_file: str | Path = DEFAULT_MESH_CONFIG_FILE,
+    mesh_section: str = DEFAULT_MESH_SECTION,
+    field_config_file: str | Path = DEFAULT_FIELD_CONFIG_FILE,
+    field_section: str = DEFAULT_FIELD_SECTION,
+    output_file: str | Path | None = DEFAULT_OUTPUT_FILE,
+    show_plot: bool = False,
+) -> dict[str, object]:
+    """Load the standard square-case configs and run the demonstration."""
+    payload = load_field_demo_inputs_from_toml(
+        field_param_config_file=field_param_config_file,
+        mesh_config_file=mesh_config_file,
+        mesh_section=mesh_section,
+        field_config_file=field_config_file,
+        field_section=field_section,
+    )
+    return run_field_demo_case(
+        field_param=payload["field_param"],
+        mesh=payload["mesh"],
+        field=payload["field"],
+        output_file=output_file,
+        show_plot=show_plot,
+    )
+
+
+def main(argv=None):
+    args = _parse_args(argv)
+    run_field_demo_from_toml(
+        field_param_config_file=args.field_param_config_file,
+        mesh_config_file=args.mesh_config_file,
+        mesh_section=args.mesh_section,
+        field_config_file=args.field_config_file,
+        field_section=args.field_section,
+        output_file=args.output_file,
+        show_plot=(not bool(args.no_show_plot)),
+    )
 
 
 if __name__ == "__main__":

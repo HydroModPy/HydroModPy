@@ -4,10 +4,24 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import sys
 import tomllib
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+
+def _find_repo_root() -> Path:
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "hydromodpy").is_dir():
+            return parent
+    return current.parents[0]
+
+
+REPO_ROOT = _find_repo_root()
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.data_managers.geology.geology_config import validate_geology_config_data
 from hydromodpy.field.core.field_param_config import (

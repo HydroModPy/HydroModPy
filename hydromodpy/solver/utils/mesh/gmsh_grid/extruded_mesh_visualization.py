@@ -12,6 +12,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import matplotlib
+
 matplotlib.use("Agg", force=True)
 from matplotlib import pyplot as plt
 import numpy as np
@@ -31,7 +32,9 @@ def _round_float(value: float, ndigits: int = 12) -> float:
     return round(float(value), ndigits)
 
 
-def _normalize_indices(indices: Iterable[int] | None, *, upper_bound: int, label: str) -> list[int]:
+def _normalize_indices(
+    indices: Iterable[int] | None, *, upper_bound: int, label: str
+) -> list[int]:
     if indices is None:
         return []
     unique: list[int] = []
@@ -60,7 +63,9 @@ def select_default_layer_indices(n_layers: int, *, max_layers: int = 3) -> list[
     return selected[: max(1, int(max_layers))]
 
 
-def select_default_source_cell_indices(n_cells_2d: int, *, max_profiles: int = 3) -> list[int]:
+def select_default_source_cell_indices(
+    n_cells_2d: int, *, max_profiles: int = 3
+) -> list[int]:
     """Select representative 2D source cells for vertical profiles."""
     n_cells_int = int(n_cells_2d)
     if n_cells_int <= 0:
@@ -85,9 +90,11 @@ def build_source_cell_marker_specs(
 ) -> list[dict[str, Any]]:
     """Return XY marker specs from 2D source-cell indices."""
     source_indices = _normalize_indices(
-        select_default_source_cell_indices(mesh_with_values.n_cells_2d)
-        if source_cell_indices is None
-        else source_cell_indices,
+        (
+            select_default_source_cell_indices(mesh_with_values.n_cells_2d)
+            if source_cell_indices is None
+            else source_cell_indices
+        ),
         upper_bound=mesh_with_values.n_cells_2d,
         label="source_cell",
     )
@@ -188,11 +195,15 @@ def build_layer_maps_figure(
 ):
     """Build a compact figure with one panel per selected layer."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
+        raise TypeError(
+            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
+        )
     selected_layers = _normalize_indices(
-        select_default_layer_indices(mesh_with_values.n_layers)
-        if layer_indices is None
-        else layer_indices,
+        (
+            select_default_layer_indices(mesh_with_values.n_layers)
+            if layer_indices is None
+            else layer_indices
+        ),
         upper_bound=mesh_with_values.n_layers,
         label="layer",
     )
@@ -223,7 +234,9 @@ def build_layer_maps_figure(
     for ax, layer_idx in zip(map_axes, selected_layers, strict=True):
         layer_title = f"Layer {int(layer_idx) + 1}"
         if depth_3d is not None:
-            layer_title += f"\nmean depth = {float(np.mean(depth_3d[int(layer_idx)])):.1f} m"
+            layer_title += (
+                f"\nmean depth = {float(np.mean(depth_3d[int(layer_idx)])):.1f} m"
+            )
         mappable = plot_planar_cell_values(
             ax,
             mesh=mesh_with_values.mesh.planar_mesh,
@@ -253,14 +266,18 @@ def build_vertical_profiles_figure(
 ):
     """Build a figure with one vertical profile subplot per selected source cell."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
+        raise TypeError(
+            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
+        )
     specs = (
         build_source_cell_marker_specs(mesh_with_values)
         if marker_specs is None
-        else list(marker_specs)
+        else [dict(spec) for spec in marker_specs]
     )
     if not specs:
-        raise ValueError("At least one source cell must be selected for profile plotting")
+        raise ValueError(
+            "At least one source cell must be selected for profile plotting"
+        )
 
     fig, axes = plt.subplots(
         1,
@@ -271,7 +288,9 @@ def build_vertical_profiles_figure(
     )
     axes_flat = list(axes.reshape(-1))
     for ax, spec in zip(axes_flat, specs, strict=True):
-        profile = mesh_with_values.extract_vertical_profile(int(spec["source_cell_index"]))
+        profile = mesh_with_values.extract_vertical_profile(
+            int(spec["source_cell_index"])
+        )
         values = np.asarray(profile["values"], dtype=float)
         depths = np.asarray(profile.get("depths", []), dtype=float)
         if depths.size == 0:
@@ -284,7 +303,9 @@ def build_vertical_profiles_figure(
             lw=2.1,
             color=str(spec["color"]),
         )
-        ax.set_title(f"{spec['label']} (cell {int(spec['source_cell_index'])})", fontsize=12)
+        ax.set_title(
+            f"{spec['label']} (cell {int(spec['source_cell_index'])})", fontsize=12
+        )
         ax.set_xlabel("Field parameter value", fontsize=10)
         ax.set_ylabel("Depth [m]", fontsize=10)
         ax.tick_params(labelsize=9)
@@ -299,7 +320,12 @@ def build_vertical_profiles_figure(
             ha="left",
             va="bottom",
             fontsize=8,
-            bbox={"boxstyle": "round,pad=0.35", "fc": "white", "ec": "0.85", "alpha": 0.94},
+            bbox={
+                "boxstyle": "round,pad=0.35",
+                "fc": "white",
+                "ec": "0.85",
+                "alpha": 0.94,
+            },
         )
 
     fig.suptitle(str(title), fontsize=15)
@@ -315,24 +341,34 @@ def build_visualization_summary(
 ) -> dict[str, Any]:
     """Return a compact JSON-friendly summary of selected visual slices."""
     selected_layers = _normalize_indices(
-        select_default_layer_indices(mesh_with_values.n_layers)
-        if layer_indices is None
-        else layer_indices,
+        (
+            select_default_layer_indices(mesh_with_values.n_layers)
+            if layer_indices is None
+            else layer_indices
+        ),
         upper_bound=mesh_with_values.n_layers,
         label="layer",
     )
     specs = (
         build_source_cell_marker_specs(mesh_with_values)
         if marker_specs is None
-        else list(marker_specs)
+        else [dict(spec) for spec in marker_specs]
     )
-    summary = {
+    summary: dict[str, Any] = {
         "n_layers": int(mesh_with_values.n_layers),
         "n_cells_2d": int(mesh_with_values.n_cells_2d),
         "n_cells_3d": int(mesh_with_values.n_cells_3d),
         "selected_layers": [int(v) for v in selected_layers],
         "selected_layer_mean_values": [
-            _round_float(np.mean(np.asarray(mesh_with_values.values_3d[int(layer_idx)], dtype=float)))
+            _round_float(
+                float(
+                    np.mean(
+                        np.asarray(
+                            mesh_with_values.values_3d[int(layer_idx)], dtype=float
+                        )
+                    )
+                )
+            )
             for layer_idx in selected_layers
         ],
         "selected_layer_mean_depths": (
@@ -340,7 +376,14 @@ def build_visualization_summary(
             if mesh_with_values.prism_center_depths is None
             else [
                 _round_float(
-                    np.mean(np.asarray(mesh_with_values.prism_center_depths[int(layer_idx)], dtype=float))
+                    float(
+                        np.mean(
+                            np.asarray(
+                                mesh_with_values.prism_center_depths[int(layer_idx)],
+                                dtype=float,
+                            )
+                        )
+                    )
                 )
                 for layer_idx in selected_layers
             ]
@@ -348,13 +391,20 @@ def build_visualization_summary(
         "selected_profiles": [],
     }
     for spec in specs:
-        profile = mesh_with_values.extract_vertical_profile(int(spec["source_cell_index"]))
+        profile = mesh_with_values.extract_vertical_profile(
+            int(spec["source_cell_index"])
+        )
         summary["selected_profiles"].append(
             {
                 "label": str(spec["label"]),
                 "source_cell_index": int(spec["source_cell_index"]),
-                "xy": [_round_float(float(spec["xy"][0]), ndigits=6), _round_float(float(spec["xy"][1]), ndigits=6)],
-                "values": [_round_float(v) for v in np.asarray(profile["values"], dtype=float)],
+                "xy": [
+                    _round_float(float(spec["xy"][0]), ndigits=6),
+                    _round_float(float(spec["xy"][1]), ndigits=6),
+                ],
+                "values": [
+                    _round_float(v) for v in np.asarray(profile["values"], dtype=float)
+                ],
                 "depths": [
                     _round_float(v)
                     for v in np.asarray(profile.get("depths", []), dtype=float)

@@ -1,4 +1,10 @@
-"""Shared plotting helpers for Gmsh mesh demos and reference cases."""
+"""Gather small plotting helpers shared by the Gmsh reference scripts.
+
+This file centralizes Matplotlib utilities that are reused across examples and
+comparison cases: backend switching, axis formatting, blocking display, and
+colorbar formatting. It exists to keep plotting policies consistent without
+mixing them into the mesh and discretization core.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +12,8 @@ import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 import numpy as np
+
+from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 
 
 def disable_axis_offset(ax) -> None:
@@ -53,6 +61,7 @@ def show_figures_blocking(*figures) -> None:
     """Show one or many Matplotlib figures in blocking mode."""
     ensure_interactive_backend_for_show()
     plt.ioff()
+    visible = [fig for fig in figures if fig is not None]
     for fig in figures:
         if fig is None:
             continue
@@ -66,5 +75,5 @@ def show_figures_blocking(*figures) -> None:
             fig.show()
         except Exception:
             pass
+    maximize_figure_windows(*visible)
     plt.show(block=True)
-
