@@ -37,7 +37,7 @@ def _build_state() -> SimpleNamespace:
             flow=None,
             transport=None,
         ),
-        results=SimpleNamespace(
+        execution=SimpleNamespace(
             models_by_run_id={},
         ),
     )
@@ -93,7 +93,7 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
     assert observations["transport"] == (True, True)
     assert flow_adapter.calls[0].dependency_models == ()
     assert transport_adapter.calls[0].dependency_models == (flow_model,)
-    assert state.results.models_by_run_id == {
+    assert state.execution.models_by_run_id == {
         "flow_main::modflownwt": flow_model,
         "transport_main::mt3dms": transport_model,
     }
@@ -130,7 +130,7 @@ def test_run_flow_model_raises_when_solver_fails(monkeypatch) -> None:
             domain=SimpleNamespace(),
             workspace=SimpleNamespace(simulations_folder="unused"),
         ),
-        results=SimpleNamespace(models_by_run_id={}),
+        execution=SimpleNamespace(models_by_run_id={}),
     )
 
     monkeypatch.setattr(

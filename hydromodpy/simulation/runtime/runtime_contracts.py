@@ -35,7 +35,7 @@ class SimulationSetupState(Protocol):
 
 
 class SimulationExecutionState(Protocol):
-    """Minimal results scope consumed by runner/adapters."""
+    """Minimal execution scope consumed by runner/adapters."""
 
     models_by_run_id: dict[str, Any]
 
@@ -49,7 +49,7 @@ class SimulationState(Protocol):
 
     cfg: Any
     setup: SimulationSetupState
-    results: SimulationExecutionState
+    execution: SimulationExecutionState
 
 
 @dataclass(frozen=True)
@@ -72,7 +72,7 @@ class RunExecutionResult:
     """Payload returned by a solver adapter after one run completes.
 
     ``primary_model`` is the exact model produced by the run and is always
-    stored under ``state.results.models_by_run_id[run.id]`` by the runner.
+    stored under ``state.execution.models_by_run_id[run.id]`` by the runner.
     """
 
     primary_model: Any

@@ -13,8 +13,6 @@ from hydromodpy.simulation.state import (
     ExecutionRegistry,
     LauncherRunState,
     LoadedDataContext,
-    RunResult,
-    RunState,
     SetupContext,
 )
 from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
@@ -26,8 +24,6 @@ __all__ = [
     "LoadedDataContext",
     "ProcessRun",
     "ProcessContextFactory",
-    "RunResult",
-    "RunState",
     "SetupContext",
     "ResolvedSimulationTimeWindow",
     "SimulationConfig",

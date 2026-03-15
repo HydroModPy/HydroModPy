@@ -1,7 +1,13 @@
-"""Clip the regional DEM to the buffered rectangular domain support.
+"""Clip a regional DEM to canonical domain rectangular support.
 
-The output raster is the common elevation support used by domain-level
-preprocessing and by the in-memory topographic surface builder.
+Purpose
+-------
+Produce the DEM raster used as common elevation support by downstream domain
+steps and surface builders.
+
+Pipeline position
+-----------------
+Runs after domain support polygons are built (box-buffer polygon available).
 """
 
 from __future__ import annotations

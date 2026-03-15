@@ -155,7 +155,7 @@ pipelines) are stored in `hydromodpy_annex/`.
 
 Current migrated annex:
 
-- `hydromodpy_annex/HCDM/`
+- `hydromodpy_annex/postprocess/HCDM/`
 
 Design rules:
 

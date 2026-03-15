@@ -10,11 +10,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
-import sys
 from typing import Any, Mapping
 
 import numpy as np
-from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
+from shapely.geometry import (
+    GeometryCollection,
+    LineString,
+    MultiLineString,
+    MultiPolygon,
+    Polygon,
+)
 from shapely.ops import polygonize, snap, unary_union
 
 from hydromodpy.data_managers.geology.geology_io import load_vector_geology_dataframe
@@ -129,13 +134,10 @@ def _require_gmsh():
     return gmsh
 
 
-def _is_running_under_pytest() -> bool:
-    return ("PYTEST_CURRENT_TEST" in os.environ) or ("pytest" in sys.modules)
-
-
 def _configure_gmsh_terminal_output(gmsh) -> None:
-    """Silence verbose Gmsh terminal traces during pytest runs."""
-    if not _is_running_under_pytest():
+    """Silence verbose Gmsh terminal traces unless explicitly requested."""
+    verbose_env = str(os.environ.get("HYDROMODPY_GMSH_VERBOSE", "")).strip().lower()
+    if verbose_env in {"1", "true", "yes", "on"}:
         return
     for option_name, option_value in (
         ("General.Terminal", 0.0),
@@ -595,6 +597,68 @@ def _add_ring_loop(
     return occ.addCurveLoop(oriented_curve_tags), curve_tags_abs
 
 
+def _add_polyline_segments(
+    occ,
+    line_coords,
+    *,
+    point_registry: dict[tuple[float, float], int],
+    line_registry: dict[tuple[tuple[float, float], tuple[float, float]], int],
+    point_size: float,
+    tolerance: float,
+) -> list[int]:
+    coords = np.asarray(line_coords, dtype=float)
+    if coords.shape[0] < 2:
+        return []
+    curve_tags_abs: list[int] = []
+    for idx in range(coords.shape[0] - 1):
+        x0, y0 = float(coords[idx, 0]), float(coords[idx, 1])
+        x1, y1 = float(coords[idx + 1, 0]), float(coords[idx + 1, 1])
+        key0 = _point_key(x0, y0, tolerance=tolerance)
+        key1 = _point_key(x1, y1, tolerance=tolerance)
+        if key0 == key1:
+            continue
+        point_tag_0 = point_registry.get(key0)
+        if point_tag_0 is None:
+            point_tag_0 = occ.addPoint(key0[0], key0[1], 0.0, point_size)
+            point_registry[key0] = int(point_tag_0)
+        point_tag_1 = point_registry.get(key1)
+        if point_tag_1 is None:
+            point_tag_1 = occ.addPoint(key1[0], key1[1], 0.0, point_size)
+            point_registry[key1] = int(point_tag_1)
+
+        canonical = (key0, key1) if key0 <= key1 else (key1, key0)
+        line_tag = line_registry.get(canonical)
+        if line_tag is None:
+            line_tag = occ.addLine(point_tag_0, point_tag_1)
+            line_registry[canonical] = int(line_tag)
+        curve_tags_abs.append(abs(int(line_tag)))
+    return curve_tags_abs
+
+
+def _iter_river_lines_from_trace(river_trace: object | None) -> list[LineString]:
+    """Extract non-empty LineString geometries from one river trace payload."""
+    if river_trace is None:
+        return []
+    lines_attr = getattr(river_trace, "lines", None)
+    if lines_attr is None:
+        raise TypeError("river_trace must expose a 'lines' attribute when provided")
+    lines: list[LineString] = []
+    for geometry in lines_attr:
+        if isinstance(geometry, LineString):
+            if not geometry.is_empty:
+                lines.append(geometry)
+            continue
+        if isinstance(geometry, MultiLineString):
+            for line in geometry.geoms:
+                if not line.is_empty:
+                    lines.append(line)
+            continue
+        raise TypeError(
+            "river_trace.lines must contain only LineString or MultiLineString geometries"
+        )
+    return lines
+
+
 def _apply_mesh_options(
     gmsh,
     *,
@@ -706,6 +770,7 @@ def generate_zone_conformal_mesh_from_dataframe(
     interface_size: float | None = None,
     interface_distance: float | None = None,
     interface_sampling: int = 64,
+    river_trace: object | None = None,
     model_name: str = "zone_conformal_mesh",
 ) -> ZoneConformalMeshResult:
     """Generate one conformal planar mesh from polygon zones."""
@@ -764,6 +829,11 @@ def generate_zone_conformal_mesh_from_dataframe(
     }
     physical_groups: list[ZoneConformalPhysicalGroup] = []
     point_tolerance = _as_metric_tolerance(heal_tolerance)
+    river_lines = _iter_river_lines_from_trace(river_trace)
+    river_curve_tags: list[int] = []
+    river_curve_tags_unique: list[int] = []
+    river_embed_success = 0
+    river_embed_failures = 0
 
     gmsh.initialize()
     try:
@@ -799,6 +869,19 @@ def generate_zone_conformal_mesh_from_dataframe(
 
             for curve_tag in outer_curve_tags + hole_curve_tags:
                 curve_usage.setdefault(int(curve_tag), set()).add(face.zone_key)
+
+        for river_line in river_lines:
+            river_curve_tags.extend(
+                _add_polyline_segments(
+                    occ,
+                    np.asarray(river_line.coords, dtype=float),
+                    point_registry=point_registry,
+                    line_registry=line_registry,
+                    point_size=global_size_value,
+                    tolerance=point_tolerance,
+                )
+            )
+        river_curve_tags_unique = sorted(set(int(tag) for tag in river_curve_tags))
 
         occ.synchronize()
         _apply_mesh_options(
@@ -847,12 +930,42 @@ def generate_zone_conformal_mesh_from_dataframe(
                 )
             )
 
+        if river_curve_tags_unique:
+            physical_tag = gmsh.model.addPhysicalGroup(1, river_curve_tags_unique)
+            gmsh.model.setPhysicalName(1, int(physical_tag), "river::trace")
+            physical_groups.append(
+                ZoneConformalPhysicalGroup(
+                    dimension=1,
+                    tag=int(physical_tag),
+                    name="river::trace",
+                    group_kind="river_curve",
+                    entity_tags=tuple(int(tag) for tag in river_curve_tags_unique),
+                )
+            )
+
+            surface_tags_all = sorted(
+                {
+                    int(surface_tag)
+                    for zone_surface_tags in surface_tags_by_zone.values()
+                    for surface_tag in zone_surface_tags
+                }
+            )
+            for surface_tag in surface_tags_all:
+                for curve_tag in river_curve_tags_unique:
+                    try:
+                        gmsh.model.mesh.embed(1, [int(curve_tag)], 2, int(surface_tag))
+                        river_embed_success += 1
+                    except Exception:
+                        river_embed_failures += 1
+
         interface_curve_tags = [
             int(curve_tag)
             for name, curve_tags in curve_tags_by_name.items()
             if str(name).startswith("interface::")
             for curve_tag in curve_tags
         ]
+        if river_curve_tags_unique:
+            interface_curve_tags.extend(river_curve_tags_unique)
         mesh_size_fields_summary = _apply_interface_refinement_field(
             gmsh,
             interface_curve_tags=interface_curve_tags,
@@ -981,6 +1094,16 @@ def generate_zone_conformal_mesh_from_dataframe(
         "algorithm": str(algorithm),
         "cleaning_diagnostics": cleaning_diagnostics,
         "cleaning_summary": cleaning_summary,
+        "river_trace": {
+            "provided": bool(river_trace is not None),
+            "line_count": int(len(river_lines)),
+            "curve_count": int(len(river_curve_tags_unique)),
+            "embedded_surface_curve_pairs": int(river_embed_success),
+            "embed_failures": int(river_embed_failures),
+            "refined_with_interface_field": bool(
+                bool(refine_interfaces_value) and bool(river_curve_tags_unique)
+            ),
+        },
         "physical_groups_summary": physical_groups_summary,
         "qa_checks": qa_checks,
         "mesh_size_fields": {
@@ -1017,6 +1140,7 @@ def generate_zone_conformal_mesh_from_geology_config(
     interface_size: float | None = None,
     interface_distance: float | None = None,
     interface_sampling: int = 64,
+    river_trace: object | None = None,
     model_name: str = "zone_conformal_mesh",
 ) -> ZoneConformalMeshResult:
     """Load one vector geology source and generate a conformal planar mesh."""
@@ -1042,5 +1166,6 @@ def generate_zone_conformal_mesh_from_geology_config(
         interface_size=interface_size,
         interface_distance=interface_distance,
         interface_sampling=interface_sampling,
+        river_trace=river_trace,
         model_name=model_name,
     )

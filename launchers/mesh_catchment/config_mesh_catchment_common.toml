@@ -1,0 +1,32 @@
+# Shared mesh-catchment settings aligned with process_simulation bootstrap.
+#
+# This file intentionally mirrors the early catchment-construction sections
+# used by process_simulation:
+# - [workspace]
+# - [geographic]
+# - [geographic.river_network]
+#
+# Divergence is expected only in scenario files through [mesh_catchment].
+
+base_config = "../../examples/launcher_simulation/config_common.toml"
+
+[workspace]
+catch_name = "mesh_catchment_nancon"
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "50 m"
+buff_area = "20%"
+crs_project = "EPSG:2154"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+prune_short_streams = false
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = false

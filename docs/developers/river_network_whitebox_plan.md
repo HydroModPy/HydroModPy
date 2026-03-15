@@ -2,6 +2,12 @@
 
 Status: design note, no implementation in this document.
 
+Compatibility note (2026-03-15):
+- `hydromodpy.geographic.cases.run_geographic_case` has been removed.
+- Use `hydromodpy.geographic.cases` (public API) or
+  `hydromodpy.geographic.cases.reference_catchment_delineation_case.run_case`
+  (implementation module).
+
 ## Objective
 
 Define a clear, incremental plan to generate a river network from:
@@ -294,6 +300,50 @@ Additional recommendations:
 - prefer aggregate metrics and raster signatures with explicit tolerances,
 - keep thresholds fixed in tests and avoid auto-calibration in CI.
 
+## QA criteria (river-network outputs)
+
+Definition:
+
+- a QA criterion is one objective, measurable check proving that generated
+  river-network outputs are valid and stable for a given input/configuration.
+
+Recommended minimum QA criteria:
+
+1. Threshold traceability
+   - `threshold_mode`, `threshold_value`, and `threshold_cells` are present in
+     summary outputs.
+   - For `threshold_mode="area_km2"`, `threshold_cells` matches
+     `area_km2 * 1_000_000 / (dem_res_m^2)` within a small tolerance.
+
+2. Catchment consistency
+   - Vector network is clipped to the catchment polygon.
+   - No river segment should remain fully outside the watershed support.
+
+3. Raster activity sanity
+   - `stream_pixel_count > 0` for reference test cases.
+   - When `prune_short_streams=true`, active stream pixels after pruning must
+     be less than or equal to pre-pruning active pixels.
+
+4. Raster/vector coherence
+   - If `segment_count > 0`, then `stream_pixel_count > 0`.
+   - `network_total_length_m > 0` when non-empty vector output exists.
+
+5. Optional diagnostics coherence
+   - If `compute_strahler_order=true`, Strahler raster exists and contains
+     positive classes (`max_strahler_order >= 1`).
+   - If `compute_stream_links=true`, stream-link raster exists with active
+     non-zero labels.
+
+6. Deterministic signatures
+   - Summary and raster/vector signatures remain stable across runs in
+     single-thread mode, with explicit tolerances in golden tests.
+
+Suggested tolerances for non-regression checks:
+
+- small absolute tolerance for scalar floats (for example `1e-3`),
+- dedicated absolute tolerance for lengths (for example `1.0 m`),
+- exact match for integer counters and categorical fields.
+
 ## Risks and mitigations
 
 Risk: threshold sensitivity creates unstable outputs between DEMs.
@@ -354,4 +404,3 @@ PR 2:
 PR 3:
 
 - pipeline integration + golden test + docs/case runner updates.
-

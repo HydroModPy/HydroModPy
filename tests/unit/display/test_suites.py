@@ -33,7 +33,7 @@ def _build_result(
 
     class _Result:
         setup = SimpleNamespace(geographic=geographic, workspace=workspace)
-        data = SimpleNamespace(climatic=climatic, hydrography=hydrography)
+        loaded_data = SimpleNamespace(climatic=climatic, hydrography=hydrography)
         cfg = SimpleNamespace(workspace=SimpleNamespace(data_path=Path(".")))
 
         @staticmethod

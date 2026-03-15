@@ -96,8 +96,7 @@ def test_mt3dms_post_processing_exports_mass_accumulated(monkeypatch, tmp_path: 
     )
 
     model.model_modflow = SimpleNamespace(
-        dem=np.array([[0.0, 0.0], [0.0, 0.0]], dtype=np.float32),
-        dem_mask=np.array([[False, False], [False, False]], dtype=bool),
+        inactive_mask=np.array([[False, False], [False, False]], dtype=bool),
         dem_watershed_path=str(dem_path),
         nper=1,
         _ensure_solver_routing_context=lambda: routing_ctx,

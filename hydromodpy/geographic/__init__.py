@@ -87,6 +87,14 @@ _LAZY_V2_EXPORTS: dict[str, tuple[str, str]] = {
         "hydromodpy.geographic.core.domain_geographic_pipeline",
         "build_domain_geographic_context",
     ),
+    "RiverMeshTrace": (
+        "hydromodpy.geographic.core.river_mesh_trace",
+        "RiverMeshTrace",
+    ),
+    "build_river_mesh_trace_from_vector": (
+        "hydromodpy.geographic.core.river_mesh_trace",
+        "build_river_mesh_trace_from_vector",
+    ),
     "RiverNetworkProducts": (
         "hydromodpy.geographic.core.river_network",
         "RiverNetworkProducts",

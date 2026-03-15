@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.geographic.cases.run_geographic_case import run_geographic_cases_from_toml
+from hydromodpy.geographic.cases import run_geographic_cases_from_toml
 from tests.support.whitebox import configure_whitebox_single_thread
 
 

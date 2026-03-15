@@ -10,6 +10,11 @@ Rules:
 - Put case-specific launchers, exploratory preprocessing/postprocessing pipelines,
   and external-collaboration scripts here.
 
+Layout:
+
+- `preprocess/`: annex preprocessing workflows.
+- `postprocess/`: annex postprocessing workflows.
+
 Current annex toolset:
 
-- `HCDM/`
+- `postprocess/HCDM/`

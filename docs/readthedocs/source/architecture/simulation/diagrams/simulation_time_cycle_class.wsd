@@ -25,9 +25,10 @@ package "hydromodpy.simulation.time.window" {
   class ResolvedSimulationTimeGrid {
     +window: ResolvedSimulationTimeWindow
     +boundaries: tuple[Timestamp, ...]
-    +period_lengths_days: tuple[float, ...]
+    +period_lengths_seconds: tuple[float, ...]
     +nper: int
     +period_starts: tuple[Timestamp, ...]
+    +period_ends_exclusive: tuple[Timestamp, ...]
   }
 
   class "Time Window Services" as TimeWindowServices <<module>> {

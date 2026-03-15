@@ -28,6 +28,24 @@ def test_launchers_cli_simulation_run_dispatches_to_launcher(monkeypatch, tmp_pa
     assert captured["config"] == config_path.resolve()
 
 
+def test_launchers_cli_mesh_catchment_run_dispatches_to_launcher(monkeypatch, tmp_path) -> None:
+    module = _load_module()
+    captured: dict[str, Path] = {}
+
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("# test\n", encoding="utf-8")
+
+    def _fake_runner(path: Path) -> None:
+        captured["config"] = path
+
+    monkeypatch.setattr(module, "_run_mesh_catchment_launcher", _fake_runner)
+
+    code = module.main(["mesh-catchment", "run", str(config_path)])
+
+    assert code == 0
+    assert captured["config"] == config_path.resolve()
+
+
 def test_launchers_cli_rejects_launcher_simulation_alias(tmp_path) -> None:
     module = _load_module()
 
@@ -54,5 +72,13 @@ def test_launchers_cli_returns_error_when_missing_config() -> None:
     module = _load_module()
 
     code = module.main(["simulation", "run"])
+
+    assert code != 0
+
+
+def test_launchers_cli_mesh_catchment_returns_error_when_missing_config() -> None:
+    module = _load_module()
+
+    code = module.main(["mesh-catchment", "run"])
 
     assert code != 0
