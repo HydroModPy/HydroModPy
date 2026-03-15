@@ -21,6 +21,7 @@ from hydromodpy.geographic.core.pipeline_steps import (
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
+from hydromodpy.geographic.core.river_network import build_river_network_products
 from hydromodpy.geographic.core.surface_from_dem import build_surface_topo_from_dem
 
 if TYPE_CHECKING:
@@ -151,6 +152,22 @@ def build_domain_geographic_context(
         output_dem_path=setup.paths.watershed_box_buff_dem,
         crs_project=setup.crs_project,
         nodata=-9999.0,
+    )
+
+    build_river_network_products(
+        river_network=config.river_network,
+        dem_correc_path=flow.correc,
+        d8_pointer_path=flow.direc,
+        watershed_shp=setup.paths.watershed_shp,
+        geographic_dir=setup.paths.geographic_path,
+        correcflow_dir=setup.paths.correcflow_path,
+        dem_res_m=float(setup.dem_res),
+        streams_tif_path=setup.paths.river_streams_tif,
+        streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
+        stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
+        stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
+        network_shp_path=setup.paths.river_network_shp,
+        summary_json_path=setup.paths.river_network_summary_json,
     )
 
     surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)
