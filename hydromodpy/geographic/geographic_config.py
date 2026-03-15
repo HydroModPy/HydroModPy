@@ -8,6 +8,123 @@ from hydromodpy.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.support.units import parse_length_to_m
 
 
+class RiverNetworkConfig(BaseModel):
+    """Optional stream-network extraction settings for geographic preprocessing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: Annotated[bool, ParamLevel("user")] = Field(
+        default=False,
+        description=(
+            "Enable DEM-based river-network extraction from flow accumulation "
+            "during geographic preprocessing."
+        ),
+    )
+    threshold_mode: Annotated[Literal["area_km2", "cells"], ParamLevel("user")] = Field(
+        default="area_km2",
+        description=(
+            "Stream-initiation threshold selector. "
+            "'area_km2' uses contributing area in km^2. "
+            "'cells' uses contributing-cell count directly."
+        ),
+    )
+    threshold_area_km2: Annotated[Optional[float], ParamLevel("user")] = Field(
+        default=None,
+        description=(
+            "Contributing area threshold (km^2), required when "
+            "threshold_mode='area_km2'."
+        ),
+    )
+    threshold_cells: Annotated[Optional[float], ParamLevel("user")] = Field(
+        default=None,
+        description=(
+            "Contributing-cell threshold, required when threshold_mode='cells'."
+        ),
+    )
+    prune_short_streams: Annotated[bool, ParamLevel("user")] = Field(
+        default=False,
+        description="If true, remove short stream segments after extraction.",
+    )
+    min_stream_length_m: Annotated[float | str, ParamLevel("user")] = Field(
+        default=0.0,
+        description=(
+            "Minimum stream length used by short-segment pruning. "
+            "Accepts SI-friendly values (for example 0, 250, '250 m', '0.5 km')."
+        ),
+    )
+    compute_strahler_order: Annotated[bool, ParamLevel("user")] = Field(
+        default=True,
+        description="Compute Strahler order raster from extracted streams.",
+    )
+    compute_stream_links: Annotated[bool, ParamLevel("user")] = Field(
+        default=True,
+        description="Compute stream-link identifier raster from extracted streams.",
+    )
+    all_vertices: Annotated[bool, ParamLevel("user")] = Field(
+        default=False,
+        description=(
+            "Forwarded to Whitebox raster_streams_to_vector. "
+            "False keeps a lighter vector geometry."
+        ),
+    )
+
+    @field_validator("threshold_area_km2", "threshold_cells", mode="before")
+    @classmethod
+    def _normalize_optional_thresholds(cls, value):
+        if value is None:
+            return None
+        return float(value)
+
+    @field_validator("min_stream_length_m", mode="before")
+    @classmethod
+    def _normalize_min_stream_length(cls, value):
+        length_m = float(
+            parse_length_to_m(
+                value,
+                default_unit="m",
+                label="geographic.river_network.min_stream_length_m",
+            )
+        )
+        if length_m < 0.0:
+            raise ValueError("geographic.river_network.min_stream_length_m must be >= 0.")
+        return length_m
+
+    @model_validator(mode="after")
+    def _validate_threshold_payload(self) -> "RiverNetworkConfig":
+        if not bool(self.enabled):
+            return self
+
+        mode = str(self.threshold_mode)
+        if mode == "area_km2":
+            if self.threshold_area_km2 is None:
+                raise ValueError(
+                    "geographic.river_network.threshold_mode='area_km2' requires "
+                    "geographic.river_network.threshold_area_km2."
+                )
+            if float(self.threshold_area_km2) <= 0.0:
+                raise ValueError("geographic.river_network.threshold_area_km2 must be > 0.")
+            if self.threshold_cells is not None:
+                raise ValueError(
+                    "geographic.river_network.threshold_cells must be omitted when "
+                    "threshold_mode='area_km2'."
+                )
+            return self
+
+        if self.threshold_cells is None:
+            raise ValueError(
+                "geographic.river_network.threshold_mode='cells' requires "
+                "geographic.river_network.threshold_cells."
+            )
+        if float(self.threshold_cells) <= 0.0:
+            raise ValueError("geographic.river_network.threshold_cells must be > 0.")
+        if self.threshold_area_km2 is not None:
+            raise ValueError(
+                "geographic.river_network.threshold_area_km2 must be omitted when "
+                "threshold_mode='cells'."
+            )
+        return self
+
+
 class GeographicConfig(BaseModel):
     """
     Geographic configuration for watershed delineation.
@@ -107,6 +224,13 @@ class GeographicConfig(BaseModel):
         description=(
             "Synthetic geographic support used when source_mode='synthetic'. "
             "This analytical mode bypasses watershed delineation from external DEM files."
+        ),
+    )
+    river_network: Annotated[RiverNetworkConfig, ParamLevel("user")] = Field(
+        default_factory=RiverNetworkConfig,
+        description=(
+            "Optional DEM-derived river-network extraction settings. "
+            "When disabled, no stream network is generated in geographic preprocessing."
         ),
     )
 

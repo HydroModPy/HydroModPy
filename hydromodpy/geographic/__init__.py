@@ -10,7 +10,7 @@ from __future__ import annotations
 import importlib
 
 from hydromodpy.geographic.geographic import DEM_correcflow_analysis, Geographic
-from hydromodpy.geographic.geographic_config import GeographicConfig
+from hydromodpy.geographic.geographic_config import GeographicConfig, RiverNetworkConfig
 from hydromodpy.legacy.geographic.dem_metadata import (
     LegacyDemMetadata,
     read_legacy_dem_metadata,
@@ -87,6 +87,18 @@ _LAZY_V2_EXPORTS: dict[str, tuple[str, str]] = {
         "hydromodpy.geographic.core.domain_geographic_pipeline",
         "build_domain_geographic_context",
     ),
+    "RiverNetworkProducts": (
+        "hydromodpy.geographic.core.river_network",
+        "RiverNetworkProducts",
+    ),
+    "resolve_stream_threshold_cells": (
+        "hydromodpy.geographic.core.river_network",
+        "resolve_stream_threshold_cells",
+    ),
+    "build_river_network_products": (
+        "hydromodpy.geographic.core.river_network",
+        "build_river_network_products",
+    ),
 }
 
 
@@ -104,6 +116,7 @@ def __getattr__(name: str):
 __all__ = [
     "Geographic",
     "GeographicConfig",
+    "RiverNetworkConfig",
     "DEM_correcflow_analysis",
     "Subbasin",
     "LegacyDemMetadata",
