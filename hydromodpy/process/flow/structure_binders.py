@@ -17,7 +17,6 @@ from hydromodpy.simulation.time import (
 
 if TYPE_CHECKING:
     from hydromodpy.data_managers.contracts.load_result import LoadResult
-    from hydromodpy.data_managers.oceanic import Oceanic
     from hydromodpy.process import Flow
     from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
 
@@ -25,7 +24,7 @@ if TYPE_CHECKING:
 def apply_oceanic_to_flow(
     *,
     flow: "Flow",
-    oceanic: "Oceanic" | None,
+    oceanic: "LoadResult | None",
 ) -> None:
     """Inject mean sea-level value into the active ocean boundary condition."""
     if oceanic is None:
@@ -33,7 +32,15 @@ def apply_oceanic_to_flow(
     ocean_bc = flow.boundary_conditions.get("ocean")
     if ocean_bc is None:
         return
-    ocean_bc.value = oceanic.MSL
+    # Priority 1: constant MSL record
+    msl = [r for r in oceanic.points if r.variable == "mean_sea_level" and getattr(r, "is_constant", False)]
+    if msl:
+        ocean_bc.value = msl[0].data["value"].iloc[0]
+        return
+    # Priority 2: mean of tide gauge time series
+    sea = [r for r in oceanic.points if r.variable in ("sea_level", "oceanic")]
+    if sea:
+        ocean_bc.value = float(sea[0].data["value"].mean())
 
 
 def apply_recharge_load_result_to_flow(
