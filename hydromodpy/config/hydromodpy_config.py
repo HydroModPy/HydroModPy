@@ -33,10 +33,6 @@ from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
-from hydromodpy.forcing.recharge_chronicle_config import (
-    RechargeChronicleConfig,
-    validate_recharge_chronicle_section,
-)
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
@@ -115,14 +111,6 @@ class HydroModPyConfig(BaseModel):
             "Optional simulation orchestration block loaded from [simulation] "
             "and [[simulation.process]]. When absent, the launcher keeps its "
             "legacy fixed phase order."
-        ),
-    )
-    recharge_chronicle: RechargeChronicleConfig | None = Field(
-        default=None,
-        description=(
-            "Optional launcher recharge chronicle block loaded from "
-            "[recharge_chronicle]. Supports observed CSV, synthetic CSV, "
-            "and synthetic generated payloads."
         ),
     )
     solver: SolverConfig = Field(
@@ -226,10 +214,6 @@ class HydroModPyConfig(BaseModel):
                 {},
                 lambda data, b: _load_standard_section(data, SimulationConfig, b),
             ),
-            "recharge_chronicle": (
-                None,
-                _load_recharge_chronicle_section,
-            ),
             "solver": ({}, _load_solver_section),
             "modflownwt": ({}, _load_modflow_nwt_section),
             "modflow6": ({}, _load_modflow6_section),
@@ -330,10 +314,4 @@ def _load_modflow6_section(section_data: Any, base: Path) -> Modflow6Config:
     return Modflow6Config.model_validate(dict(section_data))
 
 
-def _load_recharge_chronicle_section(
-    section_data: Any,
-    base: Path,
-) -> RechargeChronicleConfig | None:
-    """Load the recharge chronicle section with dedicated validation."""
-    return validate_recharge_chronicle_section(section_data)
 

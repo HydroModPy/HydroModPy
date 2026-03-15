@@ -277,7 +277,8 @@ _LAZY_IMPORTS = {
     "Hydrometry": "hydromodpy.data_managers.hydrometry.hydrometry",
     "Workspace": "hydromodpy.simulation.workspace",
     "Intermittency": "hydromodpy.data_managers.intermittency",
-    "Oceanic": "hydromodpy.data_managers.oceanic",
+    "OceanicManager": "hydromodpy.data_managers.oceanic",
+    "OceanicConfig": "hydromodpy.data_managers.oceanic",
     "Piezometry": "hydromodpy.data_managers.piezometry.piezometry",
     "Subbasin": "hydromodpy.geographic.subbasin",
     # config
