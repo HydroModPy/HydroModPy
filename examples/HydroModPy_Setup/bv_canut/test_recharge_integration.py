@@ -135,7 +135,7 @@ except Exception as e:
 _section("1) Custom CSV via DataStore.load_recharge()")
 
 from hydromodpy.data_managers.store import DataStore
-from hydromodpy.data_managers.recharge.config import (
+from hydromodpy.data_managers.variables.recharge.config import (
     RechargeConfig,
     RechargeSourceConfig,
 )

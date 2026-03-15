@@ -416,7 +416,7 @@ class Watershed:
         Public method to add piezometric data.
 
         .. deprecated:: Legacy Piezometry class removed.
-            Use ``hydromodpy.data_managers.piezometry.manager.PiezometryManager`` instead.
+            Use ``hydromodpy.data_managers.variables.piezometry.manager.PiezometryManager`` instead.
         """
         raise NotImplementedError(
             "Legacy Piezometry class has been removed. "

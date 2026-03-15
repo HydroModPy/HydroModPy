@@ -55,7 +55,7 @@ from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, SafranSurfex, Transport
-from hydromodpy.data_managers.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
+from hydromodpy.data_managers.variables.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig, GeographicConfig
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data_managers.oceanic.config import OceanicSourceConfig
-from hydromodpy.data_managers.oceanic.custom import load_custom
+from hydromodpy.data_managers.variables.oceanic.config import OceanicSourceConfig
+from hydromodpy.data_managers.variables.oceanic.custom import load_custom
 
 
 @pytest.mark.fast

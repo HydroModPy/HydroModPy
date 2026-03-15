@@ -43,7 +43,7 @@ SUPPORTED_DATA_MANAGER_TYPES = (
 )
 
 
-from hydromodpy.data_managers.oceanic.config import OceanicConfig  # noqa: E402
+from hydromodpy.data_managers.variables.oceanic.config import OceanicConfig  # noqa: E402
 
 
 class DataManagersConfig(BaseModel):
@@ -262,18 +262,18 @@ class DataManagersConfig(BaseModel):
         payload["types"] = normalized_types
 
         # Typed config models for data families that have dedicated schemas.
-        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
-        from hydromodpy.data_managers.piezometry.config import PiezometryConfig
-        from hydromodpy.data_managers.water_quality.config import WaterQualityConfig
-        from hydromodpy.data_managers.recharge.config import RechargeConfig
-        from hydromodpy.data_managers.runoff.config import RunoffConfig
-        from hydromodpy.data_managers.precipitation.config import PrecipitationConfig
-        from hydromodpy.data_managers.etp.config import EtpConfig
-        from hydromodpy.data_managers.temperature.config import TemperatureConfig
-        from hydromodpy.data_managers.wind.config import WindConfig
-        from hydromodpy.data_managers.humidity.config import HumidityConfig
-        from hydromodpy.data_managers.radiation.config import RadiationConfig
-        from hydromodpy.data_managers.soil_moisture.config import SoilMoistureConfig
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
+        from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
+        from hydromodpy.data_managers.variables.recharge.config import RechargeConfig
+        from hydromodpy.data_managers.variables.runoff.config import RunoffConfig
+        from hydromodpy.data_managers.variables.precipitation.config import PrecipitationConfig
+        from hydromodpy.data_managers.variables.etp.config import EtpConfig
+        from hydromodpy.data_managers.variables.temperature.config import TemperatureConfig
+        from hydromodpy.data_managers.variables.wind.config import WindConfig
+        from hydromodpy.data_managers.variables.humidity.config import HumidityConfig
+        from hydromodpy.data_managers.variables.radiation.config import RadiationConfig
+        from hydromodpy.data_managers.variables.soil_moisture.config import SoilMoistureConfig
 
         _TYPED_SECTIONS: dict[str, type[BaseModel]] = {
             "geology": GeologyConfig,
@@ -333,18 +333,18 @@ class DataManagersConfig(BaseModel):
 
 def _rebuild_forward_refs() -> None:
     """Resolve forward references for typed data-manager config fields."""
-    from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
-    from hydromodpy.data_managers.piezometry.config import PiezometryConfig
-    from hydromodpy.data_managers.water_quality.config import WaterQualityConfig
-    from hydromodpy.data_managers.recharge.config import RechargeConfig
-    from hydromodpy.data_managers.runoff.config import RunoffConfig
-    from hydromodpy.data_managers.precipitation.config import PrecipitationConfig
-    from hydromodpy.data_managers.etp.config import EtpConfig
-    from hydromodpy.data_managers.temperature.config import TemperatureConfig
-    from hydromodpy.data_managers.wind.config import WindConfig
-    from hydromodpy.data_managers.humidity.config import HumidityConfig
-    from hydromodpy.data_managers.radiation.config import RadiationConfig
-    from hydromodpy.data_managers.soil_moisture.config import SoilMoistureConfig
+    from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
+    from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
+    from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
+    from hydromodpy.data_managers.variables.recharge.config import RechargeConfig
+    from hydromodpy.data_managers.variables.runoff.config import RunoffConfig
+    from hydromodpy.data_managers.variables.precipitation.config import PrecipitationConfig
+    from hydromodpy.data_managers.variables.etp.config import EtpConfig
+    from hydromodpy.data_managers.variables.temperature.config import TemperatureConfig
+    from hydromodpy.data_managers.variables.wind.config import WindConfig
+    from hydromodpy.data_managers.variables.humidity.config import HumidityConfig
+    from hydromodpy.data_managers.variables.radiation.config import RadiationConfig
+    from hydromodpy.data_managers.variables.soil_moisture.config import SoilMoistureConfig
 
     DataManagersConfig.model_rebuild(
         _types_namespace={

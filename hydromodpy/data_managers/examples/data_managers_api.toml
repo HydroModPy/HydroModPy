@@ -14,7 +14,7 @@
 #
 # Utilisation Python :
 #
-#   from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+#   from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
 #   from hydromodpy.data_managers.store import DataStore
 #
 #   cfg = HydrometryConfig.from_toml("data_managers_api.toml")

@@ -6,8 +6,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
-from hydromodpy.data_managers.hydrometry.custom import load_custom
+from hydromodpy.data_managers.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
+from hydromodpy.data_managers.variables.hydrometry.custom import load_custom
 
 
 class TestHydrometryCustomCSV:

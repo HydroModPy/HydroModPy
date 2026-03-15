@@ -52,9 +52,9 @@ from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Hydrography, Intermittency, Settings, \
     SafranSurfex
-from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
-from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
-from hydromodpy.data_managers.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
+from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
+from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
+from hydromodpy.data_managers.variables.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 from hydromodpy.support.tools import toolbox

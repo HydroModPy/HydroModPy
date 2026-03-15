@@ -170,7 +170,7 @@ class TestFromToml:
             'source = "hubeau"\n'
             'product = "QmnJ"\n'
         )
-        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
         cfg = HydrometryConfig.from_toml(toml_path)
         assert len(cfg.sources) == 1
         assert cfg.sources[0].source == "hubeau"
@@ -184,7 +184,7 @@ class TestFromToml:
             'source = "hubeau"\n'
             'product = "level"\n'
         )
-        from hydromodpy.data_managers.piezometry.config import PiezometryConfig
+        from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
         cfg = PiezometryConfig.from_toml(toml_path)
         assert len(cfg.sources) == 1
         assert cfg.sources[0].product == "level"
@@ -197,7 +197,7 @@ class TestFromToml:
             'source = "custom"\n'
             'path = "/tmp/wq"\n'
         )
-        from hydromodpy.data_managers.water_quality.config import WaterQualityConfig
+        from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
         cfg = WaterQualityConfig.from_toml(toml_path)
         assert len(cfg.sources) == 1
         assert cfg.sources[0].source == "custom"
@@ -211,7 +211,7 @@ class TestFromToml:
             'path = "/tmp/data"\n'
             'mask_path = "/tmp/mask.shp"\n'
         )
-        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
         cfg = HydrometryConfig.from_toml(toml_path)
         assert cfg.sources[0].mask_path == Path("/tmp/mask.shp")
 
@@ -225,7 +225,7 @@ class TestFromToml:
             'require_observations = true\n'
             'fallback_search_radius_km = 25.0\n'
         )
-        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
         cfg = HydrometryConfig.from_toml(toml_path)
         assert cfg.sources[0].require_observations is True
         assert cfg.sources[0].fallback_search_radius_km == 25.0
@@ -237,7 +237,7 @@ class TestFromToml:
 class TestAdvancedDiscovery:
 
     def test_station_period_overlaps_hydro(self):
-        from hydromodpy.data_managers.hydrometry.apis.hubeau import _station_period_overlaps
+        from hydromodpy.data_managers.variables.hydrometry.apis.hubeau import _station_period_overlaps
 
         # Station active 2015 to 2021, request 2020-2020 -> overlap
         assert _station_period_overlaps(
@@ -261,7 +261,7 @@ class TestAdvancedDiscovery:
         )
 
     def test_station_period_overlaps_piezo(self):
-        from hydromodpy.data_managers.piezometry.apis.hubeau import _station_period_overlaps
+        from hydromodpy.data_managers.variables.piezometry.apis.hubeau import _station_period_overlaps
 
         # Same logic as hydrometry
         assert _station_period_overlaps(
@@ -274,7 +274,7 @@ class TestAdvancedDiscovery:
         )
 
     def test_config_discovery_fields(self):
-        from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometrySourceConfig
         cfg = HydrometrySourceConfig(
             source="hubeau", product="QmnJ",
             require_observations=False,
@@ -284,7 +284,7 @@ class TestAdvancedDiscovery:
         assert cfg.fallback_search_radius_km == 50.0
 
     def test_config_discovery_defaults(self):
-        from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometrySourceConfig
         cfg = HydrometrySourceConfig(source="hubeau", product="QmnJ")
         assert cfg.require_observations is True
         assert cfg.fallback_search_radius_km is None
@@ -296,8 +296,8 @@ class TestAdvancedDiscovery:
 class TestCompletenessReport:
 
     def test_completeness_report_via_manager(self, sample_hydro_dir, project_period):
-        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-        from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
+        from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
 
         cfg = HydrometryConfig(sources=[
             HydrometrySourceConfig(source="custom", path=sample_hydro_dir)
@@ -366,8 +366,8 @@ class TestCompletenessReport:
 class TestManagerExport:
 
     def test_export_via_manager(self, sample_hydro_dir, project_period, tmp_path):
-        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-        from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
+        from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
 
         cfg = HydrometryConfig(sources=[
             HydrometrySourceConfig(source="custom", path=sample_hydro_dir)

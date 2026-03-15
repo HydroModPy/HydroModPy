@@ -48,9 +48,9 @@ class TestScaffold:
         root = scaffold(tmp_path / "hydromodpy")
         toml_path = root / "bv_example" / "data_managers.toml"
 
-        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
-        from hydromodpy.data_managers.piezometry.config import PiezometryConfig
-        from hydromodpy.data_managers.water_quality.config import WaterQualityConfig
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
+        from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
 
         h = HydrometryConfig.from_toml(toml_path)
         p = PiezometryConfig.from_toml(toml_path)
