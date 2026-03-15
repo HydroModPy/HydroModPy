@@ -902,25 +902,22 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         stream.write("\n")
 
 
-def run_reference_2d_geology_conformal_case_from_toml(
+def run_reference_2d_zone_conformal_case_from_toml(
     config_toml: str | Path,
     *,
-    section: str = "case",
+    section: str = DEFAULT_SECTION,
     output_mesh: str | Path | None = None,
     output_summary_json: str | Path | None = None,
     output_figure: str | Path | None = None,
     river_trace: object | None = None,
     domain_geographic: object | None = None,
-    mesh_mode_override: str | None = None,
     show_plot: bool = False,
 ) -> dict[str, Any]:
     config_path = _resolve_config_path(config_toml)
     cfg = _resolve_case_config(config_path, section=section)
-    mesh_mode = (
-        _resolve_mesh_mode(mesh_mode_override)
-        if mesh_mode_override is not None
-        else str(cfg["mesh_mode"])
-    )
+    constraints_mode = str(cfg["constraints_mode"])
+    uses_geology_constraints = constraints_mode in {"geology_only", "geology_rivers"}
+    uses_river_constraints = constraints_mode in {"rivers_only", "geology_rivers"}
 
     mesh_path = _resolve_optional_output_path(
         config_path,
@@ -943,10 +940,11 @@ def run_reference_2d_geology_conformal_case_from_toml(
             "An output mesh path is required for the conformal reference case"
         )
 
-    if mesh_mode in {"geology", "both"}:
+    if uses_geology_constraints:
         if cfg["geology"] is None:
             raise ValueError(
-                f"mesh_mode='{mesh_mode}' requires one [{section}.geology] block."
+                "constraints_mode requires one "
+                f"[{section}.geology] block for mode '{constraints_mode}'."
             )
         source_payload, clipped_gdf, domain_payload = _load_clipped_geology_dataframe(
             geology_cfg=cfg["geology"],
@@ -964,23 +962,32 @@ def run_reference_2d_geology_conformal_case_from_toml(
             domain_payload=domain_payload,
         )
 
-    resolved_river_trace = _resolve_river_trace_for_meshing(
-        river_trace=river_trace,
-        domain_geographic=domain_geographic,
-    )
-    resolved_river_trace = _clip_river_trace_to_domain(
-        river_trace=resolved_river_trace,
-        domain_geometry=domain_payload["geometry"],
-    )
-    if mesh_mode in {"rivers", "both"} and resolved_river_trace is None:
-        raise ValueError(
-            f"mesh_mode='{mesh_mode}' requires one river trace. "
-            "Enable geographic.river_network and provide domain_geographic, "
-            "or pass an explicit river_trace."
+    resolved_river_trace = None
+    if uses_river_constraints:
+        rivers_cfg = cfg.get("rivers") or {}
+        resolved_river_trace = _resolve_river_trace_for_meshing(
+            river_trace=river_trace,
+            domain_geographic=domain_geographic,
+            rivers_cfg=rivers_cfg,
+            config_path=config_path,
         )
-    river_trace_for_meshing = (
-        resolved_river_trace if mesh_mode in {"rivers", "both"} else None
-    )
+        if bool(rivers_cfg.get("clip_to_domain", True)):
+            resolved_river_trace = _clip_river_trace_to_domain(
+                river_trace=resolved_river_trace,
+                domain_geometry=domain_payload["geometry"],
+            )
+        resolved_river_trace = _filter_river_trace_by_min_segment_length(
+            river_trace=resolved_river_trace,
+            min_segment_length=float(rivers_cfg.get("min_segment_length", 0.0)),
+        )
+        if resolved_river_trace is None:
+            raise ValueError(
+                "constraints_mode requires one usable river trace for mode "
+                f"'{constraints_mode}'. Provide [{section}.rivers] with source='file', "
+                "or provide domain_geographic with one river_mesh_trace, "
+                "or pass an explicit river_trace."
+            )
+    river_trace_for_meshing = resolved_river_trace if uses_river_constraints else None
 
     result = generate_zone_conformal_mesh_from_dataframe(
         clipped_gdf,
@@ -999,7 +1006,7 @@ def run_reference_2d_geology_conformal_case_from_toml(
         interface_distance=cfg["zone_meshing"]["interface_distance"],
         interface_sampling=int(cfg["zone_meshing"]["interface_sampling"]),
         river_trace=river_trace_for_meshing,
-        model_name="reference_2d_geology_conformal",
+        model_name=f"reference_2d_zone_conformal_{constraints_mode}",
     )
 
     partition_gdf = _build_partition_gdf(result.partition, crs=clipped_gdf.crs)
@@ -1009,7 +1016,15 @@ def run_reference_2d_geology_conformal_case_from_toml(
         clipped_gdf=clipped_gdf,
         domain_payload=domain_payload,
     )
-    summary["mesh_mode"] = mesh_mode
+    summary["constraints_mode"] = constraints_mode
+    if uses_river_constraints and cfg["rivers"] is not None:
+        summary["rivers_config"] = {
+            "source": str(cfg["rivers"]["source"]),
+            "path": cfg["rivers"]["path"],
+            "clip_to_domain": bool(cfg["rivers"]["clip_to_domain"]),
+            "min_segment_length": float(cfg["rivers"]["min_segment_length"]),
+            "snap_tolerance": float(cfg["rivers"]["snap_tolerance"]),
+        }
     summary["output_mesh"] = str(mesh_path)
 
     if figure_path is not None or show_plot:
@@ -1048,7 +1063,7 @@ def run_reference_2d_geology_conformal_case_from_toml(
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
-    summary = run_reference_2d_geology_conformal_case_from_toml(
+    summary = run_reference_2d_zone_conformal_case_from_toml(
         args.config_file,
         section=args.section,
         output_mesh=args.output_mesh,

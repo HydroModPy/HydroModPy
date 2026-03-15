@@ -1,8 +1,7 @@
 """Dedicated launcher for catchment meshing workflows.
 
 This launcher intentionally does one thing: generate a 2D conformal mesh from
-one catchment setup, enforcing conformity to the river network trace while
-ignoring geology interfaces for meshing.
+one catchment setup, with explicit constraints mode selection.
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ from hydromodpy.geographic.core.domain_geographic_pipeline import (
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
-    run_reference_2d_geology_conformal_case_from_toml,
+    run_reference_2d_zone_conformal_case_from_toml,
 )
 from launchers.output_paths import (
     build_repo_output_redirect_notice,
@@ -43,7 +42,7 @@ class MeshCatchmentLauncher:
     """Run one mesh-only workflow from the ``[mesh_catchment]`` TOML section."""
 
     SECTION_NAME = "mesh_catchment"
-    _RIVER_TRACE_MESH_MODES = {"rivers", "both"}
+    _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
 
     def __init__(self, config_path: str | Path) -> None:
         self.config_path = Path(config_path).resolve()
@@ -52,12 +51,12 @@ class MeshCatchmentLauncher:
         self.workspace_cfg, self.geographic_cfg = self._load_runtime_configs(
             self.raw_toml
         )
-        self.mesh_mode = self._resolve_mesh_mode(
-            self.mesh_section_data.get("mesh_mode", "rivers")
+        self.constraints_mode = self._resolve_constraints_mode(
+            self.mesh_section_data.get("constraints_mode")
         )
         self.geographic_cfg = self._prepare_geographic_config_for_meshing(
             self.geographic_cfg,
-            mesh_mode=self.mesh_mode,
+            constraints_mode=self.constraints_mode,
         )
 
         resolved_out_dir, resolution = resolve_launcher_output_root(
@@ -91,28 +90,24 @@ class MeshCatchmentLauncher:
         return workspace_cfg, geographic_cfg
 
     @classmethod
-    def _resolve_mesh_mode(cls, raw_value: Any) -> str:
+    def _resolve_constraints_mode(cls, raw_value: Any) -> str:
         token = str(raw_value).strip().lower()
         if token == "":
-            token = "rivers"
-        aliases = {
-            "geology": "geology",
-            "zones": "geology",
-            "rivers": "rivers",
-            "river": "rivers",
-            "hydrography": "rivers",
-            "hydro": "rivers",
-            "both": "both",
-            "geology+rivers": "both",
-            "geology_and_rivers": "both",
-        }
-        mode = aliases.get(token)
-        if mode is None:
             raise ValueError(
-                "mesh_catchment.mesh_mode must be one of: geology, rivers, both "
-                "(aliases: zones, river, hydrography, geology+rivers)."
+                "mesh_catchment.constraints_mode is required and must be one of: "
+                "geology_only, rivers_only, geology_rivers."
             )
-        return mode
+        allowed = {
+            "geology_only",
+            "rivers_only",
+            "geology_rivers",
+        }
+        if token not in allowed:
+            raise ValueError(
+                "mesh_catchment.constraints_mode must be one of: "
+                "geology_only, rivers_only, geology_rivers."
+            )
+        return token
 
     @classmethod
     def _require_mesh_section(cls, payload: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -125,17 +120,20 @@ class MeshCatchmentLauncher:
         return section
 
     @classmethod
-    def _mesh_mode_requires_river_trace(cls, mesh_mode: str) -> bool:
-        return str(mesh_mode).strip().lower() in cls._RIVER_TRACE_MESH_MODES
+    def _constraints_mode_requires_river_trace(cls, constraints_mode: str) -> bool:
+        return (
+            str(constraints_mode).strip().lower()
+            in cls._RIVER_TRACE_CONSTRAINT_MODES
+        )
 
     @classmethod
     def _prepare_geographic_config_for_meshing(
         cls,
         geographic_cfg: GeographicConfig,
         *,
-        mesh_mode: str,
+        constraints_mode: str,
     ) -> GeographicConfig:
-        if not cls._mesh_mode_requires_river_trace(mesh_mode):
+        if not cls._constraints_mode_requires_river_trace(constraints_mode):
             return geographic_cfg
         if geographic_cfg.uses_synthetic_geographic():
             return geographic_cfg
@@ -167,17 +165,17 @@ class MeshCatchmentLauncher:
         return getattr(domain_geographic, "river_mesh_trace", None)
 
     def _validate_river_trace_requirement(self, *, river_trace: object | None) -> None:
-        if not self._mesh_mode_requires_river_trace(self.mesh_mode):
+        if not self._constraints_mode_requires_river_trace(self.constraints_mode):
             return
         if river_trace is not None:
             return
         if self.geographic_cfg.uses_synthetic_geographic():
             raise ValueError(
-                "mesh_catchment.mesh_mode requires river_trace, but synthetic geographic "
+                "mesh_catchment.constraints_mode requires river_trace, but synthetic geographic "
                 "mode does not generate river networks."
             )
         raise ValueError(
-            "mesh_catchment.mesh_mode requires river_trace, but no in-memory "
+            "mesh_catchment.constraints_mode requires river_trace, but no in-memory "
             "river trace was generated. Ensure [geographic.river_network] is enabled "
             "with valid threshold parameters."
         )
@@ -241,7 +239,7 @@ class MeshCatchmentLauncher:
             self._resolve_output_overrides(workspace)
         )
 
-        summary = run_reference_2d_geology_conformal_case_from_toml(
+        summary = run_reference_2d_zone_conformal_case_from_toml(
             self.config_path,
             section=self.SECTION_NAME,
             output_mesh=output_mesh,
@@ -249,7 +247,6 @@ class MeshCatchmentLauncher:
             output_figure=output_figure,
             river_trace=river_trace,
             domain_geographic=domain_geographic,
-            mesh_mode_override=self.mesh_mode,
             show_plot=show_plot,
         )
         return dict(summary)

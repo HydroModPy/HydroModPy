@@ -1,18 +1,27 @@
 # Reference 2D Geology Conformal Case
 
-This case demonstrates the 2D zone-conformal meshing workflow on a clipped
-Brittany geology subset and produces three QA outputs:
+This case demonstrates the 2D zone-conformal meshing workflow and produces
+three QA outputs:
 
 - `.msh` mesh file
 - `.json` summary sidecar
 - `.png` overview figure
 
-The summary sidecar now exposes a stable schema marker and QA diagnostics:
+The summary sidecar exposes a stable schema marker and QA diagnostics:
 
 - `summary_schema_version = "zone_conformal_sidecar_v1"`
 - `cleaning_summary` (compact tolerant-cleaning diagnostics)
 - `physical_groups_summary` (surface/curve/interface/boundary counts)
 - `qa_checks` (coverage gap/tolerance and quick conformity booleans)
+- `constraints_mode` (`geology_only`, `rivers_only`, `geology_rivers`)
+
+## Constraints modes
+
+The runner requires one explicit mode:
+
+- `constraints_mode = "geology_only"`: geology constraints only
+- `constraints_mode = "rivers_only"`: river constraints only
+- `constraints_mode = "geology_rivers"`: geology + river constraints
 
 ## Domain contract
 
