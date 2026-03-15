@@ -18,12 +18,13 @@ repo_root = Path(__file__).resolve().parents[4]
 if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
-from hydromodpy.data_managers.oceanic.oceanic import Oceanic
+from hydromodpy.data_managers.oceanic.config import OceanicConfig, OceanicSourceConfig
+from hydromodpy.data_managers.oceanic.manager import OceanicManager
 
 
 @dataclass(slots=True)
 class _GeographicStub:
-    """Minimal geographic payload required by Oceanic fetch helpers."""
+    """Minimal geographic payload required by SHOM fetch helpers."""
 
     centroid: tuple[float, float]
     centroid_long_lat: tuple[float, float]
@@ -46,23 +47,6 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
     geo_raw = dict(raw.get("geographic", {}))
 
     source = str(case_raw.get("source", "local"))
-    run_local_extraction = bool(case_raw.get("run_local_extraction", False))
-    raw_display_values = case_raw.get("display_values", [])
-    display_values: list[str] = []
-    if isinstance(raw_display_values, str):
-        text = raw_display_values.strip()
-        if text:
-            display_values = [text]
-    elif isinstance(raw_display_values, list):
-        display_values = [str(v).strip() for v in raw_display_values if str(v).strip()]
-    oceanic_path_raw = case_raw.get("oceanic_path")
-    oceanic_path = None
-    if oceanic_path_raw is not None:
-        oceanic_path = (config_toml.parent / str(oceanic_path_raw)).resolve()
-    out_path_raw = case_raw.get("out_path")
-    out_path = None
-    if out_path_raw is not None:
-        out_path = (config_toml.parent / str(out_path_raw)).resolve()
 
     local_csv = case_raw.get("local_csv_path")
     local_csv_path = None
@@ -94,18 +78,6 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
         )
 
     stable_folder = (config_toml.parent / str(geo_raw.get("stable_folder", "outputs/stable"))).resolve()
-    if out_path is None:
-        out_path = stable_folder.parent
-
-    if run_local_extraction:
-        if oceanic_path is None:
-            raise ValueError(
-                "oceanic_case.run_local_extraction=true requires oceanic_case.oceanic_path"
-            )
-        if centroid_xy is None:
-            raise ValueError(
-                "oceanic_case.run_local_extraction=true requires geographic.centroid_xy_l93"
-            )
 
     geographic = _GeographicStub(
         centroid=(centroid_xy if centroid_xy is not None else (0.0, 0.0)),
@@ -116,10 +88,6 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
 
     return {
         "source": source,
-        "run_local_extraction": run_local_extraction,
-        "display_values": display_values,
-        "oceanic_path": oceanic_path,
-        "out_path": out_path,
         "local_csv_path": local_csv_path,
         "default_msl": float(case_raw.get("default_msl", 0.0)),
         "start_date": str(case_raw.get("start_date", "2003-01-01")),
@@ -133,49 +101,73 @@ def run_oceanic_case_from_toml(
     *,
     output_json: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Run one oceanic case and return a compact deterministic signature.
-
-    Two execution scopes are supported:
-    - default: MSL fetch only (local/web/auto via ``fetch_msl_or_default``),
-    - extended: run local extraction first (``extract_local_data``) to cover
-      expensive oceanic preprocessing paths.
-    """
+    """Run one oceanic case and return a compact deterministic signature."""
     config_path = Path(config_toml).expanduser().resolve()
     cfg = _load_case_config(config_path)
 
-    oceanic = Oceanic()
-    extraction_seconds = None
-    if cfg["run_local_extraction"]:
-        extraction_start = time.perf_counter()
-        oceanic.extract_local_data(
-            out_path=str(cfg["out_path"]),
-            geographic=cfg["geographic"],
-            oceanic_path=str(cfg["oceanic_path"]),
+    # Build OceanicConfig based on case source
+    source_mode = cfg["source"]
+    from datetime import datetime as dt
+    start = dt.fromisoformat(cfg["start_date"])
+    end = dt.fromisoformat(cfg["end_date"])
+
+    if source_mode == "local" and cfg["local_csv_path"] is not None:
+        csv_path = Path(cfg["local_csv_path"])
+        source_cfg = OceanicSourceConfig(
+            source="custom",
+            path=csv_path.parent,
+            col_datetime="timestamp",
         )
-        extraction_seconds = time.perf_counter() - extraction_start
-        for value in cfg["display_values"]:
-            oceanic.display_data(value)
+    elif source_mode == "web":
+        source_cfg = OceanicSourceConfig(source="shom")
+    elif source_mode == "auto":
+        if cfg["local_csv_path"] is not None and Path(cfg["local_csv_path"]).exists():
+            csv_path = Path(cfg["local_csv_path"])
+            source_cfg = OceanicSourceConfig(
+                source="custom",
+                path=csv_path.parent,
+                col_datetime="timestamp",
+            )
+        else:
+            source_cfg = OceanicSourceConfig(source="shom")
+    else:
+        source_cfg = OceanicSourceConfig(source="shom")
+
+    oceanic_cfg = OceanicConfig(
+        sources=[source_cfg],
+        date_start=cfg["start_date"],
+        date_end=cfg["end_date"],
+    )
 
     fetch_start = time.perf_counter()
-    returned_msl = oceanic.fetch_msl_or_default(
+    manager = OceanicManager(
+        config=oceanic_cfg,
+        project_period=(start, end),
         geographic=cfg["geographic"],
-        start_date=cfg["start_date"],
-        end_date=cfg["end_date"],
-        default=cfg["default_msl"],
-        source=cfg["source"],
-        local_csv_path=(str(cfg["local_csv_path"]) if cfg["local_csv_path"] is not None else None),
     )
+    load_result = manager.load()
     fetch_seconds = time.perf_counter() - fetch_start
 
-    if not hasattr(oceanic, "SHOM_data") or oceanic.SHOM_data is None:
-        raise ValueError("Oceanic case produced no SHOM_data payload")
+    # Find the time-series record (sea_level or oceanic)
+    sea_records = [r for r in load_result.points if r.variable in ("sea_level", "oceanic")]
+    if not sea_records:
+        msl_records = [r for r in load_result.points if r.variable == "mean_sea_level"]
+        if not msl_records:
+            raise ValueError("Oceanic case produced no data records")
+        rec = msl_records[0]
+        frame = rec.data.copy()
+        frame["timestamp"] = frame["datetime"]
+    else:
+        rec = sea_records[0]
+        frame = rec.data.copy()
+        frame["timestamp"] = frame["datetime"]
 
-    frame = oceanic.SHOM_data.copy()
-    frame["timestamp"] = pd.to_datetime(frame["timestamp"])
     frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
     frame = frame.dropna(subset=["timestamp", "value"]).sort_values("timestamp").reset_index(drop=True)
     if frame.empty:
-        raise ValueError("Oceanic case produced an empty SHOM_data payload")
+        raise ValueError("Oceanic case produced an empty data payload")
+
+    returned_msl = float(frame["value"].mean())
 
     summary = {
         "source": str(cfg["source"]),
@@ -189,18 +181,8 @@ def run_oceanic_case_from_toml(
         "min_msl_m": round(float(frame["value"].min()), 12),
         "max_msl_m": round(float(frame["value"].max()), 12),
         "returned_msl_m": round(float(returned_msl), 12),
+        "fetch_seconds": round(float(fetch_seconds), 6),
     }
-    if cfg["run_local_extraction"]:
-        rsl = getattr(oceanic, "RSL", None)
-        summary.update(
-            {
-                "run_local_extraction": True,
-                "oceanic_path_name": str(Path(cfg["oceanic_path"]).name),
-                "local_extraction_seconds": round(float(extraction_seconds), 6),
-                "fetch_msl_seconds": round(float(fetch_seconds), 6),
-                "has_rsl_outputs": bool(isinstance(rsl, dict) and len(rsl) > 0),
-            }
-        )
 
     if output_json is not None:
         _write_json(Path(output_json).expanduser().resolve(), summary)
