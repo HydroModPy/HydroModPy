@@ -20,7 +20,7 @@ from hydromodpy.data_managers.common.io_helpers import (
 from hydromodpy.data_managers.common.unit_helpers import get_conversion_factor
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.water_quality.config import WaterQualitySourceConfig
+from hydromodpy.data_managers.variables.water_quality.config import WaterQualitySourceConfig
 
 
 def _resolve_station_unit(loc: StationLocation) -> str:

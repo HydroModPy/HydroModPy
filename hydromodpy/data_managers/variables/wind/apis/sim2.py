@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.wind.config import WindSourceConfig
+from hydromodpy.data_managers.variables.wind.config import WindSourceConfig
 
 
 SIM2_PARAMETER = "FF_Q"

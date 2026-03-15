@@ -19,7 +19,7 @@ Class overview
    ~hydromodpy.legacy.watershed.Hydrometry
    ~hydromodpy.data_managers.intermittency.Intermittency
    ~hydromodpy.legacy.watershed.Piezometry
-   ~hydromodpy.data_managers.oceanic.Oceanic
+   ~hydromodpy.data_managers.variables.oceanic.Oceanic
    ~hydromodpy.data_managers.climatic.Climatic
    ~hydromodpy.legacy.watershed.settings.Settings
    ~hydromodpy.legacy.watershed.hydraulic.Hydraulic

@@ -13,7 +13,7 @@ from hydromodpy.data_managers.common.io_helpers import (
 from hydromodpy.data_managers.common.unit_helpers import get_conversion_factor
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.humidity.config import HumiditySourceConfig
+from hydromodpy.data_managers.variables.humidity.config import HumiditySourceConfig
 
 VARIABLE_NAME = "humidity"
 

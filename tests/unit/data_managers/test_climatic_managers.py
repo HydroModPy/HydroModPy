@@ -28,7 +28,7 @@ from hydromodpy.data_managers.common.custom_grid_loader import (
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.recharge.config import RechargeSourceConfig
+from hydromodpy.data_managers.variables.recharge.config import RechargeSourceConfig
 from hydromodpy.data_managers.registry.catalog import DataCatalog
 
 

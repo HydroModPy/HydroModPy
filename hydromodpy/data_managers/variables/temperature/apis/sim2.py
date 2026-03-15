@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.temperature.config import TemperatureSourceConfig
+from hydromodpy.data_managers.variables.temperature.config import TemperatureSourceConfig
 
 
 SIM2_PARAMETER = "T_Q"

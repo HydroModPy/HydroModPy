@@ -7,7 +7,7 @@ from datetime import datetime
 import pandas as pd
 
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.oceanic.config import OceanicSourceConfig
+from hydromodpy.data_managers.variables.oceanic.config import OceanicSourceConfig
 
 
 def generate_constant(

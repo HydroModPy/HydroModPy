@@ -7,7 +7,7 @@ from datetime import datetime
 import xarray as xr
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.precipitation.config import PrecipitationSourceConfig
+from hydromodpy.data_managers.variables.precipitation.config import PrecipitationSourceConfig
 
 
 VARIABLE_NAME = "precipitation"

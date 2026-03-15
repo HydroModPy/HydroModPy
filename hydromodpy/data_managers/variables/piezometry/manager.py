@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from hydromodpy.data_managers.common.base_manager import BaseVariableManager
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.piezometry.config import PiezometryConfig, PiezometrySourceConfig
+from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
 
 
 class PiezometryManager(BaseVariableManager):
@@ -14,7 +14,7 @@ class PiezometryManager(BaseVariableManager):
 
     def _fetch_from_source(self, source_cfg: PiezometrySourceConfig) -> list[PointRecord]:
         if source_cfg.source == "custom":
-            from hydromodpy.data_managers.piezometry.custom import load_custom
+            from hydromodpy.data_managers.variables.piezometry.custom import load_custom
             records = load_custom(
                 source_cfg, project_period=self.project_period,
                 internal_unit=self.INTERNAL_UNIT,
@@ -26,7 +26,7 @@ class PiezometryManager(BaseVariableManager):
 
     def _fetch_hubeau(self, source_cfg: PiezometrySourceConfig) -> list[PointRecord]:
         """Fetch from Hub'Eau with smart cache (partial coverage + merge)."""
-        from hydromodpy.data_managers.piezometry.apis.hubeau import fetch
+        from hydromodpy.data_managers.variables.piezometry.apis.hubeau import fetch
 
         if self.project_period is None:
             raise ValueError("project_period required for Hub'Eau.")

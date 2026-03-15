@@ -17,7 +17,7 @@ from hydromodpy.data_managers.common.io_helpers import (
 from hydromodpy.data_managers.common.unit_helpers import get_conversion_factor
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.recharge.config import RechargeSourceConfig
+from hydromodpy.data_managers.variables.recharge.config import RechargeSourceConfig
 
 VARIABLE_NAME = "recharge"
 

@@ -7,7 +7,7 @@ from datetime import datetime
 import xarray as xr
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.radiation.config import RadiationSourceConfig
+from hydromodpy.data_managers.variables.radiation.config import RadiationSourceConfig
 
 VARIABLE_NAME = "radiation"
 INTERNAL_UNIT = "MJ/m2/j"

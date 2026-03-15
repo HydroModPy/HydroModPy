@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.runoff.config import RunoffSourceConfig
+from hydromodpy.data_managers.variables.runoff.config import RunoffSourceConfig
 
 
 SIM2_PARAMETER = "RUNC_Q"

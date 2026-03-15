@@ -12,7 +12,7 @@ from hydromodpy.data_managers.common.io_helpers import (
 )
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.oceanic.config import OceanicSourceConfig
+from hydromodpy.data_managers.variables.oceanic.config import OceanicSourceConfig
 
 VARIABLE_NAME = "oceanic"
 

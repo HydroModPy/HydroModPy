@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.recharge.config import RechargeSourceConfig
+from hydromodpy.data_managers.variables.recharge.config import RechargeSourceConfig
 
 
 SIM2_PARAMETER = "DRAINC_Q"

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.humidity.config import HumiditySourceConfig
+from hydromodpy.data_managers.variables.humidity.config import HumiditySourceConfig
 
 
 SIM2_PARAMETER = "HU_Q"

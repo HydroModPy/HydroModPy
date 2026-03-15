@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data_managers.oceanic.cases.run_oceanic_case import run_oceanic_case_from_toml
+from hydromodpy.data_managers.variables.oceanic.cases.run_oceanic_case import run_oceanic_case_from_toml
 
 
 GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_oceanic_case_golden.json"

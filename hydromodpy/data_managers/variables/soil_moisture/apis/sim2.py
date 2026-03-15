@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.soil_moisture.config import SoilMoistureSourceConfig
+from hydromodpy.data_managers.variables.soil_moisture.config import SoilMoistureSourceConfig
 
 
 SIM2_PARAMETER = "SWI_Q"

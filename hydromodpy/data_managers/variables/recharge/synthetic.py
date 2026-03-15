@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.recharge.config import RechargeSourceConfig
+from hydromodpy.data_managers.variables.recharge.config import RechargeSourceConfig
 
 
 def generate(

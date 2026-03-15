@@ -3,7 +3,7 @@
 
 Usage::
 
-    python -m hydromodpy.data_managers.piezometry.run_examples
+    python -m hydromodpy.data_managers.variables.piezometry.run_examples
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ import pandas as pd
 def example_custom_csv():
     """Load piezometry from custom CSV files."""
     print("\n=== Example: Piezometry Custom CSV ===")
-    from hydromodpy.data_managers.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data_managers.piezometry.manager import PiezometryManager
+    from hydromodpy.data_managers.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
+    from hydromodpy.data_managers.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data_managers.registry.catalog import DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -63,8 +63,8 @@ def example_custom_csv():
 def example_custom_constant():
     """Load piezometry with a single-line CSV (constant value)."""
     print("\n=== Example: Piezometry Constant (single-line CSV) ===")
-    from hydromodpy.data_managers.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data_managers.piezometry.manager import PiezometryManager
+    from hydromodpy.data_managers.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
+    from hydromodpy.data_managers.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data_managers.registry.catalog import DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -101,8 +101,8 @@ def example_hubeau_api():
     """
     print("\n=== Example: Piezometry Hub'Eau API ===")
     print("  (requires internet connection)")
-    from hydromodpy.data_managers.piezometry.config import PiezometrySourceConfig, PiezometryConfig
-    from hydromodpy.data_managers.piezometry.manager import PiezometryManager
+    from hydromodpy.data_managers.variables.piezometry.config import PiezometrySourceConfig, PiezometryConfig
+    from hydromodpy.data_managers.variables.piezometry.manager import PiezometryManager
     from hydromodpy.data_managers.registry.catalog import DataCatalog
 
     cfg = PiezometryConfig(sources=[

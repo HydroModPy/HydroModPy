@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from hydromodpy.data_managers.common.base_field_manager import BaseFieldManager
-from hydromodpy.data_managers.oceanic.config import OceanicConfig, OceanicSourceConfig
+from hydromodpy.data_managers.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
 
 
 class OceanicManager(BaseFieldManager):
@@ -37,7 +37,7 @@ class OceanicManager(BaseFieldManager):
 
     def _fetch_from_source(self, source_cfg: OceanicSourceConfig):
         if source_cfg.source == "custom":
-            from hydromodpy.data_managers.oceanic.custom import load_custom
+            from hydromodpy.data_managers.variables.oceanic.custom import load_custom
             records = load_custom(
                 source_cfg,
                 project_period=self.project_period,
@@ -47,12 +47,12 @@ class OceanicManager(BaseFieldManager):
         elif source_cfg.source == "shom":
             return self._fetch_shom(source_cfg)
         elif source_cfg.source == "constant":
-            from hydromodpy.data_managers.oceanic.constant import generate_constant
+            from hydromodpy.data_managers.variables.oceanic.constant import generate_constant
             return generate_constant(source_cfg, project_period=self.project_period)
         raise ValueError(f"Unknown oceanic source: {source_cfg.source}")
 
     def _fetch_shom(self, source_cfg: OceanicSourceConfig):
-        from hydromodpy.data_managers.oceanic.apis.shom import fetch
+        from hydromodpy.data_managers.variables.oceanic.apis.shom import fetch
 
         if self._geographic is None:
             raise ValueError("SHOM source requires a geographic object (watershed centroid).")

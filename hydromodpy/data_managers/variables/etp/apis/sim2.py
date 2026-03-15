@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.etp.config import EtpSourceConfig
+from hydromodpy.data_managers.variables.etp.config import EtpSourceConfig
 
 
 SIM2_PARAMETER = "ETP_Q"

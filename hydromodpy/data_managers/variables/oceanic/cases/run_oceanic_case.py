@@ -18,8 +18,8 @@ repo_root = Path(__file__).resolve().parents[4]
 if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
-from hydromodpy.data_managers.oceanic.config import OceanicConfig, OceanicSourceConfig
-from hydromodpy.data_managers.oceanic.manager import OceanicManager
+from hydromodpy.data_managers.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
+from hydromodpy.data_managers.variables.oceanic.manager import OceanicManager
 
 
 @dataclass(slots=True)

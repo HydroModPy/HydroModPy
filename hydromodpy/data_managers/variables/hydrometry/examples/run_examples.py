@@ -3,7 +3,7 @@
 
 Usage::
 
-    python -m hydromodpy.data_managers.hydrometry.run_examples
+    python -m hydromodpy.data_managers.variables.hydrometry.run_examples
 
 Each function is an independent example that can be called directly.
 """
@@ -20,8 +20,8 @@ import pandas as pd
 def example_custom_csv():
     """Load hydrometry from custom CSV files (location CSV + chronicles)."""
     print("\n=== Example: Custom CSV ===")
-    from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
-    from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
+    from hydromodpy.data_managers.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
+    from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
     from hydromodpy.data_managers.registry.catalog import DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -74,8 +74,8 @@ def example_custom_csv():
 def example_custom_csv_one_line():
     """Load hydrometry with a single-line CSV (constant value in file)."""
     print("\n=== Example: Custom CSV Single Line (Constant) ===")
-    from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
-    from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
+    from hydromodpy.data_managers.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
+    from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
     from hydromodpy.data_managers.registry.catalog import DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -115,8 +115,8 @@ def example_custom_csv_one_line():
 def example_custom_unit_conversion():
     """Load hydrometry with unit conversion (L/s → m³/s)."""
     print("\n=== Example: Custom with Unit Conversion ===")
-    from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
-    from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
+    from hydromodpy.data_managers.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
+    from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
     from hydromodpy.data_managers.registry.catalog import DataCatalog
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -163,8 +163,8 @@ def example_hubeau_api():
     """
     print("\n=== Example: Hub'Eau API ===")
     print("  (requires internet connection)")
-    from hydromodpy.data_managers.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
-    from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
+    from hydromodpy.data_managers.variables.hydrometry.config import HydrometrySourceConfig, HydrometryConfig
+    from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
     from hydromodpy.data_managers.registry.catalog import DataCatalog
 
     cfg = HydrometryConfig(sources=[

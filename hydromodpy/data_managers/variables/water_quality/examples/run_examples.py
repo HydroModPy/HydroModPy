@@ -1,6 +1,6 @@
 """Manual test examples for water quality data manager.
 
-Run with: python -m hydromodpy.data_managers.water_quality.run_examples
+Run with: python -m hydromodpy.data_managers.variables.water_quality.run_examples
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ import pandas as pd
 
 def example_custom_csv():
     """Load water quality data from custom CSV files."""
-    from hydromodpy.data_managers.water_quality.config import WaterQualitySourceConfig
-    from hydromodpy.data_managers.water_quality.custom import load_custom
+    from hydromodpy.data_managers.variables.water_quality.config import WaterQualitySourceConfig
+    from hydromodpy.data_managers.variables.water_quality.custom import load_custom
 
     with tempfile.TemporaryDirectory() as tmpdir:
         d = Path(tmpdir)
@@ -48,8 +48,8 @@ def example_custom_csv():
 
 def example_custom_constant():
     """Load water quality with a single-line CSV (constant value)."""
-    from hydromodpy.data_managers.water_quality.config import WaterQualitySourceConfig
-    from hydromodpy.data_managers.water_quality.custom import load_custom
+    from hydromodpy.data_managers.variables.water_quality.config import WaterQualitySourceConfig
+    from hydromodpy.data_managers.variables.water_quality.custom import load_custom
 
     with tempfile.TemporaryDirectory() as tmpdir:
         d = Path(tmpdir)
@@ -74,7 +74,7 @@ def example_custom_constant():
 
 def example_hubeau_river_api():
     """Fetch river water quality data from Hub'Eau API."""
-    from hydromodpy.data_managers.water_quality.apis.hubeau import fetch
+    from hydromodpy.data_managers.variables.water_quality.apis.hubeau import fetch
 
     records = fetch(
         site_type="river",

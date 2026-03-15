@@ -43,7 +43,7 @@ Hydrometry now reuses shared components from `hydromodpy.data_managers.common`:
 ## Minimal Example
 
 ```python
-from hydromodpy.data_managers.hydrometry.station_set import StationSet
+from hydromodpy.data_managers.variables.hydrometry.station_set import StationSet
 
 stations = StationSet.from_toml(
     "hydromodpy/data_managers/hydrometry/cases/run_hydrometry_config.toml"

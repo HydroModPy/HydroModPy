@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from hydromodpy.data_managers.common.base_field_manager import BaseFieldManager
-from hydromodpy.data_managers.runoff.config import RunoffConfig, RunoffSourceConfig
+from hydromodpy.data_managers.variables.runoff.config import RunoffConfig, RunoffSourceConfig
 
 
 class RunoffManager(BaseFieldManager):
@@ -14,7 +14,7 @@ class RunoffManager(BaseFieldManager):
 
     def _fetch_from_source(self, source_cfg: RunoffSourceConfig):
         if source_cfg.source == "custom":
-            from hydromodpy.data_managers.runoff.custom import load_custom
+            from hydromodpy.data_managers.variables.runoff.custom import load_custom
             records = load_custom(
                 source_cfg,
                 project_period=self.project_period,
@@ -22,6 +22,6 @@ class RunoffManager(BaseFieldManager):
             )
             return self._handle_custom_results(records, source_cfg)
         elif source_cfg.source == "sim2":
-            from hydromodpy.data_managers.runoff.apis.sim2 import fetch
+            from hydromodpy.data_managers.variables.runoff.apis.sim2 import fetch
             return self._load_or_fetch_fields(source_cfg, "sim2", fetch)
         raise ValueError(f"Unknown runoff source: {source_cfg.source}")

@@ -139,8 +139,8 @@ class DataManagersRuntimeLoader:
         """Load oceanic data from ``data.oceanic`` payload."""
         from datetime import datetime as dt
 
-        from hydromodpy.data_managers.oceanic.config import OceanicConfig
-        from hydromodpy.data_managers.oceanic.manager import OceanicManager
+        from hydromodpy.data_managers.variables.oceanic.config import OceanicConfig
+        from hydromodpy.data_managers.variables.oceanic.manager import OceanicManager
 
         raw_section = self._get_data_section(result, "oceanic")
         if raw_section is None:
@@ -264,8 +264,8 @@ class DataManagersRuntimeLoader:
         """Load hydrometry records from ``data.hydrometry`` payload."""
         from datetime import datetime as dt
 
-        from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
-        from hydromodpy.data_managers.hydrometry.manager import HydrometryManager
+        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
 
         raw_section = self._get_data_section(result, "hydrometry")
         if raw_section is None:
@@ -300,8 +300,8 @@ class DataManagersRuntimeLoader:
         """Load piezometry records from ``data.piezometry`` payload."""
         from datetime import datetime as dt
 
-        from hydromodpy.data_managers.piezometry.config import PiezometryConfig
-        from hydromodpy.data_managers.piezometry.manager import PiezometryManager
+        from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
+        from hydromodpy.data_managers.variables.piezometry.manager import PiezometryManager
 
         raw_section = self._get_data_section(result, "piezometry")
         if raw_section is None:
@@ -336,8 +336,8 @@ class DataManagersRuntimeLoader:
         """Load recharge data from ``data.recharge`` payload."""
         from datetime import datetime as dt
 
-        from hydromodpy.data_managers.recharge.config import RechargeConfig
-        from hydromodpy.data_managers.recharge.manager import RechargeManager
+        from hydromodpy.data_managers.variables.recharge.config import RechargeConfig
+        from hydromodpy.data_managers.variables.recharge.manager import RechargeManager
 
         raw_section = self._get_data_section(result, "recharge")
         if raw_section is None:
@@ -372,8 +372,8 @@ class DataManagersRuntimeLoader:
         """Load runoff data from ``data.runoff`` payload."""
         from datetime import datetime as dt
 
-        from hydromodpy.data_managers.runoff.config import RunoffConfig
-        from hydromodpy.data_managers.runoff.manager import RunoffManager
+        from hydromodpy.data_managers.variables.runoff.config import RunoffConfig
+        from hydromodpy.data_managers.variables.runoff.manager import RunoffManager
 
         raw_section = self._get_data_section(result, "runoff")
         if raw_section is None:
@@ -408,32 +408,32 @@ class DataManagersRuntimeLoader:
     # Used by _load_climatic_variable() to avoid 7 identical methods.
     _CLIMATIC_REGISTRY: dict[str, tuple[str, str]] = {
         "precipitation": (
-            "hydromodpy.data_managers.precipitation.config",
-            "hydromodpy.data_managers.precipitation.manager",
+            "hydromodpy.data_managers.variables.precipitation.config",
+            "hydromodpy.data_managers.variables.precipitation.manager",
         ),
         "etp": (
-            "hydromodpy.data_managers.etp.config",
-            "hydromodpy.data_managers.etp.manager",
+            "hydromodpy.data_managers.variables.etp.config",
+            "hydromodpy.data_managers.variables.etp.manager",
         ),
         "temperature": (
-            "hydromodpy.data_managers.temperature.config",
-            "hydromodpy.data_managers.temperature.manager",
+            "hydromodpy.data_managers.variables.temperature.config",
+            "hydromodpy.data_managers.variables.temperature.manager",
         ),
         "wind": (
-            "hydromodpy.data_managers.wind.config",
-            "hydromodpy.data_managers.wind.manager",
+            "hydromodpy.data_managers.variables.wind.config",
+            "hydromodpy.data_managers.variables.wind.manager",
         ),
         "humidity": (
-            "hydromodpy.data_managers.humidity.config",
-            "hydromodpy.data_managers.humidity.manager",
+            "hydromodpy.data_managers.variables.humidity.config",
+            "hydromodpy.data_managers.variables.humidity.manager",
         ),
         "radiation": (
-            "hydromodpy.data_managers.radiation.config",
-            "hydromodpy.data_managers.radiation.manager",
+            "hydromodpy.data_managers.variables.radiation.config",
+            "hydromodpy.data_managers.variables.radiation.manager",
         ),
         "soil_moisture": (
-            "hydromodpy.data_managers.soil_moisture.config",
-            "hydromodpy.data_managers.soil_moisture.manager",
+            "hydromodpy.data_managers.variables.soil_moisture.config",
+            "hydromodpy.data_managers.variables.soil_moisture.manager",
         ),
     }
 

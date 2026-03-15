@@ -47,7 +47,7 @@ BV_CONFIG_TEMPLATE = """\
 # Utilisation :
 #
 #   from hydromodpy.data_managers.store import DataStore
-#   from hydromodpy.data_managers.hydrometry.config import HydrometryConfig
+#   from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
 #
 #   store = DataStore(
 #       workspace_root="{root_path}",
