@@ -1,0 +1,189 @@
+from __future__ import annotations
+
+import geopandas as gpd
+import numpy as np
+from pathlib import Path
+import pytest
+from shapely.geometry import MultiPolygon, Polygon
+
+from hydromodpy.solver.utils.mesh.gmsh_grid import (
+    build_zone_conformal_partition_from_dataframe,
+    generate_zone_conformal_mesh_from_dataframe,
+    load_zone_meshing_domain_geometry,
+)
+
+pytest.importorskip("gmsh")
+
+
+def _build_split_zones_gdf():
+    return gpd.GeoDataFrame(
+        {
+            "zone_key": ["A", "B"],
+            "geometry": [
+                Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]),
+                Polygon([(1.0, 0.0), (2.0, 0.0), (2.0, 1.0), (1.0, 1.0)]),
+            ],
+        },
+        crs="EPSG:2154",
+    )
+
+
+def _build_overlapping_zones_gdf():
+    return gpd.GeoDataFrame(
+        {
+            "zone_key": ["A", "B"],
+            "priority": [10.0, 1.0],
+            "geometry": [
+                Polygon([(0.0, 0.0), (1.2, 0.0), (1.2, 1.0), (0.0, 1.0)]),
+                Polygon([(0.8, 0.0), (2.0, 0.0), (2.0, 1.0), (0.8, 1.0)]),
+            ],
+        },
+        crs="EPSG:2154",
+    )
+
+
+def test_build_zone_conformal_partition_rejects_overlap_without_priority() -> None:
+    gdf = _build_overlapping_zones_gdf().drop(columns=["priority"])
+    with pytest.raises(ValueError, match="Overlapping zones detected"):
+        build_zone_conformal_partition_from_dataframe(gdf)
+
+
+def test_build_zone_conformal_partition_resolves_overlap_with_priority() -> None:
+    gdf = _build_overlapping_zones_gdf()
+    partition = build_zone_conformal_partition_from_dataframe(
+        gdf,
+        priority_column="priority",
+    )
+
+    assert partition.zone_keys == ("A", "B")
+    assert partition.n_faces == 2
+    assert partition.face_counts_by_zone == {"A": 1, "B": 1}
+    assert partition.covered_area == pytest.approx(2.0)
+
+
+def test_generate_zone_conformal_mesh_respects_zone_interface() -> None:
+    gdf = _build_split_zones_gdf()
+    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "split_zone_conformal.msh"
+
+    result = generate_zone_conformal_mesh_from_dataframe(
+        gdf,
+        output_path=output_path,
+        global_size=0.20,
+        refine_interfaces=True,
+        interface_size=0.08,
+        interface_distance=0.30,
+        interface_sampling=48,
+    )
+
+    assert result.output_path.exists()
+    assert result.mesh.n_cells > 0
+    assert result.summary["summary_schema_version"] == "zone_conformal_sidecar_v1"
+    assert result.summary["zone_keys"] == ["A", "B"]
+    assert result.summary["interface_group_count"] == 1
+    assert result.summary["physical_groups_summary"]["interface_group_count"] == 1
+    assert result.summary["mesh_size_fields"]["interface_refinement"]["enabled"] is True
+    assert (
+        result.summary["mesh_size_fields"]["interface_refinement"][
+            "interface_curve_count"
+        ]
+        == 1
+    )
+    assert result.summary["cleaning_diagnostics"]["cleaning_mode"] == "tolerant"
+    assert result.summary["cleaning_summary"]["mode"] == "tolerant"
+    assert result.summary["qa_checks"]["coverage_within_tolerance"] is True
+    assert result.summary["qa_checks"]["has_interface_groups"] is True
+    assert any(group.name == "interface::A::B" for group in result.physical_groups)
+
+    interface_x = 1.0
+    tol = 1.0e-9
+    for cell in result.mesh.cells:
+        vertices = np.asarray(cell.vertices, dtype=float)
+        has_left_vertex = bool(np.any(vertices[:, 0] < interface_x - tol))
+        has_right_vertex = bool(np.any(vertices[:, 0] > interface_x + tol))
+        assert not (
+            has_left_vertex and has_right_vertex
+        ), "One generated cell crosses the zone interface instead of conforming to it"
+
+
+def test_generate_zone_conformal_mesh_validates_interface_parameters() -> None:
+    gdf = _build_split_zones_gdf()
+    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(
+        ValueError,
+        match="interface_size must be finite and > 0 when refine_interfaces=true",
+    ):
+        generate_zone_conformal_mesh_from_dataframe(
+            gdf,
+            output_path=output_dir / "invalid_missing_interface_size.msh",
+            global_size=0.20,
+            refine_interfaces=True,
+            interface_distance=0.30,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="interface_distance must be finite and > 0 when refine_interfaces=true",
+    ):
+        generate_zone_conformal_mesh_from_dataframe(
+            gdf,
+            output_path=output_dir / "invalid_missing_interface_distance.msh",
+            global_size=0.20,
+            refine_interfaces=True,
+            interface_size=0.08,
+        )
+
+
+def test_load_zone_meshing_domain_geometry_supports_inline_polygon() -> None:
+    payload = load_zone_meshing_domain_geometry(
+        {
+            "kind": "polygon",
+            "coordinates": [
+                [0.0, 0.0],
+                [2.0, 0.0],
+                [1.5, 1.0],
+                [0.0, 1.0],
+            ],
+        },
+        target_crs="EPSG:2154",
+    )
+
+    assert payload["summary"]["domain_kind"] == "polygon"
+    assert payload["summary"]["domain_vertex_count"] == 4
+    assert payload["summary"]["domain_area"] == pytest.approx(1.75)
+    assert str(payload["gdf"].crs) == "EPSG:2154"
+
+
+def test_build_zone_conformal_partition_reports_tolerant_cleaning_diagnostics() -> None:
+    invalid_bowtie = Polygon(
+        [(0.0, 0.0), (1.0, 1.0), (0.0, 1.0), (1.0, 0.0), (0.0, 0.0)]
+    )
+    tiny_piece = Polygon(
+        [(3.1, 0.0), (3.15, 0.0), (3.15, 0.05), (3.1, 0.05), (3.1, 0.0)]
+    )
+    big_piece = Polygon([(2.0, 0.0), (3.0, 0.0), (3.0, 1.0), (2.0, 1.0), (2.0, 0.0)])
+    gdf = gpd.GeoDataFrame(
+        {
+            "zone_key": ["A", "B"],
+            "geometry": [
+                invalid_bowtie,
+                MultiPolygon([big_piece, tiny_piece]),
+            ],
+        },
+        crs="EPSG:2154",
+    )
+    partition = build_zone_conformal_partition_from_dataframe(
+        gdf,
+        min_polygon_area=0.01,
+    )
+
+    diag = dict(partition.cleaning_diagnostics or {})
+    assert diag["cleaning_mode"] == "tolerant"
+    assert diag["source_feature_count"] == 2
+    assert diag["source_invalid_geometry_count"] >= 1
+    assert diag["invalid_geometries_repaired_count"] >= 1
+    assert diag["polygons_removed_by_area_threshold_count"] >= 1
+    assert diag["tolerances"]["min_polygon_area"] == pytest.approx(0.01)

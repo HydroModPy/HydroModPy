@@ -7,7 +7,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.comparison_cartesian_vs_gmsh_3
     run_comparison_case,
 )
 
-
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "comparison_cartesian_vs_gmsh_3d_signature.json"
 CASE_DIR = (
@@ -69,7 +68,9 @@ def _stable_signature(payload: dict) -> dict:
 
 
 def test_comparison_cartesian_vs_gmsh_3d_non_regression(update_goldens: bool) -> None:
-    output_dir = Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_3d" / "runtime"
+    output_dir = (
+        Path.cwd() / "scratch_tests" / "comparison_cartesian_vs_gmsh_3d" / "runtime"
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     payload = run_comparison_case(
@@ -85,11 +86,15 @@ def test_comparison_cartesian_vs_gmsh_3d_non_regression(update_goldens: bool) ->
     assert (output_dir / "vertical_profiles_comparison.png").exists()
     assert (output_dir / "comparison_overview.png").exists()
 
-    layer_figures = [output_dir / rel_path for rel_path in payload["artifacts"]["layer_figures"]]
+    layer_figures = [
+        output_dir / rel_path for rel_path in payload["artifacts"]["layer_figures"]
+    ]
     assert layer_figures
     for figure_path in layer_figures:
         assert figure_path.exists()
-    assert payload["artifacts"]["comparison_overview_figure"] == "comparison_overview.png"
+    assert (
+        payload["artifacts"]["comparison_overview_figure"] == "comparison_overview.png"
+    )
 
     if update_goldens:
         _write_json(GOLDEN_FILE, payload)

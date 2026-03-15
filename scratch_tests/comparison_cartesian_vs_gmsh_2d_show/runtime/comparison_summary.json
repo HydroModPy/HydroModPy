@@ -1,0 +1,11 @@
+{
+  "cartesian": {
+    "kind": "cartesian"
+  },
+  "gmsh": {
+    "kind": "gmsh"
+  },
+  "comparison": {
+    "kind": "comparison"
+  }
+}

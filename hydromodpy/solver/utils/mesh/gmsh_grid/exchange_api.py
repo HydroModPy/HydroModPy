@@ -1,4 +1,10 @@
-"""Stable high-level read/write entry points for the Gmsh mesh workflow."""
+"""Expose the simplest public I/O API for the solver-independent Gmsh workflow.
+
+This module is the entry point to use when a caller only needs to load or save
+2D meshes, 3D extruded meshes, or 3D values attached to prisms. It deliberately
+hides the lower-level implementation modules so colleagues can work with a
+small and stable surface.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +19,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import (
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
 
-def load_planar_mesh(path: str | Path, *, cell_type: str | None = None) -> GmshPlanarMesh2D:
+def load_planar_mesh(
+    path: str | Path, *, cell_type: str | None = None
+) -> GmshPlanarMesh2D:
     """Read one 2D planar mesh from disk."""
     return GmshPlanarMesh2D.from_file(path, cell_type=cell_type)
 
@@ -73,7 +81,9 @@ def save_extruded_mesh_values(
 ) -> Path:
     """Write one 3D prism mesh carrying prism values."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
+        raise TypeError(
+            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
+        )
     return mesh_with_values.to_file(
         path,
         value_name=value_name,
@@ -88,7 +98,9 @@ def save_extruded_values_npy(
 ) -> Path:
     """Write the `(n_layers, n_cells_2d)` value array to a `.npy` file."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
+        raise TypeError(
+            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
+        )
     return mesh_with_values.to_npy(path)
 
 
@@ -98,5 +110,7 @@ def save_extruded_values_summary(
 ) -> Path:
     """Write a compact JSON summary of attached 3D prism values."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
-        raise TypeError("mesh_with_values must be an ExtrudedPrismMeshWithValues instance")
+        raise TypeError(
+            "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
+        )
     return mesh_with_values.write_summary_json(path)

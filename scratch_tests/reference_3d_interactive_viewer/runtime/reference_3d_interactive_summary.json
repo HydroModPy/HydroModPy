@@ -1,0 +1,45 @@
+{
+  "value_name": "field_param_value",
+  "depth_name": "prism_center_depth",
+  "cmap": "viridis",
+  "show_edges": false,
+  "opacity": 1.0,
+  "vertical_exaggeration": 1.0,
+  "n_cells_3d": 2400,
+  "n_points_3d": 1764,
+  "display_n_cells": 2400,
+  "display_n_points": 1764,
+  "cell_data_keys": [
+    "field_param_value",
+    "layer_index",
+    "prism_center_depth",
+    "source_cell_index"
+  ],
+  "point_data_keys": [
+    "point_base_index",
+    "point_layer_index"
+  ],
+  "selection": {
+    "source_cell_index": 400,
+    "vertical_profile": {
+      "source_cell_index": 400,
+      "layer_indices": [
+        0,
+        1,
+        2
+      ],
+      "values": [
+        8.119363461506348e-06,
+        4.924642876754097e-06,
+        2.6359713811572674e-06
+      ],
+      "depths": [
+        12.5,
+        42.5,
+        80.0
+      ]
+    }
+  },
+  "show": false,
+  "off_screen": true
+}

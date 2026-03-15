@@ -21,8 +21,8 @@ and reuse across workflows.
 ## Notes
 
 - DEM was moved to `data/Brittany/dem/` because the available `regional dem.tif` covers Brittany.
-- Paths in `hydromodpy/field/cases/geology/geology_config.toml` already target
-  this new structure.
+- Geology workflows now live under `hydromodpy/data_managers/geology/`; keep
+  geology config paths aligned with this data layout.
 - This layout is intentionally thematic-first (geology, dem, climate, etc.),
   not format-first (vector/raster/tabular).
 - If a legacy script expects files directly under `data/France/`, update

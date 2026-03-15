@@ -14,30 +14,15 @@ import argparse
 from collections.abc import Mapping
 import json
 from pathlib import Path
-import sys
 import tomllib
 from typing import Any
 
 import numpy as np
 
-
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from hydromodpy.solver.utils.mesh.gmsh_grid import attach_extruded_values
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_case_3d_fieldparam import (
     build_reference_3d_fieldparam_state_from_toml,
 )
-
 
 DEFAULT_CONFIG_FILE = "case_postprocess_3d.toml"
 DEFAULT_SECTION = "case"
@@ -71,7 +56,9 @@ def _resolve_config_path(raw_config: str | Path) -> Path:
     raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
 
 
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
+def _get_nested_section(
+    payload: Mapping[str, Any], dotted_path: str
+) -> Mapping[str, Any]:
     current: Any = payload
     for token in str(dotted_path).split("."):
         if not isinstance(current, Mapping) or token not in current:
@@ -119,9 +106,12 @@ def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[st
             section_cfg.get("reference_3d_fieldparam_section", "case")
         ).strip()
         or "case",
-        "label": str(section_cfg.get("label", "field_param_value")).strip() or "field_param_value",
-        "value_name": str(section_cfg.get("value_name", "field_param_value")).strip() or "field_param_value",
-        "depth_name": str(section_cfg.get("depth_name", "prism_center_depth")).strip() or "prism_center_depth",
+        "label": str(section_cfg.get("label", "field_param_value")).strip()
+        or "field_param_value",
+        "value_name": str(section_cfg.get("value_name", "field_param_value")).strip()
+        or "field_param_value",
+        "depth_name": str(section_cfg.get("depth_name", "prism_center_depth")).strip()
+        or "prism_center_depth",
         "output_summary_json": section_cfg.get("output_summary_json"),
         "output_values_npy": section_cfg.get("output_values_npy"),
         "output_vtu": section_cfg.get("output_vtu"),
@@ -135,8 +125,9 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         stream.write("\n")
 
 
-def _build_summary(*, mesh_with_values, state_3d_fieldparam, value_name: str) -> dict[str, Any]:
-    n_layers = int(mesh_with_values.n_layers)
+def _build_summary(
+    *, mesh_with_values, state_3d_fieldparam, value_name: str
+) -> dict[str, Any]:
     n_cells_2d = int(mesh_with_values.n_cells_2d)
     center_source = int(n_cells_2d // 2)
     layer_zero = mesh_with_values.extract_layer(0, label=f"{value_name}_layer_0")
@@ -145,18 +136,26 @@ def _build_summary(*, mesh_with_values, state_3d_fieldparam, value_name: str) ->
     summary = mesh_with_values.to_summary_dict()
     summary.update(
         {
-            "field_id": str(getattr(state_3d_fieldparam["geology_field"], "identifier", "")),
-            "field_param_id": str(getattr(state_3d_fieldparam["field_param"], "identifier", "")),
-            "field_param_kind": str(getattr(state_3d_fieldparam["field_param"], "kind", "")),
+            "field_id": str(
+                getattr(state_3d_fieldparam["geology_field"], "identifier", "")
+            ),
+            "field_param_id": str(
+                getattr(state_3d_fieldparam["field_param"], "identifier", "")
+            ),
+            "field_param_kind": str(
+                getattr(state_3d_fieldparam["field_param"], "kind", "")
+            ),
             "layer0_signature_head": [
-                round(float(v), 12) for v in np.asarray(layer_zero.cell_values, dtype=float).reshape(-1)[:8]
+                round(float(v), 12)
+                for v in np.asarray(layer_zero.cell_values, dtype=float).reshape(-1)[:8]
             ],
             "center_profile": [round(float(v), 12) for v in center_profile["values"]],
             "center_depth_profile": [
                 round(float(v), 12) for v in center_profile.get("depths", [])
             ],
             "layer_mean_sequence": [
-                round(float(layer_stats["mean"]), 12) for layer_stats in mesh_with_values.layer_stats()
+                round(float(layer_stats["mean"]), 12)
+                for layer_stats in mesh_with_values.layer_stats()
             ],
         }
     )
@@ -181,8 +180,12 @@ def build_reference_3d_postprocess_state_from_toml(
         label=str(cfg["label"]),
         prism_center_depths=result.prism_center_depths,
         metadata={
-            "field_id": str(getattr(state_3d_fieldparam["geology_field"], "identifier", "")),
-            "field_param_id": str(getattr(state_3d_fieldparam["field_param"], "identifier", "")),
+            "field_id": str(
+                getattr(state_3d_fieldparam["geology_field"], "identifier", "")
+            ),
+            "field_param_id": str(
+                getattr(state_3d_fieldparam["field_param"], "identifier", "")
+            ),
         },
     )
     summary = _build_summary(

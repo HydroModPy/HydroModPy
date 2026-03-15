@@ -33,8 +33,12 @@ def test_gmsh_mesh_data_rejects_mixed_cell_types_for_one_planar_mesh():
             dtype=float,
         ),
         cell_blocks=(
-            GmshCellBlock(cell_type="triangle", connectivity=np.array([[0, 1, 2]], dtype=int)),
-            GmshCellBlock(cell_type="quad", connectivity=np.array([[0, 1, 2, 3]], dtype=int)),
+            GmshCellBlock(
+                cell_type="triangle", connectivity=np.array([[0, 1, 2]], dtype=int)
+            ),
+            GmshCellBlock(
+                cell_type="quad", connectivity=np.array([[0, 1, 2, 3]], dtype=int)
+            ),
         ),
     )
 

@@ -607,6 +607,7 @@
       "layers/layer_03_comparison.png"
     ],
     "vertical_profiles_figure": "vertical_profiles_comparison.png",
+    "comparison_overview_figure": "comparison_overview.png",
     "shared_bounds_xy": [
       350000.0,
       6710000.0,

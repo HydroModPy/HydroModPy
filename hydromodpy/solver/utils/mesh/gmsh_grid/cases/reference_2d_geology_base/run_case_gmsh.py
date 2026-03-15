@@ -14,47 +14,15 @@ import argparse
 from collections.abc import Mapping
 import json
 from pathlib import Path
-import sys
 import tomllib
 from typing import Any
 
-import matplotlib
 import geopandas as gpd
+from matplotlib import pyplot as plt
+from matplotlib.colors import ListedColormap
 import matplotlib.ticker as mticker
 import numpy as np
 from shapely.geometry import box
-
-
-def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
-    if "--no-show-plot" in argv:
-        return
-    backend = str(matplotlib.get_backend()).strip().lower()
-    if ("inline" not in backend) and ("agg" not in backend):
-        return
-    for candidate in ("TkAgg", "QtAgg"):
-        try:
-            matplotlib.use(candidate, force=True)
-            return
-        except Exception:
-            continue
-
-
-_configure_matplotlib_backend_from_argv(sys.argv[1:])
-
-from matplotlib import pyplot as plt
-
-
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.data_managers.geology.geology_config import validate_geology_config_data
 from hydromodpy.data_managers.geology.geology_field import GeologyField
@@ -64,6 +32,12 @@ from hydromodpy.field.core.field_param_config import (
     validate_resolved_field_param_data,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
+from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
+    ensure_interactive_backend_for_show,
+)
+from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
+
+plt.switch_backend("Agg")
 
 
 DEFAULT_CONFIG_FILE = "case_config_gmsh.toml"
@@ -112,7 +86,9 @@ def _parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
+def _get_nested_section(
+    payload: Mapping[str, Any], dotted_path: str
+) -> Mapping[str, Any]:
     current: Any = payload
     for token in str(dotted_path).split("."):
         if not isinstance(current, Mapping) or token not in current:
@@ -130,20 +106,26 @@ def _resolve_relative_path(raw_path: str | Path, *, base_dir: Path) -> str:
     return str(path)
 
 
-def _resolve_optional_mapping_path(payload: dict[str, Any], *, key: str, base_dir: Path) -> None:
+def _resolve_optional_mapping_path(
+    payload: dict[str, Any], *, key: str, base_dir: Path
+) -> None:
     raw = payload.get(key)
     if raw is None:
         return
     payload[key] = _resolve_relative_path(raw, base_dir=base_dir)
 
 
-def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
+def _resolve_geology_paths(
+    payload: Mapping[str, Any], *, base_dir: Path
+) -> dict[str, Any]:
     out = dict(payload)
     source = out.get("source")
     if isinstance(source, Mapping):
         source_data = dict(source)
         _resolve_optional_mapping_path(source_data, key="path", base_dir=base_dir)
-        _resolve_optional_mapping_path(source_data, key="reference_raster_path", base_dir=base_dir)
+        _resolve_optional_mapping_path(
+            source_data, key="reference_raster_path", base_dir=base_dir
+        )
         out["source"] = source_data
 
     landsea = out.get("landsea")
@@ -152,7 +134,9 @@ def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dic
     return out
 
 
-def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
+def _resolve_field_param_paths(
+    payload: Mapping[str, Any], *, base_dir: Path
+) -> dict[str, Any]:
     out = dict(payload)
     heterogeneous = out.get("field_heterogeneous")
     if not isinstance(heterogeneous, Mapping):
@@ -168,7 +152,9 @@ def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) ->
     return out
 
 
-def _resolve_mesh_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
+def _resolve_mesh_paths(
+    payload: Mapping[str, Any], *, base_dir: Path
+) -> dict[str, Any]:
     out = dict(payload)
     _resolve_optional_mapping_path(out, key="path", base_dir=base_dir)
     return out
@@ -196,8 +182,12 @@ def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[st
     payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
     section_cfg = dict(_get_nested_section(payload, section))
 
-    mesh_cfg = _resolve_mesh_paths(dict(section_cfg.get("mesh", {})), base_dir=config_toml.parent)
-    geology_cfg = _resolve_geology_paths(dict(section_cfg.get("geology", {})), base_dir=config_toml.parent)
+    mesh_cfg = _resolve_mesh_paths(
+        dict(section_cfg.get("mesh", {})), base_dir=config_toml.parent
+    )
+    geology_cfg = _resolve_geology_paths(
+        dict(section_cfg.get("geology", {})), base_dir=config_toml.parent
+    )
     field_param_cfg = _resolve_field_param_paths(
         dict(section_cfg.get("field_param", {})),
         base_dir=config_toml.parent,
@@ -218,7 +208,9 @@ def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[st
             else max(2, int(section_cfg["cell_samples_per_axis"]))
         ),
         "depth": float(section_cfg.get("depth", 0.0)),
-        "strict_field_spatial_id_match": bool(section_cfg.get("strict_field_spatial_id_match", True)),
+        "strict_field_spatial_id_match": bool(
+            section_cfg.get("strict_field_spatial_id_match", True)
+        ),
         "output_figure": section_cfg.get("output_figure"),
         "output_summary_json": section_cfg.get("output_summary_json"),
     }
@@ -253,8 +245,10 @@ def _select_name_field(gdf, *, code_field: str) -> str | None:
     return None
 
 
-def _build_zone_name_by_key(gdf, *, code_field: str, name_field: str | None) -> dict[str, str]:
-    keys = gdf[code_field].astype(str).str.strip()
+def _build_zone_name_by_key(
+    gdf, *, code_field: str, name_field: str | None
+) -> dict[str, str]:
+    keys = gdf[code_field].map(_normalize_zone_key)
     unique_keys = sorted(np.unique(keys.to_numpy()).tolist())
     if name_field is None:
         return {key: key for key in unique_keys}
@@ -262,12 +256,27 @@ def _build_zone_name_by_key(gdf, *, code_field: str, name_field: str | None) -> 
     out: dict[str, str] = {}
     for key in unique_keys:
         names = gdf.loc[keys == key, name_field].astype(str).str.strip()
-        names = names[(names != "") & (names.str.lower() != "nan") & (names.str.lower() != "none")]
+        names = names[
+            (names != "") & (names.str.lower() != "nan") & (names.str.lower() != "none")
+        ]
         out[key] = str(names.value_counts().index[0]) if not names.empty else key
     return out
 
 
-def _add_zone_cartouches(ax, entries: list[tuple[tuple[float, float, float, float], str]]) -> int:
+def _normalize_zone_key(raw: object) -> str:
+    if isinstance(raw, (int, np.integer)):
+        return str(int(raw))
+    if isinstance(raw, (float, np.floating)):
+        value = float(raw)
+        if np.isfinite(value) and value.is_integer():
+            return str(int(value))
+        return str(value)
+    return str(raw).strip()
+
+
+def _add_zone_cartouches(
+    ax, entries: list[tuple[tuple[float, float, float, float], str]]
+) -> int:
     if not entries:
         return 0
     max_entries = 10
@@ -304,14 +313,29 @@ def _add_zone_cartouches(ax, entries: list[tuple[tuple[float, float, float, floa
     return n_rows
 
 
-def _draw_mesh_edges(ax, mesh: GmshPlanarMesh2D, *, color: str = "0.25", lw: float = 0.35) -> None:
+def _draw_mesh_edges(
+    ax, mesh: GmshPlanarMesh2D, *, color: str = "0.25", lw: float = 0.35
+) -> None:
     for cell in mesh.cells:
         vertices = np.asarray(cell.vertices, dtype=float)
         closed = np.vstack((vertices, vertices[0]))
         ax.plot(closed[:, 0], closed[:, 1], color=color, lw=lw, alpha=0.70)
 
 
-def _plot_left_raw_geology(ax, *, geology_cfg: Mapping[str, Any], geology_field: GeologyField, mesh) -> list[tuple[tuple[float, float, float, float], str]]:
+def _plot_left_raw_geology(
+    ax,
+    *,
+    geology_cfg: Mapping[str, Any],
+    geology_field: GeologyField,
+    mesh,
+    return_zone_colors: bool = False,
+) -> (
+    list[tuple[tuple[float, float, float, float], str]]
+    | tuple[
+        list[tuple[tuple[float, float, float, float], str]],
+        dict[str, tuple[float, float, float, float]],
+    ]
+):
     source_cfg = dict(geology_cfg.get("source", {}))
     source_kind = str(source_cfg.get("kind", "auto")).strip().lower()
     source_path = Path(str(source_cfg.get("path", "")))
@@ -324,13 +348,14 @@ def _plot_left_raw_geology(ax, *, geology_cfg: Mapping[str, Any], geology_field:
     mesh_bbox = box(xmin, ymin, xmax, ymax)
 
     cartouches: list[tuple[tuple[float, float, float, float], str]] = []
+    zone_color_by_key: dict[str, tuple[float, float, float, float]] = {}
     plotted = False
     if source_kind in {"vector", "auto"} and source_path.exists():
         gdf = gpd.read_file(source_path)
         if not gdf.empty and code_field in gdf.columns:
             gdf_sel = gdf[gdf.intersects(mesh_bbox)].copy()
             if not gdf_sel.empty:
-                zone = gdf_sel[code_field].astype(str).str.strip()
+                zone = gdf_sel[code_field].map(_normalize_zone_key)
                 unique_keys = sorted(np.unique(zone.to_numpy()).tolist())
                 key_to_idx = {key: idx for idx, key in enumerate(unique_keys)}
                 gdf_plot = gdf_sel.copy()
@@ -354,21 +379,33 @@ def _plot_left_raw_geology(ax, *, geology_cfg: Mapping[str, Any], geology_field:
                 denom = max(float(len(unique_keys) - 1), 1.0)
                 for key in unique_keys:
                     idx = key_to_idx[key]
-                    cartouches.append((cmap_geo(float(idx) / denom), f"{zone_name_by_key.get(key, key)} [{key}]"))
+                    rgba = cmap_geo(float(idx) / denom)
+                    zone_color_by_key[key] = rgba
+                    cartouches.append(
+                        (rgba, f"{zone_name_by_key.get(key, key)} [{key}]")
+                    )
                 plotted = True
 
     if not plotted:
         geology_codes = np.asarray(geology_field.encoded_codes, dtype=float)
         geology_masked = np.ma.masked_where(geology_codes <= 0, geology_codes)
+        unique_codes = np.unique(
+            np.asarray(geology_codes[geology_codes > 0], dtype=int)
+        )
+        n_classes = max(1, int(unique_codes.size))
+        cmap_geo = plt.get_cmap("tab20", min(20, n_classes))
         img = ax.imshow(
             geology_masked,
             origin="lower",
             extent=[xmin, xmax, ymin, ymax],
-            cmap=plt.get_cmap("tab20"),
+            cmap=cmap_geo,
             interpolation="nearest",
             aspect="equal",
         )
         _ = img
+        denom = max(float(len(unique_codes) - 1), 1.0)
+        for idx, code in enumerate(unique_codes):
+            zone_color_by_key[_normalize_zone_key(code)] = cmap_geo(float(idx) / denom)
 
     _draw_mesh_edges(ax, mesh, color="0.15", lw=0.30)
     ax.set_title("Raw geology + Gmsh mesh", fontsize=9)
@@ -379,13 +416,24 @@ def _plot_left_raw_geology(ax, *, geology_cfg: Mapping[str, Any], geology_field:
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
     _disable_axis_offset(ax)
+    if return_zone_colors:
+        return cartouches, zone_color_by_key
     return cartouches
 
 
-def _dominant_zone_indices(field_discretization) -> tuple[np.ndarray, tuple[str, ...], int, int]:
-    zone_keys, fractions_by_zone = field_discretization.weighted_components()
+def _dominant_zone_indices(
+    field_discretization,
+) -> tuple[np.ndarray, tuple[str, ...], int, int]:
+    zone_keys_raw, fractions_by_zone = field_discretization.weighted_components()
+    zone_keys = tuple(_normalize_zone_key(key) for key in zone_keys_raw)
     stack = np.vstack(
-        [np.asarray(field_discretization.mesh.to_cell_values(fractions_by_zone[key]), dtype=float).reshape(-1) for key in zone_keys]
+        [
+            np.asarray(
+                field_discretization.mesh.to_cell_values(fractions_by_zone[key]),
+                dtype=float,
+            ).reshape(-1)
+            for key in zone_keys_raw
+        ]
     )
     max_fraction = np.nanmax(stack, axis=0)
     dominant_idx = np.argmax(stack, axis=0).astype(float)
@@ -393,28 +441,49 @@ def _dominant_zone_indices(field_discretization) -> tuple[np.ndarray, tuple[str,
     dominant_idx[~valid] = np.nan
     mixed = int(np.count_nonzero(valid & (max_fraction < 0.999999)))
     undefined = int(np.count_nonzero(~valid))
-    return dominant_idx, tuple(zone_keys), mixed, undefined
+    return dominant_idx, zone_keys, mixed, undefined
 
 
-def _plot_center_mesh_geology(ax, *, field_discretization, fig) -> tuple[tuple[str, ...], int, int]:
-    dominant_idx, zone_keys, mixed_count, undefined_count = _dominant_zone_indices(field_discretization)
+def _plot_center_mesh_geology(
+    ax,
+    *,
+    field_discretization,
+    zone_color_by_key: Mapping[str, tuple[float, float, float, float]] | None = None,
+    fig,
+) -> tuple[tuple[str, ...], int, int]:
+    dominant_idx, zone_keys, mixed_count, undefined_count = _dominant_zone_indices(
+        field_discretization
+    )
     mesh = field_discretization.mesh
-    n_colors = max(2, min(20, len(zone_keys)))
-    cmap = plt.get_cmap("tab20", n_colors)
+    fallback_cmap = plt.get_cmap("tab20", max(2, min(20, len(zone_keys))))
+    denom = max(float(len(zone_keys) - 1), 1.0)
+    zone_colors = [
+        (
+            zone_color_by_key.get(key, fallback_cmap(float(idx) / denom))
+            if zone_color_by_key is not None
+            else fallback_cmap(float(idx) / denom)
+        )
+        for idx, key in enumerate(zone_keys)
+    ]
     mappable = mesh.plot_cell_values(
         ax,
         dominant_idx,
-        cmap=cmap,
+        cmap=ListedColormap(zone_colors),
         show_mesh=True,
-        vmin=0.0,
-        vmax=max(float(len(zone_keys) - 1), 1.0),
+        vmin=-0.5,
+        vmax=(0.5 if len(zone_keys) == 1 else float(len(zone_keys) - 0.5)),
     )
     cbar = fig.colorbar(mappable, ax=ax, shrink=0.72, pad=0.02)
-    cbar.set_label("dominant geology index", fontsize=7)
+    cbar.set_label("dominant geology zone on Gmsh mesh", fontsize=7)
     cbar.ax.tick_params(labelsize=6)
+    if len(zone_keys) <= 12:
+        cbar.set_ticks(np.arange(len(zone_keys), dtype=float))
+        cbar.set_ticklabels(zone_keys)
+    else:
+        cbar.set_ticks([])
 
     ax.set_title(
-        f"Geology discretized on Gmsh mesh\nmixed={mixed_count} | undefined={undefined_count}",
+        f"Geology discretized on Gmsh mesh (left colors)\nmixed={mixed_count} | undefined={undefined_count}",
         fontsize=9,
     )
     ax.set_xlabel("x [m]", fontsize=7)
@@ -425,7 +494,9 @@ def _plot_center_mesh_geology(ax, *, field_discretization, fig) -> tuple[tuple[s
 
 
 def _plot_right_field_values(ax, *, mesh, mesh_values, fig) -> None:
-    values = np.asarray(mesh.to_cell_values(mesh_values.cell_values), dtype=float).reshape(-1)
+    values = np.asarray(
+        mesh.to_cell_values(mesh_values.cell_values), dtype=float
+    ).reshape(-1)
     mappable = mesh.plot_cell_values(ax, values, cmap="viridis", show_mesh=True)
     cbar = fig.colorbar(mappable, ax=ax, shrink=0.72, pad=0.02)
     cbar.set_label("field parameter value", fontsize=7)
@@ -452,6 +523,7 @@ def _show_figures_blocking(*figures) -> None:
             fig.show()
         except Exception:
             continue
+    maximize_figure_windows(*visible)
     plt.pause(0.05)
     plt.show(block=True)
     for fig in visible:
@@ -473,14 +545,19 @@ def _build_summary(
     field_discretization,
     mesh_values,
 ) -> dict[str, Any]:
-    zone_keys, fractions_by_zone = field_discretization.weighted_components()
-    dominant_idx, _zone_keys, mixed_count, undefined_count = _dominant_zone_indices(field_discretization)
+    dominant_idx, zone_keys, mixed_count, undefined_count = _dominant_zone_indices(
+        field_discretization
+    )
     valid_mask = np.isfinite(dominant_idx)
     dominant_counts: dict[str, int] = {}
     for idx, zone_key in enumerate(zone_keys):
-        dominant_counts[str(zone_key)] = int(np.count_nonzero(dominant_idx[valid_mask] == float(idx)))
+        dominant_counts[zone_key] = int(
+            np.count_nonzero(dominant_idx[valid_mask] == float(idx))
+        )
 
-    values = np.asarray(mesh.to_cell_values(mesh_values.cell_values), dtype=float).reshape(-1)
+    values = np.asarray(
+        mesh.to_cell_values(mesh_values.cell_values), dtype=float
+    ).reshape(-1)
     return {
         "mesh_kind": str(mesh.kind),
         "cell_type": str(mesh.cell_type),
@@ -526,13 +603,19 @@ def _build_reference_case_figure(
     mesh_values,
 ):
     fig, axes = plt.subplots(1, 3, figsize=(24.0, 9.4), dpi=150)
-    cartouches = _plot_left_raw_geology(
+    cartouches, zone_color_by_key = _plot_left_raw_geology(
         axes[0],
         geology_cfg=cfg["geology"],
         geology_field=geology_field,
         mesh=mesh,
+        return_zone_colors=True,
     )
-    _plot_center_mesh_geology(axes[1], field_discretization=field_discretization, fig=fig)
+    _plot_center_mesh_geology(
+        axes[1],
+        field_discretization=field_discretization,
+        zone_color_by_key=zone_color_by_key,
+        fig=fig,
+    )
     _plot_right_field_values(axes[2], mesh=mesh, mesh_values=mesh_values, fig=fig)
     n_cartouche_rows = _add_zone_cartouches(axes[0], cartouches)
     fig.suptitle(
@@ -557,16 +640,25 @@ def build_reference_case_state_from_toml(
     if bool(cfg["strict_field_spatial_id_match"]) and field_param.is_heterogeneous:
         required_field_id = str(getattr(field_param, "field_spatial_id", "")).strip()
         support_field_id = str(getattr(geology_field, "identifier", "")).strip()
-        if required_field_id and support_field_id and required_field_id != support_field_id:
+        if (
+            required_field_id
+            and support_field_id
+            and required_field_id != support_field_id
+        ):
             raise ValueError(
                 "field_param.field_spatial_id does not match geology identifier: "
                 f"{required_field_id!r} != {support_field_id!r}"
             )
 
     mesh = build_reference_mesh_from_toml(config_path, section=section)
-    n_sub = int(cfg["cell_samples_per_axis"] or getattr(geology_field, "default_cell_samples_per_axis", 8))
+    n_sub = int(
+        cfg["cell_samples_per_axis"]
+        or getattr(geology_field, "default_cell_samples_per_axis", 8)
+    )
     field_discretization = geology_field.on_mesh(mesh, cell_samples_per_axis=n_sub)
-    mesh_values = field_param.to_mesh_field(field_discretization, depth=float(cfg["depth"]))
+    mesh_values = field_param.to_mesh_field(
+        field_discretization, depth=float(cfg["depth"])
+    )
     summary = _build_summary(
         mesh=mesh,
         geology_field=geology_field,
@@ -615,7 +707,9 @@ def run_reference_case_from_toml(
     summary = dict(state["summary"])
 
     fig = None
-    if figure_path is not None:
+    if figure_path is not None or show_plot:
+        if show_plot:
+            ensure_interactive_backend_for_show()
         fig = _build_reference_case_figure(
             cfg=cfg,
             geology_field=geology_field,
@@ -623,8 +717,9 @@ def run_reference_case_from_toml(
             field_discretization=field_discretization,
             mesh_values=mesh_values,
         )
-        fig.savefig(figure_path)
-        summary["output_figure"] = str(figure_path)
+        if figure_path is not None:
+            fig.savefig(figure_path)
+            summary["output_figure"] = str(figure_path)
 
     if summary_path is not None:
         _write_json(summary_path, summary)

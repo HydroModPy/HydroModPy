@@ -7,7 +7,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_
     run_reference_case_from_toml,
 )
 
-
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "reference_2d_geology_base_signature.json"
 CASE_TOML = (

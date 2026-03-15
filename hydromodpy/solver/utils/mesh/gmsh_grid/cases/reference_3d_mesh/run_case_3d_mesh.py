@@ -15,30 +15,15 @@ import argparse
 from collections.abc import Mapping
 import json
 from pathlib import Path
-import sys
 import tomllib
 from typing import Any
 
 import numpy as np
 
-
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from hydromodpy.solver.utils.mesh.gmsh_grid import ExtrudedPrismMesh3D
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
     build_reference_mesh_from_toml,
 )
-
 
 DEFAULT_CONFIG_FILE = "case_config_3d_mesh.toml"
 DEFAULT_SECTION = "case"
@@ -71,7 +56,9 @@ def _resolve_config_path(raw_config: str | Path) -> Path:
     raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
 
 
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
+def _get_nested_section(
+    payload: Mapping[str, Any], dotted_path: str
+) -> Mapping[str, Any]:
     current: Any = payload
     for token in str(dotted_path).split("."):
         if not isinstance(current, Mapping) or token not in current:
@@ -110,12 +97,21 @@ def _resolve_optional_output_path(
 def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[str, Any]:
     payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
     section_cfg = dict(_get_nested_section(payload, section))
-    layer_thicknesses = np.asarray(section_cfg.get("layer_thicknesses", []), dtype=float).reshape(-1)
+    layer_thicknesses = np.asarray(
+        section_cfg.get("layer_thicknesses", []), dtype=float
+    ).reshape(-1)
     if layer_thicknesses.size == 0:
-        raise ValueError("layer_thicknesses cannot be empty for the 3D reference mesh case")
+        raise ValueError(
+            "layer_thicknesses cannot be empty for the 3D reference mesh case"
+        )
     return {
-        "reference_2d_config": _resolve_relative_path(section_cfg["reference_2d_config"], base_dir=config_toml.parent),
-        "reference_2d_section": str(section_cfg.get("reference_2d_section", "case")).strip() or "case",
+        "reference_2d_config": _resolve_relative_path(
+            section_cfg["reference_2d_config"], base_dir=config_toml.parent
+        ),
+        "reference_2d_section": str(
+            section_cfg.get("reference_2d_section", "case")
+        ).strip()
+        or "case",
         "top_z": float(section_cfg.get("top_z", 0.0)),
         "layer_thicknesses": [float(v) for v in layer_thicknesses],
         "output_summary_json": section_cfg.get("output_summary_json"),

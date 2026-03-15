@@ -14,39 +14,11 @@ import argparse
 from collections.abc import Mapping
 import json
 from pathlib import Path
-import sys
 import tomllib
 from typing import Any
 
-import matplotlib
-import numpy as np
-
-
-def _configure_matplotlib_backend_from_argv(argv: list[str]) -> None:
-    # Use a non-interactive backend by default. Interactive display, when
-    # explicitly requested, is handled later through `show_figures_blocking`.
-    try:
-        matplotlib.use("Agg", force=True)
-    except Exception:
-        pass
-
-
-_configure_matplotlib_backend_from_argv(sys.argv[1:])
-
 from matplotlib import pyplot as plt
-plt.switch_backend("Agg")
-
-def _find_repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    return current.parents[0]
-
-
-REPO_ROOT = _find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+import numpy as np
 
 from hydromodpy.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
@@ -65,6 +37,8 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
     maybe_scientific_colorbar,
     show_figures_blocking,
 )
+
+plt.switch_backend("Agg")
 
 
 DEFAULT_CONFIG_FILE = "case_config_3d_fieldparam.toml"
@@ -100,7 +74,9 @@ def _resolve_config_path(raw_config: str | Path) -> Path:
     raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
 
 
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
+def _get_nested_section(
+    payload: Mapping[str, Any], dotted_path: str
+) -> Mapping[str, Any]:
     current: Any = payload
     for token in str(dotted_path).split("."):
         if not isinstance(current, Mapping) or token not in current:
@@ -111,7 +87,9 @@ def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping
     return current
 
 
-def _optional_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any] | None:
+def _optional_nested_section(
+    payload: Mapping[str, Any], dotted_path: str
+) -> Mapping[str, Any] | None:
     try:
         return _get_nested_section(payload, dotted_path)
     except (KeyError, ValueError):
@@ -157,27 +135,41 @@ def _array_stats(arr) -> dict[str, float]:
 def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[str, Any]:
     payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
     section_cfg = dict(_get_nested_section(payload, section))
-    vertical_override = _optional_nested_section(payload, f"{section}.field_param_vertical_profile")
+    vertical_override = _optional_nested_section(
+        payload, f"{section}.field_param_vertical_profile"
+    )
 
     return {
-        "reference_2d_config": _resolve_relative_path(section_cfg["reference_2d_config"], base_dir=config_toml.parent),
-        "reference_2d_section": str(section_cfg.get("reference_2d_section", "case")).strip() or "case",
+        "reference_2d_config": _resolve_relative_path(
+            section_cfg["reference_2d_config"], base_dir=config_toml.parent
+        ),
+        "reference_2d_section": str(
+            section_cfg.get("reference_2d_section", "case")
+        ).strip()
+        or "case",
         "reference_3d_mesh_config": _resolve_relative_path(
             section_cfg["reference_3d_mesh_config"],
             base_dir=config_toml.parent,
         ),
-        "reference_3d_mesh_section": str(section_cfg.get("reference_3d_mesh_section", "case")).strip() or "case",
+        "reference_3d_mesh_section": str(
+            section_cfg.get("reference_3d_mesh_section", "case")
+        ).strip()
+        or "case",
         "depth": float(section_cfg.get("depth", 0.0)),
         "cell_samples_per_axis": (
             None
             if section_cfg.get("cell_samples_per_axis") is None
             else max(2, int(section_cfg["cell_samples_per_axis"]))
         ),
-        "strict_field_spatial_id_match": bool(section_cfg.get("strict_field_spatial_id_match", True)),
+        "strict_field_spatial_id_match": bool(
+            section_cfg.get("strict_field_spatial_id_match", True)
+        ),
         "output_summary_json": section_cfg.get("output_summary_json"),
         "output_values_npy": section_cfg.get("output_values_npy"),
         "output_overview_png": section_cfg.get("output_overview_png"),
-        "field_param_vertical_profile": None if vertical_override is None else dict(vertical_override),
+        "field_param_vertical_profile": (
+            None if vertical_override is None else dict(vertical_override)
+        ),
     }
 
 
@@ -188,7 +180,9 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         stream.write("\n")
 
 
-def _override_field_param_vertical_profile(field_param: FieldParam, vertical_profile: Mapping[str, Any] | None) -> FieldParam:
+def _override_field_param_vertical_profile(
+    field_param: FieldParam, vertical_profile: Mapping[str, Any] | None
+) -> FieldParam:
     if vertical_profile is None:
         return field_param
     payload = field_param.as_dict()
@@ -218,12 +212,20 @@ def _build_summary(*, result, geology_field, field_param) -> dict[str, Any]:
         "stats_2d": _array_stats(values_2d),
         "stats_3d": _array_stats(values_3d),
         "depth_stats": _array_stats(depth_3d),
-        "layer_means": [round(float(np.mean(values_3d[ilay])), 12) for ilay in range(n_layers)],
-        "layer_depth_means": [round(float(np.mean(depth_3d[ilay])), 12) for ilay in range(n_layers)],
+        "layer_means": [
+            round(float(np.mean(values_3d[ilay])), 12) for ilay in range(n_layers)
+        ],
+        "layer_depth_means": [
+            round(float(np.mean(depth_3d[ilay])), 12) for ilay in range(n_layers)
+        ],
         "center_profile": [round(float(v), 12) for v in values_3d[:, center_source]],
-        "center_depth_profile": [round(float(v), 12) for v in depth_3d[:, center_source]],
+        "center_depth_profile": [
+            round(float(v), 12) for v in depth_3d[:, center_source]
+        ],
         "surface_signature_head": [round(float(v), 12) for v in values_2d[:8]],
-        "values_3d_signature_head": [round(float(v), 12) for v in values_3d.reshape(-1)[:8]],
+        "values_3d_signature_head": [
+            round(float(v), 12) for v in values_3d.reshape(-1)[:8]
+        ],
     }
 
 
@@ -257,7 +259,9 @@ def _plot_layer_panel(
         vmin=vmin,
         vmax=vmax,
     )
-    ax.set_title(f"Layer {layer_index + 1}\nmean depth = {layer_depth:.1f} m", fontsize=18)
+    ax.set_title(
+        f"Layer {layer_index + 1}\nmean depth = {layer_depth:.1f} m", fontsize=18
+    )
     ax.set_xlabel("x [m]", fontsize=14)
     ax.set_ylabel("y [m]", fontsize=14)
     ax.tick_params(labelsize=12)
@@ -376,8 +380,12 @@ def _build_reference_3d_fieldparam_figure(
     layer_mins = np.asarray([layer["min"] for layer in layer_stats], dtype=float)
     layer_maxs = np.asarray([layer["max"] for layer in layer_stats], dtype=float)
     ax_means = axes["means"]
-    ax_means.fill_betweenx(layer_depths, layer_mins, layer_maxs, color="#93c5fd", alpha=0.35)
-    ax_means.plot(layer_means, layer_depths, marker="o", color="#1d4ed8", lw=2.2, ms=7.0)
+    ax_means.fill_betweenx(
+        layer_depths, layer_mins, layer_maxs, color="#93c5fd", alpha=0.35
+    )
+    ax_means.plot(
+        layer_means, layer_depths, marker="o", color="#1d4ed8", lw=2.2, ms=7.0
+    )
     ax_means.set_title("Layer mean with min/max envelope", fontsize=18)
     ax_means.set_xlabel("Field parameter value", fontsize=14)
     ax_means.set_ylabel("Depth [m]", fontsize=14)
@@ -393,7 +401,9 @@ def _build_reference_3d_fieldparam_figure(
         "Reference 3D FieldParam discretization overview",
         fontsize=22,
     )
-    fig.subplots_adjust(left=0.05, right=0.985, top=0.92, bottom=0.07, wspace=0.22, hspace=0.24)
+    fig.subplots_adjust(
+        left=0.05, right=0.985, top=0.92, bottom=0.07, wspace=0.22, hspace=0.24
+    )
     return fig
 
 
@@ -437,7 +447,9 @@ def build_reference_3d_fieldparam_state_from_toml(
             "field_param_id": str(getattr(field_param, "identifier", "")),
         },
     )
-    summary = _build_summary(result=result, geology_field=geology_field, field_param=field_param)
+    summary = _build_summary(
+        result=result, geology_field=geology_field, field_param=field_param
+    )
     return {
         "config_path": config_path,
         "config": cfg,

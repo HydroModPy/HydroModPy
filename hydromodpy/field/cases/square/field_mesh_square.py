@@ -14,8 +14,11 @@ from hydromodpy.field.meshes import (
     TriangularUnstructuredFieldMesh,
 )
 
-
-SUPPORTED_MESH_KINDS = ("structured", "triangular_structured", "triangular_unstructured")
+SUPPORTED_MESH_KINDS = (
+    "structured",
+    "triangular_structured",
+    "triangular_unstructured",
+)
 
 
 def _build_unit_square_grid(n_grid: int):

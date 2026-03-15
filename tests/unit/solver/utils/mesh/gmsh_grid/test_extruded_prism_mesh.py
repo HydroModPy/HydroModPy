@@ -44,9 +44,15 @@ def test_extruded_triangle_mesh_counts_bounds_and_mapping():
     assert np.allclose(mesh_3d.layer_centers_z, np.array([9.0, 6.5], dtype=float))
 
     assert np.array_equal(mesh_3d.layer_indices, np.array([0, 0, 1, 1], dtype=int))
-    assert np.array_equal(mesh_3d.source_cell_indices, np.array([0, 1, 0, 1], dtype=int))
-    assert np.array_equal(mesh_3d.prism_connectivity[0], np.array([0, 1, 2, 4, 5, 6], dtype=int))
-    assert np.array_equal(mesh_3d.prism_connectivity[2], np.array([4, 5, 6, 8, 9, 10], dtype=int))
+    assert np.array_equal(
+        mesh_3d.source_cell_indices, np.array([0, 1, 0, 1], dtype=int)
+    )
+    assert np.array_equal(
+        mesh_3d.prism_connectivity[0], np.array([0, 1, 2, 4, 5, 6], dtype=int)
+    )
+    assert np.array_equal(
+        mesh_3d.prism_connectivity[2], np.array([4, 5, 6, 8, 9, 10], dtype=int)
+    )
 
     prisms = mesh_3d.prisms
     assert len(prisms) == 4

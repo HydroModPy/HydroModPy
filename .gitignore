@@ -144,6 +144,7 @@ pytest_tmp_local/
 validation_cases/**/.__validation_runtime_*.toml
 reports/
 reports*/
+timing_reports/
 hydromodpy.egg-info/
 _profile_launcher_*/
 _profiling_out/

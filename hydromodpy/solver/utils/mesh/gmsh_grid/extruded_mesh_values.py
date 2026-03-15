@@ -51,7 +51,9 @@ def _reshape_flat_values(mesh_3d: ExtrudedPrismMesh3D, flat_values) -> np.ndarra
     flat_arr = np.asarray(flat_values, dtype=float).reshape(-1)
     if flat_arr.size != mesh_3d.n_prisms:
         raise ValueError("Flat prism values must contain exactly one value per prism")
-    values_3d = np.full((mesh_3d.n_layers, mesh_3d.planar_mesh.n_cells), np.nan, dtype=float)
+    values_3d: np.ndarray[Any, Any] = np.full(
+        (mesh_3d.n_layers, mesh_3d.planar_mesh.n_cells), np.nan, dtype=float
+    )
     for prism_idx, (layer_idx, source_idx) in enumerate(
         zip(mesh_3d.layer_indices, mesh_3d.source_cell_indices, strict=True)
     ):
@@ -76,7 +78,9 @@ class ExtrudedPrismMeshWithValues:
     def __post_init__(self) -> None:
         if not isinstance(self.mesh, ExtrudedPrismMesh3D):
             raise TypeError("mesh must be an ExtrudedPrismMesh3D instance")
-        values_3d = np.asarray(self.mesh.to_prism_values(self.values_3d), dtype=float)
+        values_3d: np.ndarray[Any, Any] = np.asarray(
+            self.mesh.to_prism_values(self.values_3d), dtype=float
+        )
         prism_center_depths = None
         if self.prism_center_depths is not None:
             prism_center_depths = np.asarray(
@@ -107,7 +111,7 @@ class ExtrudedPrismMeshWithValues:
 
     @property
     def flat_values(self) -> np.ndarray:
-        flat = np.empty(self.n_cells_3d, dtype=float)
+        flat: np.ndarray[Any, Any] = np.empty(self.n_cells_3d, dtype=float)
         for prism_idx, (layer_idx, source_idx) in enumerate(
             zip(self.mesh.layer_indices, self.mesh.source_cell_indices, strict=True)
         ):
@@ -118,19 +122,23 @@ class ExtrudedPrismMeshWithValues:
     def flat_prism_center_depths(self) -> np.ndarray | None:
         if self.prism_center_depths is None:
             return None
-        flat = np.empty(self.n_cells_3d, dtype=float)
+        flat: np.ndarray[Any, Any] = np.empty(self.n_cells_3d, dtype=float)
         for prism_idx, (layer_idx, source_idx) in enumerate(
             zip(self.mesh.layer_indices, self.mesh.source_cell_indices, strict=True)
         ):
-            flat[prism_idx] = float(self.prism_center_depths[int(layer_idx), int(source_idx)])
+            flat[prism_idx] = float(
+                self.prism_center_depths[int(layer_idx), int(source_idx)]
+            )
         return flat
 
     def extract_layer(self, layer_index: int, *, label: str | None = None):
         layer_idx = int(layer_index)
         if layer_idx < 0 or layer_idx >= self.n_layers:
             raise IndexError(f"layer_index out of range: {layer_idx}")
-        layer_label = label if label is not None else (
-            None if self.label is None else f"{self.label}_layer_{layer_idx}"
+        layer_label = (
+            label
+            if label is not None
+            else (None if self.label is None else f"{self.label}_layer_{layer_idx}")
         )
         return self.mesh.planar_mesh.attach_cell_values(
             self.values_3d[layer_idx, :],
@@ -149,7 +157,10 @@ class ExtrudedPrismMeshWithValues:
         }
         if self.prism_center_depths is not None:
             profile["depths"] = [
-                float(v) for v in np.asarray(self.prism_center_depths[:, source_idx], dtype=float)
+                float(v)
+                for v in np.asarray(
+                    self.prism_center_depths[:, source_idx], dtype=float
+                )
             ]
         return profile
 
@@ -157,7 +168,10 @@ class ExtrudedPrismMeshWithValues:
         return _array_stats(self.values_3d)
 
     def layer_stats(self) -> list[dict[str, float]]:
-        return [_array_stats(self.values_3d[layer_idx, :]) for layer_idx in range(self.n_layers)]
+        return [
+            _array_stats(self.values_3d[layer_idx, :])
+            for layer_idx in range(self.n_layers)
+        ]
 
     def to_summary_dict(self) -> dict[str, Any]:
         summary = {
@@ -181,12 +195,17 @@ class ExtrudedPrismMeshWithValues:
             ],
         }
         if self.prism_center_depths is not None:
+            flat_depths = self.flat_prism_center_depths
+            if flat_depths is None:
+                raise ValueError(
+                    "flat_prism_center_depths should be available when prism_center_depths is set"
+                )
             summary["depth_stats"] = {
                 key: round(float(value), 12)
                 for key, value in _array_stats(self.prism_center_depths).items()
             }
             summary["depth_signature_head"] = [
-                round(float(v), 12) for v in self.flat_prism_center_depths[:8]
+                round(float(v), 12) for v in flat_depths[:8]
             ]
         if self.metadata is not None:
             summary["metadata"] = dict(self.metadata)
@@ -201,7 +220,9 @@ class ExtrudedPrismMeshWithValues:
         mesh = self.mesh.to_meshio()
         mesh.cell_data[str(value_name)] = [np.asarray(self.flat_values, dtype=float)]
         if self.prism_center_depths is not None:
-            mesh.cell_data[str(depth_name)] = [np.asarray(self.flat_prism_center_depths, dtype=float)]
+            mesh.cell_data[str(depth_name)] = [
+                np.asarray(self.flat_prism_center_depths, dtype=float)
+            ]
         return mesh
 
     def to_file(

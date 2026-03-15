@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<!--This file was created by meshio v5.3.5-->
+<UnstructuredGrid>
+<Piece NumberOfPoints="12" NumberOfCells="4">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="binary">
+AQAAAACAAAAgAQAAMAAAAA==eJxjYMAHPtjjFyckjwtwHMCuDl0cRsPE0c1HF4cBBRzmo4vDaJg4uvkKBwCPqxTV
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAADAAAAAMgAAAA==eJxjYIAAJijNCKVZoDQblGZlQAXMaPpg6tnR9OEyhwNKc0FpTgLmwNRzo+kDACZgAIE=
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAAAgAAAAEwAAAA==eJxjY4AAHigtBKUloDQAA+AAPQ==
+</DataArray>
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAAAgAAAADgAAAA==eJzjZYAAXhw0AAQwADU=
+</DataArray>
+</Cells>
+<PointData>
+<DataArray type="Int64" Name="hydromodpy_point_layer_index" format="binary">
+AQAAAACAAABgAAAAEQAAAA==eJxjYMAPGAnQTARoAAHQAA0=
+</DataArray>
+<DataArray type="Int64" Name="hydromodpy_point_base_index" format="binary">
+AQAAAACAAABgAAAAFgAAAA==eJxjYIAARijNBKWZGVABufIAA5AAEw==
+</DataArray>
+</PointData>
+<CellData>
+<DataArray type="Int64" Name="hydromodpy_cell_layer_index" format="binary">
+AQAAAACAAAAgAAAADgAAAA==eJxjYEAFjGg0AAA4AAM=
+</DataArray>
+<DataArray type="Int64" Name="hydromodpy_cell_source_index" format="binary">
+AQAAAACAAAAgAAAAEQAAAA==eJxjYIAARgZUAOMDAABAAAM=
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
