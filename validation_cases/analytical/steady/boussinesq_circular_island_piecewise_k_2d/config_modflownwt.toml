@@ -49,15 +49,13 @@ type = "flat_substratum"
 substratum_elevation = -5.0
 
 [data]
-types = ["oceanic"]
+types = ["oceanic", "recharge"]
 inference_mode = "strict"
 
 [data.oceanic]
-oceanic_path = "../../../../examples/launcher_data_overtiew/data"
-msl_source = "local"
-msl_local_csv = "ocean_msl_local.csv"
-msl_use_simulation_time_window = true
-msl_default = 0.0
+[[data.oceanic.sources]]
+source = "constant"
+value = 0.0
 
 [flow]
 flow_regime = "steady"
@@ -85,12 +83,9 @@ value = "0.0 m"
 [flow.sinks_sources.recharge]
 first_clim = "mean"
 
-[recharge_chronicle]
-mode = "synthetic_generated"
-
-[recharge_chronicle.synthetic_generated]
-values = "1.0 mm/day"
-units = "mm/day"
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.0]
 runoff_ratio = 0.0
 
 [modflownwt.sgrid.planar]

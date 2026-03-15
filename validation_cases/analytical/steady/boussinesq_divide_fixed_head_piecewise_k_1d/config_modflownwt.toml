@@ -67,12 +67,13 @@ value = "5.0 m"
 [flow.sinks_sources.recharge]
 first_clim = "mean"
 
-[recharge_chronicle]
-mode = "synthetic_generated"
+[data]
+types = ["recharge"]
+inference_mode = "warn"
 
-[recharge_chronicle.synthetic_generated]
-values = "1.0 mm/day"
-units = "mm/day"
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.0]
 runoff_ratio = 0.0
 
 [modflownwt.sgrid.planar]

@@ -83,14 +83,18 @@ value = "10.0 m"
 first_clim = "mean"
 negative_to_evt = true
 
-[recharge_chronicle]
-mode = "synthetic_csv"
+[data]
+types = ["recharge"]
+inference_mode = "warn"
 
-[recharge_chronicle.synthetic_csv]
-path_file = "recharge_periodic.csv"
-date_column = "date"
-recharge_column = "recharge_mm_day"
-units = "mm/day"
+[[data.recharge.sources]]
+source = "synthetic"
+values = [5.0]
+amplitude = 5.0
+period_days = 10
+start_date = "2003-01-01"
+freq = "D"
+periods = 40
 runoff_ratio = 0.0
 
 [modflownwt.sgrid.planar]
