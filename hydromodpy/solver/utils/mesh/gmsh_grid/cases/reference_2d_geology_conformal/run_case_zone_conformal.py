@@ -138,15 +138,47 @@ def _resolve_river_trace_for_meshing(
     *,
     river_trace: object | None,
     domain_geographic: object | None,
+    rivers_cfg: Mapping[str, Any] | None,
+    config_path: Path,
 ) -> object | None:
     """Resolve the in-memory river trace payload passed to the mesher.
 
     Priority order:
     1. explicit ``river_trace`` argument,
-    2. ``domain_geographic.river_mesh_trace`` when present.
+    2. source configured in ``[<section>.rivers]``.
     """
     if river_trace is not None:
         return river_trace
+    cfg = dict(rivers_cfg or {})
+    source = str(cfg.get("source", "domain_geographic")).strip().lower()
+
+    if source == "file":
+        raw_path = cfg.get("path")
+        if raw_path is None:
+            return None
+        file_path = Path(str(raw_path)).expanduser()
+        if not file_path.is_absolute():
+            file_path = (config_path.parent / file_path).resolve()
+        if not file_path.exists():
+            return None
+        try:
+            return build_river_mesh_trace_from_vector(
+                vector_path=file_path,
+                source_kind="file",
+                clip_polygon_path=None,
+            )
+        except Exception:
+            try:
+                rivers = gpd.read_file(str(file_path))
+                if rivers.empty:
+                    return None
+                rivers = rivers[_valid_geometry_mask(rivers.geometry)].copy()
+                if rivers.empty:
+                    return None
+                return SimpleNamespace(lines=tuple(rivers.geometry.tolist()))
+            except Exception:
+                return None
+
     if domain_geographic is None:
         return None
     from_context = getattr(domain_geographic, "river_mesh_trace", None)
@@ -220,10 +252,92 @@ def _clip_river_trace_to_domain(
     return SimpleNamespace(lines=tuple(clipped_lines))
 
 
-def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[str, Any]:
+def _filter_river_trace_by_min_segment_length(
+    *,
+    river_trace: object | None,
+    min_segment_length: float,
+) -> object | None:
+    if river_trace is None:
+        return None
+    if min_segment_length <= 0.0:
+        return river_trace
+    lines_attr = getattr(river_trace, "lines", None)
+    if lines_attr is None:
+        return river_trace
+
+    kept_lines: list[object] = []
+    for line in _iter_line_geometries(lines_attr):
+        length = float(getattr(line, "length", 0.0))
+        if length >= min_segment_length:
+            kept_lines.append(line)
+    if not kept_lines:
+        return None
+    return SimpleNamespace(lines=tuple(kept_lines))
+
+
+def _validate_rivers_case_config(
+    config_data: Mapping[str, Any],
+    *,
+    section: str,
+) -> dict[str, Any]:
+    if not isinstance(config_data, Mapping):
+        raise ValueError(f"[{section}.rivers] configuration must be a mapping")
+    raw = dict(config_data)
+    source = str(raw.get("source", "domain_geographic")).strip().lower()
+    if source not in {"domain_geographic", "file"}:
+        raise ValueError(
+            f"[{section}.rivers].source must be 'domain_geographic' or 'file', got '{source}'."
+        )
+
+    path_value = raw.get("path")
+    path_text = None if path_value is None else str(path_value).strip()
+    if source == "file" and not path_text:
+        raise ValueError(f"[{section}.rivers].path is required when source='file'.")
+
+    clip_to_domain = raw.get("clip_to_domain", True)
+    if not isinstance(clip_to_domain, bool):
+        raise ValueError(f"[{section}.rivers].clip_to_domain must be a boolean.")
+
+    min_segment_length_raw = raw.get("min_segment_length", 0.0)
+    try:
+        min_segment_length = float(min_segment_length_raw)
+    except Exception as exc:
+        raise ValueError(
+            f"[{section}.rivers].min_segment_length must be a number, got '{min_segment_length_raw}'."
+        ) from exc
+    if min_segment_length < 0.0:
+        raise ValueError(f"[{section}.rivers].min_segment_length must be >= 0.")
+
+    snap_tolerance_raw = raw.get("snap_tolerance", 0.0)
+    try:
+        snap_tolerance = float(snap_tolerance_raw)
+    except Exception as exc:
+        raise ValueError(
+            f"[{section}.rivers].snap_tolerance must be a number, got '{snap_tolerance_raw}'."
+        ) from exc
+    if snap_tolerance < 0.0:
+        raise ValueError(f"[{section}.rivers].snap_tolerance must be >= 0.")
+
+    return {
+        "source": source,
+        "path": None if not path_text else path_text,
+        "clip_to_domain": clip_to_domain,
+        "min_segment_length": min_segment_length,
+        "snap_tolerance": snap_tolerance,
+    }
+
+
+def _resolve_case_config(
+    config_toml: Path, *, section: str = DEFAULT_SECTION
+) -> dict[str, Any]:
     payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
     section_cfg = dict(_get_nested_section(payload, section))
-    mesh_mode = _resolve_mesh_mode(section_cfg.get("mesh_mode", "geology"))
+    if "mesh_mode" in section_cfg:
+        raise ValueError(
+            "mesh_mode is no longer supported; use constraints_mode with one of: "
+            "geology_only, rivers_only, geology_rivers."
+        )
+    constraints_mode = _resolve_constraints_mode(section_cfg.get("constraints_mode"))
     domain_cfg = validate_zone_meshing_domain_config_data(
         dict(section_cfg.get("domain", {}))
     )
@@ -231,12 +345,19 @@ def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[st
         dict(section_cfg.get("zone_meshing", {}))
     )
     geology_cfg = None
-    if mesh_mode in {"geology", "both"}:
+    if constraints_mode in {"geology_only", "geology_rivers"}:
         geology_cfg = validate_geology_config_data(dict(section_cfg.get("geology", {})))
+    rivers_cfg = None
+    if constraints_mode in {"rivers_only", "geology_rivers"}:
+        rivers_cfg = _validate_rivers_case_config(
+            dict(section_cfg.get("rivers", {})),
+            section=section,
+        )
 
     return {
-        "mesh_mode": mesh_mode,
+        "constraints_mode": constraints_mode,
         "geology": geology_cfg,
+        "rivers": rivers_cfg,
         "domain": domain_cfg,
         "zone_meshing": zone_meshing_cfg,
         "output_mesh": section_cfg.get("output_mesh"),
@@ -519,7 +640,7 @@ def _build_geographic_mesh_figure(
         ax_geology,
         gdf=partition_gdf,
         key_to_idx=key_to_idx,
-        title="Conformal mesh + geology zones",
+        title="Conformal mesh + constrained zones",
     )
     _draw_domain_outline(ax_geology, domain_gdf)
     _draw_mesh_edges(ax_geology, mesh)
@@ -564,7 +685,7 @@ def _build_geographic_mesh_figure(
     if geology_handles:
         ax_geology.legend(
             handles=geology_handles,
-            title="Geology zones",
+            title="Constrained zones",
             loc="lower left",
             fontsize=9,
             title_fontsize=10,
@@ -618,7 +739,7 @@ def _draw_legend_panel(
     ]
     legend = ax.legend(
         handles=handles,
-        title="Geology zones",
+        title="Constrained zones",
         loc="upper left",
         ncol=4,
         fontsize=11,
@@ -708,7 +829,7 @@ def _build_figure(
         ax_source,
         gdf=clipped_gdf,
         key_to_idx=key_to_idx,
-        title="Clipped geology source polygons",
+        title="Constrained source polygons",
     )
     _plot_zone_panel(
         ax_mesh,
@@ -734,7 +855,7 @@ def _build_figure(
         domain_kind=domain_kind,
         interface_refinement=interface_refinement,
     )
-    fig.suptitle("Reference 2D geology-conformal Gmsh mesh", fontsize=19)
+    fig.suptitle("Reference 2D zone-conformal Gmsh mesh", fontsize=19)
     fig.subplots_adjust(
         left=0.05, right=0.985, top=0.92, bottom=0.06, wspace=0.12, hspace=0.12
     )
