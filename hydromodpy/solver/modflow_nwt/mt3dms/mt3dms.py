@@ -344,10 +344,12 @@ class Mt3dms:
         self.path_file = os.path.join(self.full_path, self.model_name_mt+'.UCN')
 
         # Files have been output in the processing phase and are re-read here
-        self.dem_mask = np.asarray(
-            getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
-            dtype=bool,
-        )
+        inactive_mask = getattr(self.model_modflow, "inactive_mask", None)
+        if inactive_mask is None:
+            raise ValueError(
+                "model_modflow.inactive_mask is required for MT3DMS post-processing."
+            )
+        self.inactive_mask = np.asarray(inactive_mask, dtype=bool)
 
         # Fluxes
         self.outflow_drain = np.load(os.path.join(self.save_file, 'outflow_drain'+'.npy'), allow_pickle=True).item()
@@ -384,7 +386,7 @@ class Mt3dms:
                 concobj_1c_fil_surf = concobj_1c_fil[i+1][0]
                 # concobj_1c_fil_surf = np.ma.masked_where(seep <= 0, concobj_1c_fil_surf)
                 concobj_1c_fil_surf[seep <= 0] = -9999
-                concobj_1c_fil_surf[self.dem_mask] = -9999
+                concobj_1c_fil_surf[self.inactive_mask] = -9999
 
                 output_path = self.tifs_file+'/concentration_seepage_t('+the_time+').tif'
                 if export_tif==True:
@@ -400,7 +402,7 @@ class Mt3dms:
                 # massobj_1c_fil_surf = np.ma.masked_where(seep <= 0, massobj_1c_fil_surf)
                 massobj_1c_fil_surf[seep <= 0] = np.nan
                 massobj_1c_fil_surf = massobj_1c_fil_surf * seep # mg/l to kg/m3 ==> kg/m3 * m3/d ==> kg/d
-                massobj_1c_fil_surf[self.dem_mask] = -9999
+                massobj_1c_fil_surf[self.inactive_mask] = -9999
                 massobj_1c_fil_surf = np.where(np.isnan(massobj_1c_fil_surf), -9999, massobj_1c_fil_surf)
 
                 output_path = self.tifs_file+'/mass_seepage_t('+the_time+').tif'

@@ -3,8 +3,9 @@ from __future__ import annotations
 import geopandas as gpd
 import numpy as np
 from pathlib import Path
+from types import SimpleNamespace
 import pytest
-from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry import LineString, MultiPolygon, Polygon
 
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     build_zone_conformal_partition_from_dataframe,
@@ -135,6 +136,34 @@ def test_generate_zone_conformal_mesh_validates_interface_parameters() -> None:
             refine_interfaces=True,
             interface_size=0.08,
         )
+
+
+def test_generate_zone_conformal_mesh_accepts_river_trace() -> None:
+    gdf = _build_split_zones_gdf()
+    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "split_zone_conformal_with_river.msh"
+
+    river_trace = SimpleNamespace(
+        lines=(LineString([(0.0, 0.5), (2.0, 0.5)]),)
+    )
+
+    result = generate_zone_conformal_mesh_from_dataframe(
+        gdf,
+        output_path=output_path,
+        global_size=0.20,
+        refine_interfaces=True,
+        interface_size=0.08,
+        interface_distance=0.30,
+        interface_sampling=48,
+        river_trace=river_trace,
+    )
+
+    river_summary = dict(result.summary.get("river_trace", {}))
+    assert river_summary.get("provided") is True
+    assert int(river_summary.get("line_count", 0)) == 1
+    assert int(river_summary.get("curve_count", 0)) > 0
+    assert any(group.name == "river::trace" for group in result.physical_groups)
 
 
 def test_load_zone_meshing_domain_geometry_supports_inline_polygon() -> None:

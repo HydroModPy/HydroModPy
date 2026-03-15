@@ -11,11 +11,6 @@ Canonical access is explicit:
 - ``state.setup.<...>`` for structural runtime context,
 - ``state.loaded_data.<...>`` for loaded datasets,
 - ``state.execution.<...>`` for run outputs and execution registries.
-
-Compatibility aliases are still provided:
-
-- ``state.data`` mirrors ``state.loaded_data``,
-- ``state.results`` mirrors ``state.execution``.
 """
 
 from __future__ import annotations
@@ -49,26 +44,6 @@ class LauncherRunState:
     loaded_data: LoadedDataContext = field(default_factory=LoadedDataContext)
     execution: ExecutionRegistry = field(default_factory=ExecutionRegistry)
 
-    @property
-    def data(self) -> LoadedDataContext:
-        """Backward-compatible alias for ``loaded_data``."""
-
-        return self.loaded_data
-
-    @data.setter
-    def data(self, value: LoadedDataContext) -> None:
-        self.loaded_data = value
-
-    @property
-    def results(self) -> ExecutionRegistry:
-        """Backward-compatible alias for ``execution``."""
-
-        return self.execution
-
-    @results.setter
-    def results(self, value: ExecutionRegistry) -> None:
-        self.execution = value
-
     def get_model(self, run_id: str) -> Any:
         """Return the exact model produced by a concrete process run."""
 
@@ -98,8 +73,3 @@ class LauncherRunState:
         if run is None:
             return None
         return self.execution.models_by_run_id.get(run.id)
-
-
-# Backward-compatible aliases kept while downstream imports migrate.
-RunState = LauncherRunState
-RunResult = LauncherRunState

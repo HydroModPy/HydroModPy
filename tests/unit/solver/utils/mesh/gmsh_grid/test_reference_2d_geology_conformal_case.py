@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from shapely.geometry import LineString, box
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
+    _clip_river_trace_to_domain,
+    _resolve_mesh_mode,
+    _resolve_river_trace_for_meshing,
     run_reference_2d_geology_conformal_case_from_toml,
 )
 
@@ -141,4 +146,101 @@ def test_reference_2d_geology_conformal_legacy_clip_bbox_rejected() -> None:
             output_summary_json=output_dir
             / "reference_2d_geology_conformal_summary.json",
             output_figure=output_dir / "reference_2d_geology_conformal.png",
+        )
+
+
+def test_resolve_river_trace_for_meshing_prefers_explicit_trace() -> None:
+    explicit_trace = object()
+
+    class _DomainGeographic:
+        river_mesh_trace = object()
+
+    resolved = _resolve_river_trace_for_meshing(
+        river_trace=explicit_trace,
+        domain_geographic=_DomainGeographic(),
+    )
+
+    assert resolved is explicit_trace
+
+
+def test_resolve_river_trace_for_meshing_falls_back_to_domain_geographic() -> None:
+    domain_trace = object()
+
+    class _DomainGeographic:
+        river_mesh_trace = domain_trace
+
+    resolved = _resolve_river_trace_for_meshing(
+        river_trace=None,
+        domain_geographic=_DomainGeographic(),
+    )
+
+    assert resolved is domain_trace
+
+
+def test_resolve_river_trace_for_meshing_returns_none_without_inputs() -> None:
+    resolved = _resolve_river_trace_for_meshing(
+        river_trace=None,
+        domain_geographic=None,
+    )
+
+    assert resolved is None
+
+
+def test_clip_river_trace_to_domain_discards_outside_segments() -> None:
+    river_trace = SimpleNamespace(
+        lines=(
+            LineString([(0.0, 0.0), (3.0, 0.0)]),
+            LineString([(10.0, 10.0), (11.0, 11.0)]),
+        )
+    )
+
+    resolved = _clip_river_trace_to_domain(
+        river_trace=river_trace,
+        domain_geometry=box(0.0, -1.0, 2.0, 1.0),
+    )
+
+    assert resolved is not None
+    clipped_lines = tuple(resolved.lines)
+    assert len(clipped_lines) == 1
+    assert clipped_lines[0].bounds[0] >= 0.0
+    assert clipped_lines[0].bounds[2] <= 2.0
+
+
+def test_resolve_mesh_mode_accepts_geology_and_rivers_modes() -> None:
+    assert _resolve_mesh_mode("geology") == "geology"
+    assert _resolve_mesh_mode("rivers") == "rivers"
+    assert _resolve_mesh_mode("hydrography") == "rivers"
+
+
+def test_resolve_mesh_mode_rejects_unknown_values() -> None:
+    with pytest.raises(ValueError, match="mesh_mode must be one of"):
+        _ = _resolve_mesh_mode("unsupported_mode")
+
+
+def test_river_mode_requires_river_trace(tmp_path: Path) -> None:
+    config_path = tmp_path / "case_rivers.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[case]",
+                'mesh_mode = "rivers"',
+                "",
+                "[case.domain]",
+                'kind = "bbox"',
+                "bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]",
+                "",
+                "[case.zone_meshing]",
+                'algorithm = "delaunay"',
+                "global_size = 250.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="requires one river trace"):
+        run_reference_2d_geology_conformal_case_from_toml(
+            config_path,
+            section="case",
+            output_mesh=tmp_path / "mesh.msh",
+            show_plot=False,
         )

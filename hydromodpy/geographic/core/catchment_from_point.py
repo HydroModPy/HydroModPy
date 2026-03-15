@@ -1,15 +1,20 @@
-"""Outlet-to-catchment extraction.
+"""Delineate a catchment polygon from one outlet coordinate.
 
-This module converts one outlet coordinate into watershed geometries using
-precomputed D8 rasters. It is the "entry point" of the V2 chain when the
-catchment is defined from outlet coordinates.
+Purpose
+-------
+Transform one configured outlet point into canonical watershed products
+(``outlet.shp``, ``outlet_snap.shp``, ``watershed.tif``, ``watershed.shp``).
 
-Algorithm
----------
-1. Write the outlet as a point shapefile.
-2. Snap the outlet to the nearest valid drainage cell on accumulation raster.
-3. Delineate watershed raster from D8 directions.
-4. Polygonize watershed raster for downstream GIS/domain processing.
+Pipeline position
+-----------------
+Used when ``catch_def='from_outlet_coord'`` in the geographic workflow.
+
+Processing steps
+----------------
+1. Build a point layer from ``x_outlet`` / ``y_outlet``.
+2. Snap the point to the nearest strong-flow cell on accumulation raster.
+3. Run watershed delineation from D8 direction raster.
+4. Polygonize the resulting watershed raster for downstream GIS/domain usage.
 """
 
 from __future__ import annotations

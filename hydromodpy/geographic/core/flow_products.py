@@ -1,13 +1,16 @@
-"""Build the three hydrologic rasters used to delineate a catchment.
+"""Generate core hydrologic rasters from a source DEM.
 
-Starting from one regional DEM, this module prepares:
-1. a hydrologically corrected DEM (no blocked drainage),
-2. a D8 flow-direction raster (where each cell drains),
-3. a D8 flow-accumulation raster (how much upstream area contributes).
+Purpose
+-------
+Produce the minimum raster stack required by outlet-based delineation:
+1. hydrologically corrected DEM,
+2. D8 flow-direction raster,
+3. D8 flow-accumulation raster.
 
-These products are the minimum inputs needed downstream to:
-- snap an outlet on a coherent drainage cell,
-- delineate the watershed polygon from that outlet.
+Pipeline position
+-----------------
+This is one of the first compute-heavy steps in geographic preprocessing.
+All downstream catchment and river-network products depend on these rasters.
 """
 
 from __future__ import annotations

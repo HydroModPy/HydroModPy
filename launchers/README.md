@@ -11,6 +11,7 @@ partir de la convention de nommage retenue :
 - `process_simulation/` : pour `ProcessSimulationLauncher`
 - `model_calibration/` : pour `ModelCalibrationLauncher`
 - `hydro_cal_val/` : pour `HydroCalValLauncher`
+- `mesh_catchment/` : pour `MeshCatchmentLauncher`
 
 ## Intention
 
@@ -20,6 +21,8 @@ partir de la convention de nommage retenue :
 - `ModelCalibrationLauncher` : orchestration des workflows de calibration.
 - `HydroCalValLauncher` : mise en place d'une strategie hydrologique de
   calibration-validation.
+- `MeshCatchmentLauncher` : generation de maillage catchment conforme
+  au reseau de rivieres (mode force, geometries geologiques ignorees pour le maillage).
 
 Cette arborescence prepare une separation claire des responsabilites sans
 modifier le launcher principal existant.
@@ -29,6 +32,25 @@ modifier le launcher principal existant.
 Commande recommandee pour la famille simulation :
 
 `python -m launchers simulation run <path/to/config.toml>`
+
+Commande recommandee pour la famille mesh-catchment :
+
+`python -m launchers mesh-catchment run <path/to/config.toml>`
+
+Commande directe (utile depuis un IDE) :
+
+`python launchers/mesh_catchment/launcher.py <path/to/config.toml>`
+
+Exemple de config prete a lancer :
+
+`launchers/mesh_catchment/config_mesh_catchment_example.toml`
+
+Configuration en deux niveaux (meme logique que process_simulation) :
+
+- `launchers/mesh_catchment/config_mesh_catchment_common.toml`
+  : tronc commun catchment (`workspace`, `geographic`, `geographic.river_network`).
+- `launchers/mesh_catchment/config_mesh_catchment_example.toml`
+  : divergence metier mesh via `[mesh_catchment]`.
 
 ## Separation loading/update
 

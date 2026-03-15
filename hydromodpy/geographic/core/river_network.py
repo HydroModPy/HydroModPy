@@ -1,4 +1,18 @@
-"""Build DEM-derived river-network products on one catchment support."""
+"""Build DEM-derived river-network products on catchment support.
+
+Purpose
+-------
+Create optional hydrographic products from flow rasters:
+- extracted stream raster,
+- vector river network,
+- optional stream-order/link diagnostics,
+- compact JSON summary for regression checks and reporting.
+
+Pipeline position
+-----------------
+Executed after catchment/domain preprocessing when
+``geographic.river_network.enabled = true``.
+"""
 
 from __future__ import annotations
 

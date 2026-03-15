@@ -1,27 +1,34 @@
-"""Run the reference 2D zone-conformal meshing case on Brittany geology.
+"""Run the reference 2D zone-conformal meshing case.
 
-This script is the pedagogical entry point for the "mesh follows geology
-boundaries" workflow. It builds one planar mesh constrained by polygonal zones,
-exports inspection artifacts, and keeps the focus on geometry and visual QA
-before any 3D extrusion or solver coupling is introduced.
+This script is the pedagogical entry point for the zone-conformal workflow.
+It builds one planar mesh constrained by configurable inputs (geology zones,
+river traces, or both), exports inspection artifacts, and keeps the focus on
+geometry and visual QA before any 3D extrusion or solver coupling is
+introduced.
 """
 
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 import json
 from pathlib import Path
 import tomllib
+from types import SimpleNamespace
 from typing import Any
 
 import geopandas as gpd
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 import numpy as np
+import rasterio
 
 from hydromodpy.data_managers.geology.geology_config import validate_geology_config_data
 from hydromodpy.data_managers.geology.geology_io import load_vector_geology_dataframe
+from hydromodpy.geographic.core.river_mesh_trace import (
+    build_river_mesh_trace_from_vector,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     generate_zone_conformal_mesh_from_dataframe,
     load_zone_meshing_domain_geometry,
@@ -34,7 +41,27 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_
 )
 
 DEFAULT_CONFIG_FILE = "case_config_zone_conformal.toml"
-DEFAULT_SECTION = "case"
+DEFAULT_SECTION = "mesh_case"
+
+
+def _resolve_constraints_mode(raw_value: Any) -> str:
+    token = str(raw_value).strip().lower()
+    if token == "":
+        raise ValueError(
+            "constraints_mode is required and must be one of: "
+            "geology_only, rivers_only, geology_rivers."
+        )
+    allowed = {
+        "geology_only",
+        "rivers_only",
+        "geology_rivers",
+    }
+    if token not in allowed:
+        raise ValueError(
+            "constraints_mode must be one of: "
+            "geology_only, rivers_only, geology_rivers."
+        )
+    return token
 
 
 def _parse_args(argv=None):
@@ -94,18 +121,121 @@ def _resolve_optional_output_path(
     return path
 
 
+def _valid_geometry_mask(geometries) -> object:
+    """Return one stable non-empty/non-missing mask across GeoPandas versions."""
+    return (~geometries.is_empty) & (~geometries.isna())
+
+
+def _union_all_geometry(gdf: gpd.GeoDataFrame):
+    """Return one unary union compatible with both old and recent GeoPandas."""
+    union_all = getattr(gdf.geometry, "union_all", None)
+    if callable(union_all):
+        return union_all()
+    return gdf.geometry.unary_union
+
+
+def _resolve_river_trace_for_meshing(
+    *,
+    river_trace: object | None,
+    domain_geographic: object | None,
+) -> object | None:
+    """Resolve the in-memory river trace payload passed to the mesher.
+
+    Priority order:
+    1. explicit ``river_trace`` argument,
+    2. ``domain_geographic.river_mesh_trace`` when present.
+    """
+    if river_trace is not None:
+        return river_trace
+    if domain_geographic is None:
+        return None
+    from_context = getattr(domain_geographic, "river_mesh_trace", None)
+    if from_context is not None:
+        return from_context
+
+    watershed_shp = getattr(domain_geographic, "watershed_shp", None)
+    if watershed_shp is None:
+        return None
+    watershed_path = Path(str(watershed_shp)).resolve()
+    river_network_path = watershed_path.parent / "river_network.shp"
+    if not river_network_path.exists():
+        return None
+    try:
+        return build_river_mesh_trace_from_vector(
+            vector_path=river_network_path,
+            source_kind="file",
+            clip_polygon_path=watershed_path,
+        )
+    except Exception:
+        try:
+            rivers = gpd.read_file(str(river_network_path))
+            if rivers.empty:
+                return None
+            rivers = rivers[_valid_geometry_mask(rivers.geometry)].copy()
+            if rivers.empty:
+                return None
+
+            if rivers.crs is None and watershed_path.exists():
+                watershed = gpd.read_file(str(watershed_path))
+                if (not watershed.empty) and (watershed.crs is not None):
+                    rivers = rivers.set_crs(watershed.crs)
+                    watershed = watershed.to_crs(rivers.crs)
+                    clip_union = _union_all_geometry(watershed)
+                    if clip_union is not None and (not clip_union.is_empty):
+                        rivers = gpd.GeoDataFrame(
+                            geometry=rivers.geometry.intersection(clip_union),
+                            crs=rivers.crs,
+                        )
+                        rivers = rivers[_valid_geometry_mask(rivers.geometry)].copy()
+                        if rivers.empty:
+                            return None
+
+            return SimpleNamespace(lines=tuple(rivers.geometry.tolist()))
+        except Exception:
+            return None
+
+
+def _clip_river_trace_to_domain(
+    *,
+    river_trace: object | None,
+    domain_geometry: object,
+) -> object | None:
+    if river_trace is None:
+        return None
+    lines_attr = getattr(river_trace, "lines", None)
+    if lines_attr is None:
+        return river_trace
+
+    clipped_lines: list[object] = []
+    for geometry in lines_attr:
+        if geometry is None:
+            continue
+        try:
+            clipped = geometry.intersection(domain_geometry)
+        except Exception:
+            clipped = geometry
+        clipped_lines.extend(_iter_line_geometries((clipped,)))
+    if not clipped_lines:
+        return None
+    return SimpleNamespace(lines=tuple(clipped_lines))
+
+
 def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[str, Any]:
     payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
     section_cfg = dict(_get_nested_section(payload, section))
-    geology_cfg = validate_geology_config_data(dict(section_cfg.get("geology", {})))
+    mesh_mode = _resolve_mesh_mode(section_cfg.get("mesh_mode", "geology"))
     domain_cfg = validate_zone_meshing_domain_config_data(
         dict(section_cfg.get("domain", {}))
     )
     zone_meshing_cfg = validate_zone_meshing_config_data(
         dict(section_cfg.get("zone_meshing", {}))
     )
+    geology_cfg = None
+    if mesh_mode in {"geology", "both"}:
+        geology_cfg = validate_geology_config_data(dict(section_cfg.get("geology", {})))
 
     return {
+        "mesh_mode": mesh_mode,
         "geology": geology_cfg,
         "domain": domain_cfg,
         "zone_meshing": zone_meshing_cfg,
@@ -113,6 +243,27 @@ def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[st
         "output_summary_json": section_cfg.get("output_summary_json"),
         "output_figure": section_cfg.get("output_figure"),
     }
+
+
+def _build_domain_zone_dataframe(
+    *,
+    domain_payload: Mapping[str, Any],
+) -> tuple[dict[str, Any], gpd.GeoDataFrame]:
+    domain_gdf = domain_payload["gdf"][["geometry"]].copy()
+    domain_gdf = domain_gdf.explode(index_parts=False).reset_index(drop=True)
+    domain_gdf = domain_gdf[_valid_geometry_mask(domain_gdf.geometry)].copy()
+    if domain_gdf.empty:
+        raise ValueError("domain geometry produced no usable polygon for meshing")
+    domain_gdf["zone_key"] = "domain"
+    summary = dict(domain_payload.get("summary", {}))
+    source_path = summary.get("domain_source_path")
+    source_payload = {
+        "field_id": "domain_zones",
+        "source_kind": "domain",
+        "source_path": "<domain>" if source_path is None else str(source_path),
+        "n_source_features_before_domain_clip": int(len(domain_gdf)),
+    }
+    return source_payload, domain_gdf
 
 
 def _load_clipped_geology_dataframe(
@@ -132,7 +283,7 @@ def _load_clipped_geology_dataframe(
         validate=False,
     )
     clipped = gpd.clip(gdf, domain_payload["gdf"])
-    clipped = clipped[~clipped.geometry.is_empty & clipped.geometry.notna()].copy()
+    clipped = clipped[_valid_geometry_mask(clipped.geometry)].copy()
     if clipped.empty:
         raise ValueError(
             "The selected domain geometry does not intersect the geology source"
@@ -175,6 +326,256 @@ def _draw_domain_outline(ax, domain_gdf: gpd.GeoDataFrame) -> None:
     domain_gdf.boundary.plot(
         ax=ax, color="black", linewidth=1.2, linestyle="--", zorder=6
     )
+
+
+def _iter_line_geometries(geometries: Iterable[object]) -> list[object]:
+    out: list[object] = []
+    for geometry in geometries:
+        if geometry is None:
+            continue
+        geom_type = str(getattr(geometry, "geom_type", ""))
+        if geom_type == "LineString":
+            if not bool(getattr(geometry, "is_empty", True)):
+                out.append(geometry)
+            continue
+        if geom_type == "MultiLineString":
+            parts = getattr(geometry, "geoms", ())
+            for part in parts:
+                if not bool(getattr(part, "is_empty", True)):
+                    out.append(part)
+            continue
+        if geom_type == "GeometryCollection":
+            out.extend(_iter_line_geometries(getattr(geometry, "geoms", ())))
+    return out
+
+
+def _iter_river_lines(river_trace: object | None) -> list[object]:
+    if river_trace is None:
+        return []
+    lines = getattr(river_trace, "lines", None)
+    if lines is None:
+        return []
+    return _iter_line_geometries(lines)
+
+
+def _load_river_lines_from_domain_geographic(
+    domain_geographic: object | None,
+) -> list[object]:
+    if domain_geographic is None:
+        return []
+    watershed_shp = getattr(domain_geographic, "watershed_shp", None)
+    if watershed_shp is None:
+        return []
+    river_network_shp = Path(str(watershed_shp)).resolve().parent / "river_network.shp"
+    if not river_network_shp.exists():
+        return []
+    try:
+        gdf = gpd.read_file(str(river_network_shp))
+    except Exception:
+        return []
+    if gdf.empty:
+        return []
+    gdf = gdf[_valid_geometry_mask(gdf.geometry)].copy()
+    if gdf.empty:
+        return []
+    return _iter_line_geometries(gdf.geometry.tolist())
+
+
+def _resolve_river_lines_for_plot(
+    *,
+    river_trace: object | None,
+    domain_geographic: object | None,
+) -> list[object]:
+    lines = _iter_river_lines(river_trace)
+    if lines:
+        return lines
+    return _load_river_lines_from_domain_geographic(domain_geographic)
+
+
+def _draw_river_lines(
+    ax,
+    *,
+    river_lines: list[object],
+    color: str = "#1f78b4",
+    lw: float = 1.05,
+    alpha: float = 0.9,
+) -> int:
+    for line in river_lines:
+        x_vals, y_vals = line.xy
+        ax.plot(x_vals, y_vals, color=color, lw=lw, alpha=alpha, zorder=7)
+    return int(len(river_lines))
+
+
+def _load_catchment_outline(
+    domain_geographic: object | None,
+) -> gpd.GeoDataFrame | None:
+    if domain_geographic is None:
+        return None
+    watershed_shp = getattr(domain_geographic, "watershed_shp", None)
+    if watershed_shp is None:
+        return None
+    try:
+        gdf = gpd.read_file(str(watershed_shp))
+    except Exception:
+        return None
+    if gdf.empty:
+        return None
+    gdf = gdf[_valid_geometry_mask(gdf.geometry)].copy()
+    if gdf.empty:
+        return None
+    return gdf
+
+
+def _load_topography_background(
+    domain_geographic: object | None,
+) -> tuple[np.ndarray, tuple[float, float, float, float]] | None:
+    if domain_geographic is None:
+        return None
+    dem_path = getattr(domain_geographic, "watershed_box_buff_dem", None)
+    if dem_path is None:
+        return None
+    try:
+        with rasterio.open(str(dem_path)) as src:
+            dem = src.read(1)
+            nodata = src.nodata
+            if nodata is not None:
+                dem = np.where(dem == nodata, np.nan, dem)
+            extent = (
+                float(src.bounds.left),
+                float(src.bounds.right),
+                float(src.bounds.bottom),
+                float(src.bounds.top),
+            )
+    except Exception:
+        return None
+    return np.asarray(dem, dtype=float), extent
+
+
+def _set_panel_limits(
+    ax,
+    *,
+    bounds: list[float],
+) -> None:
+    xmin, ymin, xmax, ymax = [float(v) for v in bounds]
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+
+def _build_geographic_mesh_figure(
+    *,
+    domain_gdf: gpd.GeoDataFrame,
+    partition_gdf: gpd.GeoDataFrame,
+    mesh,
+    domain_bounds: list[float],
+    catchment_gdf: gpd.GeoDataFrame | None,
+    topo_background: tuple[np.ndarray, tuple[float, float, float, float]] | None,
+    river_lines: list[object],
+):
+    zone_keys = sorted(
+        str(zone_key)
+        for zone_key in partition_gdf["zone_key"].astype(str).unique().tolist()
+    )
+    key_to_idx, key_to_color = _build_zone_color_map(zone_keys)
+
+    fig, axes = plt.subplots(1, 3, figsize=(24.0, 9.5), dpi=160)
+    ax_topo, ax_mesh, ax_geology = axes
+
+    if topo_background is not None:
+        dem, extent = topo_background
+        im = ax_topo.imshow(
+            dem,
+            extent=extent,
+            cmap="terrain",
+            origin="upper",
+            zorder=1,
+        )
+        cbar = fig.colorbar(im, ax=ax_topo, fraction=0.042, pad=0.015)
+        cbar.set_label("Elevation [m]", fontsize=11)
+        cbar.ax.tick_params(labelsize=9)
+    else:
+        ax_topo.set_facecolor("0.96")
+
+    if catchment_gdf is not None:
+        catchment_gdf.boundary.plot(
+            ax=ax_topo,
+            color="black",
+            linewidth=1.25,
+            zorder=8,
+        )
+        catchment_gdf.boundary.plot(
+            ax=ax_mesh,
+            color="black",
+            linewidth=1.25,
+            zorder=8,
+        )
+
+    _draw_domain_outline(ax_topo, domain_gdf)
+    _draw_domain_outline(ax_mesh, domain_gdf)
+    river_count = _draw_river_lines(ax_topo, river_lines=river_lines)
+    _draw_river_lines(ax_mesh, river_lines=river_lines)
+    _draw_mesh_edges(ax_mesh, mesh)
+
+    _plot_zone_panel(
+        ax_geology,
+        gdf=partition_gdf,
+        key_to_idx=key_to_idx,
+        title="Conformal mesh + geology zones",
+    )
+    _draw_domain_outline(ax_geology, domain_gdf)
+    _draw_mesh_edges(ax_geology, mesh)
+    if catchment_gdf is not None:
+        catchment_gdf.boundary.plot(
+            ax=ax_geology,
+            color="black",
+            linewidth=1.15,
+            zorder=8,
+        )
+
+    _set_panel_limits(ax_topo, bounds=domain_bounds)
+    _set_panel_limits(ax_mesh, bounds=domain_bounds)
+    _set_panel_limits(ax_geology, bounds=domain_bounds)
+
+    ax_topo.set_title("Topography + catchment limits + hydro network", fontsize=15)
+    ax_mesh.set_title("Conformal mesh + catchment limits + hydro network", fontsize=15)
+    for ax in (ax_topo, ax_mesh, ax_geology):
+        ax.set_xlabel("x [m]", fontsize=12)
+        ax.set_ylabel("y [m]", fontsize=12)
+        ax.tick_params(labelsize=10)
+        ax.set_aspect("equal")
+        _disable_axis_offset(ax)
+
+    legend_handles: list[Line2D] = [
+        Line2D([0], [0], color="black", lw=1.25, label="Catchment boundary"),
+        Line2D([0], [0], color="black", lw=1.2, linestyle="--", label="Meshing domain"),
+    ]
+    if river_count > 0:
+        legend_handles.append(
+            Line2D([0], [0], color="#1f78b4", lw=1.1, label="Hydro network")
+        )
+    legend_handles.append(
+        Line2D([0], [0], color="0.20", lw=0.9, label="Mesh edges")
+    )
+    ax_mesh.legend(handles=legend_handles, loc="lower left", fontsize=10, framealpha=0.92)
+
+    geology_handles = [
+        Patch(facecolor=key_to_color[zone_key], edgecolor="0.25", label=zone_key)
+        for zone_key in zone_keys
+    ]
+    if geology_handles:
+        ax_geology.legend(
+            handles=geology_handles,
+            title="Geology zones",
+            loc="lower left",
+            fontsize=9,
+            title_fontsize=10,
+            framealpha=0.92,
+        )
+
+    fig.suptitle("Mesh-catchment overview", fontsize=18)
+    fig.subplots_adjust(
+        left=0.045, right=0.99, top=0.92, bottom=0.08, wspace=0.14
+    )
+    return fig
 
 
 def _plot_zone_panel(
@@ -264,7 +665,30 @@ def _build_figure(
     domain_area: float,
     domain_kind: str,
     interface_refinement: Mapping[str, Any],
+    domain_geographic: object | None = None,
+    river_trace: object | None = None,
 ):
+    catchment_gdf = _load_catchment_outline(domain_geographic)
+    topo_background = _load_topography_background(domain_geographic)
+    river_lines = _resolve_river_lines_for_plot(
+        river_trace=river_trace,
+        domain_geographic=domain_geographic,
+    )
+    if (
+        catchment_gdf is not None
+        or topo_background is not None
+        or river_lines
+    ):
+        return _build_geographic_mesh_figure(
+            domain_gdf=domain_gdf,
+            partition_gdf=partition_gdf,
+            mesh=mesh,
+            domain_bounds=domain_bounds,
+            catchment_gdf=catchment_gdf,
+            topo_background=topo_background,
+            river_lines=river_lines,
+        )
+
     zone_keys = sorted(
         str(zone_key)
         for zone_key in partition_gdf["zone_key"].astype(str).unique().tolist()
@@ -364,10 +788,18 @@ def run_reference_2d_geology_conformal_case_from_toml(
     output_mesh: str | Path | None = None,
     output_summary_json: str | Path | None = None,
     output_figure: str | Path | None = None,
+    river_trace: object | None = None,
+    domain_geographic: object | None = None,
+    mesh_mode_override: str | None = None,
     show_plot: bool = False,
 ) -> dict[str, Any]:
     config_path = _resolve_config_path(config_toml)
     cfg = _resolve_case_config(config_path, section=section)
+    mesh_mode = (
+        _resolve_mesh_mode(mesh_mode_override)
+        if mesh_mode_override is not None
+        else str(cfg["mesh_mode"])
+    )
 
     mesh_path = _resolve_optional_output_path(
         config_path,
@@ -390,11 +822,45 @@ def run_reference_2d_geology_conformal_case_from_toml(
             "An output mesh path is required for the conformal reference case"
         )
 
-    source_payload, clipped_gdf, domain_payload = _load_clipped_geology_dataframe(
-        geology_cfg=cfg["geology"],
-        domain_cfg=cfg["domain"],
-        config_path=config_path,
+    if mesh_mode in {"geology", "both"}:
+        if cfg["geology"] is None:
+            raise ValueError(
+                f"mesh_mode='{mesh_mode}' requires one [{section}.geology] block."
+            )
+        source_payload, clipped_gdf, domain_payload = _load_clipped_geology_dataframe(
+            geology_cfg=cfg["geology"],
+            domain_cfg=cfg["domain"],
+            config_path=config_path,
+        )
+    else:
+        domain_payload = load_zone_meshing_domain_geometry(
+            cfg["domain"],
+            config_path=config_path,
+            target_crs=None,
+            validate=False,
+        )
+        source_payload, clipped_gdf = _build_domain_zone_dataframe(
+            domain_payload=domain_payload,
+        )
+
+    resolved_river_trace = _resolve_river_trace_for_meshing(
+        river_trace=river_trace,
+        domain_geographic=domain_geographic,
     )
+    resolved_river_trace = _clip_river_trace_to_domain(
+        river_trace=resolved_river_trace,
+        domain_geometry=domain_payload["geometry"],
+    )
+    if mesh_mode in {"rivers", "both"} and resolved_river_trace is None:
+        raise ValueError(
+            f"mesh_mode='{mesh_mode}' requires one river trace. "
+            "Enable geographic.river_network and provide domain_geographic, "
+            "or pass an explicit river_trace."
+        )
+    river_trace_for_meshing = (
+        resolved_river_trace if mesh_mode in {"rivers", "both"} else None
+    )
+
     result = generate_zone_conformal_mesh_from_dataframe(
         clipped_gdf,
         output_path=mesh_path,
@@ -411,6 +877,7 @@ def run_reference_2d_geology_conformal_case_from_toml(
         interface_size=cfg["zone_meshing"]["interface_size"],
         interface_distance=cfg["zone_meshing"]["interface_distance"],
         interface_sampling=int(cfg["zone_meshing"]["interface_sampling"]),
+        river_trace=river_trace_for_meshing,
         model_name="reference_2d_geology_conformal",
     )
 
@@ -421,6 +888,7 @@ def run_reference_2d_geology_conformal_case_from_toml(
         clipped_gdf=clipped_gdf,
         domain_payload=domain_payload,
     )
+    summary["mesh_mode"] = mesh_mode
     summary["output_mesh"] = str(mesh_path)
 
     if figure_path is not None or show_plot:
@@ -439,6 +907,8 @@ def run_reference_2d_geology_conformal_case_from_toml(
                     )
                 )
             ),
+            domain_geographic=domain_geographic,
+            river_trace=resolved_river_trace,
         )
         if figure_path is not None:
             fig.savefig(figure_path)

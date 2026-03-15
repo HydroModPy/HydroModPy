@@ -4,14 +4,18 @@ Gaussian-process surrogate posterior mapping calibration method.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from hydromodpy.calibration.core.results import CalibrationResults
 
 try:
+    from sklearn.exceptions import ConvergenceWarning
     from sklearn.gaussian_process import GaussianProcessRegressor
     from sklearn.gaussian_process.kernels import ConstantKernel, RBF
 except Exception:  # pragma: no cover - depends on local env
+    ConvergenceWarning = None
     GaussianProcessRegressor = None
     ConstantKernel = None
     RBF = None
@@ -85,6 +89,14 @@ def _gp_predict_mean(gp, x, predict_batch_size=50000):
         stop = min(start + batch, n)
         mu[start:stop] = gp.predict(x[start:stop], return_std=False)
     return mu
+
+
+def _fit_gp_surrogate(gp, x_train, y_train):
+    """Fit the GP while silencing boundary convergence warnings."""
+    with warnings.catch_warnings():
+        if ConvergenceWarning is not None:
+            warnings.simplefilter("ignore", category=ConvergenceWarning)
+        gp.fit(x_train, y_train)
 
 
 def gp_mapping_calibrate(
@@ -180,11 +192,9 @@ def gp_mapping_calibrate(
     y_train = -cost_train
 
     # Step 3: initial GP fit.
-    # Keep a permissive lower bound on transformed-space length scales to avoid
-    # systematic convergence to the boundary on sharp objective landscapes.
     kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(
         length_scale=np.ones(n_dim, dtype=float),
-        length_scale_bounds=(1e-5, 1e3),
+        length_scale_bounds=(1e-3, 1e3),
     )
     gp = GaussianProcessRegressor(
         kernel=kernel,
@@ -193,7 +203,7 @@ def gp_mapping_calibrate(
         random_state=int(seed),
         n_restarts_optimizer=2,
     )
-    gp.fit(x_train_t, y_train)
+    _fit_gp_surrogate(gp, x_train_t, y_train)
 
     # Step 4: adaptive refinement with UCB.
     for _ in range(n_refine):
@@ -212,7 +222,7 @@ def gp_mapping_calibrate(
         x_train = np.vstack([x_train, x_new])
         cost_train = np.concatenate([cost_train, cost_new])
         y_train = np.concatenate([y_train, y_new])
-        gp.fit(x_train_t, y_train)
+        _fit_gp_surrogate(gp, x_train_t, y_train)
 
     # Best observed point (true evaluations, not surrogate prediction).
     idx_best = int(np.argmin(cost_train))

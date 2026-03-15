@@ -1,7 +1,14 @@
-"""Compute scalar metrics from catchment polygons.
+"""Compute scalar metrics from catchment geometries.
 
-At this stage, the module exposes catchment area in km2 with a compatibility
-policy aligned on legacy workflows.
+Purpose
+-------
+Expose lightweight, deterministic geographic indicators used by orchestration
+and diagnostics.
+
+Current scope
+-------------
+Only catchment area (km2) is exposed here, with compatibility logic that
+preserves legacy behavior when an ``AREA`` attribute exists.
 """
 
 from __future__ import annotations

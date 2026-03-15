@@ -1,0 +1,40 @@
+# Example mesh-only launcher config.
+# Run with:
+#   python -m launchers mesh-catchment run launchers/mesh_catchment/config_mesh_catchment_example.toml
+
+base_config = "config_mesh_catchment_common.toml"
+
+[mesh_catchment]
+# Meshing driver for conformity targets.
+# - "rivers" : river-trace conformal meshing (expects river network generation)
+# - "geology": geology-interface conformal meshing
+# - "both"   : river + geology conformity
+mesh_mode = "rivers"
+# Optional:
+# output_mesh = "outputs/mesh_catchment_example.msh"
+# output_summary_json = "outputs/mesh_catchment_example_summary.json"
+output_figure = "outputs/mesh_catchment_nancon_overview.png"
+show_plot = false
+
+[mesh_catchment.domain]
+# Effective meshing domain (strictly used by Gmsh):
+# - kind = "bbox"   -> bbox = [xmin, ymin, xmax, ymax]
+# - kind = "polygon"-> coordinates = [[x1,y1], ...]
+# - kind = "vector" -> path (+ optional id_field/selected_id)
+# If the mesh appears too large, this bbox is usually the first parameter to tune.
+kind = "bbox"
+bbox = [384337.5, 6813637.5, 397612.5, 6828037.5]
+
+[mesh_catchment.zone_meshing]
+algorithm = "delaunay"
+# Coarser setup to target about 3x fewer cells than the previous example.
+global_size = 680.0
+min_size = 340.0
+max_size = 1080.0
+simplify_tolerance = 0.0
+heal_tolerance = 0.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 250.0
+interface_distance = 610.0
+interface_sampling = 96

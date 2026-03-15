@@ -76,7 +76,7 @@ def test_postprocess_runner_calls_flow_netcdf_when_enabled(monkeypatch) -> None:
 
     class _State:
         setup = SimpleNamespace(geographic=SimpleNamespace())
-        data = SimpleNamespace(climatic=None, hydrography=None)
+        loaded_data = SimpleNamespace(climatic=None, hydrography=None)
         cfg = SimpleNamespace(display=SimpleNamespace(to_runtime_options=lambda: SimpleNamespace()))
 
         @staticmethod
@@ -150,7 +150,7 @@ def test_postprocess_runner_calls_transport_netcdf_when_enabled(monkeypatch) -> 
 
     class _State:
         setup = SimpleNamespace(geographic=SimpleNamespace())
-        data = SimpleNamespace(climatic=None, hydrography=None)
+        loaded_data = SimpleNamespace(climatic=None, hydrography=None)
         cfg = SimpleNamespace(display=SimpleNamespace(to_runtime_options=lambda: SimpleNamespace()))
 
         @staticmethod
@@ -221,7 +221,7 @@ def test_postprocess_runner_passes_flow_model_to_matching_streams(monkeypatch) -
 
     class _State:
         setup = SimpleNamespace(geographic=geographic, workspace=workspace)
-        data = SimpleNamespace(climatic=None, hydrography=hydrography)
+        loaded_data = SimpleNamespace(climatic=None, hydrography=hydrography)
         cfg = SimpleNamespace(display=SimpleNamespace(to_runtime_options=lambda: SimpleNamespace()))
 
         @staticmethod

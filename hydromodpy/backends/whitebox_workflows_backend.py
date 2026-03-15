@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stderr, redirect_stdout
 from functools import lru_cache
+import os
 from pathlib import Path
 
 import whitebox_workflows as wbw
@@ -23,6 +25,13 @@ class WhiteboxWorkflowsBackend:
 
     def __init__(self) -> None:
         self._env = wbw.WbEnvironment()
+        self._verbose = self._is_truthy_env(
+            os.environ.get("HYDROMODPY_WHITEBOX_VERBOSE")
+        )
+        try:
+            self._env.verbose = bool(self._verbose)
+        except Exception:
+            pass
         self._compress_rasters = False
 
     @staticmethod
@@ -30,8 +39,20 @@ class WhiteboxWorkflowsBackend:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
+    def _is_truthy_env(value: str | None) -> bool:
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
     def _is_vector_path(path: str) -> bool:
         return Path(path).suffix.lower() in _VECTOR_EXTENSIONS
+
+    def _run_env_operation(self, operation, *args, **kwargs):
+        if self._verbose:
+            return operation(*args, **kwargs)
+        # Whitebox can emit progress/warnings to stdio; keep launcher output clean.
+        with open(os.devnull, "w", encoding="utf-8", errors="ignore") as devnull:
+            with redirect_stdout(devnull), redirect_stderr(devnull):
+                return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
         return self._env.read_raster(path)
@@ -63,10 +84,10 @@ class WhiteboxWorkflowsBackend:
         self._write_vector(vector, path)
 
     def fill_depressions_raster(self, dem):
-        return self._env.fill_depressions(dem)
+        return self._run_env_operation(self._env.fill_depressions, dem)
 
     def breach_depressions_raster(self, dem):
-        return self._env.breach_depressions_least_cost(dem)
+        return self._run_env_operation(self._env.breach_depressions_least_cost, dem)
 
     def d8_pointer_raster(self, dem, *, esri_pntr: bool = False):
         return self._env.d8_pointer(dem, esri_pointer=esri_pntr)

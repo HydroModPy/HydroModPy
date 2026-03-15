@@ -1,8 +1,14 @@
-"""Zone coding on raster support.
+"""Build categorical zone rasters on geographic support.
 
-This module currently supports two zoning modes:
-1. catchment-based zoning from three nested polygon supports,
-2. uniform zoning from one DEM support with no catchment/buffer notion.
+Purpose
+-------
+Encode domain regions as integer classes so later model steps can apply
+zone-dependent rules (buffer ring, catchment core, outside domain, uniform).
+
+Supported modes
+---------------
+1. catchment-based zoning from nested polygon supports,
+2. uniform zoning directly on DEM support (no buffer/catchment distinction).
 """
 
 from __future__ import annotations

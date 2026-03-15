@@ -1,14 +1,20 @@
-"""Derive domain support polygons from one catchment boundary.
+"""Build domain support polygons from one catchment boundary.
 
-This module converts a catchment polygon into the three supports used by the
-domain model:
-- buffered catchment (for transition/buffer calculations),
+Purpose
+-------
+Generate the geometric supports required by domain preprocessing from a
+single catchment polygon.
+
+Produced supports
+-----------------
+- buffered catchment (transition ring support),
 - catchment bounding box,
-- buffered rectangular box (reference support for raster clipping and gridding).
+- buffered rectangular box used as raster clipping/gridding reference.
 
-The buffer distance keeps legacy behavior:
-- numeric ``buff_area`` is interpreted as percentage-based scaling,
-- string ``buff_area`` is interpreted as explicit meters.
+Buffer semantics
+----------------
+- numeric ``buff_area``: legacy percentage-based scaling,
+- string ``buff_area``: explicit distance (for example ``"200 m"``).
 """
 
 from __future__ import annotations

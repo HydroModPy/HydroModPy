@@ -1,0 +1,28 @@
+# ----------------------------------------------------------------------
+# Reference case: hydrographic network extraction on Nançon.
+# ----------------------------------------------------------------------
+
+[workspace]
+catch_name = "nancon_geographic_river_network_case"
+out_dir_path = "../../../../examples/results"
+data_path = "../../../../examples_legacy/example12/data"
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "../../../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = 50
+buff_area = 20.0
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = false
