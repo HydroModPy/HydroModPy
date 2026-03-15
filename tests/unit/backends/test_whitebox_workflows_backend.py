@@ -34,6 +34,16 @@ def _write_raster(path: Path, data: np.ndarray, *, nodata: float = -9999.0) -> N
         dst.write(data, 1)
 
 
+def _count_active_cells(path: Path) -> int:
+    with rasterio.open(path) as src:
+        arr = np.asarray(src.read(1))
+        nodata = src.nodata
+    valid = np.isfinite(arr)
+    if nodata is not None:
+        valid &= arr != nodata
+    return int(np.count_nonzero((arr > 0) & valid))
+
+
 def test_get_whitebox_backend_defaults_to_workflows() -> None:
     _get_cached_whitebox_backend.cache_clear()
     backend = get_whitebox_backend()
@@ -113,6 +123,7 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     dem_breach = tmp_path / "dem_breach.tif"
     direc = tmp_path / "dem_direc.tif"
     acc = tmp_path / "dem_acc.tif"
+    acc_cells = tmp_path / "dem_acc_cells.tif"
     clipped = tmp_path / "dem_clip.tif"
     points_clip = tmp_path / "points_clip.shp"
     snap_pts = tmp_path / "points_snap.shp"
@@ -126,6 +137,11 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     trace_raster = tmp_path / "trace.tif"
     downslope = tmp_path / "downslope.tif"
     mass_flux = tmp_path / "mass_flux.tif"
+    streams = tmp_path / "streams.tif"
+    streams_pruned = tmp_path / "streams_pruned.tif"
+    streams_vector = tmp_path / "streams.shp"
+    streams_order = tmp_path / "streams_order.tif"
+    streams_link_id = tmp_path / "streams_link_id.tif"
     eff = tmp_path / "eff.tif"
     absr = tmp_path / "abs.tif"
 
@@ -133,6 +149,32 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     backend.breach_depressions(str(dem), str(dem_breach))
     backend.d8_pointer(str(dem_fill), str(direc))
     backend.d8_flow_accumulation(str(dem_fill), str(acc), log=True)
+    backend.d8_flow_accumulation(str(dem_fill), str(acc_cells), log=False)
+    backend.extract_streams(str(acc_cells), str(streams), threshold=1, zero_background=True)
+    backend.remove_short_streams(
+        str(direc),
+        str(streams),
+        str(streams_pruned),
+        min_length=0,
+    )
+    backend.strahler_stream_order(
+        str(direc),
+        str(streams_pruned),
+        str(streams_order),
+        zero_background=True,
+    )
+    backend.stream_link_identifier(
+        str(direc),
+        str(streams_pruned),
+        str(streams_link_id),
+        zero_background=True,
+    )
+    backend.raster_streams_to_vector(
+        str(streams_pruned),
+        str(direc),
+        str(streams_vector),
+        all_vertices=False,
+    )
     backend.clip_raster_to_polygon(str(dem_fill), str(polygon), str(clipped), maintain_dimensions=False)
     backend.clip(str(points), str(polygon), str(points_clip))
     backend.snap_pour_points(str(points), str(acc), str(snap_pts), 2)
@@ -165,6 +207,7 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
         dem_breach,
         direc,
         acc,
+        acc_cells,
         clipped,
         points_clip,
         snap_pts,
@@ -178,6 +221,11 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
         trace_raster,
         downslope,
         mass_flux,
+        streams,
+        streams_pruned,
+        streams_vector,
+        streams_order,
+        streams_link_id,
     ):
         assert path.exists()
 
@@ -186,6 +234,18 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
 
     point_cols = set(gpd.read_file(points_clip).columns)
     assert {"XCOORD", "YCOORD", "VALUE1"}.issubset(point_cols)
+
+    stream_count = _count_active_cells(streams)
+    stream_pruned_count = _count_active_cells(streams_pruned)
+    stream_order_count = _count_active_cells(streams_order)
+    stream_link_count = _count_active_cells(streams_link_id)
+
+    assert stream_count > 0
+    assert stream_pruned_count > 0
+    assert stream_pruned_count <= stream_count
+    assert stream_order_count > 0
+    assert stream_link_count > 0
+    assert not gpd.read_file(streams_vector).empty
 
 
 def test_whitebox_workflows_backend_in_memory_chain(tmp_path: Path) -> None:
