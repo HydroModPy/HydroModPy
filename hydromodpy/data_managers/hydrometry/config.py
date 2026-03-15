@@ -18,12 +18,12 @@ class HydrometrySourceConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Literal["custom", "hubeau"] = Field(
+    source: Annotated[Literal["custom", "hubeau"], ParamLevel("user")] = Field(
         ..., description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API."
     )
 
     # --- Custom source fields ---
-    path: Optional[Path] = Field(
+    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None, description="Directory containing location file and chronicle CSVs."
     )
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
@@ -35,31 +35,31 @@ class HydrometrySourceConfig(BaseModel):
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicle CSVs.")
 
     # --- Spatial mask ---
-    mask_path: Optional[Path] = Field(
+    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
     )
 
     # --- API source fields ---
-    product: Optional[str] = Field(
+    product: Annotated[Optional[str], ParamLevel("user")] = Field(
         default=None,
         description="Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').",
     )
-    require_observations: bool = Field(
+    require_observations: Annotated[bool, ParamLevel("dev")] = Field(
         default=True, description="Only keep stations that have observations in the period."
     )
-    fallback_search_radius_km: Optional[float] = Field(
+    fallback_search_radius_km: Annotated[Optional[float], ParamLevel("dev")] = Field(
         default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
 
     # --- Common fields ---
-    station_ids: Optional[list[str]] = Field(
+    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(
         default=None, description="Explicit list of station ids to load."
     )
-    extent: Optional[Literal["watershed", "study_area"]] = Field(
+    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
         default=None,
         description="Enable bbox-based station discovery using the project extent.",
     )
-    force_refresh: bool = Field(
+    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Ignore cache and re-download from API.",
     )
@@ -82,13 +82,13 @@ class HydrometryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: list[HydrometrySourceConfig] = Field(
+    sources: Annotated[list[HydrometrySourceConfig], ParamLevel("user")] = Field(
         ..., min_length=1, description="At least one data source."
     )
-    date_start: Optional[str] = Field(
+    date_start: Annotated[Optional[str], ParamLevel("user")] = Field(
         default=None, description="Project start date (ISO format, e.g. '2019-01-01')."
     )
-    date_end: Optional[str] = Field(
+    date_end: Annotated[Optional[str], ParamLevel("user")] = Field(
         default=None, description="Project end date (ISO format, e.g. '2025-12-31')."
     )
 
@@ -102,6 +102,14 @@ class HydrometryConfig(BaseModel):
             except ValueError:
                 raise ValueError(f"Invalid ISO date: '{v}'. Expected YYYY-MM-DD.")
         return v
+
+    @model_validator(mode="after")
+    def _check_date_order(self) -> "HydrometryConfig":
+        if self.date_start and self.date_end:
+            from datetime import datetime
+            if datetime.fromisoformat(self.date_start) >= datetime.fromisoformat(self.date_end):
+                raise ValueError("date_start must be before date_end")
+        return self
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "HydrometryConfig":

@@ -10,12 +10,22 @@ from pathlib import Path
 
 DEFAULT_ROOT = Path.home() / "hydromodpy"
 
-# Variables with custom data support (Phase 1).
+# Variables with custom data support.
 # (folder_name, loc_prefix, unit, label_fr)
 VARIABLES = [
     ("hydrometry", "hydrometry_custom", "m3/s", "debits"),
     ("piezometry", "piezometry_custom", "m", "niveaux piezometriques"),
     ("water_quality", "waterquality_custom", "mg/L", "qualite des eaux"),
+    ("recharge", "recharge_custom", "mm/day", "recharge"),
+    ("precipitation", "precipitation_custom", "mm/day", "precipitations"),
+    ("etp", "etp_custom", "mm/day", "evapotranspiration"),
+    ("temperature", "temperature_custom", "degC", "temperature"),
+    ("wind", "wind_custom", "m/s", "vent"),
+    ("humidity", "humidity_custom", "%", "humidite"),
+    ("radiation", "radiation_custom", "W/m2", "rayonnement"),
+    ("soil_moisture", "soilmoisture_custom", "-", "humidite du sol"),
+    ("runoff", "runoff_custom", "mm/day", "ruissellement"),
+    ("oceanic", "oceanic_custom", "m", "niveau marin"),
 ]
 
 LOC_HEADER = "id,x,y,crs,unit\n"
@@ -99,6 +109,93 @@ path = "{data_path}/water_quality"
 # site_type = "river"
 # extent = "watershed"
 # parameters = ["pH", "Nitrates"]
+
+
+# --- Recharge : recharge ---
+# [recharge]
+# [[recharge.sources]]
+# source = "custom"
+# path = "{data_path}/recharge"
+# [[recharge.sources]]
+# source = "synthetic"
+# values = [0.9589]
+# freq = "YE"
+# periods = 1
+
+
+# --- Precipitation : precipitations ---
+# [precipitation]
+# [[precipitation.sources]]
+# source = "custom"
+# path = "{data_path}/precipitation"
+
+
+# --- ETP : evapotranspiration ---
+# [etp]
+# [[etp.sources]]
+# source = "custom"
+# path = "{data_path}/etp"
+
+
+# --- Temperature : temperature ---
+# [temperature]
+# [[temperature.sources]]
+# source = "custom"
+# path = "{data_path}/temperature"
+
+
+# --- Wind : vent ---
+# [wind]
+# [[wind.sources]]
+# source = "custom"
+# path = "{data_path}/wind"
+
+
+# --- Humidity : humidite ---
+# [humidity]
+# [[humidity.sources]]
+# source = "custom"
+# path = "{data_path}/humidity"
+
+
+# --- Radiation : rayonnement ---
+# [radiation]
+# [[radiation.sources]]
+# source = "custom"
+# path = "{data_path}/radiation"
+
+
+# --- Soil moisture : humidite du sol ---
+# [soil_moisture]
+# [[soil_moisture.sources]]
+# source = "custom"
+# path = "{data_path}/soil_moisture"
+
+
+# --- Runoff : ruissellement ---
+# [runoff]
+# [[runoff.sources]]
+# source = "custom"
+# path = "{data_path}/runoff"
+
+
+# --- Oceanic : niveau marin ---
+# [oceanic]
+# [[oceanic.sources]]
+# source = "constant"
+# value = 0.0
+
+# Ou custom CSV/NC/TIF :
+# [[oceanic.sources]]
+# source = "custom"
+# path = "{data_path}/oceanic"
+# col_datetime = "timestamp"
+
+# Ou API SHOM :
+# [[oceanic.sources]]
+# source = "shom"
+# nearest = true
+# fallback_search_radius_km = 100.0
 """
 
 

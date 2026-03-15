@@ -4,14 +4,8 @@ local_csv_path = "data/oceanic_local_sample.csv"
 default_msl = 0.0
 start_date = "2003-01-01"
 end_date = "2003-01-30"
-run_local_extraction = true
-oceanic_path = "../../../../examples/launcher_data_overtiew/data"
-out_path = "outputs"
-display_values = ["RSL", "RMSL"]
 
 [geographic]
 centroid_long_lat = [48.0, -4.0]
 centroid_xy_l93 = [251720.0, 6789640.0]
-# Optional override for Greenwich coordinates used by RSL index search:
-# centroid_long_lat_greenwich = [48.0, -4.0]
 stable_folder = "outputs/stable"

@@ -18,23 +18,23 @@ class WaterQualitySourceConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Literal["custom", "hubeau"] = Field(
+    source: Annotated[Literal["custom", "hubeau"], ParamLevel("user")] = Field(
         ..., description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API."
     )
 
     # --- Site type (river vs piezometer quality) ---
-    site_type: Literal["river", "piezometer"] = Field(
+    site_type: Annotated[Literal["river", "piezometer"], ParamLevel("user")] = Field(
         default="river", description="Type of site: 'river' (qualite_rivieres) or 'piezometer' (qualite_nappes)."
     )
 
     # --- Parameter filtering ---
-    parameters: Optional[list[str]] = Field(
+    parameters: Annotated[Optional[list[str]], ParamLevel("user")] = Field(
         default=None,
         description="Parameters to keep (e.g. ['pH', 'Nitrates']). None = all parameters.",
     )
 
     # --- Custom source fields ---
-    path: Optional[Path] = Field(
+    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None, description="Directory containing location file and chronicle CSVs."
     )
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
@@ -46,26 +46,26 @@ class WaterQualitySourceConfig(BaseModel):
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicles.")
 
     # --- Spatial mask ---
-    mask_path: Optional[Path] = Field(
+    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
     )
 
     # --- API fallback / nearest ---
-    fallback_search_radius_km: Optional[float] = Field(
+    fallback_search_radius_km: Annotated[Optional[float], ParamLevel("dev")] = Field(
         default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
-    nearest: bool = Field(
+    nearest: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Keep only the nearest station to the extent centroid.",
     )
 
     # --- Common fields ---
-    station_ids: Optional[list[str]] = Field(default=None, description="Explicit station ids.")
-    extent: Optional[Literal["watershed", "study_area"]] = Field(
+    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(default=None, description="Explicit station ids.")
+    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
         default=None,
         description="Enable bbox-based station discovery using the project extent.",
     )
-    force_refresh: bool = Field(
+    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Ignore cache and re-download from API.",
     )
@@ -85,7 +85,7 @@ class WaterQualityConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: list[WaterQualitySourceConfig] = Field(
+    sources: Annotated[list[WaterQualitySourceConfig], ParamLevel("user")] = Field(
         ..., min_length=1, description="At least one data source."
     )
 

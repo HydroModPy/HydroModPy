@@ -18,12 +18,12 @@ class PiezometrySourceConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Literal["custom", "hubeau"] = Field(
+    source: Annotated[Literal["custom", "hubeau"], ParamLevel("user")] = Field(
         ..., description="Data provider."
     )
 
     # --- Custom source fields ---
-    path: Optional[Path] = Field(
+    path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None, description="Directory containing location file and chronicle CSVs."
     )
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for piezometer identifier.")
@@ -35,32 +35,32 @@ class PiezometrySourceConfig(BaseModel):
     col_value: Annotated[str, ParamLevel("dev")] = Field(default="value", description="Column name for value in chronicle CSVs.")
 
     # --- Spatial mask ---
-    mask_path: Optional[Path] = Field(
+    mask_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
     )
 
     # --- API source fields ---
-    product: Optional[Literal["level", "depth"]] = Field(
+    product: Annotated[Optional[Literal["level", "depth"]], ParamLevel("user")] = Field(
         default=None, description="Hub'Eau measurement type: 'level' or 'depth'."
     )
-    require_observations: bool = Field(
+    require_observations: Annotated[bool, ParamLevel("dev")] = Field(
         default=True, description="Only keep stations that have observations in the period."
     )
-    fallback_search_radius_km: Optional[float] = Field(
+    fallback_search_radius_km: Annotated[Optional[float], ParamLevel("dev")] = Field(
         default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
 
     # --- Common fields ---
-    station_ids: Optional[list[str]] = Field(default=None, description="Explicit station ids.")
-    extent: Optional[Literal["watershed", "study_area"]] = Field(
+    station_ids: Annotated[Optional[list[str]], ParamLevel("user")] = Field(default=None, description="Explicit station ids.")
+    extent: Annotated[Optional[Literal["watershed", "study_area"]], ParamLevel("user")] = Field(
         default=None,
         description="Enable bbox-based station discovery using the project extent.",
     )
-    nearest: bool = Field(
+    nearest: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Keep only the nearest piezometer to the extent centroid.",
     )
-    force_refresh: bool = Field(
+    force_refresh: Annotated[bool, ParamLevel("dev")] = Field(
         default=False,
         description="Ignore cache and re-download from API.",
     )
@@ -83,13 +83,13 @@ class PiezometryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: list[PiezometrySourceConfig] = Field(
+    sources: Annotated[list[PiezometrySourceConfig], ParamLevel("user")] = Field(
         ..., min_length=1, description="At least one data source."
     )
-    date_start: Optional[str] = Field(
+    date_start: Annotated[Optional[str], ParamLevel("user")] = Field(
         default=None, description="Project start date (ISO format, e.g. '2019-01-01')."
     )
-    date_end: Optional[str] = Field(
+    date_end: Annotated[Optional[str], ParamLevel("user")] = Field(
         default=None, description="Project end date (ISO format, e.g. '2025-12-31')."
     )
 
@@ -103,6 +103,14 @@ class PiezometryConfig(BaseModel):
             except ValueError:
                 raise ValueError(f"Invalid ISO date: '{v}'. Expected YYYY-MM-DD.")
         return v
+
+    @model_validator(mode="after")
+    def _check_date_order(self) -> "PiezometryConfig":
+        if self.date_start and self.date_end:
+            from datetime import datetime
+            if datetime.fromisoformat(self.date_start) >= datetime.fromisoformat(self.date_end):
+                raise ValueError("date_start must be before date_end")
+        return self
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "PiezometryConfig":

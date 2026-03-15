@@ -139,7 +139,7 @@ def build_forcing_series(
         series = series * unit_conversion_factor
 
     if simulation_window is not None:
-        from hydromodpy.forcing.recharge_chronicle import (
+        from hydromodpy.forcing.time_alignment import (
             align_forcing_series_to_simulation_window,
         )
 

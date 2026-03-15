@@ -56,9 +56,6 @@ def generate(
         modulation = config.amplitude * np.sin(omega * t) + offset
         series_values = series_values + modulation
 
-    # Ensure non-negative recharge
-    series_values = np.maximum(series_values, 0.0)
-
     df = pd.DataFrame({
         "datetime": index,
         "value": series_values,

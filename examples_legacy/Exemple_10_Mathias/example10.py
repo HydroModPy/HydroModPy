@@ -55,7 +55,7 @@ from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
     Geology, Hydraulic, Hydrography, Hydrometry, Intermittency, Piezometry, Settings, SafranSurfex, Transport
-from hydromodpy.data_managers.oceanic import Oceanic
+from hydromodpy.data_managers.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig, GeographicConfig
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
@@ -253,10 +253,7 @@ intermittency = Intermittency(out_path=initializing.catch_folder,
 #%% Climatic
 climatic = Climatic(out_path=initializing.catch_folder)
 
-oceanic = Oceanic()
-#oceanic.extract_data(out_path=initializing.catch_folder,
-#                              oceanic_path=data_path,
-#                              geographic=geographic)
+# Oceanic: MSL is set later via sea_level variable (line ~515)
 #%% WATERSHED OBJECT
 stable_folder      = cfg.workspace.stable_folder
 simulations_folder = cfg.workspace.simulations_folder
@@ -512,7 +509,7 @@ climatic.update_recharge(rec, sim_state=sim_state)
 climatic.update_runoff(run, sim_state=sim_state)
 
 # Objects
-oceanic.update_MSL(sea_level)
+msl = sea_level
 
 # Fixed
 setting.update_box_model(box)
@@ -594,7 +591,7 @@ model_modflow = Modflow(geographic,
                         # Output settings
                         check_grid=setting.check_grid,
                         # Boundary settings
-                        sea_level=oceanic.MSL,
+                        sea_level=msl,
                         # Climatic settings
                         recharge=climatic.recharge,
                         #first_clim=climatic.first_clim,

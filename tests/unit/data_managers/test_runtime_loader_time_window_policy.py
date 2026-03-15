@@ -98,9 +98,9 @@ def test_require_simulation_time_window_dates_requires_valid_section(tmp_path: P
 
     with pytest.raises(
         ValueError,
-        match=r"data\.oceanic\.msl_use_simulation_time_window=true requires a valid \[simulation\.time\] section\.",
+        match=r"data\.hydrometry\.use_simulation_time_window=true requires a valid \[simulation\.time\] section\.",
     ):
         loader._require_simulation_time_window_dates(
             result,
-            option_name="data.oceanic.msl_use_simulation_time_window",
+            option_name="data.hydrometry.use_simulation_time_window",
         )

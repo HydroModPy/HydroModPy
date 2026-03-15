@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from hydromodpy.data_managers.contracts.load_result import LoadResult
     from hydromodpy.data_managers.geology.geology_field import GeologyField
     from hydromodpy.data_managers.intermittency import Intermittency
-    from hydromodpy.data_managers.oceanic import Oceanic
     from hydromodpy.data_managers.hydrography import Hydrography
 
 
@@ -18,7 +17,7 @@ class LoadedDataContext:
     """Loaded data-manager objects shared by process runs."""
 
     geology: GeologyField | None = None
-    oceanic: Oceanic | None = None
+    oceanic: LoadResult | None = None
     hydrography: Hydrography | None = None
     intermittency: Intermittency | None = None
     hydrometry: LoadResult | None = None

@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from hydromodpy.data_managers.plan import DataLoadPlan
-from hydromodpy.data_managers.oceanic import Oceanic
 from hydromodpy.simulation.time import resolve_simulation_time_window_dates
 from hydromodpy.simulation.workspace.path_registry import WorkspacePathRegistry
 
@@ -137,82 +136,39 @@ class DataManagersRuntimeLoader:
         return surface_topo.support
 
     def _load_oceanic_data(self, result: "LauncherRunState") -> None:
-        """Load oceanic data and optional mean sea-level boundary value."""
-        workspace_paths = self._workspace_paths(result)
-        section = self._get_data_section(result, "oceanic")
-        oceanic_path = self._resolve_manager_input_path(
-            section=section,
-            keys=("oceanic_path",),
-            default_root=workspace_paths.data_path,
-        )
-        msl_source = "auto"
-        msl_local_csv: str | None = None
-        msl_start_date = "2003-01-01"
-        msl_end_date = "2003-01-30"
-        msl_default = 0.0
-        msl_use_simulation_time_window = False
+        """Load oceanic data from ``data.oceanic`` payload."""
+        from datetime import datetime as dt
 
-        if section is not None:
-            raw_source = section.get("msl_source")
-            if isinstance(raw_source, str) and raw_source.strip():
-                msl_source = raw_source.strip().lower()
+        from hydromodpy.data_managers.oceanic.config import OceanicConfig
+        from hydromodpy.data_managers.oceanic.manager import OceanicManager
 
-            raw_local_csv = section.get("msl_local_csv")
-            if isinstance(raw_local_csv, str) and raw_local_csv.strip():
-                msl_local_csv = str(self._resolve_path_like(raw_local_csv))
-
-            raw_start_date = section.get("msl_start_date")
-            if isinstance(raw_start_date, str) and raw_start_date.strip():
-                msl_start_date = raw_start_date.strip()
-
-            raw_end_date = section.get("msl_end_date")
-            if isinstance(raw_end_date, str) and raw_end_date.strip():
-                msl_end_date = raw_end_date.strip()
-
-            raw_default = section.get("msl_default")
-            if raw_default is not None:
-                try:
-                    msl_default = float(raw_default)
-                except (TypeError, ValueError):
-                    print(
-                        "[DataManagersPlanner] Warning: invalid data.oceanic.msl_default="
-                        f"{raw_default!r}, using 0.0"
-                    )
-
-            raw_use_simulation_time_window = section.get("msl_use_simulation_time_window")
-            if isinstance(raw_use_simulation_time_window, bool):
-                msl_use_simulation_time_window = raw_use_simulation_time_window
-            elif isinstance(raw_use_simulation_time_window, str):
-                token = raw_use_simulation_time_window.strip().lower()
-                if token in {"1", "true", "yes", "on"}:
-                    msl_use_simulation_time_window = True
-                elif token in {"0", "false", "no", "off"}:
-                    msl_use_simulation_time_window = False
-
-        if msl_use_simulation_time_window:
-            msl_start_date, msl_end_date = self._require_simulation_time_window_dates(
+        raw_section = self._get_data_section(result, "oceanic")
+        if raw_section is None:
+            self._handle_missing_data_section(
                 result,
-                option_name="data.oceanic.msl_use_simulation_time_window",
+                "oceanic",
+                "missing [data.oceanic] section",
             )
+            return
+
+        self._apply_simulation_window_dates(raw_section, result, "oceanic")
 
         try:
-            oceanic = Oceanic()
-            oceanic.extract_local_data(
-                out_path=workspace_paths.catch_folder,
+            oceanic_cfg = OceanicConfig.model_validate(raw_section)
+            period = None
+            if oceanic_cfg.date_start and oceanic_cfg.date_end:
+                period = (dt.fromisoformat(oceanic_cfg.date_start), dt.fromisoformat(oceanic_cfg.date_end))
+            for src in oceanic_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+            manager = OceanicManager(
+                config=oceanic_cfg,
+                catalog=None,
+                project_period=period,
+                project_extent=None,
                 geographic=result.setup.geographic,
-                oceanic_path=oceanic_path,
             )
-            oceanic.update_MSL(
-                oceanic.fetch_msl_or_default(
-                    result.setup.geographic,
-                    start_date=msl_start_date,
-                    end_date=msl_end_date,
-                    default=msl_default,
-                    source=msl_source,
-                    local_csv_path=msl_local_csv,
-                )
-            )
-            result.loaded_data.oceanic = oceanic
+            result.loaded_data.oceanic = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "oceanic", exc)
 
