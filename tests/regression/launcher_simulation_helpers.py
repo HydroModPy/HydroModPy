@@ -47,19 +47,22 @@ SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
 SHOM_TIDE_GAUGE_ID = "152"
 SHOM_START_DATE = "2003-01-01"
 SHOM_END_DATE = "2003-01-30"
-OCEANIC_LOCAL_CSV = (
+OCEANIC_DATA_DIR = (
     REPO_ROOT
     / "examples"
     / "launcher_simulation"
     / "data"
     / "oceanic"
-    / "sealevel_shom_152_20030101_20030130_H.csv"
 )
+OCEANIC_LOCAL_CSV = OCEANIC_DATA_DIR / "sealevel_shom_152_20030101_20030130_H.csv"
 
 
 def _ensure_local_oceanic_seed_csv(csv_path: Path) -> None:
-    """Ensure local SHOM seed exists for launcher_simulation oceanic MSL."""
+    """Ensure local SHOM seed and custom-format files exist for oceanic."""
+    oceanic_dir = csv_path.parent
+
     if csv_path.exists() and csv_path.stat().st_size > 0:
+        _ensure_custom_format_files(oceanic_dir, csv_path)
         return
 
     require_url_available(SHOM_HEALTHCHECK_URL)
@@ -98,6 +101,24 @@ def _ensure_local_oceanic_seed_csv(csv_path: Path) -> None:
 
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(csv_path, index=False)
+
+    _ensure_custom_format_files(oceanic_dir, csv_path)
+
+
+def _ensure_custom_format_files(oceanic_dir: Path, source_csv: Path) -> None:
+    """Create oceanic_custom_LOC.csv and chronicle file from the SHOM seed."""
+    import shutil
+
+    loc_path = oceanic_dir / "oceanic_custom_LOC.csv"
+    if not loc_path.exists():
+        loc_path.write_text(
+            "id,x,y,crs,unit\n"
+            f"{SHOM_TIDE_GAUGE_ID},-4.4953,48.3816,EPSG:4326,m\n"
+        )
+
+    chronicle_path = oceanic_dir / f"oceanic_custom_{SHOM_TIDE_GAUGE_ID}_20030101_20030130_H.csv"
+    if not chronicle_path.exists():
+        shutil.copy2(source_csv, chronicle_path)
 
 
 def run_launcher_simulation_regression(
