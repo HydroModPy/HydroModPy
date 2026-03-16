@@ -44,14 +44,14 @@ def _load_json(path: Path) -> dict:
 def _write_legacy_clip_bbox_case_toml(path: Path) -> None:
     raw = CASE_TOML.read_text(encoding="utf-8-sig")
     old_block = (
-        "[case.domain]\n"
+        "[mesh_case.domain]\n"
         'kind = "vector"\n'
         'path = "domain_window.geojson"\n'
         'id_field = "domain_id"\n'
         'selected_id = "main"\n'
     )
     new_block = (
-        "[case.domain]\n" "clip_bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]\n"
+        "[mesh_case.domain]\n" "clip_bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]\n"
     )
     if old_block not in raw:
         raise AssertionError(
@@ -158,6 +158,8 @@ def test_resolve_river_trace_for_meshing_prefers_explicit_trace() -> None:
     resolved = _resolve_river_trace_for_meshing(
         river_trace=explicit_trace,
         domain_geographic=_DomainGeographic(),
+        rivers_cfg=None,
+        config_path=Path("/dummy"),
     )
 
     assert resolved is explicit_trace
@@ -172,6 +174,8 @@ def test_resolve_river_trace_for_meshing_falls_back_to_domain_geographic() -> No
     resolved = _resolve_river_trace_for_meshing(
         river_trace=None,
         domain_geographic=_DomainGeographic(),
+        rivers_cfg=None,
+        config_path=Path("/dummy"),
     )
 
     assert resolved is domain_trace
@@ -181,6 +185,8 @@ def test_resolve_river_trace_for_meshing_returns_none_without_inputs() -> None:
     resolved = _resolve_river_trace_for_meshing(
         river_trace=None,
         domain_geographic=None,
+        rivers_cfg=None,
+        config_path=Path("/dummy"),
     )
 
     assert resolved is None
@@ -237,7 +243,7 @@ def test_river_mode_requires_river_trace(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="requires one river trace"):
+    with pytest.raises(ValueError, match="requires one usable river trace"):
         run_reference_2d_zone_conformal_case_from_toml(
             config_path,
             section="case",

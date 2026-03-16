@@ -9,26 +9,19 @@ from hydromodpy.field.core.field_param import FieldParam
 from hydromodpy.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
     resolve_flow_property_arrays,
 )
 
 
-def _build_sgrid(*, nlay: int = 1, nrow: int = 2, ncol: int = 4):
+def _build_solver_mesh(*, nlay: int = 1, nrow: int = 2, ncol: int = 4):
     top = np.full((nrow, ncol), 10.0, dtype=float)
     botm = np.empty((nlay, nrow, ncol), dtype=float)
     for ilay in range(nlay):
         botm[ilay, :, :] = 9.0 - float(ilay)
-    return SimpleNamespace(
-        top=top,
-        botm=botm,
-        delr=np.ones(ncol, dtype=float),
-        delc=np.ones(nrow, dtype=float),
-        xoffset=0.0,
-        yoffset=0.0,
-        nlay=nlay,
-        nrow=nrow,
-        ncol=ncol,
+    return SolverMesh.from_structured_arrays(
+        nrow=nrow, ncol=ncol, top=top, botm=botm,
     )
 
 
@@ -66,12 +59,12 @@ def test_resolve_flow_property_arrays_homogeneous_without_spatial_support() -> N
         }
     )
     domain = SimpleNamespace(zones={})
-    sgrid = _build_sgrid(nlay=2)
+    mesh = _build_solver_mesh(nlay=2)
 
     actual = resolve_flow_property_arrays(
         flow=flow,
         domain=domain,
-        sgrid=sgrid,
+        solver_mesh=mesh,
         required_properties={"K"},
     )
 
@@ -91,12 +84,12 @@ def test_resolve_flow_property_arrays_heterogeneous_uses_non_geology_support() -
         }
     )
     domain = SimpleNamespace(zones={"halves": _HalfDomainSupport()})
-    sgrid = _build_sgrid()
+    mesh = _build_solver_mesh()
 
     actual = resolve_flow_property_arrays(
         flow=flow,
         domain=domain,
-        sgrid=sgrid,
+        solver_mesh=mesh,
         required_properties={"K"},
     )
 
@@ -123,12 +116,12 @@ def test_resolve_flow_property_arrays_reports_missing_requested_support() -> Non
         }
     )
     domain = SimpleNamespace(zones={})
-    sgrid = _build_sgrid()
+    mesh = _build_solver_mesh()
 
     with pytest.raises(ValueError, match="Missing spatial support 'support_halves'"):
         resolve_flow_property_arrays(
             flow=flow,
             domain=domain,
-            sgrid=sgrid,
+            solver_mesh=mesh,
             required_properties={"K"},
         )

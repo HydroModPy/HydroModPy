@@ -130,9 +130,9 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
 
     assert ctx.nrow == 3
     assert ctx.ncol == 4
-    assert ctx.top_elevation.shape == (3, 4)
-    assert ctx.bottom_layer.shape == (3, 4)
-    assert ctx.zbot.shape == (2, 3, 4)
+    assert ctx.top_elevation.shape == (12,)  # flat (n_cells,)
+    assert ctx.bottom_layer.shape == (12,)
+    assert ctx.solver_mesh.botm.shape == (2, 12)
     assert ctx.grid.dx == pytest.approx(0.5)
     assert ctx.grid.dy == pytest.approx(2.0 / 3.0)
     assert ctx.grid.cell_area == pytest.approx((0.5) * (2.0 / 3.0))

@@ -58,7 +58,7 @@ def test_launcher_data_overview_data_only_regression():
         catch_root / "hydromodpy_debug.log",
         stable_root / "geographic" / "watershed.shp",
         stable_root / "geographic" / "watershed.tif",
-        stable_root / "hydrography" / "regional stream network.shp",
+        stable_root / "hydrography" / "streams.shp",
         stable_root / "intermittency" / "regional onde stations.shp",
         stable_root / "oceanic" / "sealevel_shom_152_20030101_20030130_H.csv",
     ]
