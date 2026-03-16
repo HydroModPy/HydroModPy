@@ -7,7 +7,7 @@
 catch_name = "example12_domain_case"
 
 # Root output directory where all results will be stored.
-out_dir_path = "../../../examples/results"
+project_root = "."
 
 # Path to the input data folder (observations, climate, GIS layers, etc.).
 data_path = "../../../examples_legacy/example12/data"

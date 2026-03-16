@@ -3,9 +3,7 @@
 # ----------------------------------------------------------------------
 
 [workspace]
-catch_name = "example12_geographic_case"
-out_dir_path = "../../../../examples/results"
-data_path = "../../../../examples_legacy/example12/data"
+project_root = "."
 
 [geographic]
 catch_def = "from_outlet_coord"
