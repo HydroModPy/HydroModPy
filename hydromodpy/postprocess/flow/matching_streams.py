@@ -28,7 +28,7 @@ from hydromodpy.support.tools import get_logger
 from hydromodpy.support.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.data_managers.hydrography import Hydrography
+from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult
 
 
 logger = get_logger(__name__)
@@ -50,8 +50,8 @@ class MatchingStreams:
     geographic : Geographic
         Watershed spatial context (`watershed_shp`, `watershed_fill`,
         `watershed_direc` must be available).
-    hydrography : Hydrography
-        Hydrography context containing observed stream raster (`tif_streams`).
+    hydrography : HydrographyResult
+        HydrographyResult context containing observed stream raster (`tif_streams`).
     initializing : Workspace
         Workspace-like object exposing `calibration_folder` and
         `simulations_folder`.
@@ -85,7 +85,7 @@ class MatchingStreams:
     def __init__(
         self,
         geographic: Geographic,
-        hydrography: Hydrography,
+        hydrography: HydrographyResult,
         initializing: Workspace,
         model_modflow: object | None = None,
         iteration_label=None,
