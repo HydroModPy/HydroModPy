@@ -1,7 +1,9 @@
 """Workspace scaffolding.
 
 Called by ``hmp init`` to create the HydroModPy workspace:
-shared data, cache, and an example watershed project.
+shared data, catalog, and a projects/ directory.
+
+Called by ``hmp new <name>`` to create a project inside the workspace.
 """
 
 from __future__ import annotations
@@ -34,188 +36,67 @@ CHRONICLE_HEADER = "datetime,value\n"
 CHRONICLE_EXAMPLE = "# 2020-01-01,0.0\n"
 
 
-BV_CONFIG_TEMPLATE = """\
+PROJECT_TOML_TEMPLATE = """\
 # ===========================================================================
-# HydroModPy - Configuration data_managers
+# HydroModPy — Project configuration
 # ===========================================================================
-# Bassin versant : {bv_name}
+# Project : {project_name}
 #
-# Les donnees custom sont dans le dossier partage ../data/
-# Les telechargements API sont aussi sauves dans ../data/<variable>/
-# Le registre de metadonnees est dans ../catalog.db
+# This file defines the shared settings for all runs in this project:
+# geographic, domain, data sources, and flow parameters.
 #
-# Utilisation :
-#
-#   from hydromodpy.data_managers.store import DataStore
-#   from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
-#
-#   store = DataStore(
-#       workspace_root="{root_path}",
-#       project_period=(datetime(2015, 1, 1), datetime(2023, 12, 31)),
-#       project_extent=(-1.9, 47.8, -1.3, 48.4),  # bbox du bassin
-#   )
-#   cfg = HydrometryConfig.from_toml("data_managers.toml")
-#   records = store.load_hydrometry(cfg)
-#
+# Run files (run_*.toml) inherit from this file via:
+#   base_config = "project.toml"
 # ===========================================================================
 
 
-# --- Hydrometry : debits ---
-[hydrometry]
+# --- Geographic -----------------------------------------------------------
 
-[[hydrometry.sources]]
-source = "custom"
-path = "{data_path}/hydrometry"
-
-# Filtrer certaines stations (optionnel)
-# station_ids = ["ST001", "ST002"]
-
-# Masque spatial (optionnel)
-# mask_path = "masque_bassin.shp"
-
-# Ajouter l'API Hub'Eau en complement :
-# [[hydrometry.sources]]
-# source = "hubeau"
-# product = "QmnJ"
-# extent = "watershed"
-# require_observations = true
-# fallback_search_radius_km = 30.0
+[geographic]
+catch_def = "from_outlet_coord"
+# x_outlet = -1.68
+# y_outlet = 48.12
+# dem_init_path = "../../data/dem/regional_dem.tif"
 
 
-# --- Piezometry : niveaux piezometriques ---
-[piezometry]
+# --- Domain ---------------------------------------------------------------
 
-[[piezometry.sources]]
-source = "custom"
-path = "{data_path}/piezometry"
-
-# [[piezometry.sources]]
-# source = "hubeau"
-# product = "level"
-# extent = "watershed"
-# require_observations = true
-# fallback_search_radius_km = 50.0
+[domain]
+domain_depth = 50.0
 
 
-# --- Water quality : qualite des eaux ---
-[water_quality]
+# --- Data -----------------------------------------------------------------
 
-[[water_quality.sources]]
-source = "custom"
-path = "{data_path}/water_quality"
-
-# [[water_quality.sources]]
-# source = "hubeau"
-# site_type = "river"
-# extent = "watershed"
-# parameters = ["pH", "Nitrates"]
+[data]
+# types = ["geology", "hydrometry", "piezometry"]
 
 
-# --- Recharge : recharge ---
-# [recharge]
-# [[recharge.sources]]
-# source = "custom"
-# path = "{data_path}/recharge"
-# [[recharge.sources]]
-# source = "synthetic"
-# values = [0.9589]
-# freq = "YE"
-# periods = 1
+# --- Flow -----------------------------------------------------------------
 
+[flow]
+# param_list = ["K", "Sy"]
+"""
 
-# --- Precipitation : precipitations ---
-# [precipitation]
-# [[precipitation.sources]]
-# source = "custom"
-# path = "{data_path}/precipitation"
+RUN_TOML_TEMPLATE = """\
+# ===========================================================================
+# HydroModPy — Run configuration
+# ===========================================================================
+# Run : {run_name}
+# Inherits from : project.toml
+# ===========================================================================
 
+base_config = "project.toml"
 
-# --- ETP : evapotranspiration ---
-# [etp]
-# [[etp.sources]]
-# source = "custom"
-# path = "{data_path}/etp"
+[workspace]
+project_root = "."
 
+[simulation]
+name = "{run_name}"
 
-# --- Temperature : temperature ---
-# [temperature]
-# [[temperature.sources]]
-# source = "custom"
-# path = "{data_path}/temperature"
-
-
-# --- Wind : vent ---
-# [wind]
-# [[wind.sources]]
-# source = "custom"
-# path = "{data_path}/wind"
-
-
-# --- Humidity : humidite ---
-# [humidity]
-# [[humidity.sources]]
-# source = "custom"
-# path = "{data_path}/humidity"
-
-
-# --- Radiation : rayonnement ---
-# [radiation]
-# [[radiation.sources]]
-# source = "custom"
-# path = "{data_path}/radiation"
-
-
-# --- Soil moisture : humidite du sol ---
-# [soil_moisture]
-# [[soil_moisture.sources]]
-# source = "custom"
-# path = "{data_path}/soil_moisture"
-
-
-# --- Runoff : ruissellement ---
-# [runoff]
-# [[runoff.sources]]
-# source = "custom"
-# path = "{data_path}/runoff"
-
-
-# --- Oceanic : niveau marin ---
-# [oceanic]
-# [[oceanic.sources]]
-# source = "constant"
-# value = 0.0
-
-# Ou custom CSV/NC/TIF :
-# [[oceanic.sources]]
-# source = "custom"
-# path = "{data_path}/oceanic"
-# col_datetime = "timestamp"
-
-# Ou API SHOM :
-# [[oceanic.sources]]
-# source = "shom"
-# nearest = true
-# fallback_search_radius_km = 100.0
-
-
-# --- Hydrography : reseau hydrographique ---
-# [hydrography]
-# [[hydrography.sources]]
-# source = "custom"
-# path = "data/streams.shp"
-# rasterize_field = "FID"
-
-# Ou API OSM :
-# [[hydrography.sources]]
-# source = "osm"
-
-# Ou BD Topage (France) :
-# [[hydrography.sources]]
-# source = "bdtopage"
-
-# Ou EU-Hydro (Europe) :
-# [[hydrography.sources]]
-# source = "euhydro"
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
 """
 
 
@@ -224,19 +105,14 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
 
     Structure:
         hydromodpy/
-            catalog.db                          <- registre central (SQLite)
+            catalog.db                          <- central registry (SQLite)
             data/
                 hydrometry/
                     hydrometry_custom_LOC.csv
                     hydrometry_custom_EXAMPLE_20200101_20201231_D.csv
-                piezometry/
-                    piezometry_custom_LOC.csv
-                    piezometry_custom_EXAMPLE_20200101_20201231_D.csv
-                water_quality/
-                    waterquality_custom_LOC.csv
-                    waterquality_custom_EXAMPLE_20200101_20201231_D.csv
-            bv_example/
-                data_managers.toml
+                piezometry/ ...
+                water_quality/ ...
+            projects/                           <- empty, ready for hmp new
 
     Returns the workspace root path.
     """
@@ -268,26 +144,37 @@ def scaffold(root_dir: str | Path | None = None) -> Path:
                 + CHRONICLE_EXAMPLE
             )
 
-    # bv_example/ with complete TOML
-    _create_bv(root, "bv_example")
+    # projects/ directory (empty, ready for hmp new)
+    projects_dir = root / "projects"
+    projects_dir.mkdir(parents=True, exist_ok=True)
 
     return root
 
 
-def _create_bv(root: Path, bv_name: str) -> Path:
-    """Create a watershed project folder with its TOML config."""
-    bv_dir = root / bv_name
-    bv_dir.mkdir(parents=True, exist_ok=True)
+def create_project(workspace_root: Path, name: str) -> Path:
+    """Create a new project inside the workspace.
 
-    toml_path = bv_dir / "data_managers.toml"
-    if not toml_path.exists():
-        data_path = str(root / "data")
-        toml_path.write_text(
-            BV_CONFIG_TEMPLATE.format(
-                bv_name=bv_name,
-                root_path=str(root),
-                data_path=data_path,
-            )
+    Structure:
+        projects/<name>/
+            project.toml      <- base template
+            run_demo.toml     <- executable template
+
+    Returns the project directory path.
+    """
+    workspace_root = Path(workspace_root).resolve()
+    project_dir = workspace_root / "projects" / name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    project_toml = project_dir / "project.toml"
+    if not project_toml.exists():
+        project_toml.write_text(
+            PROJECT_TOML_TEMPLATE.format(project_name=name)
         )
 
-    return bv_dir
+    run_toml = project_dir / "run_demo.toml"
+    if not run_toml.exists():
+        run_toml.write_text(
+            RUN_TOML_TEMPLATE.format(run_name="demo")
+        )
+
+    return project_dir
