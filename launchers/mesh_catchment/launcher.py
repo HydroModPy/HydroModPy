@@ -29,10 +29,6 @@ from hydromodpy.simulation.workspace.config import WorkspaceConfig
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
-from launchers.output_paths import (
-    build_repo_output_redirect_notice,
-    resolve_launcher_output_root,
-)
 
 
 DEFAULT_CONFIG_NAME = "config_mesh_catchment_example.toml"
@@ -59,26 +55,17 @@ class MeshCatchmentLauncher:
             constraints_mode=self.constraints_mode,
         )
 
-        resolved_out_dir, resolution = resolve_launcher_output_root(
-            self.workspace_cfg.out_dir_path,
-        )
-        self.workspace_cfg.out_dir_path = resolved_out_dir
-        if resolution == "repo_redirect":
-            print(
-                build_repo_output_redirect_notice(
-                    entrypoint_name="MeshCatchmentLauncher",
-                    resolved_out_dir=resolved_out_dir,
-                )
-            )
-
     def _load_runtime_configs(
         self,
         payload: Mapping[str, Any],
     ) -> tuple[WorkspaceConfig, GeographicConfig]:
         """Load only workspace/geographic sections needed by this mesh-only launcher."""
         base_dir = self.config_path.parent
+        workspace_data = dict(payload.get("workspace", {}))
+        if not workspace_data.get("project_root"):
+            workspace_data["project_root"] = str(base_dir)
         workspace_cfg = _load_standard_section(
-            payload.get("workspace", {}),
+            workspace_data,
             WorkspaceConfig,
             base_dir,
         )
