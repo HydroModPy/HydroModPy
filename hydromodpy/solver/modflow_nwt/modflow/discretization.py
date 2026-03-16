@@ -32,7 +32,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from hydromodpy.domain.surface import Surface
-from hydromodpy.solver.modflow_common import GridReference, SolverGridContext
+from hydromodpy.solver.modflow_common import GridReference, SolverGridContext, SolverMesh
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
     PlanarGridConfig,
     SolverSGridConfig,
@@ -340,11 +340,18 @@ def build_spatial_discretization(
         | (bottom <= nodata)
     )
 
-    return SolverGridContext(
-        grid=GridReference.from_surface(top_surface, nodata=nodata),
-        top_surface=top_surface,
-        bottom_surface=bottom_surface,
-        sgrid=sgrid,
+    solver_mesh = SolverMesh.from_sgrid(
+        sgrid,
         zbot=zbot,
         inactive_mask=np.asarray(inactive_mask, dtype=bool),
+    )
+    return SolverGridContext(
+        grid=GridReference.from_solver_mesh(
+            solver_mesh,
+            crs=None if top_surface.support is None else getattr(top_surface.support, "crs", None),
+            nodata=nodata,
+        ),
+        solver_mesh=solver_mesh,
+        top_surface=top_surface,
+        bottom_surface=bottom_surface,
     )

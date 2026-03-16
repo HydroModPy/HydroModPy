@@ -24,7 +24,7 @@ Inputs (process/runtime side):
 - ``flow.sinks_sources``:
   source/sink definitions (wells and recharge) converted to period-wise
   WEL rows ``[lay, row, col, flux]`` and RCH/EVT stress-period dicts.
-- ``domain`` + ``sgrid`` context:
+- ``domain`` + ``solver_mesh`` context:
   spatial support used to map process properties onto solver cells, including
   spatial supports (geology or other zonations) and structured-grid geometry.
 
@@ -99,6 +99,7 @@ import pandas as pd
 
 from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common.grid_context import GridReference
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.support.units import (
     convert_payload_to_m,
     convert_payload_to_m_per_s,
@@ -122,7 +123,7 @@ if TYPE_CHECKING:
 def _discretize_heterogeneous_source(
     het_source: object,
     *,
-    sgrid: object,
+    solver_mesh: SolverMesh,
     nper: int,
     simulation_window: object,
     method: str = "nearest",
@@ -133,11 +134,14 @@ def _discretize_heterogeneous_source(
         discretize_points_on_sgrid,
     )
 
+    # SolverMesh exposes sgrid-compatible properties (nrow, ncol, delr, delc,
+    # xoffset, yoffset, xvertices, yvertices) so it can be passed directly.
+
     # Prefer fields when available.
     if getattr(het_source, "has_fields", False):
         return discretize_fields_on_sgrid(
             load_result=het_source,
-            sgrid=sgrid,
+            sgrid=solver_mesh,
             nper=nper,
             simulation_window=simulation_window,
             method=method,
@@ -147,14 +151,14 @@ def _discretize_heterogeneous_source(
     if getattr(het_source, "has_points", False):
         return discretize_points_on_sgrid(
             load_result=het_source,
-            sgrid=sgrid,
+            sgrid=solver_mesh,
             nper=nper,
             simulation_window=simulation_window,
             method=method,
         )
 
-    nrow = int(getattr(sgrid, "nrow"))
-    ncol = int(getattr(sgrid, "ncol"))
+    nrow = solver_mesh.nrow
+    ncol = solver_mesh.ncol
     return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
 
 
@@ -240,16 +244,10 @@ class FlowToModflowAdapter:
         *,
         flow: object,
         domain: object,
-        sgrid: object,
-        dem,
-        bottom_layer,
-        nlay: int,
-        nrow: int,
-        ncol: int,
+        solver_mesh: SolverMesh,
         nper: int,
         grid: GridReference | None = None,
         simulation_window: "ResolvedSimulationTimeWindow | None" = None,
-        resolution: float,
         sink_fill: bool,
         sink=None,
     ):
@@ -262,55 +260,50 @@ class FlowToModflowAdapter:
             Runtime flow-process instance carrying IC/BC/parameters.
         domain : object
             Runtime domain instance carrying spatial zones used by property mapping.
-        sgrid : object
-            Structured grid used for parameter discretization.
-        dem : array-like
-            Topographic surface array on model support (2D).
-        bottom_layer : array-like
-            Bottom elevation array of the deepest layer (2D).
-        nlay, nrow, ncol : int
-            MODFLOW grid dimensions.
+        solver_mesh : SolverMesh
+            Unified solver mesh carrying planar geometry, top/botm elevations,
+            and inactive mask. Must be structured for NWT.
         nper : int
             Number of stress periods.
         grid : GridReference | None
             Solver-grid geometry. When provided, conductance and cell-area
             calculations use ``dx``/``dy`` rather than a scalar proxy.
-        resolution : float
-            Horizontal cell-size proxy used in default DRN conductance formula.
         sink_fill : bool
             If True, sink mask can deactivate drainage conductance locally.
         sink : array-like | None
             Optional sink/depression raster aligned with model rows/cols.
         """
+        if not solver_mesh.is_structured:
+            raise ValueError(
+                "FlowToModflowAdapter requires a structured SolverMesh "
+                "(MODFLOW NWT only supports structured grids)"
+            )
+
         # Keep source objects by reference (read-only usage).
         self.flow = flow
         self.domain = domain
-        self.sgrid = sgrid
+        self.solver_mesh = solver_mesh
 
-        # Normalize numeric contexts once so all downstream branches operate on
-        # consistent dtypes and shapes.
-        self.dem = np.asarray(dem, dtype=float)
-        self.bottom_layer = np.asarray(bottom_layer, dtype=float)
-        self.nlay = int(nlay)
-        self.nrow = int(nrow)
-        self.ncol = int(ncol)
+        # Extract structured dimensions and elevation arrays from SolverMesh.
+        self.nlay = solver_mesh.nlay
+        self.nrow = solver_mesh.nrow
+        self.ncol = solver_mesh.ncol
+        self.dem = solver_mesh.reshape_to_grid(solver_mesh.top)
+        self.bottom_layer = solver_mesh.reshape_to_grid(solver_mesh.botm[-1])
+
         self.nper = int(nper)
         self.grid = grid
         self.simulation_window = simulation_window
         if self.grid is None:
-            self.cell_area = float(resolution) ** 2
-            self.characteristic_length = float(resolution)
+            self.cell_area = float(solver_mesh.characteristic_length) ** 2
+            self.characteristic_length = float(solver_mesh.characteristic_length)
         else:
             self.cell_area = float(self.grid.cell_area)
             self.characteristic_length = float(self.grid.characteristic_length)
         self.resolution = float(self.characteristic_length)
         self.sink_fill = bool(sink_fill)
         self.sink = None if sink is None else np.asarray(sink, dtype=float)
-        self.inactive_mask = (
-            ~np.isfinite(self.dem)
-            | ~np.isfinite(self.bottom_layer)
-            | (self.dem <= -1000.0)
-        )
+        self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
 
     @property
     def _boundary_conditions(self) -> Mapping[str, object]:
@@ -852,8 +845,8 @@ class FlowToModflowAdapter:
             return {}
 
         grid = self.grid
-        if grid is None and self.sgrid is not None:
-            grid = GridReference.from_sgrid(self.sgrid)
+        if grid is None:
+            grid = GridReference.from_solver_mesh(self.solver_mesh)
 
         # Broadcast scalar / single-value flux to nper; reject length mismatches.
         normalized_wells: list[tuple[str, tuple[int, int, int], np.ndarray]] = []
@@ -1068,7 +1061,7 @@ class FlowToModflowAdapter:
         interp_method = getattr(recharge_cfg, "interpolation_method", "nearest")
         raw_arrays = _discretize_heterogeneous_source(
             het_source,
-            sgrid=self.sgrid,
+            solver_mesh=self.solver_mesh,
             nper=self.nper,
             simulation_window=self.simulation_window,
             method=interp_method,
@@ -1331,7 +1324,7 @@ class FlowToModflowAdapter:
         properties = resolve_flow_property_arrays(
             flow=self.flow,
             domain=self.domain,
-            sgrid=self.sgrid,
+            solver_mesh=self.solver_mesh,
             required_properties=required_properties,
             optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         )
