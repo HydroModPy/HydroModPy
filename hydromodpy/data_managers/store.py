@@ -85,6 +85,15 @@ class DataStore:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    def load_hydrography(self, config, *, geographic, out_path):
+        """Load hydrography data (vector or raster) with catalog caching."""
+        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
+        mgr = HydrographyManager(
+            config=config, geographic=geographic, out_path=out_path,
+            catalog=self.catalog, data_dir=self._data_dir("hydrography"),
+        )
+        return mgr.load()
+
     def load_hydrometry(self, config) -> LoadResult:
         from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
         mgr = HydrometryManager(

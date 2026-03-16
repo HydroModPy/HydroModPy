@@ -174,11 +174,11 @@ class DataManagersRuntimeLoader:
 
     def _load_hydrography_data(self, result: "LauncherRunState") -> None:
         """Load hydrography support datasets based on ``data.hydrography`` payload."""
-        from hydromodpy.data_managers.hydrography import Hydrography
+        from hydromodpy.data_managers.variables.hydrography.config import HydrographyConfig
+        from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
 
-        workspace_paths = self._workspace_paths(result)
-        section = self._get_data_section(result, "hydrography")
-        if section is None:
+        raw_section = self._get_data_section(result, "hydrography")
+        if raw_section is None:
             self._handle_missing_data_section(
                 result,
                 "hydrography",
@@ -186,40 +186,17 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        types_obs = self._as_string_list(section.get("types_obs"))
-        fields_obs = self._as_string_list(section.get("fields_obs"))
-        if not types_obs or not fields_obs:
-            self._handle_missing_data_section(
-                result,
-                "hydrography",
-                "data.hydrography requires non-empty 'types_obs' and 'fields_obs'",
-            )
-            return
-        if len(types_obs) != len(fields_obs):
-            self._handle_missing_data_section(
-                result,
-                "hydrography",
-                "data.hydrography 'types_obs' and 'fields_obs' must have same length",
-            )
-            return
-
-        hydro_path = self._resolve_manager_input_path(
-            section=section,
-            keys=("hydro_path",),
-            default_root=workspace_paths.data_path,
-        )
-        streams_file = section.get("streams_file")
-        if isinstance(streams_file, str) and streams_file.strip():
-            streams_file = str(self._resolve_path_like(streams_file))
         try:
-            result.loaded_data.hydrography = Hydrography(
-                out_path=workspace_paths.catch_folder,
-                types_obs=types_obs,
-                fields_obs=fields_obs,
+            hydro_cfg = HydrographyConfig.model_validate(raw_section)
+            workspace_paths = self._workspace_paths(result)
+            manager = HydrographyManager(
+                config=hydro_cfg,
                 geographic=result.setup.geographic,
-                hydro_path=hydro_path,
-                streams_file=streams_file,
+                out_path=workspace_paths.catch_folder,
+                catalog=None,
+                data_dir=None,
             )
+            result.loaded_data.hydrography = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrography", exc)
 

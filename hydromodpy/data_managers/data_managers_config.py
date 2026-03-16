@@ -86,9 +86,9 @@ class DataManagersConfig(BaseModel):
         default=None,
         description="Geology configuration used when 'geology' is listed in data.types.",
     )
-    hydrography: Annotated[dict[str, Any] | None, ParamLevel("dev")] = Field(
+    hydrography: Annotated["HydrographyConfig | None", ParamLevel("user")] = Field(
         default=None,
-        description="Reserved configuration mapping for hydrography data-manager.",
+        description="Hydrography configuration (stream network vector data).",
     )
     hydrometry: Annotated["HydrometryConfig | None", ParamLevel("user")] = Field(
         default=None,
@@ -262,6 +262,7 @@ class DataManagersConfig(BaseModel):
         payload["types"] = normalized_types
 
         # Typed config models for data families that have dedicated schemas.
+        from hydromodpy.data_managers.variables.hydrography.config import HydrographyConfig
         from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
         from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
         from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
@@ -277,6 +278,7 @@ class DataManagersConfig(BaseModel):
 
         _TYPED_SECTIONS: dict[str, type[BaseModel]] = {
             "geology": GeologyConfig,
+            "hydrography": HydrographyConfig,
             "oceanic": OceanicConfig,
             "hydrometry": HydrometryConfig,
             "piezometry": PiezometryConfig,
@@ -333,6 +335,7 @@ class DataManagersConfig(BaseModel):
 
 def _rebuild_forward_refs() -> None:
     """Resolve forward references for typed data-manager config fields."""
+    from hydromodpy.data_managers.variables.hydrography.config import HydrographyConfig
     from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
     from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
     from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
@@ -348,6 +351,7 @@ def _rebuild_forward_refs() -> None:
 
     DataManagersConfig.model_rebuild(
         _types_namespace={
+            "HydrographyConfig": HydrographyConfig,
             "HydrometryConfig": HydrometryConfig,
             "PiezometryConfig": PiezometryConfig,
             "WaterQualityConfig": WaterQualityConfig,

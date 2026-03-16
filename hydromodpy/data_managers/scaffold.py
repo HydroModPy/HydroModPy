@@ -196,6 +196,26 @@ path = "{data_path}/water_quality"
 # source = "shom"
 # nearest = true
 # fallback_search_radius_km = 100.0
+
+
+# --- Hydrography : reseau hydrographique ---
+# [hydrography]
+# [[hydrography.sources]]
+# source = "custom"
+# path = "data/streams.shp"
+# rasterize_field = "FID"
+
+# Ou API OSM :
+# [[hydrography.sources]]
+# source = "osm"
+
+# Ou BD Topage (France) :
+# [[hydrography.sources]]
+# source = "bdtopage"
+
+# Ou EU-Hydro (Europe) :
+# [[hydrography.sources]]
+# source = "euhydro"
 """
 
 
