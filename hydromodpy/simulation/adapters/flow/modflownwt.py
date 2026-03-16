@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from hydromodpy.simulation.adapters.flow.modflow_common import (
     build_preprocess_options,
-    flow_model_name,
-    resolve_base_model_name,
+    resolve_run_model_name,
     run_flow_model,
 )
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
@@ -35,8 +34,7 @@ class ModflowNwtFlowAdapter:
 
         state = ctx.state
         preprocess_options = build_preprocess_options(state)
-        base_model_name = resolve_base_model_name(state.setup)
-        model_name = flow_model_name(ctx.plan, base_model_name, ctx.run)
+        model_name = resolve_run_model_name(ctx)
         # This is the only MODFLOW-NWT-specific part of the adapter: wiring
         # the correct config section into the concrete solver class.
         model_modflow = Modflow(

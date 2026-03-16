@@ -67,13 +67,28 @@ def flow_model_name(plan: SimulationPlan, base_name: str, run: ProcessRun) -> st
     return f"{base_name}_{_run_label(plan, run)}"
 
 
+def resolve_run_model_name(ctx) -> str:
+    """Resolve the model name from the run context.
+
+    Canonical source is ``ctx.state.setup.run_id``.
+    When the plan has multiple flow runs, a positional suffix is appended.
+    """
+    run_id = str(getattr(ctx.state.setup, "run_id", "") or "").strip()
+    if not run_id:
+        run_id = "default"
+    return flow_model_name(ctx.plan, run_id, ctx.run)
+
+
 def resolve_base_model_name(setup) -> str:
     """Resolve the launcher base model name from runtime setup state.
 
-    Canonical source is ``setup.model_name`` in the modern simulation runtime.
+    Canonical source is ``setup.run_id`` in the modern simulation runtime.
+    Falls back to ``setup.model_name`` for compatibility.
     When missing or blank, ``"default"`` is returned.
     """
-
+    run_id = str(getattr(setup, "run_id", "") or "").strip()
+    if run_id:
+        return run_id
     setup_name = str(getattr(setup, "model_name", "") or "").strip()
     if setup_name:
         return setup_name
