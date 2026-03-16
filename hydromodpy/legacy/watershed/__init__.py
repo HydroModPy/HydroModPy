@@ -7,7 +7,7 @@ packages.
 
 from hydromodpy.legacy.watershed.geology_config import GeologyConfig
 from hydromodpy.legacy.watershed.hydraulic import Hydraulic
-from hydromodpy.data_managers.hydrography import Hydrography
+from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult as Hydrography
 from hydromodpy.data_managers.intermittency import Intermittency
 from hydromodpy.simulation.settings import Settings
 
