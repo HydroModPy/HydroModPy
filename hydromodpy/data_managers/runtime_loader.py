@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from hydromodpy.data_managers.plan import DataLoadPlan
+from hydromodpy.data_managers.registry.catalog import DataCatalog
 from hydromodpy.simulation.time import resolve_simulation_time_window_dates
 from hydromodpy.simulation.workspace.path_registry import WorkspacePathRegistry
 
@@ -31,10 +32,29 @@ class DataManagersRuntimeLoader:
     def __init__(self, *, config_path: str | Path, data_plan: DataLoadPlan) -> None:
         self.config_path = Path(config_path).resolve()
         self.data_plan = data_plan
+        self._catalog: DataCatalog | None = None
+        self._cache_root: Path | None = None
+
+    def _init_catalog(self, workspace_paths: WorkspacePathRegistry) -> None:
+        """Lazily create the shared DataCatalog backed by ``data_path/catalog.db``."""
+        if self._catalog is not None:
+            return
+        self._cache_root = workspace_paths.data_path
+        self._cache_root.mkdir(parents=True, exist_ok=True)
+        self._catalog = DataCatalog(self._cache_root / "catalog.db")
+
+    def _data_dir(self, variable: str) -> Path | None:
+        """Return ``data_path/<variable>/`` for cache storage, or None."""
+        if self._cache_root is None:
+            return None
+        d = self._cache_root / variable
+        d.mkdir(parents=True, exist_ok=True)
+        return d
 
     def load_all(self, result: "LauncherRunState") -> None:
         """Load active data-manager families into ``result``."""
         workspace_paths = self._workspace_paths(result)
+        self._init_catalog(workspace_paths)
 
         active_types = tuple(self.data_plan.types)
         for type_name in active_types:
@@ -163,10 +183,11 @@ class DataManagersRuntimeLoader:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
             manager = OceanicManager(
                 config=oceanic_cfg,
-                catalog=None,
+                catalog=self._catalog,
                 project_period=period,
                 project_extent=None,
                 geographic=result.setup.geographic,
+                data_dir=self._data_dir("oceanic"),
             )
             result.loaded_data.oceanic = manager.load()
         except Exception as exc:
@@ -193,8 +214,8 @@ class DataManagersRuntimeLoader:
                 config=hydro_cfg,
                 geographic=result.setup.geographic,
                 out_path=workspace_paths.catch_folder,
-                catalog=None,
-                data_dir=None,
+                catalog=self._catalog,
+                data_dir=self._data_dir("hydrography"),
             )
             result.loaded_data.hydrography = manager.load()
         except Exception as exc:
@@ -265,9 +286,10 @@ class DataManagersRuntimeLoader:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
             manager = HydrometryManager(
                 config=hydro_cfg,
-                catalog=None,
+                catalog=self._catalog,
                 project_period=period,
                 project_extent=None,
+                data_dir=self._data_dir("hydrometry"),
             )
             result.loaded_data.hydrometry = manager.load()
         except Exception as exc:
@@ -301,9 +323,10 @@ class DataManagersRuntimeLoader:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
             manager = PiezometryManager(
                 config=piezo_cfg,
-                catalog=None,
+                catalog=self._catalog,
                 project_period=period,
                 project_extent=None,
+                data_dir=self._data_dir("piezometry"),
             )
             result.loaded_data.piezometry = manager.load()
         except Exception as exc:
@@ -337,9 +360,10 @@ class DataManagersRuntimeLoader:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
             manager = RechargeManager(
                 config=recharge_cfg,
-                catalog=None,
+                catalog=self._catalog,
                 project_period=period,
                 project_extent=None,
+                data_dir=self._data_dir("recharge"),
             )
             result.loaded_data.recharge = manager.load()
         except Exception as exc:
@@ -373,9 +397,10 @@ class DataManagersRuntimeLoader:
                     src.mask_path = Path(result.setup.geographic.watershed_shp)
             manager = RunoffManager(
                 config=runoff_cfg,
-                catalog=None,
+                catalog=self._catalog,
                 project_period=period,
                 project_extent=None,
+                data_dir=self._data_dir("runoff"),
             )
             result.loaded_data.runoff = manager.load()
         except Exception as exc:
@@ -464,9 +489,10 @@ class DataManagersRuntimeLoader:
 
             manager = manager_cls(
                 config=cfg,
-                catalog=None,
+                catalog=self._catalog,
                 project_period=period,
                 project_extent=None,
+                data_dir=self._data_dir(variable),
             )
             setattr(result.loaded_data, variable, manager.load())
         except Exception as exc:
