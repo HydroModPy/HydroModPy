@@ -1,5 +1,5 @@
 [intermittency_case]
-intermittency_path = "../../../../examples/launcher_data_overtiew/data"
+intermittency_path = "../../../../examples/data/intermittency"
 file_name = "regional onde stations.shp"
 out_path = "outputs"
 

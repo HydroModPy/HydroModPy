@@ -103,7 +103,7 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
 
     intermittency_path = _resolve_optional_path(
         config_toml,
-        case_raw.get("intermittency_path", "../../../../examples/launcher_data_overtiew/data"),
+        case_raw.get("intermittency_path", "../../../../examples/data/intermittency"),
     )
     if intermittency_path is None:
         raise ValueError("intermittency_case.intermittency_path cannot be empty")
