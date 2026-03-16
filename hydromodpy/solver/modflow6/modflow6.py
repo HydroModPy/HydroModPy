@@ -134,18 +134,9 @@ class Modflow6(Solver):
 
 	def _select_active_dem(self, box: bool) -> None:
 		if box:
-			dem_source = self.geographic.dem_box_buff_data
 			self.dem_watershed_path = self.geographic.watershed_box_buff_dem
 		else:
-			dem_source = self.geographic.dem_data
 			self.dem_watershed_path = self.geographic.watershed_buff_dem
-
-		self.box = bool(box)
-		dem = np.asarray(dem_source, dtype=float).copy()
-		dem[(dem <= -9999) | (dem >= 9999)] = -9999
-		self.dem = dem
-		self.nrow = int(dem.shape[0])
-		self.ncol = int(dem.shape[1])
 
 	def _apply_preprocess_options(self, options: ModflowPreprocessOptions | None = None) -> None:
 		if options is None:
@@ -161,13 +152,19 @@ class Modflow6(Solver):
 		self.check_grid = bool(options.check_grid)
 		self._select_active_dem(box=bool(options.box))
 
+	def _to_export_array(self, flat_array: np.ndarray) -> np.ndarray:
+		"""Reshape flat (ncpl,) to (nrow, ncol) for raster export (structured only)."""
+		return self.solver_mesh.reshape_to_grid(flat_array)
+
 	def _write_solver_grid_template(self) -> str:
 		if self.grid_ctx is None:
 			raise ValueError("grid_ctx must exist before writing a solver grid template")
+		if not self.solver_mesh.is_structured:
+			# No raster template for unstructured grids.
+			return ""
 		os.makedirs(self.full_path, exist_ok=True)
 		template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
-		top_flat = np.asarray(self.grid_ctx.top_elevation, dtype=float)
-		top_2d = self.solver_mesh.reshape_to_grid(top_flat)
+		top_2d = self.solver_mesh.reshape_to_grid(self.solver_mesh.top)
 		write_grid_array_to_raster(
 			grid=self.grid_ctx.grid,
 			data=top_2d,
@@ -225,6 +222,10 @@ class Modflow6(Solver):
 				"derived from [simulation.time] for transient flow runs. Solver tgrid fallback is no longer supported."
 			)
 
+	def _well_cell_to_disv(self, lay: int, row: int, col: int) -> tuple[int, int]:
+		"""Convert (lay, row, col) well address to DISV (lay, cell_id)."""
+		return (lay, row * int(self.ncol) + col)
+
 	def _build_well_stress_period_data(self, n_stress_periods: int) -> dict[int, list[list[float]]]:
 		if n_stress_periods <= 0 or self.flow is None:
 			return {}
@@ -246,7 +247,7 @@ class Modflow6(Solver):
 			return {}
 		grid = None if self.grid_ctx is None else self.grid_ctx.grid
 
-		normalized_wells: list[tuple[tuple[int, int, int], np.ndarray]] = []
+		normalized_wells: list[tuple[tuple[int, int], np.ndarray]] = []
 		for well_id, raw_well_payload in wells.items():
 			cell_payload = getattr(raw_well_payload, "cell", None)
 			flux_payload = getattr(raw_well_payload, "flux", None)
@@ -268,7 +269,7 @@ class Modflow6(Solver):
 			cell_seq = list(cell_payload)
 			if len(cell_seq) != 3:
 				continue
-			cell = (int(cell_seq[0]), int(cell_seq[1]), int(cell_seq[2]))
+			cell = self._well_cell_to_disv(int(cell_seq[0]), int(cell_seq[1]), int(cell_seq[2]))
 
 			if forcing_payload is not None:
 				raw_values = resolve_period_values_from_forcing(
@@ -315,7 +316,7 @@ class Modflow6(Solver):
 
 		spd: dict[int, list[list[float]]] = {}
 		for t in range(n_stress_periods):
-			spd[t] = [[cell[0], cell[1], cell[2], float(flux_vector[t])] for cell, flux_vector in normalized_wells]
+			spd[t] = [[cell[0], cell[1], float(flux_vector[t])] for cell, flux_vector in normalized_wells]
 		return spd
 
 	@staticmethod
@@ -400,30 +401,28 @@ class Modflow6(Solver):
 			label=f"flow.bc.{bc_id}.value",
 		)
 
-	def _iter_side_boundary_cells(self, bc_id: str):
+	def _side_boundary_cell_ids(self, bc_id: str) -> list[int]:
+		"""Return flat cell IDs on one side of a structured grid."""
+		nrow, ncol = int(self.nrow), int(self.ncol)
 		if bc_id == "west_side":
-			for ilay in range(int(self.nlay)):
-				for i in range(int(self.nrow)):
-					yield ilay, i, 0
-			return
+			return [i * ncol for i in range(nrow)]
 		if bc_id == "east_side":
-			for ilay in range(int(self.nlay)):
-				for i in range(int(self.nrow)):
-					yield ilay, i, int(self.ncol) - 1
-			return
+			return [i * ncol + (ncol - 1) for i in range(nrow)]
 		if bc_id == "north_side":
-			for ilay in range(int(self.nlay)):
-				for j in range(int(self.ncol)):
-					yield ilay, 0, j
-			return
+			return list(range(ncol))
 		if bc_id == "south_side":
-			for ilay in range(int(self.nlay)):
-				for j in range(int(self.ncol)):
-					yield ilay, int(self.nrow) - 1, j
-			return
+			return list(range((nrow - 1) * ncol, nrow * ncol))
 		raise ValueError(f"Unsupported side boundary id: {bc_id}")
 
+	def _iter_side_boundary_cells(self, bc_id: str):
+		"""Yield (lay, cell_id) tuples for DISV boundary cells."""
+		cell_ids = self._side_boundary_cell_ids(bc_id)
+		for ilay in range(int(self.nlay)):
+			for cid in cell_ids:
+				yield ilay, cid
+
 	def _apply_side_boundary_start_heads(self, strt: np.ndarray) -> np.ndarray:
+		"""Apply side boundary start heads on flat (nlay, ncpl) strt array."""
 		bc = self._boundary_conditions_mapping()
 		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
 			if not self._is_bc_active(bc_id):
@@ -432,18 +431,13 @@ class Modflow6(Solver):
 			if boundary is None:
 				continue
 			start_value = float(self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)[0])
-			if bc_id == "west_side":
-				strt[:, :, 0] = start_value
-			elif bc_id == "east_side":
-				strt[:, :, -1] = start_value
-			elif bc_id == "north_side":
-				strt[:, 0, :] = start_value
-			elif bc_id == "south_side":
-				strt[:, -1, :] = start_value
+			cell_ids = self._side_boundary_cell_ids(bc_id)
+			for ilay in range(strt.shape[0]):
+				strt[ilay, cell_ids] = start_value
 		return strt
 
 	def _resolve_head_initial_condition(self):
-		"""Return the head initial-condition payload from typed or legacy containers."""
+		"""Return the head initial-condition payload from the flow configuration."""
 		initial_conditions = getattr(self.flow, "initial_conditions", None)
 		if initial_conditions is None:
 			return None
@@ -459,21 +453,22 @@ class Modflow6(Solver):
 		return getattr(initial_condition, field_name, default)
 
 	def _build_start_heads(self, solver_mesh) -> np.ndarray:
-		"""Build MF6 starting heads from the canonical flow initial-condition schema."""
+		"""Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
 		h_ic = self._resolve_head_initial_condition()
 		if h_ic is None:
 			raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
 
-		top_2d = solver_mesh.reshape_to_grid(solver_mesh.top)
-		botm_3d = solver_mesh.reshape_to_grid(solver_mesh.botm)
+		ncpl = solver_mesh.n_cells
+		top_flat = solver_mesh.top  # (ncpl,)
+		botm_flat = solver_mesh.botm  # (nlay, ncpl)
 		initial_type = str(self._initial_condition_field(h_ic, "type", "")).strip().lower()
 		if initial_type == "top":
-			strt = np.repeat(top_2d[np.newaxis, :, :], self.nlay, axis=0)
+			strt = np.tile(top_flat, (self.nlay, 1))
 		elif initial_type in {"bot", "bottom"}:
-			strt = np.repeat(botm_3d[-1][np.newaxis, :, :], self.nlay, axis=0)
+			strt = np.tile(botm_flat[-1], (self.nlay, 1))
 		elif initial_type == "custom":
 			strt = np.full(
-				(self.nlay, self.nrow, self.ncol),
+				(self.nlay, ncpl),
 				float(self._initial_condition_field(h_ic, "value")),
 				dtype=float,
 			)
@@ -518,10 +513,13 @@ class Modflow6(Solver):
 		)
 
 	def _ocean_chd_support_mask(self, ocean_series: np.ndarray | None) -> np.ndarray:
+		"""Return flat (ncpl,) boolean mask for ocean CHD cells."""
 		if ocean_series is None or np.asarray(ocean_series, dtype=float).size == 0:
-			return np.zeros((int(self.nrow), int(self.ncol)), dtype=bool)
+			return np.zeros(int(self.ncpl), dtype=bool)
 		sea_threshold = float(np.max(np.asarray(ocean_series, dtype=float)))
-		return (~np.asarray(self.dem_mask, dtype=bool)) & (np.asarray(self.dem, dtype=float) <= sea_threshold)
+		dem_flat = np.asarray(self.dem, dtype=float).reshape(-1)
+		mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
+		return (~mask_flat) & (dem_flat <= sea_threshold)
 
 	def _build_ocean_boundary_chd_spd(self) -> tuple[dict[int, list[list[float]]], np.ndarray]:
 		ocean_series = self._resolve_ocean_boundary_series()
@@ -530,17 +528,18 @@ class Modflow6(Solver):
 		if ocean_series is None or not np.any(ocean_support_mask):
 			return spd, ocean_support_mask
 
-		rows, cols = np.where(ocean_support_mask)
+		cell_ids = np.where(ocean_support_mask)[0]
 		for kper, head in enumerate(np.asarray(ocean_series, dtype=float)):
 			period_cells: list[list[float]] = []
 			for ilay in range(int(self.nlay)):
-				for row, col in zip(rows.tolist(), cols.tolist()):
-					period_cells.append([ilay, int(row), int(col), float(head)])
+				for cid in cell_ids.tolist():
+					period_cells.append([ilay, cid, float(head)])
 			spd[kper] = period_cells
 		return spd, ocean_support_mask
 
 	def _build_side_boundary_chd_spd(self) -> dict[int, list[list[float]]]:
 		bc = self._boundary_conditions_mapping()
+		dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
 		spd = {kper: {} for kper in range(int(self.nper))}
 		for bc_id in ("west_side", "east_side", "north_side", "south_side"):
 			if not self._is_bc_active(bc_id):
@@ -550,10 +549,10 @@ class Modflow6(Solver):
 				continue
 			series = self._resolve_side_boundary_series(boundary=boundary, bc_id=bc_id)
 			for kper, head in enumerate(series):
-				for ilay, row, col in self._iter_side_boundary_cells(bc_id):
-					if bool(self.dem_mask[row, col]):
+				for ilay, cid in self._iter_side_boundary_cells(bc_id):
+					if bool(dem_mask_flat[cid]):
 						continue
-					spd[kper][(ilay, row, col)] = [ilay, row, col, float(head)]
+					spd[kper][(ilay, cid)] = [ilay, cid, float(head)]
 		return {kper: list(period_map.values()) for kper, period_map in spd.items()}
 
 	def _resolve_drainage_conductance_series(self) -> np.ndarray | None:
@@ -771,48 +770,50 @@ class Modflow6(Solver):
 			for kper in raw_arrays:
 				raw_arrays[kper] = np.maximum(raw_arrays[kper], 0.0)
 
-		# _recharge_to_spd handles Mapping {kper: ndarray(nrow,ncol)}
-		# via _as_recharge_2d which accepts 2D arrays directly.
+		# _recharge_to_spd handles Mapping {kper: ndarray(ncpl,)}.
 		self.recharge = raw_arrays
 		self._heterogeneous_recharge_source = None
 
-	def _scalar_to_2d(self, value: float) -> np.ndarray:
-		return np.full((self.nrow, self.ncol), float(value), dtype=float)
+	def _scalar_to_flat(self, value: float) -> np.ndarray:
+		"""Return flat (ncpl,) array filled with one scalar."""
+		return np.full(int(self.ncpl), float(value), dtype=float)
 
-	def _as_recharge_2d(self, value: object, *, kper: int | None = None) -> np.ndarray:
+	def _as_recharge_flat(self, value: object, *, kper: int | None = None) -> np.ndarray:
+		"""Coerce one recharge value to a flat (ncpl,) array."""
 		if isinstance(value, Real) and not isinstance(value, bool):
-			return self._scalar_to_2d(float(value))
+			return self._scalar_to_flat(float(value))
 
 		arr = np.asarray(value, dtype=float)
 		if arr.ndim == 0:
-			return self._scalar_to_2d(float(arr))
+			return self._scalar_to_flat(float(arr))
 		if arr.ndim == 1:
 			if arr.size == 0:
-				return np.zeros((self.nrow, self.ncol), dtype=float)
-			if kper is None:
-				return self._scalar_to_2d(float(arr[-1]))
-			idx = min(max(int(kper), 0), int(arr.size) - 1)
-			return self._scalar_to_2d(float(arr[idx]))
-		if arr.ndim == 2:
-			if arr.shape == (self.nrow, self.ncol):
+				return np.zeros(int(self.ncpl), dtype=float)
+			if arr.size == int(self.ncpl):
 				return arr.astype(float)
-			raised = arr.ravel()
-			if raised.size == 0:
-				return np.zeros((self.nrow, self.ncol), dtype=float)
-			return self._scalar_to_2d(float(raised[-1]))
+			if kper is None:
+				return self._scalar_to_flat(float(arr[-1]))
+			idx = min(max(int(kper), 0), int(arr.size) - 1)
+			return self._scalar_to_flat(float(arr[idx]))
+		if arr.ndim == 2:
+			flat = arr.ravel()
+			if flat.size == int(self.ncpl):
+				return flat.astype(float)
+			if flat.size == 0:
+				return np.zeros(int(self.ncpl), dtype=float)
+			return self._scalar_to_flat(float(flat[-1]))
 		if arr.ndim >= 3:
 			if kper is None:
 				kper = 0
 			idx = min(max(int(kper), 0), int(arr.shape[0]) - 1)
-			slice_2d = np.asarray(arr[idx], dtype=float)
-			if slice_2d.shape == (self.nrow, self.ncol):
-				return slice_2d
-			flat = slice_2d.ravel()
+			flat = np.asarray(arr[idx], dtype=float).ravel()
+			if flat.size == int(self.ncpl):
+				return flat
 			if flat.size == 0:
-				return np.zeros((self.nrow, self.ncol), dtype=float)
-			return self._scalar_to_2d(float(flat[-1]))
+				return np.zeros(int(self.ncpl), dtype=float)
+			return self._scalar_to_flat(float(flat[-1]))
 
-		return np.zeros((self.nrow, self.ncol), dtype=float)
+		return np.zeros(int(self.ncpl), dtype=float)
 
 	def _series_like_to_scalar(self, kper: int) -> float:
 		if kper == 0:
@@ -854,23 +855,23 @@ class Modflow6(Solver):
 				arr = self.recharge.get(kper)
 				if arr is None:
 					arr = 0.0
-				spd[kper] = self._as_recharge_2d(arr, kper=kper)
+				spd[kper] = self._as_recharge_flat(arr, kper=kper)
 			return spd
 
 		if isinstance(self.recharge, Real) and not isinstance(self.recharge, bool):
 			scalar = float(self.recharge)
 			for kper in range(self.nper):
-				spd[kper] = self._scalar_to_2d(scalar)
+				spd[kper] = self._scalar_to_flat(scalar)
 			return spd
 
 		for kper in range(self.nper):
 			scalar = self._series_like_to_scalar(kper)
-			spd[kper] = self._scalar_to_2d(scalar)
+			spd[kper] = self._scalar_to_flat(scalar)
 		return spd
 
 	def _empty_recharge_aux(self) -> dict[int, list[np.ndarray]]:
 		return {
-			k: [np.zeros((self.nrow, self.ncol), dtype=float)]
+			k: [np.zeros(int(self.ncpl), dtype=float)]
 			for k in range(int(self.nper))
 		}
 
@@ -901,15 +902,17 @@ class Modflow6(Solver):
 		)
 		solver_mesh = self.grid_ctx.solver_mesh
 		self.solver_mesh = solver_mesh
-		self.top_elevation = solver_mesh.reshape_to_grid(solver_mesh.top)
-		self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
+		self.top_elevation = solver_mesh.top  # (ncpl,)
+		self.inactive_mask = solver_mesh.inactive_mask[0]  # (ncpl,)
 		self.nlay = solver_mesh.nlay
-		self.nrow = solver_mesh.nrow
-		self.ncol = solver_mesh.ncol
+		self.ncpl = solver_mesh.n_cells
+		if solver_mesh.is_structured:
+			self.nrow = solver_mesh.nrow
+			self.ncol = solver_mesh.ncol
 		self.cell_area = float(self.grid_ctx.grid.cell_area)
 		self.resolution = float(self.grid_ctx.grid.characteristic_length)
-		self.dem = self.top_elevation
-		self.dem_mask = self.inactive_mask
+		self.dem = self.top_elevation  # flat (ncpl,)
+		self.dem_mask = self.inactive_mask  # flat (ncpl,)
 		self.dem_watershed_path = self._write_solver_grid_template()
 
 		# Deferred heterogeneous recharge: discretize now that solver_mesh is built.
@@ -922,9 +925,10 @@ class Modflow6(Solver):
 			required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
 			optional_fill_values={"Sy": 0.0, "Ss": 0.0},
 		)
-		self.hk = flow_params["hk"]
-		self.sy = flow_params["sy"]
-		self.ss = flow_params["ss"]
+		# Flatten property arrays to (nlay, ncpl).
+		self.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
+		self.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
+		self.ss = solver_mesh.flatten_from_grid(flow_params["ss"])
 
 		runtime = getattr(self.modflow_config, "runtime", None)
 		sim_name = self.model_name_mf6
@@ -959,19 +963,14 @@ class Modflow6(Solver):
 			print_flows=getattr(runtime, "mf_verbose", False),
 		)
 		self.sim.register_ims_package(self.ims, [self.gwf.name])
-		idomain = np.where(np.asarray(self.inactive_mask, dtype=bool), 0, 1).astype(int)
-		idomain = np.repeat(idomain[np.newaxis, :, :], int(self.nlay), axis=0)
+		# Build idomain as flat (nlay, ncpl) — DISV convention.
+		idomain = np.where(solver_mesh.inactive_mask, 0, 1).astype(int)  # (nlay, ncpl)
 
-		dis_kwargs = solver_mesh.to_dis_kwargs()
-		self.dis = flopy.mf6.ModflowGwfdis(
+		disv_kwargs = solver_mesh.to_disv_kwargs()
+		self.dis = flopy.mf6.ModflowGwfdisv(
 			self.gwf,
-			nlay=dis_kwargs["nlay"],
-			nrow=dis_kwargs["nrow"],
-			ncol=dis_kwargs["ncol"],
-			delr=dis_kwargs["delr"],
-			delc=dis_kwargs["delc"],
-			top=dis_kwargs["top"],
-			botm=dis_kwargs["botm"],
+			nlay=solver_mesh.nlay,
+			**disv_kwargs,
 			idomain=idomain,
 			xorigin=float(solver_mesh.xoffset),
 			yorigin=float(solver_mesh.yoffset),
@@ -1011,32 +1010,32 @@ class Modflow6(Solver):
 		drainage_cond_series = self._resolve_drainage_conductance_series()
 		if drainage_cond_series is not None:
 			drn_spd = {}
+			top_flat = solver_mesh.top  # (ncpl,)
+			dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
+			ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
+			cell_areas = solver_mesh.cell_areas()  # per-cell areas
 			for kper in range(int(self.nper)):
 				period_cells = []
-				top = solver_mesh.reshape_to_grid(solver_mesh.top)
 				configured_cond_value = float(drainage_cond_series[kper])
-				for i in range(self.nrow):
-					for j in range(self.ncol):
-						if bool(self.dem_mask[i, j]) or bool(ocean_support_mask[i, j]):
-							continue
-						# Keep NWT-equivalent behavior: non-positive configured drainage
-						# conductance falls back to permeability-scaled conductance.
-						if configured_cond_value > 0.0:
-							cond_value = max(configured_cond_value, 1e-12)
-						else:
-							cond_value = max(float(self.hk[0, i, j]) * float(self.cell_area), 1e-12)
-						period_cells.append([0, i, j, float(top[i, j]), cond_value])
+				for cid in range(int(self.ncpl)):
+					if dem_mask_flat[cid] or ocean_mask_flat[cid]:
+						continue
+					if configured_cond_value > 0.0:
+						cond_value = max(configured_cond_value, 1e-12)
+					else:
+						cond_value = max(float(self.hk[0, cid]) * float(cell_areas[cid]), 1e-12)
+					period_cells.append([0, cid, float(top_flat[cid]), cond_value])
 				drn_spd[kper] = period_cells
 			self.drn = flopy.mf6.ModflowGwfdrn(self.gwf, stress_period_data=drn_spd, save_flows=True)
 
 		side_chd_spd = self._build_side_boundary_chd_spd()
 		chd_spd = {}
 		for kper in range(int(self.nper)):
-			period_map: dict[tuple[int, int, int], list[float]] = {}
+			period_map: dict[tuple[int, int], list[float]] = {}
 			for entry in ocean_chd_spd.get(kper, []):
-				period_map[(int(entry[0]), int(entry[1]), int(entry[2]))] = entry
+				period_map[(int(entry[0]), int(entry[1]))] = entry
 			for entry in side_chd_spd.get(kper, []):
-				period_map[(int(entry[0]), int(entry[1]), int(entry[2]))] = entry
+				period_map[(int(entry[0]), int(entry[1]))] = entry
 			chd_spd[kper] = list(period_map.values())
 		if any(len(v) > 0 for v in chd_spd.values()):
 			self.chd = flopy.mf6.ModflowGwfchd(self.gwf, stress_period_data=chd_spd, save_flows=True)
@@ -1102,32 +1101,37 @@ class Modflow6(Solver):
 		dict_outflow_drain = {}
 		dict_accumulation_flux = {}
 
+		ncpl = int(self.ncpl)
+		dem_mask_flat = np.asarray(self.dem_mask, dtype=bool).reshape(-1)
+		dem_flat = np.asarray(self.dem, dtype=float).reshape(-1)
+
 		for item, time in enumerate(times):
 			head = head_fpu.get_data(totim=time)
 			wt = pp.get_water_table(head, -9999)
+			wt = np.asarray(wt, dtype=float).reshape(-1)  # flatten to (ncpl,)
 			wt[np.isnan(wt)] = -9999
-			wt[np.asarray(wt, dtype=float) <= -1e20] = -9999
-			dem_mask = np.asarray(self.dem_mask, dtype=bool)
+			wt[wt <= -1e20] = -9999
+
 			if options.watertable_elevation:
-				wt = wt.copy()
-				wt[dem_mask] = -9999
-				dict_watertable_elevation[item] = wt
+				wt_out = wt.copy()
+				wt_out[dem_mask_flat] = -9999
+				dict_watertable_elevation[item] = self._to_export_array(wt_out)
 				if options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, wt, os.path.join(self.tifs_file, f"watertable_elevation_t({item}).tif"), -9999)
+					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(wt_out), os.path.join(self.tifs_file, f"watertable_elevation_t({item}).tif"), -9999)
 
 			if options.watertable_depth:
-				wtd = np.where(dem_mask, -9999, np.maximum(self.dem - wt, 0))
-				dict_watertable_depth[item] = wtd
+				wtd = np.where(dem_mask_flat, -9999, np.maximum(dem_flat - wt, 0))
+				dict_watertable_depth[item] = self._to_export_array(wtd)
 				if options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, wtd, os.path.join(self.tifs_file, f"watertable_depth_t({item}).tif"), -9999)
+					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(wtd), os.path.join(self.tifs_file, f"watertable_depth_t({item}).tif"), -9999)
 
 			drn = self._get_budget_records_or_none(
 				cbb,
 				kstpkper=(0, item),
 				text="DRN",
 			)
-			outflow = np.zeros((self.nrow, self.ncol), dtype=float)
-			seepage = np.zeros((self.nrow, self.ncol), dtype=float)
+			outflow = np.zeros(ncpl, dtype=float)
+			seepage = np.zeros(ncpl, dtype=float)
 			if drn is not None and len(drn) > 0:
 				rec = drn[0]
 				try:
@@ -1140,31 +1144,30 @@ class Modflow6(Solver):
 					for node, q in iterator:
 						if node <= 0:
 							continue
-						layer = (node - 1) // (self.nrow * self.ncol)
-						rem = (node - 1) % (self.nrow * self.ncol)
-						i = rem // self.ncol
-						j = rem % self.ncol
+						# DISV node numbering: node = layer * ncpl + cell_id + 1
+						layer = (node - 1) // ncpl
+						cell_id = (node - 1) % ncpl
 						if layer == 0:
-							outflow[i, j] += max(-q, 0.0)
-							seepage[i, j] = 1.0 if q < 0 else seepage[i, j]
+							outflow[cell_id] += max(-q, 0.0)
+							seepage[cell_id] = 1.0 if q < 0 else seepage[cell_id]
 				except Exception:
 					pass
 
-			outflow[dem_mask] = -9999
-			seepage[dem_mask] = -9999
+			outflow[dem_mask_flat] = -9999
+			seepage[dem_mask_flat] = -9999
 
 			outflow_tif_path = os.path.join(self.tifs_file, f"outflow_drain_t({item}).tif")
 			if options.outflow_drain:
-				dict_outflow_drain[item] = outflow
+				dict_outflow_drain[item] = self._to_export_array(outflow)
 			if options.outflow_drain or options.accumulation_flux:
 				if options.accumulation_flux or options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, outflow, outflow_tif_path, -9999)
+					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(outflow), outflow_tif_path, -9999)
 			if options.seepage_areas:
-				dict_seepage_areas[item] = seepage
+				dict_seepage_areas[item] = self._to_export_array(seepage)
 				if options.export_all_tif or item == 0:
-					toolbox.export_tif(self.dem_watershed_path, seepage, os.path.join(self.tifs_file, f"seepage_areas_t({item}).tif"), -9999)
+					toolbox.export_tif(self.dem_watershed_path, self._to_export_array(seepage), os.path.join(self.tifs_file, f"seepage_areas_t({item}).tif"), -9999)
 
-			if options.accumulation_flux:
+			if options.accumulation_flux and self.solver_mesh.is_structured:
 				routing_ctx = self._ensure_solver_routing_context()
 				accumulated_flow = masstransfer.Masstransfer(
 					self.geographic,
@@ -1241,18 +1244,17 @@ class Modflow6Transport:
 
 	def _build_crch(self) -> dict[int, np.ndarray]:
 		nper = int(self.model_modflow.nper)
-		nrow = int(self.model_modflow.nrow)
-		ncol = int(self.model_modflow.ncol)
+		ncpl = int(self.model_modflow.ncpl)
 		if isinstance(self.sconc_input, dict):
 			out = {}
 			for k in range(nper):
 				arr = self.sconc_input.get(k)
 				if arr is None:
-					arr = np.zeros((nrow, ncol), dtype=float)
-				out[k] = np.asarray(arr, dtype=float)
+					arr = np.zeros(ncpl, dtype=float)
+				out[k] = np.asarray(arr, dtype=float).reshape(-1)
 			return out
 		val = float(self.sconc_input)
-		return {k: np.full((nrow, ncol), val, dtype=float) for k in range(nper)}
+		return {k: np.full(ncpl, val, dtype=float) for k in range(nper)}
 
 	def _build_crch_aux(self) -> dict[int, list[np.ndarray]]:
 		crch = self._build_crch()
@@ -1279,16 +1281,11 @@ class Modflow6Transport:
 				key=0,
 			)
 
-		dis = self.model_modflow.dis
-		self.gwtdis = flopy.mf6.ModflowGwtdis(
+		disv_kwargs = self.model_modflow.solver_mesh.to_disv_kwargs()
+		self.gwtdis = flopy.mf6.ModflowGwtdisv(
 			self.gwt,
 			nlay=self.model_modflow.nlay,
-			nrow=self.model_modflow.nrow,
-			ncol=self.model_modflow.ncol,
-			delr=np.asarray(dis.delr.array, dtype=float),
-			delc=np.asarray(dis.delc.array, dtype=float),
-			top=np.asarray(dis.top.array, dtype=float),
-			botm=np.asarray(dis.botm.array, dtype=float),
+			**disv_kwargs,
 		)
 		self.gwtic = flopy.mf6.ModflowGwtic(self.gwt, strt=self.sconc_init)
 		self.adv = flopy.mf6.ModflowGwtadv(self.gwt, scheme="upstream")
@@ -1366,35 +1363,38 @@ class Modflow6Transport:
 		dem_mask = np.asarray(
 			getattr(self.model_modflow, "dem_mask", self.model_modflow.dem < -9999),
 			dtype=bool,
-		)
+		).reshape(-1)
 
 		dict_concentration_seepage = {}
 		dict_mass_seepage = {}
 		dict_mass_accumulated = {}
 
+		def _reshape_for_export(arr):
+			return self.model_modflow._to_export_array(np.asarray(arr, dtype=float).reshape(-1))
+
 		for i in range(self.model_modflow.nper):
 			the_time = str(i + 1)
-			seep = outflow_drain.get(i, np.zeros((self.model_modflow.nrow, self.model_modflow.ncol), dtype=float))
-			# Keep concentration snapshot aligned with current stress period.
+			seep = outflow_drain.get(i, np.zeros(int(self.model_modflow.ncpl), dtype=float))
+			seep = np.asarray(seep, dtype=float).reshape(-1)
 			conc_time_idx = min(i, conc_last_idx)
 
 			if concentration_seepage:
-				conc_surf = concobj_1c[conc_time_idx][0].copy()
+				conc_surf = np.asarray(concobj_1c[conc_time_idx][0], dtype=float).reshape(-1).copy()
 				conc_surf[seep <= 0] = -9999
 				conc_surf[dem_mask] = -9999
-				dict_concentration_seepage[i] = conc_surf
+				dict_concentration_seepage[i] = _reshape_for_export(conc_surf)
 				if export_all_tif or i == 0:
-					toolbox.export_tif(self.model_modflow.dem_watershed_path, conc_surf, os.path.join(self.tifs_file, f"concentration_seepage_t({the_time}).tif"), -9999)
+					toolbox.export_tif(self.model_modflow.dem_watershed_path, _reshape_for_export(conc_surf), os.path.join(self.tifs_file, f"concentration_seepage_t({the_time}).tif"), -9999)
 
 			if mass_seepage:
-				mass_surf = concobj_1c[conc_time_idx][0].copy()
+				mass_surf = np.asarray(concobj_1c[conc_time_idx][0], dtype=float).reshape(-1).copy()
 				mass_surf[seep <= 0] = np.nan
 				mass_surf = mass_surf * seep
 				mass_surf[dem_mask] = -9999
 				mass_surf = np.where(np.isnan(mass_surf), -9999, mass_surf)
-				dict_mass_seepage[i] = mass_surf
+				dict_mass_seepage[i] = _reshape_for_export(mass_surf)
 				if export_all_tif or i == 0:
-					toolbox.export_tif(self.model_modflow.dem_watershed_path, mass_surf, os.path.join(self.tifs_file, f"mass_seepage_t({the_time}).tif"), -9999)
+					toolbox.export_tif(self.model_modflow.dem_watershed_path, _reshape_for_export(mass_surf), os.path.join(self.tifs_file, f"mass_seepage_t({the_time}).tif"), -9999)
 
 			if mass_accumulated:
 				routing_ctx = self.model_modflow._ensure_solver_routing_context()
