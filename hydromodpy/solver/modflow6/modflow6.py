@@ -166,9 +166,11 @@ class Modflow6(Solver):
 			raise ValueError("grid_ctx must exist before writing a solver grid template")
 		os.makedirs(self.full_path, exist_ok=True)
 		template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
+		top_flat = np.asarray(self.grid_ctx.top_elevation, dtype=float)
+		top_2d = self.solver_mesh.reshape_to_grid(top_flat)
 		write_grid_array_to_raster(
 			grid=self.grid_ctx.grid,
-			data=np.asarray(self.grid_ctx.top_elevation, dtype=float),
+			data=top_2d,
 			output_path=template_path,
 			nodata=float(self.grid_ctx.grid.nodata),
 		)
@@ -456,18 +458,19 @@ class Modflow6(Solver):
 			return initial_condition.get(field_name, default)
 		return getattr(initial_condition, field_name, default)
 
-	def _build_start_heads(self, sgrid) -> np.ndarray:
+	def _build_start_heads(self, solver_mesh) -> np.ndarray:
 		"""Build MF6 starting heads from the canonical flow initial-condition schema."""
 		h_ic = self._resolve_head_initial_condition()
 		if h_ic is None:
 			raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
 
+		top_2d = solver_mesh.reshape_to_grid(solver_mesh.top)
+		botm_3d = solver_mesh.reshape_to_grid(solver_mesh.botm)
 		initial_type = str(self._initial_condition_field(h_ic, "type", "")).strip().lower()
 		if initial_type == "top":
-			strt = np.repeat(np.asarray(sgrid.top, dtype=float)[np.newaxis, :, :], self.nlay, axis=0)
+			strt = np.repeat(top_2d[np.newaxis, :, :], self.nlay, axis=0)
 		elif initial_type in {"bot", "bottom"}:
-			bottom = np.asarray(sgrid.botm, dtype=float)
-			strt = np.repeat(bottom[-1][np.newaxis, :, :], self.nlay, axis=0)
+			strt = np.repeat(botm_3d[-1][np.newaxis, :, :], self.nlay, axis=0)
 		elif initial_type == "custom":
 			strt = np.full(
 				(self.nlay, self.nrow, self.ncol),
@@ -717,7 +720,7 @@ class Modflow6(Solver):
 		self._heterogeneous_interpolation_method = getattr(
 			recharge_cfg, "interpolation_method", "nearest"
 		)
-		self.recharge = 0.0  # placeholder; replaced after sgrid construction
+		self.recharge = 0.0  # placeholder; replaced after solver_mesh construction
 		self.first_clim = getattr(
 			recharge_cfg,
 			"first_clim",
@@ -725,7 +728,7 @@ class Modflow6(Solver):
 		)
 
 	def _resolve_deferred_heterogeneous_recharge(self) -> None:
-		"""Discretize stored heterogeneous recharge after sgrid is available."""
+		"""Discretize stored heterogeneous recharge after solver_mesh is available."""
 		het_source = getattr(self, "_heterogeneous_recharge_source", None)
 		if het_source is None:
 			return
@@ -742,7 +745,7 @@ class Modflow6(Solver):
 		if getattr(het_source, "has_fields", False):
 			raw_arrays = discretize_fields_on_sgrid(
 				load_result=het_source,
-				sgrid=self.grid_ctx.sgrid,
+				sgrid=self.solver_mesh,
 				nper=int(self.nper),
 				simulation_window=sim_window,
 				method=interp_method,
@@ -750,7 +753,7 @@ class Modflow6(Solver):
 		elif getattr(het_source, "has_points", False):
 			raw_arrays = discretize_points_on_sgrid(
 				load_result=het_source,
-				sgrid=self.grid_ctx.sgrid,
+				sgrid=self.solver_mesh,
 				nper=int(self.nper),
 				simulation_window=sim_window,
 				method=interp_method,
@@ -896,25 +899,26 @@ class Modflow6(Solver):
 			domain=self.domain,
 			sgrid_config=getattr(self.modflow_config, "sgrid", None),
 		)
-		sgrid = self.grid_ctx.sgrid
-		self.top_elevation = self.grid_ctx.top_elevation
-		self.inactive_mask = self.grid_ctx.inactive_mask
-		self.nlay = int(self.grid_ctx.nlay)
-		self.nrow = int(self.grid_ctx.nrow)
-		self.ncol = int(self.grid_ctx.ncol)
+		solver_mesh = self.grid_ctx.solver_mesh
+		self.solver_mesh = solver_mesh
+		self.top_elevation = solver_mesh.reshape_to_grid(solver_mesh.top)
+		self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
+		self.nlay = solver_mesh.nlay
+		self.nrow = solver_mesh.nrow
+		self.ncol = solver_mesh.ncol
 		self.cell_area = float(self.grid_ctx.grid.cell_area)
 		self.resolution = float(self.grid_ctx.grid.characteristic_length)
 		self.dem = self.top_elevation
 		self.dem_mask = self.inactive_mask
 		self.dem_watershed_path = self._write_solver_grid_template()
 
-		# Deferred heterogeneous recharge: discretize now that sgrid is built.
+		# Deferred heterogeneous recharge: discretize now that solver_mesh is built.
 		self._resolve_deferred_heterogeneous_recharge()
 
 		flow_params = resolve_flow_property_arrays(
 			flow=self.flow,
 			domain=self.domain,
-			sgrid=sgrid,
+			solver_mesh=solver_mesh,
 			required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
 			optional_fill_values={"Sy": 0.0, "Ss": 0.0},
 		)
@@ -958,22 +962,23 @@ class Modflow6(Solver):
 		idomain = np.where(np.asarray(self.inactive_mask, dtype=bool), 0, 1).astype(int)
 		idomain = np.repeat(idomain[np.newaxis, :, :], int(self.nlay), axis=0)
 
+		dis_kwargs = solver_mesh.to_dis_kwargs()
 		self.dis = flopy.mf6.ModflowGwfdis(
 			self.gwf,
-			nlay=self.nlay,
-			nrow=self.nrow,
-			ncol=self.ncol,
-			delr=np.asarray(sgrid.delr, dtype=float),
-			delc=np.asarray(sgrid.delc, dtype=float),
-			top=np.asarray(sgrid.top, dtype=float),
-			botm=np.asarray(sgrid.botm, dtype=float),
+			nlay=dis_kwargs["nlay"],
+			nrow=dis_kwargs["nrow"],
+			ncol=dis_kwargs["ncol"],
+			delr=dis_kwargs["delr"],
+			delc=dis_kwargs["delc"],
+			top=dis_kwargs["top"],
+			botm=dis_kwargs["botm"],
 			idomain=idomain,
-			xorigin=float(sgrid.xoffset),
-			yorigin=float(sgrid.yoffset),
+			xorigin=float(solver_mesh.xoffset),
+			yorigin=float(solver_mesh.yoffset),
 			length_units="METERS",
 		)
 
-		strt = self._build_start_heads(sgrid)
+		strt = self._build_start_heads(solver_mesh)
 		self.ic = flopy.mf6.ModflowGwfic(self.gwf, strt=strt)
 		ocean_chd_spd, ocean_support_mask = self._build_ocean_boundary_chd_spd()
 
@@ -1008,7 +1013,7 @@ class Modflow6(Solver):
 			drn_spd = {}
 			for kper in range(int(self.nper)):
 				period_cells = []
-				top = np.asarray(sgrid.top, dtype=float)
+				top = solver_mesh.reshape_to_grid(solver_mesh.top)
 				configured_cond_value = float(drainage_cond_series[kper])
 				for i in range(self.nrow):
 					for j in range(self.ncol):
