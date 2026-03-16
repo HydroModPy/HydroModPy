@@ -52,15 +52,15 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
-def resolve_model_figure_dir(workspace, model_name: str) -> Path:
-    """Build the standard figure output directory for one model run.
+def resolve_model_figure_dir(workspace, run_id: str) -> Path:
+    """Build the standard figure output directory for one run.
 
-    The returned path points to the model-specific post-processing tree under
+    The returned path points to the run-specific post-processing tree under
     ``workspace.simulations_folder``. Plotting functions use this location as
-    their default destination for PNG exports tied to one model execution.
+    their default destination for PNG exports tied to one run execution.
     """
 
-    return workspace.simulations_folder / model_name / "_postprocess" / "_figures"
+    return workspace.simulations_folder / run_id / "_postprocess" / "_figures"
 
 
 def resolve_shared_figure_dir(workspace) -> Path:
