@@ -13,12 +13,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib.collections as mcollections
 import matplotlib.tri as mtri
 import numpy as np
 
 from hydromodpy.field.core.field_mesh import BaseFieldMesh, MeshCell
-from hydromodpy.field.meshes.structured_field_mesh import _set_axes_limits_from_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_reader import (
     GmshCellBlock,
     GmshMeshData,
@@ -100,6 +98,21 @@ class GmshPlanarMesh2D(BaseFieldMesh):
     ) -> "GmshPlanarMesh2D":
         return cls.from_mesh_data(read_gmsh_2d_mesh(path, cell_type=cell_type))
 
+    @classmethod
+    def from_hydro_mesh(cls, hydro_mesh) -> "GmshPlanarMesh2D":
+        """Build a ``GmshPlanarMesh2D`` from a 2D ``HydroMesh``."""
+        from hydromodpy.mesh.hydro_mesh import HydroMesh
+
+        if not isinstance(hydro_mesh, HydroMesh):
+            raise TypeError("Expected a HydroMesh instance")
+        if hydro_mesh.ndim != 2:
+            raise ValueError("GmshPlanarMesh2D requires a 2D HydroMesh")
+        return cls(
+            points_xy=hydro_mesh.vertices,
+            connectivity=hydro_mesh.flat_connectivity,
+            cell_type=hydro_mesh.single_cell_type.value,
+        )
+
     @property
     def n_cells(self) -> int:
         return int(self.connectivity.shape[0])
@@ -138,6 +151,12 @@ class GmshPlanarMesh2D(BaseFieldMesh):
             raise ValueError("Gmsh cell values must contain exactly one value per cell")
         return flat
 
+    def to_hydro_mesh(self):
+        """Convert to a ``HydroMesh`` pivot (optimized: direct array access)."""
+        from hydromodpy.mesh.adapters.field_mesh_adapter import from_gmsh_planar
+
+        return from_gmsh_planar(self)
+
     def plot_cell_values(
         self,
         ax,
@@ -148,40 +167,18 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         vmin=None,
         vmax=None,
     ):
+        from hydromodpy.mesh.plotting import plot_cell_values as _unified_plot
+
         values1d = np.asarray(self.to_cell_values(cell_values), dtype=float)
-        if self.cell_type == "triangle":
-            mappable = ax.tripcolor(
-                self.triangulation,
-                facecolors=values1d,
-                shading="flat",
-                cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
-            )
-            if show_mesh:
-                ax.triplot(self.triangulation, color="0.70", lw=0.35)
-        else:
-            polygons = [
-                self.points_xy[nodes]
-                for nodes in np.asarray(self.connectivity, dtype=int)
-            ]
-            edge_color = "0.70" if show_mesh else "face"
-            edge_width = 0.35 if show_mesh else 0.0
-            collection = mcollections.PolyCollection(
-                polygons,
-                cmap=cmap,
-                linewidths=edge_width,
-                edgecolors=edge_color,
-            )
-            collection.set_array(values1d)
-            if vmin is not None or vmax is not None:
-                collection.set_clim(vmin=vmin, vmax=vmax)
-            ax.add_collection(collection)
-            mappable = collection
-        _set_axes_limits_from_mesh(
-            ax, x_plot=self.points_xy[:, 0], y_plot=self.points_xy[:, 1]
+        return _unified_plot(
+            ax,
+            self.to_hydro_mesh(),
+            values1d,
+            cmap=cmap,
+            show_mesh=show_mesh,
+            vmin=vmin,
+            vmax=vmax,
         )
-        return mappable
 
     def to_mesh_data(self) -> GmshMeshData:
         return GmshMeshData(

@@ -682,6 +682,12 @@ class ExtrudedPrismMesh3D:
             raise ValueError("3D prism values must contain exactly one value per prism")
         return flat.reshape(expected_shape)
 
+    def to_hydro_mesh(self):
+        """Convert to a ``HydroMesh`` pivot (3D, with layer/source metadata)."""
+        from hydromodpy.mesh.adapters.field_mesh_adapter import from_extruded_prism
+
+        return from_extruded_prism(self)
+
     def to_mesh_data(self) -> ExtrudedPrismMeshData:
         return ExtrudedPrismMeshData(
             points_xyz=self.points_xyz,

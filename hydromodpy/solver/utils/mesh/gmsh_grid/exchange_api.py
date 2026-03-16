@@ -114,3 +114,34 @@ def save_extruded_values_summary(
             "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
         )
     return mesh_with_values.write_summary_json(path)
+
+
+# ---------------------------------------------------------------------------
+# Unified HydroMesh bridge
+# ---------------------------------------------------------------------------
+
+
+def load_planar_as_hydro_mesh(
+    path: str | Path, *, cell_type: str | None = None
+):
+    """Read one 2D planar mesh from disk as a ``HydroMesh``."""
+    return load_planar_mesh(path, cell_type=cell_type).to_hydro_mesh()
+
+
+def load_extruded_as_hydro_mesh(path: str | Path):
+    """Read one extruded 3D prism mesh from disk as a ``HydroMesh``."""
+    return load_extruded_mesh(path).to_hydro_mesh()
+
+
+def save_hydro_mesh_vtu(hydro_mesh, path: str | Path) -> Path:
+    """Write a ``HydroMesh`` to a VTU file (any topology, 2D or 3D)."""
+    from hydromodpy.mesh.io import write_vtu
+
+    return write_vtu(path, hydro_mesh)
+
+
+def load_hydro_mesh_vtu(path: str | Path):
+    """Read a ``HydroMesh`` from a VTU file."""
+    from hydromodpy.mesh.io import read_vtu
+
+    return read_vtu(path)
