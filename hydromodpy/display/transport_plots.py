@@ -191,7 +191,7 @@ def plot_concentration_frames(
     recharge_month = recharge_series.iloc[:nframes] * 1000 * 30
 
     watershed = gpd.read_file(geographic.watershed_shp)
-    streams = gpd.read_file(hydrography.streams) if hydrography is not None else None
+    streams = gpd.read_file(hydrography.streams) if hydrography is not None and hydrography.streams is not None else None
 
     dem_path = Path(
         base_raster_path

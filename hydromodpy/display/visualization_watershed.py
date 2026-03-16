@@ -45,7 +45,7 @@ except:
 from hydromodpy.support.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.data_managers.hydrography import Hydrography
+from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult
 from hydromodpy.data_managers.intermittency import Intermittency
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
@@ -110,7 +110,7 @@ def _raster_nodata_mask(data: np.ndarray, nodata: float | None) -> np.ndarray:
 
 #%% FUNCTIONS
 
-def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: Hydrography=None, piezometry: Optional[list[PointRecord]]=None, intermittency: Intermittency=None, hydrometry: Optional[list[PointRecord]]=None):
+def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: HydrographyResult=None, piezometry: Optional[list[PointRecord]]=None, intermittency: Intermittency=None, hydrometry: Optional[list[PointRecord]]=None):
     """
     Plot contour watershed and DEM.
 
@@ -266,7 +266,7 @@ def watershed_local(regional_dem_path, initializing: Workspace, geographic: Geog
     fig.savefig(os.path.join(initializing.figure_folder,'watershed_local.png'), dpi=300, 
                 bbox_inches='tight', transparent=False)
     
-def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Any, hydrography: Hydrography=None, piezometry: Optional[list[PointRecord]]=None):
+def watershed_geology(initializing: Workspace, geographic: Geographic, geology: Any, hydrography: HydrographyResult=None, piezometry: Optional[list[PointRecord]]=None):
     """
     Plot lithology of the watershed from specific geological map at FRance scale.
 
