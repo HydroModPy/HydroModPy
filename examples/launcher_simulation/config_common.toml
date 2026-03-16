@@ -24,8 +24,10 @@ thickness = "50.0 m"
 types = ["hydrography"]
 
 [data.hydrography]
-types_obs = ["botopage2024_naizin_streams_perennial-intermittent"]
-fields_obs = ["FID"]
+[[data.hydrography.sources]]
+source = "custom"
+path = "../../examples_legacy/example12/data/botopage2024_naizin_streams_perennial-intermittent.shp"
+rasterize_field = "FID"
 
 [data.oceanic]
 [[data.oceanic.sources]]

@@ -48,6 +48,7 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowRunOptions,
     Modpath,
 )
+from hydromodpy.simulation.time import ResolvedSteadySimulationTimeGrid
 from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
 
 
@@ -144,7 +145,10 @@ print("=" * 60 + "\n")
 model_modflow.pre_processing(
     flow=flow,
     domain=domain,
-    options=ModflowPreprocessOptions(box=True, sink_fill=False, check_grid=True),
+    options=ModflowPreprocessOptions(
+        box=True, sink_fill=False, check_grid=True,
+        time_grid=ResolvedSteadySimulationTimeGrid(),
+    ),
 )
 
 success = model_modflow.processing(
@@ -296,26 +300,31 @@ else:
 
 reanalysis_file = data_path / "_climate_REANALYSIS.csv"
 if reanalysis_file.exists():
-    _df = pd.read_csv(reanalysis_file, sep=";", index_col=0, parse_dates=True)
-    _col = next((c for c in _df.columns if "REC_REA" in c or c.startswith("REA_")), _df.columns[0])
-    R = _df[_col].loc["1990":"2019"].resample("D").mean().ffill()
+    try:
+        _df = pd.read_csv(reanalysis_file, sep=";", index_col=0, dayfirst=True, parse_dates=True)
+        _col = next((c for c in _df.columns if "REC_REA" in c or c.startswith("REA_")), _df.columns[0])
+        R = _df[_col].dropna()
+        R = R[(R.index.year >= 1990) & (R.index.year <= 2019)]
+        R = R.resample("D").mean().ffill()
 
-    fig, ax = plt.subplots(1, 1, figsize=(6, 2), dpi=300)
-    ax.patch.set_visible(False)
-    ax.plot(R.index, R, color="blue", lw=1, clip_on=True)
-    ax.fill_between(R.index, R * 0, R, color="skyblue", alpha=1, clip_on=True)
-    ax.set_xlabel("Date")
-    ax.xaxis.set(minor_locator=mdates.YearLocator(1), major_locator=mdates.YearLocator(5))
-    ax.set_ylim(0, 8)
-    ax.set_xlim(pd.to_datetime("2000"), pd.to_datetime("2020"))
-    ax.set_yticks([0, 2, 4, 6, 8])
-    ax.grid(which="both", axis="x")
-    ax.invert_yaxis()
-    ax.set_title("Recharge [mm/d]", color="blue")
-    plt.tight_layout()
-    fig.savefig(fig_dir / "input_recharge.png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print("[plot] input_recharge.png")
+        fig, ax = plt.subplots(1, 1, figsize=(6, 2), dpi=300)
+        ax.patch.set_visible(False)
+        ax.plot(R.index, R, color="blue", lw=1, clip_on=True)
+        ax.fill_between(R.index, R * 0, R, color="skyblue", alpha=1, clip_on=True)
+        ax.set_xlabel("Date")
+        ax.xaxis.set(minor_locator=mdates.YearLocator(1), major_locator=mdates.YearLocator(5))
+        ax.set_ylim(0, 8)
+        ax.set_xlim(pd.to_datetime("2000"), pd.to_datetime("2020"))
+        ax.set_yticks([0, 2, 4, 6, 8])
+        ax.grid(which="both", axis="x")
+        ax.invert_yaxis()
+        ax.set_title("Recharge [mm/d]", color="blue")
+        plt.tight_layout()
+        fig.savefig(fig_dir / "input_recharge.png", dpi=300, bbox_inches="tight")
+        plt.close(fig)
+        print("[plot] input_recharge.png")
+    except Exception as exc:
+        print(f"[skip] recharge plot: {exc}")
 else:
     print(f"[skip] recharge plot: {reanalysis_file} not found")
 

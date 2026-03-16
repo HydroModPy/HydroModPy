@@ -37,9 +37,10 @@ fields_obs = "CODE_LEG"
 cell_samples_per_axis = 8
 
 [data.hydrography]
-types_obs = ["regional stream network"]
-fields_obs = ["FID"]
-hydro_path = "data/"
+[[data.hydrography.sources]]
+source = "custom"
+path = "data/regional stream network.shp"
+rasterize_field = "FID"
 
 [data.hydrometry]
 date_start = "2019-01-01"

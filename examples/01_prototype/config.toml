@@ -52,8 +52,8 @@ types_obs = "GEO1M.shp"
 fields_obs = "CODE_LEG"
 
 [data.hydrography]
-types_obs = ["regional stream network"]
-fields_obs = ["FID"]
+[[data.hydrography.sources]]
+source = "bdtopage"
 
 [data.intermittency]
 file_name = "regional onde stations.shp"
@@ -151,8 +151,7 @@ nwt_maxiterout = 5000
 nwt_thickfact = 1e-5
 nwt_options = "COMPLEX"
 
-[modflownwt.sgrid]
-lenuni = "m"
+[modflownwt.sgrid.vertical]
 genmtd_lay = "decay"
 nlay = 5
 lay_decay = 1.5
