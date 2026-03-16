@@ -6,7 +6,6 @@ import matplotlib.tri as mtri
 import numpy as np
 
 from hydromodpy.field.core.field_mesh import BaseFieldMesh, MeshCell
-from hydromodpy.field.meshes.structured_field_mesh import _set_axes_limits_from_mesh
 
 
 class _TriangularBaseFieldMesh(BaseFieldMesh):
@@ -81,24 +80,18 @@ class _TriangularBaseFieldMesh(BaseFieldMesh):
         vmin=None,
         vmax=None,
     ):
-        triangulation = self._require_triangulation()
+        from hydromodpy.mesh.plotting import plot_cell_values as _unified_plot
+
         values1d = np.asarray(self.to_cell_values(cell_values), dtype=float)
-        mappable = ax.tripcolor(
-            triangulation,
-            facecolors=values1d,
-            shading="flat",
+        return _unified_plot(
+            ax,
+            self.to_hydro_mesh(),
+            values1d,
             cmap=cmap,
+            show_mesh=show_mesh,
             vmin=vmin,
             vmax=vmax,
         )
-        if show_mesh:
-            ax.triplot(triangulation, color="0.70", lw=0.35)
-        _set_axes_limits_from_mesh(
-            ax,
-            x_plot=triangulation.x,
-            y_plot=triangulation.y,
-        )
-        return mappable
 
 
 class TriangularStructuredFieldMesh(_TriangularBaseFieldMesh):
