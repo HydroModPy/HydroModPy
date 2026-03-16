@@ -137,22 +137,15 @@ class GeologyStructuredMesh(BaseFieldMesh):
         vmin=None,
         vmax=None,
     ):
+        from hydromodpy.mesh.plotting import plot_cell_values as _unified_plot
+
         values2d = np.asarray(self.to_cell_values(cell_values), dtype=float)
-        mappable = ax.pcolormesh(
-            self.x_plot,
-            self.y_plot,
-            values2d,
-            shading="flat",
+        return _unified_plot(
+            ax,
+            self.to_hydro_mesh(),
+            values2d.reshape(-1),
             cmap=cmap,
+            show_mesh=show_mesh,
             vmin=vmin,
             vmax=vmax,
         )
-        if show_mesh:
-            for j in range(self.y_plot.shape[0]):
-                ax.plot(self.x_plot[j, :], self.y_plot[j, :], color="0.75", lw=0.35)
-            for i in range(self.x_plot.shape[1]):
-                ax.plot(self.x_plot[:, i], self.y_plot[:, i], color="0.75", lw=0.35)
-        ax.set_aspect("equal")
-        ax.set_xlim(float(np.nanmin(self.x_plot)), float(np.nanmax(self.x_plot)))
-        ax.set_ylim(float(np.nanmin(self.y_plot)), float(np.nanmax(self.y_plot)))
-        return mappable

@@ -61,6 +61,7 @@ dependencies = [
     "pyproj",
     "pyshp",
     "pysheds",
+    "pyvista",
     "rasterio",
     "rioxarray",
     "scikit-learn",
@@ -164,4 +165,3 @@ exclude_lines = [
     "raise NotImplementedError",
     "\\.\\.\\.",
 ]
-

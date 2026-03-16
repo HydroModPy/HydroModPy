@@ -13,6 +13,7 @@ from hydromodpy.process.flow.initial_conditions import (
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.process.flow.sinks_sources import FlowWellConfig
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
 
@@ -134,15 +135,16 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
         boundary_conditions={},
         active_bc=[],
     )
-    sgrid = SimpleNamespace(
-        top=np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float),
-        botm=np.array([[[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]], dtype=float),
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2, ncol=3, top=top, botm=np.stack([botm_2d]),
     )
 
-    strt = model._build_start_heads(sgrid)
+    strt = model._build_start_heads(solver_mesh)
 
     assert strt.shape == (1, 2, 3)
-    assert np.allclose(strt[0], sgrid.top)
+    assert np.allclose(strt[0], top)
 
 
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
@@ -154,20 +156,16 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
         boundary_conditions={},
         active_bc=[],
     )
-    sgrid = SimpleNamespace(
-        top=np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float),
-        botm=np.array(
-            [
-                [[6.0, 6.0, 6.0], [6.0, 6.0, 6.0]],
-                [[2.0, 3.0, 4.0], [5.0, 6.0, 7.0]],
-            ],
-            dtype=float,
-        ),
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    botm_layer1 = np.array([[6.0, 6.0, 6.0], [6.0, 6.0, 6.0]], dtype=float)
+    botm_layer2 = np.array([[2.0, 3.0, 4.0], [5.0, 6.0, 7.0]], dtype=float)
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2, ncol=3, top=top, botm=np.stack([botm_layer1, botm_layer2]),
     )
 
-    strt = model._build_start_heads(sgrid)
+    strt = model._build_start_heads(solver_mesh)
 
-    assert np.allclose(strt[0], sgrid.botm[-1])
+    assert np.allclose(strt[0], botm_layer2)
 
 
 def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:

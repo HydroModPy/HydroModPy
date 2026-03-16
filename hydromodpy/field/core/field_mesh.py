@@ -183,6 +183,17 @@ class BaseFieldMesh(ABC):
             label=label,
         )
 
+    def to_hydro_mesh(self):
+        """Convert this mesh to a ``HydroMesh`` pivot object.
+
+        Subclasses with direct array access (e.g. ``GmshPlanarMesh2D``)
+        override this for efficiency.  The base implementation falls back
+        to ``hydromodpy.mesh.adapters.from_field_mesh()``.
+        """
+        from hydromodpy.mesh.adapters.field_mesh_adapter import from_field_mesh
+
+        return from_field_mesh(self)
+
     def as_dict(self):
         return {
             "kind": self.kind,

@@ -7,15 +7,6 @@ import numpy as np
 from hydromodpy.field.core.field_mesh import BaseFieldMesh, MeshCell
 
 
-def _set_axes_limits_from_mesh(ax, *, x_plot, y_plot) -> None:
-    """Set axis limits from mesh coordinates without assuming a unit square."""
-    x_arr = np.asarray(x_plot, dtype=float)
-    y_arr = np.asarray(y_plot, dtype=float)
-    ax.set_aspect("equal")
-    ax.set_xlim(float(np.nanmin(x_arr)), float(np.nanmax(x_arr)))
-    ax.set_ylim(float(np.nanmin(y_arr)), float(np.nanmax(y_arr)))
-
-
 class StructuredFieldMesh(BaseFieldMesh):
     """Structured quadrilateral mesh over arbitrary XY coordinates."""
 
@@ -83,20 +74,15 @@ class StructuredFieldMesh(BaseFieldMesh):
         vmin=None,
         vmax=None,
     ):
+        from hydromodpy.mesh.plotting import plot_cell_values as _unified_plot
+
         values2d = np.asarray(self.to_cell_values(cell_values), dtype=float)
-        mappable = ax.pcolormesh(
-            self.x_plot,
-            self.y_plot,
-            values2d,
-            shading="flat",
+        return _unified_plot(
+            ax,
+            self.to_hydro_mesh(),
+            values2d.reshape(-1),
             cmap=cmap,
+            show_mesh=show_mesh,
             vmin=vmin,
             vmax=vmax,
         )
-        if show_mesh:
-            for j in range(self.y_plot.shape[0]):
-                ax.plot(self.x_plot[j, :], self.y_plot[j, :], color="0.75", lw=0.35)
-            for i in range(self.x_plot.shape[1]):
-                ax.plot(self.x_plot[:, i], self.y_plot[:, i], color="0.75", lw=0.35)
-        _set_axes_limits_from_mesh(ax, x_plot=self.x_plot, y_plot=self.y_plot)
-        return mappable

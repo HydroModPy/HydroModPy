@@ -317,17 +317,20 @@ class Modflow(Solver):
             domain=self.domain,
             sgrid_config=self.sgrid_config,
         )
-        self.top_elevation = self.grid_ctx.top_elevation
-        self.inactive_mask = self.grid_ctx.inactive_mask
-        self.nlay = self.grid_ctx.nlay
-        self.nrow = self.grid_ctx.nrow
-        self.ncol = self.grid_ctx.ncol
-        self.zbot = self.grid_ctx.zbot
-        self.bottom_layer = self.grid_ctx.bottom_layer
+        if not self.grid_ctx.solver_mesh.is_structured:
+            raise ValueError("MODFLOW NWT requires a structured grid")
+        self.solver_mesh = self.grid_ctx.solver_mesh
+        self.top_elevation = self.solver_mesh.reshape_to_grid(self.solver_mesh.top)
+        self.inactive_mask = self.solver_mesh.reshape_to_grid(self.solver_mesh.inactive_mask[0])
+        self.nlay = self.solver_mesh.nlay
+        self.nrow = self.solver_mesh.nrow
+        self.ncol = self.solver_mesh.ncol
+        self.bottom_layer = self.solver_mesh.reshape_to_grid(self.solver_mesh.botm[-1])
+        self.zbot = self.solver_mesh.botm_grid
         self.cell_area = float(self.grid_ctx.grid.cell_area)
         self.resolution = float(self.grid_ctx.grid.characteristic_length)
         self.dem_watershed_path = self._write_solver_grid_template()
-        return self.grid_ctx.sgrid
+        return self.solver_mesh
 
     def _write_solver_grid_template(self) -> str:
         """Persist one solver-grid-aligned raster template used by exports."""
@@ -335,9 +338,11 @@ class Modflow(Solver):
             raise ValueError("grid_ctx must exist before writing a solver grid template")
         os.makedirs(self.full_path, exist_ok=True)
         template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
+        top_flat = np.asarray(self.grid_ctx.top_elevation, dtype=float)
+        top_2d = self.solver_mesh.reshape_to_grid(top_flat)
         write_grid_array_to_raster(
             grid=self.grid_ctx.grid,
-            data=np.asarray(self.grid_ctx.top_elevation, dtype=float),
+            data=top_2d,
             output_path=template_path,
             nodata=float(self.grid_ctx.grid.nodata),
         )
@@ -359,25 +364,18 @@ class Modflow(Solver):
         )
         return self.routing_ctx
 
-    def _build_dis_package(self, sgrid, temporal_dis: Mapping[str, object]) -> None:
+    def _build_dis_package(self, solver_mesh, temporal_dis: Mapping[str, object]) -> None:
         """Create FLOPY DIS package from spatial and temporal discretization."""
-        # TGrid/TMesh fields consumed here:
-        # - itmuni, nper, perlen, nstp, steady, start_datetime.
-        # Current implementation does not forward tsmult to ModflowDis.
+        dis_kwargs = solver_mesh.to_dis_kwargs()
+        verts = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
+        xmin = float(verts[:, 0].min())
+        ymax = float(verts[:, 1].max())
         self.dis = flopy.modflow.ModflowDis(
             self.mf,
-            # Spatial grid parameters
             lenuni=MODFLOW_LENUNI_METERS,
-            nlay=sgrid.nlay,
-            nrow=sgrid.nrow,
-            ncol=sgrid.ncol,
-            delr=sgrid.delr,
-            delc=sgrid.delc,
-            top=sgrid.top,
-            botm=sgrid.botm,
-            xul=sgrid.xoffset,
-            yul=sgrid.extent[3],
-            # Temporal grid parameters
+            xul=xmin,
+            yul=ymax,
+            **dis_kwargs,
             itmuni=temporal_dis["itmuni"],
             nper=temporal_dis["nper"],
             perlen=temporal_dis["perlen"],
@@ -386,21 +384,15 @@ class Modflow(Solver):
             start_datetime=temporal_dis["start_datetime"],
         )
 
-    def _build_flow_modflow_inputs(self, sgrid):
+    def _build_flow_modflow_inputs(self, solver_mesh):
         """Adapt Flow+Domain data into solver-ready payloads."""
         adapter = FlowToModflowAdapter(
             flow=self.flow,
             domain=self.domain,
-            sgrid=sgrid,
-            dem=self.top_elevation,
-            bottom_layer=self.bottom_layer,
-            nlay=self.nlay,
-            nrow=self.nrow,
-            ncol=self.ncol,
+            solver_mesh=solver_mesh,
             nper=int(self.nper),
             grid=None if self.grid_ctx is None else self.grid_ctx.grid,
             simulation_window=None if self.time_grid is None else self.time_grid.window,
-            resolution=float(self.resolution),
             sink_fill=bool(self.sink_fill),
             sink=getattr(self, "sink", None),
         )

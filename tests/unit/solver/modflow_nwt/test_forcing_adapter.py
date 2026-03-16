@@ -15,7 +15,17 @@ import pytest
 from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
 from hydromodpy.solver.modflow_common.grid_context import GridReference
+from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.modflow.flow_to_modflow_adapter import FlowToModflowAdapter
+
+
+def _build_solver_mesh(nrow=1, ncol=1, nlay=1, dx=1.0, dy=1.0, xoff=0.0, yoff=0.0):
+    """Build a minimal structured SolverMesh for adapter tests."""
+    top = np.zeros((nrow, ncol), dtype=float)
+    botm = np.zeros((nlay, nrow, ncol), dtype=float) - 10.0
+    return SolverMesh.from_structured_arrays(
+        nrow=nrow, ncol=ncol, top=top, botm=botm, dx=dx, dy=dy, xoff=xoff, yoff=yoff,
+    )
 
 
 def _make_adapter(recharge_cfg, flow_regime, nper, active_sinks_sources=None):
@@ -28,18 +38,11 @@ def _make_adapter(recharge_cfg, flow_regime, nper, active_sinks_sources=None):
         active_sinks_sources=active_sinks_sources,
         config=None,
     )
-    dem = np.zeros((1, 1))
     return FlowToModflowAdapter(
         flow=flow,
         domain=None,
-        sgrid=None,
-        dem=dem,
-        bottom_layer=dem,
-        nlay=1,
-        nrow=1,
-        ncol=1,
+        solver_mesh=_build_solver_mesh(),
         nper=nper,
-        resolution=1.0,
         sink_fill=False,
     )
 
@@ -194,18 +197,11 @@ def test_wells_not_activated_returns_empty_spd():
         active_sinks_sources=["recharge"],
         config=None,
     )
-    dem = np.zeros((1, 1))
     adapter = FlowToModflowAdapter(
         flow=flow,
         domain=None,
-        sgrid=None,
-        dem=dem,
-        bottom_layer=dem,
-        nlay=1,
-        nrow=1,
-        ncol=1,
+        solver_mesh=_build_solver_mesh(),
         nper=2,
-        resolution=1.0,
         sink_fill=False,
     )
 
@@ -232,19 +228,16 @@ def test_well_absolute_xy_is_resolved_to_solver_cell():
         active_sinks_sources=["wells"],
         config=None,
     )
-    dem = np.zeros((4, 5))
+    grid = GridReference(
+        n_cells=20, bounds=(0.0, 0.0, 250.0, 400.0), crs=None,
+        structured_shape=(4, 5), cell_size_hint=50.0,
+    )
     adapter = FlowToModflowAdapter(
         flow=flow,
         domain=None,
-        sgrid=None,
-        dem=dem,
-        bottom_layer=dem,
-        nlay=2,
-        nrow=4,
-        ncol=5,
+        solver_mesh=_build_solver_mesh(nrow=4, ncol=5, nlay=2, dx=50.0, dy=100.0),
         nper=2,
-        grid=GridReference(nrow=4, ncol=5, dx=50.0, dy=100.0, xmin=0.0, ymin=0.0, crs=None),
-        resolution=1.0,
+        grid=grid,
         sink_fill=False,
     )
 
@@ -272,19 +265,16 @@ def test_well_relative_xy_is_resolved_to_solver_cell():
         active_sinks_sources=["wells"],
         config=None,
     )
-    dem = np.zeros((4, 5))
+    grid = GridReference(
+        n_cells=20, bounds=(100.0, 200.0, 150.0, 240.0), crs=None,
+        structured_shape=(4, 5), cell_size_hint=10.0,
+    )
     adapter = FlowToModflowAdapter(
         flow=flow,
         domain=None,
-        sgrid=None,
-        dem=dem,
-        bottom_layer=dem,
-        nlay=1,
-        nrow=4,
-        ncol=5,
+        solver_mesh=_build_solver_mesh(nrow=4, ncol=5, dx=10.0, dy=10.0, xoff=100.0, yoff=200.0),
         nper=2,
-        grid=GridReference(nrow=4, ncol=5, dx=10.0, dy=10.0, xmin=100.0, ymin=200.0, crs=None),
-        resolution=1.0,
+        grid=grid,
         sink_fill=False,
     )
 
@@ -315,18 +305,11 @@ def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
         active_sinks_sources=["wells"],
         config=None,
     )
-    dem = np.zeros((1, 1))
     adapter = FlowToModflowAdapter(
         flow=flow,
         domain=None,
-        sgrid=None,
-        dem=dem,
-        bottom_layer=dem,
-        nlay=1,
-        nrow=1,
-        ncol=1,
+        solver_mesh=_build_solver_mesh(),
         nper=2,
-        resolution=1.0,
         sink_fill=False,
     )
 
@@ -342,7 +325,6 @@ def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
 
 def _make_bc_adapter(boundary_conditions, active_bc, nper=1, simulation_window=None):
     """Build a minimal FlowToModflowAdapter focused on the BC path."""
-    dem = np.zeros((3, 3))
     flow = types.SimpleNamespace(
         boundary_conditions=boundary_conditions,
         initial_conditions=types.SimpleNamespace(
@@ -357,15 +339,9 @@ def _make_bc_adapter(boundary_conditions, active_bc, nper=1, simulation_window=N
     return FlowToModflowAdapter(
         flow=flow,
         domain=None,
-        sgrid=None,
-        dem=dem,
-        bottom_layer=dem,
-        nlay=1,
-        nrow=3,
-        ncol=3,
+        solver_mesh=_build_solver_mesh(nrow=3, ncol=3),
         nper=nper,
         simulation_window=simulation_window,
-        resolution=1.0,
         sink_fill=False,
     )
 

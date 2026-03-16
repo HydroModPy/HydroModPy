@@ -108,7 +108,7 @@ def _resolve_spatial_support_from_domain(*, domain: object, support_id: str) -> 
 def _build_property_from_flow_domain(
     *,
     model,
-    sgrid,
+    solver_mesh,
     geometry_cache,
     flow_param_candidates,
     target_3d_attr: str,
@@ -195,7 +195,7 @@ def _build_property_from_flow_domain(
     discretized = discretize_fieldparam_on_sgrid(
         support_field=support_field,
         field_param=param_obj,
-        sgrid=sgrid,
+        sgrid=solver_mesh,
         geometry_cache=geometry_cache,
         cell_samples_per_axis=None,
         depth=0.0,
@@ -216,22 +216,22 @@ def _build_property_from_flow_domain(
     logger.info("%s mapped from flow.%s using %s", property_label, selected_name, support_label)
 
 
-def _zero_property_arrays(*, sgrid: object) -> tuple[np.ndarray, np.ndarray]:
-    """Return zero-filled 3D/2D property arrays matching one structured grid."""
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    if botm.ndim != 3:
-        raise ValueError("sgrid.botm must be a 3D array to synthesize zero property arrays")
-    if top.ndim != 2:
-        raise ValueError("sgrid.top must be a 2D array to synthesize zero property arrays")
-    return np.zeros(botm.shape, dtype=float), np.zeros(top.shape, dtype=float)
+def _zero_property_arrays(*, solver_mesh) -> tuple[np.ndarray, np.ndarray]:
+    """Return zero-filled 3D/2D property arrays matching one solver mesh."""
+    nlay = solver_mesh.nlay
+    nrow = solver_mesh.nrow
+    ncol = solver_mesh.ncol
+    return (
+        np.zeros((nlay, nrow, ncol), dtype=float),
+        np.zeros((nrow, ncol), dtype=float),
+    )
 
 
 def resolve_flow_property_arrays(
     *,
     flow: object,
     domain: object,
-    sgrid: object,
+    solver_mesh,
     required_properties: frozenset[str] | set[str] | None = None,
     optional_fill_values: Mapping[str, float] | None = None,
 ) -> dict[str, np.ndarray]:
@@ -270,9 +270,6 @@ def resolve_flow_property_arrays(
     # Use a tiny proxy to satisfy mapping helper contract.
     proxy = _PropertyMappingProxy(flow=flow, domain=domain)
     # Per-call cache used to reuse geometry discretization across K/Sy/Ss mapping.
-    # This avoids recomputing support_field.on_mesh(...) for identical supports
-    # within the same launcher run, and also reuses the planar mesh for
-    # homogeneous parameters.
     geometry_cache: dict[tuple[object, ...], tuple[object, object | None, np.ndarray]] = {}
     out: dict[str, np.ndarray] = {}
     parameters = getattr(flow, "parameters", {})
@@ -285,7 +282,7 @@ def resolve_flow_property_arrays(
             fill_value = optional_defaults.get(canonical_name, None)
             if fill_value is None:
                 continue
-            values_3d, values_2d = _zero_property_arrays(sgrid=sgrid)
+            values_3d, values_2d = _zero_property_arrays(solver_mesh=solver_mesh)
             if fill_value != 0.0:
                 values_3d.fill(fill_value)
                 values_2d.fill(fill_value)
@@ -295,7 +292,7 @@ def resolve_flow_property_arrays(
         # Mapping writes attributes on the proxy only.
         _build_property_from_flow_domain(
             model=proxy,
-            sgrid=sgrid,
+            solver_mesh=solver_mesh,
             geometry_cache=geometry_cache,
             flow_param_candidates=aliases,
             target_3d_attr=target_3d_attr,

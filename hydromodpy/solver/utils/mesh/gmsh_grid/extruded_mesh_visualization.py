@@ -167,9 +167,16 @@ def plot_planar_cell_values(
     vmin: float | None = None,
     vmax: float | None = None,
 ):
-    """Plot one 2D layer on a planar mesh with consistent axis formatting."""
-    mappable = mesh.plot_cell_values(
+    """Plot one 2D layer on a planar mesh with consistent axis formatting.
+
+    Uses the unified ``HydroMesh`` plotting pipeline internally.
+    """
+    from hydromodpy.mesh.plotting import plot_cell_values as _unified_plot
+
+    hydro_mesh = mesh.to_hydro_mesh()
+    mappable = _unified_plot(
         ax,
+        hydro_mesh,
         values,
         cmap=cmap,
         show_mesh=show_mesh,
