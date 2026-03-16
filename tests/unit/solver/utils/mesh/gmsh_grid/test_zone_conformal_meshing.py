@@ -13,7 +13,10 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
     load_zone_meshing_domain_geometry,
 )
 
-pytest.importorskip("gmsh")
+try:
+    import gmsh  # noqa: F401
+except (ImportError, OSError) as exc:
+    pytest.skip(f"could not import 'gmsh': {exc}", allow_module_level=True)
 
 
 def _build_split_zones_gdf():

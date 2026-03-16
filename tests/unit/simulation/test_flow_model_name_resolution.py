@@ -8,13 +8,18 @@ from hydromodpy.simulation.adapters.flow.modflow_common import (
 )
 
 
-def test_resolve_base_model_name_prefers_setup_value() -> None:
-    setup = SimpleNamespace(model_name="launcher_name")
+def test_resolve_base_model_name_prefers_run_id() -> None:
+    setup = SimpleNamespace(run_id="launcher_name")
     assert resolve_base_model_name(setup) == "launcher_name"
 
 
+def test_resolve_base_model_name_falls_back_to_model_name() -> None:
+    setup = SimpleNamespace(model_name="legacy_name")
+    assert resolve_base_model_name(setup) == "legacy_name"
+
+
 def test_resolve_base_model_name_defaults_when_blank() -> None:
-    setup = SimpleNamespace(model_name="")
+    setup = SimpleNamespace(run_id="")
     assert resolve_base_model_name(setup) == "default"
 
 

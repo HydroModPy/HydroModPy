@@ -465,30 +465,22 @@ def resolve_model_workspace(
     """
     Resolve generated workspace folders for a completed example run.
 
-    Typical structure:
-    `<out_path>/<watershed>/<results_folder>/<model>/_postprocess/...`
+    With the project-root layout, ``out_path`` IS the project root and
+    results live directly at ``out_path/<results_folder>/<model>/...``.
+
+    The legacy ``watershed_name`` parameter is accepted but ignored — there
+    is no longer a watershed subfolder between out_path and results.
 
     Returns
     -------
     tuple
         (model_ws, postprocess_dir, particles_dir)
     """
-    # 1) Resolve watershed folder.
-    if watershed_name is None:
-        # Most tests produce exactly one watershed folder in `out_path`.
-        watershed_dirs = sorted(p for p in out_path.iterdir() if p.is_dir())
-        assert watershed_dirs, f"No watershed folder found in {out_path}"
-        watershed_dir = watershed_dirs[0]
-    else:
-        # Some tests prefer explicit watershed naming to avoid ambiguity.
-        watershed_dir = out_path / watershed_name
-        assert watershed_dir.is_dir(), f"Watershed folder not found: {watershed_dir}"
-
-    # 2) Resolve results folder (`results_simulations` or `results_calibration`).
-    results_dir = watershed_dir / results_folder_name
+    # 1) Resolve results folder directly under project root.
+    results_dir = out_path / results_folder_name
     assert results_dir.is_dir(), f"Results folder not found: {results_dir}"
 
-    # 3) Resolve model folder (exact name or first matching folder).
+    # 2) Resolve model folder (exact name or first matching folder).
     if model_name is not None:
         model_ws = results_dir / model_name
         assert model_ws.is_dir(), f"Model folder not found: {model_ws}"
@@ -502,7 +494,7 @@ def resolve_model_workspace(
         assert model_dirs, f"No model folder found in {results_dir}"
         model_ws = model_dirs[0]
 
-    # 4) Return canonical workspace paths used by most regression tests.
+    # 3) Return canonical workspace paths used by most regression tests.
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
     return model_ws, postprocess_dir, particles_dir
@@ -596,8 +588,9 @@ def run_example_script(
     - non-interactive execution without monkeypatching.
     """
     env = os.environ.copy()
-    # Redirect outputs into the per-test output directory.
+    # Redirect outputs into the per-test output directory via project root override.
     env[out_env_var] = str(out_path)
+    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:

@@ -9,7 +9,10 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_in
     run_reference_interactive_viewer_from_toml,
 )
 
-pytest.importorskip("pyvista")
+try:
+    import pyvista  # noqa: F401
+except (ImportError, OSError) as exc:
+    pytest.skip(f"could not import 'pyvista': {exc}", allow_module_level=True)
 
 
 CASE_TOML = (

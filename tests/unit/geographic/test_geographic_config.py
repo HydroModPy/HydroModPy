@@ -56,9 +56,7 @@ def test_hydromodpy_config_accepts_matching_streams_with_synthetic_geographic(
         "\n".join(
             [
                 "[workspace]",
-                'catch_name = "synthetic_case"',
-                'out_dir_path = "results"',
-                'data_path = "data"',
+                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',

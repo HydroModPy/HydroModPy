@@ -1,4 +1,4 @@
-"""Unit tests for launcher model-name initialization from simulation config."""
+"""Unit tests for launcher run_id initialization from simulation config."""
 
 from __future__ import annotations
 
@@ -14,9 +14,10 @@ from launchers.process_simulation.launcher import HydroModPyLauncher
 class _DummyWorkspace:
     def __init__(self, config) -> None:
         self.config = config
-        self.catch_folder = Path("workspace")
-        self.stable_folder = self.catch_folder / "results_stable"
-        self.simulations_folder = self.catch_folder / "results_simulations"
+        self.project_root = Path("workspace")
+        self.catch_folder = self.project_root
+        self.stable_folder = self.project_root / "results_stable"
+        self.simulations_folder = self.project_root / "results_simulations"
 
 
 class _DummyGeographic:
@@ -79,14 +80,14 @@ def _patch_launcher_deps(monkeypatch):
     )
 
 
-def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
+def test_run_setup_uses_simulation_run_id(monkeypatch) -> None:
     _patch_launcher_deps(monkeypatch)
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
-        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+        simulation=SimpleNamespace(run_id="my_run_id"),
     )
     run_state = LauncherRunState(
         cfg=cfg,
@@ -100,17 +101,17 @@ def test_run_setup_uses_simulation_name_as_model_name(monkeypatch) -> None:
 
     launcher._run_setup()
 
-    assert run_state.setup.model_name == "simulation_name_from_toml"
+    assert run_state.setup.run_id == "my_run_id"
 
 
-def test_run_setup_replaces_spaces_in_simulation_name(monkeypatch) -> None:
+def test_run_setup_defaults_run_id_when_empty(monkeypatch) -> None:
     _patch_launcher_deps(monkeypatch)
 
     cfg = SimpleNamespace(
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
-        simulation=SimpleNamespace(name="simulation  name   with spaces"),
+        simulation=SimpleNamespace(run_id=""),
     )
     run_state = LauncherRunState(
         cfg=cfg,
@@ -124,7 +125,7 @@ def test_run_setup_replaces_spaces_in_simulation_name(monkeypatch) -> None:
 
     launcher._run_setup()
 
-    assert run_state.setup.model_name == "simulation_name_with_spaces"
+    assert run_state.setup.run_id == "default"
 
 
 def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> None:
@@ -145,7 +146,7 @@ def test_run_setup_stores_explicit_domain_geographic_context(monkeypatch) -> Non
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(),
-        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+        simulation=SimpleNamespace(run_id="test"),
     )
     run_state = LauncherRunState(
         cfg=cfg,
@@ -210,7 +211,7 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
         workspace=SimpleNamespace(),
         geographic=geographic_cfg,
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+        simulation=SimpleNamespace(run_id="test"),
     )
     run_state = LauncherRunState(
         cfg=cfg,
@@ -269,7 +270,7 @@ def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+        simulation=SimpleNamespace(run_id="test"),
     )
     run_state = LauncherRunState(
         cfg=cfg,
@@ -309,7 +310,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+        simulation=SimpleNamespace(run_id="test"),
     )
     run_state = LauncherRunState(
         cfg=cfg,
@@ -373,7 +374,7 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
         workspace=SimpleNamespace(),
         geographic=_standard_geographic_cfg(),
         domain=SimpleNamespace(zone_ids=[]),
-        simulation=SimpleNamespace(name="simulation_name_from_toml"),
+        simulation=SimpleNamespace(run_id="test"),
     )
     run_state = LauncherRunState(
         cfg=cfg,

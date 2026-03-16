@@ -72,11 +72,19 @@ def _build_model(work_dir: Path) -> Modflow6:
     geo = _DummyGeographic(dem)
     model = Modflow6(geographic=geo, model_folder=str(work_dir), model_name="Demo")
     model.full_path = str(work_dir / "Demo")
-    model.dem = dem
-    model.dem_mask = np.zeros((2, 2), dtype=bool)
+    model.dem = dem.ravel()  # flat (ncpl,)
+    model.dem_mask = np.zeros(4, dtype=bool)  # flat (ncpl,)
     model.dem_watershed_path = str(work_dir / "grid.tif")
     model.nrow = 2
     model.ncol = 2
+    model.ncpl = 4
+    model.nlay = 1
+    model.solver_mesh = SimpleNamespace(
+        is_structured=True,
+        nrow=2,
+        ncol=2,
+        reshape_to_grid=lambda arr: np.asarray(arr, dtype=float).reshape(2, 2),
+    )
     return model
 
 

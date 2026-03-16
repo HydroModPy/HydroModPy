@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from shapely.geometry import LineString, box
+
+_gmsh_available = importlib.util.find_spec("gmsh") is not None
+_skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not installed")
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
     _clip_river_trace_to_domain,
@@ -68,6 +72,7 @@ def _write_legacy_clip_bbox_case_toml(path: Path) -> None:
     path.write_text(migrated, encoding="utf-8")
 
 
+@_skip_no_gmsh
 def test_reference_2d_geology_conformal_case_non_regression(
     update_goldens: bool,
 ) -> None:
@@ -128,6 +133,7 @@ def test_reference_2d_geology_conformal_case_non_regression(
     assert stable == expected
 
 
+@_skip_no_gmsh
 def test_reference_2d_geology_conformal_legacy_clip_bbox_rejected() -> None:
     output_dir = (
         Path.cwd()

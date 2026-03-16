@@ -39,16 +39,13 @@ def _load_json(path: Path) -> dict:
 def _write_tmp_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "run_geographic_river_network_config.toml"
     dem_path = (REPO_ROOT / "data" / "Brittany" / "dem" / "regional dem.tif").as_posix()
-    data_path = (REPO_ROOT / "examples_legacy" / "example12" / "data").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
     config_path.write_text(
         "\n".join(
             [
                 "[workspace]",
-                'catch_name = "example12_geographic_case_river_network_regression"',
-                f'out_dir_path = "{out_path}"',
-                f'data_path = "{data_path}"',
+                f'project_root = "{out_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',

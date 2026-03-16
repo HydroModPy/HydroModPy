@@ -16,12 +16,12 @@ from tests.regression.golden_utils import (
     run_example_script,
 )
 
-# NOTE: current example folder/module name is "overtiew" in repository.
 LAUNCHER_DATA_OVERVIEW_SCRIPT = (
     REPO_ROOT
     / "examples"
-    / "launcher_data_overtiew"
-    / "launcher_data_overtiew.py"
+    / "projects"
+    / "data_overview"
+    / "run_data_overview.py"
 )
 
 SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
@@ -51,11 +51,11 @@ def test_launcher_data_overview_data_only_regression():
         timeout=3600,
     )
 
-    catch_root = out_path / "launcher_data_overtiew"
-    stable_root = catch_root / "results_stable"
+    # With the project-root layout, out_path IS the project root.
+    stable_root = out_path / "results_stable"
 
     required_files = [
-        catch_root / "hydromodpy_debug.log",
+        out_path / "hydromodpy_debug.log",
         stable_root / "geographic" / "watershed.shp",
         stable_root / "geographic" / "watershed.tif",
         stable_root / "hydrography" / "streams.shp",
@@ -68,7 +68,7 @@ def test_launcher_data_overview_data_only_regression():
 
     # Data-overview workflow must not trigger numerical solver runs.
     # ``results_simulations`` may be pre-created by workspace setup.
-    results_simulations_dir = catch_root / "results_simulations"
+    results_simulations_dir = out_path / "results_simulations"
     if results_simulations_dir.exists():
         simulation_files = [p for p in results_simulations_dir.rglob("*") if p.is_file()]
         assert not simulation_files, (
@@ -78,7 +78,7 @@ def test_launcher_data_overview_data_only_regression():
     forbidden_suffixes = {".nam", ".hds", ".cbc", ".oc", ".upw", ".nwt"}
     solver_outputs = [
         path
-        for path in catch_root.rglob("*")
+        for path in out_path.rglob("*")
         if path.is_file() and path.suffix.lower() in forbidden_suffixes
     ]
     assert not solver_outputs, f"Unexpected solver outputs found: {solver_outputs}"

@@ -38,16 +38,13 @@ def _write_tmp_config(tmp_path: Path, *, dem_correc_type: str) -> Path:
     config_path = tmp_path / f"run_geographic_config_{dem_correc_type}.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     dem_path = (REPO_ROOT / "data" / "Brittany" / "dem" / "regional dem.tif").as_posix()
-    data_path = (REPO_ROOT / "examples_legacy" / "example12" / "data").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
     config_path.write_text(
         "\n".join(
             [
                 "[workspace]",
-                f'catch_name = "example12_geographic_demproc_{dem_correc_type}"',
-                f'out_dir_path = "{out_path}"',
-                f'data_path = "{data_path}"',
+                f'project_root = "{out_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',
