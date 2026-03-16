@@ -340,16 +340,13 @@ def resolve_model_workspace(
     model_name: str | None = None,
     model_name_prefix: str | None = None,
 ) -> tuple[Path, Path, Path]:
-    """Resolve generated workspace folders for one completed launcher run."""
-    if watershed_name is None:
-        watershed_dirs = sorted(p for p in out_path.iterdir() if p.is_dir())
-        assert watershed_dirs, f"No watershed folder found in {out_path}"
-        watershed_dir = watershed_dirs[0]
-    else:
-        watershed_dir = out_path / watershed_name
-        assert watershed_dir.is_dir(), f"Watershed folder not found: {watershed_dir}"
+    """Resolve generated workspace folders for one completed launcher run.
 
-    results_dir = watershed_dir / results_folder_name
+    With the project-root layout, ``out_path`` IS the project root and
+    results live directly at ``out_path/<results_folder>/<model>/...``.
+    The ``watershed_name`` parameter is accepted but ignored.
+    """
+    results_dir = out_path / results_folder_name
     assert results_dir.is_dir(), f"Results folder not found: {results_dir}"
 
     if model_name is not None:
@@ -394,6 +391,7 @@ def run_example_script(
     """Run one HydroModPy launcher script as a subprocess."""
     env = os.environ.copy()
     env[out_env_var] = str(out_path)
+    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -470,6 +468,14 @@ def _build_validation_launcher_config(
             tomllib.loads(profile_block),
         )
 
+    # Inject a stable run_id so the model folder name is predictable
+    # (derived from case_dir name + solver) instead of the temp TOML filename.
+    case_id = str(metadata.get("case_id", case_dir.name))
+    stable_run_id = f"{case_id}_{solver_name}"
+    sim_section = merged_payload.setdefault("simulation", {})
+    if not sim_section.get("run_id"):
+        sim_section["run_id"] = stable_run_id
+
     tmp_name = f".__validation_runtime_{config_path.stem}_{solver_name}_{os.getpid()}.toml"
     tmp_path = case_dir / tmp_name
     tmp_path.write_text(_dump_toml(merged_payload), encoding="utf-8", newline="\n")
@@ -542,7 +548,7 @@ def run_launcher_validation_case(
     solver_name, config_file = _resolve_validation_solver_config(metadata, solver=solver)
     workspace_cfg = dict(metadata.get("workspace", {}))
 
-    launcher_script = REPO_ROOT / "examples" / launcher_name / f"{launcher_name}.py"
+    launcher_script = REPO_ROOT / "examples" / "projects" / launcher_name / f"{launcher_name}.py"
     case_id = str(metadata.get("case_id", case_dir.name))
     use_solver_suffix = solver is not None or _case_has_multiple_solver_configs(metadata)
     run_name = f"{case_id}_{solver_name}" if use_solver_suffix else case_id

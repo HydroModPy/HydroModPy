@@ -14,9 +14,7 @@ type = "flow"
 solvers = ["modflownwt"]
 
 [workspace]
-catch_name = "val_late_time_unconfined_pumping_2d"
-out_dir_path = "../results"
-data_path = "."
+project_root = "."
 
 [geographic]
 source_mode = "synthetic"

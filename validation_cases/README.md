@@ -18,7 +18,7 @@ For launcher-backed analytical cases, the usual workflow is:
 
 1. a pytest file imports one case-specific `run_*_comparison(...)` function,
 2. the comparison function loads `metadata.toml` and the applicable tolerance file,
-3. the shared runtime launches `examples/launcher_simulation`,
+3. the shared runtime launches `examples/projects/launcher_simulation`,
 4. postprocessed arrays are loaded from the generated workspace,
 5. the analytical reference is evaluated,
 6. metrics are returned to pytest for assertion.

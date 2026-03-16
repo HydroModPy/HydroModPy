@@ -8,9 +8,7 @@ type = "flow"
 solvers = ["modflownwt"]
 
 [workspace]
-catch_name = "validation_dupuit_divide_river"
-out_dir_path = "../results"
-data_path = "."
+project_root = "."
 
 [geographic]
 source_mode = "synthetic"

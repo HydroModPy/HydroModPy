@@ -13,9 +13,7 @@ modflow6 = "config_modflow6.toml"
 
 
 [workspace]
-watershed_name = "val_bsq_recharge_pk1d"
 results_folder_name = "results_simulations"
-model_name = "Bsq_recharge_piecewise_K_1D"
 
 [output]
 observable_name = "watertable_elevation"
