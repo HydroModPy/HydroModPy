@@ -5,12 +5,17 @@ Usage (hmp and hydromodpy are interchangeable):
     hmp init                              # creates ~/hydromodpy/
     hmp init --path /mnt/shared/hydrodata # creates at custom location
 
+    hmp new my_project                    # create project in workspace
+    hmp new my_project --workspace /path  # specify workspace root
+
     hmp config my_config.toml
     hmp config --profile user --modules geographic
     hmp config --list-modules
 
-    hmp simulation config.toml            # run a simulation from a TOML file
-    hmp simulation config.toml --out /tmp/results
+    hmp run config.toml                   # run a simulation from a TOML file
+
+    hmp list                              # list projects in workspace
+    hmp list my_project                   # list runs in a project
 
     hmp test unit
     hmp test regression
@@ -31,7 +36,6 @@ Usage (hmp and hydromodpy are interchangeable):
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import subprocess
 import sys
@@ -245,7 +249,7 @@ def _append_regression_directory_selection(
 # ---------------------------------------------------------------------------
 
 def _cmd_init(args: argparse.Namespace) -> None:
-    """Create HydroModPy workspace with shared data and example project."""
+    """Create HydroModPy workspace with shared data and projects directory."""
     from hydromodpy.data_managers.scaffold import scaffold
 
     result = scaffold(args.path)
@@ -264,8 +268,33 @@ def _cmd_init(args: argparse.Namespace) -> None:
     print("Next steps:")
     print(f"  1. Fill data/*_LOC.csv with your station coordinates (id,x,y,crs)")
     print(f"  2. Add chronicle CSVs per station in data/<variable>/")
-    print(f"  3. Copy bv_example/ to create your own watershed project")
-    print(f"  4. Edit <your_bv>/data_managers.toml to configure sources")
+    print(f"  3. Run: hmp new <project_name>")
+    print(f"  4. Edit projects/<project>/project.toml with your settings")
+
+
+def _cmd_new(args: argparse.Namespace) -> None:
+    """Create a new project inside a workspace."""
+    from hydromodpy.data_managers.scaffold import create_project, DEFAULT_ROOT
+
+    workspace_root = Path(args.workspace or DEFAULT_ROOT).expanduser().resolve()
+    if not (workspace_root / "data").is_dir() and not (workspace_root / "projects").is_dir():
+        print(
+            f"'{workspace_root}' does not look like a HydroModPy workspace. "
+            "Run 'hmp init' first or use --workspace.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    project_dir = create_project(workspace_root, args.project)
+    print(f"Project created: {project_dir}")
+    print()
+    print("Files:")
+    print(f"  {project_dir / 'project.toml'}   <- shared settings")
+    print(f"  {project_dir / 'run_demo.toml'}   <- executable run")
+    print()
+    print("Next steps:")
+    print(f"  1. Edit project.toml with your geographic/domain/flow settings")
+    print(f"  2. Run: hmp run {project_dir / 'run_demo.toml'}")
 
 
 def _cmd_config(args: argparse.Namespace) -> None:
@@ -275,6 +304,16 @@ def _cmd_config(args: argparse.Namespace) -> None:
     if args.list_modules:
         for name in available_modules():
             print(name)
+        return
+
+    if getattr(args, "ui", False):
+        import subprocess
+        ui_module = Path(__file__).resolve().parent / "config" / "streamlit_config.py"
+        cmd = [sys.executable, "-m", "streamlit", "run", str(ui_module), "--server.headless", "true"]
+        if args.output:
+            cmd.extend(["--", "--load", str(args.output)])
+        print("Launching interactive config editor...")
+        subprocess.run(cmd)
         return
 
     if args.output and Path(args.output).is_dir():
@@ -292,7 +331,13 @@ def _cmd_config(args: argparse.Namespace) -> None:
         print(content)
 
 
-def _cmd_simulation(args: argparse.Namespace) -> None:
+def _derive_run_id_from_filename(toml_path: Path) -> str:
+    """Derive run_id from TOML filename: run_steady_nwt.toml -> steady_nwt."""
+    stem = toml_path.stem
+    return re.sub(r"^run_", "", stem)
+
+
+def _cmd_run(args: argparse.Namespace) -> None:
     """Run a simulation from a TOML configuration file."""
     from launchers import HydroModPyLauncher
 
@@ -301,9 +346,6 @@ def _cmd_simulation(args: argparse.Namespace) -> None:
         print(f"Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
-    if args.out:
-        os.environ["HYDROMODPY_OUT_PATH"] = str(Path(args.out).expanduser().resolve())
-
     launcher = HydroModPyLauncher(config_path)
     run_state = launcher.run()
 
@@ -311,6 +353,47 @@ def _cmd_simulation(args: argparse.Namespace) -> None:
     model_ids = list(run_state.execution.models_by_run_id.keys())
     if model_ids:
         print(f"Produced models: {', '.join(model_ids)}", file=sys.stderr)
+
+
+def _cmd_list(args: argparse.Namespace) -> None:
+    """List projects or runs inside a workspace."""
+    from hydromodpy.data_managers.scaffold import DEFAULT_ROOT
+
+    workspace_root = Path(args.workspace or DEFAULT_ROOT).expanduser().resolve()
+    projects_dir = workspace_root / "projects"
+
+    if not projects_dir.is_dir():
+        print(f"No projects/ directory found in {workspace_root}", file=sys.stderr)
+        sys.exit(1)
+
+    if args.project:
+        # List runs for a specific project
+        project_dir = projects_dir / args.project
+        if not project_dir.is_dir():
+            print(f"Project not found: {args.project}", file=sys.stderr)
+            sys.exit(1)
+        sims_dir = project_dir / "results_simulations"
+        if not sims_dir.is_dir():
+            print(f"No results_simulations/ in {args.project}")
+            return
+        for run_dir in sorted(sims_dir.iterdir()):
+            if run_dir.is_dir() and not run_dir.name.startswith("_"):
+                metrics_file = run_dir / "_metrics.json"
+                status = " (has metrics)" if metrics_file.exists() else ""
+                print(f"  {run_dir.name}{status}")
+    else:
+        # List all projects
+        for project_dir in sorted(projects_dir.iterdir()):
+            if project_dir.is_dir():
+                has_project_toml = (project_dir / "project.toml").exists()
+                run_tomls = list(project_dir.glob("run_*.toml"))
+                details = []
+                if has_project_toml:
+                    details.append("project.toml")
+                if run_tomls:
+                    details.append(f"{len(run_tomls)} run(s)")
+                suffix = f"  [{', '.join(details)}]" if details else ""
+                print(f"  {project_dir.name}{suffix}")
 
 
 def _cmd_test(args: argparse.Namespace) -> None:
@@ -385,12 +468,27 @@ def main() -> None:
     # --- init subcommand ---
     init_parser = subparsers.add_parser(
         "init",
-        help="Create HydroModPy workspace (data + cache + example BV). Default: ~/hydromodpy/",
+        help="Create HydroModPy workspace (data + projects). Default: ~/hydromodpy/",
     )
     init_parser.add_argument(
         "--path",
         default=None,
         help="Workspace path (default: ~/hydromodpy/)",
+    )
+
+    # --- new subcommand ---
+    new_parser = subparsers.add_parser(
+        "new",
+        help="Create a new project inside the workspace",
+    )
+    new_parser.add_argument(
+        "project",
+        help="Project name (will be created under projects/)",
+    )
+    new_parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root (default: ~/hydromodpy/)",
     )
 
     # --- config subcommand ---
@@ -421,11 +519,27 @@ def main() -> None:
         action="store_true",
         help="List available module names and exit",
     )
+    config_parser.add_argument(
+        "--ui",
+        action="store_true",
+        help="Launch interactive Streamlit configuration editor",
+    )
 
-    # --- simulation subcommand ---
+    # --- run subcommand (replaces 'simulation') ---
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run a simulation from a TOML configuration file",
+    )
+    run_parser.add_argument(
+        "config",
+        type=Path,
+        help="Path to the run TOML file",
+    )
+
+    # Keep 'simulation' as hidden alias for backwards compatibility
     sim_parser = subparsers.add_parser(
         "simulation",
-        help="Run a simulation from a TOML configuration file",
+        help=argparse.SUPPRESS,
     )
     sim_parser.add_argument(
         "config",
@@ -435,7 +549,23 @@ def main() -> None:
     sim_parser.add_argument(
         "--out",
         default=None,
-         help="Override output directory (sets HYDROMODPY_OUT_PATH)",
+        help=argparse.SUPPRESS,
+    )
+
+    # --- list subcommand ---
+    list_parser = subparsers.add_parser(
+        "list",
+        help="List projects or runs in a workspace",
+    )
+    list_parser.add_argument(
+        "project",
+        nargs="?",
+        help="Project name to list runs for (omit for project listing)",
+    )
+    list_parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root (default: ~/hydromodpy/)",
     )
 
     # --- test subcommand ---
@@ -512,10 +642,16 @@ def main() -> None:
 
     if args.command == "init":
         _cmd_init(args)
+    elif args.command == "new":
+        _cmd_new(args)
     elif args.command == "config":
         _cmd_config(args)
+    elif args.command == "run":
+        _cmd_run(args)
     elif args.command == "simulation":
-        _cmd_simulation(args)
+        _cmd_run(args)
+    elif args.command == "list":
+        _cmd_list(args)
     elif args.command == "test":
         _cmd_test(args)
     else:
