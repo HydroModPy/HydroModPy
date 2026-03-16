@@ -1,0 +1,15 @@
+[case]
+reference_2d_config = "../reference_2d_geology_base/case_config_gmsh.toml"
+reference_2d_section = "case"
+reference_3d_mesh_config = "../reference_3d_mesh/case_config_3d_mesh.toml"
+reference_3d_mesh_section = "case"
+depth = 0.0
+cell_samples_per_axis = 8
+strict_field_spatial_id_match = true
+output_summary_json = "outputs/reference_3d_fieldparam_summary.json"
+output_values_npy = "outputs/reference_3d_fieldparam_values.npy"
+output_overview_png = "outputs/reference_3d_fieldparam_overview.png"
+
+[case.field_param_vertical_profile]
+mode = "exponential"
+characteristic_depth = 60.0

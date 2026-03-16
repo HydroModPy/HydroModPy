@@ -70,7 +70,8 @@ def flow_model_name(plan: SimulationPlan, base_name: str, run: ProcessRun) -> st
 def resolve_base_model_name(setup) -> str:
     """Resolve the launcher base model name from runtime setup state.
 
-    Canonical source is ``setup.model_name``.
+    Canonical source is ``setup.model_name`` in the modern simulation runtime.
+    When missing or blank, ``"default"`` is returned.
     """
 
     setup_name = str(getattr(setup, "model_name", "") or "").strip()

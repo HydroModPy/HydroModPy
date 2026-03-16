@@ -1,6 +1,17 @@
 # Launchers Package
 
-`launchers/` contient les orchestrateurs de workflows HydroModPy.
+`launchers/` contient les points d'entree et les orchestrateurs de workflows.
+
+## Sous-dossiers metier
+
+Les sous-dossiers suivants structurent les futurs launchers specialises a
+partir de la convention de nommage retenue :
+
+- `data_overview/` : pour `DataOverviewLauncher`
+- `process_simulation/` : pour `ProcessSimulationLauncher`
+- `model_calibration/` : pour `ModelCalibrationLauncher`
+- `hydro_cal_val/` : pour `HydroCalValLauncher`
+- `mesh_catchment/` : pour `MeshCatchmentLauncher`
 
 ## CLI
 
@@ -10,6 +21,14 @@ Commande canonique :
 hmp simulation path/to/config.toml
 hmp simulation path/to/config.toml --out /tmp/results
 ```
+
+Commande recommandee pour la famille mesh-catchment :
+
+`python -m launchers mesh-catchment run <path/to/config.toml>`
+
+Commande directe (utile depuis un IDE) :
+
+`python launchers/mesh_catchment/launcher.py <path/to/config.toml>`
 
 Equivalent via module :
 
@@ -22,6 +41,7 @@ python -m launchers simulation path/to/config.toml
 | Dossier | Classe | Etat |
 |---|---|---|
 | `process_simulation/` | `HydroModPyLauncher` | Fonctionnel |
+| `mesh_catchment/` | `MeshCatchmentLauncher` | Fonctionnel |
 | `data_overview/` | `DataOverviewLauncher` | Reserve (vide) |
 | `model_calibration/` | `ModelCalibrationLauncher` | Reserve (vide) |
 | `hydro_cal_val/` | `HydroCalValLauncher` | Reserve (vide) |

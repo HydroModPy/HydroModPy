@@ -29,6 +29,12 @@ class GeographicPaths:
     watershed_fill: str
     watershed_direc: str
     watershed_contour_tif: str
+    river_streams_tif: str
+    river_streams_pruned_tif: str
+    river_stream_order_strahler_tif: str
+    river_stream_link_id_tif: str
+    river_network_shp: str
+    river_network_summary_json: str
 
 
 def build_geographic_paths(out_dir_path: str | Path) -> GeographicPaths:
@@ -59,4 +65,10 @@ def build_geographic_paths(out_dir_path: str | Path) -> GeographicPaths:
         watershed_fill=str(geographic_path / "watershed_fill.tif"),
         watershed_direc=str(geographic_path / "watershed_direc.tif"),
         watershed_contour_tif=str(geographic_path / "watershed_contour.tif"),
+        river_streams_tif=str(geographic_path / "river_streams.tif"),
+        river_streams_pruned_tif=str(geographic_path / "river_streams_pruned.tif"),
+        river_stream_order_strahler_tif=str(geographic_path / "river_stream_order_strahler.tif"),
+        river_stream_link_id_tif=str(geographic_path / "river_stream_link_id.tif"),
+        river_network_shp=str(geographic_path / "river_network.shp"),
+        river_network_summary_json=str(geographic_path / "river_network_summary.json"),
     )

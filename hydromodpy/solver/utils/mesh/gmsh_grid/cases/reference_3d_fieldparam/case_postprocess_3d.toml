@@ -1,0 +1,9 @@
+[case]
+reference_3d_fieldparam_config = "case_config_3d_fieldparam.toml"
+reference_3d_fieldparam_section = "case"
+label = "K_3d"
+value_name = "field_param_value"
+depth_name = "prism_center_depth"
+output_summary_json = "outputs/reference_3d_postprocess_summary.json"
+output_values_npy = "outputs/reference_3d_postprocess_values.npy"
+output_vtu = "outputs/reference_3d_postprocess.vtu"

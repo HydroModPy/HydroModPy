@@ -9,7 +9,8 @@ import numpy as np
 import pytest
 import rasterio
 
-from hydromodpy.geographic.cases.run_geographic_case import run_geographic_case_from_toml
+from hydromodpy.geographic.cases import run_geographic_case_from_toml
+from tests.support.whitebox import configure_whitebox_single_thread
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -19,25 +20,6 @@ DEM_CORRECTION_TYPES = ["breach", "fill"]
 ABS_TOL_ELEV_M = 1e-2
 ABS_TOL_SUM_M = 0.5
 ABS_TOL_SUM_INT = 64.0
-
-
-def _configure_whitebox_single_thread(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Reduce run-to-run variance by forcing WhiteboxTools to single process."""
-    # Runtime hints for libraries that honor standard thread env variables.
-    monkeypatch.setenv("RAYON_NUM_THREADS", "1")
-    monkeypatch.setenv("OMP_NUM_THREADS", "1")
-    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
-    monkeypatch.setenv("MKL_NUM_THREADS", "1")
-    monkeypatch.setenv("NUMEXPR_NUM_THREADS", "1")
-
-    # The default backend is a singleton; force it to one worker explicitly.
-    from hydromodpy.backends import clear_whitebox_backend_cache, get_whitebox_backend
-
-    clear_whitebox_backend_cache()
-    tool = get_whitebox_backend()
-    env = getattr(tool, "_env", None)
-    if env is not None and hasattr(env, "max_procs"):
-        env.max_procs = 1
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -185,7 +167,7 @@ def test_run_geographic_dem_processing_golden(
     - D8 accumulation (`dem_acc`)
     - key domain rasters derived from these intermediates.
     """
-    _configure_whitebox_single_thread(monkeypatch)
+    configure_whitebox_single_thread(monkeypatch)
 
     actual = {
         dem_correc_type: _dem_processing_signature(

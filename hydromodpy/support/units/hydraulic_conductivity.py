@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from numbers import Real
 
 from hydromodpy.support.units.scalar import parse_scalar_and_unit
@@ -132,6 +133,51 @@ def convert_to_m_per_s(
     if isinstance(value, bool) or not isinstance(value, Real):
         raise TypeError(f"{label} must be numeric to convert to m/s.")
     return float(value) * factor_to_m_per_s(unit)
+
+
+def convert_payload_to_m_per_s(
+    value: object,
+    *,
+    unit: str,
+    label: str = "value",
+) -> object:
+    """Convert one scalar/sequence/mapping payload from ``unit`` to ``m/s``."""
+    factor = factor_to_m_per_s(unit)
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise TypeError(f"{label} must be numeric, a sequence, or a mapping.")
+    if isinstance(value, Real):
+        return float(value) * factor
+    if isinstance(value, Mapping):
+        return {
+            key: convert_payload_to_m_per_s(
+                item,
+                unit=unit,
+                label=f"{label}[{key!r}]",
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [
+            convert_payload_to_m_per_s(
+                item,
+                unit=unit,
+                label=f"{label}[{index}]",
+            )
+            for index, item in enumerate(value)
+        ]
+    if hasattr(value, "astype"):
+        try:
+            return value.astype(float) * float(factor)
+        except Exception:
+            pass
+    if hasattr(value, "copy") and hasattr(value, "__mul__"):
+        try:
+            return value.copy() * float(factor)
+        except Exception:
+            pass
+    raise TypeError(f"{label} must be numeric, a sequence, or a mapping.")
 
 
 def parse_to_m_per_s(

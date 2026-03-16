@@ -26,7 +26,6 @@ from typing import Any, Literal
 import pandas as pd
 
 from hydromodpy.support.units import (
-    convert_seconds_to_unit,
     normalize_time_unit,
     parse_scalar_and_unit,
     timedelta_to_seconds,
@@ -76,14 +75,6 @@ class ResolvedSimulationTimeGrid:
         return len(self.period_lengths_seconds)
 
     @property
-    def period_lengths_days(self) -> tuple[float, ...]:
-        """Backward-compatible day-equivalent view of stress-period lengths."""
-        return tuple(
-            convert_seconds_to_unit(seconds, unit="days")
-            for seconds in self.period_lengths_seconds
-        )
-
-    @property
     def period_starts(self) -> tuple[pd.Timestamp, ...]:
         """Period start timestamps (inclusive)."""
         return self.boundaries[:-1]
@@ -110,14 +101,6 @@ class ResolvedSteadySimulationTimeGrid:
     def nper(self) -> int:
         """Number of stress periods exposed to solver builders."""
         return len(self.period_lengths_seconds)
-
-    @property
-    def period_lengths_days(self) -> tuple[float, ...]:
-        """Backward-compatible day-equivalent view of stress-period lengths."""
-        return tuple(
-            convert_seconds_to_unit(seconds, unit="days")
-            for seconds in self.period_lengths_seconds
-        )
 
     @property
     def period_starts(self) -> tuple[pd.Timestamp, ...]:

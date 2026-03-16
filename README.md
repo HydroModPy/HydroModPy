@@ -146,6 +146,25 @@ Execute Python scripts following the examples below:
  - 11_for_run_from_scratch_without_plots
 ```
 
+## Annex Tooling (`hydromodpy_annex`)
+
+HydroModPy keeps the reusable core library in `hydromodpy/`.
+Project-specific tools that are useful but not part of the core package
+(preprocessing helpers, postprocessing workflows, dedicated launchers, exploratory
+pipelines) are stored in `hydromodpy_annex/`.
+
+Current migrated annex:
+
+- `hydromodpy_annex/postprocess/HCDM/`
+
+Design rules:
+
+- Dependency direction is one-way: annex tools may import `hydromodpy`, but
+  `hydromodpy` must not import from `hydromodpy_annex`.
+- Keep generic, stable, reusable APIs in the core package.
+- Keep workflow orchestration and case-specific scripts in annex folders.
+- Prefer explicit local launchers per annex tool.
+
 ## Validation and Testing
 
 HydroModPy uses three complementary test families:

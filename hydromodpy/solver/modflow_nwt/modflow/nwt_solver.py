@@ -188,7 +188,6 @@ class Modflow(Solver):
         self.box = bool(box)
         dem = np.asarray(dem_source, dtype=float).copy()
         dem[(dem <= NODATA) | (dem >= 9999)] = NODATA
-        self.dem = dem
         self.nrow = int(dem.shape[0])
         self.ncol = int(dem.shape[1])
 
@@ -327,10 +326,6 @@ class Modflow(Solver):
         self.bottom_layer = self.grid_ctx.bottom_layer
         self.cell_area = float(self.grid_ctx.grid.cell_area)
         self.resolution = float(self.grid_ctx.grid.characteristic_length)
-
-        # Compatibility aliases kept while downstream modules are migrated.
-        self.dem = self.top_elevation
-        self.dem_mask = self.inactive_mask
         self.dem_watershed_path = self._write_solver_grid_template()
         return self.grid_ctx.sgrid
 
@@ -397,7 +392,7 @@ class Modflow(Solver):
             flow=self.flow,
             domain=self.domain,
             sgrid=sgrid,
-            dem=self.dem,
+            dem=self.top_elevation,
             bottom_layer=self.bottom_layer,
             nlay=self.nlay,
             nrow=self.nrow,
@@ -512,7 +507,7 @@ class Modflow(Solver):
             self.evt = flopy.modflow.ModflowEvt(
                 self.mf,
                 evtr=flow_inputs.evt_spd,
-                surf=self.dem,
+                surf=self.top_elevation,
                 nevtop=self._params.runtime.evt_nevtop,
                 exdp=self._params.process_specific.exdp,
                 ievt=self._params.runtime.evt_ievt,
@@ -678,10 +673,9 @@ class Modflow(Solver):
         self.path_file = os.path.join(self.full_path, self.model_name)
 
         # Files have been output in the processing phase and are re-read here.
-        self.dem_mask = np.asarray(
-            getattr(self, "inactive_mask", self.dem == NODATA),
-            dtype=bool,
-        )
+        if not hasattr(self, "inactive_mask"):
+            raise ValueError("inactive_mask must be set before MODFLOW post-processing.")
+        inactive_mask = np.asarray(self.inactive_mask, dtype=bool)
         # heads
         self.head_fpu = fpu.HeadFile(self.path_file + ".hds")
         # fluxes
@@ -734,7 +728,7 @@ class Modflow(Solver):
 
             if options.watertable_elevation:
                 self.wt_elev = compute_watertable_elevation(self.head, self.nlay)
-                self.wt_elev[self.dem_mask] = NODATA
+                self.wt_elev[inactive_mask] = NODATA
                 output_path = (
                     self.tifs_file + f"/watertable_elevation_t({lead_numb}).tif"
                 )
@@ -746,7 +740,7 @@ class Modflow(Solver):
 
             if options.watertable_depth:
                 self.wt_depth = compute_watertable_depth(
-                    self.wt_elev, self.dem, self.dem_mask
+                    self.wt_elev, self.top_elevation, inactive_mask
                 )
                 output_path = (
                     self.tifs_file + f"/watertable_depth_t({lead_numb}).tif"
@@ -759,7 +753,7 @@ class Modflow(Solver):
 
             if options.seepage_areas:
                 self.seep_area = compute_seepage_areas(
-                    self.wt_elev, self.dem, self.dem_mask
+                    self.wt_elev, self.top_elevation, inactive_mask
                 )
                 output_path = self.tifs_file + f"/seepage_areas_t({lead_numb}).tif"
                 if export_tif:
@@ -777,7 +771,7 @@ class Modflow(Solver):
                     self.drain_array,
                     self.dis.nrow,
                     self.dis.ncol,
-                    self.dem_mask,
+                    inactive_mask,
                 )
                 output_path = self.tifs_file + f"/outflow_drain_t({lead_numb}).tif"
                 if options.accumulation_flux or export_tif:
@@ -788,7 +782,7 @@ class Modflow(Solver):
 
             if options.groundwater_flux:
                 self.flux_top = compute_groundwater_flux(
-                    self.cbb, self.kstpkper, time, self.nlay, self.dem_mask
+                    self.cbb, self.kstpkper, time, self.nlay, inactive_mask
                 )
                 output_path = (
                     self.tifs_file + f"/groundwater_flux_t({lead_numb}).tif"
@@ -804,7 +798,7 @@ class Modflow(Solver):
                     self.wt_elev,
                     self.zbot,
                     self.sy,
-                    self.dem,
+                    self.top_elevation,
                     cell_area=float(self.cell_area),
                 )
                 output_path = (
@@ -860,7 +854,7 @@ class Modflow(Solver):
                 accumulation_flux_path, allow_pickle=True
             ).item()
             acc_npy = list(acc_npy_raw.items())[:]
-            mask = np.asarray(self.dem_mask, dtype=bool)
+            mask = inactive_mask
             for key in range(len(acc_npy)):
                 acc_npy[key] = np.ma.masked_array(acc_npy[key][1], mask=mask)
             zero = acc_npy_raw[0] * 0

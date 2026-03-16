@@ -58,10 +58,9 @@ def test_geology_field_from_raster_to_mesh_field(tmp_path: Path):
     discretization = field.on_mesh(mesh, cell_samples_per_axis=8)
     assert set(discretization.zone_keys) == {"1", "2"}
 
-    frac_sum = (
-        np.asarray(discretization.fractions_by_zone["1"], dtype=float)
-        + np.asarray(discretization.fractions_by_zone["2"], dtype=float)
-    )
+    frac_sum = np.asarray(
+        discretization.fractions_by_zone["1"], dtype=float
+    ) + np.asarray(discretization.fractions_by_zone["2"], dtype=float)
     assert np.allclose(frac_sum, 1.0)
 
     param = FieldParam(

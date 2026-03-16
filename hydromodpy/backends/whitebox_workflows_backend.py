@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stderr, redirect_stdout
 from functools import lru_cache
+import os
 from pathlib import Path
 
 import whitebox_workflows as wbw
@@ -23,6 +25,13 @@ class WhiteboxWorkflowsBackend:
 
     def __init__(self) -> None:
         self._env = wbw.WbEnvironment()
+        self._verbose = self._is_truthy_env(
+            os.environ.get("HYDROMODPY_WHITEBOX_VERBOSE")
+        )
+        try:
+            self._env.verbose = bool(self._verbose)
+        except Exception:
+            pass
         self._compress_rasters = False
 
     @staticmethod
@@ -30,8 +39,20 @@ class WhiteboxWorkflowsBackend:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
+    def _is_truthy_env(value: str | None) -> bool:
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
     def _is_vector_path(path: str) -> bool:
         return Path(path).suffix.lower() in _VECTOR_EXTENSIONS
+
+    def _run_env_operation(self, operation, *args, **kwargs):
+        if self._verbose:
+            return operation(*args, **kwargs)
+        # Whitebox can emit progress/warnings to stdio; keep launcher output clean.
+        with open(os.devnull, "w", encoding="utf-8", errors="ignore") as devnull:
+            with redirect_stdout(devnull), redirect_stderr(devnull):
+                return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
         return self._env.read_raster(path)
@@ -63,10 +84,10 @@ class WhiteboxWorkflowsBackend:
         self._write_vector(vector, path)
 
     def fill_depressions_raster(self, dem):
-        return self._env.fill_depressions(dem)
+        return self._run_env_operation(self._env.fill_depressions, dem)
 
     def breach_depressions_raster(self, dem):
-        return self._env.breach_depressions_least_cost(dem)
+        return self._run_env_operation(self._env.breach_depressions_least_cost, dem)
 
     def d8_pointer_raster(self, dem, *, esri_pntr: bool = False):
         return self._env.d8_pointer(dem, esri_pointer=esri_pntr)
@@ -115,6 +136,80 @@ class WhiteboxWorkflowsBackend:
 
     def trace_downslope_flowpaths_raster(self, input_points, d8_pntr):
         return self._env.trace_downslope_flowpaths(input_points, d8_pntr)
+
+    def extract_streams_raster(
+        self,
+        flow_accumulation,
+        *,
+        threshold: float | int | None = None,
+        zero_background: bool | None = None,
+    ):
+        kwargs: dict[str, object] = {}
+        if threshold is not None:
+            kwargs["threshold"] = float(threshold)
+        if zero_background is not None:
+            kwargs["zero_background"] = zero_background
+        return self._env.extract_streams(flow_accumulation, **kwargs)
+
+    def raster_streams_to_vector_raster(
+        self,
+        streams_raster,
+        d8_pointer,
+        *,
+        esri_pointer: bool | None = None,
+        all_vertices: bool | None = None,
+    ):
+        kwargs: dict[str, object] = {}
+        if esri_pointer is not None:
+            kwargs["esri_pointer"] = esri_pointer
+        if all_vertices is not None:
+            kwargs["all_vertices"] = all_vertices
+        return self._env.raster_streams_to_vector(streams_raster, d8_pointer, **kwargs)
+
+    def strahler_stream_order_raster(
+        self,
+        d8_pointer,
+        streams_raster,
+        *,
+        esri_pntr: bool | None = None,
+        zero_background: bool | None = None,
+    ):
+        kwargs: dict[str, object] = {}
+        if esri_pntr is not None:
+            kwargs["esri_pntr"] = esri_pntr
+        if zero_background is not None:
+            kwargs["zero_background"] = zero_background
+        return self._env.strahler_stream_order(d8_pointer, streams_raster, **kwargs)
+
+    def stream_link_identifier_raster(
+        self,
+        d8_pointer,
+        streams_raster,
+        *,
+        esri_pntr: bool | None = None,
+        zero_background: bool | None = None,
+    ):
+        kwargs: dict[str, object] = {}
+        if esri_pntr is not None:
+            kwargs["esri_pntr"] = esri_pntr
+        if zero_background is not None:
+            kwargs["zero_background"] = zero_background
+        return self._env.stream_link_identifier(d8_pointer, streams_raster, **kwargs)
+
+    def remove_short_streams_raster(
+        self,
+        d8_pointer,
+        streams_raster,
+        *,
+        min_length: float | int | None = None,
+        esri_pntr: bool | None = None,
+    ):
+        kwargs: dict[str, object] = {}
+        if min_length is not None:
+            kwargs["min_length"] = float(min_length)
+        if esri_pntr is not None:
+            kwargs["esri_pntr"] = esri_pntr
+        return self._env.remove_short_streams(d8_pointer, streams_raster, **kwargs)
 
     def d8_mass_flux_raster(self, dem, loading, efficiency, absorption):
         return self._env.d8_mass_flux(dem, loading, efficiency, absorption)
@@ -318,6 +413,99 @@ class WhiteboxWorkflowsBackend:
             self.trace_downslope_flowpaths_raster(
                 self._read_vector(input_points),
                 self._read_raster(d8_pntr),
+            ),
+            output_raster,
+        )
+
+    def extract_streams(
+        self,
+        flow_accumulation: str,
+        output_raster: str,
+        *,
+        threshold: float | int | None = None,
+        zero_background: bool | None = None,
+    ) -> None:
+        self._write_raster(
+            self.extract_streams_raster(
+                self._read_raster(flow_accumulation),
+                threshold=threshold,
+                zero_background=zero_background,
+            ),
+            output_raster,
+        )
+
+    def raster_streams_to_vector(
+        self,
+        streams_raster: str,
+        d8_pointer: str,
+        output_vector: str,
+        *,
+        esri_pointer: bool | None = None,
+        all_vertices: bool | None = None,
+    ) -> None:
+        self._write_vector(
+            self.raster_streams_to_vector_raster(
+                self._read_raster(streams_raster),
+                self._read_raster(d8_pointer),
+                esri_pointer=esri_pointer,
+                all_vertices=all_vertices,
+            ),
+            output_vector,
+        )
+
+    def strahler_stream_order(
+        self,
+        d8_pointer: str,
+        streams_raster: str,
+        output_raster: str,
+        *,
+        esri_pntr: bool | None = None,
+        zero_background: bool | None = None,
+    ) -> None:
+        self._write_raster(
+            self.strahler_stream_order_raster(
+                self._read_raster(d8_pointer),
+                self._read_raster(streams_raster),
+                esri_pntr=esri_pntr,
+                zero_background=zero_background,
+            ),
+            output_raster,
+        )
+
+    def stream_link_identifier(
+        self,
+        d8_pointer: str,
+        streams_raster: str,
+        output_raster: str,
+        *,
+        esri_pntr: bool | None = None,
+        zero_background: bool | None = None,
+    ) -> None:
+        self._write_raster(
+            self.stream_link_identifier_raster(
+                self._read_raster(d8_pointer),
+                self._read_raster(streams_raster),
+                esri_pntr=esri_pntr,
+                zero_background=zero_background,
+            ),
+            output_raster,
+        )
+
+    def remove_short_streams(
+        self,
+        d8_pointer: str,
+        streams_raster: str,
+        output_raster: str,
+        *,
+        min_length: float | int | None = None,
+        esri_pntr: bool | None = None,
+    ) -> None:
+        self._write_raster(
+            self.remove_short_streams_raster(
+                self._read_raster(d8_pointer),
+                self._read_raster(streams_raster),
+                min_length=min_length,
+                esri_pntr=esri_pntr,
             ),
             output_raster,
         )

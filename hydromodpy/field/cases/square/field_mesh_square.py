@@ -1,9 +1,4 @@
-﻿"""
-Square-domain mesh implementations for field examples.
-
-This module provides concrete meshes (structured/triangular) for the unit
-square and a concrete factory `FieldMeshSquare`.
-"""
+"""Square-domain mesh factory built on top of generic reusable meshes."""
 
 from __future__ import annotations
 
@@ -12,10 +7,18 @@ from typing import Any, Mapping
 import matplotlib.tri as mtri
 import numpy as np
 
-from hydromodpy.field.core.field_mesh import BaseFieldMesh, FieldMesh, MeshCell
+from hydromodpy.field.core.field_mesh import BaseFieldMesh, FieldMesh
+from hydromodpy.field.meshes import (
+    StructuredFieldMesh,
+    TriangularStructuredFieldMesh,
+    TriangularUnstructuredFieldMesh,
+)
 
-
-SUPPORTED_MESH_KINDS = ("structured", "triangular_structured", "triangular_unstructured")
+SUPPORTED_MESH_KINDS = (
+    "structured",
+    "triangular_structured",
+    "triangular_unstructured",
+)
 
 
 def _build_unit_square_grid(n_grid: int):
@@ -77,199 +80,8 @@ def _build_unstructured_points(target_n_cells: int, *, seed: int):
     return x, y, n_per_edge
 
 
-class StructuredFieldMesh(BaseFieldMesh):
-    """
-    Structured quadrilateral mesh over [0, 1]x[0, 1].
-    """
-
-    _kind = "structured"
-
-    @property
-    def n_cells(self) -> int:
-        ny, nx = self.shape
-        return max(ny - 1, 0) * max(nx - 1, 0)
-
-    def iter_cells(self):
-        ny, nx = self.shape
-        idx = 0
-        for j in range(ny - 1):
-            for i in range(nx - 1):
-                n00 = j * nx + i
-                n10 = j * nx + (i + 1)
-                n11 = (j + 1) * nx + (i + 1)
-                n01 = (j + 1) * nx + i
-                vertices = np.array(
-                    [
-                        [self.x_plot[j, i], self.y_plot[j, i]],
-                        [self.x_plot[j, i + 1], self.y_plot[j, i + 1]],
-                        [self.x_plot[j + 1, i + 1], self.y_plot[j + 1, i + 1]],
-                        [self.x_plot[j + 1, i], self.y_plot[j + 1, i]],
-                    ],
-                    dtype=float,
-                )
-                centroid = (float(vertices[:, 0].mean()), float(vertices[:, 1].mean()))
-                yield MeshCell(
-                    index=idx,
-                    kind="quadrilateral",
-                    node_indices=(n00, n10, n11, n01),
-                    vertices=vertices,
-                    centroid=centroid,
-                )
-                idx += 1
-
-    def cell_centroids(self):
-        cx = np.array([cell.centroid[0] for cell in self.cells], dtype=float)
-        cy = np.array([cell.centroid[1] for cell in self.cells], dtype=float)
-        ny, nx = self.shape
-        return cx.reshape((ny - 1, nx - 1)), cy.reshape((ny - 1, nx - 1))
-
-    def to_cell_values(self, values):
-        arr = np.asarray(values)
-        ny, nx = self.shape
-        expected_shape = (ny - 1, nx - 1)
-        if arr.ndim == 2:
-            if arr.shape != expected_shape:
-                raise ValueError("Structured cell values must match shape (ny-1, nx-1)")
-            return arr
-        flat = arr.reshape(-1)
-        if flat.size != self.n_cells:
-            raise ValueError("Structured cell values must contain one value per cell")
-        return flat.reshape(expected_shape)
-
-    def plot_cell_values(
-        self,
-        ax,
-        cell_values,
-        *,
-        cmap="viridis",
-        show_mesh=False,
-        vmin=None,
-        vmax=None,
-    ):
-        values2d = np.asarray(self.to_cell_values(cell_values), dtype=float)
-        mappable = ax.pcolormesh(
-            self.x_plot,
-            self.y_plot,
-            values2d,
-            shading="flat",
-            cmap=cmap,
-            vmin=vmin,
-            vmax=vmax,
-        )
-        if show_mesh:
-            for j in range(self.y_plot.shape[0]):
-                ax.plot(self.x_plot[j, :], self.y_plot[j, :], color="0.75", lw=0.35)
-            for i in range(self.x_plot.shape[1]):
-                ax.plot(self.x_plot[:, i], self.y_plot[:, i], color="0.75", lw=0.35)
-        ax.set_aspect("equal")
-        ax.set_xlim(0.0, 1.0)
-        ax.set_ylim(0.0, 1.0)
-        return mappable
-
-
-class _TriangularBaseFieldMesh(BaseFieldMesh):
-    """
-    Common behavior for triangular meshes.
-    """
-
-    def __init__(
-        self,
-        *,
-        x_plot,
-        y_plot,
-        triangulation: mtri.Triangulation,
-        target_n_cells: int | None = None,
-        resolution_hint: int | None = None,
-        seed: int | None = None,
-    ):
-        if triangulation is None:
-            raise ValueError("triangular mesh requires triangulation")
-        super().__init__(
-            x_plot=x_plot,
-            y_plot=y_plot,
-            target_n_cells=target_n_cells,
-            resolution_hint=resolution_hint,
-            seed=seed,
-        )
-        self.triangulation = triangulation
-
-    @property
-    def n_cells(self) -> int:
-        return int(self.triangulation.triangles.shape[0])
-
-    def iter_cells(self):
-        x = np.asarray(self.triangulation.x, dtype=float)
-        y = np.asarray(self.triangulation.y, dtype=float)
-        for idx, nodes in enumerate(np.asarray(self.triangulation.triangles, dtype=int)):
-            vertices = np.column_stack((x[nodes], y[nodes]))
-            centroid = (float(vertices[:, 0].mean()), float(vertices[:, 1].mean()))
-            yield MeshCell(
-                index=int(idx),
-                kind="triangle",
-                node_indices=tuple(int(v) for v in nodes),
-                vertices=vertices,
-                centroid=centroid,
-            )
-
-    def cell_centroids(self):
-        cx = np.array([cell.centroid[0] for cell in self.cells], dtype=float)
-        cy = np.array([cell.centroid[1] for cell in self.cells], dtype=float)
-        return cx, cy
-
-    def to_cell_values(self, values):
-        arr = np.asarray(values)
-        flat = arr.reshape(-1)
-        if flat.size != self.n_cells:
-            raise ValueError("Triangular cell values must contain one value per cell")
-        return flat
-
-    def plot_cell_values(
-        self,
-        ax,
-        cell_values,
-        *,
-        cmap="viridis",
-        show_mesh=False,
-        vmin=None,
-        vmax=None,
-    ):
-        values1d = np.asarray(self.to_cell_values(cell_values), dtype=float)
-        mappable = ax.tripcolor(
-            self.triangulation,
-            facecolors=values1d,
-            shading="flat",
-            cmap=cmap,
-            vmin=vmin,
-            vmax=vmax,
-        )
-        if show_mesh:
-            ax.triplot(self.triangulation, color="0.70", lw=0.35)
-        ax.set_aspect("equal")
-        ax.set_xlim(0.0, 1.0)
-        ax.set_ylim(0.0, 1.0)
-        return mappable
-
-
-class TriangularStructuredFieldMesh(_TriangularBaseFieldMesh):
-    """
-    Triangular mesh from structured node grid.
-    """
-
-    _kind = "triangular_structured"
-
-
-class TriangularUnstructuredFieldMesh(_TriangularBaseFieldMesh):
-    """
-    Triangular mesh from irregular node cloud.
-    """
-
-    _kind = "triangular_unstructured"
-
-
 class FieldMeshSquare(FieldMesh):
-    """
-    Concrete factory for unit-square meshes.
-    """
+    """Concrete factory for unit-square meshes."""
 
     @classmethod
     def from_unit_square(
@@ -321,16 +133,7 @@ class FieldMeshSquare(FieldMesh):
 
     @classmethod
     def from_dict(cls, config: Mapping[str, Any]) -> BaseFieldMesh:
-        """
-        Build mesh from mapping.
-
-        Expected keys
-        -------------
-        - `target_n_cells` (preferred),
-        - aliases: `approx_n_cells`, `target_cell_count`,
-        - `kind` or `mesh_kind`:
-          "structured" | "triangular_structured" | "triangular_unstructured"
-        """
+        """Build one unit-square mesh from a plain mapping."""
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping")
         mesh_kind = str(config.get("mesh_kind", config.get("kind", "structured")))

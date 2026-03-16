@@ -218,6 +218,10 @@ class SimulationRunner:
         run: ProcessRun,
         result: RunExecutionResult,
     ) -> None:
-        """Persist one completed run output back into the shared runtime state."""
+        """Persist one completed run output back into the shared runtime state.
+
+        ``execution.models_by_run_id`` is the canonical per-run registry used for future
+        dependency resolution.
+        """
 
         state.execution.models_by_run_id[run.id] = result.primary_model

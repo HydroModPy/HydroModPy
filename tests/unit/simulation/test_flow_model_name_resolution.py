@@ -13,8 +13,13 @@ def test_resolve_base_model_name_prefers_setup_value() -> None:
     assert resolve_base_model_name(setup) == "launcher_name"
 
 
-def test_resolve_base_model_name_defaults_when_missing() -> None:
+def test_resolve_base_model_name_defaults_when_blank() -> None:
     setup = SimpleNamespace(model_name="")
+    assert resolve_base_model_name(setup) == "default"
+
+
+def test_resolve_base_model_name_defaults_when_missing() -> None:
+    setup = SimpleNamespace()
     assert resolve_base_model_name(setup) == "default"
 
 

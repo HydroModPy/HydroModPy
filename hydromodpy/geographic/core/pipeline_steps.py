@@ -1,8 +1,15 @@
-"""Shared orchestration steps used by geographic V2 pipelines.
+"""Shared orchestration helpers for geographic pipelines.
 
-This module centralizes the common building blocks reused by:
-- the compact domain-oriented geographic pipeline,
-- the full legacy compatibility pipeline.
+Purpose
+-------
+Centralize reusable setup/build steps so both compact and compatibility
+pipelines call the same primitives (paths, DEM metadata, catchment extraction,
+domain support polygons).
+
+Why this module matters
+-----------------------
+Keeps orchestration logic explicit and avoids duplicating fragile path/CRS
+handling across multiple runner entry points.
 """
 
 from __future__ import annotations

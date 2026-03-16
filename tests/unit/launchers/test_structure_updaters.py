@@ -302,6 +302,7 @@ def test_apply_simulation_time_to_flow_boundary_conditions_binds_constant_forcin
         bc={
             "dirichlet": {
                 "west_side": {
+                    "units": "cm",
                     "forcing": {"mode": "constant", "value": 12.0},
                 }
             }
@@ -321,7 +322,8 @@ def test_apply_simulation_time_to_flow_boundary_conditions_binds_constant_forcin
 
     west_side = flow.boundary_conditions["west_side"]
     assert west_side.forcing is None
-    assert west_side.value == pytest.approx([12.0, 12.0, 12.0])
+    assert west_side.units == "m"
+    assert west_side.value == pytest.approx([0.12, 0.12, 0.12])
 
 
 def test_apply_simulation_time_to_flow_boundary_conditions_binds_csv_forcing(tmp_path: Path) -> None:

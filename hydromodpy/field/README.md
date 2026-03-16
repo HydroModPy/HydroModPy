@@ -22,8 +22,6 @@ hydromodpy/field/
 |       |-- field_mesh_square.py
 |       |-- run_field_demo.py
 |       `-- outputs/
-|-- uml/
-|   `-- README.md
 |-- __init__.py
 `-- README.md
 ```
@@ -45,7 +43,6 @@ hydromodpy/field/
 - geology case integration now lives under
   `hydromodpy/data_managers/geology/` with runnable scripts in
   `hydromodpy/data_managers/geology/cases/`.
-- `uml/`: module-local README with links to UML sources in docs.
 
 ## Core Concepts
 
@@ -146,6 +143,5 @@ python -m pytest tests/unit/field -q
 
 ## UML
 
-- Local pointer README: `hydromodpy/field/uml/README.md`
 - Canonical UML sources: `docs/readthedocs/source/architecture/field/diagrams/`
 - Architecture page: `docs/readthedocs/source/architecture/field/field-uml-diagrams.rst`

@@ -56,7 +56,9 @@ class MeshWithValues:
         return self.mesh.n_cells
 
 
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
+def _get_nested_section(
+    payload: Mapping[str, Any], dotted_path: str
+) -> Mapping[str, Any]:
     """Resolve a nested TOML section from a dotted path."""
     current: Any = payload
     for token in str(dotted_path).split("."):
@@ -91,8 +93,12 @@ class BaseFieldMesh(ABC):
         self.x_plot = x_arr
         self.y_plot = y_arr
         self.triangulation = None
-        self.target_n_cells = int(target_n_cells) if target_n_cells is not None else None
-        self.resolution_hint = int(resolution_hint) if resolution_hint is not None else None
+        self.target_n_cells = (
+            int(target_n_cells) if target_n_cells is not None else None
+        )
+        self.resolution_hint = (
+            int(resolution_hint) if resolution_hint is not None else None
+        )
         self.seed = int(seed) if seed is not None else None
         self._cells_cache: tuple[MeshCell, ...] | None = None
 
@@ -183,8 +189,12 @@ class BaseFieldMesh(ABC):
             "shape": tuple(int(v) for v in self.shape),
             "n_nodes": int(self.n_nodes),
             "n_cells": int(self.n_cells),
-            "target_n_cells": int(self.target_n_cells) if self.target_n_cells is not None else None,
-            "resolution_hint": int(self.resolution_hint) if self.resolution_hint is not None else None,
+            "target_n_cells": (
+                int(self.target_n_cells) if self.target_n_cells is not None else None
+            ),
+            "resolution_hint": (
+                int(self.resolution_hint) if self.resolution_hint is not None else None
+            ),
             "seed": int(self.seed) if self.seed is not None else None,
         }
 

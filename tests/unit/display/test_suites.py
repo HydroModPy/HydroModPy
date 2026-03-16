@@ -27,7 +27,7 @@ def _build_result(
 
     class _Result:
         setup = SimpleNamespace(geographic=geographic, workspace=workspace)
-        data = SimpleNamespace(hydrography=hydrography, recharge=None)
+        loaded_data = SimpleNamespace(hydrography=hydrography, recharge=None)
         cfg = SimpleNamespace(workspace=SimpleNamespace(data_path=Path(".")))
 
         @staticmethod

@@ -25,6 +25,7 @@ from hydromodpy.geographic.core.pipeline_steps import (
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
+from hydromodpy.geographic.core.river_network import build_river_network_products
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,23 @@ def build_legacy_geographic_context(
         paths=setup.paths,
         dem_init_path=setup.dem_init_path,
         crs_project=setup.crs_project,
+    )
+
+    build_river_network_products(
+        river_network=config.river_network,
+        dem_correc_path=flow_products.correc,
+        d8_pointer_path=flow_products.direc,
+        watershed_shp=setup.paths.watershed_shp,
+        geographic_dir=setup.paths.geographic_path,
+        correcflow_dir=setup.paths.correcflow_path,
+        dem_res_m=float(setup.dem_res),
+        streams_tif_path=setup.paths.river_streams_tif,
+        streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
+        stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
+        stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
+        network_shp_path=setup.paths.river_network_shp,
+        summary_json_path=setup.paths.river_network_summary_json,
+        backend=tool,
     )
 
     raster_products = build_legacy_domain_rasters(
