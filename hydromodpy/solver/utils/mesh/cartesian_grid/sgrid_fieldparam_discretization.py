@@ -50,9 +50,18 @@ def _compute_layer_center_depths(sgrid) -> np.ndarray:
 
     The depth reference is the local model top (depth=0 at surface):
     ``depth = top - 0.5 * (ztop_layer + zbot_layer)``.
+
+    Accepts both FloPy StructuredGrid (3D botm) and SolverMesh (flat arrays
+    with reshape helpers).
     """
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
+    # SolverMesh exposes top_grid/botm_grid for reshaped structured views.
+    if hasattr(sgrid, "top_grid") and hasattr(sgrid, "botm_grid"):
+        top = np.asarray(sgrid.top_grid, dtype=float)
+        botm = np.asarray(sgrid.botm_grid, dtype=float)
+    else:
+        top = np.asarray(getattr(sgrid, "top"), dtype=float)
+        botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
+
     if botm.ndim != 3:
         raise ValueError("sgrid.botm must be a 3D array shaped as (nlay, nrow, ncol)")
 
@@ -116,7 +125,8 @@ def discretize_fieldparam_on_sgrid(
     field_param:
         Object exposing ``to_mesh_field(...)`` and optional heterogeneous metadata.
     sgrid:
-        FloPy StructuredGrid-like object exposing ``nrow`` and ``ncol``.
+        Structured grid object exposing ``nrow``, ``ncol``, and vertex
+        coordinates.  Accepts both FloPy ``StructuredGrid`` and ``SolverMesh``.
     cell_samples_per_axis:
         Optional override for support-field sub-sampling density.
         Higher values better resolve boundaries, at higher cost.

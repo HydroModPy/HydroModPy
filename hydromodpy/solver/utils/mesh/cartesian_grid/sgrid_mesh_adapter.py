@@ -1,10 +1,10 @@
-"""Adapters from solver ``StructuredGrid`` objects to field-mesh objects.
+"""Adapters from structured-grid objects to field-mesh objects.
 
 Why this module exists
 ----------------------
-The solver side (FloPy ``StructuredGrid``) and the field side
-(``StructuredFieldMesh`` used by field/geology discretization) do not share
-the same object model. This module is the bridge between both worlds.
+The solver side (``SolverMesh`` or FloPy ``StructuredGrid``) and the field
+side (``StructuredFieldMesh`` used by field/geology discretization) do not
+share the same object model.  This module is the bridge between both worlds.
 
 The adapter follows a simple contract:
 1) recover consistent vertex coordinates from the solver grid,

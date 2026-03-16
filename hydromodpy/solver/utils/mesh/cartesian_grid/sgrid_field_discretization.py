@@ -54,7 +54,8 @@ def discretize_fields_on_sgrid(
         LoadResult containing FieldRecords with gridded recharge data.
         Data units are assumed to be mm/day (data-manager internal unit).
     sgrid:
-        FloPy StructuredGrid providing nrow, ncol, vertex coordinates.
+        Structured grid object providing nrow, ncol, vertex coordinates.
+        Accepts both FloPy ``StructuredGrid`` and ``SolverMesh``.
     nper:
         Number of stress periods in the simulation.
     simulation_window:
