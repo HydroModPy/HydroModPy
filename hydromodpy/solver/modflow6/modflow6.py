@@ -43,6 +43,12 @@ from hydromodpy.solver.modflow_nwt.modflow.property_mapping import (
 from hydromodpy.solver.modflow_common.runtime_arrays import (
 	build_concentration_runtime_overrides,
 )
+from hydromodpy.support.units import (
+	convert_payload_to_m,
+	convert_payload_to_m_per_s,
+	factor_to_m2_per_s,
+	normalize_length_unit,
+)
 from hydromodpy.support.units.volumetric_flow import (
 	convert_to_m3_per_s,
 	normalize_m3_per_s_unit,
@@ -269,7 +275,17 @@ class Modflow6(Solver):
 					nper=int(n_stress_periods),
 					label=f"flow.sinks_sources.wells.{well_id}.forcing",
 				)
-				canonical_units = normalize_m3_per_s_unit(getattr(raw_well_payload, "units", "m3/s"))
+				fallback_units = (
+					raw_well_payload.get("units", "m3/s")
+					if isinstance(raw_well_payload, Mapping)
+					else getattr(raw_well_payload, "units", "m3/s")
+				)
+				canonical_units = normalize_m3_per_s_unit(
+					self._forcing_units(
+						forcing_payload,
+						fallback=fallback_units,
+					)
+				)
 				flux_vector = np.asarray(
 					[
 						convert_to_m3_per_s(
@@ -330,23 +346,55 @@ class Modflow6(Solver):
 			)
 		return series.astype(float)
 
+	def _coerce_length_series_to_m(self, *, values: object, units: object, label: str) -> np.ndarray:
+		source_units = normalize_length_unit(str(units).strip() or "m")
+		return np.asarray(
+			convert_payload_to_m(values, unit=source_units, label=label),
+			dtype=float,
+		)
+
+	@staticmethod
+	def _forcing_units(forcing: object, *, fallback: object) -> object:
+		if isinstance(forcing, Mapping):
+			return forcing.get("units", fallback)
+		return getattr(forcing, "units", fallback)
+
+	def _coerce_conductance_series_to_m2_per_s(
+		self,
+		*,
+		values: object,
+		units: object,
+		label: str,
+	) -> np.ndarray:
+		factor = factor_to_m2_per_s(str(units).strip() or "m2/s")
+		return np.asarray(values, dtype=float) * float(factor)
+
 	def _boundary_start_value(self, *, value: object, label: str) -> float:
 		return float(self._boundary_period_series(value=value, label=label)[0])
 
 	def _resolve_side_boundary_series(self, *, boundary: object, bc_id: str) -> np.ndarray:
 		forcing = getattr(boundary, "forcing", None)
 		if forcing is not None:
-			return np.asarray(
-				resolve_period_values_from_forcing(
+			raw_values = resolve_period_values_from_forcing(
 					forcing=forcing,
 					simulation_window=None if self.time_grid is None else self.time_grid.window,
 					nper=int(self.nper),
 					label=f"flow.bc.{bc_id}.forcing",
+				)
+			return self._coerce_length_series_to_m(
+				values=raw_values,
+				units=self._forcing_units(
+					forcing,
+					fallback=getattr(boundary, "units", "m"),
 				),
-				dtype=float,
+				label=f"flow.bc.{bc_id}.forcing",
 			)
-		return self._boundary_period_series(
+		return self._coerce_length_series_to_m(
+			values=self._boundary_period_series(
 			value=getattr(boundary, "value", None),
+			label=f"flow.bc.{bc_id}.value",
+			),
+			units=getattr(boundary, "units", "m"),
 			label=f"flow.bc.{bc_id}.value",
 		)
 
@@ -443,17 +491,26 @@ class Modflow6(Solver):
 			return None
 		forcing = getattr(boundary, "forcing", None)
 		if forcing is not None:
-			return np.asarray(
-				resolve_period_values_from_forcing(
+			raw_values = resolve_period_values_from_forcing(
 					forcing=forcing,
 					simulation_window=None if self.time_grid is None else self.time_grid.window,
 					nper=int(self.nper),
 					label="flow.bc.ocean.forcing",
+				)
+			return self._coerce_length_series_to_m(
+				values=raw_values,
+				units=self._forcing_units(
+					forcing,
+					fallback=getattr(boundary, "units", "m"),
 				),
-				dtype=float,
+				label="flow.bc.ocean.forcing",
 			)
-		return self._boundary_period_series(
+		return self._coerce_length_series_to_m(
+			values=self._boundary_period_series(
 			value=getattr(boundary, "value", None),
+			label="flow.bc.ocean.value",
+			),
+			units=getattr(boundary, "units", "m"),
 			label="flow.bc.ocean.value",
 		)
 
@@ -504,17 +561,26 @@ class Modflow6(Solver):
 			return None
 		forcing = getattr(boundary, "forcing", None)
 		if forcing is not None:
-			return np.asarray(
-				resolve_period_values_from_forcing(
+			raw_values = resolve_period_values_from_forcing(
 					forcing=forcing,
 					simulation_window=None if self.time_grid is None else self.time_grid.window,
 					nper=int(self.nper),
 					label="flow.bc.drainage.forcing",
+				)
+			return self._coerce_conductance_series_to_m2_per_s(
+				values=raw_values,
+				units=self._forcing_units(
+					forcing,
+					fallback=getattr(boundary, "units", "m2/s"),
 				),
-				dtype=float,
+				label="flow.bc.drainage.forcing",
 			)
-		return self._boundary_period_series(
+		return self._coerce_conductance_series_to_m2_per_s(
+			values=self._boundary_period_series(
 			value=getattr(boundary, "value", None),
+			label="flow.bc.drainage.value",
+			),
+			units=getattr(boundary, "units", "m2/s"),
 			label="flow.bc.drainage.value",
 		)
 
@@ -618,6 +684,11 @@ class Modflow6(Solver):
 			return
 
 		payload = self._copy_runtime_payload(getattr(recharge_cfg, "values", 0.0))
+		payload = convert_payload_to_m_per_s(
+			payload,
+			unit=str(getattr(recharge_cfg, "units", "m/s")),
+			label="flow.sinks_sources.recharge.values",
+		)
 		payload = self._sanitize_numeric_payload(payload)
 		if bool(getattr(recharge_cfg, "negative_to_evt", False)) and self._payload_has_negative_values(payload):
 			logger.info(

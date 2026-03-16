@@ -5,7 +5,6 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_mesh_adapter import (
     extract_structured_vertices,
 )
 from hydromodpy.solver.utils.temporal import (
-    TGrid_Generation,
     TMeshConfig,
     TMeshConfigModel,
     TMesh_Generation,
@@ -19,7 +18,6 @@ __all__ = [
     "TMeshConfig",
     "TMeshConfigModel",
     "TMesh_Generation",
-    "TGrid_Generation",
     "validate_tmesh_config_data",
     "load_tmesh_toml",
 ]

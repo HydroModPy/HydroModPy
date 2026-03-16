@@ -5,6 +5,12 @@
 - ``setup``: structural objects prepared once (workspace, domain, flow, ...);
 - ``loaded_data``: loaded support data (climatic, oceanic, hydrometry, ...);
 - ``execution``: run outputs and registries (planned runs, produced models).
+
+Canonical access is explicit:
+
+- ``state.setup.<...>`` for structural runtime context,
+- ``state.loaded_data.<...>`` for loaded datasets,
+- ``state.execution.<...>`` for run outputs and execution registries.
 """
 
 from __future__ import annotations

@@ -1,9 +1,14 @@
-"""Assemble all geographic artifacts required by ``run_domain_case``.
+"""Assemble the full geographic context consumed by domain runtime.
 
-This module is the V2 orchestration layer. It delegates each operation to a
-focused helper module and returns a compact context payload used by the domain
-runtime. The objective is to keep business logic explicit and testable without
-the monolithic legacy ``Geographic`` class.
+Purpose
+-------
+Orchestrate all geographic core steps and return one compact context object
+for ``run_domain_case``.
+
+Design intent
+-------------
+Keep each operation delegated to focused helpers while exposing one clear,
+testable entry point instead of a monolithic preprocessing class.
 """
 
 from __future__ import annotations
@@ -21,10 +26,13 @@ from hydromodpy.geographic.core.pipeline_steps import (
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
+from hydromodpy.geographic.core.river_mesh_trace import build_river_mesh_trace_from_vector
+from hydromodpy.geographic.core.river_network import build_river_network_products
 from hydromodpy.geographic.core.surface_from_dem import build_surface_topo_from_dem
 
 if TYPE_CHECKING:
     from hydromodpy.geographic.geographic_config import GeographicConfig
+    from hydromodpy.geographic.core.river_mesh_trace import RiverMeshTrace
     from hydromodpy.simulation.workspace.workspace import Workspace
 
 
@@ -51,6 +59,8 @@ class DomainGeographicContext:
     zone_kind:
         ``"catchment"`` for the historical 3-zone raster, ``"uniform"`` for
         direct-DEM domains with no catchment/buffer notion.
+    river_mesh_trace:
+        Optional in-memory river trace used by river-conformal mesh builders.
     """
 
     surface_topo: Surface
@@ -62,6 +72,7 @@ class DomainGeographicContext:
     watershed_box_buff_dem: str
     box_buff_shp: str
     zone_kind: str
+    river_mesh_trace: RiverMeshTrace | None = None
 
 
 def build_domain_geographic_context(
@@ -153,6 +164,31 @@ def build_domain_geographic_context(
         nodata=-9999.0,
     )
 
+    river_network_products = build_river_network_products(
+        river_network=config.river_network,
+        dem_correc_path=flow.correc,
+        d8_pointer_path=flow.direc,
+        watershed_shp=setup.paths.watershed_shp,
+        geographic_dir=setup.paths.geographic_path,
+        correcflow_dir=setup.paths.correcflow_path,
+        dem_res_m=float(setup.dem_res),
+        streams_tif_path=setup.paths.river_streams_tif,
+        streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
+        stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
+        stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
+        network_shp_path=setup.paths.river_network_shp,
+        summary_json_path=setup.paths.river_network_summary_json,
+    )
+
+    river_mesh_trace = None
+    if bool(river_network_products.enabled) and river_network_products.network_shp is not None:
+        river_mesh_trace = build_river_mesh_trace_from_vector(
+            vector_path=river_network_products.network_shp,
+            source_kind="geographic_generated",
+            target_crs=setup.crs_project,
+            clip_polygon_path=setup.paths.watershed_shp,
+        )
+
     surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)
 
     return DomainGeographicContext(
@@ -165,5 +201,6 @@ def build_domain_geographic_context(
         watershed_box_buff_dem=setup.paths.watershed_box_buff_dem,
         box_buff_shp=setup.paths.box_buff,
         zone_kind="catchment",
+        river_mesh_trace=river_mesh_trace,
     )
 

@@ -1,0 +1,100 @@
+"""Non-regression smoke test for the Nançon river-network reference case."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+
+from hydromodpy.geographic.cases.reference_river_network_nancon.run_case_river_network_nancon import (
+    run_reference_river_network_nancon_from_toml,
+)
+from tests.support.whitebox import configure_whitebox_single_thread
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _write_tmp_config(work_root: Path) -> Path:
+    config_path = work_root / "case_config_river_network_nancon.toml"
+    dem_path = (
+        REPO_ROOT
+        / "examples_legacy"
+        / "01_simplified_example_presented_in_the_paper"
+        / "data"
+        / "regional dem.tif"
+    ).as_posix()
+    data_path = (REPO_ROOT / "examples_legacy" / "example12" / "data").as_posix()
+    out_path = (work_root / "results").as_posix()
+
+    config_path.write_text(
+        "\n".join(
+            [
+                "[workspace]",
+                'catch_name = "nancon_geographic_river_network_case_test"',
+                f'out_dir_path = "{out_path}"',
+                f'data_path = "{data_path}"',
+                "",
+                "[geographic]",
+                'catch_def = "from_outlet_coord"',
+                f'dem_init_path = "{dem_path}"',
+                "x_outlet = 389285.910",
+                "y_outlet = 6816518.749",
+                "snap_dist = 50",
+                "buff_area = 20.0",
+                'crs_project = "EPSG:2154"',
+                'dem_correc_type = "breach"',
+                "",
+                "[geographic.river_network]",
+                "enabled = true",
+                'threshold_mode = "area_km2"',
+                "threshold_area_km2 = 0.5",
+                "prune_short_streams = false",
+                "min_stream_length_m = 0.0",
+                "compute_strahler_order = true",
+                "compute_stream_links = true",
+                "all_vertices = false",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return config_path
+
+
+@pytest.mark.slow
+def test_run_reference_river_network_nancon_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Build one river-network case and check core outputs exist."""
+    configure_whitebox_single_thread(monkeypatch)
+    work_root = (
+        Path.cwd()
+        / "tmp"
+        / "unit"
+        / f"reference_river_network_nancon_case_{uuid4().hex}"
+    )
+    work_root.mkdir(parents=True, exist_ok=True)
+    config_path = _write_tmp_config(work_root)
+
+    payload = run_reference_river_network_nancon_from_toml(
+        config_path,
+        output_dir=work_root / "figures",
+        show_plot=False,
+    )
+
+    figure_path = Path(str(payload["figure"]))
+    river_network_shp = Path(str(payload["river_network_shp"]))
+    summary_path = Path(str(payload["river_network_summary_json"]))
+
+    assert figure_path.exists()
+    assert river_network_shp.exists()
+    assert summary_path.exists()
+    assert int(payload["segment_count"]) > 0
+    assert float(payload["network_total_length_m"]) > 0.0
+
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert bool(summary["enabled"]) is True
+    assert str(summary["threshold_mode"]) == "area_km2"
+    assert int(summary["segment_count"]) == int(payload["segment_count"])

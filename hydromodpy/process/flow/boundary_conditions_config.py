@@ -23,7 +23,11 @@ from hydromodpy.process.flow.boundary_conditions import (
     FlowBoundaryForcingConfig,
     FlowBoundaryConditionConfig,
 )
-from hydromodpy.support.units import parse_scalar_and_unit
+from hydromodpy.support.units import (
+    normalize_length_unit,
+    parse_to_m,
+    parse_to_m2_per_s,
+)
 
 
 def normalize_flow_boundary_conditions(
@@ -60,12 +64,60 @@ def _coerce_boundary_value_and_units(
 ) -> tuple[float, str]:
     if "value" not in payload:
         raise ValueError(f"{location_prefix}.value is required")
-    return parse_scalar_and_unit(
-        payload["value"],
-        location=f"{location_prefix}.value",
-        default_unit=default_units,
-        explicit_unit=_extract_explicit_boundary_units(payload),
-    )
+    if default_units == "m":
+        value_si, _ = parse_to_m(
+            payload["value"],
+            location=f"{location_prefix}.value",
+            default_unit=default_units,
+            explicit_unit=_extract_explicit_boundary_units(payload),
+        )
+        return value_si, "m"
+    if default_units == "m2/s":
+        value_si, _ = parse_to_m2_per_s(
+            payload["value"],
+            location=f"{location_prefix}.value",
+            default_unit=default_units,
+            explicit_unit=_extract_explicit_boundary_units(payload),
+        )
+        return value_si, "m2/s"
+    raise ValueError(f"Unsupported boundary unit target: {default_units}")
+
+
+def _normalize_dirichlet_forcing_units(
+    *,
+    payload: Mapping[str, object],
+    location_prefix: str,
+) -> str:
+    explicit_units = _extract_explicit_boundary_units(payload)
+    forcing_payload = payload.get("forcing")
+    forcing_units: str | None = None
+    if isinstance(forcing_payload, Mapping):
+        raw_forcing_units = forcing_payload.get("units")
+        if raw_forcing_units is not None:
+            forcing_units = str(raw_forcing_units)
+    if explicit_units is None and forcing_units is None:
+        return "m"
+    try:
+        normalized_parent_units = (
+            normalize_length_unit(explicit_units) if explicit_units is not None else None
+        )
+        normalized_forcing_units = (
+            normalize_length_unit(forcing_units) if forcing_units is not None else None
+        )
+    except ValueError as exc:
+        raise ValueError(
+            f"{location_prefix}.units and {location_prefix}.forcing.units must be compatible with meters "
+            "(for example m, cm, mm, km)."
+        ) from exc
+    if (
+        normalized_parent_units is not None
+        and normalized_forcing_units is not None
+        and normalized_parent_units != normalized_forcing_units
+    ):
+        raise ValueError(
+            f"{location_prefix}.units conflicts with {location_prefix}.forcing.units"
+        )
+    return normalized_forcing_units or normalized_parent_units or "m"
 
 
 def _canonicalize_dirichlet_bc_id(
@@ -112,11 +164,14 @@ def _normalize_dirichlet_boundary_payload(
             default_units="m",
         )
     else:
-        explicit_units = _extract_explicit_boundary_units(payload)
         value = None
-        units = explicit_units.strip() if explicit_units is not None else "m"
-        if units == "":
-            raise ValueError(f"{location_prefix}.units cannot be empty")
+        source_units = _normalize_dirichlet_forcing_units(
+            payload=payload,
+            location_prefix=location_prefix,
+        )
+        units = "m"
+        forcing_payload = dict(forcing_payload)
+        forcing_payload["units"] = source_units
         if canonical_bc_id not in SIDE_DIRICHLET_BC_IDS:
             raise ValueError(
                 f"{location_prefix}.forcing is only supported for side Dirichlet "

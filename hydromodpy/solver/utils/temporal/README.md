@@ -4,8 +4,7 @@
 to build solver stress periods.
 
 - `tmesh_generation.py`: temporal mesh/grid generation class (`TMesh_Generation`)
-  with typed runtime config (`TMeshConfig`) and backward-compatible alias
-  (`TGrid_Generation`).
+  with typed runtime config (`TMeshConfig`).
 - `tmesh_config.py`: Pydantic model (`TMeshConfigModel`) + TOML helpers.
 - `tmesh_config.toml`: minimal template with all `TMesh_Generation` entries.
 - `cases/`: runnable demo cases (`run_tmesh_case.py`) and sample TOML.

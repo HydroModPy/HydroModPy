@@ -15,13 +15,19 @@ import math
 import tomllib
 from typing import Any, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from hydromodpy.support.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
 )
 from hydromodpy.support.units.length import parse_length_to_m
-
 
 SUPPORTED_FIELD_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_HETEROGENEOUS_VALUE_SOURCES = ("inline", "csv")
@@ -57,7 +63,9 @@ def _normalize_unit_token(value: str | None) -> str | None:
         return normalize_m_per_s_unit(token)
     except ValueError:
         allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
-        raise ValueError(f"Unsupported field.unit '{value}'. Allowed: {allowed}") from None
+        raise ValueError(
+            f"Unsupported field.unit '{value}'. Allowed: {allowed}"
+        ) from None
 
 
 class FieldBaseSectionSchema(BaseModel):
@@ -75,8 +83,7 @@ class FieldBaseSectionSchema(BaseModel):
     id: str | None = Field(
         default=None,
         description=(
-            "Parameter identifier used in outputs and logs "
-            "(for example 'K', 'Sy')."
+            "Parameter identifier used in outputs and logs " "(for example 'K', 'Sy')."
         ),
     )
     kind: str | None = Field(
@@ -138,7 +145,9 @@ class FieldHomogeneousSectionSchema(BaseModel):
         if value is None:
             return None
         if isinstance(value, bool):
-            raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
+            raise TypeError(
+                "field_homogeneous.value must be numeric or '<number> <unit>'"
+            )
         if isinstance(value, (int, float)):
             return float(value)
         if isinstance(value, str):
@@ -246,7 +255,9 @@ class FieldHeterogeneousSectionSchema(BaseModel):
             return None
         text = str(value).strip()
         if text == "":
-            raise ValueError("field_heterogeneous.values_csv_file cannot be empty when provided")
+            raise ValueError(
+                "field_heterogeneous.values_csv_file cannot be empty when provided"
+            )
         return text
 
     @field_validator("csv_key_column", "csv_value_column")
@@ -424,19 +435,35 @@ class FieldVerticalProfileSectionSchema(BaseModel):
 
         if self.mode == "tabulated":
             if self.depths is None:
-                raise ValueError("field_vertical_profile.depths is required when mode='tabulated'")
+                raise ValueError(
+                    "field_vertical_profile.depths is required when mode='tabulated'"
+                )
             if self.factors is None:
-                raise ValueError("field_vertical_profile.factors is required when mode='tabulated'")
+                raise ValueError(
+                    "field_vertical_profile.factors is required when mode='tabulated'"
+                )
             if len(self.depths) != len(self.factors):
-                raise ValueError("field_vertical_profile.depths and factors must have same length")
+                raise ValueError(
+                    "field_vertical_profile.depths and factors must have same length"
+                )
             if any(v < 0.0 for v in self.depths):
                 raise ValueError("field_vertical_profile.depths must be >= 0")
-            if any(self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))):
-                raise ValueError("field_vertical_profile.depths must be strictly increasing")
+            if any(
+                self.depths[i] <= self.depths[i - 1] for i in range(1, len(self.depths))
+            ):
+                raise ValueError(
+                    "field_vertical_profile.depths must be strictly increasing"
+                )
             if not math.isclose(float(self.depths[0]), 0.0, rel_tol=0.0, abs_tol=1e-12):
-                raise ValueError("field_vertical_profile tabulated first depth must be 0.0")
-            if not math.isclose(float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12):
-                raise ValueError("field_vertical_profile tabulated factor at depth 0.0 must be 1.0")
+                raise ValueError(
+                    "field_vertical_profile tabulated first depth must be 0.0"
+                )
+            if not math.isclose(
+                float(self.factors[0]), 1.0, rel_tol=0.0, abs_tol=1e-12
+            ):
+                raise ValueError(
+                    "field_vertical_profile tabulated factor at depth 0.0 must be 1.0"
+                )
             return self
 
         return self
@@ -561,6 +588,22 @@ class ResolvedFieldParamSchema(BaseModel):
     def _validate_unit(cls, value):
         return _normalize_unit_token(value)
 
+    @field_validator("value")
+    @classmethod
+    def _validate_value(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise TypeError("value must be numeric or '<number> <unit>'")
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            token = value.strip()
+            if token == "":
+                raise ValueError("value cannot be empty")
+            return token
+        raise TypeError("value must be numeric or '<number> <unit>'")
+
     @field_validator("values")
     @classmethod
     def _validate_values(cls, value):
@@ -649,7 +692,7 @@ def validate_field_param_toml_data(config_data: Mapping[str, Any]) -> dict[str, 
         raise ValueError("field parameter configuration must be a mapping")
     try:
         parsed = FieldParamConfig.model_validate(dict(config_data))
-    except ValidationError as exc:
+    except (ValidationError, TypeError) as exc:
         raise ValueError(str(exc)) from exc
     return parsed.model_dump(mode="python", exclude_none=True)
 
@@ -733,9 +776,7 @@ def resolve_field_param_config_payload(
 
     field_section = validated.get("field")
     if not isinstance(field_section, Mapping):
-        raise KeyError(
-            f"{section_label} requires section [{section_label}.field]"
-        )
+        raise KeyError(f"{section_label} requires section [{section_label}.field]")
 
     merged: dict[str, Any] = dict(field_section)
     field_id = str(merged.get("id", "")).strip()
@@ -754,7 +795,9 @@ def resolve_field_param_config_payload(
         if isinstance(specific_section, Mapping):
             merged.update(dict(specific_section))
 
-    vertical_section = validated.get("field_vertical_profile", validated.get("vertical_profile"))
+    vertical_section = validated.get(
+        "field_vertical_profile", validated.get("vertical_profile")
+    )
     if isinstance(vertical_section, Mapping):
         merged["vertical_profile"] = dict(vertical_section)
 
@@ -800,10 +843,14 @@ def load_field_param_toml(config_path: str | Path) -> dict[str, Any]:
     try:
         return validate_field_param_toml_data(payload)
     except ValueError as exc:
-        raise ValueError(f"Invalid field parameter configuration in {path}: {exc}") from exc
+        raise ValueError(
+            f"Invalid field parameter configuration in {path}: {exc}"
+        ) from exc
 
 
-def validate_resolved_field_param_data(config_data: Mapping[str, Any]) -> dict[str, Any]:
+def validate_resolved_field_param_data(
+    config_data: Mapping[str, Any],
+) -> dict[str, Any]:
     """
     Validate merged field-parameter mapping before building `FieldParam`.
     """
@@ -847,21 +894,6 @@ def validate_resolved_field_param_data(config_data: Mapping[str, Any]) -> dict[s
 
     try:
         parsed = ResolvedFieldParamSchema.model_validate(payload)
-    except ValidationError as exc:
+    except (ValidationError, TypeError) as exc:
         raise ValueError(str(exc)) from exc
     return parsed.model_dump(mode="python", exclude_none=True)
-    @field_validator("value")
-    @classmethod
-    def _validate_value(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            raise TypeError("value must be numeric or '<number> <unit>'")
-        if isinstance(value, (int, float)):
-            return float(value)
-        if isinstance(value, str):
-            token = value.strip()
-            if token == "":
-                raise ValueError("value cannot be empty")
-            return token
-        raise TypeError("value must be numeric or '<number> <unit>'")

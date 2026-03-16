@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.geographic.cases.run_geographic_case import run_geographic_cases_from_toml
+from hydromodpy.geographic.cases import run_geographic_cases_from_toml
 from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
+from tests.support.whitebox import configure_whitebox_single_thread
 
 
 GOLDEN_REFERENCE_FILE = resolve_tiered_golden_file(
@@ -97,8 +98,13 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 @pytest.mark.extensive
 @pytest.mark.slow
 @pytest.mark.coverage
-def test_run_geographic_case_metrics_regression(update_goldens, tmp_path):
+def test_run_geographic_case_metrics_regression(
+    update_goldens,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Validate metrics stability on all geographic demo cases."""
+    configure_whitebox_single_thread(monkeypatch)
     config_path = _write_tmp_config(tmp_path)
     summaries = run_geographic_cases_from_toml(
         config_path,

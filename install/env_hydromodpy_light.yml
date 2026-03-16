@@ -14,18 +14,24 @@ dependencies:
   - netcdf4
   - numpy>=2.0
   - pandas
+  - pint
   - pydantic
   - pytest
   - pytest-xdist
   - sphinx
   - pyproj
   - pyshp
+  - pyvista
   - rasterio
   - rioxarray
   - scikit-learn
   - selenium
+  - sqlalchemy>=2.0
   - xarray
   - pysheds
+  - dask
   - pip
   - pip:
+      - gmsh
+      - meshio
       - whitebox-workflows

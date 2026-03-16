@@ -1,8 +1,14 @@
-"""Build domain support artifacts directly from one DEM raster.
+"""Build domain artifacts directly from a DEM extent.
 
-This module supports the ``catch_def="dem"`` mode where the input DEM already
-defines the model domain support. No watershed delineation or buffer-ring
-concept is applied in this mode.
+Purpose
+-------
+Support ``catch_def='dem'`` mode, where the DEM itself defines the model
+domain and no watershed delineation is required.
+
+Produced artifacts
+------------------
+Canonical watershed/domain polygons plus copied DEM support, all aligned with
+the same path contracts as delineated workflows.
 """
 
 from __future__ import annotations

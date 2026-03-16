@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.field.cases.square.field_mesh_square import StructuredFieldMesh
+from hydromodpy.field.meshes import StructuredFieldMesh
 
 
 def extract_structured_vertices(sgrid) -> tuple[np.ndarray, np.ndarray]:

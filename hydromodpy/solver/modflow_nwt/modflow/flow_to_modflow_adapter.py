@@ -99,6 +99,12 @@ import pandas as pd
 
 from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common.grid_context import GridReference
+from hydromodpy.support.units import (
+    convert_payload_to_m,
+    convert_payload_to_m_per_s,
+    factor_to_m2_per_s,
+    normalize_length_unit,
+)
 from hydromodpy.support.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
@@ -437,6 +443,34 @@ class FlowToModflowAdapter:
             raise ValueError(f"{label} must define a scalar or sequence value")
         return float(series[0])
 
+    def _coerce_length_series_to_m(
+        self,
+        *,
+        values: object,
+        units: object,
+        label: str,
+    ) -> np.ndarray:
+        source_units = normalize_length_unit(str(units).strip() or "m")
+        return np.asarray(
+            convert_payload_to_m(values, unit=source_units, label=label),
+            dtype=float,
+        )
+
+    @staticmethod
+    def _forcing_units(forcing: object, *, fallback: object) -> object:
+        if isinstance(forcing, Mapping):
+            return forcing.get("units", fallback)
+        return getattr(forcing, "units", fallback)
+
+    def _coerce_conductance_value_to_m2_per_s(
+        self,
+        *,
+        value: object,
+        units: object,
+    ) -> float:
+        factor = factor_to_m2_per_s(str(units).strip() or "m2/s")
+        return float(value) * float(factor)
+
     def _resolve_side_boundary_series(
         self,
         *,
@@ -447,22 +481,31 @@ class FlowToModflowAdapter:
         forcing = getattr(boundary, "forcing", None)
         label = f"flow.bc.{bc_id}.forcing"
         if forcing is not None:
-            return np.asarray(
-                resolve_period_values_from_forcing(
+            raw_values = resolve_period_values_from_forcing(
                     forcing=forcing,
                     simulation_window=self.simulation_window,
                     nper=self.nper,
                     label=label,
+                )
+            return self._coerce_length_series_to_m(
+                values=raw_values,
+                units=self._forcing_units(
+                    forcing,
+                    fallback=getattr(boundary, "units", "m"),
                 ),
-                dtype=float,
+                label=label,
             )
 
         value = getattr(boundary, "value", None)
         value_label = f"flow.bc.{bc_id}.value"
         series = self._normalize_boundary_series(value=value, label=value_label)
         if series is None:
-            return np.full(self.nper, float(value), dtype=float)
-        return series
+            series = np.full(self.nper, float(value), dtype=float)
+        return self._coerce_length_series_to_m(
+            values=series,
+            units=getattr(boundary, "units", "m"),
+            label=value_label,
+        )
 
     def _side_boundary_is_static(self, boundary: object) -> bool:
         """Return True when one side boundary is a scalar head without forcing."""
@@ -519,7 +562,12 @@ class FlowToModflowAdapter:
         if self._is_scalar_number(ocean_value):
             # Static sea level: mark submerged cells as constant-head for all
             # layers before package construction.
-            ocean_head = float(ocean_value)
+            ocean_head = self._coerce_length_series_to_m(
+                values=ocean_value,
+                units=getattr(ocean_boundary, "units", "m"),
+                label="flow.bc.ocean.value",
+            )
+            ocean_head = float(np.asarray(ocean_head, dtype=float).reshape(-1)[0])
             for ilay in range(self.nlay):
                 ibound[ilay][self.dem <= ocean_head] = -1
             strt[ibound == -1] = ocean_head
@@ -532,6 +580,11 @@ class FlowToModflowAdapter:
         )
         if ocean_series is None:
             return None
+        ocean_series = self._coerce_length_series_to_m(
+            values=ocean_series,
+            units=getattr(ocean_boundary, "units", "m"),
+            label="flow.bc.ocean.value",
+        )
 
         # 3) Geometry mask is fixed from the highest sea level; transient heads are
         # then assigned period-by-period on that stable support.
@@ -732,7 +785,10 @@ class FlowToModflowAdapter:
         # Only currently active drain cells are materialized.
         drn_data = np.zeros((int(np.sum(drain_array)), 5), dtype=float)
         drn_data[:, 0] = 0
-        drainage_value = float(drainage_boundary.value)
+        drainage_value = self._coerce_conductance_value_to_m2_per_s(
+            value=drainage_boundary.value,
+            units=getattr(drainage_boundary, "units", "m2/s"),
+        )
 
         count = 0
         for i in range(self.nrow):
@@ -819,7 +875,12 @@ class FlowToModflowAdapter:
                     nper=self.nper,
                     label=f"flow.sinks_sources.wells.{well_id}.forcing",
                 )
-                canonical_units = normalize_m3_per_s_unit(getattr(well, "units", "m3/s"))
+                canonical_units = normalize_m3_per_s_unit(
+                    self._forcing_units(
+                        forcing,
+                        fallback=getattr(well, "units", "m3/s"),
+                    )
+                )
                 flux_vector = np.asarray(
                     [
                         convert_to_m3_per_s(
@@ -986,6 +1047,11 @@ class FlowToModflowAdapter:
 
         # Homogeneous path (existing behavior).
         recharge_payload = self._copy_payload(recharge_cfg.values)
+        recharge_payload = convert_payload_to_m_per_s(
+            recharge_payload,
+            unit=str(getattr(recharge_cfg, "units", "m/s")),
+            label="flow.sinks_sources.recharge.values",
+        )
         recharge_payload, evt_spd = self._extract_evt_payload(recharge_payload, recharge_cfg.negative_to_evt)
         rch_data = self._assemble_rch_data(recharge_payload, recharge_cfg.first_clim, self._resolve_flow_regime())
         return rch_data, evt_spd

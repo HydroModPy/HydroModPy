@@ -45,12 +45,14 @@ dependencies = [
     "contextily",
     "flopy",
     "geopandas",
+    "gmsh",
     "h5py",                # Required by pyhelp module for HDF5 data files
     "imageio",
     "ipykernel",
     "ipython",
     "matplotlib",
     "matplotlib-scalebar",
+    "meshio",
     "netCDF4",
     "numpy>=2.0",
     "pandas",
@@ -93,6 +95,7 @@ docs = [
     "autodoc-pydantic>=2.0",
 ]
 ide = ["spyder>=6.0", "jupyterlab>=4.0"]
+viewer3d = ["pyvista"]
 
 [project.scripts]
 hmp = "hydromodpy.__main__:main"

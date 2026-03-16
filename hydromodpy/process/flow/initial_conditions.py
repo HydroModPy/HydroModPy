@@ -25,6 +25,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from hydromodpy.process.prototype import InitialCondition as BaseInitialCondition
+from hydromodpy.support.units import normalize_length_unit
 
 
 class FlowInitialCondition(BaseInitialCondition):
@@ -55,6 +56,10 @@ class FlowInitialCondition(BaseInitialCondition):
         """Require `value` whenever `type='custom'`."""
         if self.type == "custom" and self.value is None:
             raise ValueError("flow.ic.value is required when flow.ic.type='custom'")
+        normalized_units = normalize_length_unit(str(self.units).strip() or "m")
+        if normalized_units != "m":
+            raise ValueError("flow.ic.units must be normalized to 'm' in runtime objects")
+        self.units = "m"
         return self
 
 

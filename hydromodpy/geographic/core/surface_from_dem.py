@@ -1,7 +1,13 @@
-"""Convert a DEM raster into HydroModPy ``Surface`` objects.
+"""Convert a DEM raster into HydroModPy domain surface objects.
 
-This adapter bridges geospatial raster metadata (transform, CRS, nodata) with
-HydroModPy domain classes (``RasterSupport`` and ``Surface``).
+Purpose
+-------
+Bridge geospatial raster metadata (transform, CRS, nodata) with HydroModPy
+domain abstractions (``RasterSupport`` and ``Surface``).
+
+Pipeline position
+-----------------
+Used once a DEM support is ready and must be injected into domain execution.
 """
 
 from __future__ import annotations

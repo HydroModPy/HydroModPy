@@ -48,6 +48,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from hydromodpy.support.units.volumetric_flow import normalize_m3_per_s_unit
+
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_common.grid_context import GridReference
 
@@ -265,35 +267,54 @@ class FlowWellConfig(BaseModel):
                     "well.cell cannot be combined with layer/x/y/x_rel/y_rel; "
                     "use either cell or coordinate-based location fields"
                 )
-            return self
+        else:
+            if self.location_mode is None:
+                raise ValueError(
+                    "well location requires either cell=[lay,row,col] or "
+                    "location_mode with coordinate fields"
+                )
 
-        if self.location_mode is None:
-            raise ValueError(
-                "well location requires either cell=[lay,row,col] or "
-                "location_mode with coordinate fields"
-            )
+            if self.location_mode == "cell":
+                raise ValueError("well.location_mode='cell' requires cell=[lay,row,col]")
 
-        if self.location_mode == "cell":
-            raise ValueError("well.location_mode='cell' requires cell=[lay,row,col]")
+            if self.layer is None:
+                self.layer = 0
 
-        if self.layer is None:
-            self.layer = 0
-
-        if self.location_mode == "absolute_xy":
-            if self.x is None or self.y is None:
-                raise ValueError("well.location_mode='absolute_xy' requires x and y")
-            if self.x_rel is not None or self.y_rel is not None:
-                raise ValueError("well.location_mode='absolute_xy' cannot be combined with x_rel/y_rel")
-        elif self.location_mode == "relative_xy":
-            if self.x_rel is None or self.y_rel is None:
-                raise ValueError("well.location_mode='relative_xy' requires x_rel and y_rel")
-            if self.x is not None or self.y is not None:
-                raise ValueError("well.location_mode='relative_xy' cannot be combined with x/y")
+            if self.location_mode == "absolute_xy":
+                if self.x is None or self.y is None:
+                    raise ValueError("well.location_mode='absolute_xy' requires x and y")
+                if self.x_rel is not None or self.y_rel is not None:
+                    raise ValueError("well.location_mode='absolute_xy' cannot be combined with x_rel/y_rel")
+            elif self.location_mode == "relative_xy":
+                if self.x_rel is None or self.y_rel is None:
+                    raise ValueError("well.location_mode='relative_xy' requires x_rel and y_rel")
+                if self.x is not None or self.y is not None:
+                    raise ValueError("well.location_mode='relative_xy' cannot be combined with x/y")
 
         if self.flux is None and self.forcing is None:
             raise ValueError("well requires either flux or forcing")
         if self.flux is not None and self.forcing is not None:
             raise ValueError("well.flux and well.forcing are mutually exclusive")
+        if self.forcing is not None:
+            parent_units = str(self.units).strip() or "m3/s"
+            forcing_units = getattr(self.forcing, "units", None)
+            parent_units_explicit = "units" in self.model_fields_set
+            forcing_units_explicit = "units" in self.forcing.model_fields_set
+            if forcing_units_explicit:
+                normalized_forcing_units = normalize_m3_per_s_unit(
+                    str(forcing_units).strip() or "m3/s"
+                )
+                if parent_units_explicit:
+                    normalized_parent_units = normalize_m3_per_s_unit(parent_units)
+                    if (
+                        normalized_parent_units != "m3/s"
+                        and normalized_parent_units != normalized_forcing_units
+                    ):
+                        raise ValueError("well.units conflicts with well.forcing.units")
+            else:
+                normalized_forcing_units = normalize_m3_per_s_unit(parent_units)
+            self.forcing = self.forcing.model_copy(update={"units": normalized_forcing_units})
+            self.units = "m3/s"
 
         return self
 
@@ -370,6 +391,10 @@ class FlowWellForcingConfig(BaseModel):
         ...,
         description="Well forcing mode consumed by launcher runtime.",
     )
+    units: str | None = Field(
+        default=None,
+        description="Source units of forcing values before runtime conversion.",
+    )
     value: float | None = Field(default=None)
     path_file: Path | None = Field(default=None)
     sep: str = Field(default=",")
@@ -442,8 +467,8 @@ class FlowRechargeConfig(BaseModel):
         - *numeric*: explicit scalar (e.g. long-term average from literature).
 
     units : str
-        Physical units of ``values``, for documentation purposes only.
-        Default is ``"m/s"``; conversion is the user's responsibility.
+        Physical units of ``values``. The flow runtime converts the payload
+        to SI ``m/s`` when the process is built.
 
     negative_to_evt : bool
         When ``True`` (default), negative recharge values are treated as net
@@ -482,7 +507,7 @@ class FlowRechargeConfig(BaseModel):
     )
     units: str = Field(
         default="m/s",
-        description="Units of recharge values (informational only).",
+        description="Units of recharge values before runtime normalization to m/s.",
     )
     negative_to_evt: bool = Field(
         default=True,

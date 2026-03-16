@@ -1,9 +1,19 @@
-"""Normalize an existing catchment polygon for HydroModPy workflows.
+"""Import and normalize an externally provided catchment polygon.
 
-This helper is used when catchment delineation has already been done outside
-HydroModPy. It copies the input polygon into the canonical output location,
-removes duplicate attribute names (common in shapefile exports), and ensures
-CRS metadata consistency for downstream processing.
+Purpose
+-------
+Support workflows where catchment delineation is already available outside
+HydroModPy and only needs to be standardized for internal pipeline contracts.
+
+Pipeline position
+-----------------
+Used when ``catch_def='from_polyg_shp'`` in the geographic workflow.
+
+Main responsibilities
+---------------------
+- copy the input polygon to canonical ``watershed.shp`` location,
+- remove duplicate attribute columns often found in shapefile exports,
+- enforce CRS metadata expected by downstream steps.
 """
 
 from __future__ import annotations

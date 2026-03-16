@@ -547,6 +547,3 @@ class TMesh_Generation:
 
     def _get_steady_state_array(self, perlen):
         return _build_steady_state(self._config, np.asarray(perlen, dtype=float))
-
-
-TGrid_Generation = TMesh_Generation

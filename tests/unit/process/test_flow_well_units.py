@@ -86,4 +86,44 @@ def test_flow_accepts_well_forcing_without_flux() -> None:
 
     assert well.flux is None
     assert well.forcing is not None
-    assert well.units == "m3/day"
+    assert well.units == "m3/s"
+    assert well.forcing.units == "m3/day"
+
+
+def test_flow_converts_recharge_scalar_from_mm_day_to_m_s() -> None:
+    cfg = FlowConfig(
+        sinks_sources=FlowSinksSourcesConfig(
+            recharge={
+                "values": 3.0,
+                "units": "mm/day",
+            }
+        )
+    )
+
+    flow = Flow(cfg)
+    recharge = flow.sinks_sources["recharge"]
+
+    assert recharge is not None
+    assert recharge.units == "m/s"
+    assert recharge.values == pytest.approx(3.0e-3 / 86400.0)
+
+
+def test_flow_converts_recharge_mapping_from_mm_day_to_m_s() -> None:
+    cfg = FlowConfig(
+        sinks_sources=FlowSinksSourcesConfig(
+            recharge={
+                "values": {0: 3.0, 1: 6.0},
+                "units": "mm/day",
+            }
+        )
+    )
+
+    flow = Flow(cfg)
+    recharge = flow.sinks_sources["recharge"]
+
+    assert recharge is not None
+    assert recharge.units == "m/s"
+    assert recharge.values == {
+        0: pytest.approx(3.0e-3 / 86400.0),
+        1: pytest.approx(6.0e-3 / 86400.0),
+    }

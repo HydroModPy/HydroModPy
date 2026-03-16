@@ -78,6 +78,7 @@ from hydromodpy.process.flow.initial_conditions_config import (
 )
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig, FlowSinksSourcesConfig
 from hydromodpy.process.prototype import BoundaryCondition, ProcessSpatial, SinkSource
+from hydromodpy.support.units import convert_payload_to_m_per_s, normalize_m_per_s_unit
 from hydromodpy.support.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
@@ -354,7 +355,7 @@ class Flow(ProcessSpatial):
 
             flux_payload = well_cfg.flux
             if flux_payload is None:
-                normalized_wells[well_id] = well_cfg
+                normalized_wells[well_id] = well_cfg.model_copy(update={"units": canonical_units})
                 continue
             if isinstance(flux_payload, list):
                 flux_si = [
@@ -377,7 +378,35 @@ class Flow(ProcessSpatial):
             )
 
         self.sinks_sources["wells"] = normalized_wells
-        self.sinks_sources["recharge"] = sinks_sources.recharge
+        self.sinks_sources["recharge"] = self._normalize_recharge_config(
+            sinks_sources.recharge,
+            location_prefix="flow.sinks_sources.recharge",
+        )
+
+    @staticmethod
+    def _normalize_recharge_config(
+        recharge: FlowRechargeConfig | None,
+        *,
+        location_prefix: str,
+    ) -> FlowRechargeConfig | None:
+        if recharge is None:
+            return None
+
+        raw_units = getattr(recharge, "units", "m/s")
+        try:
+            canonical_units = normalize_m_per_s_unit(raw_units)
+        except ValueError as exc:
+            raise ValueError(
+                f"{location_prefix}.units must be compatible with m/s "
+                f"(for example mm/day, m/day, m/s). Got: {raw_units!r}"
+            ) from exc
+
+        values_si = convert_payload_to_m_per_s(
+            getattr(recharge, "values", 0.0),
+            unit=canonical_units,
+            label=f"{location_prefix}.values",
+        )
+        return recharge.model_copy(update={"values": values_si, "units": "m/s"})
 
     def set_recharge(self, recharge: FlowRechargeConfig | None) -> None:
         """
@@ -391,7 +420,10 @@ class Flow(ProcessSpatial):
         recharge : FlowRechargeConfig | None
             Typed recharge payload, or None to clear.
         """
-        self.sinks_sources["recharge"] = recharge
+        self.sinks_sources["recharge"] = self._normalize_recharge_config(
+            recharge,
+            location_prefix="flow.sinks_sources.recharge",
+        )
 
 
 if __name__ == "__main__":

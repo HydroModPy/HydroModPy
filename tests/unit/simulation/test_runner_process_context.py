@@ -130,7 +130,7 @@ def test_run_flow_model_raises_when_solver_fails(monkeypatch) -> None:
             domain=SimpleNamespace(),
             workspace=SimpleNamespace(simulations_folder="unused"),
         ),
-        results=SimpleNamespace(models_by_run_id={}),
+        execution=SimpleNamespace(models_by_run_id={}),
     )
 
     monkeypatch.setattr(

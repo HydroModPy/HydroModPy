@@ -1,9 +1,15 @@
-"""Core geographic implementations.
+"""Core building blocks for HydroModPy geographic preprocessing.
 
-This package contains the de-composed geographic pipeline used by domain
-orchestration. Public entrypoints should keep importing from
-``hydromodpy.geographic`` (compatibility façade) or from this core package when
-advanced integration is needed.
+Purpose
+-------
+Provide small, testable modules that each implement one geographic step
+(flow products, catchment delineation, domain clipping, zoning, metrics).
+
+How to use this package
+-----------------------
+- Normal runtime code should keep using ``hydromodpy.geographic`` as facade.
+- Advanced integrations can import specific modules from ``geographic.core``
+  when a finer orchestration is required.
 """
 
 __all__ = [
@@ -17,5 +23,6 @@ __all__ = [
     "domain_geographic_pipeline",
     "flow_products",
     "pipeline_steps",
+    "river_mesh_trace",
     "surface_from_dem",
 ]
