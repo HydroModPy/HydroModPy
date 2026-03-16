@@ -26,12 +26,14 @@ class OceanicManager(BaseFieldManager):
         project_period: tuple[datetime, datetime] | None = None,
         project_extent: tuple | None = None,
         geographic: object | None = None,
+        data_dir: "Path | None" = None,
     ) -> None:
         super().__init__(
             config=config,
             catalog=catalog,
             project_period=project_period,
             project_extent=project_extent,
+            data_dir=data_dir,
         )
         self._geographic = geographic
 
