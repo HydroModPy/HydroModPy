@@ -3,7 +3,7 @@
 #
 # Tous les paramètres sont définis ici (workspace, geographic, domain,
 # data, flow, transport, solver, recharge). Seule la section [simulation]
-# est absente : c'est le script Python (example_01.py) qui orchestre
+# est absente : c'est le script Python (run_steady_prototype.py) qui orchestre
 # l'exécution des solveurs directement.
 # ======================================================================
 
@@ -11,16 +11,14 @@
 # ── Workspace ─────────────────────────────────────────────────────────
 
 [workspace]
-catch_name = "Example_01_Canut"
-out_dir_path = "../results"
-data_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/"
+project_root = "."
 
 
 # ── Geographic ────────────────────────────────────────────────────────
 
 [geographic]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
+dem_init_path = "../../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
 x_outlet = 327816.965
 y_outlet = 6777886.670
 snap_dist = "150 m"
@@ -47,7 +45,7 @@ inference_mode = "warn"
 
 [data.geology]
 id = "field_geology"
-geo_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/"
+geo_path = "../../data/geology"
 types_obs = "GEO1M.shp"
 fields_obs = "CODE_LEG"
 

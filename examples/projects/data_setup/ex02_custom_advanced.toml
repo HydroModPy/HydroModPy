@@ -31,7 +31,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/hydrometry"
+path = "../../data/hydrometry"
 
 # Explicit list of station ids to load.
 # Type: list (optional) | Optional
@@ -62,7 +62,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/piezometry"
+path = "../../data/piezometry"
 
 # Explicit station ids.
 # Type: list (optional) | Optional
@@ -81,7 +81,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/water_quality"
+path = "../../data/water_quality"
 
 # Explicit station ids.
 # Type: list (optional) | Optional

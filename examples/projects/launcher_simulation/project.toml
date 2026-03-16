@@ -1,13 +1,11 @@
 # Shared launcher_simulation settings for all example12 regression variants.
 
 [workspace]
-catch_name = "example12"
-out_dir_path = "~/HydroModPy_outputs"
-data_path = "../../examples_legacy/example12/data/"
+project_root = "."
 
 [geographic]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../data/Brittany/dem/regional dem.tif"
+dem_init_path = "../../../data/Brittany/dem/regional dem.tif"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
@@ -26,13 +24,13 @@ types = ["hydrography"]
 [data.hydrography]
 [[data.hydrography.sources]]
 source = "custom"
-path = "../../examples_legacy/example12/data/botopage2024_naizin_streams_perennial-intermittent.shp"
+path = "../../../examples_legacy/example12/data/botopage2024_naizin_streams_perennial-intermittent.shp"
 rasterize_field = "FID"
 
 [data.oceanic]
 [[data.oceanic.sources]]
 source = "custom"
-path = "data/oceanic"
+path = "../../data/oceanic"
 col_datetime = "timestamp"
 
 [data.hydrometry]

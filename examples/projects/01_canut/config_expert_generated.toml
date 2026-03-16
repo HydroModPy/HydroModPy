@@ -11,17 +11,7 @@
 # ----------------------------------------------------------------------
 
 [workspace]
-# Name of the watershed/catchment (used as folder name).
-# Type: string | REQUIRED
-catch_name = ""
-
-# Root output directory where all results will be stored.
-# Type: path | REQUIRED
-out_dir_path = ""
-
-# Path to the input data folder (observations, climate, GIS layers, etc.).
-# Type: path | REQUIRED
-data_path = ""
+project_root = "."
 
 
 # ----------------------------------------------------------------------

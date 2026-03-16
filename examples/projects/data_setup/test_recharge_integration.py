@@ -26,7 +26,7 @@ import pandas as pd
 
 # ── Setup paths ───────────────────────────────────────────────
 BV_DIR = Path(__file__).resolve().parent
-WS_ROOT = BV_DIR.parent
+WS_ROOT = BV_DIR.parent.parent
 os.chdir(BV_DIR)
 DATA_DIR = WS_ROOT / "data"
 RECHARGE_DIR = DATA_DIR / "recharge"

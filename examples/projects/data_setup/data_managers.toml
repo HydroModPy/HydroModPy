@@ -1,10 +1,10 @@
 # ======================================================================
 # HydroModPy -- data_managers config -- Canut catchment
-# Workspace: examples/HydroModPy_Setup
-# 
-# Custom data : ../data/hydrometry/, ../data/piezometry/, ../data/water_quality/
-# API cache :   ../data/<variable>/
-# Spatial mask : ../data/masks/canut_bbox.geojson
+# Workspace: examples/
+#
+# Custom data : ../../data/hydrometry/, ../../data/piezometry/, ../../data/water_quality/
+# API cache :   ../../data/<variable>/
+# Spatial mask : ../../data/masks/canut_bbox.geojson
 # 
 # Unit of each station is defined in the LOC file (column "unit").
 # ======================================================================
@@ -35,7 +35,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/hydrometry"
+path = "../../data/hydrometry"
 
 
 # ----------------------------------------------------------------------
@@ -62,7 +62,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/piezometry"
+path = "../../data/piezometry"
 
 
 # ----------------------------------------------------------------------
@@ -77,5 +77,5 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/water_quality"
+path = "../../data/water_quality"
 

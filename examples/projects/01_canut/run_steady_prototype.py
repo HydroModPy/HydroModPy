@@ -10,7 +10,7 @@ avant de lancer la simulation.
 
 Usage::
 
-    python example_01.py
+    python run_steady_prototype.py
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import matplotlib.dates as mdates
 import imageio.v2 as imageio
 import flopy
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -56,7 +56,7 @@ from hydromodpy.display import visualization_watershed, visualization_results, e
 # 1. CHARGER LE TOML & CONSTRUIRE LES OBJETS STRUCTURELS
 # =====================================================================
 
-config_path = Path(__file__).parent / "config.toml"
+config_path = Path(__file__).parent / "project.toml"
 cfg = HydroModPyConfig.from_toml(config_path)
 
 with config_path.open("rb") as fh:

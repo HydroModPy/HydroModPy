@@ -2,14 +2,14 @@
 """Example 12 simulation-launcher entry-point.
 
 Runs the full example12 study via :class:`HydroModPyLauncher`.
-Study behavior is configured directly in ``config_extensive_nwt.toml``. This
+Study behavior is configured directly in ``run_extensive_nwt.toml``. This
 default keeps the historical long-run NWT/MT3DMS baseline behavior, including
 launcher-managed postprocess via `[postprocess]` and `[display]`.
 
 Usage::
 
     python -m examples.launcher_simulation.launcher_simulation
-    python -m examples.launcher_simulation.launcher_simulation path/to/config_extensive_nwt.toml
+    python -m examples.launcher_simulation.launcher_simulation path/to/run_extensive_nwt.toml
 
 The explicit module path above is the recommended command for this study-level
 launcher. The generic wrapper supports the explicit launcher-family form
@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from launchers import HydroModPyLauncher
 
 
-DEFAULT_CONFIG_NAME = "config_extensive_nwt.toml"
+DEFAULT_CONFIG_NAME = "run_extensive_nwt.toml"
 LEGACY_CONFIG_NAME = "config_standard.toml"
 
 

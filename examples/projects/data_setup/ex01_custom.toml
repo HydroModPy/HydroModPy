@@ -30,7 +30,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/hydrometry"
+path = "../../data/hydrometry"
 
 
 # ----------------------------------------------------------------------
@@ -57,7 +57,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/piezometry"
+path = "../../data/piezometry"
 
 
 # ----------------------------------------------------------------------
@@ -72,5 +72,5 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/water_quality"
+path = "../../data/water_quality"
 

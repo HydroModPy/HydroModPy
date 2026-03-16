@@ -19,7 +19,7 @@ import sys
 # When this file is executed directly by path, Python adds the script folder to
 # ``sys.path`` but not necessarily the repository root. Insert the repo root
 # explicitly so the local ``hydromodpy`` package can always be imported.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -28,26 +28,13 @@ from hydromodpy.display import visualization_watershed
 from hydromodpy.domain import Domain
 from hydromodpy.domain.structure_binders import apply_geology_to_domain
 from hydromodpy.simulation.state.run_state import LauncherRunState
-from launchers.output_paths import (
-    build_repo_output_redirect_notice,
-    resolve_launcher_output_root,
-)
-
-
 def _build_run_state(config_path: Path) -> LauncherRunState:
     # 1) Parse and validate TOML into the canonical HydroModPy config object.
     cfg = HydroModPyConfig.from_toml(config_path)
 
-    resolved_out_dir, resolution = resolve_launcher_output_root(
-        cfg.workspace.out_dir_path,
-    )
-    cfg.workspace.out_dir_path = resolved_out_dir
-    if resolution == "repo_redirect":
-        print(
-            build_repo_output_redirect_notice(
-                entrypoint_name="launcher_data_overtiew",
-                resolved_out_dir=resolved_out_dir,
-            )
+    # project_root is auto-derived from TOML location if not set.
+    print(
+        f"[launcher_data_overtiew] project_root: {cfg.workspace.project_root}"
         )
 
     # Keep raw TOML for planner diagnostics and compatibility checks.
@@ -151,10 +138,10 @@ def _plot_watershed_overview(run_state: LauncherRunState) -> None:
 
 def main() -> None:
     # Example-local configuration entry point.
-    config_path = Path(__file__).parent / "config.toml"
+    config_path = Path(__file__).parent / "project.toml"
     run_state = _build_run_state(config_path)
 
-    watershed_name = run_state.cfg.workspace.catch_name
+    watershed_name = run_state.cfg.workspace.catch_name  # derived from project_root.name
     print(f"##### {watershed_name.upper()} #####")
 
     # Data overview workflow only: setup + data + display.

@@ -27,7 +27,7 @@ id = "field_geology"
 
 # Path to the geology data directory.
 # Type: path | Default: "data/France/geology"
-geo_path = "data/France/geology"
+geo_path = "../../data/geology"
 
 # Geology shapefile name inside `geo_path`.
 # Type: string | Default: "GEO1M.shp"

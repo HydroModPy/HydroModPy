@@ -30,11 +30,11 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/hydrometry"
+path = "../../data/hydrometry"
 
 # SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
 # Type: path (optional) | Optional
-mask_path = "../data/masks/canut_bbox.geojson"
+mask_path = "../../data/masks/canut_bbox.geojson"
 
 
 # ----------------------------------------------------------------------
@@ -61,11 +61,11 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/piezometry"
+path = "../../data/piezometry"
 
 # SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
 # Type: path (optional) | Optional
-mask_path = "../data/masks/canut_bbox.geojson"
+mask_path = "../../data/masks/canut_bbox.geojson"
 
 
 # ----------------------------------------------------------------------
@@ -80,9 +80,9 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "../data/water_quality"
+path = "../../data/water_quality"
 
 # SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
 # Type: path (optional) | Optional
-mask_path = "../data/masks/canut_bbox.geojson"
+mask_path = "../../data/masks/canut_bbox.geojson"
 

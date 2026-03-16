@@ -34,7 +34,7 @@ from hydromodpy.data_managers.store import DataStore
 
 # %% Paths and geographic context
 BV_DIR = Path(__file__).resolve().parent
-WS_ROOT = BV_DIR.parent
+WS_ROOT = BV_DIR.parent.parent
 os.chdir(BV_DIR)
 DATA_DIR = WS_ROOT / "data"
 
