@@ -378,18 +378,43 @@ def _is_path_field(annotation) -> bool:
     return Path in getattr(annotation, "__args__", ())
 
 
+def _inner_model_type(annotation) -> type[BaseModel] | None:
+    """Return the inner BaseModel type for ``list[SomeModel]`` annotations."""
+    args = getattr(annotation, "__args__", ())
+    for arg in args:
+        if isinstance(arg, type) and issubclass(arg, BaseModel):
+            return arg
+    origin = getattr(annotation, "__origin__", None)
+    if origin is list and args:
+        inner = args[0]
+        if isinstance(inner, type) and issubclass(inner, BaseModel):
+            return inner
+    return None
+
+
 def _resolve_section_paths(
     data: dict[str, Any],
     model_cls: type[BaseModel],
     base: Path,
 ) -> None:
-    """Resolve relative paths and `~` in one config section dict (in-place)."""
+    """Resolve relative paths and `~` in one config section dict (in-place).
+
+    Recurses into ``list[BaseModel]`` fields to resolve paths in nested
+    sub-models (e.g. ``sources`` lists containing ``path`` fields).
+    """
     for field_name, field_info in model_cls.model_fields.items():
-        if not _is_path_field(field_info.annotation):
-            continue
         value = data.get(field_name)
-        if isinstance(value, str) and value:
-            p = Path(value).expanduser()
-            if not p.is_absolute():
-                p = (base / p).resolve()
-            data[field_name] = str(p)
+        if _is_path_field(field_info.annotation):
+            if isinstance(value, str) and value:
+                p = Path(value).expanduser()
+                if not p.is_absolute():
+                    p = (base / p).resolve()
+                data[field_name] = str(p)
+            continue
+
+        # Recurse into list[BaseModel] fields (e.g. sources).
+        inner_cls = _inner_model_type(field_info.annotation)
+        if inner_cls is not None and isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _resolve_section_paths(item, inner_cls, base)
