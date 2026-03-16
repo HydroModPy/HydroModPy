@@ -43,7 +43,7 @@ from matplotlib import rcsetup
 from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.data_managers.hydrography import Hydrography
+from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult
 
 logger = get_logger(__name__)
 
@@ -79,7 +79,7 @@ class Visualization():
     Class to plot results by default.
     """
     
-    def __init__(self, initializing: Workspace, geographic: Geographic, hydrography: Hydrography, modelname: str):
+    def __init__(self, initializing: Workspace, geographic: Geographic, hydrography: HydrographyResult, modelname: str):
         """
         Parameters
         ----------

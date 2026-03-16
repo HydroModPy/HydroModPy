@@ -25,7 +25,7 @@ import flopy.utils.binaryfile as bf
 from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.data_managers.hydrography import Hydrography
+from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
 logger = get_logger(__name__)
@@ -102,7 +102,7 @@ class VTK():
     """
     
     def __init__(self, initializing:Workspace, 
-                 geographic:Geographic, hydrography:Hydrography, modelname = None, piezometry: list[PointRecord] | None = None):
+                 geographic:Geographic, hydrography:HydrographyResult, modelname = None, piezometry: list[PointRecord] | None = None):
         
         if modelname != None:
             modelfolder= os.path.join(initializing.simulations_folder, modelname)
@@ -595,29 +595,39 @@ class VTK():
             
         """
         
+        if hydrography.streams is None:
+            logger.info("No vector streams layer (TIF-only input); skipping VTK streams export.")
+            return
+
+        from shapely.geometry import MultiLineString as _MultiLineString
+
         lineDf = gpd.read_file(hydrography.streams)
         x_store = []
         y_store = []
         z_store = []
         nb_points = 0
-        for line in lineDf.iloc[0].geometry.geoms:
-            xs = []
-            ys = []
-            zs = []
-            for i in range (len(line.xy[0])):   
-                x = line.xy[0][i]
-                y = line.xy[1][i]
-                xidx = (np.abs(geographic.x_coord- x)).argmin()
-                yidx = (np.abs(geographic.y_coord- y)).argmin()
-                z = geographic.dem_data[yidx,xidx]
-                if z > 0:
-                    xs.append(x)
-                    ys.append(y)
-                    zs.append(z)
-                    nb_points += 1
-            x_store.append(xs)
-            y_store.append(ys)
-            z_store.append(zs)
+        for geom in lineDf.geometry:
+            if geom is None:
+                continue
+            lines = geom.geoms if isinstance(geom, _MultiLineString) else [geom]
+            for line in lines:
+                xs = []
+                ys = []
+                zs = []
+                for i in range(len(line.xy[0])):
+                    x = line.xy[0][i]
+                    y = line.xy[1][i]
+                    xidx = (np.abs(geographic.x_coord - x)).argmin()
+                    yidx = (np.abs(geographic.y_coord - y)).argmin()
+                    z = geographic.dem_data[yidx, xidx]
+                    if z > 0:
+                        xs.append(x)
+                        ys.append(y)
+                        zs.append(z)
+                        nb_points += 1
+                x_store.append(xs)
+                y_store.append(ys)
+                z_store.append(zs)
                 
             
         textoVtk = open(os.path.join(save_file,'streams.vtk'), 'w')

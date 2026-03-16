@@ -273,7 +273,9 @@ _LAZY_IMPORTS = {
     # watershed classes
     "Geographic": "hydromodpy.geographic.geographic",
     "Hydraulic": "hydromodpy.legacy.watershed.hydraulic",
-    "Hydrography": "hydromodpy.data_managers.hydrography",
+    "HydrographyResult": "hydromodpy.data_managers.variables.hydrography.result",
+    "HydrographyManager": "hydromodpy.data_managers.variables.hydrography.manager",
+    "HydrographyConfig": "hydromodpy.data_managers.variables.hydrography.config",
     "Hydrometry": "hydromodpy.data_managers.variables.hydrometry.hydrometry",
     "Workspace": "hydromodpy.simulation.workspace",
     "Intermittency": "hydromodpy.data_managers.intermittency",

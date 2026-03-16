@@ -169,3 +169,4 @@ examples/Exemple_11_Imene/11S_short/data/regional dem 2.tif.aux.xml
 examples/Exemple_11_Imene/11S_short/data/regional dem.tif
 examples/Exemple_11_Imene/11S_short/data/regional dem.tif.aux.xml
 hydromodpy/data_managers/ARCHITECTURE.md
+batch_extract_stations.py
