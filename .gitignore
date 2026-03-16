@@ -94,7 +94,10 @@ docs/readthedocs/source/api/generated/
 docs/readthedocs/source/_generated/
 !docs/readthedocs/source/_generated/CHANGELOG.md
 
-# Project data & results
+# Project data & results — convention-based workspace outputs
+**/results_stable/
+**/results_simulations/
+**/results_calibration/
 examples/results/
 test/results/
 test_*/
@@ -104,6 +107,8 @@ hydromodpy/data_managers/*/cases/outputs/**
 !hydromodpy/data_managers/*/cases/outputs/.gitkeep
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 hydromodpy/mesh/cartesian_grid/output/
+catalog.db
+hydromodpy_debug.log
 *.chk
 *.hds
 *.cbc
