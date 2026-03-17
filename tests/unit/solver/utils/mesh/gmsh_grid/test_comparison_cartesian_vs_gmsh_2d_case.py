@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from matplotlib.figure import Figure
 import numpy as np
 
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases._comparison_utils as comparison_utils_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.comparison_cartesian_vs_gmsh_2d.run_compare as compare_2d_module
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.comparison_cartesian_vs_gmsh_2d.run_compare import (
     run_comparison_case,
@@ -199,13 +200,13 @@ def test_comparison_case_ensures_interactive_backend_before_show_build(
         "_build_comparison_legend_metrics_figure",
         _stub_build_legend_metrics,
     )
-    monkeypatch.setattr(compare_2d_module, "_write_json", _write_json)
+    monkeypatch.setattr(compare_2d_module, "write_json", _write_json)
 
     def _fake_ensure() -> None:
         ensured["done"] = True
 
     monkeypatch.setattr(
-        compare_2d_module, "ensure_interactive_backend_for_show", _fake_ensure
+        comparison_utils_module, "ensure_interactive_backend_for_show", _fake_ensure
     )
 
     def _wrapped_subplots(nrows=1, ncols=1, *args, squeeze=True, **kwargs):
@@ -227,14 +228,14 @@ def test_comparison_case_ensures_interactive_backend_before_show_build(
     monkeypatch.setattr(compare_2d_module.plt, "subplots", _wrapped_subplots)
     shown = {"called": False}
 
-    def _fake_show_saved_images(image_paths):
-        compare_2d_module.ensure_interactive_backend_for_show()
+    def _fake_show_saved_images(image_paths, **kwargs):
+        comparison_utils_module.ensure_interactive_backend_for_show()
         assert ensured["done"]
         shown["called"] = True
         assert len(image_paths) == 4
 
     monkeypatch.setattr(
-        compare_2d_module, "_show_saved_images_blocking", _fake_show_saved_images
+        compare_2d_module, "show_saved_images_blocking", _fake_show_saved_images
     )
 
     payload = run_comparison_case(

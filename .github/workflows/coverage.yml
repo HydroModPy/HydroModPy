@@ -39,7 +39,7 @@ jobs:
         run: |
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*" \
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*" \
             -m pytest tests/unit/ -v
 
       - name: Report coverage
@@ -47,10 +47,10 @@ jobs:
         run: |
           coverage report --rcfile=/dev/null --show-missing \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
           coverage xml --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/*/cases/*/run_*.py,hydromodpy/*/cases/*/plotting.py,hydromodpy/*/examples/*/run_*.py,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
+            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/calibration_legacy/*,hydromodpy/calibration2/*"
 
       - name: Upload to Codecov
         if: always()
