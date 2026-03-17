@@ -27,7 +27,7 @@ class IntermittencyManager(BaseVariableManager):
         raise ValueError(f"Unknown intermittency source: {source_cfg.source}")
 
     def _fetch_hubeau(self, source_cfg: IntermittencySourceConfig) -> list[PointRecord]:
-        """Fetch from Hub'Eau Écoulement with smart cache."""
+        """Fetch from Hub'Eau stream-flow API with smart cache."""
         from hydromodpy.data_managers.variables.intermittency.apis.hubeau import fetch
 
         if self.project_period is None:

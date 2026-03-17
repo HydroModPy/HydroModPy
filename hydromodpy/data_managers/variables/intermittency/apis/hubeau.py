@@ -1,19 +1,19 @@
-"""Hub'Eau Écoulement des cours d'eau API adapter.
+"""Hub'Eau stream-flow (ecoulement) API adapter.
 
-Produces ``PointRecord`` instances from the Hub'Eau v1 écoulement endpoints
-(ONDE — Observatoire National Des Étiages).
+Produces ``PointRecord`` instances from the Hub'Eau v1 ecoulement endpoints
+(ONDE — National Low-Flow Observatory).
 
 Endpoints used:
 - ``/v1/ecoulement/stations``     — station discovery (bbox, department, etc.)
 - ``/v1/ecoulement/observations`` — flow-state observations per station
 
-Flow state mapping (Hub'Eau code_ecoulement → internal 1-5 ordinal):
-    "1"  → Écoulement visible          → 5
-    "1a" → Écoulement visible acceptable → 4
-    "1f" → Écoulement visible faible    → 3
-    "2"  → Écoulement non visible       → 2
-    "3"  → Assec                        → 1
-    "4"  → Observation impossible       → dropped (NaN)
+Flow state mapping (Hub'Eau code_ecoulement -> internal 1-5 ordinal):
+    "1"  -> Visible flow              -> 5
+    "1a" -> Acceptable visible flow   -> 4
+    "1f" -> Weak visible flow         -> 3
+    "2"  -> Non-visible flow          -> 2
+    "3"  -> Dry (no water)            -> 1
+    "4"  -> Observation impossible    -> dropped (NaN)
 """
 
 from __future__ import annotations
@@ -32,19 +32,19 @@ API_BASE = "https://hubeau.eaufrance.fr/api/v1/ecoulement"
 
 COVERAGE = {
     "country": "FR",
-    "description": "Hub'Eau Écoulement — ONDE stations France métropolitaine",
+    "description": "Hub'Eau stream-flow — ONDE stations metropolitan France",
     "variables": ["flow_state"],
     "frequency": ["irregular"],
 }
 
-# Hub'Eau code_ecoulement → internal flow code (1 = dry … 5 = fully flowing)
+# Hub'Eau code_ecoulement -> internal flow code (1 = dry ... 5 = fully flowing)
 _CODE_ECOULEMENT_MAP: dict[str, int] = {
-    "1": 5,   # Écoulement visible
-    "1a": 4,  # Écoulement visible acceptable
-    "1f": 3,  # Écoulement visible faible
-    "2": 2,   # Écoulement non visible
-    "3": 1,   # Assec
-    # "4" → Observation impossible — intentionally omitted (NaN)
+    "1": 5,   # Visible flow
+    "1a": 4,  # Acceptable visible flow
+    "1f": 3,  # Weak visible flow
+    "2": 2,   # Non-visible flow
+    "3": 1,   # Dry (no water)
+    # "4" -> Observation impossible — intentionally omitted (NaN)
 }
 
 
@@ -137,7 +137,7 @@ def _discover_stations(
     date_end: datetime | None = None,
     require_observations: bool = False,
 ) -> list[str]:
-    """Query Hub'Eau écoulement stations endpoint."""
+    """Query Hub'Eau ecoulement stations endpoint."""
     params: dict = {"size": 10_000, "format": "json"}
     if bbox is not None:
         xmin, ymin, xmax, ymax = bbox
@@ -158,7 +158,7 @@ def _discover_stations(
         # Filter by station activity if requested
         if require_observations and date_start and date_end:
             station_state = row.get("etat_station", "")
-            if station_state and station_state.lower() == "gelée":
+            if station_state and station_state.lower() == "gelée":  # "frozen" station
                 continue
         ids.append(str(sid))
 

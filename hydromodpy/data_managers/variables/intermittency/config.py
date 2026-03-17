@@ -17,7 +17,7 @@ class IntermittencySourceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     source: Annotated[Literal["custom", "hubeau"], ParamLevel("user")] = Field(
-        ..., description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau Écoulement API."
+        ..., description="Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API."
     )
 
     # --- Custom source fields ---

@@ -4,11 +4,11 @@ Expects a location file (intermittency_custom_LOC.*) and chronicle CSVs
 per station following the naming convention.
 
 Values are expected as integer flow codes (1-5):
-    1 = Assec (dry)
-    2 = Écoulement non visible
-    3 = Écoulement visible faible
-    4 = Écoulement visible acceptable
-    5 = Écoulement visible
+    1 = Dry (no water)
+    2 = Non-visible flow
+    3 = Weak visible flow
+    4 = Acceptable visible flow
+    5 = Visible flow
 """
 
 from __future__ import annotations
