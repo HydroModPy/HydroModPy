@@ -59,12 +59,20 @@ def test_launcher_data_overview_data_only_regression():
         stable_root / "geographic" / "watershed.shp",
         stable_root / "geographic" / "watershed.tif",
         stable_root / "hydrography" / "streams.shp",
-        stable_root / "intermittency" / "regional_onde_stations.shp",
         stable_root / "oceanic" / "sealevel_shom_152_20030101_20030130_H.csv",
     ]
     for path in required_files:
         assert path.exists(), f"Expected output is missing: {path}"
         assert path.stat().st_size > 0, f"Output exists but is empty: {path}"
+
+    # Intermittency now produces CSV files via the variable manager (no legacy SHP).
+    intermittency_dir = stable_root / "intermittency"
+    assert intermittency_dir.exists(), f"Intermittency output directory missing: {intermittency_dir}"
+    intermittency_csvs = list(intermittency_dir.glob("intermittency_*.csv"))
+    assert len(intermittency_csvs) > 0, (
+        f"No intermittency CSV files in {intermittency_dir}. "
+        f"Contents: {list(intermittency_dir.iterdir())}"
+    )
 
     # Data-overview workflow must not trigger numerical solver runs.
     # ``results_simulations`` may be pre-created by workspace setup.
