@@ -13,6 +13,7 @@ from typing import Any, Mapping
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     ValidationError,
     field_validator,
     model_validator,
@@ -36,8 +37,18 @@ class ZoneMeshingDomainBBoxSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = "bbox"
-    bbox: list[float]
+    kind: str = Field(
+        default="bbox",
+        description=(
+            "Use an explicit axis-aligned bounding box defined directly in the TOML. "
+            "This is the most direct way to prescribe a synthetic rectangular support."
+        ),
+    )
+    bbox: list[float] = Field(
+        description=(
+            "Bounding box coordinates ordered as [xmin, ymin, xmax, ymax] in the projected CRS used by the mesher."
+        )
+    )
 
     @field_validator("kind")
     @classmethod
@@ -63,8 +74,18 @@ class ZoneMeshingDomainPolygonSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = "polygon"
-    coordinates: list[list[float]]
+    kind: str = Field(
+        default="polygon",
+        description=(
+            "Use one polygon drawn directly in the TOML through its vertex coordinates. "
+            "This is useful for compact synthetic cases or quick experiments."
+        ),
+    )
+    coordinates: list[list[float]] = Field(
+        description=(
+            "Ordered polygon vertices as [[x1, y1], [x2, y2], ...] in the projected CRS used by the mesher."
+        )
+    )
 
     @field_validator("kind")
     @classmethod
@@ -87,10 +108,29 @@ class ZoneMeshingDomainVectorSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = "vector"
-    path: str
-    id_field: str | None = None
-    selected_id: str | None = None
+    kind: str = Field(
+        default="vector",
+        description=(
+            "Load the support domain from a polygon vector file such as SHP, GPKG, or GeoJSON."
+        ),
+    )
+    path: str = Field(
+        description=(
+            "Path to the polygon vector dataset that defines the support domain or one family of candidate polygons."
+        )
+    )
+    id_field: str | None = Field(
+        default=None,
+        description=(
+            "Optional attribute column used to select one polygon among several features in the vector file."
+        ),
+    )
+    selected_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional identifier value to extract one feature when the vector file contains multiple polygons."
+        ),
+    )
 
     @field_validator("kind")
     @classmethod
@@ -131,7 +171,13 @@ class ZoneMeshingDomainGeographicBoxBufferSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = "geographic_box_buffer"
+    kind: str = Field(
+        default="geographic_box_buffer",
+        description=(
+            "Reuse the buffered catchment box prepared by the geographic workflow. "
+            "This is usually the most convenient support for catchment meshing because it preserves some context around the watershed."
+        ),
+    )
 
     @field_validator("kind")
     @classmethod
@@ -148,7 +194,13 @@ class ZoneMeshingDomainGeographicWatershedSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = "geographic_watershed"
+    kind: str = Field(
+        default="geographic_watershed",
+        description=(
+            "Reuse the strict watershed polygon prepared by the geographic workflow. "
+            "Choose this mode when the mesh should not extend beyond the catchment outline."
+        ),
+    )
 
     @field_validator("kind")
     @classmethod
@@ -165,7 +217,13 @@ class ZoneMeshingDomainGeographicWatershedBoxSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: str = "geographic_watershed_box"
+    kind: str = Field(
+        default="geographic_watershed_box",
+        description=(
+            "Reuse the unbuffered bounding box around the watershed polygon. "
+            "This is a useful intermediate scope when you want more context than the strict watershed but less than the full buffered box."
+        ),
+    )
 
     @field_validator("kind")
     @classmethod

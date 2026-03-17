@@ -7,6 +7,8 @@
 - `config_fast_nwt.toml` is the reduced NWT / MODPATH / MT3DMS regression
   variant.
 - `config_fast_mf6.toml` is the reduced MODFLOW 6 / GWT regression variant.
+- To generate a fresh commented mesh section from the schema instead of copying
+  an example, use: `python -m launchers mesh-catchment template`
 - `config_extensive_nwt.toml` is the canonical default launcher config for
   example12. It keeps the historical long-run NWT / MT3DMS baseline behavior.
 - `config_extensive_mf6.toml` is the long-run MODFLOW 6 / GWT counterpart of
