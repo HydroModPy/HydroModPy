@@ -298,7 +298,7 @@ else:
 # 7. RECHARGE — Chronique journalière depuis réanalyse CSV
 # =====================================================================
 
-reanalysis_file = data_path / "_climate_REANALYSIS.csv"
+reanalysis_file = data_path / "climate_reanalysis.csv"
 if reanalysis_file.exists():
     try:
         _df = pd.read_csv(reanalysis_file, sep=";", index_col=0, dayfirst=True, parse_dates=True)

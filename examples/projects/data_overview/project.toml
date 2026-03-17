@@ -8,7 +8,7 @@ project_root = "."
 
 [geographic]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../data/dem/regional dem.tif"
+dem_init_path = "../../data/dem/regional_dem.tif"
 x_outlet = 127348.427
 y_outlet = 6835802.564
 snap_dist = "150 m"
@@ -37,7 +37,7 @@ cell_samples_per_axis = 8
 [data.hydrography]
 [[data.hydrography.sources]]
 source = "custom"
-path = "../../data/hydrography/regional stream network.shp"
+path = "../../data/hydrography/regional_stream_network.shp"
 rasterize_field = "FID"
 
 [data.hydrometry]
@@ -52,7 +52,7 @@ require_observations = true
 
 [data.intermittency]
 intermittency_path = "../../data/intermittency"
-file_name = "regional onde stations.shp"
+file_name = "regional_onde_stations.shp"
 
 [data.oceanic]
 date_start = "2003-01-01"

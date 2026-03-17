@@ -1,5 +1,5 @@
 {
-  "source_file_name": "regional onde stations.shp",
+  "source_file_name": "regional_onde_stations.shp",
   "watershed_mode": "square_mask",
   "station_count": 10,
   "flowing_rows": 67,

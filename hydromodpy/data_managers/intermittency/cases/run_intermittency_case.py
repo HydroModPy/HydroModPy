@@ -135,7 +135,7 @@ def _load_case_config(config_toml: Path) -> dict[str, Any]:
 
     return {
         "intermittency_path": intermittency_path,
-        "file_name": str(case_raw.get("file_name", "regional onde stations.shp")),
+        "file_name": str(case_raw.get("file_name", "regional_onde_stations.shp")),
         "out_path": out_path,
         "watershed_mode": watershed_mode,
         "watershed_shp": _resolve_optional_path(config_toml, case_raw.get("watershed_shp")),

@@ -292,7 +292,7 @@ fields_obs = "CODE_LEG"
 
 [data.intermittency]
 intermittency_path = "../../data/intermittency"
-file_name = "regional onde stations.shp"
+file_name = "regional_onde_stations.shp"
 
 
 # Hydrography configuration (stream network vector data).
@@ -334,7 +334,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "data/hydrometry"
+path = "../../data/hydrometry"
 
 # SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
 # Type: path (optional) | Optional
@@ -493,7 +493,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = "data/recharge"
+path = "../../data/recharge"
 
 # --- Option B : telecharger la recharge SIM2 (SAFRAN-ISBA grille ~8 km) ---
 # Decommenter le bloc ci-dessous et commenter l'option A pour basculer.

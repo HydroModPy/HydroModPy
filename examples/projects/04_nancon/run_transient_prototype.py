@@ -277,13 +277,10 @@ if loaded_data.recharge is not None:
 
 # -- Debits observes --
 data_path = cfg.workspace.data_path
-qobs_file = Path(
-    "data/hydrometry"
-    "/hydrometry catchment Nancon.csv"
-)
-qobs_abs = (config_path.parent / qobs_file).resolve()
+qobs_file = "hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv"
+qobs_abs = (data_path / qobs_file).resolve() if data_path else None
 
-if qobs_abs.exists():
+if qobs_abs is not None and qobs_abs.exists():
     Qobs = pd.read_csv(qobs_abs, sep=";", index_col=0, parse_dates=True).squeeze()
     Qobs = Qobs[(Qobs.index.year >= 2000) & (Qobs.index.year <= 2002)]
     Qobs_month = Qobs.resample("ME").mean()

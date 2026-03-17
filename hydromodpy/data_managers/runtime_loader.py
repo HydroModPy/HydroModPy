@@ -245,7 +245,7 @@ class DataManagersRuntimeLoader:
             keys=("intermittency_path", "path"),
             default_root=workspace_paths.data_path,
         )
-        file_name = str(section.get("file_name", "regional onde stations.shp")).strip()
+        file_name = str(section.get("file_name", "regional_onde_stations.shp")).strip()
         if not file_name:
             self._handle_missing_data_section(
                 result,
