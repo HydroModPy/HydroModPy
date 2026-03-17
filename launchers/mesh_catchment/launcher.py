@@ -34,6 +34,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import export_catchment_mesh_bundle
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
+from launchers.mesh_catchment.config import validate_mesh_catchment_batch_config_data
+from launchers.mesh_catchment.runtime import (
+    prepare_geographic_config_for_meshing,
+    require_mesh_section,
+    resolve_constraints_mode,
+)
 
 
 DEFAULT_CONFIG_NAME = "config_mesh_catchment_example.toml"
@@ -78,31 +84,32 @@ class MeshCatchmentBatchConfig:
             raise ValueError("mesh_catchment_batch.enabled must be a boolean.")
         if not enabled_raw:
             return None
+        validated = validate_mesh_catchment_batch_config_data(raw_value)
 
         outlets_table_path = _resolve_required_path(
-            raw_value.get("outlets_table_path"),
+            validated.get("outlets_table_path"),
             label="mesh_catchment_batch.outlets_table_path",
             base_dir=base_dir,
         )
         outlet_id_column = _require_text(
-            raw_value.get("outlet_id_column", "outlet_id"),
+            validated.get("outlet_id_column", "outlet_id"),
             label="mesh_catchment_batch.outlet_id_column",
         )
         x_column = _require_text(
-            raw_value.get("x_column", "x_outlet_m"),
+            validated.get("x_column", "x_outlet_m"),
             label="mesh_catchment_batch.x_column",
         )
         y_column = _require_text(
-            raw_value.get("y_column", "y_outlet_m"),
+            validated.get("y_column", "y_outlet_m"),
             label="mesh_catchment_batch.y_column",
         )
 
-        selection_mode = str(raw_value.get("selection_mode", "all")).strip().lower()
+        selection_mode = str(validated.get("selection_mode", "all")).strip().lower()
         if selection_mode not in {"all", "selected"}:
             raise ValueError(
                 "mesh_catchment_batch.selection_mode must be 'all' or 'selected'."
             )
-        selected_outlet_ids_raw = raw_value.get("selected_outlet_ids", ())
+        selected_outlet_ids_raw = validated.get("selected_outlet_ids", ())
         if selected_outlet_ids_raw is None:
             selected_outlet_ids_raw = ()
         if isinstance(selected_outlet_ids_raw, (str, bytes)) or not isinstance(
@@ -123,7 +130,7 @@ class MeshCatchmentBatchConfig:
             )
 
         catch_name_pattern = _require_text(
-            raw_value.get("catch_name_pattern", "{catch_name}_outlet_{outlet_id}"),
+            validated.get("catch_name_pattern", "{catch_name}_outlet_{outlet_id}"),
             label="mesh_catchment_batch.catch_name_pattern",
         )
         if "{outlet_id}" not in catch_name_pattern:
@@ -131,13 +138,13 @@ class MeshCatchmentBatchConfig:
                 "mesh_catchment_batch.catch_name_pattern must contain '{outlet_id}'."
             )
 
-        continue_on_error_raw = raw_value.get("continue_on_error", False)
+        continue_on_error_raw = validated.get("continue_on_error", False)
         if not isinstance(continue_on_error_raw, bool):
             raise ValueError(
                 "mesh_catchment_batch.continue_on_error must be a boolean."
             )
 
-        outputs_raw = raw_value.get("outputs", {})
+        outputs_raw = validated.get("outputs", {})
         if outputs_raw is None:
             outputs_raw = {}
         if not isinstance(outputs_raw, Mapping):
@@ -264,14 +271,14 @@ class MeshCatchmentLauncher:
     def __init__(self, config_path: str | Path) -> None:
         self.config_path = Path(config_path).resolve()
         self.raw_toml = load_toml_with_base_config(self.config_path)
-        self.mesh_section_data = self._require_mesh_section(self.raw_toml)
+        self.mesh_section_data = require_mesh_section(self.raw_toml)
         self.workspace_cfg, self.geographic_cfg = self._load_runtime_configs(
             self.raw_toml
         )
-        self.constraints_mode = self._resolve_constraints_mode(
+        self.constraints_mode = resolve_constraints_mode(
             self.mesh_section_data.get("constraints_mode")
         )
-        self.geographic_cfg = self._prepare_geographic_config_for_meshing(
+        self.geographic_cfg = prepare_geographic_config_for_meshing(
             self.geographic_cfg,
             constraints_mode=self.constraints_mode,
         )
@@ -335,13 +342,7 @@ class MeshCatchmentLauncher:
 
     @classmethod
     def _require_mesh_section(cls, payload: Mapping[str, Any]) -> Mapping[str, Any]:
-        section = payload.get(cls.SECTION_NAME)
-        if not isinstance(section, Mapping):
-            raise ValueError(
-                "Missing [mesh_catchment] section in launcher TOML. "
-                "Expected one mapping compatible with the conformal meshing case schema."
-            )
-        return section
+        return require_mesh_section(payload, section_name=cls.SECTION_NAME)
 
     @classmethod
     def _constraints_mode_requires_river_trace(cls, constraints_mode: str) -> bool:
@@ -357,24 +358,11 @@ class MeshCatchmentLauncher:
         *,
         constraints_mode: str,
     ) -> GeographicConfig:
-        if not cls._constraints_mode_requires_river_trace(constraints_mode):
-            return geographic_cfg
-        if geographic_cfg.uses_synthetic_geographic():
-            return geographic_cfg
-        if bool(getattr(geographic_cfg.river_network, "enabled", False)):
-            return geographic_cfg
-
-        # Rivers-based meshing requires in-memory river_trace generation from
-        # geographic preprocessing. Turn it on explicitly when needed.
-        updated = geographic_cfg.model_copy(
-            update={
-                "river_network": geographic_cfg.river_network.model_copy(
-                    update={"enabled": True}
-                )
-            }
+        return prepare_geographic_config_for_meshing(
+            geographic_cfg,
+            constraints_mode=constraints_mode,
+            section_name=cls.SECTION_NAME,
         )
-        # Re-validate to fail fast when threshold parameters are incomplete.
-        return GeographicConfig.model_validate(updated.model_dump())
 
     def _build_domain_geographic_context(self, workspace, geographic_cfg):
         """Build domain-level geographic context with optional in-memory river trace."""

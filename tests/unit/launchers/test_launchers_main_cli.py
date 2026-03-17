@@ -155,6 +155,21 @@ def test_launchers_cli_mesh_catchment_run_dispatches_to_launcher(monkeypatch) ->
     assert captured["config"] == config_path.resolve()
 
 
+def test_launchers_cli_mesh_catchment_template_prints_single_template(
+    capsys,
+) -> None:
+    module = _load_module()
+
+    code = module.main(["mesh-catchment", "template"])
+
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert 'base_config = "config_mesh_catchment_common.toml"' in captured.out
+    assert "[mesh_catchment]" in captured.out
+    assert "Meshing compliance target" in captured.out
+
+
 def test_launchers_cli_rejects_unknown_command() -> None:
     module = _load_module()
 

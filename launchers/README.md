@@ -38,6 +38,10 @@ Commande recommandee pour la famille mesh-catchment :
 
 `python -m launchers mesh-catchment run <path/to/config.toml>`
 
+Generation d'un template canonique derive des schemas `pydantic` :
+
+`python -m launchers mesh-catchment template [--batch] [--profile user|dev|expert] [--output path/to/template.toml]`
+
 Commande directe (utile depuis un IDE) :
 
 `python launchers/mesh_catchment/launcher.py <path/to/config.toml>`
@@ -49,6 +53,15 @@ Exemple de config prete a lancer :
 Exemple de config batch par `outlet_id` :
 
 `launchers/mesh_catchment/config_mesh_catchment_batch_example.toml`
+
+Le sous-commande `template` imprime un TOML commente produit directement depuis
+les schemas `mesh_catchment` et `mesh_catchment_batch`. Cela permet de repartir
+d'un contrat a jour sans aller relire le code source.
+
+Templates canoniques versionnes :
+
+- `launchers/mesh_catchment/config_mesh_catchment_template.toml`
+- `launchers/mesh_catchment/config_mesh_catchment_batch_template.toml`
 
 Configuration en deux niveaux (meme logique que process_simulation) :
 

@@ -12,6 +12,7 @@ from typing import Any, Mapping
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     ValidationError,
     field_validator,
     model_validator,
@@ -23,17 +24,83 @@ class ZoneMeshingSettingsSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    algorithm: str = "delaunay"
-    global_size: float = 250.0
-    min_size: float | None = None
-    max_size: float | None = None
-    simplify_tolerance: float = 0.0
-    heal_tolerance: float = 0.0
-    min_polygon_area: float = 0.0
-    refine_interfaces: bool = False
-    interface_size: float | None = None
-    interface_distance: float | None = None
-    interface_sampling: int = 64
+    algorithm: str = Field(
+        default="delaunay",
+        description=(
+            "Planar Gmsh algorithm name. "
+            "In practice the examples use 'delaunay', which is a robust default for irregular geological and river-constrained domains."
+        ),
+    )
+    global_size: float = Field(
+        default=250.0,
+        description=(
+            "Baseline target cell size in projected metres over the full support domain. "
+            "Think of it as the coarse background resolution before local interface refinement is added."
+        ),
+    )
+    min_size: float | None = Field(
+        default=None,
+        description=(
+            "Lower bound on local cell size in projected metres. "
+            "Use it to prevent extreme refinement from generating very small cells in narrow features."
+        ),
+    )
+    max_size: float | None = Field(
+        default=None,
+        description=(
+            "Upper bound on local cell size in projected metres. "
+            "Use it when you want to cap the coarsening far from interfaces."
+        ),
+    )
+    simplify_tolerance: float = Field(
+        default=0.0,
+        description=(
+            "Geometry simplification tolerance, in projected metres, applied before meshing. "
+            "Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning."
+        ),
+    )
+    heal_tolerance: float = Field(
+        default=0.0,
+        description=(
+            "Cleanup tolerance, in projected metres, used to repair tiny gaps or slivers between input polygons. "
+            "Keep it near zero unless the source dataset is known to contain topology artifacts."
+        ),
+    )
+    min_polygon_area: float = Field(
+        default=0.0,
+        description=(
+            "Minimum polygon area, in square metres, kept after cleaning. "
+            "Use it to drop microscopic remnants that would otherwise create meaningless tiny mesh patches."
+        ),
+    )
+    refine_interfaces: bool = Field(
+        default=False,
+        description=(
+            "Enable a distance-based size field around geology or river interfaces. "
+            "When false, the mesh uses only the global background size constraints."
+        ),
+    )
+    interface_size: float | None = Field(
+        default=None,
+        description=(
+            "Target local size, in projected metres, close to constrained interfaces. "
+            "When omitted and refine_interfaces=true, the schema derives a conservative default from global_size/min_size."
+        ),
+    )
+    interface_distance: float | None = Field(
+        default=None,
+        description=(
+            "Influence distance, in projected metres, over which the local interface refinement fades back to the background size. "
+            "Larger values spread refinement farther away from the interface network."
+        ),
+    )
+    interface_sampling: int = Field(
+        default=64,
+        description=(
+            "Sampling density used to discretize interface-based distance fields. "
+            "Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost."
+        ),
+    )
 
     @field_validator("algorithm")
     @classmethod
