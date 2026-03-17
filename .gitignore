@@ -132,6 +132,7 @@ codex_validation_*/
 hmp_geo_*/
 hmp_wbw_*/
 scratch_tests/
+scratch_manual_checks/
 scratch_probe*/
 scratch_pytest*/
 scratch_regression_outputs*/
@@ -177,5 +178,8 @@ examples/Exemple_11_Imene/11S_short/data/regional dem 2.tif
 examples/Exemple_11_Imene/11S_short/data/regional dem 2.tif.aux.xml
 examples/Exemple_11_Imene/11S_short/data/regional dem.tif
 examples/Exemple_11_Imene/11S_short/data/regional dem.tif.aux.xml
+# Gmsh case runtime scratch artifacts
+hydromodpy/solver/utils/mesh/gmsh_grid/cases/**/scratch_tests/
+hydromodpy/solver/utils/mesh/gmsh_grid/cases/comparison_cartesian_vs_gmsh_3d/hydromodpy/
 hydromodpy/data_managers/ARCHITECTURE.md
 batch_extract_stations.py

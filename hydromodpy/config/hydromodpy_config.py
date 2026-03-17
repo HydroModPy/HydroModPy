@@ -40,6 +40,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.modflow import ModflowConfig
 from hydromodpy.solver.prototype.solver_config import SolverConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from hydromodpy.config.path_resolution import resolve_declared_path
 from hydromodpy.config.toml_loader import load_toml_with_base_config
 
 
@@ -261,10 +262,7 @@ def _resolve_section_paths(
             continue
         value = data.get(field_name)
         if isinstance(value, str) and value:
-            p = Path(value).expanduser()
-            if not p.is_absolute():
-                p = (base / p).resolve()
-            data[field_name] = str(p)
+            data[field_name] = str(resolve_declared_path(value, base_dir=base))
 
 
 def _load_standard_section(

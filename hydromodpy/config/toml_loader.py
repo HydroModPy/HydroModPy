@@ -5,13 +5,66 @@ from __future__ import annotations
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
+import re
 from typing import Any
+
+from hydromodpy.config.path_resolution import is_declared_absolute_path
+
+
+_BASIC_STRING_ASSIGNMENT_RE = re.compile(
+    r'^(?P<prefix>\s*[^#=\n]+?=\s*)"(?P<value>[^"\n]*)"(?P<suffix>\s*(?:#.*)?)$'
+)
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
     """Read one TOML file and return its raw mapping."""
-    with path.open("rb") as stream:
-        return tomllib.load(stream)
+    raw_text = path.read_text(encoding="utf-8-sig")
+    try:
+        return tomllib.loads(raw_text)
+    except tomllib.TOMLDecodeError:
+        repaired_text = _repair_path_like_basic_strings(raw_text)
+        if repaired_text == raw_text:
+            raise
+        return tomllib.loads(repaired_text)
+
+
+def _looks_like_path_key(key: str) -> bool:
+    token = str(key).strip().strip("'\"").split(".")[-1].lower()
+    if token == "base_config":
+        return True
+    return any(
+        hint in token
+        for hint in ("path", "root", "dir", "folder", "file", "mask")
+    )
+
+
+def _repair_path_like_basic_strings(text: str) -> str:
+    repaired_lines: list[str] = []
+    for line in text.splitlines(keepends=True):
+        newline = ""
+        if line.endswith("\r\n"):
+            line_body = line[:-2]
+            newline = "\r\n"
+        elif line.endswith("\n"):
+            line_body = line[:-1]
+            newline = "\n"
+        else:
+            line_body = line
+        match = _BASIC_STRING_ASSIGNMENT_RE.match(line_body)
+        if match is None:
+            repaired_lines.append(line)
+            continue
+        prefix = match.group("prefix")
+        key = prefix.split("=", 1)[0].strip()
+        value = match.group("value")
+        if ("\\" not in value) or (not _looks_like_path_key(key)):
+            repaired_lines.append(line)
+            continue
+        repaired_value = value.replace("\\", "\\\\")
+        repaired_lines.append(
+            f'{prefix}"{repaired_value}"{match.group("suffix")}{newline}'
+        )
+    return "".join(repaired_lines)
 
 
 def merge_toml_payloads(
@@ -97,7 +150,7 @@ def load_toml_with_base_config(
         raise TypeError("base_config must be a TOML string path when provided")
 
     base_path = Path(base_config_name).expanduser()
-    if not base_path.is_absolute():
+    if not is_declared_absolute_path(base_path):
         base_path = (resolved.parent / base_path).resolve()
 
     base_payload = load_toml_with_base_config(base_path, _stack=(*_stack, resolved))

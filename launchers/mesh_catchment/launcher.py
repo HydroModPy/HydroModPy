@@ -219,10 +219,70 @@ def _clone_config(config: object, *, updates: Mapping[str, Any]) -> object:
     return SimpleNamespace(**payload)
 
 
+def _resolve_workspace_path(raw_value: object, *, base_dir: Path) -> Path:
+    path = Path(str(raw_value)).expanduser()
+    if not path.is_absolute():
+        path = (base_dir / path).resolve()
+    return path
+
+
+def _workspace_catch_name(workspace_like: object) -> str:
+    catch_name = getattr(workspace_like, "catch_name", None)
+    if catch_name is not None:
+        return str(catch_name)
+    project_root = getattr(workspace_like, "project_root", None)
+    if project_root is not None:
+        return Path(project_root).name
+    raise AttributeError("workspace-like object must expose catch_name or project_root")
+
+
+def _workspace_project_root(workspace_like: object) -> Path:
+    project_root = getattr(workspace_like, "project_root", None)
+    if project_root is not None:
+        return Path(project_root)
+    catch_folder = getattr(workspace_like, "catch_folder", None)
+    if catch_folder is not None:
+        return Path(catch_folder)
+    out_dir = getattr(workspace_like, "out_dir_path", None)
+    catch_name = getattr(workspace_like, "catch_name", None)
+    if out_dir is not None and catch_name is not None:
+        return Path(out_dir) / str(catch_name)
+    raise AttributeError(
+        "workspace-like object must expose project_root, catch_folder, or out_dir_path+catch_name"
+    )
+
+
+def _workspace_output_root(workspace_like: object) -> Path:
+    stable_folder = getattr(workspace_like, "stable_folder", None)
+    if stable_folder is not None:
+        return Path(stable_folder).parent
+    output_root = getattr(workspace_like, "output_root", None)
+    if output_root is not None:
+        return Path(output_root)
+    return _workspace_project_root(workspace_like)
+
+
+def _derive_child_workspace_path(
+    *,
+    current_path: Path,
+    current_name: str,
+    child_name: str,
+) -> Path:
+    if current_path.name == str(current_name):
+        return current_path.parent / child_name
+    return current_path / child_name
+
+
 def _workspace_stable_folder(workspace_like: object) -> Path:
     stable_folder = getattr(workspace_like, "stable_folder", None)
     if stable_folder is not None:
         return Path(stable_folder)
+    output_root = getattr(workspace_like, "output_root", None)
+    if output_root is not None:
+        return Path(output_root) / "results_stable"
+    project_root = getattr(workspace_like, "project_root", None)
+    if project_root is not None:
+        return Path(project_root) / "results_stable"
     out_dir = Path(getattr(workspace_like, "out_dir_path"))
     catch_name = str(getattr(workspace_like, "catch_name"))
     return out_dir / catch_name / "results_stable"
@@ -254,15 +314,53 @@ class MeshCatchmentLauncher:
         )
         if self.batch_cfg is not None:
             self._validate_batch_output_configuration(self.batch_cfg)
+
+    def _normalize_workspace_section(
+        self,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        base_dir = self.config_path.parent
+        workspace_data = dict(payload.get("workspace", {}))
+
+        legacy_catch_name = _optional_text(workspace_data.pop("catch_name", None))
+        legacy_out_dir_path = workspace_data.pop("out_dir_path", None)
+
+        project_root_raw = workspace_data.get("project_root")
+        if legacy_out_dir_path is not None:
+            out_dir_path = _resolve_workspace_path(legacy_out_dir_path, base_dir=base_dir)
+            if legacy_catch_name is not None:
+                workspace_data["project_root"] = str((out_dir_path / legacy_catch_name).resolve())
+            elif project_root_raw in (None, ""):
+                workspace_data["project_root"] = str(out_dir_path.resolve())
+
+        if legacy_catch_name is not None:
+            if "project_root" in workspace_data and workspace_data["project_root"] not in (None, ""):
+                resolved_project_root = _resolve_workspace_path(
+                    workspace_data["project_root"],
+                    base_dir=base_dir,
+                )
+                if resolved_project_root.name != legacy_catch_name:
+                    resolved_project_root = (
+                        resolved_project_root / legacy_catch_name
+                        if project_root_raw in (None, "", ".")
+                        else resolved_project_root.parent / legacy_catch_name
+                    )
+                workspace_data["project_root"] = str(resolved_project_root.resolve())
+            else:
+                workspace_data["project_root"] = str((base_dir / legacy_catch_name).resolve())
+
+        if not workspace_data.get("project_root"):
+            workspace_data["project_root"] = str(base_dir)
+
+        return workspace_data
+
     def _load_runtime_configs(
         self,
         payload: Mapping[str, Any],
     ) -> tuple[WorkspaceConfig, GeographicConfig]:
         """Load only workspace/geographic sections needed by this mesh-only launcher."""
         base_dir = self.config_path.parent
-        workspace_data = dict(payload.get("workspace", {}))
-        if not workspace_data.get("project_root"):
-            workspace_data["project_root"] = str(base_dir)
+        workspace_data = self._normalize_workspace_section(payload)
         workspace_cfg = _load_standard_section(
             workspace_data,
             WorkspaceConfig,
@@ -624,7 +722,7 @@ class MeshCatchmentLauncher:
         record: MeshCatchmentOutletRecord,
     ) -> str:
         tokens = {
-            "catch_name": str(self.workspace_cfg.catch_name),
+            "catch_name": _workspace_catch_name(self.workspace_cfg),
             "outlet_id": record.outlet_id_safe,
         }
         return batch_cfg.catch_name_pattern.format_map(tokens)
@@ -633,7 +731,7 @@ class MeshCatchmentLauncher:
         self,
         batch_cfg: MeshCatchmentBatchConfig,
     ) -> Path:
-        batch_root = Path(self.workspace_cfg.out_dir_path) / str(self.workspace_cfg.catch_name)
+        batch_root = _workspace_project_root(self.workspace_cfg)
         raw_manifest = _optional_text(batch_cfg.outputs.manifest_csv)
         if raw_manifest is None:
             return (batch_root / "mesh_catchment_batch_manifest.csv").resolve()
@@ -650,7 +748,7 @@ class MeshCatchmentLauncher:
         record: MeshCatchmentOutletRecord,
     ) -> dict[str, Path | None]:
         mesh_dir = _workspace_stable_folder(workspace_cfg) / "mesh" / "gmsh"
-        catch_name_safe = _sanitize_path_token(getattr(workspace_cfg, "catch_name"))
+        catch_name_safe = _sanitize_path_token(_workspace_catch_name(workspace_cfg))
         tokens = {
             "catch_name": catch_name_safe,
             "outlet_id": record.outlet_id_safe,
@@ -695,12 +793,28 @@ class MeshCatchmentLauncher:
         records = self._load_outlet_records(batch_cfg)
         manifest_path = self._resolve_batch_manifest_path(batch_cfg)
         results: list[dict[str, Any]] = []
+        base_catch_name = _workspace_catch_name(self.workspace_cfg)
+        base_project_root = _workspace_project_root(self.workspace_cfg)
+        base_output_root = getattr(self.workspace_cfg, "output_root", None)
 
         for record in records:
             catch_name = self._format_batch_catch_name(batch_cfg, record)
+            workspace_updates: dict[str, Any] = {
+                "project_root": _derive_child_workspace_path(
+                    current_path=base_project_root,
+                    current_name=base_catch_name,
+                    child_name=catch_name,
+                ),
+            }
+            if base_output_root is not None:
+                workspace_updates["output_root"] = _derive_child_workspace_path(
+                    current_path=Path(base_output_root),
+                    current_name=base_catch_name,
+                    child_name=catch_name,
+                )
             workspace_cfg = _clone_config(
                 self.workspace_cfg,
-                updates={"catch_name": catch_name},
+                updates=workspace_updates,
             )
             geographic_cfg = _clone_config(
                 self.geographic_cfg,
