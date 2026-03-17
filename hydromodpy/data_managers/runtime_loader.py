@@ -63,6 +63,9 @@ class DataManagersRuntimeLoader:
 
         active_types = tuple(self.data_plan.types)
         for type_name in active_types:
+            if type_name == "dem":
+                self._load_dem_data(result)
+                continue
             if type_name == "geology":
                 self._load_geology_data(result)
                 continue
@@ -109,6 +112,36 @@ class DataManagersRuntimeLoader:
                 self._load_climatic_variable(result, "soil_moisture")
                 continue
             print(f"[DataManagersPlanner] Warning: unsupported data type '{type_name}' in plan.")
+
+    def _load_dem_data(self, result: "LauncherRunState") -> None:
+        """Load DEM data via DemManager."""
+        from hydromodpy.data_managers.variables.dem.config import DemConfig
+        from hydromodpy.data_managers.variables.dem.manager import DemManager
+
+        raw_section = self._get_data_section(result, "dem")
+        if raw_section is None:
+            self._handle_missing_data_section(
+                result, "dem", "missing [data.dem] section",
+            )
+            return
+
+        try:
+            dem_cfg = DemConfig.model_validate(raw_section)
+
+            for src in dem_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+
+            manager = DemManager(
+                config=dem_cfg,
+                catalog=self._catalog,
+                project_extent=None,
+                data_dir=self._data_dir("dem"),
+                geographic=result.setup.geographic,
+            )
+            result.loaded_data.dem = manager.load()
+        except Exception as exc:
+            self._handle_data_loading_error(result, "dem", exc)
 
     def _load_geology_data(self, result: "LauncherRunState") -> None:
         """Load geology data via GeologyManager, then build GeologyField."""

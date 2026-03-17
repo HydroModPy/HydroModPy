@@ -49,7 +49,7 @@ def _download_department(
 
     Returns path to the extracted S_FGEOL shapefile, or None if unavailable.
     """
-    from hydromodpy.data_managers.variables.geology.departments import (
+    from hydromodpy.data_managers.common.administrative.france import (
         department_code_to_brgm_code,
     )
 
@@ -121,7 +121,7 @@ def fetch_brgm_50k(
     -------
     Path to the merged and cropped GeoPackage.
     """
-    from hydromodpy.data_managers.variables.geology.departments import (
+    from hydromodpy.data_managers.common.administrative.france import (
         find_departments_in_bbox,
     )
 
@@ -135,7 +135,7 @@ def fetch_brgm_50k(
         return merged_gpkg
 
     # Step 1: find departments
-    dept_codes = find_departments_in_bbox(bbox, cache_dir=output_dir / "departments")
+    dept_codes = find_departments_in_bbox(bbox)
     if not dept_codes:
         raise ValueError(
             f"No department found overlapping bbox {bbox}. "

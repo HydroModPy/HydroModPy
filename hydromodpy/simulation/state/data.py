@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 class LoadedDataContext:
     """Loaded data-manager objects shared by process runs."""
 
+    dem: LoadResult | None = None
     geology: GeologyField | None = None
     oceanic: LoadResult | None = None
     hydrography: HydrographyResult | None = None
