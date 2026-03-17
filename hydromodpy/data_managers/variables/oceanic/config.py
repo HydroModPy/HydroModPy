@@ -9,6 +9,7 @@ from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.config.path_resolution import resolve_declared_path
 
 
 class OceanicSourceConfig(BaseModel):
@@ -131,7 +132,7 @@ class OceanicConfig(BaseModel):
 def _resolve_paths(cfg: "OceanicConfig", toml_dir: Path) -> None:
     """Resolve relative paths in source configs relative to the TOML directory."""
     for src in cfg.sources:
-        if src.path is not None and not src.path.is_absolute():
-            src.path = (toml_dir / src.path).resolve()
-        if src.mask_path is not None and not src.mask_path.is_absolute():
-            src.mask_path = (toml_dir / src.mask_path).resolve()
+        if src.path is not None:
+            src.path = resolve_declared_path(src.path, base_dir=toml_dir)
+        if src.mask_path is not None:
+            src.mask_path = resolve_declared_path(src.mask_path, base_dir=toml_dir)

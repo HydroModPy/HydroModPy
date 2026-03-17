@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 
 def _run_simulation_launcher(config_path: Path) -> None:
@@ -26,11 +27,45 @@ def _run_simulation_launcher(config_path: Path) -> None:
     HydroModPyLauncher(config_path).run()
 
 
+def _collect_mesh_catchment_figures(summary: Any) -> list[str]:
+    """Extract created figure paths from one mesh-catchment launcher summary."""
+    if not isinstance(summary, dict):
+        return []
+
+    mode = str(summary.get("mode", "")).strip().lower()
+    if mode == "batch":
+        figures: list[str] = []
+        for row in summary.get("results", ()):
+            if not isinstance(row, dict):
+                continue
+            figure_path = str(row.get("output_figure", "")).strip()
+            if figure_path != "":
+                figures.append(figure_path)
+        return figures
+
+    figure_path = str(summary.get("output_figure", "")).strip()
+    if figure_path == "":
+        return []
+    return [figure_path]
+
+
+def _print_mesh_catchment_figures(summary: Any) -> None:
+    """Print created figure paths at the end of one mesh-catchment CLI run."""
+    figures = _collect_mesh_catchment_figures(summary)
+    if not figures:
+        return
+    print("")
+    print("Created figures:")
+    for figure_path in figures:
+        print(f"  {figure_path}")
+
+
 def _run_mesh_catchment_launcher(config_path: Path) -> None:
     """Execute the mesh-catchment launcher for one TOML configuration path."""
     from launchers import MeshCatchmentLauncher
 
-    MeshCatchmentLauncher(config_path).run()
+    summary = MeshCatchmentLauncher(config_path).run()
+    _print_mesh_catchment_figures(summary)
 
 
 def _build_parser() -> argparse.ArgumentParser:

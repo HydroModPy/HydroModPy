@@ -23,10 +23,10 @@ class _DummyWorkspace:
 class _DummyBatchWorkspace:
     def __init__(self, config) -> None:
         self.config = config
+        self.project_root = Path(config.project_root)
         self.catch_name = str(config.catch_name)
-        self.out_dir_path = Path(config.out_dir_path)
-        self.catch_folder = self.out_dir_path / self.catch_name
-        self.stable_folder = self.catch_folder / "results_stable"
+        self.catch_folder = self.project_root
+        self.stable_folder = self.project_root / "results_stable"
 
 
 class _DummyDomainGeographic:
@@ -49,9 +49,8 @@ def _minimal_cfg(tmp_path: Path):
 def _batch_cfg(tmp_path: Path):
     return SimpleNamespace(
         workspace=WorkspaceConfig(
-            catch_name="mesh_batch",
-            out_dir_path=tmp_path / "out",
-            data_path=tmp_path / "data",
+            project_root=tmp_path / "out" / "mesh_batch",
+            workspace_root=tmp_path,
         ),
         geographic=GeographicConfig(
             catch_def="from_outlet_coord",
