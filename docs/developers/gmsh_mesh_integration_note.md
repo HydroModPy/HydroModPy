@@ -1,6 +1,11 @@
 # Note d'integration du maillage Gmsh
 
-Statut : note de travail en cours, prevue pour iteration.
+Statut : note de travail vivante.
+
+Une partie importante des propositions historiques ci-dessous est maintenant
+implantee dans le depot. Cette note reste utile comme trace de conception,
+mais elle ne doit plus etre lue comme une description exacte, ligne a ligne,
+de l'arborescence courante.
 
 ## Objectif
 
@@ -29,6 +34,32 @@ Le travail autour de Gmsh doit reutiliser ce contrat de maillage generique
 existant plutot que de creer une troisieme abstraction parallele.
 
 ## Etat actuel du code
+
+### Mise a jour de statut
+
+Au moment de cette mise a jour, les briques suivantes existent deja dans le
+code :
+
+- un maillage planaire Gmsh 2D concret avec pont vers `HydroMesh`
+- une extrusion prismatique 3D reutilisable hors solveur
+- une discretisation `Field` / `FieldParam` sur ces maillages 2D et 3D
+- un workflow de maillage conforme aux zones geologiques et aux rivieres
+- un launcher `mesh-catchment` mono-catchment et batch
+- un export de bundle externe pour reutilisation hors HydroModPy
+- des cas de reference et des tests de non-regression 2D et 3D
+
+En revanche, deux limites structurantes restent ouvertes :
+
+- le couplage solveur non structure n'est toujours pas la cible de cette note
+- la geometrie verticale reste basee sur des interfaces `z` globales, sans
+  `top` / `bottom` variables cellule par cellule ni pinchout
+
+Convention pratique a garder :
+
+- les fichiers sous `cases/*/outputs/` ne doivent rester versionnes que s'ils
+  jouent le role d'actifs de reference pour les cas ou les tests
+- les dossiers `scratch_tests/` et autres sorties de runtime locale ne doivent
+  pas etre suivis dans Git
 
 ### Le chemin solveur structure est volontairement specifique
 
@@ -2278,10 +2309,18 @@ Precision d'implementation pour la premiere iteration :
 - cette simplification est volontaire pour figer d'abord proprement l'objet
   maillage 3D et ses formats d'echange
 
-## Deuxieme temps possible : maillage contraint par les limites de zones
+## Etat du maillage contraint par les limites de zones
 
-Cette extension ne fait pas partie de l'iteration 1, mais elle merite d'etre
-gardee comme piste explicite pour l'iteration 2.
+Ce point n'est plus une simple piste de conception : il existe maintenant dans
+le depot via le workflow de maillage conforme aux zones et aux rivieres.
+
+Le backend actuel sait deja :
+
+- fournir au mailleur une decomposition en zones 2D
+- demander au maillage de suivre explicitement les limites de ces zones
+- creer des groupes physiques de surface et de courbe
+- embarquer des contraintes de trace de riviere dans le meme contrat
+- produire des sorties QA stables pour les cas de reference
 
 Principe :
 
@@ -2294,7 +2333,7 @@ Interet :
 - aligner le maillage sur les interfaces geologiques ou de support
 - rendre la projection de `Field` puis de `FieldParam` plus propre
 
-Contraintes et impacts :
+Contraintes et impacts qui restent vrais :
 
 - il faut disposer d'une geometrie de zones propre et topologiquement
   consistente
@@ -2304,11 +2343,14 @@ Contraintes et impacts :
 - cette extension est beaucoup plus naturelle avec des triangles qu'avec des
   quadrilateres purs
 
-Decision de planification :
+Ce qui reste ouvert apres cette implementation :
 
-- ne pas l'inclure dans l'iteration 1
-- l'etudier en iteration 2, d'abord sur la variante triangulaire
-- ne l'envisager qu'une fois le workflow 2D/3D extrude de base stabilise
+- durcir encore les tests E2E du launcher autour de ces cas
+- maintenir la documentation synchronisee avec l'etat reel du code
+- nettoyer les artefacts de runtime qui ne sont pas des actifs de reference
+- decider si la suite vise un simple export externe ou un vrai couplage solveur
+- si besoin, etendre ensuite la geometrie verticale a des surfaces variables par
+  cellule
 
 ## Conclusion proposee pour l'iteration 1
 
@@ -2327,6 +2369,6 @@ Pour l'iteration 1, la direction la plus pragmatique est :
 - reprendre la logique visuelle de `run_demo_2d` pour la figure de controle
 - aligner la discretisation 3D sur la logique de `cartesian_grid` :
   discretisation 2D du support puis extrusion verticale des proprietes
-- garder le maillage contraint par limites de zones comme extension de
-  deuxieme temps
+- s'appuyer sur le maillage contraint par limites de zones comme brique deja
+  disponible du backend actuel
 - repousser le couplage solveur non structure a une note de conception ulterieure
