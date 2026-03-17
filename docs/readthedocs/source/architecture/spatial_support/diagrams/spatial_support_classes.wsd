@@ -79,7 +79,7 @@ package "hydromodpy.domain.catchment_zones_field" {
   }
 }
 
-package "hydromodpy.data_managers.geology.geology_field" {
+package "hydromodpy.field.geology.geology_field" {
   class GeologyField {
     +identifier: str
     +encoded_codes: np.ndarray

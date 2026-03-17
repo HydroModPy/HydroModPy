@@ -49,7 +49,7 @@ package "hydromodpy.data_managers" {
   }
 }
 
-package "hydromodpy.data_managers.geology" {
+package "hydromodpy.field.geology" {
   class GeologyField {
     +from_watershed_config(...)
   }

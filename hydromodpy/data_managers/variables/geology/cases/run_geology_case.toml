@@ -11,9 +11,9 @@
 #
 # Typical usage in Python:
 # ------------------------
-# from hydromodpy.data_managers.geology import GeologyField
+# from hydromodpy.field.geology import GeologyField
 # field = GeologyField.from_toml(
-#     "hydromodpy/data_managers/geology/cases/run_geology_case.toml",
+#     "hydromodpy/data_managers/variables/geology/cases/run_geology_case.toml",
 #     section="geology",
 # )
 #

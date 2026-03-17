@@ -19,12 +19,17 @@ from hydromodpy.field.cases.square import (
     FieldMeshSquare,
     FieldSquare,
 )
+from hydromodpy.field.geology import (
+    GeologyField,
+    GeologyStructuredMesh,
+)
 
 __all__ = (
     "FieldParam",
     "Field",
     "FieldSquare",
     "GeologyField",
+    "GeologyStructuredMesh",
     "FieldDiscretization",
     "WeightedAverageFieldDiscretization",
     "FieldMesh",
@@ -36,12 +41,3 @@ __all__ = (
     "TriangularStructuredFieldMesh",
     "TriangularUnstructuredFieldMesh",
 )
-
-
-def __getattr__(name):
-    """Lazily resolve optional case modules to avoid import cycles."""
-    if name == "GeologyField":
-        from hydromodpy.data_managers.geology import GeologyField
-
-        return GeologyField
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -381,7 +381,7 @@ Je proposerais de formaliser la lecture suivante :
 Deux implementations existantes sont pertinentes :
 
 - `hydromodpy/field/cases/square/field_mesh_square.py`
-- `hydromodpy/data_managers/geology/geology_mesh.py`
+- `hydromodpy/field/geology/geology_mesh.py`
 
 `field_mesh_square.py` est utile comme reference pour les maillages
 triangulaires, mais reste oriente demonstration.

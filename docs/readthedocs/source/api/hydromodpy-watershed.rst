@@ -14,7 +14,7 @@ Class overview
 
    ~hydromodpy.legacy.watershed.watershed_root_legacy.Watershed
    ~hydromodpy.geographic.Geographic
-   ~hydromodpy.data_managers.geology.GeologyField
+   ~hydromodpy.field.geology.GeologyField
    ~hydromodpy.legacy.watershed.hydrography.Hydrography
    ~hydromodpy.legacy.watershed.Hydrometry
    ~hydromodpy.data_managers.intermittency.Intermittency

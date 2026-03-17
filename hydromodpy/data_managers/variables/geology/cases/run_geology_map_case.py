@@ -9,7 +9,7 @@ classes (not a uniform map).
 By default, sea polygons are reassigned to one uniform class for readability.
 
 Run from repository root:
-    python hydromodpy/data_managers/geology/cases/run_geology_map_case.py
+    python hydromodpy/data_managers/variables/geology/cases/run_geology_map_case.py
 """
 
 from __future__ import annotations
@@ -22,20 +22,20 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 # Ensure repository root is importable when script is launched directly.
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(__file__).resolve().parents[5]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.data_managers.geology.cases.common import (
+from hydromodpy.data_managers.variables.geology.cases.common import (
     clip_square_window,
     format_axes_ticks_km,
     resolve_case_path,
     resolve_output_path,
     save_figure,
 )
-from hydromodpy.data_managers.geology.geology_config import load_geology_toml
-from hydromodpy.data_managers.geology.geology_io import load_vector_geology_dataframe
-from hydromodpy.data_managers.geology.geology_processing import (
+from hydromodpy.data_managers.variables.geology.config_cases import load_geology_toml
+from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
+from hydromodpy.data_managers.variables.geology.processing import (
     build_zone_class_index_on_dataframe,
     uniformize_sea_zone_on_dataframe,
 )
@@ -77,7 +77,7 @@ def _parse_args(argv=None):
         default=DEFAULT_OUTPUT_FILE,
         help=(
             "Output figure path. Bare filenames are saved in outputs/. "
-            "Relative paths are resolved from hydromodpy/data_managers/geology/cases/ "
+            "Relative paths are resolved from hydromodpy/data_managers/variables/geology/cases/ "
             f"(default: {DEFAULT_OUTPUT_FILE})."
         ),
     )

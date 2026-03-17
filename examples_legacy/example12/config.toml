@@ -126,17 +126,12 @@ inference_mode = "warn"
 [data.geology]
 # Identifier of the geology spatial field.
 id = "field_geology"
-# Path to the geology data directory.
-geo_path = "../../data/France/geology"
-# Geology shapefile name inside `geo_path`.
-types_obs = "GEO1M.shp"
-# Attribute field used to encode geology classes.
-fields_obs = "CODE_LEG"
 # Sub-sampling density passed to geology_field.on_mesh(...).
 # Higher values improve interface resolution but increase runtime.
 cell_samples_per_axis = 8
-# Legacy land/sea activation flag.
-landsea = false
+
+[[data.geology.sources]]
+source = "brgm_1m"
 
 
 # ----------------------------------------------------------------------

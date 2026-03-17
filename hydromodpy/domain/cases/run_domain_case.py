@@ -175,7 +175,7 @@ def run_domain_case_from_toml(
         if cfg.data.geology is None:
             geology_reason = "Geology-backed domain declarations require [data.geology]"
         else:
-            from hydromodpy.data_managers.geology.geology_field import GeologyField
+            from hydromodpy.field.geology.geology_field import GeologyField
 
             geology = GeologyField.from_watershed_config(
                 cfg.data.geology,

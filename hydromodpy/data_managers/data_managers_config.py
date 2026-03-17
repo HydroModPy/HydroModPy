@@ -20,7 +20,7 @@ from typing import Any, Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.legacy.watershed.geology_config import GeologyConfig
+from hydromodpy.data_managers.variables.geology.config import GeologyConfig
 
 
 SUPPORTED_DATA_MANAGER_TYPES = (

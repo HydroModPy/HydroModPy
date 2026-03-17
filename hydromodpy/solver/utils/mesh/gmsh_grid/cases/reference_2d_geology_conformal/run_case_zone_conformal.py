@@ -26,8 +26,8 @@ import numpy as np
 import pandas as pd
 import rasterio
 
-from hydromodpy.data_managers.geology.geology_config import validate_geology_config_data
-from hydromodpy.data_managers.geology.geology_io import load_vector_geology_dataframe
+from hydromodpy.data_managers.variables.geology.config_cases import validate_geology_config_data
+from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.geographic.core.river_mesh_trace import (
     build_river_mesh_trace_from_vector,
 )

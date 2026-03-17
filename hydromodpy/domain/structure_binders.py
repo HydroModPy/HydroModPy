@@ -15,7 +15,7 @@ from hydromodpy.geographic.core.catchment_zones import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.data_managers.geology.geology_field import GeologyField
+    from hydromodpy.field.geology.geology_field import GeologyField
     from hydromodpy.domain import Domain
 
 

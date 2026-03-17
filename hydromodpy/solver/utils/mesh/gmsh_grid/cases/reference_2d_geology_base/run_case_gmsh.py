@@ -24,8 +24,8 @@ import matplotlib.ticker as mticker
 import numpy as np
 from shapely.geometry import box
 
-from hydromodpy.data_managers.geology.geology_config import validate_geology_config_data
-from hydromodpy.data_managers.geology.geology_field import GeologyField
+from hydromodpy.data_managers.variables.geology.config_cases import validate_geology_config_data
+from hydromodpy.field.geology.geology_field import GeologyField
 from hydromodpy.field.core.field_param import FieldParam
 from hydromodpy.field.core.field_param_config import (
     resolve_field_param_config_payload,

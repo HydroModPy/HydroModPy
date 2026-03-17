@@ -149,27 +149,13 @@ types = ["geology"]
 # Type: string | Default: "field_geology"
 id = "field_geology"
 
-# Path to the geology data directory.
-# Type: path | Default: "data/France/geology"
-geo_path = "../../data/France/geology"
-
-# Geology shapefile name inside `geo_path`.
-# Type: string | Default: "GEO1M.shp"
-types_obs = "GEO1M.shp"
-
-# Attribute field used to encode geology classes.
-# Type: string | Default: "CODE_LEG"
-fields_obs = "CODE_LEG"
-
 # Sub-sampling density passed to geology_field.on_mesh(...).
 # Higher values improve interface resolution but increase runtime.
 # Type: int | >= 2 | Default: 8
 cell_samples_per_axis = 8
 
-# Optional land/sea activation flag used by the legacy geology workflow.
-# Set to true to enable sea-specific processing.
-# Type: bool (optional) | Optional
-# landsea =
+[[data.geology.sources]]
+source = "brgm_1m"
 
 
 # ----------------------------------------------------------------------

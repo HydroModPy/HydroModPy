@@ -20,7 +20,7 @@ from pydantic import (
 from shapely.geometry import GeometryCollection, MultiPolygon, Polygon, box
 from shapely.ops import unary_union
 
-from hydromodpy.data_managers.geology.geology_io import resolve_data_path
+from hydromodpy.data_managers.variables.geology.io import resolve_data_path
 
 try:  # Shapely >= 2
     from shapely import make_valid as _shapely_make_valid

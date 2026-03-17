@@ -1,25 +1,8 @@
-﻿"""
-Pydantic schemas and helpers for geology field case configuration.
+"""
+Pydantic schemas for standalone geology case configuration.
 
-The goal is to validate geology-specific settings before creating a
-`GeologyField` instance. This keeps I/O and spatial processing code focused on
-their domain logic.
-
-Didactic overview
------------------
-The geology case configuration is intentionally split into clear blocks:
-
-1) `[geology]`
-   - global field identity and processing options.
-2) `[geology.source]`
-   - where geology comes from (raster or vector).
-3) `[geology.landsea]` (optional)
-   - optional override on sea pixels.
-
-This separation makes the intent explicit:
-- `source` defines *what geology is*,
-- `landsea` defines *how some pixels are corrected*,
-- `geology` defines *how to expose the final field*.
+These schemas validate TOML configs used by geology demo scripts.
+They are separate from the main variable config (``config.py``).
 """
 
 from __future__ import annotations
@@ -54,25 +37,7 @@ def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping
 
 
 class GeologySourceSchema(BaseModel):
-    """
-    Schema for geology data source definition.
-
-    Examples
-    --------
-    Raster source:
-        source = {
-            "path": "data/Brittany/dem/regional dem.tif",
-            "kind": "raster",
-        }
-
-    Vector source:
-        source = {
-            "path": "data/France/geology/GEO1M.shp",
-            "kind": "vector",
-            "code_field": "CODE_LEG",
-            "reference_raster_path": "data/Brittany/dem/regional dem.tif",
-        }
-    """
+    """Schema for geology data source definition."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -120,18 +85,7 @@ class GeologySourceSchema(BaseModel):
 
 
 class GeologyLandSeaSchema(BaseModel):
-    """
-    Optional sea-mask override for coastal workflows.
-
-    Concept
-    -------
-    A land/sea raster can be used to force sea cells to one geology code.
-    For example, if sea is encoded as `0` in the land/sea raster:
-        enabled = true
-        sea_value = 0
-        override_code = "1"
-    then all sea pixels become geology zone `"1"`.
-    """
+    """Optional sea-mask override for coastal workflows."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -171,15 +125,7 @@ class GeologyLandSeaSchema(BaseModel):
 
 
 class GeologyConfigSchema(BaseModel):
-    """
-    Top-level schema for one geology field definition.
-
-    Minimal example (raster source):
-        {
-            "id": "field_geology",
-            "source": {"path": "data/Brittany/dem/regional dem.tif", "kind": "raster"},
-        }
-    """
+    """Top-level schema for one geology field definition (standalone cases)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -217,15 +163,7 @@ class GeologyConfigSchema(BaseModel):
 
 
 def validate_geology_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:
-    """
-    Validate raw geology config mapping and return normalized Python data.
-
-    Why validate here?
-    ------------------
-    This function is the contract boundary:
-    - invalid config is rejected early with explicit errors,
-    - downstream code can assume a coherent configuration.
-    """
+    """Validate raw geology config mapping and return normalized Python data."""
     if not isinstance(config_data, Mapping):
         raise ValueError("geology configuration must be a mapping")
     try:
@@ -236,23 +174,11 @@ def validate_geology_config_data(config_data: Mapping[str, Any]) -> dict[str, An
 
 
 def load_geology_toml(config_path: str | Path, section: str = "geology") -> dict[str, Any]:
-    """
-    Load TOML file and validate one geology section.
-
-    Example
-    -------
-    payload = load_geology_toml(
-        "hydromodpy/data_managers/geology/cases/run_geology_case.toml",
-        section="geology",
-    )
-    """
+    """Load TOML file and validate one geology section."""
     path = Path(config_path)
-    # Use utf-8-sig so files with a UTF-8 BOM remain parseable.
     payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
     section_cfg = _get_nested_section(payload, section)
     try:
         return validate_geology_config_data(section_cfg)
     except ValueError as exc:
         raise ValueError(f"Invalid geology configuration in {path}: {exc}") from exc
-
-

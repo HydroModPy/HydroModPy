@@ -111,34 +111,125 @@ class DataManagersRuntimeLoader:
             print(f"[DataManagersPlanner] Warning: unsupported data type '{type_name}' in plan.")
 
     def _load_geology_data(self, result: "LauncherRunState") -> None:
-        """Load geology support as a standalone data object."""
-        from hydromodpy.data_managers.geology.geology_field import GeologyField
+        """Load geology data via GeologyManager, then build GeologyField."""
+        from hydromodpy.data_managers.variables.geology.config import GeologyConfig
+        from hydromodpy.data_managers.variables.geology.manager import GeologyManager
+        from hydromodpy.field.geology.geology_field import GeologyField
 
-        geology_cfg = result.cfg.data.geology
-        if geology_cfg is None:
+        raw_section = self._get_data_section(result, "geology")
+        if raw_section is None:
             self._handle_missing_data_section(
-                result,
-                "geology",
-                "missing [data.geology] section",
+                result, "geology", "missing [data.geology] section",
             )
             return
 
         raster_support = self._resolve_geology_raster_support(result)
-        if raster_support is None:
-            self._handle_data_loading_error(
-                result,
-                "geology",
-                ValueError("domain/geographic surface raster support is not available"),
-            )
-            return
 
         try:
-            result.loaded_data.geology = GeologyField.from_watershed_config(
-                geology_cfg,
-                raster_support=raster_support,
+            geology_cfg = GeologyConfig.model_validate(raw_section)
+
+            # Resolve mask from geographic if not set on sources
+            for src in geology_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+
+            manager = GeologyManager(
+                config=geology_cfg,
+                catalog=self._catalog,
+                project_extent=None,
+                data_dir=self._data_dir("geology"),
+                geographic=result.setup.geographic,
             )
+            load_result = manager.load()
+
+            # Build GeologyField from loaded data
+            if load_result.fields:
+                field_record = load_result.fields[0]
+                geology_field = self._build_geology_field_from_record(
+                    field_record,
+                    geology_cfg=geology_cfg,
+                    raster_support=raster_support,
+                )
+                result.loaded_data.geology = geology_field
+            else:
+                self._handle_data_loading_error(
+                    result, "geology",
+                    ValueError("GeologyManager returned no field records"),
+                )
         except Exception as exc:
             self._handle_data_loading_error(result, "geology", exc)
+
+    @staticmethod
+    def _build_geology_field_from_record(
+        field_record,
+        *,
+        geology_cfg,
+        raster_support,
+    ):
+        """Build a GeologyField from a FieldRecord (GeoPackage or raster)."""
+        from hydromodpy.data_managers.variables.geology.config_cases import (
+            validate_geology_config_data,
+        )
+        from hydromodpy.data_managers.variables.geology.io import (
+            infer_source_kind,
+            load_geology_encoded_grid,
+            load_geology_encoded_grid_on_raster_support,
+        )
+        from hydromodpy.field.geology.geology_field import GeologyField
+
+        data_path = field_record.data
+        if isinstance(data_path, Path):
+            data_path = str(data_path)
+        else:
+            data_path = str(data_path)
+
+        # BRGM data always uses CODE_LEG; custom sources carry their own code_field.
+        source_name = getattr(field_record, "source", "")
+        if source_name in ("brgm_1m", "brgm_50k"):
+            code_field = "CODE_LEG"
+        else:
+            # Find the matching source config to retrieve user-specified code_field.
+            code_field = "CODE_LEG"  # safe fallback for GeoPackages from BRGM
+            for src in getattr(geology_cfg, "sources", []):
+                if getattr(src, "source", "") == "custom" and getattr(src, "code_field", None):
+                    code_field = src.code_field
+                    break
+        source_kind = infer_source_kind(data_path)
+
+        cfg_dict = {
+            "id": str(geology_cfg.id),
+            "source": {
+                "path": data_path,
+                "kind": source_kind,
+                "code_field": code_field,
+                "all_touched": False,
+            },
+            "cell_samples_per_axis": int(geology_cfg.cell_samples_per_axis),
+        }
+
+        if raster_support is not None and source_kind == "vector":
+            # Add a dummy reference_raster_path for validation
+            cfg_dict["source"]["reference_raster_path"] = data_path
+            cfg = validate_geology_config_data(cfg_dict)
+            loaded = load_geology_encoded_grid_on_raster_support(
+                cfg, raster_support=raster_support,
+            )
+        else:
+            if source_kind == "vector":
+                # Vector without raster support — needs reference raster
+                cfg_dict["source"]["reference_raster_path"] = data_path
+            cfg = validate_geology_config_data(cfg_dict)
+            loaded = load_geology_encoded_grid(cfg)
+
+        return GeologyField(
+            identifier=str(geology_cfg.id),
+            encoded_codes=loaded["encoded_codes"],
+            encoded_to_zone=loaded["encoded_to_zone"],
+            transform=loaded["transform"],
+            crs=loaded["crs"],
+            source_kind=str(loaded["source_kind"]),
+            default_cell_samples_per_axis=int(geology_cfg.cell_samples_per_axis),
+        )
 
     @staticmethod
     def _resolve_geology_raster_support(result: "LauncherRunState") -> Any:
