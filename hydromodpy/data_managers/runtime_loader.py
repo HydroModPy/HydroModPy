@@ -259,7 +259,13 @@ class DataManagersRuntimeLoader:
                 project_extent=None,
                 data_dir=self._data_dir("intermittency"),
             )
-            result.loaded_data.intermittency = manager.load()
+            load_result = manager.load()
+            result.loaded_data.intermittency = load_result
+
+            # Export to results_stable/intermittency/ (CSV chronicles).
+            workspace_paths = self._workspace_paths(result)
+            stable_dir = workspace_paths.manager_stable_folder("intermittency")
+            manager.export(load_result, stable_dir)
         except Exception as exc:
             self._handle_data_loading_error(result, "intermittency", exc)
 

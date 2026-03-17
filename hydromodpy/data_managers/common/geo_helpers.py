@@ -109,6 +109,48 @@ def _load_mask_from_raster(path: Path):
         return unary_union(geoms).convex_hull
 
 
+def load_mask_geometry_wgs84(path: Path):
+    """Load a spatial mask and reproject to WGS84 (EPSG:4326).
+
+    Returns a shapely geometry in WGS84 coordinates.  Useful for API
+    calls (Hub'Eau, OSM, ...) that expect lon/lat bounding boxes.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Mask file not found: {path}")
+
+    suffix = path.suffix.lower()
+    if suffix in (".shp", ".gpkg", ".geojson"):
+        try:
+            import geopandas as gpd
+        except ImportError as exc:
+            raise ImportError("geopandas required for vector mask.") from exc
+        gdf = gpd.read_file(path)
+        if gdf.empty:
+            raise ValueError(f"Empty vector file: {path}")
+        if gdf.crs is not None and not gdf.crs.equals("EPSG:4326"):
+            gdf = gdf.to_crs("EPSG:4326")
+        if hasattr(gdf.geometry, "union_all"):
+            return gdf.geometry.union_all()
+        return gdf.geometry.unary_union
+    elif suffix in (".tif", ".tiff"):
+        # Raster masks: extract geometry then reproject via pyproj
+        geom = _load_mask_from_raster(path)
+        try:
+            import rasterio
+            from pyproj import Transformer
+            from shapely.ops import transform
+        except ImportError as exc:
+            raise ImportError("rasterio, pyproj and shapely required for raster mask.") from exc
+        with rasterio.open(path) as src:
+            if src.crs is not None and str(src.crs) != "EPSG:4326":
+                transformer = Transformer.from_crs(src.crs, "EPSG:4326", always_xy=True)
+                geom = transform(transformer.transform, geom)
+        return geom
+    else:
+        raise ValueError(f"Unsupported mask format: {suffix}.")
+
+
 def geometry_to_bbox(geometry) -> tuple[float, float, float, float]:
     """Extract (xmin, ymin, xmax, ymax) from a shapely geometry."""
     return geometry.bounds
