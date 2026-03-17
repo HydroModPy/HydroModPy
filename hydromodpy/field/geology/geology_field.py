@@ -256,7 +256,7 @@ class GeologyField(Field):
     @classmethod
     def from_dict(cls, config: Mapping[str, Any]) -> "GeologyField":
         """Build field from validated geology config mapping (standalone use)."""
-        from hydromodpy.data_managers.variables.geology.config_cases import (
+        from hydromodpy.data_managers.variables.geology.config import (
             validate_geology_config_data,
         )
         from hydromodpy.data_managers.variables.geology.io import (
@@ -278,7 +278,7 @@ class GeologyField(Field):
     @classmethod
     def from_toml(cls, toml_path: str | Path, section: str = "geology") -> "GeologyField":
         """Build field directly from one TOML section (standalone use)."""
-        from hydromodpy.data_managers.variables.geology.config_cases import (
+        from hydromodpy.data_managers.variables.geology.config import (
             load_geology_toml,
         )
 

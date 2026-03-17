@@ -167,7 +167,7 @@ class DataManagersRuntimeLoader:
         raster_support,
     ):
         """Build a GeologyField from a FieldRecord (GeoPackage or raster)."""
-        from hydromodpy.data_managers.variables.geology.config_cases import (
+        from hydromodpy.data_managers.variables.geology.config import (
             validate_geology_config_data,
         )
         from hydromodpy.data_managers.variables.geology.io import (
