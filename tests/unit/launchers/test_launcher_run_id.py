@@ -13,8 +13,6 @@ import pytest
 
 from hydromodpy.simulation.state.run_state import LauncherRunState
 
-data_managers_stub = types.ModuleType("hydromodpy.data_managers")
-
 
 class _StubDataLoadPlan:
     explicit_types: tuple[str, ...] = ()
@@ -43,11 +41,23 @@ class _StubDataManagersRuntimeLoader:
         _ = run_state
 
 
-data_managers_stub.DataLoadPlan = _StubDataLoadPlan
-data_managers_stub.DataManagersPlanner = _StubDataManagersPlanner
-data_managers_stub.DataManagersRuntimeLoader = _StubDataManagersRuntimeLoader
-sys.modules["hydromodpy.data_managers"] = data_managers_stub
+@pytest.fixture(autouse=True)
+def _patch_data_managers_module():
+    """Temporarily replace hydromodpy.data_managers in sys.modules for this test module."""
+    original = sys.modules.get("hydromodpy.data_managers")
+    stub = types.ModuleType("hydromodpy.data_managers")
+    stub.DataLoadPlan = _StubDataLoadPlan
+    stub.DataManagersPlanner = _StubDataManagersPlanner
+    stub.DataManagersRuntimeLoader = _StubDataManagersRuntimeLoader
+    sys.modules["hydromodpy.data_managers"] = stub
+    yield
+    if original is not None:
+        sys.modules["hydromodpy.data_managers"] = original
+    else:
+        sys.modules.pop("hydromodpy.data_managers", None)
 
+
+# Import after fixture definition — the actual stub injection happens at test time.
 from launchers.process_simulation.launcher import HydroModPyLauncher
 
 

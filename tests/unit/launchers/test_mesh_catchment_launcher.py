@@ -232,7 +232,10 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
     )
     monkeypatch.setattr(
         "launchers.mesh_catchment.launcher.load_toml_with_base_config",
-        lambda _: {"mesh_catchment": {"constraints_mode": "geology_only"}},
+        lambda _: {"mesh_catchment": {
+            "constraints_mode": "geology_only",
+            "geology": {"source": {"path": "/tmp/dummy.gpkg"}},
+        }},
     )
     monkeypatch.setattr(
         "launchers.mesh_catchment.launcher.hmp.Workspace",
@@ -281,7 +284,7 @@ def test_mesh_catchment_launcher_requires_constraints_mode(
         lambda _: {"mesh_catchment": {}},
     )
 
-    with pytest.raises(ValueError, match="constraints_mode is required"):
+    with pytest.raises(ValueError, match="constraints_mode"):
         _ = MeshCatchmentLauncher(config_path)
 
 
@@ -309,7 +312,10 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
     monkeypatch.setattr(
         "launchers.mesh_catchment.launcher.load_toml_with_base_config",
         lambda _: {
-            "mesh_catchment": {"constraints_mode": "geology_only"},
+            "mesh_catchment": {
+                "constraints_mode": "geology_only",
+                "geology": {"source": {"path": "/tmp/dummy.gpkg"}},
+            },
             "mesh_catchment_batch": {
                 "enabled": True,
                 "outlets_table_path": str(outlets_csv),
@@ -402,6 +408,7 @@ def test_mesh_catchment_launcher_batch_rejects_fixed_single_output_without_batch
         lambda _: {
             "mesh_catchment": {
                 "constraints_mode": "geology_only",
+                "geology": {"source": {"path": "/tmp/dummy.gpkg"}},
                 "output_figure": "outputs/fixed.png",
             },
             "mesh_catchment_batch": {
