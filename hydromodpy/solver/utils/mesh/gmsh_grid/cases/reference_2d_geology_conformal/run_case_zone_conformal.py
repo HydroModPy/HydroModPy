@@ -155,14 +155,6 @@ def _valid_geometry_mask(geometries) -> object:
     return (~geometries.is_empty) & (~geometries.isna())
 
 
-def _geometry_series_union(geometries):
-    """Return one union operation compatible with old and new GeoPandas."""
-    union_all = getattr(geometries, "union_all", None)
-    if callable(union_all):
-        return union_all()
-    return geometries.unary_union
-
-
 def _update_scope_summary_geometry(
     summary: Mapping[str, Any],
     *,
@@ -451,7 +443,7 @@ def _resolve_scope_payload(
     clipped = clipped[_valid_geometry_mask(clipped.geometry)].copy()
     if clipped.empty:
         raise ValueError("Scope geometry does not intersect the support domain.")
-    clipped_geometry = _geometry_series_union(clipped.geometry)
+    clipped_geometry = clipped.geometry.union_all()
     summary = _update_scope_summary_geometry(
         dict(scope_payload.get("summary", {})),
         geometry=clipped_geometry,

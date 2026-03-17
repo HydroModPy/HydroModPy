@@ -38,8 +38,19 @@ class _DummyCliDomainGeographic:
         self.river_mesh_trace = river_mesh_trace
 
 
+def _minimal_geology_toml_lines() -> list[str]:
+    return [
+        "[mesh_catchment.geology.source]",
+        'path = "data/geology.gpkg"',
+        'kind = "vector"',
+        'code_field = "CODE"',
+        'reference_raster_path = "data/reference.tif"',
+    ]
+
+
 def _install_mesh_catchment_runtime_stubs(monkeypatch, tmp_path: Path):
     import launchers.mesh_catchment.launcher as launcher_module
+    import launchers.mesh_catchment.runtime as runtime_module
 
     workspace_cfg = SimpleNamespace(
         project_root=tmp_path / "project" / "mesh_cli_case",
@@ -102,19 +113,19 @@ def _install_mesh_catchment_runtime_stubs(monkeypatch, tmp_path: Path):
         }
 
     monkeypatch.setattr(launcher_module, "_load_standard_section", _fake_load_standard_section)
-    monkeypatch.setattr(launcher_module.hmp, "Workspace", _DummyCliWorkspace)
+    monkeypatch.setattr(runtime_module.hmp, "Workspace", _DummyCliWorkspace)
     monkeypatch.setattr(
-        launcher_module,
+        runtime_module,
         "build_domain_geographic_context",
         lambda **_: _DummyCliDomainGeographic(river_mesh_trace=None),
     )
     monkeypatch.setattr(
-        launcher_module,
+        runtime_module,
         "run_reference_2d_zone_conformal_case_from_toml",
         _fake_run_case,
     )
     monkeypatch.setattr(
-        launcher_module,
+        runtime_module,
         "export_catchment_mesh_bundle",
         _fake_export_bundle,
     )
@@ -249,6 +260,8 @@ def test_launchers_cli_mesh_catchment_single_creates_outputs_and_bundle(
                 'output_mesh = "outputs/single_mesh.msh"',
                 'output_summary_json = "outputs/single_summary.json"',
                 'output_figure = "outputs/single_figure.png"',
+                "",
+                *_minimal_geology_toml_lines(),
             ]
         ),
         encoding="utf-8",
@@ -297,6 +310,8 @@ def test_launchers_cli_mesh_catchment_batch_creates_manifest_and_figures(
                 "",
                 "[mesh_catchment]",
                 'constraints_mode = "geology_only"',
+                "",
+                *_minimal_geology_toml_lines(),
                 "",
                 "[mesh_catchment_batch]",
                 "enabled = true",

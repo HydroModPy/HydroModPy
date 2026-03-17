@@ -1,0 +1,79 @@
+@startuml
+title Catchment Mesh - Conformal Component Diagram
+left to right direction
+
+package "Orchestration Layer" {
+  component "MeshCatchmentLauncher" as MeshLauncher
+  component "ProcessSimulationLauncher\n(optional embedded mesh phase)" as SimulationLauncher
+}
+
+package "Shared Mesh Runtime" {
+  component "mesh_catchment.runtime\nrequire_mesh_section()\nprepare_geographic_config_for_meshing()\nrun_single_mesh_catchment_workflow()" as Runtime
+}
+
+package "Geographic Context Layer" {
+  component "Workspace" as Workspace
+  component "build_domain_geographic_context(...)" as DomainPipeline
+  component "DomainGeographicContext\ncatchment / DEM / river_mesh_trace" as DomainContext
+}
+
+package "Constraint Source Layer" {
+  component "load_zone_meshing_domain_geometry(...)\n(domain support)" as DomainSupport
+  component "load_vector_geology_dataframe(...)\n(optional geology zones)" as GeologySource
+  component "river_trace\nin-memory or file-backed source" as RiverTrace
+}
+
+package "Meshing Case Layer" {
+  component "run_reference_2d_zone_conformal_case_from_toml(...)" as Case
+  component "ZoneConformalMeshingInputs\nusage / zone_gdf / scopes /\nrivers_cfg / river_trace_for_meshing" as Inputs
+}
+
+package "Gmsh Core Layer" {
+  component "generate_zone_conformal_mesh_from_dataframe(...)" as GmshCore
+  component "ZoneConformalPartition" as Partition
+  component "ZoneConformalMeshResult" as MeshResult
+}
+
+package "Output Layer" {
+  component "QA sidecar\nsummary JSON + figure" as QaOutputs
+  component "export_catchment_mesh_bundle(...)" as BundleExporter
+  component "CatchmentMeshBundle" as Bundle
+}
+
+MeshLauncher --> Runtime
+SimulationLauncher --> Runtime
+
+Runtime --> Workspace
+Runtime --> DomainPipeline
+DomainPipeline --> DomainContext
+
+Runtime --> Case
+Runtime --> BundleExporter
+
+Case --> DomainSupport
+Case --> GeologySource
+Case --> RiverTrace
+Case --> Inputs
+Inputs --> GmshCore
+
+GmshCore --> Partition
+GmshCore --> MeshResult
+MeshResult --> QaOutputs
+
+BundleExporter --> DomainContext
+BundleExporter --> RiverTrace
+BundleExporter --> Bundle
+
+note bottom of Runtime
+This runtime is the architectural pivot.
+Mono-catchment launcher and embedded
+simulation mesh phase reuse the exact
+same mesh execution path.
+end note
+
+note bottom of Inputs
+constraints_mode drives whether geology
+constraints, river constraints, or both
+are assembled before the Gmsh call.
+end note
+@enduml

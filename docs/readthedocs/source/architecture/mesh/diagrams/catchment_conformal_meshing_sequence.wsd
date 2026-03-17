@@ -1,0 +1,85 @@
+@startuml
+title Catchment Mesh - Launcher To Gmsh Sequence
+autonumber
+hide footbox
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+legend right
+|= Arrow |= Meaning |
+| ``->`` | call |
+| ``-->`` | returned value |
+| ``opt`` | optional branch |
+| ``alt`` | mutually exclusive branch |
+endlegend
+
+actor Caller
+participant "run_single_mesh_catchment_workflow(...)\n<<shared runtime>>" as Runtime
+participant "Workspace\nhydromodpy.Workspace" as Workspace
+participant "build_domain_geographic_context(...)" as DomainPipeline
+participant "DomainGeographicContext" as DomainCtx
+participant "run_reference_2d_zone_conformal_case_from_toml(...)\n<<reference case>>" as Case
+participant "load_zone_meshing_domain_geometry(...)" as DomainLoader
+participant "load_vector_geology_dataframe(...)" as GeologyIO
+participant "generate_zone_conformal_mesh_from_dataframe(...)\n<<Gmsh core>>" as GmshCore
+participant "export_catchment_mesh_bundle(...)" as BundleExporter
+
+Caller -> Runtime: run_single_mesh_catchment_workflow(\nconfig_path, section_data, workspace_cfg,\ngeographic_cfg, constraints_mode, output_overrides?)
+
+opt workspace not injected
+  Runtime -> Workspace: Workspace(config=workspace_cfg)
+  Workspace --> Runtime: workspace
+end
+
+opt domain_geographic not injected
+  Runtime -> DomainPipeline: build_domain_geographic_context(\nconfig=geographic_cfg, workspace)
+  DomainPipeline --> Runtime: DomainGeographicContext
+end
+
+Runtime -> DomainCtx: read river_mesh_trace
+DomainCtx --> Runtime: in-memory context payload
+Runtime -> Runtime: resolve output paths
+
+Runtime -> Case: run_reference_2d_zone_conformal_case_from_toml(\nconfig_path, section, output_mesh,\noutput_summary_json, output_figure,\nriver_trace, domain_geographic)
+activate Case
+
+Case -> Case: _resolve_case_config(...)
+Case -> DomainLoader: load_zone_meshing_domain_geometry(...)
+DomainLoader --> Case: support domain payload
+
+alt geology_only or geology_rivers
+  Case -> GeologyIO: load_vector_geology_dataframe(...)
+  GeologyIO --> Case: geology GeoDataFrame
+  Case -> Case: clip geology to domain\nand optional interface scope
+else rivers_only
+  Case -> Case: build domain-backed zone dataframe
+end
+
+opt rivers_only or geology_rivers
+  Case -> Case: resolve / clip / filter river trace
+end
+
+Case -> GmshCore: generate_zone_conformal_mesh_from_dataframe(...)
+GmshCore --> Case: ZoneConformalMeshResult
+
+Case -> Case: build summary / constraints QA /\noptional figure and summary JSON
+Case --> Runtime: summary
+deactivate Case
+
+opt mesh file exists
+  Runtime -> BundleExporter: export_catchment_mesh_bundle(\nmesh_path, domain_geographic,\ngeology_cfg, river_trace, summary)
+  BundleExporter --> Runtime: bundle summary
+end
+
+Runtime --> Caller: summary + optional exchange bundle
+
+note right of Caller
+Caller is usually one of:
+- MeshCatchmentLauncher
+- ProcessSimulationLauncher
+
+Batch mode is not a separate sequence:
+it repeats this mono-catchment path
+once per outlet.
+end note
+@enduml

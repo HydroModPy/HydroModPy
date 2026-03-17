@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_postprocess_3d import (
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_case_3d_fieldparam import (
     run_reference_3d_postprocess_from_toml,
 )
 

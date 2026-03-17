@@ -15,6 +15,10 @@ The summary sidecar exposes a stable schema marker and QA diagnostics:
 - `qa_checks` (coverage gap/tolerance and quick conformity booleans)
 - `constraints_mode` (`geology_only`, `rivers_only`, `geology_rivers`)
 
+Architecture diagrams for the launcher/runtime/domain/river/zone pipeline are
+documented in
+`docs/readthedocs/source/architecture/mesh/catchment-conformal-meshing-diagrams.rst`.
+
 ## Constraints modes
 
 The runner requires one explicit mode:
