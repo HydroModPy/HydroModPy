@@ -12,12 +12,12 @@ import numpy as np
 from shapely.geometry import LineString, Point
 from shapely.ops import unary_union
 
-from hydromodpy.data_managers.geology.geology_config import validate_geology_config_data
-from hydromodpy.data_managers.geology.geology_field import GeologyField
-from hydromodpy.data_managers.geology.geology_io import (
+from hydromodpy.data_managers.variables.geology.config_cases import validate_geology_config_data
+from hydromodpy.data_managers.variables.geology.io import (
     load_geology_encoded_grid_on_raster_support,
     resolve_data_path,
 )
+from hydromodpy.field.geology.geology_field import GeologyField
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,

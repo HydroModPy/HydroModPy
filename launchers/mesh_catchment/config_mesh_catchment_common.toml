@@ -11,7 +11,7 @@
 base_config = "../../examples/projects/launcher_simulation/project.toml"
 
 [workspace]
-catch_name = "mesh_catchment_nancon"
+project_root = "mesh_catchment_nancon"
 
 [geographic]
 catch_def = "from_outlet_coord"

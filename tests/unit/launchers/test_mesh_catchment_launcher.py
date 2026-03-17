@@ -361,13 +361,13 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
     assert kwargs["section"] == "mesh_catchment"
     assert kwargs["river_trace"] is None
     assert str(kwargs["output_mesh"]).endswith(
-        "mesh_batch_outlet_2\\results_stable\\mesh\\gmsh\\mesh_2.msh"
+        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "gmsh" / "mesh_2.msh")
     )
     assert str(kwargs["output_summary_json"]).endswith(
-        "mesh_batch_outlet_2\\results_stable\\mesh\\gmsh\\summary_2.json"
+        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "gmsh" / "summary_2.json")
     )
     assert str(kwargs["output_figure"]).endswith(
-        "mesh_batch_outlet_2\\results_stable\\mesh\\gmsh\\figure_2.png"
+        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "gmsh" / "figure_2.png")
     )
 
     manifest_path = Path(summary["manifest_csv"])

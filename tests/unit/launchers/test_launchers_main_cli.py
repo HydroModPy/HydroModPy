@@ -43,7 +43,6 @@ def _install_mesh_catchment_runtime_stubs(monkeypatch, tmp_path: Path):
 
     workspace_cfg = SimpleNamespace(
         project_root=tmp_path / "project" / "mesh_cli_case",
-        catch_name="mesh_cli_case",
     )
     geographic_cfg = SimpleNamespace(
         uses_synthetic_geographic=lambda: False,
