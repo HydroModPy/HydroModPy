@@ -143,6 +143,40 @@ class ZoneMeshingDomainGeographicBoxBufferSchema(BaseModel):
         return "geographic_box_buffer"
 
 
+class ZoneMeshingDomainGeographicWatershedSchema(BaseModel):
+    """Domain resolved from ``domain_geographic.watershed_shp``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = "geographic_watershed"
+
+    @field_validator("kind")
+    @classmethod
+    def _validate_kind(cls, value):
+        if str(value).strip().lower() != "geographic_watershed":
+            raise ValueError(
+                "geographic watershed domain kind must be 'geographic_watershed'"
+            )
+        return "geographic_watershed"
+
+
+class ZoneMeshingDomainGeographicWatershedBoxSchema(BaseModel):
+    """Domain resolved from ``domain_geographic.watershed_box_shp``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = "geographic_watershed_box"
+
+    @field_validator("kind")
+    @classmethod
+    def _validate_kind(cls, value):
+        if str(value).strip().lower() != "geographic_watershed_box":
+            raise ValueError(
+                "geographic watershed-box domain kind must be 'geographic_watershed_box'"
+            )
+        return "geographic_watershed_box"
+
+
 def _make_valid_geometry(geometry):
     if geometry is None:
         return GeometryCollection()
@@ -207,6 +241,8 @@ def validate_zone_meshing_domain_config_data(
     schema_by_kind: dict[str, type[BaseModel]] = {
         "bbox": ZoneMeshingDomainBBoxSchema,
         "geographic_box_buffer": ZoneMeshingDomainGeographicBoxBufferSchema,
+        "geographic_watershed": ZoneMeshingDomainGeographicWatershedSchema,
+        "geographic_watershed_box": ZoneMeshingDomainGeographicWatershedBoxSchema,
         "polygon": ZoneMeshingDomainPolygonSchema,
         "vector": ZoneMeshingDomainVectorSchema,
     }
@@ -250,42 +286,31 @@ def load_zone_meshing_domain_geometry(
     cfg = validate_zone_meshing_domain_config_data(config) if validate else dict(config)
     kind = str(cfg["kind"])
 
-    if kind == "bbox":
-        geometry = box(*cfg["bbox"])
-        domain_gdf = gpd.GeoDataFrame(
-            {"domain_id": ["bbox_domain"]}, geometry=[geometry], crs=target_crs
-        )
-        return {
-            "geometry": geometry,
-            "gdf": domain_gdf,
-            "summary": _geometry_to_summary_payload(
-                geometry=geometry,
-                kind=kind,
-                extras={"domain_bbox": [round(float(v), 6) for v in cfg["bbox"]]},
-            ),
-        }
-
-    if kind == "geographic_box_buffer":
+    def _load_geographic_domain_from_attr(
+        *,
+        attr_name: str,
+        domain_id: str,
+        label: str,
+    ) -> dict[str, Any]:
         if domain_geographic is None:
             raise ValueError(
-                "domain.kind='geographic_box_buffer' requires one domain_geographic context."
+                f"domain.kind='{kind}' requires one domain_geographic context."
             )
-        box_buff_shp = getattr(domain_geographic, "box_buff_shp", None)
-        if box_buff_shp is None:
+        raw_path = getattr(domain_geographic, attr_name, None)
+        if raw_path is None:
             raise ValueError(
-                "domain.kind='geographic_box_buffer' requires domain_geographic.box_buff_shp."
+                f"domain.kind='{kind}' requires domain_geographic.{attr_name}."
             )
-        source_path = Path(str(box_buff_shp)).expanduser().resolve()
+        source_path = Path(str(raw_path)).expanduser().resolve()
         gdf = gpd.read_file(source_path)
         if gdf.empty:
             raise ValueError(
-                f"Geographic box-buffer domain source has no geometry: {source_path}"
+                f"{label} domain source has no geometry: {source_path}"
             )
         gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
         if gdf.empty:
             raise ValueError(
-                "Geographic box-buffer domain source has only empty geometries: "
-                f"{source_path}"
+                f"{label} domain source has only empty geometries: {source_path}"
             )
         source_crs = gdf.crs
         if target_crs is not None and source_crs is not None and source_crs != target_crs:
@@ -299,12 +324,12 @@ def load_zone_meshing_domain_geometry(
         ]
         if not polygons:
             raise ValueError(
-                "Geographic box-buffer domain produced no usable polygon after cleaning: "
+                f"{label} domain produced no usable polygon after cleaning: "
                 f"{source_path}"
             )
         geometry = unary_union(polygons)
         domain_gdf = gpd.GeoDataFrame(
-            {"domain_id": ["geographic_box_buffer"]},
+            {"domain_id": [domain_id]},
             geometry=[geometry],
             crs=gdf.crs,
         )
@@ -321,6 +346,42 @@ def load_zone_meshing_domain_geometry(
                 },
             ),
         }
+
+    if kind == "bbox":
+        geometry = box(*cfg["bbox"])
+        domain_gdf = gpd.GeoDataFrame(
+            {"domain_id": ["bbox_domain"]}, geometry=[geometry], crs=target_crs
+        )
+        return {
+            "geometry": geometry,
+            "gdf": domain_gdf,
+            "summary": _geometry_to_summary_payload(
+                geometry=geometry,
+                kind=kind,
+                extras={"domain_bbox": [round(float(v), 6) for v in cfg["bbox"]]},
+            ),
+        }
+
+    if kind == "geographic_box_buffer":
+        return _load_geographic_domain_from_attr(
+            attr_name="box_buff_shp",
+            domain_id="geographic_box_buffer",
+            label="Geographic box-buffer",
+        )
+
+    if kind == "geographic_watershed":
+        return _load_geographic_domain_from_attr(
+            attr_name="watershed_shp",
+            domain_id="geographic_watershed",
+            label="Geographic watershed",
+        )
+
+    if kind == "geographic_watershed_box":
+        return _load_geographic_domain_from_attr(
+            attr_name="watershed_box_shp",
+            domain_id="geographic_watershed_box",
+            label="Geographic watershed-box",
+        )
 
     if kind == "polygon":
         geometry = _make_valid_geometry(Polygon(cfg["coordinates"]))

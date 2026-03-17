@@ -159,6 +159,7 @@ class Geographic:
             x_outlet=float(self.x_outlet) if self.x_outlet is not None else None,
             y_outlet=float(self.y_outlet) if self.y_outlet is not None else None,
             watershed_box_buff_dem=str(self.watershed_box_buff_dem),
+            watershed_box_shp=str(getattr(self, "watershed_box_shp", "")) or None,
             box_buff_shp=str(box_buff_shp),
             zone_kind=(
                 "uniform"

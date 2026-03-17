@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 import json
 from pathlib import Path
 import tomllib
@@ -22,6 +23,7 @@ from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 import numpy as np
+import pandas as pd
 import rasterio
 
 from hydromodpy.data_managers.geology.geology_config import validate_geology_config_data
@@ -44,6 +46,33 @@ DEFAULT_CONFIG_FILE = "case_config_zone_conformal.toml"
 DEFAULT_SECTION = "mesh_case"
 
 
+@dataclass(frozen=True)
+class ZoneConformalConstraintUsage:
+    """Resolved constraint switches for one conformal meshing run."""
+
+    constraints_mode: str
+    uses_geology_constraints: bool
+    uses_river_constraints: bool
+
+
+@dataclass(frozen=True)
+class ZoneConformalMeshingInputs:
+    """Common meshing contract assembled before calling the Gmsh core."""
+
+    usage: ZoneConformalConstraintUsage
+    source_payload: Mapping[str, Any]
+    zone_gdf: gpd.GeoDataFrame
+    domain_payload: Mapping[str, Any]
+    interface_scope_payload: Mapping[str, Any]
+    refinement_scope_payload: Mapping[str, Any]
+    interface_scope_is_custom: bool
+    refinement_scope_is_custom: bool
+    zone_meshing_cfg: Mapping[str, Any]
+    rivers_cfg: Mapping[str, Any] | None
+    resolved_river_trace: object | None
+    river_trace_for_meshing: object | None
+
+
 def _resolve_constraints_mode(raw_value: Any) -> str:
     token = str(raw_value).strip().lower()
     if token == "":
@@ -62,6 +91,17 @@ def _resolve_constraints_mode(raw_value: Any) -> str:
             "geology_only, rivers_only, geology_rivers."
         )
     return token
+
+
+def _resolve_constraint_usage(
+    constraints_mode: str,
+) -> ZoneConformalConstraintUsage:
+    mode = _resolve_constraints_mode(constraints_mode)
+    return ZoneConformalConstraintUsage(
+        constraints_mode=mode,
+        uses_geology_constraints=mode in {"geology_only", "geology_rivers"},
+        uses_river_constraints=mode in {"rivers_only", "geology_rivers"},
+    )
 
 
 def _parse_args(argv=None):
@@ -124,6 +164,28 @@ def _resolve_optional_output_path(
 def _valid_geometry_mask(geometries) -> object:
     """Return one stable non-empty/non-missing mask across GeoPandas versions."""
     return (~geometries.is_empty) & (~geometries.isna())
+
+
+def _geometry_series_union(geometries):
+    """Return one union operation compatible with old and new GeoPandas."""
+    union_all = getattr(geometries, "union_all", None)
+    if callable(union_all):
+        return union_all()
+    return geometries.unary_union
+
+
+def _update_scope_summary_geometry(
+    summary: Mapping[str, Any],
+    *,
+    geometry,
+    feature_count_after_clip: int,
+) -> dict[str, Any]:
+    updated = dict(summary)
+    updated["domain_area"] = round(float(geometry.area), 12)
+    updated["domain_bounds"] = [round(float(v), 6) for v in geometry.bounds]
+    updated["domain_geometry_type"] = str(geometry.geom_type)
+    updated["scope_feature_count_after_support_clip"] = int(feature_count_after_clip)
+    return updated
 
 
 def _resolve_river_trace_for_meshing(
@@ -287,28 +349,40 @@ def _resolve_case_config(
             "mesh_mode is no longer supported; use constraints_mode with one of: "
             "geology_only, rivers_only, geology_rivers."
         )
-    constraints_mode = _resolve_constraints_mode(section_cfg.get("constraints_mode"))
+    usage = _resolve_constraint_usage(str(section_cfg.get("constraints_mode", "")))
     domain_cfg = validate_zone_meshing_domain_config_data(
         dict(section_cfg.get("domain", {}))
     )
+    interface_scope_cfg = None
+    if isinstance(section_cfg.get("interface_scope"), Mapping):
+        interface_scope_cfg = validate_zone_meshing_domain_config_data(
+            dict(section_cfg.get("interface_scope", {}))
+        )
+    refinement_scope_cfg = None
+    if isinstance(section_cfg.get("refinement_scope"), Mapping):
+        refinement_scope_cfg = validate_zone_meshing_domain_config_data(
+            dict(section_cfg.get("refinement_scope", {}))
+        )
     zone_meshing_cfg = validate_zone_meshing_config_data(
         dict(section_cfg.get("zone_meshing", {}))
     )
     geology_cfg = None
-    if constraints_mode in {"geology_only", "geology_rivers"}:
+    if usage.uses_geology_constraints:
         geology_cfg = validate_geology_config_data(dict(section_cfg.get("geology", {})))
     rivers_cfg = None
-    if constraints_mode in {"rivers_only", "geology_rivers"}:
+    if usage.uses_river_constraints:
         rivers_cfg = _validate_rivers_case_config(
             dict(section_cfg.get("rivers", {})),
             section=section,
         )
 
     return {
-        "constraints_mode": constraints_mode,
+        "constraints_mode": usage.constraints_mode,
         "geology": geology_cfg,
         "rivers": rivers_cfg,
         "domain": domain_cfg,
+        "interface_scope": interface_scope_cfg,
+        "refinement_scope": refinement_scope_cfg,
         "zone_meshing": zone_meshing_cfg,
         "output_mesh": section_cfg.get("output_mesh"),
         "output_summary_json": section_cfg.get("output_summary_json"),
@@ -365,6 +439,223 @@ def _load_clipped_geology_dataframe(
             "The selected domain geometry does not intersect the geology source"
         )
     return payload, clipped, domain_payload
+
+
+def _resolve_scope_payload(
+    *,
+    scope_cfg: Mapping[str, Any] | None,
+    fallback_payload: Mapping[str, Any],
+    config_path: Path,
+    domain_geographic: object | None,
+    target_crs: object,
+) -> Mapping[str, Any]:
+    if scope_cfg is None:
+        return fallback_payload
+    scope_payload = load_zone_meshing_domain_geometry(
+        scope_cfg,
+        config_path=config_path,
+        domain_geographic=domain_geographic,
+        target_crs=target_crs,
+        validate=False,
+    )
+    clipped = gpd.clip(scope_payload["gdf"], fallback_payload["gdf"])
+    clipped = clipped[_valid_geometry_mask(clipped.geometry)].copy()
+    if clipped.empty:
+        raise ValueError("Scope geometry does not intersect the support domain.")
+    clipped_geometry = _geometry_series_union(clipped.geometry)
+    summary = _update_scope_summary_geometry(
+        dict(scope_payload.get("summary", {})),
+        geometry=clipped_geometry,
+        feature_count_after_clip=int(len(clipped)),
+    )
+    summary["scope_clipped_to_support_domain"] = True
+    return {
+        "geometry": clipped_geometry,
+        "gdf": clipped,
+        "summary": summary,
+    }
+
+
+def _append_background_zone_outside_scope(
+    *,
+    zone_gdf: gpd.GeoDataFrame,
+    support_domain_payload: Mapping[str, Any],
+    interface_scope_payload: Mapping[str, Any],
+) -> gpd.GeoDataFrame:
+    support_geometry = support_domain_payload["geometry"]
+    interface_geometry = interface_scope_payload["geometry"]
+    outside_geometry = support_geometry.difference(interface_geometry)
+    outside_parts = [
+        geometry
+        for geometry in getattr(outside_geometry, "geoms", (outside_geometry,))
+        if geometry is not None
+        and (not bool(getattr(geometry, "is_empty", True)))
+        and float(getattr(geometry, "area", 0.0)) > 0.0
+    ]
+    if not outside_parts:
+        return zone_gdf
+    background_gdf = gpd.GeoDataFrame(
+        {"zone_key": ["domain_background"] * len(outside_parts)},
+        geometry=outside_parts,
+        crs=zone_gdf.crs,
+    )
+    merged = pd.concat([zone_gdf, background_gdf], ignore_index=True)
+    return gpd.GeoDataFrame(merged, geometry="geometry", crs=zone_gdf.crs)
+
+
+def _build_zone_source_inputs(
+    *,
+    usage: ZoneConformalConstraintUsage,
+    cfg: Mapping[str, Any],
+    config_path: Path,
+    domain_geographic: object | None,
+) -> tuple[dict[str, Any], gpd.GeoDataFrame, Mapping[str, Any], Mapping[str, Any]]:
+    support_domain_payload = load_zone_meshing_domain_geometry(
+        cfg["domain"],
+        config_path=config_path,
+        domain_geographic=domain_geographic,
+        target_crs=None,
+        validate=False,
+    )
+    if usage.uses_geology_constraints:
+        geology_cfg = cfg.get("geology")
+        if geology_cfg is None:
+            raise ValueError(
+                "constraints_mode requires one geology configuration for "
+                f"mode '{usage.constraints_mode}'."
+            )
+        source_payload, raw_zone_gdf, _ = _load_clipped_geology_dataframe(
+            geology_cfg=geology_cfg,
+            domain_cfg=cfg["domain"],
+            config_path=config_path,
+            domain_geographic=domain_geographic,
+        )
+        support_domain_payload = load_zone_meshing_domain_geometry(
+            cfg["domain"],
+            config_path=config_path,
+            domain_geographic=domain_geographic,
+            target_crs=raw_zone_gdf.crs,
+            validate=False,
+        )
+        interface_scope_payload = _resolve_scope_payload(
+            scope_cfg=cfg.get("interface_scope"),
+            fallback_payload=support_domain_payload,
+            config_path=config_path,
+            domain_geographic=domain_geographic,
+            target_crs=raw_zone_gdf.crs,
+        )
+        zone_gdf = gpd.clip(raw_zone_gdf, interface_scope_payload["gdf"])
+        zone_gdf = zone_gdf[_valid_geometry_mask(zone_gdf.geometry)].copy()
+        if zone_gdf.empty:
+            raise ValueError(
+                "The selected interface scope does not intersect the geology source"
+            )
+        if not bool(interface_scope_payload["geometry"].equals(support_domain_payload["geometry"])):
+            zone_gdf = _append_background_zone_outside_scope(
+                zone_gdf=zone_gdf,
+                support_domain_payload=support_domain_payload,
+                interface_scope_payload=interface_scope_payload,
+            )
+        return source_payload, zone_gdf, support_domain_payload, interface_scope_payload
+
+    interface_scope_payload = _resolve_scope_payload(
+        scope_cfg=cfg.get("interface_scope"),
+        fallback_payload=support_domain_payload,
+        config_path=config_path,
+        domain_geographic=domain_geographic,
+        target_crs=None,
+    )
+    source_payload, zone_gdf = _build_domain_zone_dataframe(
+        domain_payload=support_domain_payload,
+    )
+    return source_payload, zone_gdf, support_domain_payload, interface_scope_payload
+
+
+def _build_river_constraint_inputs(
+    *,
+    usage: ZoneConformalConstraintUsage,
+    cfg: Mapping[str, Any],
+    config_path: Path,
+    river_trace: object | None,
+    domain_geographic: object | None,
+    interface_scope_payload: Mapping[str, Any],
+) -> tuple[Mapping[str, Any] | None, object | None, object | None]:
+    if not usage.uses_river_constraints:
+        return None, None, None
+
+    rivers_cfg = dict(cfg.get("rivers") or {})
+    resolved_river_trace = _resolve_river_trace_for_meshing(
+        river_trace=river_trace,
+        domain_geographic=domain_geographic,
+        rivers_cfg=rivers_cfg,
+        config_path=config_path,
+    )
+    if bool(rivers_cfg.get("clip_to_domain", True)):
+        resolved_river_trace = _clip_river_trace_to_domain(
+            river_trace=resolved_river_trace,
+            domain_geometry=interface_scope_payload["geometry"],
+        )
+    resolved_river_trace = _filter_river_trace_by_min_segment_length(
+        river_trace=resolved_river_trace,
+        min_segment_length=float(rivers_cfg.get("min_segment_length", 0.0)),
+    )
+    if resolved_river_trace is None:
+        raise ValueError(
+            "constraints_mode requires one usable river trace for mode "
+            f"'{usage.constraints_mode}'. Provide rivers.source='file', "
+            "or provide domain_geographic with one river_mesh_trace, "
+            "or pass an explicit river_trace."
+        )
+    return rivers_cfg, resolved_river_trace, resolved_river_trace
+
+
+def _build_zone_conformal_meshing_inputs(
+    *,
+    cfg: Mapping[str, Any],
+    config_path: Path,
+    river_trace: object | None,
+    domain_geographic: object | None,
+) -> ZoneConformalMeshingInputs:
+    usage = _resolve_constraint_usage(str(cfg["constraints_mode"]))
+    interface_scope_cfg = cfg.get("interface_scope")
+    refinement_scope_cfg = cfg.get("refinement_scope")
+    source_payload, zone_gdf, domain_payload, interface_scope_payload = _build_zone_source_inputs(
+        usage=usage,
+        cfg=cfg,
+        config_path=config_path,
+        domain_geographic=domain_geographic,
+    )
+    refinement_scope_payload = _resolve_scope_payload(
+        scope_cfg=refinement_scope_cfg,
+        fallback_payload=interface_scope_payload,
+        config_path=config_path,
+        domain_geographic=domain_geographic,
+        target_crs=zone_gdf.crs,
+    )
+    rivers_cfg, resolved_river_trace, river_trace_for_meshing = (
+        _build_river_constraint_inputs(
+            usage=usage,
+            cfg=cfg,
+            config_path=config_path,
+            river_trace=river_trace,
+            domain_geographic=domain_geographic,
+            interface_scope_payload=interface_scope_payload,
+        )
+    )
+    return ZoneConformalMeshingInputs(
+        usage=usage,
+        source_payload=source_payload,
+        zone_gdf=zone_gdf,
+        domain_payload=domain_payload,
+        interface_scope_payload=interface_scope_payload,
+        refinement_scope_payload=refinement_scope_payload,
+        interface_scope_is_custom=interface_scope_cfg is not None,
+        refinement_scope_is_custom=refinement_scope_cfg is not None,
+        zone_meshing_cfg=dict(cfg["zone_meshing"]),
+        rivers_cfg=rivers_cfg,
+        resolved_river_trace=resolved_river_trace,
+        river_trace_for_meshing=river_trace_for_meshing,
+    )
 
 
 def _build_partition_gdf(partition, *, crs) -> gpd.GeoDataFrame:
@@ -838,8 +1129,9 @@ def _build_constraints_qa_contract(
     constraints_mode: str,
     refine_interfaces: bool,
 ) -> dict[str, Any]:
-    uses_geology_constraints = constraints_mode in {"geology_only", "geology_rivers"}
-    uses_river_constraints = constraints_mode in {"rivers_only", "geology_rivers"}
+    usage = _resolve_constraint_usage(constraints_mode)
+    uses_geology_constraints = usage.uses_geology_constraints
+    uses_river_constraints = usage.uses_river_constraints
 
     zone_count = int(len(tuple(summary.get("zone_keys", ()))))
     interface_group_count = int(summary.get("interface_group_count", 0))
@@ -952,9 +1244,13 @@ def run_reference_2d_zone_conformal_case_from_toml(
 ) -> dict[str, Any]:
     config_path = _resolve_config_path(config_toml)
     cfg = _resolve_case_config(config_path, section=section)
-    constraints_mode = str(cfg["constraints_mode"])
-    uses_geology_constraints = constraints_mode in {"geology_only", "geology_rivers"}
-    uses_river_constraints = constraints_mode in {"rivers_only", "geology_rivers"}
+    meshing_inputs = _build_zone_conformal_meshing_inputs(
+        cfg=cfg,
+        config_path=config_path,
+        river_trace=river_trace,
+        domain_geographic=domain_geographic,
+    )
+    constraints_mode = str(meshing_inputs.usage.constraints_mode)
 
     mesh_path = _resolve_optional_output_path(
         config_path,
@@ -977,89 +1273,45 @@ def run_reference_2d_zone_conformal_case_from_toml(
             "An output mesh path is required for the conformal reference case"
         )
 
-    if uses_geology_constraints:
-        if cfg["geology"] is None:
-            raise ValueError(
-                "constraints_mode requires one "
-                f"[{section}.geology] block for mode '{constraints_mode}'."
-            )
-        source_payload, clipped_gdf, domain_payload = _load_clipped_geology_dataframe(
-            geology_cfg=cfg["geology"],
-            domain_cfg=cfg["domain"],
-            config_path=config_path,
-            domain_geographic=domain_geographic,
-        )
-    else:
-        domain_payload = load_zone_meshing_domain_geometry(
-            cfg["domain"],
-            config_path=config_path,
-            domain_geographic=domain_geographic,
-            target_crs=None,
-            validate=False,
-        )
-        source_payload, clipped_gdf = _build_domain_zone_dataframe(
-            domain_payload=domain_payload,
-        )
-
-    resolved_river_trace = None
-    if uses_river_constraints:
-        rivers_cfg = cfg.get("rivers") or {}
-        resolved_river_trace = _resolve_river_trace_for_meshing(
-            river_trace=river_trace,
-            domain_geographic=domain_geographic,
-            rivers_cfg=rivers_cfg,
-            config_path=config_path,
-        )
-        if bool(rivers_cfg.get("clip_to_domain", True)):
-            resolved_river_trace = _clip_river_trace_to_domain(
-                river_trace=resolved_river_trace,
-                domain_geometry=domain_payload["geometry"],
-            )
-        resolved_river_trace = _filter_river_trace_by_min_segment_length(
-            river_trace=resolved_river_trace,
-            min_segment_length=float(rivers_cfg.get("min_segment_length", 0.0)),
-        )
-        if resolved_river_trace is None:
-            raise ValueError(
-                "constraints_mode requires one usable river trace for mode "
-                f"'{constraints_mode}'. Provide [{section}.rivers] with source='file', "
-                "or provide domain_geographic with one river_mesh_trace, "
-                "or pass an explicit river_trace."
-            )
-    river_trace_for_meshing = resolved_river_trace if uses_river_constraints else None
-
     result = generate_zone_conformal_mesh_from_dataframe(
-        clipped_gdf,
+        meshing_inputs.zone_gdf,
         output_path=mesh_path,
         zone_key_column="zone_key",
-        domain_geometry=domain_payload["geometry"],
-        algorithm=str(cfg["zone_meshing"]["algorithm"]),
-        global_size=float(cfg["zone_meshing"]["global_size"]),
-        min_size=cfg["zone_meshing"]["min_size"],
-        max_size=cfg["zone_meshing"]["max_size"],
-        simplify_tolerance=float(cfg["zone_meshing"]["simplify_tolerance"]),
-        heal_tolerance=float(cfg["zone_meshing"]["heal_tolerance"]),
-        min_polygon_area=float(cfg["zone_meshing"]["min_polygon_area"]),
-        refine_interfaces=bool(cfg["zone_meshing"]["refine_interfaces"]),
-        interface_size=cfg["zone_meshing"]["interface_size"],
-        interface_distance=cfg["zone_meshing"]["interface_distance"],
-        interface_sampling=int(cfg["zone_meshing"]["interface_sampling"]),
-        river_trace=river_trace_for_meshing,
+        domain_geometry=meshing_inputs.domain_payload["geometry"],
+        algorithm=str(meshing_inputs.zone_meshing_cfg["algorithm"]),
+        global_size=float(meshing_inputs.zone_meshing_cfg["global_size"]),
+        min_size=meshing_inputs.zone_meshing_cfg["min_size"],
+        max_size=meshing_inputs.zone_meshing_cfg["max_size"],
+        simplify_tolerance=float(meshing_inputs.zone_meshing_cfg["simplify_tolerance"]),
+        heal_tolerance=float(meshing_inputs.zone_meshing_cfg["heal_tolerance"]),
+        min_polygon_area=float(meshing_inputs.zone_meshing_cfg["min_polygon_area"]),
+        refine_interfaces=bool(meshing_inputs.zone_meshing_cfg["refine_interfaces"]),
+        interface_size=meshing_inputs.zone_meshing_cfg["interface_size"],
+        interface_distance=meshing_inputs.zone_meshing_cfg["interface_distance"],
+        interface_sampling=int(meshing_inputs.zone_meshing_cfg["interface_sampling"]),
+        river_trace=meshing_inputs.river_trace_for_meshing,
+        refinement_scope_geometry=(
+            meshing_inputs.refinement_scope_payload["geometry"]
+            if meshing_inputs.refinement_scope_is_custom
+            else None
+        ),
         model_name=f"reference_2d_zone_conformal_{constraints_mode}",
     )
 
-    partition_gdf = _build_partition_gdf(result.partition, crs=clipped_gdf.crs)
+    partition_gdf = _build_partition_gdf(result.partition, crs=meshing_inputs.zone_gdf.crs)
     summary = _build_summary(
         result=result,
-        source_payload=source_payload,
-        clipped_gdf=clipped_gdf,
-        domain_payload=domain_payload,
+        source_payload=meshing_inputs.source_payload,
+        clipped_gdf=meshing_inputs.zone_gdf,
+        domain_payload=meshing_inputs.domain_payload,
     )
     summary["constraints_mode"] = constraints_mode
+    summary["interface_scope"] = dict(meshing_inputs.interface_scope_payload["summary"])
+    summary["refinement_scope"] = dict(meshing_inputs.refinement_scope_payload["summary"])
     summary["constraints_qa"] = _build_constraints_qa_contract(
         summary=summary,
         constraints_mode=constraints_mode,
-        refine_interfaces=bool(cfg["zone_meshing"]["refine_interfaces"]),
+        refine_interfaces=bool(meshing_inputs.zone_meshing_cfg["refine_interfaces"]),
     )
     qa_checks = (
         dict(summary.get("qa_checks", {}))
@@ -1070,25 +1322,25 @@ def run_reference_2d_zone_conformal_case_from_toml(
         summary["constraints_qa"]["overall_pass"]
     )
     summary["qa_checks"] = qa_checks
-    if uses_river_constraints and cfg["rivers"] is not None:
+    if meshing_inputs.usage.uses_river_constraints and meshing_inputs.rivers_cfg is not None:
         summary["rivers_config"] = {
-            "source": str(cfg["rivers"]["source"]),
-            "path": cfg["rivers"]["path"],
-            "clip_to_domain": bool(cfg["rivers"]["clip_to_domain"]),
-            "min_segment_length": float(cfg["rivers"]["min_segment_length"]),
-            "snap_tolerance": float(cfg["rivers"]["snap_tolerance"]),
+            "source": str(meshing_inputs.rivers_cfg["source"]),
+            "path": meshing_inputs.rivers_cfg["path"],
+            "clip_to_domain": bool(meshing_inputs.rivers_cfg["clip_to_domain"]),
+            "min_segment_length": float(meshing_inputs.rivers_cfg["min_segment_length"]),
+            "snap_tolerance": float(meshing_inputs.rivers_cfg["snap_tolerance"]),
         }
     summary["output_mesh"] = str(mesh_path)
 
     if figure_path is not None or show_plot:
         fig = _build_figure(
-            clipped_gdf=clipped_gdf,
+            clipped_gdf=meshing_inputs.zone_gdf,
             partition_gdf=partition_gdf,
-            domain_gdf=domain_payload["gdf"],
+            domain_gdf=meshing_inputs.domain_payload["gdf"],
             mesh=result.mesh,
-            domain_bounds=list(domain_payload["geometry"].bounds),
-            domain_area=float(domain_payload["summary"]["domain_area"]),
-            domain_kind=str(domain_payload["summary"]["domain_kind"]),
+            domain_bounds=list(meshing_inputs.domain_payload["geometry"].bounds),
+            domain_area=float(meshing_inputs.domain_payload["summary"]["domain_area"]),
+            domain_kind=str(meshing_inputs.domain_payload["summary"]["domain_kind"]),
             interface_refinement=(
                 dict(
                     result.summary.get("mesh_size_fields", {}).get(
@@ -1097,7 +1349,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
                 )
             ),
             domain_geographic=domain_geographic,
-            river_trace=resolved_river_trace,
+            river_trace=meshing_inputs.resolved_river_trace,
         )
         if figure_path is not None:
             fig.savefig(figure_path)

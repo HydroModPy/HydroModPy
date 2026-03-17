@@ -900,6 +900,36 @@ def _apply_interface_refinement_field(
     return summary
 
 
+def _segment_intersects_refinement_scope(
+    *,
+    segment: LineString | None,
+    scope_geometry,
+    tolerance: float,
+) -> bool:
+    if scope_geometry is None:
+        return True
+    if segment is None or segment.is_empty:
+        return False
+    try:
+        intersection = segment.intersection(scope_geometry)
+        if not intersection.is_empty and float(getattr(intersection, "length", 0.0)) > max(
+            float(tolerance),
+            1.0e-9,
+        ):
+            return True
+    except Exception:
+        pass
+    try:
+        if bool(scope_geometry.covers(segment.representative_point())):
+            return True
+    except Exception:
+        pass
+    try:
+        return float(segment.distance(scope_geometry)) <= max(float(tolerance), 1.0e-9)
+    except Exception:
+        return False
+
+
 def generate_zone_conformal_mesh_from_dataframe(
     gdf,
     *,
@@ -919,6 +949,7 @@ def generate_zone_conformal_mesh_from_dataframe(
     interface_distance: float | None = None,
     interface_sampling: int = 64,
     river_trace: object | None = None,
+    refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",
 ) -> ZoneConformalMeshResult:
     """Generate one conformal planar mesh from polygon zones."""
@@ -1205,11 +1236,20 @@ def generate_zone_conformal_mesh_from_dataframe(
                 else:
                     river_embed_failures += 1
 
-        interface_curve_tags = [
+        interface_curve_tags_all = [
             int(curve_tag)
             for name, curve_tags in curve_tags_by_name.items()
             if not str(name).startswith("boundary::")
             for curve_tag in curve_tags
+        ]
+        interface_curve_tags = [
+            int(curve_tag)
+            for curve_tag in interface_curve_tags_all
+            if _segment_intersects_refinement_scope(
+                segment=curve_tag_to_segment.get(int(curve_tag)),
+                scope_geometry=refinement_scope_geometry,
+                tolerance=point_tolerance,
+            )
         ]
         mesh_size_fields_summary = _apply_interface_refinement_field(
             gmsh,
@@ -1219,6 +1259,15 @@ def generate_zone_conformal_mesh_from_dataframe(
             interface_size=interface_size_value,
             interface_distance=interface_distance_value,
             interface_sampling=int(interface_sampling),
+        )
+        mesh_size_fields_summary["candidate_interface_curve_count"] = int(
+            len(sorted(set(int(tag) for tag in interface_curve_tags_all)))
+        )
+        mesh_size_fields_summary["scope_filtered_interface_curve_count"] = int(
+            len(sorted(set(int(tag) for tag in interface_curve_tags)))
+        )
+        mesh_size_fields_summary["refinement_scope_applied"] = bool(
+            refinement_scope_geometry is not None
         )
 
         gmsh.model.mesh.generate(2)
@@ -1346,7 +1395,12 @@ def generate_zone_conformal_mesh_from_dataframe(
             "embedded_surface_curve_pairs": int(river_embed_success),
             "embed_failures": int(river_embed_failures),
             "refined_with_interface_field": bool(
-                bool(refine_interfaces_value) and bool(river_curve_tags_unique)
+                bool(refine_interfaces_value)
+                and bool(
+                    set(int(tag) for tag in river_curve_tags_unique).intersection(
+                        set(int(tag) for tag in interface_curve_tags)
+                    )
+                )
             ),
         },
         "physical_groups_summary": physical_groups_summary,
@@ -1386,6 +1440,7 @@ def generate_zone_conformal_mesh_from_geology_config(
     interface_distance: float | None = None,
     interface_sampling: int = 64,
     river_trace: object | None = None,
+    refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",
 ) -> ZoneConformalMeshResult:
     """Load one vector geology source and generate a conformal planar mesh."""
@@ -1412,5 +1467,6 @@ def generate_zone_conformal_mesh_from_geology_config(
         interface_distance=interface_distance,
         interface_sampling=interface_sampling,
         river_trace=river_trace,
+        refinement_scope_geometry=refinement_scope_geometry,
         model_name=model_name,
     )

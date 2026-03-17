@@ -45,6 +45,27 @@ override_code = "1"
 # workflow: bounding box of the delineated watershed plus geographic buffer.
 kind = "geographic_box_buffer"
 
+# Optional scope to limit where geology/rivers interfaces are generated.
+# Omit this block to keep interfaces on the full support domain above.
+# Typical choices:
+# - "geographic_watershed"     : strict catchment polygon
+# - "geographic_watershed_box" : watershed bounding box before extra buffer
+#
+# [mesh_catchment.interface_scope]
+# kind = "geographic_watershed"
+
+# Optional scope to limit where interface refinement is applied.
+# When omitted, refinement follows `interface_scope` when present, otherwise the
+# full support domain. This scope is always clipped to the effective
+# `interface_scope`, so it cannot enlarge the refinement area beyond it.
+#
+# Example:
+# - keep interfaces on `geographic_watershed_box`
+# - refine only on `geographic_watershed`
+#
+# [mesh_catchment.refinement_scope]
+# kind = "geographic_watershed"
+
 [mesh_catchment.zone_meshing]
 algorithm = "delaunay"
 # Coarser setup to target about 3x fewer cells than the previous example.

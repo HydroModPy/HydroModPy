@@ -53,6 +53,8 @@ class DomainGeographicContext:
         Outlet coordinates when catchment is outlet-derived, else ``None``.
     watershed_box_buff_dem:
         DEM clipped to buffered rectangular support.
+    watershed_box_shp:
+        Bounding-box support polygon before external buffer.
     box_buff_shp:
         Buffered rectangular support polygon.
     zone_kind:
@@ -69,6 +71,7 @@ class DomainGeographicContext:
     x_outlet: float | None
     y_outlet: float | None
     watershed_box_buff_dem: str
+    watershed_box_shp: str | None
     box_buff_shp: str
     zone_kind: str
     river_mesh_trace: RiverMeshTrace | None = None
@@ -122,6 +125,7 @@ def build_domain_geographic_context(
             x_outlet=None,
             y_outlet=None,
             watershed_box_buff_dem=dem_products.watershed_box_buff_dem,
+            watershed_box_shp=dem_products.watershed_box_shp,
             box_buff_shp=dem_products.watershed_box_buff_shp,
             zone_kind="uniform",
         )
@@ -192,6 +196,7 @@ def build_domain_geographic_context(
         x_outlet=float(config.x_outlet) if config.x_outlet is not None else None,
         y_outlet=float(config.y_outlet) if config.y_outlet is not None else None,
         watershed_box_buff_dem=setup.paths.watershed_box_buff_dem,
+        watershed_box_shp=setup.paths.watershed_box_shp,
         box_buff_shp=setup.paths.box_buff,
         zone_kind="catchment",
         river_mesh_trace=river_mesh_trace,
