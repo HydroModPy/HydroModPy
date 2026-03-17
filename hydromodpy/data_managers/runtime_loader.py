@@ -227,12 +227,14 @@ class DataManagersRuntimeLoader:
             self._handle_data_loading_error(result, "hydrography", exc)
 
     def _load_intermittency_data(self, result: "LauncherRunState") -> None:
-        """Load ONDE-style intermittency observations."""
-        from hydromodpy.data_managers.intermittency import Intermittency
+        """Load ONDE-style intermittency observations via the variable manager."""
+        from datetime import datetime as dt
 
-        workspace_paths = self._workspace_paths(result)
-        section = self._get_data_section(result, "intermittency")
-        if section is None:
+        from hydromodpy.data_managers.variables.intermittency.config import IntermittencyConfig
+        from hydromodpy.data_managers.variables.intermittency.manager import IntermittencyManager
+
+        raw_section = self._get_data_section(result, "intermittency")
+        if raw_section is None:
             self._handle_missing_data_section(
                 result,
                 "intermittency",
@@ -240,26 +242,24 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        intermittency_path = self._resolve_manager_input_path(
-            section=section,
-            keys=("intermittency_path", "path"),
-            default_root=workspace_paths.data_path,
-        )
-        file_name = str(section.get("file_name", "regional_onde_stations.shp")).strip()
-        if not file_name:
-            self._handle_missing_data_section(
-                result,
-                "intermittency",
-                "data.intermittency requires non-empty 'file_name'",
-            )
-            return
+        self._apply_simulation_window_dates(raw_section, result, "intermittency")
+
         try:
-            result.loaded_data.intermittency = Intermittency(
-                out_path=workspace_paths.project_root,
-                intermittency_path=intermittency_path,
-                file_name=file_name,
-                geographic=result.setup.geographic,
+            intermittency_cfg = IntermittencyConfig.model_validate(raw_section)
+            period = None
+            if intermittency_cfg.date_start and intermittency_cfg.date_end:
+                period = (dt.fromisoformat(intermittency_cfg.date_start), dt.fromisoformat(intermittency_cfg.date_end))
+            for src in intermittency_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+            manager = IntermittencyManager(
+                config=intermittency_cfg,
+                catalog=self._catalog,
+                project_period=period,
+                project_extent=None,
+                data_dir=self._data_dir("intermittency"),
             )
+            result.loaded_data.intermittency = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "intermittency", exc)
 

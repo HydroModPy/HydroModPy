@@ -92,15 +92,14 @@ class Subbasin:
             pass
 
         try:
-            code_onde = intermittency.code_onde
-            x_coord = intermittency.x_coord
-            y_coord = intermittency.y_coord
-            for i in range(len(x_coord)):
-                onde_name = f'intermittency_{code_onde[i]}' if code_onde[i] else f'intermittency_default_{i + 1}'
-                if not code_bh[i]:
-                    logger.warning('Intermittency code missing at index %d; using generated name', i)
-                sub_path = os.path.join(self.subbasin_path, onde_name)
-                self.extract_interest_zones(geographic, x_coord[i], y_coord[i], sub_path, sub_snap_dist)
+            if hasattr(intermittency, 'points'):
+                # New LoadResult-based intermittency
+                for rec in intermittency.points:
+                    if rec.location is None:
+                        continue
+                    onde_name = f'intermittency_{rec.station_id}'
+                    sub_path = os.path.join(self.subbasin_path, onde_name)
+                    self.extract_interest_zones(geographic, rec.location.x, rec.location.y, sub_path, sub_snap_dist)
         except Exception as e:
             logger.debug('No intermittency subbasin or problem: %s', e)
             pass

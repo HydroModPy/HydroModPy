@@ -68,8 +68,9 @@ from hydromodpy import watershed_root_legacy
 from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.legacy.watershed import Driasclimat, Driaseau, \
-    Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
+    Hydraulic, Hydrography, Piezometry, Settings, \
     SafranSurfex, Transport
+from hydromodpy.data_managers.variables.intermittency.manager import IntermittencyManager
 from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
 from hydromodpy.data_managers.variables.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
@@ -670,7 +671,7 @@ DATA_MODULES = {
             }
         },"""
         "intermittency": {
-            "class_name": "Intermittency",
+            "class_name": "IntermittencyManager",
             "constructor_args": {
                 "out_path": ("workspace.catch_folder", True),
                 "intermittency_path": ("data_path", True),
@@ -725,7 +726,7 @@ DATA_MODULES = {
             }
         },
         "intermittency": {
-            "class_name": "Intermittency",
+            "class_name": "IntermittencyManager",
             "constructor_args": {
                 "out_path": ("workspace.catch_folder", True),
                 "intermittency_path": ("data_path", True),
@@ -778,7 +779,7 @@ DATA_MODULES = {
             }
         },
         "intermittency": {
-            "class_name": "Intermittency",
+            "class_name": "IntermittencyManager",
             "constructor_args": {
                 "out_path": ("workspace.catch_folder", True),
                 "intermittency_path": ("data_path", True),
@@ -822,7 +823,7 @@ DATA_MODULES = {
             }
         },
         "intermittency": {
-            "class_name": "Intermittency",
+            "class_name": "IntermittencyManager",
             "constructor_args": {
                 "out_path": ("workspace.catch_folder", True),
                 "intermittency_path": ("data_path", True),

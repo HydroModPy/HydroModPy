@@ -46,7 +46,7 @@ from hydromodpy.support.tools import toolbox
 from hydromodpy.simulation.workspace import Workspace
 from hydromodpy.geographic.geographic import Geographic
 from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult
-from hydromodpy.data_managers.intermittency import Intermittency
+from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
 #%% PLOT SETTINGS
@@ -110,7 +110,7 @@ def _raster_nodata_mask(data: np.ndarray, nodata: float | None) -> np.ndarray:
 
 #%% FUNCTIONS
 
-def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: HydrographyResult=None, piezometry: Optional[list[PointRecord]]=None, intermittency: Intermittency=None, hydrometry: Optional[list[PointRecord]]=None):
+def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: HydrographyResult=None, piezometry: Optional[list[PointRecord]]=None, intermittency: Optional[LoadResult]=None, hydrometry: Optional[list[PointRecord]]=None):
     """
     Plot contour watershed and DEM.
 
@@ -124,8 +124,8 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
         Hydrography object of the model domain (watershed).
     piezometry : list[PointRecord], optional
         List of PointRecord objects containing piezometric stations.
-    intermittency : Intermittency, optional
-        Intermittency object of the model domain (watershed).
+    intermittency : LoadResult, optional
+        LoadResult containing ONDE intermittency station records.
     hydrometry : list[PointRecord], optional
         List of PointRecord objects containing hydrometric stations.
     """
@@ -189,11 +189,14 @@ def watershed_dem(initializing: Workspace, geographic: Geographic, hydrography: 
         pass
     
     try:
-        if os.path.exists(intermittency.onde_clip):
-            intermit = gpd.read_file(intermittency.onde_clip)
-            h = intermit.plot(ax=ax, color='grey', zorder=8, marker='s',
-                          edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
-            legend_handles += h.get_legend_handles_labels()[0]
+        if intermittency is not None and intermittency.has_points:
+            int_locs = [r.location for r in intermittency.points if r.location is not None]
+            if int_locs:
+                int_xs = [loc.x for loc in int_locs]
+                int_ys = [loc.y for loc in int_locs]
+                h = ax.scatter(int_xs, int_ys, color='grey', marker='s', zorder=8,
+                               edgecolor='black', lw=1, label='Intermittency: ONDE')
+                legend_handles.append(h)
     except Exception:
         pass
     if legend_handles:
@@ -428,11 +431,15 @@ def watershed_zones(BV):
         pass
     
     try:
-        if os.path.exists(BV.intermittency.onde_clip):
-            intermit = gpd.read_file(BV.intermittency.onde_clip)
-            intermit.plot(ax=ax, color='grey', zorder=8, marker='s',
-                          edgecolor='black', lw=1, legend=True, label='Intermittency: discrete')
-    except:
+        bv_intermittency = getattr(BV, 'intermittency', None)
+        if bv_intermittency is not None and hasattr(bv_intermittency, 'points'):
+            int_locs = [r.location for r in bv_intermittency.points if r.location is not None]
+            if int_locs:
+                int_xs = [loc.x for loc in int_locs]
+                int_ys = [loc.y for loc in int_locs]
+                ax.scatter(int_xs, int_ys, color='grey', marker='s', zorder=8,
+                           edgecolor='black', lw=1, label='Intermittency: ONDE')
+    except Exception:
         pass
     ax.legend(loc='lower right', title = BV.watershed_name,framealpha=0.8)
     divider = make_axes_locatable(ax)

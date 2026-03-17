@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hydromodpy.data_managers.contracts.load_result import LoadResult
     from hydromodpy.data_managers.geology.geology_field import GeologyField
-    from hydromodpy.data_managers.intermittency import Intermittency
     from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult
 
 
@@ -19,7 +18,7 @@ class LoadedDataContext:
     geology: GeologyField | None = None
     oceanic: LoadResult | None = None
     hydrography: HydrographyResult | None = None
-    intermittency: Intermittency | None = None
+    intermittency: LoadResult | None = None
     hydrometry: LoadResult | None = None
     piezometry: LoadResult | None = None
     recharge: LoadResult | None = None

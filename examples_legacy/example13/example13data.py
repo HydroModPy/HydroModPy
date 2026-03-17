@@ -50,8 +50,10 @@ from hydromodpy.geographic import Geographic, Subbasin
 from hydromodpy.data_managers.climatic import Climatic
 from hydromodpy.legacy.watershed import \
     Driasclimat, Driaseau, Hydrometry, \
-    Hydraulic, Hydrography, Intermittency, Piezometry, Settings, \
+    Hydraulic, Hydrography, Piezometry, Settings, \
     SafranSurfex, Transport
+from hydromodpy.data_managers.variables.intermittency.config import IntermittencyConfig, IntermittencySourceConfig
+from hydromodpy.data_managers.variables.intermittency.manager import IntermittencyManager
 from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
 from hydromodpy.data_managers.variables.oceanic import OceanicManager, OceanicConfig, OceanicSourceConfig
@@ -250,10 +252,11 @@ if hydro_section:
 
 #%% INTERMITTENCY
 
-intermittency = Intermittency(out_path=initializing.catch_folder,
-                              intermittency_path=data_path,
-                              file_name='regional onde stations.shp',
-                              geographic=geographic)
+intermittency_cfg = IntermittencyConfig(sources=[
+    IntermittencySourceConfig(source='hubeau', mask_path=Path(geographic.watershed_shp)),
+])
+intermittency_mgr = IntermittencyManager(config=intermittency_cfg, catalog=None, project_period=None)
+intermittency = intermittency_mgr.load()
 
 #%% OCEANIC
 
