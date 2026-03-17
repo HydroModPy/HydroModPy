@@ -18,6 +18,13 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.solver.utils.mesh.gmsh_grid._constants import (
+    CELL_LAYER_KEY as _CELL_LAYER_KEY,
+    CELL_SOURCE_KEY as _CELL_SOURCE_KEY,
+    POINT_BASE_KEY as _POINT_BASE_KEY,
+    POINT_LAYER_KEY as _POINT_LAYER_KEY,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_meshio as _require_meshio
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
 _MESHIO_CELL_TYPE_BY_2D = {
@@ -32,21 +39,6 @@ _NODES_PER_3D_CELL = {
     "triangle": 6,
     "quadrilateral": 8,
 }
-_POINT_LAYER_KEY = "hydromodpy_point_layer_index"
-_POINT_BASE_KEY = "hydromodpy_point_base_index"
-_CELL_LAYER_KEY = "hydromodpy_cell_layer_index"
-_CELL_SOURCE_KEY = "hydromodpy_cell_source_index"
-
-
-def _require_meshio():
-    try:
-        import meshio  # type: ignore
-    except ModuleNotFoundError as exc:  # pragma: no cover - depends on environment
-        raise ImportError(
-            "meshio is required for extruded 3D mesh read/write support. "
-            "Install the 'meshio' package to use from_file()/to_file()."
-        ) from exc
-    return meshio
 
 
 def _resolve_z_interfaces(

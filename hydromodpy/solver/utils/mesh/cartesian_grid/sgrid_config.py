@@ -386,11 +386,7 @@ class SGridConfig(BaseModel):
         return cls.model_validate(cfg)
 
 
-def _resolve_path(path_value: str, base_dir: Path) -> str:
-    path = Path(path_value).expanduser()
-    if not path.is_absolute():
-        path = (base_dir / path).resolve()
-    return str(path)
+from hydromodpy.solver.utils._config_helpers import resolve_path as _resolve_path
 
 
 def validate_sgrid_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:

@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 
+from hydromodpy.solver.utils._config_helpers import get_nested_section
 from hydromodpy.data_managers.variables.geology.config_cases import validate_geology_config_data
 from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.geographic.core.river_mesh_trace import (
@@ -129,18 +130,6 @@ def _resolve_config_path(raw_config: str | Path) -> Path:
         return script_candidate
     raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
 
-
-def _get_nested_section(
-    payload: Mapping[str, Any], dotted_path: str
-) -> Mapping[str, Any]:
-    current: Any = payload
-    for token in str(dotted_path).split("."):
-        if not isinstance(current, Mapping) or token not in current:
-            raise KeyError(f"Missing TOML section '{dotted_path}'")
-        current = current[token]
-    if not isinstance(current, Mapping):
-        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
-    return current
 
 
 def _resolve_optional_output_path(
@@ -343,7 +332,7 @@ def _resolve_case_config(
     config_toml: Path, *, section: str = DEFAULT_SECTION
 ) -> dict[str, Any]:
     payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
-    section_cfg = dict(_get_nested_section(payload, section))
+    section_cfg = dict(get_nested_section(payload, section))
     if "mesh_mode" in section_cfg:
         raise ValueError(
             "mesh_mode is no longer supported; use constraints_mode with one of: "

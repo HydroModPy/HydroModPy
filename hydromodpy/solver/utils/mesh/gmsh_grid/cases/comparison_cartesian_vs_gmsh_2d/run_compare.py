@@ -32,6 +32,13 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_dem
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.run_demo_config import (
     SGridFieldParamDiscretizationConfig,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases._comparison_utils import (
+    mesh_bounds_xy,
+    resolve_config_path,
+    resolve_output_dir,
+    show_saved_images_blocking,
+    write_json,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
     _build_reference_case_figure,
     _disable_axis_offset,
@@ -39,11 +46,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_
     _plot_left_raw_geology,
     build_reference_case_state_from_toml,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
-    ensure_interactive_backend_for_show,
-)
-from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
-
 plt.switch_backend("Agg")
 
 
@@ -64,27 +66,6 @@ def _parse_args(argv=None):
     parser.add_argument("--output-dir", default="outputs")
     parser.add_argument("--no-show-plot", action="store_true")
     return parser.parse_args(argv)
-
-
-def _resolve_config_path(raw_config: str) -> Path:
-    candidate = Path(raw_config).expanduser()
-    if candidate.is_absolute() and candidate.exists():
-        return candidate.resolve()
-    cwd_candidate = candidate.resolve()
-    if cwd_candidate.exists():
-        return cwd_candidate
-    script_candidate = (Path(__file__).resolve().parent / candidate).resolve()
-    if script_candidate.exists():
-        return script_candidate
-    raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
-
-
-def _resolve_output_dir(raw_output_dir: str | Path, *, default_base: Path) -> Path:
-    path = Path(raw_output_dir).expanduser()
-    if not path.is_absolute():
-        path = (default_base / path).resolve()
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def _plot_cartesian_reference_figure(
@@ -132,17 +113,6 @@ def _plot_cartesian_reference_figure(
             return
         kwargs["field_discretization"] = field_discretization
         _plot_cartesian_geology_and_result(**kwargs)
-
-
-def _mesh_bounds(mesh) -> list[float]:
-    x = np.asarray(getattr(mesh, "x_plot"), dtype=float)
-    y = np.asarray(getattr(mesh, "y_plot"), dtype=float)
-    return [
-        float(np.nanmin(x)),
-        float(np.nanmin(y)),
-        float(np.nanmax(x)),
-        float(np.nanmax(y)),
-    ]
 
 
 def _dominant_zone_summary(
@@ -204,7 +174,7 @@ def _build_cartesian_summary(
         "cell_type": "quadrilateral",
         "n_nodes": int(result.mesh.n_nodes),
         "n_cells": int(result.mesh.n_cells),
-        "bounds": _mesh_bounds(result.mesh),
+        "bounds": mesh_bounds_xy(result.mesh),
         "shape": [int(v) for v in np.asarray(result.values_2d).shape],
         "field_id": str(geology_field.identifier),
         "field_param_id": str(field_param.identifier),
@@ -273,13 +243,6 @@ def _build_comparison_summary(
         ),
         "dominant_zone_count_delta": dominant_zone_count_delta,
     }
-
-
-def _write_json(path: Path, payload: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, indent=2, ensure_ascii=True)
-        stream.write("\n")
 
 
 def _draw_structured_mesh_edges(
@@ -590,38 +553,6 @@ def _build_comparison_legend_metrics_figure(
     plt.close(fig)
 
 
-def _show_saved_images_blocking(image_paths: list[Path]) -> None:
-    valid_paths = [Path(path) for path in image_paths if Path(path).exists()]
-    if not valid_paths:
-        return
-    ensure_interactive_backend_for_show()
-    n_images = len(valid_paths)
-    n_cols = min(2, n_images)
-    n_rows = int(np.ceil(n_images / float(n_cols)))
-    fig, axes = plt.subplots(
-        n_rows,
-        n_cols,
-        figsize=(7.6 * n_cols, 4.9 * n_rows),
-        dpi=120,
-        squeeze=False,
-    )
-    axes_flat = list(axes.reshape(-1))
-    for idx, ax in enumerate(axes_flat):
-        if idx >= n_images:
-            ax.axis("off")
-            continue
-        image_path = valid_paths[idx]
-        img = plt.imread(image_path)
-        ax.imshow(img)
-        ax.axis("off")
-        ax.set_title(image_path.name, fontsize=11)
-    plt.ioff()
-    plt.tight_layout()
-    maximize_figure_windows(fig)
-    plt.show(block=True)
-    plt.close(fig)
-
-
 def run_comparison_case(
     *,
     cartesian_config_toml: str | Path,
@@ -632,7 +563,7 @@ def run_comparison_case(
 ) -> dict[str, object]:
     cartesian_config_path = Path(cartesian_config_toml).expanduser().resolve()
     gmsh_config_path = Path(gmsh_config_toml).expanduser().resolve()
-    out_dir = _resolve_output_dir(
+    out_dir = resolve_output_dir(
         "outputs" if output_dir is None else output_dir,
         default_base=Path(__file__).resolve().parent,
     )
@@ -680,7 +611,7 @@ def run_comparison_case(
     gmsh_fig.savefig(gmsh_figure)
     plt.close(gmsh_fig)
     gmsh_summary = dict(gmsh_state["summary"])
-    _write_json(gmsh_summary_path, gmsh_summary)
+    write_json(gmsh_summary_path, gmsh_summary)
 
     comparison_summary = _build_comparison_summary(
         cartesian=cartesian_summary,
@@ -693,8 +624,8 @@ def run_comparison_case(
     }
 
     comparison_json = out_dir / "comparison_summary.json"
-    _write_json(comparison_json, payload)
-    _write_json(out_dir / "cartesian_summary.json", cartesian_summary)
+    write_json(comparison_json, payload)
+    write_json(out_dir / "cartesian_summary.json", cartesian_summary)
 
     comparison_figure = out_dir / "comparison_overview.png"
     cartouches = _build_comparison_figure(
@@ -711,13 +642,14 @@ def run_comparison_case(
     )
 
     if show_plot:
-        _show_saved_images_blocking(
+        show_saved_images_blocking(
             [
                 cartesian_figure,
                 gmsh_figure,
                 comparison_figure,
                 comparison_legend_metrics_figure,
-            ]
+            ],
+            figsize_per_image=(7.6, 4.9),
         )
 
     return payload
@@ -725,9 +657,9 @@ def run_comparison_case(
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
-    cartesian_config = _resolve_config_path(args.cartesian_config_file)
-    gmsh_config = _resolve_config_path(args.gmsh_config_file)
-    output_dir = _resolve_output_dir(
+    cartesian_config = resolve_config_path(args.cartesian_config_file, caller_file=__file__)
+    gmsh_config = resolve_config_path(args.gmsh_config_file, caller_file=__file__)
+    output_dir = resolve_output_dir(
         args.output_dir, default_base=cartesian_config.parent
     )
     payload = run_comparison_case(

@@ -18,20 +18,10 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_meshio as _require_meshio
 from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import (
     ExtrudedPrismMesh3D,
 )
-
-
-def _require_meshio():
-    try:
-        import meshio  # type: ignore
-    except ModuleNotFoundError as exc:  # pragma: no cover - depends on environment
-        raise ImportError(
-            "meshio is required for 3D value export/readback support. "
-            "Install the 'meshio' package to use .vtu export."
-        ) from exc
-    return meshio
 
 
 def _array_stats(arr) -> dict[str, float]:

@@ -34,6 +34,23 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases._comparison_utils import (
+    array_stats,
+    layer_quantiles,
+    layer_stats,
+    mesh_bounds_xy,
+    mesh_footprint_area,
+    nearest_cell_index,
+    resolve_config_path,
+    resolve_output_dir,
+    round_float,
+    rounded_list,
+    shared_bounds,
+    show_saved_images_blocking,
+    signature_head,
+    value_quantiles,
+    write_json,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_case_3d_fieldparam import (
     build_reference_3d_fieldparam_state_from_toml,
 )
@@ -41,10 +58,11 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_mesh_visualization import (
     plot_planar_cell_values,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.plotting_utils import (
-    ensure_interactive_backend_for_show,
     maybe_scientific_colorbar,
 )
-from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
+    _compute_layer_center_depths as _compute_cartesian_layer_center_depths,
+)
 
 if PyparsingDeprecationWarning is not None:  # pragma: no branch
     warnings.filterwarnings("ignore", category=PyparsingDeprecationWarning)
@@ -77,160 +95,6 @@ def _parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def _resolve_config_path(raw_config: str | Path) -> Path:
-    candidate = Path(raw_config).expanduser()
-    if candidate.is_absolute() and candidate.exists():
-        return candidate.resolve()
-
-    cwd_candidate = candidate.resolve()
-    if cwd_candidate.exists():
-        return cwd_candidate
-
-    script_candidate = (Path(__file__).resolve().parent / candidate).resolve()
-    if script_candidate.exists():
-        return script_candidate
-
-    raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
-
-
-def _resolve_output_dir(raw_output_dir: str | Path, *, default_base: Path) -> Path:
-    path = Path(raw_output_dir).expanduser()
-    if not path.is_absolute():
-        path = (default_base / path).resolve()
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _write_json(path: Path, payload: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, indent=2, ensure_ascii=True)
-        stream.write("\n")
-
-
-def _round_float(value: float, ndigits: int = 12) -> float:
-    return round(float(value), ndigits)
-
-
-def _rounded_list(values, *, ndigits: int = 12) -> list[float]:
-    return [
-        _round_float(v, ndigits=ndigits)
-        for v in np.asarray(values, dtype=float).reshape(-1)
-    ]
-
-
-def _array_stats(arr) -> dict[str, float]:
-    values = np.asarray(arr, dtype=float)
-    finite = values[np.isfinite(values)]
-    if finite.size == 0:
-        raise ValueError("Cannot compute stats on an array without finite values")
-    return {
-        "min": _round_float(np.min(finite)),
-        "max": _round_float(np.max(finite)),
-        "mean": _round_float(np.mean(finite)),
-        "sum": _round_float(np.sum(finite)),
-    }
-
-
-def _value_quantiles(
-    arr, *, quantiles=(0.05, 0.25, 0.50, 0.75, 0.95)
-) -> dict[str, float]:
-    values = np.asarray(arr, dtype=float)
-    finite = values[np.isfinite(values)]
-    if finite.size == 0:
-        raise ValueError("Cannot compute quantiles on an array without finite values")
-    payload: dict[str, float] = {}
-    for q in quantiles:
-        key = f"q{int(round(float(q) * 100.0)):02d}"
-        payload[key] = _round_float(np.quantile(finite, float(q)))
-    return payload
-
-
-def _signature_head(arr, *, n: int = 8) -> list[float]:
-    flat = np.asarray(arr, dtype=float).reshape(-1)
-    return [_round_float(v) for v in flat[:n]]
-
-
-def _polygon_area(vertices) -> float:
-    xy = np.asarray(vertices, dtype=float)
-    x = xy[:, 0]
-    y = xy[:, 1]
-    return 0.5 * float(np.abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
-
-
-def _mesh_footprint_area(mesh) -> float:
-    return _round_float(sum(_polygon_area(cell.vertices) for cell in mesh.cells))
-
-
-def _mesh_bounds_xy(mesh) -> list[float]:
-    if hasattr(mesh, "bounds"):
-        bounds = getattr(mesh, "bounds")
-        if len(bounds) >= 4:
-            if len(bounds) == 4:
-                return [_round_float(v, ndigits=6) for v in bounds]
-            return [
-                _round_float(bounds[0], ndigits=6),
-                _round_float(bounds[1], ndigits=6),
-                _round_float(bounds[3], ndigits=6),
-                _round_float(bounds[4], ndigits=6),
-            ]
-    x = np.asarray(getattr(mesh, "x_plot"), dtype=float)
-    y = np.asarray(getattr(mesh, "y_plot"), dtype=float)
-    return [
-        _round_float(np.nanmin(x), ndigits=6),
-        _round_float(np.nanmin(y), ndigits=6),
-        _round_float(np.nanmax(x), ndigits=6),
-        _round_float(np.nanmax(y), ndigits=6),
-    ]
-
-
-def _mesh_centroids_flat(mesh) -> tuple[np.ndarray, np.ndarray]:
-    cx, cy = mesh.cell_centroids()
-    return np.asarray(cx, dtype=float).reshape(-1), np.asarray(cy, dtype=float).reshape(
-        -1
-    )
-
-
-def _nearest_cell_index(mesh, *, x: float, y: float) -> tuple[int, tuple[float, float]]:
-    cx, cy = _mesh_centroids_flat(mesh)
-    distance = np.square(cx - float(x)) + np.square(cy - float(y))
-    idx = int(np.argmin(distance))
-    return idx, (float(cx[idx]), float(cy[idx]))
-
-
-def _shared_bounds(bounds_a: list[float], bounds_b: list[float]) -> list[float]:
-    xmin = max(float(bounds_a[0]), float(bounds_b[0]))
-    ymin = max(float(bounds_a[1]), float(bounds_b[1]))
-    xmax = min(float(bounds_a[2]), float(bounds_b[2]))
-    ymax = min(float(bounds_a[3]), float(bounds_b[3]))
-    if xmax <= xmin or ymax <= ymin:
-        return [
-            _round_float(0.5 * (float(bounds_a[0]) + float(bounds_b[0])), ndigits=6),
-            _round_float(0.5 * (float(bounds_a[1]) + float(bounds_b[1])), ndigits=6),
-            _round_float(0.5 * (float(bounds_a[2]) + float(bounds_b[2])), ndigits=6),
-            _round_float(0.5 * (float(bounds_a[3]) + float(bounds_b[3])), ndigits=6),
-        ]
-    return [
-        _round_float(xmin, ndigits=6),
-        _round_float(ymin, ndigits=6),
-        _round_float(xmax, ndigits=6),
-        _round_float(ymax, ndigits=6),
-    ]
-
-
-def _compute_cartesian_layer_center_depths(sgrid) -> np.ndarray:
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
-    if botm.ndim != 3:
-        raise ValueError("sgrid.botm must be 3D")
-    ztop = np.empty_like(botm, dtype=float)
-    ztop[0, :, :] = top
-    if botm.shape[0] > 1:
-        ztop[1:, :, :] = botm[:-1, :, :]
-    zmid = 0.5 * (ztop + botm)
-    return np.maximum(0.0, top[None, :, :] - zmid)
-
-
 def _extract_cartesian_profile(
     values_3d, depth_3d, *, source_cell_index: int
 ) -> dict[str, object]:
@@ -245,19 +109,9 @@ def _extract_cartesian_profile(
         "row_index": row_idx,
         "col_index": col_idx,
         "layer_indices": [int(v) for v in range(arr.shape[0])],
-        "values": _rounded_list(arr[:, row_idx, col_idx]),
-        "depths": _rounded_list(depth[:, row_idx, col_idx]),
+        "values": rounded_list(arr[:, row_idx, col_idx]),
+        "depths": rounded_list(depth[:, row_idx, col_idx]),
     }
-
-
-def _layer_stats(values_3d) -> list[dict[str, float]]:
-    arr = np.asarray(values_3d, dtype=float)
-    return [_array_stats(arr[layer_idx]) for layer_idx in range(arr.shape[0])]
-
-
-def _layer_quantiles(values_3d) -> list[dict[str, float]]:
-    arr = np.asarray(values_3d, dtype=float)
-    return [_value_quantiles(arr[layer_idx]) for layer_idx in range(arr.shape[0])]
 
 
 def _build_cartesian_summary(
@@ -282,21 +136,21 @@ def _build_cartesian_summary(
         "n_layers": int(values_3d.shape[0]),
         "n_cells_2d": int(values_2d.size),
         "n_cells_3d": int(values_3d.size),
-        "bounds_xy": _mesh_bounds_xy(result.mesh),
-        "footprint_area": _mesh_footprint_area(result.mesh),
-        "stats_2d": _array_stats(values_2d),
-        "stats_3d": _array_stats(values_3d),
-        "depth_stats": _array_stats(depth_3d),
-        "layer_stats": _layer_stats(values_3d),
-        "layer_quantiles": _layer_quantiles(values_3d),
-        "global_value_quantiles": _value_quantiles(values_3d),
+        "bounds_xy": mesh_bounds_xy(result.mesh),
+        "footprint_area": mesh_footprint_area(result.mesh),
+        "stats_2d": array_stats(values_2d),
+        "stats_3d": array_stats(values_3d),
+        "depth_stats": array_stats(depth_3d),
+        "layer_stats": layer_stats(values_3d),
+        "layer_quantiles": layer_quantiles(values_3d),
+        "global_value_quantiles": value_quantiles(values_3d),
         "layer_depth_means": [
-            _round_float(np.mean(np.asarray(depth_3d[layer_idx], dtype=float)))
+            round_float(np.mean(np.asarray(depth_3d[layer_idx], dtype=float)))
             for layer_idx in range(values_3d.shape[0])
         ],
-        "values_2d_signature_head": _signature_head(values_2d),
-        "values_3d_signature_head": _signature_head(values_3d),
-        "depth_signature_head": _signature_head(depth_3d),
+        "values_2d_signature_head": signature_head(values_2d),
+        "values_3d_signature_head": signature_head(values_3d),
+        "depth_signature_head": signature_head(depth_3d),
     }
 
 
@@ -322,22 +176,22 @@ def _build_gmsh_summary(state_gmsh: Mapping[str, object]) -> dict[str, object]:
         "n_layers": int(values_3d.shape[0]),
         "n_cells_2d": int(values_3d.shape[1]),
         "n_cells_3d": int(values_3d.size),
-        "bounds_xy": _mesh_bounds_xy(mesh_3d.planar_mesh),
-        "bounds_xyz": [_round_float(v, ndigits=6) for v in mesh_3d.bounds],
-        "footprint_area": _mesh_footprint_area(mesh_3d.planar_mesh),
-        "stats_2d": _array_stats(values_2d),
-        "stats_3d": _array_stats(values_3d),
-        "depth_stats": _array_stats(depth_3d),
-        "layer_stats": _layer_stats(values_3d),
-        "layer_quantiles": _layer_quantiles(values_3d),
-        "global_value_quantiles": _value_quantiles(values_3d),
+        "bounds_xy": mesh_bounds_xy(mesh_3d.planar_mesh),
+        "bounds_xyz": [round_float(v, ndigits=6) for v in mesh_3d.bounds],
+        "footprint_area": mesh_footprint_area(mesh_3d.planar_mesh),
+        "stats_2d": array_stats(values_2d),
+        "stats_3d": array_stats(values_3d),
+        "depth_stats": array_stats(depth_3d),
+        "layer_stats": layer_stats(values_3d),
+        "layer_quantiles": layer_quantiles(values_3d),
+        "global_value_quantiles": value_quantiles(values_3d),
         "layer_depth_means": [
-            _round_float(np.mean(np.asarray(depth_3d[layer_idx], dtype=float)))
+            round_float(np.mean(np.asarray(depth_3d[layer_idx], dtype=float)))
             for layer_idx in range(values_3d.shape[0])
         ],
-        "values_2d_signature_head": _signature_head(values_2d),
-        "values_3d_signature_head": _signature_head(values_3d),
-        "depth_signature_head": _signature_head(depth_3d),
+        "values_2d_signature_head": signature_head(values_2d),
+        "values_3d_signature_head": signature_head(values_3d),
+        "depth_signature_head": signature_head(depth_3d),
     }
 
 
@@ -352,28 +206,28 @@ def _build_profile_specs(
     for idx, (label, fx, fy) in enumerate(_PROFILE_TARGETS):
         target_x = xmin + float(fx) * (xmax - xmin)
         target_y = ymin + float(fy) * (ymax - ymin)
-        cart_index, cart_xy = _nearest_cell_index(
+        cart_index, cart_xy = nearest_cell_index(
             cartesian_mesh, x=target_x, y=target_y
         )
-        gmsh_index, gmsh_xy = _nearest_cell_index(gmsh_mesh, x=target_x, y=target_y)
+        gmsh_index, gmsh_xy = nearest_cell_index(gmsh_mesh, x=target_x, y=target_y)
         specs.append(
             {
                 "label": str(label),
                 "marker": str(idx + 1),
                 "color": _PROFILE_COLORS[idx % len(_PROFILE_COLORS)],
                 "target_xy": [
-                    _round_float(target_x, ndigits=6),
-                    _round_float(target_y, ndigits=6),
+                    round_float(target_x, ndigits=6),
+                    round_float(target_y, ndigits=6),
                 ],
                 "cartesian_source_cell_index": int(cart_index),
                 "cartesian_xy": [
-                    _round_float(cart_xy[0], ndigits=6),
-                    _round_float(cart_xy[1], ndigits=6),
+                    round_float(cart_xy[0], ndigits=6),
+                    round_float(cart_xy[1], ndigits=6),
                 ],
                 "gmsh_source_cell_index": int(gmsh_index),
                 "gmsh_xy": [
-                    _round_float(gmsh_xy[0], ndigits=6),
-                    _round_float(gmsh_xy[1], ndigits=6),
+                    round_float(gmsh_xy[0], ndigits=6),
+                    round_float(gmsh_xy[1], ndigits=6),
                 ],
             }
         )
@@ -419,24 +273,24 @@ def _build_profile_comparisons(
                     "row_index": int(cart_profile["row_index"]),
                     "col_index": int(cart_profile["col_index"]),
                     "xy": list(spec["cartesian_xy"]),
-                    "values": _rounded_list(cart_values),
-                    "depths": _rounded_list(cart_depths),
+                    "values": rounded_list(cart_values),
+                    "depths": rounded_list(cart_depths),
                 },
                 "gmsh": {
                     "source_cell_index": int(gmsh_profile["source_cell_index"]),
                     "xy": list(spec["gmsh_xy"]),
-                    "values": _rounded_list(gmsh_values),
-                    "depths": _rounded_list(gmsh_depths),
+                    "values": rounded_list(gmsh_values),
+                    "depths": rounded_list(gmsh_depths),
                 },
                 "comparison": {
                     "shared_layers": int(shared_layers),
-                    "value_mean_abs_delta": _round_float(
+                    "value_mean_abs_delta": round_float(
                         np.mean(np.abs(gmsh_values - cart_values))
                     ),
-                    "value_max_abs_delta": _round_float(
+                    "value_max_abs_delta": round_float(
                         np.max(np.abs(gmsh_values - cart_values))
                     ),
-                    "depth_mean_abs_delta": _round_float(
+                    "depth_mean_abs_delta": round_float(
                         np.mean(np.abs(gmsh_depths - cart_depths))
                     ),
                 },
@@ -471,17 +325,17 @@ def _build_comparison_summary(
         cart_layer_quantiles = dict(cartesian_summary["layer_quantiles"][layer_idx])
         gmsh_layer_quantiles = dict(gmsh_summary["layer_quantiles"][layer_idx])
         layer_mean_delta.append(
-            _round_float(
+            round_float(
                 float(gmsh_layer_stats["mean"]) - float(cart_layer_stats["mean"])
             )
         )
         layer_sum_delta.append(
-            _round_float(
+            round_float(
                 float(gmsh_layer_stats["sum"]) - float(cart_layer_stats["sum"])
             )
         )
         layer_depth_mean_delta.append(
-            _round_float(
+            round_float(
                 float(gmsh_summary["layer_depth_means"][layer_idx])
                 - float(cartesian_summary["layer_depth_means"][layer_idx])
             )
@@ -490,7 +344,7 @@ def _build_comparison_summary(
             {
                 "layer_index": int(layer_idx),
                 **{
-                    key: _round_float(
+                    key: round_float(
                         float(gmsh_layer_quantiles[key])
                         - float(cart_layer_quantiles[key])
                     )
@@ -510,13 +364,13 @@ def _build_comparison_summary(
         "cartesian_cell_type_2d": str(cartesian_summary["cell_type_2d"]),
         "gmsh_cell_type_2d": str(gmsh_summary["cell_type_2d"]),
         "bounds_xy_delta_abs": [
-            _round_float(v, ndigits=6) for v in np.abs(cart_bounds - gmsh_bounds)
+            round_float(v, ndigits=6) for v in np.abs(cart_bounds - gmsh_bounds)
         ],
-        "footprint_area_delta": _round_float(
+        "footprint_area_delta": round_float(
             float(gmsh_summary["footprint_area"])
             - float(cartesian_summary["footprint_area"])
         ),
-        "footprint_area_relative_delta": _round_float(
+        "footprint_area_relative_delta": round_float(
             (
                 float(gmsh_summary["footprint_area"])
                 - float(cartesian_summary["footprint_area"])
@@ -524,11 +378,11 @@ def _build_comparison_summary(
             / float(cartesian_summary["footprint_area"])
         ),
         "global_stats_delta": {
-            key: _round_float(float(gmsh_stats[key]) - float(cart_stats[key]))
+            key: round_float(float(gmsh_stats[key]) - float(cart_stats[key]))
             for key in ("min", "max", "mean", "sum")
         },
         "global_value_quantile_delta": {
-            key: _round_float(float(gmsh_quantiles[key]) - float(cart_quantiles[key]))
+            key: round_float(float(gmsh_quantiles[key]) - float(cart_quantiles[key]))
             for key in sorted(cart_quantiles)
         },
         "layer_mean_delta": layer_mean_delta,
@@ -537,15 +391,15 @@ def _build_comparison_summary(
         "layer_quantile_delta": layer_quantile_delta,
         "profile_labels": [str(profile["label"]) for profile in profile_payload],
         "profile_value_mean_abs_delta": [
-            _round_float(float(profile["comparison"]["value_mean_abs_delta"]))
+            round_float(float(profile["comparison"]["value_mean_abs_delta"]))
             for profile in profile_payload
         ],
         "profile_value_max_abs_delta": [
-            _round_float(float(profile["comparison"]["value_max_abs_delta"]))
+            round_float(float(profile["comparison"]["value_max_abs_delta"]))
             for profile in profile_payload
         ],
         "profile_depth_mean_abs_delta": [
-            _round_float(float(profile["comparison"]["depth_mean_abs_delta"]))
+            round_float(float(profile["comparison"]["depth_mean_abs_delta"]))
             for profile in profile_payload
         ],
         "cartesian_values_3d_signature_head": list(
@@ -916,39 +770,12 @@ def _build_comparison_overview_figure(
     plt.close(fig)
 
 
-def _show_saved_images_blocking(image_paths: list[Path]) -> None:
-    if not image_paths:
-        return
-    ensure_interactive_backend_for_show()
-    n_images = len(image_paths)
-    n_cols = min(2, n_images)
-    n_rows = int(np.ceil(n_images / float(n_cols)))
-    fig, axes = plt.subplots(
-        n_rows, n_cols, figsize=(7.0 * n_cols, 4.7 * n_rows), dpi=120, squeeze=False
-    )
-    axes_flat = list(axes.reshape(-1))
-    for idx, ax in enumerate(axes_flat):
-        if idx >= n_images:
-            ax.axis("off")
-            continue
-        image_path = image_paths[idx]
-        img = plt.imread(image_path)
-        ax.imshow(img)
-        ax.axis("off")
-        ax.set_title(image_path.name, fontsize=11)
-    plt.tight_layout()
-    plt.ioff()
-    maximize_figure_windows(fig)
-    plt.show(block=True)
-    plt.close(fig)
-
-
 def build_cartesian_3d_state_from_toml(
     config_toml: str | Path,
     *,
     section: str = "case",
 ) -> dict[str, object]:
-    config_path = _resolve_config_path(config_toml)
+    config_path = resolve_config_path(config_toml, caller_file=__file__)
     cfg = SGridFieldParamDiscretizationConfig.from_toml(config_path, section=section)
     geology_field = GeologyField.from_dict(cfg.geology)
     field_param = FieldParam.from_dict(cfg.field_param)
@@ -981,9 +808,9 @@ def run_comparison_case(
     output_dir: str | Path | None = None,
     show_plot: bool = False,
 ) -> dict[str, object]:
-    cartesian_config = _resolve_config_path(cartesian_config_toml)
-    gmsh_config = _resolve_config_path(gmsh_config_toml)
-    out_dir = _resolve_output_dir(
+    cartesian_config = resolve_config_path(cartesian_config_toml, caller_file=__file__)
+    gmsh_config = resolve_config_path(gmsh_config_toml, caller_file=__file__)
+    out_dir = resolve_output_dir(
         "outputs" if output_dir is None else output_dir,
         default_base=Path(__file__).resolve().parent,
     )
@@ -999,7 +826,7 @@ def run_comparison_case(
 
     cartesian_summary = dict(cartesian_state["summary"])
     gmsh_summary = _build_gmsh_summary(gmsh_state)
-    shared_bounds_xy = _shared_bounds(
+    shared_bounds_xy = shared_bounds(
         list(cartesian_summary["bounds_xy"]),
         list(gmsh_summary["bounds_xy"]),
     )
@@ -1095,12 +922,12 @@ def run_comparison_case(
         },
     }
 
-    _write_json(out_dir / "cartesian_summary.json", cartesian_summary)
-    _write_json(out_dir / "gmsh_summary.json", gmsh_summary)
-    _write_json(out_dir / "comparison_summary.json", payload)
+    write_json(out_dir / "cartesian_summary.json", cartesian_summary)
+    write_json(out_dir / "gmsh_summary.json", gmsh_summary)
+    write_json(out_dir / "comparison_summary.json", payload)
 
     if show_plot:
-        _show_saved_images_blocking(
+        show_saved_images_blocking(
             layer_image_paths + [profiles_image_path, overview_image_path]
         )
 

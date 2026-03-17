@@ -36,15 +36,7 @@ _NODES_PER_CELL = {
 }
 
 
-def _require_meshio():
-    try:
-        import meshio  # type: ignore
-    except ModuleNotFoundError as exc:  # pragma: no cover - depends on environment
-        raise ImportError(
-            "meshio is required for Gmsh mesh read/write support. "
-            "Install the 'meshio' package to use from_file()/to_file()."
-        ) from exc
-    return meshio
+from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_meshio as _require_meshio
 
 
 def _parse_int_tokens(line: str, *, expected_at_least: int) -> list[int]:

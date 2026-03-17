@@ -56,6 +56,9 @@ from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (
     build_sgrid_from_config,
 )
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
+from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
+    _compute_layer_center_depths,
+)
 
 
 DEFAULT_CONFIG_FILE = "run_demo_3d_config.toml"
@@ -170,19 +173,6 @@ def _ensure_gui_backend_for_blocking_show() -> None:
             return
         except Exception:
             continue
-
-
-def _compute_layer_center_depths(sgrid) -> np.ndarray:
-    top = np.asarray(getattr(sgrid, "top"), dtype=float)
-    botm = np.asarray(getattr(sgrid, "botm"), dtype=float)
-    if botm.ndim != 3:
-        raise ValueError("sgrid.botm must be 3D")
-    ztop = np.empty_like(botm, dtype=float)
-    ztop[0, :, :] = top
-    if botm.shape[0] > 1:
-        ztop[1:, :, :] = botm[:-1, :, :]
-    zmid = 0.5 * (ztop + botm)
-    return np.maximum(0.0, top[None, :, :] - zmid)
 
 
 def _extract_xy_from_sgrid(sgrid) -> tuple[np.ndarray, np.ndarray]:

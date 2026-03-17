@@ -35,6 +35,7 @@ from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windo
 from hydromodpy.solver.utils.mesh.cartesian_grid.utils.raster_grid_reader import (
     RasterGridReader,
 )
+from hydromodpy.solver.utils._config_helpers import resolve_path
 
 
 DEFAULT_TOP_PATH = "watershed_box_buff_dem.tif"
@@ -162,13 +163,6 @@ def _ensure_gui_backend_for_blocking_show() -> None:
             return
         except Exception:
             continue
-
-
-def _resolve_path(path_value: str, base_dir: Path) -> Path:
-    path = Path(path_value).expanduser()
-    if not path.is_absolute():
-        path = (base_dir / path).resolve()
-    return path
 
 
 def _masked(arr, nodata=DEFAULT_NODATA):
@@ -458,7 +452,7 @@ def main(argv=None):
     if not bool(args.no_show):
         _ensure_gui_backend_for_blocking_show()
 
-    top_path = _resolve_path(args.top_path, cfolder)
+    top_path = Path(resolve_path(args.top_path, cfolder))
     top_surface = _build_top_surface(
         top_path=top_path,
         crs=DEFAULT_CRS,
@@ -468,7 +462,7 @@ def main(argv=None):
         nodata=DEFAULT_NODATA,
     )
 
-    output_dir = _resolve_path(args.output_dir, cfolder)
+    output_dir = Path(resolve_path(args.output_dir, cfolder))
     output_dir.mkdir(parents=True, exist_ok=True)
 
     scenarios = [_build_scenario_grid(top_surface, s) for s in DEFAULT_SCENARIOS]
