@@ -95,21 +95,25 @@ class IntermittencyManager(BaseVariableManager):
         return self._apply_mask(records, source_cfg)
 
     def _resolve_bbox(self, source_cfg) -> tuple | None:
-        """Get bbox from mask or project extent."""
+        """Get WGS84 bbox from mask or project extent (Hub'Eau expects lon/lat)."""
         if source_cfg.mask_path:
-            from hydromodpy.data_managers.common.geo_helpers import load_mask_geometry, geometry_to_bbox
-            geom = load_mask_geometry(source_cfg.mask_path)
+            from hydromodpy.data_managers.common.geo_helpers import load_mask_geometry_wgs84, geometry_to_bbox
+            geom = load_mask_geometry_wgs84(source_cfg.mask_path)
             return geometry_to_bbox(geom)
         if source_cfg.extent and self.project_extent:
             return self.project_extent
         return None
 
     def _apply_mask(self, records: list[PointRecord], source_cfg) -> list[PointRecord]:
-        """Filter records by spatial mask if mask_path is set."""
+        """Filter records by spatial mask if mask_path is set.
+
+        Station locations are in WGS84 (from Hub'Eau), so the mask
+        geometry is reprojected to WGS84 before the containment check.
+        """
         if not source_cfg.mask_path:
             return records
-        from hydromodpy.data_managers.common.geo_helpers import load_mask_geometry, filter_locations_by_geometry
-        geom = load_mask_geometry(source_cfg.mask_path)
+        from hydromodpy.data_managers.common.geo_helpers import load_mask_geometry_wgs84, filter_locations_by_geometry
+        geom = load_mask_geometry_wgs84(source_cfg.mask_path)
         locs_to_check = [r.location for r in records if r.location is not None]
         inside = filter_locations_by_geometry(locs_to_check, geom)
         valid_locs = {loc.id for loc in inside}
