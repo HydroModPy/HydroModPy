@@ -107,6 +107,10 @@ hydromodpy/data_managers/*/cases/outputs/**
 !hydromodpy/data_managers/*/cases/outputs/.gitkeep
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 hydromodpy/mesh/cartesian_grid/output/
+**/output/*.png
+**/output/**/*.png
+**/outputs/*.png
+**/outputs/**/*.png
 catalog.db
 hydromodpy_debug.log
 *.chk

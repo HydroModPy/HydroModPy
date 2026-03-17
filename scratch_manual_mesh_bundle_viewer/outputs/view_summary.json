@@ -1,0 +1,24 @@
+{
+  "summary_schema_version": "mesh_bundle_viewer_v1",
+  "bundle_dir": "C:\\codes\\HydroModPy-GH\\scratch_manual_mesh_bundle_viewer\\bundle",
+  "mesh_path": "C:\\codes\\HydroModPy-GH\\scratch_manual_mesh_bundle_viewer\\bundle\\mesh_2d.msh",
+  "n_nodes": 4,
+  "n_cells": 2,
+  "n_edges": 5,
+  "crs": "EPSG:2154",
+  "constraints_mode": "geology_rivers",
+  "geology_available": true,
+  "geology_keys": [
+    "granite",
+    "schist"
+  ],
+  "river_edge_count": 1,
+  "boundary_edge_count": 4,
+  "geology_interface_edge_count": 1,
+  "color_by": "geology_key",
+  "show_topography_panel": true,
+  "topography_color_by": "z_top_mean",
+  "topography_render_mode": "node_continuous",
+  "output_figure": "C:\\codes\\HydroModPy-GH\\scratch_manual_mesh_bundle_viewer\\outputs\\view.png",
+  "output_summary_json": "C:\\codes\\HydroModPy-GH\\scratch_manual_mesh_bundle_viewer\\outputs\\view_summary.json"
+}

@@ -49,16 +49,11 @@ from collections.abc import Mapping
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.config.toml_loader import load_toml_with_base_config
-from hydromodpy.data_managers import (
-    DataLoadPlan,
-    DataManagersPlanner,
-    DataManagersRuntimeLoader,
-)
 from hydromodpy.domain import Domain
 from hydromodpy.domain.spatial_support import (
     SupportBuildContext,
@@ -86,6 +81,23 @@ from launchers.mesh_catchment.runtime import (
     resolve_constraints_mode,
     run_single_mesh_catchment_workflow,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.data_managers import DataLoadPlan
+
+
+def _build_data_plan(*args, **kwargs):
+    """Import planner lazily to keep launcher imports lightweight in tests."""
+    from hydromodpy.data_managers import DataManagersPlanner
+
+    return DataManagersPlanner().build(*args, **kwargs)
+
+
+def _build_data_runtime_loader(*args, **kwargs):
+    """Import runtime loader lazily to avoid importing the full data stack at module import."""
+    from hydromodpy.data_managers import DataManagersRuntimeLoader
+
+    return DataManagersRuntimeLoader(*args, **kwargs)
 
 
 class HydroModPyLauncher:
@@ -159,7 +171,7 @@ class HydroModPyLauncher:
         # Resolve the effective data-manager activation set from:
         # - explicit [data].types declarations,
         # - high-level domain/process/context hints.
-        data_plan = DataManagersPlanner().build(
+        data_plan = _build_data_plan(
             self.cfg.data,
             domain_zone_ids=self.cfg.domain.zone_ids,
             domain_support_provider_names=self._support_provider_names(
@@ -574,7 +586,7 @@ class HydroModPyLauncher:
         through domain/process binder modules.
         """
         run_state = self.run_state
-        loader = DataManagersRuntimeLoader(
+        loader = _build_data_runtime_loader(
             config_path=self.config_path,
             data_plan=self.data_plan,
         )

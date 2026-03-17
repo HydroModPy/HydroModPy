@@ -18,6 +18,7 @@ For higher-level runtime handoffs from process objects to solver wrappers, see
 .. toctree::
    :maxdepth: 2
 
+   catchment-conformal-meshing-diagrams
    structured-grid-class-diagram
    structured-grid-build-sequence-diagram
    sgrid-fieldparam-discretization-diagrams
