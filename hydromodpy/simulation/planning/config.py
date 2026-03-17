@@ -201,6 +201,14 @@ class SimulationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(default="", description="Human-readable simulation name.")
+    run_id: str = Field(
+        default="",
+        description=(
+            "Run identifier used as the output subfolder name under "
+            "results_simulations/. When empty, derived from the TOML "
+            "filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
+        ),
+    )
     description: str = Field(
         default="",
         description="Short free-text description of the simulation intent.",

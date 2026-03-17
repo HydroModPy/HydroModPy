@@ -1,2 +1,0 @@
-"""Executable intermittency case runners."""
-

@@ -1,0 +1,88 @@
+# ======================================================================
+# Ex05 — Spatial filtering with GeoJSON mask.
+# Loads all stations, then filters by geographic extent.
+# RENNES01 / RENNES_P01 / RENNES_WQ are outside the mask -> excluded.
+# ======================================================================
+# Generated from Pydantic config export.
+
+
+# ----------------------------------------------------------------------
+# Top-level hydrometry configuration (list of sources).
+# ----------------------------------------------------------------------
+
+[hydrometry]
+# Project start date (ISO format, e.g.
+# '2019-01-01').
+# Type: string (optional) | Optional
+date_start = "1990-01-01"
+
+# Project end date (ISO format, e.g.
+# '2025-12-31').
+# Type: string (optional) | Optional
+date_end = "1992-12-31"
+
+
+# At least one data source.
+[[hydrometry.sources]]
+# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "custom"
+
+# Directory containing location file and chronicle CSVs.
+# Type: path (optional) | Optional
+path = "../../data/hydrometry"
+
+# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
+# Type: path (optional) | Optional
+mask_path = "../../data/masks/canut_bbox.geojson"
+
+
+# ----------------------------------------------------------------------
+# Top-level piezometry configuration.
+# ----------------------------------------------------------------------
+
+[piezometry]
+# Project start date (ISO format, e.g.
+# '2019-01-01').
+# Type: string (optional) | Optional
+date_start = "1990-01-01"
+
+# Project end date (ISO format, e.g.
+# '2025-12-31').
+# Type: string (optional) | Optional
+date_end = "1992-12-31"
+
+
+# At least one data source.
+[[piezometry.sources]]
+# Data provider.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "custom"
+
+# Directory containing location file and chronicle CSVs.
+# Type: path (optional) | Optional
+path = "../../data/piezometry"
+
+# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
+# Type: path (optional) | Optional
+mask_path = "../../data/masks/canut_bbox.geojson"
+
+
+# ----------------------------------------------------------------------
+# Top-level water quality configuration (list of sources).
+# ----------------------------------------------------------------------
+
+# At least one data source.
+[[water_quality.sources]]
+# Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
+# Type: Literal['custom', 'hubeau'] | one of: "custom", "hubeau" | REQUIRED
+source = "custom"
+
+# Directory containing location file and chronicle CSVs.
+# Type: path (optional) | Optional
+path = "../../data/water_quality"
+
+# SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
+# Type: path (optional) | Optional
+mask_path = "../../data/masks/canut_bbox.geojson"
+

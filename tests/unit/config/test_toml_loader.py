@@ -16,9 +16,7 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
         "\n".join(
             [
                 "[workspace]",
-                'catch_name = "demo"',
-                'out_dir_path = "out"',
-                'data_path = "data"',
+                f'project_root = "{tmp_path / "demo"}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -52,7 +50,7 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
 
     payload = load_toml_with_base_config(child_path)
 
-    assert payload["workspace"]["catch_name"] == "demo"
+    assert payload["workspace"]["project_root"] == str(tmp_path / "demo")
     assert payload["flow"]["active_bc"] == ["ocean", "drainage"]
     assert payload["flow"]["bc"]["dirichlet"]["ocean"]["data_value"] is True
     assert payload["flow"]["bc"]["cauchy"]["drainage"]["application_domain"] == "top"
@@ -80,9 +78,7 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
         "\n".join(
             [
                 "[workspace]",
-                'catch_name = "demo"',
-                'out_dir_path = "out"',
-                'data_path = "data"',
+                f'project_root = "{tmp_path / "demo"}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',

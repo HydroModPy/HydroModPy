@@ -3,7 +3,7 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.config.param_level import ParamLevel, VisibleWhen
 from hydromodpy.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.support.units import parse_length_to_m
 
@@ -28,14 +28,22 @@ class RiverNetworkConfig(BaseModel):
             "'cells' uses contributing-cell count directly."
         ),
     )
-    threshold_area_km2: Annotated[Optional[float], ParamLevel("user")] = Field(
+    threshold_area_km2: Annotated[
+        Optional[float],
+        ParamLevel("user"),
+        VisibleWhen("threshold_mode", "area_km2"),
+    ] = Field(
         default=None,
         description=(
             "Contributing area threshold (km^2), required when "
             "threshold_mode='area_km2'."
         ),
     )
-    threshold_cells: Annotated[Optional[float], ParamLevel("user")] = Field(
+    threshold_cells: Annotated[
+        Optional[float],
+        ParamLevel("user"),
+        VisibleWhen("threshold_mode", "cells"),
+    ] = Field(
         default=None,
         description=(
             "Contributing-cell threshold, required when threshold_mode='cells'."
@@ -161,7 +169,11 @@ class GeographicConfig(BaseModel):
         ),
     )
 
-    dem_init_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    dem_init_path: Annotated[
+        Optional[Path],
+        ParamLevel("user"),
+        VisibleWhen("source_mode", "standard"),
+    ] = Field(
         default=None,
         description=(
             "Path to the DEM raster used as input. "
@@ -169,20 +181,36 @@ class GeographicConfig(BaseModel):
             "For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis."
         ),
     )
-    cell_size: Annotated[Optional[float], ParamLevel("user")] = Field(
+    cell_size: Annotated[
+        Optional[float],
+        ParamLevel("user"),
+        VisibleWhen("catch_def", "txt"),
+    ] = Field(
         default=None,
         gt=0,
         description="Grid cell size in metres used to rasterise the XYZ point cloud. Required for 'txt' mode.",
     )
-    x_outlet: Annotated[Optional[float], ParamLevel("user")] = Field(
+    x_outlet: Annotated[
+        Optional[float],
+        ParamLevel("user"),
+        VisibleWhen("catch_def", "from_outlet_coord"),
+    ] = Field(
         default=None,
         description="X coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.",
     )
-    y_outlet: Annotated[Optional[float], ParamLevel("user")] = Field(
+    y_outlet: Annotated[
+        Optional[float],
+        ParamLevel("user"),
+        VisibleWhen("catch_def", "from_outlet_coord"),
+    ] = Field(
         default=None,
         description="Y coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.",
     )
-    snap_dist: Annotated[Optional[float | str], ParamLevel("user")] = Field(
+    snap_dist: Annotated[
+        Optional[float | str],
+        ParamLevel("user"),
+        VisibleWhen("catch_def", "from_outlet_coord"),
+    ] = Field(
         default=None,
         description=(
             "Maximum snapping distance to move the outlet to the nearest stream cell. "
@@ -190,7 +218,11 @@ class GeographicConfig(BaseModel):
             "Required for 'from_outlet_coord' mode."
         ),
     )
-    buff_area: Annotated[Optional[str | float], ParamLevel("user")] = Field(
+    buff_area: Annotated[
+        Optional[str | float],
+        ParamLevel("user"),
+        VisibleWhen("catch_def", ("from_outlet_coord", "from_polyg_shp")),
+    ] = Field(
         default=None,
         description=(
             "Buffer around the watershed polygon. Numeric values keep legacy behavior "
@@ -199,7 +231,11 @@ class GeographicConfig(BaseModel):
             "'from_outlet_coord' and 'from_polyg_shp' modes."
         ),
     )
-    polyg_shp_path: Annotated[Optional[Path], ParamLevel("user")] = Field(
+    polyg_shp_path: Annotated[
+        Optional[Path],
+        ParamLevel("user"),
+        VisibleWhen("catch_def", "from_polyg_shp"),
+    ] = Field(
         default=None,
         description="Path to the watershed polygon shapefile. Required for 'from_polyg_shp' mode.",
     )

@@ -36,7 +36,7 @@ def _resolve_bin_path() -> str:
 
 class Workspace:
     """
-    Prepare and expose the folder structure for one watershed workspace.
+    Prepare and expose the folder structure for one project workspace.
 
     This class keeps the same behavior as the historical `Initializing`
     implementation, with a clearer name that reflects its responsibility.
@@ -44,14 +44,12 @@ class Workspace:
 
     def __init__(self, config: WorkspaceConfig):
         self.paths = WorkspacePathRegistry.from_config(config)
+        self.project_root = self.paths.project_root
+        self.workspace_root = self.paths.workspace_root
         self.catch_name = self.paths.catch_name
-        self.out_dir_path = self.paths.out_dir_path
-        self.data_path = self.paths.data_path
 
-        self.catch_folder = self.paths.catch_folder
-        toolbox.create_folder(self.catch_folder)
-
-        setup_simulation_log(self.catch_folder)
+        toolbox.create_folder(self.project_root)
+        setup_simulation_log(self.project_root)
 
         self.stable_folder = self.paths.stable_folder
         toolbox.create_folder(self.stable_folder)
@@ -69,3 +67,7 @@ class Workspace:
         toolbox.create_folder(self.figure_folder)
 
         self.bin_path = _resolve_bin_path()
+
+        # Backwards-compatible aliases
+        self.catch_folder = self.project_root
+        self.data_path = self.paths.data_path

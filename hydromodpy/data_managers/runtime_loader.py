@@ -36,12 +36,17 @@ class DataManagersRuntimeLoader:
         self._cache_root: Path | None = None
 
     def _init_catalog(self, workspace_paths: WorkspacePathRegistry) -> None:
-        """Lazily create the shared DataCatalog backed by ``data_path/catalog.db``."""
+        """Lazily create the shared DataCatalog backed by ``catalog.db``."""
         if self._catalog is not None:
             return
         self._cache_root = workspace_paths.data_path
-        self._cache_root.mkdir(parents=True, exist_ok=True)
-        self._catalog = DataCatalog(self._cache_root / "catalog.db")
+        if self._cache_root is not None:
+            self._cache_root.mkdir(parents=True, exist_ok=True)
+        catalog_path = workspace_paths.catalog_path
+        if catalog_path is None and self._cache_root is not None:
+            catalog_path = self._cache_root / "catalog.db"
+        if catalog_path is not None:
+            self._catalog = DataCatalog(catalog_path)
 
     def _data_dir(self, variable: str) -> Path | None:
         """Return ``data_path/<variable>/`` for cache storage, or None."""
@@ -213,7 +218,7 @@ class DataManagersRuntimeLoader:
             manager = HydrographyManager(
                 config=hydro_cfg,
                 geographic=result.setup.geographic,
-                out_path=workspace_paths.catch_folder,
+                out_path=workspace_paths.project_root,
                 catalog=self._catalog,
                 data_dir=self._data_dir("hydrography"),
             )
@@ -222,12 +227,14 @@ class DataManagersRuntimeLoader:
             self._handle_data_loading_error(result, "hydrography", exc)
 
     def _load_intermittency_data(self, result: "LauncherRunState") -> None:
-        """Load ONDE-style intermittency observations."""
-        from hydromodpy.data_managers.intermittency import Intermittency
+        """Load ONDE-style intermittency observations via the variable manager."""
+        from datetime import datetime as dt
 
-        workspace_paths = self._workspace_paths(result)
-        section = self._get_data_section(result, "intermittency")
-        if section is None:
+        from hydromodpy.data_managers.variables.intermittency.config import IntermittencyConfig
+        from hydromodpy.data_managers.variables.intermittency.manager import IntermittencyManager
+
+        raw_section = self._get_data_section(result, "intermittency")
+        if raw_section is None:
             self._handle_missing_data_section(
                 result,
                 "intermittency",
@@ -235,26 +242,24 @@ class DataManagersRuntimeLoader:
             )
             return
 
-        intermittency_path = self._resolve_manager_input_path(
-            section=section,
-            keys=("intermittency_path", "path"),
-            default_root=workspace_paths.data_path,
-        )
-        file_name = str(section.get("file_name", "regional onde stations.shp")).strip()
-        if not file_name:
-            self._handle_missing_data_section(
-                result,
-                "intermittency",
-                "data.intermittency requires non-empty 'file_name'",
-            )
-            return
+        self._apply_simulation_window_dates(raw_section, result, "intermittency")
+
         try:
-            result.loaded_data.intermittency = Intermittency(
-                out_path=workspace_paths.catch_folder,
-                intermittency_path=intermittency_path,
-                file_name=file_name,
-                geographic=result.setup.geographic,
+            intermittency_cfg = IntermittencyConfig.model_validate(raw_section)
+            period = None
+            if intermittency_cfg.date_start and intermittency_cfg.date_end:
+                period = (dt.fromisoformat(intermittency_cfg.date_start), dt.fromisoformat(intermittency_cfg.date_end))
+            for src in intermittency_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+            manager = IntermittencyManager(
+                config=intermittency_cfg,
+                catalog=self._catalog,
+                project_period=period,
+                project_extent=None,
+                data_dir=self._data_dir("intermittency"),
             )
+            result.loaded_data.intermittency = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "intermittency", exc)
 
@@ -639,9 +644,11 @@ class DataManagersRuntimeLoader:
         if hasattr(workspace, "paths"):
             return workspace.paths
         return WorkspacePathRegistry(
-            catch_name=str(getattr(workspace, "catch_name", result.cfg.workspace.catch_name)),
-            out_dir_path=Path(getattr(workspace, "out_dir_path", result.cfg.workspace.out_dir_path)),
-            data_path=Path(result.cfg.workspace.data_path),
+            project_root=Path(getattr(workspace, "project_root", result.cfg.workspace.project_root)),
+            workspace_root=(
+                Path(workspace.workspace_root) if getattr(workspace, "workspace_root", None)
+                else (Path(result.cfg.workspace.workspace_root) if result.cfg.workspace.workspace_root else None)
+            ),
         )
 
     def _resolve_manager_input_path(
@@ -649,14 +656,16 @@ class DataManagersRuntimeLoader:
         *,
         section: Mapping[str, Any] | None,
         keys: tuple[str, ...],
-        default_root: Path,
-    ) -> Path:
+        default_root: Path | None,
+    ) -> Path | None:
         """Resolve one manager input path with section-override precedence."""
         if section is not None:
             for key in keys:
                 raw_value = section.get(key)
                 if isinstance(raw_value, str) and raw_value.strip():
                     return self._resolve_path_like(raw_value)
+        if default_root is None:
+            return None
         return Path(default_root)
 
     @staticmethod

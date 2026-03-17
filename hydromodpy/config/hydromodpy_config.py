@@ -1,4 +1,4 @@
-﻿"""Top-level Pydantic configuration object for HydroModPy.
+"""Top-level Pydantic configuration object for HydroModPy.
 
 Aggregates all sub-configs into a single hierarchical model.
 Relative paths in the TOML are resolved against the TOML file location;
@@ -9,8 +9,8 @@ Usage::
 
     from hydromodpy.config import HydroModPyConfig
 
-    cfg = HydroModPyConfig.from_toml("examples_legacy/01S_short/config.toml")
-    cfg.workspace.catch_name
+    cfg = HydroModPyConfig.from_toml("examples/projects/01_canut/run_steady_nwt.toml")
+    cfg.workspace.project_root
     cfg.geographic.catch_def
     cfg.geographic.dem_init_path
     cfg.domain.zone_ids
@@ -19,6 +19,8 @@ Usage::
     cfg.modflownwt.process_specific.vka
 """
 
+import os
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Callable
@@ -41,16 +43,14 @@ from hydromodpy.simulation.workspace.config import WorkspaceConfig
 from hydromodpy.config.toml_loader import load_toml_with_base_config
 
 
-class RunConfig(BaseModel):
-    """Controls which phases the launcher executes."""
+def _derive_run_id_from_filename(toml_path: Path) -> str:
+    """Derive a run_id from a TOML filename.
 
-    phases: list[str] = Field(
-        default=["setup", "data", "flow", "particles", "transport"],
-        description=(
-            "Ordered list of phases to run. "
-            "Allowed values: 'setup', 'data', 'flow', 'particles', 'transport'."
-        ),
-    )
+    ``run_steady_nwt.toml`` -> ``steady_nwt``
+    ``config.toml`` -> ``config``
+    """
+    stem = toml_path.stem
+    return re.sub(r"^run_", "", stem)
 
 
 class HydroModPyConfig(BaseModel):
@@ -136,13 +136,6 @@ class HydroModPyConfig(BaseModel):
             "[modflow6.sgrid.planar], and [modflow6.sgrid.vertical]."
         ),
     )
-    run: RunConfig = Field(
-        default_factory=RunConfig,
-        description=(
-            "Launcher run configuration. Controls which phases are executed. "
-            "Defaults to all phases if the [run] section is absent from the TOML."
-        ),
-    )
     display: DisplayConfig = Field(
         default_factory=DisplayConfig,
         description=(
@@ -195,7 +188,17 @@ class HydroModPyConfig(BaseModel):
                 "Section [modflow] is no longer supported. "
                 "Use [solver], [modflownwt], and [modflow6] sections instead."
             )
+
+        # Auto-derive workspace.project_root from TOML location if absent.
+        # HYDROMODPY_PROJECT_ROOT env var takes precedence (used by test infra).
         workspace_section = raw.get("workspace", {})
+        env_project_root = os.environ.get("HYDROMODPY_PROJECT_ROOT")
+        if env_project_root:
+            workspace_section["project_root"] = str(
+                Path(env_project_root).expanduser().resolve()
+            )
+        elif not workspace_section.get("project_root"):
+            workspace_section["project_root"] = str(base)
 
         section_loaders: dict[str, tuple[Any, Callable[[Any, Path], Any]]] = {
             "workspace": (
@@ -217,7 +220,6 @@ class HydroModPyConfig(BaseModel):
             "solver": ({}, _load_solver_section),
             "modflownwt": ({}, _load_modflow_nwt_section),
             "modflow6": ({}, _load_modflow6_section),
-            "run": ({}, lambda data, b: _load_standard_section(data, RunConfig, b)),
             "display": ({}, lambda data, b: _load_standard_section(data, DisplayConfig, b)),
             "postprocess": (
                 {},
@@ -230,7 +232,13 @@ class HydroModPyConfig(BaseModel):
             section_data = raw.get(section_name, default_value)
             parsed_sections[section_name] = loader(section_data, base)
 
-        return cls(**parsed_sections)
+        cfg = cls(**parsed_sections)
+
+        # Derive run_id from TOML filename if not set explicitly.
+        if not cfg.simulation.run_id:
+            cfg.simulation.run_id = _derive_run_id_from_filename(toml_path)
+
+        return cfg
 
 def _is_path_field(field_info: FieldInfo) -> bool:
     """
@@ -312,6 +320,3 @@ def _load_modflow6_section(section_data: Any, base: Path) -> Modflow6Config:
     if not isinstance(section_data, Mapping):
         raise ValueError("TOML section must be a mapping for Modflow6Config")
     return Modflow6Config.model_validate(dict(section_data))
-
-
-

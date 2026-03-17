@@ -94,9 +94,9 @@ class DataManagersConfig(BaseModel):
         default=None,
         description="Hydrometry configuration (discharge time-series).",
     )
-    intermittency: Annotated[dict[str, Any] | None, ParamLevel("dev")] = Field(
+    intermittency: Annotated["IntermittencyConfig | None", ParamLevel("user")] = Field(
         default=None,
-        description="Reserved configuration mapping for intermittency data-manager.",
+        description="Intermittency configuration (ONDE stream flow-state observations).",
     )
     oceanic: Annotated[OceanicConfig | None, ParamLevel("user")] = Field(
         default=None,
@@ -264,6 +264,7 @@ class DataManagersConfig(BaseModel):
         # Typed config models for data families that have dedicated schemas.
         from hydromodpy.data_managers.variables.hydrography.config import HydrographyConfig
         from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
+        from hydromodpy.data_managers.variables.intermittency.config import IntermittencyConfig
         from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
         from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
         from hydromodpy.data_managers.variables.recharge.config import RechargeConfig
@@ -281,6 +282,7 @@ class DataManagersConfig(BaseModel):
             "hydrography": HydrographyConfig,
             "oceanic": OceanicConfig,
             "hydrometry": HydrometryConfig,
+            "intermittency": IntermittencyConfig,
             "piezometry": PiezometryConfig,
             "water_quality": WaterQualityConfig,
             "recharge": RechargeConfig,
@@ -337,6 +339,7 @@ def _rebuild_forward_refs() -> None:
     """Resolve forward references for typed data-manager config fields."""
     from hydromodpy.data_managers.variables.hydrography.config import HydrographyConfig
     from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
+    from hydromodpy.data_managers.variables.intermittency.config import IntermittencyConfig
     from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
     from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
     from hydromodpy.data_managers.variables.recharge.config import RechargeConfig
@@ -353,6 +356,7 @@ def _rebuild_forward_refs() -> None:
         _types_namespace={
             "HydrographyConfig": HydrographyConfig,
             "HydrometryConfig": HydrometryConfig,
+            "IntermittencyConfig": IntermittencyConfig,
             "PiezometryConfig": PiezometryConfig,
             "WaterQualityConfig": WaterQualityConfig,
             "RechargeConfig": RechargeConfig,

@@ -8,7 +8,7 @@ packages.
 from hydromodpy.legacy.watershed.geology_config import GeologyConfig
 from hydromodpy.legacy.watershed.hydraulic import Hydraulic
 from hydromodpy.data_managers.variables.hydrography.result import HydrographyResult as Hydrography
-from hydromodpy.data_managers.intermittency import Intermittency
+from hydromodpy.data_managers.variables.intermittency.manager import IntermittencyManager
 from hydromodpy.simulation.settings import Settings
 
-__all__ = ['GeologyConfig', 'Hydraulic', 'Hydrography', 'Intermittency', 'Settings']
+__all__ = ['GeologyConfig', 'Hydraulic', 'Hydrography', 'IntermittencyManager', 'Settings']

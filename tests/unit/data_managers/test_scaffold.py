@@ -1,8 +1,8 @@
-"""Tests for hmp init scaffolding."""
+"""Tests for hmp init / hmp new scaffolding."""
 
 from pathlib import Path
 
-from hydromodpy.data_managers.scaffold import scaffold
+from hydromodpy.data_managers.scaffold import scaffold, create_project
 
 
 class TestScaffold:
@@ -14,8 +14,7 @@ class TestScaffold:
         assert (root / "data" / "hydrometry").is_dir()
         assert (root / "data" / "piezometry").is_dir()
         assert (root / "data" / "water_quality").is_dir()
-        assert (root / "bv_example").is_dir()
-        assert (root / "bv_example" / "data_managers.toml").exists()
+        assert (root / "projects").is_dir()
 
     def test_creates_loc_templates(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy")
@@ -37,30 +36,6 @@ class TestScaffold:
         assert "datetime,value" in content
         assert "Renommer" in content
 
-    def test_bv_toml_points_to_data(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
-        toml_content = (root / "bv_example" / "data_managers.toml").read_text()
-        data_path = str(root / "data")
-        assert data_path in toml_content
-
-    def test_bv_toml_is_valid(self, tmp_path):
-        """BV TOML must parse and validate against Pydantic configs."""
-        root = scaffold(tmp_path / "hydromodpy")
-        toml_path = root / "bv_example" / "data_managers.toml"
-
-        from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig
-        from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig
-        from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
-
-        h = HydrometryConfig.from_toml(toml_path)
-        p = PiezometryConfig.from_toml(toml_path)
-        w = WaterQualityConfig.from_toml(toml_path)
-
-        assert h.sources[0].source == "custom"
-        assert str(root / "data") in str(h.sources[0].path)
-        assert p.sources[0].source == "custom"
-        assert w.sources[0].source == "custom"
-
     def test_idempotent(self, tmp_path):
         """Running scaffold twice does not overwrite existing files."""
         root = scaffold(tmp_path / "hydromodpy")
@@ -75,3 +50,49 @@ class TestScaffold:
     def test_default_path(self):
         from hydromodpy.data_managers.scaffold import DEFAULT_ROOT
         assert DEFAULT_ROOT == Path.home() / "hydromodpy"
+
+
+class TestCreateProject:
+
+    def test_creates_project_structure(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy")
+        project_dir = create_project(root, "my_project")
+
+        assert project_dir.is_dir()
+        assert (project_dir / "project.toml").exists()
+        assert (project_dir / "run_demo.toml").exists()
+
+    def test_project_toml_content(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy")
+        project_dir = create_project(root, "canut")
+
+        content = (project_dir / "project.toml").read_text()
+        assert "canut" in content
+        assert "[geographic]" in content
+        assert "[domain]" in content
+        assert "[flow]" in content
+
+    def test_run_toml_content(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy")
+        project_dir = create_project(root, "canut")
+
+        content = (project_dir / "run_demo.toml").read_text()
+        assert 'base_config = "project.toml"' in content
+        assert "[simulation]" in content
+        assert "[[simulation.process]]" in content
+
+    def test_idempotent(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy")
+        project_dir = create_project(root, "my_project")
+
+        (project_dir / "project.toml").write_text("# custom\n")
+        create_project(root, "my_project")
+
+        assert (project_dir / "project.toml").read_text() == "# custom\n"
+
+    def test_project_inside_projects_dir(self, tmp_path):
+        root = scaffold(tmp_path / "hydromodpy")
+        project_dir = create_project(root, "test_proj")
+
+        assert project_dir.parent.name == "projects"
+        assert project_dir.parent.parent == root

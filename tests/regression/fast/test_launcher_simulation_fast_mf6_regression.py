@@ -13,7 +13,7 @@ from tests.regression.launcher_simulation_helpers import run_launcher_simulation
 def test_launcher_simulation_fast_mf6_regression(update_goldens) -> None:
     run_launcher_simulation_regression(
         test_file=__file__,
-        config_name="config_fast_mf6.toml",
+        config_name="run_fast_mf6.toml",
         golden_filename="launcher_simulation_fast_mf6_npy_signatures.json",
         run_name="launcher_simulation_fast_mf6_outputs",
         require_modflow=False,

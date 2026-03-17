@@ -14,9 +14,7 @@ type = "flow"
 solvers = ["modflownwt"]
 
 [workspace]
-catch_name = "val_bsq_island_pk2d"
-out_dir_path = "../results"
-data_path = "."
+project_root = "."
 
 [geographic]
 source_mode = "synthetic"

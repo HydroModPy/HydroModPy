@@ -53,19 +53,19 @@ def test_hmp_simulation_exits_on_missing_file(monkeypatch, tmp_path) -> None:
     assert exc_info.value.code == 1
 
 
-def test_hmp_simulation_passes_out_to_env(monkeypatch, tmp_path) -> None:
+def test_hmp_run_dispatches_to_launcher(monkeypatch, tmp_path) -> None:
+    """The ``hmp run`` subcommand dispatches to the launcher."""
     config = tmp_path / "config.toml"
-    config.write_text("# test\n", encoding="utf-8")
-    out_dir = tmp_path / "results"
+    config.write_text("# test config\n", encoding="utf-8")
 
     captured: dict = {}
     monkeypatch.setattr(
         "launchers.HydroModPyLauncher",
         _make_dummy_launcher(captured),
     )
-    monkeypatch.setattr("sys.argv", ["hmp", "simulation", str(config), "--out", str(out_dir)])
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()
 
-    assert os.environ.get("HYDROMODPY_OUT_PATH") == str(out_dir.resolve())
+    assert captured["config_path"] == config.resolve()
     assert captured["run_called"] is True

@@ -21,6 +21,7 @@ from tests.regression.golden_utils import (
 LAUNCHER_SIMULATION_SCRIPT = (
     REPO_ROOT
     / "examples"
+    / "projects"
     / "launcher_simulation"
     / "launcher_simulation.py"
 )
@@ -50,7 +51,6 @@ SHOM_END_DATE = "2003-01-30"
 OCEANIC_DATA_DIR = (
     REPO_ROOT
     / "examples"
-    / "launcher_simulation"
     / "data"
     / "oceanic"
 )
@@ -164,6 +164,7 @@ def run_launcher_simulation_regression(
             str(
                 REPO_ROOT
                 / "examples"
+                / "projects"
                 / "launcher_simulation"
                 / config_name
             )

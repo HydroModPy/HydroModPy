@@ -15,7 +15,7 @@ from tests.regression.launcher_simulation_helpers import run_launcher_simulation
 def test_launcher_simulation_extensive_nwt_regression(update_goldens) -> None:
     run_launcher_simulation_regression(
         test_file=__file__,
-        config_name="config_extensive_nwt.toml",
+        config_name="run_extensive_nwt.toml",
         golden_filename="launcher_simulation_extensive_nwt_npy_signatures.json",
         run_name="launcher_simulation_extensive_nwt_outputs",
         require_modflow=True,

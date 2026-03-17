@@ -13,9 +13,7 @@ modflow6 = "config_modflow6.toml"
 
 
 [workspace]
-watershed_name = "val_lu_drainage"
 results_folder_name = "results_simulations"
-model_name = "LU_drainage_val"
 
 [output]
 observable_name = "watertable_elevation"

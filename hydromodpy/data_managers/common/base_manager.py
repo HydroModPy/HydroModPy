@@ -20,6 +20,7 @@ from hydromodpy.data_managers.contracts.timeseries import PointRecord
 # Map VARIABLE_NAME to file prefix used in naming convention.
 _VAR_FILE_PREFIX = {
     "hydrometry": "hydrometry",
+    "intermittency": "intermittency",
     "piezometry": "piezometry",
     "water_quality": "waterquality",
 }

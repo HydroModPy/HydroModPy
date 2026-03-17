@@ -45,7 +45,8 @@ The launcher itself does not hard-code "run flow then transport". It only:
 
 from __future__ import annotations
 
-import os
+import json
+import time
 from pathlib import Path
 
 import hydromodpy as hmp
@@ -77,10 +78,6 @@ from hydromodpy.simulation.time import (
     resolve_simulation_time_window,
 )
 from hydromodpy.support.units import convert_payload_to_m_per_s
-from launchers.output_paths import (
-    build_repo_output_redirect_notice,
-    resolve_launcher_output_root,
-)
 
 
 class HydroModPyLauncher:
@@ -95,7 +92,7 @@ class HydroModPyLauncher:
     The typical usage is:
 
     >>> from pathlib import Path
-    >>> launcher = HydroModPyLauncher(Path("examples/launcher_simulation/config_extensive_nwt.toml"))
+    >>> launcher = HydroModPyLauncher(Path("examples/projects/01_canut/run_steady_nwt.toml"))
     >>> run_state = launcher.run()
 
     After ``run()``, ``run_state`` contains both the shared objects created during
@@ -124,18 +121,6 @@ class HydroModPyLauncher:
         """
         self.config_path = Path(config_path).resolve()
         self.cfg = HydroModPyConfig.from_toml(self.config_path)
-
-        resolved_out_dir, resolution = resolve_launcher_output_root(
-            self.cfg.workspace.out_dir_path,
-        )
-        self.cfg.workspace.out_dir_path = resolved_out_dir
-        if resolution == "repo_redirect":
-            print(
-                build_repo_output_redirect_notice(
-                    entrypoint_name="HydroModPyLauncher",
-                    resolved_out_dir=resolved_out_dir,
-                )
-            )
 
         apply_explicit_time_window_to_tgrids(self.cfg)
         self.time_grid = require_flow_simulation_time_grid(self.cfg)
@@ -237,6 +222,7 @@ class HydroModPyLauncher:
         # needs concrete run-level lookup, not just the flat list.
         execution_state.process_runs_by_id = {run.id: run for run in plan.runs}
 
+        wall_start = time.monotonic()
         self._run_setup()
         self._build_domain_spatial_supports(phase="setup")
         self._run_data()
@@ -248,8 +234,41 @@ class HydroModPyLauncher:
                 after_process=self._on_after_process,
             ),
         ).execute(plan, run_state)
+        wall_seconds = time.monotonic() - wall_start
+
+        # Save run artifacts into the run folder.
+        self._save_run_artifacts(run_state, wall_seconds)
 
         return run_state
+
+    def _save_run_artifacts(self, run_state: LauncherRunState, wall_seconds: float) -> None:
+        """Save config snapshot and metrics into the run output folder."""
+        run_id = run_state.setup.run_id
+        run_folder = run_state.setup.workspace.simulations_folder / run_id
+        run_folder.mkdir(parents=True, exist_ok=True)
+
+        # Config snapshot
+        snapshot_path = run_folder / "_config_snapshot.toml"
+        try:
+            import tomli_w
+            snapshot_path.write_bytes(tomli_w.dumps(run_state.raw_toml).encode())
+        except Exception:
+            pass
+
+        # Metrics
+        metrics_path = run_folder / "_metrics.json"
+        solvers_used = [
+            r.solver for r in (run_state.execution.simulation_plan.runs if run_state.execution.simulation_plan else ())
+        ]
+        metrics = {
+            "wall_time_seconds": round(wall_seconds, 2),
+            "solvers": solvers_used,
+            "success": True,
+        }
+        try:
+            metrics_path.write_text(json.dumps(metrics, indent=2))
+        except Exception:
+            pass
 
     def _build_geographic_runtime(self, workspace):
         """Build the geographic runtime selected by the validated TOML config."""
@@ -485,11 +504,9 @@ class HydroModPyLauncher:
             geographic=setup_state.domain_geographic,
         )
 
-        # Use [simulation].name as the default model/folder base name.
-        # Canonical runtime location is setup.model_name.
-        simulation_name = "_".join(str(cfg.simulation.name).strip().split())
-        if simulation_name:
-            setup_state.model_name = simulation_name
+        # Set run_id from the simulation config.
+        setup_state.run_id = cfg.simulation.run_id or "default"
+
         # Eagerly create Flow/Transport so data binders can reference them.
         ensure_flow(run_state)
         ensure_transport(run_state)

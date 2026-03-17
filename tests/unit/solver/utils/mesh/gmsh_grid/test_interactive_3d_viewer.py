@@ -19,7 +19,10 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
     show_interactive_values_3d,
 )
 
-pv = pytest.importorskip("pyvista")
+try:
+    import pyvista as pv  # noqa: F401
+except (ImportError, OSError) as exc:
+    pytest.skip(f"could not import 'pyvista': {exc}", allow_module_level=True)
 
 
 def _build_mesh_with_values():

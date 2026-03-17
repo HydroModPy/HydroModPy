@@ -94,6 +94,16 @@ class DataStore:
         )
         return mgr.load()
 
+    def load_intermittency(self, config) -> LoadResult:
+        from hydromodpy.data_managers.variables.intermittency.manager import IntermittencyManager
+        mgr = IntermittencyManager(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir("intermittency"),
+        )
+        return mgr.load()
+
     def load_hydrometry(self, config) -> LoadResult:
         from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
         mgr = HydrometryManager(

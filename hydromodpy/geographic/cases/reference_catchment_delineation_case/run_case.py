@@ -228,8 +228,9 @@ def run_geographic_cases_from_toml(
         case_label = str(spec["label"])
         geo_overrides = dict(spec["overrides"])
 
+        case_project_root = cfg.workspace.project_root / f"{cfg.workspace.catch_name}_{case_id}"
         init_cfg = cfg.workspace.model_copy(
-            update={"catch_name": f"{cfg.workspace.catch_name}_{case_id}"}
+            update={"project_root": case_project_root}
         )
         geo_cfg = cfg.geographic.model_copy(update=geo_overrides)
 

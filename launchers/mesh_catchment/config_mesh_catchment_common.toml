@@ -8,7 +8,7 @@
 #
 # Divergence is expected only in scenario files through [mesh_catchment].
 
-base_config = "../../examples/launcher_simulation/config_common.toml"
+base_config = "../../examples/projects/launcher_simulation/project.toml"
 
 [workspace]
 catch_name = "mesh_catchment_nancon"

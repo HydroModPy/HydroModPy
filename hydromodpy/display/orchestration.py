@@ -76,10 +76,10 @@ def _load_flow_timeseries(result) -> pd.DataFrame:
     the flow diagnostic plots.
     """
 
-    model_name = _resolve_flow_model(result).model_name
+    run_id = _resolve_flow_model(result).model_name
     smod_path = (
         result.setup.workspace.simulations_folder
-        / model_name
+        / run_id
         / "_postprocess"
         / "_timeseries"
         / "_simulated_timeseries.csv"
@@ -104,8 +104,8 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
         return
 
     flow_model = _resolve_flow_model(result)
-    model_name = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
+    run_id = flow_model.model_name
+    output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
     base_raster = resolve_flow_base_raster(flow_model, result.setup.geographic)
     simulated_timeseries = _load_flow_timeseries(result)
     observed_streamflow = _load_observed_streamflow(result)
@@ -115,7 +115,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
             watershed_dem_path=base_raster,
             watertable_npy_path=(
                 result.setup.workspace.simulations_folder
-                / model_name
+                / run_id
                 / "_postprocess"
                 / "watertable_elevation.npy"
             ),
@@ -127,7 +127,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
         plot_streamflow(
             observed_streamflow=observed_streamflow,
             simulated_timeseries=simulated_timeseries,
-            model_label=model_name.upper(),
+            model_label=run_id.upper(),
             options=options,
             save_path=output_dir / "streamflow.png",
         )
@@ -141,7 +141,7 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
 
         plot_piezometry(
             simulated_timeseries=simulated_timeseries,
-            model_label=model_name.upper(),
+            model_label=run_id.upper(),
             options=options,
             save_path=output_dir / "piezometry.png",
             observed_piezometry=obs_piezo,
@@ -155,11 +155,11 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
         return
 
     flow_model = _resolve_flow_model(result)
-    model_name = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name)
+    run_id = flow_model.model_name
+    output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
     particles_dir = (
         result.setup.workspace.simulations_folder
-        / model_name
+        / run_id
         / "_postprocess"
         / "_particles"
     )
@@ -207,8 +207,8 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     if not any([run_concentration, run_gif, run_web_animation]):
         return
 
-    model_name = flow_model.model_name
-    output_dir = resolve_model_figure_dir(result.setup.workspace, model_name) / "transport"
+    run_id = flow_model.model_name
+    output_dir = resolve_model_figure_dir(result.setup.workspace, run_id) / "transport"
     save_frame_files = options.save or run_gif or run_web_animation
     show_last_frame = run_concentration and options.show
 

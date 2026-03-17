@@ -522,6 +522,7 @@ def _section(
     threshold: int,
     values: dict | None = None,
     _depth: int = 0,
+    _commented: bool = False,
 ) -> list[str]:
     """Generate a [section] with filtered fields.
 
@@ -532,6 +533,9 @@ def _section(
         A ``None`` entry means the field is left commented out.
     _depth : int
         Recursion depth (0 = top-level section header with banner).
+    _commented : bool
+        When True, all output (headers and values) are prefixed with ``# ``.
+        Used for Optional sub-tables with no override values.
     """
     lines: list[str] = []
 
@@ -571,10 +575,14 @@ def _section(
 
     has_content = scalar_fields or nested_fields or array_fields
 
+    # Helper: optionally prefix a line with "# " when in commented mode
+    def _line(text: str) -> str:
+        return f"# {text}" if _commented else text
+
     # Emit [section_name] when there are scalar fields (or nothing at all)
     if scalar_fields:
         lines.append("")
-        lines.append(f"[{section_name}]")
+        lines.append(_line(f"[{section_name}]"))
 
         for name, field_info, level in scalar_fields:
             _render_field_comment(lines, field_info)
@@ -583,11 +591,15 @@ def _section(
 
             # Value line -- prefer override value when provided
             if values is not None and name in values and values[name] is not None:
-                lines.append(f"{name} = {_fmt(values[name])}")
+                lines.append(_line(f"{name} = {_fmt(values[name])}"))
             elif default is not _UNDEFINED and default is not None:
-                lines.append(f"{name} = {_fmt(default)}")
+                lines.append(_line(f"{name} = {_fmt(default)}"))
             elif level == "user":
-                lines.append(f"{name} = {_placeholder(field_info)}")
+                # User-level field with no concrete default (required or
+                # optional with default=None).  Emit a placeholder — the TOML
+                # loader strips empty strings before Pydantic validation, so
+                # leaving `key = ""` is safe for Optional fields.
+                lines.append(_line(f"{name} = {_placeholder(field_info)}"))
             else:
                 lines.append(f"# {name} =")
 
@@ -596,7 +608,7 @@ def _section(
     elif not has_content:
         # No fields at all at this profile level
         lines.append("")
-        lines.append(f"[{section_name}]")
+        lines.append(_line(f"[{section_name}]"))
         lines.append("# (no parameters at this profile level)")
         lines.append("")
 
@@ -629,11 +641,12 @@ def _section(
                     lines.append(f"# {desc_line}")
 
         if is_truly_optional and sub_values is None:
-            # Optional with no override: expand with defaults (uncommented)
+            # Optional with no override: expand commented out
             lines.extend(
                 _section(
                     sub_section, nested_cls, threshold,
                     values=None, _depth=_depth + 1,
+                    _commented=True,
                 )
             )
         else:
@@ -642,6 +655,7 @@ def _section(
                 _section(
                     sub_section, nested_cls, threshold,
                     values=sub_values, _depth=_depth + 1,
+                    _commented=_commented,
                 )
             )
 
@@ -668,16 +682,16 @@ def _section(
 
         if items:
             for item_dict in items:
-                lines.append(f"[[{sub_section}]]")
+                lines.append(_line(f"[[{sub_section}]]"))
                 for key, val in item_dict.items():
                     # Add field description from the item model class
                     if key in item_cls.model_fields:
                         _render_field_comment(lines, item_cls.model_fields[key])
-                    lines.append(f"{key} = {_fmt(val)}")
+                    lines.append(_line(f"{key} = {_fmt(val)}"))
                     lines.append("")
         else:
             # Template mode: show an example entry with defaults
-            lines.append(f"[[{sub_section}]]")
+            lines.append(_line(f"[[{sub_section}]]"))
             for fname, finfo in item_cls.model_fields.items():
                 if getattr(finfo, "exclude", False):
                     continue
@@ -687,9 +701,9 @@ def _section(
                 _render_field_comment(lines, finfo)
                 default = _default_value(finfo)
                 if default is not _UNDEFINED and default is not None:
-                    lines.append(f"{fname} = {_fmt(default)}")
+                    lines.append(_line(f"{fname} = {_fmt(default)}"))
                 else:
-                    lines.append(f"{fname} = {_placeholder(finfo)}")
+                    lines.append(_line(f"{fname} = {_placeholder(finfo)}"))
                 lines.append("")
 
     return lines

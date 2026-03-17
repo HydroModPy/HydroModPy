@@ -45,9 +45,7 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
 
     workspace = Workspace(
         WorkspaceConfig(
-            catch_name="dem_case",
-            out_dir_path=tmp_path / "results",
-            data_path=tmp_path / "data",
+            project_root=tmp_path / "results",
         )
     )
     config = GeographicConfig(
@@ -91,9 +89,7 @@ def test_build_domain_geographic_context_from_dem(tmp_path: Path):
 def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
     workspace = Workspace(
         WorkspaceConfig(
-            catch_name="synthetic_case",
-            out_dir_path=tmp_path / "results",
-            data_path=tmp_path / "data",
+            project_root=tmp_path / "results",
         )
     )
     config = GeographicConfig(

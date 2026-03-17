@@ -45,6 +45,7 @@ def test_run_oceanic_case_golden(update_goldens: bool, tmp_path: Path) -> None:
         _repo_root()
         / "hydromodpy"
         / "data_managers"
+        / "variables"
         / "oceanic"
         / "cases"
         / "run_oceanic_config.toml"

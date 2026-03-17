@@ -25,16 +25,13 @@ def _write_tmp_config(work_root: Path) -> Path:
         / "data"
         / "regional dem.tif"
     ).as_posix()
-    data_path = (REPO_ROOT / "examples_legacy" / "example12" / "data").as_posix()
     out_path = (work_root / "results").as_posix()
 
     config_path.write_text(
         "\n".join(
             [
                 "[workspace]",
-                'catch_name = "nancon_geographic_river_network_case_test"',
-                f'out_dir_path = "{out_path}"',
-                f'data_path = "{data_path}"',
+                f'project_root = "{out_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "from_outlet_coord"',

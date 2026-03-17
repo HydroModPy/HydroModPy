@@ -48,6 +48,33 @@ def merge_toml_payloads(
     return merged
 
 
+def _strip_empty_strings(data: dict[str, Any]) -> dict[str, Any]:
+    """Recursively remove keys whose value is the empty string ``""``.
+
+    Empty strings cannot represent ``None`` in TOML (no native null), so the
+    auto-generated templates emit ``key = ""`` as a placeholder for optional
+    fields.  Stripping them before Pydantic validation lets the model fall
+    back to ``default=None``, which is the intended semantics.
+
+    Only plain ``""`` values on leaf keys are affected -- non-empty strings,
+    nested dicts, and lists are traversed but never removed.
+    """
+    cleaned: dict[str, Any] = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            cleaned[key] = _strip_empty_strings(value)
+        elif isinstance(value, list):
+            cleaned[key] = [
+                _strip_empty_strings(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        elif value == "":
+            continue  # drop empty-string placeholders
+        else:
+            cleaned[key] = value
+    return cleaned
+
+
 def load_toml_with_base_config(
     toml_path: str | Path,
     *,
@@ -65,7 +92,7 @@ def load_toml_with_base_config(
     current.pop("base_config", None)
 
     if base_config_name in (None, ""):
-        return current
+        return _strip_empty_strings(current)
     if not isinstance(base_config_name, str):
         raise TypeError("base_config must be a TOML string path when provided")
 
@@ -74,4 +101,4 @@ def load_toml_with_base_config(
         base_path = (resolved.parent / base_path).resolve()
 
     base_payload = load_toml_with_base_config(base_path, _stack=(*_stack, resolved))
-    return merge_toml_payloads(base_payload, current)
+    return _strip_empty_strings(merge_toml_payloads(base_payload, current))

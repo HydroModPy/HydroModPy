@@ -22,6 +22,5 @@ class SetupContext:
     domain: Domain | None = None
     flow: Flow | None = None
     transport: Transport | None = None
-    model_name: str = "default"
+    run_id: str = "default"
     time_grid: Any = None
-

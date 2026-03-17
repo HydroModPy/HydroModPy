@@ -13,7 +13,6 @@ modflow6 = "config_modflow6.toml"
 
 
 [workspace]
-watershed_name = "val_lu_recharge_step"
 results_folder_name = "results_simulations"
 
 [output]

@@ -36,8 +36,9 @@ def _build_model() -> Modflow6:
     model.nlay = 1
     model.nrow = 2
     model.ncol = 3
+    model.ncpl = 6
     model.nper = 2
-    model.dem_mask = np.zeros((2, 3), dtype=bool)
+    model.dem_mask = np.zeros(6, dtype=bool)  # flat (ncpl,)
     model.time_grid = SimpleNamespace(
         window=ResolvedSimulationTimeWindow(
             start=pd.Timestamp("2003-01-01"),
@@ -62,9 +63,12 @@ def test_modflow6_builds_chd_from_scalar_and_transient_side_boundaries() -> None
 
     chd_spd = model._build_side_boundary_chd_spd()
 
-    assert chd_spd[0][0] == [0, 0, 0, pytest.approx(10.0)]
-    assert chd_spd[0][-1] == [0, 1, 2, pytest.approx(20.0)]
-    assert chd_spd[1][-1] == [0, 1, 2, pytest.approx(21.0)]
+    # DISV format: [lay, cell_id, head]
+    # west_side cells: row0*3+0=0, row1*3+0=3
+    # east_side cells: row0*3+2=2, row1*3+2=5
+    assert chd_spd[0][0] == [0, 0, pytest.approx(10.0)]
+    assert chd_spd[0][-1] == [0, 5, pytest.approx(20.0)]
+    assert chd_spd[1][-1] == [0, 5, pytest.approx(21.0)]
 
 
 def test_modflow6_applies_first_boundary_value_to_start_heads() -> None:
@@ -75,12 +79,14 @@ def test_modflow6_applies_first_boundary_value_to_start_heads() -> None:
         },
         active_bc=["north_side"],
     )
-    strt = np.zeros((1, 2, 3), dtype=float)
+    # strt is now flat (nlay, ncpl)
+    strt = np.zeros((1, 6), dtype=float)
 
     updated = model._apply_side_boundary_start_heads(strt)
 
-    assert np.all(updated[:, 0, :] == 7.0)
-    assert np.all(updated[:, 1, :] == 0.0)
+    # North side cell_ids for 2x3 grid: 0, 1, 2
+    assert np.all(updated[:, :3] == 7.0)
+    assert np.all(updated[:, 3:] == 0.0)
 
 
 def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
@@ -100,8 +106,9 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
 
     chd_spd = model._build_side_boundary_chd_spd()
 
-    assert chd_spd[0][-1] == [0, 1, 2, pytest.approx(0.2)]
-    assert chd_spd[1][-1] == [0, 1, 2, pytest.approx(0.2)]
+    # DISV: [lay, cell_id, head] — east_side last cell_id=5
+    assert chd_spd[0][-1] == [0, 5, pytest.approx(0.2)]
+    assert chd_spd[1][-1] == [0, 5, pytest.approx(0.2)]
 
 
 def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
@@ -122,8 +129,9 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
 
     wel_spd = model._build_well_stress_period_data(2)
 
-    assert wel_spd[0] == [[0, 0, 0, pytest.approx(-1.0)]]
-    assert wel_spd[1] == [[0, 0, 0, pytest.approx(-1.0)]]
+    # DISV: [lay, cell_id, flux] — cell (0,0,0) → cell_id=0
+    assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
+    assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
 
 
 def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
@@ -143,8 +151,9 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
 
     strt = model._build_start_heads(solver_mesh)
 
-    assert strt.shape == (1, 2, 3)
-    assert np.allclose(strt[0], top)
+    # DISV: strt shape is (nlay, ncpl)
+    assert strt.shape == (1, 6)
+    assert np.allclose(strt[0], top.ravel())
 
 
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
@@ -165,7 +174,8 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
 
     strt = model._build_start_heads(solver_mesh)
 
-    assert np.allclose(strt[0], botm_layer2)
+    # DISV: strt shape is (nlay, ncpl) — all layers start at deepest botm
+    assert np.allclose(strt[0], botm_layer2.ravel())
 
 
 def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
@@ -184,6 +194,8 @@ def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
     model._bind_recharge_from_flow()
     spd = model._recharge_to_spd()
 
+    # DISV: recharge arrays are flat (ncpl,)
+    assert spd[0].shape == (6,)
     assert np.allclose(spd[0], 0.5e-3 / 86400.0)
     assert np.allclose(spd[1], 0.3e-3 / 86400.0)
 
@@ -198,5 +210,6 @@ def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
     model._bind_recharge_from_flow()
     spd = model._recharge_to_spd()
 
+    assert spd[0].shape == (6,)
     assert np.allclose(spd[0], 0.0)
     assert np.allclose(spd[1], 0.0)
