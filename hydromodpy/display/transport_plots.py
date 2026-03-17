@@ -332,7 +332,7 @@ def plot_concentration_frames(
             fig.tight_layout()
 
             if save_frames:
-                frame_path = output_dir / f"{prefix}_{i:03d}_{model_modflow.model_name}.png"
+                frame_path = output_dir / f"{prefix}_{i:03d}.png"
                 fig.savefig(frame_path, dpi=dpi, bbox_inches="tight")
                 frame_paths.append(frame_path)
 

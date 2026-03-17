@@ -1230,7 +1230,7 @@ if __name__ == '__main__':
 
             # Sauvegarder la figure pour ce temps
             fig.tight_layout()
-            fig.savefig(figures_dir+vgif_name+'_'+str(i)+'_'+model_name+'.png', dpi=300, bbox_inches='tight')
+            fig.savefig(figures_dir+vgif_name+'_'+str(i)+'.png', dpi=300, bbox_inches='tight')
 
             # Fermer la figure pour Ã©conomiser de la mÃ©moire
             if i < (len(concobj_1c_fil_surf)-1):
