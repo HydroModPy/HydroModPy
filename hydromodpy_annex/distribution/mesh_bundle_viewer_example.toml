@@ -1,0 +1,30 @@
+[mesh_bundle_viewer]
+# Replace this path with your own exported bundle directory when needed.
+bundle_dir = "../../launchers/mesh_catchment/mesh_catchment_nancon_scoped/results_stable/mesh/gmsh/mesh_catchment_bundle"
+
+# Relative paths are resolved from this TOML file.
+output_figure = "outputs/mesh_bundle_overview.png"
+output_summary_json = "outputs/mesh_bundle_overview_summary.json"
+show_plot = false
+
+[mesh_bundle_viewer.plot]
+# Allowed values:
+#   "geology_key", "geology_code", "area_m2", "z_top_mean", "z_top_centroid"
+color_by = "geology_key"
+cmap = "tab20"
+figsize = [16.0, 8.0]
+dpi = 170
+title = "Mesh structure and geology"
+show_topography_panel = true
+# The topography panel uses nodal z_top when available, then falls back to the
+# selected cell field below if nodal elevations are missing.
+topography_color_by = "z_top_mean"
+topography_cmap = "terrain"
+topography_title = "Topography-style view"
+show_mesh_edges = true
+mesh_edge_color = "0.30"
+mesh_edge_linewidth = 0.65
+show_boundary_edges = true
+show_geology_interfaces = true
+show_river_edges = true
+annotate_cell_ids = false

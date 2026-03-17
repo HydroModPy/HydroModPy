@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Mapping
-import inspect
 import json
 from pathlib import Path
 
@@ -79,40 +78,17 @@ def _plot_cartesian_reference_figure(
     output_path: Path,
     show_plot: bool,
 ) -> None:
-    """Call the cartesian plotting helper across signature evolutions."""
-    kwargs = {
-        "cfg": cfg,
-        "geology_field": geology_field,
-        "mesh": mesh,
-        "mesh_values": mesh_values,
-        "values_2d": values_2d,
-        "output_path": output_path,
-        "show_plot": show_plot,
-    }
-    signature = inspect.signature(_plot_cartesian_geology_and_result)
-    accepts_var_kwargs = any(
-        param.kind == inspect.Parameter.VAR_KEYWORD
-        for param in signature.parameters.values()
+    """Render the cartesian reference figure with the current plot contract."""
+    _plot_cartesian_geology_and_result(
+        cfg=cfg,
+        geology_field=geology_field,
+        mesh=mesh,
+        mesh_values=mesh_values,
+        field_discretization=field_discretization,
+        values_2d=values_2d,
+        output_path=output_path,
+        show_plot=show_plot,
     )
-    has_field_discretization = accepts_var_kwargs or (
-        "field_discretization" in signature.parameters
-    )
-    if has_field_discretization:
-        kwargs["field_discretization"] = field_discretization
-
-    try:
-        _plot_cartesian_geology_and_result(**kwargs)
-        return
-    except TypeError as exc:
-        if "field_discretization" not in str(exc):
-            raise
-        # Last-resort compatibility for mismatched local module revisions.
-        if "field_discretization" in kwargs:
-            kwargs.pop("field_discretization", None)
-            _plot_cartesian_geology_and_result(**kwargs)
-            return
-        kwargs["field_discretization"] = field_discretization
-        _plot_cartesian_geology_and_result(**kwargs)
 
 
 def _dominant_zone_summary(

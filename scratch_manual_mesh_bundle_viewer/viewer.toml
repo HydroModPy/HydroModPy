@@ -1,0 +1,13 @@
+[mesh_bundle_viewer]
+bundle_dir = "bundle"
+output_figure = "outputs/view.png"
+output_summary_json = "outputs/view_summary.json"
+show_plot = false
+
+[mesh_bundle_viewer.plot]
+color_by = "geology_key"
+cmap = "tab20"
+figsize = [16.0, 8.0]
+show_topography_panel = true
+topography_color_by = "z_top_mean"
+topography_cmap = "terrain"

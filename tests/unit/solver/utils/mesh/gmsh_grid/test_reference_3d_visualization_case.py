@@ -5,8 +5,8 @@ from pathlib import Path
 
 from matplotlib.figure import Figure
 
-import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_visualize_3d as run_visualize_module
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_visualize_3d import (
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_case_3d_fieldparam as run_visualize_module
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_case_3d_fieldparam import (
     run_reference_3d_visualization_from_toml,
 )
 

@@ -12,9 +12,11 @@ Rules:
 
 Layout:
 
+- `distribution/`: annex scripts to inspect and share exported mesh bundles.
 - `preprocess/`: annex preprocessing workflows.
 - `postprocess/`: annex postprocessing workflows.
 
 Current annex toolset:
 
+- `distribution/`
 - `postprocess/HCDM/`
