@@ -311,6 +311,7 @@ class SyntheticGeographic:
             x_outlet=None,
             y_outlet=None,
             watershed_box_buff_dem=str(self.paths.watershed_box_buff_dem),
+            watershed_box_shp=str(self.paths.watershed_box_shp),
             box_buff_shp=str(self.paths.watershed_box_buff_shp),
             zone_kind=str(self.zone_kind),
         )

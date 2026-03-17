@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, box
 
@@ -164,6 +165,52 @@ def _write_geographic_box_buffer_case_toml(
     path.write_text(migrated, encoding="utf-8")
 
 
+def _write_scope_vector(path: Path, *, bounds: tuple[float, float, float, float]) -> None:
+    gdf = gpd.GeoDataFrame(
+        {"domain_id": [path.stem]},
+        geometry=[box(*bounds)],
+        crs="EPSG:2154",
+    )
+    gdf.to_file(path, driver="GeoJSON")
+
+
+def _write_geographic_scope_case_toml(
+    path: Path,
+    *,
+    section: str = "case",
+    constraints_mode: str = "geology_only",
+) -> None:
+    raw = CASE_TOML.read_text(encoding="utf-8-sig")
+    migrated = _rewrite_case_config_section_and_paths(raw, section=section)
+    old_block = (
+        f"[{section}.domain]\n"
+        'kind = "vector"\n'
+        f'path = "{(CASE_TOML.parent / "domain_window.geojson").resolve().as_posix()}"\n'
+        'id_field = "domain_id"\n'
+        'selected_id = "main"\n'
+    )
+    new_block = (
+        f"[{section}.domain]\n"
+        'kind = "geographic_box_buffer"\n'
+        "\n"
+        f"[{section}.interface_scope]\n"
+        'kind = "geographic_watershed"\n'
+        "\n"
+        f"[{section}.refinement_scope]\n"
+        'kind = "geographic_watershed_box"\n'
+    )
+    if old_block not in migrated:
+        raise AssertionError(
+            "Unable to build geographic scope test config: domain block not found"
+        )
+    migrated = migrated.replace(old_block, new_block)
+    migrated = migrated.replace(
+        'constraints_mode = "geology_only"',
+        f'constraints_mode = "{constraints_mode}"',
+    )
+    path.write_text(migrated, encoding="utf-8")
+
+
 def _build_reference_river_trace() -> SimpleNamespace:
     return SimpleNamespace(
         lines=(
@@ -203,6 +250,26 @@ def test_reference_2d_geology_conformal_case_non_regression(
     assert summary["constraints_qa"]["mode"] == "geology_only"
     assert summary["constraints_qa"]["overall_pass"] is True
     assert summary["mesh_size_fields"]["interface_refinement"]["enabled"] is True
+    assert summary["interface_scope"]["domain_kind"] == "vector"
+    assert summary["refinement_scope"]["domain_kind"] == "vector"
+    assert (
+        summary["mesh_size_fields"]["interface_refinement"][
+            "candidate_interface_curve_count"
+        ]
+        >= summary["mesh_size_fields"]["interface_refinement"]["interface_curve_count"]
+    )
+    assert (
+        summary["mesh_size_fields"]["interface_refinement"][
+            "scope_filtered_interface_curve_count"
+        ]
+        == summary["mesh_size_fields"]["interface_refinement"]["interface_curve_count"]
+    )
+    assert (
+        summary["mesh_size_fields"]["interface_refinement"][
+            "refinement_scope_applied"
+        ]
+        is False
+    )
     assert summary["cleaning_diagnostics"]["cleaning_mode"] == "tolerant"
     assert summary["cleaning_summary"]["mode"] == "tolerant"
     assert (
@@ -229,6 +296,13 @@ def test_reference_2d_geology_conformal_case_non_regression(
     stable.pop("output_mesh", None)
     stable.pop("output_summary_json", None)
     stable.pop("output_figure", None)
+    stable.pop("interface_scope", None)
+    stable.pop("refinement_scope", None)
+    interface_refinement = dict(stable["mesh_size_fields"]["interface_refinement"])
+    interface_refinement.pop("candidate_interface_curve_count", None)
+    interface_refinement.pop("scope_filtered_interface_curve_count", None)
+    interface_refinement.pop("refinement_scope_applied", None)
+    stable["mesh_size_fields"] = {"interface_refinement": interface_refinement}
 
     if update_goldens:
         _write_json(GOLDEN_FILE, stable)
@@ -462,6 +536,61 @@ def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
     assert summary["qa_checks"]["constraints_contract_pass"] is True
     assert summary["river_trace"]["curve_count"] > 0
     assert summary["river_trace"]["embedded_surface_curve_pairs"] > 0
+
+@_skip_no_gmsh
+def test_geographic_scopes_limit_interfaces_and_refinement() -> None:
+    output_dir = (
+        Path.cwd()
+        / "scratch_tests"
+        / "reference_2d_geology_conformal"
+        / "runtime_geographic_scopes"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    config_path = output_dir / "case_geographic_scopes.toml"
+    _write_geographic_scope_case_toml(config_path)
+
+    support_path = output_dir / "support.geojson"
+    refinement_path = output_dir / "refinement.geojson"
+    interface_path = output_dir / "interface.geojson"
+    _write_scope_vector(
+        support_path,
+        bounds=(355000.0, 6712500.0, 359000.0, 6716500.0),
+    )
+    _write_scope_vector(
+        refinement_path,
+        bounds=(355500.0, 6712900.0, 358500.0, 6716100.0),
+    )
+    _write_scope_vector(
+        interface_path,
+        bounds=(356000.0, 6713300.0, 358000.0, 6715700.0),
+    )
+
+    summary = run_reference_2d_zone_conformal_case_from_toml(
+        config_path,
+        section="case",
+        output_mesh=output_dir / "reference_2d_zone_conformal_geographic_scopes.msh",
+        output_summary_json=output_dir
+        / "reference_2d_zone_conformal_geographic_scopes_summary.json",
+        domain_geographic=SimpleNamespace(
+            box_buff_shp=str(support_path),
+            watershed_box_shp=str(refinement_path),
+            watershed_shp=str(interface_path),
+        ),
+        show_plot=False,
+    )
+
+    assert summary["domain_kind"] == "geographic_box_buffer"
+    assert summary["interface_scope"]["domain_kind"] == "geographic_watershed"
+    assert summary["refinement_scope"]["domain_kind"] == "geographic_watershed_box"
+    assert "domain_background" in summary["zone_keys"]
+    refinement_summary = summary["mesh_size_fields"]["interface_refinement"]
+    assert refinement_summary["refinement_scope_applied"] is True
+    assert (
+        refinement_summary["scope_filtered_interface_curve_count"]
+        <= refinement_summary["candidate_interface_curve_count"]
+    )
+    assert summary["n_cells"] > 0
+    assert summary["n_nodes"] > 0
 
 
 @_skip_no_gmsh
