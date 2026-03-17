@@ -22,8 +22,8 @@ from shapely.geometry import (
 )
 from shapely.ops import polygonize, snap, unary_union
 
-from hydromodpy.data_managers.geology.geology_io import load_vector_geology_dataframe
-from hydromodpy.data_managers.geology.geology_processing import normalize_zone_key
+from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
+from hydromodpy.data_managers.variables.geology.processing import normalize_zone_key
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
 try:  # Shapely >= 2

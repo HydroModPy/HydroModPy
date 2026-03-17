@@ -6,7 +6,7 @@ base_config = "config_mesh_catchment_common.toml"
 
 [workspace]
 # Base prefix used to name one catchment folder per outlet_id.
-catch_name = "mesh_catchment_bretagne"
+project_root = "mesh_catchment_bretagne"
 
 [mesh_catchment_batch]
 enabled = true

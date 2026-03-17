@@ -30,7 +30,7 @@ BaseFieldMesh (ABC)                      # hydromodpy/field/core/field_mesh.py
 │     _kind = "triangular_structured"    # Triangles sur grille régulière
 ├── TriangularUnstructuredFieldMesh      # hydromodpy/field/meshes/triangular_field_mesh.py
 │     _kind = "triangular_unstructured"  # Triangles Delaunay aléatoires
-├── GeologyStructuredMesh                # hydromodpy/data_managers/geology/geology_mesh.py
+├── GeologyStructuredMesh                # hydromodpy/field/geology/geology_mesh.py
 │     _kind = "structured_rect"          # Quadrilatères en coordonnées réelles
 └── GmshPlanarMesh2D                     # hydromodpy/solver/utils/mesh/gmsh_grid/gmsh_planar_mesh.py
       _kind = "gmsh_2d"                  # Triangles ou quads depuis fichier .msh
@@ -137,7 +137,7 @@ planar = GmshPlanarMesh2D.from_file("domain.msh")
 ### 3.5 Maillage géologique en coordonnées réelles
 
 ```python
-from hydromodpy.data_managers.geology.geology_mesh import GeologyStructuredMesh
+from hydromodpy.field.geology import GeologyStructuredMesh
 
 mesh = GeologyStructuredMesh.from_bounds(
     [xmin, ymin, xmax, ymax],

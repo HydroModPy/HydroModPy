@@ -93,19 +93,13 @@ types = ["geology"]
 # Identifier of the geology spatial field.
 id = "field_geology"
 
-# Path to the geology data directory.
-# Previous full geology dataset:
-# geo_path = "../../../data/France/geology"
-geo_path = "../../../data/domain_case_reduced/nancon_4x/geology"
-
-# Geology shapefile name inside `geo_path`.
-# Previous full shapefile:
-# types_obs = "GEO1M.shp"
-types_obs = "GEO1M_4x.shp"
-
-# Attribute field used to encode geology classes.
-fields_obs = "CODE_LEG"
-
 # Sub-sampling density passed to geology_field.on_mesh(...).
 # Higher values improve interface resolution but increase runtime.
 cell_samples_per_axis = 8
+
+# Previous full geology dataset used brgm_1m source.
+# Current config uses a reduced/custom shapefile for domain case testing.
+[[data.geology.sources]]
+source = "custom"
+path = "../../../data/domain_case_reduced/nancon_4x/geology/GEO1M_4x.shp"
+code_field = "CODE_LEG"

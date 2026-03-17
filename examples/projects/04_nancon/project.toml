@@ -275,17 +275,8 @@ types = ["geology", "hydrography", "intermittency", "hydrometry", "recharge"]
 # Type: string | Default: "field_geology"
 id = "field_geology"
 
-# Path to the geology data directory.
-# Type: path | Default: "data/France/geology"
-geo_path = "../../data/geology"
-
-# Geology shapefile name inside `geo_path`.
-# Type: string | Default: "GEO1M.shp"
-types_obs = "GEO1M.shp"
-
-# Attribute field used to encode geology classes.
-# Type: string | Default: "CODE_LEG"
-fields_obs = "CODE_LEG"
+[[data.geology.sources]]
+source = "brgm_1m"
 
 
 # Intermittency configuration (ONDE stations).

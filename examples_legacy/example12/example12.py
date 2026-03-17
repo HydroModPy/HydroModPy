@@ -63,7 +63,7 @@ from hydromodpy.support.tools import toolbox
 from hydromodpy.domain import (
     Domain,
 )
-from hydromodpy.data_managers.geology.geology_field import GeologyField
+from hydromodpy.field.geology.geology_field import GeologyField
 from hydromodpy.process import Flow, Transport
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
 from hydromodpy.solver.modflow_nwt import (

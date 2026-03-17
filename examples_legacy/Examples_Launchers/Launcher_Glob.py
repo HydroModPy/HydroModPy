@@ -80,7 +80,7 @@ from hydromodpy.support.tools import toolbox
 from hydromodpy.domain import (
     Domain,
 )
-from hydromodpy.data_managers.geology.geology_field import GeologyField
+from hydromodpy.field.geology.geology_field import GeologyField
 from hydromodpy.process import Flow
 from hydromodpy.solver.modflow_nwt import Modflow, Modpath, Mt3dms
 from hydromodpy.postprocess import netcdf

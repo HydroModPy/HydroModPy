@@ -2,7 +2,7 @@
 Shared helpers for geology demo launchers.
 
 This module centralizes repeated demo concerns:
-- local path resolution inside `hydromodpy/data_managers/geology/cases`,
+- local path resolution inside `hydromodpy/data_managers/variables/geology/cases`,
 - default output-path handling (`outputs/...` for relative names),
 - axis tick formatting for projected coordinates (m -> km),
 - local square clipping utilities,

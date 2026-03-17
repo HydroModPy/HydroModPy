@@ -29,10 +29,10 @@ inference_mode = "strict"
 
 [data.geology]
 id = "field_geology"
-geo_path = "../../data/geology"
-types_obs = "GEO1M.shp"
-fields_obs = "CODE_LEG"
 cell_samples_per_axis = 8
+
+[[data.geology.sources]]
+source = "brgm_1m"
 
 [data.hydrography]
 [[data.hydrography.sources]]

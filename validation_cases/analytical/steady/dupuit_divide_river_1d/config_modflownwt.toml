@@ -27,23 +27,15 @@ kind = "flat"
 base_elevation = 20.0
 
 [domain]
-zone_ids = ["geology"]
+zone_ids = []
 
 [domain.depth_model]
 type = "constant_thickness"
 thickness = "20.0 m"
 
 [data]
-types = ["geology", "recharge"]
+types = ["recharge"]
 inference_mode = "warn"
-
-[data.geology]
-id = "field_geology"
-geo_path = "../../../../data/France/geology"
-types_obs = "GEO1M.shp"
-fields_obs = "CODE_LEG"
-cell_samples_per_axis = 4
-landsea = false
 
 [flow]
 flow_regime = "steady"

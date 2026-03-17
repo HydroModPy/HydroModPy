@@ -2,11 +2,11 @@
 Geology raster post-processing helpers.
 
 These helpers are intentionally pure and side-effect free so they are easy to
-unit-test and reuse from `GeologyField`.
+unit-test and reuse from ``GeologyField``.
 
 Design intent
 -------------
-The core `FieldParam` workflow expects:
+The core ``FieldParam`` workflow expects:
 - stable string zone keys (for parameter dictionaries),
 - positive encoded classes on raster cells,
 - optional post-processing hooks (land/sea overrides).
@@ -49,23 +49,9 @@ def encode_numeric_raster(raw_codes, *, nodata_value=None):
     Returns
     -------
     tuple
-        `(encoded_codes, encoded_to_zone)` where:
-        - `encoded_codes` is `np.int32` with `0` as nodata,
-        - `encoded_to_zone` maps positive encoded values to string keys.
-
-    Example
-    -------
-    raw_codes:
-        [[10, 10, 20],
-         [10, -9999, 20]]
-    nodata_value=-9999
-
-    may become:
-        encoded_codes:
-            [[1, 1, 2],
-             [1, 0, 2]]
-        encoded_to_zone:
-            {1: "10", 2: "20"}
+        ``(encoded_codes, encoded_to_zone)`` where:
+        - ``encoded_codes`` is ``np.int32`` with ``0`` as nodata,
+        - ``encoded_to_zone`` maps positive encoded values to string keys.
     """
     raw = np.asarray(raw_codes)
     if raw.ndim != 2:
@@ -98,16 +84,9 @@ def apply_landsea_override(
     override_zone_key: str = "1",
 ):
     """
-    Override geology classes where land/sea mask equals `sea_value`.
+    Override geology classes where land/sea mask equals ``sea_value``.
 
     This function mutates a copy and returns updated values.
-
-    Example
-    -------
-    If sea cells in `landsea_array` are `0`, with:
-        sea_value = 0
-        override_zone_key = "1"
-    then all sea cells are reassigned to zone `"1"`.
     """
     codes = np.asarray(encoded_codes, dtype=np.int32).copy()
     lsm = np.asarray(landsea_array, dtype=float)
@@ -136,8 +115,8 @@ def uniformize_sea_zone_on_dataframe(
     *,
     enabled: bool = True,
     zone_key_column: str = "zone_key",
-    sea_field: str = "TERRE_MER",
-    sea_value: str = "M",
+    sea_field: str,
+    sea_value: str,
     sea_zone_key: str = "SEA",
 ):
     """
@@ -145,103 +124,49 @@ def uniformize_sea_zone_on_dataframe(
 
     Parameters
     ----------
-    gdf :
-        Input GeoDataFrame containing one column with zone keys and one column
-        indicating land/sea status.
-    enabled : bool, default=True
-        If False, input is returned unchanged.
-    zone_key_column : str, default="zone_key"
-        Name of the column containing geology zone keys.
-    sea_field : str, default="TERRE_MER"
-        Name of the column used to detect sea polygons.
-    sea_value : str, default="M"
-        Value in `sea_field` identifying sea polygons.
-    sea_zone_key : str, default="SEA"
-        Zone key assigned to sea polygons when the override is applied.
-
-    Returns
-    -------
-    tuple
-        `(out_gdf, info)` where:
-        - `out_gdf` is a copy of input with optional sea override,
-        - `info` is a diagnostic dictionary describing what happened.
+    sea_field : attribute column that distinguishes land from sea polygons
+    sea_value : value in ``sea_field`` that marks sea polygons
     """
     if not bool(enabled):
         return gdf, {
-            "applied": False,
-            "reason": "disabled",
-            "count": 0,
-            "sea_field": str(sea_field),
-            "sea_value": str(sea_value),
+            "applied": False, "reason": "disabled", "count": 0,
+            "sea_field": str(sea_field), "sea_value": str(sea_value),
             "sea_zone_key": str(sea_zone_key),
         }
 
     zone_key_col = str(zone_key_column).strip()
-    if zone_key_col == "":
+    if zone_key_col == "" or zone_key_col not in gdf.columns:
         return gdf, {
-            "applied": False,
-            "reason": "empty_zone_key_column",
-            "count": 0,
-            "sea_field": str(sea_field),
-            "sea_value": str(sea_value),
-            "sea_zone_key": str(sea_zone_key),
-        }
-    if zone_key_col not in gdf.columns:
-        return gdf, {
-            "applied": False,
-            "reason": f"missing_zone_key_column:{zone_key_col}",
-            "count": 0,
-            "sea_field": str(sea_field),
-            "sea_value": str(sea_value),
+            "applied": False, "reason": f"missing_zone_key_column:{zone_key_col}",
+            "count": 0, "sea_field": str(sea_field), "sea_value": str(sea_value),
             "sea_zone_key": str(sea_zone_key),
         }
 
     sea_field_key = str(sea_field).strip()
-    if sea_field_key == "":
+    if sea_field_key == "" or sea_field_key not in gdf.columns:
         return gdf, {
-            "applied": False,
-            "reason": "empty_sea_field",
-            "count": 0,
-            "sea_field": str(sea_field),
-            "sea_value": str(sea_value),
-            "sea_zone_key": str(sea_zone_key),
-        }
-    if sea_field_key not in gdf.columns:
-        return gdf, {
-            "applied": False,
-            "reason": f"missing_field:{sea_field_key}",
-            "count": 0,
-            "sea_field": sea_field_key,
-            "sea_value": str(sea_value),
+            "applied": False, "reason": f"missing_field:{sea_field_key}",
+            "count": 0, "sea_field": sea_field_key, "sea_value": str(sea_value),
             "sea_zone_key": str(sea_zone_key),
         }
 
     sea_mask = (
-        gdf[sea_field_key]
-        .astype(str)
-        .str.strip()
-        .str.upper()
+        gdf[sea_field_key].astype(str).str.strip().str.upper()
         == str(sea_value).strip().upper()
     )
     n_sea = int(np.count_nonzero(sea_mask.to_numpy()))
     if n_sea <= 0:
         return gdf, {
-            "applied": False,
-            "reason": "no_matching_sea_polygon",
-            "count": 0,
-            "sea_field": sea_field_key,
-            "sea_value": str(sea_value),
+            "applied": False, "reason": "no_matching_sea_polygon", "count": 0,
+            "sea_field": sea_field_key, "sea_value": str(sea_value),
             "sea_zone_key": str(sea_zone_key),
         }
 
     out = gdf.copy()
     out.loc[sea_mask, zone_key_col] = normalize_zone_key(sea_zone_key)
     return out, {
-        "applied": True,
-        "reason": "ok",
-        "count": n_sea,
-        "sea_field": sea_field_key,
-        "sea_value": str(sea_value),
+        "applied": True, "reason": "ok", "count": n_sea,
+        "sea_field": sea_field_key, "sea_value": str(sea_value),
         "sea_zone_key": normalize_zone_key(sea_zone_key),
     }
 
@@ -255,24 +180,6 @@ def build_zone_class_index_on_dataframe(
 ):
     """
     Build a stable class index column from zone keys for plotting/analysis.
-
-    Parameters
-    ----------
-    gdf :
-        Input GeoDataFrame containing zone keys.
-    zone_key_column : str, default="zone_key"
-        Name of the zone-key column.
-    class_index_column : str, default="class_idx"
-        Name of the output numeric class-index column.
-    min_unique : int, default=2
-        Minimum number of expected unique classes.
-
-    Returns
-    -------
-    tuple
-        `(out_gdf, counts)` where:
-        - `out_gdf` is a filtered copy with `class_index_column` added,
-        - `counts` is a value-count series on zone keys (descending).
     """
     zone_key_col = str(zone_key_column).strip()
     if zone_key_col == "":

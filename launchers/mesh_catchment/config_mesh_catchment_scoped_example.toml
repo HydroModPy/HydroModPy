@@ -6,7 +6,7 @@ base_config = "config_mesh_catchment_common.toml"
 
 [workspace]
 # Keep this example isolated from the default single-catchment outputs.
-catch_name = "mesh_catchment_nancon_scoped"
+project_root = "mesh_catchment_nancon_scoped"
 
 [mesh_catchment]
 constraints_mode = "geology_rivers"

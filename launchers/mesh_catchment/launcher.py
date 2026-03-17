@@ -219,47 +219,19 @@ def _clone_config(config: object, *, updates: Mapping[str, Any]) -> object:
     return SimpleNamespace(**payload)
 
 
-def _resolve_workspace_path(raw_value: object, *, base_dir: Path) -> Path:
-    path = Path(str(raw_value)).expanduser()
-    if not path.is_absolute():
-        path = (base_dir / path).resolve()
-    return path
-
-
 def _workspace_catch_name(workspace_like: object) -> str:
-    catch_name = getattr(workspace_like, "catch_name", None)
-    if catch_name is not None:
-        return str(catch_name)
-    project_root = getattr(workspace_like, "project_root", None)
-    if project_root is not None:
-        return Path(project_root).name
-    raise AttributeError("workspace-like object must expose catch_name or project_root")
+    return str(Path(workspace_like.project_root).name)
 
 
 def _workspace_project_root(workspace_like: object) -> Path:
-    project_root = getattr(workspace_like, "project_root", None)
-    if project_root is not None:
-        return Path(project_root)
-    catch_folder = getattr(workspace_like, "catch_folder", None)
-    if catch_folder is not None:
-        return Path(catch_folder)
-    out_dir = getattr(workspace_like, "out_dir_path", None)
-    catch_name = getattr(workspace_like, "catch_name", None)
-    if out_dir is not None and catch_name is not None:
-        return Path(out_dir) / str(catch_name)
-    raise AttributeError(
-        "workspace-like object must expose project_root, catch_folder, or out_dir_path+catch_name"
-    )
+    return Path(workspace_like.project_root)
 
 
 def _workspace_output_root(workspace_like: object) -> Path:
-    stable_folder = getattr(workspace_like, "stable_folder", None)
-    if stable_folder is not None:
-        return Path(stable_folder).parent
     output_root = getattr(workspace_like, "output_root", None)
     if output_root is not None:
         return Path(output_root)
-    return _workspace_project_root(workspace_like)
+    return Path(workspace_like.project_root)
 
 
 def _derive_child_workspace_path(
@@ -280,12 +252,7 @@ def _workspace_stable_folder(workspace_like: object) -> Path:
     output_root = getattr(workspace_like, "output_root", None)
     if output_root is not None:
         return Path(output_root) / "results_stable"
-    project_root = getattr(workspace_like, "project_root", None)
-    if project_root is not None:
-        return Path(project_root) / "results_stable"
-    out_dir = Path(getattr(workspace_like, "out_dir_path"))
-    catch_name = str(getattr(workspace_like, "catch_name"))
-    return out_dir / catch_name / "results_stable"
+    return Path(workspace_like.project_root) / "results_stable"
 
 
 class MeshCatchmentLauncher:
@@ -321,33 +288,6 @@ class MeshCatchmentLauncher:
     ) -> dict[str, Any]:
         base_dir = self.config_path.parent
         workspace_data = dict(payload.get("workspace", {}))
-
-        legacy_catch_name = _optional_text(workspace_data.pop("catch_name", None))
-        legacy_out_dir_path = workspace_data.pop("out_dir_path", None)
-
-        project_root_raw = workspace_data.get("project_root")
-        if legacy_out_dir_path is not None:
-            out_dir_path = _resolve_workspace_path(legacy_out_dir_path, base_dir=base_dir)
-            if legacy_catch_name is not None:
-                workspace_data["project_root"] = str((out_dir_path / legacy_catch_name).resolve())
-            elif project_root_raw in (None, ""):
-                workspace_data["project_root"] = str(out_dir_path.resolve())
-
-        if legacy_catch_name is not None:
-            if "project_root" in workspace_data and workspace_data["project_root"] not in (None, ""):
-                resolved_project_root = _resolve_workspace_path(
-                    workspace_data["project_root"],
-                    base_dir=base_dir,
-                )
-                if resolved_project_root.name != legacy_catch_name:
-                    resolved_project_root = (
-                        resolved_project_root / legacy_catch_name
-                        if project_root_raw in (None, "", ".")
-                        else resolved_project_root.parent / legacy_catch_name
-                    )
-                workspace_data["project_root"] = str(resolved_project_root.resolve())
-            else:
-                workspace_data["project_root"] = str((base_dir / legacy_catch_name).resolve())
 
         if not workspace_data.get("project_root"):
             workspace_data["project_root"] = str(base_dir)

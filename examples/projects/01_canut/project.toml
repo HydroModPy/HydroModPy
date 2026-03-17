@@ -45,9 +45,9 @@ inference_mode = "warn"
 
 [data.geology]
 id = "field_geology"
-geo_path = "../../data/geology"
-types_obs = "GEO1M.shp"
-fields_obs = "CODE_LEG"
+
+[[data.geology.sources]]
+source = "brgm_1m"
 
 [data.hydrography]
 [[data.hydrography.sources]]

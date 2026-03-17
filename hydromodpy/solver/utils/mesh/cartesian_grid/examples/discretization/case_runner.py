@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.data_managers.geology.geology_field import GeologyField
+from hydromodpy.field.geology.geology_field import GeologyField
 from hydromodpy.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_from_config import (

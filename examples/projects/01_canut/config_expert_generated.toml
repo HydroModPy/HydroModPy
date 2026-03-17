@@ -245,27 +245,13 @@ inference_mode = "warn"
 # Type: string | Default: "field_geology"
 id = "field_geology"
 
-# Path to the geology data directory.
-# Type: path | Default: "data/France/geology"
-geo_path = "data/France/geology"
-
-# Geology shapefile name inside `geo_path`.
-# Type: string | Default: "GEO1M.shp"
-types_obs = "GEO1M.shp"
-
-# Attribute field used to encode geology classes.
-# Type: string | Default: "CODE_LEG"
-fields_obs = "CODE_LEG"
-
 # Sub-sampling density passed to geology_field.on_mesh(...).
 # Higher values improve interface resolution but increase runtime.
 # Type: int | >= 2 | Default: 8
 cell_samples_per_axis = 8
 
-# Legacy land/sea activation flag.
-# Kept for compatibility in config interfaces; not used by the Domain GeologyField pipeline.
-# Type: bool (optional) | Optional
-# landsea =
+[[data.geology.sources]]
+source = "brgm_1m"
 
 
 # Hydrometry configuration (discharge time-series).

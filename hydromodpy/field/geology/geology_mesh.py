@@ -2,10 +2,10 @@
 Structured rectangular mesh for geology demos.
 
 This mesh is defined on real projected coordinates (meters), unlike the
-unit-square mesh used by the `square` case. It implements the generic
-`BaseFieldMesh` contract so it can be used directly with:
-1) `field.on_mesh(mesh, ...)`
-2) `field_param.to_mesh_field(field_discretization)`
+unit-square mesh used by the ``square`` case. It implements the generic
+``BaseFieldMesh`` contract so it can be used directly with:
+1) ``field.on_mesh(mesh, ...)``
+2) ``field_param.to_mesh_field(field_discretization)``
 """
 
 from __future__ import annotations

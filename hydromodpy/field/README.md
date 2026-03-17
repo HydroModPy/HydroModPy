@@ -41,8 +41,9 @@ hydromodpy/field/
 - `cases/square/`: concrete square geometry, concrete mesh factory, runnable
   demonstration, and example TOML files.
 - geology case integration now lives under
-  `hydromodpy/data_managers/geology/` with runnable scripts in
-  `hydromodpy/data_managers/geology/cases/`.
+  `hydromodpy/field/geology/` (for `GeologyField` / `GeologyStructuredMesh`) and
+  `hydromodpy/data_managers/variables/geology/` (for data management), with runnable scripts in
+  `hydromodpy/data_managers/variables/geology/cases/`.
 
 ## Core Concepts
 
@@ -115,20 +116,20 @@ Default output:
 Standalone geology run (no external mesh):
 
 ```bash
-python hydromodpy/data_managers/geology/cases/run_geology_map_case.py
+python hydromodpy/data_managers/variables/geology/cases/run_geology_map_case.py
 ```
 
 Default output:
-- `hydromodpy/data_managers/geology/cases/outputs/geology_france_global.png`
+- `hydromodpy/data_managers/variables/geology/cases/outputs/geology_france_global.png`
 
 Geology-to-property transfer demo via `FieldParam`:
 
 ```bash
-python hydromodpy/data_managers/geology/cases/run_geology_property_case.py
+python hydromodpy/data_managers/variables/geology/cases/run_geology_property_case.py
 ```
 
 Default output:
-- `hydromodpy/data_managers/geology/cases/outputs/geology_property_demo.png`
+- `hydromodpy/data_managers/variables/geology/cases/outputs/geology_property_demo.png`
 
 In this geology demo:
 - value correspondence can be inline TOML or CSV (`values_source`),
