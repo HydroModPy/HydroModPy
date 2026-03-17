@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_pyvista as _require_pyvista
 from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_mesh_values import (
     ExtrudedPrismMeshWithValues,
 )
@@ -21,17 +22,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import (
 
 _DEFAULT_VALUE_NAME = "field_param_value"
 _DEFAULT_DEPTH_NAME = "prism_center_depth"
-
-
-def _require_pyvista():
-    try:
-        import pyvista as pv  # type: ignore
-    except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
-        raise ImportError(
-            "PyVista is required for interactive 3D viewing. "
-            "Install the optional 'viewer3d' dependencies to use this module."
-        ) from exc
-    return pv
 
 
 def _require_mesh_3d(mesh_3d: ExtrudedPrismMesh3D) -> ExtrudedPrismMesh3D:

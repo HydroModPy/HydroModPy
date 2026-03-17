@@ -1,43 +1,53 @@
 """Generate 2D planar meshes that follow polygonal zone boundaries exactly.
 
-This is the main algorithmic module for the zone-conformal extension. It takes
-clean polygonal partitions, drives the Gmsh mesher, and returns meshes whose
-edges respect the requested geological or zonal interfaces.
+This module exposes the public dataclasses and the high-level entry points.
+The heavy lifting is delegated to:
+
+* ``_geometry_cleaning`` — Shapely geometry validation, cleaning, partitioning
+* ``_gmsh_driver`` — Gmsh Python API helpers (rings, polylines, refinement)
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
-from shapely.geometry import (
-    GeometryCollection,
-    LineString,
-    MultiLineString,
-    MultiPolygon,
-    Polygon,
-)
-from shapely.ops import polygonize, snap, unary_union
+from shapely.geometry import LineString, Polygon, MultiPolygon
+from shapely.ops import polygonize, unary_union
 
 from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.data_managers.variables.geology.processing import normalize_zone_key
+from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_gmsh as _require_gmsh
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
+    as_metric_tolerance,
+    clean_domain_geometry,
+    clean_zone_rows,
+    group_zone_geometries,
+    iter_line_parts,
+    iter_polygon_parts,
+    make_valid_geometry,
+    resolve_zone_overlaps,
+    segment_intersects_refinement_scope,
+    segment_matches_linework,
+    split_partition_with_constraint_lines,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
+    add_polyline_segments,
+    add_ring_loop,
+    apply_interface_refinement_field,
+    apply_mesh_options,
+    build_curve_group_name,
+    configure_gmsh_terminal_output,
+    iter_river_lines_from_trace,
+)
 
-try:  # Shapely >= 2
-    from shapely import make_valid as _shapely_make_valid
-except ImportError:  # pragma: no cover - depends on environment
-    from shapely.validation import make_valid as _shapely_make_valid  # type: ignore[no-redef]
 
-
-_GMSH_ALGORITHM_BY_NAME = {
-    "meshadapt": 1,
-    "automatic": 2,
-    "delaunay": 5,
-    "frontal": 6,
-}
+# ---------------------------------------------------------------------------
+# Dataclasses
+# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -123,285 +133,9 @@ class ZoneConformalPhysicalGroup:
         }
 
 
-def _require_gmsh():
-    try:
-        import gmsh  # type: ignore
-    except ModuleNotFoundError as exc:  # pragma: no cover - depends on environment
-        raise ImportError(
-            "gmsh is required for zone-conformal mesh generation. "
-            "Install the 'gmsh' Python package to use this workflow."
-        ) from exc
-    return gmsh
-
-
-def _configure_gmsh_terminal_output(gmsh) -> None:
-    """Silence verbose Gmsh terminal traces unless explicitly requested."""
-    verbose_env = str(os.environ.get("HYDROMODPY_GMSH_VERBOSE", "")).strip().lower()
-    if verbose_env in {"1", "true", "yes", "on"}:
-        return
-    for option_name, option_value in (
-        ("General.Terminal", 0.0),
-        ("General.Verbosity", 0.0),
-    ):
-        try:
-            gmsh.option.setNumber(option_name, option_value)
-        except Exception:
-            continue
-
-
-def _as_metric_tolerance(raw: float | None, *, default: float = 0.0) -> float:
-    if raw is None:
-        return float(default)
-    value = float(raw)
-    if not np.isfinite(value) or value < 0.0:
-        raise ValueError("tolerances must be finite and >= 0")
-    return value
-
-
-def _is_invalid_nonempty_geometry(geometry) -> bool:
-    if geometry is None:
-        return False
-    if getattr(geometry, "is_empty", False):
-        return False
-    return bool(not getattr(geometry, "is_valid", True))
-
-
-def _make_valid_geometry(geometry):
-    if geometry is None:
-        return GeometryCollection()
-    if geometry.is_empty:
-        return geometry
-    fixed = _shapely_make_valid(geometry)
-    if fixed.is_empty:
-        return fixed
-    try:
-        repaired = fixed.buffer(0)
-    except Exception:  # pragma: no cover - defensive only
-        repaired = fixed
-    return repaired
-
-
-def _make_valid_linework(geometry):
-    if geometry is None:
-        return GeometryCollection()
-    if geometry.is_empty:
-        return geometry
-    return _shapely_make_valid(geometry)
-
-
-def _iter_polygon_parts(geometry):
-    if geometry is None or geometry.is_empty:
-        return
-    if isinstance(geometry, Polygon):
-        yield geometry
-        return
-    if isinstance(geometry, MultiPolygon):
-        for polygon in geometry.geoms:
-            if not polygon.is_empty:
-                yield polygon
-        return
-    if isinstance(geometry, GeometryCollection):
-        for sub_geometry in geometry.geoms:
-            yield from _iter_polygon_parts(sub_geometry)
-
-
-def _clean_domain_geometry(
-    domain_geometry,
-    *,
-    simplify_tolerance: float,
-    heal_tolerance: float,
-    min_polygon_area: float,
-) -> tuple[Any, dict[str, Any]]:
-    invalid_before = _is_invalid_nonempty_geometry(domain_geometry)
-    domain_valid = _make_valid_geometry(domain_geometry)
-    invalid_after_repair = _is_invalid_nonempty_geometry(domain_valid)
-    repaired_count = 1 if (invalid_before and (not invalid_after_repair)) else 0
-
-    if heal_tolerance > 0.0:
-        domain_valid = snap(domain_valid, domain_valid, heal_tolerance)
-        domain_valid = _make_valid_geometry(domain_valid)
-    if simplify_tolerance > 0.0:
-        domain_valid = domain_valid.simplify(simplify_tolerance, preserve_topology=True)
-        domain_valid = _make_valid_geometry(domain_valid)
-
-    all_parts = [polygon for polygon in _iter_polygon_parts(domain_valid)]
-    polygons = [
-        polygon
-        for polygon in all_parts
-        if float(polygon.area) > float(min_polygon_area)
-    ]
-    if not polygons:
-        raise ValueError("domain_geometry produced no usable polygon after cleaning")
-    cleaned_domain = unary_union(polygons)
-    diagnostics = {
-        "domain_invalid_geometry_count": int(1 if invalid_before else 0),
-        "domain_invalid_geometries_repaired_count": int(repaired_count),
-        "domain_polygon_parts_before_area_filter_count": int(len(all_parts)),
-        "domain_polygon_parts_removed_by_area_threshold_count": int(
-            len(all_parts) - len(polygons)
-        ),
-        "domain_polygon_parts_kept_count": int(len(polygons)),
-    }
-    return cleaned_domain, diagnostics
-
-
-def _clean_zone_rows(
-    gdf,
-    *,
-    zone_key_column: str,
-    priority_column: str | None,
-    domain_geometry,
-    simplify_tolerance: float,
-    heal_tolerance: float,
-    min_polygon_area: float,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    diagnostics = {
-        "source_feature_count": int(len(gdf)),
-        "source_invalid_geometry_count": 0,
-        "invalid_geometries_repaired_count": 0,
-        "features_skipped_empty_zone_key_count": 0,
-        "features_skipped_empty_geometry_count": 0,
-        "features_outside_domain_count": 0,
-        "features_after_domain_clip_count": 0,
-        "features_dropped_after_cleaning_count": 0,
-        "polygon_parts_before_area_filter_count": 0,
-        "polygons_removed_by_area_threshold_count": 0,
-        "polygon_parts_kept_count": 0,
-    }
-
-    for _, row in gdf.iterrows():
-        raw_zone_key = row[zone_key_column]
-        zone_key = normalize_zone_key(raw_zone_key)
-        if zone_key == "":
-            diagnostics["features_skipped_empty_zone_key_count"] += 1
-            continue
-        raw_geometry = row.geometry
-        if raw_geometry is None or raw_geometry.is_empty:
-            diagnostics["features_skipped_empty_geometry_count"] += 1
-            continue
-        invalid_before = _is_invalid_nonempty_geometry(raw_geometry)
-        if invalid_before:
-            diagnostics["source_invalid_geometry_count"] += 1
-
-        geometry = _make_valid_geometry(raw_geometry)
-        invalid_after = _is_invalid_nonempty_geometry(geometry)
-        if invalid_before and (not invalid_after):
-            diagnostics["invalid_geometries_repaired_count"] += 1
-        if geometry.is_empty:
-            diagnostics["features_dropped_after_cleaning_count"] += 1
-            continue
-        if domain_geometry is not None:
-            geometry = _make_valid_geometry(geometry.intersection(domain_geometry))
-            if geometry.is_empty:
-                diagnostics["features_outside_domain_count"] += 1
-                continue
-        diagnostics["features_after_domain_clip_count"] += 1
-        if heal_tolerance > 0.0:
-            geometry = snap(geometry, geometry, heal_tolerance)
-            geometry = _make_valid_geometry(geometry)
-            if geometry.is_empty:
-                diagnostics["features_dropped_after_cleaning_count"] += 1
-                continue
-        if simplify_tolerance > 0.0:
-            geometry = geometry.simplify(simplify_tolerance, preserve_topology=True)
-            geometry = _make_valid_geometry(geometry)
-            if geometry.is_empty:
-                diagnostics["features_dropped_after_cleaning_count"] += 1
-                continue
-
-        priority = None
-        if priority_column is not None:
-            priority = float(row[priority_column])
-        for polygon in _iter_polygon_parts(geometry):
-            diagnostics["polygon_parts_before_area_filter_count"] += 1
-            if float(polygon.area) <= float(min_polygon_area):
-                diagnostics["polygons_removed_by_area_threshold_count"] += 1
-                continue
-            diagnostics["polygon_parts_kept_count"] += 1
-            out.append(
-                {
-                    "zone_key": zone_key,
-                    "priority": priority,
-                    "polygon": polygon,
-                }
-            )
-    diagnostics["cleaned_zone_polygon_count"] = int(len(out))
-    return out, diagnostics
-
-
-def _group_zone_geometries(
-    clean_rows: list[dict[str, Any]],
-) -> tuple[dict[str, Any], dict[str, float]]:
-    grouped_polygons: dict[str, list[Any]] = {}
-    grouped_priority: dict[str, float] = {}
-    for item in clean_rows:
-        zone_key = str(item["zone_key"])
-        grouped_polygons.setdefault(zone_key, []).append(item["polygon"])
-        if item["priority"] is not None:
-            grouped_priority[zone_key] = max(
-                grouped_priority.get(zone_key, float("-inf")), float(item["priority"])
-            )
-
-    grouped_geometries = {
-        zone_key: _make_valid_geometry(unary_union(polygons))
-        for zone_key, polygons in grouped_polygons.items()
-    }
-    return grouped_geometries, grouped_priority
-
-
-def _intersection_area(geometry_a, geometry_b) -> float:
-    intersection = geometry_a.intersection(geometry_b)
-    if intersection.is_empty:
-        return 0.0
-    return float(intersection.area)
-
-
-def _resolve_zone_overlaps(
-    grouped_geometries: Mapping[str, Any],
-    *,
-    grouped_priority: Mapping[str, float],
-    priority_column: str | None,
-    overlap_tolerance: float,
-) -> dict[str, Any]:
-    zone_keys = sorted(str(key) for key in grouped_geometries)
-    if priority_column is None:
-        for idx, zone_key_a in enumerate(zone_keys):
-            geometry_a = grouped_geometries[zone_key_a]
-            for zone_key_b in zone_keys[idx + 1 :]:
-                geometry_b = grouped_geometries[zone_key_b]
-                if _intersection_area(geometry_a, geometry_b) > overlap_tolerance:
-                    raise ValueError(
-                        "Overlapping zones detected without priority resolution: "
-                        f"{zone_key_a!r} vs {zone_key_b!r}"
-                    )
-        return {zone_key: grouped_geometries[zone_key] for zone_key in zone_keys}
-
-    ordered_zone_keys = sorted(
-        zone_keys,
-        key=lambda zone_key: (float(grouped_priority.get(zone_key, 0.0)), zone_key),
-        reverse=True,
-    )
-    resolved: dict[str, Any] = {}
-    assigned_geometry = None
-    for zone_key in ordered_zone_keys:
-        geometry = grouped_geometries[zone_key]
-        effective = (
-            geometry
-            if assigned_geometry is None
-            else geometry.difference(assigned_geometry)
-        )
-        effective = _make_valid_geometry(effective)
-        if not effective.is_empty and float(effective.area) > overlap_tolerance:
-            resolved[zone_key] = effective
-            assigned_geometry = (
-                effective
-                if assigned_geometry is None
-                else assigned_geometry.union(effective)
-            )
-        elif assigned_geometry is None:
-            assigned_geometry = geometry
-    return {zone_key: resolved[zone_key] for zone_key in sorted(resolved)}
+# ---------------------------------------------------------------------------
+# Partition builder
+# ---------------------------------------------------------------------------
 
 
 def build_zone_conformal_partition_from_dataframe(
@@ -424,8 +158,8 @@ def build_zone_conformal_partition_from_dataframe(
     if priority_column is not None and priority_column not in gdf.columns:
         raise KeyError(f"Missing priority column '{priority_column}'")
 
-    simplify_tol = _as_metric_tolerance(simplify_tolerance)
-    heal_tol = _as_metric_tolerance(heal_tolerance)
+    simplify_tol = as_metric_tolerance(simplify_tolerance)
+    heal_tol = as_metric_tolerance(heal_tolerance)
     min_area = float(min_polygon_area)
     if min_area < 0.0:
         raise ValueError("min_polygon_area must be >= 0")
@@ -440,14 +174,14 @@ def build_zone_conformal_partition_from_dataframe(
         "domain_polygon_parts_kept_count": 0,
     }
     if domain_geometry is not None:
-        cleaned_domain, domain_cleaning_diagnostics = _clean_domain_geometry(
+        cleaned_domain, domain_cleaning_diagnostics = clean_domain_geometry(
             domain_geometry,
             simplify_tolerance=simplify_tol,
             heal_tolerance=heal_tol,
             min_polygon_area=min_area,
         )
 
-    cleaned_rows, zone_cleaning_diagnostics = _clean_zone_rows(
+    cleaned_rows, zone_cleaning_diagnostics = clean_zone_rows(
         gdf,
         zone_key_column=zone_key_column,
         priority_column=priority_column,
@@ -455,12 +189,13 @@ def build_zone_conformal_partition_from_dataframe(
         simplify_tolerance=simplify_tol,
         heal_tolerance=heal_tol,
         min_polygon_area=min_area,
+        normalize_zone_key_fn=normalize_zone_key,
     )
     if not cleaned_rows:
         raise ValueError("Zone cleaning produced no usable polygon")
 
-    grouped_geometries, grouped_priority = _group_zone_geometries(cleaned_rows)
-    resolved_geometries = _resolve_zone_overlaps(
+    grouped_geometries, grouped_priority = group_zone_geometries(cleaned_rows)
+    resolved_geometries = resolve_zone_overlaps(
         grouped_geometries,
         grouped_priority=grouped_priority,
         priority_column=priority_column,
@@ -474,7 +209,7 @@ def build_zone_conformal_partition_from_dataframe(
         if cleaned_domain is not None
         else unary_union(list(resolved_geometries.values()))
     )
-    domain = _make_valid_geometry(domain)
+    domain = make_valid_geometry(domain)
     if domain.is_empty:
         raise ValueError("Resolved zones produced an empty meshing domain")
 
@@ -484,8 +219,8 @@ def build_zone_conformal_partition_from_dataframe(
 
     faces: list[ZonePartitionFace] = []
     for polygonized in polygonize(merged_boundaries):
-        polygon = _make_valid_geometry(polygonized)
-        for part in _iter_polygon_parts(polygon):
+        polygon = make_valid_geometry(polygonized)
+        for part in iter_polygon_parts(polygon):
             if float(part.area) <= overlap_tolerance:
                 continue
             point = part.representative_point()
@@ -544,390 +279,9 @@ def build_zone_conformal_partition_from_dataframe(
     )
 
 
-def _iter_line_parts(geometry):
-    if geometry is None or geometry.is_empty:
-        return
-    if isinstance(geometry, LineString):
-        yield geometry
-        return
-    if isinstance(geometry, MultiLineString):
-        for line in geometry.geoms:
-            if not line.is_empty:
-                yield line
-        return
-    if isinstance(geometry, GeometryCollection):
-        for sub_geometry in geometry.geoms:
-            yield from _iter_line_parts(sub_geometry)
-
-
-def _split_partition_with_constraint_lines(
-    partition: ZoneConformalPartition,
-    *,
-    constraint_lines: list[LineString],
-    tolerance: float,
-) -> ZoneConformalPartition:
-    if not constraint_lines:
-        return partition
-
-    valid_lines: list[LineString] = []
-    for line in constraint_lines:
-        if line is None or line.is_empty:
-            continue
-        repaired = _make_valid_linework(line)
-        valid_lines.extend(
-            piece
-            for piece in _iter_line_parts(repaired)
-            if float(piece.length) > 0.0
-        )
-    if not valid_lines:
-        return partition
-
-    zone_geometries: dict[str, Any] = {}
-    for face in partition.faces:
-        zone_key = str(face.zone_key)
-        current = zone_geometries.get(zone_key)
-        zone_geometries[zone_key] = (
-            face.polygon
-            if current is None
-            else _make_valid_geometry(current.union(face.polygon))
-        )
-
-    overlap_tolerance = max(float(tolerance) * float(tolerance), 1.0e-12)
-    linework = [partition.domain_geometry.boundary]
-    linework.extend(face.polygon.boundary for face in partition.faces)
-    linework.extend(valid_lines)
-    merged_boundaries = unary_union(linework)
-
-    faces: list[ZonePartitionFace] = []
-    for polygonized in polygonize(merged_boundaries):
-        polygon = _make_valid_geometry(polygonized)
-        for part in _iter_polygon_parts(polygon):
-            if float(part.area) <= overlap_tolerance:
-                continue
-            point = part.representative_point()
-            if not partition.domain_geometry.covers(point):
-                continue
-            owners = [
-                zone_key
-                for zone_key, geometry in zone_geometries.items()
-                if geometry.covers(point)
-            ]
-            if not owners:
-                continue
-            if len(owners) == 1:
-                owner = owners[0]
-            else:
-                owner = max(
-                    owners,
-                    key=lambda zone_key: float(
-                        part.intersection(zone_geometries[zone_key]).area
-                    ),
-                )
-            faces.append(
-                ZonePartitionFace(
-                    face_id=len(faces),
-                    zone_key=str(owner),
-                    polygon=part,
-                )
-            )
-
-    if not faces:
-        raise ValueError("Constraint repartition produced no face to mesh")
-
-    covered_area = float(sum(face.area for face in faces))
-    diagnostics = {
-        "constraints_partitioning_enabled": True,
-        "constraint_line_count_input": int(len(constraint_lines)),
-        "constraint_line_count_used": int(len(valid_lines)),
-        "partition_faces_before_constraints": int(partition.n_faces),
-        "partition_faces_after_constraints": int(len(faces)),
-    }
-    base_cleaning = (
-        {}
-        if partition.cleaning_diagnostics is None
-        else {str(key): value for key, value in partition.cleaning_diagnostics.items()}
-    )
-    base_cleaning.update(diagnostics)
-    return ZoneConformalPartition(
-        faces=tuple(faces),
-        zone_keys=tuple(sorted(zone_geometries)),
-        domain_geometry=partition.domain_geometry,
-        covered_area=covered_area,
-        cleaning_diagnostics=base_cleaning,
-    )
-
-
-def _rounded_coord(value: float, *, tolerance: float) -> float:
-    if tolerance > 0.0:
-        snapped = round(float(value) / tolerance) * tolerance
-        return float(np.round(snapped, 12))
-    return float(np.round(float(value), 12))
-
-
-def _point_key(x: float, y: float, *, tolerance: float) -> tuple[float, float]:
-    return (
-        _rounded_coord(float(x), tolerance=tolerance),
-        _rounded_coord(float(y), tolerance=tolerance),
-    )
-
-
-def _add_ring_loop(
-    occ,
-    ring_coords,
-    *,
-    point_registry: dict[tuple[float, float], int],
-    line_registry: dict[tuple[tuple[float, float], tuple[float, float]], int],
-    point_size: float,
-    tolerance: float,
-) -> tuple[int, list[int]]:
-    coords = np.asarray(ring_coords, dtype=float)
-    if coords.shape[0] < 4:
-        raise ValueError("Linear rings must contain at least 4 coordinates")
-    oriented_curve_tags: list[int] = []
-    curve_tags_abs: list[int] = []
-    for idx in range(coords.shape[0] - 1):
-        x0, y0 = float(coords[idx, 0]), float(coords[idx, 1])
-        x1, y1 = float(coords[idx + 1, 0]), float(coords[idx + 1, 1])
-        key0 = _point_key(x0, y0, tolerance=tolerance)
-        key1 = _point_key(x1, y1, tolerance=tolerance)
-        if key0 == key1:
-            continue
-        point_tag_0 = point_registry.get(key0)
-        if point_tag_0 is None:
-            point_tag_0 = occ.addPoint(key0[0], key0[1], 0.0, point_size)
-            point_registry[key0] = int(point_tag_0)
-        point_tag_1 = point_registry.get(key1)
-        if point_tag_1 is None:
-            point_tag_1 = occ.addPoint(key1[0], key1[1], 0.0, point_size)
-            point_registry[key1] = int(point_tag_1)
-
-        canonical = (key0, key1) if key0 <= key1 else (key1, key0)
-        line_tag = line_registry.get(canonical)
-        if line_tag is None:
-            line_tag = occ.addLine(point_tag_0, point_tag_1)
-            line_registry[canonical] = int(line_tag)
-            oriented_curve_tags.append(int(line_tag))
-        else:
-            oriented_curve_tags.append(
-                int(line_tag) if canonical == (key0, key1) else -int(line_tag)
-            )
-        curve_tags_abs.append(abs(int(line_tag)))
-
-    if not oriented_curve_tags:
-        raise ValueError("Cannot build a Gmsh curve loop from a degenerate ring")
-    return occ.addCurveLoop(oriented_curve_tags), curve_tags_abs
-
-
-def _add_polyline_segments(
-    occ,
-    line_coords,
-    *,
-    point_registry: dict[tuple[float, float], int],
-    line_registry: dict[tuple[tuple[float, float], tuple[float, float]], int],
-    point_size: float,
-    tolerance: float,
-) -> list[int]:
-    coords = np.asarray(line_coords, dtype=float)
-    if coords.shape[0] < 2:
-        return []
-    curve_tags_abs: list[int] = []
-    for idx in range(coords.shape[0] - 1):
-        x0, y0 = float(coords[idx, 0]), float(coords[idx, 1])
-        x1, y1 = float(coords[idx + 1, 0]), float(coords[idx + 1, 1])
-        key0 = _point_key(x0, y0, tolerance=tolerance)
-        key1 = _point_key(x1, y1, tolerance=tolerance)
-        if key0 == key1:
-            continue
-        point_tag_0 = point_registry.get(key0)
-        if point_tag_0 is None:
-            point_tag_0 = occ.addPoint(key0[0], key0[1], 0.0, point_size)
-            point_registry[key0] = int(point_tag_0)
-        point_tag_1 = point_registry.get(key1)
-        if point_tag_1 is None:
-            point_tag_1 = occ.addPoint(key1[0], key1[1], 0.0, point_size)
-            point_registry[key1] = int(point_tag_1)
-
-        canonical = (key0, key1) if key0 <= key1 else (key1, key0)
-        line_tag = line_registry.get(canonical)
-        if line_tag is None:
-            line_tag = occ.addLine(point_tag_0, point_tag_1)
-            line_registry[canonical] = int(line_tag)
-        curve_tags_abs.append(abs(int(line_tag)))
-    return curve_tags_abs
-
-
-def _iter_river_lines_from_trace(river_trace: object | None) -> list[LineString]:
-    """Extract non-empty LineString geometries from one river trace payload."""
-    if river_trace is None:
-        return []
-    lines_attr = getattr(river_trace, "lines", None)
-    if lines_attr is None:
-        raise TypeError("river_trace must expose a 'lines' attribute when provided")
-    lines: list[LineString] = []
-    for geometry in lines_attr:
-        if isinstance(geometry, (LineString, MultiLineString)):
-            lines.extend(
-                line
-                for line in _iter_line_parts(geometry)
-                if float(line.length) > 0.0
-            )
-            continue
-        raise TypeError("river_trace.lines must contain only LineString or MultiLineString geometries")
-    return lines
-
-
-def _apply_mesh_options(
-    gmsh,
-    *,
-    algorithm: str,
-    global_size: float,
-    min_size: float | None,
-    max_size: float | None,
-) -> None:
-    algorithm_key = str(algorithm).strip().lower()
-    if algorithm_key not in _GMSH_ALGORITHM_BY_NAME:
-        allowed = ", ".join(sorted(_GMSH_ALGORITHM_BY_NAME))
-        raise ValueError(
-            f"Unsupported Gmsh 2D algorithm '{algorithm}'. Allowed: {allowed}"
-        )
-    gmsh.option.setNumber(
-        "Mesh.Algorithm", float(_GMSH_ALGORITHM_BY_NAME[algorithm_key])
-    )
-    gmsh.option.setNumber(
-        "Mesh.MeshSizeMin", float(min_size if min_size is not None else global_size)
-    )
-    gmsh.option.setNumber(
-        "Mesh.MeshSizeMax", float(max_size if max_size is not None else global_size)
-    )
-
-
-def _build_curve_group_name(
-    zone_keys: set[str],
-    *,
-    is_boundary: bool = True,
-) -> tuple[str, str, tuple[str, ...]]:
-    zone_names = tuple(sorted(str(zone_key) for zone_key in zone_keys))
-    if len(zone_names) >= 2:
-        return ("interface::" + "::".join(zone_names), "interface_curve", zone_names)
-    if len(zone_names) == 1:
-        if not bool(is_boundary):
-            return (f"constraint::{zone_names[0]}", "constraint_curve", zone_names)
-        return (f"boundary::{zone_names[0]}", "boundary_curve", zone_names)
-    raise ValueError("curve groups require at least one owning zone")
-
-
-def _segment_matches_linework(
-    *,
-    segment: LineString | None,
-    linework,
-    tolerance: float,
-) -> bool:
-    if segment is None or linework is None:
-        return False
-    if segment.is_empty:
-        return False
-    segment_length = float(segment.length)
-    if segment_length <= 0.0:
-        return False
-    try:
-        overlap_length = float(segment.intersection(linework).length)
-    except Exception:
-        overlap_length = 0.0
-    if overlap_length >= 0.995 * segment_length:
-        return True
-    try:
-        return float(segment.distance(linework)) <= max(float(tolerance), 1.0e-9)
-    except Exception:
-        return False
-
-
-def _apply_interface_refinement_field(
-    gmsh,
-    *,
-    interface_curve_tags: list[int],
-    global_size: float,
-    refine_interfaces: bool,
-    interface_size: float | None,
-    interface_distance: float | None,
-    interface_sampling: int,
-) -> dict[str, Any]:
-    summary: dict[str, Any] = {
-        "enabled": bool(refine_interfaces),
-        "interface_size": None if interface_size is None else float(interface_size),
-        "interface_distance": (
-            None if interface_distance is None else float(interface_distance)
-        ),
-        "interface_sampling": int(interface_sampling),
-        "interface_curve_count": int(
-            len(sorted(set(int(tag) for tag in interface_curve_tags)))
-        ),
-        "background_field": None,
-    }
-    if (not refine_interfaces) or (not interface_curve_tags):
-        return summary
-    if interface_size is None or interface_distance is None:
-        raise ValueError(
-            "interface_size and interface_distance are required when interface refinement is enabled."
-        )
-
-    field_api = gmsh.model.mesh.field
-    unique_curves = sorted(set(int(tag) for tag in interface_curve_tags))
-
-    distance_field = int(field_api.add("Distance"))
-    field_api.setNumbers(distance_field, "CurvesList", unique_curves)
-    field_api.setNumber(distance_field, "Sampling", float(interface_sampling))
-
-    threshold_field = int(field_api.add("Threshold"))
-    field_api.setNumber(threshold_field, "IField", float(distance_field))
-    field_api.setNumber(threshold_field, "LcMin", float(interface_size))
-    field_api.setNumber(threshold_field, "LcMax", float(global_size))
-    field_api.setNumber(threshold_field, "DistMin", 0.0)
-    field_api.setNumber(threshold_field, "DistMax", float(interface_distance))
-
-    background_field = int(field_api.add("Min"))
-    field_api.setNumbers(background_field, "FieldsList", [threshold_field])
-    field_api.setAsBackgroundMesh(background_field)
-
-    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0.0)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.0)
-    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0.0)
-
-    summary["background_field"] = {
-        "distance_field_tag": int(distance_field),
-        "threshold_field_tag": int(threshold_field),
-        "background_field_tag": int(background_field),
-    }
-    return summary
-
-
-def _segment_intersects_refinement_scope(
-    *,
-    segment: LineString | None,
-    scope_geometry,
-    tolerance: float,
-) -> bool:
-    if scope_geometry is None:
-        return True
-    if segment is None or segment.is_empty:
-        return False
-    try:
-        intersection = segment.intersection(scope_geometry)
-        if not intersection.is_empty and float(getattr(intersection, "length", 0.0)) > max(
-            float(tolerance),
-            1.0e-9,
-        ):
-            return True
-    except Exception:
-        pass
-    try:
-        if bool(scope_geometry.covers(segment.representative_point())):
-            return True
-    except Exception:
-        pass
-    try:
-        return float(segment.distance(scope_geometry)) <= max(float(tolerance), 1.0e-9)
-    except Exception:
-        return False
+# ---------------------------------------------------------------------------
+# Mesh generation
+# ---------------------------------------------------------------------------
 
 
 def generate_zone_conformal_mesh_from_dataframe(
@@ -995,12 +349,14 @@ def generate_zone_conformal_mesh_from_dataframe(
         heal_tolerance=heal_tolerance,
         min_polygon_area=min_polygon_area,
     )
-    river_lines = _iter_river_lines_from_trace(river_trace)
-    point_tolerance = _as_metric_tolerance(heal_tolerance)
-    partition = _split_partition_with_constraint_lines(
+    river_lines = iter_river_lines_from_trace(river_trace)
+    point_tolerance = as_metric_tolerance(heal_tolerance)
+    partition = split_partition_with_constraint_lines(
         partition,
         constraint_lines=river_lines,
         tolerance=point_tolerance,
+        ZonePartitionFace_cls=ZonePartitionFace,
+        ZoneConformalPartition_cls=ZoneConformalPartition,
     )
 
     gmsh = _require_gmsh()
@@ -1023,12 +379,12 @@ def generate_zone_conformal_mesh_from_dataframe(
 
     gmsh.initialize()
     try:
-        _configure_gmsh_terminal_output(gmsh)
+        configure_gmsh_terminal_output(gmsh)
         gmsh.model.add(str(model_name).strip() or "zone_conformal_mesh")
         occ = gmsh.model.occ
 
         for face in partition.faces:
-            outer_loop, outer_curve_tags = _add_ring_loop(
+            outer_loop, outer_curve_tags = add_ring_loop(
                 occ,
                 np.asarray(face.polygon.exterior.coords, dtype=float),
                 point_registry=point_registry,
@@ -1039,7 +395,7 @@ def generate_zone_conformal_mesh_from_dataframe(
             hole_loops: list[int] = []
             hole_curve_tags: list[int] = []
             for interior in face.polygon.interiors:
-                hole_loop, hole_curve_tags_one = _add_ring_loop(
+                hole_loop, hole_curve_tags_one = add_ring_loop(
                     occ,
                     np.asarray(interior.coords, dtype=float),
                     point_registry=point_registry,
@@ -1066,23 +422,21 @@ def generate_zone_conformal_mesh_from_dataframe(
             noded_linework = unary_union([partition_linework, *river_lines])
             noded_river_lines = [
                 line
-                for line in _iter_line_parts(noded_linework)
-                if _segment_matches_linework(
+                for line in iter_line_parts(noded_linework)
+                if segment_matches_linework(
                     segment=line,
                     linework=river_linework_raw,
                     tolerance=point_tolerance,
                 )
             ]
             for river_line in noded_river_lines:
-                # Keep explicit/additional curves only for river segments that are
-                # not already carried by the partition boundaries.
-                if _segment_matches_linework(
+                if segment_matches_linework(
                     segment=river_line,
                     linework=partition_linework,
                     tolerance=point_tolerance,
                 ):
                     continue
-                for curve_tag in _add_polyline_segments(
+                for curve_tag in add_polyline_segments(
                     occ,
                     np.asarray(river_line.coords, dtype=float),
                     point_registry=point_registry,
@@ -1092,10 +446,10 @@ def generate_zone_conformal_mesh_from_dataframe(
                 ):
                     if int(curve_tag) not in existing_curve_tags:
                         river_curve_tags.append(int(curve_tag))
-        river_curve_tags_unique = sorted(set(int(tag) for tag in river_curve_tags))
+            river_curve_tags_unique = sorted(set(int(tag) for tag in river_curve_tags))
 
         occ.synchronize()
-        _apply_mesh_options(
+        apply_mesh_options(
             gmsh,
             algorithm=algorithm,
             global_size=global_size_value,
@@ -1137,7 +491,7 @@ def generate_zone_conformal_mesh_from_dataframe(
             zone_geometries[zone_key] = (
                 face.polygon
                 if geometry is None
-                else _make_valid_geometry(geometry.union(face.polygon))
+                else make_valid_geometry(geometry.union(face.polygon))
             )
         for curve_tag in river_curve_tags_unique:
             segment = curve_tag_to_segment.get(int(curve_tag))
@@ -1146,7 +500,7 @@ def generate_zone_conformal_mesh_from_dataframe(
             owners = {
                 zone_key
                 for zone_key, geometry in zone_geometries.items()
-                if _segment_matches_linework(
+                if segment_matches_linework(
                     segment=segment,
                     linework=geometry,
                     tolerance=point_tolerance,
@@ -1157,14 +511,14 @@ def generate_zone_conformal_mesh_from_dataframe(
 
         for curve_tag, zone_keys in sorted(curve_usage.items()):
             segment = curve_tag_to_segment.get(int(curve_tag))
-            is_boundary = _segment_matches_linework(
+            is_boundary = segment_matches_linework(
                 segment=segment,
                 linework=domain_boundary,
                 tolerance=point_tolerance,
             )
             is_river = int(curve_tag) in river_curve_tags_unique
             if (not is_river) and (river_linework is not None):
-                is_river = _segment_matches_linework(
+                is_river = segment_matches_linework(
                     segment=segment,
                     linework=river_linework,
                     tolerance=point_tolerance,
@@ -1174,7 +528,7 @@ def generate_zone_conformal_mesh_from_dataframe(
                 group_kind = "river_curve"
                 zone_names: tuple[str, ...] = ()
             else:
-                name, group_kind, zone_names = _build_curve_group_name(
+                name, group_kind, zone_names = build_curve_group_name(
                     set(str(zone_key) for zone_key in zone_keys),
                     is_boundary=is_boundary,
                 )
@@ -1220,7 +574,7 @@ def generate_zone_conformal_mesh_from_dataframe(
                     continue
                 embedded = False
                 for surface_tag, surface_polygon in surface_polygon_by_tag.items():
-                    if not _segment_matches_linework(
+                    if not segment_matches_linework(
                         segment=segment,
                         linework=surface_polygon,
                         tolerance=point_tolerance,
@@ -1238,20 +592,20 @@ def generate_zone_conformal_mesh_from_dataframe(
 
         interface_curve_tags_all = [
             int(curve_tag)
-            for name, curve_tags in curve_tags_by_name.items()
+            for name, curve_tags_list in curve_tags_by_name.items()
             if not str(name).startswith("boundary::")
-            for curve_tag in curve_tags
+            for curve_tag in curve_tags_list
         ]
         interface_curve_tags = [
             int(curve_tag)
             for curve_tag in interface_curve_tags_all
-            if _segment_intersects_refinement_scope(
+            if segment_intersects_refinement_scope(
                 segment=curve_tag_to_segment.get(int(curve_tag)),
                 scope_geometry=refinement_scope_geometry,
                 tolerance=point_tolerance,
             )
         ]
-        mesh_size_fields_summary = _apply_interface_refinement_field(
+        mesh_size_fields_summary = apply_interface_refinement_field(
             gmsh,
             interface_curve_tags=interface_curve_tags,
             global_size=global_size_value,
@@ -1290,13 +644,15 @@ def generate_zone_conformal_mesh_from_dataframe(
         for group_summary in physical_group_summaries
         if int(group_summary["dimension"]) == 1
     ]
-    cleaning_diagnostics = (
+    cleaning_diagnostics_raw = (
         {}
         if partition.cleaning_diagnostics is None
         else {str(key): value for key, value in partition.cleaning_diagnostics.items()}
     )
     tolerances = (
-        dict(cleaning_diagnostics.get("tolerances", {})) if cleaning_diagnostics else {}
+        dict(cleaning_diagnostics_raw.get("tolerances", {}))
+        if cleaning_diagnostics_raw
+        else {}
     )
     domain_area_value = float(partition.domain_area)
     covered_area_value = float(partition.covered_area)
@@ -1315,18 +671,18 @@ def generate_zone_conformal_mesh_from_dataframe(
     )
 
     cleaning_summary = {
-        "mode": str(cleaning_diagnostics.get("cleaning_mode", "unknown")),
+        "mode": str(cleaning_diagnostics_raw.get("cleaning_mode", "unknown")),
         "source_feature_count": int(
-            cleaning_diagnostics.get("source_feature_count", 0)
+            cleaning_diagnostics_raw.get("source_feature_count", 0)
         ),
         "features_after_domain_clip_count": int(
-            cleaning_diagnostics.get("features_after_domain_clip_count", 0)
+            cleaning_diagnostics_raw.get("features_after_domain_clip_count", 0)
         ),
         "invalid_geometries_repaired_count": int(
-            cleaning_diagnostics.get("invalid_geometries_repaired_count", 0)
+            cleaning_diagnostics_raw.get("invalid_geometries_repaired_count", 0)
         ),
         "polygons_removed_by_area_threshold_count": int(
-            cleaning_diagnostics.get("polygons_removed_by_area_threshold_count", 0)
+            cleaning_diagnostics_raw.get("polygons_removed_by_area_threshold_count", 0)
         ),
         "simplify_tolerance": (
             None
@@ -1386,7 +742,7 @@ def generate_zone_conformal_mesh_from_dataframe(
         "min_size": None if min_size is None else float(min_size),
         "max_size": None if max_size is None else float(max_size),
         "algorithm": str(algorithm),
-        "cleaning_diagnostics": cleaning_diagnostics,
+        "cleaning_diagnostics": cleaning_diagnostics_raw,
         "cleaning_summary": cleaning_summary,
         "river_trace": {
             "provided": bool(river_trace is not None),

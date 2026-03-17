@@ -10,24 +10,7 @@ from typing import Any, Literal
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
-    """Resolve one nested section using dotted syntax (for example ``case.mesh``)."""
-    current: Any = payload
-    for token in str(dotted_path).split("."):
-        if not isinstance(current, Mapping) or token not in current:
-            raise KeyError(f"Missing TOML section '{dotted_path}'")
-        current = current[token]
-    if not isinstance(current, Mapping):
-        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
-    return current
-
-
-def _resolve_path(path_value: str | Path, base_dir: Path) -> str:
-    path = Path(str(path_value)).expanduser()
-    if not path.is_absolute():
-        path = (base_dir / path).resolve()
-    return str(path)
+from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 
 
 class TMeshConfigModel(BaseModel):
@@ -265,9 +248,9 @@ class TMeshConfigModel(BaseModel):
         """Load TOML section, resolve relative paths, then validate."""
         path = Path(config_path).expanduser().resolve()
         payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
-        section_cfg = dict(_get_nested_section(payload, section))
+        section_cfg = dict(get_nested_section(payload, section))
         if section_cfg.get("chron_path") is not None:
-            section_cfg["chron_path"] = _resolve_path(section_cfg["chron_path"], path.parent)
+            section_cfg["chron_path"] = resolve_path(section_cfg["chron_path"], path.parent)
         return cls.model_validate(section_cfg)
 
 

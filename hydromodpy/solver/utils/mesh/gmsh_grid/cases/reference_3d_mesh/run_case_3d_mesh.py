@@ -20,6 +20,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.solver.utils._config_helpers import get_nested_section, resolve_path
 from hydromodpy.solver.utils.mesh.gmsh_grid import ExtrudedPrismMesh3D
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
     build_reference_mesh_from_toml,
@@ -56,25 +57,6 @@ def _resolve_config_path(raw_config: str | Path) -> Path:
     raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
 
 
-def _get_nested_section(
-    payload: Mapping[str, Any], dotted_path: str
-) -> Mapping[str, Any]:
-    current: Any = payload
-    for token in str(dotted_path).split("."):
-        if not isinstance(current, Mapping) or token not in current:
-            raise KeyError(f"Missing TOML section '{dotted_path}'")
-        current = current[token]
-    if not isinstance(current, Mapping):
-        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
-    return current
-
-
-def _resolve_relative_path(raw_path: str | Path, *, base_dir: Path) -> str:
-    path = Path(str(raw_path)).expanduser()
-    if not path.is_absolute():
-        path = (base_dir / path).resolve()
-    return str(path)
-
 
 def _resolve_optional_output_path(
     config_toml: Path,
@@ -96,7 +78,7 @@ def _resolve_optional_output_path(
 
 def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[str, Any]:
     payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
-    section_cfg = dict(_get_nested_section(payload, section))
+    section_cfg = dict(get_nested_section(payload, section))
     layer_thicknesses = np.asarray(
         section_cfg.get("layer_thicknesses", []), dtype=float
     ).reshape(-1)
@@ -105,7 +87,7 @@ def _resolve_case_config(config_toml: Path, *, section: str = "case") -> dict[st
             "layer_thicknesses cannot be empty for the 3D reference mesh case"
         )
     return {
-        "reference_2d_config": _resolve_relative_path(
+        "reference_2d_config": resolve_path(
             section_cfg["reference_2d_config"], base_dir=config_toml.parent
         ),
         "reference_2d_section": str(
