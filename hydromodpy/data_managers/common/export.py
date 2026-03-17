@@ -87,5 +87,5 @@ def export_records(
     pd.DataFrame(chronicle_rows).to_csv(toc_path, index=False)
     created["table_of_contents"] = toc_path
 
-    print(f"  Export: {len(records)} chronicles + metadata + TOC → {output_dir}")
+    print(f"  Export: {len(records)} chronicles + metadata + TOC -> {output_dir}")
     return created
