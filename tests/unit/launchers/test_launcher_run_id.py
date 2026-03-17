@@ -4,49 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
-import sys
 import tempfile
 from types import SimpleNamespace
-import types
 
 import pytest
 
 from hydromodpy.simulation.state.run_state import LauncherRunState
-
-data_managers_stub = types.ModuleType("hydromodpy.data_managers")
-
-
-class _StubDataLoadPlan:
-    explicit_types: tuple[str, ...] = ()
-    inferred_types: tuple[str, ...] = ()
-
-    @property
-    def types(self) -> tuple[str, ...]:
-        return ()
-
-    def reasons_for(self, type_name: str) -> tuple[str, ...]:
-        _ = type_name
-        return ()
-
-
-class _StubDataManagersPlanner:
-    def build(self, *args, **kwargs):
-        _ = args, kwargs
-        return _StubDataLoadPlan()
-
-
-class _StubDataManagersRuntimeLoader:
-    def __init__(self, *args, **kwargs) -> None:
-        _ = args, kwargs
-
-    def load_all(self, run_state) -> None:
-        _ = run_state
-
-
-data_managers_stub.DataLoadPlan = _StubDataLoadPlan
-data_managers_stub.DataManagersPlanner = _StubDataManagersPlanner
-data_managers_stub.DataManagersRuntimeLoader = _StubDataManagersRuntimeLoader
-sys.modules["hydromodpy.data_managers"] = data_managers_stub
 
 from launchers.process_simulation.launcher import HydroModPyLauncher
 
@@ -582,8 +545,8 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
         lambda: {},
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.DataManagersPlanner",
-        lambda: _DummyPlanner(),
+        "launchers.process_simulation.launcher._build_data_plan",
+        lambda *args, **kwargs: _DummyPlanner().build(*args, **kwargs),
     )
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.PostprocessRunner",
@@ -614,8 +577,8 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
         lambda state: setattr(state.setup, "transport", SimpleNamespace()),
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.DataManagersRuntimeLoader",
-        _DummyRuntimeLoader,
+        "launchers.process_simulation.launcher._build_data_runtime_loader",
+        lambda *args, **kwargs: _DummyRuntimeLoader(*args, **kwargs),
     )
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.apply_geology_to_domain",

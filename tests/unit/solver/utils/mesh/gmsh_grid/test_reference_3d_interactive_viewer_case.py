@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_interactive_viewer import (
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_3d_fieldparam.run_case_3d_fieldparam import (
     build_reference_interactive_viewer_state_from_toml,
     run_reference_interactive_viewer_from_toml,
 )

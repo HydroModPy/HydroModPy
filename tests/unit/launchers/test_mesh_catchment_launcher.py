@@ -34,6 +34,17 @@ class _DummyDomainGeographic:
         self.river_mesh_trace = river_mesh_trace
 
 
+def _minimal_geology_config() -> dict[str, object]:
+    return {
+        "source": {
+            "path": "data/geology.gpkg",
+            "kind": "vector",
+            "code_field": "CODE",
+            "reference_raster_path": "data/reference.tif",
+        }
+    }
+
+
 def _minimal_cfg(tmp_path: Path):
     return SimpleNamespace(
         workspace=SimpleNamespace(
@@ -86,11 +97,11 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
         lambda _: {"mesh_catchment": {"constraints_mode": "rivers_only"}},
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.hmp.Workspace",
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.build_domain_geographic_context",
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
         lambda **_: _DummyDomainGeographic(),
     )
 
@@ -100,7 +111,7 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.run_reference_2d_zone_conformal_case_from_toml",
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
         _fake_run_case,
     )
 
@@ -157,11 +168,11 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
         },
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.hmp.Workspace",
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.build_domain_geographic_context",
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
         lambda **_: _DummyDomainGeographic(),
     )
 
@@ -171,7 +182,7 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.run_reference_2d_zone_conformal_case_from_toml",
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
         _fake_run_case,
     )
 
@@ -216,7 +227,16 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
 ) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(
-        "[mesh_catchment]\nconstraints_mode='geology_only'\n",
+        (
+            "[mesh_catchment]\n"
+            "constraints_mode='geology_only'\n"
+            "\n"
+            "[mesh_catchment.geology.source]\n"
+            "path='data/geology.gpkg'\n"
+            "kind='vector'\n"
+            "code_field='CODE'\n"
+            "reference_raster_path='data/reference.tif'\n"
+        ),
         encoding="utf-8",
     )
     captured: dict[str, object] = {}
@@ -232,14 +252,19 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
     )
     monkeypatch.setattr(
         "launchers.mesh_catchment.launcher.load_toml_with_base_config",
-        lambda _: {"mesh_catchment": {"constraints_mode": "geology_only"}},
+        lambda _: {
+            "mesh_catchment": {
+                "constraints_mode": "geology_only",
+                "geology": _minimal_geology_config(),
+            }
+        },
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.hmp.Workspace",
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.build_domain_geographic_context",
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
         lambda **_: _DummyDomainGeographic(river_mesh_trace=None),
     )
 
@@ -249,7 +274,7 @@ def test_mesh_catchment_launcher_geology_mode_skips_river_trace_requirement(
         return {"summary_schema_version": "zone_conformal_sidecar_v1"}
 
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.run_reference_2d_zone_conformal_case_from_toml",
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
         _fake_run_case,
     )
 
@@ -309,7 +334,10 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
     monkeypatch.setattr(
         "launchers.mesh_catchment.launcher.load_toml_with_base_config",
         lambda _: {
-            "mesh_catchment": {"constraints_mode": "geology_only"},
+            "mesh_catchment": {
+                "constraints_mode": "geology_only",
+                "geology": _minimal_geology_config(),
+            },
             "mesh_catchment_batch": {
                 "enabled": True,
                 "outlets_table_path": str(outlets_csv),
@@ -327,11 +355,11 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         },
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.hmp.Workspace",
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
         _DummyBatchWorkspace,
     )
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.build_domain_geographic_context",
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
         lambda **_: _DummyDomainGeographic(river_mesh_trace=None),
     )
 
@@ -345,7 +373,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         }
 
     monkeypatch.setattr(
-        "launchers.mesh_catchment.launcher.run_reference_2d_zone_conformal_case_from_toml",
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
         _fake_run_case,
     )
 
@@ -402,6 +430,7 @@ def test_mesh_catchment_launcher_batch_rejects_fixed_single_output_without_batch
         lambda _: {
             "mesh_catchment": {
                 "constraints_mode": "geology_only",
+                "geology": _minimal_geology_config(),
                 "output_figure": "outputs/fixed.png",
             },
             "mesh_catchment_batch": {

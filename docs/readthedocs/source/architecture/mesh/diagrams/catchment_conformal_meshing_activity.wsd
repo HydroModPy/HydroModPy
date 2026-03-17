@@ -1,0 +1,54 @@
+@startuml
+title Catchment Mesh - Conformal Activity Flow
+
+start
+
+:Load launcher TOML;
+:Validate [mesh_catchment];
+:Resolve constraints_mode;
+
+if (Needs river trace?) then (yes)
+  if (Synthetic geographic?) then (yes)
+  else (no)
+    :Ensure geographic.river_network.enabled = true;
+    :Revalidate geographic config;
+  endif
+endif
+
+:Build Workspace;
+:Build DomainGeographicContext;
+
+if (Needs river trace?) then (yes)
+  :Extract in-memory river_trace\nfrom DomainGeographicContext;
+  if (river_trace available?) then (yes)
+  else (no)
+    :Raise validation error;
+    stop
+  endif
+endif
+
+:Resolve conformal case config;
+:Resolve support domain geometry;
+
+if (Uses geology constraints?) then (yes)
+  :Load geology polygons;
+  :Clip to domain and optional interface scope;
+else (no)
+  :Build one synthetic domain zone;
+endif
+
+if (Uses river constraints?) then (yes)
+  :Resolve river trace for meshing;
+  :Optional clip/filter/snap preparation;
+endif
+
+:Generate zone-conformal mesh with Gmsh;
+:Build QA summary and optional figure/JSON;
+
+if (Mesh file written?) then (yes)
+  :Export catchment mesh bundle;
+endif
+
+:Return mesh summary payload;
+stop
+@enduml
