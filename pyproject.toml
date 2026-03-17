@@ -119,6 +119,7 @@ include = ["hydromodpy*", "launchers*"]
 hydromodpy = ["../bin/**/*"]
 "hydromodpy.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.calibration.devkit" = ["templates/case/*.tmpl"]
+"hydromodpy.data_managers.common.administrative" = ["*.gpkg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -20,10 +20,12 @@ from typing import Any, Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.data_managers.variables.dem.config import DemConfig
 from hydromodpy.data_managers.variables.geology.config import GeologyConfig
 
 
 SUPPORTED_DATA_MANAGER_TYPES = (
+    "dem",
     "etp",
     "geology",
     "humidity",
@@ -81,6 +83,10 @@ class DataManagersConfig(BaseModel):
             "'strict': raise when an inferred type has no explicit data.<type> section "
             "(except geology, which can use its default typed config)."
         ),
+    )
+    dem: Annotated[DemConfig | None, ParamLevel("user")] = Field(
+        default=None,
+        description="DEM configuration used when 'dem' is listed in data.types.",
     )
     geology: Annotated[GeologyConfig | None, ParamLevel("user")] = Field(
         default=None,
@@ -278,6 +284,7 @@ class DataManagersConfig(BaseModel):
         from hydromodpy.data_managers.variables.soil_moisture.config import SoilMoistureConfig
 
         _TYPED_SECTIONS: dict[str, type[BaseModel]] = {
+            "dem": DemConfig,
             "geology": GeologyConfig,
             "hydrography": HydrographyConfig,
             "oceanic": OceanicConfig,
