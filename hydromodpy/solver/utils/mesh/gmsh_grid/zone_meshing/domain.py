@@ -126,6 +126,23 @@ class ZoneMeshingDomainVectorSchema(BaseModel):
         return self
 
 
+class ZoneMeshingDomainGeographicBoxBufferSchema(BaseModel):
+    """Domain resolved from ``domain_geographic.box_buff_shp``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = "geographic_box_buffer"
+
+    @field_validator("kind")
+    @classmethod
+    def _validate_kind(cls, value):
+        if str(value).strip().lower() != "geographic_box_buffer":
+            raise ValueError(
+                "geographic box-buffer domain kind must be 'geographic_box_buffer'"
+            )
+        return "geographic_box_buffer"
+
+
 def _make_valid_geometry(geometry):
     if geometry is None:
         return GeometryCollection()
@@ -189,6 +206,7 @@ def validate_zone_meshing_domain_config_data(
 
     schema_by_kind: dict[str, type[BaseModel]] = {
         "bbox": ZoneMeshingDomainBBoxSchema,
+        "geographic_box_buffer": ZoneMeshingDomainGeographicBoxBufferSchema,
         "polygon": ZoneMeshingDomainPolygonSchema,
         "vector": ZoneMeshingDomainVectorSchema,
     }
@@ -221,6 +239,7 @@ def load_zone_meshing_domain_geometry(
     config: Mapping[str, Any],
     *,
     config_path: str | Path | None = None,
+    domain_geographic: object | None = None,
     target_crs=None,
     validate: bool = True,
 ) -> dict[str, Any]:
@@ -243,6 +262,63 @@ def load_zone_meshing_domain_geometry(
                 geometry=geometry,
                 kind=kind,
                 extras={"domain_bbox": [round(float(v), 6) for v in cfg["bbox"]]},
+            ),
+        }
+
+    if kind == "geographic_box_buffer":
+        if domain_geographic is None:
+            raise ValueError(
+                "domain.kind='geographic_box_buffer' requires one domain_geographic context."
+            )
+        box_buff_shp = getattr(domain_geographic, "box_buff_shp", None)
+        if box_buff_shp is None:
+            raise ValueError(
+                "domain.kind='geographic_box_buffer' requires domain_geographic.box_buff_shp."
+            )
+        source_path = Path(str(box_buff_shp)).expanduser().resolve()
+        gdf = gpd.read_file(source_path)
+        if gdf.empty:
+            raise ValueError(
+                f"Geographic box-buffer domain source has no geometry: {source_path}"
+            )
+        gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()].copy()
+        if gdf.empty:
+            raise ValueError(
+                "Geographic box-buffer domain source has only empty geometries: "
+                f"{source_path}"
+            )
+        source_crs = gdf.crs
+        if target_crs is not None and source_crs is not None and source_crs != target_crs:
+            gdf = gdf.to_crs(target_crs)
+
+        geometry = _make_valid_geometry(unary_union(list(gdf.geometry)))
+        polygons = [
+            polygon
+            for polygon in _iter_polygon_parts(geometry)
+            if float(polygon.area) > 0.0
+        ]
+        if not polygons:
+            raise ValueError(
+                "Geographic box-buffer domain produced no usable polygon after cleaning: "
+                f"{source_path}"
+            )
+        geometry = unary_union(polygons)
+        domain_gdf = gpd.GeoDataFrame(
+            {"domain_id": ["geographic_box_buffer"]},
+            geometry=[geometry],
+            crs=gdf.crs,
+        )
+        return {
+            "geometry": geometry,
+            "gdf": domain_gdf,
+            "summary": _geometry_to_summary_payload(
+                geometry=geometry,
+                kind=kind,
+                extras={
+                    "domain_source_path": str(source_path),
+                    "domain_source_feature_count": int(len(gdf)),
+                    "domain_crs": None if gdf.crs is None else str(gdf.crs),
+                },
             ),
         }
 

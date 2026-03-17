@@ -19,13 +19,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import geopandas as gpd
 import numpy as np
 import rasterio
+from shapely.geometry import LineString, MultiLineString
 
 from hydromodpy.backends import WhiteboxBackend, get_whitebox_backend
 from hydromodpy.geographic.geographic_config import RiverNetworkConfig
+from hydromodpy.geographic.core.river_mesh_trace import RiverMeshTrace
+
+if TYPE_CHECKING:
+    from shapely.geometry.base import BaseGeometry
 
 
 @dataclass(frozen=True)
@@ -41,6 +47,8 @@ class RiverNetworkProducts:
     stream_order_strahler_tif: str | None = None
     stream_link_id_tif: str | None = None
     network_shp: str | None = None
+    network_crs: str | None = None
+    river_mesh_trace: RiverMeshTrace | None = None
     summary_json: str | None = None
 
 
@@ -89,14 +97,134 @@ def _max_positive_value(path: str | Path) -> float | None:
     return float(np.max(positive))
 
 
+def _valid_geometry_mask(geometries) -> object:
+    return (~geometries.is_empty) & (~geometries.isna())
+
+
+def _iter_line_geometries(geometries: list[BaseGeometry]) -> list[BaseGeometry]:
+    out: list[BaseGeometry] = []
+    for geometry in geometries:
+        if geometry is None:
+            continue
+        if bool(getattr(geometry, "is_empty", True)):
+            continue
+        geom_type = str(getattr(geometry, "geom_type", ""))
+        if geom_type in {"LineString", "MultiLineString"}:
+            out.append(geometry)
+            continue
+        if geom_type == "GeometryCollection":
+            children = list(getattr(geometry, "geoms", ()))
+            out.extend(_iter_line_geometries(children))
+    return out
+
+
+def _build_river_mesh_trace_from_network_gdf(
+    *,
+    network_gdf: gpd.GeoDataFrame,
+    network_crs: str | None,
+) -> RiverMeshTrace | None:
+    if network_gdf.empty:
+        return None
+
+    crs = network_gdf.crs
+    network_crs_token = None if network_crs is None else str(network_crs).strip()
+    if crs is None and network_crs_token:
+        network_gdf = network_gdf.set_crs(network_crs_token, allow_override=True)
+        crs = network_gdf.crs
+    if crs is None:
+        return None
+
+    geometries = [geometry for geometry in network_gdf.geometry.tolist() if geometry is not None]
+    line_geometries = _iter_line_geometries(geometries)
+    if not line_geometries:
+        return None
+
+    return RiverMeshTrace.from_geometries(
+        source_kind="geographic_generated",
+        crs_wkt=crs.to_wkt(),
+        geometries=line_geometries,
+    )
+
+
+def _iter_lines_from_whitebox_vector(vector_obj: object) -> list[LineString | MultiLineString]:
+    records = list(getattr(vector_obj, "records", ()))
+    lines: list[LineString | MultiLineString] = []
+    for record in records:
+        points = list(getattr(record, "points", ()))
+        if len(points) < 2:
+            continue
+        raw_parts = list(getattr(record, "parts", ()))
+        part_starts = sorted(
+            {
+                int(part_idx)
+                for part_idx in raw_parts
+                if int(part_idx) >= 0 and int(part_idx) < len(points)
+            }
+        )
+        if not part_starts:
+            part_starts = [0]
+        if part_starts[0] != 0:
+            part_starts = [0, *part_starts]
+        part_starts = [*part_starts, int(len(points))]
+
+        parts: list[LineString] = []
+        for idx in range(len(part_starts) - 1):
+            start = int(part_starts[idx])
+            stop = int(part_starts[idx + 1])
+            if stop - start < 2:
+                continue
+            coords = [(float(points[j].x), float(points[j].y)) for j in range(start, stop)]
+            if len(coords) >= 2:
+                parts.append(LineString(coords))
+        if not parts:
+            continue
+        if len(parts) == 1:
+            lines.append(parts[0])
+        else:
+            lines.append(MultiLineString(parts))
+    return lines
+
+
+def _build_network_gdf_from_whitebox_vector(
+    *,
+    vector_obj: object,
+    network_crs: str | None,
+) -> gpd.GeoDataFrame:
+    projection = str(getattr(vector_obj, "projection", "")).strip()
+    if projection == "":
+        projection = "" if network_crs is None else str(network_crs).strip()
+    crs_value: str | None = projection if projection != "" else None
+
+    geometries = _iter_lines_from_whitebox_vector(vector_obj)
+    network_gdf = gpd.GeoDataFrame(geometry=list(geometries), crs=crs_value)
+    if not network_gdf.empty:
+        network_gdf = network_gdf[_valid_geometry_mask(network_gdf.geometry)].copy()
+    return network_gdf
+
+
+def _remove_vector_sidecars(path: str | Path) -> None:
+    """Remove one shapefile bundle so stale outputs do not survive empty reruns."""
+    shp_path = Path(path)
+    if shp_path.suffix.lower() != ".shp":
+        if shp_path.exists():
+            shp_path.unlink()
+        return
+
+    for suffix in (".shp", ".shx", ".dbf", ".prj", ".cpg", ".qix", ".fix"):
+        sidecar = shp_path.with_suffix(suffix)
+        if sidecar.exists():
+            sidecar.unlink()
+
+
 def compute_river_network_summary(
     *,
     river_network: RiverNetworkConfig,
     threshold_cells: float,
     active_streams_tif: str | Path,
     watershed_shp: str | Path,
-    network_shp: str | Path,
+    network_shp: str | Path | None,
     stream_order_strahler_tif: str | Path | None,
+    network_gdf: gpd.GeoDataFrame | None = None,
 ) -> dict[str, float | int | bool | str | None]:
     """Compute deterministic summary metrics used by diagnostics and tests."""
     mode = str(river_network.threshold_mode).strip().lower()
@@ -110,8 +238,13 @@ def compute_river_network_summary(
         threshold_value = None if river_network.threshold_cells is None else float(river_network.threshold_cells)
 
     stream_pixel_count = int(_active_positive_count(active_streams_tif))
-
-    network = gpd.read_file(str(network_shp))
+    _ = network_shp
+    if network_gdf is None:
+        network = gpd.GeoDataFrame(geometry=[], crs=None)
+    else:
+        network = network_gdf
+    if not network.empty:
+        network = network[_valid_geometry_mask(network.geometry)].copy()
     segment_count = int(len(network))
     network_total_length_m = (
         0.0 if segment_count == 0 else float(np.sum(np.asarray(network.length, dtype=float)))
@@ -161,6 +294,7 @@ def build_river_network_products(
     stream_link_id_tif_path: str | Path,
     network_shp_path: str | Path,
     summary_json_path: str | Path,
+    network_crs: str | None = None,
     backend: WhiteboxBackend | None = None,
 ) -> RiverNetworkProducts:
     """Build stream rasters, stream vectors and one summary JSON payload."""
@@ -181,6 +315,9 @@ def build_river_network_products(
     stream_link_tif = Path(stream_link_id_tif_path)
     network_shp = Path(network_shp_path)
     summary_json = Path(summary_json_path)
+    network_crs_value = None if network_crs is None else str(network_crs).strip()
+    if network_crs_value == "":
+        network_crs_value = None
 
     threshold_cells = resolve_stream_threshold_cells(
         river_network=river_network,
@@ -262,22 +399,58 @@ def build_river_network_products(
         )
         output_stream_link_tif = str(stream_link_tif)
 
-    raw_network_shp = geo_dir / "_river_network_raw.shp"
-    tool.raster_streams_to_vector(
-        str(active_streams_full_tif),
-        str(d8_pointer_path),
-        str(raw_network_shp),
+    tool_any = tool
+    required_in_memory_methods = (
+        "read_raster",
+        "read_vector",
+        "write_vector",
+        "raster_streams_to_vector_raster",
+        "clip_vector",
+    )
+    missing_methods = [
+        method_name
+        for method_name in required_in_memory_methods
+        if not hasattr(tool_any, method_name)
+    ]
+    if missing_methods:
+        missing_list = ", ".join(missing_methods)
+        raise RuntimeError(
+            "River network generation requires in-memory backend methods; "
+            f"missing: {missing_list}."
+        )
+
+    streams_raster_obj = tool_any.read_raster(str(active_streams_full_tif))
+    d8_pointer_obj = tool_any.read_raster(str(d8_pointer_path))
+    raw_vector_obj = tool_any.raster_streams_to_vector_raster(
+        streams_raster_obj,
+        d8_pointer_obj,
         all_vertices=bool(river_network.all_vertices),
     )
-    tool.clip(str(raw_network_shp), str(watershed_shp), str(network_shp))
+    watershed_vector_obj = tool_any.read_vector(str(watershed_shp))
+    clipped_vector_obj = tool_any.clip_vector(raw_vector_obj, watershed_vector_obj)
+    network_gdf = _build_network_gdf_from_whitebox_vector(
+        vector_obj=clipped_vector_obj,
+        network_crs=network_crs_value,
+    )
+    output_network_shp: str | None = None
+    if network_gdf.empty:
+        _remove_vector_sidecars(network_shp)
+    else:
+        tool_any.write_vector(clipped_vector_obj, str(network_shp))
+        output_network_shp = str(network_shp)
+    river_mesh_trace = _build_river_mesh_trace_from_network_gdf(
+        network_gdf=network_gdf,
+        network_crs=network_crs_value,
+    )
 
     summary = compute_river_network_summary(
         river_network=river_network,
         threshold_cells=float(threshold_cells),
         active_streams_tif=str(active_streams_tif),
         watershed_shp=watershed_shp,
-        network_shp=str(network_shp),
+        network_shp=output_network_shp,
         stream_order_strahler_tif=output_stream_order_tif,
+        network_gdf=network_gdf,
     )
     summary_json.parent.mkdir(parents=True, exist_ok=True)
     with summary_json.open("w", encoding="utf-8") as stream:
@@ -293,6 +466,8 @@ def build_river_network_products(
         streams_pruned_tif=output_pruned_tif,
         stream_order_strahler_tif=output_stream_order_tif,
         stream_link_id_tif=output_stream_link_tif,
-        network_shp=str(network_shp),
+        network_shp=output_network_shp,
+        network_crs=network_crs_value,
+        river_mesh_trace=river_mesh_trace,
         summary_json=str(summary_json),
     )

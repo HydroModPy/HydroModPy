@@ -125,8 +125,23 @@ def build_river_mesh_trace_from_vector(
     rivers = gpd.read_file(src_path)
     if rivers.empty:
         return None
+    target_crs_token = None if target_crs is None else str(target_crs).strip()
+    if target_crs_token == "":
+        target_crs_token = None
+
     if rivers.crs is None:
-        raise ValueError(f"River network vector has no CRS: {src_path}")
+        if target_crs_token is not None:
+            rivers = rivers.set_crs(target_crs_token, allow_override=True)
+        elif clip_polygon_path is not None:
+            clip_path = Path(clip_polygon_path)
+            if clip_path.exists():
+                clip_polygons = gpd.read_file(clip_path)
+                if clip_polygons.crs is not None:
+                    rivers = rivers.set_crs(clip_polygons.crs, allow_override=True)
+        if rivers.crs is None:
+            raise ValueError(
+                f"River network vector has no CRS and no target CRS provided: {src_path}"
+            )
 
     geometries = [geometry for geometry in rivers.geometry if geometry is not None and not geometry.is_empty]
     if not geometries:
@@ -157,11 +172,14 @@ def build_river_mesh_trace_from_vector(
         if not geometries:
             return None
 
-    if target_crs is not None:
-        target = str(target_crs).strip()
-        if target:
-            rivers = gpd.GeoDataFrame(geometry=geometries, crs=rivers.crs).to_crs(target)
-            crs_wkt = rivers.crs.to_wkt() if rivers.crs is not None else target
+    if target_crs_token is not None:
+        if target_crs_token:
+            rivers = gpd.GeoDataFrame(geometry=geometries, crs=rivers.crs).to_crs(
+                target_crs_token
+            )
+            crs_wkt = (
+                rivers.crs.to_wkt() if rivers.crs is not None else target_crs_token
+            )
             geometries = list(rivers.geometry)
         else:
             crs_wkt = rivers.crs.to_wkt()

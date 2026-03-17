@@ -181,6 +181,14 @@ def _make_valid_geometry(geometry):
     return repaired
 
 
+def _make_valid_linework(geometry):
+    if geometry is None:
+        return GeometryCollection()
+    if geometry.is_empty:
+        return geometry
+    return _shapely_make_valid(geometry)
+
+
 def _iter_polygon_parts(geometry):
     if geometry is None or geometry.is_empty:
         return
@@ -536,6 +544,119 @@ def build_zone_conformal_partition_from_dataframe(
     )
 
 
+def _iter_line_parts(geometry):
+    if geometry is None or geometry.is_empty:
+        return
+    if isinstance(geometry, LineString):
+        yield geometry
+        return
+    if isinstance(geometry, MultiLineString):
+        for line in geometry.geoms:
+            if not line.is_empty:
+                yield line
+        return
+    if isinstance(geometry, GeometryCollection):
+        for sub_geometry in geometry.geoms:
+            yield from _iter_line_parts(sub_geometry)
+
+
+def _split_partition_with_constraint_lines(
+    partition: ZoneConformalPartition,
+    *,
+    constraint_lines: list[LineString],
+    tolerance: float,
+) -> ZoneConformalPartition:
+    if not constraint_lines:
+        return partition
+
+    valid_lines: list[LineString] = []
+    for line in constraint_lines:
+        if line is None or line.is_empty:
+            continue
+        repaired = _make_valid_linework(line)
+        valid_lines.extend(
+            piece
+            for piece in _iter_line_parts(repaired)
+            if float(piece.length) > 0.0
+        )
+    if not valid_lines:
+        return partition
+
+    zone_geometries: dict[str, Any] = {}
+    for face in partition.faces:
+        zone_key = str(face.zone_key)
+        current = zone_geometries.get(zone_key)
+        zone_geometries[zone_key] = (
+            face.polygon
+            if current is None
+            else _make_valid_geometry(current.union(face.polygon))
+        )
+
+    overlap_tolerance = max(float(tolerance) * float(tolerance), 1.0e-12)
+    linework = [partition.domain_geometry.boundary]
+    linework.extend(face.polygon.boundary for face in partition.faces)
+    linework.extend(valid_lines)
+    merged_boundaries = unary_union(linework)
+
+    faces: list[ZonePartitionFace] = []
+    for polygonized in polygonize(merged_boundaries):
+        polygon = _make_valid_geometry(polygonized)
+        for part in _iter_polygon_parts(polygon):
+            if float(part.area) <= overlap_tolerance:
+                continue
+            point = part.representative_point()
+            if not partition.domain_geometry.covers(point):
+                continue
+            owners = [
+                zone_key
+                for zone_key, geometry in zone_geometries.items()
+                if geometry.covers(point)
+            ]
+            if not owners:
+                continue
+            if len(owners) == 1:
+                owner = owners[0]
+            else:
+                owner = max(
+                    owners,
+                    key=lambda zone_key: float(
+                        part.intersection(zone_geometries[zone_key]).area
+                    ),
+                )
+            faces.append(
+                ZonePartitionFace(
+                    face_id=len(faces),
+                    zone_key=str(owner),
+                    polygon=part,
+                )
+            )
+
+    if not faces:
+        raise ValueError("Constraint repartition produced no face to mesh")
+
+    covered_area = float(sum(face.area for face in faces))
+    diagnostics = {
+        "constraints_partitioning_enabled": True,
+        "constraint_line_count_input": int(len(constraint_lines)),
+        "constraint_line_count_used": int(len(valid_lines)),
+        "partition_faces_before_constraints": int(partition.n_faces),
+        "partition_faces_after_constraints": int(len(faces)),
+    }
+    base_cleaning = (
+        {}
+        if partition.cleaning_diagnostics is None
+        else {str(key): value for key, value in partition.cleaning_diagnostics.items()}
+    )
+    base_cleaning.update(diagnostics)
+    return ZoneConformalPartition(
+        faces=tuple(faces),
+        zone_keys=tuple(sorted(zone_geometries)),
+        domain_geometry=partition.domain_geometry,
+        covered_area=covered_area,
+        cleaning_diagnostics=base_cleaning,
+    )
+
+
 def _rounded_coord(value: float, *, tolerance: float) -> float:
     if tolerance > 0.0:
         snapped = round(float(value) / tolerance) * tolerance
@@ -644,18 +765,14 @@ def _iter_river_lines_from_trace(river_trace: object | None) -> list[LineString]
         raise TypeError("river_trace must expose a 'lines' attribute when provided")
     lines: list[LineString] = []
     for geometry in lines_attr:
-        if isinstance(geometry, LineString):
-            if not geometry.is_empty:
-                lines.append(geometry)
+        if isinstance(geometry, (LineString, MultiLineString)):
+            lines.extend(
+                line
+                for line in _iter_line_parts(geometry)
+                if float(line.length) > 0.0
+            )
             continue
-        if isinstance(geometry, MultiLineString):
-            for line in geometry.geoms:
-                if not line.is_empty:
-                    lines.append(line)
-            continue
-        raise TypeError(
-            "river_trace.lines must contain only LineString or MultiLineString geometries"
-        )
+        raise TypeError("river_trace.lines must contain only LineString or MultiLineString geometries")
     return lines
 
 
@@ -684,13 +801,44 @@ def _apply_mesh_options(
     )
 
 
-def _build_curve_group_name(zone_keys: set[str]) -> tuple[str, str, tuple[str, ...]]:
+def _build_curve_group_name(
+    zone_keys: set[str],
+    *,
+    is_boundary: bool = True,
+) -> tuple[str, str, tuple[str, ...]]:
     zone_names = tuple(sorted(str(zone_key) for zone_key in zone_keys))
     if len(zone_names) >= 2:
         return ("interface::" + "::".join(zone_names), "interface_curve", zone_names)
     if len(zone_names) == 1:
+        if not bool(is_boundary):
+            return (f"constraint::{zone_names[0]}", "constraint_curve", zone_names)
         return (f"boundary::{zone_names[0]}", "boundary_curve", zone_names)
     raise ValueError("curve groups require at least one owning zone")
+
+
+def _segment_matches_linework(
+    *,
+    segment: LineString | None,
+    linework,
+    tolerance: float,
+) -> bool:
+    if segment is None or linework is None:
+        return False
+    if segment.is_empty:
+        return False
+    segment_length = float(segment.length)
+    if segment_length <= 0.0:
+        return False
+    try:
+        overlap_length = float(segment.intersection(linework).length)
+    except Exception:
+        overlap_length = 0.0
+    if overlap_length >= 0.995 * segment_length:
+        return True
+    try:
+        return float(segment.distance(linework)) <= max(float(tolerance), 1.0e-9)
+    except Exception:
+        return False
 
 
 def _apply_interface_refinement_field(
@@ -816,6 +964,13 @@ def generate_zone_conformal_mesh_from_dataframe(
         heal_tolerance=heal_tolerance,
         min_polygon_area=min_polygon_area,
     )
+    river_lines = _iter_river_lines_from_trace(river_trace)
+    point_tolerance = _as_metric_tolerance(heal_tolerance)
+    partition = _split_partition_with_constraint_lines(
+        partition,
+        constraint_lines=river_lines,
+        tolerance=point_tolerance,
+    )
 
     gmsh = _require_gmsh()
     output_path_obj = Path(output_path).resolve()
@@ -827,13 +982,13 @@ def generate_zone_conformal_mesh_from_dataframe(
     surface_tags_by_zone: dict[str, list[int]] = {
         zone_key: [] for zone_key in partition.zone_keys
     }
+    surface_polygon_by_tag: dict[int, Polygon] = {}
     physical_groups: list[ZoneConformalPhysicalGroup] = []
-    point_tolerance = _as_metric_tolerance(heal_tolerance)
-    river_lines = _iter_river_lines_from_trace(river_trace)
     river_curve_tags: list[int] = []
     river_curve_tags_unique: list[int] = []
     river_embed_success = 0
     river_embed_failures = 0
+    curve_tags_by_name: dict[str, list[int]] = {}
 
     gmsh.initialize()
     try:
@@ -866,21 +1021,46 @@ def generate_zone_conformal_mesh_from_dataframe(
 
             surface_tag = occ.addPlaneSurface([outer_loop, *hole_loops])
             surface_tags_by_zone[face.zone_key].append(int(surface_tag))
+            surface_polygon_by_tag[int(surface_tag)] = face.polygon
 
             for curve_tag in outer_curve_tags + hole_curve_tags:
                 curve_usage.setdefault(int(curve_tag), set()).add(face.zone_key)
 
-        for river_line in river_lines:
-            river_curve_tags.extend(
-                _add_polyline_segments(
+        existing_curve_tags = set(int(tag) for tag in curve_usage)
+        if river_lines:
+            river_linework_raw = unary_union(river_lines)
+            partition_linework = unary_union(
+                [face.polygon.boundary for face in partition.faces]
+            )
+            noded_linework = unary_union([partition_linework, *river_lines])
+            noded_river_lines = [
+                line
+                for line in _iter_line_parts(noded_linework)
+                if _segment_matches_linework(
+                    segment=line,
+                    linework=river_linework_raw,
+                    tolerance=point_tolerance,
+                )
+            ]
+            for river_line in noded_river_lines:
+                # Keep explicit/additional curves only for river segments that are
+                # not already carried by the partition boundaries.
+                if _segment_matches_linework(
+                    segment=river_line,
+                    linework=partition_linework,
+                    tolerance=point_tolerance,
+                ):
+                    continue
+                for curve_tag in _add_polyline_segments(
                     occ,
                     np.asarray(river_line.coords, dtype=float),
                     point_registry=point_registry,
                     line_registry=line_registry,
                     point_size=global_size_value,
                     tolerance=point_tolerance,
-                )
-            )
+                ):
+                    if int(curve_tag) not in existing_curve_tags:
+                        river_curve_tags.append(int(curve_tag))
         river_curve_tags_unique = sorted(set(int(tag) for tag in river_curve_tags))
 
         occ.synchronize()
@@ -908,64 +1088,129 @@ def generate_zone_conformal_mesh_from_dataframe(
                 )
             )
 
-        curve_tags_by_name: dict[str, list[int]] = {}
-        for curve_tag, zone_keys in curve_usage.items():
-            name, _, _ = _build_curve_group_name(zone_keys)
-            curve_tags_by_name.setdefault(name, []).append(int(curve_tag))
-
-        for name, curve_tags in sorted(curve_tags_by_name.items()):
-            physical_tag = gmsh.model.addPhysicalGroup(1, sorted(curve_tags))
-            gmsh.model.setPhysicalName(1, int(physical_tag), name)
-            _group_name, group_kind, zone_names = _build_curve_group_name(
-                set(name.split("::")[1:])
+        curve_groups: dict[str, dict[str, Any]] = {}
+        curve_tag_to_segment: dict[int, LineString] = {}
+        for canonical, line_tag in line_registry.items():
+            curve_tag_to_segment[int(line_tag)] = LineString(
+                [
+                    (float(canonical[0][0]), float(canonical[0][1])),
+                    (float(canonical[1][0]), float(canonical[1][1])),
+                ]
             )
+        river_linework = unary_union(river_lines) if river_lines else None
+        domain_boundary = partition.domain_geometry.boundary
+        zone_geometries: dict[str, Any] = {}
+        for face in partition.faces:
+            zone_key = str(face.zone_key)
+            geometry = zone_geometries.get(zone_key)
+            zone_geometries[zone_key] = (
+                face.polygon
+                if geometry is None
+                else _make_valid_geometry(geometry.union(face.polygon))
+            )
+        for curve_tag in river_curve_tags_unique:
+            segment = curve_tag_to_segment.get(int(curve_tag))
+            if segment is None:
+                continue
+            owners = {
+                zone_key
+                for zone_key, geometry in zone_geometries.items()
+                if _segment_matches_linework(
+                    segment=segment,
+                    linework=geometry,
+                    tolerance=point_tolerance,
+                )
+            }
+            if owners:
+                curve_usage.setdefault(int(curve_tag), set()).update(owners)
+
+        for curve_tag, zone_keys in sorted(curve_usage.items()):
+            segment = curve_tag_to_segment.get(int(curve_tag))
+            is_boundary = _segment_matches_linework(
+                segment=segment,
+                linework=domain_boundary,
+                tolerance=point_tolerance,
+            )
+            is_river = int(curve_tag) in river_curve_tags_unique
+            if (not is_river) and (river_linework is not None):
+                is_river = _segment_matches_linework(
+                    segment=segment,
+                    linework=river_linework,
+                    tolerance=point_tolerance,
+                )
+            if is_river:
+                name = "river::trace"
+                group_kind = "river_curve"
+                zone_names: tuple[str, ...] = ()
+            else:
+                name, group_kind, zone_names = _build_curve_group_name(
+                    set(str(zone_key) for zone_key in zone_keys),
+                    is_boundary=is_boundary,
+                )
+            payload = curve_groups.setdefault(
+                str(name),
+                {
+                    "group_kind": str(group_kind),
+                    "zone_keys": tuple(str(zone_key) for zone_key in zone_names),
+                    "curve_tags": [],
+                },
+            )
+            payload["curve_tags"].append(int(curve_tag))
+
+        for name, payload in sorted(curve_groups.items()):
+            curve_tags = sorted(set(int(tag) for tag in payload["curve_tags"]))
+            curve_tags_by_name[str(name)] = curve_tags
+            physical_tag = gmsh.model.addPhysicalGroup(1, curve_tags)
+            gmsh.model.setPhysicalName(1, int(physical_tag), name)
             physical_groups.append(
                 ZoneConformalPhysicalGroup(
                     dimension=1,
                     tag=int(physical_tag),
                     name=str(name),
-                    group_kind=group_kind,
+                    group_kind=str(payload["group_kind"]),
                     entity_tags=tuple(int(tag) for tag in sorted(curve_tags)),
-                    zone_keys=tuple(zone_names),
+                    zone_keys=tuple(str(zone_key) for zone_key in payload["zone_keys"]),
                 )
             )
 
+        river_curve_tags_unique = sorted(
+            set(int(tag) for tag in curve_tags_by_name.get("river::trace", []))
+        )
+        river_embed_success = 0
+        river_embed_failures = 0
         if river_curve_tags_unique:
-            physical_tag = gmsh.model.addPhysicalGroup(1, river_curve_tags_unique)
-            gmsh.model.setPhysicalName(1, int(physical_tag), "river::trace")
-            physical_groups.append(
-                ZoneConformalPhysicalGroup(
-                    dimension=1,
-                    tag=int(physical_tag),
-                    name="river::trace",
-                    group_kind="river_curve",
-                    entity_tags=tuple(int(tag) for tag in river_curve_tags_unique),
-                )
-            )
-
-            surface_tags_all = sorted(
-                {
-                    int(surface_tag)
-                    for zone_surface_tags in surface_tags_by_zone.values()
-                    for surface_tag in zone_surface_tags
-                }
-            )
-            for surface_tag in surface_tags_all:
-                for curve_tag in river_curve_tags_unique:
+            for curve_tag in river_curve_tags_unique:
+                if int(curve_tag) in existing_curve_tags:
+                    river_embed_success += 1
+                    continue
+                segment = curve_tag_to_segment.get(int(curve_tag))
+                if segment is None:
+                    river_embed_failures += 1
+                    continue
+                embedded = False
+                for surface_tag, surface_polygon in surface_polygon_by_tag.items():
+                    if not _segment_matches_linework(
+                        segment=segment,
+                        linework=surface_polygon,
+                        tolerance=point_tolerance,
+                    ):
+                        continue
                     try:
                         gmsh.model.mesh.embed(1, [int(curve_tag)], 2, int(surface_tag))
-                        river_embed_success += 1
+                        embedded = True
                     except Exception:
-                        river_embed_failures += 1
+                        continue
+                if embedded:
+                    river_embed_success += 1
+                else:
+                    river_embed_failures += 1
 
         interface_curve_tags = [
             int(curve_tag)
             for name, curve_tags in curve_tags_by_name.items()
-            if str(name).startswith("interface::")
+            if not str(name).startswith("boundary::")
             for curve_tag in curve_tags
         ]
-        if river_curve_tags_unique:
-            interface_curve_tags.extend(river_curve_tags_unique)
         mesh_size_fields_summary = _apply_interface_refinement_field(
             gmsh,
             interface_curve_tags=interface_curve_tags,

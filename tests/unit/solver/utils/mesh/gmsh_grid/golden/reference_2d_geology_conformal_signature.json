@@ -86,6 +86,14 @@
     "min_polygon_area": 1.0,
     "overlap_tolerance": 1e-12
   },
+  "river_trace": {
+    "provided": false,
+    "line_count": 0,
+    "curve_count": 0,
+    "embedded_surface_curve_pairs": 0,
+    "embed_failures": 0,
+    "refined_with_interface_field": false
+  },
   "physical_groups_summary": {
     "surface_group_count": 8,
     "curve_group_count": 21,
@@ -97,7 +105,8 @@
     "coverage_tolerance": 1e-09,
     "coverage_within_tolerance": true,
     "has_interface_groups": true,
-    "has_zone_surface_groups": true
+    "has_zone_surface_groups": true,
+    "constraints_contract_pass": true
   },
   "mesh_size_fields": {
     "interface_refinement": {
@@ -449,5 +458,37 @@
   "domain_selected_id": "main",
   "domain_source_feature_count": 1,
   "domain_selected_feature_count": 1,
-  "domain_crs": "EPSG:2154"
+  "domain_crs": "EPSG:2154",
+  "constraints_mode": "geology_only",
+  "constraints_qa": {
+    "contract_version": "constraints_qa_v1",
+    "mode": "geology_only",
+    "thresholds": {
+      "min_zone_count": 1,
+      "min_interface_group_count": 1,
+      "min_river_curve_count": 0,
+      "min_embedded_surface_curve_pairs": 0,
+      "require_refinement_when_refine_interfaces_true": false
+    },
+    "metrics": {
+      "zone_count": 8,
+      "interface_group_count": 14,
+      "river_trace_provided": false,
+      "river_line_count": 0,
+      "river_curve_count": 0,
+      "river_curve_group_present": false,
+      "river_embed_success_pairs": 0,
+      "river_embed_failures": 0,
+      "river_embed_attempts": 0,
+      "river_embed_success_rate": null,
+      "river_embed_pairs_per_curve": null,
+      "river_refined_with_interface_field": false,
+      "refine_interfaces_config": true
+    },
+    "checks": {
+      "has_zone_partition": true,
+      "has_geology_interfaces": true
+    },
+    "overall_pass": true
+  }
 }

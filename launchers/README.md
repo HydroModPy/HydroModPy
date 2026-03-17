@@ -13,14 +13,26 @@ partir de la convention de nommage retenue :
 - `hydro_cal_val/` : pour `HydroCalValLauncher`
 - `mesh_catchment/` : pour `MeshCatchmentLauncher`
 
+## Intention
+
+- `DataOverviewLauncher` : illustration, visualisation et inventaire des
+  donnees et de la configuration disponibles pour un site, sans simulation.
+- `ProcessSimulationLauncher` : execution des simulations de processus.
+- `ModelCalibrationLauncher` : orchestration des workflows de calibration.
+- `HydroCalValLauncher` : mise en place d'une strategie hydrologique de
+  calibration-validation.
+- `MeshCatchmentLauncher` : generation de maillage catchment conforme
+  au reseau de rivieres et/ou a la geologie, en mode mono-catchment ou batch
+  par table d'exutoires.
+
+Cette arborescence prepare une separation claire des responsabilites sans
+modifier le launcher principal existant.
+
 ## CLI
 
-Commande canonique :
+Commande recommandee pour la famille simulation :
 
-```bash
-hmp simulation path/to/config.toml
-hmp simulation path/to/config.toml --out /tmp/results
-```
+`python -m launchers simulation run <path/to/config.toml>`
 
 Commande recommandee pour la famille mesh-catchment :
 
@@ -30,36 +42,39 @@ Commande directe (utile depuis un IDE) :
 
 `python launchers/mesh_catchment/launcher.py <path/to/config.toml>`
 
-Equivalent via module :
+Exemple de config prete a lancer :
 
-```bash
-python -m launchers simulation path/to/config.toml
-```
+`launchers/mesh_catchment/config_mesh_catchment_example.toml`
 
-## Sous-dossiers
+Exemple de config batch par `outlet_id` :
 
-| Dossier | Classe | Etat |
-|---|---|---|
-| `process_simulation/` | `HydroModPyLauncher` | Fonctionnel |
-| `mesh_catchment/` | `MeshCatchmentLauncher` | Fonctionnel |
-| `data_overview/` | `DataOverviewLauncher` | Reserve (vide) |
-| `model_calibration/` | `ModelCalibrationLauncher` | Reserve (vide) |
-| `hydro_cal_val/` | `HydroCalValLauncher` | Reserve (vide) |
+`launchers/mesh_catchment/config_mesh_catchment_batch_example.toml`
+
+Configuration en deux niveaux (meme logique que process_simulation) :
+
+- `launchers/mesh_catchment/config_mesh_catchment_common.toml`
+  : tronc commun catchment (`workspace`, `geographic`, `geographic.river_network`).
+- `launchers/mesh_catchment/config_mesh_catchment_example.toml`
+  : divergence metier mesh via `[mesh_catchment]`.
+- `launchers/mesh_catchment/config_mesh_catchment_batch_example.toml`
+  : boucle batch via `[mesh_catchment_batch]` avec un dossier catchment par
+  `outlet_id`.
 
 ## Architecture
 
 Le launcher orchestre sans implementer de logique solveur :
 
-1. Charge et valide le TOML (`HydroModPyConfig`)
-2. Bootstrap les objets partages (workspace, geographic, domain, flow, transport)
-3. Charge les donnees externes (`DataManagersRuntimeLoader`)
-4. Applique les binders structurels (geology->domain, oceanic->flow, climatic->recharge)
-5. Delegue l'execution a `SimulationRunner` avec callbacks postprocess
+1. Charge et valide le TOML.
+2. Bootstrap les objets partages (workspace, geographic, domain, flow, transport).
+3. Charge les donnees externes.
+4. Applique les binders structurels.
+5. Delegue l'execution aux runners et exporteurs metier.
 
 ## Separation des responsabilites
 
-- **Chargement donnees** : `hydromodpy/data_managers/runtime_loader.py`
-- **Binders structurels** : `hydromodpy/domain/structure_binders.py`, `hydromodpy/process/flow/structure_binders.py`
-- **Planification** : `hydromodpy/simulation/planning/`
-- **Execution** : `hydromodpy/simulation/runtime/runner.py`
-- **Postprocess** : `hydromodpy/postprocess/runner.py` (pilote par `[postprocess]` dans le TOML)
+- Chargement donnees : `hydromodpy/data_managers/runtime_loader.py`
+- Binders structurels : `hydromodpy/domain/structure_binders.py`,
+  `hydromodpy/process/flow/structure_binders.py`
+- Planification : `hydromodpy/simulation/planning/`
+- Execution : `hydromodpy/simulation/runtime/runner.py`
+- Postprocess : `hydromodpy/postprocess/runner.py`

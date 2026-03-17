@@ -5,6 +5,17 @@ individual implementation modules. It gathers the planar mesh wrapper, the 3D
 extrusion helpers, and the utilities used to attach values and export results.
 """
 
+from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
+    BUNDLE_SCHEMA_VERSION,
+    CatchmentMeshBundle,
+    CatchmentMeshBundleCell,
+    CatchmentMeshBundleEdge,
+    CatchmentMeshBundleGeologyFraction,
+    CatchmentMeshBundleNode,
+    export_catchment_mesh_bundle,
+    load_catchment_mesh_bundle,
+    resolve_default_catchment_mesh_bundle_dir,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_fieldparam_discretization import (
     ExtrudedFieldParamDiscretizationResult,
     discretize_fieldparam_on_extruded_mesh,
@@ -75,6 +86,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import (
 )
 
 __all__ = [
+    "BUNDLE_SCHEMA_VERSION",
+    "CatchmentMeshBundle",
+    "CatchmentMeshBundleCell",
+    "CatchmentMeshBundleEdge",
+    "CatchmentMeshBundleGeologyFraction",
+    "CatchmentMeshBundleNode",
     "ExtrudedFieldParamDiscretizationResult",
     "ExtrudedPrismMesh3D",
     "ExtrudedPrismMeshData",
@@ -103,8 +120,10 @@ __all__ = [
     "discretize_fieldparam_on_extruded_mesh",
     "extract_prism_pick_info",
     "extract_source_column_grid",
+    "export_catchment_mesh_bundle",
     "generate_zone_conformal_mesh_from_dataframe",
     "generate_zone_conformal_mesh_from_geology_config",
+    "load_catchment_mesh_bundle",
     "load_zone_meshing_domain_geometry",
     "load_extruded_mesh",
     "load_extruded_mesh_values",
@@ -114,6 +133,7 @@ __all__ = [
     "plot_source_cell_markers",
     "read_extruded_prism_mesh",
     "read_gmsh_2d_mesh",
+    "resolve_default_catchment_mesh_bundle_dir",
     "save_extruded_mesh",
     "save_extruded_mesh_values",
     "save_extruded_values_npy",

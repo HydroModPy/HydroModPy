@@ -1,0 +1,69 @@
+# Example batch mesh-catchment launcher config.
+# Run with:
+#   python -m launchers mesh-catchment run launchers/mesh_catchment/config_mesh_catchment_batch_example.toml
+
+base_config = "config_mesh_catchment_common.toml"
+
+[workspace]
+# Base prefix used to name one catchment folder per outlet_id.
+catch_name = "mesh_catchment_bretagne"
+
+[mesh_catchment_batch]
+enabled = true
+outlets_table_path = "../../hydromodpy_annex/preprocess/catchment_identification_scan/outputs/full_mnt_target100km2_100tiles/exutoires_full_mnt_target100km2_100tiles.csv"
+outlet_id_column = "outlet_id"
+x_column = "x_outlet_m"
+y_column = "y_outlet_m"
+# Run all outlets found in the preprocess table.
+selection_mode = "all"
+# selected_outlet_ids = [34, 28]
+catch_name_pattern = "{catch_name}_outlet_{outlet_id}"
+continue_on_error = true
+
+[mesh_catchment_batch.outputs]
+mesh_filename = "mesh_catchment_outlet_{outlet_id}.msh"
+summary_filename = "mesh_catchment_outlet_{outlet_id}_summary.json"
+figure_filename = "mesh_catchment_outlet_{outlet_id}.png"
+manifest_csv = "batch/mesh_catchment_batch_manifest.csv"
+
+[mesh_catchment]
+constraints_mode = "geology_rivers"
+show_plot = false
+
+[mesh_catchment.rivers]
+source = "domain_geographic"
+clip_to_domain = true
+min_segment_length = 0.0
+snap_tolerance = 0.0
+
+[mesh_catchment.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[mesh_catchment.geology.source]
+path = "../../data/France/geology/GEO1M.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../data/Brittany/dem/regional_dem_full.tif"
+all_touched = false
+
+[mesh_catchment.geology.landsea]
+enabled = false
+sea_value = 0
+override_code = "1"
+
+[mesh_catchment.domain]
+kind = "geographic_box_buffer"
+
+[mesh_catchment.zone_meshing]
+algorithm = "delaunay"
+global_size = 680.0
+min_size = 340.0
+max_size = 1080.0
+simplify_tolerance = 0.0
+heal_tolerance = 0.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 250.0
+interface_distance = 610.0
+interface_sampling = 96

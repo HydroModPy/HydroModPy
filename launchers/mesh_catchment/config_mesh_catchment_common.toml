@@ -15,7 +15,11 @@ catch_name = "mesh_catchment_nancon"
 
 [geographic]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
+# Regional DEM shared by single-catchment and batch outlet workflows.
+# The smaller `regional dem.tif` does not cover outlets such as Nancon.
+dem_init_path = "../../data/Brittany/dem/regional_dem_full.tif"
+# In batch mode, x_outlet/y_outlet are seed values only; they are overridden
+# from the outlets table at runtime.
 x_outlet = 389285.910
 y_outlet = 6816518.749
 snap_dist = "50 m"

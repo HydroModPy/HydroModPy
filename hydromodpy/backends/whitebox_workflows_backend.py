@@ -83,6 +83,9 @@ class WhiteboxWorkflowsBackend:
     def write_vector(self, vector, path: str) -> None:
         self._write_vector(vector, path)
 
+    def clip_vector(self, vector, clip_layer):
+        return self._env.clip(vector, clip_layer)
+
     def fill_depressions_raster(self, dem):
         return self._run_env_operation(self._env.fill_depressions, dem)
 
@@ -558,7 +561,10 @@ class WhiteboxWorkflowsBackend:
     def clip(self, input_path: str, clip_layer: str, output_path: str) -> None:
         clip_vector = self._read_vector(clip_layer)
         if self._is_vector_path(input_path):
-            self._write_vector(self._env.clip(self._read_vector(input_path), clip_vector), output_path)
+            self._write_vector(
+                self.clip_vector(self._read_vector(input_path), clip_vector),
+                output_path,
+            )
             return
         self._write_raster(self._env.clip(self._read_raster(input_path), clip_vector), output_path)
 
