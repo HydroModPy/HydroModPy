@@ -45,9 +45,11 @@ The launcher itself does not hard-code "run flow then transport". It only:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -78,6 +80,12 @@ from hydromodpy.simulation.time import (
     resolve_simulation_time_window,
 )
 from hydromodpy.support.units import convert_payload_to_m_per_s
+from launchers.mesh_catchment.runtime import (
+    get_optional_mesh_section,
+    prepare_geographic_config_for_meshing,
+    resolve_constraints_mode,
+    run_single_mesh_catchment_workflow,
+)
 
 
 class HydroModPyLauncher:
@@ -126,6 +134,16 @@ class HydroModPyLauncher:
         self.time_grid = require_flow_simulation_time_grid(self.cfg)
 
         raw_toml = load_toml_with_base_config(self.config_path)
+        self.mesh_section_data = self._resolve_optional_mesh_section(raw_toml)
+        self.mesh_constraints_mode = None
+        if self.mesh_section_data is not None:
+            self.mesh_constraints_mode = resolve_constraints_mode(
+                self.mesh_section_data.get("constraints_mode")
+            )
+            self.cfg.geographic = prepare_geographic_config_for_meshing(
+                self.cfg.geographic,
+                constraints_mode=self.mesh_constraints_mode,
+            )
 
         self.spatial_support_provider_registry = (
             build_default_spatial_support_provider_registry()
@@ -183,6 +201,28 @@ class HydroModPyLauncher:
                     + "; ".join(reasons)
                 )
 
+    def _resolve_optional_mesh_section(
+        self,
+        raw_toml: Mapping[str, object],
+    ) -> Mapping[str, Any] | None:
+        section = get_optional_mesh_section(raw_toml)
+        batch_section = raw_toml.get("mesh_catchment_batch")
+        if batch_section is None:
+            return section
+        if not isinstance(batch_section, Mapping):
+            raise ValueError(
+                "[mesh_catchment_batch] configuration must be a mapping when provided."
+            )
+        enabled_raw = batch_section.get("enabled", False)
+        if not isinstance(enabled_raw, bool):
+            raise ValueError("mesh_catchment_batch.enabled must be a boolean.")
+        if enabled_raw:
+            raise ValueError(
+                "Embedded [mesh_catchment_batch] is not supported in process_simulation. "
+                "Use the dedicated mesh-catchment launcher for batch runs."
+            )
+        return section
+
     def run(self) -> LauncherRunState:
         """Execute one full launcher session and return the populated runtime state.
 
@@ -227,6 +267,7 @@ class HydroModPyLauncher:
         self._build_domain_spatial_supports(phase="setup")
         self._run_data()
         self._build_domain_spatial_supports(phase="data")
+        self._run_mesh_phase()
         # The runner owns the fine-grained solver dispatch. The launcher
         # only provides process-family callbacks for managed postprocess.
         SimulationRunner(
@@ -265,6 +306,17 @@ class HydroModPyLauncher:
             "solvers": solvers_used,
             "success": True,
         }
+        mesh_summary = run_state.setup.mesh_summary
+        if isinstance(mesh_summary, dict):
+            metrics["mesh_constraints_mode"] = mesh_summary.get("constraints_mode")
+            metrics["mesh_output_mesh"] = mesh_summary.get("output_mesh")
+            metrics["mesh_output_summary_json"] = mesh_summary.get(
+                "output_summary_json"
+            )
+            metrics["mesh_output_figure"] = mesh_summary.get("output_figure")
+            metrics["mesh_output_exchange_bundle_dir"] = mesh_summary.get(
+                "output_exchange_bundle_dir"
+            )
         try:
             metrics_path.write_text(json.dumps(metrics, indent=2))
         except Exception:
@@ -548,6 +600,22 @@ class HydroModPyLauncher:
             flow=setup_state.flow,
             recharge_result=data_state.recharge,
             simulation_window=window,
+        )
+
+    def _run_mesh_phase(self) -> None:
+        """Run the optional catchment meshing phase embedded in simulation TOML."""
+        if self.mesh_section_data is None or self.mesh_constraints_mode is None:
+            return
+        run_state = self.run_state
+        setup_state = run_state.setup
+        setup_state.mesh_summary = run_single_mesh_catchment_workflow(
+            config_path=self.config_path,
+            section_data=self.mesh_section_data,
+            workspace_cfg=self.cfg.workspace,
+            geographic_cfg=self.cfg.geographic,
+            constraints_mode=self.mesh_constraints_mode,
+            workspace=setup_state.workspace,
+            domain_geographic=setup_state.domain_geographic,
         )
 
     def _create_simulation_plan(self):

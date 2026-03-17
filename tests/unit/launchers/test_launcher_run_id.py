@@ -3,11 +3,51 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
+import sys
+import tempfile
 from types import SimpleNamespace
+import types
 
 import pytest
 
 from hydromodpy.simulation.state.run_state import LauncherRunState
+
+data_managers_stub = types.ModuleType("hydromodpy.data_managers")
+
+
+class _StubDataLoadPlan:
+    explicit_types: tuple[str, ...] = ()
+    inferred_types: tuple[str, ...] = ()
+
+    @property
+    def types(self) -> tuple[str, ...]:
+        return ()
+
+    def reasons_for(self, type_name: str) -> tuple[str, ...]:
+        _ = type_name
+        return ()
+
+
+class _StubDataManagersPlanner:
+    def build(self, *args, **kwargs):
+        _ = args, kwargs
+        return _StubDataLoadPlan()
+
+
+class _StubDataManagersRuntimeLoader:
+    def __init__(self, *args, **kwargs) -> None:
+        _ = args, kwargs
+
+    def load_all(self, run_state) -> None:
+        _ = run_state
+
+
+data_managers_stub.DataLoadPlan = _StubDataLoadPlan
+data_managers_stub.DataManagersPlanner = _StubDataManagersPlanner
+data_managers_stub.DataManagersRuntimeLoader = _StubDataManagersRuntimeLoader
+sys.modules["hydromodpy.data_managers"] = data_managers_stub
+
 from launchers.process_simulation.launcher import HydroModPyLauncher
 
 
@@ -410,3 +450,219 @@ def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeyp
 
     with pytest.raises(ValueError, match="domain.supports"):
         launcher._run_setup()
+
+
+def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> None:
+    workspace_root = Path(
+        tempfile.mkdtemp(prefix="mesh-sim-int-")
+    ).resolve()
+    config_path = workspace_root / "simulation_with_mesh.toml"
+
+    class _DummyDataConfig:
+        types: tuple[str, ...] = ()
+
+        def with_resolved_types(self, types):
+            _ = types
+            return self
+
+    class _DummySimulationConfig:
+        run_id = "mesh_run"
+
+        @staticmethod
+        def has_processes() -> bool:
+            return True
+
+    cfg = SimpleNamespace(
+        workspace=SimpleNamespace(project_root=workspace_root / "project"),
+        geographic=SimpleNamespace(
+            uses_synthetic_geographic=lambda: False,
+            river_network=SimpleNamespace(enabled=False),
+        ),
+        domain=SimpleNamespace(zone_ids=[], supports={}),
+        data=_DummyDataConfig(),
+        flow=SimpleNamespace(active_bc=(), param={}),
+        postprocess=SimpleNamespace(),
+        simulation=_DummySimulationConfig(),
+    )
+
+    class _DummyRunWorkspace:
+        def __init__(self, config) -> None:
+            self.config = config
+            self.project_root = Path(config.project_root).resolve()
+            self.stable_folder = self.project_root / "results_stable"
+            self.simulations_folder = self.project_root / "results_simulations"
+
+    class _DummyRunGeographic:
+        def __init__(self, config, workspace) -> None:
+            self.config = config
+            self.workspace = workspace
+
+        def get_domain_geographic_context(self):
+            return SimpleNamespace(
+                surface_topo=object(),
+                river_mesh_trace="river-trace",
+            )
+
+    class _DummyRunDomain:
+        def __init__(self, config, surface_topo) -> None:
+            self.config = config
+            self.surface_topo = surface_topo
+
+    class _DummyPlanner:
+        def build(self, *args, **kwargs):
+            _ = args, kwargs
+            return SimpleNamespace(
+                inferred_types=(),
+                types=(),
+                reasons_for=lambda type_name: (),
+            )
+
+    class _DummyRuntimeLoader:
+        def __init__(self, *args, **kwargs) -> None:
+            _ = args, kwargs
+
+        def load_all(self, run_state) -> None:
+            _ = run_state
+
+    class _DummyPostprocessRunner:
+        def __init__(self, cfg) -> None:
+            _ = cfg
+
+        def after_process(self, process_type, run_state) -> None:
+            _ = process_type, run_state
+
+    class _DummySimulationPlanner:
+        def build(self, simulation_cfg):
+            _ = simulation_cfg
+            return SimpleNamespace(runs=[])
+
+    executed: dict[str, object] = {}
+    captured_artifacts: dict[str, object] = {}
+
+    class _DummySimulationRunner:
+        def __init__(self, callbacks) -> None:
+            executed["callbacks"] = callbacks
+
+        def execute(self, plan, run_state) -> None:
+            executed["plan"] = plan
+            executed["run_state"] = run_state
+
+    captured_mesh: dict[str, object] = {}
+
+    def _fake_mesh_workflow(**kwargs):
+        captured_mesh.update(kwargs)
+        return {
+            "constraints_mode": "rivers_only",
+            "output_mesh": "workspace/results_stable/mesh/gmsh/mesh_catchment.msh",
+            "output_summary_json": "workspace/results_stable/mesh/gmsh/mesh_catchment_summary.json",
+        }
+
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.HydroModPyConfig.from_toml",
+        lambda _: cfg,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_explicit_time_window_to_tgrids",
+        lambda _: None,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.require_flow_simulation_time_grid",
+        lambda _: SimpleNamespace(window=SimpleNamespace()),
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.load_toml_with_base_config",
+        lambda _: {"mesh_catchment": {"constraints_mode": "rivers_only"}},
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.prepare_geographic_config_for_meshing",
+        lambda geographic_cfg, *, constraints_mode: geographic_cfg,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.build_default_spatial_support_provider_registry",
+        lambda: {},
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.DataManagersPlanner",
+        lambda: _DummyPlanner(),
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.PostprocessRunner",
+        _DummyPostprocessRunner,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Workspace",
+        _DummyRunWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.hmp.Geographic",
+        _DummyRunGeographic,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.Domain",
+        _DummyRunDomain,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_catchment_zones_to_domain",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_flow",
+        lambda state: setattr(state.setup, "flow", SimpleNamespace(parameters={})),
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.ensure_transport",
+        lambda state: setattr(state.setup, "transport", SimpleNamespace()),
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.DataManagersRuntimeLoader",
+        _DummyRuntimeLoader,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_geology_to_domain",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_oceanic_to_flow",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.apply_recharge_load_result_to_flow",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.SimulationPlanner",
+        lambda: _DummySimulationPlanner(),
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.SimulationRunner",
+        _DummySimulationRunner,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.run_single_mesh_catchment_workflow",
+        _fake_mesh_workflow,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.HydroModPyLauncher._save_run_artifacts",
+        lambda self, run_state, wall_seconds: captured_artifacts.update(
+            {
+                "mesh_summary": run_state.setup.mesh_summary,
+                "wall_seconds": wall_seconds,
+            }
+        ),
+    )
+
+    try:
+        launcher = HydroModPyLauncher(config_path)
+        run_state = launcher.run()
+
+        assert executed["run_state"] is run_state
+        assert captured_mesh["constraints_mode"] == "rivers_only"
+        assert captured_mesh["workspace"] is run_state.setup.workspace
+        assert captured_mesh["domain_geographic"] is run_state.setup.domain_geographic
+        assert run_state.setup.mesh_summary is not None
+        assert (
+            captured_artifacts["mesh_summary"]["output_mesh"]
+            == "workspace/results_stable/mesh/gmsh/mesh_catchment.msh"
+        )
+    finally:
+        shutil.rmtree(workspace_root, ignore_errors=True)

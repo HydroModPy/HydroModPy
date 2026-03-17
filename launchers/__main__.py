@@ -68,6 +68,32 @@ def _run_mesh_catchment_launcher(config_path: Path) -> None:
     _print_mesh_catchment_figures(summary)
 
 
+def _render_mesh_catchment_template(
+    *,
+    batch: bool,
+    profile: str,
+    output_path: Path | None,
+) -> None:
+    """Render one canonical mesh-catchment TOML template."""
+    from launchers.mesh_catchment.templates import (
+        render_mesh_catchment_template,
+        write_mesh_catchment_template,
+    )
+
+    if output_path is None:
+        sys.stdout.write(
+            render_mesh_catchment_template(batch=batch, profile=profile)
+        )
+        return
+
+    write_mesh_catchment_template(
+        output_path=output_path,
+        batch=batch,
+        profile=profile,
+    )
+    print(f"Wrote template: {output_path}")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m launchers",
@@ -100,6 +126,28 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to launcher TOML file.",
     )
     mesh_run.set_defaults(_handler="mesh_catchment_run")
+    mesh_template = mesh_commands.add_parser(
+        "template",
+        help="Render a canonical TOML template derived from Pydantic schemas.",
+    )
+    mesh_template.add_argument(
+        "--batch",
+        action="store_true",
+        help="Include the optional [mesh_catchment_batch] section.",
+    )
+    mesh_template.add_argument(
+        "--profile",
+        choices=("user", "dev", "expert"),
+        default="user",
+        help="Visibility profile forwarded to the generic TOML generator.",
+    )
+    mesh_template.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional output path. When omitted, print the template to stdout.",
+    )
+    mesh_template.set_defaults(_handler="mesh_catchment_template")
 
     return parser
 
@@ -120,6 +168,16 @@ def main(argv: list[str] | None = None) -> int:
     handler = getattr(parsed, "_handler", None)
     if handler == "mesh_catchment_run":
         _run_mesh_catchment_launcher(parsed.config.expanduser().resolve())
+        return 0
+    if handler == "mesh_catchment_template":
+        output_path = None
+        if parsed.output is not None:
+            output_path = parsed.output.expanduser().resolve()
+        _render_mesh_catchment_template(
+            batch=bool(parsed.batch),
+            profile=str(parsed.profile),
+            output_path=output_path,
+        )
         return 0
 
     parser.print_help()
