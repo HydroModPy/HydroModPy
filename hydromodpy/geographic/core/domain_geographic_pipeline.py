@@ -26,7 +26,6 @@ from hydromodpy.geographic.core.pipeline_steps import (
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
-from hydromodpy.geographic.core.river_mesh_trace import build_river_mesh_trace_from_vector
 from hydromodpy.geographic.core.river_network import build_river_network_products
 from hydromodpy.geographic.core.surface_from_dem import build_surface_topo_from_dem
 
@@ -178,16 +177,10 @@ def build_domain_geographic_context(
         stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
         network_shp_path=setup.paths.river_network_shp,
         summary_json_path=setup.paths.river_network_summary_json,
+        network_crs=setup.crs_project,
     )
 
-    river_mesh_trace = None
-    if bool(river_network_products.enabled) and river_network_products.network_shp is not None:
-        river_mesh_trace = build_river_mesh_trace_from_vector(
-            vector_path=river_network_products.network_shp,
-            source_kind="geographic_generated",
-            target_crs=setup.crs_project,
-            clip_polygon_path=setup.paths.watershed_shp,
-        )
+    river_mesh_trace = river_network_products.river_mesh_trace
 
     surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)
 

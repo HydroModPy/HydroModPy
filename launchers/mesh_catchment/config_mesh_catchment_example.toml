@@ -9,7 +9,7 @@ base_config = "config_mesh_catchment_common.toml"
 # - "rivers_only"   : river-trace conformal meshing
 # - "geology_only"  : geology-interface conformal meshing
 # - "geology_rivers": river + geology conformity
-constraints_mode = "rivers_only"
+constraints_mode = "geology_rivers"
 # Optional:
 # output_mesh = "outputs/mesh_catchment_example.msh"
 # output_summary_json = "outputs/mesh_catchment_example_summary.json"
@@ -22,14 +22,28 @@ clip_to_domain = true
 min_segment_length = 0.0
 snap_tolerance = 0.0
 
+[mesh_catchment.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[mesh_catchment.geology.source]
+# Use the France-wide geology source, then clip locally on the current
+# catchment box-buffer domain.
+path = "../../data/France/geology/GEO1M.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../data/Brittany/dem/regional_dem_full.tif"
+all_touched = false
+
+[mesh_catchment.geology.landsea]
+enabled = false
+sea_value = 0
+override_code = "1"
+
 [mesh_catchment.domain]
-# Effective meshing domain (strictly used by Gmsh):
-# - kind = "bbox"   -> bbox = [xmin, ymin, xmax, ymax]
-# - kind = "polygon"-> coordinates = [[x1,y1], ...]
-# - kind = "vector" -> path (+ optional id_field/selected_id)
-# If the mesh appears too large, this bbox is usually the first parameter to tune.
-kind = "bbox"
-bbox = [384337.5, 6813637.5, 397612.5, 6828037.5]
+# Effective meshing domain resolved at runtime from the current catchment
+# workflow: bounding box of the delineated watershed plus geographic buffer.
+kind = "geographic_box_buffer"
 
 [mesh_catchment.zone_meshing]
 algorithm = "delaunay"

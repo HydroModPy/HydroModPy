@@ -1,16 +1,20 @@
 """Dedicated launcher for catchment meshing workflows.
 
-This launcher intentionally does one thing: generate a 2D conformal mesh from
-one catchment setup, with explicit constraints mode selection.
+This launcher can run either one catchment mesh workflow or iterate over one
+table of outlet coordinates and mesh each delineated catchment independently.
 """
 
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
+import csv
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 import sys
+from types import SimpleNamespace
 from typing import Any
 
 # When this file is executed directly by path, Python adds the script folder to
@@ -26,12 +30,202 @@ from hydromodpy.geographic.core.domain_geographic_pipeline import (
 )
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from hydromodpy.solver.utils.mesh.gmsh_grid import export_catchment_mesh_bundle
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
 
 
 DEFAULT_CONFIG_NAME = "config_mesh_catchment_example.toml"
+_VECTOR_TABLE_SUFFIXES = {".geojson", ".gpkg", ".json", ".shp"}
+
+
+@dataclass(frozen=True)
+class MeshCatchmentBatchOutputsConfig:
+    mesh_filename: str | None = None
+    summary_filename: str | None = None
+    figure_filename: str | None = None
+    manifest_csv: str | None = None
+
+
+@dataclass(frozen=True)
+class MeshCatchmentBatchConfig:
+    outlets_table_path: Path
+    outlet_id_column: str
+    x_column: str
+    y_column: str
+    selection_mode: str
+    selected_outlet_ids: tuple[str, ...]
+    catch_name_pattern: str
+    continue_on_error: bool
+    outputs: MeshCatchmentBatchOutputsConfig
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw_value: object,
+        *,
+        base_dir: Path,
+    ) -> MeshCatchmentBatchConfig | None:
+        if raw_value is None:
+            return None
+        if not isinstance(raw_value, Mapping):
+            raise ValueError(
+                "mesh_catchment_batch configuration must be a mapping when provided."
+            )
+        enabled_raw = raw_value.get("enabled", False)
+        if not isinstance(enabled_raw, bool):
+            raise ValueError("mesh_catchment_batch.enabled must be a boolean.")
+        if not enabled_raw:
+            return None
+
+        outlets_table_path = _resolve_required_path(
+            raw_value.get("outlets_table_path"),
+            label="mesh_catchment_batch.outlets_table_path",
+            base_dir=base_dir,
+        )
+        outlet_id_column = _require_text(
+            raw_value.get("outlet_id_column", "outlet_id"),
+            label="mesh_catchment_batch.outlet_id_column",
+        )
+        x_column = _require_text(
+            raw_value.get("x_column", "x_outlet_m"),
+            label="mesh_catchment_batch.x_column",
+        )
+        y_column = _require_text(
+            raw_value.get("y_column", "y_outlet_m"),
+            label="mesh_catchment_batch.y_column",
+        )
+
+        selection_mode = str(raw_value.get("selection_mode", "all")).strip().lower()
+        if selection_mode not in {"all", "selected"}:
+            raise ValueError(
+                "mesh_catchment_batch.selection_mode must be 'all' or 'selected'."
+            )
+        selected_outlet_ids_raw = raw_value.get("selected_outlet_ids", ())
+        if selected_outlet_ids_raw is None:
+            selected_outlet_ids_raw = ()
+        if isinstance(selected_outlet_ids_raw, (str, bytes)) or not isinstance(
+            selected_outlet_ids_raw,
+            Sequence,
+        ):
+            raise ValueError(
+                "mesh_catchment_batch.selected_outlet_ids must be a list when provided."
+            )
+        selected_outlet_ids = tuple(
+            str(value).strip()
+            for value in selected_outlet_ids_raw
+            if str(value).strip() != ""
+        )
+        if selection_mode == "selected" and not selected_outlet_ids:
+            raise ValueError(
+                "mesh_catchment_batch.selection_mode='selected' requires one non-empty selected_outlet_ids list."
+            )
+
+        catch_name_pattern = _require_text(
+            raw_value.get("catch_name_pattern", "{catch_name}_outlet_{outlet_id}"),
+            label="mesh_catchment_batch.catch_name_pattern",
+        )
+        if "{outlet_id}" not in catch_name_pattern:
+            raise ValueError(
+                "mesh_catchment_batch.catch_name_pattern must contain '{outlet_id}'."
+            )
+
+        continue_on_error_raw = raw_value.get("continue_on_error", False)
+        if not isinstance(continue_on_error_raw, bool):
+            raise ValueError(
+                "mesh_catchment_batch.continue_on_error must be a boolean."
+            )
+
+        outputs_raw = raw_value.get("outputs", {})
+        if outputs_raw is None:
+            outputs_raw = {}
+        if not isinstance(outputs_raw, Mapping):
+            raise ValueError("mesh_catchment_batch.outputs must be a mapping.")
+        outputs = MeshCatchmentBatchOutputsConfig(
+            mesh_filename=_optional_text(outputs_raw.get("mesh_filename")),
+            summary_filename=_optional_text(outputs_raw.get("summary_filename")),
+            figure_filename=_optional_text(outputs_raw.get("figure_filename")),
+            manifest_csv=_optional_text(outputs_raw.get("manifest_csv")),
+        )
+
+        return cls(
+            outlets_table_path=outlets_table_path,
+            outlet_id_column=outlet_id_column,
+            x_column=x_column,
+            y_column=y_column,
+            selection_mode=selection_mode,
+            selected_outlet_ids=selected_outlet_ids,
+            catch_name_pattern=catch_name_pattern,
+            continue_on_error=continue_on_error_raw,
+            outputs=outputs,
+        )
+
+
+@dataclass(frozen=True)
+class MeshCatchmentOutletRecord:
+    outlet_id: str
+    outlet_id_safe: str
+    x_outlet: float
+    y_outlet: float
+
+
+def _optional_text(raw_value: object) -> str | None:
+    if raw_value is None:
+        return None
+    text = str(raw_value).strip()
+    return None if text == "" else text
+
+
+def _require_text(raw_value: object, *, label: str) -> str:
+    text = _optional_text(raw_value)
+    if text is None:
+        raise ValueError(f"{label} cannot be empty.")
+    return text
+
+
+def _resolve_required_path(
+    raw_value: object,
+    *,
+    label: str,
+    base_dir: Path,
+) -> Path:
+    text = _require_text(raw_value, label=label)
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        path = (base_dir / path).resolve()
+    return path
+
+
+def _sanitize_path_token(raw_value: object) -> str:
+    text = str(raw_value).strip()
+    if text == "":
+        return "unknown"
+    collapsed = re.sub(r"\s+", "_", text)
+    sanitized = re.sub(r'[\\/:*?"<>|]+', "-", collapsed)
+    sanitized = sanitized.strip("._-")
+    return sanitized or "unknown"
+
+
+def _clone_config(config: object, *, updates: Mapping[str, Any]) -> object:
+    model_dump = getattr(config, "model_dump", None)
+    model_validate = getattr(config.__class__, "model_validate", None)
+    if callable(model_dump) and callable(model_validate):
+        payload = dict(model_dump(mode="python"))
+        payload.update(dict(updates))
+        return config.__class__.model_validate(payload)
+    payload = dict(vars(config))
+    payload.update(dict(updates))
+    return SimpleNamespace(**payload)
+
+
+def _workspace_stable_folder(workspace_like: object) -> Path:
+    stable_folder = getattr(workspace_like, "stable_folder", None)
+    if stable_folder is not None:
+        return Path(stable_folder)
+    out_dir = Path(getattr(workspace_like, "out_dir_path"))
+    catch_name = str(getattr(workspace_like, "catch_name"))
+    return out_dir / catch_name / "results_stable"
 
 
 class MeshCatchmentLauncher:
@@ -54,7 +248,12 @@ class MeshCatchmentLauncher:
             self.geographic_cfg,
             constraints_mode=self.constraints_mode,
         )
-
+        self.batch_cfg = MeshCatchmentBatchConfig.from_mapping(
+            self.raw_toml.get("mesh_catchment_batch"),
+            base_dir=self.config_path.parent,
+        )
+        if self.batch_cfg is not None:
+            self._validate_batch_output_configuration(self.batch_cfg)
     def _load_runtime_configs(
         self,
         payload: Mapping[str, Any],
@@ -78,7 +277,7 @@ class MeshCatchmentLauncher:
 
     @classmethod
     def _resolve_constraints_mode(cls, raw_value: Any) -> str:
-        token = str(raw_value).strip().lower()
+        token = "" if raw_value is None else str(raw_value).strip().lower()
         if token == "":
             raise ValueError(
                 "mesh_catchment.constraints_mode is required and must be one of: "
@@ -139,24 +338,32 @@ class MeshCatchmentLauncher:
         # Re-validate to fail fast when threshold parameters are incomplete.
         return GeographicConfig.model_validate(updated.model_dump())
 
-    def _build_domain_geographic_context(self, workspace):
+    def _build_domain_geographic_context(self, workspace, geographic_cfg):
         """Build domain-level geographic context with optional in-memory river trace."""
         return build_domain_geographic_context(
-            config=self.geographic_cfg,
+            config=geographic_cfg,
             workspace=workspace,
         )
 
-    def _resolve_river_trace_for_launcher(self, domain_geographic: object | None) -> object | None:
+    def _resolve_river_trace_for_launcher(
+        self,
+        domain_geographic: object | None,
+    ) -> object | None:
         if domain_geographic is None:
             return None
         return getattr(domain_geographic, "river_mesh_trace", None)
 
-    def _validate_river_trace_requirement(self, *, river_trace: object | None) -> None:
+    def _validate_river_trace_requirement(
+        self,
+        *,
+        geographic_cfg,
+        river_trace: object | None,
+    ) -> None:
         if not self._constraints_mode_requires_river_trace(self.constraints_mode):
             return
         if river_trace is not None:
             return
-        if self.geographic_cfg.uses_synthetic_geographic():
+        if geographic_cfg.uses_synthetic_geographic():
             raise ValueError(
                 "mesh_catchment.constraints_mode requires river_trace, but synthetic geographic "
                 "mode does not generate river networks."
@@ -183,47 +390,66 @@ class MeshCatchmentLauncher:
             path = (config_dir / path).resolve()
         return path
 
-    def _resolve_output_overrides(self, workspace) -> tuple[Path, Path, Path | None, bool]:
+    def _resolve_output_overrides(
+        self,
+        workspace,
+        *,
+        explicit_overrides: Mapping[str, Path | None] | None = None,
+    ) -> tuple[Path, Path, Path | None, bool]:
         section = self.mesh_section_data
         config_dir = self.config_path.parent
+        overrides = dict(explicit_overrides or {})
+        mesh_dir = _workspace_stable_folder(workspace) / "mesh" / "gmsh"
 
-        output_mesh = self._resolve_optional_path(
-            config_dir=config_dir,
-            raw_value=section.get("output_mesh"),
-        )
+        output_mesh = overrides.get("output_mesh")
         if output_mesh is None:
-            output_mesh = Path(workspace.stable_folder) / "mesh" / "gmsh" / "mesh_catchment.msh"
-
-        output_summary_json = self._resolve_optional_path(
-            config_dir=config_dir,
-            raw_value=section.get("output_summary_json"),
-        )
-        if output_summary_json is None:
-            output_summary_json = (
-                Path(workspace.stable_folder)
-                / "mesh"
-                / "gmsh"
-                / "mesh_catchment_summary.json"
+            output_mesh = self._resolve_optional_path(
+                config_dir=config_dir,
+                raw_value=section.get("output_mesh"),
             )
+        if output_mesh is None:
+            output_mesh = mesh_dir / "mesh_catchment.msh"
 
-        output_figure = self._resolve_optional_path(
-            config_dir=config_dir,
-            raw_value=section.get("output_figure"),
-        )
+        output_summary_json = overrides.get("output_summary_json")
+        if output_summary_json is None:
+            output_summary_json = self._resolve_optional_path(
+                config_dir=config_dir,
+                raw_value=section.get("output_summary_json"),
+            )
+        if output_summary_json is None:
+            output_summary_json = mesh_dir / "mesh_catchment_summary.json"
+
+        output_figure = overrides.get("output_figure")
+        if output_figure is None:
+            output_figure = self._resolve_optional_path(
+                config_dir=config_dir,
+                raw_value=section.get("output_figure"),
+            )
 
         raw_show_plot = section.get("show_plot", False)
         show_plot = bool(raw_show_plot) if isinstance(raw_show_plot, bool) else False
         return output_mesh, output_summary_json, output_figure, show_plot
 
-    def run(self) -> dict[str, Any]:
-        """Execute the mesh-only launcher and return the generated summary."""
-        workspace = hmp.Workspace(config=self.workspace_cfg)
-        domain_geographic = self._build_domain_geographic_context(workspace)
+    def _run_single_workflow(
+        self,
+        *,
+        workspace_cfg,
+        geographic_cfg,
+        output_overrides: Mapping[str, Path | None] | None = None,
+    ) -> dict[str, Any]:
+        workspace = hmp.Workspace(config=workspace_cfg)
+        domain_geographic = self._build_domain_geographic_context(workspace, geographic_cfg)
         river_trace = self._resolve_river_trace_for_launcher(domain_geographic)
-        self._validate_river_trace_requirement(river_trace=river_trace)
+        self._validate_river_trace_requirement(
+            geographic_cfg=geographic_cfg,
+            river_trace=river_trace,
+        )
 
         output_mesh, output_summary_json, output_figure, show_plot = (
-            self._resolve_output_overrides(workspace)
+            self._resolve_output_overrides(
+                workspace,
+                explicit_overrides=output_overrides,
+            )
         )
 
         summary = run_reference_2d_zone_conformal_case_from_toml(
@@ -236,7 +462,317 @@ class MeshCatchmentLauncher:
             domain_geographic=domain_geographic,
             show_plot=show_plot,
         )
-        return dict(summary)
+        summary_dict = dict(summary)
+        if Path(output_mesh).exists():
+            geology_cfg = self.mesh_section_data.get("geology")
+            if not isinstance(geology_cfg, Mapping):
+                geology_cfg = None
+            try:
+                bundle_summary = export_catchment_mesh_bundle(
+                    mesh_path=output_mesh,
+                    domain_geographic=domain_geographic,
+                    geology_cfg=geology_cfg,
+                    river_trace=river_trace,
+                    summary=summary_dict,
+                    config_path=self.config_path,
+                )
+                summary_dict["exchange_bundle"] = bundle_summary
+                summary_dict["output_exchange_bundle_dir"] = str(
+                    bundle_summary["bundle_dir"]
+                )
+            except Exception as exc:
+                summary_dict["exchange_bundle_error"] = str(exc)
+        return summary_dict
+
+    def _validate_batch_output_configuration(
+        self,
+        batch_cfg: MeshCatchmentBatchConfig,
+    ) -> None:
+        required_patterns = {
+            "output_mesh": "mesh_filename",
+            "output_summary_json": "summary_filename",
+            "output_figure": "figure_filename",
+        }
+        for section_key, pattern_attr in required_patterns.items():
+            raw_value = self.mesh_section_data.get(section_key)
+            if _optional_text(raw_value) is None:
+                continue
+            if _optional_text(getattr(batch_cfg.outputs, pattern_attr)) is not None:
+                continue
+            raise ValueError(
+                "Batch mode detected one fixed "
+                f"mesh_catchment.{section_key} override. Configure "
+                f"mesh_catchment_batch.outputs.{pattern_attr} to avoid file overwrite "
+                "between outlets."
+            )
+
+    def _load_outlet_records(
+        self,
+        batch_cfg: MeshCatchmentBatchConfig,
+    ) -> list[MeshCatchmentOutletRecord]:
+        table_path = batch_cfg.outlets_table_path
+        suffix = table_path.suffix.lower()
+        if suffix == ".csv":
+            rows = self._load_outlet_rows_from_csv(table_path)
+        elif suffix in _VECTOR_TABLE_SUFFIXES:
+            rows = self._load_outlet_rows_from_vector(table_path)
+        else:
+            raise ValueError(
+                "Unsupported mesh_catchment_batch outlets table format "
+                f"'{table_path.suffix}'. Supported: .csv, .shp, .gpkg, .geojson, .json."
+            )
+        if not rows:
+            raise ValueError(
+                f"mesh_catchment_batch outlets table contains no outlet row: {table_path}"
+            )
+
+        selected_ids = set(batch_cfg.selected_outlet_ids)
+        records: list[MeshCatchmentOutletRecord] = []
+        seen_outlet_ids: set[str] = set()
+        for index, row in enumerate(rows, start=1):
+            record = self._build_outlet_record(
+                row=row,
+                outlet_id_column=batch_cfg.outlet_id_column,
+                x_column=batch_cfg.x_column,
+                y_column=batch_cfg.y_column,
+                row_label=f"{table_path} row {index}",
+            )
+            if batch_cfg.selection_mode == "selected" and record.outlet_id not in selected_ids:
+                continue
+            if record.outlet_id in seen_outlet_ids:
+                raise ValueError(
+                    "mesh_catchment_batch outlets table contains duplicated outlet_id "
+                    f"'{record.outlet_id}'."
+                )
+            seen_outlet_ids.add(record.outlet_id)
+            records.append(record)
+
+        if batch_cfg.selection_mode == "selected" and not records:
+            raise ValueError(
+                "mesh_catchment_batch.selected_outlet_ids did not match any outlet row."
+            )
+        return records
+
+    @staticmethod
+    def _load_outlet_rows_from_csv(table_path: Path) -> list[dict[str, Any]]:
+        with table_path.open("r", encoding="utf-8-sig", newline="") as stream:
+            reader = csv.DictReader(stream)
+            if reader.fieldnames is None:
+                raise ValueError(
+                    f"mesh_catchment_batch CSV has no header row: {table_path}"
+                )
+            return [dict(row) for row in reader]
+
+    @staticmethod
+    def _load_outlet_rows_from_vector(table_path: Path) -> list[dict[str, Any]]:
+        import geopandas as gpd
+
+        gdf = gpd.read_file(table_path)
+        if gdf.empty:
+            return []
+        rows: list[dict[str, Any]] = []
+        for _, row in gdf.iterrows():
+            payload = {
+                str(column): row[column]
+                for column in gdf.columns
+                if str(column) != "geometry"
+            }
+            geometry = getattr(row, "geometry", None)
+            if geometry is not None and not geometry.is_empty:
+                payload.setdefault("geometry_x", float(geometry.x))
+                payload.setdefault("geometry_y", float(geometry.y))
+            rows.append(payload)
+        return rows
+
+    @staticmethod
+    def _build_outlet_record(
+        *,
+        row: Mapping[str, Any],
+        outlet_id_column: str,
+        x_column: str,
+        y_column: str,
+        row_label: str,
+    ) -> MeshCatchmentOutletRecord:
+        if outlet_id_column not in row:
+            raise KeyError(f"Missing outlet id column '{outlet_id_column}' in {row_label}")
+        outlet_id = _require_text(row.get(outlet_id_column), label=f"{row_label}.{outlet_id_column}")
+        try:
+            raw_x = row.get(x_column, row.get("geometry_x"))
+            raw_y = row.get(y_column, row.get("geometry_y"))
+            if raw_x is None or raw_y is None:
+                raise KeyError
+            x_outlet = float(raw_x)
+            y_outlet = float(raw_y)
+        except KeyError as exc:
+            raise KeyError(
+                f"Missing outlet coordinates columns '{x_column}'/'{y_column}' in {row_label}"
+            ) from exc
+        except Exception as exc:
+            raise ValueError(
+                f"Invalid outlet coordinates in {row_label}: x={row.get(x_column)!r}, y={row.get(y_column)!r}"
+            ) from exc
+        return MeshCatchmentOutletRecord(
+            outlet_id=outlet_id,
+            outlet_id_safe=_sanitize_path_token(outlet_id),
+            x_outlet=x_outlet,
+            y_outlet=y_outlet,
+        )
+
+    def _format_batch_catch_name(
+        self,
+        batch_cfg: MeshCatchmentBatchConfig,
+        record: MeshCatchmentOutletRecord,
+    ) -> str:
+        tokens = {
+            "catch_name": str(self.workspace_cfg.catch_name),
+            "outlet_id": record.outlet_id_safe,
+        }
+        return batch_cfg.catch_name_pattern.format_map(tokens)
+
+    def _resolve_batch_manifest_path(
+        self,
+        batch_cfg: MeshCatchmentBatchConfig,
+    ) -> Path:
+        batch_root = Path(self.workspace_cfg.out_dir_path) / str(self.workspace_cfg.catch_name)
+        raw_manifest = _optional_text(batch_cfg.outputs.manifest_csv)
+        if raw_manifest is None:
+            return (batch_root / "mesh_catchment_batch_manifest.csv").resolve()
+        manifest_path = Path(raw_manifest).expanduser()
+        if manifest_path.is_absolute():
+            return manifest_path.resolve()
+        return (batch_root / manifest_path).resolve()
+
+    def _build_batch_output_overrides(
+        self,
+        *,
+        workspace_cfg,
+        batch_cfg: MeshCatchmentBatchConfig,
+        record: MeshCatchmentOutletRecord,
+    ) -> dict[str, Path | None]:
+        mesh_dir = _workspace_stable_folder(workspace_cfg) / "mesh" / "gmsh"
+        catch_name_safe = _sanitize_path_token(getattr(workspace_cfg, "catch_name"))
+        tokens = {
+            "catch_name": catch_name_safe,
+            "outlet_id": record.outlet_id_safe,
+        }
+
+        def _format_relative(pattern: str | None) -> Path | None:
+            if pattern is None:
+                return None
+            rendered = pattern.format_map(tokens)
+            path = Path(rendered).expanduser()
+            if path.is_absolute():
+                return path.resolve()
+            return (mesh_dir / path).resolve()
+
+        return {
+            "output_mesh": _format_relative(batch_cfg.outputs.mesh_filename),
+            "output_summary_json": _format_relative(batch_cfg.outputs.summary_filename),
+            "output_figure": _format_relative(batch_cfg.outputs.figure_filename),
+        }
+
+    @staticmethod
+    def _write_batch_manifest(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = [
+            "outlet_id",
+            "catch_name",
+            "status",
+            "x_outlet",
+            "y_outlet",
+            "output_mesh",
+            "output_summary_json",
+            "output_figure",
+            "error",
+        ]
+        with path.open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in rows:
+                writer.writerow({name: row.get(name, "") for name in fieldnames})
+
+    def _run_batch(self, batch_cfg: MeshCatchmentBatchConfig) -> dict[str, Any]:
+        records = self._load_outlet_records(batch_cfg)
+        manifest_path = self._resolve_batch_manifest_path(batch_cfg)
+        results: list[dict[str, Any]] = []
+
+        for record in records:
+            catch_name = self._format_batch_catch_name(batch_cfg, record)
+            workspace_cfg = _clone_config(
+                self.workspace_cfg,
+                updates={"catch_name": catch_name},
+            )
+            geographic_cfg = _clone_config(
+                self.geographic_cfg,
+                updates={
+                    "x_outlet": record.x_outlet,
+                    "y_outlet": record.y_outlet,
+                },
+            )
+            output_overrides = self._build_batch_output_overrides(
+                workspace_cfg=workspace_cfg,
+                batch_cfg=batch_cfg,
+                record=record,
+            )
+
+            try:
+                summary = self._run_single_workflow(
+                    workspace_cfg=workspace_cfg,
+                    geographic_cfg=geographic_cfg,
+                    output_overrides=output_overrides,
+                )
+                results.append(
+                    {
+                        "outlet_id": record.outlet_id,
+                        "catch_name": catch_name,
+                        "status": "ok",
+                        "x_outlet": record.x_outlet,
+                        "y_outlet": record.y_outlet,
+                        "output_mesh": summary.get("output_mesh", ""),
+                        "output_summary_json": summary.get("output_summary_json", ""),
+                        "output_figure": summary.get("output_figure", ""),
+                        "error": "",
+                    }
+                )
+                self._write_batch_manifest(manifest_path, results)
+            except Exception as exc:
+                failure = {
+                    "outlet_id": record.outlet_id,
+                    "catch_name": catch_name,
+                    "status": "error",
+                    "x_outlet": record.x_outlet,
+                    "y_outlet": record.y_outlet,
+                    "output_mesh": "",
+                    "output_summary_json": "",
+                    "output_figure": "",
+                    "error": str(exc),
+                }
+                results.append(failure)
+                self._write_batch_manifest(manifest_path, results)
+                if not batch_cfg.continue_on_error:
+                    raise
+
+        self._write_batch_manifest(manifest_path, results)
+        succeeded = [row for row in results if row["status"] == "ok"]
+        failed = [row for row in results if row["status"] != "ok"]
+        return {
+            "mode": "batch",
+            "summary_schema_version": "mesh_catchment_batch_v1",
+            "manifest_csv": str(manifest_path),
+            "outlets_total": int(len(results)),
+            "outlets_succeeded": int(len(succeeded)),
+            "outlets_failed": int(len(failed)),
+            "results": results,
+        }
+
+    def run(self) -> dict[str, Any]:
+        """Execute the mesh-only launcher and return the generated summary."""
+        if self.batch_cfg is not None:
+            return self._run_batch(self.batch_cfg)
+        return self._run_single_workflow(
+            workspace_cfg=self.workspace_cfg,
+            geographic_cfg=self.geographic_cfg,
+        )
 
 
 def _build_parser() -> argparse.ArgumentParser:

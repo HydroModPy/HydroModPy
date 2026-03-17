@@ -1,0 +1,40 @@
+[catchment_identification_scan]
+launcher_script = "run_catchment_identification_case.py"
+
+# Full Brittany DEM in projected metric CRS.
+dem_path = "../../../data/Brittany/dem/regional_dem_full.tif"
+
+# Dedicated outputs for the 100-basin / 1000 km2 scenario.
+output_dir = "./outputs/full_mnt_target1000km2_100tiles"
+
+# Use a lower stream threshold so each tile can propose one candidate outlet,
+# then select final basins around the 1000 km2 target.
+accumulation_area_km2 = 200.0
+
+# Spread the selection across the DEM:
+# the Brittany DEM bbox is about 358 x 372 km, so 38 km tiles yield ~10 x 10 tiles.
+outlet_selection_mode = "scan_global"
+scan_tile_size_km = 38.0
+scan_max_outlets_per_tile = 1
+scan_min_outlet_spacing_km = 20.0
+scan_max_total_outlets = 100
+
+# Select basins around the 1000 km2 target.
+basin_selection_mode = "headwater_target"
+headwater_max_strahler_order = 6
+headwater_min_target_ratio = 0.70
+target_basin_area_km2 = 1000.0
+target_area_tolerance_ratio = 0.50
+max_basin_overlap_ratio = 0.30
+
+dem_correction = "breach"
+snap_dist = 0
+
+gpkg_name = "watersheds_full_mnt_target1000km2_100tiles.gpkg"
+basins_layer = "bassins_full_mnt_target1000km2_100tiles"
+outlets_layer = "exutoires_full_mnt_target1000km2_100tiles"
+outlets_csv_name = "exutoires_full_mnt_target1000km2_100tiles.csv"
+
+save_diagnostic_figures = true
+figures_dir_name = "figures"
+keep_intermediate = true

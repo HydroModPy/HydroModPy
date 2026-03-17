@@ -66,7 +66,7 @@ def _resolve_constraints_mode(raw_value: Any) -> str:
 
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="Generate one conformal 2D Gmsh mesh on a clipped Brittany geology subset."
+        description="Generate one conformal 2D Gmsh mesh from configurable zone and river constraints."
     )
     parser.add_argument("--config-file", default=DEFAULT_CONFIG_FILE)
     parser.add_argument("--section", default=DEFAULT_SECTION)
@@ -126,14 +126,6 @@ def _valid_geometry_mask(geometries) -> object:
     return (~geometries.is_empty) & (~geometries.isna())
 
 
-def _union_all_geometry(gdf: gpd.GeoDataFrame):
-    """Return one unary union compatible with both old and recent GeoPandas."""
-    union_all = getattr(gdf.geometry, "union_all", None)
-    if callable(union_all):
-        return union_all()
-    return gdf.geometry.unary_union
-
-
 def _resolve_river_trace_for_meshing(
     *,
     river_trace: object | None,
@@ -182,49 +174,7 @@ def _resolve_river_trace_for_meshing(
     if domain_geographic is None:
         return None
     from_context = getattr(domain_geographic, "river_mesh_trace", None)
-    if from_context is not None:
-        return from_context
-
-    watershed_shp = getattr(domain_geographic, "watershed_shp", None)
-    if watershed_shp is None:
-        return None
-    watershed_path = Path(str(watershed_shp)).resolve()
-    river_network_path = watershed_path.parent / "river_network.shp"
-    if not river_network_path.exists():
-        return None
-    try:
-        return build_river_mesh_trace_from_vector(
-            vector_path=river_network_path,
-            source_kind="file",
-            clip_polygon_path=watershed_path,
-        )
-    except Exception:
-        try:
-            rivers = gpd.read_file(str(river_network_path))
-            if rivers.empty:
-                return None
-            rivers = rivers[_valid_geometry_mask(rivers.geometry)].copy()
-            if rivers.empty:
-                return None
-
-            if rivers.crs is None and watershed_path.exists():
-                watershed = gpd.read_file(str(watershed_path))
-                if (not watershed.empty) and (watershed.crs is not None):
-                    rivers = rivers.set_crs(watershed.crs)
-                    watershed = watershed.to_crs(rivers.crs)
-                    clip_union = _union_all_geometry(watershed)
-                    if clip_union is not None and (not clip_union.is_empty):
-                        rivers = gpd.GeoDataFrame(
-                            geometry=rivers.geometry.intersection(clip_union),
-                            crs=rivers.crs,
-                        )
-                        rivers = rivers[_valid_geometry_mask(rivers.geometry)].copy()
-                        if rivers.empty:
-                            return None
-
-            return SimpleNamespace(lines=tuple(rivers.geometry.tolist()))
-        except Exception:
-            return None
+    return from_context
 
 
 def _clip_river_trace_to_domain(
@@ -388,7 +338,11 @@ def _build_domain_zone_dataframe(
 
 
 def _load_clipped_geology_dataframe(
-    *, geology_cfg: Mapping[str, Any], domain_cfg: Mapping[str, Any], config_path: Path
+    *,
+    geology_cfg: Mapping[str, Any],
+    domain_cfg: Mapping[str, Any],
+    config_path: Path,
+    domain_geographic: object | None,
 ):
     payload = load_vector_geology_dataframe(
         geology_cfg,
@@ -400,6 +354,7 @@ def _load_clipped_geology_dataframe(
     domain_payload = load_zone_meshing_domain_geometry(
         domain_cfg,
         config_path=config_path,
+        domain_geographic=domain_geographic,
         target_crs=gdf.crs,
         validate=False,
     )
@@ -479,38 +434,14 @@ def _iter_river_lines(river_trace: object | None) -> list[object]:
     return _iter_line_geometries(lines)
 
 
-def _load_river_lines_from_domain_geographic(
-    domain_geographic: object | None,
-) -> list[object]:
-    if domain_geographic is None:
-        return []
-    watershed_shp = getattr(domain_geographic, "watershed_shp", None)
-    if watershed_shp is None:
-        return []
-    river_network_shp = Path(str(watershed_shp)).resolve().parent / "river_network.shp"
-    if not river_network_shp.exists():
-        return []
-    try:
-        gdf = gpd.read_file(str(river_network_shp))
-    except Exception:
-        return []
-    if gdf.empty:
-        return []
-    gdf = gdf[_valid_geometry_mask(gdf.geometry)].copy()
-    if gdf.empty:
-        return []
-    return _iter_line_geometries(gdf.geometry.tolist())
-
-
 def _resolve_river_lines_for_plot(
     *,
     river_trace: object | None,
     domain_geographic: object | None,
 ) -> list[object]:
     lines = _iter_river_lines(river_trace)
-    if lines:
-        return lines
-    return _load_river_lines_from_domain_geographic(domain_geographic)
+    _ = domain_geographic
+    return lines
 
 
 def _draw_river_lines(
@@ -598,8 +529,8 @@ def _build_geographic_mesh_figure(
     )
     key_to_idx, key_to_color = _build_zone_color_map(zone_keys)
 
-    fig, axes = plt.subplots(1, 3, figsize=(24.0, 9.5), dpi=160)
-    ax_topo, ax_mesh, ax_geology = axes
+    fig, axes = plt.subplots(1, 2, figsize=(18.5, 9.5), dpi=160)
+    ax_topo, ax_overlay = axes
 
     if topo_background is not None:
         dem, extent = topo_background
@@ -624,51 +555,51 @@ def _build_geographic_mesh_figure(
             zorder=8,
         )
         catchment_gdf.boundary.plot(
-            ax=ax_mesh,
+            ax=ax_overlay,
             color="black",
             linewidth=1.25,
             zorder=8,
         )
 
     _draw_domain_outline(ax_topo, domain_gdf)
-    _draw_domain_outline(ax_mesh, domain_gdf)
+    _draw_domain_outline(ax_overlay, domain_gdf)
     river_count = _draw_river_lines(ax_topo, river_lines=river_lines)
-    _draw_river_lines(ax_mesh, river_lines=river_lines)
-    _draw_mesh_edges(ax_mesh, mesh)
-
     _plot_zone_panel(
-        ax_geology,
+        ax_overlay,
         gdf=partition_gdf,
         key_to_idx=key_to_idx,
-        title="Conformal mesh + constrained zones",
+        title="Geology + conformal mesh + hydro network",
     )
-    _draw_domain_outline(ax_geology, domain_gdf)
-    _draw_mesh_edges(ax_geology, mesh)
+    _draw_mesh_edges(ax_overlay, mesh)
+    _draw_river_lines(ax_overlay, river_lines=river_lines)
+    _draw_domain_outline(ax_overlay, domain_gdf)
     if catchment_gdf is not None:
         catchment_gdf.boundary.plot(
-            ax=ax_geology,
+            ax=ax_overlay,
             color="black",
             linewidth=1.15,
             zorder=8,
         )
 
     _set_panel_limits(ax_topo, bounds=domain_bounds)
-    _set_panel_limits(ax_mesh, bounds=domain_bounds)
-    _set_panel_limits(ax_geology, bounds=domain_bounds)
+    _set_panel_limits(ax_overlay, bounds=domain_bounds)
 
     ax_topo.set_title("Topography + catchment limits + hydro network", fontsize=15)
-    ax_mesh.set_title("Conformal mesh + catchment limits + hydro network", fontsize=15)
-    for ax in (ax_topo, ax_mesh, ax_geology):
+    for ax in (ax_topo, ax_overlay):
         ax.set_xlabel("x [m]", fontsize=12)
         ax.set_ylabel("y [m]", fontsize=12)
         ax.tick_params(labelsize=10)
         ax.set_aspect("equal")
         _disable_axis_offset(ax)
 
-    legend_handles: list[Line2D] = [
-        Line2D([0], [0], color="black", lw=1.25, label="Catchment boundary"),
-        Line2D([0], [0], color="black", lw=1.2, linestyle="--", label="Meshing domain"),
-    ]
+    legend_handles: list[Line2D] = []
+    if catchment_gdf is not None:
+        legend_handles.append(
+            Line2D([0], [0], color="black", lw=1.25, label="Catchment boundary")
+        )
+    legend_handles.append(
+        Line2D([0], [0], color="black", lw=1.2, linestyle="--", label="Meshing domain")
+    )
     if river_count > 0:
         legend_handles.append(
             Line2D([0], [0], color="#1f78b4", lw=1.1, label="Hydro network")
@@ -676,17 +607,23 @@ def _build_geographic_mesh_figure(
     legend_handles.append(
         Line2D([0], [0], color="0.20", lw=0.9, label="Mesh edges")
     )
-    ax_mesh.legend(handles=legend_handles, loc="lower left", fontsize=10, framealpha=0.92)
+    overlay_legend = ax_overlay.legend(
+        handles=legend_handles,
+        loc="lower left",
+        fontsize=10,
+        framealpha=0.92,
+    )
+    ax_overlay.add_artist(overlay_legend)
 
     geology_handles = [
         Patch(facecolor=key_to_color[zone_key], edgecolor="0.25", label=zone_key)
         for zone_key in zone_keys
     ]
     if geology_handles:
-        ax_geology.legend(
+        ax_overlay.legend(
             handles=geology_handles,
             title="Constrained zones",
-            loc="lower left",
+            loc="upper left",
             fontsize=9,
             title_fontsize=10,
             framealpha=0.92,
@@ -694,7 +631,7 @@ def _build_geographic_mesh_figure(
 
     fig.suptitle("Mesh-catchment overview", fontsize=18)
     fig.subplots_adjust(
-        left=0.045, right=0.99, top=0.92, bottom=0.08, wspace=0.14
+        left=0.05, right=0.985, top=0.92, bottom=0.08, wspace=0.12
     )
     return fig
 
@@ -895,6 +832,106 @@ def _build_summary(
     return summary
 
 
+def _build_constraints_qa_contract(
+    *,
+    summary: Mapping[str, Any],
+    constraints_mode: str,
+    refine_interfaces: bool,
+) -> dict[str, Any]:
+    uses_geology_constraints = constraints_mode in {"geology_only", "geology_rivers"}
+    uses_river_constraints = constraints_mode in {"rivers_only", "geology_rivers"}
+
+    zone_count = int(len(tuple(summary.get("zone_keys", ()))))
+    interface_group_count = int(summary.get("interface_group_count", 0))
+    river_payload = (
+        dict(summary.get("river_trace", {}))
+        if isinstance(summary.get("river_trace"), Mapping)
+        else {}
+    )
+    river_trace_provided = bool(river_payload.get("provided", False))
+    river_line_count = int(river_payload.get("line_count", 0))
+    river_curve_count = int(river_payload.get("curve_count", 0))
+    river_embed_success = int(river_payload.get("embedded_surface_curve_pairs", 0))
+    river_embed_failures = int(river_payload.get("embed_failures", 0))
+    river_refined = bool(river_payload.get("refined_with_interface_field", False))
+    river_curve_group_present = any(
+        str(group.get("name", "")) == "river::trace"
+        for group in summary.get("curve_physical_groups", ())
+        if isinstance(group, Mapping)
+    )
+
+    embed_attempts = int(river_embed_success + river_embed_failures)
+    embed_success_rate = (
+        None
+        if embed_attempts <= 0
+        else round(float(river_embed_success) / float(embed_attempts), 12)
+    )
+    embed_pairs_per_curve = (
+        None
+        if river_curve_count <= 0
+        else round(float(river_embed_success) / float(river_curve_count), 12)
+    )
+
+    thresholds = {
+        "min_zone_count": 1 if uses_geology_constraints else 0,
+        "min_interface_group_count": 1 if uses_geology_constraints else 0,
+        "min_river_curve_count": 1 if uses_river_constraints else 0,
+        "min_embedded_surface_curve_pairs": 1 if uses_river_constraints else 0,
+        "require_refinement_when_refine_interfaces_true": bool(
+            uses_river_constraints and refine_interfaces
+        ),
+    }
+    metrics = {
+        "zone_count": zone_count,
+        "interface_group_count": interface_group_count,
+        "river_trace_provided": river_trace_provided,
+        "river_line_count": river_line_count,
+        "river_curve_count": river_curve_count,
+        "river_curve_group_present": river_curve_group_present,
+        "river_embed_success_pairs": river_embed_success,
+        "river_embed_failures": river_embed_failures,
+        "river_embed_attempts": embed_attempts,
+        "river_embed_success_rate": embed_success_rate,
+        "river_embed_pairs_per_curve": embed_pairs_per_curve,
+        "river_refined_with_interface_field": river_refined,
+        "refine_interfaces_config": bool(refine_interfaces),
+    }
+    checks: dict[str, bool] = {}
+    if uses_geology_constraints:
+        checks["has_zone_partition"] = bool(zone_count >= int(thresholds["min_zone_count"]))
+        checks["has_geology_interfaces"] = bool(
+            interface_group_count >= int(thresholds["min_interface_group_count"])
+        )
+    if uses_river_constraints:
+        checks["river_trace_provided"] = bool(river_trace_provided)
+        checks["river_curves_generated"] = bool(
+            river_curve_count >= int(thresholds["min_river_curve_count"])
+            and river_line_count > 0
+        )
+        checks["river_curve_group_present"] = bool(river_curve_group_present)
+        checks["river_embedded_on_surfaces"] = bool(
+            river_embed_success >= int(thresholds["min_embedded_surface_curve_pairs"])
+        )
+        checks["river_refinement_consistent_with_config"] = bool(
+            (not bool(thresholds["require_refinement_when_refine_interfaces_true"]))
+            or river_refined
+        )
+    if constraints_mode == "geology_rivers":
+        checks["geology_and_river_constraints_coexist"] = bool(
+            checks.get("has_geology_interfaces", False)
+            and checks.get("river_curves_generated", False)
+        )
+
+    return {
+        "contract_version": "constraints_qa_v1",
+        "mode": str(constraints_mode),
+        "thresholds": thresholds,
+        "metrics": metrics,
+        "checks": checks,
+        "overall_pass": bool(all(checks.values())),
+    }
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
@@ -950,11 +987,13 @@ def run_reference_2d_zone_conformal_case_from_toml(
             geology_cfg=cfg["geology"],
             domain_cfg=cfg["domain"],
             config_path=config_path,
+            domain_geographic=domain_geographic,
         )
     else:
         domain_payload = load_zone_meshing_domain_geometry(
             cfg["domain"],
             config_path=config_path,
+            domain_geographic=domain_geographic,
             target_crs=None,
             validate=False,
         )
@@ -1017,6 +1056,20 @@ def run_reference_2d_zone_conformal_case_from_toml(
         domain_payload=domain_payload,
     )
     summary["constraints_mode"] = constraints_mode
+    summary["constraints_qa"] = _build_constraints_qa_contract(
+        summary=summary,
+        constraints_mode=constraints_mode,
+        refine_interfaces=bool(cfg["zone_meshing"]["refine_interfaces"]),
+    )
+    qa_checks = (
+        dict(summary.get("qa_checks", {}))
+        if isinstance(summary.get("qa_checks"), Mapping)
+        else {}
+    )
+    qa_checks["constraints_contract_pass"] = bool(
+        summary["constraints_qa"]["overall_pass"]
+    )
+    summary["qa_checks"] = qa_checks
     if uses_river_constraints and cfg["rivers"] is not None:
         summary["rivers_config"] = {
             "source": str(cfg["rivers"]["source"]),

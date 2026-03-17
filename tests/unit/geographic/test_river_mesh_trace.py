@@ -73,3 +73,43 @@ def test_build_river_mesh_trace_from_vector_missing_file_raises(tmp_path: Path):
             vector_path=missing,
             source_kind="file",
         )
+
+
+def test_build_river_mesh_trace_from_vector_infers_missing_crs_from_target(
+    tmp_path: Path,
+):
+    river_path = tmp_path / "river_network_no_crs.shp"
+    rivers = gpd.GeoDataFrame(
+        {"id": [1]},
+        geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])],
+        crs=None,
+    )
+    rivers.to_file(river_path)
+
+    trace = build_river_mesh_trace_from_vector(
+        vector_path=river_path,
+        source_kind="geographic_generated",
+        target_crs="EPSG:2154",
+    )
+
+    assert trace is not None
+    assert trace.segment_count == 1
+    assert "2154" in trace.crs_wkt
+
+
+def test_build_river_mesh_trace_from_vector_missing_crs_without_target_raises(
+    tmp_path: Path,
+):
+    river_path = tmp_path / "river_network_no_crs.shp"
+    rivers = gpd.GeoDataFrame(
+        {"id": [1]},
+        geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])],
+        crs=None,
+    )
+    rivers.to_file(river_path)
+
+    with pytest.raises(ValueError, match="has no CRS and no target CRS"):
+        build_river_mesh_trace_from_vector(
+            vector_path=river_path,
+            source_kind="file",
+        )

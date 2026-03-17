@@ -122,6 +122,7 @@ def build_legacy_geographic_context(
         stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
         network_shp_path=setup.paths.river_network_shp,
         summary_json_path=setup.paths.river_network_summary_json,
+        network_crs=setup.crs_project,
         backend=tool,
     )
 

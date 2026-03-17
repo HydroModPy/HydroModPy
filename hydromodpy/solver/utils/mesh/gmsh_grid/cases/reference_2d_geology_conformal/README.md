@@ -45,7 +45,7 @@ Required contract:
 Example migration:
 
 ```toml
-[case.domain]
+[mesh_case.domain]
 kind = "bbox"
 bbox = [355000.0, 6712500.0, 359000.0, 6716500.0]
 ```
