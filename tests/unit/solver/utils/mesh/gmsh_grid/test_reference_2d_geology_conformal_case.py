@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,8 +7,12 @@ from types import SimpleNamespace
 import pytest
 from shapely.geometry import LineString, box
 
-_gmsh_available = importlib.util.find_spec("gmsh") is not None
-_skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not installed")
+try:
+    import gmsh  # noqa: F401
+    _gmsh_available = True
+except (ImportError, OSError):
+    _gmsh_available = False
+_skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not available")
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
     _clip_river_trace_to_domain,
