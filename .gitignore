@@ -138,6 +138,7 @@ hmp_wbw_*/
 scratch_tests/
 scratch_manual_checks/
 scratch_probe*/
+scratch_distribution_*/
 scratch_pytest*/
 scratch_regression_outputs*/
 test_tmp*/

@@ -1,0 +1,33 @@
+[mesh_distribution]
+# Remplacer ce chemin par le dossier bundle reel a distribuer.
+# Ce dossier doit contenir `reader.py`, qui sera charge dynamiquement.
+bundle_dir = "../../../../launchers/mesh_catchment/mesh_catchment_nancon_scoped/results_stable/mesh/gmsh/mesh_catchment_bundle"
+
+# Les chemins relatifs sont resolus depuis ce fichier TOML.
+figure_output_path = "../outputs/apercu_maillage.png"
+summary_output_path = "../outputs/resume_apercu_maillage.json"
+show_window = false
+
+[mesh_distribution.plot]
+# Valeurs possibles :
+#   "geology_key", "geology_code", "area_m2", "z_top_mean", "z_top_centroid"
+color_field = "geology_key"
+color_map = "tab20"
+figure_size = [16.0, 8.0]
+dpi = 170
+title = "Structure du maillage et geologie"
+show_topography_panel = true
+
+# Le panneau topographique utilise d'abord z_top sur les noeuds.
+# S'il manque des altitudes nodales, le code se replie sur le champ cellule
+# ci-dessous.
+topography_field = "z_top_mean"
+topography_cmap = "terrain"
+topography_title = "Vue topographique type MNT"
+show_mesh_edges = true
+mesh_edge_color = "0.30"
+mesh_edge_linewidth = 0.65
+show_boundaries = true
+show_geology_interfaces = true
+show_river_edges = true
+annotate_cell_ids = false
