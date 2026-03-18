@@ -37,6 +37,11 @@ output_summary_json = ""
 # Type: string (optional) | Optional
 output_figure = ""
 
+# Optional regional overview figure path.
+# When omitted but output_figure is set, the launcher writes a second figure next to the main one with suffix `_regional` to show where the catchment sits on the full DEM.
+# Type: string (optional) | Optional
+output_figure_regional = ""
+
 # If true, open the generated overview figure interactively at the end of the run.
 # Keep it false for batch or headless execution.
 # Type: bool | Default: false
@@ -143,6 +148,80 @@ snap_tolerance = 0.0
 # Choose a stable code that is meaningful in downstream parameter tables.
 # Type: string | Default: "1"
 # override_code = "1"
+
+
+# Optional hydraulic-property tables keyed by geology zones.
+# The launcher projects geology on the mesh and exports per-cell conductivity/storage values as weighted averages of geology fractions.
+
+# Optional hydraulic-conductivity mapping by geology key.
+# When provided, the bundle exports one `hydraulic_conductivity_m_s` value per cell.
+
+# [mesh_catchment.hydraulic_properties.conductivity]
+# Source of the geology-key to property mapping.
+# Use 'inline' for TOML dictionaries or 'csv' for an external table.
+# Type: string | Default: "inline"
+# values_source = "inline"
+
+# Inline mapping from geology zone key to property value.
+# Keys must match the normalized `zone_key` values exported by the geology loader.
+# Type: dict (optional) | Optional
+# values = {}
+
+# CSV file used when values_source='csv'.
+# Relative paths are resolved from the launcher TOML directory.
+# Type: string (optional) | Optional
+# values_csv_file = ""
+
+# CSV column containing geology zone keys.
+# Type: string | Default: "zone_key"
+# csv_key_column = "zone_key"
+
+# CSV column containing numeric property values.
+# Type: string | Default: "value"
+# csv_value_column = "value"
+
+# Fallback value applied when one geology zone has no explicit mapping.
+# Leave empty to keep exported cell values undefined for unmapped zones.
+# Type: object (optional) | Optional
+# default_value = ""
+
+# Input unit used by conductivity values.
+# Exported bundle values are always converted to `m/s`.
+# Type: string | Default: "m/s"
+# unit = "m/s"
+
+
+# Optional storage-coefficient mapping by geology key.
+# When provided, the bundle exports one `storage_coefficient` value per cell.
+
+# [mesh_catchment.hydraulic_properties.storage_coefficient]
+# Source of the geology-key to property mapping.
+# Use 'inline' for TOML dictionaries or 'csv' for an external table.
+# Type: string | Default: "inline"
+# values_source = "inline"
+
+# Inline mapping from geology zone key to property value.
+# Keys must match the normalized `zone_key` values exported by the geology loader.
+# Type: dict (optional) | Optional
+# values = {}
+
+# CSV file used when values_source='csv'.
+# Relative paths are resolved from the launcher TOML directory.
+# Type: string (optional) | Optional
+# values_csv_file = ""
+
+# CSV column containing geology zone keys.
+# Type: string | Default: "zone_key"
+# csv_key_column = "zone_key"
+
+# CSV column containing numeric property values.
+# Type: string | Default: "value"
+# csv_value_column = "value"
+
+# Fallback value applied when one geology zone has no explicit mapping.
+# Leave empty to keep exported cell values undefined for unmapped zones.
+# Type: object (optional) | Optional
+# default_value = ""
 
 
 # Effective support domain to mesh.

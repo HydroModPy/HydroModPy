@@ -95,6 +95,221 @@ Le bundle doit contenir typiquement :
 Le fichier `reader.py` est obligatoire dans cette logique de distribution,
 car c'est lui qui sait reconstruire en memoire les classes Python du bundle.
 
+## Structure detaillee du bundle
+
+Le bundle exporte par HydroModPy est un dossier autonome, en general nomme
+`<nom_du_maillage>_bundle`, place a cote du fichier `.msh`.
+
+Exemple d'arborescence :
+
+```text
+mesh_catchment_outlet_5_bundle/
+  mesh_2d.msh
+  nodes.csv
+  cells.csv
+  edges.csv
+  cell_geology_fractions.csv
+  metadata.json
+  mesh_summary.json
+  reader.py
+  README.md
+```
+
+Conventions generales :
+
+- tous les index de noeuds, cellules et aretes sont en base 0 ;
+- les coordonnees sont exprimees dans le SCR indique dans `metadata.json` ;
+- une cellule vide dans un CSV signifie "valeur non disponible" ;
+- `mesh_summary.json` est optionnel ;
+- `reader.py` est le lecteur de reference du bundle distribue.
+
+### `mesh_2d.msh`
+
+Ce fichier contient le maillage 2D Gmsh original.
+
+Il porte :
+
+- la geometrie nodale du maillage ;
+- la connectivite des elements ;
+- les groupes physiques Gmsh eventuellement presents.
+
+Il ne porte pas directement les champs tabulaires pedagogiques utilises par
+`distribution/mesh`. Ceux-ci sont dans les CSV.
+
+### `nodes.csv`
+
+Ce fichier contient un enregistrement par noeud.
+
+Colonnes :
+
+- `node_id` : identifiant du noeud ;
+- `x` : coordonnee X ;
+- `y` : coordonnee Y ;
+- `z_top` : altitude topographique au noeud, si disponible.
+
+Usage principal :
+
+- reconstruction simple des positions des noeuds ;
+- rendu topographique par interpolation ou coloration nodale.
+
+### `cells.csv`
+
+Ce fichier contient un enregistrement par cellule du maillage.
+
+Colonnes de structure :
+
+- `cell_id` : identifiant de cellule ;
+- `geom_type` : type geometrique, par exemple `triangle` ;
+- `n0`, `n1`, `n2`, `n3` : indices des noeuds de la cellule ;
+- `centroid_x` : abscisse du centroide ;
+- `centroid_y` : ordonnee du centroide ;
+- `area_m2` : surface de la cellule en metres carres.
+
+Colonnes topographiques :
+
+- `z_top_centroid` : altitude topographique au centroide ;
+- `z_top_mean` : altitude topographique moyenne sur les noeuds de la cellule.
+
+Colonnes geologiques :
+
+- `geology_code` : code geologique dominant de la cellule ;
+- `geology_key` : cle geologique dominante normalisee.
+
+Colonnes hydrauliques optionnelles :
+
+- `hydraulic_conductivity_m_s` : conductivite hydraulique exportee en `m/s` ;
+- `storage_coefficient` : coefficient d'emmagasinement exporte sans unite.
+
+Important :
+
+- `geology_code` et `geology_key` correspondent a l'unite dominante ;
+- si une cellule recoupe plusieurs unites geologiques, le detail complet est
+  donne dans `cell_geology_fractions.csv` ;
+- les champs hydrauliques sont calcules a partir de ces fractions geologiques
+  quand une table de correspondance a ete fournie au moment de l'export.
+
+### `edges.csv`
+
+Ce fichier contient un enregistrement par arete unique du maillage.
+
+Colonnes :
+
+- `edge_id` : identifiant de l'arete ;
+- `node_a` : premier noeud ;
+- `node_b` : second noeud ;
+- `cell_a` : premiere cellule adjacente ;
+- `cell_b` : seconde cellule adjacente, vide pour une arete de bord ;
+- `length_m` : longueur de l'arete ;
+- `edge_kind` : type d'arete ;
+- `is_river` : indicateur booleen pour les aretes reconnues comme rivieres ;
+- `geology_a_key` : unite geologique du cote `cell_a` ;
+- `geology_b_key` : unite geologique du cote `cell_b`.
+
+Valeurs usuelles de `edge_kind` :
+
+- `boundary` : arete de bord externe ;
+- `internal` : arete interne standard ;
+- `geology_interface` : arete entre deux unites geologiques distinctes.
+
+### `cell_geology_fractions.csv`
+
+Ce fichier contient la decomposition geologique de chaque cellule.
+
+Colonnes :
+
+- `cell_id` : identifiant de cellule ;
+- `geology_key` : cle geologique ;
+- `fraction` : fraction surfacique de cette unite dans la cellule.
+
+Ce fichier est essentiel quand on veut :
+
+- reconstituer des maillages heterogenes plus finement que par la seule unite dominante ;
+- verifier le melange geologique local ;
+- comprendre comment une propriete hydraulique par maille a ete calculee.
+
+### `metadata.json`
+
+Ce fichier documente le contrat global du bundle.
+
+Champs racine typiques :
+
+- `bundle_schema_version` : version du schema du bundle ;
+- `mesh_kind` : type logique du maillage ;
+- `cell_type` : type d'element dominant ;
+- `indexing` : convention d'indexation, actuellement `zero_based` ;
+- `crs` : systeme de coordonnees ;
+- `n_nodes` : nombre de noeuds ;
+- `n_cells` : nombre de cellules ;
+- `constraints_mode` : mode de conformite du maillage ;
+- `topography` : description des champs topographiques exportes ;
+- `geology` : description de la geologie exportee ;
+- `hydraulic_properties` : description des proprietes hydrauliques exportees ;
+- `files` : noms attendus des fichiers du bundle ;
+- `source_mesh_path` : chemin du maillage source au moment de l'export.
+
+Sous-structure `topography` :
+
+- `node_field` : nom du champ nodal topographique ;
+- `cell_fields` : liste des champs topographiques par cellule ;
+- `source_path` : chemin du raster topographique source.
+
+Sous-structure `geology` :
+
+- `available` : geologie exportee ou non ;
+- `field_id` : identifiant logique du champ geologique ;
+- `source_kind` : nature de la source geologique ;
+- `cell_samples_per_axis` : densite d'echantillonnage utilisee ;
+- `zone_keys` : liste des cles geologiques presentes.
+
+Sous-structure `hydraulic_properties` :
+
+- `available` : proprietes hydrauliques exportees ou non ;
+- `averaging` : mode d'agregation, actuellement par fractions geologiques ;
+- `cell_fields` : champs hydrauliques disponibles dans `cells.csv` ;
+- `conductivity` : source et couverture de `hydraulic_conductivity_m_s` ;
+- `storage_coefficient` : source et couverture de `storage_coefficient`.
+
+Cette partie est la reference a lire en premier pour savoir si un bundle
+contient effectivement de la geologie, de la topographie ou des proprietes
+hydrauliques.
+
+### `mesh_summary.json`
+
+Ce fichier est une copie du resume de generation du maillage, quand il existe.
+
+Il n'est pas indispensable a la lecture du bundle, mais il est utile pour :
+
+- relire les metriques QA du maillage ;
+- retrouver le mode de generation ;
+- tracer l'origine exacte du bundle.
+
+Le code de `distribution/mesh` peut le charger pour enrichir le resume final,
+mais il doit rester possible de travailler sans lui.
+
+### `reader.py`
+
+Ce fichier est le lecteur autonome distribue avec le bundle.
+
+Il definit en general :
+
+- les dataclasses `CatchmentMeshBundleNode`, `CatchmentMeshBundleCell`,
+  `CatchmentMeshBundleEdge` et `CatchmentMeshBundleGeologyFraction` ;
+- la fonction `load_catchment_mesh_bundle(...)`.
+
+`distribution/mesh` charge dynamiquement ce fichier au lieu d'importer le
+lecteur interne HydroModPy. Cela permet de figer la compatibilite de lecture
+au niveau du bundle lui-meme.
+
+### `README.md`
+
+Ce fichier peut etre genere dans le bundle pour rappeler :
+
+- la liste des fichiers ;
+- les conventions d'indexation ;
+- la presence ou non de geologie et de proprietes hydrauliques.
+
+Il joue surtout un role de documentation rapide cote donnees distribuees.
+
 ## Que contient l'objet relu en memoire
 
 Le point d'entree principal cote lecture est
@@ -207,6 +422,8 @@ Pour `color_field` :
 - `area_m2`
 - `z_top_mean`
 - `z_top_centroid`
+- `hydraulic_conductivity_m_s`
+- `storage_coefficient`
 
 Pour `topography_field` :
 

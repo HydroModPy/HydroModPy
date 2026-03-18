@@ -6,7 +6,7 @@ base_config = "config_mesh_catchment_common.toml"
 
 [workspace]
 # Base prefix used to name one catchment folder per outlet_id.
-project_root = "mesh_catchment_bretagne"
+project_root = "C:/results/HydromodPy/mesh_catchment_bretagne"
 
 [mesh_catchment_batch]
 enabled = true
@@ -51,6 +51,15 @@ all_touched = false
 enabled = false
 sea_value = 0
 override_code = "1"
+
+[mesh_catchment.hydraulic_properties.conductivity]
+# Demonstration geology -> K mapping for bundle export.
+# Values come from `geology_K_dummy_demo.csv` and are already in m/s.
+values_source = "csv"
+values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
+csv_key_column = "zone_key"
+csv_value_column = "K_value"
+unit = "m/s"
 
 [mesh_catchment.domain]
 kind = "geographic_box_buffer"

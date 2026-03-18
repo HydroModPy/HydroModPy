@@ -52,6 +52,8 @@ class CatchmentMeshBundleCell:
     z_top_mean: float | None
     geology_code: int | None
     geology_key: str
+    hydraulic_conductivity_m_s: float | None
+    storage_coefficient: float | None
 
 
 @dataclass(frozen=True)
@@ -158,6 +160,12 @@ def _load_cells(path: Path) -> tuple[CatchmentMeshBundleCell, ...]:
                 z_top_mean=_parse_optional_float(row.get("z_top_mean", "")),
                 geology_code=_parse_optional_int(row.get("geology_code", "")),
                 geology_key=str(row.get("geology_key", "")),
+                hydraulic_conductivity_m_s=_parse_optional_float(
+                    row.get("hydraulic_conductivity_m_s", "")
+                ),
+                storage_coefficient=_parse_optional_float(
+                    row.get("storage_coefficient", "")
+                ),
             )
         )
     return tuple(out)

@@ -166,6 +166,7 @@ class Geographic:
                 if str(self.catch_def).strip().lower() == "dem"
                 else "catchment"
             ),
+            regional_dem_path=str(getattr(self, "dem_init_path", "")) or None,
         )
 
     def processing(self):

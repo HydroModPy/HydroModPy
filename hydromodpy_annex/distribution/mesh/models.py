@@ -32,6 +32,8 @@ NUMERIC_COLOR_FIELDS = {
     "area_m2",
     "z_top_centroid",
     "z_top_mean",
+    "hydraulic_conductivity_m_s",
+    "storage_coefficient",
 }
 CATEGORICAL_COLOR_FIELDS = {
     "geology_code",
@@ -66,6 +68,8 @@ class MeshCellLike(Protocol):
     z_top_mean: float | None
     geology_code: int | None
     geology_key: str
+    hydraulic_conductivity_m_s: float | None
+    storage_coefficient: float | None
 
 
 class MeshEdgeLike(Protocol):

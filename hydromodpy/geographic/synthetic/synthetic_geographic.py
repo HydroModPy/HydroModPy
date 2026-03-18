@@ -314,6 +314,7 @@ class SyntheticGeographic:
             watershed_box_shp=str(self.paths.watershed_box_shp),
             box_buff_shp=str(self.paths.watershed_box_buff_shp),
             zone_kind=str(self.zone_kind),
+            regional_dem_path=str(self.paths.watershed_box_buff_dem),
         )
 
 

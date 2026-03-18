@@ -132,6 +132,7 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
         expected_root / "results_stable" / "mesh" / "gmsh" / "mesh_catchment_summary.json"
     )
     assert kwargs["output_figure"] is None
+    assert kwargs["output_figure_regional"] is None
     assert kwargs["domain_geographic"].river_mesh_trace is not None
 
 
@@ -163,6 +164,7 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
                 "output_mesh": "mesh/custom_mesh.msh",
                 "output_summary_json": "mesh/custom_summary.json",
                 "output_figure": "mesh/custom_plot.png",
+                "output_figure_regional": "mesh/custom_plot_regional.png",
                 "show_plot": True,
             }
         },
@@ -195,6 +197,9 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
         config_path.parent / "mesh/custom_summary.json"
     ).resolve()
     assert kwargs["output_figure"] == (config_path.parent / "mesh/custom_plot.png").resolve()
+    assert kwargs["output_figure_regional"] == (
+        config_path.parent / "mesh/custom_plot_regional.png"
+    ).resolve()
     assert kwargs["show_plot"] is True
     assert kwargs["river_trace"] is not None
 
@@ -370,6 +375,7 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
             "output_mesh": str(kwargs["output_mesh"]),
             "output_summary_json": str(kwargs["output_summary_json"]),
             "output_figure": str(kwargs["output_figure"]),
+            "output_figure_regional": str(kwargs["output_figure_regional"]),
         }
 
     monkeypatch.setattr(
@@ -397,11 +403,21 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
     assert str(kwargs["output_figure"]).endswith(
         str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "gmsh" / "figure_2.png")
     )
+    assert str(kwargs["output_figure_regional"]).endswith(
+        str(
+            Path("mesh_batch_outlet_2")
+            / "results_stable"
+            / "mesh"
+            / "gmsh"
+            / "figure_2_regional.png"
+        )
+    )
 
     manifest_path = Path(summary["manifest_csv"])
     assert manifest_path.exists()
     manifest_text = manifest_path.read_text(encoding="utf-8")
     assert "outlet_id,catch_name,status" in manifest_text
+    assert "output_figure_regional" in manifest_text
     assert "2,mesh_batch_outlet_2,ok" in manifest_text
 
 

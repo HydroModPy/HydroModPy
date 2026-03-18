@@ -79,6 +79,11 @@ def _install_mesh_catchment_runtime_stubs(monkeypatch, tmp_path: Path):
                 if kwargs.get("output_figure") is None
                 else str(Path(kwargs["output_figure"]))
             ),
+            "output_figure_regional": (
+                ""
+                if kwargs.get("output_figure_regional") is None
+                else str(Path(kwargs["output_figure_regional"]))
+            ),
             "constraints_mode": "geology_only",
         }
         output_summary_json = Path(kwargs["output_summary_json"])
@@ -92,6 +97,11 @@ def _install_mesh_catchment_runtime_stubs(monkeypatch, tmp_path: Path):
             figure_path = Path(output_figure)
             figure_path.parent.mkdir(parents=True, exist_ok=True)
             figure_path.write_bytes(b"fake-png")
+        output_figure_regional = kwargs.get("output_figure_regional")
+        if output_figure_regional is not None:
+            figure_regional_path = Path(output_figure_regional)
+            figure_regional_path.parent.mkdir(parents=True, exist_ok=True)
+            figure_regional_path.write_bytes(b"fake-png")
         return summary
 
     def _fake_export_bundle(**kwargs):
@@ -209,10 +219,16 @@ def test_collect_mesh_catchment_figures_supports_single_run_summary() -> None:
     module = _load_module()
 
     figures = module._collect_mesh_catchment_figures(
-        {"output_figure": r"C:\results\HydromodPy\mesh\figure.png"}
+        {
+            "output_figure": r"C:\results\HydromodPy\mesh\figure.png",
+            "output_figure_regional": r"C:\results\HydromodPy\mesh\figure_regional.png",
+        }
     )
 
-    assert figures == [r"C:\results\HydromodPy\mesh\figure.png"]
+    assert figures == [
+        r"C:\results\HydromodPy\mesh\figure.png",
+        r"C:\results\HydromodPy\mesh\figure_regional.png",
+    ]
 
 
 def test_print_mesh_catchment_figures_supports_batch_summary(capsys) -> None:
@@ -222,7 +238,10 @@ def test_print_mesh_catchment_figures_supports_batch_summary(capsys) -> None:
         {
             "mode": "batch",
             "results": [
-                {"output_figure": r"C:\results\HydromodPy\mesh\figure_a.png"},
+                {
+                    "output_figure": r"C:\results\HydromodPy\mesh\figure_a.png",
+                    "output_figure_regional": r"C:\results\HydromodPy\mesh\figure_a_regional.png",
+                },
                 {"output_figure": r"C:\results\HydromodPy\mesh\figure_b.png"},
                 {"output_figure": ""},
                 {},
@@ -234,6 +253,7 @@ def test_print_mesh_catchment_figures_supports_batch_summary(capsys) -> None:
 
     assert "Created figures:" in captured.out
     assert r"C:\results\HydromodPy\mesh\figure_a.png" in captured.out
+    assert r"C:\results\HydromodPy\mesh\figure_a_regional.png" in captured.out
     assert r"C:\results\HydromodPy\mesh\figure_b.png" in captured.out
 
 
@@ -273,16 +293,21 @@ def test_launchers_cli_mesh_catchment_single_creates_outputs_and_bundle(
     output_mesh = (config_path.parent / "outputs" / "single_mesh.msh").resolve()
     output_summary_json = (config_path.parent / "outputs" / "single_summary.json").resolve()
     output_figure = (config_path.parent / "outputs" / "single_figure.png").resolve()
+    output_figure_regional = (
+        config_path.parent / "outputs" / "single_figure_regional.png"
+    ).resolve()
     bundle_dir = (config_path.parent / "outputs" / "single_mesh_bundle").resolve()
 
     assert code == 0
     assert output_mesh.exists()
     assert output_summary_json.exists()
     assert output_figure.exists()
+    assert output_figure_regional.exists()
     assert bundle_dir.exists()
     assert (bundle_dir / "metadata.json").exists()
     assert "Created figures:" in captured.out
     assert str(output_figure) in captured.out
+    assert str(output_figure_regional) in captured.out
 
 
 def test_launchers_cli_mesh_catchment_batch_creates_manifest_and_figures(
@@ -352,6 +377,8 @@ def test_launchers_cli_mesh_catchment_batch_creates_manifest_and_figures(
         / "gmsh"
         / "figure_B.png"
     ).resolve()
+    figure_a_regional = figure_a.with_name("figure_A_regional.png")
+    figure_b_regional = figure_b.with_name("figure_B_regional.png")
     bundle_a = figure_a.parent / "mesh_A_bundle"
     bundle_b = figure_b.parent / "mesh_B_bundle"
 
@@ -359,8 +386,12 @@ def test_launchers_cli_mesh_catchment_batch_creates_manifest_and_figures(
     assert manifest_path.exists()
     assert figure_a.exists()
     assert figure_b.exists()
+    assert figure_a_regional.exists()
+    assert figure_b_regional.exists()
     assert bundle_a.exists()
     assert bundle_b.exists()
     assert "Created figures:" in captured.out
     assert str(figure_a) in captured.out
+    assert str(figure_a_regional) in captured.out
     assert str(figure_b) in captured.out
+    assert str(figure_b_regional) in captured.out

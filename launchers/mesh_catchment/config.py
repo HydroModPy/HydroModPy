@@ -103,6 +103,194 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
         return self
 
 
+_SUPPORTED_HYDRAULIC_VALUE_SOURCES = {"inline", "csv"}
+
+
+def _validate_hydraulic_scalar(
+    value: object,
+    *,
+    label: str,
+) -> float | str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise TypeError(f"{label} must be numeric or a non-empty string.")
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if text == "":
+        raise ValueError(f"{label} cannot be empty when provided.")
+    return text
+
+
+class MeshCatchmentHydraulicPropertyMappingSchema(BaseModel):
+    """Zone-key to property mapping contract used by bundle export."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    values_source: str = Field(
+        default="inline",
+        description=(
+            "Source of the geology-key to property mapping. "
+            "Use 'inline' for TOML dictionaries or 'csv' for an external table."
+        ),
+    )
+    values: dict[str, object] | None = Field(
+        default=None,
+        description=(
+            "Inline mapping from geology zone key to property value. "
+            "Keys must match the normalized `zone_key` values exported by the geology loader."
+        ),
+    )
+    values_csv_file: str | None = Field(
+        default=None,
+        description=(
+            "CSV file used when values_source='csv'. "
+            "Relative paths are resolved from the launcher TOML directory."
+        ),
+    )
+    csv_key_column: str = Field(
+        default="zone_key",
+        description="CSV column containing geology zone keys.",
+    )
+    csv_value_column: str = Field(
+        default="value",
+        description="CSV column containing numeric property values.",
+    )
+    default_value: object | None = Field(
+        default=None,
+        description=(
+            "Fallback value applied when one geology zone has no explicit mapping. "
+            "Leave empty to keep exported cell values undefined for unmapped zones."
+        ),
+    )
+
+    @field_validator("values_source")
+    @classmethod
+    def _validate_values_source(cls, value: object) -> str:
+        token = str(value).strip().lower()
+        if token not in _SUPPORTED_HYDRAULIC_VALUE_SOURCES:
+            allowed = ", ".join(sorted(_SUPPORTED_HYDRAULIC_VALUE_SOURCES))
+            raise ValueError(f"values_source must be one of: {allowed}.")
+        return token
+
+    @field_validator("values")
+    @classmethod
+    def _validate_values(cls, value: object) -> dict[str, float | str] | None:
+        if value is None:
+            return None
+        mapping = dict(value)
+        if len(mapping) == 0:
+            raise ValueError("values cannot be empty when provided.")
+        out: dict[str, float | str] = {}
+        for raw_key, raw_value in mapping.items():
+            key = str(raw_key).strip()
+            if key == "":
+                raise ValueError("values cannot contain empty geology keys.")
+            normalized = _validate_hydraulic_scalar(
+                raw_value,
+                label=f"values[{key!r}]",
+            )
+            if normalized is None:
+                raise ValueError(f"values[{key!r}] cannot be null.")
+            out[key] = normalized
+        return out
+
+    @field_validator("values_csv_file")
+    @classmethod
+    def _validate_values_csv_file(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if text == "":
+            raise ValueError("values_csv_file cannot be empty when provided.")
+        return text
+
+    @field_validator("csv_key_column", "csv_value_column")
+    @classmethod
+    def _validate_csv_column(cls, value: object) -> str:
+        text = str(value).strip()
+        if text == "":
+            raise ValueError("CSV column names cannot be empty.")
+        return text
+
+    @field_validator("default_value")
+    @classmethod
+    def _validate_default_value(cls, value: object) -> float | str | None:
+        return _validate_hydraulic_scalar(value, label="default_value")
+
+    @model_validator(mode="after")
+    def _validate_mapping_payload(self) -> "MeshCatchmentHydraulicPropertyMappingSchema":
+        if self.values_source == "inline":
+            if self.values is None and self.default_value is None:
+                raise ValueError(
+                    "values or default_value is required when values_source='inline'."
+                )
+            return self
+        if self.values_csv_file is None:
+            raise ValueError("values_csv_file is required when values_source='csv'.")
+        return self
+
+
+class MeshCatchmentHydraulicConductivitySchema(
+    MeshCatchmentHydraulicPropertyMappingSchema
+):
+    """Conductivity mapping exported on mesh cells."""
+
+    unit: str = Field(
+        default="m/s",
+        description=(
+            "Input unit used by conductivity values. "
+            "Exported bundle values are always converted to `m/s`."
+        ),
+    )
+
+    @field_validator("unit")
+    @classmethod
+    def _validate_unit(cls, value: object) -> str:
+        text = str(value).strip()
+        if text == "":
+            raise ValueError("conductivity.unit cannot be empty.")
+        return text
+
+
+class MeshCatchmentStorageCoefficientSchema(
+    MeshCatchmentHydraulicPropertyMappingSchema
+):
+    """Storage-coefficient mapping exported on mesh cells."""
+
+
+class MeshCatchmentHydraulicPropertiesConfigSchema(BaseModel):
+    """Optional hydraulic properties derived from the geology zonation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    conductivity: MeshCatchmentHydraulicConductivitySchema | None = Field(
+        default=None,
+        description=(
+            "Optional hydraulic-conductivity mapping by geology key. "
+            "When provided, the bundle exports one `hydraulic_conductivity_m_s` value per cell."
+        ),
+    )
+    storage_coefficient: MeshCatchmentStorageCoefficientSchema | None = Field(
+        default=None,
+        description=(
+            "Optional storage-coefficient mapping by geology key. "
+            "When provided, the bundle exports one `storage_coefficient` value per cell."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_at_least_one_property(
+        self,
+    ) -> "MeshCatchmentHydraulicPropertiesConfigSchema":
+        if self.conductivity is None and self.storage_coefficient is None:
+            raise ValueError(
+                "hydraulic_properties must define conductivity and/or storage_coefficient."
+            )
+        return self
+
+
 class MeshCatchmentConfigSchema(BaseModel):
     """Top-level launcher contract for one mono-catchment meshing run."""
 
@@ -141,6 +329,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             "geology zones, river constraints, and final mesh footprint."
         ),
     )
+    output_figure_regional: str | None = Field(
+        default=None,
+        description=(
+            "Optional regional overview figure path. "
+            "When omitted but output_figure is set, the launcher writes a second figure next to the main one "
+            "with suffix `_regional` to show where the catchment sits on the full DEM."
+        ),
+    )
     show_plot: bool = Field(
         default=False,
         description=(
@@ -161,6 +357,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             "Optional geology support used when constraints_mode includes geology. "
             "This section defines which polygon source represents lithological zones and how those polygons "
             "should be interpreted before conformal meshing."
+        ),
+    )
+    hydraulic_properties: MeshCatchmentHydraulicPropertiesConfigSchema | None = Field(
+        default=None,
+        description=(
+            "Optional hydraulic-property tables keyed by geology zones. "
+            "The launcher projects geology on the mesh and exports per-cell conductivity/storage values "
+            "as weighted averages of geology fractions."
         ),
     )
     domain: ZoneMeshingDomainSchema = Field(
@@ -206,7 +410,12 @@ class MeshCatchmentConfigSchema(BaseModel):
             )
         return token
 
-    @field_validator("output_mesh", "output_summary_json", "output_figure")
+    @field_validator(
+        "output_mesh",
+        "output_summary_json",
+        "output_figure",
+        "output_figure_regional",
+    )
     @classmethod
     def _validate_optional_output_path(cls, value: object) -> str | None:
         if value is None:
@@ -221,6 +430,10 @@ class MeshCatchmentConfigSchema(BaseModel):
         if self.constraints_mode in {"geology_only", "geology_rivers"} and self.geology is None:
             raise ValueError(
                 "geology section is required when constraints_mode includes geology."
+            )
+        if self.hydraulic_properties is not None and self.geology is None:
+            raise ValueError(
+                "hydraulic_properties requires the geology section because exported properties are keyed by geology zones."
             )
         return self
 
@@ -249,6 +462,12 @@ class MeshCatchmentBatchOutputsSchema(BaseModel):
             "Relative filename pattern for each overview figure written in batch mode."
         ),
     )
+    figure_regional_filename: str | None = Field(
+        default=None,
+        description=(
+            "Relative filename pattern for each regional overview figure written in batch mode."
+        ),
+    )
     manifest_csv: str | None = Field(
         default=None,
         description=(
@@ -257,7 +476,13 @@ class MeshCatchmentBatchOutputsSchema(BaseModel):
         ),
     )
 
-    @field_validator("mesh_filename", "summary_filename", "figure_filename", "manifest_csv")
+    @field_validator(
+        "mesh_filename",
+        "summary_filename",
+        "figure_filename",
+        "figure_regional_filename",
+        "manifest_csv",
+    )
     @classmethod
     def _validate_optional_pattern(cls, value: object) -> str | None:
         if value is None:
@@ -401,6 +626,10 @@ def validate_mesh_catchment_batch_config_data(
 
 
 __all__ = [
+    "MeshCatchmentHydraulicConductivitySchema",
+    "MeshCatchmentHydraulicPropertiesConfigSchema",
+    "MeshCatchmentHydraulicPropertyMappingSchema",
+    "MeshCatchmentStorageCoefficientSchema",
     "MeshCatchmentBatchOutputsSchema",
     "MeshCatchmentBatchSectionSchema",
     "MeshCatchmentConfigSchema",

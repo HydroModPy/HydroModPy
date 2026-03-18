@@ -62,6 +62,9 @@ class DomainGeographicContext:
         direct-DEM domains with no catchment/buffer notion.
     river_mesh_trace:
         Optional in-memory river trace used by river-conformal mesh builders.
+    regional_dem_path:
+        Full-resolution regional DEM used to contextualize the catchment on
+        a broader map when needed.
     """
 
     surface_topo: Surface
@@ -75,6 +78,7 @@ class DomainGeographicContext:
     box_buff_shp: str
     zone_kind: str
     river_mesh_trace: RiverMeshTrace | None = None
+    regional_dem_path: str | None = None
 
 
 def build_domain_geographic_context(
@@ -128,6 +132,7 @@ def build_domain_geographic_context(
             watershed_box_shp=dem_products.watershed_box_shp,
             box_buff_shp=dem_products.watershed_box_buff_shp,
             zone_kind="uniform",
+            regional_dem_path=dem_products.watershed_box_buff_dem,
         )
 
     if config.buff_area is None:
@@ -200,5 +205,6 @@ def build_domain_geographic_context(
         box_buff_shp=setup.paths.box_buff,
         zone_kind="catchment",
         river_mesh_trace=river_mesh_trace,
+        regional_dem_path=setup.dem_init_path,
     )
 
