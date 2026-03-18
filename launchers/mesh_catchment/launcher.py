@@ -39,6 +39,7 @@ class MeshCatchmentBatchOutputsConfig:
     mesh_filename: str | None = None
     summary_filename: str | None = None
     figure_filename: str | None = None
+    figure_regional_filename: str | None = None
     manifest_csv: str | None = None
 
 
@@ -141,6 +142,9 @@ class MeshCatchmentBatchConfig:
             mesh_filename=_optional_text(outputs_raw.get("mesh_filename")),
             summary_filename=_optional_text(outputs_raw.get("summary_filename")),
             figure_filename=_optional_text(outputs_raw.get("figure_filename")),
+            figure_regional_filename=_optional_text(
+                outputs_raw.get("figure_regional_filename")
+            ),
             manifest_csv=_optional_text(outputs_raw.get("manifest_csv")),
         )
 
@@ -333,6 +337,7 @@ class MeshCatchmentLauncher:
             "output_mesh": "mesh_filename",
             "output_summary_json": "summary_filename",
             "output_figure": "figure_filename",
+            "output_figure_regional": "figure_regional_filename",
         }
         for section_key, pattern_attr in required_patterns.items():
             raw_value = self.mesh_section_data.get(section_key)
@@ -510,6 +515,9 @@ class MeshCatchmentLauncher:
             "output_mesh": _format_relative(batch_cfg.outputs.mesh_filename),
             "output_summary_json": _format_relative(batch_cfg.outputs.summary_filename),
             "output_figure": _format_relative(batch_cfg.outputs.figure_filename),
+            "output_figure_regional": _format_relative(
+                batch_cfg.outputs.figure_regional_filename
+            ),
         }
 
     def _build_batch_child_runtime(
@@ -573,6 +581,7 @@ class MeshCatchmentLauncher:
             "output_mesh": summary.get("output_mesh", ""),
             "output_summary_json": summary.get("output_summary_json", ""),
             "output_figure": summary.get("output_figure", ""),
+            "output_figure_regional": summary.get("output_figure_regional", ""),
             "error": error,
         }
 
@@ -588,6 +597,7 @@ class MeshCatchmentLauncher:
             "output_mesh",
             "output_summary_json",
             "output_figure",
+            "output_figure_regional",
             "error",
         ]
         with path.open("w", encoding="utf-8", newline="") as stream:

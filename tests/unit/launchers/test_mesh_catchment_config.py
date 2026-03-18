@@ -25,6 +25,30 @@ def test_validate_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg["zone_meshing"]["algorithm"] == "delaunay"
 
 
+def test_validate_mesh_catchment_config_accepts_hydraulic_properties() -> None:
+    cfg = validate_mesh_catchment_config_data(
+        {
+            "constraints_mode": "geology_only",
+            "geology": {
+                "source": {
+                    "path": "data/geology.tif",
+                    "kind": "raster",
+                }
+            },
+            "hydraulic_properties": {
+                "conductivity": {
+                    "values_source": "inline",
+                    "unit": "m/day",
+                    "values": {"granite": 12.0},
+                }
+            },
+        }
+    )
+
+    assert cfg["hydraulic_properties"]["conductivity"]["unit"] == "m/day"
+    assert cfg["hydraulic_properties"]["conductivity"]["values"]["granite"] == 12.0
+
+
 def test_validate_mesh_catchment_batch_selected_requires_ids() -> None:
     with pytest.raises(ValueError, match="selected_outlet_ids"):
         validate_mesh_catchment_batch_config_data(
@@ -51,6 +75,7 @@ def test_generate_toml_exposes_mesh_catchment_sections() -> None:
     assert "[mesh_catchment_batch]" in content
     assert "Meshing compliance target" in content
     assert "Enable batch mode" in content
+    assert "hydraulic_properties" in content
 
 
 def test_versioned_templates_match_renderer() -> None:

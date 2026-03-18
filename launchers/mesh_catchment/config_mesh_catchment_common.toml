@@ -11,7 +11,8 @@
 base_config = "../../examples/projects/launcher_simulation/project.toml"
 
 [workspace]
-project_root = "mesh_catchment_nancon"
+# Keep generated mesh-catchment workspaces outside the git repository.
+project_root = "C:/results/HydromodPy/mesh_catchment_nancon"
 
 [geographic]
 catch_def = "from_outlet_coord"

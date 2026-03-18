@@ -114,6 +114,17 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
             },
             "cell_samples_per_axis": 8,
         },
+        hydraulic_properties_cfg={
+            "conductivity": {
+                "values_source": "inline",
+                "unit": "m/day",
+                "values": {"1": 8.64, "2": 17.28},
+            },
+            "storage_coefficient": {
+                "values_source": "inline",
+                "values": {"1": 0.10, "2": 0.20},
+            },
+        },
         river_trace=None,
         summary=summary_payload,
         config_path=config_path,
@@ -122,6 +133,7 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     bundle_dir = Path(bundle_summary["bundle_dir"])
     assert bundle_summary["bundle_schema_version"] == "mesh_catchment_bundle_v1"
     assert bundle_summary["geology_available"] is True
+    assert bundle_summary["hydraulic_properties_available"] is True
     assert (bundle_dir / "mesh_2d.msh").exists()
     assert (bundle_dir / "nodes.csv").exists()
     assert (bundle_dir / "cells.csv").exists()
@@ -138,6 +150,7 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     assert loaded.n_cells == 2
     assert loaded.n_edges == 5
     assert loaded.metadata["geology"]["available"] is True
+    assert loaded.metadata["hydraulic_properties"]["available"] is True
     assert loaded.metadata["topography"]["source_path"] == str(dem_path)
     assert loaded.mesh_summary is not None
     assert loaded.mesh_summary["constraints_mode"] == "geology_only"
@@ -145,6 +158,10 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     assert loaded.cells[0].geology_key in {"1", "2"}
     assert loaded.cells[1].geology_key in {"1", "2"}
     assert loaded.cells[0].geology_key != loaded.cells[1].geology_key
+    assert loaded.cells[0].hydraulic_conductivity_m_s is not None
+    assert loaded.cells[1].hydraulic_conductivity_m_s is not None
+    assert loaded.cells[0].storage_coefficient is not None
+    assert loaded.cells[1].storage_coefficient is not None
     assert all(cell.area_m2 > 0.0 for cell in loaded.cells)
     assert all(node.z_top is not None for node in loaded.nodes)
 

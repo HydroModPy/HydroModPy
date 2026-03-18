@@ -32,21 +32,24 @@ def _collect_mesh_catchment_figures(summary: Any) -> list[str]:
     if not isinstance(summary, dict):
         return []
 
+    def _extend_from_payload(payload: dict[str, Any], out: list[str]) -> None:
+        for key in ("output_figure", "output_figure_regional"):
+            figure_path = str(payload.get(key, "")).strip()
+            if figure_path != "":
+                out.append(figure_path)
+
     mode = str(summary.get("mode", "")).strip().lower()
     if mode == "batch":
         figures: list[str] = []
         for row in summary.get("results", ()):
             if not isinstance(row, dict):
                 continue
-            figure_path = str(row.get("output_figure", "")).strip()
-            if figure_path != "":
-                figures.append(figure_path)
+            _extend_from_payload(row, figures)
         return figures
 
-    figure_path = str(summary.get("output_figure", "")).strip()
-    if figure_path == "":
-        return []
-    return [figure_path]
+    figures: list[str] = []
+    _extend_from_payload(summary, figures)
+    return figures
 
 
 def _print_mesh_catchment_figures(summary: Any) -> None:

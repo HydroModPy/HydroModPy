@@ -17,7 +17,9 @@ from hydromodpy.data_managers.variables.geology.io import (
     load_geology_encoded_grid_on_raster_support,
     resolve_data_path,
 )
+from hydromodpy.data_managers.variables.geology.processing import normalize_zone_key
 from hydromodpy.field.geology.geology_field import GeologyField
+from hydromodpy.support.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
@@ -54,6 +56,296 @@ def _normalize_optional_float(value: float | None) -> str | float:
 
 def _normalize_optional_int(value: int | None) -> str | int:
     return _NODATA_SENTINEL if value is None else int(value)
+
+
+def _resolve_config_relative_path(
+    raw_path: str | Path,
+    *,
+    config_path: str | Path | None,
+) -> Path:
+    path = Path(str(raw_path)).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    if config_path is None:
+        return path.resolve()
+    base_path = Path(config_path).resolve()
+    base_dir = base_path.parent if base_path.suffix != "" else base_path
+    return (base_dir / path).resolve()
+
+
+def _load_zone_value_mapping_csv(
+    csv_path: str | Path,
+    *,
+    key_column: str = "zone_key",
+    value_column: str = "value",
+) -> dict[str, float]:
+    key_col = str(key_column).strip()
+    val_col = str(value_column).strip()
+    if key_col == "" or val_col == "":
+        raise ValueError("CSV key/value column names cannot be empty.")
+
+    path = Path(csv_path)
+    if not path.exists():
+        raise FileNotFoundError(f"CSV values file not found: {path}")
+
+    with path.open("r", encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream)
+        headers = [str(header).strip() for header in (reader.fieldnames or [])]
+        if key_col not in headers:
+            raise KeyError(
+                f"CSV values file '{path}' is missing key column '{key_col}'. "
+                f"Available columns: {headers}"
+            )
+        if val_col not in headers:
+            raise KeyError(
+                f"CSV values file '{path}' is missing value column '{val_col}'. "
+                f"Available columns: {headers}"
+            )
+
+        values: dict[str, float] = {}
+        for line_number, row in enumerate(reader, start=2):
+            key = normalize_zone_key(row.get(key_col, ""))
+            if key == "":
+                continue
+            if key in values:
+                raise ValueError(
+                    f"Duplicate key '{key}' in CSV mapping '{path}' at line {line_number}."
+                )
+            raw_value = row.get(val_col, "")
+            try:
+                values[key] = float(raw_value)
+            except Exception as exc:
+                raise ValueError(
+                    f"Invalid numeric value in CSV mapping '{path}' line {line_number}: "
+                    f"column '{val_col}' -> {raw_value!r}"
+                ) from exc
+
+    if len(values) == 0:
+        raise ValueError(f"CSV values file '{path}' does not define any key/value pair.")
+    return values
+
+
+def _parse_storage_coefficient_value(
+    raw_value: object,
+    *,
+    label: str,
+) -> float:
+    if isinstance(raw_value, bool):
+        raise TypeError(f"{label} must be numeric.")
+    try:
+        return float(raw_value)
+    except Exception as exc:
+        raise ValueError(f"{label} must be numeric, got {raw_value!r}.") from exc
+
+
+def _normalize_property_mapping_values(
+    raw_values: Mapping[str, object],
+    *,
+    value_parser,
+    label_prefix: str,
+) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for raw_key, raw_value in dict(raw_values).items():
+        key = normalize_zone_key(raw_key)
+        if key == "":
+            raise ValueError(f"{label_prefix} contains one empty geology key.")
+        if key in out:
+            raise ValueError(
+                f"{label_prefix} contains duplicate geology key '{key}' after normalization."
+            )
+        out[key] = float(value_parser(raw_value, label=f"{label_prefix}[{key!r}]"))
+    return out
+
+
+def _resolve_hydraulic_property_mapping(
+    property_cfg: Mapping[str, Any] | None,
+    *,
+    property_name: str,
+    config_path: str | Path | None,
+    value_parser,
+) -> dict[str, Any]:
+    if not isinstance(property_cfg, Mapping):
+        return {
+            "available": False,
+            "property_name": property_name,
+            "values_by_zone_key": {},
+            "default_value": None,
+            "values_source": None,
+            "values_csv_file": None,
+            "zone_keys_defined": [],
+        }
+
+    values_source = str(property_cfg.get("values_source", "inline")).strip().lower()
+    if values_source == "csv":
+        values_csv_path = _resolve_config_relative_path(
+            str(property_cfg.get("values_csv_file")),
+            config_path=config_path,
+        )
+        raw_values = _load_zone_value_mapping_csv(
+            values_csv_path,
+            key_column=str(property_cfg.get("csv_key_column", "zone_key")),
+            value_column=str(property_cfg.get("csv_value_column", "value")),
+        )
+    else:
+        values_csv_path = None
+        raw_values = dict(property_cfg.get("values") or {})
+
+    values_by_zone_key = _normalize_property_mapping_values(
+        raw_values,
+        value_parser=value_parser,
+        label_prefix=f"{property_name}.values",
+    )
+    raw_default_value = property_cfg.get("default_value")
+    default_value = (
+        None
+        if raw_default_value is None
+        else float(value_parser(raw_default_value, label=f"{property_name}.default_value"))
+    )
+    return {
+        "available": bool(values_by_zone_key) or default_value is not None,
+        "property_name": property_name,
+        "values_by_zone_key": values_by_zone_key,
+        "default_value": default_value,
+        "values_source": values_source,
+        "values_csv_file": None if values_csv_path is None else str(values_csv_path),
+        "zone_keys_defined": sorted(values_by_zone_key),
+    }
+
+
+def _build_fractions_by_cell(
+    fraction_rows: list[dict[str, object]],
+) -> dict[int, list[tuple[str, float]]]:
+    out: dict[int, list[tuple[str, float]]] = {}
+    for row in fraction_rows:
+        cell_id = int(row["cell_id"])
+        zone_key = normalize_zone_key(row.get("geology_key", ""))
+        fraction = float(row.get("fraction", 0.0))
+        if zone_key == "" or fraction <= 0.0:
+            continue
+        out.setdefault(cell_id, []).append((zone_key, fraction))
+    return out
+
+
+def _compute_weighted_cell_property_values(
+    *,
+    n_cells: int,
+    cell_zone_keys: tuple[str, ...],
+    fraction_rows: list[dict[str, object]],
+    property_payload: Mapping[str, Any],
+) -> tuple[tuple[float | None, ...], list[str]]:
+    if not bool(property_payload.get("available", False)):
+        return tuple(None for _ in range(int(n_cells))), []
+
+    values_by_zone_key = {
+        normalize_zone_key(key): float(value)
+        for key, value in dict(property_payload.get("values_by_zone_key", {})).items()
+    }
+    default_value = property_payload.get("default_value")
+    default_float = None if default_value is None else float(default_value)
+    fractions_by_cell = _build_fractions_by_cell(fraction_rows)
+    missing_zone_keys: set[str] = set()
+    cell_values: list[float | None] = []
+
+    for cell_idx in range(int(n_cells)):
+        fractions = fractions_by_cell.get(int(cell_idx))
+        if not fractions:
+            dominant_key = (
+                ""
+                if cell_idx >= len(cell_zone_keys)
+                else normalize_zone_key(cell_zone_keys[cell_idx])
+            )
+            fractions = [] if dominant_key == "" else [(dominant_key, 1.0)]
+
+        if not fractions:
+            cell_values.append(None)
+            continue
+
+        weighted_sum = 0.0
+        total_fraction = 0.0
+        unresolved = False
+        for zone_key, fraction in fractions:
+            value = values_by_zone_key.get(zone_key, default_float)
+            if value is None:
+                missing_zone_keys.add(zone_key)
+                unresolved = True
+                break
+            weighted_sum += float(fraction) * float(value)
+            total_fraction += float(fraction)
+        if unresolved or total_fraction <= 0.0:
+            cell_values.append(None)
+            continue
+        cell_values.append(weighted_sum / total_fraction)
+
+    return tuple(cell_values), sorted(missing_zone_keys)
+
+
+def _build_hydraulic_properties_payload(
+    *,
+    mesh,
+    geology_payload: Mapping[str, Any],
+    hydraulic_properties_cfg: Mapping[str, Any] | None,
+    config_path: str | Path | None,
+) -> dict[str, Any]:
+    conductivity_cfg = None
+    storage_cfg = None
+    if isinstance(hydraulic_properties_cfg, Mapping):
+        conductivity_cfg = hydraulic_properties_cfg.get("conductivity")
+        storage_cfg = hydraulic_properties_cfg.get("storage_coefficient")
+
+    conductivity_unit = "m/s"
+    if isinstance(conductivity_cfg, Mapping):
+        conductivity_unit = str(conductivity_cfg.get("unit", "m/s")).strip() or "m/s"
+
+    conductivity = _resolve_hydraulic_property_mapping(
+        conductivity_cfg if isinstance(conductivity_cfg, Mapping) else None,
+        property_name="conductivity",
+        config_path=config_path,
+        value_parser=lambda raw, label: parse_to_m_per_s(
+            raw,
+            location=label,
+            default_unit=conductivity_unit,
+        )[0],
+    )
+    storage = _resolve_hydraulic_property_mapping(
+        storage_cfg if isinstance(storage_cfg, Mapping) else None,
+        property_name="storage_coefficient",
+        config_path=config_path,
+        value_parser=_parse_storage_coefficient_value,
+    )
+
+    cell_zone_keys = tuple(str(v) for v in geology_payload.get("cell_zone_keys", ()))
+    fraction_rows = list(geology_payload.get("fraction_rows", ()))
+    conductivity_values, conductivity_missing = _compute_weighted_cell_property_values(
+        n_cells=int(mesh.n_cells),
+        cell_zone_keys=cell_zone_keys,
+        fraction_rows=fraction_rows,
+        property_payload=conductivity,
+    )
+    storage_values, storage_missing = _compute_weighted_cell_property_values(
+        n_cells=int(mesh.n_cells),
+        cell_zone_keys=cell_zone_keys,
+        fraction_rows=fraction_rows,
+        property_payload=storage,
+    )
+
+    return {
+        "available": bool(conductivity.get("available") or storage.get("available")),
+        "averaging": "weighted_by_geology_fraction",
+        "conductivity": {
+            **conductivity,
+            "output_field": "hydraulic_conductivity_m_s",
+            "unit": "m/s",
+            "cell_values": conductivity_values,
+            "missing_zone_keys": conductivity_missing,
+        },
+        "storage_coefficient": {
+            **storage,
+            "output_field": "storage_coefficient",
+            "unit": "-",
+            "cell_values": storage_values,
+            "missing_zone_keys": storage_missing,
+        },
+    }
 
 
 def _iter_line_geometries(lines_attr: object | None) -> list[object]:
@@ -413,6 +705,7 @@ def _build_metadata(
     mesh,
     mesh_path: Path,
     geology_payload: Mapping[str, Any],
+    hydraulic_properties_payload: Mapping[str, Any],
     summary: Mapping[str, Any] | None,
     domain_geographic: object,
 ) -> dict[str, Any]:
@@ -441,6 +734,68 @@ def _build_metadata(
             "cell_samples_per_axis": geology_payload.get("cell_samples_per_axis"),
             "zone_keys": list(geology_payload.get("zone_keys", ())),
         },
+        "hydraulic_properties": {
+            "available": bool(hydraulic_properties_payload.get("available", False)),
+            "averaging": str(
+                hydraulic_properties_payload.get("averaging", "weighted_by_geology_fraction")
+            ),
+            "cell_fields": [
+                "hydraulic_conductivity_m_s",
+                "storage_coefficient",
+            ],
+            "conductivity": {
+                "available": bool(
+                    hydraulic_properties_payload.get("conductivity", {}).get("available", False)
+                ),
+                "unit": "m/s",
+                "values_source": hydraulic_properties_payload.get(
+                    "conductivity", {}
+                ).get("values_source"),
+                "values_csv_file": hydraulic_properties_payload.get(
+                    "conductivity", {}
+                ).get("values_csv_file"),
+                "default_value": hydraulic_properties_payload.get(
+                    "conductivity", {}
+                ).get("default_value"),
+                "zone_keys_defined": list(
+                    hydraulic_properties_payload.get("conductivity", {}).get(
+                        "zone_keys_defined", ()
+                    )
+                ),
+                "missing_zone_keys": list(
+                    hydraulic_properties_payload.get("conductivity", {}).get(
+                        "missing_zone_keys", ()
+                    )
+                ),
+            },
+            "storage_coefficient": {
+                "available": bool(
+                    hydraulic_properties_payload.get("storage_coefficient", {}).get(
+                        "available", False
+                    )
+                ),
+                "unit": "-",
+                "values_source": hydraulic_properties_payload.get(
+                    "storage_coefficient", {}
+                ).get("values_source"),
+                "values_csv_file": hydraulic_properties_payload.get(
+                    "storage_coefficient", {}
+                ).get("values_csv_file"),
+                "default_value": hydraulic_properties_payload.get(
+                    "storage_coefficient", {}
+                ).get("default_value"),
+                "zone_keys_defined": list(
+                    hydraulic_properties_payload.get("storage_coefficient", {}).get(
+                        "zone_keys_defined", ()
+                    )
+                ),
+                "missing_zone_keys": list(
+                    hydraulic_properties_payload.get("storage_coefficient", {}).get(
+                        "missing_zone_keys", ()
+                    )
+                ),
+            },
+        },
         "files": {
             "mesh": "mesh_2d.msh",
             "nodes": "nodes.csv",
@@ -462,13 +817,16 @@ def _build_metadata(
 
 def _write_readme(path: Path, *, metadata: Mapping[str, Any]) -> None:
     geology_available = bool(metadata.get("geology", {}).get("available", False))
+    hydraulic_available = bool(
+        metadata.get("hydraulic_properties", {}).get("available", False)
+    )
     readme = (
         "# Catchment Mesh Bundle\n\n"
         "Self-contained export for external numerical workflows.\n\n"
         "Files:\n"
         "- `mesh_2d.msh`: original planar Gmsh mesh.\n"
         "- `nodes.csv`: node coordinates and topography (`z_top`).\n"
-        "- `cells.csv`: per-cell geometry/topography/geology summary.\n"
+        "- `cells.csv`: per-cell geometry/topography/geology/hydraulic summary.\n"
         "- `edges.csv`: edge adjacency and boundary/interface flags.\n"
         "- `cell_geology_fractions.csv`: one row per non-zero geology fraction.\n"
         "- `metadata.json`: bundle schema, CRS, and field semantics.\n"
@@ -480,6 +838,7 @@ def _write_readme(path: Path, *, metadata: Mapping[str, Any]) -> None:
         "- empty values in CSV mean missing / not available.\n"
         "\n"
         f"Geology exported: {'yes' if geology_available else 'no'}\n"
+        f"Hydraulic properties exported: {'yes' if hydraulic_available else 'no'}\n"
     )
     path.write_text(readme, encoding="utf-8")
 
@@ -495,6 +854,7 @@ def export_catchment_mesh_bundle(
     domain_geographic: object,
     bundle_dir: str | Path | None = None,
     geology_cfg: Mapping[str, Any] | None = None,
+    hydraulic_properties_cfg: Mapping[str, Any] | None = None,
     river_trace: object | None = None,
     summary: Mapping[str, Any] | None = None,
     config_path: str | Path | None = None,
@@ -519,6 +879,20 @@ def export_catchment_mesh_bundle(
         surface=surface,
         geology_cfg=geology_cfg,
         config_path=config_path,
+    )
+    hydraulic_properties_payload = _build_hydraulic_properties_payload(
+        mesh=mesh,
+        geology_payload=geology_payload,
+        hydraulic_properties_cfg=hydraulic_properties_cfg,
+        config_path=config_path,
+    )
+    conductivity_values = tuple(
+        hydraulic_properties_payload.get("conductivity", {}).get("cell_values", ())
+    )
+    storage_values = tuple(
+        hydraulic_properties_payload.get("storage_coefficient", {}).get(
+            "cell_values", ()
+        )
     )
 
     cell_rows: list[dict[str, object]] = []
@@ -549,6 +923,16 @@ def export_catchment_mesh_bundle(
                     int(geology_payload["cell_zone_codes"][int(cell.index)])
                 ),
                 "geology_key": str(geology_payload["cell_zone_keys"][int(cell.index)]),
+                "hydraulic_conductivity_m_s": _normalize_optional_float(
+                    None
+                    if int(cell.index) >= len(conductivity_values)
+                    else conductivity_values[int(cell.index)]
+                ),
+                "storage_coefficient": _normalize_optional_float(
+                    None
+                    if int(cell.index) >= len(storage_values)
+                    else storage_values[int(cell.index)]
+                ),
             }
         )
 
@@ -589,6 +973,8 @@ def export_catchment_mesh_bundle(
             "z_top_mean",
             "geology_code",
             "geology_key",
+            "hydraulic_conductivity_m_s",
+            "storage_coefficient",
         ],
         cell_rows,
     )
@@ -618,6 +1004,7 @@ def export_catchment_mesh_bundle(
         mesh=mesh,
         mesh_path=mesh_path_obj,
         geology_payload=geology_payload,
+        hydraulic_properties_payload=hydraulic_properties_payload,
         summary=summary,
         domain_geographic=domain_geographic,
     )
@@ -644,6 +1031,9 @@ def export_catchment_mesh_bundle(
         "n_cells": int(mesh.n_cells),
         "n_edges": int(len(edge_rows)),
         "geology_available": bool(geology_payload.get("available", False)),
+        "hydraulic_properties_available": bool(
+            hydraulic_properties_payload.get("available", False)
+        ),
     }
 
 

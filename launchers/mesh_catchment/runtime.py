@@ -140,13 +140,21 @@ def _resolve_optional_path(*, config_dir: Path, raw_value: Any) -> Path | None:
     return path
 
 
+def _derive_regional_figure_path(output_figure: Path | None) -> Path | None:
+    if output_figure is None:
+        return None
+    return output_figure.with_name(
+        f"{output_figure.stem}_regional{output_figure.suffix}"
+    )
+
+
 def _resolve_output_overrides(
     *,
     config_path: Path,
     section_data: Mapping[str, Any],
     workspace: object,
     explicit_overrides: Mapping[str, Path | str | None] | None = None,
-) -> tuple[Path, Path, Path | None, bool]:
+) -> tuple[Path, Path, Path | None, Path | None, bool]:
     overrides = dict(explicit_overrides or {})
     mesh_dir = Path(getattr(workspace, "stable_folder")) / "mesh" / "gmsh"
 
@@ -178,9 +186,29 @@ def _resolve_output_overrides(
         )
     output_figure_path = None if output_figure is None else Path(output_figure)
 
+    output_figure_regional = overrides.get("output_figure_regional")
+    if output_figure_regional is None:
+        output_figure_regional = _resolve_optional_path(
+            config_dir=config_path.parent,
+            raw_value=section_data.get("output_figure_regional"),
+        )
+    output_figure_regional_path = (
+        None
+        if output_figure_regional is None
+        else Path(output_figure_regional)
+    )
+    if output_figure_regional_path is None:
+        output_figure_regional_path = _derive_regional_figure_path(output_figure_path)
+
     raw_show_plot = section_data.get("show_plot", False)
     show_plot = bool(raw_show_plot) if isinstance(raw_show_plot, bool) else False
-    return output_mesh, output_summary_json, output_figure_path, show_plot
+    return (
+        output_mesh,
+        output_summary_json,
+        output_figure_path,
+        output_figure_regional_path,
+        show_plot,
+    )
 
 
 def _resolve_river_trace(
@@ -233,7 +261,13 @@ def run_single_mesh_catchment_workflow(
         geographic_cfg=geographic_cfg,
         domain_geographic=local_domain_geographic,
     )
-    output_mesh, output_summary_json, output_figure, show_plot = _resolve_output_overrides(
+    (
+        output_mesh,
+        output_summary_json,
+        output_figure,
+        output_figure_regional,
+        show_plot,
+    ) = _resolve_output_overrides(
         config_path=config_path,
         section_data=section_data,
         workspace=local_workspace,
@@ -245,6 +279,7 @@ def run_single_mesh_catchment_workflow(
         output_mesh=output_mesh,
         output_summary_json=output_summary_json,
         output_figure=output_figure,
+        output_figure_regional=output_figure_regional,
         river_trace=river_trace,
         domain_geographic=local_domain_geographic,
         show_plot=show_plot,
@@ -254,11 +289,15 @@ def run_single_mesh_catchment_workflow(
         geology_cfg = section_data.get("geology")
         if not isinstance(geology_cfg, Mapping):
             geology_cfg = None
+        hydraulic_properties_cfg = section_data.get("hydraulic_properties")
+        if not isinstance(hydraulic_properties_cfg, Mapping):
+            hydraulic_properties_cfg = None
         try:
             bundle_summary = export_catchment_mesh_bundle(
                 mesh_path=output_mesh,
                 domain_geographic=local_domain_geographic,
                 geology_cfg=geology_cfg,
+                hydraulic_properties_cfg=hydraulic_properties_cfg,
                 river_trace=river_trace,
                 summary=summary_dict,
                 config_path=config_path,

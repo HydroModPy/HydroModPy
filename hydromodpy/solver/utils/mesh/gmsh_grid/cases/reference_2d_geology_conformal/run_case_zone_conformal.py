@@ -25,6 +25,7 @@ from matplotlib.patches import Patch
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.enums import Resampling
 
 from hydromodpy.solver.utils._config_helpers import get_nested_section
 from hydromodpy.data_managers.variables.geology.config import validate_geology_config_data
@@ -114,6 +115,7 @@ def _parse_args(argv=None):
     parser.add_argument("--output-mesh", default=None)
     parser.add_argument("--output-summary-json", default=None)
     parser.add_argument("--output-figure", default=None)
+    parser.add_argument("--output-figure-regional", default=None)
     parser.add_argument("--show-plot", action="store_true")
     return parser.parse_args(argv)
 
@@ -368,6 +370,7 @@ def _resolve_case_config(
         "output_mesh": section_cfg.get("output_mesh"),
         "output_summary_json": section_cfg.get("output_summary_json"),
         "output_figure": section_cfg.get("output_figure"),
+        "output_figure_regional": section_cfg.get("output_figure_regional"),
     }
 
 
@@ -775,6 +778,43 @@ def _load_topography_background(
     return np.asarray(dem, dtype=float), extent
 
 
+def _load_regional_topography_background(
+    domain_geographic: object | None,
+) -> tuple[np.ndarray, tuple[float, float, float, float]] | None:
+    if domain_geographic is None:
+        return None
+    dem_path = getattr(domain_geographic, "regional_dem_path", None)
+    if dem_path is None:
+        return None
+    try:
+        with rasterio.open(str(dem_path)) as src:
+            max_dim = 1400
+            scale = max(
+                float(src.width) / float(max_dim),
+                float(src.height) / float(max_dim),
+                1.0,
+            )
+            out_height = max(1, int(round(float(src.height) / scale)))
+            out_width = max(1, int(round(float(src.width) / scale)))
+            dem = src.read(
+                1,
+                out_shape=(out_height, out_width),
+                resampling=Resampling.bilinear,
+            )
+            nodata = src.nodata
+            if nodata is not None:
+                dem = np.where(dem == nodata, np.nan, dem)
+            extent = (
+                float(src.bounds.left),
+                float(src.bounds.right),
+                float(src.bounds.bottom),
+                float(src.bounds.top),
+            )
+    except Exception:
+        return None
+    return np.asarray(dem, dtype=float), extent
+
+
 def _set_panel_limits(
     ax,
     *,
@@ -905,6 +945,100 @@ def _build_geographic_mesh_figure(
     fig.subplots_adjust(
         left=0.05, right=0.985, top=0.92, bottom=0.08, wspace=0.12
     )
+    return fig
+
+
+def _build_regional_context_figure(
+    *,
+    domain_gdf: gpd.GeoDataFrame,
+    catchment_gdf: gpd.GeoDataFrame | None,
+    topo_background: tuple[np.ndarray, tuple[float, float, float, float]] | None,
+    river_lines: list[object],
+    outlet_xy: tuple[float, float] | None,
+):
+    fig, ax = plt.subplots(1, 1, figsize=(11.5, 9.5), dpi=160)
+
+    extent = None
+    if topo_background is not None:
+        dem, extent = topo_background
+        im = ax.imshow(
+            dem,
+            extent=extent,
+            cmap="terrain",
+            origin="upper",
+            zorder=1,
+        )
+        cbar = fig.colorbar(im, ax=ax, fraction=0.040, pad=0.018)
+        cbar.set_label("Elevation [m]", fontsize=11)
+        cbar.ax.tick_params(labelsize=9)
+    else:
+        ax.set_facecolor("0.96")
+
+    river_count = _draw_river_lines(ax, river_lines=river_lines)
+    if catchment_gdf is not None:
+        catchment_gdf.boundary.plot(
+            ax=ax,
+            color="black",
+            linewidth=1.4,
+            zorder=8,
+        )
+    _draw_domain_outline(ax, domain_gdf)
+
+    if outlet_xy is not None:
+        ax.scatter(
+            [float(outlet_xy[0])],
+            [float(outlet_xy[1])],
+            marker="o",
+            s=28,
+            facecolor="#ef8a00",
+            edgecolor="black",
+            linewidth=0.6,
+            zorder=9,
+        )
+
+    if extent is not None:
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[2], extent[3])
+    else:
+        reference_gdf = catchment_gdf if catchment_gdf is not None else domain_gdf
+        xmin, ymin, xmax, ymax = [float(v) for v in reference_gdf.total_bounds]
+        span_x = max(xmax - xmin, 1.0)
+        span_y = max(ymax - ymin, 1.0)
+        pad_x = 0.08 * span_x
+        pad_y = 0.08 * span_y
+        ax.set_xlim(xmin - pad_x, xmax + pad_x)
+        ax.set_ylim(ymin - pad_y, ymax + pad_y)
+
+    ax.set_title("Regional catchment location on DEM", fontsize=16)
+    ax.set_xlabel("x [m]", fontsize=12)
+    ax.set_ylabel("y [m]", fontsize=12)
+    ax.tick_params(labelsize=10)
+    ax.set_aspect("equal")
+    _disable_axis_offset(ax)
+
+    legend_handles: list[Line2D] = [
+        Line2D([0], [0], color="black", lw=1.3, label="Catchment boundary"),
+        Line2D([0], [0], color="black", lw=1.2, linestyle="--", label="Meshing domain"),
+    ]
+    if river_count > 0:
+        legend_handles.append(
+            Line2D([0], [0], color="#1f78b4", lw=1.1, label="Hydro network")
+        )
+    if outlet_xy is not None:
+        legend_handles.append(
+            Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="black",
+                markerfacecolor="#ef8a00",
+                markersize=6,
+                linewidth=0.0,
+                label="Outlet",
+            )
+        )
+    ax.legend(handles=legend_handles, loc="lower left", fontsize=10, framealpha=0.92)
+    fig.subplots_adjust(left=0.08, right=0.96, top=0.93, bottom=0.08)
     return fig
 
 
@@ -1219,6 +1353,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
     output_mesh: str | Path | None = None,
     output_summary_json: str | Path | None = None,
     output_figure: str | Path | None = None,
+    output_figure_regional: str | Path | None = None,
     river_trace: object | None = None,
     domain_geographic: object | None = None,
     show_plot: bool = False,
@@ -1247,6 +1382,11 @@ def run_reference_2d_zone_conformal_case_from_toml(
         config_path,
         cfg.get("output_figure"),
         None if output_figure is None else str(output_figure),
+    )
+    figure_regional_path = _resolve_optional_output_path(
+        config_path,
+        cfg.get("output_figure_regional"),
+        None if output_figure_regional is None else str(output_figure_regional),
     )
 
     if mesh_path is None:
@@ -1313,32 +1453,62 @@ def run_reference_2d_zone_conformal_case_from_toml(
         }
     summary["output_mesh"] = str(mesh_path)
 
-    if figure_path is not None or show_plot:
-        fig = _build_figure(
-            clipped_gdf=meshing_inputs.zone_gdf,
-            partition_gdf=partition_gdf,
-            domain_gdf=meshing_inputs.domain_payload["gdf"],
-            mesh=result.mesh,
-            domain_bounds=list(meshing_inputs.domain_payload["geometry"].bounds),
-            domain_area=float(meshing_inputs.domain_payload["summary"]["domain_area"]),
-            domain_kind=str(meshing_inputs.domain_payload["summary"]["domain_kind"]),
-            interface_refinement=(
-                dict(
-                    result.summary.get("mesh_size_fields", {}).get(
-                        "interface_refinement", {}
-                    )
+    if figure_path is not None or figure_regional_path is not None or show_plot:
+        common_plot_kwargs = {
+            "clipped_gdf": meshing_inputs.zone_gdf,
+            "partition_gdf": partition_gdf,
+            "domain_gdf": meshing_inputs.domain_payload["gdf"],
+            "mesh": result.mesh,
+            "domain_bounds": list(meshing_inputs.domain_payload["geometry"].bounds),
+            "domain_area": float(meshing_inputs.domain_payload["summary"]["domain_area"]),
+            "domain_kind": str(meshing_inputs.domain_payload["summary"]["domain_kind"]),
+            "interface_refinement": dict(
+                result.summary.get("mesh_size_fields", {}).get(
+                    "interface_refinement", {}
                 )
             ),
-            domain_geographic=domain_geographic,
-            river_trace=meshing_inputs.resolved_river_trace,
-        )
-        if figure_path is not None:
+            "domain_geographic": domain_geographic,
+            "river_trace": meshing_inputs.resolved_river_trace,
+        }
+
+        fig = None
+        if figure_path is not None or show_plot:
+            fig = _build_figure(**common_plot_kwargs)
+        regional_fig = None
+        if figure_regional_path is not None or show_plot:
+            catchment_gdf = _load_catchment_outline(domain_geographic)
+            regional_background = _load_regional_topography_background(domain_geographic)
+            river_lines = _resolve_river_lines_for_plot(
+                river_trace=meshing_inputs.resolved_river_trace,
+                domain_geographic=domain_geographic,
+            )
+            outlet_xy = None
+            if domain_geographic is not None:
+                x_outlet = getattr(domain_geographic, "x_outlet", None)
+                y_outlet = getattr(domain_geographic, "y_outlet", None)
+                if x_outlet is not None and y_outlet is not None:
+                    outlet_xy = (float(x_outlet), float(y_outlet))
+            regional_fig = _build_regional_context_figure(
+                domain_gdf=meshing_inputs.domain_payload["gdf"],
+                catchment_gdf=catchment_gdf,
+                topo_background=regional_background,
+                river_lines=river_lines,
+                outlet_xy=outlet_xy,
+            )
+
+        if figure_path is not None and fig is not None:
             fig.savefig(figure_path)
             summary["output_figure"] = str(figure_path)
+        if figure_regional_path is not None and regional_fig is not None:
+            regional_fig.savefig(figure_regional_path)
+            summary["output_figure_regional"] = str(figure_regional_path)
         if show_plot:
-            _show_figures_blocking(fig)
+            _show_figures_blocking(fig, regional_fig)
         else:
-            plt.close(fig)
+            if fig is not None:
+                plt.close(fig)
+            if regional_fig is not None:
+                plt.close(regional_fig)
 
     if summary_path is not None:
         summary["output_summary_json"] = str(summary_path)
@@ -1355,6 +1525,7 @@ def main(argv=None) -> int:
         output_mesh=args.output_mesh,
         output_summary_json=args.output_summary_json,
         output_figure=args.output_figure,
+        output_figure_regional=args.output_figure_regional,
         show_plot=bool(args.show_plot),
     )
     print(json.dumps(summary, ensure_ascii=True, indent=2))
