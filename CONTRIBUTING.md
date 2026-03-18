@@ -409,9 +409,22 @@ flow to run first).
 
 ## Prototyping with Python
 
-For rapid testing and custom workflows, you can skip the `[simulation]`
-section and drive the execution from Python. The TOML still holds all
-physical parameters. Only the orchestration is in Python.
+> **The official way to use HydroModPy is TOML-driven simulation mode**
+> (`hmp run config.toml`). The TOML pipeline covers all standard workflows
+> and is the recommended path for production runs, reproducibility, and
+> collaboration.
+
+Prototyping with Python is intended for **raw development of new
+functionality that is not yet integrated into the launcher**. Typical
+use cases: interfacing a new solver, testing an experimental boundary
+condition, or manipulating internal objects (Domain, Flow, Surface) that
+the TOML pipeline does not expose yet. Once the feature is stable, it
+should be wired into the TOML configuration and the launcher so that
+all users can access it without writing Python.
+
+In prototype mode you skip the `[simulation]` section and drive the
+execution from Python. The TOML still holds all physical parameters.
+Only the orchestration is in Python.
 
 Here is a minimal prototype that loads a config, builds the geographic
 domain, and runs MODFLOW:
