@@ -13,8 +13,8 @@ from rasterio.transform import from_origin
 from pyproj import Transformer
 from shapely.geometry import box
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.geographic.core.domain_geographic_pipeline import DomainGeographicContext
 from hydromodpy.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.geographic.synthetic.topography import build_topography_values

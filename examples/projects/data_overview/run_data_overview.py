@@ -26,7 +26,7 @@ from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.data_managers import DataManagersPlanner, DataManagersRuntimeLoader
 from hydromodpy.display import visualization_watershed
 from hydromodpy.domain import Domain
-from hydromodpy.domain.structure_binders import apply_geology_to_domain
+from hydromodpy.geographic.structure_binders import apply_geology_to_domain
 from hydromodpy.simulation.state.run_state import LauncherRunState
 def _build_run_state(config_path: Path) -> LauncherRunState:
     # 1) Parse and validate TOML into the canonical HydroModPy config object.

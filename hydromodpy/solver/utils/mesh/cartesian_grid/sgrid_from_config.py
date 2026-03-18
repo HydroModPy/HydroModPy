@@ -15,8 +15,8 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 
 from .sgrid_config import SGridConfig, VerticalGridConfig
 from .sgrid_generation import StructuredGridBuilder

@@ -30,7 +30,7 @@ import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.data_managers import DataManagersPlanner, DataManagersRuntimeLoader
 from hydromodpy.domain import Domain
-from hydromodpy.domain.structure_binders import (
+from hydromodpy.geographic.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )

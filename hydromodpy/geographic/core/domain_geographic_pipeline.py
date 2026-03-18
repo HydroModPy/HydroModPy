@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.geographic.core.direct_dem_domain import build_direct_dem_domain
 from hydromodpy.geographic.core.domain_dem import clip_dem_to_box_buffer

@@ -17,8 +17,8 @@ from pathlib import Path
 import numpy as np
 import rasterio
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 
 
 def build_surface_topo_from_dem(dem_path: str | Path) -> Surface:

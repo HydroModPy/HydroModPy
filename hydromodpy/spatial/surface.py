@@ -4,11 +4,11 @@ Surface abstractions for domain topography and derived vertical supports.
 
 This module intentionally keeps all surface-level operations in one place:
 - store one 2D raster-like array,
-- carry its optional `RasterSupport`,
+- carry its optional ``RasterSupport``,
 - derive new surfaces from an existing one,
 - validate vertical ordering between surfaces.
 
-The goal is to keep `Domain` focused on orchestration while all array-level
+The goal is to keep ``Domain`` focused on orchestration while all array-level
 transformations that conceptually belong to a surface remain implemented here.
 """
 
@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.domain.raster_support import RasterSupport
+from hydromodpy.spatial.raster_support import RasterSupport
 
 
 @dataclass
@@ -53,13 +53,10 @@ class Surface:
         """
         Build one surface from explicit DEM values.
 
-        This constructor does not read from `Geographic` directly. The caller
+        This constructor does not read from ``Geographic`` directly. The caller
         must provide:
         - the already-extracted DEM values,
-        - and, when available, the matching `RasterSupport`.
-
-        This design keeps `Surface` independent from the larger geographic
-        workflow and makes its dependencies explicit.
+        - and, when available, the matching ``RasterSupport``.
         """
         values = np.asarray(dem_values, dtype=float)
         return cls(name=name, values=values, support=support)
@@ -184,10 +181,6 @@ class Surface:
         - is filled with one constant scalar value,
         - is validated to remain strictly below the current surface.
 
-        This behavior matches the current use case in `Domain`, where
-        `flat_like(...)` is used to construct a flat substratum under the
-        topographic surface.
-
         Example
         -------
         If ``value=-20``, the returned surface is a constant 2D
@@ -201,7 +194,7 @@ class Surface:
 
     def assert_strictly_below(self, upper_surface: "Surface") -> None:
         """
-        Validate that this surface is strictly lower than `upper_surface`.
+        Validate that this surface is strictly lower than ``upper_surface``.
 
         Validation rules
         ----------------
@@ -209,7 +202,7 @@ class Surface:
         - only finite overlapping cells are checked,
         - at every checked cell, ``self < upper_surface`` must hold.
 
-        A `ValueError` is raised when:
+        A ``ValueError`` is raised when:
         - shapes are incompatible,
         - there is no finite overlap,
         - or at least one cell violates the strict ordering.

@@ -8,8 +8,8 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
     export_catchment_mesh_bundle,
     load_catchment_mesh_bundle,

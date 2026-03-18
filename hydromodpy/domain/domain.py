@@ -18,7 +18,7 @@ from hydromodpy.domain.depth_model import (
     FlatSubstratumDepthModel,
 )
 from hydromodpy.domain.domain_config import DomainConfig
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.surface import Surface
 
 
 class Domain:
