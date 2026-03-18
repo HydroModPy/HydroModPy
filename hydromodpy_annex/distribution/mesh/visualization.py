@@ -18,6 +18,7 @@ simplement l'interface minimale documentee dans `models.py`.
 from __future__ import annotations
 
 from collections.abc import Mapping
+import math
 
 from hydromodpy_annex.distribution.mesh.models import (
     MeshBundleLike,
@@ -130,7 +131,7 @@ def _get_numeric_cell_values(
     """Extrait un champ numerique cellule par cellule."""
     values: list[float] = []
     for cell in mesh.cells:
-        raw_value = getattr(cell, field_name)
+        raw_value = getattr(cell, field_name, None)
         if raw_value is None:
             values.append(float("nan"))
             continue
@@ -226,7 +227,38 @@ def _plot_numeric_cells(
     PolyCollection,
     plt,
 ) -> None:
-    """Trace un fond par cellule pour un champ numerique."""
+    """Trace un fond par cellule pour un champ numerique.
+
+    Certains bundles plus anciens ne portent pas encore tous les champs
+    numeriques proposes par le viewer. Dans ce cas, on evite un plantage
+    lorsque toutes les valeurs sont manquantes et on affiche un fond neutre.
+    """
+    finite_values = [value for value in values if math.isfinite(value)]
+    if not finite_values:
+        collection = PolyCollection(
+            polygons,
+            facecolors="#d9d9d9",
+            edgecolors=mesh_edge_color,
+            linewidths=mesh_edge_linewidth,
+        )
+        ax.add_collection(collection)
+        ax.text(
+            0.02,
+            0.98,
+            "Aucune valeur disponible\npour ce champ numerique",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=9,
+            bbox={
+                "boxstyle": "round",
+                "facecolor": "white",
+                "alpha": 0.9,
+                "edgecolor": "0.7",
+            },
+        )
+        return
+
     collection = PolyCollection(
         polygons,
         array=values,

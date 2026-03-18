@@ -12,3 +12,4 @@ dependencies:
   # Visualisation.
   - matplotlib>=3.8
   - numpy
+  - pydantic>=2.0
