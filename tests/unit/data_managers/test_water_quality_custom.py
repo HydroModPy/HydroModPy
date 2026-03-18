@@ -51,3 +51,23 @@ class TestWaterQualityCustomConstant:
         assert len(records) == 1
         assert records[0].is_constant
         assert records[0].data["value"].iloc[0] == pytest.approx(7.0)
+
+    def test_unit_conversion_ug_l_to_mg_l(self, tmp_path, project_period):
+        d = tmp_path / "const_wq_ug"
+        d.mkdir()
+
+        pd.DataFrame({
+            "id": ["S_UG"], "x": [2.35], "y": [48.85],
+            "crs": ["EPSG:4326"], "unit": ["ug/l"],
+        }).to_csv(d / "waterquality_custom_LOC.csv", index=False)
+
+        pd.DataFrame({"datetime": ["2020-01-01"], "value": [2500.0]}).to_csv(
+            d / "waterquality_custom_S_UG_20200101_20200331_D.csv", index=False
+        )
+
+        cfg = WaterQualitySourceConfig(source="custom", path=d)
+        records = load_custom(cfg, project_period=project_period)
+
+        assert len(records) == 1
+        assert records[0].data["value"].iloc[0] == pytest.approx(2.5)
+        assert records[0].unit == "mg/L"

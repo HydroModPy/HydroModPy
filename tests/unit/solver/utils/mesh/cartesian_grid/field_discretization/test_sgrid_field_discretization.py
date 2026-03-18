@@ -440,6 +440,7 @@ class TestUnitConversion:
         "unit, input_val, expected_m_s",
         [
             ("mm/day", 10.0, 10.0 * MM_DAY_TO_M_S),
+            ("mm/jour", 10.0, 10.0 * MM_DAY_TO_M_S),
             ("m/day", 0.01, 0.01 / 86400.0),
             ("m/s", 1.5e-7, 1.5e-7),
             ("mm/s", 0.001, 0.001 * 1e-3),
@@ -457,6 +458,18 @@ class TestUnitConversion:
         )
 
         assert np.allclose(result[0], expected_m_s, rtol=1e-8)
+
+    def test_unknown_unit_raises(self):
+        nrow, ncol = 2, 2
+        sgrid = _make_sgrid(nrow, ncol)
+        field_rec = _make_static_field_record(nrow, ncol, value=10.0, unit="degC")
+
+        with pytest.raises(ValueError, match="Unsupported hydraulic-conductivity unit"):
+            discretize_fields_on_sgrid(
+                load_result=LoadResult(fields=[field_rec]),
+                sgrid=sgrid,
+                nper=1,
+            )
 
 
 # ---------------------------------------------------------------------------

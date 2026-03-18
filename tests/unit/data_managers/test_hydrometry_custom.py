@@ -35,8 +35,9 @@ class TestHydrometryCustomCSV:
         assert len(records) == 1
         assert records[0].station_id == "ST001"
 
-    def test_unit_conversion_via_loc(self, tmp_path, project_period):
-        """Unit from LOC column; conversion L/s -> m3/s."""
+    @pytest.mark.parametrize("source_unit", ["L/s", "l/s"])
+    def test_unit_conversion_via_loc(self, tmp_path, project_period, source_unit):
+        """Unit from LOC column; conversion L/s and l/s -> m3/s."""
         d = tmp_path / "hydro_ls"
         d.mkdir()
 
@@ -45,7 +46,7 @@ class TestHydrometryCustomCSV:
             "x": [-1.5],
             "y": [48.1],
             "crs": ["EPSG:4326"],
-            "unit": ["L/s"],
+            "unit": [source_unit],
         }).to_csv(d / "hydrometry_custom_LOC.csv", index=False)
 
         dates = pd.date_range("2020-01-01", "2020-03-31", freq="D")
