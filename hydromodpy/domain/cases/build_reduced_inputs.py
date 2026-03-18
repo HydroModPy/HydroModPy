@@ -109,7 +109,7 @@ def build_reduced_inputs(
     watershed_union = watershed_gdf.geometry.union_all()
     scaled = _scaled_bounds(watershed_union.bounds, area_factor=area_factor)
 
-    out_dem_path = out_dir / "regional_dem_4x.tif"
+    out_dem_path = out_dir / "dem" / "regional_dem_4x.tif"
     out_geology_shp_path = out_dir / "geology" / "GEO1M_4x.shp"
 
     dem_clip_bounds = _clip_dem_to_bounds(dem_path, out_dem_path, scaled)
@@ -167,7 +167,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--out-dir",
         type=Path,
         required=True,
-        help="Output directory under repository data/.",
+        help="Output directory under repository examples/data/.",
     )
     parser.add_argument(
         "--area-factor",

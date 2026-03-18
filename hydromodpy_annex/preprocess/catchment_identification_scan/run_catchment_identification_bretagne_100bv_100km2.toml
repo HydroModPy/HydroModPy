@@ -2,7 +2,7 @@
 launcher_script = "run_catchment_identification_case.py"
 
 # Full Brittany DEM in projected metric CRS.
-dem_path = "../../../data/Brittany/dem/regional_dem_full.tif"
+dem_path = "../../../examples/data/dem/regional_dem.tif"
 
 # Dedicated outputs for the 100-basin / 100 km2 scenario.
 output_dir = "./outputs/full_mnt_target100km2_100tiles"

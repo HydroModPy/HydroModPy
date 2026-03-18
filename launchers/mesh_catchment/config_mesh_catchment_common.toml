@@ -18,7 +18,7 @@ project_root = "C:/results/HydromodPy/mesh_catchment_nancon"
 catch_def = "from_outlet_coord"
 # Regional DEM shared by single-catchment and batch outlet workflows.
 # The smaller `regional dem.tif` does not cover outlets such as Nancon.
-dem_init_path = "../../data/Brittany/dem/regional_dem_full.tif"
+dem_init_path = "../../examples/data/dem/regional_dem.tif"
 # In batch mode, x_outlet/y_outlet are seed values only; they are overridden
 # from the outlets table at runtime.
 x_outlet = 389285.910

@@ -37,7 +37,7 @@ def _load_json(path: Path) -> dict:
 
 def _write_demo_tomls(tmp_path: Path) -> tuple[Path, Path]:
     repo_root = _repo_root()
-    subset_dir = repo_root / "data" / "Brittany_small_test_example" / "geology"
+    subset_dir = repo_root / "examples" / "data" / "geology"
     dem_path = repo_root / "data" / "Brittany" / "dem" / "regional dem.tif"
 
     if not (subset_dir / "GEO1M_brittany.shp").exists():

@@ -13,7 +13,7 @@ discretization workflows.
 Data note:
 
 - Demo configs now point to
-  `data/Brittany_small_test_example/geology/GEO1M_brittany.shp`
+  `examples/data/geology/GEO1M_brittany.shp`
   instead of the full France shapefile.
 - This keeps the same workflow but reduces I/O and vector processing cost
   during discretization examples.

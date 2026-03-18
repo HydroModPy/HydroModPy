@@ -26,10 +26,10 @@ catch_def = "from_outlet_coord"
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
 # Previous local DEM (too small for nancon):
-# dem_init_path = "../../../data/Brittany/dem/regional dem.tif"
+# dem_init_path = "../../../examples/data/dem/regional_dem.tif"
 # Previous wide DEM:
 # dem_init_path = "../../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
-dem_init_path = "../../../data/domain_case_reduced/nancon_4x/regional_dem_4x.tif"
+dem_init_path = "../../../examples/data/dem/regional_dem_4x.tif"
 
 # Base/example12 outlet kept for reference:
 # x_outlet = 265611.933
@@ -101,5 +101,5 @@ cell_samples_per_axis = 8
 # Current config uses a reduced/custom shapefile for domain case testing.
 [[data.geology.sources]]
 source = "custom"
-path = "../../../data/domain_case_reduced/nancon_4x/geology/GEO1M_4x.shp"
+path = "../../../examples/data/geology/GEO1M_4x.shp"
 code_field = "CODE_LEG"

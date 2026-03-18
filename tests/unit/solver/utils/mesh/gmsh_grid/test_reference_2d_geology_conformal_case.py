@@ -36,7 +36,7 @@ CASE_TOML = (
     / "case_config_zone_conformal.toml"
 )
 _CASE_RELATIVE_GEOLOGY_PATH = (
-    "../../../../../../../data/Brittany_small_test_example/geology/GEO1M_brittany.shp"
+    "../../../../../../../examples/data/geology/GEO1M_brittany.shp"
 )
 _CASE_RELATIVE_REFERENCE_RASTER_PATH = (
     "../../../cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif"

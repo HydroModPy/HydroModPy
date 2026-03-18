@@ -28,7 +28,7 @@ id = "field_geology"
 cell_samples_per_axis = 8
 
 [mesh_case.geology.source]
-path = "../../../../../../../data/Brittany_small_test_example/geology/GEO1M_brittany.shp"
+path = "../../../../../../../examples/data/geology/GEO1M_brittany.shp"
 kind = "vector"
 code_field = "CODE_LEG"
 reference_raster_path = "../../../cartesian_grid/examples/discretization/demo_top_bretagne_10km.tif"
