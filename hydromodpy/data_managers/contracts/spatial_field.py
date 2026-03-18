@@ -29,6 +29,7 @@ class FieldRecord:
     date_start: Optional[datetime] = None
     date_end: Optional[datetime] = None
     frequency: Optional[str] = None
+    source_unit: Optional[str] = None
 
     @property
     def is_static(self) -> bool:

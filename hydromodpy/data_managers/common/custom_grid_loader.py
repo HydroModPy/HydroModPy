@@ -1,14 +1,15 @@
-"""Common loaders for custom gridded data (NetCDF and GeoTIFF).
-
-These return FieldRecord instances that can be used by any variable manager.
-"""
+"""Common loaders for custom gridded data (NetCDF and GeoTIFF)."""
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from pathlib import Path
 
+from hydromodpy.data_managers.common.unit_helpers import get_conversion_factor
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
+
+logger = logging.getLogger(__name__)
 
 
 def load_custom_nc(
@@ -16,21 +17,29 @@ def load_custom_nc(
     *,
     variable: str,
     unit: str,
+    source_unit: str | None = None,
     project_period: tuple[datetime, datetime] | None = None,
 ) -> list[FieldRecord]:
-    """Load a custom NetCDF file as FieldRecord(s).
-
-    Extracts spatial bounds and time range from the dataset.
-    If *project_period* is given, clips the temporal dimension.
-    """
+    """Load a custom NetCDF file as FieldRecord(s) converted to ``unit``."""
     import xarray as xr
 
     ds = xr.open_dataset(path)
+    data_var = _resolve_data_var(ds, variable)
 
-    # --- Spatial bounds ---
+    source_unit_resolved = _resolve_source_unit(
+        explicit_source_unit=source_unit,
+        attrs_candidates=(ds[data_var].attrs, ds.attrs),
+        target_unit=unit,
+    )
+    ds = _convert_dataset_to_unit(
+        ds,
+        data_var=data_var,
+        source_unit=source_unit_resolved,
+        target_unit=unit,
+    )
+
     bbox, crs = _extract_bbox_and_crs(ds)
 
-    # --- Temporal bounds ---
     time_dim = _find_time_dim(ds)
     if time_dim is not None and time_dim in ds.dims:
         if project_period is not None:
@@ -60,6 +69,7 @@ def load_custom_nc(
         date_start=date_start,
         date_end=date_end,
         frequency=frequency,
+        source_unit=source_unit_resolved,
     )]
 
 
@@ -68,25 +78,27 @@ def load_custom_tif(
     *,
     variable: str,
     unit: str,
+    source_unit: str | None = None,
 ) -> list[FieldRecord]:
-    """Load a custom GeoTIFF as a static FieldRecord (no temporal dimension).
-
-    Typical use: steady-state heterogeneous fields (e.g. spatial recharge,
-    soil properties).
-    """
-    import rioxarray  # noqa: F401 — registers the rio accessor
+    """Load a custom GeoTIFF as a static FieldRecord converted to ``unit``."""
+    import rioxarray  # noqa: F401
     import xarray as xr
 
     da = xr.open_dataarray(path, engine="rasterio")
+    source_unit_resolved = _resolve_source_unit(
+        explicit_source_unit=source_unit,
+        attrs_candidates=(da.attrs,),
+        target_unit=unit,
+    )
+    da = _convert_dataarray_to_unit(
+        da,
+        source_unit=source_unit_resolved,
+        target_unit=unit,
+    )
 
-    # Extract CRS
     crs = str(da.rio.crs) if da.rio.crs is not None else "EPSG:4326"
-
-    # Extract bounding box (xmin, ymin, xmax, ymax)
-    bounds = da.rio.bounds()  # (left, bottom, right, top)
+    bounds = da.rio.bounds()
     bbox = (bounds[0], bounds[1], bounds[2], bounds[3])
-
-    # Wrap in Dataset
     ds = da.to_dataset(name=variable)
 
     return [FieldRecord(
@@ -99,18 +111,14 @@ def load_custom_tif(
         date_start=None,
         date_end=None,
         frequency=None,
+        source_unit=source_unit_resolved,
     )]
 
-
-# ------------------------------------------------------------------
-# Internal helpers
-# ------------------------------------------------------------------
 
 def _extract_bbox_and_crs(ds) -> tuple[tuple, str]:
     """Extract bounding box and CRS from an xarray Dataset."""
     crs = "EPSG:4326"
 
-    # Try rioxarray CRS
     try:
         import rioxarray  # noqa: F401
         if hasattr(ds, "rio") and ds.rio.crs is not None:
@@ -120,7 +128,6 @@ def _extract_bbox_and_crs(ds) -> tuple[tuple, str]:
     except ImportError:
         pass
 
-    # Fallback: common spatial coordinate names
     x_coord = _find_coord(ds, ("x", "lon", "longitude", "LAMBX", "X"))
     y_coord = _find_coord(ds, ("y", "lat", "latitude", "LAMBY", "Y"))
 
@@ -131,12 +138,96 @@ def _extract_bbox_and_crs(ds) -> tuple[tuple, str]:
             float(x_vals.min()), float(y_vals.min()),
             float(x_vals.max()), float(y_vals.max()),
         )
-        # Heuristic: if coords look like degrees, assume WGS84
         if abs(x_vals.max()) <= 180 and abs(y_vals.max()) <= 90:
             crs = "EPSG:4326"
         return bbox, crs
 
     return (0.0, 0.0, 0.0, 0.0), crs
+
+
+def _resolve_data_var(ds, variable: str) -> str:
+    """Return the xarray data variable to use for one custom grid dataset."""
+    if variable in ds.data_vars:
+        return variable
+
+    data_vars = list(ds.data_vars)
+    if not data_vars:
+        raise ValueError(f"No data variable found in custom grid dataset for {variable!r}.")
+
+    selected = data_vars[0]
+    if len(data_vars) > 1:
+        logger.debug(
+            "Custom grid dataset for %s contains multiple variables; using %s.",
+            variable,
+            selected,
+        )
+    return selected
+
+
+def _extract_unit_from_attrs(attrs: object) -> str | None:
+    """Extract a declared unit from one attrs mapping when available."""
+    if not isinstance(attrs, dict):
+        return None
+
+    for key in ("units", "unit"):
+        raw_value = attrs.get(key)
+        if raw_value is not None and str(raw_value).strip():
+            return str(raw_value).strip()
+    return None
+
+
+def _resolve_source_unit(
+    *,
+    explicit_source_unit: str | None,
+    attrs_candidates: tuple[object, ...],
+    target_unit: str,
+) -> str:
+    """Resolve the source unit for one custom grid payload."""
+    if explicit_source_unit is not None and str(explicit_source_unit).strip():
+        return str(explicit_source_unit).strip()
+
+    for attrs in attrs_candidates:
+        declared_unit = _extract_unit_from_attrs(attrs)
+        if declared_unit is not None:
+            return declared_unit
+
+    return target_unit
+
+
+def _convert_dataset_to_unit(
+    ds,
+    *,
+    data_var: str,
+    source_unit: str,
+    target_unit: str,
+):
+    """Convert one Dataset data variable from ``source_unit`` to ``target_unit``."""
+    factor = get_conversion_factor(source_unit, target_unit)
+    if factor != 1.0:
+        ds = ds.copy()
+        ds[data_var] = ds[data_var].astype(float) * factor
+
+    ds[data_var].attrs = dict(ds[data_var].attrs)
+    ds[data_var].attrs["units"] = target_unit
+    ds[data_var].attrs["source_unit"] = source_unit
+    return ds
+
+
+def _convert_dataarray_to_unit(
+    da,
+    *,
+    source_unit: str,
+    target_unit: str,
+):
+    """Convert one DataArray from ``source_unit`` to ``target_unit``."""
+    factor = get_conversion_factor(source_unit, target_unit)
+    if factor != 1.0:
+        da = da.astype(float) * factor
+
+    da.attrs = dict(da.attrs)
+    da.attrs["units"] = target_unit
+    da.attrs["source_unit"] = source_unit
+    return da
 
 
 def _find_coord(ds, candidates: tuple[str, ...]) -> str | None:
@@ -153,7 +244,6 @@ def _find_time_dim(ds) -> str | None:
     for name in ("time", "t", "datetime", "date", "TIME"):
         if name in ds.dims:
             return name
-    # Check for datetime64 dtype
     for dim in ds.dims:
         if hasattr(ds[dim], "dtype") and "datetime" in str(ds[dim].dtype):
             return dim

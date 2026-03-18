@@ -450,7 +450,7 @@ def _records_to_intermittency_df(records) -> "Any":
 
 
 def _records_to_water_quality_df(records) -> "Any":
-    """Convert PointRecords to a flat DataFrame [datetime, variable, value, unit]."""
+    """Convert PointRecords to [datetime, variable, value, unit, source_unit]."""
     if not records:
         return None
     import pandas as pd
@@ -461,6 +461,7 @@ def _records_to_water_quality_df(records) -> "Any":
         df = df[["datetime", "value"]].copy()
         df["variable"] = rec.variable
         df["unit"] = rec.unit or ""
+        df["source_unit"] = rec.source_unit or ""
         rows.append(df)
     return pd.concat(rows, ignore_index=True) if rows else None
 

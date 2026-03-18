@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+import sqlite3
 
 import pytest
 
@@ -44,6 +45,26 @@ class TestCatalogRegister:
 
         df_hydro = catalog.list_entries(variable="hydrometry")
         assert len(df_hydro) == 1
+
+    def test_source_unit_roundtrip(self, catalog, dummy_file):
+        catalog.register(
+            variable="hydrometry",
+            source="custom",
+            file_path=dummy_file,
+            station_id="ST001",
+            unit="m3/s",
+            source_unit="L/s",
+        )
+
+        entry = catalog.find_cached(
+            variable="hydrometry", source="custom", station_id="ST001"
+        )
+        assert entry is not None
+        assert entry.unit == "m3/s"
+        assert entry.source_unit == "L/s"
+
+        df = catalog.list_entries(variable="hydrometry")
+        assert df.iloc[0]["source_unit"] == "L/s"
 
 
 class TestCatalogFindCached:
@@ -151,3 +172,52 @@ class TestCatalogInvalidate:
 
         catalog.invalidate(variable="hydrometry", delete_files=True)
         assert not f.exists()
+
+
+class TestCatalogMigrations:
+    def test_adds_source_unit_column_to_legacy_entries_table(self, tmp_path):
+        db_path = tmp_path / "legacy_catalog.db"
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    variable VARCHAR NOT NULL,
+                    source VARCHAR NOT NULL,
+                    station_id VARCHAR NULL,
+                    bbox_xmin FLOAT NULL,
+                    bbox_ymin FLOAT NULL,
+                    bbox_xmax FLOAT NULL,
+                    bbox_ymax FLOAT NULL,
+                    crs VARCHAR NULL,
+                    date_start VARCHAR NULL,
+                    date_end VARCHAR NULL,
+                    frequency VARCHAR NULL,
+                    unit VARCHAR NULL,
+                    file_path TEXT NOT NULL,
+                    file_mtime FLOAT NULL,
+                    created_at DATETIME NULL,
+                    is_custom INTEGER DEFAULT 0
+                )
+                """
+            )
+            conn.commit()
+
+        catalog = DataCatalog(db_path)
+        dummy_file = tmp_path / "legacy.csv"
+        dummy_file.write_text("dummy")
+
+        catalog.register(
+            variable="hydrometry",
+            source="custom",
+            file_path=dummy_file,
+            station_id="LEGACY01",
+            unit="m3/s",
+            source_unit="L/s",
+        )
+
+        entry = catalog.find_cached(
+            variable="hydrometry", source="custom", station_id="LEGACY01"
+        )
+        assert entry is not None
+        assert entry.source_unit == "L/s"

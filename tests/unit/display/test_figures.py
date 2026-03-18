@@ -151,9 +151,14 @@ class TestWaterQuality:
             "variable": ["NO3", "NO3", "SO4", "SO4"],
             "value": [10, 12, 5, 6],
             "unit": ["mg/L", "mg/L", "mg/L", "mg/L"],
+            "source_unit": ["ug/L", "ug/L", "mg/L", "mg/L"],
         })
         render_water_quality(ax, records_df=df)
         assert ax.get_title() == "Water quality"
+        legend = ax.get_legend()
+        assert legend is not None
+        labels = [text.get_text() for text in legend.get_texts()]
+        assert "NO3 (mg/L; src ug/L)" in labels
         plt.close(fig)
 
 

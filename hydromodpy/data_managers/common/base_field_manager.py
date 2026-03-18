@@ -221,6 +221,7 @@ class BaseFieldManager(ABC):
                 date_end=datetime.fromisoformat(entry.date_end)
                 if entry.date_end else None,
                 frequency=entry.frequency,
+                source_unit=self._extract_field_source_unit(ds, var_name) or entry.source_unit,
             ))
 
         return results
@@ -284,6 +285,7 @@ class BaseFieldManager(ABC):
             date_end=rec.date_end,
             frequency=rec.frequency,
             unit=rec.unit,
+            source_unit=rec.source_unit,
             is_custom=False,
         )
 
@@ -310,6 +312,7 @@ class BaseFieldManager(ABC):
                 date_start=r.date_start,
                 date_end=r.date_end,
                 unit=r.unit,
+                source_unit=r.source_unit,
                 frequency=r.frequency,
                 bbox=bbox,
                 crs=crs,
@@ -335,6 +338,7 @@ class BaseFieldManager(ABC):
                 date_end=rec.date_end,
                 frequency=rec.frequency,
                 unit=rec.unit,
+                source_unit=rec.source_unit,
                 is_custom=True,
             )
 
@@ -346,6 +350,17 @@ class BaseFieldManager(ABC):
         if self.data_dir is not None:
             return self.data_dir / p
         return p
+
+    @staticmethod
+    def _extract_field_source_unit(ds, variable: str) -> str | None:
+        """Extract an optional source-unit attribute from one xarray Dataset."""
+        data_var = variable if variable in ds.data_vars else next(iter(ds.data_vars), None)
+        if data_var is None:
+            return None
+        raw_value = ds[data_var].attrs.get("source_unit")
+        if raw_value is None or not str(raw_value).strip():
+            return None
+        return str(raw_value).strip()
 
     @staticmethod
     def _nc_filename(
