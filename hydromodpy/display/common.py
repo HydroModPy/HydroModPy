@@ -23,6 +23,39 @@ if TYPE_CHECKING:
     from hydromodpy.data_managers.contracts.load_result import LoadResult
 
 
+def make_figure(*, nrows=1, ncols=1, figsize=None, dpi=300, **kw):
+    """Create a figure, preferring ultraplot when available.
+
+    Falls back to plain Matplotlib so display code works even when the
+    optional ``ultraplot`` dependency is not installed.
+    """
+    try:
+        import ultraplot as uplt
+
+        fig, axs = uplt.subplots(
+            nrows=nrows, ncols=ncols, figsize=figsize, dpi=dpi, **kw
+        )
+    except ImportError:
+        fig, axs = plt.subplots(nrows, ncols, figsize=figsize, dpi=dpi, **kw)
+    return fig, axs
+
+
+def _single_axes(axs):
+    """Normalise *axs* returned by :func:`make_figure` to a single Axes.
+
+    Both Matplotlib and ultraplot may return either a bare Axes or an
+    array-like container when ``nrows=ncols=1``; this helper handles both.
+    """
+    import numpy as np
+
+    if isinstance(axs, np.ndarray):
+        return axs.flat[0]
+    try:
+        return axs[0]
+    except (TypeError, KeyError, IndexError):
+        return axs
+
+
 def _extract_recharge_series_m_per_day(
     recharge_result: "LoadResult | None",
 ) -> pd.Series | None:

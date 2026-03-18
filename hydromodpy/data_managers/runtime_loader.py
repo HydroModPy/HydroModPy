@@ -111,6 +111,9 @@ class DataManagersRuntimeLoader:
             if type_name == "soil_moisture":
                 self._load_climatic_variable(result, "soil_moisture")
                 continue
+            if type_name == "water_quality":
+                self._load_water_quality_data(result)
+                continue
             print(f"[DataManagersPlanner] Warning: unsupported data type '{type_name}' in plan.")
 
     def _load_dem_data(self, result: "LauncherRunState") -> None:
@@ -466,6 +469,49 @@ class DataManagersRuntimeLoader:
             result.loaded_data.piezometry = manager.load()
         except Exception as exc:
             self._handle_data_loading_error(result, "piezometry", exc)
+
+    def _load_water_quality_data(self, result: "LauncherRunState") -> None:
+        """Load water quality records from ``data.water_quality`` payload."""
+        from datetime import datetime as dt
+
+        from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig
+        from hydromodpy.data_managers.variables.water_quality.manager import WaterQualityManager
+
+        raw_section = self._get_data_section(result, "water_quality")
+        if raw_section is None:
+            self._handle_missing_data_section(
+                result,
+                "water_quality",
+                "missing [data.water_quality] section",
+            )
+            return
+
+        try:
+            wq_cfg = WaterQualityConfig.model_validate(raw_section)
+            # WaterQualityConfig has no date fields — derive period from
+            # simulation window or overview dates on the proxy.
+            period = self._resolve_simulation_time_window_dates(result)
+            if period is None:
+                # Fallback: try overview dates (data-overview launcher).
+                overview = getattr(result.cfg, "overview", None)
+                if overview is not None:
+                    ds = getattr(overview, "date_start", None)
+                    de = getattr(overview, "date_end", None)
+                    if ds and de:
+                        period = (dt.fromisoformat(ds), dt.fromisoformat(de))
+            for src in wq_cfg.sources:
+                if not src.mask_path and result.setup.geographic is not None:
+                    src.mask_path = Path(result.setup.geographic.watershed_shp)
+            manager = WaterQualityManager(
+                config=wq_cfg,
+                catalog=self._catalog,
+                project_period=period,
+                project_extent=None,
+                data_dir=self._data_dir("water_quality"),
+            )
+            result.loaded_data.water_quality = manager.load()
+        except Exception as exc:
+            self._handle_data_loading_error(result, "water_quality", exc)
 
     def _load_recharge_data(self, result: "LauncherRunState") -> None:
         """Load recharge data from ``data.recharge`` payload."""

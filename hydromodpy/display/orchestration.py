@@ -1,18 +1,19 @@
 """High-level orchestration for the display package.
 
-This module is the coordination layer between simulation results and the lower-
-level plotting functions.
+This module is the coordination layer between simulation results and the
+generic figure functions in :mod:`hydromodpy.display.figures`.
 
 Each suite follows the same pattern:
 - inspect the normalized display options;
 - locate the post-processed files produced by the simulation;
-- call the specialized plotting helpers for the enabled outputs.
-
-This keeps the plotting functions focused on figure construction, while the
-knowledge of result-folder layout stays centralized here.
+- extract data into generic types (arrays, DataFrames);
+- call the generic figure helpers.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
+import numpy as np
 import pandas as pd
 
 from hydromodpy.display.adapters import (
@@ -24,23 +25,20 @@ from hydromodpy.display.common import (
     resolve_flow_base_raster,
     resolve_model_figure_dir,
 )
-from hydromodpy.display.flow_plots import (
-    plot_cross_section,
-    plot_piezometry,
-    plot_streamflow,
-)
+from hydromodpy.display.figures.animation import build_gif, build_plotly_slider
+from hydromodpy.display.figures.cross_section import plot_cross_section
+from hydromodpy.display.figures.maps import plot_pathlines_map
+from hydromodpy.display.figures.timeseries import plot_discharge, plot_piezometry
 from hydromodpy.display.options import DisplayOptions
-from hydromodpy.display.particles_plots import plot_pathlines
-from hydromodpy.display.transport_plots import (
-    build_concentration_gif,
-    plot_concentration_frames,
-    plot_web_animation,
-)
+from hydromodpy.display.transport_plots import plot_concentration_frames
 
+
+# ------------------------------------------------------------------
+# Internal helpers — data extraction
+# ------------------------------------------------------------------
 
 def _resolve_flow_model(result):
     """Return the configured flow model using explicit solver lookup."""
-
     flow_model = result.get_model_for_solver("modflownwt")
     if flow_model is None:
         flow_model = result.get_model_for_solver("modflow6")
@@ -50,32 +48,20 @@ def _resolve_flow_model(result):
 def _load_observed_streamflow(result) -> pd.DataFrame | None:
     """Load observed discharge from PointRecords.
 
-    When ``result.loaded_data.hydrometry`` contains ``PointRecord`` objects,
-    the adapter extracts a monthly discharge series normalised over the
-    catchment area.  Returns *None* when no observed data is available.
+    Returns a monthly discharge DataFrame or *None*.
     """
-
     hydrometry = getattr(result.loaded_data, "hydrometry", None)
     if not hydrometry:
         return None
-
-    # LoadResult or list[PointRecord] — extract points if needed.
     records = getattr(hydrometry, "points", hydrometry)
     if not records:
         return None
-
     area_m2 = float(result.setup.geographic.catch_area) * 1_000_000
     return observed_discharge_series(records, freq="ME", area_m2=area_m2)
 
 
 def _load_flow_timeseries(result) -> pd.DataFrame:
-    """Load the simulated flow time series exported by post-processing.
-
-    The file is read from the standard ``_timeseries`` subfolder produced by
-    the model post-processing stage. The returned table is the shared input for
-    the flow diagnostic plots.
-    """
-
+    """Load the simulated flow time series exported by post-processing."""
     run_id = _resolve_flow_model(result).model_name
     smod_path = (
         result.setup.workspace.simulations_folder
@@ -87,19 +73,57 @@ def _load_flow_timeseries(result) -> pd.DataFrame:
     return pd.read_csv(smod_path, sep=";", index_col=0, parse_dates=True)
 
 
-def plot_flow_suite(result, options: DisplayOptions) -> None:
-    """Run all enabled flow figures for one completed simulation result.
+def _extract_cross_section_data(
+    dem_path: Path,
+    wt_path: Path,
+    x_index: int | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Extract 1-D cross-section arrays from DEM and water-table files."""
+    import rasterio
 
-    This suite is the entry point for flow-related post-processing displays.
-    It resolves the standard output folder, loads the shared time-series inputs,
-    and then conditionally runs:
-- the cross section figure;
-- the streamflow comparison figure;
-- the piezometry figure.
+    watertable = np.load(wt_path, allow_pickle=True).item()
+    with rasterio.open(dem_path) as dem_src:
+        dem_data = dem_src.read(1)
+        nodata = dem_src.nodata
+        row_spacing = abs(float(dem_src.transform.e)) if dem_src.transform.e else 1.0
 
-    Each figure is guarded by its own flag in ``options.flow``.
+    wt = watertable[2].astype(float)
+    dem = dem_data.astype(float)
+    if nodata is not None:
+        dem[np.isclose(dem, float(nodata))] = np.nan
+    else:
+        dem[dem < 0] = np.nan
+    wt[wt < 0] = np.nan
+
+    if x_index is None:
+        x_index = dem.shape[1] // 2
+    x_index = int(np.clip(x_index, 0, max(dem.shape[1] - 1, 0)))
+
+    x_coords = np.arange(dem.shape[0], dtype=float) * row_spacing
+    return dem[:, x_index], wt[:, x_index], x_coords
+
+
+def _prepare_streamflow_series(
+    simulated_timeseries: pd.DataFrame,
+    factor: int = 30,
+) -> tuple[pd.Series, pd.Series]:
+    """Convert raw simulated timeseries to plotting-ready Series.
+
+    Returns *(outflow_series, recharge_series)* both in mm/month.
     """
+    recharge = simulated_timeseries["recharge"] * factor * 1000
+    outflow = (
+        simulated_timeseries["outflow_drain"] + simulated_timeseries["runoff"]
+    ) * factor * 1000
+    return outflow, recharge
 
+
+# ------------------------------------------------------------------
+# Suites
+# ------------------------------------------------------------------
+
+def plot_flow_suite(result, options: DisplayOptions) -> None:
+    """Run all enabled flow figures for one completed simulation result."""
     if not options.should_render():
         return
 
@@ -111,46 +135,55 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
     observed_streamflow = _load_observed_streamflow(result)
 
     if options.flow.is_enabled("cross_section", default=True):
+        wt_path = (
+            result.setup.workspace.simulations_folder
+            / run_id
+            / "_postprocess"
+            / "watertable_elevation.npy"
+        )
+        dem_section, wt_section, x_coords = _extract_cross_section_data(
+            base_raster, wt_path,
+        )
         plot_cross_section(
-            watershed_dem_path=base_raster,
-            watertable_npy_path=(
-                result.setup.workspace.simulations_folder
-                / run_id
-                / "_postprocess"
-                / "watertable_elevation.npy"
-            ),
+            dem_section=dem_section,
+            wt_section=wt_section,
+            x_coords=x_coords,
             options=options,
             save_path=output_dir / "cross_section.png",
         )
 
     if options.flow.is_enabled("streamflow", default=True) and observed_streamflow is not None:
-        plot_streamflow(
-            observed_streamflow=observed_streamflow,
-            simulated_timeseries=simulated_timeseries,
+        outflow, recharge = _prepare_streamflow_series(simulated_timeseries)
+        plot_discharge(
+            observed_df=observed_streamflow,
+            simulated_series=outflow,
+            recharge_series=recharge,
             model_label=run_id.upper(),
+            ylabel="Q / A [mm/month]",
             options=options,
             save_path=output_dir / "streamflow.png",
         )
 
     if options.flow.is_enabled("piezometry", default=True):
-        # Build observed piezometry from PointRecords when available
         obs_piezo = None
         piezometry = getattr(result.loaded_data, "piezometry", None)
         if piezometry:
             obs_piezo = observed_piezometry_series(piezometry, freq="ME")
 
+        _, recharge = _prepare_streamflow_series(simulated_timeseries)
+        wt_depth = simulated_timeseries["watertable_depth"]
         plot_piezometry(
-            simulated_timeseries=simulated_timeseries,
+            observed_df=obs_piezo,
+            simulated_series=wt_depth,
+            recharge_series=recharge,
             model_label=run_id.upper(),
             options=options,
             save_path=output_dir / "piezometry.png",
-            observed_piezometry=obs_piezo,
         )
 
 
 def plot_particles_suite(result, options: DisplayOptions) -> None:
     """Run all enabled particle-tracking outputs for one simulation result."""
-
     if not options.should_render():
         return
 
@@ -167,13 +200,16 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
     if not options.particles.is_enabled("pathlines", default=False):
         return
 
-    pathlines_shp = particles_dir / "pathlines_weighted.shp"
-    endpoints_shp = particles_dir / "starting_weighted.shp"
-    plot_pathlines(
-        pathlines_shp=pathlines_shp,
-        endpoints_shp=endpoints_shp,
+    import geopandas as gpd
+
+    pathlines_gdf = gpd.read_file(particles_dir / "pathlines_weighted.shp")
+    endpoints_gdf = gpd.read_file(particles_dir / "starting_weighted.shp")
+
+    plot_pathlines_map(
+        dem_path=resolve_flow_base_raster(flow_model, result.setup.geographic),
         watershed_shp=result.setup.geographic.watershed_shp,
-        dem_raster=resolve_flow_base_raster(flow_model, result.setup.geographic),
+        pathlines_gdf=pathlines_gdf,
+        endpoints_gdf=endpoints_gdf,
         options=options,
         save_path=output_dir / "pathlines.png",
     )
@@ -182,15 +218,8 @@ def plot_particles_suite(result, options: DisplayOptions) -> None:
 def plot_transport_suite(result, options: DisplayOptions) -> None:
     """Run transport concentration exports and derived animations.
 
-    This suite manages the transport-specific visualization workflow:
-- generate concentration frames from the transport outputs;
-- optionally assemble those frames into a GIF;
-- optionally build an HTML slider animation for browser viewing.
-
-    Frame generation is shared across all derived outputs so the expensive
-    concentration rendering work is done only once per run.
+    Frame generation is shared by static images, GIF, and HTML slider.
     """
-
     if not options.should_render():
         return
 
@@ -212,7 +241,6 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     save_frame_files = options.save or run_gif or run_web_animation
     show_last_frame = run_concentration and options.show
 
-    # Frame generation is shared by the static images, GIF, and HTML slider.
     frame_paths = plot_concentration_frames(
         model_transport=transport_model,
         model_modflow=flow_model,
@@ -228,14 +256,14 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
     )
 
     if run_gif:
-        build_concentration_gif(
+        build_gif(
             frame_paths=frame_paths,
             gif_path=output_dir / "concentration.gif",
         )
 
     if run_web_animation:
         html_path = output_dir / "concentration_slider.html" if options.save else None
-        plot_web_animation(
+        build_plotly_slider(
             frame_paths=frame_paths,
             html_path=html_path,
             show_in_browser=options.show,

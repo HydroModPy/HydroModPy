@@ -31,3 +31,4 @@ class LoadedDataContext:
     humidity: LoadResult | None = None
     radiation: LoadResult | None = None
     soil_moisture: LoadResult | None = None
+    water_quality: LoadResult | None = None

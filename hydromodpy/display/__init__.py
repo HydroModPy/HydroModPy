@@ -5,7 +5,8 @@ It exposes:
 - configuration objects that describe how figures should be rendered;
 - orchestration functions that run the flow, particle, and transport display
   suites for a completed simulation;
-- adapter functions that bridge ``data_managers`` PointRecords to display inputs.
+- adapter functions that bridge ``data_managers`` PointRecords to display inputs;
+- the generic ``figures`` sub-package for standalone figure creation.
 
 Callers do not need to know the internal module layout of ``hydromodpy.display``:
 they can import the normalized options and the high-level suite functions here.
@@ -28,12 +29,15 @@ from hydromodpy.display.orchestration import (
 )
 
 __all__ = [
+    # Configuration
     "DisplayConfig",
     "DisplayOptions",
     "DisplaySectionOptions",
     "display_options_from_raw_toml",
+    # Adapters
     "observed_discharge_series",
     "observed_piezometry_series",
+    # Orchestration suites
     "plot_flow_suite",
     "plot_particles_suite",
     "plot_transport_suite",

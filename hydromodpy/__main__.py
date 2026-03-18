@@ -453,6 +453,23 @@ def _cmd_test(args: argparse.Namespace) -> None:
     sys.exit(subprocess.call(pytest_args))
 
 
+def _cmd_overview(args: argparse.Namespace) -> None:
+    """Generate a watershed identity card from a TOML configuration file."""
+    from launchers import DataOverviewLauncher
+
+    config_path = Path(args.config).expanduser().resolve()
+    if not config_path.is_file():
+        print(f"Configuration file not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    summary = DataOverviewLauncher(config_path).run()
+    report_paths = summary.get("report_paths", [])
+    if report_paths:
+        print(f"\nOverview complete — {len(report_paths)} panel(s) generated.", file=sys.stderr)
+    else:
+        print("Overview complete — no panels generated.", file=sys.stderr)
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -534,6 +551,17 @@ def main() -> None:
         "config",
         type=Path,
         help="Path to the run TOML file",
+    )
+
+    # --- overview subcommand ---
+    overview_parser = subparsers.add_parser(
+        "overview",
+        help="Generate a watershed identity card from a TOML file",
+    )
+    overview_parser.add_argument(
+        "config",
+        type=Path,
+        help="Path to the overview TOML file",
     )
 
     # Keep 'simulation' as hidden alias for backwards compatibility
@@ -650,6 +678,8 @@ def main() -> None:
         _cmd_run(args)
     elif args.command == "simulation":
         _cmd_run(args)
+    elif args.command == "overview":
+        _cmd_overview(args)
     elif args.command == "list":
         _cmd_list(args)
     elif args.command == "test":

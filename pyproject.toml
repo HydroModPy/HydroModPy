@@ -70,6 +70,7 @@ dependencies = [
     "whitebox-workflows",
     "xarray",
     "pydantic>=2.0",
+    "ultraplot",
     "pyside6",
     "spyder-kernels",
     "pytest",

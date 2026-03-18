@@ -94,6 +94,19 @@ def _render_mesh_catchment_template(
     print(f"Wrote template: {output_path}")
 
 
+def _run_data_overview_launcher(config_path: Path) -> None:
+    """Execute the data-overview launcher for one TOML configuration path."""
+    from launchers import DataOverviewLauncher
+
+    summary = DataOverviewLauncher(config_path).run()
+    report_paths = summary.get("report_paths", [])
+    if report_paths:
+        print("")
+        print("Generated overview panels:")
+        for p in report_paths:
+            print(f"  {p}")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m launchers",
@@ -149,6 +162,37 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     mesh_template.set_defaults(_handler="mesh_catchment_template")
 
+    # -- data-overview family ------------------------------------------------
+    overview_parser = subparsers.add_parser(
+        "data-overview",
+        help="Data-overview launcher family (watershed identity card).",
+    )
+    overview_commands = overview_parser.add_subparsers(
+        dest="overview_command", required=True,
+    )
+    overview_run = overview_commands.add_parser(
+        "run",
+        help="Run a data-overview launcher TOML.",
+    )
+    overview_run.add_argument(
+        "config",
+        type=Path,
+        help="Path to launcher TOML file.",
+    )
+    overview_run.set_defaults(_handler="data_overview_run")
+
+    overview_template = overview_commands.add_parser(
+        "template",
+        help="Print a canonical TOML template for data-overview.",
+    )
+    overview_template.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional output path. When omitted, print the template to stdout.",
+    )
+    overview_template.set_defaults(_handler="data_overview_template")
+
     return parser
 
 
@@ -178,6 +222,22 @@ def main(argv: list[str] | None = None) -> int:
             profile=str(parsed.profile),
             output_path=output_path,
         )
+        return 0
+    if handler == "data_overview_run":
+        _run_data_overview_launcher(parsed.config.expanduser().resolve())
+        return 0
+    if handler == "data_overview_template":
+        from launchers.data_overview.templates import (
+            render_overview_template,
+            write_overview_template,
+        )
+
+        if parsed.output is None:
+            sys.stdout.write(render_overview_template())
+        else:
+            output_path = parsed.output.expanduser().resolve()
+            write_overview_template(output_path)
+            print(f"Wrote template: {output_path}")
         return 0
 
     parser.print_help()
