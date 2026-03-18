@@ -1,4 +1,10 @@
-"""Domain-side binders for data-to-structure updates."""
+"""Geographic-side binders for data-to-structure updates.
+
+These functions bridge geographic outputs (catchment polygons, zone codes) into
+domain-level objects (``CatchmentZonesField``, ``Domain.zones``).  They live in
+``geographic/`` because they depend on geographic core functions and produce
+objects consumed by the domain layer.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +13,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.domain.catchment_zones_field import CatchmentZonesField
+from hydromodpy.spatial.catchment_zones_field import CatchmentZonesField
 from hydromodpy.geographic.core.catchment_zones import (
     CatchmentZoneCode,
     build_catchment_zone_codes,
@@ -149,5 +155,3 @@ def apply_catchment_zones_to_domain(
     if catchment_zone_field is None:
         return
     domain.set_zone(zone_id, catchment_zone_field)
-
-

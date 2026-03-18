@@ -50,7 +50,7 @@ def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
         else 20.0
     )
     canut_shp = (
-        REPO_ROOT / "data" / "Brittany_small_test_example" / "Canut" / "canut.shp"
+        REPO_ROOT / "examples" / "data" / "masks" / "canut.shp"
     )
     wide_brittany_dem = (
         REPO_ROOT

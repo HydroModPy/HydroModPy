@@ -3,11 +3,11 @@ from __future__ import annotations
 Raster support metadata used to place 2D surfaces in space.
 
 This module separates spatial referencing from raster values:
-- `Surface` stores the 2D numerical values,
-- `RasterSupport` stores where those values live in space.
+- ``Surface`` stores the 2D numerical values,
+- ``RasterSupport`` stores where those values live in space.
 
 Keeping both concerns separate makes surface operations simpler and avoids
-passing larger objects such as `Geographic` into low-level domain classes.
+passing larger objects such as ``Geographic`` into low-level domain classes.
 """
 
 from collections.abc import Mapping
@@ -64,15 +64,12 @@ class RasterSupport:
 
         Expected input
         --------------
-        The expected keys match the historical `Domain.georeferencing` payload:
-        `crs`, `dx`, `dy`, `xmin`, `xmax`, `ymin`, `ymax`.
+        The expected keys match the historical ``Domain.georeferencing`` payload:
+        ``crs``, ``dx``, ``dy``, ``xmin``, ``xmax``, ``ymin``, ``ymax``.
 
         Optional extra metadata can be injected through:
-        - `shape`, to populate `nrows` and `ncols`,
-        - `nodata`, to store the raster nodata sentinel.
-
-        This method is intentionally narrow: it consumes only explicit spatial
-        metadata and does not depend on a larger object such as `Geographic`.
+        - ``shape``, to populate ``nrows`` and ``ncols``,
+        - ``nodata``, to store the raster nodata sentinel.
         """
         georef = dict(georeferencing or {})
 
@@ -93,13 +90,10 @@ class RasterSupport:
 
     def as_georeferencing_dict(self) -> dict[str, object]:
         """
-        Return the historical `Domain.georeferencing` view of this support.
+        Return the historical ``Domain.georeferencing`` view of this support.
 
-        Only the keys already used by `Domain` are exported here:
-        `crs`, `dx`, `dy`, `xmin`, `xmax`, `ymin`, `ymax`.
-
-        This gives a stable bridge between the newer `RasterSupport` object and
-        the pre-existing dictionary-based API.
+        Only the keys already used by ``Domain`` are exported here:
+        ``crs``, ``dx``, ``dy``, ``xmin``, ``xmax``, ``ymin``, ``ymax``.
         """
         out: dict[str, object] = {}
         for key in ("crs", "dx", "dy", "xmin", "xmax", "ymin", "ymax"):
@@ -138,7 +132,7 @@ class RasterSupport:
 
         This comparison checks:
         - CRS equality (string-normalized),
-        - extent equality (`xmin`, `xmax`, `ymin`, `ymax`) within `atol`.
+        - extent equality (``xmin``, ``xmax``, ``ymin``, ``ymax``) within ``atol``.
         """
         if not isinstance(other, RasterSupport):
             raise TypeError(f"Expected RasterSupport, got {type(other)!r}.")

@@ -27,8 +27,8 @@ if __package__ in (None, ""):
     if str(_PROJECT_ROOT) not in sys.path:
         sys.path.insert(0, str(_PROJECT_ROOT))
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows

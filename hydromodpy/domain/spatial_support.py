@@ -5,7 +5,7 @@ from typing import ClassVar, Literal, Protocol
 
 import numpy as np
 
-from hydromodpy.domain.raster_support import RasterSupport
+from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
     DomainSupportConfig,

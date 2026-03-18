@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.domain.structure_binders import (
+from hydromodpy.geographic.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )
@@ -78,7 +78,7 @@ def test_apply_catchment_zones_to_domain_sets_zone(monkeypatch, tmp_path: Path) 
         )
 
     monkeypatch.setattr(
-        "hydromodpy.domain.structure_binders.build_catchment_zone_codes",
+        "hydromodpy.geographic.structure_binders.build_catchment_zone_codes",
         _fake_build_catchment_zone_codes,
     )
 
@@ -121,7 +121,7 @@ def test_apply_catchment_zones_to_domain_sets_uniform_zone(monkeypatch, tmp_path
         )
 
     monkeypatch.setattr(
-        "hydromodpy.domain.structure_binders.build_uniform_zone_codes",
+        "hydromodpy.geographic.structure_binders.build_uniform_zone_codes",
         _fake_build_uniform_zone_codes,
     )
 

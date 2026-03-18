@@ -7,8 +7,8 @@ from math import sqrt
 
 import numpy as np
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 
 

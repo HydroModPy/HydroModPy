@@ -11,7 +11,6 @@ from hydromodpy.geographic.cases import run_geographic_cases_from_toml
 from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
 from tests.support.whitebox import configure_whitebox_single_thread
 
-
 GOLDEN_REFERENCE_FILE = resolve_tiered_golden_file(
     test_file=__file__,
     filename="run_geographic_case_metrics_signatures.json",
@@ -65,7 +64,7 @@ def _load_json(path: Path) -> dict:
 
 def _write_tmp_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "run_geographic_config.toml"
-    dem_path = (REPO_ROOT / "data" / "Brittany" / "dem" / "regional dem.tif").as_posix()
+    dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_canut.tif").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
     config_path.write_text(

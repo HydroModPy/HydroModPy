@@ -1,4 +1,4 @@
-"""Domain-level catchment zonation object (3 classes: domain/buffer/core).
+"""Catchment zonation object (3 classes: domain / buffer / core).
 
 This object stores only semantic zone information and class values. It
 intentionally does not duplicate georeferencing metadata already carried by
@@ -92,4 +92,3 @@ class CatchmentZonesField:
             "zone_keys": self.zone_keys,
             "source_meta": dict(self.source_meta) if self.source_meta is not None else None,
         }
-

@@ -2,7 +2,7 @@
 
 This utility clips the global geology shapefile with the extent of the local
 demo topography raster (`demo_top_bretagne_10km.tif`) and writes outputs to a
-mirrored data structure under `data/Brittany_small_test_example/geology/`.
+mirrored data structure under `examples/data/geology/`.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ DEFAULT_SOURCE_SHP = REPO_ROOT / "data" / "France" / "geology" / "GEO1M.shp"
 DEFAULT_SOURCE_CSV = REPO_ROOT / "data" / "France" / "geology" / "geology_K_dummy_demo.csv"
 DEFAULT_SOURCE_DOC = REPO_ROOT / "data" / "France" / "geology" / "geology_K_dummy_demo_sources.md"
 DEFAULT_REFERENCE_RASTER = Path(__file__).resolve().parent / "demo_top_bretagne_10km.tif"
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "Brittany_small_test_example" / "geology"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "examples" / "data" / "geology"
 DEFAULT_OUTPUT_SHP = "GEO1M_brittany.shp"
 DEFAULT_OUTPUT_CSV = "geology_K_dummy_demo.csv"
 DEFAULT_CODE_FIELD = "CODE_LEG"
@@ -43,7 +43,7 @@ def _parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description=(
             "Clip France geology shapefile to Brittany demo extent and write a "
-            "smaller mirrored dataset under data/Brittany_small_test_example/geology."
+            "smaller mirrored dataset under examples/data/geology."
         )
     )
     parser.add_argument("--source-shp", default=str(DEFAULT_SOURCE_SHP))

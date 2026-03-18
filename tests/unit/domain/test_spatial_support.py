@@ -6,14 +6,12 @@ import numpy as np
 import pytest
 
 from hydromodpy.domain import (
-    CatchmentZonesField,
     Domain,
     DomainConfig,
-    RasterSupport,
-    Surface,
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
 )
+from hydromodpy.spatial import CatchmentZonesField, RasterSupport, Surface
 from hydromodpy.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
     GeneratedBandsSupportConfig,

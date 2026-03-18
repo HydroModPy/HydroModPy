@@ -4,7 +4,7 @@ launcher_script = "run_catchment_identification_case.py"
 
 # DEM input (must be projected in meters).
 # Replace this with your full-domain DEM path if different.
-dem_path = "../../../data/Brittany/dem/regional_dem_full.tif"
+dem_path = "../../../examples/data/dem/regional_dem.tif"
 
 # Optional clip polygon for the study region.
 # Keep it commented if you want to run on the full DEM extent.

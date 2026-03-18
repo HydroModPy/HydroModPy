@@ -28,7 +28,7 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.domain import Domain
-from hydromodpy.domain.structure_binders import build_catchment_zone_field_from_geographic
+from hydromodpy.geographic.structure_binders import build_catchment_zone_field_from_geographic
 from hydromodpy.geographic.core.domain_geographic_pipeline import (
     DomainGeographicContext,
     build_domain_geographic_context,

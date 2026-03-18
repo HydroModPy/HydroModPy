@@ -11,8 +11,8 @@ import rasterio
 from rasterio.enums import Resampling
 from rasterio.transform import from_origin
 
-from hydromodpy.domain.raster_support import RasterSupport
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.solver.utils.mesh.cartesian_grid.utils.planar_discretizer import (
     PlanarDiscretizer,
 )

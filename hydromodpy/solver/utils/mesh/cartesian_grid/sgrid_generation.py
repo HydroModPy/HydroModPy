@@ -32,7 +32,7 @@ from collections.abc import Mapping
 import numpy as np
 from flopy.discretization import StructuredGrid
 
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.surface import Surface
 from .sgrid_config import VerticalGridConfig
 
 

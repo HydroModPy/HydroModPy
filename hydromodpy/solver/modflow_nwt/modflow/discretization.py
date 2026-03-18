@@ -31,7 +31,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.domain.surface import Surface
+from hydromodpy.spatial.surface import Surface
 from hydromodpy.solver.modflow_common import GridReference, SolverGridContext, SolverMesh
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_config import (
     PlanarGridConfig,

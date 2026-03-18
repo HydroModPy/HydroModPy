@@ -2,7 +2,7 @@
 
 from launchers.process_simulation.launcher import HydroModPyLauncher
 from hydromodpy.simulation.state.run_state import LauncherRunState
-from hydromodpy.domain.structure_binders import (
+from hydromodpy.geographic.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )
