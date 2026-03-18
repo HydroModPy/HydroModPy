@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 
 import pytest
 
 from hydromodpy_annex.distribution.mesh.config import (
     load_toml_config,
+)
+from hydromodpy_annex.distribution.mesh.toml_schema import (
+    get_toml_parameter_descriptions,
 )
 from hydromodpy_annex.distribution.mesh.workflow import (
     run_visualization_from_toml,
@@ -331,6 +337,9 @@ def test_run_visualization_from_toml_writes_outputs(tmp_path: Path) -> None:
     assert summary["cell_count"] == 2
     assert summary["river_edge_count"] == 1
     assert summary["geology_available"] is True
+    assert summary["hydraulic_properties_available"] is False
+    assert summary["hydraulic_conductivity_cell_count"] == 0
+    assert summary["storage_coefficient_cell_count"] == 0
     assert summary["topography_render_mode"] == "continuous_on_nodes"
 
 
@@ -355,3 +364,106 @@ def test_load_toml_config_rejects_invalid_color_field(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="color_field"):
         load_toml_config(config_path)
+
+
+def test_toml_schema_parameter_descriptions_cover_public_keys() -> None:
+    descriptions = get_toml_parameter_descriptions()
+
+    assert "[mesh_distribution].bundle_dir" in descriptions
+    assert "dossier bundle" in descriptions["[mesh_distribution].bundle_dir"]
+
+    assert "[mesh_distribution.plot].color_field" in descriptions
+    assert "Champ utilise" in descriptions["[mesh_distribution.plot].color_field"]
+
+    assert "[mesh_distribution.plot].show_river_edges" in descriptions
+    assert "rivieres" in descriptions["[mesh_distribution.plot].show_river_edges"]
+
+
+def test_run_visualization_from_toml_accepts_missing_legacy_hydraulic_field(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    _ecrire_bundle_minimal(bundle_dir)
+
+    config_path = tmp_path / "config_hydraulic.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[mesh_distribution]",
+                'bundle_dir = "bundle"',
+                'figure_output_path = "outputs/vue_hydraulic.png"',
+                'summary_output_path = "outputs/resume_hydraulic.json"',
+                "show_window = false",
+                "",
+                "[mesh_distribution.plot]",
+                'color_field = "hydraulic_conductivity_m_s"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = run_visualization_from_toml(config_path)
+
+    assert (tmp_path / "outputs" / "vue_hydraulic.png").exists()
+    assert summary["color_field"] == "hydraulic_conductivity_m_s"
+    assert summary["hydraulic_properties_available"] is False
+    assert summary["hydraulic_conductivity_available"] is False
+    assert summary["hydraulic_conductivity_cell_count"] == 0
+
+
+def test_run_visualization_script_from_distributed_folder(tmp_path: Path) -> None:
+    bundle_dir = tmp_path / "sample_bundle"
+    _ecrire_bundle_minimal(bundle_dir)
+
+    distribution_root = tmp_path / "distribution_package"
+    mesh_source_dir = (
+        Path(__file__).resolve().parents[3] / "hydromodpy_annex" / "distribution" / "mesh"
+    )
+    mesh_target_dir = distribution_root / "hydromodpy_annex" / "distribution" / "mesh"
+    shutil.copytree(mesh_source_dir, mesh_target_dir)
+    (distribution_root / "hydromodpy_annex" / "__init__.py").write_text(
+        '"""Paquet minimal de distribution de test."""\n',
+        encoding="utf-8",
+    )
+    (distribution_root / "hydromodpy_annex" / "distribution" / "__init__.py").write_text(
+        '"""Sous-paquet minimal de distribution de test."""\n',
+        encoding="utf-8",
+    )
+
+    config_path = distribution_root / "config_distributed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[mesh_distribution]",
+                'bundle_dir = "../sample_bundle"',
+                'figure_output_path = "outputs/vue_dist.png"',
+                'summary_output_path = "outputs/resume_dist.json"',
+                "show_window = false",
+                "",
+                "[mesh_distribution.plot]",
+                'color_field = "hydraulic_conductivity_m_s"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(mesh_target_dir / "run_visualization.py"),
+            "--config",
+            str(config_path),
+        ],
+        cwd=str(distribution_root),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert (distribution_root / "outputs" / "vue_dist.png").exists()
+    summary = json.loads(completed.stdout)
+    assert summary["hydraulic_conductivity_cell_count"] == 0
+    assert summary["hydraulic_properties_available"] is False

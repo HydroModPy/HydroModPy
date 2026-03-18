@@ -53,12 +53,29 @@ Ce choix apporte plusieurs avantages :
 Autrement dit, ce code de distribution depend d'abord du bundle lui-meme,
 pas de l'arborescence complete du projet source.
 
+## Confiance et securite
+
+Le point a comprendre avant diffusion externe est le suivant :
+
+- `distribution/mesh` execute bien le fichier `reader.py` present dans le
+  bundle ;
+- ce fichier est du code Python, pas un format de donnees passif.
+
+Consequence pratique :
+
+- il faut distribuer seulement des bundles de confiance ;
+- le destinataire doit considerer `reader.py` comme du code executable ;
+- si le contexte est sensible, il faut preferer une distribution interne, ou
+  a minima accompagner le bundle d'un hash ou d'un canal de validation.
+
 ## Arborescence du sous-outil
 
 - [models.py](/c:/codes/HydroModPy-GH/hydromodpy_annex/distribution/mesh/models.py)
   Definit les dataclasses, protocoles et constantes partages.
 - [config.py](/c:/codes/HydroModPy-GH/hydromodpy_annex/distribution/mesh/config.py)
   Lit et valide le TOML.
+- [toml_schema.py](/c:/codes/HydroModPy-GH/hydromodpy_annex/distribution/mesh/toml_schema.py)
+  Porte le schema Pydantic du TOML et les descriptions courtes des parametres.
 - [bundle_loading.py](/c:/codes/HydroModPy-GH/hydromodpy_annex/distribution/mesh/bundle_loading.py)
   Charge `reader.py` du bundle et reconstruit l'objet de travail.
 - [summary.py](/c:/codes/HydroModPy-GH/hydromodpy_annex/distribution/mesh/summary.py)
@@ -94,6 +111,77 @@ Le bundle doit contenir typiquement :
 
 Le fichier `reader.py` est obligatoire dans cette logique de distribution,
 car c'est lui qui sait reconstruire en memoire les classes Python du bundle.
+
+## Archive recommandee
+
+Pour une diffusion propre, le plus simple est de preparer une archive avec une
+arborescence explicite, par exemple :
+
+```text
+mesh_distribution_package/
+  hydromodpy_annex/
+    distribution/
+      mesh/
+        README.md
+        environment.yml
+        run_visualization.py
+        config.py
+        bundle_loading.py
+        models.py
+        summary.py
+        visualization.py
+        workflow.py
+        examples/
+          config_example.toml
+  sample_bundle/
+    mesh_2d.msh
+    nodes.csv
+    cells.csv
+    edges.csv
+    cell_geology_fractions.csv
+    metadata.json
+    mesh_summary.json
+    reader.py
+  config_distribution.toml
+```
+
+Fichier `config_distribution.toml` conseille :
+
+```toml
+[mesh_distribution]
+bundle_dir = "sample_bundle"
+figure_output_path = "outputs/apercu_maillage.png"
+summary_output_path = "outputs/resume_apercu_maillage.json"
+show_window = false
+
+[mesh_distribution.plot]
+color_field = "geology_key"
+color_map = "tab20"
+show_topography_panel = true
+```
+
+Contenu recommande de l'archive :
+
+- le dossier `hydromodpy_annex/distribution/mesh` ;
+- un ou plusieurs bundles a partager ;
+- un TOML deja renseigne pour le ou les bundles fournis ;
+- eventuellement un court `README_distribution.md` specifique au cas livre.
+
+Contenu a ne pas inclure dans l'archive :
+
+- l'ensemble du depot HydroModPy si seul le viewer est necessaire ;
+- des dossiers `outputs/` deja generes, sauf si vous voulez aussi livrer les
+  figures comme reference ;
+- des dossiers temporaires, caches Python ou artefacts de test ;
+- des bundles non verifies ou obsoletes qui risqueraient de creer de la
+  confusion.
+
+Convention pratique recommandee :
+
+- un bundle par dossier ;
+- un TOML par bundle si les reglages de rendu changent ;
+- un nom d'archive qui porte a la fois le nom du bassin et une date ou version,
+  par exemple `mesh_nancon_bundle_2026-03-18.zip`.
 
 ## Structure detaillee du bundle
 
@@ -354,10 +442,11 @@ le code se replie automatiquement sur un rendu par cellule avec
 
 ## Installation
 
-Depuis la racine du depot :
+Depuis le dossier distribue contenant ce sous-outil :
 
 ```bash
-conda env create -f hydromodpy_annex/distribution/mesh/environment.yml
+cd hydromodpy_annex/distribution/mesh
+conda env create -f environment.yml
 conda activate hydromodpy-distribution-mesh
 ```
 
@@ -366,11 +455,27 @@ necessaire pour :
 
 - executer Python ;
 - lire le TOML avec la bibliotheque standard ;
+- valider le TOML via le schema Pydantic ;
 - construire les figures matplotlib.
+
+Si vous travaillez encore depuis le depot HydroModPy, la commande equivalente
+depuis la racine reste valide :
+
+```bash
+conda env create -f hydromodpy_annex/distribution/mesh/environment.yml
+conda activate hydromodpy-distribution-mesh
+```
 
 ## Lancement
 
-Commande standard :
+Commande standard depuis le dossier distribue :
+
+```bash
+cd hydromodpy_annex/distribution/mesh
+python run_visualization.py --config examples/config_example.toml
+```
+
+Commande equivalente depuis la racine du depot :
 
 ```bash
 python hydromodpy_annex/distribution/mesh/run_visualization.py --config hydromodpy_annex/distribution/mesh/examples/config_example.toml
@@ -390,7 +495,7 @@ Exemple minimal :
 
 ```toml
 [mesh_distribution]
-bundle_dir = "C:/results/HydromodPy/mesh_catchment_bretagne_outlet_34/results_stable/mesh/gmsh/mesh_catchment_outlet_34_bundle"
+bundle_dir = "../sample_bundle"
 figure_output_path = "outputs/apercu_maillage.png"
 summary_output_path = "outputs/resume_apercu_maillage.json"
 show_window = false
@@ -413,6 +518,10 @@ annotate_cell_ids = false
 Les fichiers TOML doivent utiliser uniquement les noms anglais du contrat
 courant.
 
+Les commentaires fournis dans les TOML d'exemple sont alignes sur les
+descriptions du schema Pydantic defini dans
+[toml_schema.py](/c:/codes/HydroModPy-GH/hydromodpy_annex/distribution/mesh/toml_schema.py).
+
 ## Champs disponibles
 
 Pour `color_field` :
@@ -424,6 +533,12 @@ Pour `color_field` :
 - `z_top_centroid`
 - `hydraulic_conductivity_m_s`
 - `storage_coefficient`
+
+Note :
+
+- certains bundles plus anciens ne portent pas encore les champs hydrauliques ;
+- dans ce cas, le viewer affiche un fond neutre au lieu de planter ;
+- le resume JSON signale alors une couverture hydraulique nulle.
 
 Pour `topography_field` :
 
@@ -438,6 +553,9 @@ Le resume ecrit par l'outil utilise des cles en anglais, par exemple :
 - `cell_count`
 - `edge_count`
 - `geology_available`
+- `hydraulic_properties_available`
+- `hydraulic_conductivity_cell_count`
+- `storage_coefficient_cell_count`
 - `topography_render_mode`
 
 L'objectif est d'avoir une API de distribution coherente avec des identifiants

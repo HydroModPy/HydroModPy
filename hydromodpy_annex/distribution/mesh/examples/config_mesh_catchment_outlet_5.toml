@@ -1,19 +1,16 @@
 [mesh_distribution]
 # Chemin vers le dossier bundle a relire.
-# Il peut etre absolu ou relatif au fichier TOML.
-# Le dossier cible doit contenir `reader.py`, qui sera charge dynamiquement.
-bundle_dir = "../sample_bundle"
+# Ici, on pointe directement vers un bundle deja exporte dans C:/results/HydromodPy.
+bundle_dir = "C:/results/HydromodPy/mesh_catchment_full_mnt_100basins_1000km2_outlet_5/results_stable/mesh/gmsh/mesh_catchment_outlet_5_bundle"
 
 # Chemin optionnel du PNG de synthese a ecrire.
-# Si absent, aucune figure n'est enregistree sur disque.
-figure_output_path = "../outputs/apercu_maillage.png"
+figure_output_path = "C:/results/HydromodPy/mesh_catchment_full_mnt_100basins_1000km2_outlet_5/results_stable/mesh/gmsh/distribution_mesh_overview.png"
 
 # Chemin optionnel du resume JSON a ecrire.
-# Si absent, aucun JSON n'est enregistre sur disque.
-summary_output_path = "../outputs/resume_apercu_maillage.json"
+summary_output_path = "C:/results/HydromodPy/mesh_catchment_full_mnt_100basins_1000km2_outlet_5/results_stable/mesh/gmsh/distribution_mesh_overview.json"
 
 # Ouvre ou non une fenetre matplotlib interactive a la fin de l'execution.
-show_window = false
+show_window = true
 
 [mesh_distribution.plot]
 # Champ utilise pour colorer les cellules du panneau structurel.
@@ -25,8 +22,6 @@ show_window = false
 #   "storage_coefficient"
 #   "z_top_centroid"
 #   "z_top_mean"
-# Si un bundle ancien ne porte pas un champ hydraulique demande, le viewer
-# affiche un fond neutre et le resume JSON signale que le champ est absent.
 color_field = "geology_key"
 
 # Nom de palette matplotlib applique au champ `color_field`.
@@ -39,7 +34,6 @@ figure_size = [16.0, 8.0]
 dpi = 170
 
 # Titre explicite du panneau principal.
-# Si absent, un titre automatique est construit a partir de `color_field`.
 title = "Structure du maillage et geologie"
 
 # Active ou non le panneau topographique situe a droite de la figure.
@@ -56,14 +50,12 @@ topography_field = "z_top_mean"
 topography_cmap = "terrain"
 
 # Titre explicite du panneau topographique.
-# Si absent, un titre automatique est construit.
 topography_title = "Vue topographique type MNT"
 
 # Affiche ou masque les aretes du maillage dans les panneaux.
 show_mesh_edges = true
 
 # Couleur matplotlib des aretes du maillage.
-# Exemple : un niveau de gris "0.30" ou un nom de couleur.
 mesh_edge_color = "0.30"
 
 # Epaisseur des aretes du maillage en points.
