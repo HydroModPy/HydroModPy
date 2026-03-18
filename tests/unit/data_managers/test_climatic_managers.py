@@ -16,10 +16,8 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.data_managers.common.base_field_manager import (
-    BaseFieldManager,
-    _bbox_hash,
-)
+from hydromodpy.data_managers.common.base_field_manager import BaseFieldManager
+from hydromodpy.data_managers.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data_managers.common.custom_grid_loader import (
     _find_coord,
     _find_time_dim,

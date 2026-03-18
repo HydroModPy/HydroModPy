@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 from pathlib import Path
 from typing import Sequence
 
 from hydromodpy.data_managers.contracts.location import StationLocation
+
+
+def bbox_hash(bbox: tuple) -> str:
+    """Short deterministic hash of a bounding box for filenames."""
+    s = f"{bbox[0]:.6f}_{bbox[1]:.6f}_{bbox[2]:.6f}_{bbox[3]:.6f}"
+    return hashlib.md5(s.encode()).hexdigest()[:8]
 
 
 def bbox_contains(outer: tuple, inner: tuple) -> bool:

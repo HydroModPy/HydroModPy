@@ -7,6 +7,7 @@ shared ``api_helpers`` module and converts raw JSON to the standard contract.
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timedelta
 from typing import Optional, Sequence
@@ -14,6 +15,8 @@ from typing import Optional, Sequence
 import pandas as pd
 
 from hydromodpy.data_managers.common.api_helpers import check_status, get_json
+
+logger = logging.getLogger(__name__)
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
@@ -81,7 +84,7 @@ def fetch(
         if not ids and fallback_search_radius_km:
             from hydromodpy.data_managers.common.geo_helpers import expand_bbox
             expanded = expand_bbox(bbox, fallback_search_radius_km)
-            print(f"  Hub'Eau: no stations in bbox, expanding by {fallback_search_radius_km} km")
+            logger.info("Hub'Eau: no stations in bbox, expanding by %s km", fallback_search_radius_km)
             ids = _discover_stations_in_bbox(
                 expanded, date_start=date_start, date_end=date_end,
                 require_observations=require_observations,
@@ -90,14 +93,14 @@ def fetch(
         raise ValueError("Either bbox or station_ids must be provided.")
 
     if not ids:
-        print("  Hub'Eau: no stations found.")
+        logger.info("Hub'Eau: no stations found.")
         return []
 
-    print(f"  Hub'Eau: loading {product} for {len(ids)} stations [{date_start:%Y-%m-%d} -> {date_end:%Y-%m-%d}]")
+    logger.info("Hub'Eau: loading %s for %d stations [%s -> %s]", product, len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
 
     records: list[PointRecord] = []
     for idx, sid in enumerate(ids):
-        print(f"  [{idx + 1}/{len(ids)}] Station {sid}")
+        logger.info("[%d/%d] Station %s", idx + 1, len(ids), sid)
 
         location = _fetch_station_location(sid)
         obs_df = _download_observations(sid, product, date_start, date_end)
@@ -119,7 +122,7 @@ def fetch(
             )
         )
 
-    print(f"  Hub'Eau: {len(records)} station records loaded.")
+    logger.info("Hub'Eau: %d station records loaded.", len(records))
     return records
 
 

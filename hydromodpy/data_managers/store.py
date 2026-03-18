@@ -193,6 +193,41 @@ class DataStore:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    # Registry: variable_name → (module_path, class_name)
+    _MANAGER_REGISTRY: dict[str, tuple[str, str]] = {
+        "hydrometry": ("hydromodpy.data_managers.variables.hydrometry.manager", "HydrometryManager"),
+        "piezometry": ("hydromodpy.data_managers.variables.piezometry.manager", "PiezometryManager"),
+        "water_quality": ("hydromodpy.data_managers.variables.water_quality.manager", "WaterQualityManager"),
+        "intermittency": ("hydromodpy.data_managers.variables.intermittency.manager", "IntermittencyManager"),
+        "recharge": ("hydromodpy.data_managers.variables.recharge.manager", "RechargeManager"),
+        "runoff": ("hydromodpy.data_managers.variables.runoff.manager", "RunoffManager"),
+        "precipitation": ("hydromodpy.data_managers.variables.precipitation.manager", "PrecipitationManager"),
+        "etp": ("hydromodpy.data_managers.variables.etp.manager", "EtpManager"),
+        "temperature": ("hydromodpy.data_managers.variables.temperature.manager", "TemperatureManager"),
+        "wind": ("hydromodpy.data_managers.variables.wind.manager", "WindManager"),
+        "humidity": ("hydromodpy.data_managers.variables.humidity.manager", "HumidityManager"),
+        "radiation": ("hydromodpy.data_managers.variables.radiation.manager", "RadiationManager"),
+        "soil_moisture": ("hydromodpy.data_managers.variables.soil_moisture.manager", "SoilMoistureManager"),
+    }
+
+    def _load_variable(self, variable_name: str, config, **extra_kwargs) -> LoadResult:
+        """Instantiate the right manager and load data."""
+        import importlib
+        entry = self._MANAGER_REGISTRY.get(variable_name)
+        if entry is None:
+            raise ValueError(f"Unknown variable: {variable_name}")
+        module_path, class_name = entry
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+        mgr = cls(
+            config=config, catalog=self.catalog,
+            project_extent=self.project_extent,
+            project_period=self.project_period,
+            data_dir=self._data_dir(variable_name),
+            **extra_kwargs,
+        )
+        return mgr.load()
+
     def load_hydrography(self, config, *, geographic, out_path):
         """Load hydrography data (vector or raster) with catalog caching."""
         from hydromodpy.data_managers.variables.hydrography.manager import HydrographyManager
@@ -202,135 +237,44 @@ class DataStore:
         )
         return mgr.load()
 
-    def load_intermittency(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.intermittency.manager import IntermittencyManager
-        mgr = IntermittencyManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("intermittency"),
-        )
-        return mgr.load()
-
     def load_hydrometry(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.hydrometry.manager import HydrometryManager
-        mgr = HydrometryManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("hydrometry"),
-        )
-        return mgr.load()
+        return self._load_variable("hydrometry", config)
 
     def load_piezometry(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.piezometry.manager import PiezometryManager
-        mgr = PiezometryManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("piezometry"),
-        )
-        return mgr.load()
+        return self._load_variable("piezometry", config)
 
     def load_water_quality(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.water_quality.manager import WaterQualityManager
-        mgr = WaterQualityManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("water_quality"),
-        )
-        return mgr.load()
+        return self._load_variable("water_quality", config)
+
+    def load_intermittency(self, config) -> LoadResult:
+        return self._load_variable("intermittency", config)
 
     def load_recharge(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.recharge.manager import RechargeManager
-        mgr = RechargeManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("recharge"),
-        )
-        return mgr.load()
+        return self._load_variable("recharge", config)
 
     def load_runoff(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.runoff.manager import RunoffManager
-        mgr = RunoffManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("runoff"),
-        )
-        return mgr.load()
+        return self._load_variable("runoff", config)
 
     def load_precipitation(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.precipitation.manager import PrecipitationManager
-        mgr = PrecipitationManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("precipitation"),
-        )
-        return mgr.load()
+        return self._load_variable("precipitation", config)
 
     def load_etp(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.etp.manager import EtpManager
-        mgr = EtpManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("etp"),
-        )
-        return mgr.load()
+        return self._load_variable("etp", config)
 
     def load_temperature(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.temperature.manager import TemperatureManager
-        mgr = TemperatureManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("temperature"),
-        )
-        return mgr.load()
+        return self._load_variable("temperature", config)
 
     def load_wind(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.wind.manager import WindManager
-        mgr = WindManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("wind"),
-        )
-        return mgr.load()
+        return self._load_variable("wind", config)
 
     def load_humidity(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.humidity.manager import HumidityManager
-        mgr = HumidityManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("humidity"),
-        )
-        return mgr.load()
+        return self._load_variable("humidity", config)
 
     def load_radiation(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.radiation.manager import RadiationManager
-        mgr = RadiationManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("radiation"),
-        )
-        return mgr.load()
+        return self._load_variable("radiation", config)
 
     def load_soil_moisture(self, config) -> LoadResult:
-        from hydromodpy.data_managers.variables.soil_moisture.manager import SoilMoistureManager
-        mgr = SoilMoistureManager(
-            config=config, catalog=self.catalog,
-            project_extent=self.project_extent,
-            project_period=self.project_period,
-            data_dir=self._data_dir("soil_moisture"),
-        )
-        return mgr.load()
+        return self._load_variable("soil_moisture", config)
 
     def cache_info(self, variable: str | None = None) -> pd.DataFrame:
         """Show catalog entries."""

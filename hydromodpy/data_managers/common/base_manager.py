@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
@@ -15,6 +16,8 @@ from hydromodpy.data_managers.common.validation import compute_completeness
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
+
+logger = logging.getLogger(__name__)
 
 
 # Map VARIABLE_NAME to file prefix used in naming convention.
@@ -88,6 +91,48 @@ class BaseVariableManager(ABC):
     def _fetch_from_source(self, source_cfg: Any) -> Any:
         """Dispatch to the right loader (custom or API)."""
         ...
+
+    # ------------------------------------------------------------------
+    # Bbox resolution and spatial mask (Hub'Eau expects WGS84)
+    # ------------------------------------------------------------------
+
+    def _resolve_bbox(self, source_cfg) -> tuple | None:
+        """Get WGS84 bbox from mask or project extent (Hub'Eau expects lon/lat)."""
+        if source_cfg.mask_path:
+            from hydromodpy.data_managers.common.geo_helpers import (
+                load_mask_geometry_wgs84, geometry_to_bbox,
+            )
+            geom = load_mask_geometry_wgs84(source_cfg.mask_path)
+            return geometry_to_bbox(geom)
+        if source_cfg.extent and self.project_extent:
+            return self.project_extent
+        return None
+
+    def _apply_mask(self, records: list[PointRecord], source_cfg) -> list[PointRecord]:
+        """Filter records by spatial mask (reprojected to WGS84)."""
+        if not source_cfg.mask_path:
+            return records
+        from hydromodpy.data_managers.common.geo_helpers import (
+            load_mask_geometry_wgs84, filter_locations_by_geometry,
+        )
+        geom = load_mask_geometry_wgs84(source_cfg.mask_path)
+        locs_to_check = [r.location for r in records if r.location is not None]
+        inside = filter_locations_by_geometry(locs_to_check, geom)
+        valid_ids = {loc.id for loc in inside}
+        return [
+            r for r in records
+            if r.location is None or r.station_id in valid_ids
+        ]
+
+    def _resolve_nearest_to(self, source_cfg) -> tuple[float, float] | None:
+        """Compute centroid of the project extent for nearest-station search."""
+        bbox = self._resolve_bbox(source_cfg)
+        if bbox is None and self.project_extent is not None:
+            bbox = self.project_extent
+        if bbox is None:
+            return None
+        xmin, ymin, xmax, ymax = bbox
+        return ((xmin + xmax) / 2, (ymin + ymax) / 2)
 
     # ------------------------------------------------------------------
     # Smart cache: partial coverage detection + merge

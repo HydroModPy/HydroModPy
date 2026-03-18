@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
-from typing import Annotated
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.config.path_resolution import resolve_declared_path
+from hydromodpy.data_managers.common.base_config import BaseVariableConfig
 
 
 class PiezometrySourceConfig(BaseModel):
@@ -79,67 +76,11 @@ class PiezometrySourceConfig(BaseModel):
         return self
 
 
-class PiezometryConfig(BaseModel):
+class PiezometryConfig(BaseVariableConfig):
     """Top-level piezometry configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    _TOML_SECTION = "piezometry"
 
     sources: Annotated[list[PiezometrySourceConfig], ParamLevel("user")] = Field(
         ..., min_length=1, description="At least one data source."
     )
-    date_start: Annotated[Optional[str], ParamLevel("user")] = Field(
-        default=None, description="Project start date (ISO format, e.g. '2019-01-01')."
-    )
-    date_end: Annotated[Optional[str], ParamLevel("user")] = Field(
-        default=None, description="Project end date (ISO format, e.g. '2025-12-31')."
-    )
-
-    @field_validator("date_start", "date_end", mode="after")
-    @classmethod
-    def _validate_iso_date(cls, v: str | None) -> str | None:
-        if v is not None and v != "":
-            from datetime import datetime
-            try:
-                datetime.fromisoformat(v)
-            except ValueError:
-                raise ValueError(f"Invalid ISO date: '{v}'. Expected YYYY-MM-DD.")
-        return v
-
-    @model_validator(mode="after")
-    def _check_date_order(self) -> "PiezometryConfig":
-        if self.date_start and self.date_end:
-            from datetime import datetime
-            if datetime.fromisoformat(self.date_start) >= datetime.fromisoformat(self.date_end):
-                raise ValueError("date_start must be before date_end")
-        return self
-
-    @classmethod
-    def from_toml(cls, path: str | Path) -> "PiezometryConfig":
-        """Load config from a TOML file.
-
-        Relative paths (``path``, ``mask_path``) are resolved relative
-        to the TOML file's directory.
-        """
-        path = Path(path).resolve()
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:
-            try:
-                import tomllib
-            except ModuleNotFoundError:
-                import tomli as tomllib
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
-        section = data.get("piezometry", data)
-        cfg = cls.model_validate(section)
-        _resolve_paths(cfg, path.parent)
-        return cfg
-
-
-def _resolve_paths(cfg: "PiezometryConfig", toml_dir: Path) -> None:
-    """Resolve relative paths in source configs relative to the TOML directory."""
-    for src in cfg.sources:
-        if src.path is not None:
-            src.path = resolve_declared_path(src.path, base_dir=toml_dir)
-        if src.mask_path is not None:
-            src.mask_path = resolve_declared_path(src.mask_path, base_dir=toml_dir)
