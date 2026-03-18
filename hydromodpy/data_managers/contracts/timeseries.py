@@ -32,6 +32,7 @@ class PointRecord:
     location: Optional[StationLocation] = None
     is_constant: bool = False
     file_path: Optional[Path] = None
+    source_unit: Optional[str] = None
 
     def __post_init__(self):
         missing = [c for c in REQUIRED_COLUMNS if c not in self.data.columns]
@@ -68,4 +69,5 @@ class PointRecord:
             location=self.location,
             is_constant=self.is_constant,
             file_path=self.file_path,
+            source_unit=self.source_unit,
         )

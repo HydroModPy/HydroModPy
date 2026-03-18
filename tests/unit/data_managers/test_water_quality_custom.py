@@ -71,3 +71,4 @@ class TestWaterQualityCustomConstant:
         assert len(records) == 1
         assert records[0].data["value"].iloc[0] == pytest.approx(2.5)
         assert records[0].unit == "mg/L"
+        assert records[0].source_unit == "ug/l"

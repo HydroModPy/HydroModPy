@@ -37,6 +37,7 @@ def _make_record(station_id, x, y, n=10, variable="discharge"):
         date_start=datetime(2020, 1, 1),
         date_end=datetime(2020, 1, n),
         location=StationLocation(id=station_id, x=x, y=y, crs="EPSG:4326"),
+        source_unit="L/s",
     )
 
 
@@ -122,14 +123,17 @@ class TestCSVExport:
         meta = pd.read_csv(result["metadata"])
         assert len(meta) == 2
         assert "station_id" in meta.columns
+        assert "source_unit" in meta.columns
         assert "x" in meta.columns
         assert "y" in meta.columns
+        assert meta.loc[0, "source_unit"] == "L/s"
 
         # Check TOC CSV
         toc = pd.read_csv(result["table_of_contents"])
         assert len(toc) == 2
         assert "file" in toc.columns
         assert "n_records" in toc.columns
+        assert "source_unit" in toc.columns
 
         # Check chronicle CSV
         chron = pd.read_csv(result["chronicle_S1"])

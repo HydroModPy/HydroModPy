@@ -61,6 +61,8 @@ class TestPointRecord:
             station_id="S1", variable="discharge", source="custom",
             unit="m3/s", frequency="D", data=df,
             date_start=datetime(2020, 1, 1), date_end=datetime(2020, 1, 30),
+            source_unit="L/s",
         )
         filtered = rec.filter_by_period(datetime(2020, 1, 5), datetime(2020, 1, 15))
         assert filtered.n_records == 11  # 5th to 15th inclusive
+        assert filtered.source_unit == "L/s"
