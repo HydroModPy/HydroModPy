@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
+from hydromodpy.support.units import factor_to_m_per_s
+
 if TYPE_CHECKING:
     from hydromodpy.data_managers.contracts.load_result import LoadResult
     from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
@@ -27,9 +29,6 @@ if TYPE_CHECKING:
     from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
 
 logger = logging.getLogger(__name__)
-
-# mm/day -> m/s
-_MM_PER_DAY_TO_M_PER_S = 1.0 / (1000.0 * 86400.0)
 
 InterpolationMethod = Literal["nearest", "linear", "idw"]
 
@@ -349,17 +348,14 @@ def _discretize_one_field_record(
 
 def _unit_to_m_per_s_factor(unit: str) -> float:
     """Return multiplication factor to convert from *unit* to m/s."""
-    u = unit.strip().lower().replace(" ", "")
-    if u in ("mm/day", "mm/d", "mm/jour"):
-        return _MM_PER_DAY_TO_M_PER_S
-    if u in ("m/day", "m/d", "m/jour"):
-        return 1.0 / 86400.0
-    if u in ("m/s",):
-        return 1.0
-    if u in ("mm/s",):
-        return 1.0e-3
-    logger.warning("Unknown unit '%s'; assuming mm/day.", unit)
-    return _MM_PER_DAY_TO_M_PER_S
+    token = "".join(str(unit).strip().lower().split())
+    french_aliases = {
+        "mm/jour": "mm/day",
+        "cm/jour": "cm/day",
+        "m/jour": "m/day",
+    }
+    resolved_unit = french_aliases.get(token, unit)
+    return factor_to_m_per_s(resolved_unit)
 
 
 def _interp_2d(
