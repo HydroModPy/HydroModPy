@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 
 from hydromodpy.display.options import DisplayOptions, DisplaySectionOptions
@@ -27,7 +28,7 @@ def _build_result(
 
     class _Result:
         setup = SimpleNamespace(geographic=geographic, workspace=workspace)
-        loaded_data = SimpleNamespace(hydrography=hydrography, recharge=None)
+        loaded_data = SimpleNamespace(hydrometry=None, hydrography=hydrography, recharge=None, piezometry=None)
         cfg = SimpleNamespace(workspace=SimpleNamespace(data_path=Path(".")))
 
         @staticmethod
@@ -52,7 +53,7 @@ def test_plot_flow_suite_uses_solver_base_raster(monkeypatch) -> None:
     )
     result = _build_result(flow_model=flow_model)
 
-    captured: list[Path] = []
+    captured_dem: list[Path] = []
     monkeypatch.setattr(
         "hydromodpy.display.suites._load_flow_timeseries",
         lambda result: pd.DataFrame({"dummy": [0.0]}),
@@ -61,11 +62,16 @@ def test_plot_flow_suite_uses_solver_base_raster(monkeypatch) -> None:
         "hydromodpy.display.suites._load_observed_streamflow",
         lambda result: pd.DataFrame({"Q": [0.0]}),
     )
+    # Mock _extract_cross_section_data to capture the DEM path
     monkeypatch.setattr(
-        "hydromodpy.display.suites.plot_cross_section",
-        lambda **kwargs: captured.append(kwargs["watershed_dem_path"]),
+        "hydromodpy.display.suites._extract_cross_section_data",
+        lambda dem_path, wt_path, x_index=None: (
+            captured_dem.append(dem_path),
+            (np.array([0.0]), np.array([0.0]), np.array([0.0])),
+        )[1],
     )
-    monkeypatch.setattr("hydromodpy.display.suites.plot_streamflow", lambda **kwargs: None)
+    monkeypatch.setattr("hydromodpy.display.suites.plot_cross_section", lambda **kwargs: None)
+    monkeypatch.setattr("hydromodpy.display.suites.plot_discharge", lambda **kwargs: None)
     monkeypatch.setattr("hydromodpy.display.suites.plot_piezometry", lambda **kwargs: None)
 
     options = DisplayOptions(
@@ -84,7 +90,7 @@ def test_plot_flow_suite_uses_solver_base_raster(monkeypatch) -> None:
 
     plot_flow_suite(result, options)
 
-    assert captured == [Path("solver_grid_template.tif")]
+    assert captured_dem == [Path("solver_grid_template.tif")]
 
 
 def test_plot_particles_suite_uses_solver_base_raster(monkeypatch) -> None:
@@ -95,9 +101,16 @@ def test_plot_particles_suite_uses_solver_base_raster(monkeypatch) -> None:
     result = _build_result(flow_model=flow_model)
 
     captured: list[Path] = []
+
+    # Mock geopandas.read_file (imported inside the function)
+    _dummy_gdf = SimpleNamespace()
     monkeypatch.setattr(
-        "hydromodpy.display.suites.plot_pathlines",
-        lambda **kwargs: captured.append(kwargs["dem_raster"]),
+        "geopandas.read_file",
+        lambda path, **kw: _dummy_gdf,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.display.suites.plot_pathlines_map",
+        lambda **kwargs: captured.append(kwargs["dem_path"]),
     )
 
     options = DisplayOptions(

@@ -1,0 +1,218 @@
+"""Tests for the generic figure functions in hydromodpy.display.figures."""
+from __future__ import annotations
+
+import matplotlib
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+
+
+class TestCrossSection:
+    def test_render_cross_section_draws_on_axes(self):
+        from hydromodpy.display.figures.cross_section import render_cross_section
+
+        fig, ax = plt.subplots()
+        x = np.arange(10, dtype=float)
+        dem = np.linspace(50, 20, 10)
+        wt = np.linspace(45, 15, 10)
+        render_cross_section(ax, dem_section=dem, wt_section=wt, x_coords=x)
+        assert len(ax.lines) > 0
+        plt.close(fig)
+
+    def test_render_cross_section_handles_nan(self):
+        from hydromodpy.display.figures.cross_section import render_cross_section
+
+        fig, ax = plt.subplots()
+        x = np.arange(5, dtype=float)
+        dem = np.array([np.nan, np.nan, np.nan, np.nan, np.nan])
+        wt = np.array([np.nan, np.nan, np.nan, np.nan, np.nan])
+        render_cross_section(ax, dem_section=dem, wt_section=wt, x_coords=x)
+        plt.close(fig)
+
+
+class TestDischarge:
+    def test_render_discharge_overview_mode(self):
+        from hydromodpy.display.figures.timeseries import render_discharge
+
+        fig, ax = plt.subplots()
+        dates = pd.date_range("2020-01-01", periods=12, freq="ME")
+        df = pd.DataFrame({"station_A": np.random.rand(12)}, index=dates)
+        render_discharge(ax, observed_df=df)
+        assert ax.get_title() == "Observed discharge"
+        plt.close(fig)
+
+    def test_render_discharge_simulation_mode(self):
+        from hydromodpy.display.figures.timeseries import render_discharge
+
+        fig, ax = plt.subplots()
+        dates = pd.date_range("2020-01-01", periods=12, freq="ME")
+        obs = pd.Series(np.random.rand(12), index=dates, name="Q")
+        sim = pd.Series(np.random.rand(12), index=dates)
+        render_discharge(ax, observed_df=obs, simulated_series=sim, model_label="TEST")
+        assert ax.get_title() == "TEST"
+        plt.close(fig)
+
+    def test_render_discharge_empty(self):
+        from hydromodpy.display.figures.timeseries import render_discharge
+
+        fig, ax = plt.subplots()
+        render_discharge(ax)
+        # Should show "No discharge data" text
+        texts = [t.get_text() for t in ax.texts]
+        assert any("No discharge" in t for t in texts)
+        plt.close(fig)
+
+
+class TestPiezometry:
+    def test_render_piezometry_overview_mode(self):
+        from hydromodpy.display.figures.timeseries import render_piezometry
+
+        fig, ax = plt.subplots()
+        dates = pd.date_range("2020-01-01", periods=12, freq="ME")
+        df = pd.DataFrame({"well_1": np.random.rand(12)}, index=dates)
+        render_piezometry(ax, observed_df=df)
+        assert "piezometric" in ax.get_title().lower()
+        plt.close(fig)
+
+    def test_render_piezometry_simulation_mode(self):
+        from hydromodpy.display.figures.timeseries import render_piezometry
+
+        fig, ax = plt.subplots()
+        dates = pd.date_range("2020-01-01", periods=12, freq="ME")
+        sim = pd.Series(np.random.rand(12), index=dates)
+        render_piezometry(ax, simulated_series=sim, model_label="NWT")
+        assert ax.get_title() == "NWT"
+        plt.close(fig)
+
+
+class TestClimaticSummary:
+    def test_render_climatic_summary_with_data(self):
+        from hydromodpy.display.figures.timeseries import render_climatic_summary
+
+        fig, ax = plt.subplots()
+        precip = {m: float(m * 10) for m in range(1, 13)}
+        etp = {m: float(m * 5) for m in range(1, 13)}
+        render_climatic_summary(ax, monthly_precip=precip, monthly_etp=etp)
+        assert len(ax.patches) > 0  # bars were drawn
+        plt.close(fig)
+
+    def test_render_climatic_summary_empty(self):
+        from hydromodpy.display.figures.timeseries import render_climatic_summary
+
+        fig, ax = plt.subplots()
+        render_climatic_summary(ax)
+        texts = [t.get_text() for t in ax.texts]
+        assert any("No climatic" in t for t in texts)
+        plt.close(fig)
+
+
+class TestIntermittency:
+    def test_render_intermittency_single_station(self):
+        from hydromodpy.display.figures.timeseries import render_intermittency
+
+        fig, ax = plt.subplots()
+        df = pd.DataFrame({
+            "datetime": pd.date_range("2020-01-01", periods=5, freq="ME"),
+            "station_id": ["S1"] * 5,
+            "value": [1, 2, 3, 4, 5],
+        })
+        render_intermittency(ax, records_df=df, station_id="S1")
+        # Title can be in _left_title (ultraplot) or main title (mpl)
+        titles = [ax.get_title(), ax.get_title(loc="left")]
+        assert any("S1" in t for t in titles)
+        assert ax.get_yticks().tolist() == [1, 2, 3, 4, 5]
+        plt.close(fig)
+
+    def test_render_intermittency_categorical_yaxis(self):
+        from hydromodpy.display.figures.timeseries import render_intermittency
+
+        fig, ax = plt.subplots()
+        df = pd.DataFrame({
+            "datetime": pd.date_range("2020-01-01", periods=3, freq="ME"),
+            "station_id": ["S1"] * 3,
+            "value": [1, 3, 5],
+        })
+        render_intermittency(ax, records_df=df)
+        labels = [t.get_text() for t in ax.get_yticklabels()]
+        assert len(labels) == 5
+        plt.close(fig)
+
+
+class TestWaterQuality:
+    def test_render_water_quality(self):
+        from hydromodpy.display.figures.timeseries import render_water_quality
+
+        fig, ax = plt.subplots()
+        df = pd.DataFrame({
+            "datetime": pd.date_range("2020-01-01", periods=4, freq="ME"),
+            "variable": ["NO3", "NO3", "SO4", "SO4"],
+            "value": [10, 12, 5, 6],
+            "unit": ["mg/L", "mg/L", "mg/L", "mg/L"],
+        })
+        render_water_quality(ax, records_df=df)
+        assert ax.get_title() == "Water quality"
+        plt.close(fig)
+
+
+class TestTables:
+    def test_render_stats_card(self):
+        from hydromodpy.display.figures.tables import render_stats_card
+        from types import SimpleNamespace
+
+        fig, ax = plt.subplots()
+        summary = SimpleNamespace(
+            watershed_name="Test",
+            catchment_area_km2=42.0,
+            elevation_min_m=10,
+            elevation_max_m=200,
+            elevation_mean_m=100,
+            n_hydrometry_stations=2,
+            n_piezometry_stations=3,
+            n_intermittency_stations=1,
+            geology_types=["granite"],
+            mean_annual_precipitation_mm=800,
+            mean_annual_etp_mm=500,
+        )
+        render_stats_card(ax, summary=summary)
+        texts = [t.get_text() for t in ax.texts]
+        assert any("Test" in t for t in texts)
+        plt.close(fig)
+
+    def test_render_station_inventory_empty(self):
+        from hydromodpy.display.figures.tables import render_station_inventory
+
+        fig, ax = plt.subplots()
+        render_station_inventory(ax, inventory=[])
+        texts = [t.get_text() for t in ax.texts]
+        assert any("No stations" in t for t in texts)
+        plt.close(fig)
+
+
+class TestAnimation:
+    def test_build_gif_returns_none_on_empty(self):
+        from hydromodpy.display.figures.animation import build_gif
+        from pathlib import Path
+
+        result = build_gif(frame_paths=[], gif_path=Path("/tmp/test.gif"))
+        assert result is None
+
+
+class TestMakeFigure:
+    def test_make_figure_returns_fig_and_axes(self):
+        from hydromodpy.display.common import make_figure, _single_axes
+
+        fig, axs = make_figure(figsize=(4, 3), dpi=72)
+        ax = _single_axes(axs)
+        assert fig is not None
+        assert ax is not None
+        plt.close(fig)
+
+    def test_make_figure_multi_axes(self):
+        from hydromodpy.display.common import make_figure
+
+        fig, axs = make_figure(nrows=2, ncols=1, figsize=(4, 6), dpi=72)
+        assert fig is not None
+        plt.close(fig)

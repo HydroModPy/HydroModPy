@@ -10,10 +10,12 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hydromodpy.simulation.state.run_state import LauncherRunState
+    from launchers.data_overview.launcher import DataOverviewLauncher
     from launchers.mesh_catchment.launcher import MeshCatchmentLauncher
     from launchers.process_simulation.launcher import HydroModPyLauncher
 
 __all__ = [
+    "DataOverviewLauncher",
     "HydroModPyLauncher",
     "MeshCatchmentLauncher",
     "LauncherRunState",
@@ -21,6 +23,10 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    if name == "DataOverviewLauncher":
+        from launchers.data_overview.launcher import DataOverviewLauncher
+
+        return DataOverviewLauncher
     if name == "HydroModPyLauncher":
         from launchers.process_simulation.launcher import HydroModPyLauncher
 
