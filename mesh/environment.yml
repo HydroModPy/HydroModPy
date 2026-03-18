@@ -1,0 +1,15 @@
+name: hydromodpy-distribution-mesh
+channels:
+  - conda-forge
+dependencies:
+  # Runtime de base.
+  - python=3.12
+
+  # Ce sous-outil n'importe plus le lecteur du bundle via le package
+  # `hydromodpy`. Il charge `reader.py` directement depuis le dossier bundle.
+  # Les dependances runtime sont donc tres limitees.
+
+  # Visualisation.
+  - matplotlib>=3.8
+  - numpy
+  - pydantic>=2.0
