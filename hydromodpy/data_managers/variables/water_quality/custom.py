@@ -92,6 +92,7 @@ def load_custom(
                 date_end=df["datetime"].max().to_pydatetime(),
                 location=loc, is_constant=is_constant,
                 file_path=chronicle_path,
+                source_unit=source_unit,
             )
         )
 

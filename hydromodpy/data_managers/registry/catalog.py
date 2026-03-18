@@ -13,10 +13,11 @@ import pandas as pd
 from sqlalchemy import (
     Column, DateTime, Float, Integer, String, Text,
     create_engine, text,
+    inspect,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class _Base(DeclarativeBase):
@@ -41,6 +42,7 @@ class CatalogEntry(_Base):
     date_end = Column(String, nullable=True)
     frequency = Column(String, nullable=True)
     unit = Column(String, nullable=True)
+    source_unit = Column(String, nullable=True)
     file_path = Column(Text, nullable=False)
     file_mtime = Column(Float, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(tz=None))
@@ -85,8 +87,13 @@ class DataCatalog:
         self._apply_migrations()
 
     def _apply_migrations(self):
-        """Placeholder for future schema upgrades."""
-        pass
+        """Apply lightweight additive schema upgrades."""
+        inspector = inspect(self.engine)
+        columns = {col["name"] for col in inspector.get_columns("entries")}
+
+        if "source_unit" not in columns:
+            with self.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE entries ADD COLUMN source_unit TEXT"))
 
     def register(
         self,
@@ -101,6 +108,7 @@ class DataCatalog:
         date_end: datetime | str | None = None,
         frequency: str | None = None,
         unit: str | None = None,
+        source_unit: str | None = None,
         is_custom: bool = False,
         file_mtime: float | None = None,
     ) -> int:
@@ -145,6 +153,7 @@ class DataCatalog:
                 entry.date_end = _dt_to_str(date_end)
                 entry.frequency = frequency
                 entry.unit = unit
+                entry.source_unit = source_unit
                 entry.file_path = str(file_path)
                 entry.file_mtime = mtime
                 entry.is_custom = 1 if is_custom else 0
@@ -163,6 +172,7 @@ class DataCatalog:
                     date_end=_dt_to_str(date_end),
                     frequency=frequency,
                     unit=unit,
+                    source_unit=source_unit,
                     file_path=str(file_path),
                     file_mtime=mtime,
                     is_custom=1 if is_custom else 0,
@@ -226,6 +236,7 @@ class DataCatalog:
                     "id": e.id, "variable": e.variable, "source": e.source,
                     "station_id": e.station_id, "date_start": e.date_start,
                     "date_end": e.date_end, "file_path": e.file_path,
+                    "source_unit": e.source_unit,
                     "is_custom": bool(e.is_custom),
                 }
                 for e in q.all()

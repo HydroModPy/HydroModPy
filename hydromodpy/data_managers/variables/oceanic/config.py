@@ -25,6 +25,9 @@ class OceanicSourceConfig(BaseModel):
     path: Annotated[Optional[Path], ParamLevel("user")] = Field(
         default=None, description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
     )
+    source_unit: Annotated[Optional[str], ParamLevel("user")] = Field(
+        default=None, description="Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
+    )
     col_id: Annotated[str, ParamLevel("dev")] = Field(default="id", description="Column name for station identifier in location file.")
     col_x: Annotated[str, ParamLevel("dev")] = Field(default="x", description="Column name for X coordinate in location CSV.")
     col_y: Annotated[str, ParamLevel("dev")] = Field(default="y", description="Column name for Y coordinate in location CSV.")

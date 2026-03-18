@@ -58,6 +58,7 @@ def _make_field_record(variable: str = "recharge") -> FieldRecord:
         variable=variable,
         source="sim2",
         unit="mm/d",
+        source_unit="m/day",
         data=ds,
         bbox=(100.0, 200.0, 300.0, 400.0),
         crs="EPSG:2154",
@@ -251,6 +252,7 @@ class TestHandleCustomResults:
         assert isinstance(result[0], FieldRecord)
         # _register_custom_fields should have been called internally
         catalog.register.assert_called_once()
+        assert catalog.register.call_args.kwargs["source_unit"] == "m/day"
 
 
 # =====================================================================
@@ -421,6 +423,10 @@ class TestRechargeSourceConfigValidation:
         assert cfg.source == "custom"
         assert cfg.path == tmp_path
 
+    def test_custom_with_source_unit_ok(self, tmp_path):
+        cfg = RechargeSourceConfig(source="custom", path=tmp_path, source_unit="m/day")
+        assert cfg.source_unit == "m/day"
+
     def test_sim2_without_path_ok(self):
         cfg = RechargeSourceConfig(source="sim2")
         assert cfg.source == "sim2"
@@ -465,18 +471,20 @@ class TestLoadCustomNc:
         """Save a simple xr.Dataset as .nc, load via load_custom_nc,
         verify FieldRecord contents."""
         times = pd.date_range("2020-01-01", periods=10, freq="D")
+        raw_values = np.full((10, 4, 5), 0.25, dtype=float)
         ds = xr.Dataset({
-            "recharge": (["time", "x", "y"], np.random.rand(10, 4, 5)),
+            "recharge": (["time", "x", "y"], raw_values),
         }, coords={
             "time": times,
             "x": np.arange(4),
             "y": np.arange(5),
         })
+        ds["recharge"].attrs["units"] = "m/day"
         nc_path = tmp_path / "test_recharge.nc"
         ds.to_netcdf(nc_path)
 
         records = load_custom_nc(
-            nc_path, variable="recharge", unit="mm/d",
+            nc_path, variable="recharge", unit="mm/day",
         )
 
         assert len(records) == 1
@@ -484,13 +492,44 @@ class TestLoadCustomNc:
         assert isinstance(rec, FieldRecord)
         assert rec.variable == "recharge"
         assert rec.source == "custom"
-        assert rec.unit == "mm/d"
+        assert rec.unit == "mm/day"
+        assert rec.source_unit == "m/day"
         assert rec.date_start is not None
         assert rec.date_end is not None
         assert rec.frequency == "D"
+        assert np.allclose(rec.data["recharge"].values, raw_values * 1000.0)
+        assert rec.data["recharge"].attrs["units"] == "mm/day"
+        assert rec.data["recharge"].attrs["source_unit"] == "m/day"
         # bbox should reflect x/y coords
         assert rec.bbox[0] <= rec.bbox[2]  # xmin <= xmax
         assert rec.bbox[1] <= rec.bbox[3]  # ymin <= ymax
+
+    def test_load_uses_explicit_source_unit_when_attrs_missing(self, tmp_path):
+        times = pd.date_range("2020-01-01", periods=3, freq="D")
+        raw_values = np.full((3, 2, 2), 0.5, dtype=float)
+        ds = xr.Dataset({
+            "etp": (["time", "x", "y"], raw_values),
+        }, coords={
+            "time": times,
+            "x": [1.0, 2.0],
+            "y": [10.0, 20.0],
+        })
+        nc_path = tmp_path / "etp_explicit_source_unit.nc"
+        ds.to_netcdf(nc_path)
+
+        records = load_custom_nc(
+            nc_path,
+            variable="etp",
+            unit="mm/day",
+            source_unit="m/day",
+        )
+
+        rec = records[0]
+        assert rec.unit == "mm/day"
+        assert rec.source_unit == "m/day"
+        assert np.allclose(rec.data["etp"].values, raw_values * 1000.0)
+        assert rec.data["etp"].attrs["units"] == "mm/day"
+        assert rec.data["etp"].attrs["source_unit"] == "m/day"
 
     def test_load_with_project_period_clips(self, tmp_path):
         """When project_period is given, temporal dimension is clipped."""

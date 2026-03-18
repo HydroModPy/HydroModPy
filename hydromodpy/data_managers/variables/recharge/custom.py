@@ -41,10 +41,21 @@ def load_custom(
         return _load_csv(config, project_period=project_period, internal_unit=internal_unit)
     elif path.suffix == ".nc":
         from hydromodpy.data_managers.common.custom_grid_loader import load_custom_nc
-        return load_custom_nc(path, variable=VARIABLE_NAME, unit=internal_unit, project_period=project_period)
+        return load_custom_nc(
+            path,
+            variable=VARIABLE_NAME,
+            unit=internal_unit,
+            source_unit=config.source_unit,
+            project_period=project_period,
+        )
     elif path.suffix in (".tif", ".tiff"):
         from hydromodpy.data_managers.common.custom_grid_loader import load_custom_tif
-        return load_custom_tif(path, variable=VARIABLE_NAME, unit=internal_unit)
+        return load_custom_tif(
+            path,
+            variable=VARIABLE_NAME,
+            unit=internal_unit,
+            source_unit=config.source_unit,
+        )
     else:
         raise ValueError(f"Unsupported custom format: {path.suffix}. Use a directory (CSV), .nc, or .tif.")
 
@@ -105,6 +116,7 @@ def _load_csv(
                 date_end=df["datetime"].max().to_pydatetime(),
                 location=loc, is_constant=is_constant,
                 file_path=chronicle_path,
+                source_unit=source_unit,
             )
         )
 

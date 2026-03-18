@@ -78,6 +78,7 @@ def load_custom(
                 date_end=df["datetime"].max().to_pydatetime(),
                 location=loc,
                 file_path=chronicle_path,
+                source_unit=internal_unit,
             )
         )
 

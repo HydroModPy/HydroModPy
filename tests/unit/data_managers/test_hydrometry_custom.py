@@ -59,6 +59,7 @@ class TestHydrometryCustomCSV:
         # 2500 L/s -> 2.5 m3/s
         assert records[0].data["value"].iloc[0] == pytest.approx(2.5)
         assert records[0].unit == "m3/s"
+        assert records[0].source_unit == source_unit
 
     def test_missing_unit_raises(self, tmp_path, project_period):
         """LOC without 'unit' column must raise ValueError."""
