@@ -11,18 +11,12 @@ rasterizes it on the domain grid.
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.data_managers.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-
-
-def _bbox_hash(bbox: tuple) -> str:
-    """Short deterministic hash of a bounding box for filenames."""
-    s = f"{bbox[0]:.6f}_{bbox[1]:.6f}_{bbox[2]:.6f}_{bbox[3]:.6f}"
-    return hashlib.md5(s.encode()).hexdigest()[:8]
 
 
 class GeologyManager:

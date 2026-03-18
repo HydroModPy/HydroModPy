@@ -10,12 +10,15 @@ One PointRecord is produced per (station, parameter) pair.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Mapping
 
 import pandas as pd
 
 from hydromodpy.data_managers.common.api_helpers import get_json
+
+logger = logging.getLogger(__name__)
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
@@ -56,27 +59,27 @@ def fetch(
         if not station_ids and fallback_search_radius_km:
             from hydromodpy.data_managers.common.geo_helpers import expand_bbox
             expanded = expand_bbox(bbox, fallback_search_radius_km)
-            print(f"  Hub'Eau WQ: no stations in bbox, expanding by {fallback_search_radius_km} km")
+            logger.info("Hub'Eau WQ: no stations in bbox, expanding by %s km", fallback_search_radius_km)
             station_ids = _discover_stations(expanded, is_river=is_river)
         if not station_ids:
-            print("  Hub'Eau WQ: no stations in bbox")
+            logger.info("Hub'Eau WQ: no stations in bbox")
             return []
 
     # nearest_to: keep only the closest station to the target point
     if nearest_to and station_ids:
         station_ids = _keep_nearest(station_ids, nearest_to, is_river=is_river)
         if not station_ids:
-            print("  Hub'Eau WQ: no station with coordinates for nearest selection.")
+            logger.info("Hub'Eau WQ: no station with coordinates for nearest selection.")
             return []
 
-    print(f"  Hub'Eau WQ ({site_type}): {len(station_ids)} stations")
+    logger.info("Hub'Eau WQ (%s): %d stations", site_type, len(station_ids))
     records: list[PointRecord] = []
 
     for sid in station_ids:
         location = _fetch_station_location(sid, is_river=is_river)
         raw_df = _download_analyses(sid, date_start=date_start, date_end=date_end, is_river=is_river)
         if raw_df.empty:
-            print(f"    {sid}: no data")
+            logger.info("  %s: no data", sid)
             continue
 
         if location is None:
@@ -111,9 +114,9 @@ def fetch(
             )
 
         n_params = len(set(df["parameter"]))
-        print(f"    {sid}: {len(df)} analyses, {n_params} parameters")
+        logger.info("  %s: %d analyses, %d parameters", sid, len(df), n_params)
 
-    print(f"  Hub'Eau WQ: {len(records)} total records")
+    logger.info("Hub'Eau WQ: %d total records", len(records))
     return records
 
 
@@ -141,8 +144,7 @@ def _keep_nearest(
 
     if best_id is None:
         return []
-    print(f"  Hub'Eau WQ: nearest to ({target_lon:.4f}, {target_lat:.4f}) "
-          f"→ {best_id} ({best_dist:.1f} km)")
+    logger.info("Hub'Eau WQ: nearest to (%.4f, %.4f) → %s (%.1f km)", target_lon, target_lat, best_id, best_dist)
     return [best_id]
 
 

@@ -5,12 +5,15 @@ Produces ``PointRecord`` instances from the Hub'Eau v1 niveaux_nappes endpoints.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from typing import Sequence
 
 import pandas as pd
 
 from hydromodpy.data_managers.common.api_helpers import get_json
+
+logger = logging.getLogger(__name__)
 from hydromodpy.data_managers.common.io_helpers import parse_datetime_column
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
@@ -58,7 +61,7 @@ def fetch(
         if not ids and fallback_search_radius_km:
             from hydromodpy.data_managers.common.geo_helpers import expand_bbox
             expanded = expand_bbox(bbox, fallback_search_radius_km)
-            print(f"  Hub'Eau piezo: no piezometers in bbox, expanding by {fallback_search_radius_km} km")
+            logger.info("Hub'Eau piezo: no piezometers in bbox, expanding by %s km", fallback_search_radius_km)
             ids = _discover_piezometers_in_bbox(
                 expanded, date_start=date_start, date_end=date_end,
                 require_observations=require_observations,
@@ -71,14 +74,14 @@ def fetch(
         ids = _keep_nearest(ids, nearest_to)
 
     if not ids:
-        print("  Hub'Eau piezo: no piezometers found.")
+        logger.info("Hub'Eau piezo: no piezometers found.")
         return []
 
-    print(f"  Hub'Eau piezo: loading {product} for {len(ids)} piezometers [{date_start:%Y-%m-%d} -> {date_end:%Y-%m-%d}]")
+    logger.info("Hub'Eau piezo: loading %s for %d piezometers [%s -> %s]", product, len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
 
     records: list[PointRecord] = []
     for idx, bss_id in enumerate(ids):
-        print(f"  [{idx + 1}/{len(ids)}] Piezometer {bss_id}")
+        logger.info("[%d/%d] Piezometer %s", idx + 1, len(ids), bss_id)
 
         location = _fetch_piezometer_location(bss_id)
         obs_df = _download_chronicles(bss_id, product, date_start, date_end)
@@ -99,7 +102,7 @@ def fetch(
             )
         )
 
-    print(f"  Hub'Eau piézo: {len(records)} records loaded.")
+    logger.info("Hub'Eau piézo: %d records loaded.", len(records))
     return records
 
 
@@ -136,8 +139,7 @@ def _keep_nearest(
 
     if best_id is None:
         return []
-    print(f"  Hub'Eau piezo: nearest to ({target_lon:.4f}, {target_lat:.4f}) "
-          f"→ {best_id} ({best_dist:.1f} km)")
+    logger.info("Hub'Eau piezo: nearest to (%.4f, %.4f) → %s (%.1f km)", target_lon, target_lat, best_id, best_dist)
     return [best_id]
 
 

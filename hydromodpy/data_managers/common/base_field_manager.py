@@ -8,21 +8,18 @@ PointRecord sources (custom CSV, synthetic) pass through without caching.
 
 from __future__ import annotations
 
-import hashlib
+import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.data_managers.common.geo_helpers import bbox_hash
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
-
-def _bbox_hash(bbox: tuple) -> str:
-    """Short deterministic hash of a bounding box for filenames."""
-    s = f"{bbox[0]:.6f}_{bbox[1]:.6f}_{bbox[2]:.6f}_{bbox[3]:.6f}"
-    return hashlib.md5(s.encode()).hexdigest()[:8]
+logger = logging.getLogger(__name__)
 
 
 class BaseFieldManager(ABC):
@@ -209,7 +206,7 @@ class BaseFieldManager(ABC):
 
             import xarray as xr
             ds = xr.open_dataset(nc_path)
-            print(f"  Cache hit: {var_name} from {nc_path.name}")
+            logger.info("Cache hit: %s from %s", var_name, nc_path.name)
 
             results.append(FieldRecord(
                 variable=var_name,
@@ -248,7 +245,7 @@ class BaseFieldManager(ABC):
             # Save xarray Dataset to NetCDF
             if not rec.is_file_reference:
                 rec.data.to_netcdf(nc_path)
-                print(f"  Saved: {nc_path.name}")
+                logger.info("Saved: %s", nc_path.name)
             else:
                 # Already a file — just register the path
                 nc_path = Path(rec.data)
@@ -269,7 +266,7 @@ class BaseFieldManager(ABC):
                     exclude_id=entry_id,
                 )
                 if removed:
-                    print(f"  Subsumed {removed} smaller grid(s) for {rec.variable}")
+                    logger.info("Subsumed %d smaller grid(s) for %s", removed, rec.variable)
 
     def _register_field(
         self, rec: FieldRecord, nc_path: Path, source: str,
@@ -361,7 +358,7 @@ class BaseFieldManager(ABC):
         """Deterministic filename for a grid .nc file."""
         parts = [variable, source]
         if bbox is not None:
-            parts.append(_bbox_hash(bbox))
+            parts.append(bbox_hash(bbox))
         if date_start is not None:
             parts.append(date_start.strftime("%Y%m%d"))
         if date_end is not None:

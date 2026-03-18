@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-from typing import Literal, Optional
-
-from typing import Annotated
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.config.param_level import ParamLevel
-from hydromodpy.config.path_resolution import resolve_declared_path
+from hydromodpy.data_managers.common.base_config import BaseVariableConfig
 
 
 class WaterQualitySourceConfig(BaseModel):
@@ -81,42 +78,11 @@ class WaterQualitySourceConfig(BaseModel):
         return self
 
 
-class WaterQualityConfig(BaseModel):
+class WaterQualityConfig(BaseVariableConfig):
     """Top-level water quality configuration (list of sources)."""
 
-    model_config = ConfigDict(extra="forbid")
+    _TOML_SECTION = "water_quality"
 
     sources: Annotated[list[WaterQualitySourceConfig], ParamLevel("user")] = Field(
         ..., min_length=1, description="At least one data source."
     )
-
-    @classmethod
-    def from_toml(cls, path: str | Path) -> "WaterQualityConfig":
-        """Load config from a TOML file.
-
-        Relative paths (``path``, ``mask_path``) are resolved relative
-        to the TOML file's directory.
-        """
-        path = Path(path).resolve()
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:
-            try:
-                import tomllib
-            except ModuleNotFoundError:
-                import tomli as tomllib
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
-        section = data.get("water_quality", data)
-        cfg = cls.model_validate(section)
-        _resolve_paths(cfg, path.parent)
-        return cfg
-
-
-def _resolve_paths(cfg: "WaterQualityConfig", toml_dir: Path) -> None:
-    """Resolve relative paths in source configs relative to the TOML directory."""
-    for src in cfg.sources:
-        if src.path is not None:
-            src.path = resolve_declared_path(src.path, base_dir=toml_dir)
-        if src.mask_path is not None:
-            src.mask_path = resolve_declared_path(src.mask_path, base_dir=toml_dir)

@@ -18,6 +18,7 @@ Flow state mapping (Hub'Eau code_ecoulement -> internal 1-5 ordinal):
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime
 from typing import Sequence
@@ -25,6 +26,8 @@ from typing import Sequence
 import pandas as pd
 
 from hydromodpy.data_managers.common.api_helpers import get_json, paginate_json
+
+logger = logging.getLogger(__name__)
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
@@ -79,7 +82,7 @@ def fetch(
         if not ids and bbox is not None and fallback_search_radius_km:
             from hydromodpy.data_managers.common.geo_helpers import expand_bbox
             expanded = expand_bbox(bbox, fallback_search_radius_km)
-            print(f"  Hub'Eau ONDE: no stations in bbox, expanding by {fallback_search_radius_km} km")
+            logger.info("Hub'Eau ONDE: no stations in bbox, expanding by %s km", fallback_search_radius_km)
             ids = _discover_stations(
                 bbox=expanded,
                 code_departement=code_departement,
@@ -91,17 +94,14 @@ def fetch(
         raise ValueError("Either bbox, station_ids, or code_departement must be provided.")
 
     if not ids:
-        print("  Hub'Eau ONDE: no stations found.")
+        logger.info("Hub'Eau ONDE: no stations found.")
         return []
 
-    print(
-        f"  Hub'Eau ONDE: loading flow_state for {len(ids)} stations "
-        f"[{date_start:%Y-%m-%d} -> {date_end:%Y-%m-%d}]"
-    )
+    logger.info("Hub'Eau ONDE: loading flow_state for %d stations [%s -> %s]", len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
 
     records: list[PointRecord] = []
     for idx, sid in enumerate(ids):
-        print(f"  [{idx + 1}/{len(ids)}] Station {sid}")
+        logger.info("[%d/%d] Station %s", idx + 1, len(ids), sid)
 
         location = _fetch_station_location(sid)
         obs_df = _download_observations(sid, date_start, date_end)
@@ -122,7 +122,7 @@ def fetch(
             )
         )
 
-    print(f"  Hub'Eau ONDE: {len(records)} station records loaded.")
+    logger.info("Hub'Eau ONDE: %d station records loaded.", len(records))
     return records
 
 

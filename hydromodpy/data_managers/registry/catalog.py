@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 from sqlalchemy import (
-    Column, DateTime, Float, Integer, String, Text,
+    Column, DateTime, Float, Index, Integer, String, Text,
     create_engine, text,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -45,6 +45,10 @@ class CatalogEntry(_Base):
     file_mtime = Column(Float, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(tz=None))
     is_custom = Column(Integer, default=0)
+
+    __table_args__ = (
+        Index("ix_entries_var_src_station", "variable", "source", "station_id"),
+    )
 
 
 class ApiCoverage(_Base):
@@ -85,8 +89,17 @@ class DataCatalog:
         self._apply_migrations()
 
     def _apply_migrations(self):
-        """Placeholder for future schema upgrades."""
-        pass
+        """Apply schema upgrades to existing databases."""
+        with self.engine.connect() as conn:
+            # v1: composite index on (variable, source, station_id)
+            try:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_entries_var_src_station "
+                    "ON entries (variable, source, station_id)"
+                ))
+                conn.commit()
+            except Exception:
+                pass
 
     def register(
         self,

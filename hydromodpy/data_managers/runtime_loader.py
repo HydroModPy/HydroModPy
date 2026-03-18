@@ -56,65 +56,44 @@ class DataManagersRuntimeLoader:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    # Dispatch table: type_name → loader method name (or "climatic" sentinel).
+    _LOADER_DISPATCH: dict[str, str] = {
+        "dem": "_load_dem_data",
+        "geology": "_load_geology_data",
+        "oceanic": "_load_oceanic_data",
+        "hydrography": "_load_hydrography_data",
+        "intermittency": "_load_intermittency_data",
+        "hydrometry": "_load_hydrometry_data",
+        "piezometry": "_load_piezometry_data",
+        "water_quality": "_load_water_quality_data",
+        "recharge": "_load_recharge_data",
+        "runoff": "_load_runoff_data",
+        "precipitation": "_climatic",
+        "etp": "_climatic",
+        "temperature": "_climatic",
+        "wind": "_climatic",
+        "humidity": "_climatic",
+        "radiation": "_climatic",
+        "soil_moisture": "_climatic",
+    }
+
     def load_all(self, result: "LauncherRunState") -> None:
         """Load active data-manager families into ``result``."""
+        import logging
+        _logger = logging.getLogger(__name__)
+
         workspace_paths = self._workspace_paths(result)
         self._init_catalog(workspace_paths)
 
-        active_types = tuple(self.data_plan.types)
-        for type_name in active_types:
-            if type_name == "dem":
-                self._load_dem_data(result)
+        for type_name in self.data_plan.types:
+            method_key = self._LOADER_DISPATCH.get(type_name)
+            if method_key is None:
+                _logger.warning("Unsupported data type '%s' in plan.", type_name)
                 continue
-            if type_name == "geology":
-                self._load_geology_data(result)
-                continue
-            if type_name == "oceanic":
-                self._load_oceanic_data(result)
-                continue
-            if type_name == "hydrography":
-                self._load_hydrography_data(result)
-                continue
-            if type_name == "intermittency":
-                self._load_intermittency_data(result)
-                continue
-            if type_name == "hydrometry":
-                self._load_hydrometry_data(result)
-                continue
-            if type_name == "piezometry":
-                self._load_piezometry_data(result)
-                continue
-            if type_name == "recharge":
-                self._load_recharge_data(result)
-                continue
-            if type_name == "runoff":
-                self._load_runoff_data(result)
-                continue
-            if type_name == "precipitation":
-                self._load_climatic_variable(result, "precipitation")
-                continue
-            if type_name == "etp":
-                self._load_climatic_variable(result, "etp")
-                continue
-            if type_name == "temperature":
-                self._load_climatic_variable(result, "temperature")
-                continue
-            if type_name == "wind":
-                self._load_climatic_variable(result, "wind")
-                continue
-            if type_name == "humidity":
-                self._load_climatic_variable(result, "humidity")
-                continue
-            if type_name == "radiation":
-                self._load_climatic_variable(result, "radiation")
-                continue
-            if type_name == "soil_moisture":
-                self._load_climatic_variable(result, "soil_moisture")
-                continue
-            if type_name == "water_quality":
-                self._load_water_quality_data(result)
-                continue
-            print(f"[DataManagersPlanner] Warning: unsupported data type '{type_name}' in plan.")
+            if method_key == "_climatic":
+                self._load_climatic_variable(result, type_name)
+            else:
+                getattr(self, method_key)(result)
 
     def _load_dem_data(self, result: "LauncherRunState") -> None:
         """Load DEM data via DemManager."""
