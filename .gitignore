@@ -1,57 +1,34 @@
-# Python artifacts
+# ──────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.pyd
 *.so
 
-# Distribution / packaging
+# ──────────────────────────────────────────────
+# Packaging & distribution
+# ──────────────────────────────────────────────
 .Python
 build/
-doc/
 dist/
-downloads/
 eggs/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
+*.egg-info/
+*.egg
+.installed.cfg
+MANIFEST
 wheels/
 pip-wheel-metadata/
 share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Installer logs
+sdist/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Test & coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-pytest-cache-*/
-
-# Type checking
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-
+# ──────────────────────────────────────────────
 # Environments
+# ──────────────────────────────────────────────
 .env
 .venv
 env/
@@ -63,25 +40,59 @@ venv.bak/
 Pipfile.lock
 __pypackages__/
 
-# IDE / editor
+# ──────────────────────────────────────────────
+# IDE, editor, AI assistants
+# ──────────────────────────────────────────────
 .vscode/
 .idea/
 .claude/
+CLAUDE.md
 .spyderproject
 .spyproject
 .ropeproject
+profile_default/
+ipython_config.py
 *.swp
 *.swo
 *~
 .DS_Store
 Thumbs.db
-CLAUDE.md
 
-# IPython
-profile_default/
-ipython_config.py
+# ──────────────────────────────────────────────
+# Testing & coverage
+# ──────────────────────────────────────────────
+.pytest_cache/
+.pytest_tmp*/
+pytest_tmp*/
+pytest-cache-*/
+pytestscratch*/
+test_tmp*/
+test/results/
+test_*/
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
 
+# ──────────────────────────────────────────────
+# Type checking
+# ──────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# ──────────────────────────────────────────────
 # Documentation builds
+# ──────────────────────────────────────────────
+doc/
 docs/**/_build/
 docs/**/_autosummary/
 docs/**/.doctrees/
@@ -94,97 +105,77 @@ docs/readthedocs/source/api/generated/
 docs/readthedocs/source/_generated/
 !docs/readthedocs/source/_generated/CHANGELOG.md
 
-# Project data & results — convention-based workspace outputs
+# ──────────────────────────────────────────────
+# HydroModPy workspace outputs
+# ──────────────────────────────────────────────
 **/results_stable/
 **/results_simulations/
 **/results_calibration/
 examples/results/
-test/results/
-test_*/
-hydromodpy/data_managers/geology/outputs/
-hydromodpy/data_managers/hydrometry/outputs/
+catalog.db
+hydromodpy_debug.log
 hydromodpy/data_managers/*/cases/outputs/**
 !hydromodpy/data_managers/*/cases/outputs/.gitkeep
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
-hydromodpy/mesh/cartesian_grid/output/
+
+# Generated images from output directories
 **/output/*.png
 **/output/**/*.png
 **/outputs/*.png
 **/outputs/**/*.png
-catalog.db
-hydromodpy_debug.log
+
+# ──────────────────────────────────────────────
+# MODFLOW solver binaries
+# ──────────────────────────────────────────────
 *.chk
 *.hds
 *.cbc
 *.lst
 *.nam
-
-# Keep regression reference binaries/versioned inputs in tests
 !tests/regression/reference/**/*.hds
 !tests/regression/reference/**/*.cbc
 !tests/regression/reference/**/*.nam
 
-# Temporary files
-.pytest_tmp/
-.pytest_tmp*/
-.pytest-tmp/
-pytest_tmp*/
-pytest-cache-files-*/
-pytestscratch*/
-codex_pytest_tmp*/
-codex_validation_*/
-hmp_geo_*/
-hmp_wbw_*/
-scratch_tests/
-scratch_manual_checks/
-scratch_probe*/
-scratch_distribution_*/
-scratch_pytest*/
-scratch_regression_outputs*/
-test_tmp*/
+# ──────────────────────────────────────────────
+# Temporary files & scratch
+# ──────────────────────────────────────────────
 tmp*/
 z/
-pytest_tmp_local/
-.codex_test_durations.xml
-.codex_test_durations_sorted.csv
+*.tmp
+*.bak
+*.old
+*.prof
 .tmp_lock_repro
 .tmp_launcher*
 **/_tmp_outputs_env*
-*.tmp
-*.prof
-*.bak
-*.old
-.codex_*/
+scratch_*/
+hydromodpy/solver/utils/mesh/gmsh_grid/cases/**/scratch_tests/
 validation_cases/**/.__validation_runtime_*.toml
-reports/
+
+# Codex CI artifacts
+.codex_*/
+codex_pytest_tmp*/
+codex_validation_*/
+.codex_test_durations.xml
+.codex_test_durations_sorted.csv
+
+# HydroModPy temp prefixes
+hmp_geo_*/
+hmp_wbw_*/
+
+# ──────────────────────────────────────────────
+# Reports & profiling
+# ──────────────────────────────────────────────
 reports*/
 timing_reports/
-hydromodpy.egg-info/
 _profile_launcher_*/
 _profiling_out/
-examples/examples/results/11S_short/hydromodpy_debug.log
-examples/examples/results/11S_short/results_stable/geographic/outlet.cpg
-examples/examples/results/11S_short/results_stable/geographic/outlet.dbf
-examples/examples/results/11S_short/results_stable/geographic/outlet.prj
-examples/examples/results/11S_short/results_stable/geographic/outlet.shp
-examples/examples/results/11S_short/results_stable/geographic/outlet.shx
-examples/examples/results/Test1/hydromodpy_debug.log
-examples/examples/results/Test1/results_stable/geographic/outlet.cpg
-examples/examples/results/Test1/results_stable/geographic/outlet.dbf
-examples/examples/results/Test1/results_stable/geographic/outlet.prj
-examples/examples/results/Test1/results_stable/geographic/outlet.shp
-examples/examples/results/Test1/results_stable/geographic/outlet.shx
-examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem 2.tif
-examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem 2.tif.aux.xml
-examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem.tif
-examples/Exemple_11_Imene/11_for run from scratch without plots/data/regional dem.tif.aux.xml
-examples/Exemple_11_Imene/11S_short/data/regional dem 2.tif
-.gitignore
-examples/Exemple_11_Imene/11S_short/data/regional dem 2.tif.aux.xml
-examples/Exemple_11_Imene/11S_short/data/regional dem.tif
-examples/Exemple_11_Imene/11S_short/data/regional dem.tif.aux.xml
-# Gmsh case runtime scratch artifacts
-hydromodpy/solver/utils/mesh/gmsh_grid/cases/**/scratch_tests/
-hydromodpy/solver/utils/mesh/gmsh_grid/cases/comparison_cartesian_vs_gmsh_3d/hydromodpy/
-hydromodpy/data_managers/ARCHITECTURE.md
-batch_extract_stations.py
+
+# ──────────────────────────────────────────────
+# OS / misc
+# ──────────────────────────────────────────────
+downloads/
+lib/
+lib64/
+parts/
+var/
