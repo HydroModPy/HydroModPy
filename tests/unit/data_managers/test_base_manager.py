@@ -27,6 +27,7 @@ def _make_record(station_id, start, end, values=None):
         station_id=station_id, variable="discharge", source="hubeau",
         unit="m3/s", frequency="D", data=df,
         date_start=start, date_end=end,
+        source_unit="L/s",
     )
 
 
@@ -99,6 +100,7 @@ class TestMergeIntoRecord:
         # 15 unique days, no duplicates
         assert len(merged.data) == 15
         assert merged.data["datetime"].is_monotonic_increasing
+        assert merged.source_unit == "L/s"
 
     def test_merge_no_overlap(self):
         mgr = _DummyManager(config=None, catalog=DataCatalog())

@@ -184,6 +184,7 @@ class BaseVariableManager(ABC):
             date_start=merged["datetime"].min().to_pydatetime(),
             date_end=merged["datetime"].max().to_pydatetime(),
             location=base.location or (others[0].location if others else None),
+            source_unit=base.source_unit or (others[0].source_unit if others else None),
         )
 
     # ------------------------------------------------------------------
@@ -343,6 +344,7 @@ class BaseVariableManager(ABC):
             date_start=r.date_start,
             date_end=r.date_end,
             unit=r.unit,
+            source_unit=r.source_unit,
             frequency=r.frequency,
             bbox=bbox,
             crs=crs,
@@ -411,6 +413,7 @@ class BaseVariableManager(ABC):
             date_start=df["datetime"].min().to_pydatetime(),
             date_end=df["datetime"].max().to_pydatetime(),
             location=location,
+            source_unit=entry.source_unit,
         )
 
     def _load_cached_location(

@@ -484,7 +484,7 @@ def render_water_quality(
     """Water quality parameters over time.
 
     *records_df* has columns ``datetime``, ``variable``, ``value``,
-    and optionally ``unit``.
+    and optionally ``unit`` and ``source_unit``.
     """
     if records_df is None or records_df.empty:
         ax.text(0.5, 0.5, "No water quality data", ha="center", va="center",
@@ -499,7 +499,17 @@ def render_water_quality(
     for i, param in enumerate(params):
         sub = records_df[records_df["variable"] == param].sort_values("datetime")
         unit = sub["unit"].iloc[0] if "unit" in sub.columns and not sub["unit"].isna().all() else ""
-        label = f"{param} ({unit})" if unit else param
+        source_unit = (
+            sub["source_unit"].iloc[0]
+            if "source_unit" in sub.columns and not sub["source_unit"].isna().all()
+            else ""
+        )
+        if unit and source_unit and source_unit != unit:
+            label = f"{param} ({unit}; src {source_unit})"
+        elif unit:
+            label = f"{param} ({unit})"
+        else:
+            label = param
         # Avoid duplicate legend entries
         if label in seen_labels:
             label = None

@@ -29,4 +29,5 @@ def load_custom(
         col_value=config.col_value,
         station_ids=config.station_ids,
         default_unit="MJ/m2/j",
+        source_unit=getattr(config, "source_unit", None),
     )

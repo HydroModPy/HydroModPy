@@ -53,6 +53,7 @@ def load_custom_points(
     clamp_values: tuple[int, int] | None = None,
     default_frequency: str = "D",
     expand_constants: bool = True,
+    source_unit_override: str | None = None,
 ) -> list[PointRecord]:
     """Load point records from a CSV directory.
 
@@ -113,6 +114,8 @@ def load_custom_points(
             factor = get_conversion_factor(source_unit, internal_unit)
             if factor != 1.0:
                 df["value"] = df["value"] * factor
+        else:
+            source_unit = source_unit_override or internal_unit
 
         # Value clamping
         if clamp_values is not None:
@@ -144,6 +147,7 @@ def load_custom_points(
                 location=loc,
                 is_constant=is_constant,
                 file_path=chronicle_path,
+                source_unit=source_unit,
             )
         )
 
@@ -168,6 +172,7 @@ def load_custom_multiformat(
     default_unit: str | None = None,
     record_variable: str | None = None,
     expand_constants: bool = True,
+    source_unit: str | None = None,
 ) -> list:
     """Load custom data: CSV directory, NetCDF, or GeoTIFF.
 
@@ -192,11 +197,15 @@ def load_custom_multiformat(
         from hydromodpy.data_managers.common.custom_grid_loader import load_custom_nc
         return load_custom_nc(
             path, variable=variable_name, unit=internal_unit,
+            source_unit=source_unit,
             project_period=project_period,
         )
     elif path.suffix in (".tif", ".tiff"):
         from hydromodpy.data_managers.common.custom_grid_loader import load_custom_tif
-        return load_custom_tif(path, variable=variable_name, unit=internal_unit)
+        return load_custom_tif(
+            path, variable=variable_name, unit=internal_unit,
+            source_unit=source_unit,
+        )
     else:
         raise ValueError(
             f"Unsupported custom format: {path.suffix}. "
