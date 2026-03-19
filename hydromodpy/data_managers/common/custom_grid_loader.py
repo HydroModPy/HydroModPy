@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-from hydromodpy.data_managers.common.unit_helpers import get_conversion_factor
+from hydromodpy.data_managers.common.unit_helpers import convert_array
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
 
 logger = logging.getLogger(__name__)
@@ -202,10 +202,11 @@ def _convert_dataset_to_unit(
     target_unit: str,
 ):
     """Convert one Dataset data variable from ``source_unit`` to ``target_unit``."""
-    factor = get_conversion_factor(source_unit, target_unit)
-    if factor != 1.0:
+    if source_unit != target_unit:
         ds = ds.copy()
-        ds[data_var] = ds[data_var].astype(float) * factor
+        ds[data_var] = convert_array(
+            ds[data_var].astype(float), source_unit, target_unit,
+        )
 
     ds[data_var].attrs = dict(ds[data_var].attrs)
     ds[data_var].attrs["units"] = target_unit
@@ -220,9 +221,8 @@ def _convert_dataarray_to_unit(
     target_unit: str,
 ):
     """Convert one DataArray from ``source_unit`` to ``target_unit``."""
-    factor = get_conversion_factor(source_unit, target_unit)
-    if factor != 1.0:
-        da = da.astype(float) * factor
+    if source_unit != target_unit:
+        da = convert_array(da.astype(float), source_unit, target_unit)
 
     da.attrs = dict(da.attrs)
     da.attrs["units"] = target_unit

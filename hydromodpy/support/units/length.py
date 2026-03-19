@@ -7,7 +7,7 @@ from numbers import Real
 import re
 from typing import Any
 
-from hydromodpy.support.units.scalar import parse_scalar_and_unit
+from hydromodpy.support.units.scalar import canonical_unit_token as _canonical_unit_token, parse_scalar_and_unit
 
 try:
     from pint import UnitRegistry
@@ -90,10 +90,6 @@ def _coerce_float(value: Any, *, label: str) -> float:
         return float(value)
     except Exception as exc:
         raise ValueError(f"{label} must be numeric. Got: {value!r}") from exc
-
-
-def _canonical_unit_token(unit: str) -> str:
-    return "".join(str(unit).strip().lower().split())
 
 
 def normalize_length_unit(unit: str) -> str:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from numbers import Real
 
-from hydromodpy.support.units.scalar import parse_scalar_and_unit
+from hydromodpy.support.units.scalar import canonical_unit_token as _canonical_unit_token, parse_scalar_and_unit
 
 
 M3_PER_S_CANONICAL_UNITS: tuple[str, ...] = (
@@ -59,10 +59,6 @@ _M3_PER_S_FACTORS: dict[str, float] = {
     "l/h": 1.0e-3 / 3600.0,
     "l/min": 1.0e-3 / 60.0,
 }
-
-
-def _canonical_unit_token(unit: str) -> str:
-    return "".join(str(unit).strip().lower().split())
 
 
 def normalize_m3_per_s_unit(unit: str) -> str:

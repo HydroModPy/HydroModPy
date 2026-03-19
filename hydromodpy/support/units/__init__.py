@@ -32,7 +32,13 @@ from hydromodpy.support.units.volumetric_flow import (
     normalize_m3_per_s_unit,
     parse_to_m3_per_s,
 )
-from hydromodpy.support.units.scalar import parse_scalar_and_unit
+from hydromodpy.support.units.radiation import (
+    RADIATION_CANONICAL_UNITS,
+    convert_to_w_per_m2,
+    factor_to_w_per_m2,
+    normalize_radiation_unit,
+)
+from hydromodpy.support.units.scalar import canonical_unit_token, parse_scalar_and_unit
 from hydromodpy.support.units.time import (
     TIME_CANONICAL_UNITS,
     convert_seconds_to_unit,
@@ -51,6 +57,7 @@ __all__ = [
     "M_PER_S_CANONICAL_UNITS",
     "LENGTH_CANONICAL_UNITS",
     "TIME_CANONICAL_UNITS",
+    "canonical_unit_token",
     "convert_payload_to_m",
     "convert_payload_to_m_per_s",
     "convert_to_m",
@@ -64,11 +71,13 @@ __all__ = [
     "factor_to_m3_per_s",
     "factor_to_m_per_s",
     "factor_to_seconds",
+    "factor_to_w_per_m2",
     "format_length_from_m",
     "normalize_length_unit",
     "normalize_m2_per_s_unit",
     "normalize_m3_per_s_unit",
     "normalize_m_per_s_unit",
+    "normalize_radiation_unit",
     "normalize_time_unit",
     "parse_length_to_m",
     "parse_to_m",

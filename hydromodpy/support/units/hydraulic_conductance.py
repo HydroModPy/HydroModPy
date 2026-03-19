@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from numbers import Real
 
-from hydromodpy.support.units.scalar import parse_scalar_and_unit
+from hydromodpy.support.units.scalar import canonical_unit_token as _canonical_unit_token, parse_scalar_and_unit
 
 
 M2_PER_S_CANONICAL_UNITS: tuple[str, ...] = (
@@ -69,10 +69,6 @@ _M2_PER_S_FACTORS: dict[str, float] = {
     "mm2/day": 1.0e-6 / 86400.0,
     "mm2/h": 1.0e-6 / 3600.0,
 }
-
-
-def _canonical_unit_token(unit: str) -> str:
-    return "".join(str(unit).strip().lower().split())
 
 
 def normalize_m2_per_s_unit(unit: str) -> str:

@@ -29,5 +29,5 @@ def load_custom(
         col_value=config.col_value,
         station_ids=config.station_ids,
         default_unit="mm/day",
-        source_unit=getattr(config, "source_unit", None),
+        source_unit=config.source_unit,
     )
