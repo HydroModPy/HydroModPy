@@ -23,7 +23,7 @@ from hydromodpy.data_managers.common.io_helpers import (
     read_timeseries_csv,
     safe_file_token,
 )
-from hydromodpy.data_managers.common.unit_helpers import get_conversion_factor
+from hydromodpy.data_managers.common.unit_helpers import convert_array
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
 logger = logging.getLogger(__name__)
@@ -111,9 +111,7 @@ def load_custom_points(
         # Unit conversion
         if clamp_values is None:
             source_unit = _resolve_station_unit(loc, default_unit=default_unit)
-            factor = get_conversion_factor(source_unit, internal_unit)
-            if factor != 1.0:
-                df["value"] = df["value"] * factor
+            df["value"] = convert_array(df["value"], source_unit, internal_unit)
         else:
             source_unit = source_unit_override or internal_unit
 

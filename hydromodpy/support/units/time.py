@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from numbers import Real
 
+from hydromodpy.support.units.scalar import canonical_unit_token as _canonical_unit_token
+
 
 TIME_CANONICAL_UNITS: tuple[str, ...] = (
     "seconds",
@@ -66,10 +68,6 @@ _PANDAS_TIMEDELTA_UNITS: dict[str, str] = {
     "hours": "h",
     "days": "d",
 }
-
-
-def _canonical_unit_token(unit: str) -> str:
-    return "".join(str(unit).strip().lower().split())
 
 
 def _parse_itmuni_code(value: object) -> int | None:

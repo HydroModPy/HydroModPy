@@ -11,8 +11,13 @@ _SCALAR_WITH_OPTIONAL_UNIT_PATTERN = re.compile(
 )
 
 
-def _canonical_unit_token(unit: str) -> str:
+def canonical_unit_token(unit: str) -> str:
+    """Lowercase, strip, and remove spaces from a unit string."""
     return "".join(str(unit).strip().lower().split())
+
+
+# Keep underscore alias for internal callers.
+_canonical_unit_token = canonical_unit_token
 
 
 def parse_scalar_and_unit(

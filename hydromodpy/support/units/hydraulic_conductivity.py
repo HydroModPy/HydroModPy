@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from numbers import Real
 
-from hydromodpy.support.units.scalar import parse_scalar_and_unit
+from hydromodpy.support.units.scalar import canonical_unit_token as _canonical_unit_token, parse_scalar_and_unit
 
 
 M_PER_S_CANONICAL_UNITS: tuple[str, ...] = (
@@ -97,10 +97,6 @@ _M_PER_S_FACTORS: dict[str, float] = {
     "mm/day": 1.0e-3 / 86400.0,
     "mm/h": 1.0e-3 / 3600.0,
 }
-
-
-def _canonical_unit_token(unit: str) -> str:
-    return "".join(str(unit).strip().lower().split())
 
 
 def normalize_m_per_s_unit(unit: str) -> str:
