@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from pathlib import Path
 
 from hydromodpy.data_managers.common.unit_helpers import convert_array
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
+from hydromodpy.support.tools.log_manager import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def load_custom_nc(

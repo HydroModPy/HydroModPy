@@ -23,7 +23,9 @@ def test_modflow_config_defaults_match_runtime_defaults():
     assert params.runtime.nwt_fluxtol == 500.0
     assert params.process_specific.vka == 1.0
     assert params.process_specific.exdp == 1.0
-    assert params.sgrid is None
+    assert isinstance(params.sgrid, SolverSGridConfig)
+    assert params.sgrid.planar.mode == "keep_native"
+    assert params.sgrid.vertical.nlay == 1
     assert params.tgrid is None
 
 

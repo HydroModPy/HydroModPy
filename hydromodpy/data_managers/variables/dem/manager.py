@@ -13,6 +13,7 @@ from typing import Any
 from hydromodpy.data_managers.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
+from hydromodpy.data_managers.registry.catalog import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 
 class DemManager:
@@ -26,6 +27,7 @@ class DemManager:
     """
 
     VARIABLE_NAME = "dem"
+    INTERNAL_UNIT = "m"
 
     def __init__(
         self,
@@ -130,7 +132,7 @@ class DemManager:
             cached = self.catalog.find_cached(
                 variable="dem", source="ign_bdalti", bbox=bbox,
             )
-            if cached is not None and cached.file_path not in ("custom", "empty"):
+            if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
                 cached_path = Path(cached.file_path)
                 if cached_path.exists():
                     return [FieldRecord(

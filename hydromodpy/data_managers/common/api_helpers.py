@@ -7,6 +7,10 @@ from typing import Any
 
 import requests
 
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
+
 DEFAULT_TIMEOUT = 60
 MAX_RETRIES = 3
 BACKOFF_FACTOR = 2.0
@@ -23,11 +27,11 @@ STATUS_MESSAGES: dict[int, str] = {
 
 
 def check_status(status_code: int) -> bool:
-    """True for 200/206, prints diagnostic otherwise."""
+    """True for 200/206, logs diagnostic otherwise."""
     if status_code in (200, 206):
         return True
     msg = STATUS_MESSAGES.get(status_code, f"Unknown HTTP {status_code}")
-    print(f"  HTTP {status_code}: {msg}")
+    logger.warning("HTTP %d: %s", status_code, msg)
     return False
 
 
@@ -48,10 +52,10 @@ def get_json(
         except requests.exceptions.RequestException as exc:
             if attempt < retries:
                 wait = BACKOFF_FACTOR ** attempt
-                print(f"  Attempt {attempt}/{retries} failed ({exc}), retry in {wait:.0f}s")
+                logger.warning("Attempt %d/%d failed (%s), retry in %.0fs", attempt, retries, exc, wait)
                 time.sleep(wait)
             else:
-                print(f"  All {retries} attempts failed for {url}: {exc}")
+                logger.error("All %d attempts failed for %s: %s", retries, url, exc)
                 return None
     return None
 

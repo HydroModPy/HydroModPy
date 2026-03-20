@@ -63,7 +63,7 @@ catch_def = "from_outlet_coord"
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
 # Type: path (optional) | Optional
-dem_init_path = "../../../examples_legacy/04_streamflow_intermittence_in_transient/data/regional dem.tif"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 
 # Grid cell size in metres used to rasterise the XYZ point cloud.
 # Required for 'txt' mode.

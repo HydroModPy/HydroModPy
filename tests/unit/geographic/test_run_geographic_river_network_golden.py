@@ -37,7 +37,7 @@ def _load_json(path: Path) -> dict:
 def _write_tmp_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "run_geographic_river_network_config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_canut.tif").as_posix()
+    dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif").as_posix()
     out_path = (tmp_path / "results").as_posix()
 
     config_path.write_text(

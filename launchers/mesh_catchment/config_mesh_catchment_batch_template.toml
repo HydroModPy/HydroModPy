@@ -24,7 +24,7 @@ enabled = false
 
 # CSV or vector table listing outlet points to process in batch mode.
 # Type: string (optional) | Optional
-outlets_table_path = ""
+# outlets_table_path = ""
 
 # Column storing the outlet identifier in the batch table.
 # Type: string | Default: "outlet_id"
@@ -64,24 +64,24 @@ continue_on_error = false
 # Relative filename pattern for each generated mesh, resolved inside the outlet-specific mesh output folder.
 # Use tokens like {outlet_id} and {catch_name}.
 # Type: string (optional) | Optional
-mesh_filename = ""
+# mesh_filename = ""
 
 # Relative filename pattern for each JSON mesh summary written in batch mode.
 # Type: string (optional) | Optional
-summary_filename = ""
+# summary_filename = ""
 
 # Relative filename pattern for each overview figure written in batch mode.
 # Type: string (optional) | Optional
-figure_filename = ""
+# figure_filename = ""
 
 # Relative filename pattern for each regional overview figure written in batch mode.
 # Type: string (optional) | Optional
-figure_regional_filename = ""
+# figure_regional_filename = ""
 
 # Manifest CSV path summarizing the status of all outlet runs.
 # Relative paths are resolved from the base catchment project root.
 # Type: string (optional) | Optional
-manifest_csv = ""
+# manifest_csv = ""
 
 
 # ----------------------------------------------------------------------
@@ -97,22 +97,22 @@ constraints_mode = ""
 # Optional `.msh` output path for the generated planar mesh.
 # When omitted, the launcher writes the mesh to `results_stable/mesh/gmsh/mesh_catchment.msh` inside the active catchment workspace.
 # Type: string (optional) | Optional
-output_mesh = ""
+# output_mesh = ""
 
 # Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh.
 # When omitted, the launcher writes it next to the default mesh output.
 # Type: string (optional) | Optional
-output_summary_json = ""
+# output_summary_json = ""
 
 # Optional overview figure path.
 # Use it when you want a quick visual QA artifact showing the support domain, geology zones, river constraints, and final mesh footprint.
 # Type: string (optional) | Optional
-output_figure = ""
+# output_figure = ""
 
 # Optional regional overview figure path.
 # When omitted but output_figure is set, the launcher writes a second figure next to the main one with suffix `_regional` to show where the catchment sits on the full DEM.
 # Type: string (optional) | Optional
-output_figure_regional = ""
+# output_figure_regional = ""
 
 # If true, open the generated overview figure interactively at the end of the run.
 # Keep it false for batch or headless execution.
@@ -132,7 +132,7 @@ source = "domain_geographic"
 # Vector file path used only when source='file'.
 # The path may be absolute or relative to the TOML location and should point to a line dataset describing the river centerlines to honor during meshing.
 # Type: string (optional) | Optional
-path = ""
+# path = ""
 
 # If true, clip the river trace to the effective meshing support before sending it to Gmsh.
 # Keep this enabled in most workflows to avoid constraining the mesh with segments that lie outside the chosen domain or scope.
@@ -351,12 +351,12 @@ global_size = 250.0
 # Lower bound on local cell size in projected metres.
 # Use it to prevent extreme refinement from generating very small cells in narrow features.
 # Type: float (optional) | Optional
-min_size = 0.0
+# min_size = 0.0
 
 # Upper bound on local cell size in projected metres.
 # Use it when you want to cap the coarsening far from interfaces.
 # Type: float (optional) | Optional
-max_size = 0.0
+# max_size = 0.0
 
 # Geometry simplification tolerance, in projected metres, applied before meshing.
 # Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning.
@@ -381,12 +381,12 @@ refine_interfaces = false
 # Target local size, in projected metres, close to constrained interfaces.
 # When omitted and refine_interfaces=true, the schema derives a conservative default from global_size/min_size.
 # Type: float (optional) | Optional
-interface_size = 0.0
+# interface_size = 0.0
 
 # Influence distance, in projected metres, over which the local interface refinement fades back to the background size.
 # Larger values spread refinement farther away from the interface network.
 # Type: float (optional) | Optional
-interface_distance = 0.0
+# interface_distance = 0.0
 
 # Sampling density used to discretize interface-based distance fields.
 # Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost.

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import contextmanager
 from functools import lru_cache
 import os
+import sys
 from pathlib import Path
 
 import whitebox_workflows as wbw
@@ -18,6 +19,30 @@ _VECTOR_EXTENSIONS = {
     ".dbf",
     ".shx",
 }
+
+
+@contextmanager
+def _suppress_native_stdout():
+    """Redirect OS-level file descriptor 1 (stdout) to /dev/null.
+
+    This silences informational output from native (C/Rust) code such as
+    whitebox_workflows which bypasses Python's ``sys.stdout``.
+    stderr is left untouched so that error messages and panics remain visible.
+    """
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        saved_stdout_fd = os.dup(1)
+    except OSError:
+        yield
+        return
+    try:
+        os.dup2(devnull_fd, 1)
+        os.close(devnull_fd)
+        sys.stdout.flush()
+        yield
+    finally:
+        os.dup2(saved_stdout_fd, 1)
+        os.close(saved_stdout_fd)
 
 
 class WhiteboxWorkflowsBackend:
@@ -49,10 +74,10 @@ class WhiteboxWorkflowsBackend:
     def _run_env_operation(self, operation, *args, **kwargs):
         if self._verbose:
             return operation(*args, **kwargs)
-        # Whitebox can emit progress/warnings to stdio; keep launcher output clean.
-        with open(os.devnull, "w", encoding="utf-8", errors="ignore") as devnull:
-            with redirect_stdout(devnull), redirect_stderr(devnull):
-                return operation(*args, **kwargs)
+        # Whitebox (Rust) writes to C-level file descriptors; redirect_stdout
+        # only captures Python-level sys.stdout.  Use OS-level fd redirection.
+        with _suppress_native_stdout():
+            return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
         return self._env.read_raster(path)
@@ -93,10 +118,13 @@ class WhiteboxWorkflowsBackend:
         return self._run_env_operation(self._env.breach_depressions_least_cost, dem)
 
     def d8_pointer_raster(self, dem, *, esri_pntr: bool = False):
-        return self._env.d8_pointer(dem, esri_pointer=esri_pntr)
+        return self._run_env_operation(
+            self._env.d8_pointer, dem, esri_pointer=esri_pntr,
+        )
 
     def d8_flow_accumulation_raster(self, dem, *, log: bool = True):
-        return self._env.d8_flow_accum(
+        return self._run_env_operation(
+            self._env.d8_flow_accum,
             dem,
             out_type="cells",
             log_transform=log,
@@ -215,7 +243,9 @@ class WhiteboxWorkflowsBackend:
         return self._env.remove_short_streams(d8_pointer, streams_raster, **kwargs)
 
     def d8_mass_flux_raster(self, dem, loading, efficiency, absorption):
-        return self._env.d8_mass_flux(dem, loading, efficiency, absorption)
+        return self._run_env_operation(
+            self._env.d8_mass_flux, dem, loading, efficiency, absorption,
+        )
 
     def polygons_to_lines_vector(self, vector):
         return self._env.polygons_to_lines(vector)

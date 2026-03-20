@@ -38,7 +38,7 @@ def _load_json(path: Path) -> dict:
 def _write_demo_tomls(tmp_path: Path) -> tuple[Path, Path]:
     repo_root = _repo_root()
     subset_dir = repo_root / "examples" / "data" / "geology"
-    dem_path = repo_root / "examples" / "data" / "dem" / "regional_dem_canut.tif"
+    dem_path = repo_root / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 
     if not (subset_dir / "GEO1M_brittany.shp").exists():
         raise FileNotFoundError("Missing Brittany geology subset shapefile for test")

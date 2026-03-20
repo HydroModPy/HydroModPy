@@ -26,8 +26,12 @@ sys.path.append(root_dir)
 
 # HydroModPy
 from hydromodpy.geographic.geographic import Geographic
-from hydromodpy.data_managers.climatic.driaseau import Driaseau
-from hydromodpy.data_managers.climatic import driasclimat, safransurfex
+import warnings as _warnings
+with _warnings.catch_warnings():
+    _warnings.filterwarnings("ignore", category=DeprecationWarning,
+                             message=".*hydromodpy\\.data_managers\\.climatic.*")
+    from hydromodpy.data_managers.climatic.driaseau import Driaseau
+    from hydromodpy.data_managers.climatic import driasclimat, safransurfex
 from hydromodpy.postprocess import netcdf
 from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.support.tools import setup_simulation_log

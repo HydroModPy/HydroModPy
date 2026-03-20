@@ -6,16 +6,16 @@ and water_quality managers into a single reusable function.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
+from hydromodpy.support.tools.log_manager import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.data_managers.common.base_manager import BaseVariableManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def fetch_with_smart_cache(

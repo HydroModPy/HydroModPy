@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import geopandas as gpd
@@ -80,7 +81,9 @@ class HydrographyManager:
 
         # 4. Save clipped vector
         streams_path = self._data_folder / "streams.shp"
-        clipped.to_file(streams_path)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Column names longer than 10 characters")
+            clipped.to_file(streams_path)
 
         # 5. Rasterise
         rasterize_field = self.config.sources[0].rasterize_field
@@ -258,7 +261,7 @@ class HydrographyManager:
         tif_path = self._data_folder / "streams.tif"
 
         if field not in shp_base.columns:
-            logger.info(
+            logger.debug(
                 "Rasterize field %r not found in data; creating synthetic sequential field.",
                 field,
             )

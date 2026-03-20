@@ -21,6 +21,7 @@ import pandas as pd
 
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
+from hydromodpy.data_managers.registry.catalog import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 _CATALOG_IMPORT_WARNING_SHOWN = False
 
@@ -101,7 +102,7 @@ class _FallbackDataCatalog:
             removed += 1
             if delete_files:
                 file_path = row.get("file_path")
-                if isinstance(file_path, str) and file_path not in {"custom", "empty"}:
+                if isinstance(file_path, str) and file_path not in {SENTINEL_CUSTOM, SENTINEL_EMPTY}:
                     try:
                         candidate = Path(file_path)
                         if candidate.exists():

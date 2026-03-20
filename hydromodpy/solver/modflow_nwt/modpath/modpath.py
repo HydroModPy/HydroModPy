@@ -13,8 +13,11 @@
 #%% LIBRAIRIES
 
 # Python
+import io
 import os
 import sys
+from contextlib import redirect_stdout
+
 import flopy
 import flopy.utils.binaryfile as fpu
 import numpy as np
@@ -434,7 +437,7 @@ class Modpath(Solver):
                       self.zone_opt, 
                       self.retardation_option, 
                       self.advective_observations_option] 
-        print('Option flags:', option_flags)
+        logger.debug('Option flags: %s', option_flags)
               
         logger.debug('Modpath settings - track: %s, zone_opt: %s, zone_inj: %s', self.track, self.zone_opt, type(self.zone_inj))
         
@@ -611,7 +614,8 @@ class Modpath(Solver):
         """
         # Create modflow files
         if write_model == True:
-            self.mp.write_input()
+            with redirect_stdout(io.StringIO()):
+                self.mp.write_input()
        
         # Run modflow files
         success_model = False
@@ -733,23 +737,23 @@ class Modpath(Solver):
             
             # Create pathlines file
             if pathlines_shp == True:
-                with warnings.catch_warnings():
+                with warnings.catch_warnings(), redirect_stdout(io.StringIO()):
                     warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                     pthobj.write_shapefile(pathline_data=pth_data_save,
                                             shpname=os.path.join(self.particles_file, 'pathlines.shp'),
-                                            one_per_particle=True, 
+                                            one_per_particle=True,
                                             direction='ending',
                                             mg=grid_model,
                                             crs=crs_for_write,
                                             verbose=False)
-            
+
             # Create particles file
             if particles_shp == True:
-                with warnings.catch_warnings():
+                with warnings.catch_warnings(), redirect_stdout(io.StringIO()):
                     warnings.filterwarnings("ignore", message="Truncating shapefile fieldname.*")
                     pthobj.write_shapefile(pathline_data=pth_data_save,
                                             shpname=os.path.join(self.particles_file, 'particles.shp'),
-                                            one_per_particle=False, 
+                                            one_per_particle=False,
                                             direction='ending',
                                             mg=grid_model,
                                             crs=crs_for_write,

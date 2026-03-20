@@ -14,8 +14,12 @@ import numpy as np
 import pandas as pd
 import requests
 
+from hydromodpy.data_managers.common.progress import log_step
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
 
 API_BASE = "https://services.data.shom.fr/maregraphie"
 
@@ -77,7 +81,7 @@ def fetch(
         session.close()
 
     if df.empty:
-        print(f"  SHOM: no data returned for tide gauge {tg_name} ({tg_id})")
+        logger.info("SHOM: no data returned for tide gauge %s (%s)", tg_name, tg_id)
         return []
 
     ts_data = pd.DataFrame({
@@ -111,7 +115,7 @@ def fetch(
 def _discover_tide_gauges(session: requests.Session) -> pd.DataFrame:
     """Fetch the list of SHOM tide gauge stations."""
     url = f"{API_BASE}/service/tidegauges"
-    response = session.get(url)
+    response = session.get(url, timeout=60)
     response.raise_for_status()
     return pd.DataFrame(response.json())
 
@@ -144,14 +148,14 @@ def _find_nearest(
     tg_name = str(closest.get("name", tg_id))
     tg_lat = float(closest["latitude"])
     tg_lon = float(closest["longitude"])
-    print(f"  SHOM: nearest tide gauge: {tg_name} ({tg_id}) at ({tg_lat:.4f}, {tg_lon:.4f})")
+    log_step("SHOM: nearest tide gauge: %s (%s) at (%.4f, %.4f)" % (tg_name, tg_id, tg_lat, tg_lon))
     return tg_id, tg_name, tg_lat, tg_lon
 
 
 def _get_vertical_reference(session: requests.Session, tg_id: str) -> float:
     """Get the vertical reference (zh_ref) for a tide gauge."""
     url = f"{API_BASE}/service/completetidegauge/{tg_id}"
-    response = session.get(url)
+    response = session.get(url, timeout=60)
     response.raise_for_status()
     info = response.json()
     return float(info["verticalRef"]["zh_ref"])
@@ -178,7 +182,7 @@ def _download_sea_level(
             f"{API_BASE}/observation/json/{tg_id}"
             f"?sources={sources}&dtStart={dt_start}&dtEnd={dt_end}&interval={interval}"
         )
-        response = session.get(url)
+        response = session.get(url, timeout=60)
         response.raise_for_status()
         data = response.json().get("data", [])
         if data:
@@ -213,7 +217,7 @@ def _try_load_cached(
     filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
     filepath = os.path.join(output_folder, filename)
     if os.path.exists(filepath):
-        print(f"  SHOM: loading cached data from {filename}")
+        log_step("SHOM: cache hit %s" % filename)
         return pd.read_csv(filepath, parse_dates=["timestamp"])
     return None
 
@@ -236,4 +240,4 @@ def _write_cache(
     filename = f"sealevel_shom_{tg_id}_{start_str}_{end_str}_H.csv"
     filepath = os.path.join(output_folder, filename)
     df.to_csv(filepath, index=False)
-    print(f"  SHOM: cached data to {filename}")
+    log_step("SHOM: cached data to %s" % filename)

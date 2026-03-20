@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import pandas as pd
 
@@ -16,8 +15,18 @@ from hydromodpy.data_managers.common.validation import compute_completeness
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
+from hydromodpy.data_managers.registry.catalog import SENTINEL_CUSTOM, SENTINEL_EMPTY
+from hydromodpy.support.tools.log_manager import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+
+@runtime_checkable
+class SourceConfigProtocol(Protocol):
+    """Minimal interface expected from source config objects."""
+    source: str
+    mask_path: Path | None
+    extent: str | None
 
 
 # Map VARIABLE_NAME to file prefix used in naming convention.
@@ -40,7 +49,7 @@ class BaseVariableManager(ABC):
     def __init__(
         self,
         *,
-        config: Any,
+        config: Any,  # config is expected to have a `sources` attribute (list of SourceConfigProtocol-like objects)
         catalog: Any,
         project_extent: tuple | None = None,
         project_period: tuple[datetime, datetime] | None = None,
@@ -88,7 +97,7 @@ class BaseVariableManager(ABC):
             )
 
     @abstractmethod
-    def _fetch_from_source(self, source_cfg: Any) -> Any:
+    def _fetch_from_source(self, source_cfg: Any) -> list[PointRecord] | PointRecord:
         """Dispatch to the right loader (custom or API)."""
         ...
 
@@ -243,10 +252,10 @@ class BaseVariableManager(ABC):
     def _resolve_catalog_path(self, file_path: str) -> Path:
         """Resolve a catalog file_path to an absolute path.
 
-        If file_path is a sentinel ("custom", "empty") or already absolute,
+        If file_path is a sentinel (SENTINEL_CUSTOM / SENTINEL_EMPTY) or already absolute,
         return as-is. Otherwise, resolve relative to data_dir.
         """
-        if file_path in ("custom", "empty"):
+        if file_path in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
             return Path(file_path)
         p = Path(file_path)
         if p.is_absolute():
@@ -260,7 +269,7 @@ class BaseVariableManager(ABC):
     ) -> None:
         """Register stations that returned no data from the API.
 
-        Creates a catalog entry with file_path="empty" so that subsequent
+        Creates a catalog entry with file_path=SENTINEL_EMPTY so that subsequent
         runs don't re-fetch stations known to have no data.
         Use force_refresh=True to bypass this sentinel.
         """
@@ -271,7 +280,7 @@ class BaseVariableManager(ABC):
                 variable=self.VARIABLE_NAME,
                 source=source,
                 station_id=sid,
-                file_path="empty",
+                file_path=SENTINEL_EMPTY,
                 is_custom=False,
             )
 
@@ -284,7 +293,7 @@ class BaseVariableManager(ABC):
             source=source,
             station_id=station_id,
         )
-        return entry is not None and entry.file_path == "empty"
+        return entry is not None and entry.file_path == SENTINEL_EMPTY
 
     def _upsert_api_loc(self, loc: StationLocation, source: str) -> None:
         """Add or update a station in the API LOC file."""
@@ -321,7 +330,7 @@ class BaseVariableManager(ABC):
             # API records are already registered in _persist_api_records.
             if r.source != "custom":
                 continue
-            fp = r.file_path if r.file_path is not None else Path("custom")
+            fp = r.file_path if r.file_path is not None else Path(SENTINEL_CUSTOM)
             self._register_one(r, file_path=fp)
 
     def _register_one(self, r: PointRecord, file_path: Path) -> None:

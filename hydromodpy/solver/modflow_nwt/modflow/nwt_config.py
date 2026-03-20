@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -175,10 +175,10 @@ class ModflowConfig(BaseModel):
         default_factory=ModflowProcessSpecificConfig,
         description="Process-specific package controls (currently UPW/EVT knobs).",
     )
-    sgrid: Annotated[SolverSGridConfig | None, ParamLevel("user")] = Field(
-        default=None,
+    sgrid: Annotated[SolverSGridConfig, ParamLevel("user")] = Field(
+        default_factory=SolverSGridConfig,
         description=(
-            "Optional spatial-grid payload split into `[...sgrid.planar]` and "
+            "Spatial-grid payload split into `[...sgrid.planar]` and "
             "`[...sgrid.vertical]`."
         ),
     )
@@ -268,7 +268,7 @@ class ModflowSpecifParams:
 
     runtime: ModflowRuntimeParams = ModflowRuntimeParams()
     process_specific: ModflowProcessSpecificParams = ModflowProcessSpecificParams()
-    sgrid: SolverSGridConfig | None = None
+    sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
     tgrid: TMeshConfigModel | None = None
 
     @classmethod

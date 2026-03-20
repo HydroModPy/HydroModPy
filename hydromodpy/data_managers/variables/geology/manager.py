@@ -17,6 +17,7 @@ from typing import Any
 from hydromodpy.data_managers.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
+from hydromodpy.data_managers.registry.catalog import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 
 class GeologyManager:
@@ -135,12 +136,12 @@ class GeologyManager:
             cached = self.catalog.find_cached(
                 variable="geology", source="brgm_1m", bbox=bbox,
             )
-            if cached is not None and cached.file_path not in ("custom", "empty"):
+            if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
                 cached_path = Path(cached.file_path)
                 if cached_path.exists():
                     return [FieldRecord(
                         variable="geology", source="brgm_1m",
-                        unit="category", data=cached_path,
+                        unit="code", data=cached_path,
                         bbox=bbox, crs="EPSG:2154",
                     )]
 
@@ -155,7 +156,7 @@ class GeologyManager:
 
         record = FieldRecord(
             variable="geology", source="brgm_1m",
-            unit="category", data=gpkg_path,
+            unit="code", data=gpkg_path,
             bbox=bbox, crs="EPSG:2154",
         )
 
@@ -192,12 +193,12 @@ class GeologyManager:
             cached = self.catalog.find_cached(
                 variable="geology", source="brgm_50k", bbox=bbox,
             )
-            if cached is not None and cached.file_path not in ("custom", "empty"):
+            if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
                 cached_path = Path(cached.file_path)
                 if cached_path.exists():
                     return [FieldRecord(
                         variable="geology", source="brgm_50k",
-                        unit="category", data=cached_path,
+                        unit="code", data=cached_path,
                         bbox=bbox, crs="EPSG:2154",
                     )]
 
@@ -212,7 +213,7 @@ class GeologyManager:
 
         record = FieldRecord(
             variable="geology", source="brgm_50k",
-            unit="category", data=gpkg_path,
+            unit="code", data=gpkg_path,
             bbox=bbox, crs="EPSG:2154",
         )
 

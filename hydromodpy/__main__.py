@@ -339,8 +339,10 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
 
 def _cmd_run(args: argparse.Namespace) -> None:
     """Run a simulation from a TOML configuration file."""
+    from hydromodpy.support.tools.toolbox import print_hydromodpy
     from launchers import HydroModPyLauncher
 
+    print_hydromodpy()
     config_path = Path(args.config).expanduser().resolve()
     if not config_path.is_file():
         print(f"Configuration file not found: {config_path}", file=sys.stderr)

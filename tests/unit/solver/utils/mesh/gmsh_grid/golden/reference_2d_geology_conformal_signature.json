@@ -432,7 +432,6 @@
   ],
   "field_id": "field_geology",
   "source_kind": "vector",
-  "source_path": "C:\\codes\\HydroModPy-GH\\data\\Brittany_small_test_example\\geology\\GEO1M_brittany.shp",
   "n_source_features_total": 23,
   "n_source_features_clipped": 14,
   "zone_feature_counts": {
@@ -453,7 +452,6 @@
     6716500.0
   ],
   "domain_geometry_type": "Polygon",
-  "domain_source_path": "C:\\codes\\HydroModPy-GH\\hydromodpy\\solver\\utils\\mesh\\gmsh_grid\\cases\\reference_2d_geology_conformal\\domain_window.geojson",
   "domain_id_field": "domain_id",
   "domain_selected_id": "main",
   "domain_source_feature_count": 1,

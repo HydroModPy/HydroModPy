@@ -8,7 +8,7 @@ project_root = "."
 
 [geographic]
 catch_def = "from_outlet_coord"
-dem_init_path = "../../data/dem/regional_dem.tif"
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 127348.427
 y_outlet = 6835802.564
 snap_dist = "150 m"

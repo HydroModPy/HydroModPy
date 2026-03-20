@@ -27,4 +27,5 @@ def load_custom(
         station_ids=config.station_ids,
         default_unit=None,
         record_variable="groundwater_level",
+        source_unit_override=config.source_unit,
     )

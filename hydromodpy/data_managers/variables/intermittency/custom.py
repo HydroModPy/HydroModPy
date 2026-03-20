@@ -29,4 +29,5 @@ def load_custom(
         default_frequency="irregular",
         expand_constants=False,
         record_variable="flow_state",
+        source_unit_override=config.source_unit,
     )

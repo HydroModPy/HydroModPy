@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import ClassVar, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -39,7 +39,7 @@ class BaseVariableConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    _TOML_SECTION: str = ""
+    _TOML_SECTION: ClassVar[str] = ""
 
     date_start: Optional[str] = Field(
         default=None, description="Project start date (ISO format, e.g. '2019-01-01').",
