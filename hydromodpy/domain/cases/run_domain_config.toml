@@ -25,11 +25,7 @@ catch_def = "from_outlet_coord"
 # Path to the DEM raster used as input.
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
-# Previous local DEM (too small for nancon):
-# dem_init_path = "../../../examples/data/dem/regional_dem.tif"
-# Previous wide DEM:
-# dem_init_path = "../../../examples_legacy/01_simplified_example_presented_in_the_paper/data/regional dem.tif"
-dem_init_path = "../../../examples/data/dem/regional_dem_4x.tif"
+dem_init_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
 
 # Base/example12 outlet kept for reference:
 # x_outlet = 265611.933

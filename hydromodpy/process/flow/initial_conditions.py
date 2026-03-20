@@ -72,6 +72,6 @@ class FlowInitialConditions(BaseModel):
     """
 
     h: FlowInitialCondition = Field(
-        ...,
+        default_factory=lambda: FlowInitialCondition(type="top", id="h", units="m", description="Initial condition 'h'"),
         description="Hydraulic-head initial condition payload.",
     )

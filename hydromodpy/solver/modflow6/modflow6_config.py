@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -76,9 +76,9 @@ class Modflow6Config(BaseModel):
         default_factory=Modflow6ProcessSpecificConfig,
         description="Process-specific controls for MODFLOW 6 flow packages.",
     )
-    sgrid: Annotated[SolverSGridConfig | None, ParamLevel("user")] = Field(
-        default=None,
-        description="Optional solver-grid payload split into planar and vertical sections.",
+    sgrid: Annotated[SolverSGridConfig, ParamLevel("user")] = Field(
+        default_factory=SolverSGridConfig,
+        description="Solver-grid payload split into planar and vertical sections.",
     )
     tgrid: Annotated[TMeshConfigModel | None, ParamLevel("user")] = Field(
         default=None,
@@ -129,7 +129,7 @@ class Modflow6SpecifParams:
 
     runtime: Modflow6RuntimeParams = Modflow6RuntimeParams()
     process_specific: Modflow6ProcessSpecificParams = Modflow6ProcessSpecificParams()
-    sgrid: SolverSGridConfig | None = None
+    sgrid: SolverSGridConfig = field(default_factory=SolverSGridConfig)
     tgrid: TMeshConfigModel | None = None
 
     @classmethod

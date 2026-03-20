@@ -56,7 +56,7 @@ PROJECT_TOML_TEMPLATE = """\
 catch_def = "from_outlet_coord"
 # x_outlet = -1.68
 # y_outlet = 48.12
-# dem_init_path = "../../data/dem/regional_dem.tif"
+# dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 
 
 # --- Domain ---------------------------------------------------------------

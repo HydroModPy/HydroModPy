@@ -66,6 +66,9 @@ def get_optional_mesh_section(
         return None
     if not isinstance(section, Mapping):
         raise ValueError(f"[{section_name}] configuration must be a mapping when provided.")
+    raw_cm = section.get("constraints_mode")
+    if raw_cm is None or str(raw_cm).strip() == "":
+        return None
     return validate_mesh_catchment_config_data(section)
 
 

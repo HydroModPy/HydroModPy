@@ -259,12 +259,6 @@ class Modflow(Solver):
                 "derived from [simulation.time] for transient flow runs. "
                 "Solver tgrid fallback is no longer supported."
             )
-        if self.sgrid_config is None:
-            raise ValueError(
-                "Missing solver-grid configuration: "
-                "[modflownwt.sgrid.planar] and [modflownwt.sgrid.vertical] "
-                "define the typed SolverSGridConfig required to generate the structured grid."
-            )
 
     def _initialize_solver_packages(self) -> None:
         """Initialize FLOPY MODFLOW and NWT solver packages."""

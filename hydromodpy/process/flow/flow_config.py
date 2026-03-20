@@ -94,8 +94,8 @@ class FlowConfig(ProcessSpatialConfig):
             "Default units: m for dirichlet, m2/s for cauchy/robin."
         ),
     )
-    ic: FlowInitialConditions | None = Field(
-        default=None,
+    ic: FlowInitialConditions = Field(
+        default_factory=FlowInitialConditions,
         description=(
             "Validated flow initial-condition structure parsed from [flow.ic]. "
             "Stored as FlowInitialConditions(h=FlowInitialCondition)."
@@ -212,8 +212,11 @@ class FlowConfig(ProcessSpatialConfig):
     def _validate_ic(cls, value):
         """Normalize initial-condition payload from `[flow.ic]`."""
         if value is None:
-            return None
-        return normalize_flow_initial_conditions(value, location_prefix="flow.ic")
+            return FlowInitialConditions()
+        result = normalize_flow_initial_conditions(value, location_prefix="flow.ic")
+        if result is None:
+            return FlowInitialConditions()
+        return result
 
     @field_validator("sinks_sources", mode="before")
     @classmethod
