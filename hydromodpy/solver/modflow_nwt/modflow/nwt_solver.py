@@ -19,6 +19,7 @@ import numpy as np
 import os
 import rasterio
 import sys
+from tqdm import tqdm
 from os.path import dirname, abspath
 import flopy.utils.binaryfile as fpu
 
@@ -77,6 +78,67 @@ from .postprocess import (
 
 logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2
+
+# ---------------------------------------------------------------------------
+# Helper: run MODFLOW with a tqdm progress bar on stress periods
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+_SOLVING_RE = _re.compile(
+    r"Solving:\s+Stress period:\s+(\d+)\s+Time step:\s+(\d+)",
+    _re.IGNORECASE,
+)
+
+
+def _run_model_with_progress(
+    mf_model,
+    nper: int,
+) -> tuple[bool, list[str]]:
+    """Run a MODFLOW model while showing a tqdm progress bar.
+
+    Intercepts solver stdout, parses "Solving: Stress period: N …" lines
+    to advance the bar, and suppresses the raw output.  Non-solving lines
+    (header, termination message, etc.) are forwarded to the logger.
+    """
+    import flopy.mbase as _mbase
+
+    pbar = tqdm(
+        total=nper,
+        desc="[INFO] MODFLOW solving",
+        unit="sp",
+        disable=nper <= 1,
+    )
+    _last_sp = 0
+
+    def _progress_print(line: str) -> None:
+        nonlocal _last_sp
+        m = _SOLVING_RE.search(line)
+        if m:
+            sp = int(m.group(1))
+            if sp > _last_sp:
+                pbar.update(sp - _last_sp)
+                _last_sp = sp
+            return
+        # Forward important non-solving lines (header, termination, etc.)
+        stripped = line.strip()
+        if stripped:
+            logger.debug("%s", stripped)
+
+    try:
+        success, buff = _mbase.run_model(
+            mf_model.exe_name,
+            mf_model.namefile,
+            model_ws=mf_model.model_ws,
+            silent=False,
+            report=True,
+            custom_print=_progress_print,
+        )
+    finally:
+        pbar.close()
+
+    return success, buff
+
 
 # %% CLASS
 
@@ -607,9 +669,12 @@ class Modflow(Solver):
         # Run modflow files
         success_model = False
         if options.run_model:
-            success_model, tempo = self.mf.run_model(
-                silent=not options.verbose
-            )  # True without msg
+            if options.verbose:
+                success_model, _ = _run_model_with_progress(
+                    self.mf, int(self.nper),
+                )
+            else:
+                success_model, _ = self.mf.run_model(silent=True)
 
         return success_model
 
@@ -697,10 +762,12 @@ class Modflow(Solver):
 
         # %% Loop over stress periods
 
-        for item, time in enumerate(self.times):
-            logger.info(
-                "Post-processing stress period %d/%d", item + 1, len(self.times)
-            )
+        for item, time in enumerate(tqdm(
+            self.times,
+            desc="[INFO] Post-processing",
+            unit="sp",
+            disable=len(self.times) <= 1,
+        )):
 
             if len(self.times) == 1:
                 self.kstpkper = self.kstpkpers[0]
@@ -825,10 +892,13 @@ class Modflow(Solver):
             (options.groundwater_storage, self.dict_groundwater_storage, "groundwater_storage"),
             (options.accumulation_flux, self.dict_accumulation_flux, "accumulation_flux"),
         ]
+        _exported = []
         for flag, data, name in _timeseries_exports:
             if flag:
-                logger.info("Exporting %s time series", name.replace("_", " "))
                 np.save(self.save_file + "/" + name, data)
+                _exported.append(name.replace("_", " "))
+        if _exported:
+            logger.info("Exported time series: %s", ", ".join(_exported))
 
         # %% Persistency index
 

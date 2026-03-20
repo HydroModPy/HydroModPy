@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from functools import lru_cache
 import os
+import sys
 from pathlib import Path
 
 import whitebox_workflows as wbw
@@ -18,6 +19,31 @@ _VECTOR_EXTENSIONS = {
     ".dbf",
     ".shx",
 }
+
+
+@contextmanager
+def _suppress_native_stdio():
+    """Redirect OS-level file descriptors 1 & 2 to /dev/null.
+
+    This silences output from native (C/Rust) code such as whitebox_workflows
+    which bypasses Python's ``sys.stdout``/``sys.stderr``.
+    """
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    saved_stdout_fd = os.dup(1)
+    saved_stderr_fd = os.dup(2)
+    try:
+        os.dup2(devnull_fd, 1)
+        os.dup2(devnull_fd, 2)
+        os.close(devnull_fd)
+        # Also redirect Python-level streams so they stay in sync.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        yield
+    finally:
+        os.dup2(saved_stdout_fd, 1)
+        os.dup2(saved_stderr_fd, 2)
+        os.close(saved_stdout_fd)
+        os.close(saved_stderr_fd)
 
 
 class WhiteboxWorkflowsBackend:
@@ -49,10 +75,10 @@ class WhiteboxWorkflowsBackend:
     def _run_env_operation(self, operation, *args, **kwargs):
         if self._verbose:
             return operation(*args, **kwargs)
-        # Whitebox can emit progress/warnings to stdio; keep launcher output clean.
-        with open(os.devnull, "w", encoding="utf-8", errors="ignore") as devnull:
-            with redirect_stdout(devnull), redirect_stderr(devnull):
-                return operation(*args, **kwargs)
+        # Whitebox (Rust) writes to C-level file descriptors; redirect_stdout
+        # only captures Python-level sys.stdout.  Use OS-level fd redirection.
+        with _suppress_native_stdio():
+            return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
         return self._env.read_raster(path)
@@ -93,10 +119,13 @@ class WhiteboxWorkflowsBackend:
         return self._run_env_operation(self._env.breach_depressions_least_cost, dem)
 
     def d8_pointer_raster(self, dem, *, esri_pntr: bool = False):
-        return self._env.d8_pointer(dem, esri_pointer=esri_pntr)
+        return self._run_env_operation(
+            self._env.d8_pointer, dem, esri_pointer=esri_pntr,
+        )
 
     def d8_flow_accumulation_raster(self, dem, *, log: bool = True):
-        return self._env.d8_flow_accum(
+        return self._run_env_operation(
+            self._env.d8_flow_accum,
             dem,
             out_type="cells",
             log_transform=log,
@@ -215,7 +244,9 @@ class WhiteboxWorkflowsBackend:
         return self._env.remove_short_streams(d8_pointer, streams_raster, **kwargs)
 
     def d8_mass_flux_raster(self, dem, loading, efficiency, absorption):
-        return self._env.d8_mass_flux(dem, loading, efficiency, absorption)
+        return self._run_env_operation(
+            self._env.d8_mass_flux, dem, loading, efficiency, absorption,
+        )
 
     def polygons_to_lines_vector(self, vector):
         return self._env.polygons_to_lines(vector)

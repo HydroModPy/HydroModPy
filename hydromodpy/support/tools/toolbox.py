@@ -14,6 +14,7 @@
 
 import os
 import re
+import sys
 import numbers
 import datetime
 import matplotlib.pyplot as plt
@@ -1139,8 +1140,7 @@ def print_hydromodpy():
         r'       /____/ Hydrological Modelling in Python /_____________/    ',
         r'                                                                  ',
     ]
-    for line in banner_lines:
-        logger.info(line)
+    print("\n".join(banner_lines), file=sys.stderr)
     _banner_printed = True
 
 #%% NOTES
