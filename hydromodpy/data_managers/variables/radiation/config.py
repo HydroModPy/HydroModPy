@@ -23,6 +23,7 @@ class RadiationSourceConfig(BaseModel):
     # --- Radiation-specific ---
     components: Annotated[list[Literal["atmospheric", "visible"]], ParamLevel("user")] = Field(
         default=["atmospheric", "visible"],
+        min_length=1,
         description="Radiation components: 'atmospheric' (DLI_Q) and/or 'visible' (SSI_Q).",
     )
 

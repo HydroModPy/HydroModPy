@@ -61,6 +61,9 @@ class HydrometrySourceConfig(BaseModel):
         default=False,
         description="Ignore cache and re-download from API.",
     )
+    source_unit: Annotated[Optional[str], ParamLevel("dev")] = Field(
+        default=None, description="Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit."
+    )
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> "HydrometrySourceConfig":

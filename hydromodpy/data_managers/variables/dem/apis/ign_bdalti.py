@@ -18,6 +18,11 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
+from hydromodpy.data_managers.common.progress import iter_progress, log_step
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
+
 # Base URL for BD ALTI downloads on GéoPlateforme.
 _BASE_URL = "https://data.geopf.fr/telechargement/download/BDALTI"
 
@@ -181,7 +186,7 @@ def _download_department(
     """
     archive_name = _BDALTI_ARCHIVES.get(dept_code)
     if archive_name is None:
-        print(f"[dem] Warning: no BD ALTI archive for department {dept_code}")
+        logger.warning("No BD ALTI archive for department %s", dept_code)
         return None
 
     url = f"{_BASE_URL}/{archive_name}/{archive_name}.7z"
@@ -195,19 +200,19 @@ def _download_department(
     archive_path = cache_dir / f"{archive_name}.7z"
 
     if not archive_path.exists():
-        print(f"[dem] Downloading BD ALTI 25 m for department {dept_code}...")
+        logger.info("Downloading BD ALTI 25 m for department %s...", dept_code)
         try:
             urllib.request.urlretrieve(url, str(archive_path))
         except Exception as exc:
-            print(f"[dem] Warning: failed to download department {dept_code}: {exc}")
+            logger.warning("Failed to download department %s: %s", dept_code, exc)
             return None
 
-    print(f"[dem] Extracting {archive_name}...")
+    logger.info("Extracting %s...", archive_name)
     try:
         _extract_7z(archive_path, dept_dir)
         marker.touch()
     except Exception as exc:
-        print(f"[dem] Warning: failed to extract department {dept_code}: {exc}")
+        logger.warning("Failed to extract department %s: %s", dept_code, exc)
         return None
 
     return dept_dir
@@ -254,7 +259,7 @@ def fetch_bdalti(
             f"No department found overlapping bbox {bbox}. "
             "Ensure the bbox is in EPSG:2154 (Lambert-93)."
         )
-    print(f"[dem] Departments overlapping bbox: {dept_codes}")
+    log_step("IGN BD ALTI: departments %s" % ", ".join(sorted(dept_codes)))
 
     # Step 2: download each department.
     dept_cache = output_dir / "departments_bdalti"
@@ -264,7 +269,7 @@ def fetch_bdalti(
     from rasterio.merge import merge
 
     all_asc_files: list[Path] = []
-    for code in sorted(dept_codes):
+    for code in iter_progress(sorted(dept_codes), desc="Downloading"):
         dept_dir = _download_department(code, cache_dir=dept_cache)
         if dept_dir is not None:
             asc_files = _find_asc_files(dept_dir)
@@ -275,7 +280,7 @@ def fetch_bdalti(
             f"No ASC files found for departments: {list(dept_codes)}"
         )
 
-    print(f"[dem] Merging {len(all_asc_files)} ASC tiles...")
+    log_step("Merging %d ASC tiles..." % len(all_asc_files))
 
     # Step 3: open all datasets and merge with bbox crop.
     datasets = []
@@ -305,5 +310,5 @@ def fetch_bdalti(
     with rasterio.open(str(merged_tif), "w", **profile) as dst:
         dst.write(mosaic)
 
-    print(f"[dem] Merged BD ALTI MNT: {merged_tif}")
+    log_step("Merged BD ALTI MNT: %s" % merged_tif.name)
     return merged_tif

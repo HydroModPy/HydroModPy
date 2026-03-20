@@ -18,7 +18,6 @@ Flow state mapping (Hub'Eau code_ecoulement -> internal 1-5 ordinal):
 
 from __future__ import annotations
 
-import logging
 import time
 from datetime import datetime
 from typing import Sequence
@@ -26,9 +25,11 @@ from typing import Sequence
 import pandas as pd
 
 from hydromodpy.data_managers.common.api_helpers import get_json, paginate_json
-
-logger = logging.getLogger(__name__)
+from hydromodpy.data_managers.common.progress import iter_progress, log_step
 from hydromodpy.data_managers.contracts.location import StationLocation
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
 API_BASE = "https://hubeau.eaufrance.fr/api/v1/ecoulement"
@@ -97,12 +98,10 @@ def fetch(
         logger.info("Hub'Eau ONDE: no stations found.")
         return []
 
-    logger.info("Hub'Eau ONDE: loading flow_state for %d stations [%s -> %s]", len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
+    log_step("Hub'Eau ONDE: %d stations [%s -> %s]" % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d")))
 
     records: list[PointRecord] = []
-    for idx, sid in enumerate(ids):
-        logger.info("[%d/%d] Station %s", idx + 1, len(ids), sid)
-
+    for sid in iter_progress(ids, desc="Stations"):
         location = _fetch_station_location(sid)
         obs_df = _download_observations(sid, date_start, date_end)
         if obs_df.empty:
@@ -122,7 +121,7 @@ def fetch(
             )
         )
 
-    logger.info("Hub'Eau ONDE: %d station records loaded.", len(records))
+    log_step("Hub'Eau ONDE: %d station records loaded" % len(records))
     return records
 
 

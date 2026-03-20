@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.data_managers.common.io_helpers import safe_file_token
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
 
 
 def export_records(
@@ -37,7 +41,7 @@ def export_records(
     # Per-station chronicle CSVs
     chronicle_rows: list[dict] = []
     for rec in records:
-        safe_id = "".join(c if c.isalnum() else "_" for c in rec.station_id)
+        safe_id = safe_file_token(rec.station_id)
         fname = f"{pfx}{safe_id}_chronicle.csv"
         fpath = output_dir / fname
         rec.data[["datetime", "value"]].to_csv(fpath, index=False)
@@ -89,5 +93,5 @@ def export_records(
     pd.DataFrame(chronicle_rows).to_csv(toc_path, index=False)
     created["table_of_contents"] = toc_path
 
-    print(f"  Export: {len(records)} chronicles + metadata + TOC -> {output_dir}")
+    logger.info("Export: %d chronicles + metadata + TOC -> %s", len(records), output_dir)
     return created

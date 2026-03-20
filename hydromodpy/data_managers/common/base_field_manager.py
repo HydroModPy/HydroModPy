@@ -8,7 +8,6 @@ PointRecord sources (custom CSV, synthetic) pass through without caching.
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -18,8 +17,9 @@ from hydromodpy.data_managers.common.geo_helpers import bbox_hash
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
+from hydromodpy.support.tools.log_manager import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseFieldManager(ABC):
@@ -66,7 +66,7 @@ class BaseFieldManager(ABC):
         return result
 
     @abstractmethod
-    def _fetch_from_source(self, source_cfg: Any) -> list:
+    def _fetch_from_source(self, source_cfg: Any) -> list[FieldRecord | PointRecord]:
         """Dispatch to the right loader (custom, API, synthetic)."""
         ...
 
@@ -215,7 +215,7 @@ class BaseFieldManager(ABC):
                 data=ds,
                 bbox=(entry.bbox_xmin, entry.bbox_ymin,
                       entry.bbox_xmax, entry.bbox_ymax),
-                crs=entry.crs or "EPSG:2154",
+                crs=entry.crs or "EPSG:4326",
                 date_start=datetime.fromisoformat(entry.date_start)
                 if entry.date_start else None,
                 date_end=datetime.fromisoformat(entry.date_end)
@@ -344,11 +344,16 @@ class BaseFieldManager(ABC):
 
     def _resolve_nc_path(self, file_path: str) -> Path:
         """Resolve a catalog file_path to absolute."""
+        return self._resolve_data_path(file_path, self.data_dir)
+
+    @staticmethod
+    def _resolve_data_path(file_path: str, data_dir: Path | None) -> Path:
+        """Resolve a catalog file_path to absolute (shared utility)."""
         p = Path(file_path)
         if p.is_absolute():
             return p
-        if self.data_dir is not None:
-            return self.data_dir / p
+        if data_dir is not None:
+            return data_dir / p
         return p
 
     @staticmethod

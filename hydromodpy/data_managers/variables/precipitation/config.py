@@ -23,6 +23,7 @@ class PrecipitationSourceConfig(BaseModel):
     # --- Precipitation-specific ---
     components: Annotated[list[Literal["liquid", "solid", "total"]], ParamLevel("user")] = Field(
         default=["total"],
+        min_length=1,
         description="Precipitation components: 'liquid' (rain), 'solid' (snow), 'total' (sum of both).",
     )
 

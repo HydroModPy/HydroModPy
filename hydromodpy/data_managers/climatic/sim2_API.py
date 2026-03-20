@@ -7,6 +7,10 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Optional
 
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
+
 # Variable mapping: SIM2 variable names -> user-friendly names
 VAR_MAPPING = {
     'DLI_Q': 'solarradiation',
@@ -58,7 +62,7 @@ class Sim2_API:
         stable_folder: str | Path | None = None,
     ):
         
-        print('Initializing SIM2 API client')
+        logger.info("Initializing SIM2 API client")
         self.coords = coords
         self.box = box
         self.crs = crs
@@ -78,15 +82,15 @@ class Sim2_API:
         
         r = requests.get(url_service)
         if r.ok:
-            print("requete ok")
+            logger.info("Metadata request OK")
             self.metadata = r.json()
         else:
-            print("erreur code :", r.status_code)
+            logger.warning("Metadata request failed with status code %s", r.status_code)
             self.metadata = None
-        
+
         #DATA DOWNLOAD
         url = "https://api.geosas.fr/edr/collections/safran-isba/cube"
-        
+
         params = {
             "bbox": self.box,
             "crs": self.crs,
@@ -97,12 +101,11 @@ class Sim2_API:
 
         r = requests.get(url, params=params)
         if r.ok:
-            print("requête ok")
-            print(r.request.url)  
+            logger.info("Data request OK: %s", r.request.url)
             self.data = xr.open_dataset(r.content)
-            
+
         else:
-            print("erreur code :", r.status_code)
+            logger.warning("Data request failed with status code %s", r.status_code)
             self.data = None
         
         return self.metadata, self.data
@@ -150,7 +153,7 @@ class Sim2_API:
             Frequency of data (default: 'D')
         """
         if self.data is None:
-            print("No data to save")
+            logger.warning("No data to save")
             return
         
         self.start_date, self.end_date = self.date.split('/')
@@ -174,11 +177,11 @@ class Sim2_API:
                 filepath = data_folder / filename
                 
                 self.data[[var]].to_netcdf(filepath)
-                print(f"Saved {var} to {filepath}")
+                logger.info("Saved %s to %s", var, filepath)
                 
                 processed_vars.add(var)
             elif var not in self.data.data_vars:
-                print(f"Variable {var} not found in data")
+                logger.warning("Variable %s not found in data", var)
 
     def plot_spatiotemporal_data(self):
         for var in self.var_list.split(','):
@@ -208,15 +211,15 @@ class Sim2_API:
         
         r = requests.get(url_service)
         if r.ok:
-            print("requete ok")
+            logger.info("Metadata request OK")
             self.metadata = r.json()
         else:
-            print("erreur code :", r.status_code)
+            logger.warning("Metadata request failed with status code %s", r.status_code)
             self.metadata = None
-            
+
         #DATA DOWNLOAD
         url = "https://api.geosas.fr/edr/collections/safran-isba/position"
-        
+
         params = {
             "coords": self.coords,
             "crs": self.crs,
@@ -224,14 +227,14 @@ class Sim2_API:
             "f": self.formatting,
             "datetime": self.date
         }
-        
+
         r = requests.get(url, params=params)
-        print(r.request.url)
+        logger.info("Request URL: %s", r.request.url)
         if r.ok:
-            print("requête ok")
+            logger.info("Data request OK")
             self.data = r.json()
         else:
-            print(f"erreur code : {r.status_code}")
+            logger.warning("Data request failed with status code %s", r.status_code)
             self.data = None
             
         return self.metadata, self.data
@@ -248,7 +251,7 @@ class Sim2_API:
             Name of the parameter to plot
         """
         if self.metadata is None:
-            print("Erreur : Les métadonnées ne sont pas disponibles")
+            logger.warning("Metadata not available, cannot plot data chronicle")
             return
             
         for name, parametre in self.metadata["parameter_names"].items():

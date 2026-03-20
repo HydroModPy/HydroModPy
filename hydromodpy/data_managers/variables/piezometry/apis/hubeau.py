@@ -5,16 +5,18 @@ Produces ``PointRecord`` instances from the Hub'Eau v1 niveaux_nappes endpoints.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta
 from typing import Sequence
 
 import pandas as pd
+import requests
 
 from hydromodpy.data_managers.common.api_helpers import get_json
-
-logger = logging.getLogger(__name__)
 from hydromodpy.data_managers.common.io_helpers import parse_datetime_column
+from hydromodpy.data_managers.common.progress import iter_progress, log_step
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
@@ -77,12 +79,10 @@ def fetch(
         logger.info("Hub'Eau piezo: no piezometers found.")
         return []
 
-    logger.info("Hub'Eau piezo: loading %s for %d piezometers [%s -> %s]", product, len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d"))
+    log_step("Hub'Eau piezo: %d piezometers [%s -> %s]" % (len(ids), date_start.strftime("%Y-%m-%d"), date_end.strftime("%Y-%m-%d")))
 
     records: list[PointRecord] = []
-    for idx, bss_id in enumerate(ids):
-        logger.info("[%d/%d] Piezometer %s", idx + 1, len(ids), bss_id)
-
+    for bss_id in iter_progress(ids, desc="Piezometers"):
         location = _fetch_piezometer_location(bss_id)
         obs_df = _download_chronicles(bss_id, product, date_start, date_end)
         if obs_df.empty:
@@ -102,7 +102,7 @@ def fetch(
             )
         )
 
-    logger.info("Hub'Eau piézo: %d records loaded.", len(records))
+    log_step("Hub'Eau piezo: %d records loaded" % len(records))
     return records
 
 
@@ -200,16 +200,16 @@ def _station_period_overlaps(
             s_start = datetime.fromisoformat(station_start_str[:10])
             if s_start > req_end:
                 return False
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError, requests.RequestException) as exc:
+            logger.debug("Could not parse station start date %r: %s", station_start_str, exc)
 
     if station_end_str:
         try:
             s_end = datetime.fromisoformat(station_end_str[:10])
             if s_end < req_start:
                 return False
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError, requests.RequestException) as exc:
+            logger.debug("Could not parse station end date %r: %s", station_end_str, exc)
 
     return True
 

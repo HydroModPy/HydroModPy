@@ -12,6 +12,11 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
+
+from hydromodpy.data_managers.common.progress import data_phase
 from hydromodpy.data_managers.plan import DataLoadPlan
 from hydromodpy.data_managers.registry.catalog import DataCatalog
 from hydromodpy.simulation.time import resolve_simulation_time_window_dates
@@ -79,21 +84,19 @@ class DataManagersRuntimeLoader:
 
     def load_all(self, result: "LauncherRunState") -> None:
         """Load active data-manager families into ``result``."""
-        import logging
-        _logger = logging.getLogger(__name__)
-
         workspace_paths = self._workspace_paths(result)
         self._init_catalog(workspace_paths)
 
         for type_name in self.data_plan.types:
             method_key = self._LOADER_DISPATCH.get(type_name)
             if method_key is None:
-                _logger.warning("Unsupported data type '%s' in plan.", type_name)
+                logger.warning("Unsupported data type '%s' in plan.", type_name)
                 continue
-            if method_key == "_climatic":
-                self._load_climatic_variable(result, type_name)
-            else:
-                getattr(self, method_key)(result)
+            with data_phase(type_name):
+                if method_key == "_climatic":
+                    self._load_climatic_variable(result, type_name)
+                else:
+                    getattr(self, method_key)(result)
 
     def _load_dem_data(self, result: "LauncherRunState") -> None:
         """Load DEM data via DemManager."""
@@ -612,7 +615,7 @@ class DataManagersRuntimeLoader:
 
         entry = self._CLIMATIC_REGISTRY.get(variable)
         if entry is None:
-            print(f"[DataManagersPlanner] Warning: unknown climatic variable '{variable}'.")
+            logger.warning("Unknown climatic variable '%s'.", variable)
             return
 
         config_module_path, manager_module_path = entry
@@ -667,7 +670,7 @@ class DataManagersRuntimeLoader:
         message = f"Data manager '{type_name}' is active but {detail}."
         if self._is_required_data_type(result, type_name):
             raise ValueError(message)
-        print(f"[DataManagersPlanner] Warning: {message}")
+        logger.warning("%s", message)
 
     def _handle_data_loading_error(
         self,
@@ -678,7 +681,7 @@ class DataManagersRuntimeLoader:
         message = f"Failed to load data manager '{type_name}': {exc}"
         if self._is_required_data_type(result, type_name):
             raise ValueError(message) from exc
-        print(f"[DataManagersPlanner] Warning: {message}")
+        logger.warning("%s", message)
 
     def _is_required_data_type(self, result: "LauncherRunState", type_name: str) -> bool:
         inferred_set = set(self.data_plan.inferred_types)

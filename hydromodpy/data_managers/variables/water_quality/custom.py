@@ -27,4 +27,5 @@ def load_custom(
         station_ids=config.station_ids,
         default_unit=None,
         record_variable="water_quality",
+        source_unit_override=config.source_unit,
     )

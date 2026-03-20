@@ -11,7 +11,6 @@ Replaces the per-variable custom.py boilerplate. Handles:
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -25,8 +24,9 @@ from hydromodpy.data_managers.common.io_helpers import (
 )
 from hydromodpy.data_managers.common.unit_helpers import convert_array
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
+from hydromodpy.support.tools.log_manager import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Map variable names to file prefixes (for naming convention compatibility).
 _VAR_FILE_PREFIX = {

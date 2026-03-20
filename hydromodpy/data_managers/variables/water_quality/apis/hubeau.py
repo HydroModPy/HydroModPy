@@ -10,16 +10,17 @@ One PointRecord is produced per (station, parameter) pair.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import Mapping
 
 import pandas as pd
 
 from hydromodpy.data_managers.common.api_helpers import get_json
-
-logger = logging.getLogger(__name__)
+from hydromodpy.data_managers.common.progress import iter_progress, log_step
 from hydromodpy.data_managers.contracts.location import StationLocation
+from hydromodpy.support.tools.log_manager import get_logger
+
+logger = get_logger(__name__)
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
 
 API_RIVER_URL = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/analyse_pc"
@@ -72,10 +73,10 @@ def fetch(
             logger.info("Hub'Eau WQ: no station with coordinates for nearest selection.")
             return []
 
-    logger.info("Hub'Eau WQ (%s): %d stations", site_type, len(station_ids))
+    log_step("Hub'Eau WQ (%s): %d stations" % (site_type, len(station_ids)))
     records: list[PointRecord] = []
 
-    for sid in station_ids:
+    for sid in iter_progress(station_ids, desc="Stations"):
         location = _fetch_station_location(sid, is_river=is_river)
         raw_df = _download_analyses(sid, date_start=date_start, date_end=date_end, is_river=is_river)
         if raw_df.empty:
@@ -116,7 +117,7 @@ def fetch(
         n_params = len(set(df["parameter"]))
         logger.info("  %s: %d analyses, %d parameters", sid, len(df), n_params)
 
-    logger.info("Hub'Eau WQ: %d total records", len(records))
+    log_step("Hub'Eau WQ: %d total records" % len(records))
     return records
 
 
