@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from contextlib import contextmanager
 from functools import lru_cache
 import os
 import sys
@@ -22,28 +22,27 @@ _VECTOR_EXTENSIONS = {
 
 
 @contextmanager
-def _suppress_native_stdio():
-    """Redirect OS-level file descriptors 1 & 2 to /dev/null.
+def _suppress_native_stdout():
+    """Redirect OS-level file descriptor 1 (stdout) to /dev/null.
 
-    This silences output from native (C/Rust) code such as whitebox_workflows
-    which bypasses Python's ``sys.stdout``/``sys.stderr``.
+    This silences informational output from native (C/Rust) code such as
+    whitebox_workflows which bypasses Python's ``sys.stdout``.
+    stderr is left untouched so that error messages and panics remain visible.
     """
-    devnull_fd = os.open(os.devnull, os.O_WRONLY)
-    saved_stdout_fd = os.dup(1)
-    saved_stderr_fd = os.dup(2)
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        saved_stdout_fd = os.dup(1)
+    except OSError:
+        yield
+        return
     try:
         os.dup2(devnull_fd, 1)
-        os.dup2(devnull_fd, 2)
         os.close(devnull_fd)
-        # Also redirect Python-level streams so they stay in sync.
         sys.stdout.flush()
-        sys.stderr.flush()
         yield
     finally:
         os.dup2(saved_stdout_fd, 1)
-        os.dup2(saved_stderr_fd, 2)
         os.close(saved_stdout_fd)
-        os.close(saved_stderr_fd)
 
 
 class WhiteboxWorkflowsBackend:
@@ -77,7 +76,7 @@ class WhiteboxWorkflowsBackend:
             return operation(*args, **kwargs)
         # Whitebox (Rust) writes to C-level file descriptors; redirect_stdout
         # only captures Python-level sys.stdout.  Use OS-level fd redirection.
-        with _suppress_native_stdio():
+        with _suppress_native_stdout():
             return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
