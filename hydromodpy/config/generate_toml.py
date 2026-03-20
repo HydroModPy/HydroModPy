@@ -547,6 +547,27 @@ def _section(
     """
     lines: list[str] = []
 
+    # ----- flatten single-field containers --------------------------------
+    # When a model has ``toml_flatten = True`` (ClassVar), skip one nesting
+    # level: output the inner model's fields directly at *section_name* so
+    # that e.g. ``FlowInitialConditions.h`` renders as ``[flow.ic]`` instead
+    # of ``[flow.ic.h]``.
+    if getattr(model_cls, "toml_flatten", False):
+        for _name, _finfo in model_cls.model_fields.items():
+            inner_cls = _resolve_basemodel_type(_finfo)
+            if inner_cls is not None:
+                inner_values = None
+                if values is not None and _name in values:
+                    raw = values[_name]
+                    inner_values = raw if isinstance(raw, dict) else (
+                        raw.model_dump() if isinstance(raw, BaseModel) else None
+                    )
+                return _section(
+                    section_name, inner_cls, threshold,
+                    values=inner_values, _depth=_depth,
+                    _commented=_commented,
+                )
+
     # ----- classify fields ------------------------------------------------
     scalar_fields: list[tuple[str, FieldInfo, str]] = []   # (name, info, level)
     nested_fields: list[tuple[str, FieldInfo, str, type[BaseModel]]] = []
@@ -602,14 +623,14 @@ def _section(
                 lines.append(_line(f"{name} = {_fmt(values[name])}"))
             elif default is not _UNDEFINED and default is not None:
                 lines.append(_line(f"{name} = {_fmt(default)}"))
-            elif level == "user":
-                # User-level field with no concrete default (required or
-                # optional with default=None).  Emit a placeholder — the TOML
-                # loader strips empty strings before Pydantic validation, so
-                # leaving `key = ""` is safe for Optional fields.
+            elif level == "user" and default is _UNDEFINED:
+                # User-level *required* field — emit an uncommented
+                # placeholder so the user knows to fill it in.
                 lines.append(_line(f"{name} = {_placeholder(field_info)}"))
             else:
-                lines.append(f"# {name} =")
+                # Optional field with default=None, or non-user level field
+                # without a concrete default: emit commented-out placeholder.
+                lines.append(f"# {name} = {_placeholder(field_info)}" if default is None else f"# {name} =")
 
             lines.append("")
 

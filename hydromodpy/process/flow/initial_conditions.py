@@ -20,7 +20,7 @@ Raw `[flow.ic]` configuration payloads are normalized separately in
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -70,6 +70,10 @@ class FlowInitialConditions(BaseModel):
     Keeping one explicit container (instead of bare values) allows the process
     API to remain extensible when adding future IC variables.
     """
+
+    # Tell the TOML generator to emit fields from the single nested model
+    # directly at the parent section level ([flow.ic] instead of [flow.ic.h]).
+    toml_flatten: ClassVar[bool] = True
 
     h: FlowInitialCondition = Field(
         default_factory=lambda: FlowInitialCondition(type="top", id="h", units="m", description="Initial condition 'h'"),
