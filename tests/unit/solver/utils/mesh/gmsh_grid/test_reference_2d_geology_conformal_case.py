@@ -298,6 +298,8 @@ def test_reference_2d_geology_conformal_case_non_regression(
     stable.pop("output_figure", None)
     stable.pop("interface_scope", None)
     stable.pop("refinement_scope", None)
+    stable.pop("domain_source_path", None)
+    stable.pop("source_path", None)
     interface_refinement = dict(stable["mesh_size_fields"]["interface_refinement"])
     interface_refinement.pop("candidate_interface_curve_count", None)
     interface_refinement.pop("scope_filtered_interface_curve_count", None)
