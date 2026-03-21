@@ -74,6 +74,9 @@ from hydromodpy.simulation.time import (
     require_flow_simulation_time_grid,
     resolve_simulation_time_window,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+    load_catchment_mesh_bundle,
+)
 from hydromodpy.support.units import convert_payload_to_m_per_s
 from launchers.mesh_catchment.runtime import (
     get_optional_mesh_section,
@@ -630,6 +633,14 @@ class HydroModPyLauncher:
             workspace=setup_state.workspace,
             domain_geographic=setup_state.domain_geographic,
         )
+        setup_state.mesh_bundle = None
+        mesh_summary = setup_state.mesh_summary
+        if not isinstance(mesh_summary, Mapping):
+            return
+        bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
+        if bundle_dir == "":
+            return
+        setup_state.mesh_bundle = load_catchment_mesh_bundle(bundle_dir)
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.

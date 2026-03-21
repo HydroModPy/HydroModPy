@@ -23,7 +23,10 @@ avec le style des scripts de lancement HydroModPy.
 Ce dossier contient:
 
 - `run_catchment_identification_case.py`: script de lancement principal
-- `run_catchment_identification_config.toml`: configuration du cas
+- `config_headwater_100km2.toml`: cas headwater autour de 100 km2
+- `config_s3_10km2.toml`: cas ordre de Strahler 3 autour de 10 km2 (fenetre 5-20 km2)
+- `config_1000km2.toml`: cas autour de 1000 km2
+- `config_s3_100km2.toml`: cas ordre de Strahler 3 autour de 100 km2 (config par defaut)
 - `config.py`: chargement/validation de la configuration
 - `workflow.py`: logique de traitement geospatial
 - `diagnostic_plots.py`: generation des figures de controle
@@ -49,7 +52,7 @@ Section: `[catchment_identification_scan]`
 - `launcher_script`: chemin du script de lancement (trace explicite du run)
 - `dem_path`: chemin vers le MNT
 - `region_polygon_path` (optionnel): limite de la zone d'etude
-- `output_dir`: dossier de sortie
+- `output_dir`: dossier de sortie, de preference sous `C:/results/HydromodPy/catchment_identification_scan`
 - `accumulation_area_km2`: seuil de surface d'accumulation (ex: `100.0`)
 - Sur le jeu de donnees par defaut fourni ici, une valeur de `5.0` km2 fonctionne.
 - `outlet_selection_mode`: `"border"` ou `"scan_global"`
@@ -68,12 +71,17 @@ Section: `[catchment_identification_scan]`
 - `save_diagnostic_figures`: active/desactive l'export des figures de controle
 - `figures_dir_name`: nom du dossier des figures sous `output_dir`
 
+Comportement par defaut:
+
+- si `output_dir` est omis, les resultats partent maintenant vers `C:/results/HydromodPy/catchment_identification_scan/<nom_config>`
+- si un ancien TOML utilise encore un chemin relatif du type `./outputs/...`, ce chemin est automatiquement redirige vers `C:/results/HydromodPy/catchment_identification_scan/...`
+
 ## Lancement
 
 Depuis la racine du repo:
 
 ```bash
-python hydromodpy_annex/preprocess/catchment_identification_scan/run_catchment_identification_case.py --config hydromodpy_annex/preprocess/catchment_identification_scan/run_catchment_identification_config.toml
+python hydromodpy_annex/preprocess/catchment_identification_scan/run_catchment_identification_case.py --config hydromodpy_annex/preprocess/catchment_identification_scan/config_s3_100km2.toml
 ```
 
 ## Notes donnees

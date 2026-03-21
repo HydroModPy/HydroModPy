@@ -1,0 +1,80 @@
+# Shared mesh-catchment settings aligned with process_simulation bootstrap.
+#
+# This file intentionally mirrors the early catchment-construction sections
+# used by process_simulation:
+# - [workspace]
+# - [geographic]
+# - [geographic.river_network]
+#
+# It also carries the mesh-catchment settings shared by the bundled examples:
+# - [mesh_catchment]
+# - [mesh_catchment.geology.source]
+# - [mesh_catchment.hydraulic_properties.conductivity]
+# - [mesh_catchment.zone_meshing]
+#
+# Batch scenarios add their outlet-table settings through config_batch_common.toml.
+
+base_config = "../../examples/projects/launcher_simulation/project.toml"
+
+[workspace]
+# Keep generated mesh-catchment workspaces outside the git repository.
+project_root = "C:/results/HydromodPy/mesh_catchment_nancon"
+
+[geographic]
+catch_def = "from_outlet_coord"
+# Lightweight Naizin DEM used by the mono-catchment examples.
+# Batch scenarios override this with a wider DEM covering all outlets.
+dem_init_path = "../../examples/data/dem/regional_dem_naizin.tif"
+# In batch mode, x_outlet/y_outlet are seed values only; they are overridden
+# from the outlets table at runtime.
+x_outlet = 265611.933
+y_outlet = 6784182.776
+snap_dist = "50 m"
+buff_area = "20%"
+crs_project = "EPSG:2154"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 1.0
+prune_short_streams = false
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = false
+
+[domain.depth_model]
+# Exported mesh bundles derive `z_bottom` / substratum fields from this section.
+# Override it in scenario files when you want another vertical assumption.
+type = "constant_thickness"
+thickness = "50.0 m"
+
+[mesh_catchment]
+constraints_mode = "geology_rivers"
+output_layout = "flat"
+
+[mesh_catchment.geology.source]
+# Use the France-wide geology source, then clip/rasterize locally on the
+# effective meshing support.
+path = "../../examples/data/geology/GEO1M.shp"
+kind = "vector"
+code_field = "CODE_LEG"
+reference_raster_path = "../../examples/data/dem/regional_dem_naizin.tif"
+
+[mesh_catchment.hydraulic_properties.conductivity]
+# Demonstration geology -> K mapping for bundle export.
+# Values come from `geology_K_dummy_demo.csv` and are already in m/s.
+# The demo CSV is expected to cover the bundled `GEO1M.shp` codes directly.
+values_source = "csv"
+values_csv_file = "../../examples/data/geology/geology_K_dummy_demo.csv"
+csv_value_column = "K_value"
+
+[mesh_catchment.zone_meshing]
+# Default mesh profile used by the bundled examples.
+global_size = 680.0
+min_size = 340.0
+max_size = 1080.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 250.0
+interface_distance = 610.0
+interface_sampling = 96

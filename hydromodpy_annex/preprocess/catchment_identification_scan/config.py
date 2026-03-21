@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
-import tomllib
 from typing import Any
 
-DEFAULT_CONFIG_FILE = "run_catchment_identification_config.toml"
+from hydromodpy.config.toml_loader import load_toml_with_base_config
+
+DEFAULT_CONFIG_FILE = "config_s3_100km2.toml"
 DEFAULT_SECTION = "catchment_identification_scan"
 LEGACY_SECTION = "watershed_threshold_scan"
+DEFAULT_RESULTS_ROOT = "C:/results/HydromodPy"
+DEFAULT_RESULTS_SUBDIR = "catchment_identification_scan"
 
 
 def _resolve_optional_path(raw_value: Any, *, base_dir: Path) -> Path | None:
@@ -21,6 +25,35 @@ def _resolve_optional_path(raw_value: Any, *, base_dir: Path) -> Path | None:
     else:
         path = path.resolve()
     return path
+
+
+def _results_root() -> Path:
+    raw_root = os.environ.get("HYDROMODPY_RESULTS_ROOT", DEFAULT_RESULTS_ROOT)
+    return Path(raw_root).expanduser().resolve()
+
+
+def _default_output_name(config_path: Path) -> str:
+    stem = config_path.stem.strip()
+    if stem.startswith("config_"):
+        stem = stem.removeprefix("config_")
+    return stem or "default"
+
+
+def _default_output_dir(config_path: Path) -> Path:
+    return (_results_root() / DEFAULT_RESULTS_SUBDIR / _default_output_name(config_path)).resolve()
+
+
+def _resolve_output_dir(raw_value: Any, *, base_dir: Path, config_path: Path) -> Path:
+    if raw_value is None:
+        return _default_output_dir(config_path)
+    path = Path(str(raw_value)).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    parts = path.parts
+    if parts and parts[0].lower() == "outputs":
+        suffix = Path(*parts[1:]) if len(parts) > 1 else Path(_default_output_name(config_path))
+        return (_results_root() / DEFAULT_RESULTS_SUBDIR / suffix).resolve()
+    return (base_dir / path).resolve()
 
 
 @dataclass(slots=True)
@@ -62,8 +95,7 @@ class CatchmentIdentificationConfig:
         section: str = DEFAULT_SECTION,
     ) -> "CatchmentIdentificationConfig":
         config_path = Path(config_toml).expanduser().resolve()
-        with config_path.open("rb") as stream:
-            payload = tomllib.load(stream)
+        payload = load_toml_with_base_config(config_path)
 
         raw_section = payload.get(section)
         if not isinstance(raw_section, dict):
@@ -95,9 +127,11 @@ class CatchmentIdentificationConfig:
         if region_polygon_path is not None and not region_polygon_path.exists():
             raise FileNotFoundError(f"region_polygon_path not found: {region_polygon_path}")
 
-        output_dir = _resolve_optional_path(raw_section.get("output_dir"), base_dir=base_dir)
-        if output_dir is None:
-            output_dir = (base_dir / "outputs").resolve()
+        output_dir = _resolve_output_dir(
+            raw_section.get("output_dir"),
+            base_dir=base_dir,
+            config_path=config_path,
+        )
 
         accumulation_area_km2 = float(raw_section.get("accumulation_area_km2", 100.0))
         if accumulation_area_km2 <= 0.0:

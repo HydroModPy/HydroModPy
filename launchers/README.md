@@ -48,11 +48,11 @@ Commande directe (utile depuis un IDE) :
 
 Exemple de config prete a lancer :
 
-`launchers/mesh_catchment/config_mesh_catchment_example.toml`
+`launchers/mesh_catchment/config_example.toml`
 
 Exemple de config batch par `outlet_id` :
 
-`launchers/mesh_catchment/config_mesh_catchment_batch_example.toml`
+`launchers/mesh_catchment/config_headwater_100km2.toml`
 
 Le sous-commande `template` imprime un TOML commente produit directement depuis
 les schemas `mesh_catchment` et `mesh_catchment_batch`. Cela permet de repartir
@@ -60,18 +60,42 @@ d'un contrat a jour sans aller relire le code source.
 
 Templates canoniques versionnes :
 
-- `launchers/mesh_catchment/config_mesh_catchment_template.toml`
-- `launchers/mesh_catchment/config_mesh_catchment_batch_template.toml`
+- `launchers/mesh_catchment/config_template.toml`
+- `launchers/mesh_catchment/config_batch_template.toml`
 
 Configuration en deux niveaux (meme logique que process_simulation) :
 
-- `launchers/mesh_catchment/config_mesh_catchment_common.toml`
-  : tronc commun catchment (`workspace`, `geographic`, `geographic.river_network`).
-- `launchers/mesh_catchment/config_mesh_catchment_example.toml`
-  : divergence metier mesh via `[mesh_catchment]`.
-- `launchers/mesh_catchment/config_mesh_catchment_batch_example.toml`
-  : boucle batch via `[mesh_catchment_batch]` avec un dossier catchment par
-  `outlet_id`.
+- `launchers/mesh_catchment/config_common.toml`
+  : tronc commun partage (`workspace`, `geographic`, `geographic.river_network`, `domain.depth_model`).
+- `launchers/mesh_catchment/config_example.toml`
+  : exemple mono-catchment par defaut du launcher, sur le cas Nancon, avec sorties finales ecrites directement dans le dossier catchment.
+- `launchers/mesh_catchment/config_scoped_example.toml`
+  : variante mono-catchment qui montre `interface_scope` et `refinement_scope`, avec sorties finales directes dans le dossier catchment.
+- `launchers/mesh_catchment/config_headwater_100km2.toml`
+  : batch headwater autour de 100 km2 a partir d'une table d'exutoires preselectionnes.
+- `launchers/mesh_catchment/config_1000km2.toml`
+  : batch autour de 1000 km2.
+- `launchers/mesh_catchment/config_s3_100km2.toml`
+  : batch filtre par ordre de Strahler 3 autour de 100 km2.
+- `launchers/mesh_catchment/config_template.toml`
+  : template mono-catchment versionne, regenere depuis les schemas Pydantic.
+- `launchers/mesh_catchment/config_batch_template.toml`
+  : template batch versionne, regenere depuis les schemas Pydantic.
+
+Script utilitaire pour lancer successivement tous les TOML runnable du dossier :
+
+`python launchers/mesh_catchment/run_all_configs.py`
+
+Ordre d'execution du script :
+
+- `config_example.toml`
+- `config_scoped_example.toml`
+- `config_headwater_100km2.toml`
+  : precede de `hydromodpy_annex/preprocess/catchment_identification_scan/config_headwater_100km2.toml`
+- `config_1000km2.toml`
+  : precede de `hydromodpy_annex/preprocess/catchment_identification_scan/config_1000km2.toml`
+- `config_s3_100km2.toml`
+  : precede de `hydromodpy_annex/preprocess/catchment_identification_scan/config_s3_100km2.toml`
 
 ## Flux mesh_catchment
 
@@ -100,8 +124,18 @@ Quand seule la section `[mesh_catchment]` est presente :
 8. il retourne un resume avec les chemins utiles (`output_mesh`,
    `output_summary_json`, `output_figure`, bundle)
 
-Par defaut, les sorties sont resolues dans `results_stable/mesh/` du
-catchment courant, sauf override explicite dans `[mesh_catchment]`.
+Sans option supplementaire, les sorties sont resolues dans
+`results_stable/mesh/` du catchment courant, sauf override explicite dans
+`[mesh_catchment]`.
+
+Si `mesh_catchment.output_layout = "flat"` est active, le launcher mesh
+dedie ecrit au contraire les artefacts finaux directement dans
+`workspace.project_root` (`.msh`, resume JSON, figures, bundle) et garde les
+intermediaires dans un workspace runtime separe, nettoye a la fin du run
+reussi. Le dossier final du catchment ne contient alors plus de
+`results_stable/`, `results_simulations/` ni `results_calibration/`.
+Ce mode n'affecte pas `process_simulation`, qui conserve la structure
+workspace standard.
 
 Le bundle exporte aussi la surface de substratum (`z_bottom` aux noeuds,
 `z_bottom_centroid` / `z_bottom_mean` par cellule) a partir de

@@ -170,7 +170,85 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     )
     assert kwargs["output_figure"] is None
     assert kwargs["output_figure_regional"] is None
+    assert kwargs["section_data_override"]["domain"]["kind"] == "geographic_box_buffer"
     assert kwargs["domain_geographic"].river_mesh_trace is not None
+
+
+def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_root(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        "[mesh_catchment]\nconstraints_mode='rivers_only'\noutput_layout='flat'\n",
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+    minimal_cfg = _minimal_cfg(tmp_path)
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher._load_standard_section",
+        lambda _, model_cls, __: (
+            minimal_cfg.workspace
+            if model_cls.__name__ == "WorkspaceConfig"
+            else minimal_cfg.geographic
+        ),
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher.load_toml_with_base_config",
+        lambda _: {
+            "mesh_catchment": {
+                "constraints_mode": "rivers_only",
+                "output_layout": "flat",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
+        _DummyWorkspace,
+    )
+
+    def _fake_build_domain_geographic_context(**kwargs):
+        runtime_root = Path(kwargs["workspace"].project_root)
+        captured["runtime_workspace_project_root"] = runtime_root
+        (runtime_root / "results_stable" / "geographic").mkdir(parents=True, exist_ok=True)
+        (runtime_root / "results_simulations").mkdir(parents=True, exist_ok=True)
+        (runtime_root / "results_calibration").mkdir(parents=True, exist_ok=True)
+        return _DummyDomainGeographic()
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
+        _fake_build_domain_geographic_context,
+    )
+
+    def _fake_run_case(config_toml, **kwargs):
+        captured["kwargs"] = kwargs
+        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+
+    summary = MeshCatchmentLauncher(config_path).run()
+
+    kwargs = captured["kwargs"]
+    expected_root = minimal_cfg.workspace.project_root
+    runtime_workspace_project_root = Path(captured["runtime_workspace_project_root"])
+    assert summary["output_layout"] == "flat"
+    assert kwargs["output_mesh"] == expected_root / "mesh_catchment.msh"
+    assert kwargs["output_summary_json"] == (
+        expected_root / "mesh_catchment_summary.json"
+    )
+    assert kwargs["output_figure"] is None
+    assert kwargs["output_figure_regional"] is None
+    assert runtime_workspace_project_root == (
+        expected_root.parent / "_mesh_runtime" / expected_root.name
+    )
+    assert not runtime_workspace_project_root.exists()
+    assert not (expected_root / "results_stable").exists()
+    assert not (expected_root / "results_simulations").exists()
+    assert not (expected_root / "results_calibration").exists()
 
 
 def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
@@ -707,6 +785,91 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
     assert "outlet_id,catch_name,status" in manifest_text
     assert "output_figure_regional" in manifest_text
     assert "2,mesh_batch_outlet_2,ok" in manifest_text
+
+
+def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_root(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config_batch.toml"
+    outlets_csv = tmp_path / "outlets.csv"
+    outlets_csv.write_text(
+        "outlet_id,x_outlet_m,y_outlet_m\n2,30.0,40.0\n",
+        encoding="utf-8",
+    )
+    runtime_cfg = _batch_cfg(tmp_path)
+    captured_calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher._load_standard_section",
+        lambda _, model_cls, __: (
+            runtime_cfg.workspace
+            if model_cls.__name__ == "WorkspaceConfig"
+            else runtime_cfg.geographic
+        ),
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher.load_toml_with_base_config",
+        lambda _: {
+            "mesh_catchment": {
+                "constraints_mode": "geology_only",
+                "output_layout": "flat",
+                "geology": _minimal_geology_config(
+                    reference_raster_path=str(runtime_cfg.geographic.dem_init_path)
+                ),
+            },
+            "mesh_catchment_batch": {
+                "enabled": True,
+                "outlets_table_path": str(outlets_csv),
+                "selection_mode": "all",
+                "outputs": {
+                    "mesh_filename": "mesh_{outlet_id}.msh",
+                    "summary_filename": "summary_{outlet_id}.json",
+                    "figure_filename": "figure_{outlet_id}.png",
+                },
+            },
+        },
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
+        _DummyBatchWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
+        lambda **_: _DummyDomainGeographic(river_mesh_trace=None),
+    )
+
+    def _fake_run_case(config_toml, **kwargs):
+        captured_calls.append({"config_toml": config_toml, "kwargs": kwargs})
+        return {
+            "summary_schema_version": "zone_conformal_sidecar_v1",
+            "output_mesh": str(kwargs["output_mesh"]),
+            "output_summary_json": str(kwargs["output_summary_json"]),
+            "output_figure": str(kwargs["output_figure"]),
+            "output_figure_regional": str(kwargs["output_figure_regional"]),
+        }
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+
+    summary = MeshCatchmentLauncher(config_path).run()
+
+    assert summary["outlets_succeeded"] == 1
+    kwargs = captured_calls[0]["kwargs"]
+    assert str(kwargs["output_mesh"]).endswith(
+        str(Path("mesh_batch_outlet_2") / "mesh_2.msh")
+    )
+    assert str(kwargs["output_summary_json"]).endswith(
+        str(Path("mesh_batch_outlet_2") / "summary_2.json")
+    )
+    assert str(kwargs["output_figure"]).endswith(
+        str(Path("mesh_batch_outlet_2") / "figure_2.png")
+    )
+    assert str(kwargs["output_figure_regional"]).endswith(
+        str(Path("mesh_batch_outlet_2") / "figure_2_regional.png")
+    )
 
 
 def test_mesh_catchment_launcher_batch_rejects_fixed_single_output_without_batch_pattern(
