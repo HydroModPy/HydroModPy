@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import importlib
+import os
 from pathlib import Path
 import sys
 
 import geopandas as gpd
 import numpy as np
+import pytest
 import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point, box
@@ -73,6 +75,21 @@ def test_package_no_longer_exposes_whitebox_tools_alias() -> None:
         pass
     else:  # pragma: no cover - defensive
         raise AssertionError("WhiteboxToolsBackend alias should no longer be exposed")
+
+
+def test_whitebox_workflows_backend_suppresses_native_stdio(capfd) -> None:
+    backend = WhiteboxWorkflowsBackend()
+
+    def _noisy_native_operation():
+        os.write(1, b"native-stdout\n")
+        os.write(2, b"native-stderr\n")
+        print("python-stdout")
+        return 123
+
+    assert backend._run_env_operation(_noisy_native_operation) == 123
+    captured = capfd.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
 
 
 def test_whitebox_tools_backend_module_is_no_longer_importable() -> None:
@@ -292,3 +309,15 @@ def test_whitebox_workflows_backend_in_memory_chain(tmp_path: Path) -> None:
 
     assert (tmp_path / "clipped.tif").exists()
     assert (tmp_path / "watershed_mem.shp").exists()
+
+
+def test_whitebox_workflows_backend_rejects_empty_vector_write(tmp_path: Path) -> None:
+    backend = WhiteboxWorkflowsBackend()
+
+    class _EmptyVector:
+        records = []
+
+    out_path = tmp_path / "empty.shp"
+
+    with pytest.raises(ValueError, match="empty vector layer"):
+        backend.write_vector(_EmptyVector(), str(out_path))

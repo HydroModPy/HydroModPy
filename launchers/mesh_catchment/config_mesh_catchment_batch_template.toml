@@ -95,7 +95,7 @@ continue_on_error = false
 constraints_mode = ""
 
 # Optional `.msh` output path for the generated planar mesh.
-# When omitted, the launcher writes the mesh to `results_stable/mesh/gmsh/mesh_catchment.msh` inside the active catchment workspace.
+# When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` inside the active catchment workspace.
 # Type: string (optional) | Optional
 # output_mesh = ""
 
@@ -118,6 +118,11 @@ constraints_mode = ""
 # Keep it false for batch or headless execution.
 # Type: bool | Default: false
 show_plot = false
+
+# Control what happens to intermediate geographic preprocessing artifacts after the mesh run.
+# Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
+# Type: string | Default: "keep"
+geographic_outputs_mode = "keep"
 
 
 # River-constraint section used when constraints_mode includes rivers.

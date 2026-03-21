@@ -309,7 +309,7 @@ class MeshCatchmentConfigSchema(BaseModel):
         default=None,
         description=(
             "Optional `.msh` output path for the generated planar mesh. "
-            "When omitted, the launcher writes the mesh to `results_stable/mesh/gmsh/mesh_catchment.msh` "
+            "When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` "
             "inside the active catchment workspace."
         ),
     )
@@ -342,6 +342,15 @@ class MeshCatchmentConfigSchema(BaseModel):
         description=(
             "If true, open the generated overview figure interactively at the end of the run. "
             "Keep it false for batch or headless execution."
+        ),
+    )
+    geographic_outputs_mode: str = Field(
+        default="keep",
+        description=(
+            "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. "
+            "Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` "
+            "folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs "
+            "and exchange bundle have been written."
         ),
     )
     rivers: MeshCatchmentRiversConfigSchema = Field(
@@ -408,6 +417,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             raise ValueError(
                 "constraints_mode must be one of: geology_only, rivers_only, geology_rivers."
             )
+        return token
+
+    @field_validator("geographic_outputs_mode")
+    @classmethod
+    def _validate_geographic_outputs_mode(cls, value: object) -> str:
+        token = str(value).strip().lower()
+        if token not in {"keep", "cleanup"}:
+            raise ValueError("geographic_outputs_mode must be 'keep' or 'cleanup'.")
         return token
 
     @field_validator(

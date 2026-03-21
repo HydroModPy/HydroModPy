@@ -12,7 +12,7 @@ Responsabilites principales
 - produire une figure finale a un ou deux panneaux.
 
 Le module reste volontairement independant du lecteur du bundle. Il consomme
-simplement l'interface minimale documentee dans `models.py`.
+simplement l'interface minimale documentee dans `schema.py`.
 """
 
 from __future__ import annotations
@@ -20,11 +20,23 @@ from __future__ import annotations
 from collections.abc import Mapping
 import math
 
-from hydromodpy_annex.distribution.mesh.models import (
+from mesh.schema import (
     MeshBundleLike,
     NUMERIC_COLOR_FIELDS,
     PlotConfig,
     VisualizationConfig,
+)
+
+_OVERLAY_STYLES = (
+    ("show_boundaries", lambda edge: str(edge.edge_kind) == "boundary", "Limite", "black", 1.0),
+    (
+        "show_geology_interfaces",
+        lambda edge: str(edge.edge_kind) == "geology_interface",
+        "Interface geologique",
+        "#c85a00",
+        1.2,
+    ),
+    ("show_river_edges", lambda edge: bool(edge.is_river), "Riviere", "#1f78b4", 1.1),
 )
 
 
@@ -193,11 +205,7 @@ def _format_axes(ax, *, node_xy_map: Mapping[int, tuple[float, float]]) -> None:
 
 
 def _build_info_text(mesh: MeshBundleLike) -> str:
-    """Construit le cartouche d'informations synthetiques.
-
-    Ce cartouche sert a expliquer rapidement ce que l'on regarde sans avoir a
-    ouvrir les fichiers du bundle a la main.
-    """
+    """Construit le cartouche d'informations synthetiques."""
 
     metadata = dict(mesh.metadata)
     lines = [
@@ -227,12 +235,7 @@ def _plot_numeric_cells(
     PolyCollection,
     plt,
 ) -> None:
-    """Trace un fond par cellule pour un champ numerique.
-
-    Certains bundles plus anciens ne portent pas encore tous les champs
-    numeriques proposes par le viewer. Dans ce cas, on evite un plantage
-    lorsque toutes les valeurs sont manquantes et on affiche un fond neutre.
-    """
+    """Trace un fond par cellule pour un champ numerique."""
     finite_values = [value for value in values if math.isfinite(value)]
     if not finite_values:
         collection = PolyCollection(
@@ -325,32 +328,14 @@ def _plot_overlays(
     """Trace les lignes de limites, de geologie et de riviere."""
     legend_items: list[tuple[str, str]] = []
 
-    if plot_config.show_boundaries:
-        segments = _build_edge_segments(
-            mesh,
-            selector=lambda edge: str(edge.edge_kind) == "boundary",
-        )
-        if segments:
-            ax.add_collection(LineCollection(segments, colors="black", linewidths=1.0))
-            legend_items.append(("Limite", "black"))
-
-    if plot_config.show_geology_interfaces:
-        segments = _build_edge_segments(
-            mesh,
-            selector=lambda edge: str(edge.edge_kind) == "geology_interface",
-        )
-        if segments:
-            ax.add_collection(LineCollection(segments, colors="#c85a00", linewidths=1.2))
-            legend_items.append(("Interface geologique", "#c85a00"))
-
-    if plot_config.show_river_edges:
-        segments = _build_edge_segments(
-            mesh,
-            selector=lambda edge: bool(edge.is_river),
-        )
-        if segments:
-            ax.add_collection(LineCollection(segments, colors="#1f78b4", linewidths=1.1))
-            legend_items.append(("Riviere", "#1f78b4"))
+    for flag_name, selector, label, color, linewidth in _OVERLAY_STYLES:
+        if not getattr(plot_config, flag_name):
+            continue
+        segments = _build_edge_segments(mesh, selector=selector)
+        if not segments:
+            continue
+        ax.add_collection(LineCollection(segments, colors=color, linewidths=linewidth))
+        legend_items.append((label, color))
 
     if legend_items:
         from matplotlib.lines import Line2D
@@ -407,12 +392,7 @@ def _plot_mesh_panel(
     PolyCollection,
     Patch,
 ) -> None:
-    """Construit un panneau base sur un coloriage par cellule.
-
-    Ce panneau est la vue "structurelle" du maillage : on part des cellules,
-    on les colorie, puis on ajoute les surcouches lineaires utiles a la lecture
-    du resultat.
-    """
+    """Construit un panneau base sur un coloriage par cellule."""
 
     mesh_edge_color = str(plot_config.mesh_edge_color) if plot_config.show_mesh_edges else "none"
     mesh_edge_linewidth = (
@@ -420,7 +400,6 @@ def _plot_mesh_panel(
     )
     polygons = _build_cell_polygons(mesh)
 
-    # Le rendu depend du type de champ demande : numerique ou categoriel.
     if color_field in NUMERIC_COLOR_FIELDS:
         _plot_numeric_cells(
             ax,
@@ -489,18 +468,13 @@ def _plot_continuous_topography_panel(
     plt,
     LineCollection,
 ) -> bool:
-    """Construit un panneau topographique continu a partir des noeuds.
-
-    Lorsque les altitudes `z_top` existent sur les noeuds, on peut construire
-    un rendu bien plus proche d'un MNT qu'un simple coloriage par cellule.
-    """
+    """Construit un panneau topographique continu a partir des noeuds."""
     from matplotlib import tri as mtri
 
     x_values, y_values, triangles = _build_triangulation_inputs(mesh)
     if not triangles:
         return False
 
-    # On masque les triangles pour lesquels au moins un noeud n'a pas d'altitude.
     z_values, valid_mask = _get_node_topography_values(mesh)
     triangle_mask = [
         not bool(valid_mask[i0] and valid_mask[i1] and valid_mask[i2])
@@ -513,7 +487,6 @@ def _plot_continuous_topography_panel(
     if any(triangle_mask):
         triangulation.set_mask(triangle_mask)
 
-    # Le shading Gouraud donne un rendu plus proche d'un MNT continu.
     surface = ax.tripcolor(
         triangulation,
         z_values,
@@ -552,11 +525,7 @@ def build_visualization_figure(
     *,
     config: VisualizationConfig,
 ):
-    """Construit la figure finale de visualisation.
-
-    Le panneau de gauche montre le maillage et ses contraintes.
-    Le panneau de droite montre une vue topographique type MNT si demandee.
-    """
+    """Construit la figure finale de visualisation."""
 
     matplotlib, plt, LineCollection, PolyCollection, Patch = _load_matplotlib(
         show_window=config.show_window
@@ -610,8 +579,6 @@ def build_visualization_figure(
             LineCollection=LineCollection,
         )
 
-        # Si le bundle ne fournit pas assez d'altitudes nodales, on retombe
-        # proprement sur un rendu par cellule pour ne pas bloquer l'outil.
         if not has_continuous_render:
             _plot_mesh_panel(
                 axes[1],

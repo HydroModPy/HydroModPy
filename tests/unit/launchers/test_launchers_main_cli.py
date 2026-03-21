@@ -7,6 +7,31 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
+import rasterio
+from rasterio.transform import from_origin
+
+
+def _write_test_raster(path: Path, *, xmin: float, ymin: float, xmax: float, ymax: float) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pixel_size = 100.0
+    width = max(1, int(round((xmax - xmin) / pixel_size)))
+    height = max(1, int(round((ymax - ymin) / pixel_size)))
+    transform = from_origin(float(xmin), float(ymax), pixel_size, pixel_size)
+    profile = {
+        "driver": "GTiff",
+        "height": height,
+        "width": width,
+        "count": 1,
+        "dtype": rasterio.float32,
+        "crs": "EPSG:2154",
+        "transform": transform,
+        "nodata": -9999.0,
+    }
+    data = np.ones((height, width), dtype=np.float32)
+    with rasterio.open(path, "w", **profile) as dst:
+        dst.write(data, 1)
+
 
 def _load_module():
     module_path = Path(__file__).resolve().parents[3] / "launchers" / "__main__.py"
@@ -52,12 +77,21 @@ def _install_mesh_catchment_runtime_stubs(monkeypatch, tmp_path: Path):
     import launchers.mesh_catchment.launcher as launcher_module
     import launchers.mesh_catchment.runtime as runtime_module
 
+    dem_path = tmp_path / "data" / "reference.tif"
+    _write_test_raster(
+        dem_path,
+        xmin=0.0,
+        ymin=0.0,
+        xmax=1000.0,
+        ymax=1000.0,
+    )
     workspace_cfg = SimpleNamespace(
         project_root=tmp_path / "project" / "mesh_cli_case",
     )
     geographic_cfg = SimpleNamespace(
         uses_synthetic_geographic=lambda: False,
         river_network=SimpleNamespace(enabled=True),
+        dem_init_path=dem_path,
     )
 
     def _fake_load_standard_section(_, model_cls, __):
@@ -365,7 +399,6 @@ def test_launchers_cli_mesh_catchment_batch_creates_manifest_and_figures(
         / "mesh_cli_case_outlet_A"
         / "results_stable"
         / "mesh"
-        / "gmsh"
         / "figure_A.png"
     ).resolve()
     figure_b = (
@@ -374,7 +407,6 @@ def test_launchers_cli_mesh_catchment_batch_creates_manifest_and_figures(
         / "mesh_cli_case_outlet_B"
         / "results_stable"
         / "mesh"
-        / "gmsh"
         / "figure_B.png"
     ).resolve()
     figure_a_regional = figure_a.with_name("figure_A_regional.png")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import shutil
 from types import SimpleNamespace
 from typing import Any
 
@@ -151,6 +152,27 @@ def _derive_regional_figure_path(output_figure: Path | None) -> Path | None:
     )
 
 
+def _default_mesh_output_dir(workspace: object) -> Path:
+    return Path(getattr(workspace, "stable_folder")) / "mesh"
+
+
+def _resolve_geographic_outputs_mode(section_data: Mapping[str, Any]) -> str:
+    raw_value = section_data.get("geographic_outputs_mode", "keep")
+    token = str(raw_value).strip().lower()
+    return token if token in {"keep", "cleanup"} else "keep"
+
+
+def _cleanup_geographic_artifacts(*, workspace: object) -> list[str]:
+    stable_folder = Path(getattr(workspace, "stable_folder"))
+    deleted: list[str] = []
+    for folder in (stable_folder / "geographic", stable_folder / "demcorrecflow"):
+        if not folder.exists():
+            continue
+        shutil.rmtree(folder)
+        deleted.append(str(folder))
+    return deleted
+
+
 def _resolve_output_overrides(
     *,
     config_path: Path,
@@ -159,7 +181,7 @@ def _resolve_output_overrides(
     explicit_overrides: Mapping[str, Path | str | None] | None = None,
 ) -> tuple[Path, Path, Path | None, Path | None, bool]:
     overrides = dict(explicit_overrides or {})
-    mesh_dir = Path(getattr(workspace, "stable_folder")) / "mesh" / "gmsh"
+    mesh_dir = _default_mesh_output_dir(workspace)
 
     output_mesh = overrides.get("output_mesh")
     if output_mesh is None:
@@ -243,6 +265,7 @@ def run_single_mesh_catchment_workflow(
     section_data: Mapping[str, Any],
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
+    domain_cfg: object | None,
     constraints_mode: str,
     output_overrides: Mapping[str, Path | str | None] | None = None,
     workspace: object | None = None,
@@ -253,11 +276,14 @@ def run_single_mesh_catchment_workflow(
     config_path = Path(config_path).resolve()
     local_workspace = workspace if workspace is not None else hmp.Workspace(config=workspace_cfg)
     local_domain_geographic = domain_geographic
+    geographic_outputs_mode = _resolve_geographic_outputs_mode(section_data)
+    built_domain_geographic_locally = False
     if local_domain_geographic is None:
         local_domain_geographic = build_domain_geographic_context(
             config=geographic_cfg,
             workspace=local_workspace,
         )
+        built_domain_geographic_locally = True
 
     river_trace = _resolve_river_trace(
         constraints_mode=constraints_mode,
@@ -288,6 +314,8 @@ def run_single_mesh_catchment_workflow(
         show_plot=show_plot,
     )
     summary_dict = dict(summary)
+    summary_dict["geographic_outputs_mode"] = geographic_outputs_mode
+    summary_dict["geographic_outputs_cleanup_applied"] = False
     if Path(output_mesh).exists():
         geology_cfg = section_data.get("geology")
         if not isinstance(geology_cfg, Mapping):
@@ -299,6 +327,7 @@ def run_single_mesh_catchment_workflow(
             bundle_summary = export_catchment_mesh_bundle(
                 mesh_path=output_mesh,
                 domain_geographic=local_domain_geographic,
+                domain_cfg=domain_cfg,
                 geology_cfg=geology_cfg,
                 hydraulic_properties_cfg=hydraulic_properties_cfg,
                 river_trace=river_trace,
@@ -309,6 +338,14 @@ def run_single_mesh_catchment_workflow(
             summary_dict["output_exchange_bundle_dir"] = str(bundle_summary["bundle_dir"])
         except Exception as exc:  # pragma: no cover - defensive only
             summary_dict["exchange_bundle_error"] = str(exc)
+    if geographic_outputs_mode == "cleanup" and built_domain_geographic_locally:
+        try:
+            deleted_paths = _cleanup_geographic_artifacts(workspace=local_workspace)
+            summary_dict["geographic_outputs_cleanup_applied"] = bool(deleted_paths)
+            if deleted_paths:
+                summary_dict["geographic_outputs_cleanup_deleted"] = deleted_paths
+        except Exception as exc:  # pragma: no cover - defensive only
+            summary_dict["geographic_outputs_cleanup_error"] = str(exc)
     return summary_dict
 
 

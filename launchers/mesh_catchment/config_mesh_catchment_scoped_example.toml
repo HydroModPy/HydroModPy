@@ -8,9 +8,15 @@ base_config = "config_mesh_catchment_common.toml"
 # Keep this example isolated from the default single-catchment outputs.
 project_root = "C:/results/HydromodPy/mesh_catchment_nancon_scoped"
 
+[geographic]
+# Nancon lies outside the lightweight `regional_dem.tif` extent from the common
+# config, so this example must use the wider 4x DEM.
+dem_init_path = "../../examples/data/dem/regional_dem_4x.tif"
+
 [mesh_catchment]
 constraints_mode = "geology_rivers"
-output_figure = "C:/results/HydromodPy/mesh_catchment_nancon_scoped/results_stable/mesh/gmsh/mesh_catchment_nancon_scoped_overview.png"
+# geographic_outputs_mode = "cleanup"
+output_figure = "C:/results/HydromodPy/mesh_catchment_nancon_scoped/results_stable/mesh/mesh_catchment_nancon_scoped_overview.png"
 show_plot = false
 
 [mesh_catchment.rivers]
@@ -29,7 +35,7 @@ cell_samples_per_axis = 8
 path = "../../examples/data/geology/GEO1M.shp"
 kind = "vector"
 code_field = "CODE_LEG"
-reference_raster_path = "../../examples/data/dem/DEM_armorican_massif.tif"
+reference_raster_path = "../../examples/data/dem/regional_dem_4x.tif"
 all_touched = false
 
 [mesh_catchment.geology.landsea]

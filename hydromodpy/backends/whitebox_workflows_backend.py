@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from functools import lru_cache
 import os
 import sys
@@ -19,30 +19,6 @@ _VECTOR_EXTENSIONS = {
     ".dbf",
     ".shx",
 }
-
-
-@contextmanager
-def _suppress_native_stdout():
-    """Redirect OS-level file descriptor 1 (stdout) to /dev/null.
-
-    This silences informational output from native (C/Rust) code such as
-    whitebox_workflows which bypasses Python's ``sys.stdout``.
-    stderr is left untouched so that error messages and panics remain visible.
-    """
-    try:
-        devnull_fd = os.open(os.devnull, os.O_WRONLY)
-        saved_stdout_fd = os.dup(1)
-    except OSError:
-        yield
-        return
-    try:
-        os.dup2(devnull_fd, 1)
-        os.close(devnull_fd)
-        sys.stdout.flush()
-        yield
-    finally:
-        os.dup2(saved_stdout_fd, 1)
-        os.close(saved_stdout_fd)
 
 
 class WhiteboxWorkflowsBackend:
@@ -71,27 +47,84 @@ class WhiteboxWorkflowsBackend:
     def _is_vector_path(path: str) -> bool:
         return Path(path).suffix.lower() in _VECTOR_EXTENSIONS
 
-    def _run_env_operation(self, operation, *args, **kwargs):
+    @contextmanager
+    def _silence_stdio(self):
+        """Suppress both Python-level and native stdio emitted by Whitebox."""
         if self._verbose:
-            return operation(*args, **kwargs)
-        # Whitebox (Rust) writes to C-level file descriptors; redirect_stdout
-        # only captures Python-level sys.stdout.  Use OS-level fd redirection.
-        with _suppress_native_stdout():
+            yield
+            return
+
+        with open(os.devnull, "w", encoding="utf-8", errors="ignore") as devnull:
+            try:
+                stdout_fd = os.dup(1)
+                stderr_fd = os.dup(2)
+            except OSError:
+                with redirect_stdout(devnull), redirect_stderr(devnull):
+                    yield
+                return
+            try:
+                try:
+                    sys.stdout.flush()
+                except Exception:
+                    pass
+                try:
+                    sys.stderr.flush()
+                except Exception:
+                    pass
+
+                with redirect_stdout(devnull), redirect_stderr(devnull):
+                    os.dup2(devnull.fileno(), 1)
+                    os.dup2(devnull.fileno(), 2)
+                    yield
+            finally:
+                try:
+                    os.dup2(stdout_fd, 1)
+                    os.dup2(stderr_fd, 2)
+                finally:
+                    os.close(stdout_fd)
+                    os.close(stderr_fd)
+
+    def _run_env_operation(self, operation, *args, **kwargs):
+        with self._silence_stdio():
             return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
-        return self._env.read_raster(path)
+        return self._run_env_operation(self._env.read_raster, path)
 
     def _write_raster(self, raster, path: str) -> None:
         self._ensure_parent(path)
-        self._env.write_raster(raster, path, compress=self._compress_rasters)
+        self._run_env_operation(
+            self._env.write_raster,
+            raster,
+            path,
+            compress=self._compress_rasters,
+        )
 
     def _read_vector(self, path: str):
-        return self._env.read_vector(path)
+        return self._run_env_operation(self._env.read_vector, path)
+
+    @staticmethod
+    def _vector_record_count(vector) -> int | None:
+        records = getattr(vector, "records", None)
+        if records is None:
+            return None
+        try:
+            return int(len(records))
+        except Exception:
+            try:
+                return int(len(list(records)))
+            except Exception:
+                return None
 
     def _write_vector(self, vector, path: str) -> None:
         self._ensure_parent(path)
-        self._env.write_vector(vector, path)
+        record_count = self._vector_record_count(vector)
+        if record_count == 0:
+            raise ValueError(
+                "Whitebox produced an empty vector layer; refusing to write "
+                f"{path}. Check the upstream clipping/delineation step."
+            )
+        self._run_env_operation(self._env.write_vector, vector, path)
 
     # ------------------------------------------------------------------
     # In-memory primitives
@@ -109,7 +142,10 @@ class WhiteboxWorkflowsBackend:
         self._write_vector(vector, path)
 
     def clip_vector(self, vector, clip_layer):
-        return self._env.clip(vector, clip_layer)
+        return self._run_env_operation(self._env.clip, vector, clip_layer)
+
+    def vector_record_count(self, vector) -> int | None:
+        return self._vector_record_count(vector)
 
     def fill_depressions_raster(self, dem):
         return self._run_env_operation(self._env.fill_depressions, dem)
@@ -119,7 +155,9 @@ class WhiteboxWorkflowsBackend:
 
     def d8_pointer_raster(self, dem, *, esri_pntr: bool = False):
         return self._run_env_operation(
-            self._env.d8_pointer, dem, esri_pointer=esri_pntr,
+            self._env.d8_pointer,
+            dem,
+            esri_pointer=esri_pntr,
         )
 
     def d8_flow_accumulation_raster(self, dem, *, log: bool = True):
@@ -140,33 +178,48 @@ class WhiteboxWorkflowsBackend:
         *,
         maintain_dimensions: bool = False,
     ):
-        return self._env.clip_raster_to_polygon(
+        return self._run_env_operation(
+            self._env.clip_raster_to_polygon,
             raster,
             polygon,
             maintain_dimensions=maintain_dimensions,
         )
 
     def modify_no_data_value_raster(self, raster, *, new_value: float):
-        return self._env.modify_nodata_value(raster, new_value=new_value)
+        return self._run_env_operation(
+            self._env.modify_nodata_value,
+            raster,
+            new_value=new_value,
+        )
 
     def snap_pour_points_vector(self, pour_points, flow_accumulation, snap_dist: int):
-        return self._env.snap_pour_points(
+        return self._run_env_operation(
+            self._env.snap_pour_points,
             pour_points,
             flow_accumulation,
             snap_dist=snap_dist,
         )
 
     def watershed_raster(self, d8_pntr, pour_pts, *, esri_pntr: bool = False):
-        return self._env.watershed(d8_pntr, pour_pts, esri_pntr=esri_pntr)
+        return self._run_env_operation(
+            self._env.watershed,
+            d8_pntr,
+            pour_pts,
+            esri_pntr=esri_pntr,
+        )
 
     def raster_to_vector_polygons_raster(self, raster):
-        return self._env.raster_to_vector_polygons(raster)
+        return self._run_env_operation(self._env.raster_to_vector_polygons, raster)
 
     def raster_to_vector_points_raster(self, raster):
-        return self._env.raster_to_vector_points(raster)
+        return self._run_env_operation(self._env.raster_to_vector_points, raster)
 
     def trace_downslope_flowpaths_raster(self, input_points, d8_pntr):
-        return self._env.trace_downslope_flowpaths(input_points, d8_pntr)
+        return self._run_env_operation(
+            self._env.trace_downslope_flowpaths,
+            input_points,
+            d8_pntr,
+        )
 
     def extract_streams_raster(
         self,
@@ -180,7 +233,7 @@ class WhiteboxWorkflowsBackend:
             kwargs["threshold"] = float(threshold)
         if zero_background is not None:
             kwargs["zero_background"] = zero_background
-        return self._env.extract_streams(flow_accumulation, **kwargs)
+        return self._run_env_operation(self._env.extract_streams, flow_accumulation, **kwargs)
 
     def raster_streams_to_vector_raster(
         self,
@@ -195,7 +248,12 @@ class WhiteboxWorkflowsBackend:
             kwargs["esri_pointer"] = esri_pointer
         if all_vertices is not None:
             kwargs["all_vertices"] = all_vertices
-        return self._env.raster_streams_to_vector(streams_raster, d8_pointer, **kwargs)
+        return self._run_env_operation(
+            self._env.raster_streams_to_vector,
+            streams_raster,
+            d8_pointer,
+            **kwargs,
+        )
 
     def strahler_stream_order_raster(
         self,
@@ -210,7 +268,12 @@ class WhiteboxWorkflowsBackend:
             kwargs["esri_pntr"] = esri_pntr
         if zero_background is not None:
             kwargs["zero_background"] = zero_background
-        return self._env.strahler_stream_order(d8_pointer, streams_raster, **kwargs)
+        return self._run_env_operation(
+            self._env.strahler_stream_order,
+            d8_pointer,
+            streams_raster,
+            **kwargs,
+        )
 
     def stream_link_identifier_raster(
         self,
@@ -225,7 +288,12 @@ class WhiteboxWorkflowsBackend:
             kwargs["esri_pntr"] = esri_pntr
         if zero_background is not None:
             kwargs["zero_background"] = zero_background
-        return self._env.stream_link_identifier(d8_pointer, streams_raster, **kwargs)
+        return self._run_env_operation(
+            self._env.stream_link_identifier,
+            d8_pointer,
+            streams_raster,
+            **kwargs,
+        )
 
     def remove_short_streams_raster(
         self,
@@ -240,15 +308,24 @@ class WhiteboxWorkflowsBackend:
             kwargs["min_length"] = float(min_length)
         if esri_pntr is not None:
             kwargs["esri_pntr"] = esri_pntr
-        return self._env.remove_short_streams(d8_pointer, streams_raster, **kwargs)
+        return self._run_env_operation(
+            self._env.remove_short_streams,
+            d8_pointer,
+            streams_raster,
+            **kwargs,
+        )
 
     def d8_mass_flux_raster(self, dem, loading, efficiency, absorption):
         return self._run_env_operation(
-            self._env.d8_mass_flux, dem, loading, efficiency, absorption,
+            self._env.d8_mass_flux,
+            dem,
+            loading,
+            efficiency,
+            absorption,
         )
 
     def polygons_to_lines_vector(self, vector):
-        return self._env.polygons_to_lines(vector)
+        return self._run_env_operation(self._env.polygons_to_lines, vector)
 
     def vector_lines_to_raster_vector(
         self,
@@ -268,7 +345,7 @@ class WhiteboxWorkflowsBackend:
             kwargs["cell_size"] = cell_size
         if base_raster is not None:
             kwargs["base_raster"] = base_raster
-        return self._env.vector_lines_to_raster(vector, **kwargs)
+        return self._run_env_operation(self._env.vector_lines_to_raster, vector, **kwargs)
 
     def vector_polygons_to_raster_vector(
         self,
@@ -288,7 +365,7 @@ class WhiteboxWorkflowsBackend:
             kwargs["cell_size"] = cell_size
         if base_raster is not None:
             kwargs["base_raster"] = base_raster
-        return self._env.vector_polygons_to_raster(vector, **kwargs)
+        return self._run_env_operation(self._env.vector_polygons_to_raster, vector, **kwargs)
 
     def vector_points_to_raster_vector(
         self,
@@ -311,25 +388,38 @@ class WhiteboxWorkflowsBackend:
             kwargs["cell_size"] = cell_size
         if base_raster is not None:
             kwargs["base_raster"] = base_raster
-        return self._env.vector_points_to_raster(vector, **kwargs)
+        return self._run_env_operation(self._env.vector_points_to_raster, vector, **kwargs)
 
     def set_nodata_value_raster(self, raster, *, back_value: float):
-        return self._env.set_nodata_value(raster, back_value=back_value)
+        return self._run_env_operation(
+            self._env.set_nodata_value,
+            raster,
+            back_value=back_value,
+        )
 
     def polygon_area_vector(self, vector):
-        return self._env.polygon_area(vector)
+        return self._run_env_operation(self._env.polygon_area, vector)
 
     def downslope_distance_to_stream_raster(self, dem, streams, *, use_dinf: bool | None = None):
         kwargs: dict[str, object] = {}
         if use_dinf is not None:
             kwargs["use_dinf"] = use_dinf
-        return self._env.downslope_distance_to_stream(dem, streams, **kwargs)
+        return self._run_env_operation(
+            self._env.downslope_distance_to_stream,
+            dem,
+            streams,
+            **kwargs,
+        )
 
     def add_point_coordinates_to_table_vector(self, vector):
-        return self._env.add_point_coordinates_to_table(vector)
+        return self._run_env_operation(self._env.add_point_coordinates_to_table, vector)
 
     def extract_raster_values_at_points_vector(self, rasters: list, points):
-        point_vector, _ = self._env.extract_raster_values_at_points(rasters, points)
+        point_vector, _ = self._run_env_operation(
+            self._env.extract_raster_values_at_points,
+            rasters,
+            points,
+        )
         return point_vector
 
     def fill_depressions(self, input_dem: str, output_dem: str) -> None:
@@ -596,7 +686,10 @@ class WhiteboxWorkflowsBackend:
                 output_path,
             )
             return
-        self._write_raster(self._env.clip(self._read_raster(input_path), clip_vector), output_path)
+        self._write_raster(
+            self._run_env_operation(self._env.clip, self._read_raster(input_path), clip_vector),
+            output_path,
+        )
 
     def dissolve(
         self,
@@ -607,7 +700,8 @@ class WhiteboxWorkflowsBackend:
         snap_tolerance: float | None = None,
     ) -> None:
         self._write_vector(
-            self._env.dissolve(
+            self._run_env_operation(
+                self._env.dissolve,
                 self._read_vector(input_path),
                 dissolve_field=dissolve_field,
                 snap_tolerance=snap_tolerance,

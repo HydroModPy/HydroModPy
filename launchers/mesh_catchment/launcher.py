@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import re
+import rasterio
 import sys
 from types import SimpleNamespace
 from typing import Any
@@ -24,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from hydromodpy.config.hydromodpy_config import _load_standard_section
 from hydromodpy.config.toml_loader import load_toml_with_base_config
+from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
 from launchers.mesh_catchment import runtime as mesh_runtime
@@ -254,6 +256,13 @@ def _workspace_stable_folder(workspace_like: object) -> Path:
     return Path(workspace_like.project_root) / "results_stable"
 
 
+def _point_is_within_bounds(*, x: float, y: float, bounds) -> bool:
+    return (
+        float(bounds.left) <= float(x) <= float(bounds.right)
+        and float(bounds.bottom) <= float(y) <= float(bounds.top)
+    )
+
+
 class MeshCatchmentLauncher:
     """Run one mesh-only workflow from the ``[mesh_catchment]`` TOML section."""
 
@@ -263,7 +272,7 @@ class MeshCatchmentLauncher:
         self.config_path = Path(config_path).resolve()
         self.raw_toml = load_toml_with_base_config(self.config_path)
         self.mesh_section_data = mesh_runtime.require_mesh_section(self.raw_toml)
-        self.workspace_cfg, self.geographic_cfg = self._load_runtime_configs(
+        self.workspace_cfg, self.geographic_cfg, self.domain_cfg = self._load_runtime_configs(
             self.raw_toml
         )
         self.constraints_mode = mesh_runtime.resolve_constraints_mode(
@@ -280,6 +289,7 @@ class MeshCatchmentLauncher:
         )
         if self.batch_cfg is not None:
             self._validate_batch_output_configuration(self.batch_cfg)
+            self._validate_batch_raster_coverage(self.batch_cfg)
 
     def _normalize_workspace_section(
         self,
@@ -296,8 +306,8 @@ class MeshCatchmentLauncher:
     def _load_runtime_configs(
         self,
         payload: Mapping[str, Any],
-    ) -> tuple[WorkspaceConfig, GeographicConfig]:
-        """Load only workspace/geographic sections needed by this mesh-only launcher."""
+    ) -> tuple[WorkspaceConfig, GeographicConfig, DomainConfig]:
+        """Load workspace/geographic/domain sections needed by this mesh-only launcher."""
         base_dir = self.config_path.parent
         workspace_data = self._normalize_workspace_section(payload)
         workspace_cfg = _load_standard_section(
@@ -310,13 +320,22 @@ class MeshCatchmentLauncher:
             GeographicConfig,
             base_dir,
         )
-        return workspace_cfg, geographic_cfg
+        if "domain" in payload:
+            domain_cfg = _load_standard_section(
+                payload.get("domain", {}),
+                DomainConfig,
+                base_dir,
+            )
+        else:
+            domain_cfg = DomainConfig()
+        return workspace_cfg, geographic_cfg, domain_cfg
 
     def _run_single_workflow(
         self,
         *,
         workspace_cfg,
         geographic_cfg,
+        domain_cfg,
         output_overrides: Mapping[str, Path | None] | None = None,
     ) -> dict[str, Any]:
         return mesh_runtime.run_single_mesh_catchment_workflow(
@@ -324,6 +343,7 @@ class MeshCatchmentLauncher:
             section_data=self.mesh_section_data,
             workspace_cfg=workspace_cfg,
             geographic_cfg=geographic_cfg,
+            domain_cfg=domain_cfg,
             constraints_mode=self.constraints_mode,
             output_overrides=output_overrides,
             section_name=self.SECTION_NAME,
@@ -351,6 +371,74 @@ class MeshCatchmentLauncher:
                 f"mesh_catchment_batch.outputs.{pattern_attr} to avoid file overwrite "
                 "between outlets."
             )
+
+    def _validate_batch_raster_coverage(
+        self,
+        batch_cfg: MeshCatchmentBatchConfig,
+    ) -> None:
+        records = self._load_outlet_records(batch_cfg)
+        if not records:
+            return
+
+        dem_path = Path(self.geographic_cfg.dem_init_path).expanduser().resolve()
+        self._validate_outlets_within_raster(
+            records=records,
+            raster_path=dem_path,
+            label="geographic.dem_init_path",
+        )
+
+        geology_cfg = self.mesh_section_data.get("geology")
+        if not isinstance(geology_cfg, Mapping):
+            return
+        source_cfg = geology_cfg.get("source")
+        if not isinstance(source_cfg, Mapping):
+            return
+        reference_raster_raw = _optional_text(source_cfg.get("reference_raster_path"))
+        if reference_raster_raw is None:
+            return
+        reference_raster_path = Path(reference_raster_raw).expanduser()
+        if not reference_raster_path.is_absolute():
+            reference_raster_path = (self.config_path.parent / reference_raster_path).resolve()
+        self._validate_outlets_within_raster(
+            records=records,
+            raster_path=reference_raster_path,
+            label="mesh_catchment.geology.source.reference_raster_path",
+        )
+
+    @staticmethod
+    def _validate_outlets_within_raster(
+        *,
+        records: Sequence[MeshCatchmentOutletRecord],
+        raster_path: Path,
+        label: str,
+    ) -> None:
+        if not raster_path.exists():
+            raise FileNotFoundError(f"{label} not found: {raster_path}")
+
+        with rasterio.open(raster_path) as src:
+            bounds = src.bounds
+            outside = [
+                record
+                for record in records
+                if not _point_is_within_bounds(
+                    x=record.x_outlet,
+                    y=record.y_outlet,
+                    bounds=bounds,
+                )
+            ]
+
+        if not outside:
+            return
+
+        sample = ", ".join(
+            f"{record.outlet_id}({record.x_outlet:.3f},{record.y_outlet:.3f})"
+            for record in outside[:3]
+        )
+        raise ValueError(
+            f"{label} does not cover all selected batch outlets. "
+            f"Raster bounds are {bounds}. First outside outlet(s): {sample}. "
+            "Override the batch config with a DEM/reference raster that covers the full outlets table."
+        )
 
     def _load_outlet_records(
         self,
@@ -495,7 +583,7 @@ class MeshCatchmentLauncher:
         batch_cfg: MeshCatchmentBatchConfig,
         record: MeshCatchmentOutletRecord,
     ) -> dict[str, Path | None]:
-        mesh_dir = _workspace_stable_folder(workspace_cfg) / "mesh" / "gmsh"
+        mesh_dir = _workspace_stable_folder(workspace_cfg) / "mesh"
         catch_name_safe = _sanitize_path_token(_workspace_catch_name(workspace_cfg))
         tokens = {
             "catch_name": catch_name_safe,
@@ -623,6 +711,7 @@ class MeshCatchmentLauncher:
                 summary = self._run_single_workflow(
                     workspace_cfg=workspace_cfg,
                     geographic_cfg=geographic_cfg,
+                    domain_cfg=self.domain_cfg,
                     output_overrides=output_overrides,
                 )
                 results.append(
@@ -667,6 +756,7 @@ class MeshCatchmentLauncher:
         return self._run_single_workflow(
             workspace_cfg=self.workspace_cfg,
             geographic_cfg=self.geographic_cfg,
+            domain_cfg=self.domain_cfg,
         )
 
 

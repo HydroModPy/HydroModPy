@@ -18,6 +18,11 @@ from hydromodpy.data_managers.variables.geology.io import (
     resolve_data_path,
 )
 from hydromodpy.data_managers.variables.geology.processing import normalize_zone_key
+from hydromodpy.domain.depth_model import (
+    ConstantThicknessDepthModel,
+    FlatSubstratumDepthModel,
+)
+from hydromodpy.domain.domain import Domain
 from hydromodpy.field.geology.geology_field import GeologyField
 from hydromodpy.support.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
@@ -455,6 +460,33 @@ def _sample_surface(surface, x_values, y_values) -> np.ndarray:
     return sampled.reshape(x_arr.shape)
 
 
+def _build_domain_for_bundle(*, surface, domain_cfg: object | None) -> Domain:
+    """Resolve topography/substratum surfaces used by bundle export."""
+    if surface is None:
+        raise ValueError("domain_geographic.surface_topo is required for bundle export")
+    domain = Domain(config=domain_cfg, surface_topo=surface)
+    if domain.substratum is None:
+        raise ValueError(
+            "domain.depth_model did not produce a substratum surface for bundle export"
+        )
+    return domain
+
+
+def _serialize_depth_model(domain: Domain) -> dict[str, Any]:
+    depth_model = domain.config.depth_model
+    if isinstance(depth_model, ConstantThicknessDepthModel):
+        return {
+            "type": str(depth_model.type),
+            "thickness_m": float(depth_model.thickness),
+        }
+    if isinstance(depth_model, FlatSubstratumDepthModel):
+        return {
+            "type": str(depth_model.type),
+            "substratum_elevation_m": float(depth_model.substratum_elevation),
+        }
+    return {"type": str(getattr(depth_model, "type", "unknown"))}
+
+
 def _polygon_area(vertices: np.ndarray) -> float:
     coords = np.asarray(vertices, dtype=float)
     x_vals = coords[:, 0]
@@ -708,6 +740,7 @@ def _build_metadata(
     hydraulic_properties_payload: Mapping[str, Any],
     summary: Mapping[str, Any] | None,
     domain_geographic: object,
+    domain: Domain,
 ) -> dict[str, Any]:
     surface = getattr(domain_geographic, "surface_topo", None)
     _, support = _surface_values_and_support(surface)
@@ -726,6 +759,14 @@ def _build_metadata(
             "node_field": "z_top",
             "cell_fields": ["z_top_centroid", "z_top_mean"],
             "source_path": None if topography_path is None else str(topography_path),
+        },
+        "vertical": {
+            "available": True,
+            "surface_name": str(getattr(domain.substratum, "name", "substratum")),
+            "derived_from": "domain.depth_model",
+            "node_field": "z_bottom",
+            "cell_fields": ["z_bottom_centroid", "z_bottom_mean"],
+            "depth_model": _serialize_depth_model(domain),
         },
         "geology": {
             "available": bool(geology_payload.get("available", False)),
@@ -803,7 +844,6 @@ def _build_metadata(
             "edges": "edges.csv",
             "cell_geology_fractions": "cell_geology_fractions.csv",
             "metadata": "metadata.json",
-            "reader": "reader.py",
             "readme": "README.md",
             "mesh_summary": (
                 None
@@ -825,12 +865,11 @@ def _write_readme(path: Path, *, metadata: Mapping[str, Any]) -> None:
         "Self-contained export for external numerical workflows.\n\n"
         "Files:\n"
         "- `mesh_2d.msh`: original planar Gmsh mesh.\n"
-        "- `nodes.csv`: node coordinates and topography (`z_top`).\n"
-        "- `cells.csv`: per-cell geometry/topography/geology/hydraulic summary.\n"
+        "- `nodes.csv`: node coordinates, topography (`z_top`) and substratum (`z_bottom`).\n"
+        "- `cells.csv`: per-cell geometry, topography, substratum, geology, and hydraulic summary.\n"
         "- `edges.csv`: edge adjacency and boundary/interface flags.\n"
         "- `cell_geology_fractions.csv`: one row per non-zero geology fraction.\n"
         "- `metadata.json`: bundle schema, CRS, and field semantics.\n"
-        "- `reader.py`: standalone Python reader.\n"
         "\n"
         "Conventions:\n"
         "- all indices are zero-based,\n"
@@ -841,17 +880,11 @@ def _write_readme(path: Path, *, metadata: Mapping[str, Any]) -> None:
         f"Hydraulic properties exported: {'yes' if hydraulic_available else 'no'}\n"
     )
     path.write_text(readme, encoding="utf-8")
-
-
-def _copy_reader(path: Path) -> None:
-    reader_source = Path(__file__).with_name("catchment_mesh_bundle_reader.py")
-    path.write_text(reader_source.read_text(encoding="utf-8"), encoding="utf-8")
-
-
 def export_catchment_mesh_bundle(
     *,
     mesh_path: str | Path,
     domain_geographic: object,
+    domain_cfg: object | None = None,
     bundle_dir: str | Path | None = None,
     geology_cfg: Mapping[str, Any] | None = None,
     hydraulic_properties_cfg: Mapping[str, Any] | None = None,
@@ -873,7 +906,14 @@ def export_catchment_mesh_bundle(
 
     mesh = load_planar_mesh(mesh_path_obj)
     surface = getattr(domain_geographic, "surface_topo", None)
+    domain = _build_domain_for_bundle(surface=surface, domain_cfg=domain_cfg)
+    substratum = domain.substratum
     node_z = _sample_surface(surface, mesh.points_xy[:, 0], mesh.points_xy[:, 1]).reshape(-1)
+    node_z_bottom = _sample_surface(
+        substratum,
+        mesh.points_xy[:, 0],
+        mesh.points_xy[:, 1],
+    ).reshape(-1)
     geology_payload = _compute_geology_payload(
         mesh=mesh,
         surface=surface,
@@ -901,8 +941,17 @@ def export_catchment_mesh_bundle(
         centroid = np.asarray(cell.centroid, dtype=float)
         cell_node_indices = tuple(int(node_idx) for node_idx in cell.node_indices)
         cell_node_z = node_z[np.asarray(cell_node_indices, dtype=int)]
+        cell_node_z_bottom = node_z_bottom[np.asarray(cell_node_indices, dtype=int)]
         centroid_z = float(_sample_surface(surface, centroid[0], centroid[1]).reshape(-1)[0])
+        centroid_z_bottom = float(
+            _sample_surface(substratum, centroid[0], centroid[1]).reshape(-1)[0]
+        )
         mean_z = float(np.nanmean(cell_node_z)) if np.any(np.isfinite(cell_node_z)) else np.nan
+        mean_z_bottom = (
+            float(np.nanmean(cell_node_z_bottom))
+            if np.any(np.isfinite(cell_node_z_bottom))
+            else np.nan
+        )
         n3_value: str | int = _NODATA_SENTINEL
         if len(cell_node_indices) > 3:
             n3_value = int(cell_node_indices[3])
@@ -919,6 +968,8 @@ def export_catchment_mesh_bundle(
                 "area_m2": _polygon_area(vertices),
                 "z_top_centroid": _normalize_optional_float(centroid_z),
                 "z_top_mean": _normalize_optional_float(mean_z),
+                "z_bottom_centroid": _normalize_optional_float(centroid_z_bottom),
+                "z_bottom_mean": _normalize_optional_float(mean_z_bottom),
                 "geology_code": _normalize_optional_int(
                     int(geology_payload["cell_zone_codes"][int(cell.index)])
                 ),
@@ -942,6 +993,7 @@ def export_catchment_mesh_bundle(
             "x": float(mesh.points_xy[node_idx, 0]),
             "y": float(mesh.points_xy[node_idx, 1]),
             "z_top": _normalize_optional_float(float(node_z[node_idx])),
+            "z_bottom": _normalize_optional_float(float(node_z_bottom[node_idx])),
         }
         for node_idx in range(int(mesh.n_nodes))
     ]
@@ -954,7 +1006,7 @@ def export_catchment_mesh_bundle(
 
     _write_csv(
         bundle_path / "nodes.csv",
-        ["node_id", "x", "y", "z_top"],
+        ["node_id", "x", "y", "z_top", "z_bottom"],
         node_rows,
     )
     _write_csv(
@@ -971,6 +1023,8 @@ def export_catchment_mesh_bundle(
             "area_m2",
             "z_top_centroid",
             "z_top_mean",
+            "z_bottom_centroid",
+            "z_bottom_mean",
             "geology_code",
             "geology_key",
             "hydraulic_conductivity_m_s",
@@ -1007,6 +1061,7 @@ def export_catchment_mesh_bundle(
         hydraulic_properties_payload=hydraulic_properties_payload,
         summary=summary,
         domain_geographic=domain_geographic,
+        domain=domain,
     )
     (bundle_path / "metadata.json").write_text(
         json.dumps(metadata, indent=2, ensure_ascii=True) + "\n",
@@ -1020,7 +1075,6 @@ def export_catchment_mesh_bundle(
         if summary_path_obj.exists():
             shutil.copy2(summary_path_obj, bundle_path / "mesh_summary.json")
 
-    _copy_reader(bundle_path / "reader.py")
     _write_readme(bundle_path / "README.md", metadata=metadata)
 
     return {
@@ -1034,6 +1088,7 @@ def export_catchment_mesh_bundle(
         "hydraulic_properties_available": bool(
             hydraulic_properties_payload.get("available", False)
         ),
+        "vertical_available": True,
     }
 
 

@@ -21,6 +21,7 @@ def test_validate_mesh_catchment_config_defaults_domain_and_rivers() -> None:
 
     assert cfg["constraints_mode"] == "rivers_only"
     assert cfg["domain"]["kind"] == "geographic_box_buffer"
+    assert cfg["geographic_outputs_mode"] == "keep"
     assert cfg["rivers"]["source"] == "domain_geographic"
     assert cfg["zone_meshing"]["algorithm"] == "delaunay"
 
@@ -47,6 +48,27 @@ def test_validate_mesh_catchment_config_accepts_hydraulic_properties() -> None:
 
     assert cfg["hydraulic_properties"]["conductivity"]["unit"] == "m/day"
     assert cfg["hydraulic_properties"]["conductivity"]["values"]["granite"] == 12.0
+
+
+def test_validate_mesh_catchment_config_accepts_cleanup_mode() -> None:
+    cfg = validate_mesh_catchment_config_data(
+        {
+            "constraints_mode": "rivers_only",
+            "geographic_outputs_mode": "cleanup",
+        }
+    )
+
+    assert cfg["geographic_outputs_mode"] == "cleanup"
+
+
+def test_validate_mesh_catchment_config_rejects_unknown_cleanup_mode() -> None:
+    with pytest.raises(ValueError, match="geographic_outputs_mode"):
+        validate_mesh_catchment_config_data(
+            {
+                "constraints_mode": "rivers_only",
+                "geographic_outputs_mode": "drop",
+            }
+        )
 
 
 def test_validate_mesh_catchment_batch_selected_requires_ids() -> None:

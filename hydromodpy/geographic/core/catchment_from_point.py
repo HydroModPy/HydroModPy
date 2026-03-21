@@ -101,6 +101,12 @@ def extract_catchment_from_point(
             acc_input,
             int(snap_dist),
         )
+        if tool.vector_record_count(snapped_outlet) == 0:
+            raise ValueError(
+                "Outlet snapping produced no feature. Check geographic.x_outlet / "
+                "geographic.y_outlet, increase geographic.snap_dist, or verify "
+                "that the corrected DEM and flow-accumulation rasters cover the outlet."
+            )
         tool.write_vector(snapped_outlet, str(outlet_snap_shp))
         ensure_crs(outlet_snap_shp, crs_project)
 
@@ -115,6 +121,11 @@ def extract_catchment_from_point(
 
         # Polygon output is the canonical boundary format used downstream.
         watershed_vector = tool.raster_to_vector_polygons_raster(watershed_data)
+        if tool.vector_record_count(watershed_vector) == 0:
+            raise ValueError(
+                "Watershed delineation produced an empty polygon. Check outlet placement, "
+                "DEM conditioning, and snap distance before rerunning the geographic pipeline."
+            )
         tool.write_vector(watershed_vector, str(watershed_shp))
         ensure_crs(watershed_shp, crs_project)
     else:

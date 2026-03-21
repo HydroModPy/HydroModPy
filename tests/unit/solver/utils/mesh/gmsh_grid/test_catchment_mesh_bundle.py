@@ -106,6 +106,12 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     bundle_summary = export_catchment_mesh_bundle(
         mesh_path=mesh_path,
         domain_geographic=domain_geographic,
+        domain_cfg={
+            "depth_model": {
+                "type": "flat_substratum",
+                "substratum_elevation": 5.0,
+            }
+        },
         geology_cfg={
             "id": "field_geology",
             "source": {
@@ -134,15 +140,16 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     assert bundle_summary["bundle_schema_version"] == "mesh_catchment_bundle_v1"
     assert bundle_summary["geology_available"] is True
     assert bundle_summary["hydraulic_properties_available"] is True
+    assert bundle_summary["vertical_available"] is True
     assert (bundle_dir / "mesh_2d.msh").exists()
     assert (bundle_dir / "nodes.csv").exists()
     assert (bundle_dir / "cells.csv").exists()
     assert (bundle_dir / "edges.csv").exists()
     assert (bundle_dir / "cell_geology_fractions.csv").exists()
     assert (bundle_dir / "metadata.json").exists()
-    assert (bundle_dir / "reader.py").exists()
     assert (bundle_dir / "README.md").exists()
     assert (bundle_dir / "mesh_summary.json").exists()
+    assert "reader" not in loaded_metadata_files(bundle_dir)
 
     loaded = load_catchment_mesh_bundle(bundle_dir)
 
@@ -152,6 +159,9 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     assert loaded.metadata["geology"]["available"] is True
     assert loaded.metadata["hydraulic_properties"]["available"] is True
     assert loaded.metadata["topography"]["source_path"] == str(dem_path)
+    assert loaded.metadata["vertical"]["derived_from"] == "domain.depth_model"
+    assert loaded.metadata["vertical"]["depth_model"]["type"] == "flat_substratum"
+    assert loaded.metadata["vertical"]["depth_model"]["substratum_elevation_m"] == 5.0
     assert loaded.mesh_summary is not None
     assert loaded.mesh_summary["constraints_mode"] == "geology_only"
 
@@ -164,6 +174,9 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     assert loaded.cells[1].storage_coefficient is not None
     assert all(cell.area_m2 > 0.0 for cell in loaded.cells)
     assert all(node.z_top is not None for node in loaded.nodes)
+    assert all(np.isclose(float(node.z_bottom), 5.0) for node in loaded.nodes)
+    assert all(np.isclose(float(cell.z_bottom_centroid), 5.0) for cell in loaded.cells)
+    assert all(np.isclose(float(cell.z_bottom_mean), 5.0) for cell in loaded.cells)
 
     interface_edges = [edge for edge in loaded.edges if edge.edge_kind == "geology_interface"]
     assert len(interface_edges) == 1
@@ -171,3 +184,63 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
 
     geology_fraction_cells = {row.cell_id for row in loaded.geology_fractions}
     assert geology_fraction_cells == {0, 1}
+
+
+def test_export_catchment_mesh_bundle_uses_constant_thickness_depth_model(
+    tmp_path: Path,
+) -> None:
+    mesh_path = tmp_path / "mesh.msh"
+    _write_ascii_triangle_mesh(mesh_path)
+
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=0.5,
+        dy=0.5,
+        xmin=0.0,
+        xmax=1.0,
+        ymin=0.0,
+        ymax=1.0,
+        nrows=2,
+        ncols=2,
+        nodata=-9999.0,
+    )
+    surface = Surface(
+        name="surface_topo",
+        values=np.array([[10.0, 20.0], [30.0, 40.0]], dtype=float),
+        support=support,
+    )
+    domain_geographic = SimpleNamespace(surface_topo=surface, watershed_box_buff_dem=None)
+
+    bundle_summary = export_catchment_mesh_bundle(
+        mesh_path=mesh_path,
+        domain_geographic=domain_geographic,
+        domain_cfg={
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "7 m",
+            }
+        },
+    )
+
+    loaded = load_catchment_mesh_bundle(bundle_summary["bundle_dir"])
+
+    assert loaded.metadata["vertical"]["depth_model"]["type"] == "constant_thickness"
+    assert loaded.metadata["vertical"]["depth_model"]["thickness_m"] == 7.0
+    assert all(node.z_top is not None for node in loaded.nodes)
+    assert all(node.z_bottom is not None for node in loaded.nodes)
+    for node in loaded.nodes:
+        assert np.isclose(float(node.z_top) - float(node.z_bottom), 7.0)
+    for cell in loaded.cells:
+        assert np.isclose(
+            float(cell.z_top_centroid) - float(cell.z_bottom_centroid),
+            7.0,
+        )
+        assert np.isclose(
+            float(cell.z_top_mean) - float(cell.z_bottom_mean),
+            7.0,
+        )
+
+
+def loaded_metadata_files(bundle_dir: Path) -> dict[str, str | None]:
+    metadata = json.loads((bundle_dir / "metadata.json").read_text(encoding="utf-8"))
+    return dict(metadata.get("files", {}))

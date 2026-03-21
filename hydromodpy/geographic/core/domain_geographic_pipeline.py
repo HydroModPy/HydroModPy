@@ -28,11 +28,15 @@ from hydromodpy.geographic.core.pipeline_steps import (
 )
 from hydromodpy.geographic.core.river_network import build_river_network_products
 from hydromodpy.geographic.core.surface_from_dem import build_surface_topo_from_dem
+from hydromodpy.support.tools import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.geographic.geographic_config import GeographicConfig
     from hydromodpy.geographic.core.river_mesh_trace import RiverMeshTrace
     from hydromodpy.simulation.workspace.workspace import Workspace
+
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -79,6 +83,14 @@ class DomainGeographicContext:
     zone_kind: str
     river_mesh_trace: RiverMeshTrace | None = None
     regional_dem_path: str | None = None
+
+
+def _should_retry_with_fill(*, config: "GeographicConfig", error: Exception) -> bool:
+    if str(getattr(config, "catch_def", "")).strip().lower() != "from_outlet_coord":
+        return False
+    if str(getattr(config, "dem_correc_type", "")).strip().lower() != "breach":
+        return False
+    return "Watershed delineation produced an empty polygon" in str(error)
 
 
 def build_domain_geographic_context(
@@ -138,22 +150,47 @@ def build_domain_geographic_context(
     if config.buff_area is None:
         raise ValueError("geographic.buff_area is required")
 
+    effective_dem_correc_type = str(config.dem_correc_type)
     flow = build_regional_flow_products(
         dem_init_path=setup.dem_init_path,
         dem_out_dir_path=setup.paths.correcflow_path,
-        dem_correc_type=str(config.dem_correc_type),
+        dem_correc_type=effective_dem_correc_type,
         crs_project=setup.crs_project,
     )
 
-    build_standard_catchment(
-        config=config,
-        paths=setup.paths,
-        direc_path=flow.direc,
-        acc_path=flow.acc,
-        direc_data=flow.direc_data,
-        acc_data=flow.acc_data,
-        crs_project=setup.crs_project,
-    )
+    try:
+        build_standard_catchment(
+            config=config,
+            paths=setup.paths,
+            direc_path=flow.direc,
+            acc_path=flow.acc,
+            direc_data=flow.direc_data,
+            acc_data=flow.acc_data,
+            crs_project=setup.crs_project,
+        )
+    except ValueError as exc:
+        if not _should_retry_with_fill(config=config, error=exc):
+            raise
+        logger.warning(
+            "Catchment delineation returned an empty polygon with dem_correc_type='breach'; "
+            "retrying geographic preprocessing with dem_correc_type='fill'."
+        )
+        effective_dem_correc_type = "fill"
+        flow = build_regional_flow_products(
+            dem_init_path=setup.dem_init_path,
+            dem_out_dir_path=setup.paths.correcflow_path,
+            dem_correc_type=effective_dem_correc_type,
+            crs_project=setup.crs_project,
+        )
+        build_standard_catchment(
+            config=config,
+            paths=setup.paths,
+            direc_path=flow.direc,
+            acc_path=flow.acc,
+            direc_data=flow.direc_data,
+            acc_data=flow.acc_data,
+            crs_project=setup.crs_project,
+        )
 
     catchment_area_km2 = compute_catchment_area_km2(setup.paths.watershed_shp)
 

@@ -1,13 +1,10 @@
-﻿"""Modeles et contrats de donnees pour la distribution des maillages.
+"""Schemas et contrats de donnees pour le package `mesh`.
 
-Ce module centralise les objets Python partages par le sous-package :
+Ce module regroupe a la racine les types centraux du package :
 
 - constantes publiques ;
 - protocoles minimaux attendus pour un bundle ;
 - dataclasses de configuration et de travail.
-
-L'objectif est d'eviter que la structure des donnees soit redefinie dans
-plusieurs modules a la fois.
 """
 
 from __future__ import annotations
@@ -17,21 +14,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-DEFAULT_CONFIG_FILENAME = "config_mesh_catchment_outlet_5.toml"
+DEFAULT_CONFIG_FILENAME = "config_example.toml"
 DEFAULT_TOML_SECTION = "mesh_distribution"
 
-# =============================================================================
-# Champs publics disponibles dans le bundle
-# =============================================================================
-#
-# Ces constantes servent a valider le TOML et a documenter les champs que
-# l'utilisateur peut demander dans les figures.
-#
-# Les champs ci-dessous sont ceux qui existent deja dans le bundle exporte.
 NUMERIC_COLOR_FIELDS = {
     "area_m2",
     "z_top_centroid",
     "z_top_mean",
+    "z_bottom_centroid",
+    "z_bottom_mean",
     "hydraulic_conductivity_m_s",
     "storage_coefficient",
 }
@@ -53,6 +44,7 @@ class MeshNodeLike(Protocol):
     x: float
     y: float
     z_top: float | None
+    z_bottom: float | None
 
 
 class MeshCellLike(Protocol):
@@ -66,6 +58,8 @@ class MeshCellLike(Protocol):
     area_m2: float
     z_top_centroid: float | None
     z_top_mean: float | None
+    z_bottom_centroid: float | None
+    z_bottom_mean: float | None
     geology_code: int | None
     geology_key: str
     hydraulic_conductivity_m_s: float | None
@@ -121,18 +115,7 @@ class MeshBundleLike(Protocol):
 
 @dataclass(frozen=True)
 class PlotConfig:
-    """Parametres d'affichage des figures.
-
-    Cette classe regroupe uniquement les choix visuels :
-    - champ de coloriage principal ;
-    - palette ;
-    - dimensions de la figure ;
-    - presence des surcouches et du panneau topographique.
-
-    L'idee est de separer clairement :
-    - ce qui releve de la lecture des donnees ;
-    - ce qui releve du rendu graphique.
-    """
+    """Parametres d'affichage des figures."""
 
     color_field: str = "geology_key"
     color_map: str = "viridis"
@@ -154,14 +137,7 @@ class PlotConfig:
 
 @dataclass(frozen=True)
 class VisualizationConfig:
-    """Configuration complete d'une execution.
-
-    Cette classe porte :
-    - le chemin du bundle a lire ;
-    - les chemins optionnels de sortie ;
-    - le mode interactif ou non ;
-    - la sous-configuration de trace.
-    """
+    """Configuration complete d'une execution."""
 
     bundle_dir: Path
     figure_output_path: Path | None = None
@@ -172,15 +148,7 @@ class VisualizationConfig:
 
 @dataclass(frozen=True)
 class MeshVisualizationData:
-    """Objet de travail central du module de distribution.
-
-    On y trouve a la fois :
-    - le maillage relu depuis le bundle ;
-    - la configuration de visualisation associee.
-
-    Cet objet est volontairement simple afin d'etre passe tel quel aux autres
-    briques du sous-package.
-    """
+    """Objet de travail central du package."""
 
     mesh: MeshBundleLike
     config: VisualizationConfig
@@ -202,4 +170,3 @@ __all__ = [
     "PlotConfig",
     "VisualizationConfig",
 ]
-
