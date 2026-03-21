@@ -12,6 +12,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
     generate_zone_conformal_mesh_from_dataframe,
     load_zone_meshing_domain_geometry,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import ZoneLinearConstraint
 
 try:
     import gmsh  # noqa: F401
@@ -167,6 +168,42 @@ def test_generate_zone_conformal_mesh_accepts_river_trace() -> None:
     assert int(river_summary.get("line_count", 0)) == 1
     assert int(river_summary.get("curve_count", 0)) > 0
     assert any(group.name == "river::trace" for group in result.physical_groups)
+
+
+def test_generate_zone_conformal_mesh_accepts_generic_linear_constraints() -> None:
+    gdf = _build_split_zones_gdf()
+    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "split_zone_conformal_with_watershed_boundary.msh"
+
+    constraint = ZoneLinearConstraint(
+        name="watershed::boundary",
+        kind="watershed_boundary",
+        lines=(LineString([(0.0, 0.5), (2.0, 0.5)]),),
+        participates_in_refinement=False,
+    )
+
+    result = generate_zone_conformal_mesh_from_dataframe(
+        gdf,
+        output_path=output_path,
+        global_size=0.20,
+        refine_interfaces=True,
+        interface_size=0.08,
+        interface_distance=0.30,
+        interface_sampling=48,
+        linear_constraints=(constraint,),
+    )
+
+    payload = dict(result.summary.get("linear_constraints", {})).get(
+        "watershed::boundary", {}
+    )
+    assert payload.get("provided") is True
+    assert int(payload.get("line_count", 0)) == 1
+    assert int(payload.get("curve_count", 0)) > 0
+    assert payload.get("refined_with_interface_field") is False
+    assert any(
+        group.name == "watershed::boundary" for group in result.physical_groups
+    )
 
 
 def test_load_zone_meshing_domain_geometry_supports_inline_polygon() -> None:

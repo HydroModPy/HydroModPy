@@ -1,4 +1,13 @@
-"""Pydantic schemas for launcher-level catchment meshing sections."""
+"""Schema contract for the dedicated mesh-catchment launcher.
+
+This module sits one layer above the generic HydroModPy runtime schemas. It
+defines the launcher-only sections that control how a delineated catchment is
+meshed, how optional batch loops are configured, and how launcher-level output
+paths are resolved.
+
+The underlying meshing, geology, and geographic models live elsewhere in the
+codebase; this file assembles those pieces into one user-facing TOML contract.
+"""
 
 from __future__ import annotations
 
@@ -30,6 +39,10 @@ ZoneMeshingDomainSchema = (
     | ZoneMeshingDomainGeographicWatershedBoxSchema
 )
 
+
+# ---------------------------------------------------------------------------
+# River constraints
+# ---------------------------------------------------------------------------
 
 class MeshCatchmentRiversConfigSchema(BaseModel):
     """River-trace inputs consumed by the conformal mesher."""
@@ -103,6 +116,108 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
         return self
 
 
+# ---------------------------------------------------------------------------
+# Watershed-boundary constraints
+# ---------------------------------------------------------------------------
+
+class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
+    """Optional cleanup applied only to the watershed boundary polyline."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "If true, smooth the watershed polygon before extracting its boundary linework. "
+            "This cleanup is local to the watershed-boundary constraint and does not alter geology polygons "
+            "or the outer meshing support."
+        ),
+    )
+    simplify_tolerance: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Topology-preserving simplification tolerance, in projected metres, applied to the watershed polygon "
+            "before boundary extraction."
+        ),
+    )
+    heal_tolerance: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Snapping tolerance, in projected metres, used to heal nearly coincident watershed vertices "
+            "before simplification."
+        ),
+    )
+    min_polygon_area: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Minimum polygon area kept, in projected square metres, when the smoothed watershed polygon contains "
+            "small residual pieces."
+        ),
+    )
+
+
+class MeshCatchmentWatershedBoundaryConfigSchema(BaseModel):
+    """Internal mesh constraint built from the delineated watershed boundary."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "If true, inject the delineated watershed boundary as one internal constrained polyline in the mesh. "
+            "This keeps the outer support unchanged, for example `geographic_box_buffer`, while still forcing "
+            "mesh edges along the catchment outline."
+        ),
+    )
+    source: str = Field(
+        default="domain_geographic",
+        description=(
+            "Origin of the watershed-boundary constraint. "
+            "The current implementation only supports 'domain_geographic', which reuses the watershed polygon "
+            "already produced by geographic preprocessing."
+        ),
+    )
+    clip_to_domain: bool = Field(
+        default=True,
+        description=(
+            "If true, clip the watershed boundary polyline to the effective meshing support domain before sending it to Gmsh."
+        ),
+    )
+    min_segment_length: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Minimum retained watershed-boundary segment length, in projected metres, after clipping and smoothing."
+        ),
+    )
+    participates_in_refinement: bool = Field(
+        default=False,
+        description=(
+            "If true, allow the interface refinement field to also refine along the watershed-boundary constraint. "
+            "The default is false so the boundary is honored geometrically without forcing extra cells everywhere along it."
+        ),
+    )
+    smoothing: MeshCatchmentWatershedBoundarySmoothingConfigSchema = Field(
+        default_factory=MeshCatchmentWatershedBoundarySmoothingConfigSchema,
+        description=(
+            "Optional cleanup applied only to the watershed boundary before converting it to constrained segments."
+        ),
+    )
+
+    @field_validator("source")
+    @classmethod
+    def _validate_source(cls, value: object) -> str:
+        token = str(value).strip().lower()
+        if token != "domain_geographic":
+            raise ValueError(
+                "watershed_boundary.source must be 'domain_geographic'."
+            )
+        return token
+
+
 _SUPPORTED_HYDRAULIC_VALUE_SOURCES = {"inline", "csv"}
 
 
@@ -111,6 +226,7 @@ def _validate_hydraulic_scalar(
     *,
     label: str,
 ) -> float | str | None:
+    """Normalize one hydraulic-property scalar coming from TOML or CSV."""
     if value is None:
         return None
     if isinstance(value, bool):
@@ -232,6 +348,10 @@ class MeshCatchmentHydraulicPropertyMappingSchema(BaseModel):
         return self
 
 
+# ---------------------------------------------------------------------------
+# Hydraulic property export contract
+# ---------------------------------------------------------------------------
+
 class MeshCatchmentHydraulicConductivitySchema(
     MeshCatchmentHydraulicPropertyMappingSchema
 ):
@@ -291,6 +411,10 @@ class MeshCatchmentHydraulicPropertiesConfigSchema(BaseModel):
         return self
 
 
+# ---------------------------------------------------------------------------
+# Main single-run launcher contract
+# ---------------------------------------------------------------------------
+
 class MeshCatchmentConfigSchema(BaseModel):
     """Top-level launcher contract for one mono-catchment meshing run."""
 
@@ -310,7 +434,8 @@ class MeshCatchmentConfigSchema(BaseModel):
         description=(
             "Optional `.msh` output path for the generated planar mesh. "
             "When omitted, the launcher writes the mesh to `results_stable/mesh/mesh_catchment.msh` "
-            "inside the active catchment workspace."
+            "inside the active catchment workspace in standard layout, or directly to "
+            "`workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used."
         ),
     )
     output_summary_json: str | None = Field(
@@ -337,6 +462,15 @@ class MeshCatchmentConfigSchema(BaseModel):
             "with suffix `_regional` to show where the catchment sits on the full DEM."
         ),
     )
+    output_layout: str = Field(
+        default="standard",
+        description=(
+            "Dedicated-launcher output layout. "
+            "Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, "
+            "or 'flat' to write final mesh artifacts directly under `workspace.project_root` "
+            "while keeping intermediate runtime folders out of that final directory."
+        ),
+    )
     show_plot: bool = Field(
         default=False,
         description=(
@@ -358,6 +492,14 @@ class MeshCatchmentConfigSchema(BaseModel):
         description=(
             "River-constraint section used when constraints_mode includes rivers. "
             "The default behavior is to reuse the in-memory river trace already built by the geographic pipeline."
+        ),
+    )
+    watershed_boundary: MeshCatchmentWatershedBoundaryConfigSchema | None = Field(
+        default=None,
+        description=(
+            "Optional internal line constraint derived from the delineated watershed boundary. "
+            "Use it when the support domain stays larger than the catchment, for example with `geographic_box_buffer`, "
+            "but the mesh still needs one explicit line following the catchment outline."
         ),
     )
     geology: GeologyConfigSchema | None = Field(
@@ -427,6 +569,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             raise ValueError("geographic_outputs_mode must be 'keep' or 'cleanup'.")
         return token
 
+    @field_validator("output_layout")
+    @classmethod
+    def _validate_output_layout(cls, value: object) -> str:
+        token = str(value).strip().lower()
+        if token not in {"standard", "flat"}:
+            raise ValueError("output_layout must be 'standard' or 'flat'.")
+        return token
+
     @field_validator(
         "output_mesh",
         "output_summary_json",
@@ -452,8 +602,21 @@ class MeshCatchmentConfigSchema(BaseModel):
             raise ValueError(
                 "hydraulic_properties requires the geology section because exported properties are keyed by geology zones."
             )
+        if (
+            self.watershed_boundary is not None
+            and bool(self.watershed_boundary.enabled)
+            and str(self.domain.kind) == "geographic_watershed"
+        ):
+            raise ValueError(
+                "watershed_boundary is redundant when domain.kind='geographic_watershed'; "
+                "use a larger support domain such as geographic_box_buffer if you need the catchment boundary as an internal constraint."
+            )
         return self
 
+
+# ---------------------------------------------------------------------------
+# Batch launcher contract
+# ---------------------------------------------------------------------------
 
 class MeshCatchmentBatchOutputsSchema(BaseModel):
     """Output filename patterns for batch meshing."""
@@ -615,6 +778,10 @@ class MeshCatchmentBatchSectionSchema(BaseModel):
         return self
 
 
+# ---------------------------------------------------------------------------
+# Validation entry points used by launcher/runtime code
+# ---------------------------------------------------------------------------
+
 def validate_mesh_catchment_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:
     """Validate one `[mesh_catchment]` section and return normalized data."""
     if not isinstance(config_data, Mapping):
@@ -651,6 +818,8 @@ __all__ = [
     "MeshCatchmentBatchSectionSchema",
     "MeshCatchmentConfigSchema",
     "MeshCatchmentRiversConfigSchema",
+    "MeshCatchmentWatershedBoundaryConfigSchema",
+    "MeshCatchmentWatershedBoundarySmoothingConfigSchema",
     "validate_mesh_catchment_batch_config_data",
     "validate_mesh_catchment_config_data",
 ]

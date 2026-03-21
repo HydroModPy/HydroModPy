@@ -14,7 +14,6 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 import json
 from pathlib import Path
-import tomllib
 from types import SimpleNamespace
 from typing import Any
 
@@ -28,6 +27,7 @@ import rasterio
 from rasterio.enums import Resampling
 
 from hydromodpy.solver.utils._config_helpers import get_nested_section
+from hydromodpy.config.toml_loader import load_toml_with_base_config
 from hydromodpy.data_managers.variables.geology.config import validate_geology_config_data
 from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.geographic.core.river_mesh_trace import (
@@ -38,6 +38,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
     load_zone_meshing_domain_geometry,
     validate_zone_meshing_config_data,
     validate_zone_meshing_domain_config_data,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
+    clean_domain_geometry,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import (
+    ZoneLinearConstraint,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
     _disable_axis_offset,
@@ -71,8 +77,9 @@ class ZoneConformalMeshingInputs:
     refinement_scope_is_custom: bool
     zone_meshing_cfg: Mapping[str, Any]
     rivers_cfg: Mapping[str, Any] | None
+    watershed_boundary_cfg: Mapping[str, Any] | None
     resolved_river_trace: object | None
-    river_trace_for_meshing: object | None
+    linear_constraints: tuple[ZoneLinearConstraint, ...]
 
 
 def _resolve_constraints_mode(raw_value: Any) -> str:
@@ -233,15 +240,10 @@ def _clip_river_trace_to_domain(
     if lines_attr is None:
         return river_trace
 
-    clipped_lines: list[object] = []
-    for geometry in lines_attr:
-        if geometry is None:
-            continue
-        try:
-            clipped = geometry.intersection(domain_geometry)
-        except Exception:
-            clipped = geometry
-        clipped_lines.extend(_iter_line_geometries((clipped,)))
+    clipped_lines = _clip_line_constraint_to_domain(
+        lines=lines_attr,
+        domain_geometry=domain_geometry,
+    )
     if not clipped_lines:
         return None
     return SimpleNamespace(lines=tuple(clipped_lines))
@@ -260,14 +262,45 @@ def _filter_river_trace_by_min_segment_length(
     if lines_attr is None:
         return river_trace
 
-    kept_lines: list[object] = []
-    for line in _iter_line_geometries(lines_attr):
-        length = float(getattr(line, "length", 0.0))
-        if length >= min_segment_length:
-            kept_lines.append(line)
+    kept_lines = _filter_line_constraint_by_min_segment_length(
+        lines=lines_attr,
+        min_segment_length=min_segment_length,
+    )
     if not kept_lines:
         return None
     return SimpleNamespace(lines=tuple(kept_lines))
+
+
+def _clip_line_constraint_to_domain(
+    *,
+    lines: Iterable[object],
+    domain_geometry: object,
+) -> list[object]:
+    clipped_lines: list[object] = []
+    for geometry in lines:
+        if geometry is None:
+            continue
+        try:
+            clipped = geometry.intersection(domain_geometry)
+        except Exception:
+            clipped = geometry
+        clipped_lines.extend(_iter_line_geometries((clipped,)))
+    return clipped_lines
+
+
+def _filter_line_constraint_by_min_segment_length(
+    *,
+    lines: Iterable[object],
+    min_segment_length: float,
+) -> list[object]:
+    if min_segment_length <= 0.0:
+        return _iter_line_geometries(lines)
+    kept_lines: list[object] = []
+    for line in _iter_line_geometries(lines):
+        length = float(getattr(line, "length", 0.0))
+        if length >= min_segment_length:
+            kept_lines.append(line)
+    return kept_lines
 
 
 def _validate_rivers_case_config(
@@ -322,11 +355,107 @@ def _validate_rivers_case_config(
     }
 
 
-def _resolve_case_config(
-    config_toml: Path, *, section: str = DEFAULT_SECTION
+def _validate_watershed_boundary_case_config(
+    config_data: Mapping[str, Any],
+    *,
+    section: str,
 ) -> dict[str, Any]:
-    payload = tomllib.loads(config_toml.read_text(encoding="utf-8-sig"))
-    section_cfg = dict(get_nested_section(payload, section))
+    if not isinstance(config_data, Mapping):
+        raise ValueError(
+            f"[{section}.watershed_boundary] configuration must be a mapping"
+        )
+    raw = dict(config_data)
+    enabled = bool(raw.get("enabled", False))
+    source = str(raw.get("source", "domain_geographic")).strip().lower()
+    if source != "domain_geographic":
+        raise ValueError(
+            f"[{section}.watershed_boundary].source must be 'domain_geographic', got '{source}'."
+        )
+
+    clip_to_domain = raw.get("clip_to_domain", True)
+    if not isinstance(clip_to_domain, bool):
+        raise ValueError(
+            f"[{section}.watershed_boundary].clip_to_domain must be a boolean."
+        )
+    participates_in_refinement = raw.get("participates_in_refinement", False)
+    if not isinstance(participates_in_refinement, bool):
+        raise ValueError(
+            f"[{section}.watershed_boundary].participates_in_refinement must be a boolean."
+        )
+
+    def _parse_non_negative(name: str, default: float) -> float:
+        raw_value = raw.get(name, default)
+        try:
+            value = float(raw_value)
+        except Exception as exc:
+            raise ValueError(
+                f"[{section}.watershed_boundary].{name} must be a number, got '{raw_value}'."
+            ) from exc
+        if value < 0.0:
+            raise ValueError(
+                f"[{section}.watershed_boundary].{name} must be >= 0."
+            )
+        return value
+
+    smoothing_raw = raw.get("smoothing", {})
+    if smoothing_raw is None:
+        smoothing_raw = {}
+    if not isinstance(smoothing_raw, Mapping):
+        raise ValueError(
+            f"[{section}.watershed_boundary.smoothing] configuration must be a mapping."
+        )
+    smoothing_enabled = bool(smoothing_raw.get("enabled", False))
+
+    def _parse_smoothing_non_negative(name: str, default: float) -> float:
+        raw_value = smoothing_raw.get(name, default)
+        try:
+            value = float(raw_value)
+        except Exception as exc:
+            raise ValueError(
+                f"[{section}.watershed_boundary.smoothing].{name} must be a number, got '{raw_value}'."
+            ) from exc
+        if value < 0.0:
+            raise ValueError(
+                f"[{section}.watershed_boundary.smoothing].{name} must be >= 0."
+            )
+        return value
+
+    return {
+        "enabled": enabled,
+        "source": source,
+        "clip_to_domain": clip_to_domain,
+        "min_segment_length": _parse_non_negative("min_segment_length", 0.0),
+        "participates_in_refinement": participates_in_refinement,
+        "smoothing": {
+            "enabled": smoothing_enabled,
+            "simplify_tolerance": _parse_smoothing_non_negative(
+                "simplify_tolerance", 0.0
+            ),
+            "heal_tolerance": _parse_smoothing_non_negative(
+                "heal_tolerance", 0.0
+            ),
+            "min_polygon_area": _parse_smoothing_non_negative(
+                "min_polygon_area", 0.0
+            ),
+        },
+    }
+
+
+def _resolve_case_config(
+    config_toml: Path,
+    *,
+    section: str = DEFAULT_SECTION,
+    section_data_override: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    if section_data_override is None:
+        payload = load_toml_with_base_config(config_toml)
+        section_cfg = dict(get_nested_section(payload, section))
+    else:
+        # Dedicated launchers may already have validated/defaulted the section
+        # payload before calling this case runner. Reuse that normalized view
+        # so launcher-only defaults such as `domain=geographic_box_buffer`
+        # survive the handoff.
+        section_cfg = dict(section_data_override)
     if "mesh_mode" in section_cfg:
         raise ValueError(
             "mesh_mode is no longer supported; use constraints_mode with one of: "
@@ -358,11 +487,23 @@ def _resolve_case_config(
             dict(section_cfg.get("rivers", {})),
             section=section,
         )
+    watershed_boundary_cfg = None
+    if isinstance(section_cfg.get("watershed_boundary"), Mapping):
+        watershed_boundary_cfg = _validate_watershed_boundary_case_config(
+            dict(section_cfg.get("watershed_boundary", {})),
+            section=section,
+        )
+        if bool(watershed_boundary_cfg.get("enabled", False)) and str(domain_cfg["kind"]) == "geographic_watershed":
+            raise ValueError(
+                "watershed_boundary is redundant when domain.kind='geographic_watershed'; "
+                "use a larger support domain such as geographic_box_buffer if you need the catchment boundary as an internal constraint."
+            )
 
     return {
         "constraints_mode": usage.constraints_mode,
         "geology": geology_cfg,
         "rivers": rivers_cfg,
+        "watershed_boundary": watershed_boundary_cfg,
         "domain": domain_cfg,
         "interface_scope": interface_scope_cfg,
         "refinement_scope": refinement_scope_cfg,
@@ -563,7 +704,7 @@ def _build_river_constraint_inputs(
     river_trace: object | None,
     domain_geographic: object | None,
     interface_scope_payload: Mapping[str, Any],
-) -> tuple[Mapping[str, Any] | None, object | None, object | None]:
+) -> tuple[Mapping[str, Any] | None, object | None, ZoneLinearConstraint | None]:
     if not usage.uses_river_constraints:
         return None, None, None
 
@@ -590,7 +731,126 @@ def _build_river_constraint_inputs(
             "or provide domain_geographic with one river_mesh_trace, "
             "or pass an explicit river_trace."
         )
-    return rivers_cfg, resolved_river_trace, resolved_river_trace
+    river_lines = tuple(_iter_river_lines(resolved_river_trace))
+    return (
+        rivers_cfg,
+        resolved_river_trace,
+        ZoneLinearConstraint(
+            name="river::trace",
+            kind="river_trace",
+            lines=river_lines,
+            participates_in_refinement=True,
+        ),
+    )
+
+
+def _build_watershed_boundary_constraint_inputs(
+    *,
+    cfg: Mapping[str, Any],
+    config_path: Path,
+    domain_geographic: object | None,
+    zone_crs: object,
+    domain_payload: Mapping[str, Any],
+) -> tuple[Mapping[str, Any] | None, ZoneLinearConstraint | None]:
+    boundary_cfg = dict(cfg.get("watershed_boundary") or {})
+    if not bool(boundary_cfg.get("enabled", False)):
+        return None, None
+
+    if domain_geographic is None:
+        raise ValueError(
+            "watershed_boundary.enabled=true requires one domain_geographic context with watershed_shp."
+        )
+
+    watershed_payload = load_zone_meshing_domain_geometry(
+        {"kind": "geographic_watershed"},
+        config_path=config_path,
+        domain_geographic=domain_geographic,
+        target_crs=zone_crs,
+        validate=False,
+    )
+    watershed_geometry = watershed_payload["geometry"]
+    smoothing_cfg = dict(boundary_cfg.get("smoothing") or {})
+    if bool(smoothing_cfg.get("enabled", False)):
+        watershed_geometry, _ = clean_domain_geometry(
+            watershed_geometry,
+            simplify_tolerance=float(smoothing_cfg.get("simplify_tolerance", 0.0)),
+            heal_tolerance=float(smoothing_cfg.get("heal_tolerance", 0.0)),
+            min_polygon_area=float(smoothing_cfg.get("min_polygon_area", 0.0)),
+        )
+
+    boundary_lines = _iter_line_geometries((watershed_geometry.boundary,))
+    if bool(boundary_cfg.get("clip_to_domain", True)):
+        boundary_lines = _clip_line_constraint_to_domain(
+            lines=boundary_lines,
+            domain_geometry=domain_payload["geometry"],
+        )
+    boundary_lines = _filter_line_constraint_by_min_segment_length(
+        lines=boundary_lines,
+        min_segment_length=float(boundary_cfg.get("min_segment_length", 0.0)),
+    )
+    if not boundary_lines:
+        raise ValueError(
+            "watershed_boundary.enabled=true produced no usable watershed-boundary segments "
+            "after smoothing/clipping. Check domain_geographic.watershed_shp and the support domain."
+        )
+
+    return (
+        boundary_cfg,
+        ZoneLinearConstraint(
+            name="watershed::boundary",
+            kind="watershed_boundary",
+            lines=tuple(boundary_lines),
+            participates_in_refinement=bool(
+                boundary_cfg.get("participates_in_refinement", False)
+            ),
+        ),
+    )
+
+
+def _build_linear_constraint_inputs(
+    *,
+    usage: ZoneConformalConstraintUsage,
+    cfg: Mapping[str, Any],
+    config_path: Path,
+    river_trace: object | None,
+    domain_geographic: object | None,
+    zone_crs: object,
+    domain_payload: Mapping[str, Any],
+    interface_scope_payload: Mapping[str, Any],
+) -> tuple[
+    Mapping[str, Any] | None,
+    Mapping[str, Any] | None,
+    object | None,
+    tuple[ZoneLinearConstraint, ...],
+]:
+    rivers_cfg, resolved_river_trace, river_constraint = _build_river_constraint_inputs(
+        usage=usage,
+        cfg=cfg,
+        config_path=config_path,
+        river_trace=river_trace,
+        domain_geographic=domain_geographic,
+        interface_scope_payload=interface_scope_payload,
+    )
+    watershed_boundary_cfg, watershed_boundary_constraint = (
+        _build_watershed_boundary_constraint_inputs(
+            cfg=cfg,
+            config_path=config_path,
+            domain_geographic=domain_geographic,
+            zone_crs=zone_crs,
+            domain_payload=domain_payload,
+        )
+    )
+    constraints = tuple(
+        constraint
+        for constraint in (river_constraint, watershed_boundary_constraint)
+        if constraint is not None
+    )
+    return (
+        rivers_cfg,
+        watershed_boundary_cfg,
+        resolved_river_trace,
+        constraints,
+    )
 
 
 def _build_zone_conformal_meshing_inputs(
@@ -616,13 +876,15 @@ def _build_zone_conformal_meshing_inputs(
         domain_geographic=domain_geographic,
         target_crs=zone_gdf.crs,
     )
-    rivers_cfg, resolved_river_trace, river_trace_for_meshing = (
-        _build_river_constraint_inputs(
+    rivers_cfg, watershed_boundary_cfg, resolved_river_trace, linear_constraints = (
+        _build_linear_constraint_inputs(
             usage=usage,
             cfg=cfg,
             config_path=config_path,
             river_trace=river_trace,
             domain_geographic=domain_geographic,
+            zone_crs=zone_gdf.crs,
+            domain_payload=domain_payload,
             interface_scope_payload=interface_scope_payload,
         )
     )
@@ -637,8 +899,9 @@ def _build_zone_conformal_meshing_inputs(
         refinement_scope_is_custom=refinement_scope_cfg is not None,
         zone_meshing_cfg=dict(cfg["zone_meshing"]),
         rivers_cfg=rivers_cfg,
+        watershed_boundary_cfg=watershed_boundary_cfg,
         resolved_river_trace=resolved_river_trace,
-        river_trace_for_meshing=river_trace_for_meshing,
+        linear_constraints=linear_constraints,
     )
 
 
@@ -1255,14 +1518,37 @@ def _build_constraints_qa_contract(
         if isinstance(summary.get("river_trace"), Mapping)
         else {}
     )
+    linear_constraints_payload = (
+        dict(summary.get("linear_constraints", {}))
+        if isinstance(summary.get("linear_constraints"), Mapping)
+        else {}
+    )
+    watershed_payload = (
+        dict(linear_constraints_payload.get("watershed::boundary", {}))
+        if isinstance(linear_constraints_payload.get("watershed::boundary"), Mapping)
+        else {}
+    )
     river_trace_provided = bool(river_payload.get("provided", False))
     river_line_count = int(river_payload.get("line_count", 0))
     river_curve_count = int(river_payload.get("curve_count", 0))
     river_embed_success = int(river_payload.get("embedded_surface_curve_pairs", 0))
     river_embed_failures = int(river_payload.get("embed_failures", 0))
     river_refined = bool(river_payload.get("refined_with_interface_field", False))
+    watershed_boundary_provided = bool(watershed_payload.get("provided", False))
+    watershed_boundary_curve_count = int(watershed_payload.get("curve_count", 0))
+    watershed_boundary_embed_success = int(
+        watershed_payload.get("embedded_surface_curve_pairs", 0)
+    )
+    watershed_boundary_refined = bool(
+        watershed_payload.get("refined_with_interface_field", False)
+    )
     river_curve_group_present = any(
         str(group.get("name", "")) == "river::trace"
+        for group in summary.get("curve_physical_groups", ())
+        if isinstance(group, Mapping)
+    )
+    watershed_boundary_curve_group_present = any(
+        str(group.get("name", "")) == "watershed::boundary"
         for group in summary.get("curve_physical_groups", ())
         if isinstance(group, Mapping)
     )
@@ -1288,6 +1574,8 @@ def _build_constraints_qa_contract(
             uses_river_constraints and refine_interfaces
         ),
     }
+    if watershed_boundary_provided:
+        thresholds["min_watershed_boundary_curve_count"] = 1
     metrics = {
         "zone_count": zone_count,
         "interface_group_count": interface_group_count,
@@ -1303,6 +1591,16 @@ def _build_constraints_qa_contract(
         "river_refined_with_interface_field": river_refined,
         "refine_interfaces_config": bool(refine_interfaces),
     }
+    if watershed_boundary_provided:
+        metrics.update(
+            {
+                "watershed_boundary_provided": watershed_boundary_provided,
+                "watershed_boundary_curve_count": watershed_boundary_curve_count,
+                "watershed_boundary_curve_group_present": watershed_boundary_curve_group_present,
+                "watershed_boundary_embedded_surface_curve_pairs": watershed_boundary_embed_success,
+                "watershed_boundary_refined_with_interface_field": watershed_boundary_refined,
+            }
+        )
     checks: dict[str, bool] = {}
     if uses_geology_constraints:
         checks["has_zone_partition"] = bool(zone_count >= int(thresholds["min_zone_count"]))
@@ -1322,6 +1620,17 @@ def _build_constraints_qa_contract(
         checks["river_refinement_consistent_with_config"] = bool(
             (not bool(thresholds["require_refinement_when_refine_interfaces_true"]))
             or river_refined
+        )
+    if watershed_boundary_provided:
+        checks["watershed_boundary_curves_generated"] = bool(
+            watershed_boundary_curve_count
+            >= int(thresholds["min_watershed_boundary_curve_count"])
+        )
+        checks["watershed_boundary_curve_group_present"] = bool(
+            watershed_boundary_curve_group_present
+        )
+        checks["watershed_boundary_embedded_on_surfaces"] = bool(
+            watershed_boundary_embed_success > 0
         )
     if constraints_mode == "geology_rivers":
         checks["geology_and_river_constraints_coexist"] = bool(
@@ -1350,6 +1659,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
     config_toml: str | Path,
     *,
     section: str = DEFAULT_SECTION,
+    section_data_override: Mapping[str, Any] | None = None,
     output_mesh: str | Path | None = None,
     output_summary_json: str | Path | None = None,
     output_figure: str | Path | None = None,
@@ -1359,7 +1669,11 @@ def run_reference_2d_zone_conformal_case_from_toml(
     show_plot: bool = False,
 ) -> dict[str, Any]:
     config_path = _resolve_config_path(config_toml)
-    cfg = _resolve_case_config(config_path, section=section)
+    cfg = _resolve_case_config(
+        config_path,
+        section=section,
+        section_data_override=section_data_override,
+    )
     meshing_inputs = _build_zone_conformal_meshing_inputs(
         cfg=cfg,
         config_path=config_path,
@@ -1410,7 +1724,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
         interface_size=meshing_inputs.zone_meshing_cfg["interface_size"],
         interface_distance=meshing_inputs.zone_meshing_cfg["interface_distance"],
         interface_sampling=int(meshing_inputs.zone_meshing_cfg["interface_sampling"]),
-        river_trace=meshing_inputs.river_trace_for_meshing,
+        linear_constraints=meshing_inputs.linear_constraints,
         refinement_scope_geometry=(
             meshing_inputs.refinement_scope_payload["geometry"]
             if meshing_inputs.refinement_scope_is_custom
@@ -1451,6 +1765,45 @@ def run_reference_2d_zone_conformal_case_from_toml(
             "min_segment_length": float(meshing_inputs.rivers_cfg["min_segment_length"]),
             "snap_tolerance": float(meshing_inputs.rivers_cfg["snap_tolerance"]),
         }
+    if meshing_inputs.watershed_boundary_cfg is not None:
+        summary["watershed_boundary_config"] = {
+            "enabled": bool(meshing_inputs.watershed_boundary_cfg["enabled"]),
+            "source": str(meshing_inputs.watershed_boundary_cfg["source"]),
+            "clip_to_domain": bool(
+                meshing_inputs.watershed_boundary_cfg["clip_to_domain"]
+            ),
+            "min_segment_length": float(
+                meshing_inputs.watershed_boundary_cfg["min_segment_length"]
+            ),
+            "participates_in_refinement": bool(
+                meshing_inputs.watershed_boundary_cfg["participates_in_refinement"]
+            ),
+            "smoothing": {
+                "enabled": bool(
+                    meshing_inputs.watershed_boundary_cfg["smoothing"]["enabled"]
+                ),
+                "simplify_tolerance": float(
+                    meshing_inputs.watershed_boundary_cfg["smoothing"][
+                        "simplify_tolerance"
+                    ]
+                ),
+                "heal_tolerance": float(
+                    meshing_inputs.watershed_boundary_cfg["smoothing"][
+                        "heal_tolerance"
+                    ]
+                ),
+                "min_polygon_area": float(
+                    meshing_inputs.watershed_boundary_cfg["smoothing"][
+                        "min_polygon_area"
+                    ]
+                ),
+            },
+        }
+        linear_constraints_summary = summary.get("linear_constraints", {})
+        if isinstance(linear_constraints_summary, Mapping):
+            summary["watershed_boundary"] = dict(
+                linear_constraints_summary.get("watershed::boundary", {})
+            )
     summary["output_mesh"] = str(mesh_path)
 
     if figure_path is not None or figure_regional_path is not None or show_plot:
