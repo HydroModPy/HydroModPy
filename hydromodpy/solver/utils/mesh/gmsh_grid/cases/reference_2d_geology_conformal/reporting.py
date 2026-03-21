@@ -15,7 +15,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalGeometryPayload,
     ZoneConformalMeshingInputs,
+    ZoneConformalRiversConfig,
     ZoneConformalSourcePayload,
+    ZoneConformalWatershedBoundaryConfig,
 )
 
 
@@ -197,38 +199,32 @@ def _build_constraints_qa_contract(
     }
 
 
-def _build_rivers_config_summary(rivers_cfg: Mapping[str, Any]) -> dict[str, Any]:
+def _build_rivers_config_summary(
+    rivers_cfg: ZoneConformalRiversConfig,
+) -> dict[str, Any]:
     return {
-        "source": str(rivers_cfg["source"]),
-        "path": rivers_cfg["path"],
-        "clip_to_domain": bool(rivers_cfg["clip_to_domain"]),
-        "min_segment_length": float(rivers_cfg["min_segment_length"]),
-        "snap_tolerance": float(rivers_cfg["snap_tolerance"]),
+        "source": rivers_cfg.source,
+        "path": rivers_cfg.path,
+        "clip_to_domain": rivers_cfg.clip_to_domain,
+        "min_segment_length": rivers_cfg.min_segment_length,
+        "snap_tolerance": rivers_cfg.snap_tolerance,
     }
 
 
 def _build_watershed_boundary_config_summary(
-    watershed_boundary_cfg: Mapping[str, Any],
+    watershed_boundary_cfg: ZoneConformalWatershedBoundaryConfig,
 ) -> dict[str, Any]:
     return {
-        "enabled": bool(watershed_boundary_cfg["enabled"]),
-        "source": str(watershed_boundary_cfg["source"]),
-        "clip_to_domain": bool(watershed_boundary_cfg["clip_to_domain"]),
-        "min_segment_length": float(watershed_boundary_cfg["min_segment_length"]),
-        "participates_in_refinement": bool(
-            watershed_boundary_cfg["participates_in_refinement"]
-        ),
+        "enabled": watershed_boundary_cfg.enabled,
+        "source": watershed_boundary_cfg.source,
+        "clip_to_domain": watershed_boundary_cfg.clip_to_domain,
+        "min_segment_length": watershed_boundary_cfg.min_segment_length,
+        "participates_in_refinement": watershed_boundary_cfg.participates_in_refinement,
         "smoothing": {
-            "enabled": bool(watershed_boundary_cfg["smoothing"]["enabled"]),
-            "simplify_tolerance": float(
-                watershed_boundary_cfg["smoothing"]["simplify_tolerance"]
-            ),
-            "heal_tolerance": float(
-                watershed_boundary_cfg["smoothing"]["heal_tolerance"]
-            ),
-            "min_polygon_area": float(
-                watershed_boundary_cfg["smoothing"]["min_polygon_area"]
-            ),
+            "enabled": watershed_boundary_cfg.smoothing.enabled,
+            "simplify_tolerance": watershed_boundary_cfg.smoothing.simplify_tolerance,
+            "heal_tolerance": watershed_boundary_cfg.smoothing.heal_tolerance,
+            "min_polygon_area": watershed_boundary_cfg.smoothing.min_polygon_area,
         },
     }
 

@@ -24,6 +24,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     _resolve_case_config,
     _resolve_constraints_mode,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+    ZoneConformalRiversConfig,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
     _clip_river_trace_to_domain,
     _resolve_river_trace_for_meshing,
@@ -414,7 +417,13 @@ def test_resolve_river_trace_for_meshing_prefers_explicit_trace() -> None:
     resolved = _resolve_river_trace_for_meshing(
         river_trace=explicit_trace,
         domain_geographic=_DomainGeographic(),
-        rivers_cfg={"source": "domain_geographic"},
+        rivers_cfg=ZoneConformalRiversConfig(
+            source="domain_geographic",
+            path=None,
+            clip_to_domain=True,
+            min_segment_length=0.0,
+            snap_tolerance=0.0,
+        ),
         config_path=Path.cwd(),
     )
 
@@ -430,7 +439,13 @@ def test_resolve_river_trace_for_meshing_falls_back_to_domain_geographic() -> No
     resolved = _resolve_river_trace_for_meshing(
         river_trace=None,
         domain_geographic=_DomainGeographic(),
-        rivers_cfg={"source": "domain_geographic"},
+        rivers_cfg=ZoneConformalRiversConfig(
+            source="domain_geographic",
+            path=None,
+            clip_to_domain=True,
+            min_segment_length=0.0,
+            snap_tolerance=0.0,
+        ),
         config_path=Path.cwd(),
     )
 
@@ -441,7 +456,13 @@ def test_resolve_river_trace_for_meshing_returns_none_without_inputs() -> None:
     resolved = _resolve_river_trace_for_meshing(
         river_trace=None,
         domain_geographic=None,
-        rivers_cfg={"source": "domain_geographic"},
+        rivers_cfg=ZoneConformalRiversConfig(
+            source="domain_geographic",
+            path=None,
+            clip_to_domain=True,
+            min_segment_length=0.0,
+            snap_tolerance=0.0,
+        ),
         config_path=Path.cwd(),
     )
 
@@ -491,10 +512,10 @@ def test_resolve_case_config_supports_base_config_inheritance(tmp_path: Path) ->
 
     cfg = _resolve_case_config(child_path, section="mesh_catchment")
 
-    assert cfg["constraints_mode"] == "geology_rivers"
-    assert cfg["output_figure"] == "outputs/inherited_overview.png"
-    assert cfg["geology"] is not None
-    assert cfg["zone_meshing"] is not None
+    assert cfg.constraints_mode == "geology_rivers"
+    assert cfg.output_figure == "outputs/inherited_overview.png"
+    assert cfg.geology is not None
+    assert cfg.zone_meshing is not None
 
 
 def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
@@ -533,9 +554,9 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
         section_data_override=section_data,
     )
 
-    assert cfg["constraints_mode"] == "geology_only"
-    assert cfg["domain"]["kind"] == "geographic_box_buffer"
-    assert cfg["geology"] is not None
+    assert cfg.constraints_mode == "geology_only"
+    assert cfg.domain["kind"] == "geographic_box_buffer"
+    assert cfg.geology is not None
 
 
 def test_main_prints_summary_json(monkeypatch, capsys) -> None:
