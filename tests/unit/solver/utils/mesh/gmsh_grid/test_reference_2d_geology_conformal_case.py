@@ -15,6 +15,7 @@ except (ImportError, OSError):
     _gmsh_available = False
 _skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not available")
 
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal as conformal_case_module
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
     _clip_river_trace_to_domain,
     _resolve_case_config,
@@ -530,6 +531,41 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
     assert cfg["constraints_mode"] == "geology_only"
     assert cfg["domain"]["kind"] == "geographic_box_buffer"
     assert cfg["geology"] is not None
+
+
+def test_main_prints_summary_json(monkeypatch, capsys) -> None:
+    payload = {"status": "ok", "n_cells": 3}
+
+    def fake_run(
+        config_toml,
+        *,
+        section="mesh_case",
+        output_mesh=None,
+        output_summary_json=None,
+        output_figure=None,
+        output_figure_regional=None,
+        show_plot=False,
+    ):
+        assert config_toml == "dummy.toml"
+        assert section == "case"
+        assert output_mesh is None
+        assert output_summary_json is None
+        assert output_figure is None
+        assert output_figure_regional is None
+        assert show_plot is False
+        return payload
+
+    monkeypatch.setattr(
+        conformal_case_module,
+        "run_reference_2d_zone_conformal_case_from_toml",
+        fake_run,
+    )
+
+    exit_code = conformal_case_module.main(["--config-file", "dummy.toml", "--section", "case"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert json.loads(captured.out) == payload
 
 
 def test_river_constraints_mode_requires_river_trace(tmp_path: Path) -> None:

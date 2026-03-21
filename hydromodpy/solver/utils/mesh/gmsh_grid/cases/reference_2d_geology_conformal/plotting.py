@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
@@ -17,8 +18,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     _iter_river_lines,
     _valid_geometry_mask,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+    ZoneConformalMeshingInputs,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
     _disable_axis_offset,
+    _show_figures_blocking,
 )
 
 
@@ -539,6 +544,82 @@ def _build_figure(
     return fig
 
 
+def _resolve_outlet_xy(domain_geographic: object | None) -> tuple[float, float] | None:
+    if domain_geographic is None:
+        return None
+    x_outlet = getattr(domain_geographic, "x_outlet", None)
+    y_outlet = getattr(domain_geographic, "y_outlet", None)
+    if x_outlet is None or y_outlet is None:
+        return None
+    return float(x_outlet), float(y_outlet)
+
+
+def _write_optional_figure_artifacts(
+    *,
+    figure_path: Path | None,
+    figure_regional_path: Path | None,
+    show_plot: bool,
+    result,
+    meshing_inputs: ZoneConformalMeshingInputs,
+    partition_gdf: gpd.GeoDataFrame,
+    domain_geographic: object | None,
+) -> dict[str, str]:
+    if figure_path is None and figure_regional_path is None and not show_plot:
+        return {}
+
+    common_plot_kwargs = {
+        "clipped_gdf": meshing_inputs.zone_gdf,
+        "partition_gdf": partition_gdf,
+        "domain_gdf": meshing_inputs.domain_payload["gdf"],
+        "mesh": result.mesh,
+        "domain_bounds": list(meshing_inputs.domain_payload["geometry"].bounds),
+        "domain_area": float(meshing_inputs.domain_payload["summary"]["domain_area"]),
+        "domain_kind": str(meshing_inputs.domain_payload["summary"]["domain_kind"]),
+        "interface_refinement": dict(
+            result.summary.get("mesh_size_fields", {}).get("interface_refinement", {})
+        ),
+        "domain_geographic": domain_geographic,
+        "river_trace": meshing_inputs.resolved_river_trace,
+    }
+
+    fig = None
+    regional_fig = None
+    updates: dict[str, str] = {}
+    try:
+        if figure_path is not None or show_plot:
+            fig = _build_figure(**common_plot_kwargs)
+
+        if figure_regional_path is not None or show_plot:
+            regional_fig = _build_regional_context_figure(
+                domain_gdf=meshing_inputs.domain_payload["gdf"],
+                catchment_gdf=_load_catchment_outline(domain_geographic),
+                topo_background=_load_regional_topography_background(domain_geographic),
+                river_lines=_resolve_river_lines_for_plot(
+                    river_trace=meshing_inputs.resolved_river_trace,
+                    domain_geographic=domain_geographic,
+                ),
+                outlet_xy=_resolve_outlet_xy(domain_geographic),
+            )
+
+        if figure_path is not None and fig is not None:
+            fig.savefig(figure_path)
+            updates["output_figure"] = str(figure_path)
+        if figure_regional_path is not None and regional_fig is not None:
+            regional_fig.savefig(figure_regional_path)
+            updates["output_figure_regional"] = str(figure_regional_path)
+
+        if show_plot:
+            _show_figures_blocking(fig, regional_fig)
+    finally:
+        if not show_plot:
+            if fig is not None:
+                plt.close(fig)
+            if regional_fig is not None:
+                plt.close(regional_fig)
+
+    return updates
+
+
 __all__ = [
     "_build_figure",
     "_build_geographic_mesh_figure",
@@ -553,5 +634,6 @@ __all__ = [
     "_load_topography_background",
     "_plot_zone_panel",
     "_resolve_river_lines_for_plot",
+    "_write_optional_figure_artifacts",
     "_set_panel_limits",
 ]

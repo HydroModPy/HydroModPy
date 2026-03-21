@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Mapping
+import json
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-from matplotlib import pyplot as plt
 
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     generate_zone_conformal_mesh_from_dataframe,
@@ -23,9 +23,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
     _resolve_case_config,
     _resolve_constraints_mode,
-)
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
-    ZoneConformalMeshingInputs,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
     _build_zone_conformal_meshing_inputs,
@@ -46,14 +43,14 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     _load_topography_background,
     _plot_zone_panel,
     _resolve_river_lines_for_plot,
+    _write_optional_figure_artifacts,
     _set_panel_limits,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.reporting import (
-    _build_constraints_qa_contract,
     _build_summary,
+    _finalize_summary_payload,
     _write_json,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import _show_figures_blocking
 
 DEFAULT_CONFIG_FILE = "case_config_zone_conformal.toml"
 DEFAULT_SECTION = "mesh_case"
@@ -202,128 +199,25 @@ def run_reference_2d_zone_conformal_case_from_toml(
         clipped_gdf=meshing_inputs.zone_gdf,
         domain_payload=meshing_inputs.domain_payload,
     )
-    summary["constraints_mode"] = constraints_mode
-    summary["interface_scope"] = dict(meshing_inputs.interface_scope_payload["summary"])
-    summary["refinement_scope"] = dict(meshing_inputs.refinement_scope_payload["summary"])
-    summary["constraints_qa"] = _build_constraints_qa_contract(
-        summary=summary,
+    summary = _finalize_summary_payload(
+        base_summary=summary,
+        meshing_inputs=meshing_inputs,
         constraints_mode=constraints_mode,
         refine_interfaces=bool(meshing_inputs.zone_meshing_cfg["refine_interfaces"]),
+        mesh_path=mesh_path,
     )
-    qa_checks = (
-        dict(summary.get("qa_checks", {}))
-        if isinstance(summary.get("qa_checks"), Mapping)
-        else {}
+
+    summary.update(
+        _write_optional_figure_artifacts(
+            figure_path=figure_path,
+            figure_regional_path=figure_regional_path,
+            show_plot=show_plot,
+            result=result,
+            meshing_inputs=meshing_inputs,
+            partition_gdf=partition_gdf,
+            domain_geographic=domain_geographic,
+        )
     )
-    qa_checks["constraints_contract_pass"] = bool(
-        summary["constraints_qa"]["overall_pass"]
-    )
-    summary["qa_checks"] = qa_checks
-    if meshing_inputs.usage.uses_river_constraints and meshing_inputs.rivers_cfg is not None:
-        summary["rivers_config"] = {
-            "source": str(meshing_inputs.rivers_cfg["source"]),
-            "path": meshing_inputs.rivers_cfg["path"],
-            "clip_to_domain": bool(meshing_inputs.rivers_cfg["clip_to_domain"]),
-            "min_segment_length": float(meshing_inputs.rivers_cfg["min_segment_length"]),
-            "snap_tolerance": float(meshing_inputs.rivers_cfg["snap_tolerance"]),
-        }
-    if meshing_inputs.watershed_boundary_cfg is not None:
-        summary["watershed_boundary_config"] = {
-            "enabled": bool(meshing_inputs.watershed_boundary_cfg["enabled"]),
-            "source": str(meshing_inputs.watershed_boundary_cfg["source"]),
-            "clip_to_domain": bool(
-                meshing_inputs.watershed_boundary_cfg["clip_to_domain"]
-            ),
-            "min_segment_length": float(
-                meshing_inputs.watershed_boundary_cfg["min_segment_length"]
-            ),
-            "participates_in_refinement": bool(
-                meshing_inputs.watershed_boundary_cfg["participates_in_refinement"]
-            ),
-            "smoothing": {
-                "enabled": bool(
-                    meshing_inputs.watershed_boundary_cfg["smoothing"]["enabled"]
-                ),
-                "simplify_tolerance": float(
-                    meshing_inputs.watershed_boundary_cfg["smoothing"][
-                        "simplify_tolerance"
-                    ]
-                ),
-                "heal_tolerance": float(
-                    meshing_inputs.watershed_boundary_cfg["smoothing"][
-                        "heal_tolerance"
-                    ]
-                ),
-                "min_polygon_area": float(
-                    meshing_inputs.watershed_boundary_cfg["smoothing"][
-                        "min_polygon_area"
-                    ]
-                ),
-            },
-        }
-        linear_constraints_summary = summary.get("linear_constraints", {})
-        if isinstance(linear_constraints_summary, Mapping):
-            summary["watershed_boundary"] = dict(
-                linear_constraints_summary.get("watershed::boundary", {})
-            )
-    summary["output_mesh"] = str(mesh_path)
-
-    if figure_path is not None or figure_regional_path is not None or show_plot:
-        common_plot_kwargs = {
-            "clipped_gdf": meshing_inputs.zone_gdf,
-            "partition_gdf": partition_gdf,
-            "domain_gdf": meshing_inputs.domain_payload["gdf"],
-            "mesh": result.mesh,
-            "domain_bounds": list(meshing_inputs.domain_payload["geometry"].bounds),
-            "domain_area": float(meshing_inputs.domain_payload["summary"]["domain_area"]),
-            "domain_kind": str(meshing_inputs.domain_payload["summary"]["domain_kind"]),
-            "interface_refinement": dict(
-                result.summary.get("mesh_size_fields", {}).get(
-                    "interface_refinement", {}
-                )
-            ),
-            "domain_geographic": domain_geographic,
-            "river_trace": meshing_inputs.resolved_river_trace,
-        }
-
-        fig = None
-        if figure_path is not None or show_plot:
-            fig = _build_figure(**common_plot_kwargs)
-        regional_fig = None
-        if figure_regional_path is not None or show_plot:
-            catchment_gdf = _load_catchment_outline(domain_geographic)
-            regional_background = _load_regional_topography_background(domain_geographic)
-            river_lines = _resolve_river_lines_for_plot(
-                river_trace=meshing_inputs.resolved_river_trace,
-                domain_geographic=domain_geographic,
-            )
-            outlet_xy = None
-            if domain_geographic is not None:
-                x_outlet = getattr(domain_geographic, "x_outlet", None)
-                y_outlet = getattr(domain_geographic, "y_outlet", None)
-                if x_outlet is not None and y_outlet is not None:
-                    outlet_xy = (float(x_outlet), float(y_outlet))
-            regional_fig = _build_regional_context_figure(
-                domain_gdf=meshing_inputs.domain_payload["gdf"],
-                catchment_gdf=catchment_gdf,
-                topo_background=regional_background,
-                river_lines=river_lines,
-                outlet_xy=outlet_xy,
-            )
-
-        if figure_path is not None and fig is not None:
-            fig.savefig(figure_path)
-            summary["output_figure"] = str(figure_path)
-        if figure_regional_path is not None and regional_fig is not None:
-            regional_fig.savefig(figure_regional_path)
-            summary["output_figure_regional"] = str(figure_regional_path)
-        if show_plot:
-            _show_figures_blocking(fig, regional_fig)
-        else:
-            if fig is not None:
-                plt.close(fig)
-            if regional_fig is not None:
-                plt.close(regional_fig)
 
     if summary_path is not None:
         summary["output_summary_json"] = str(summary_path)
