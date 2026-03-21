@@ -12,6 +12,9 @@ import geopandas as gpd
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
     _resolve_constraint_usage,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+    ZoneConformalMeshingInputs,
+)
 
 
 def _build_summary(
@@ -194,6 +197,88 @@ def _build_constraints_qa_contract(
     }
 
 
+def _build_rivers_config_summary(rivers_cfg: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "source": str(rivers_cfg["source"]),
+        "path": rivers_cfg["path"],
+        "clip_to_domain": bool(rivers_cfg["clip_to_domain"]),
+        "min_segment_length": float(rivers_cfg["min_segment_length"]),
+        "snap_tolerance": float(rivers_cfg["snap_tolerance"]),
+    }
+
+
+def _build_watershed_boundary_config_summary(
+    watershed_boundary_cfg: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "enabled": bool(watershed_boundary_cfg["enabled"]),
+        "source": str(watershed_boundary_cfg["source"]),
+        "clip_to_domain": bool(watershed_boundary_cfg["clip_to_domain"]),
+        "min_segment_length": float(watershed_boundary_cfg["min_segment_length"]),
+        "participates_in_refinement": bool(
+            watershed_boundary_cfg["participates_in_refinement"]
+        ),
+        "smoothing": {
+            "enabled": bool(watershed_boundary_cfg["smoothing"]["enabled"]),
+            "simplify_tolerance": float(
+                watershed_boundary_cfg["smoothing"]["simplify_tolerance"]
+            ),
+            "heal_tolerance": float(
+                watershed_boundary_cfg["smoothing"]["heal_tolerance"]
+            ),
+            "min_polygon_area": float(
+                watershed_boundary_cfg["smoothing"]["min_polygon_area"]
+            ),
+        },
+    }
+
+
+def _finalize_summary_payload(
+    *,
+    base_summary: Mapping[str, Any],
+    meshing_inputs: ZoneConformalMeshingInputs,
+    constraints_mode: str,
+    refine_interfaces: bool,
+    mesh_path: Path,
+) -> dict[str, Any]:
+    summary = dict(base_summary)
+    summary["constraints_mode"] = str(constraints_mode)
+    summary["interface_scope"] = dict(meshing_inputs.interface_scope_payload["summary"])
+    summary["refinement_scope"] = dict(
+        meshing_inputs.refinement_scope_payload["summary"]
+    )
+    summary["constraints_qa"] = _build_constraints_qa_contract(
+        summary=summary,
+        constraints_mode=constraints_mode,
+        refine_interfaces=bool(refine_interfaces),
+    )
+    qa_checks = (
+        dict(summary.get("qa_checks", {}))
+        if isinstance(summary.get("qa_checks"), Mapping)
+        else {}
+    )
+    qa_checks["constraints_contract_pass"] = bool(
+        summary["constraints_qa"]["overall_pass"]
+    )
+    summary["qa_checks"] = qa_checks
+
+    if meshing_inputs.usage.uses_river_constraints and meshing_inputs.rivers_cfg is not None:
+        summary["rivers_config"] = _build_rivers_config_summary(meshing_inputs.rivers_cfg)
+
+    if meshing_inputs.watershed_boundary_cfg is not None:
+        summary["watershed_boundary_config"] = _build_watershed_boundary_config_summary(
+            meshing_inputs.watershed_boundary_cfg
+        )
+        linear_constraints_summary = summary.get("linear_constraints", {})
+        if isinstance(linear_constraints_summary, Mapping):
+            summary["watershed_boundary"] = dict(
+                linear_constraints_summary.get("watershed::boundary", {})
+            )
+
+    summary["output_mesh"] = str(mesh_path)
+    return summary
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
@@ -203,6 +288,7 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 __all__ = [
     "_build_constraints_qa_contract",
+    "_finalize_summary_payload",
     "_build_summary",
     "_write_json",
 ]
