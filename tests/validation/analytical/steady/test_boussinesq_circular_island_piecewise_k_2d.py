@@ -20,6 +20,7 @@ from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2
     [
         pytest.param("modflownwt", True, False, id="modflownwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
+        pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )
 

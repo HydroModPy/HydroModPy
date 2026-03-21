@@ -3,7 +3,8 @@
 #   python -m launchers mesh-catchment run launchers/mesh_catchment/config_example.toml
 #
 # Inherits the shared Naizin DEM, geology source, conductivity demo mapping,
-# and default meshing profile from config_common.toml.
+# default meshing profile, and the launcher-default internal
+# watershed-boundary constraint.
 
 base_config = "config_common.toml"
 
@@ -12,6 +13,12 @@ base_config = "config_common.toml"
 # output_mesh = "outputs/mesh_catchment_example.msh"
 # output_summary_json = "outputs/mesh_catchment_example_summary.json"
 # geographic_outputs_mode = "cleanup"
+# To disable the default internal catchment-boundary constraint:
+# [mesh_catchment.watershed_boundary]
+# enabled = false
+# To keep the boundary but disable its automatic smoothing:
+# [mesh_catchment.watershed_boundary.smoothing]
+# enabled = false
 output_figure = "C:/results/HydromodPy/mesh_catchment_nancon/mesh_catchment_nancon_overview.png"
 
 # Optional scope to limit where geology/rivers interfaces are generated.

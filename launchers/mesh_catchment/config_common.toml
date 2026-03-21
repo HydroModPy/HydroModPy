@@ -51,6 +51,11 @@ thickness = "50.0 m"
 [mesh_catchment]
 constraints_mode = "geology_rivers"
 output_layout = "flat"
+# The launcher keeps the delineated watershed boundary as one internal
+# constraint by default when the support domain is larger than the catchment.
+# It also smooths that outline automatically at the smallest target mesh scale
+# (here driven by `zone_meshing.min_size = 340 m`).
+# Declare `[mesh_catchment.watershed_boundary] enabled = false` to disable it.
 
 [mesh_catchment.geology.source]
 # Use the France-wide geology source, then clip/rasterize locally on the

@@ -20,6 +20,7 @@ from validation_cases.shared import (
 )
 
 from .reference import expected_boussinesq_uniform_recharge_piecewise_profile
+from .runtime_boussinesq import run_boussinesq_uniform_recharge_piecewise_k_case
 
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -53,14 +54,24 @@ def build_boussinesq_uniform_recharge_piecewise_k_comparison(
 ) -> BoussinesqUniformRechargePiecewiseKComparison:
     """Load one completed run and compare it to the analytical profile."""
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
-    case_tolerances = load_case_tolerances(CASE_DIR, solver=solver) if tolerances is None else tolerances
+    solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
+    case_tolerances = (
+        load_case_tolerances(CASE_DIR, solver=solver_name)
+        if tolerances is None
+        else tolerances
+    )
 
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
     timestep, heads = load_last_npy_array(result.postprocess_dir, observable_name)
 
-    expected_shape = tuple(output_cfg.get("expected_shape", ()))
+    expected_shape_by_solver = output_cfg.get("expected_shape_by_solver", {})
+    expected_shape = ()
+    if isinstance(expected_shape_by_solver, dict) and solver_name in expected_shape_by_solver:
+        expected_shape = tuple(expected_shape_by_solver[solver_name])
+    else:
+        expected_shape = tuple(output_cfg.get("expected_shape", ()))
     if expected_shape:
         assert tuple(heads.shape) == expected_shape, (
             f"Unexpected shape for {observable_name}: {heads.shape} != {expected_shape}"
@@ -113,12 +124,19 @@ def run_boussinesq_uniform_recharge_piecewise_k_comparison(
     """Run the launcher case and return the full comparison payload."""
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
-    result = run_launcher_validation_case(
-        case_dir=CASE_DIR,
-        test_file=caller_file,
-        timeout=timeout,
-        solver=solver,
-    )
+    normalized_solver = None if solver is None else str(solver).strip().lower()
+    if normalized_solver == "boussinesq":
+        result = run_boussinesq_uniform_recharge_piecewise_k_case(
+            caller_file=caller_file,
+            timeout=timeout,
+        )
+    else:
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver,
+        )
     return build_boussinesq_uniform_recharge_piecewise_k_comparison(
         result=result,
         metadata=metadata,

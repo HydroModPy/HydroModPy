@@ -57,7 +57,6 @@ def _print_mesh_catchment_figures(summary: Any) -> None:
     figures = _collect_mesh_catchment_figures(summary)
     if not figures:
         return
-    print("")
     print("Created figures:")
     for figure_path in figures:
         print(f"  {figure_path}")
@@ -104,7 +103,6 @@ def _run_data_overview_launcher(config_path: Path) -> None:
     summary = DataOverviewLauncher(config_path).run()
     report_paths = summary.get("report_paths", [])
     if report_paths:
-        print("")
         print("Generated overview panels:")
         for p in report_paths:
             print(f"  {p}")

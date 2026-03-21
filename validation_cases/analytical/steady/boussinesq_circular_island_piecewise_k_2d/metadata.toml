@@ -10,6 +10,7 @@ base_config = "config_modflownwt.toml"
 [config_files]
 modflownwt = "config_modflownwt.toml"
 modflow6 = "config_modflow6.toml"
+boussinesq = "config_boussinesq.toml"
 
 
 [workspace]
@@ -39,4 +40,7 @@ substratum_elevation_m = -5.0
 ring_radius_breaks_m = [70.0, 140.0]
 hydraulic_conductivity_m_per_s_by_ring = [8e-6, 4e-6, 1e-5]
 recharge_mm_day = 1.0
+
+[reference.comparison_radius_max_by_solver]
+boussinesq = 180.0
 

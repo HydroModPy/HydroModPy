@@ -20,9 +20,9 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.com
     [
         pytest.param("modflownwt", True, False, id="modflownwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
+        pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )
-
 def test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile(solver: str, require_modflow: bool, require_modflow6: bool) -> None:
     """Run the launcher case and compare the final head profile to Boussinesq."""
     assert_required_executables(

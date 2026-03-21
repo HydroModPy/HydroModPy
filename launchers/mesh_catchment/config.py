@@ -126,11 +126,12 @@ class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(
-        default=False,
+        default=True,
         description=(
             "If true, smooth the watershed polygon before extracting its boundary linework. "
             "This cleanup is local to the watershed-boundary constraint and does not alter geology polygons "
-            "or the outer meshing support."
+            "or the outer meshing support. When the subsection is omitted, dedicated-launcher defaults keep this "
+            "enabled and derive the smoothing scale from the smallest target mesh size; set it to false to preserve the raw delineated outline."
         ),
     )
     simplify_tolerance: float = Field(
@@ -138,7 +139,8 @@ class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
         ge=0.0,
         description=(
             "Topology-preserving simplification tolerance, in projected metres, applied to the watershed polygon "
-            "before boundary extraction."
+            "before boundary extraction. Dedicated-launcher defaults derive it from the smallest target mesh size, "
+            "typically `zone_meshing.min_size` or the local interface size when it is smaller."
         ),
     )
     heal_tolerance: float = Field(
@@ -146,7 +148,7 @@ class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
         ge=0.0,
         description=(
             "Snapping tolerance, in projected metres, used to heal nearly coincident watershed vertices "
-            "before simplification."
+            "before simplification. Dedicated-launcher defaults set it to a conservative fraction of the smallest target mesh size."
         ),
     )
     min_polygon_area: float = Field(
@@ -165,11 +167,12 @@ class MeshCatchmentWatershedBoundaryConfigSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(
-        default=False,
+        default=True,
         description=(
             "If true, inject the delineated watershed boundary as one internal constrained polyline in the mesh. "
-            "This keeps the outer support unchanged, for example `geographic_box_buffer`, while still forcing "
-            "mesh edges along the catchment outline."
+            "Dedicated launcher defaults keep this enabled whenever the support domain stays larger than the catchment, "
+            "for example with `geographic_box_buffer`; set it to false to disable that internal constraint explicitly. "
+            "This keeps the outer support unchanged while still forcing mesh edges along the catchment outline."
         ),
     )
     source: str = Field(
@@ -237,6 +240,47 @@ def _validate_hydraulic_scalar(
     if text == "":
         raise ValueError(f"{label} cannot be empty when provided.")
     return text
+
+
+def _coerce_positive_float(raw_value: object, *, default: float | None) -> float | None:
+    """Best-effort float coercion used only for launcher-side default derivation."""
+    if raw_value is None:
+        return default
+    try:
+        value = float(raw_value)
+    except Exception:
+        return default
+    if value <= 0.0:
+        return default
+    return value
+
+
+def _resolve_smallest_target_mesh_size(zone_meshing_raw: object) -> float:
+    """Infer one characteristic smallest mesh size from raw zone-meshing settings."""
+    if not isinstance(zone_meshing_raw, Mapping):
+        zone_meshing_raw = {}
+    global_size = _coerce_positive_float(
+        zone_meshing_raw.get("global_size"),
+        default=250.0,
+    )
+    assert global_size is not None
+    min_size = _coerce_positive_float(zone_meshing_raw.get("min_size"), default=None)
+    refine_interfaces = bool(zone_meshing_raw.get("refine_interfaces", False))
+    interface_size = _coerce_positive_float(
+        zone_meshing_raw.get("interface_size"),
+        default=None,
+    )
+    if refine_interfaces and interface_size is None:
+        interface_size = min(
+            min_size if min_size is not None else global_size * 0.5,
+            global_size,
+        )
+    candidates = [global_size]
+    if min_size is not None:
+        candidates.append(min_size)
+    if interface_size is not None:
+        candidates.append(interface_size)
+    return float(min(candidates))
 
 
 class MeshCatchmentHydraulicPropertyMappingSchema(BaseModel):
@@ -498,8 +542,9 @@ class MeshCatchmentConfigSchema(BaseModel):
         default=None,
         description=(
             "Optional internal line constraint derived from the delineated watershed boundary. "
-            "Use it when the support domain stays larger than the catchment, for example with `geographic_box_buffer`, "
-            "but the mesh still needs one explicit line following the catchment outline."
+            "When this subsection is omitted, the dedicated launcher enables it by default for support domains larger "
+            "than the catchment, and auto-disables it when `domain.kind='geographic_watershed'` because it would be redundant there. "
+            "Declare the subsection mainly to disable or tune that constraint."
         ),
     )
     geology: GeologyConfigSchema | None = Field(
@@ -591,6 +636,52 @@ class MeshCatchmentConfigSchema(BaseModel):
         if text == "":
             raise ValueError("output paths cannot be empty when provided.")
         return text
+
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_watershed_boundary_launcher_default(
+        cls,
+        data: object,
+    ) -> object:
+        if not isinstance(data, Mapping):
+            return data
+        payload = dict(data)
+        domain_kind = ""
+        domain_raw = payload.get("domain")
+        if isinstance(domain_raw, Mapping):
+            domain_kind = str(domain_raw.get("kind", "")).strip().lower()
+        if payload.get("watershed_boundary") is None:
+            payload["watershed_boundary"] = (
+                {"enabled": False}
+                if domain_kind == "geographic_watershed"
+                else {}
+            )
+        watershed_boundary_raw = payload.get("watershed_boundary")
+        if not isinstance(watershed_boundary_raw, Mapping):
+            return payload
+        boundary_payload = dict(watershed_boundary_raw)
+        smoothing_payload = boundary_payload.get("smoothing")
+        if smoothing_payload is None:
+            smoothing_payload = {}
+        if isinstance(smoothing_payload, Mapping):
+            smoothing_payload = dict(smoothing_payload)
+            if "enabled" not in smoothing_payload:
+                smoothing_payload["enabled"] = True
+            if bool(smoothing_payload.get("enabled", False)):
+                smallest_size = _resolve_smallest_target_mesh_size(
+                    payload.get("zone_meshing")
+                )
+                smoothing_payload.setdefault(
+                    "simplify_tolerance",
+                    float(smallest_size),
+                )
+                smoothing_payload.setdefault(
+                    "heal_tolerance",
+                    float(smallest_size) * 0.5,
+                )
+            boundary_payload["smoothing"] = smoothing_payload
+            payload["watershed_boundary"] = boundary_payload
+        return payload
 
     @model_validator(mode="after")
     def _validate_required_subsections(self) -> "MeshCatchmentConfigSchema":

@@ -14,6 +14,7 @@ Tests cover:
 from __future__ import annotations
 
 import types
+import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -693,6 +694,31 @@ class TestPointToGridInterpolation:
         # Both values should be between 10 and 20 mm/day in m/s.
         assert np.all(arr >= 10.0 * MM_DAY_TO_M_S * 0.99)
         assert np.all(arr <= 20.0 * MM_DAY_TO_M_S * 1.01)
+
+    def test_idw_exact_match_emits_no_runtime_warning(self):
+        """IDW should not emit a divide-by-zero warning on exact station matches."""
+        nrow, ncol = 1, 3
+        dx, dy = 10.0, 10.0
+        sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
+
+        pt_west = _make_located_point_record("W", x=5.0, y=5.0, value=10.0, unit="mm/day")
+        pt_east = _make_located_point_record("E", x=25.0, y=5.0, value=20.0, unit="mm/day")
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", RuntimeWarning)
+            result = discretize_points_on_sgrid(
+                load_result=LoadResult(points=[pt_west, pt_east]),
+                sgrid=sgrid,
+                nper=1,
+                method="idw",
+            )
+
+        runtime_warnings = [warning for warning in caught if issubclass(warning.category, RuntimeWarning)]
+        assert runtime_warnings == []
+        arr = result[0]
+        assert arr.shape == (nrow, ncol)
+        assert arr[0, 0] == pytest.approx(10.0 * MM_DAY_TO_M_S)
+        assert arr[0, -1] == pytest.approx(20.0 * MM_DAY_TO_M_S)
 
     def test_no_located_points_returns_zeros(self):
         """PointRecords without locations should produce zeros."""

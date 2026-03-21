@@ -1,0 +1,4 @@
+base_config = "config_headwater_100km2.toml"
+
+[catchment_identification_scan]
+output_dir = "C:/results/HydromodPy/mesh_catchment_runs/headwater_100km2/identification"

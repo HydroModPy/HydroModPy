@@ -29,7 +29,7 @@ def test_discover_and_filter_validation_cases(tmp_path: Path) -> None:
     _write_case(
         analytical_root / "steady" / "case_steady_dual",
         regime="steady",
-        solvers=("modflownwt", "modflow6"),
+        solvers=("modflownwt", "modflow6", "boussinesq"),
     )
     _write_case(
         analytical_root / "transient" / "case_transient_nwt",
@@ -46,6 +46,11 @@ def test_discover_and_filter_validation_cases(tmp_path: Path) -> None:
 
     modflow6_cases = filter_validation_cases(discovered, solver="modflow6", regime="both")
     assert [case.module_name for case in modflow6_cases] == [
+        "validation_cases.analytical.steady.case_steady_dual.run_case",
+    ]
+
+    boussinesq_cases = filter_validation_cases(discovered, solver="boussinesq", regime="both")
+    assert [case.module_name for case in boussinesq_cases] == [
         "validation_cases.analytical.steady.case_steady_dual.run_case",
     ]
 

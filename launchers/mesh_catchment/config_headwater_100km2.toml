@@ -5,7 +5,8 @@
 #   python -m launchers mesh-catchment run launchers/mesh_catchment/config_headwater_100km2.toml
 #
 # Inherits the shared batch DEM, geology source, conductivity demo mapping,
-# output naming, and default meshing profile from config_batch_common.toml.
+# output naming, default meshing profile, and the launcher-default
+# watershed-boundary internal constraint.
 
 base_config = "config_batch_common.toml"
 

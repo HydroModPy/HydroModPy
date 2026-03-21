@@ -5,6 +5,9 @@
 # - [workspace].project_root
 # - [mesh_catchment_batch].outlets_table_path
 # - optional selected_outlet_ids comments per scenario
+#
+# The inherited mono-catchment bootstrap keeps the watershed-boundary
+# constraint active by default unless a scenario disables it explicitly.
 
 base_config = "config_common.toml"
 

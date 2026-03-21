@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from hydromodpy.data_managers.variables.water_quality.apis import hubeau as hubeau_api
 from hydromodpy.data_managers.variables.water_quality.apis.hubeau import (
     _normalize_dataframe,
     fetch,
@@ -80,10 +81,7 @@ class TestFetchMocked:
                 ]
             }
 
-        monkeypatch.setattr(
-            "hydromodpy.data_managers.variables.water_quality.apis.hubeau.get_json",
-            fake_get_json,
-        )
+        monkeypatch.setattr(hubeau_api, "get_json", fake_get_json)
 
         records = fetch(
             site_type="river",

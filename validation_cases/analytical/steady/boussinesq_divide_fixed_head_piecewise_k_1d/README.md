@@ -25,6 +25,7 @@ Direct execution:
 
 ```bash
 python -m validation_cases.analytical.steady.boussinesq_divide_fixed_head_piecewise_k_1d.run_case
+python -m validation_cases.analytical.steady.boussinesq_divide_fixed_head_piecewise_k_1d.run_case --solver boussinesq --show
 ```
 
 The runner saves a PNG figure with:
@@ -32,3 +33,9 @@ The runner saves a PNG figure with:
 - numerical mean profile as blue points,
 - analytical profile as an orange line,
 - a residual panel and a metrics summary box.
+
+Solver variants:
+
+- `modflownwt` and `modflow6` use the historical launcher-backed structured-grid setup,
+- `boussinesq` uses a local triangular strip bundle projected back to a regular
+  `3 x 40` profile grid for plotting and metric comparison.

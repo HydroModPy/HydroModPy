@@ -15,6 +15,7 @@ from hydromodpy.simulation.planning.plan import (
     RunContext,
     SimulationPlan,
 )
+from validation_cases.shared.loaders import load_last_npy_array
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:
@@ -159,6 +160,14 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
     assert model.state.head_history_m.shape == (2, 2)
     assert (model.full_path / "_boussinesq_summary.json").exists()
     assert (model.full_path / "_boussinesq_state_history.npz").exists()
+    assert (model.full_path / "_postprocess" / "watertable_elevation.npy").exists()
+    timestep, watertable = load_last_npy_array(
+        model.full_path / "_postprocess",
+        "watertable_elevation",
+    )
+    assert timestep == 1
+    assert watertable.shape == (2,)
+    assert np.allclose(watertable, model.state.head_m)
 
 
 def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(

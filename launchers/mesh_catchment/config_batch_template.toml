@@ -161,13 +161,15 @@ snap_tolerance = 0.0
 
 
 # Optional internal line constraint derived from the delineated watershed boundary.
-# Use it when the support domain stays larger than the catchment, for example with `geographic_box_buffer`, but the mesh still needs one explicit line following the catchment outline.
+# When this subsection is omitted, the dedicated launcher enables it by default for support domains larger than the catchment, and auto-disables it when `domain.kind='geographic_watershed'` because it would be redundant there.
+# Declare the subsection mainly to disable or tune that constraint.
 
 # [mesh_catchment.watershed_boundary]
 # If true, inject the delineated watershed boundary as one internal constrained polyline in the mesh.
-# This keeps the outer support unchanged, for example `geographic_box_buffer`, while still forcing mesh edges along the catchment outline.
-# Type: bool | Default: false
-# enabled = false
+# Dedicated launcher defaults keep this enabled whenever the support domain stays larger than the catchment, for example with `geographic_box_buffer`; set it to false to disable that internal constraint explicitly.
+# This keeps the outer support unchanged while still forcing mesh edges along the catchment outline.
+# Type: bool | Default: true
+# enabled = true
 
 # Origin of the watershed-boundary constraint.
 # The current implementation only supports 'domain_geographic', which reuses the watershed polygon already produced by geographic preprocessing.
@@ -193,14 +195,17 @@ snap_tolerance = 0.0
 # [mesh_catchment.watershed_boundary.smoothing]
 # If true, smooth the watershed polygon before extracting its boundary linework.
 # This cleanup is local to the watershed-boundary constraint and does not alter geology polygons or the outer meshing support.
-# Type: bool | Default: false
-# enabled = false
+# When the subsection is omitted, dedicated-launcher defaults keep this enabled and derive the smoothing scale from the smallest target mesh size; set it to false to preserve the raw delineated outline.
+# Type: bool | Default: true
+# enabled = true
 
 # Topology-preserving simplification tolerance, in projected metres, applied to the watershed polygon before boundary extraction.
+# Dedicated-launcher defaults derive it from the smallest target mesh size, typically `zone_meshing.min_size` or the local interface size when it is smaller.
 # Type: float | >= 0.0 | Default: 0.0
 # simplify_tolerance = 0.0
 
 # Snapping tolerance, in projected metres, used to heal nearly coincident watershed vertices before simplification.
+# Dedicated-launcher defaults set it to a conservative fraction of the smallest target mesh size.
 # Type: float | >= 0.0 | Default: 0.0
 # heal_tolerance = 0.0
 

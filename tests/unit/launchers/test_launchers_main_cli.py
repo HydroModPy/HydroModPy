@@ -286,6 +286,7 @@ def test_print_mesh_catchment_figures_supports_batch_summary(capsys) -> None:
     captured = capsys.readouterr()
 
     assert "Created figures:" in captured.out
+    assert not captured.out.startswith("\n")
     assert r"C:\results\HydromodPy\mesh\figure_a.png" in captured.out
     assert r"C:\results\HydromodPy\mesh\figure_a_regional.png" in captured.out
     assert r"C:\results\HydromodPy\mesh\figure_b.png" in captured.out
@@ -340,6 +341,7 @@ def test_launchers_cli_mesh_catchment_single_creates_outputs_and_bundle(
     assert bundle_dir.exists()
     assert (bundle_dir / "metadata.json").exists()
     assert "Created figures:" in captured.out
+    assert "\nCreated figures:" not in captured.out
     assert str(output_figure) in captured.out
     assert str(output_figure_regional) in captured.out
 
