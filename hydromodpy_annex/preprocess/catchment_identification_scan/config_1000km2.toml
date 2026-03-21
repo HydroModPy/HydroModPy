@@ -5,7 +5,7 @@ launcher_script = "run_catchment_identification_case.py"
 dem_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
 
 # Dedicated outputs for the 100-basin / 1000 km2 scenario.
-output_dir = "./outputs/full_mnt_target1000km2_100tiles"
+output_dir = "C:/results/HydromodPy/catchment_identification_scan/1000km2"
 
 # Use a lower stream threshold so each tile can propose one candidate outlet,
 # then select final basins around the 1000 km2 target.
@@ -30,10 +30,10 @@ max_basin_overlap_ratio = 0.30
 dem_correction = "breach"
 snap_dist = 0
 
-gpkg_name = "watersheds_full_mnt_target1000km2_100tiles.gpkg"
-basins_layer = "bassins_full_mnt_target1000km2_100tiles"
-outlets_layer = "exutoires_full_mnt_target1000km2_100tiles"
-outlets_csv_name = "exutoires_full_mnt_target1000km2_100tiles.csv"
+gpkg_name = "watersheds_1000km2.gpkg"
+basins_layer = "bassins_1000km2"
+outlets_layer = "exutoires_1000km2"
+outlets_csv_name = "exutoires_1000km2.csv"
 
 save_diagnostic_figures = true
 figures_dir_name = "figures"

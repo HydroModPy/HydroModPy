@@ -1,7 +1,24 @@
 """Dedicated launcher for catchment meshing workflows.
 
-This launcher can run either one catchment mesh workflow or iterate over one
-table of outlet coordinates and mesh each delineated catchment independently.
+This module is the user-facing entry point of the mesh-only workflow. It does
+not generate meshes by itself; instead it performs the orchestration work that
+turns one launcher TOML into the concrete runtime objects consumed by the
+geographic preprocessing pipeline and by the 2D conformal meshing case.
+
+The main responsibilities here are:
+
+- load and validate the launcher-specific sections;
+- load the shared runtime sections (`workspace`, `geographic`, optional
+  `domain`);
+- derive safe defaults that are convenient for dedicated meshing runs;
+- expand optional batch mode into one sequence of child mono-catchment runs;
+- keep per-outlet outputs isolated and track progress in a manifest.
+
+Two usage patterns are supported:
+
+- single-run mode: one outlet / one catchment / one final mesh summary;
+- batch mode: one outlets table is iterated and each outlet gets its own child
+  workspace, derived geographic inputs, output filenames, and one manifest row.
 """
 
 from __future__ import annotations
@@ -32,12 +49,24 @@ from launchers.mesh_catchment import runtime as mesh_runtime
 from launchers.mesh_catchment.config import validate_mesh_catchment_batch_config_data
 
 
-DEFAULT_CONFIG_NAME = "config_mesh_catchment_example.toml"
+DEFAULT_CONFIG_NAME = "config_example.toml"
 _VECTOR_TABLE_SUFFIXES = {".geojson", ".gpkg", ".json", ".shp"}
 
 
+# ---------------------------------------------------------------------------
+# Lightweight launcher-only data carriers
+# ---------------------------------------------------------------------------
+
 @dataclass(frozen=True)
 class MeshCatchmentBatchOutputsConfig:
+    """Resolved filename patterns used to materialize one outlet batch run.
+
+    The launcher normalizes these patterns once, then formats them per outlet
+    with tokens such as ``{outlet_id}`` and ``{catch_name}``. Keeping this
+    small dataclass separate from the larger batch config makes it easier to
+    reason about which values are true runtime paths versus user-authored
+    pattern strings.
+    """
     mesh_filename: str | None = None
     summary_filename: str | None = None
     figure_filename: str | None = None
@@ -47,6 +76,13 @@ class MeshCatchmentBatchOutputsConfig:
 
 @dataclass(frozen=True)
 class MeshCatchmentBatchConfig:
+    """Normalized batch-loop contract derived from `[mesh_catchment_batch]`.
+
+    By the time an instance of this class exists, the launcher has already
+    resolved relative paths, normalized selection lists, and checked the core
+    structural rules of batch mode. Downstream code can therefore iterate over
+    outlets without having to repeatedly defend against half-parsed TOML values.
+    """
     outlets_table_path: Path
     outlet_id_column: str
     x_column: str
@@ -64,6 +100,7 @@ class MeshCatchmentBatchConfig:
         *,
         base_dir: Path,
     ) -> MeshCatchmentBatchConfig | None:
+        """Parse the optional batch section and return ``None`` when disabled."""
         if raw_value is None:
             return None
         if not isinstance(raw_value, Mapping):
@@ -165,6 +202,7 @@ class MeshCatchmentBatchConfig:
 
 @dataclass(frozen=True)
 class MeshCatchmentOutletRecord:
+    """One normalized outlet row ready to drive a child catchment run."""
     outlet_id: str
     outlet_id_safe: str
     x_outlet: float
@@ -172,6 +210,7 @@ class MeshCatchmentOutletRecord:
 
 
 def _optional_text(raw_value: object) -> str | None:
+    """Return one stripped string, or ``None`` for null/empty values."""
     if raw_value is None:
         return None
     text = str(raw_value).strip()
@@ -179,6 +218,7 @@ def _optional_text(raw_value: object) -> str | None:
 
 
 def _require_text(raw_value: object, *, label: str) -> str:
+    """Return one non-empty string and raise a contextual error otherwise."""
     text = _optional_text(raw_value)
     if text is None:
         raise ValueError(f"{label} cannot be empty.")
@@ -191,6 +231,7 @@ def _resolve_required_path(
     label: str,
     base_dir: Path,
 ) -> Path:
+    """Resolve one required file path relative to the launcher TOML directory."""
     text = _require_text(raw_value, label=label)
     path = Path(text).expanduser()
     if not path.is_absolute():
@@ -199,6 +240,7 @@ def _resolve_required_path(
 
 
 def _sanitize_path_token(raw_value: object) -> str:
+    """Convert one user-facing token into a filesystem-safe path fragment."""
     text = str(raw_value).strip()
     if text == "":
         return "unknown"
@@ -209,6 +251,7 @@ def _sanitize_path_token(raw_value: object) -> str:
 
 
 def _clone_config(config: object, *, updates: Mapping[str, Any]) -> object:
+    """Clone one config-like object while preserving Pydantic validation when possible."""
     model_dump = getattr(config, "model_dump", None)
     model_validate = getattr(config.__class__, "model_validate", None)
     if callable(model_dump) and callable(model_validate):
@@ -221,14 +264,17 @@ def _clone_config(config: object, *, updates: Mapping[str, Any]) -> object:
 
 
 def _workspace_catch_name(workspace_like: object) -> str:
+    """Return the catchment name represented by one workspace-like object."""
     return str(Path(workspace_like.project_root).name)
 
 
 def _workspace_project_root(workspace_like: object) -> Path:
+    """Return the project root path for one workspace-like object."""
     return Path(workspace_like.project_root)
 
 
 def _workspace_output_root(workspace_like: object) -> Path:
+    """Return the explicit output root, or fall back to the project root."""
     output_root = getattr(workspace_like, "output_root", None)
     if output_root is not None:
         return Path(output_root)
@@ -241,12 +287,14 @@ def _derive_child_workspace_path(
     current_name: str,
     child_name: str,
 ) -> Path:
+    """Derive one child workspace path while preserving parent folder layout."""
     if current_path.name == str(current_name):
         return current_path.parent / child_name
     return current_path / child_name
 
 
 def _workspace_stable_folder(workspace_like: object) -> Path:
+    """Return the canonical `results_stable` folder for one workspace-like object."""
     stable_folder = getattr(workspace_like, "stable_folder", None)
     if stable_folder is not None:
         return Path(stable_folder)
@@ -256,7 +304,15 @@ def _workspace_stable_folder(workspace_like: object) -> Path:
     return Path(workspace_like.project_root) / "results_stable"
 
 
+def _resolve_mesh_output_layout(section_data: Mapping[str, Any]) -> str:
+    """Return the requested dedicated-launcher output layout."""
+    raw_value = section_data.get("output_layout", "standard")
+    token = str(raw_value).strip().lower()
+    return token if token in {"standard", "flat"} else "standard"
+
+
 def _point_is_within_bounds(*, x: float, y: float, bounds) -> bool:
+    """Return whether one projected XY point lies inside raster bounds."""
     return (
         float(bounds.left) <= float(x) <= float(bounds.right)
         and float(bounds.bottom) <= float(y) <= float(bounds.top)
@@ -272,12 +328,16 @@ class MeshCatchmentLauncher:
         self.config_path = Path(config_path).resolve()
         self.raw_toml = load_toml_with_base_config(self.config_path)
         self.mesh_section_data = mesh_runtime.require_mesh_section(self.raw_toml)
+        # The launcher has its own TOML section, but it still depends on the
+        # shared workspace/geographic/domain runtime sections to do actual work.
         self.workspace_cfg, self.geographic_cfg, self.domain_cfg = self._load_runtime_configs(
             self.raw_toml
         )
         self.constraints_mode = mesh_runtime.resolve_constraints_mode(
             self.mesh_section_data.get("constraints_mode")
         )
+        # River-constrained meshing requires the geographic pipeline to produce
+        # a river trace, so we upgrade the geographic config here if needed.
         self.geographic_cfg = mesh_runtime.prepare_geographic_config_for_meshing(
             self.geographic_cfg,
             constraints_mode=self.constraints_mode,
@@ -295,6 +355,13 @@ class MeshCatchmentLauncher:
         self,
         payload: Mapping[str, Any],
     ) -> dict[str, Any]:
+        """Return one workspace payload with launcher-friendly defaults applied.
+
+        The dedicated meshing launcher is intentionally easy to bootstrap for
+        local experiments. When the TOML omits ``workspace.project_root`` we do
+        not fail immediately: we fall back to the config directory so the rest
+        of the shared workspace loader still receives a concrete location.
+        """
         base_dir = self.config_path.parent
         workspace_data = dict(payload.get("workspace", {}))
 
@@ -307,7 +374,20 @@ class MeshCatchmentLauncher:
         self,
         payload: Mapping[str, Any],
     ) -> tuple[WorkspaceConfig, GeographicConfig, DomainConfig]:
-        """Load workspace/geographic/domain sections needed by this mesh-only launcher."""
+        """Load the shared runtime sections consumed by the launcher.
+
+        Even though this launcher is centered on ``[mesh_catchment]``, the real
+        workflow still depends on the common HydroModPy runtime contracts:
+
+        - ``workspace`` controls where derived artifacts are written;
+        - ``geographic`` controls catchment delineation and optional river
+          tracing;
+        - ``domain`` optionally provides vertical information used later by the
+          exchange-bundle export.
+
+        This method keeps that bridge explicit so the launcher remains a thin
+        adapter rather than a parallel configuration system.
+        """
         base_dir = self.config_path.parent
         workspace_data = self._normalize_workspace_section(payload)
         workspace_cfg = _load_standard_section(
@@ -320,6 +400,8 @@ class MeshCatchmentLauncher:
             GeographicConfig,
             base_dir,
         )
+        # The vertical model may feed mesh-bundle export, so the launcher loads
+        # `[domain]` when present instead of ignoring it.
         if "domain" in payload:
             domain_cfg = _load_standard_section(
                 payload.get("domain", {}),
@@ -338,6 +420,7 @@ class MeshCatchmentLauncher:
         domain_cfg,
         output_overrides: Mapping[str, Path | None] | None = None,
     ) -> dict[str, Any]:
+        """Delegate one fully prepared mono-catchment run to the shared runtime layer."""
         return mesh_runtime.run_single_mesh_catchment_workflow(
             config_path=self.config_path,
             section_data=self.mesh_section_data,
@@ -353,6 +436,14 @@ class MeshCatchmentLauncher:
         self,
         batch_cfg: MeshCatchmentBatchConfig,
     ) -> None:
+        """Reject batch runs that would overwrite fixed output paths.
+
+        Batch mode reuses the same launcher section for many outlets. A fixed
+        ``mesh_catchment.output_*`` path would therefore point every outlet to
+        the same filename unless a per-outlet pattern is configured in
+        ``mesh_catchment_batch.outputs``. Failing early here is clearer than
+        letting the last outlet silently overwrite previous results.
+        """
         required_patterns = {
             "output_mesh": "mesh_filename",
             "output_summary_json": "summary_filename",
@@ -376,10 +467,13 @@ class MeshCatchmentLauncher:
         self,
         batch_cfg: MeshCatchmentBatchConfig,
     ) -> None:
+        """Fail fast when selected batch outlets fall outside required raster coverage."""
         records = self._load_outlet_records(batch_cfg)
         if not records:
             return
 
+        # The DEM must cover every outlet because delineation starts from that
+        # point. Catch this upfront instead of failing later inside Whitebox.
         dem_path = Path(self.geographic_cfg.dem_init_path).expanduser().resolve()
         self._validate_outlets_within_raster(
             records=records,
@@ -412,6 +506,7 @@ class MeshCatchmentLauncher:
         raster_path: Path,
         label: str,
     ) -> None:
+        """Check that all selected outlets lie within one raster extent."""
         if not raster_path.exists():
             raise FileNotFoundError(f"{label} not found: {raster_path}")
 
@@ -444,6 +539,14 @@ class MeshCatchmentLauncher:
         self,
         batch_cfg: MeshCatchmentBatchConfig,
     ) -> list[MeshCatchmentOutletRecord]:
+        """Load and normalize outlet rows from the configured batch table.
+
+        This method is the boundary between loose user input and the typed
+        outlet records used by the rest of the batch pipeline. It accepts CSV
+        or vector formats, applies the optional outlet selection mode, and
+        rejects ambiguous situations such as duplicated outlet ids before any
+        expensive geographic or meshing work starts.
+        """
         table_path = batch_cfg.outlets_table_path
         suffix = table_path.suffix.lower()
         if suffix == ".csv":
@@ -464,6 +567,8 @@ class MeshCatchmentLauncher:
         records: list[MeshCatchmentOutletRecord] = []
         seen_outlet_ids: set[str] = set()
         for index, row in enumerate(rows, start=1):
+            # Normalize each input row once so the rest of the batch pipeline
+            # only manipulates typed outlet records.
             record = self._build_outlet_record(
                 row=row,
                 outlet_id_column=batch_cfg.outlet_id_column,
@@ -489,6 +594,7 @@ class MeshCatchmentLauncher:
 
     @staticmethod
     def _load_outlet_rows_from_csv(table_path: Path) -> list[dict[str, Any]]:
+        """Read outlet rows from one CSV file with a header row."""
         with table_path.open("r", encoding="utf-8-sig", newline="") as stream:
             reader = csv.DictReader(stream)
             if reader.fieldnames is None:
@@ -499,6 +605,7 @@ class MeshCatchmentLauncher:
 
     @staticmethod
     def _load_outlet_rows_from_vector(table_path: Path) -> list[dict[str, Any]]:
+        """Read outlet rows from one vector file and expose point XY columns."""
         import geopandas as gpd
 
         gdf = gpd.read_file(table_path)
@@ -527,6 +634,7 @@ class MeshCatchmentLauncher:
         y_column: str,
         row_label: str,
     ) -> MeshCatchmentOutletRecord:
+        """Validate one raw table row and convert it into one outlet record."""
         if outlet_id_column not in row:
             raise KeyError(f"Missing outlet id column '{outlet_id_column}' in {row_label}")
         outlet_id = _require_text(row.get(outlet_id_column), label=f"{row_label}.{outlet_id_column}")
@@ -557,6 +665,7 @@ class MeshCatchmentLauncher:
         batch_cfg: MeshCatchmentBatchConfig,
         record: MeshCatchmentOutletRecord,
     ) -> str:
+        """Render the child catchment name for one outlet record."""
         tokens = {
             "catch_name": _workspace_catch_name(self.workspace_cfg),
             "outlet_id": record.outlet_id_safe,
@@ -567,6 +676,7 @@ class MeshCatchmentLauncher:
         self,
         batch_cfg: MeshCatchmentBatchConfig,
     ) -> Path:
+        """Return the manifest CSV path used to track batch progress."""
         batch_root = _workspace_project_root(self.workspace_cfg)
         raw_manifest = _optional_text(batch_cfg.outputs.manifest_csv)
         if raw_manifest is None:
@@ -583,7 +693,22 @@ class MeshCatchmentLauncher:
         batch_cfg: MeshCatchmentBatchConfig,
         record: MeshCatchmentOutletRecord,
     ) -> dict[str, Path | None]:
-        mesh_dir = _workspace_stable_folder(workspace_cfg) / "mesh"
+        """Build outlet-specific output overrides for one child run.
+
+        Batch mode derives final filenames outside the generic meshing case so
+        the dedicated launcher keeps full control over naming conventions. The
+        exact parent folder depends on the output layout:
+
+        - ``standard`` writes under ``results_stable/mesh`` of the child
+          workspace;
+        - ``flat`` writes directly under the child project root.
+        """
+        output_layout = _resolve_mesh_output_layout(self.mesh_section_data)
+        mesh_dir = (
+            _workspace_project_root(workspace_cfg)
+            if output_layout == "flat"
+            else _workspace_stable_folder(workspace_cfg) / "mesh"
+        )
         catch_name_safe = _sanitize_path_token(_workspace_catch_name(workspace_cfg))
         tokens = {
             "catch_name": catch_name_safe,
@@ -614,11 +739,27 @@ class MeshCatchmentLauncher:
         batch_cfg: MeshCatchmentBatchConfig,
         record: MeshCatchmentOutletRecord,
     ) -> tuple[str, object, object, dict[str, Path | None]]:
+        """Derive child workspace/geographic configs for one outlet run.
+
+        The parent launcher config acts as a template. For each outlet we clone
+        that template into a child runtime view with:
+
+        - a dedicated workspace root so intermediate geographic products stay
+          isolated;
+        - outlet-specific ``x_outlet`` / ``y_outlet`` coordinates;
+        - outlet-specific final output filenames.
+
+        This keeps each outlet effectively equivalent to an independent
+        mono-catchment run, while still letting the batch loop reuse shared
+        configuration and reporting logic.
+        """
         base_catch_name = _workspace_catch_name(self.workspace_cfg)
         base_project_root = _workspace_project_root(self.workspace_cfg)
         base_output_root = getattr(self.workspace_cfg, "output_root", None)
 
         catch_name = self._format_batch_catch_name(batch_cfg, record)
+        # Each outlet gets its own workspace subtree so geographic
+        # preprocessing, mesh outputs, and cleanup remain isolated.
         workspace_updates: dict[str, Any] = {
             "project_root": _derive_child_workspace_path(
                 current_path=base_project_root,
@@ -659,6 +800,7 @@ class MeshCatchmentLauncher:
         summary: Mapping[str, Any] | None = None,
         error: str = "",
     ) -> dict[str, Any]:
+        """Build one manifest row summarizing the outcome of a batch child run."""
         summary = dict(summary or {})
         return {
             "outlet_id": record.outlet_id,
@@ -675,6 +817,7 @@ class MeshCatchmentLauncher:
 
     @staticmethod
     def _write_batch_manifest(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
+        """Persist the current batch progress to one CSV manifest."""
         path.parent.mkdir(parents=True, exist_ok=True)
         fieldnames = [
             "outlet_id",
@@ -695,6 +838,14 @@ class MeshCatchmentLauncher:
                 writer.writerow({name: row.get(name, "") for name in fieldnames})
 
     def _run_batch(self, batch_cfg: MeshCatchmentBatchConfig) -> dict[str, Any]:
+        """Run the outlet loop and keep a manifest updated incrementally.
+
+        The manifest is written after every outlet, both on success and on
+        failure. This is deliberate: batch meshing can be long, and users need
+        to inspect partial progress without waiting for the entire table to
+        finish. The final summary returned by this method is therefore both a
+        machine-readable result payload and a compact recap of the manifest.
+        """
         records = self._load_outlet_records(batch_cfg)
         manifest_path = self._resolve_batch_manifest_path(batch_cfg)
         results: list[dict[str, Any]] = []
@@ -708,6 +859,10 @@ class MeshCatchmentLauncher:
             )
 
             try:
+                # Each outlet is executed as a normal single workflow with its
+                # own derived workspace/config view. Persist the manifest right
+                # away so the batch remains observable while it is still
+                # running.
                 summary = self._run_single_workflow(
                     workspace_cfg=workspace_cfg,
                     geographic_cfg=geographic_cfg,
@@ -724,6 +879,9 @@ class MeshCatchmentLauncher:
                 )
                 self._write_batch_manifest(manifest_path, results)
             except Exception as exc:
+                # Mirror the same incremental manifest update on failures. That
+                # way a partially failed batch still leaves an explicit trail
+                # describing which outlets succeeded, which failed, and why.
                 results.append(
                     self._build_batch_result_row(
                         record=record,
@@ -734,6 +892,9 @@ class MeshCatchmentLauncher:
                 )
                 self._write_batch_manifest(manifest_path, results)
                 if not batch_cfg.continue_on_error:
+                    # In strict mode the first failing outlet aborts the loop
+                    # after the manifest has been updated, so users do not lose
+                    # the failure context.
                     raise
 
         self._write_batch_manifest(manifest_path, results)
@@ -750,7 +911,13 @@ class MeshCatchmentLauncher:
         }
 
     def run(self) -> dict[str, Any]:
-        """Execute the mesh-only launcher and return the generated summary."""
+        """Execute the launcher and return the final summary payload.
+
+        In single mode the returned payload is the mono-catchment meshing
+        summary produced by the runtime layer. In batch mode the returned
+        payload is a launcher-level summary that aggregates per-outlet rows and
+        points to the generated manifest CSV.
+        """
         if self.batch_cfg is not None:
             return self._run_batch(self.batch_cfg)
         return self._run_single_workflow(
@@ -761,6 +928,7 @@ class MeshCatchmentLauncher:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Build the small CLI parser used when launching this module directly."""
     parser = argparse.ArgumentParser(
         description="Run the mesh-catchment launcher with a TOML config.",
     )
@@ -775,7 +943,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Run mesh-catchment launcher with a provided TOML or default local config."""
+    """Run the mesh-catchment launcher with a provided TOML or default local config."""
     args = _build_parser().parse_args(argv)
     summary = MeshCatchmentLauncher(args.config.expanduser().resolve()).run()
     print(json.dumps(summary, ensure_ascii=True, indent=2))

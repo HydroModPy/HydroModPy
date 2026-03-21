@@ -1,0 +1,36 @@
+# Example batch mesh-catchment launcher config.
+# Paired preprocess config:
+#   hydromodpy_annex/preprocess/catchment_identification_scan/config_headwater_100km2.toml
+# Run with:
+#   python -m launchers mesh-catchment run launchers/mesh_catchment/config_headwater_100km2.toml
+#
+# Inherits the shared batch DEM, geology source, conductivity demo mapping,
+# output naming, and default meshing profile from config_batch_common.toml.
+
+base_config = "config_batch_common.toml"
+
+[workspace]
+# Base prefix used to name one catchment folder per outlet_id.
+project_root = "C:/results/HydromodPy/mesh_headwater_100km2"
+
+[mesh_catchment_batch]
+outlets_table_path = "C:/results/HydromodPy/catchment_identification_scan/headwater_100km2/exutoires_headwater_100km2.csv"
+# Run all outlets found in the preprocess table.
+# selected_outlet_ids = [34, 28]
+
+# Optional scope to limit where geology/rivers interfaces are generated.
+# Omit this block to keep interfaces on the full support domain inherited from
+# config_batch_common.toml.
+#
+# [mesh_catchment.interface_scope]
+# kind = "geographic_watershed"
+
+# Optional scope to limit where interface refinement is applied.
+# This scope is clipped to the effective `interface_scope`.
+#
+# Example:
+# - interface_scope  = "geographic_watershed_box"
+# - refinement_scope = "geographic_watershed"
+#
+# [mesh_catchment.refinement_scope]
+# kind = "geographic_watershed"

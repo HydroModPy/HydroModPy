@@ -1,0 +1,70 @@
+[catchment_identification_scan]
+# Link to the launcher script used for this case.
+launcher_script = "run_catchment_identification_case.py"
+
+# DEM input (must be projected in meters).
+# Replace this with your full-domain DEM path if different.
+dem_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
+
+# Optional clip polygon for the study region.
+# Keep it commented if you want to run on the full DEM extent.
+# region_polygon_path = "../../../data/Brittany/region/bretagne_boundary.shp"
+
+# Output folder for GeoPackage, CSV and intermediate rasters/vectors.
+output_dir = "C:/results/HydromodPy/catchment_identification_scan/s3_100km2"
+
+# Minimum accumulation area used as threshold to select outlets and basins.
+accumulation_area_km2 = 2.0
+
+# Outlet selection strategy:
+# - "border": candidates only on DEM border
+# - "scan_global": scan whole DEM by tiles and keep local maxima
+outlet_selection_mode = "scan_global"
+
+# Parameters used when outlet_selection_mode="scan_global".
+scan_tile_size_km = 10.0
+scan_max_outlets_per_tile = 5
+scan_min_outlet_spacing_km = 4.0
+scan_max_total_outlets = 5000
+
+# Basin selection strategy:
+# - "all_min_area": keep all basins >= accumulation_area_km2
+# - "headwater_target": keep headwater-like basins near target area and non-overlapping
+basin_selection_mode = "headwater_target"
+
+# Keep Strahler stream orders from 1 up to this value.
+headwater_max_strahler_order = 3
+
+# Strict minimum basin size ratio (relative to target) for selection.
+headwater_min_target_ratio = 0.50
+
+# Optional target basin size used only when basin_selection_mode="headwater_target".
+# If omitted, the target defaults to accumulation_area_km2.
+target_basin_area_km2 = 100.0
+
+# Used when basin_selection_mode="headwater_target":
+# accepted area window = target * [1 - ratio, 1 + ratio]
+target_area_tolerance_ratio = 1.00
+
+# Max overlap ratio between two retained basins:
+# overlap_area / min(area_i, area_j)
+max_basin_overlap_ratio = 0.05
+
+# DEM correction strategy: "fill" or "breach".
+dem_correction = "breach"
+
+# Optional snapping distance in map units (meters). Use 0 to disable snapping.
+snap_dist = 0
+
+# Output naming.
+gpkg_name = "watersheds_s3_100km2.gpkg"
+basins_layer = "bassins_s3_100km2"
+outlets_layer = "exutoires_s3_100km2"
+outlets_csv_name = "exutoires_s3_100km2.csv"
+
+# Diagnostic figures saved under output_dir/figures_dir_name.
+save_diagnostic_figures = true
+figures_dir_name = "figures"
+
+# Keep or remove intermediate files after run.
+keep_intermediate = true

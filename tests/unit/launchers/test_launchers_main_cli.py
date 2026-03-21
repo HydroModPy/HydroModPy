@@ -220,7 +220,7 @@ def test_launchers_cli_mesh_catchment_template_prints_single_template(
     captured = capsys.readouterr()
 
     assert code == 0
-    assert 'base_config = "config_mesh_catchment_common.toml"' in captured.out
+    assert 'base_config = "config_common.toml"' in captured.out
     assert "[mesh_catchment]" in captured.out
     assert "Meshing compliance target" in captured.out
 

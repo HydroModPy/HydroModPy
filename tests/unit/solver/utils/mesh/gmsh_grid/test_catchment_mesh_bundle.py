@@ -241,6 +241,81 @@ def test_export_catchment_mesh_bundle_uses_constant_thickness_depth_model(
         )
 
 
+def test_export_catchment_mesh_bundle_uses_default_csv_conductivity_for_unmapped_zone(
+    tmp_path: Path,
+) -> None:
+    mesh_path = tmp_path / "mesh.msh"
+    _write_ascii_triangle_mesh(mesh_path)
+
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=0.5,
+        dy=0.5,
+        xmin=0.0,
+        xmax=1.0,
+        ymin=0.0,
+        ymax=1.0,
+        nrows=2,
+        ncols=2,
+        nodata=-9999.0,
+    )
+    surface = Surface(
+        name="surface_topo",
+        values=np.array([[10.0, 20.0], [30.0, 40.0]], dtype=float),
+        support=support,
+    )
+    domain_geographic = SimpleNamespace(surface_topo=surface, watershed_box_buff_dem=None)
+
+    geology_path = tmp_path / "geology_missing_zone.tif"
+    _write_raster(geology_path, np.array([[1.0, 3.0], [1.0, 3.0]], dtype=float))
+
+    conductivity_csv = tmp_path / "conductivity.csv"
+    conductivity_csv.write_text(
+        "zone_key,K_value\n1,8.64e-5\n",
+        encoding="utf-8",
+    )
+
+    bundle_summary = export_catchment_mesh_bundle(
+        mesh_path=mesh_path,
+        domain_geographic=domain_geographic,
+        domain_cfg={
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "7 m",
+            }
+        },
+        geology_cfg={
+            "id": "field_geology",
+            "source": {
+                "path": str(geology_path),
+                "kind": "raster",
+            },
+            "cell_samples_per_axis": 8,
+        },
+        hydraulic_properties_cfg={
+            "conductivity": {
+                "values_source": "csv",
+                "values_csv_file": str(conductivity_csv),
+                "csv_value_column": "K_value",
+                "default_value": 1.0e-5,
+            }
+        },
+        config_path=tmp_path / "config.toml",
+    )
+
+    loaded = load_catchment_mesh_bundle(bundle_summary["bundle_dir"])
+
+    conductivity_values = np.asarray(
+        [float(cell.hydraulic_conductivity_m_s) for cell in loaded.cells],
+        dtype=float,
+    )
+    assert np.all(np.isfinite(conductivity_values))
+    assert np.all(conductivity_values >= 1.0e-5)
+    assert np.all(conductivity_values <= 8.64e-5)
+    assert np.any(conductivity_values < 8.64e-5)
+    assert loaded.metadata["hydraulic_properties"]["conductivity"]["missing_zone_keys"] == []
+
+
 def loaded_metadata_files(bundle_dir: Path) -> dict[str, str | None]:
     metadata = json.loads((bundle_dir / "metadata.json").read_text(encoding="utf-8"))
     return dict(metadata.get("files", {}))
