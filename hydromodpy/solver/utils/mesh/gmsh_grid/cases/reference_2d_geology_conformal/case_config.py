@@ -14,7 +14,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
     validate_zone_meshing_domain_config_data,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+    ZoneConformalCaseConfig,
     ZoneConformalConstraintUsage,
+    ZoneConformalRiversConfig,
+    ZoneConformalWatershedBoundaryConfig,
+    ZoneConformalWatershedBoundarySmoothingConfig,
+    ZoneConformalZoneMeshingConfig,
 )
 
 
@@ -53,7 +58,7 @@ def _validate_rivers_case_config(
     config_data: Mapping[str, Any],
     *,
     section: str,
-) -> dict[str, Any]:
+) -> ZoneConformalRiversConfig:
     if not isinstance(config_data, Mapping):
         raise ValueError(f"[{section}.rivers] configuration must be a mapping")
     raw = dict(config_data)
@@ -92,20 +97,20 @@ def _validate_rivers_case_config(
     if snap_tolerance < 0.0:
         raise ValueError(f"[{section}.rivers].snap_tolerance must be >= 0.")
 
-    return {
-        "source": source,
-        "path": None if not path_text else path_text,
-        "clip_to_domain": clip_to_domain,
-        "min_segment_length": min_segment_length,
-        "snap_tolerance": snap_tolerance,
-    }
+    return ZoneConformalRiversConfig(
+        source=source,
+        path=None if not path_text else path_text,
+        clip_to_domain=clip_to_domain,
+        min_segment_length=min_segment_length,
+        snap_tolerance=snap_tolerance,
+    )
 
 
 def _validate_watershed_boundary_case_config(
     config_data: Mapping[str, Any],
     *,
     section: str,
-) -> dict[str, Any]:
+) -> ZoneConformalWatershedBoundaryConfig:
     if not isinstance(config_data, Mapping):
         raise ValueError(
             f"[{section}.watershed_boundary] configuration must be a mapping"
@@ -166,25 +171,42 @@ def _validate_watershed_boundary_case_config(
             )
         return value
 
-    return {
-        "enabled": enabled,
-        "source": source,
-        "clip_to_domain": clip_to_domain,
-        "min_segment_length": _parse_non_negative("min_segment_length", 0.0),
-        "participates_in_refinement": participates_in_refinement,
-        "smoothing": {
-            "enabled": smoothing_enabled,
-            "simplify_tolerance": _parse_smoothing_non_negative(
+    return ZoneConformalWatershedBoundaryConfig(
+        enabled=enabled,
+        source=source,
+        clip_to_domain=clip_to_domain,
+        min_segment_length=_parse_non_negative("min_segment_length", 0.0),
+        participates_in_refinement=participates_in_refinement,
+        smoothing=ZoneConformalWatershedBoundarySmoothingConfig(
+            enabled=smoothing_enabled,
+            simplify_tolerance=_parse_smoothing_non_negative(
                 "simplify_tolerance", 0.0
             ),
-            "heal_tolerance": _parse_smoothing_non_negative(
-                "heal_tolerance", 0.0
-            ),
-            "min_polygon_area": _parse_smoothing_non_negative(
+            heal_tolerance=_parse_smoothing_non_negative("heal_tolerance", 0.0),
+            min_polygon_area=_parse_smoothing_non_negative(
                 "min_polygon_area", 0.0
             ),
-        },
-    }
+        ),
+    )
+
+
+def _validate_zone_meshing_case_config(
+    config_data: Mapping[str, Any],
+) -> ZoneConformalZoneMeshingConfig:
+    raw = validate_zone_meshing_config_data(dict(config_data))
+    return ZoneConformalZoneMeshingConfig(
+        algorithm=str(raw["algorithm"]),
+        global_size=float(raw["global_size"]),
+        min_size=raw["min_size"],
+        max_size=raw["max_size"],
+        simplify_tolerance=float(raw["simplify_tolerance"]),
+        heal_tolerance=float(raw["heal_tolerance"]),
+        min_polygon_area=float(raw["min_polygon_area"]),
+        refine_interfaces=bool(raw["refine_interfaces"]),
+        interface_size=raw["interface_size"],
+        interface_distance=raw["interface_distance"],
+        interface_sampling=int(raw["interface_sampling"]),
+    )
 
 
 def _resolve_case_config(
@@ -192,7 +214,7 @@ def _resolve_case_config(
     *,
     section: str,
     section_data_override: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> ZoneConformalCaseConfig:
     if section_data_override is None:
         payload = load_toml_with_base_config(config_toml)
         section_cfg = dict(get_nested_section(payload, section))
@@ -217,7 +239,7 @@ def _resolve_case_config(
         refinement_scope_cfg = validate_zone_meshing_domain_config_data(
             dict(section_cfg.get("refinement_scope", {}))
         )
-    zone_meshing_cfg = validate_zone_meshing_config_data(
+    zone_meshing_cfg = _validate_zone_meshing_case_config(
         dict(section_cfg.get("zone_meshing", {}))
     )
     geology_cfg = None
@@ -236,7 +258,7 @@ def _resolve_case_config(
             section=section,
         )
         if (
-            bool(watershed_boundary_cfg.get("enabled", False))
+            watershed_boundary_cfg.enabled
             and str(domain_cfg["kind"]) == "geographic_watershed"
         ):
             raise ValueError(
@@ -244,20 +266,20 @@ def _resolve_case_config(
                 "use a larger support domain such as geographic_box_buffer if you need the catchment boundary as an internal constraint."
             )
 
-    return {
-        "constraints_mode": usage.constraints_mode,
-        "geology": geology_cfg,
-        "rivers": rivers_cfg,
-        "watershed_boundary": watershed_boundary_cfg,
-        "domain": domain_cfg,
-        "interface_scope": interface_scope_cfg,
-        "refinement_scope": refinement_scope_cfg,
-        "zone_meshing": zone_meshing_cfg,
-        "output_mesh": section_cfg.get("output_mesh"),
-        "output_summary_json": section_cfg.get("output_summary_json"),
-        "output_figure": section_cfg.get("output_figure"),
-        "output_figure_regional": section_cfg.get("output_figure_regional"),
-    }
+    return ZoneConformalCaseConfig(
+        constraints_mode=usage.constraints_mode,
+        geology=geology_cfg,
+        rivers=rivers_cfg,
+        watershed_boundary=watershed_boundary_cfg,
+        domain=domain_cfg,
+        interface_scope=interface_scope_cfg,
+        refinement_scope=refinement_scope_cfg,
+        zone_meshing=zone_meshing_cfg,
+        output_mesh=section_cfg.get("output_mesh"),
+        output_summary_json=section_cfg.get("output_summary_json"),
+        output_figure=section_cfg.get("output_figure"),
+        output_figure_regional=section_cfg.get("output_figure_regional"),
+    )
 
 
 __all__ = [

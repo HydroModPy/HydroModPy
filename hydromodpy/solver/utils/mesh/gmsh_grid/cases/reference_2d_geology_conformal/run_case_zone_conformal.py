@@ -73,22 +73,22 @@ def run_reference_2d_zone_conformal_case_from_toml(
 
     mesh_path = _resolve_optional_output_path(
         config_path,
-        cfg.get("output_mesh"),
+        cfg.output_mesh,
         None if output_mesh is None else str(output_mesh),
     )
     summary_path = _resolve_optional_output_path(
         config_path,
-        cfg.get("output_summary_json"),
+        cfg.output_summary_json,
         None if output_summary_json is None else str(output_summary_json),
     )
     figure_path = _resolve_optional_output_path(
         config_path,
-        cfg.get("output_figure"),
+        cfg.output_figure,
         None if output_figure is None else str(output_figure),
     )
     figure_regional_path = _resolve_optional_output_path(
         config_path,
-        cfg.get("output_figure_regional"),
+        cfg.output_figure_regional,
         None if output_figure_regional is None else str(output_figure_regional),
     )
 
@@ -114,7 +114,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
         base_summary=summary,
         meshing_inputs=meshing_inputs,
         constraints_mode=constraints_mode,
-        refine_interfaces=bool(meshing_inputs.zone_meshing_cfg["refine_interfaces"]),
+        refine_interfaces=meshing_inputs.zone_meshing_cfg.refine_interfaces,
         mesh_path=mesh_path,
     )
 

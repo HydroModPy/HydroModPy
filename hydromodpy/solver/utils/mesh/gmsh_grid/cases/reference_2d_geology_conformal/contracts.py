@@ -51,6 +51,74 @@ class ZoneConformalGeometryPayload:
 
 
 @dataclass(frozen=True)
+class ZoneConformalZoneMeshingConfig:
+    """Validated meshing options consumed by the low-level Gmsh driver."""
+
+    algorithm: str
+    global_size: float
+    min_size: float | None
+    max_size: float | None
+    simplify_tolerance: float
+    heal_tolerance: float
+    min_polygon_area: float
+    refine_interfaces: bool
+    interface_size: float | None
+    interface_distance: float | None
+    interface_sampling: int
+
+
+@dataclass(frozen=True)
+class ZoneConformalRiversConfig:
+    """Validated river-constraint options for one run."""
+
+    source: str
+    path: str | None
+    clip_to_domain: bool
+    min_segment_length: float
+    snap_tolerance: float
+
+
+@dataclass(frozen=True)
+class ZoneConformalWatershedBoundarySmoothingConfig:
+    """Validated smoothing options for the watershed-boundary constraint."""
+
+    enabled: bool
+    simplify_tolerance: float
+    heal_tolerance: float
+    min_polygon_area: float
+
+
+@dataclass(frozen=True)
+class ZoneConformalWatershedBoundaryConfig:
+    """Validated watershed-boundary options for one run."""
+
+    enabled: bool
+    source: str
+    clip_to_domain: bool
+    min_segment_length: float
+    participates_in_refinement: bool
+    smoothing: ZoneConformalWatershedBoundarySmoothingConfig
+
+
+@dataclass(frozen=True)
+class ZoneConformalCaseConfig:
+    """Normalized top-level case configuration consumed by planning."""
+
+    constraints_mode: str
+    geology: Mapping[str, Any] | None
+    rivers: ZoneConformalRiversConfig | None
+    watershed_boundary: ZoneConformalWatershedBoundaryConfig | None
+    domain: Mapping[str, Any]
+    interface_scope: Mapping[str, Any] | None
+    refinement_scope: Mapping[str, Any] | None
+    zone_meshing: ZoneConformalZoneMeshingConfig
+    output_mesh: object | None
+    output_summary_json: object | None
+    output_figure: object | None
+    output_figure_regional: object | None
+
+
+@dataclass(frozen=True)
 class ZoneConformalMeshingInputs:
     """Common meshing contract assembled before calling the Gmsh core."""
 
@@ -62,16 +130,21 @@ class ZoneConformalMeshingInputs:
     refinement_scope_payload: ZoneConformalGeometryPayload
     interface_scope_is_custom: bool
     refinement_scope_is_custom: bool
-    zone_meshing_cfg: Mapping[str, Any]
-    rivers_cfg: Mapping[str, Any] | None
-    watershed_boundary_cfg: Mapping[str, Any] | None
+    zone_meshing_cfg: ZoneConformalZoneMeshingConfig
+    rivers_cfg: ZoneConformalRiversConfig | None
+    watershed_boundary_cfg: ZoneConformalWatershedBoundaryConfig | None
     resolved_river_trace: object | None
     linear_constraints: tuple[ZoneLinearConstraint, ...]
 
 
 __all__ = [
+    "ZoneConformalCaseConfig",
     "ZoneConformalConstraintUsage",
     "ZoneConformalGeometryPayload",
     "ZoneConformalMeshingInputs",
+    "ZoneConformalRiversConfig",
     "ZoneConformalSourcePayload",
+    "ZoneConformalWatershedBoundaryConfig",
+    "ZoneConformalWatershedBoundarySmoothingConfig",
+    "ZoneConformalZoneMeshingConfig",
 ]

@@ -26,10 +26,13 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     _resolve_constraint_usage,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+    ZoneConformalCaseConfig,
     ZoneConformalConstraintUsage,
     ZoneConformalGeometryPayload,
     ZoneConformalMeshingInputs,
+    ZoneConformalRiversConfig,
     ZoneConformalSourcePayload,
+    ZoneConformalWatershedBoundaryConfig,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
     clean_domain_geometry,
@@ -59,17 +62,18 @@ def _resolve_river_trace_for_meshing(
     *,
     river_trace: object | None,
     domain_geographic: object | None,
-    rivers_cfg: Mapping[str, Any] | None,
+    rivers_cfg: ZoneConformalRiversConfig | None,
     config_path: Path,
 ) -> object | None:
     """Resolve the in-memory river trace payload passed to the mesher."""
     if river_trace is not None:
         return river_trace
-    cfg = dict(rivers_cfg or {})
-    source = str(cfg.get("source", "domain_geographic")).strip().lower()
+    if rivers_cfg is None:
+        return None
+    source = rivers_cfg.source
 
     if source == "file":
-        raw_path = cfg.get("path")
+        raw_path = rivers_cfg.path
         if raw_path is None:
             return None
         file_path = Path(str(raw_path)).expanduser()
@@ -298,7 +302,7 @@ def _append_background_zone_outside_scope(
 def _build_zone_source_inputs(
     *,
     usage: ZoneConformalConstraintUsage,
-    cfg: Mapping[str, Any],
+    cfg: ZoneConformalCaseConfig,
     config_path: Path,
     domain_geographic: object | None,
 ) -> tuple[
@@ -309,7 +313,7 @@ def _build_zone_source_inputs(
 ]:
     support_domain_payload = ZoneConformalGeometryPayload.from_mapping(
         load_zone_meshing_domain_geometry(
-            cfg["domain"],
+            cfg.domain,
             config_path=config_path,
             domain_geographic=domain_geographic,
             target_crs=None,
@@ -317,7 +321,7 @@ def _build_zone_source_inputs(
         )
     )
     if usage.uses_geology_constraints:
-        geology_cfg = cfg.get("geology")
+        geology_cfg = cfg.geology
         if geology_cfg is None:
             raise ValueError(
                 "constraints_mode requires one geology configuration for "
@@ -325,13 +329,13 @@ def _build_zone_source_inputs(
             )
         source_payload, raw_zone_gdf, _ = _load_clipped_geology_dataframe(
             geology_cfg=geology_cfg,
-            domain_cfg=cfg["domain"],
+            domain_cfg=cfg.domain,
             config_path=config_path,
             domain_geographic=domain_geographic,
         )
         support_domain_payload = ZoneConformalGeometryPayload.from_mapping(
             load_zone_meshing_domain_geometry(
-                cfg["domain"],
+                cfg.domain,
                 config_path=config_path,
                 domain_geographic=domain_geographic,
                 target_crs=raw_zone_gdf.crs,
@@ -339,7 +343,7 @@ def _build_zone_source_inputs(
             )
         )
         interface_scope_payload = _resolve_scope_payload(
-            scope_cfg=cfg.get("interface_scope"),
+            scope_cfg=cfg.interface_scope,
             fallback_payload=support_domain_payload,
             config_path=config_path,
             domain_geographic=domain_geographic,
@@ -362,7 +366,7 @@ def _build_zone_source_inputs(
         return source_payload, zone_gdf, support_domain_payload, interface_scope_payload
 
     interface_scope_payload = _resolve_scope_payload(
-        scope_cfg=cfg.get("interface_scope"),
+        scope_cfg=cfg.interface_scope,
         fallback_payload=support_domain_payload,
         config_path=config_path,
         domain_geographic=domain_geographic,
@@ -377,30 +381,39 @@ def _build_zone_source_inputs(
 def _build_river_constraint_inputs(
     *,
     usage: ZoneConformalConstraintUsage,
-    cfg: Mapping[str, Any],
+    cfg: ZoneConformalCaseConfig,
     config_path: Path,
     river_trace: object | None,
     domain_geographic: object | None,
     interface_scope_payload: ZoneConformalGeometryPayload,
-) -> tuple[Mapping[str, Any] | None, object | None, ZoneLinearConstraint | None]:
+) -> tuple[
+    ZoneConformalRiversConfig | None,
+    object | None,
+    ZoneLinearConstraint | None,
+]:
     if not usage.uses_river_constraints:
         return None, None, None
 
-    rivers_cfg = dict(cfg.get("rivers") or {})
+    rivers_cfg = cfg.rivers
     resolved_river_trace = _resolve_river_trace_for_meshing(
         river_trace=river_trace,
         domain_geographic=domain_geographic,
         rivers_cfg=rivers_cfg,
         config_path=config_path,
     )
-    if bool(rivers_cfg.get("clip_to_domain", True)):
+    if rivers_cfg is None:
+        raise ValueError(
+            "constraints_mode requires one rivers configuration for mode "
+            f"'{usage.constraints_mode}'."
+        )
+    if rivers_cfg.clip_to_domain:
         resolved_river_trace = _clip_river_trace_to_domain(
             river_trace=resolved_river_trace,
             domain_geometry=interface_scope_payload.geometry,
         )
     resolved_river_trace = _filter_river_trace_by_min_segment_length(
         river_trace=resolved_river_trace,
-        min_segment_length=float(rivers_cfg.get("min_segment_length", 0.0)),
+        min_segment_length=rivers_cfg.min_segment_length,
     )
     if resolved_river_trace is None:
         raise ValueError(
@@ -424,14 +437,17 @@ def _build_river_constraint_inputs(
 
 def _build_watershed_boundary_constraint_inputs(
     *,
-    cfg: Mapping[str, Any],
+    cfg: ZoneConformalCaseConfig,
     config_path: Path,
     domain_geographic: object | None,
     zone_crs: object,
     domain_payload: ZoneConformalGeometryPayload,
-) -> tuple[Mapping[str, Any] | None, ZoneLinearConstraint | None]:
-    boundary_cfg = dict(cfg.get("watershed_boundary") or {})
-    if not bool(boundary_cfg.get("enabled", False)):
+) -> tuple[
+    ZoneConformalWatershedBoundaryConfig | None,
+    ZoneLinearConstraint | None,
+]:
+    boundary_cfg = cfg.watershed_boundary
+    if boundary_cfg is None or not boundary_cfg.enabled:
         return None, None
 
     if domain_geographic is None:
@@ -449,24 +465,24 @@ def _build_watershed_boundary_constraint_inputs(
         )
     )
     watershed_geometry = watershed_payload.geometry
-    smoothing_cfg = dict(boundary_cfg.get("smoothing") or {})
-    if bool(smoothing_cfg.get("enabled", False)):
+    smoothing_cfg = boundary_cfg.smoothing
+    if smoothing_cfg.enabled:
         watershed_geometry, _ = clean_domain_geometry(
             watershed_geometry,
-            simplify_tolerance=float(smoothing_cfg.get("simplify_tolerance", 0.0)),
-            heal_tolerance=float(smoothing_cfg.get("heal_tolerance", 0.0)),
-            min_polygon_area=float(smoothing_cfg.get("min_polygon_area", 0.0)),
+            simplify_tolerance=smoothing_cfg.simplify_tolerance,
+            heal_tolerance=smoothing_cfg.heal_tolerance,
+            min_polygon_area=smoothing_cfg.min_polygon_area,
         )
 
     boundary_lines = _iter_line_geometries((watershed_geometry.boundary,))
-    if bool(boundary_cfg.get("clip_to_domain", True)):
+    if boundary_cfg.clip_to_domain:
         boundary_lines = _clip_line_constraint_to_domain(
             lines=boundary_lines,
             domain_geometry=domain_payload.geometry,
         )
     boundary_lines = _filter_line_constraint_by_min_segment_length(
         lines=boundary_lines,
-        min_segment_length=float(boundary_cfg.get("min_segment_length", 0.0)),
+        min_segment_length=boundary_cfg.min_segment_length,
     )
     if not boundary_lines:
         raise ValueError(
@@ -480,9 +496,7 @@ def _build_watershed_boundary_constraint_inputs(
             name="watershed::boundary",
             kind="watershed_boundary",
             lines=tuple(boundary_lines),
-            participates_in_refinement=bool(
-                boundary_cfg.get("participates_in_refinement", False)
-            ),
+            participates_in_refinement=boundary_cfg.participates_in_refinement,
         ),
     )
 
@@ -490,7 +504,7 @@ def _build_watershed_boundary_constraint_inputs(
 def _build_linear_constraint_inputs(
     *,
     usage: ZoneConformalConstraintUsage,
-    cfg: Mapping[str, Any],
+    cfg: ZoneConformalCaseConfig,
     config_path: Path,
     river_trace: object | None,
     domain_geographic: object | None,
@@ -498,8 +512,8 @@ def _build_linear_constraint_inputs(
     domain_payload: ZoneConformalGeometryPayload,
     interface_scope_payload: ZoneConformalGeometryPayload,
 ) -> tuple[
-    Mapping[str, Any] | None,
-    Mapping[str, Any] | None,
+    ZoneConformalRiversConfig | None,
+    ZoneConformalWatershedBoundaryConfig | None,
     object | None,
     tuple[ZoneLinearConstraint, ...],
 ]:
@@ -535,14 +549,14 @@ def _build_linear_constraint_inputs(
 
 def _build_zone_conformal_meshing_inputs(
     *,
-    cfg: Mapping[str, Any],
+    cfg: ZoneConformalCaseConfig,
     config_path: Path,
     river_trace: object | None,
     domain_geographic: object | None,
 ) -> ZoneConformalMeshingInputs:
-    usage = _resolve_constraint_usage(str(cfg["constraints_mode"]))
-    interface_scope_cfg = cfg.get("interface_scope")
-    refinement_scope_cfg = cfg.get("refinement_scope")
+    usage = _resolve_constraint_usage(cfg.constraints_mode)
+    interface_scope_cfg = cfg.interface_scope
+    refinement_scope_cfg = cfg.refinement_scope
     source_payload, zone_gdf, domain_payload, interface_scope_payload = (
         _build_zone_source_inputs(
             usage=usage,
@@ -579,7 +593,7 @@ def _build_zone_conformal_meshing_inputs(
         refinement_scope_payload=refinement_scope_payload,
         interface_scope_is_custom=interface_scope_cfg is not None,
         refinement_scope_is_custom=refinement_scope_cfg is not None,
-        zone_meshing_cfg=dict(cfg["zone_meshing"]),
+        zone_meshing_cfg=cfg.zone_meshing,
         rivers_cfg=rivers_cfg,
         watershed_boundary_cfg=watershed_boundary_cfg,
         resolved_river_trace=resolved_river_trace,
