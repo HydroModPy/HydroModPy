@@ -16,15 +16,11 @@ from pathlib import Path
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     generate_zone_conformal_mesh_from_dataframe,
 )
-# Compatibility re-exports kept in the runner for existing callers and tests.
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
     _resolve_case_config,
-    _resolve_constraints_mode,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
     _build_zone_conformal_meshing_inputs,
-    _clip_river_trace_to_domain,
-    _resolve_river_trace_for_meshing,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plotting import (
     _write_optional_figure_artifacts,
@@ -188,8 +184,4 @@ __all__ = [
     "DEFAULT_SECTION",
     "main",
     "run_reference_2d_zone_conformal_case_from_toml",
-    "_clip_river_trace_to_domain",
-    "_resolve_case_config",
-    "_resolve_constraints_mode",
-    "_resolve_river_trace_for_meshing",
 ]

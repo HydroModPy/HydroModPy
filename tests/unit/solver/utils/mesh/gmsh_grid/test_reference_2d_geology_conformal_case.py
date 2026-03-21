@@ -17,12 +17,16 @@ _skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not availab
 
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal as conformal_case_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal as conformal_case_package
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
-    _clip_river_trace_to_domain,
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
+    run_reference_2d_zone_conformal_case_from_toml,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
     _resolve_case_config,
     _resolve_constraints_mode,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
+    _clip_river_trace_to_domain,
     _resolve_river_trace_for_meshing,
-    run_reference_2d_zone_conformal_case_from_toml,
 )
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
@@ -585,18 +589,12 @@ def test_package_exports_public_entrypoints_only() -> None:
 def test_runner_module_declares_explicit_compatibility_exports() -> None:
     exported = set(conformal_case_module.__all__)
 
-    assert {
+    assert exported == {
         "DEFAULT_CONFIG_FILE",
         "DEFAULT_SECTION",
         "main",
         "run_reference_2d_zone_conformal_case_from_toml",
-        "_clip_river_trace_to_domain",
-        "_resolve_case_config",
-        "_resolve_constraints_mode",
-        "_resolve_river_trace_for_meshing",
-    } <= exported
-    assert "_build_figure" not in exported
-    assert "_build_geographic_mesh_figure" not in exported
+    }
 
 
 def test_river_constraints_mode_requires_river_trace(tmp_path: Path) -> None:
