@@ -1,23 +1,25 @@
-﻿"""Outils de distribution pedagogique pour les maillages HydroModPy.
+"""Standalone pedagogical tools for exported mesh bundles.
 
-Ce sous-package expose une API compacte pour :
+This package exposes a compact API to:
 
-- charger un bundle de maillage exporte ;
-- produire une figure de synthese ;
-- obtenir un resume JSON avec les informations structurantes.
+- load one exported mesh bundle
+- render a compact overview figure
+- build a stable JSON summary
 
-Il est pense pour un usage de partage et de relecture, pas pour recalculer
-les maillages eux-memes.
+It is designed for redistribution and review, not for mesh generation.
 """
 
-from mesh.bundle_loading import (
+from mesh.display import (
+    build_visualization_figure,
+    build_visualization_summary,
+    has_continuous_node_topography,
+)
+from mesh.loading import (
     load_visualization_data,
     load_visualization_data_from_toml,
-)
-from mesh.config import (
     load_toml_config,
 )
-from mesh.models import (
+from mesh.schema import (
     ALLOWED_COLOR_FIELDS,
     ALLOWED_TOPOGRAPHY_FIELDS,
     CATEGORICAL_COLOR_FIELDS,
@@ -33,16 +35,9 @@ from mesh.models import (
     PlotConfig,
     VisualizationConfig,
 )
-from mesh.summary import (
-    build_visualization_summary,
-)
-from mesh.workflow import (
+from mesh.runner import (
     run_visualization,
     run_visualization_from_toml,
-)
-from mesh.visualization import (
-    build_visualization_figure,
-    has_continuous_node_topography,
 )
 
 __all__ = [
@@ -69,4 +64,3 @@ __all__ = [
     "run_visualization",
     "run_visualization_from_toml",
 ]
-

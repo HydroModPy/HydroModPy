@@ -1,18 +1,14 @@
-﻿"""Construction du resume JSON pour la distribution des maillages.
-
-Ce module regroupe uniquement la logique de synthese textuelle/JSON. Il ne
-charge pas le bundle et ne dessine pas les figures.
-"""
+"""Construction du resume JSON pour la distribution des maillages."""
 
 from __future__ import annotations
 
 import math
 from typing import Any
 
-from mesh.models import MeshVisualizationData
-from mesh.visualization import (
+from mesh.display.figure import (
     has_continuous_node_topography,
 )
+from mesh.schema import MeshVisualizationData
 
 
 def _count_numeric_values(mesh, field_name: str) -> int:
@@ -34,11 +30,7 @@ def _count_numeric_values(mesh, field_name: str) -> int:
 def build_visualization_summary(
     data: MeshVisualizationData,
 ) -> dict[str, Any]:
-    """Construit un resume compact et facilement partageable.
-
-    Le resume est pense comme un companion du PNG : il rappelle les grandeurs
-    de base du maillage, les couches presentes et le mode de rendu applique.
-    """
+    """Construit un resume compact et facilement partageable."""
 
     mesh = data.mesh
     config = data.config
@@ -112,4 +104,3 @@ def build_visualization_summary(
 __all__ = [
     "build_visualization_summary",
 ]
-

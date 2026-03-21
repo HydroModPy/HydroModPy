@@ -38,6 +38,7 @@ class CatchmentMeshBundleNode:
     x: float
     y: float
     z_top: float | None
+    z_bottom: float | None
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,8 @@ class CatchmentMeshBundleCell:
     area_m2: float
     z_top_centroid: float | None
     z_top_mean: float | None
+    z_bottom_centroid: float | None
+    z_bottom_mean: float | None
     geology_code: int | None
     geology_key: str
     hydraulic_conductivity_m_s: float | None
@@ -134,6 +137,7 @@ def _load_nodes(path: Path) -> tuple[CatchmentMeshBundleNode, ...]:
             x=float(row["x"]),
             y=float(row["y"]),
             z_top=_parse_optional_float(row.get("z_top", "")),
+            z_bottom=_parse_optional_float(row.get("z_bottom", "")),
         )
         for row in rows
     )
@@ -158,6 +162,10 @@ def _load_cells(path: Path) -> tuple[CatchmentMeshBundleCell, ...]:
                 area_m2=float(row["area_m2"]),
                 z_top_centroid=_parse_optional_float(row.get("z_top_centroid", "")),
                 z_top_mean=_parse_optional_float(row.get("z_top_mean", "")),
+                z_bottom_centroid=_parse_optional_float(
+                    row.get("z_bottom_centroid", "")
+                ),
+                z_bottom_mean=_parse_optional_float(row.get("z_bottom_mean", "")),
                 geology_code=_parse_optional_int(row.get("geology_code", "")),
                 geology_key=str(row.get("geology_key", "")),
                 hydraulic_conductivity_m_s=_parse_optional_float(

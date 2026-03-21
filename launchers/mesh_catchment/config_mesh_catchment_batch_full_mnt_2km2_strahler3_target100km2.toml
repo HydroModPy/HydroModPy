@@ -10,6 +10,12 @@ base_config = "config_mesh_catchment_common.toml"
 # One output folder is created per selected outlet_id under this prefix.
 project_root = "C:/results/HydromodPy/mesh_catchment_full_mnt_2km2_strahler3_target100km2"
 
+[geographic]
+# Batch runs need a DEM covering every selected outlet in the table below.
+# Override the lightweight default inherited from config_mesh_catchment_common.toml.
+# This predefined scenario uses the wider Armorican massif DEM.
+dem_init_path = "../../examples/data/dem/DEM_armorican_massif.tif"
+
 [mesh_catchment_batch]
 enabled = true
 outlets_table_path = "../../hydromodpy_annex/preprocess/catchment_identification_scan/outputs/full_mnt_2km2_strahler3_target100km2/exutoires_full_mnt_2km2_s3_t100.csv"
@@ -46,6 +52,7 @@ cell_samples_per_axis = 8
 path = "../../examples/data/geology/GEO1M.shp"
 kind = "vector"
 code_field = "CODE_LEG"
+# This raster must cover the same outlet extent as [geographic].dem_init_path.
 reference_raster_path = "../../examples/data/dem/DEM_armorican_massif.tif"
 all_touched = false
 

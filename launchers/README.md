@@ -100,8 +100,20 @@ Quand seule la section `[mesh_catchment]` est presente :
 8. il retourne un resume avec les chemins utiles (`output_mesh`,
    `output_summary_json`, `output_figure`, bundle)
 
-Par defaut, les sorties sont resolues dans `results_stable/mesh/gmsh/` du
+Par defaut, les sorties sont resolues dans `results_stable/mesh/` du
 catchment courant, sauf override explicite dans `[mesh_catchment]`.
+
+Le bundle exporte aussi la surface de substratum (`z_bottom` aux noeuds,
+`z_bottom_centroid` / `z_bottom_mean` par cellule) a partir de
+`[domain.depth_model]`. Le launcher mesh relit donc egalement la section
+`[domain]` du TOML, en pratique souvent heritee du `base_config`.
+
+Pour le launcher dedie, `mesh_catchment.geographic_outputs_mode = "cleanup"`
+supprime a la fin du run les artefacts intermediaires
+`results_stable/geographic/` et `results_stable/demcorrecflow/` une fois le
+maillage, les figures et le bundle ecrits. La valeur par defaut `keep`
+conserve ces dossiers. Dans `process_simulation`, ce mode n'efface rien car
+les sorties geographiques restent reutilisees par le workflow de simulation.
 
 ### Flux batch
 
@@ -121,6 +133,11 @@ configs derivees, puis reutilise le chemin mono-catchment pour chaque outlet.
 `continue_on_error = true` permet de continuer la boucle apres un echec et de
 consigner l'erreur dans le manifest. Si `false`, le premier echec interrompt le
 batch.
+
+Le launcher verifie aussi avant la boucle que `geographic.dem_init_path` et,
+si renseigne, `mesh_catchment.geology.source.reference_raster_path` couvrent
+bien tous les exutoires selectionnes. Cela evite les echecs tardifs dus a un
+DEM ou un raster de reference hors emprise.
 
 ### Flux embarque dans process_simulation
 

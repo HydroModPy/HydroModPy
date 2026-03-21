@@ -244,21 +244,6 @@ _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
 
-# Import main class (optional dependency chain: geopandas/raster stack).
-try:
-    from hydromodpy.legacy.watershed.watershed_root_legacy import Watershed
-except ModuleNotFoundError as exc:  # pragma: no cover - depends on local env
-    _watershed_import_error = exc
-
-    class Watershed:  # type: ignore[no-redef]
-        """Placeholder raised when optional watershed dependencies are missing."""
-
-        def __init__(self, *args, **kwargs):
-            raise ModuleNotFoundError(
-                "Watershed requires optional dependencies that are not installed "
-                f"(original error: {_watershed_import_error})."
-            ) from _watershed_import_error
-
 _MODULE_EXPORTS = {
     "calibration": "hydromodpy.calibration",
     "data_managers": "hydromodpy.data_managers",
@@ -271,6 +256,7 @@ _MODULE_EXPORTS = {
 
 _LAZY_IMPORTS = {
     # watershed classes
+    "Watershed": "hydromodpy.legacy.watershed.watershed_root_legacy",
     "Geographic": "hydromodpy.geographic.geographic",
     "Hydraulic": "hydromodpy.legacy.watershed.hydraulic",
     "HydrographyResult": "hydromodpy.data_managers.variables.hydrography.result",
@@ -301,7 +287,15 @@ def __getattr__(name):
         globals()[name] = module
         return module
     if name in _LAZY_IMPORTS:
-        module = importlib.import_module(_LAZY_IMPORTS[name])
+        try:
+            module = importlib.import_module(_LAZY_IMPORTS[name])
+        except ModuleNotFoundError as exc:
+            if name == "Watershed":
+                raise ModuleNotFoundError(
+                    "Watershed requires optional dependencies that are not installed "
+                    f"(original error: {exc})."
+                ) from exc
+            raise
         attr = getattr(module, name)
         globals()[name] = attr  # cache for subsequent accesses
         return attr
@@ -309,7 +303,6 @@ def __getattr__(name):
 
 
 __all__ = [
-    "Watershed",
     "calibration",
     "data_managers",
     "domain",

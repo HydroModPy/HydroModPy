@@ -8,6 +8,13 @@ base_config = "config_mesh_catchment_common.toml"
 # Base prefix used to name one catchment folder per outlet_id.
 project_root = "C:/results/HydromodPy/mesh_catchment_bretagne"
 
+[geographic]
+# Batch runs need a DEM covering every selected outlet in the table below.
+# Override the lightweight default inherited from config_mesh_catchment_common.toml.
+# This example uses the broader Armorican massif DEM so the batch can run
+# without manual edits on the bundled sample data.
+dem_init_path = "../../examples/data/dem/DEM_armorican_massif.tif"
+
 [mesh_catchment_batch]
 enabled = true
 outlets_table_path = "../../hydromodpy_annex/preprocess/catchment_identification_scan/outputs/full_mnt_target100km2_100tiles/exutoires_full_mnt_target100km2_100tiles.csv"
@@ -28,6 +35,7 @@ manifest_csv = "batch/mesh_catchment_batch_manifest.csv"
 
 [mesh_catchment]
 constraints_mode = "geology_rivers"
+# geographic_outputs_mode = "cleanup"
 show_plot = false
 
 [mesh_catchment.rivers]
@@ -44,6 +52,7 @@ cell_samples_per_axis = 8
 path = "../../examples/data/geology/GEO1M.shp"
 kind = "vector"
 code_field = "CODE_LEG"
+# This raster must cover the same outlet extent as [geographic].dem_init_path.
 reference_raster_path = "../../examples/data/dem/DEM_armorican_massif.tif"
 all_touched = false
 

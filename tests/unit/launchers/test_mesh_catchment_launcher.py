@@ -5,10 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
+import rasterio
+from rasterio.transform import from_origin
 
+from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from launchers.mesh_catchment import runtime as mesh_runtime
 from launchers.mesh_catchment.launcher import MeshCatchmentLauncher
 
 
@@ -34,13 +39,37 @@ class _DummyDomainGeographic:
         self.river_mesh_trace = river_mesh_trace
 
 
-def _minimal_geology_config() -> dict[str, object]:
+def _write_test_raster(path: Path, *, xmin: float, ymin: float, xmax: float, ymax: float) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pixel_size = 100.0
+    width = max(1, int(round((xmax - xmin) / pixel_size)))
+    height = max(1, int(round((ymax - ymin) / pixel_size)))
+    transform = from_origin(float(xmin), float(ymax), pixel_size, pixel_size)
+    profile = {
+        "driver": "GTiff",
+        "height": height,
+        "width": width,
+        "count": 1,
+        "dtype": rasterio.float32,
+        "crs": "EPSG:2154",
+        "transform": transform,
+        "nodata": -9999.0,
+    }
+    data = np.ones((height, width), dtype=np.float32)
+    with rasterio.open(path, "w", **profile) as dst:
+        dst.write(data, 1)
+
+
+def _minimal_geology_config(
+    *,
+    reference_raster_path: str = "data/reference.tif",
+) -> dict[str, object]:
     return {
         "source": {
             "path": "data/geology.gpkg",
             "kind": "vector",
             "code_field": "CODE",
-            "reference_raster_path": "data/reference.tif",
+            "reference_raster_path": reference_raster_path,
         }
     }
 
@@ -58,6 +87,14 @@ def _minimal_cfg(tmp_path: Path):
 
 
 def _batch_cfg(tmp_path: Path):
+    dem_path = tmp_path / "regional_dem.tif"
+    _write_test_raster(
+        dem_path,
+        xmin=0.0,
+        ymin=0.0,
+        xmax=1000.0,
+        ymax=1000.0,
+    )
     return SimpleNamespace(
         workspace=WorkspaceConfig(
             project_root=tmp_path / "out" / "mesh_batch",
@@ -65,7 +102,7 @@ def _batch_cfg(tmp_path: Path):
         ),
         geographic=GeographicConfig(
             catch_def="from_outlet_coord",
-            dem_init_path=tmp_path / "regional_dem.tif",
+            dem_init_path=dem_path,
             x_outlet=389285.910,
             y_outlet=6816518.749,
             snap_dist="50 m",
@@ -126,14 +163,94 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     assert kwargs["river_trace"] is not None
     expected_root = minimal_cfg.workspace.project_root
     assert kwargs["output_mesh"] == (
-        expected_root / "results_stable" / "mesh" / "gmsh" / "mesh_catchment.msh"
+        expected_root / "results_stable" / "mesh" / "mesh_catchment.msh"
     )
     assert kwargs["output_summary_json"] == (
-        expected_root / "results_stable" / "mesh" / "gmsh" / "mesh_catchment_summary.json"
+        expected_root / "results_stable" / "mesh" / "mesh_catchment_summary.json"
     )
     assert kwargs["output_figure"] is None
     assert kwargs["output_figure_regional"] is None
     assert kwargs["domain_geographic"].river_mesh_trace is not None
+
+
+def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        "[mesh_catchment]\nconstraints_mode='rivers_only'\n",
+        encoding="utf-8",
+    )
+    minimal_cfg = _minimal_cfg(tmp_path)
+    domain_cfg = DomainConfig.model_validate(
+        {
+            "depth_model": {
+                "type": "flat_substratum",
+                "substratum_elevation": 12.5,
+            }
+        }
+    )
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher._load_standard_section",
+        lambda _, model_cls, __: (
+            minimal_cfg.workspace
+            if model_cls.__name__ == "WorkspaceConfig"
+            else (
+                minimal_cfg.geographic
+                if model_cls.__name__ == "GeographicConfig"
+                else domain_cfg
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher.load_toml_with_base_config",
+        lambda _: {
+            "domain": {
+                "depth_model": {
+                    "type": "flat_substratum",
+                    "substratum_elevation": 12.5,
+                }
+            },
+            "mesh_catchment": {"constraints_mode": "rivers_only"},
+        },
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
+        _DummyWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
+        lambda **_: _DummyDomainGeographic(),
+    )
+
+    def _fake_run_case(config_toml, **kwargs):
+        kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
+        kwargs["output_summary_json"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["output_summary_json"].write_text("{}", encoding="utf-8")
+        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
+
+    def _fake_export_bundle(**kwargs):
+        captured.update(kwargs)
+        return {"bundle_dir": str(tmp_path / "bundle")}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.export_catchment_mesh_bundle",
+        _fake_export_bundle,
+    )
+
+    _ = MeshCatchmentLauncher(config_path).run()
+
+    exported_domain_cfg = captured["domain_cfg"]
+    assert exported_domain_cfg.depth_model.type == "flat_substratum"
+    assert exported_domain_cfg.depth_model.substratum_elevation == 12.5
 
 
 def test_mesh_catchment_launcher_run_uses_section_output_overrides(
@@ -202,6 +319,176 @@ def test_mesh_catchment_launcher_run_uses_section_output_overrides(
     ).resolve()
     assert kwargs["show_plot"] is True
     assert kwargs["river_trace"] is not None
+
+
+def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        "[mesh_catchment]\nconstraints_mode='rivers_only'\n",
+        encoding="utf-8",
+    )
+    minimal_cfg = _minimal_cfg(tmp_path)
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher._load_standard_section",
+        lambda _, model_cls, __: (
+            minimal_cfg.workspace
+            if model_cls.__name__ == "WorkspaceConfig"
+            else minimal_cfg.geographic
+        ),
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher.load_toml_with_base_config",
+        lambda _: {
+            "mesh_catchment": {
+                "constraints_mode": "rivers_only",
+                "geographic_outputs_mode": "cleanup",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
+        _DummyWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
+        lambda **_: _DummyDomainGeographic(),
+    )
+
+    def _fake_run_case(config_toml, **kwargs):
+        stable_folder = kwargs["output_mesh"].parent.parent
+        (stable_folder / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
+        (stable_folder / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
+        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.export_catchment_mesh_bundle",
+        lambda **_: {"bundle_dir": str(tmp_path / "bundle")},
+    )
+
+    summary = MeshCatchmentLauncher(config_path).run()
+
+    stable_folder = minimal_cfg.workspace.project_root / "results_stable"
+    assert summary["geographic_outputs_mode"] == "cleanup"
+    assert summary["geographic_outputs_cleanup_applied"] is True
+    assert not (stable_folder / "geographic").exists()
+    assert not (stable_folder / "demcorrecflow").exists()
+
+
+def test_mesh_catchment_launcher_keep_mode_preserves_geographic_outputs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        "[mesh_catchment]\nconstraints_mode='rivers_only'\n",
+        encoding="utf-8",
+    )
+    minimal_cfg = _minimal_cfg(tmp_path)
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher._load_standard_section",
+        lambda _, model_cls, __: (
+            minimal_cfg.workspace
+            if model_cls.__name__ == "WorkspaceConfig"
+            else minimal_cfg.geographic
+        ),
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher.load_toml_with_base_config",
+        lambda _: {"mesh_catchment": {"constraints_mode": "rivers_only"}},
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.hmp.Workspace",
+        _DummyWorkspace,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.build_domain_geographic_context",
+        lambda **_: _DummyDomainGeographic(),
+    )
+
+    def _fake_run_case(config_toml, **kwargs):
+        stable_folder = kwargs["output_mesh"].parent.parent
+        (stable_folder / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
+        (stable_folder / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
+        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.export_catchment_mesh_bundle",
+        lambda **_: {"bundle_dir": str(tmp_path / "bundle")},
+    )
+
+    summary = MeshCatchmentLauncher(config_path).run()
+
+    stable_folder = minimal_cfg.workspace.project_root / "results_stable"
+    assert summary["geographic_outputs_mode"] == "keep"
+    assert summary["geographic_outputs_cleanup_applied"] is False
+    assert (stable_folder / "geographic").exists()
+    assert (stable_folder / "demcorrecflow").exists()
+
+
+def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace_cfg = SimpleNamespace(project_root=tmp_path / "projects" / "mesh_catchment_case")
+    geographic_cfg = SimpleNamespace(
+        uses_synthetic_geographic=lambda: False,
+        river_network=SimpleNamespace(enabled=True),
+    )
+    local_workspace = _DummyWorkspace(workspace_cfg)
+
+    def _fake_run_case(config_toml, **kwargs):
+        stable_folder = kwargs["output_mesh"].parent.parent
+        (stable_folder / "geographic" / "tmp").mkdir(parents=True, exist_ok=True)
+        (stable_folder / "demcorrecflow" / "tmp").mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
+        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.export_catchment_mesh_bundle",
+        lambda **_: {"bundle_dir": str(tmp_path / "bundle")},
+    )
+
+    summary = mesh_runtime.run_single_mesh_catchment_workflow(
+        config_path=tmp_path / "config.toml",
+        section_data={
+            "constraints_mode": "rivers_only",
+            "geographic_outputs_mode": "cleanup",
+        },
+        workspace_cfg=workspace_cfg,
+        geographic_cfg=geographic_cfg,
+        domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(type="constant_thickness")),
+        constraints_mode="rivers_only",
+        workspace=local_workspace,
+        domain_geographic=_DummyDomainGeographic(),
+    )
+
+    stable_folder = local_workspace.stable_folder
+    assert summary["geographic_outputs_mode"] == "cleanup"
+    assert summary["geographic_outputs_cleanup_applied"] is False
+    assert (stable_folder / "geographic").exists()
+    assert (stable_folder / "demcorrecflow").exists()
 
 
 def test_mesh_catchment_launcher_requires_mesh_section(monkeypatch, tmp_path: Path) -> None:
@@ -341,7 +628,9 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
         lambda _: {
             "mesh_catchment": {
                 "constraints_mode": "geology_only",
-                "geology": _minimal_geology_config(),
+                "geology": _minimal_geology_config(
+                    reference_raster_path=str(runtime_cfg.geographic.dem_init_path)
+                ),
             },
             "mesh_catchment_batch": {
                 "enabled": True,
@@ -395,20 +684,19 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
     assert kwargs["section"] == "mesh_catchment"
     assert kwargs["river_trace"] is None
     assert str(kwargs["output_mesh"]).endswith(
-        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "gmsh" / "mesh_2.msh")
+        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "mesh_2.msh")
     )
     assert str(kwargs["output_summary_json"]).endswith(
-        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "gmsh" / "summary_2.json")
+        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "summary_2.json")
     )
     assert str(kwargs["output_figure"]).endswith(
-        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "gmsh" / "figure_2.png")
+        str(Path("mesh_batch_outlet_2") / "results_stable" / "mesh" / "figure_2.png")
     )
     assert str(kwargs["output_figure_regional"]).endswith(
         str(
             Path("mesh_batch_outlet_2")
             / "results_stable"
             / "mesh"
-            / "gmsh"
             / "figure_2_regional.png"
         )
     )
@@ -446,7 +734,9 @@ def test_mesh_catchment_launcher_batch_rejects_fixed_single_output_without_batch
         lambda _: {
             "mesh_catchment": {
                 "constraints_mode": "geology_only",
-                "geology": _minimal_geology_config(),
+                "geology": _minimal_geology_config(
+                    reference_raster_path=str(runtime_cfg.geographic.dem_init_path)
+                ),
                 "output_figure": "outputs/fixed.png",
             },
             "mesh_catchment_batch": {
@@ -457,4 +747,66 @@ def test_mesh_catchment_launcher_batch_rejects_fixed_single_output_without_batch
     )
 
     with pytest.raises(ValueError, match="mesh_catchment_batch.outputs.figure_filename"):
+        _ = MeshCatchmentLauncher(config_path)
+
+
+def test_mesh_catchment_launcher_batch_rejects_outlets_outside_dem_extent(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "config_batch_invalid_extent.toml"
+    outlets_csv = tmp_path / "outlets.csv"
+    dem_path = tmp_path / "regional_dem.tif"
+    outlets_csv.write_text(
+        "outlet_id,x_outlet_m,y_outlet_m\nOUT1,5000.0,5000.0\n",
+        encoding="utf-8",
+    )
+    _write_test_raster(
+        dem_path,
+        xmin=0.0,
+        ymin=0.0,
+        xmax=1000.0,
+        ymax=1000.0,
+    )
+    runtime_cfg = SimpleNamespace(
+        workspace=WorkspaceConfig(
+            project_root=tmp_path / "out" / "mesh_batch",
+            workspace_root=tmp_path,
+        ),
+        geographic=GeographicConfig(
+            catch_def="from_outlet_coord",
+            dem_init_path=dem_path,
+            x_outlet=100.0,
+            y_outlet=100.0,
+            snap_dist="50 m",
+            buff_area="20%",
+            crs_project="EPSG:2154",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher._load_standard_section",
+        lambda _, model_cls, __: (
+            runtime_cfg.workspace
+            if model_cls.__name__ == "WorkspaceConfig"
+            else runtime_cfg.geographic
+        ),
+    )
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.launcher.load_toml_with_base_config",
+        lambda _: {
+            "mesh_catchment": {
+                "constraints_mode": "geology_only",
+                "geology": _minimal_geology_config(
+                    reference_raster_path=str(runtime_cfg.geographic.dem_init_path)
+                ),
+            },
+            "mesh_catchment_batch": {
+                "enabled": True,
+                "outlets_table_path": str(outlets_csv),
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="geographic.dem_init_path does not cover"):
         _ = MeshCatchmentLauncher(config_path)

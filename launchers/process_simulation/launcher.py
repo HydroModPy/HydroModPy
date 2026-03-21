@@ -625,6 +625,7 @@ class HydroModPyLauncher:
             section_data=self.mesh_section_data,
             workspace_cfg=self.cfg.workspace,
             geographic_cfg=self.cfg.geographic,
+            domain_cfg=self.cfg.domain,
             constraints_mode=self.mesh_constraints_mode,
             workspace=setup_state.workspace,
             domain_geographic=setup_state.domain_geographic,

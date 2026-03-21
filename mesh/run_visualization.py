@@ -1,7 +1,7 @@
-﻿"""Script de lancement direct du package autonome `mesh`.
+"""Script de lancement direct du package autonome `mesh`.
 
 Ce script permet de charger un bundle exporte, produire une figure de synthese
-et ecrire un resume JSON sans dependre d'une arborescence HydroModPy plus large.
+et ecrire un resume JSON sans dependre d'une arborescence projet plus large.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ _repo_root = Path(__file__).resolve().parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
-from mesh.workflow import (  # noqa: E402
+from mesh.runner.visualization_runner import (  # noqa: E402
     DEFAULT_CONFIG_FILENAME,
     DEFAULT_TOML_SECTION,
     run_visualization_from_toml,
@@ -69,6 +69,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-

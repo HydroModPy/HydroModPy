@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
@@ -123,3 +124,108 @@ def test_build_domain_geographic_context_from_synthetic_mode(tmp_path: Path):
     assert Path(context.watershed_box_buff_dem).exists()
     assert Path(context.watershed_shp).exists()
     np.testing.assert_allclose(context.surface_topo.as_array(), np.full((2, 2), 20.0))
+
+
+def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_watershed(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace = SimpleNamespace(
+        catch_folder=tmp_path / "results",
+        stable_folder=tmp_path / "results" / "results_stable",
+    )
+    config = GeographicConfig(
+        catch_def="from_outlet_coord",
+        dem_init_path=tmp_path / "regional_dem.tif",
+        x_outlet=1000.0,
+        y_outlet=2000.0,
+        snap_dist="50 m",
+        buff_area="20%",
+        crs_project="EPSG:2154",
+        dem_correc_type="breach",
+        river_network={"enabled": False},
+    )
+    setup = SimpleNamespace(
+        dem_init_path=str(tmp_path / "regional_dem.tif"),
+        crs_project="EPSG:2154",
+        dem_res=50.0,
+        paths=SimpleNamespace(
+            correcflow_path=str(tmp_path / "results" / "results_stable" / "demcorrecflow"),
+            watershed_shp=str(tmp_path / "results" / "results_stable" / "geographic" / "watershed.shp"),
+            watershed_box_shp=str(tmp_path / "results" / "results_stable" / "geographic" / "watershed_box.shp"),
+            box_buff=str(tmp_path / "results" / "results_stable" / "geographic" / "watershed_box_buff.shp"),
+            watershed_box_buff_dem=str(tmp_path / "results" / "results_stable" / "geographic" / "watershed_box_buff_dem.tif"),
+            geographic_path=str(tmp_path / "results" / "results_stable" / "geographic"),
+            river_streams_tif=str(tmp_path / "results" / "results_stable" / "geographic" / "river_streams.tif"),
+            river_streams_pruned_tif=str(tmp_path / "results" / "results_stable" / "geographic" / "river_streams_pruned.tif"),
+            river_stream_order_strahler_tif=str(tmp_path / "results" / "results_stable" / "geographic" / "river_stream_order_strahler.tif"),
+            river_stream_link_id_tif=str(tmp_path / "results" / "results_stable" / "geographic" / "river_stream_link_id.tif"),
+            river_network_shp=str(tmp_path / "results" / "results_stable" / "geographic" / "river_network.shp"),
+            river_network_summary_json=str(tmp_path / "results" / "results_stable" / "geographic" / "river_network_summary.json"),
+        ),
+    )
+    flow_calls: list[str] = []
+    catchment_calls: list[str] = []
+
+    monkeypatch.setattr(
+        "hydromodpy.geographic.core.domain_geographic_pipeline.prepare_geographic_run",
+        lambda **kwargs: setup,
+    )
+
+    def _fake_build_flow(**kwargs):
+        dem_correc_type = str(kwargs["dem_correc_type"])
+        flow_calls.append(dem_correc_type)
+        return SimpleNamespace(
+            correc=f"{dem_correc_type}_correc.tif",
+            direc=f"{dem_correc_type}_direc.tif",
+            acc=f"{dem_correc_type}_acc.tif",
+            correc_data=object(),
+            direc_data=object(),
+            acc_data=object(),
+        )
+
+    monkeypatch.setattr(
+        "hydromodpy.geographic.core.domain_geographic_pipeline.build_regional_flow_products",
+        _fake_build_flow,
+    )
+
+    def _fake_build_standard_catchment(**kwargs):
+        catchment_calls.append(str(kwargs["direc_path"]))
+        if str(kwargs["direc_path"]).startswith("breach_"):
+            raise ValueError(
+                "Watershed delineation produced an empty polygon. Check outlet placement, "
+                "DEM conditioning, and snap distance before rerunning the geographic pipeline."
+            )
+        return None
+
+    monkeypatch.setattr(
+        "hydromodpy.geographic.core.domain_geographic_pipeline.build_standard_catchment",
+        _fake_build_standard_catchment,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.geographic.core.domain_geographic_pipeline.compute_catchment_area_km2",
+        lambda path: 12.5,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.geographic.core.domain_geographic_pipeline.build_standard_domain_polygons",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.geographic.core.domain_geographic_pipeline.clip_dem_to_box_buffer",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.geographic.core.domain_geographic_pipeline.build_river_network_products",
+        lambda **kwargs: SimpleNamespace(river_mesh_trace=None),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.geographic.core.domain_geographic_pipeline.build_surface_topo_from_dem",
+        lambda path: object(),
+    )
+
+    context = build_domain_geographic_context(config=config, workspace=workspace)
+
+    assert flow_calls == ["breach", "fill"]
+    assert catchment_calls == ["breach_direc.tif", "fill_direc.tif"]
+    assert context.catch_def == "from_outlet_coord"
+    assert context.catchment_area_km2 == pytest.approx(12.5)

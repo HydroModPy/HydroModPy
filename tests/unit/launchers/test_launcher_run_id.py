@@ -516,8 +516,8 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
         captured_mesh.update(kwargs)
         return {
             "constraints_mode": "rivers_only",
-            "output_mesh": "workspace/results_stable/mesh/gmsh/mesh_catchment.msh",
-            "output_summary_json": "workspace/results_stable/mesh/gmsh/mesh_catchment_summary.json",
+            "output_mesh": "workspace/results_stable/mesh/mesh_catchment.msh",
+            "output_summary_json": "workspace/results_stable/mesh/mesh_catchment_summary.json",
         }
 
     monkeypatch.setattr(
@@ -625,7 +625,7 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
         assert run_state.setup.mesh_summary is not None
         assert (
             captured_artifacts["mesh_summary"]["output_mesh"]
-            == "workspace/results_stable/mesh/gmsh/mesh_catchment.msh"
+            == "workspace/results_stable/mesh/mesh_catchment.msh"
         )
     finally:
         shutil.rmtree(workspace_root, ignore_errors=True)
