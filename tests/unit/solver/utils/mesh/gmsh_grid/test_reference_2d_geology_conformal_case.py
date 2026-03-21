@@ -17,6 +17,7 @@ _skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not availab
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
     _clip_river_trace_to_domain,
+    _resolve_case_config,
     _resolve_constraints_mode,
     _resolve_river_trace_for_meshing,
     run_reference_2d_zone_conformal_case_from_toml,
@@ -165,6 +166,67 @@ def _write_geographic_box_buffer_case_toml(
     path.write_text(migrated, encoding="utf-8")
 
 
+def _write_geographic_box_buffer_watershed_boundary_case_toml(
+    path: Path,
+    *,
+    constraints_mode: str = "geology_only",
+    section: str = "case",
+) -> None:
+    _write_geographic_box_buffer_case_toml(
+        path,
+        constraints_mode=constraints_mode,
+        section=section,
+    )
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(
+            "\n".join(
+                (
+                    "",
+                    f"[{section}.watershed_boundary]",
+                    "enabled = true",
+                    "clip_to_domain = true",
+                    "min_segment_length = 0.0",
+                    "participates_in_refinement = false",
+                    "",
+                    f"[{section}.watershed_boundary.smoothing]",
+                    "enabled = true",
+                    "simplify_tolerance = 5.0",
+                    "heal_tolerance = 1.0",
+                    "min_polygon_area = 0.0",
+                    "",
+                )
+            )
+        )
+
+
+def _write_base_config_inheritance_case_toml(
+    base_path: Path,
+    child_path: Path,
+    *,
+    section: str = "mesh_catchment",
+    constraints_mode: str = "geology_rivers",
+) -> None:
+    raw = CASE_TOML.read_text(encoding="utf-8-sig")
+    migrated = _rewrite_case_config_section_and_paths(raw, section=section)
+    migrated = migrated.replace(
+        'constraints_mode = "geology_only"',
+        f'constraints_mode = "{constraints_mode}"',
+    )
+    base_path.write_text(migrated, encoding="utf-8")
+    child_path.write_text(
+        "\n".join(
+            (
+                f'base_config = "{base_path.name}"',
+                "",
+                f"[{section}]",
+                'output_figure = "outputs/inherited_overview.png"',
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _write_scope_vector(path: Path, *, bounds: tuple[float, float, float, float]) -> None:
     gdf = gpd.GeoDataFrame(
         {"domain_id": [path.stem]},
@@ -300,6 +362,7 @@ def test_reference_2d_geology_conformal_case_non_regression(
     stable.pop("refinement_scope", None)
     stable.pop("domain_source_path", None)
     stable.pop("source_path", None)
+    stable.pop("linear_constraints", None)
     interface_refinement = dict(stable["mesh_size_fields"]["interface_refinement"])
     interface_refinement.pop("candidate_interface_curve_count", None)
     interface_refinement.pop("scope_filtered_interface_curve_count", None)
@@ -410,6 +473,65 @@ def test_resolve_constraints_mode_rejects_unknown_values() -> None:
         _ = _resolve_constraints_mode("unsupported_mode")
 
 
+def test_resolve_case_config_supports_base_config_inheritance(tmp_path: Path) -> None:
+    base_path = tmp_path / "base_case.toml"
+    child_path = tmp_path / "child_case.toml"
+    _write_base_config_inheritance_case_toml(
+        base_path,
+        child_path,
+        section="mesh_catchment",
+        constraints_mode="geology_rivers",
+    )
+
+    cfg = _resolve_case_config(child_path, section="mesh_catchment")
+
+    assert cfg["constraints_mode"] == "geology_rivers"
+    assert cfg["output_figure"] == "outputs/inherited_overview.png"
+    assert cfg["geology"] is not None
+    assert cfg["zone_meshing"] is not None
+
+
+def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "mesh_launcher.toml"
+    config_path.write_text("[mesh_catchment]\nconstraints_mode = \"geology_only\"\n", encoding="utf-8")
+
+    section_data = {
+        "constraints_mode": "geology_only",
+        "domain": {"kind": "geographic_box_buffer"},
+        "geology": {
+            "source": {
+                "path": str((CASE_TOML.parent / _CASE_RELATIVE_GEOLOGY_PATH).resolve()),
+                "kind": "vector",
+                "code_field": "CODE_GEOL",
+                "reference_raster_path": str(
+                    (CASE_TOML.parent / _CASE_RELATIVE_REFERENCE_RASTER_PATH).resolve()
+                ),
+            }
+        },
+        "zone_meshing": {
+            "algorithm": "delaunay",
+            "global_size": 250.0,
+            "simplify_tolerance": 0.0,
+            "heal_tolerance": 0.0,
+            "min_polygon_area": 0.0,
+            "refine_interfaces": False,
+            "interface_sampling": 64,
+        }
+    }
+
+    cfg = _resolve_case_config(
+        config_path,
+        section="mesh_catchment",
+        section_data_override=section_data,
+    )
+
+    assert cfg["constraints_mode"] == "geology_only"
+    assert cfg["domain"]["kind"] == "geographic_box_buffer"
+    assert cfg["geology"] is not None
+
+
 def test_river_constraints_mode_requires_river_trace(tmp_path: Path) -> None:
     config_path = tmp_path / "case_rivers.toml"
     config_path.write_text(
@@ -497,6 +619,56 @@ def test_geographic_box_buffer_domain_uses_domain_geographic_support() -> None:
     assert summary["domain_area"] > 0.0
     assert summary["n_cells"] > 0
     assert summary["n_nodes"] > 0
+
+
+@_skip_no_gmsh
+def test_geographic_box_buffer_accepts_watershed_boundary_constraint() -> None:
+    output_dir = (
+        Path.cwd()
+        / "scratch_tests"
+        / "reference_2d_geology_conformal"
+        / "runtime_geographic_box_buffer_watershed_boundary"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    config_path = output_dir / "case_geographic_box_buffer_watershed_boundary.toml"
+    _write_geographic_box_buffer_watershed_boundary_case_toml(config_path)
+    support_path = output_dir / "support.geojson"
+    watershed_path = output_dir / "watershed.geojson"
+    _write_scope_vector(
+        support_path,
+        bounds=(355000.0, 6712500.0, 359000.0, 6716500.0),
+    )
+    _write_scope_vector(
+        watershed_path,
+        bounds=(355500.0, 6713000.0, 358500.0, 6716000.0),
+    )
+
+    summary = run_reference_2d_zone_conformal_case_from_toml(
+        config_path,
+        section="case",
+        output_mesh=output_dir
+        / "reference_2d_zone_conformal_geographic_box_buffer_watershed_boundary.msh",
+        output_summary_json=output_dir
+        / "reference_2d_zone_conformal_geographic_box_buffer_watershed_boundary_summary.json",
+        domain_geographic=SimpleNamespace(
+            box_buff_shp=str(support_path),
+            watershed_shp=str(watershed_path),
+        ),
+        show_plot=False,
+    )
+
+    payload = dict(summary.get("watershed_boundary", {}))
+    assert summary["domain_kind"] == "geographic_box_buffer"
+    assert summary["watershed_boundary_config"]["enabled"] is True
+    assert payload.get("provided") is True
+    assert int(payload.get("curve_count", 0)) > 0
+    assert payload.get("refined_with_interface_field") is False
+    assert summary["constraints_qa"]["checks"]["watershed_boundary_curves_generated"] is True
+    assert summary["constraints_qa"]["checks"]["watershed_boundary_curve_group_present"] is True
+    assert any(
+        group["name"] == "watershed::boundary"
+        for group in summary["curve_physical_groups"]
+    )
 
 
 @_skip_no_gmsh

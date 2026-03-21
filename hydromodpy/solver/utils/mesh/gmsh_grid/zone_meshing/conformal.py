@@ -133,6 +133,20 @@ class ZoneConformalPhysicalGroup:
         }
 
 
+@dataclass(frozen=True)
+class ZoneLinearConstraint:
+    """One named internal line constraint that must appear in the generated mesh."""
+
+    name: str
+    kind: str
+    lines: tuple[LineString, ...]
+    participates_in_refinement: bool = True
+
+    @property
+    def line_count(self) -> int:
+        return int(len(self.lines))
+
+
 # ---------------------------------------------------------------------------
 # Partition builder
 # ---------------------------------------------------------------------------
@@ -284,6 +298,124 @@ def build_zone_conformal_partition_from_dataframe(
 # ---------------------------------------------------------------------------
 
 
+def _group_kind_for_constraint_kind(kind: str) -> str:
+    token = str(kind).strip().lower()
+    if token == "river_trace":
+        return "river_curve"
+    return f"{token}_curve"
+
+
+def _constraint_sort_key(constraint: ZoneLinearConstraint) -> tuple[int, str]:
+    token = str(constraint.kind).strip().lower()
+    if token == "watershed_boundary":
+        return (0, str(constraint.name))
+    if token == "river_trace":
+        return (1, str(constraint.name))
+    return (10, str(constraint.name))
+
+
+def _normalize_zone_linear_constraint(
+    raw_constraint: ZoneLinearConstraint | Mapping[str, Any] | object,
+) -> ZoneLinearConstraint:
+    if isinstance(raw_constraint, ZoneLinearConstraint):
+        return raw_constraint
+
+    if isinstance(raw_constraint, Mapping):
+        name = raw_constraint.get("name")
+        kind = raw_constraint.get("kind")
+        lines_attr = raw_constraint.get("lines")
+        participates_in_refinement = raw_constraint.get(
+            "participates_in_refinement", True
+        )
+    else:
+        name = getattr(raw_constraint, "name", None)
+        kind = getattr(raw_constraint, "kind", None)
+        lines_attr = getattr(raw_constraint, "lines", None)
+        participates_in_refinement = getattr(
+            raw_constraint, "participates_in_refinement", True
+        )
+
+    name_text = str(name).strip()
+    kind_text = str(kind).strip()
+    if name_text == "":
+        raise ValueError("linear constraints require one non-empty name.")
+    if kind_text == "":
+        raise ValueError(
+            f"linear constraint '{name_text}' requires one non-empty kind."
+        )
+    if lines_attr is None:
+        raise TypeError(
+            f"linear constraint '{name_text}' must expose a 'lines' collection."
+        )
+
+    lines: list[LineString] = []
+    for geometry in lines_attr:
+        if geometry is None:
+            continue
+        for line in iter_line_parts(geometry):
+            if float(line.length) > 0.0:
+                lines.append(line)
+
+    if not lines:
+        raise ValueError(
+            f"linear constraint '{name_text}' produced no usable line segment."
+        )
+    return ZoneLinearConstraint(
+        name=name_text,
+        kind=kind_text,
+        lines=tuple(lines),
+        participates_in_refinement=bool(participates_in_refinement),
+    )
+
+
+def _normalize_linear_constraints(
+    *,
+    linear_constraints: tuple[ZoneLinearConstraint | Mapping[str, Any] | object, ...]
+    | None,
+    river_trace: object | None,
+) -> tuple[ZoneLinearConstraint, ...]:
+    if linear_constraints is not None:
+        out = [
+            _normalize_zone_linear_constraint(raw_constraint)
+            for raw_constraint in linear_constraints
+        ]
+        return tuple(sorted(out, key=_constraint_sort_key))
+
+    river_lines = iter_river_lines_from_trace(river_trace)
+    if not river_lines:
+        return ()
+    return (
+        ZoneLinearConstraint(
+            name="river::trace",
+            kind="river_trace",
+            lines=tuple(river_lines),
+            participates_in_refinement=True,
+        ),
+    )
+
+
+def _find_matching_constraint(
+    *,
+    segment: LineString | None,
+    ordered_constraints: tuple[ZoneLinearConstraint, ...],
+    constraint_linework_by_name: Mapping[str, Any],
+    tolerance: float,
+) -> ZoneLinearConstraint | None:
+    if segment is None:
+        return None
+    for constraint in ordered_constraints:
+        linework = constraint_linework_by_name.get(str(constraint.name))
+        if linework is None:
+            continue
+        if segment_matches_linework(
+            segment=segment,
+            linework=linework,
+            tolerance=tolerance,
+        ):
+            return constraint
+    return None
+
+
 def generate_zone_conformal_mesh_from_dataframe(
     gdf,
     *,
@@ -302,6 +434,10 @@ def generate_zone_conformal_mesh_from_dataframe(
     interface_size: float | None = None,
     interface_distance: float | None = None,
     interface_sampling: int = 64,
+    linear_constraints: tuple[
+        ZoneLinearConstraint | Mapping[str, Any] | object, ...
+    ]
+    | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",
@@ -349,11 +485,19 @@ def generate_zone_conformal_mesh_from_dataframe(
         heal_tolerance=heal_tolerance,
         min_polygon_area=min_polygon_area,
     )
-    river_lines = iter_river_lines_from_trace(river_trace)
+    normalized_constraints = _normalize_linear_constraints(
+        linear_constraints=linear_constraints,
+        river_trace=river_trace,
+    )
+    constraint_lines = [
+        line
+        for constraint in normalized_constraints
+        for line in constraint.lines
+    ]
     point_tolerance = as_metric_tolerance(heal_tolerance)
     partition = split_partition_with_constraint_lines(
         partition,
-        constraint_lines=river_lines,
+        constraint_lines=constraint_lines,
         tolerance=point_tolerance,
         ZonePartitionFace_cls=ZonePartitionFace,
         ZoneConformalPartition_cls=ZoneConformalPartition,
@@ -371,11 +515,20 @@ def generate_zone_conformal_mesh_from_dataframe(
     }
     surface_polygon_by_tag: dict[int, Polygon] = {}
     physical_groups: list[ZoneConformalPhysicalGroup] = []
-    river_curve_tags: list[int] = []
-    river_curve_tags_unique: list[int] = []
-    river_embed_success = 0
-    river_embed_failures = 0
     curve_tags_by_name: dict[str, list[int]] = {}
+    constraint_linework_by_name: dict[str, Any] = {}
+    constraint_by_name = {
+        str(constraint.name): constraint for constraint in normalized_constraints
+    }
+    constraint_curve_tags_raw: dict[str, list[int]] = {
+        str(constraint.name): [] for constraint in normalized_constraints
+    }
+    constraint_embed_success_by_name: dict[str, int] = {
+        str(constraint.name): 0 for constraint in normalized_constraints
+    }
+    constraint_embed_failures_by_name: dict[str, int] = {
+        str(constraint.name): 0 for constraint in normalized_constraints
+    }
 
     gmsh.initialize()
     try:
@@ -414,39 +567,43 @@ def generate_zone_conformal_mesh_from_dataframe(
                 curve_usage.setdefault(int(curve_tag), set()).add(face.zone_key)
 
         existing_curve_tags = set(int(tag) for tag in curve_usage)
-        if river_lines:
-            river_linework_raw = unary_union(river_lines)
+        if normalized_constraints:
             partition_linework = unary_union(
                 [face.polygon.boundary for face in partition.faces]
             )
-            noded_linework = unary_union([partition_linework, *river_lines])
-            noded_river_lines = [
-                line
-                for line in iter_line_parts(noded_linework)
-                if segment_matches_linework(
-                    segment=line,
-                    linework=river_linework_raw,
-                    tolerance=point_tolerance,
-                )
-            ]
-            for river_line in noded_river_lines:
-                if segment_matches_linework(
-                    segment=river_line,
-                    linework=partition_linework,
-                    tolerance=point_tolerance,
-                ):
-                    continue
-                for curve_tag in add_polyline_segments(
-                    occ,
-                    np.asarray(river_line.coords, dtype=float),
-                    point_registry=point_registry,
-                    line_registry=line_registry,
-                    point_size=global_size_value,
-                    tolerance=point_tolerance,
-                ):
-                    if int(curve_tag) not in existing_curve_tags:
-                        river_curve_tags.append(int(curve_tag))
-            river_curve_tags_unique = sorted(set(int(tag) for tag in river_curve_tags))
+            for constraint in normalized_constraints:
+                constraint_name = str(constraint.name)
+                constraint_linework = unary_union(list(constraint.lines))
+                constraint_linework_by_name[constraint_name] = constraint_linework
+                noded_linework = unary_union([partition_linework, *constraint.lines])
+                noded_constraint_lines = [
+                    line
+                    for line in iter_line_parts(noded_linework)
+                    if segment_matches_linework(
+                        segment=line,
+                        linework=constraint_linework,
+                        tolerance=point_tolerance,
+                    )
+                ]
+                for constraint_line in noded_constraint_lines:
+                    if segment_matches_linework(
+                        segment=constraint_line,
+                        linework=partition_linework,
+                        tolerance=point_tolerance,
+                    ):
+                        continue
+                    for curve_tag in add_polyline_segments(
+                        occ,
+                        np.asarray(constraint_line.coords, dtype=float),
+                        point_registry=point_registry,
+                        line_registry=line_registry,
+                        point_size=global_size_value,
+                        tolerance=point_tolerance,
+                    ):
+                        if int(curve_tag) in existing_curve_tags:
+                            continue
+                        constraint_curve_tags_raw[constraint_name].append(int(curve_tag))
+                        curve_usage.setdefault(int(curve_tag), set())
 
         occ.synchronize()
         apply_mesh_options(
@@ -482,52 +639,26 @@ def generate_zone_conformal_mesh_from_dataframe(
                     (float(canonical[1][0]), float(canonical[1][1])),
                 ]
             )
-        river_linework = unary_union(river_lines) if river_lines else None
         domain_boundary = partition.domain_geometry.boundary
-        zone_geometries: dict[str, Any] = {}
-        for face in partition.faces:
-            zone_key = str(face.zone_key)
-            geometry = zone_geometries.get(zone_key)
-            zone_geometries[zone_key] = (
-                face.polygon
-                if geometry is None
-                else make_valid_geometry(geometry.union(face.polygon))
-            )
-        for curve_tag in river_curve_tags_unique:
-            segment = curve_tag_to_segment.get(int(curve_tag))
-            if segment is None:
-                continue
-            owners = {
-                zone_key
-                for zone_key, geometry in zone_geometries.items()
-                if segment_matches_linework(
-                    segment=segment,
-                    linework=geometry,
-                    tolerance=point_tolerance,
-                )
-            }
-            if owners:
-                curve_usage.setdefault(int(curve_tag), set()).update(owners)
 
         for curve_tag, zone_keys in sorted(curve_usage.items()):
             segment = curve_tag_to_segment.get(int(curve_tag))
-            is_boundary = segment_matches_linework(
+            matched_constraint = _find_matching_constraint(
                 segment=segment,
-                linework=domain_boundary,
+                ordered_constraints=normalized_constraints,
+                constraint_linework_by_name=constraint_linework_by_name,
                 tolerance=point_tolerance,
             )
-            is_river = int(curve_tag) in river_curve_tags_unique
-            if (not is_river) and (river_linework is not None):
-                is_river = segment_matches_linework(
-                    segment=segment,
-                    linework=river_linework,
-                    tolerance=point_tolerance,
-                )
-            if is_river:
-                name = "river::trace"
-                group_kind = "river_curve"
+            if matched_constraint is not None:
+                name = str(matched_constraint.name)
+                group_kind = _group_kind_for_constraint_kind(matched_constraint.kind)
                 zone_names: tuple[str, ...] = ()
             else:
+                is_boundary = segment_matches_linework(
+                    segment=segment,
+                    linework=domain_boundary,
+                    tolerance=point_tolerance,
+                )
                 name, group_kind, zone_names = build_curve_group_name(
                     set(str(zone_key) for zone_key in zone_keys),
                     is_boundary=is_boundary,
@@ -558,19 +689,15 @@ def generate_zone_conformal_mesh_from_dataframe(
                 )
             )
 
-        river_curve_tags_unique = sorted(
-            set(int(tag) for tag in curve_tags_by_name.get("river::trace", []))
-        )
-        river_embed_success = 0
-        river_embed_failures = 0
-        if river_curve_tags_unique:
-            for curve_tag in river_curve_tags_unique:
+        for constraint in normalized_constraints:
+            constraint_name = str(constraint.name)
+            for curve_tag in curve_tags_by_name.get(constraint_name, []):
                 if int(curve_tag) in existing_curve_tags:
-                    river_embed_success += 1
+                    constraint_embed_success_by_name[constraint_name] += 1
                     continue
                 segment = curve_tag_to_segment.get(int(curve_tag))
                 if segment is None:
-                    river_embed_failures += 1
+                    constraint_embed_failures_by_name[constraint_name] += 1
                     continue
                 embedded = False
                 for surface_tag, surface_polygon in surface_polygon_by_tag.items():
@@ -586,14 +713,18 @@ def generate_zone_conformal_mesh_from_dataframe(
                     except Exception:
                         continue
                 if embedded:
-                    river_embed_success += 1
+                    constraint_embed_success_by_name[constraint_name] += 1
                 else:
-                    river_embed_failures += 1
+                    constraint_embed_failures_by_name[constraint_name] += 1
 
         interface_curve_tags_all = [
             int(curve_tag)
             for name, curve_tags_list in curve_tags_by_name.items()
             if not str(name).startswith("boundary::")
+            and (
+                str(name) not in constraint_by_name
+                or bool(constraint_by_name[str(name)].participates_in_refinement)
+            )
             for curve_tag in curve_tags_list
         ]
         interface_curve_tags = [
@@ -711,6 +842,61 @@ def generate_zone_conformal_mesh_from_dataframe(
         "interface_group_count": int(interface_group_count),
         "boundary_group_count": int(boundary_group_count),
     }
+    linear_constraints_summary: dict[str, dict[str, Any]] = {}
+    for constraint in normalized_constraints:
+        constraint_name = str(constraint.name)
+        curve_tags = [
+            int(tag) for tag in curve_tags_by_name.get(constraint_name, ())
+        ]
+        curve_tag_set = set(curve_tags)
+        linear_constraints_summary[constraint_name] = {
+            "provided": True,
+            "kind": str(constraint.kind),
+            "line_count": int(constraint.line_count),
+            "curve_count": int(len(curve_tags)),
+            "embedded_surface_curve_pairs": int(
+                constraint_embed_success_by_name.get(constraint_name, 0)
+            ),
+            "embed_failures": int(
+                constraint_embed_failures_by_name.get(constraint_name, 0)
+            ),
+            "refined_with_interface_field": bool(
+                bool(refine_interfaces_value)
+                and bool(
+                    curve_tag_set.intersection(
+                        set(int(tag) for tag in interface_curve_tags)
+                    )
+                )
+            ),
+            "participates_in_refinement": bool(
+                constraint.participates_in_refinement
+            ),
+        }
+    river_trace_summary = dict(
+        linear_constraints_summary.get(
+            "river::trace",
+            {
+                "provided": bool(river_trace is not None),
+                "line_count": 0,
+                "curve_count": 0,
+                "embedded_surface_curve_pairs": 0,
+                "embed_failures": 0,
+                "refined_with_interface_field": False,
+            },
+        )
+    )
+    river_trace_summary = {
+        "provided": bool(river_trace_summary.get("provided", False)),
+        "line_count": int(river_trace_summary.get("line_count", 0)),
+        "curve_count": int(river_trace_summary.get("curve_count", 0)),
+        "embedded_surface_curve_pairs": int(
+            river_trace_summary.get("embedded_surface_curve_pairs", 0)
+        ),
+        "embed_failures": int(river_trace_summary.get("embed_failures", 0)),
+        "refined_with_interface_field": bool(
+            river_trace_summary.get("refined_with_interface_field", False)
+        ),
+    }
     qa_checks = {
         "coverage_gap": round(float(coverage_gap), 12),
         "coverage_tolerance": round(float(coverage_tolerance), 12),
@@ -744,21 +930,8 @@ def generate_zone_conformal_mesh_from_dataframe(
         "algorithm": str(algorithm),
         "cleaning_diagnostics": cleaning_diagnostics_raw,
         "cleaning_summary": cleaning_summary,
-        "river_trace": {
-            "provided": bool(river_trace is not None),
-            "line_count": int(len(river_lines)),
-            "curve_count": int(len(river_curve_tags_unique)),
-            "embedded_surface_curve_pairs": int(river_embed_success),
-            "embed_failures": int(river_embed_failures),
-            "refined_with_interface_field": bool(
-                bool(refine_interfaces_value)
-                and bool(
-                    set(int(tag) for tag in river_curve_tags_unique).intersection(
-                        set(int(tag) for tag in interface_curve_tags)
-                    )
-                )
-            ),
-        },
+        "linear_constraints": linear_constraints_summary,
+        "river_trace": river_trace_summary,
         "physical_groups_summary": physical_groups_summary,
         "qa_checks": qa_checks,
         "mesh_size_fields": {
@@ -795,6 +968,10 @@ def generate_zone_conformal_mesh_from_geology_config(
     interface_size: float | None = None,
     interface_distance: float | None = None,
     interface_sampling: int = 64,
+    linear_constraints: tuple[
+        ZoneLinearConstraint | Mapping[str, Any] | object, ...
+    ]
+    | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",
@@ -822,6 +999,7 @@ def generate_zone_conformal_mesh_from_geology_config(
         interface_size=interface_size,
         interface_distance=interface_distance,
         interface_sampling=interface_sampling,
+        linear_constraints=linear_constraints,
         river_trace=river_trace,
         refinement_scope_geometry=refinement_scope_geometry,
         model_name=model_name,

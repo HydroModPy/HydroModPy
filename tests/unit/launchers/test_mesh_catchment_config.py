@@ -26,6 +26,50 @@ def test_validate_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg["zone_meshing"]["algorithm"] == "delaunay"
 
 
+def test_validate_mesh_catchment_config_accepts_watershed_boundary() -> None:
+    cfg = validate_mesh_catchment_config_data(
+        {
+            "constraints_mode": "geology_only",
+            "geology": {
+                "source": {
+                    "path": "data/geology.tif",
+                    "kind": "raster",
+                }
+            },
+            "watershed_boundary": {
+                "enabled": True,
+                "participates_in_refinement": False,
+                "smoothing": {
+                    "enabled": True,
+                    "simplify_tolerance": 25.0,
+                    "heal_tolerance": 10.0,
+                },
+            },
+        }
+    )
+
+    assert cfg["watershed_boundary"]["enabled"] is True
+    assert cfg["watershed_boundary"]["source"] == "domain_geographic"
+    assert cfg["watershed_boundary"]["smoothing"]["simplify_tolerance"] == 25.0
+
+
+def test_validate_mesh_catchment_config_rejects_redundant_watershed_boundary() -> None:
+    with pytest.raises(ValueError, match="watershed_boundary is redundant"):
+        validate_mesh_catchment_config_data(
+            {
+                "constraints_mode": "geology_only",
+                "geology": {
+                    "source": {
+                        "path": "data/geology.tif",
+                        "kind": "raster",
+                    }
+                },
+                "domain": {"kind": "geographic_watershed"},
+                "watershed_boundary": {"enabled": True},
+            }
+        )
+
+
 def test_validate_mesh_catchment_config_accepts_hydraulic_properties() -> None:
     cfg = validate_mesh_catchment_config_data(
         {
@@ -59,6 +103,17 @@ def test_validate_mesh_catchment_config_accepts_cleanup_mode() -> None:
     )
 
     assert cfg["geographic_outputs_mode"] == "cleanup"
+
+
+def test_validate_mesh_catchment_config_accepts_flat_output_layout() -> None:
+    cfg = validate_mesh_catchment_config_data(
+        {
+            "constraints_mode": "rivers_only",
+            "output_layout": "flat",
+        }
+    )
+
+    assert cfg["output_layout"] == "flat"
 
 
 def test_validate_mesh_catchment_config_rejects_unknown_cleanup_mode() -> None:
@@ -102,8 +157,8 @@ def test_generate_toml_exposes_mesh_catchment_sections() -> None:
 
 def test_versioned_templates_match_renderer() -> None:
     template_dir = Path("launchers/mesh_catchment")
-    single_path = template_dir / "config_mesh_catchment_template.toml"
-    batch_path = template_dir / "config_mesh_catchment_batch_template.toml"
+    single_path = template_dir / "config_template.toml"
+    batch_path = template_dir / "config_batch_template.toml"
 
     assert single_path.read_text(encoding="utf-8") == render_mesh_catchment_template(
         batch=False,
@@ -113,3 +168,11 @@ def test_versioned_templates_match_renderer() -> None:
         batch=True,
         profile="user",
     )
+
+
+def test_template_renderer_mentions_output_layout() -> None:
+    content = render_mesh_catchment_template(batch=False, profile="user")
+
+    assert 'output_layout = "standard"' in content
+    assert "write final mesh artifacts directly under `workspace.project_root`" in content
+    assert "[mesh_catchment.watershed_boundary]" in content
