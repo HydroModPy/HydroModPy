@@ -24,6 +24,7 @@ def _format_allowed_values(values: set[str]) -> str:
 
 _MAIN_LABEL = "[mesh_distribution]"
 _PLOT_LABEL = "[mesh_distribution.plot]"
+_PLOT_DEFAULTS = PlotConfig()
 
 _MAIN_ALLOWED_KEYS = {
     "bundle_dir",
@@ -143,6 +144,21 @@ def _forbid_unknown_keys(
         )
 
 
+def _read_mapping_value(
+    raw_mapping: Mapping[str, object],
+    key: str,
+    *,
+    default: object,
+    parser,
+    label: str | None = None,
+):
+    """Lit une cle TOML, applique sa valeur par defaut puis son parseur."""
+    value = raw_mapping.get(key, default)
+    if label is None:
+        return parser(value)
+    return parser(value, label=label)
+
+
 def _coerce_required_text(value: object, *, label: str) -> str:
     if value is None:
         raise ValidationError(f"{label} est obligatoire.")
@@ -247,74 +263,134 @@ def _normalize_topography_field(value: object) -> str:
 class PlotTomlSchema:
     """Schema valide du bloc `[mesh_distribution.plot]`."""
 
-    color_field: str = "geology_key"
-    color_map: str = "viridis"
-    figure_size: tuple[float, float] = (11.0, 9.0)
-    dpi: int = 160
-    title: str | None = None
-    show_topography_panel: bool = True
-    topography_field: str = "z_top_mean"
-    topography_cmap: str = "terrain"
-    topography_title: str | None = None
-    show_mesh_edges: bool = True
-    mesh_edge_color: str = "0.35"
-    mesh_edge_linewidth: float = 0.55
-    show_boundaries: bool = True
-    show_geology_interfaces: bool = True
-    show_river_edges: bool = True
-    annotate_cell_ids: bool = False
+    color_field: str = _PLOT_DEFAULTS.color_field
+    color_map: str = _PLOT_DEFAULTS.color_map
+    figure_size: tuple[float, float] = _PLOT_DEFAULTS.figure_size
+    dpi: int = _PLOT_DEFAULTS.dpi
+    title: str | None = _PLOT_DEFAULTS.title
+    show_topography_panel: bool = _PLOT_DEFAULTS.show_topography_panel
+    topography_field: str = _PLOT_DEFAULTS.topography_field
+    topography_cmap: str = _PLOT_DEFAULTS.topography_cmap
+    topography_title: str | None = _PLOT_DEFAULTS.topography_title
+    show_mesh_edges: bool = _PLOT_DEFAULTS.show_mesh_edges
+    mesh_edge_color: str = _PLOT_DEFAULTS.mesh_edge_color
+    mesh_edge_linewidth: float = _PLOT_DEFAULTS.mesh_edge_linewidth
+    show_boundaries: bool = _PLOT_DEFAULTS.show_boundaries
+    show_geology_interfaces: bool = _PLOT_DEFAULTS.show_geology_interfaces
+    show_river_edges: bool = _PLOT_DEFAULTS.show_river_edges
+    annotate_cell_ids: bool = _PLOT_DEFAULTS.annotate_cell_ids
 
     @classmethod
     def from_mapping(cls, raw_value: object | None) -> PlotTomlSchema:
         raw_plot = {} if raw_value is None else _require_mapping(raw_value, label=_PLOT_LABEL)
         _forbid_unknown_keys(raw_plot, allowed_keys=_PLOT_ALLOWED_KEYS, label=_PLOT_LABEL)
+        defaults = _PLOT_DEFAULTS
         return cls(
-            color_field=_normalize_color_field(raw_plot.get("color_field", "geology_key")),
-            color_map=_coerce_required_text(
-                raw_plot.get("color_map", "viridis"),
+            color_field=_read_mapping_value(
+                raw_plot,
+                "color_field",
+                default=defaults.color_field,
+                parser=_normalize_color_field,
+            ),
+            color_map=_read_mapping_value(
+                raw_plot,
+                "color_map",
+                default=defaults.color_map,
+                parser=_coerce_required_text,
                 label="color_map",
             ),
-            figure_size=_coerce_figure_size(raw_plot.get("figure_size", (11.0, 9.0))),
-            dpi=_coerce_positive_int(raw_plot.get("dpi", 160), label="dpi"),
-            title=_coerce_optional_text(raw_plot.get("title")),
-            show_topography_panel=_coerce_bool(
-                raw_plot.get("show_topography_panel", True),
+            figure_size=_read_mapping_value(
+                raw_plot,
+                "figure_size",
+                default=defaults.figure_size,
+                parser=_coerce_figure_size,
+            ),
+            dpi=_read_mapping_value(
+                raw_plot,
+                "dpi",
+                default=defaults.dpi,
+                parser=_coerce_positive_int,
+                label="dpi",
+            ),
+            title=_read_mapping_value(
+                raw_plot,
+                "title",
+                default=defaults.title,
+                parser=_coerce_optional_text,
+            ),
+            show_topography_panel=_read_mapping_value(
+                raw_plot,
+                "show_topography_panel",
+                default=defaults.show_topography_panel,
+                parser=_coerce_bool,
                 label="show_topography_panel",
             ),
-            topography_field=_normalize_topography_field(
-                raw_plot.get("topography_field", "z_top_mean")
+            topography_field=_read_mapping_value(
+                raw_plot,
+                "topography_field",
+                default=defaults.topography_field,
+                parser=_normalize_topography_field,
             ),
-            topography_cmap=_coerce_required_text(
-                raw_plot.get("topography_cmap", "terrain"),
+            topography_cmap=_read_mapping_value(
+                raw_plot,
+                "topography_cmap",
+                default=defaults.topography_cmap,
+                parser=_coerce_required_text,
                 label="topography_cmap",
             ),
-            topography_title=_coerce_optional_text(raw_plot.get("topography_title")),
-            show_mesh_edges=_coerce_bool(
-                raw_plot.get("show_mesh_edges", True),
+            topography_title=_read_mapping_value(
+                raw_plot,
+                "topography_title",
+                default=defaults.topography_title,
+                parser=_coerce_optional_text,
+            ),
+            show_mesh_edges=_read_mapping_value(
+                raw_plot,
+                "show_mesh_edges",
+                default=defaults.show_mesh_edges,
+                parser=_coerce_bool,
                 label="show_mesh_edges",
             ),
-            mesh_edge_color=_coerce_required_text(
-                raw_plot.get("mesh_edge_color", "0.35"),
+            mesh_edge_color=_read_mapping_value(
+                raw_plot,
+                "mesh_edge_color",
+                default=defaults.mesh_edge_color,
+                parser=_coerce_required_text,
                 label="mesh_edge_color",
             ),
-            mesh_edge_linewidth=_coerce_non_negative_float(
-                raw_plot.get("mesh_edge_linewidth", 0.55),
+            mesh_edge_linewidth=_read_mapping_value(
+                raw_plot,
+                "mesh_edge_linewidth",
+                default=defaults.mesh_edge_linewidth,
+                parser=_coerce_non_negative_float,
                 label="mesh_edge_linewidth",
             ),
-            show_boundaries=_coerce_bool(
-                raw_plot.get("show_boundaries", True),
+            show_boundaries=_read_mapping_value(
+                raw_plot,
+                "show_boundaries",
+                default=defaults.show_boundaries,
+                parser=_coerce_bool,
                 label="show_boundaries",
             ),
-            show_geology_interfaces=_coerce_bool(
-                raw_plot.get("show_geology_interfaces", True),
+            show_geology_interfaces=_read_mapping_value(
+                raw_plot,
+                "show_geology_interfaces",
+                default=defaults.show_geology_interfaces,
+                parser=_coerce_bool,
                 label="show_geology_interfaces",
             ),
-            show_river_edges=_coerce_bool(
-                raw_plot.get("show_river_edges", True),
+            show_river_edges=_read_mapping_value(
+                raw_plot,
+                "show_river_edges",
+                default=defaults.show_river_edges,
+                parser=_coerce_bool,
                 label="show_river_edges",
             ),
-            annotate_cell_ids=_coerce_bool(
-                raw_plot.get("annotate_cell_ids", False),
+            annotate_cell_ids=_read_mapping_value(
+                raw_plot,
+                "annotate_cell_ids",
+                default=defaults.annotate_cell_ids,
+                parser=_coerce_bool,
                 label="annotate_cell_ids",
             ),
         )
@@ -339,11 +415,38 @@ class MeshDistributionTomlSchema:
         raw_main = _require_mapping(raw_value, label=_MAIN_LABEL)
         _forbid_unknown_keys(raw_main, allowed_keys=_MAIN_ALLOWED_KEYS, label=_MAIN_LABEL)
         return cls(
-            bundle_dir=_coerce_path(raw_main.get("bundle_dir"), label="bundle_dir"),
-            figure_output_path=_coerce_optional_path(raw_main.get("figure_output_path")),
-            summary_output_path=_coerce_optional_path(raw_main.get("summary_output_path")),
-            show_window=_coerce_bool(raw_main.get("show_window", False), label="show_window"),
-            plot=PlotTomlSchema.from_mapping(raw_main.get("plot")),
+            bundle_dir=_read_mapping_value(
+                raw_main,
+                "bundle_dir",
+                default=None,
+                parser=_coerce_path,
+                label="bundle_dir",
+            ),
+            figure_output_path=_read_mapping_value(
+                raw_main,
+                "figure_output_path",
+                default=None,
+                parser=_coerce_optional_path,
+            ),
+            summary_output_path=_read_mapping_value(
+                raw_main,
+                "summary_output_path",
+                default=None,
+                parser=_coerce_optional_path,
+            ),
+            show_window=_read_mapping_value(
+                raw_main,
+                "show_window",
+                default=False,
+                parser=_coerce_bool,
+                label="show_window",
+            ),
+            plot=_read_mapping_value(
+                raw_main,
+                "plot",
+                default=None,
+                parser=PlotTomlSchema.from_mapping,
+            ),
         )
 
 
