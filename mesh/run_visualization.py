@@ -24,9 +24,29 @@ from mesh.runner.visualization_runner import (  # noqa: E402
 )
 
 
+def _resolve_default_config_path() -> Path:
+    """Resout le fichier TOML d'exemple utilise par defaut.
+
+    Layout prefere :
+    - <repo>/examples/mesh_viewer/config_example.toml
+
+    Repli compatible avec les anciennes distributions :
+    - <repo>/mesh/examples/config_example.toml
+    """
+    mesh_dir = Path(__file__).resolve().parent
+    candidates = (
+        mesh_dir.parent / "examples" / "mesh_viewer" / DEFAULT_CONFIG_FILENAME,
+        mesh_dir / "examples" / DEFAULT_CONFIG_FILENAME,
+    )
+    for path in candidates:
+        if path.exists():
+            return path
+    return candidates[0]
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """Construit l'interface ligne de commande du module."""
-    default_config_path = Path(__file__).resolve().parent / "examples" / DEFAULT_CONFIG_FILENAME
+    default_config_path = _resolve_default_config_path()
     parser = argparse.ArgumentParser(
         description=(
             "Charge un bundle de maillage exporte, produit une ou plusieurs "

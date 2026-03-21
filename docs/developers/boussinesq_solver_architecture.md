@@ -29,19 +29,12 @@ Le contrat process reste naturellement exprime en charge `h`, car :
 - les BC Dirichlet sont exprimees en metres,
 - les forcages existants sont deja alignes sur cette logique.
 
-En revanche, pour le schema numerique implemente, on peut tout a fait retenir
-un stockage surfacique `S` comme inconnue interne, avec reconstruction de la
-charge via :
+Pour la premiere implementation, on retient donc explicitement :
 
-```math
-H = z_b + \frac{S}{f}
-```
-
-Autrement dit :
-
-- l'interface metier du processus `Flow` reste en `h`,
-- le solveur `boussinesq` peut assembler en `S`,
-- l'adapter du solveur assure la conversion `h <-> S` au besoin.
+- `h` comme inconnue primaire du solveur,
+- `b(h)`, `T(h)`, `S(h)` et `q_ex(h)` comme quantites derivees,
+- une discretisation ecrite directement en `h`, sans conversion structurelle
+  `h <-> S` dans le coeur du schema.
 
 Positionnement d'implementation vise :
 
@@ -56,33 +49,38 @@ Positionnement d'implementation vise :
 
 | Symbole | Sens dans le solveur Boussinesq |
 | --- | --- |
-| `h(x,t)` | charge hydraulique / cote piezometrique |
-| `S(x,t)` | stockage numerique interne par unite de surface |
-| `S_c(x)` | stockage maximal correspondant a la saturation de surface |
-| `H(x,t)` | charge reconstruite pour le calcul des flux, `H = z_b + S/f` |
+| `h(x,t)` | charge hydraulique / cote piezometrique, inconnue primaire |
+| `S(x,t)` | stockage diagnostique surfacique, par ex. `S = f b(h)` |
+| `S_c(x)` | stockage diagnostique maximal, `S_c = f(z_s-z_b)` |
+| `H(x,t)` | notation optionnelle pour la charge, ici identique a `h` |
 | `z_s(x)` | altitude de surface (`surface_topo`) |
 | `z_b(x)` | altitude du substratum (`domain.substratum`) |
 | `b(x,t)` | epaisseur saturee, `b = max(h - z_b, 0)` |
 | `C(x,t)` | coefficient de stockage plan, par ex. `C = Sy + Ss b` |
+| `T(x,t)` | transmissivite locale, `T = K b(h)` |
 | `K(x)` | conductivite hydraulique horizontale |
-| `f(x)` | porosite / coefficient de conversion entre `S` et hauteur saturee |
+| `f(x)` | coefficient utilise pour les quantites diagnostiques `S` et `S_c` |
 | `Sy(x)` | emmagasinement libre effectif |
 | `Ss(x)` | stockage specifique / contribution elastique |
 | `N(x,t)` | recharge diffuse vers la nappe |
-| `Q_w(x,t)` | puits/sources localises |
+| `q_w(x,t)` | source/sink volumique equivalent des puits |
 | `q_bc(x,t)` | flux impose par BC de type Cauchy/Robin |
+| `q_in^{surf}(x,t)` | ensemble explicite des apports de surface autorises a alimenter `q_ex` |
 | `q_drn(x,t)` | terme de drainage head-dependent |
 | `q_evt(x,t)` | terme de soutirage surfacique de type ET |
 | `q_ex(x,t)` | debit surfacique de saturation-excess |
 
 Remarque importante :
 
-- dans le schema numerique detaille, l'inconnue assemblee est `S` ;
-- `H` ou `h` sont alors des quantites reconstruites a partir de `S` ;
+- dans le schema numerique detaille, l'inconnue assemblee est `h` ;
+- `b`, `T`, `S` et `S_c` sont reconstruits localement a partir de `h` ;
 - `Sy` reste le parametre cle du modele transient libre ;
 - `Ss` doit rester disponible si l'on veut que le solveur couvre naturellement les fonctions de stockage transitoire actuellement portees par MODFLOW ;
 - en pratique, le stockage plan peut etre ecrit `C(h) = Sy + Ss b(h)` ;
-- si le bundle de maillage ne fournit qu'un `storage_coefficient`, il doit etre interprete comme un proxy de la storativite totale 2D.
+- `S = f b(h)` reste utile comme variable diagnostique pour les sorties et pour
+  la regularisation `S/S_c` ;
+- si le bundle de maillage ne fournit qu'un `storage_coefficient`, il doit etre
+  interprete comme un proxy de la storativite totale 2D.
 
 ## 4. Modele continu retenu
 
@@ -116,8 +114,8 @@ Cette ecriture est la plus naturelle pour HydroModPy car :
 ### 4.2 Contrainte de surface et saturation-excess
 
 Pour un premier schema, il est raisonnable de partir directement de la loi
-regularisee proposee dans la note initiale, ecrite de maniere equivalente en
-`h` ou en `S/S_c`.
+regularisee proposee dans la note initiale, ecrite ici en fonction de `h` et
+de quantites diagnostiques derivees.
 
 On introduit un taux de saturation local :
 
@@ -130,7 +128,33 @@ On introduit un taux de saturation local :
 \right)
 ```
 
-et un operateur d'exfiltration :
+On introduit aussi un ensemble explicite des apports de surface :
+
+```math
+q_{in}^{surf} = q_{rch} + q_{bc}^{surf,+}
+```
+
+ou :
+
+- `q_{rch}` est la recharge diffuse ;
+- `q_{bc}^{surf,+}` regroupe seulement les apports positifs provenant
+  d'operateurs de surface ou de bord explicitement relies a la surface ;
+- les puits, meme injecteurs, n'entrent pas directement dans `q_{in}^{surf}`
+  en V1.
+
+Dans la base V1 la plus simple, on prend :
+
+```math
+q_{bc}^{surf,+} = 0
+```
+
+et donc :
+
+```math
+q_{in}^{surf} = q_{rch} = N
+```
+
+L'operateur d'exfiltration devient :
 
 ```math
 q_{ex}
@@ -138,7 +162,7 @@ q_{ex}
 G_r\left(\theta(h)\right)
 R\left(
 - \nabla \cdot \left(T(h)\nabla h\right)
-+ q_{in}
++ q_{in}^{surf}
 \right)
 ```
 
@@ -154,19 +178,22 @@ et :
 G_r(u) = \exp(-(1-u)/r)
 ```
 
-ou `q_in` agrege les termes entrants locaux du bilan.
+Autrement dit, `q_ex` n'est pas declenche par tous les termes entrants du
+bilan, mais seulement par les apports explicitement rattaches a la surface.
 
 Interpretation :
 
 - tant que la saturation locale reste loin de 1, `G_r` garde `q_ex` faible ;
 - a l'approche de la surface, `G_r` active progressivement l'exfiltration ;
-- seule la partie positive du desequilibre local produit du `saturation-excess`.
+- seule la partie positive du desequilibre local de surface produit du
+  `saturation-excess`.
 
 Cette approche a un avantage pratique pour V1 :
 
 - elle colle directement a la methode que tu avais proposee ;
 - elle s'insere dans une boucle non lineaire Newton ou Picard ;
-- elle evite d'introduire tout de suite une logique d'ensemble actif ou de projection.
+- elle evite d'introduire tout de suite une logique d'ensemble actif ou de
+  projection.
 
 La contrainte forte `h <= z_s` peut rester une variante plus robuste a introduire
 ensuite si l'on veut un mode "projection/active-set".
@@ -229,15 +256,22 @@ et non comme une equation specialisee seulement pour `recharge + BC`.
 
 ### 5.1 Support numerique recommande
 
-Au vu de ce que tu souhaites, le solveur doit recevoir directement le maillage
-runtime deja construit par la chaine HydroModPy, sans ecriture/lecture
-intermediaire dans un bundle sur disque.
+Au vu des choix retenus, le solveur doit recevoir comme maillage canonique V1
+le maillage 2D issu du workflow `gmsh`, materialise par un
+`CatchmentMeshBundle`.
 
-L'idee doit donc rester proche du workflow MODFLOW actuel :
+Le point important est le suivant :
 
-- le pipeline de preparation construit le maillage en memoire ;
-- le solveur `boussinesq` consomme directement cet objet ou une vue legere de cet objet ;
-- une structure export type bundle peut exister pour debug ou echange, mais pas comme contrat principal du solveur.
+- le workflow `gmsh` produit deja un objet qui porte noeuds, cellules, aretes,
+  topographie, substratum, proprietes et tags de bord ;
+- cet objet est suffisamment proche des besoins d'un schema volumes finis ;
+- il devient donc le contrat d'entree numerique de la V1.
+
+Le solveur doit pouvoir consommer :
+
+- soit un `CatchmentMeshBundle` deja construit en memoire ;
+- soit un `CatchmentMeshBundle` recharge depuis son export ;
+- mais il n'a pas a supporter plusieurs contrats de maillage concurrents en V1.
 
 Le support en memoire doit fournir les ingredients dont un schema volumes finis a besoin :
 
@@ -248,13 +282,28 @@ Le support en memoire doit fournir les ingredients dont un schema volumes finis 
 - proprietes hydrauliques par cellule,
 - flags de bord et d'interfaces.
 
+Champs minimaux obligatoires du contrat V1 `CatchmentMeshBundle` :
+
+- noeuds 2D et connectivite des cellules triangulaires ;
+- aires de cellules et longueurs d'aretes ;
+- relation cellule-cellule et cellule-arete ;
+- `z_top` ou equivalent de surface ;
+- `z_bottom` ou equivalent de substratum ;
+- `hydraulic_conductivity_m_s` par cellule, ou une regle claire de projection ;
+- `storage_coefficient` ou un couple de proprietes permettant de reconstruire
+  `Sy` et/ou `Ss` ;
+- `edge_kind` pour distinguer bord / interieur / interfaces speciales ;
+- `is_river` ou tag equivalent si la projection `stream` doit etre activee ;
+- identifiants de cellules et d'aretes stables pour les sorties et diagnostics.
+
 ### 5.2 Inconnues discretes
 
 Le solveur V1 est centre cellules :
 
-- 1 inconnue `S_i` par cellule 2D,
-- 1 charge reconstruite `H_i = z_{b,i} + S_i/f_i` par cellule,
-- 1 terme `Q_ex,i` par cellule lorsque la regularisation de surface est active.
+- 1 inconnue `h_i` par cellule 2D,
+- 1 epaisseur saturee `b_i = max(h_i-z_{b,i},0)` reconstruite par cellule,
+- 1 stockage diagnostique `S_i = f_i b_i` si necessaire pour les sorties et la regularisation,
+- 1 terme `q_{ex,i}` par cellule lorsque la regularisation de surface est active.
 
 Ce choix colle directement a :
 
@@ -278,13 +327,17 @@ FEniCSx peut rester une perspective ulterieure, mais ne doit pas piloter la conc
 
 ## 6. Schema numerique retenu
 
-Le schema retenu en V1 n'est pas un schema mixte strict.
+Le schema retenu en V1 est un schema primal en volumes finis centres cellules,
+ecrit directement en `h`.
 
-Il s'agit d'un schema primal en volumes finis centres cellules, avec :
+Il s'agit :
 
-- `S_T` comme inconnue principale par cellule,
-- des flux d'aretes reconstruits a partir de `S`,
-- la fonction de regularisation pour le `saturation-excess`.
+- d'une discretisation 2D horizontale sur cellules triangulaires ;
+- d'une inconnue principale `h_T` par cellule ;
+- de flux d'aretes reconstruits a partir de `h` ;
+- d'un terme `q_ex(h)` pilote par un desequilibre de surface explicitement
+  defini ;
+- d'un schema implicite en temps.
 
 Une variante mixte ou hybride reste possible plus tard en introduisant des
 flux `q_e` comme inconnues supplementaires.
@@ -293,298 +346,284 @@ flux `q_e` comme inconnues supplementaires.
 
 Pour un maillage triangulaire :
 
-- `T` : ensemble des cellules,
+- `T` : ensemble des cellules ;
 - `e` : ensemble des aretes.
 
-Inconnues principales :
+Inconnue principale :
 
-- `S_T^n` : stockage dans la cellule `T` au temps `t^n`.
-
-Optionnel selon la methode :
-
-- `q_e` : flux normal a l'arete `e`.
+- `h_T^n` : charge dans la cellule `T` au temps `t^n`.
 
 Quantites reconstruites :
 
 ```math
-H_T = z_{b,T} + \frac{S_T}{f_T}
+b_T = \max(h_T-z_{b,T}, 0)
 ```
 
-et :
+```math
+T_T = K_T b_T
+```
+
+```math
+S_T = f_T b_T
+```
 
 ```math
 S_{c,T} = f_T (z_{s,T} - z_{b,T})
 ```
 
-### 6.2 Bilan discret par cellule
+### 6.2 Flux internes aux aretes
 
-Pour chaque cellule `T` :
-
-```math
-|T|\frac{S_T^{n+1} - S_T^n}{\Delta t}
-=
--\sum_{e \subset \partial T} F_{T,e}^{n+1}
-+ |T|N_T^{n+1}
-- |T|q_{\mathrm{ex},T}^{n+1}
-```
-
-Cette ecriture est la forme minimale.
-
-Dans l'implementation complete, les autres operateurs du solveur
-(`wells`, `drainage`, `robin`, `evt`) se rajoutent au meme bilan sans
-changer sa structure generale.
-
-### 6.3 Flux aux aretes
-
-Pour chaque arete `e` entre cellules `T_L` et `T_R` :
-
-Gradient approche :
+Pour chaque arete interne `e` entre cellules `T_L` et `T_R` :
 
 ```math
-\nabla H_e \approx \frac{H_{T_R} - H_{T_L}}{d_{LR}} \mathbf{n}_{LR}
+F_{L,e} = - \tau_e(h) (h_{T_R} - h_{T_L})
 ```
 
 avec :
 
 ```math
-H_T = z_{b,T} + \frac{S_T}{f_T}
+\tau_e(h) = \frac{K_e b_e(h) |e|}{d_{LR}}
 ```
 
-Flux :
+et :
+
+- `F_{L,e}` compte positivement lorsqu'il sort de `T_L` ;
+- `F_{R,e} = -F_{L,e}` ;
+- `b_e(h)` est une epaisseur saturee moyenne reconstruite sur l'arete ;
+- `K_e` est une moyenne harmonique ou arithmetique selon le choix de V1.
+
+### 6.3 Operateurs de bord V1
+
+Le schema V1 fixe explicitement les traitements suivants :
+
+- Dirichlet : imposee via un flux de bord reconstruit avec une valeur de charge
+  de bord `h_D`, et non par changement de variable dans le coeur du schema ;
+- Neumann : flux impose directement sur l'arete de bord ;
+- Robin / Cauchy : flux lineique dependant de `h` sur l'arete de bord ;
+- `drainage` : operateur unilateral de type head-dependent ;
+- `stream` / `ocean` : cas particuliers de projection spatiale de Dirichlet ou
+  Robin selon la strategie retenue.
+
+Le point cle est qu'en V1, tous les operateurs de bord entrent dans la
+residuale comme des contributions de flux, ce qui preserve une ecriture
+conservative unique.
+
+### 6.4 Residuale discrete canonique V1
+
+Pour chaque cellule `T`, la residuale complete retenue en V1 est :
 
 ```math
-F_e = -K_e \cdot \frac{S_e}{f_e} \cdot (\nabla H_e \cdot \mathbf{n}_e) \cdot |e|
+R_T(h^{n+1}) =
+\frac{|T|}{\Delta t}\,\overline{C}_T(h^{n+1})\,(h_T^{n+1}-h_T^n)
++ \sum_{e \in \partial T \cap \mathcal{E}_{int}} F_{T,e}(h^{n+1})
++ Q^{dir}_T(h^{n+1})
++ Q^{neu}_T(h^{n+1})
++ Q^{rob}_T(h^{n+1})
++ Q^{drn}_T(h^{n+1})
++ |T|q_{evt,T}(h^{n+1})
++ |T|q_{ex,T}(h^{n+1})
+- |T|N_T^{n+1}
+- Q_{w,T}^{n+1}
 ```
 
-ou :
-
-- `S_e = (S_{T_L} + S_{T_R})/2`,
-- `K_e` est une moyenne harmonique ou arithmetique.
-
-### 6.4 Divergence par cellule
+et on cherche :
 
 ```math
-(\nabla \cdot \mathbf{q})_T
-=
-\frac{1}{|T|}
-\sum_{e \subset \partial T} F_{T,e}
+R_T(h^{n+1}) = 0
 ```
+
+Conventions de signe V1 :
+
+- les termes de flux sortants du domaine souterrain sont positifs dans la
+  residuale ;
+- `N_T > 0` est une recharge vers la nappe ;
+- `Q^{neu}_T < 0` represente un flux impose entrant ;
+- `Q_{w,T} > 0` est une injection, `Q_{w,T} < 0` un pompage ;
+- `q_{ex}`, `q_{evt}` et `q_{drn}` sont des termes sortants.
+
+Cette residuale est la reference unique a coder dans l'assembleur V1.
+
+Choix pratique pour le terme temporel :
+
+- en V1, `\overline{C}_T(h^{n+1})` peut etre pris comme `C(h_T^{n+1})` ;
+- une moyenne plus sophistiquee ou une linearisation specifique reste possible
+  plus tard si les tests de robustesse l'exigent ;
+- le point important est de garder une unique convention dans tout
+  l'assembleur et dans tous les tests de masse.
+
+Table de synthese des operateurs V1 :
+
+| Terme | Support | Unite effective | Signe dans `R_T` | Remarque |
+| --- | --- | --- | --- | --- |
+| `\sum F_{T,e}` | aretes internes | m3/s equivalent | `+` si sortant | flux Darcy cellule-cellule |
+| `Q_T^{dir}` | aretes de bord | m3/s equivalent | `+` si sortant | flux reconstruit vers charge imposee |
+| `Q_T^{neu}` | aretes de bord | m3/s equivalent | signe impose | flux de bord prescrit |
+| `Q_T^{rob}` | aretes de bord | m3/s equivalent | `+` si sortant | echange head-dependent |
+| `Q_T^{drn}` | aretes/cellules | m3/s equivalent | `+` | sink unilateral |
+| `|T|q_{evt,T}` | cellule | m3/s equivalent | `+` | sink surfacique |
+| `|T|q_{ex,T}` | cellule | m3/s equivalent | `+` | exfiltration de surface |
+| `|T|N_T` | cellule | m3/s equivalent | `-` | recharge diffuse |
+| `Q_{w,T}` | cellule | m3/s | `-` | injection positive, pompage negatif |
 
 ### 6.5 Terme saturation-excess
 
-Etape 1 : bilan entrant
+Le desequilibre de surface utilise dans la V1 est :
 
 ```math
-B_T = -(\nabla \cdot \mathbf{q})_T + N_T
+B_T = - \frac{1}{|T|}\left(
+\sum_{e \in \partial T \cap \mathcal{E}_{int}} F_{T,e}
++ Q_T^{dir}
++ Q_T^{rob,surf}
+\right)
++ q_{in,T}^{surf}
 ```
 
-Etape 2 : fonction rampe
+avec, en V1 de base :
+
+```math
+q_{in,T}^{surf} = N_T
+```
+
+Extension possible, mais explicite seulement :
+
+- ajout de certains apports de bord relies a la surface dans
+  `q_{in,T}^{surf}` ;
+- exclusion des puits injecteurs et des termes non interpretes comme apports de
+  surface.
+
+Regle de coherence :
+
+- un apport de bord deja represente comme flux Darcy de bord dans
+  `Q^{rob,surf}` ne doit pas etre rajoute une seconde fois dans
+  `q_{in}^{surf}`.
+
+La regularisation reste :
 
 ```math
 R(B_T) = \max(B_T, 0)
 ```
 
-Etape 3 : regularisation
-
 ```math
-G_r(\sigma_T) = \exp\left(-\frac{1 - \sigma_T}{r}\right)
-\quad \text{avec} \quad
 \sigma_T = \frac{S_T}{S_{c,T}}
 ```
 
-Etape 4 : flux exfiltre
-
 ```math
-q_{\mathrm{ex},T}
-=
-G_r(\sigma_T)\,R(B_T)
+G_r(\sigma_T) = \exp\left(-\frac{1-\sigma_T}{r}\right)
 ```
 
-### 6.6 Schema implicite Euler
-
-On cherche `S^{n+1}` tel que :
-
 ```math
-R_T(S^{n+1}) = 0
+q_{ex,T} = G_r(\sigma_T) R(B_T)
 ```
 
-avec :
+### 6.6 Schema implicite en temps
+
+Le schema temporel de reference de la V1 est un Euler implicite :
 
 ```math
-R_T =
-\frac{|T|}{\Delta t}(S_T^{n+1} - S_T^n)
-+
-\sum_e F_{T,e}(S^{n+1})
--
-|T|N_T^{n+1}
-+
-|T|q_{\mathrm{ex},T}(S^{n+1})
+\frac{|T|}{\Delta t}\,\overline{C}_T(h^{n+1})\,(h_T^{n+1}-h_T^n)
++ \mathcal{F}_T(h^{n+1})
++ \mathcal{Q}_T(h^{n+1})
+= 0
 ```
+
+ou :
+
+- `\mathcal{F}_T` regroupe les flux Darcy internes et de bord ;
+- `\mathcal{Q}_T` regroupe `q_ex`, `q_drn`, `q_evt`, recharge et puits.
 
 ### 6.7 Algorithme global Newton
 
 Initialisation :
 
 ```math
-S^{(0)} = S^n
+h^{(0)} = h^n
 ```
 
 Boucle Newton pour `k = 0,1,...` :
 
-1. calculer `H_T^{(k)}`,
-2. calculer les flux `F_e^{(k)}`,
-3. calculer la divergence `(\nabla \cdot q)_T^{(k)}`,
-4. calculer `B_T^{(k)}`,
-5. calculer `q_{\mathrm{ex},T}^{(k)}`,
-6. construire le residu `R^{(k)}`,
-7. construire le jacobien `J^{(k)}`,
-8. resoudre :
+1. reconstruire `b_T^{(k)}`, `T_T^{(k)}`, `S_T^{(k)}` ;
+2. calculer les flux internes et de bord ;
+3. calculer `B_T^{(k)}` puis `q_{ex,T}^{(k)}` ;
+4. construire la residuale `R^{(k)}` ;
+5. construire le jacobien `J^{(k)}` ;
+6. resoudre :
 
 ```math
-J^{(k)} \delta S = -R^{(k)}
+J^{(k)} \delta h = -R^{(k)}
 ```
 
-9. mise a jour :
+7. mettre a jour :
 
 ```math
-S^{(k+1)} = S^{(k)} + \delta S
+h^{(k+1)} = h^{(k)} + \delta h
 ```
 
-En pratique, une premiere implementation peut utiliser un Newton simplifie ou
-un Picard si l'on veut demarrer plus sobrement, mais la structure de reference
-du schema reste bien celle-ci.
-
-Pour le backend `boussinesq` HydroModPy, le choix applique en V1 est un
-schema implicite pilote par PETSc.
+Un Picard ou un Newton simplifie reste acceptable pour un demarrage local, mais
+la reference theorique de la V1 est bien un solveur implicite sur `h`.
 
 ### 6.8 Nature du systeme et integration en temps
 
-Apres discretisation spatiale, deux points de vue sont possibles.
-
-Si les flux d'aretes et le `saturation-excess` sont reconstruits
-algebriquement a partir de `S`, le systeme semi-discret s'ecrit :
+Avec les flux et operateurs reconstruits algebriquement a partir de `h`, le
+systeme semi-discret s'ecrit :
 
 ```math
-M \frac{dS}{dt} = F(S,t)
+M(h)\frac{dh}{dt} = F(h,t)
 ```
 
-Il s'agit alors d'une ODE raide non lineaire.
+Il s'agit d'une ODE raide non lineaire.
 
-Si l'on conserve explicitement les flux `Q_e` comme inconnues du schema mixte,
-on peut aussi ecrire :
+Si une V2 introduit explicitement des flux `Q_e` comme inconnues, on pourra
+alors ecrire une DAE implicite d'index 1.
 
-```math
-M \frac{dS}{dt} = f(S,Q,t)
-```
+Pour la V1, le choix fixe est :
 
-et :
-
-```math
-0 = g(S,Q,t)
-```
-
-Ce point de vue conduit a une DAE d'index 1.
-
-Pour le solveur `boussinesq` vise ici, le choix applique en V1 est :
-
-- formulation pratique en ODE raide sur l'inconnue principale `S`,
-- reconstruction algebrique des flux `Q_e` et du terme `q_ex`,
-- integration en temps par PETSc `TS` en mode pleinement implicite,
-- schema de temps de reference : Euler implicite via `TSBEULER`
-  ou `TSTHETA` avec `theta = 1`,
-- resolution non lineaire a chaque pas par `SNES`,
-- resolution lineaire interne par `KSP`.
-
-Ce choix est le plus direct a implementer et le plus robuste pour une V1.
-
-Autrement dit, meme en V1, la boucle de temps n'est pas geree manuellement :
-
-- le solveur assemble une residuale implicite,
-- PETSc `TS` porte l'integration en temps,
-- `SNES/KSP` portent la resolution a chaque pas.
+- ODE raide en `h` ;
+- schema implicite Euler ;
+- resolution non lineaire de type Newton ;
+- coeur numerique independant du backend lineaire et temporel.
 
 ### 6.9 V2 proposee : formulation mixte DAE index 1
 
-La V2 proposee consiste a assumer pleinement la formulation mixte en gardant
-des flux comme inconnues du systeme.
+Une V2 pourra conserver explicitement :
 
-Un choix naturel est de prendre comme inconnues globales :
+- `h_T` au centre des cellules ;
+- `Q_e` sur les aretes ;
+- eventuellement `q_{ex,T}` comme inconnue auxiliaire.
 
-- `S_T` au centre des cellules,
-- `Q_e` sur les aretes,
-- eventuellement `q_{ex,T}` comme inconnue auxiliaire explicite.
-
-Le systeme semi-discret prend alors la forme :
+Le systeme prendra alors la forme :
 
 ```math
-M \frac{dS}{dt} = f(S,Q,q_{ex},t)
+F(t,U,\dot U) = 0
 ```
 
-et :
-
-```math
-0 = g_1(S,Q,t)
-```
-
-```math
-0 = g_2(S,q_{ex},t)
-```
-
-ou :
-
-- `g_1` porte la loi de flux sur les aretes,
-- `g_2` porte la fermeture regularisee du `saturation-excess`.
-
-Cette formulation est une DAE implicite d'index 1.
-
-La V2 recommandee est alors :
-
-- formulation mixte / DAE index 1,
-- integration en temps par PETSc `TS` en formulation implicite generale
-  `F(t,U,\dot U) = 0`,
-- type de probleme PETSc regle comme DAE implicite d'index 1,
-- schema de temps recommande : `TSBDF` pour retrouver une logique proche de
-  l'article de Marcais et al. (2017),
-- variante robuste possible : `TSTHETA`,
-- resolution non lineaire par `SNES`,
-- preconditionnement et solveurs lineaires PETSc via `KSP/PC`.
-
-Ce point de vue permet :
-
-- de rester au plus pres du schema mixte de l'article,
-- de garder explicitement les flux d'interface,
-- de preparer plus naturellement des couplages futurs avec des operateurs de
-  bord ou de surface plus riches.
+avec une composante differentielle en `h` et des composantes algebriques sur
+les flux et la fermeture de surface.
 
 ### 6.10 Jacobien
 
-Le jacobien contient :
+Le jacobien V1 contient :
 
-```math
-J = \frac{\partial R}{\partial S}
-```
+- terme temporel : dependance en `\overline{C}_T(h)` ;
+- flux Darcy : dependance via `b(h)` et les differences de charge ;
+- operateurs de bord head-dependent ;
+- terme `q_{ex}` via `G_r` et `R`.
 
-Contributions principales :
-
-- terme temporel : `|T| / \Delta t`,
-- flux : dependance via `S` et `\nabla S`,
-- exfiltration : dependance non lineaire via `G_r` et `R`.
-
-En V2 mixte/DAE, le jacobien devient un jacobien de bloc sur les inconnues
-`(S,Q,q_{ex})`.
+En V2 mixte/DAE, le jacobien deviendra un jacobien de bloc sur les inconnues
+`(h,Q,q_{ex})`.
 
 ### 6.11 Bords et operateurs additionnels
 
-Les conditions de bord et termes supplementaires se greffent sur le meme
-schema de base :
+Les operateurs V1 se branchent tous sur la meme residuale :
 
-- Dirichlet : impose `H` ou une valeur equivalente de `S` sur le bord,
-- Neumann : flux impose sur les aretes de bord,
-- Robin / Cauchy : terme de flux dependant de la charge,
-- `wells` : terme source ponctuel dans le bilan cellule,
-- `drainage` : terme de sink head-dependent,
-- `evt` : sink surfacique optionnel,
-- `ocean` / `stream` : application de Dirichlet ou Robin sur sous-domaines de bord.
+- `recharge` : terme surfacique source par cellule ;
+- `wells` : debit ponctuel projete sur cellule ;
+- Dirichlet : flux de bord reconstruit a partir d'une charge imposee ;
+- Neumann : flux de bord impose ;
+- Robin / Cauchy : flux de bord dependant de `h` ;
+- `drainage` : flux sortant unilateral ;
+- `evt` : sink surfacique ;
+- `saturation-excess` : flux sortant de surface ;
+- `ocean` / `stream` : projection spatiale de BC ou d'operateurs de bord.
 
 ### 6.12 Structure de donnees recommandee
 
@@ -592,37 +631,44 @@ schema de base :
 cells = [T1, T2, ...]
 edges = [e1, e2, ...]
 
-S[T]
-Sc[T]
+h[T]
 zb[T]
-f[T]
+zs[T]
 K[T]
+Sy[T]
+Ss[T]
+f[T]
 
 neighbors[e] = (T_left, T_right)
 normal[e]
 length[e]
+edge_kind[e]
 ```
 
-Pour la V2 mixte :
+Pour les sorties et diagnostics :
 
 ```python
-Q[e]
+b[T]
+S[T]
+Sc[T]
 qex[T]
 ```
 
-### 6.13 Algebre lineaire et integration PETSc
+### 6.13 Backends lineaires et runtime solveur
 
-La bonne abstraction n'est pas "FEniCSx ou non", mais "backend implicite PETSc
-pilote par residuale et jacobien".
+La bonne abstraction n'est pas "PETSc ou non", mais :
 
-Recommendation :
+- un coeur numerique qui expose residuale et jacobien ;
+- un backend runtime charge de l'integration temporelle et des resolutions
+  lineaires/non lineaires.
 
-- vecteurs et matrices PETSc comme backend cible,
-- `TS` pour l'integration en temps,
-- `SNES` pour les non-linearites,
-- `KSP/PC` pour les resolutions lineaires,
-- assemblage creux explicite possible en `AIJ`,
-- SciPy possible seulement comme backend de validation local, pas comme cible principale.
+Recommandation V1 :
+
+- backend local de reference possible pour petits cas et validation ;
+- backend PETSc recommande pour runs cibles et maillages plus grands ;
+- confinement des imports et objets PETSc dans `petsc_runtime.py` ;
+- absence de dependance PETSc dans le contrat `Flow` et dans la theorie du
+  schema.
 
 ## 7. Reutilisation du contrat process existant
 
@@ -634,13 +680,18 @@ Recommendation :
 - `type = bottom` -> `h_0 = z_b`,
 - `type = custom` -> `h_0 = valeur`.
 
-Le solveur peut ensuite convertir cet etat initial en stockage numerique :
+Les quantites derivees sont ensuite reconstruites localement :
 
 ```math
-S_0 = f \, \max(h_0 - z_b, 0)
+b_0 = \max(h_0-z_b,0)
 ```
 
-Il n'y a donc pas besoin d'un nouveau format d'IC pour le solveur Boussinesq.
+```math
+S_0 = f \, b_0
+```
+
+Il n'y a donc pas besoin d'un nouveau format d'IC pour le solveur Boussinesq,
+ni d'une conversion structurelle `Flow -> stockage interne`.
 
 ### 7.2 Conditions aux limites
 
@@ -681,6 +732,9 @@ La recharge devient un terme surfacique cellule :
 ```math
 A_i N_i
 ```
+
+Dans la V1 retenue, c'est aussi le terme de reference qui alimente
+`q_{in}^{surf}` pour la regularisation du `saturation-excess`.
 
 ### 7.4 Puits et sources localises
 
@@ -723,6 +777,7 @@ hydromodpy/
       operators.py
       assembly.py
       nonlinear.py
+      local_runtime.py
       petsc_runtime.py
       boundary_mapping.py
       source_mapping.py
@@ -773,6 +828,8 @@ Remarque :
 
 - `BoussinesqMesh` n'est pas un alias de `HydroMesh` ;
 - il s'agit d'une vue interne minimale adaptee au calcul ;
+- en V1, il est construit a partir d'un `CatchmentMeshBundle` issu du workflow
+  `gmsh` ;
 - une conversion vers `HydroMesh` peut etre faite plus tard pour exporter des
   champs, mais ne doit pas conditionner l'entree du solveur.
 
@@ -780,9 +837,8 @@ Remarque :
 
 Responsabilite :
 
-- stocker `S`,
-- reconstruire `H = z_b + S/f`,
-- reconstruire `h` ou `b` si necessaire pour les sorties,
+- stocker `h`,
+- reconstruire `b`, `T`, `S` et `S_c`,
 - stocker `q_ex`,
 - porter les sorties du dernier pas resolu.
 
@@ -790,7 +846,7 @@ Responsabilite :
 
 Responsabilite :
 
-- assembler residual et jacobienne en variable `S`,
+- assembler residual et jacobienne en variable `h`,
 - traiter flux internes, BC et termes sources,
 - appliquer la regularisation de `saturation-excess`.
 
@@ -798,22 +854,22 @@ Responsabilite :
 
 Responsabilite :
 
-- configurer et piloter PETSc `TS`,
+- piloter l'integration en temps via un backend runtime,
 - appeler les binders de temps deja existants en amont,
-- fournir residuale et jacobienne a `TS/SNES`,
+- fournir residuale et jacobienne au backend choisi,
 - stocker les resultats et les exports.
 
 ### 8.3 Sources de donnees pour les proprietes
 
 Ordre de priorite recommande :
 
-1. proprietes explicites du `CatchmentMeshBundle` si disponibles,
+1. proprietes explicites du `CatchmentMeshBundle` issu du workflow `gmsh`,
 2. sinon projection des parametres `flow.parameters` via les supports de `Domain`,
 3. sinon erreur explicite.
 
 Cela permet d'utiliser :
 
-- soit un maillage totalement autonome exporte pour le solveur,
+- soit un maillage `gmsh`/`CatchmentMeshBundle` totalement autonome pour le solveur,
 - soit la logique de parametrage HydroModPy existante.
 
 ### 8.4 Sorties attendues
@@ -856,23 +912,27 @@ pas le contrat d'entree du solveur `boussinesq`.
 - 2D horizontal,
 - nappe libre monolayer,
 - maillage triangulaire non structure,
+- contrat maillage V1 = `CatchmentMeshBundle` issu du workflow `gmsh`,
 - volumes finis centres cellules,
-- stockage en variable `S` avec reconstruction de `H`,
-- ODE raide semi-discrete en `S`,
-- PETSc `TS` pleinement implicite,
-- Euler implicite PETSc en V1,
+- inconnue primaire `h`,
+- `b`, `T`, `S` et `S_c` reconstruits a partir de `h`,
+- ODE raide semi-discrete en `h`,
+- Euler implicite + Newton en reference theorique,
 - recharge, puits, Dirichlet, Robin/Cauchy,
 - drainage et autres echanges head-dependent,
 - routage possible vers un operateur ET/surface,
-- saturation-excess via regularisation `G_r(S/S_c) R(B)`,
+- saturation-excess via regularisation `G_r(S/S_c) R(B)` avec
+  `q_in^{surf}` explicite,
 - pas de dependance directe a `modflow_common`,
-- maillage d'entree recu directement depuis le runtime,
+- maillage d'entree recu depuis le pipeline `gmsh`,
+- coeur solveur independant du backend runtime,
 - backend independant de FLOPY/MODFLOW.
 
 ### 9.2 Ce qui peut venir ensuite
 
-- prise en charge directe des maillages quadrangles ou `HydroMesh` mixtes,
+- prise en charge d'autres contrats de maillage (`HydroMesh`, `SolverMesh`, autres),
 - projection de BC plus riche a partir des tags `is_river` / `edge_kind`,
+- PETSc comme backend principal de production si desire,
 - formulation mixte DAE index 1,
 - `TSBDF` PETSc sur la formulation implicite generale,
 - jacobienne de bloc analytique ou semi-analytique,
@@ -891,23 +951,26 @@ pas le contrat d'entree du solveur `boussinesq`.
 
 - ajouter `solver_engine = "boussinesq"`,
 - ajouter l'adapter de simulation,
-- recevoir directement le maillage runtime dans le solveur,
+- recevoir un `CatchmentMeshBundle` issu du workflow `gmsh`,
+- construire `BoussinesqMesh` a partir de ce contrat unique,
 - resoudre un cas stationnaire avec Dirichlet + recharge uniforme,
-- brancher PETSc `TS/SNES/KSP` des la premiere implementation.
+- faire tourner un backend local de reference.
 
 ### Phase 2
 
 - brancher `flow.ic`,
 - brancher `flow.sinks_sources.recharge`,
 - brancher `flow.sinks_sources.wells`,
-- brancher les BC laterales.
+- brancher les BC laterales,
+- ecrire la residuale discrete V1 complete dans l'assembleur.
 
 ### Phase 3
 
 - ajouter le transient implicite,
 - brancher les binders temporels existants,
 - ajouter `saturation_excess`,
-- auditer strictement le bilan de masse.
+- auditer strictement le bilan de masse,
+- brancher `petsc_runtime.py` comme backend optionnel.
 
 ### Phase 4
 
@@ -918,34 +981,27 @@ pas le contrat d'entree du solveur `boussinesq`.
 
 ### Phase 5
 
-- introduire la formulation mixte `S/Q/q_ex`,
+- introduire la formulation mixte `h/Q/q_ex`,
 - passer a la DAE index 1,
 - utiliser `TSBDF` PETSc sur la formulation implicite complete,
 - consolider le preconditionnement de bloc.
 
 ## 11. Besoins restants, tests et visualisation
 
-### 11.1 Decisions qu'il reste a figer avant implementation
+### 11.1 Decisions fixees pour la V1
 
-La theorie du solveur est suffisamment cadre pour commencer le developpement.
-Les derniers points a figer relevent surtout du perimetre V1 et de la
-validation.
+Les choix structurants de la V1 sont maintenant fixes :
 
-Points a arbitrer explicitement :
-
-- perimetre fonctionnel exact de la V1 : `ic`, `recharge`, `wells`,
-  Dirichlet laterales, `drainage`, `ocean`, `stream`, ET ;
-- ordre de priorite entre validation analytique rapide et integration
-  complete dans le launcher `Flow` ;
-- convention V1 pour les cas ambigus :
-  - recharge negative reroutee ou non vers un operateur ET,
-  - projection de `stream` et `ocean` sur le maillage triangulaire,
-  - forme exacte du `drainage` sur aretes ou cellules ;
-- cible PETSc pratique :
-  - `petsc4py` impose en environnement de dev et CI,
-  - ou backend local de validation plus leger maintenu en parallele ;
-- liste des cas de reference a faire passer en premier pour considerer la V1
-  utilisable.
+- inconnue primaire = `h` ;
+- `b`, `T`, `S` et `S_c` reconstruits a partir de `h` ;
+- contrat maillage V1 = `CatchmentMeshBundle` issu du workflow `gmsh` ;
+- `HydroMesh` reserve aux exports et a la visualisation ;
+- `q_ex` pilote par un ensemble explicite d'apports de surface,
+  avec `q_{in}^{surf} = N` dans la base V1 ;
+- residuale discrete unique ecrite en `h` ;
+- coeur solveur independant du backend runtime ;
+- `petsc_runtime.py` prepare des la conception, mais non impose au contrat
+  theorique du solveur.
 
 En pratique, les cas de reference recommandes pour demarrer sont :
 
@@ -987,7 +1043,8 @@ Tests recommandes :
 - puits localise simple ;
 - drainage unilaterale simple ;
 - verification du bilan de masse global et par cellule ;
-- verification du nombre d'iterations `SNES` et de la convergence temporelle.
+- verification du nombre d'iterations non lineaires et de la convergence
+  temporelle ;
 
 #### Niveau 3 : tests de contrat avec `Flow`
 
@@ -1000,7 +1057,8 @@ Tests recommandes :
 - lecture et projection de `flow.bc` ;
 - lecture et application de `flow.sinks_sources.recharge` ;
 - lecture et application de `flow.sinks_sources.wells` ;
-- respect du maillage canonique derive de `simulation.time` en transient ;
+- respect du decoupage temporel canonique derive de `simulation.time` en
+  transient ;
 - generation des sorties minimales attendues par le reste de la chaine.
 
 #### Niveau 4 : validation scientifique
@@ -1083,8 +1141,8 @@ une famille de tests.
 #### Bloc B : noyau numerique stationnaire et transient simple
 
 - construire `BoussinesqMesh`, `BoussinesqState` et `BoussinesqAssembler` ;
-- assembler residuale et jacobienne en `S` ;
-- brancher `PETSc TS/SNES/KSP` ;
+- assembler residuale et jacobienne en `h` ;
+- faire tourner d'abord le backend local de reference ;
 - faire passer les tests de conservation, flux et recharge uniforme.
 
 #### Bloc C : operateurs HydroModPy
@@ -1152,7 +1210,7 @@ Le bon "autre solveur" pour HydroModPy n'est pas un clone conceptuel de MODFLOW,
 
 - un backend `boussinesq` branche sur le meme processus `Flow`,
 - utilisant `h` comme inconnue principale,
-- assemble sur le maillage triangulaire deja exporte,
+- assemble sur un `CatchmentMeshBundle` issu du workflow `gmsh`,
 - formule comme un bilan 2D libre extensible par operateurs de source, sink et echange,
 - et capable de reutiliser sans changement majeur :
   - `flow.ic`,

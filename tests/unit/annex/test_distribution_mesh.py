@@ -423,8 +423,11 @@ def test_run_visualization_script_from_distributed_folder(tmp_path: Path) -> Non
 def test_root_mesh_script_runs_with_default_example_bundle(tmp_path: Path) -> None:
     distribution_root = tmp_path / "rbflow_like_package"
     mesh_source_dir = Path(__file__).resolve().parents[3] / "mesh"
+    examples_source_dir = Path(__file__).resolve().parents[3] / "examples" / "mesh_viewer"
     mesh_target_dir = distribution_root / "mesh"
+    examples_target_dir = distribution_root / "examples" / "mesh_viewer"
     shutil.copytree(mesh_source_dir, mesh_target_dir)
+    shutil.copytree(examples_source_dir, examples_target_dir)
 
     completed = subprocess.run(
         [
@@ -438,8 +441,10 @@ def test_root_mesh_script_runs_with_default_example_bundle(tmp_path: Path) -> No
     )
 
     assert completed.returncode == 0, completed.stderr
-    assert (mesh_target_dir / "outputs" / "apercu_maillage.png").exists()
-    assert (mesh_target_dir / "outputs" / "resume_apercu_maillage.json").exists()
+    assert (distribution_root / "outputs" / "mesh_viewer" / "apercu_maillage.png").exists()
+    assert (
+        distribution_root / "outputs" / "mesh_viewer" / "resume_apercu_maillage.json"
+    ).exists()
     summary = json.loads(completed.stdout)
     assert summary["cell_count"] == 2
     assert summary["geology_available"] is True
