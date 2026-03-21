@@ -13,7 +13,10 @@ from typing import Any
 from hydromodpy.data_managers.common.geo_helpers import bbox_hash as _bbox_hash
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.data_managers.registry.catalog import SENTINEL_CUSTOM, SENTINEL_EMPTY
+from hydromodpy.data_managers.registry.constants import (
+    SENTINEL_CUSTOM,
+    SENTINEL_EMPTY,
+)
 
 
 class DemManager:

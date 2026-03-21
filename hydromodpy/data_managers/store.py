@@ -21,7 +21,10 @@ import pandas as pd
 
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.registry.catalog import SENTINEL_CUSTOM, SENTINEL_EMPTY
+from hydromodpy.data_managers.registry.constants import (
+    SENTINEL_CUSTOM,
+    SENTINEL_EMPTY,
+)
 
 _CATALOG_IMPORT_WARNING_SHOWN = False
 

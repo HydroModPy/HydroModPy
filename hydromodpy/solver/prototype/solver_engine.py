@@ -10,4 +10,5 @@ class SolverEngine(str, Enum):
 
     MODFLOW_NWT = "modflownwt"
     MODFLOW6 = "modflow6"
+    BOUSSINESQ = "boussinesq"
 

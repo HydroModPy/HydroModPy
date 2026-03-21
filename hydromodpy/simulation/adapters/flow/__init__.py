@@ -10,10 +10,12 @@ This ``__init__`` file re-exports the concrete adapters expected by the
 registry layer.
 """
 
+from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.adapters.flow.modflow6 import Modflow6FlowAdapter
 from hydromodpy.simulation.adapters.flow.modflownwt import ModflowNwtFlowAdapter
 
 __all__ = [
+    "BoussinesqFlowAdapter",
     "Modflow6FlowAdapter",
     "ModflowNwtFlowAdapter",
 ]

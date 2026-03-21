@@ -15,7 +15,10 @@ from hydromodpy.data_managers.common.validation import compute_completeness
 from hydromodpy.data_managers.contracts.load_result import LoadResult
 from hydromodpy.data_managers.contracts.location import StationLocation
 from hydromodpy.data_managers.contracts.timeseries import PointRecord
-from hydromodpy.data_managers.registry.catalog import SENTINEL_CUSTOM, SENTINEL_EMPTY
+from hydromodpy.data_managers.registry.constants import (
+    SENTINEL_CUSTOM,
+    SENTINEL_EMPTY,
+)
 from hydromodpy.support.tools.log_manager import get_logger
 
 logger = get_logger(__name__)

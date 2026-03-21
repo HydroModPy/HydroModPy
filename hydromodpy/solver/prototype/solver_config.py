@@ -17,6 +17,9 @@ class SolverConfig(BaseModel):
 
     solver_engine: Annotated[SolverEngine, ParamLevel("user")] = Field(
         default=SolverEngine.MODFLOW_NWT,
-        description="Groundwater solver backend ('modflownwt' or 'modflow6').",
+        description=(
+            "Groundwater solver backend "
+            "('modflownwt', 'modflow6', or 'boussinesq')."
+        ),
     )
 

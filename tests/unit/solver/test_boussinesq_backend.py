@@ -1,0 +1,658 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from hydromodpy.process.flow import Flow
+from hydromodpy.process.flow.flow_config import FlowConfig
+from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
+from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqMesh
+from hydromodpy.solver.boussinesq.assembly import (
+    assemble_steady_residual,
+    assemble_transient_residual,
+)
+from hydromodpy.solver.boussinesq.local_runtime import (
+    solve_backward_euler_step,
+    solve_steady_state,
+)
+from hydromodpy.solver.prototype.solver_config import SolverConfig
+from hydromodpy.solver.prototype.solver_engine import SolverEngine
+from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+    load_catchment_mesh_bundle,
+)
+
+
+def _write_csv(path: Path, header: str, rows: list[str]) -> None:
+    path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
+
+
+def _write_minimal_bundle(
+    bundle_dir: Path,
+    *,
+    storage_in_second_cell: bool = True,
+    river_internal_edge: bool = False,
+) -> Path:
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "mesh_2d.msh").write_text(
+        "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "bundle_schema_version": "mesh_catchment_bundle_v1",
+                "crs": "EPSG:2154",
+                "files": {"mesh": "mesh_2d.msh"},
+            },
+            indent=2,
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "mesh_summary.json").write_text(
+        json.dumps({"constraints_mode": "geology_only"}, indent=2, ensure_ascii=True)
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_csv(
+        bundle_dir / "nodes.csv",
+        "node_id,x,y,z_top,z_bottom",
+        [
+            "0,0.0,0.0,10.0,5.0",
+            "1,1.0,0.0,10.0,5.0",
+            "2,1.0,1.0,10.0,5.0",
+            "3,0.0,1.0,10.0,5.0",
+        ],
+    )
+    second_storage = "0.15" if storage_in_second_cell else ""
+    _write_csv(
+        bundle_dir / "cells.csv",
+        "cell_id,geom_type,n0,n1,n2,n3,centroid_x,centroid_y,area_m2,z_top_centroid,z_top_mean,z_bottom_centroid,z_bottom_mean,geology_code,geology_key,hydraulic_conductivity_m_s,storage_coefficient",
+        [
+            "0,triangle,0,1,2,,0.666667,0.333333,0.5,10.0,10.0,5.0,5.0,1,granite,1.0e-5,0.10",
+            f"1,triangle,0,2,3,,0.333333,0.666667,0.5,11.0,11.0,4.0,4.0,2,schist,2.0e-5,{second_storage}",
+        ],
+    )
+    _write_csv(
+        bundle_dir / "edges.csv",
+        "edge_id,node_a,node_b,cell_a,cell_b,length_m,edge_kind,is_river,geology_a_key,geology_b_key",
+        [
+            "0,0,1,0,,1.0,boundary,false,granite,",
+            "1,1,2,0,,1.0,boundary,false,granite,",
+            f"2,0,2,0,1,1.414214,internal,{str(bool(river_internal_edge)).lower()},granite,schist",
+            "3,2,3,1,,1.0,boundary,false,schist,",
+            "4,0,3,1,,1.0,boundary,false,schist,",
+        ],
+    )
+    _write_csv(
+        bundle_dir / "cell_geology_fractions.csv",
+        "cell_id,geology_key,fraction",
+        [
+            "0,granite,1.0",
+            "1,schist,1.0",
+        ],
+    )
+    return bundle_dir
+
+
+def _build_flow_config(flow_section: dict[str, object]) -> FlowConfig:
+    return FlowConfig.from_toml_section(flow_section, base_dir=Path("."))
+
+
+def test_solver_config_accepts_boussinesq() -> None:
+    cfg = SolverConfig(solver_engine="boussinesq")
+
+    assert cfg.solver_engine == SolverEngine.BOUSSINESQ
+
+
+def test_boussinesq_mesh_builds_from_gmsh_bundle(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+
+    mesh = BoussinesqMesh.from_bundle(bundle)
+
+    assert mesh.n_cells == 2
+    assert mesh.n_edges == 5
+    assert mesh.n_nodes == 4
+    assert int(np.count_nonzero(mesh.interior_edge_mask)) == 1
+    assert int(np.count_nonzero(mesh.boundary_edge_mask)) == 4
+    assert np.allclose(mesh.hydraulic_conductivity_m_s, [1.0e-5, 2.0e-5])
+    assert np.allclose(mesh.storage_coefficient, [0.10, 0.15])
+    assert np.all(mesh.edge_distance_m > 0.0)
+
+
+def test_boussinesq_mesh_projects_cardinal_side_boundaries(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+
+    assert mesh.boundary_edge_indices_for_side("south_side").tolist() == [0]
+    assert mesh.boundary_edge_indices_for_side("east_side").tolist() == [1]
+    assert mesh.boundary_edge_indices_for_side("north_side").tolist() == [3]
+    assert mesh.boundary_edge_indices_for_side("west_side").tolist() == [4]
+
+
+def test_boussinesq_mesh_locates_point_in_triangle(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+
+    assert mesh.locate_cell_index_for_point(0.75, 0.25) == 0
+    assert mesh.locate_cell_index_for_point(0.25, 0.75) == 1
+
+
+def test_boussinesq_mesh_exposes_river_edge_indices(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle", river_internal_edge=True)
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+
+    assert mesh.river_edge_indices().tolist() == [2]
+
+
+def test_boussinesq_mesh_rejects_missing_storage_field(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(
+        tmp_path / "bundle_missing_storage",
+        storage_in_second_cell=False,
+    )
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+
+    with pytest.raises(ValueError, match="storage_coefficient"):
+        BoussinesqMesh.from_bundle(bundle)
+
+
+def test_boussinesq_initializes_head_from_flow_initial_conditions(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(FlowConfig.model_validate({"ic": {"type": "top"}}))
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="demo_boussinesq",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.state is not None
+    assert np.allclose(model.state.head_m, [10.0, 11.0])
+    assert np.allclose(model.state.saturated_thickness_m, [5.0, 7.0])
+    assert model.has_numerical_solution is False
+
+
+def test_local_backward_euler_step_conserves_mass_and_relaxes_gradient(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head_prev = np.asarray([9.0, 6.0], dtype=float)
+    stored_prev = float(
+        np.sum(mesh.cell_area_m2 * mesh.storage_coefficient * head_prev)
+    )
+
+    step = solve_backward_euler_step(
+        mesh,
+        head_prev_m=head_prev,
+        dt_seconds=3600.0,
+    )
+
+    stored_next = float(
+        np.sum(mesh.cell_area_m2 * mesh.storage_coefficient * step.head_m)
+    )
+    assert step.converged is True
+    assert step.iterations >= 1
+    assert step.residual_norm_inf <= 1.0e-9
+    assert step.head_m[0] < head_prev[0]
+    assert step.head_m[1] > head_prev[1]
+    assert stored_next <= stored_prev
+    assert np.isclose(stored_next, stored_prev, rtol=0.0, atol=2.0e-6)
+
+
+def test_assembly_with_positive_recharge_balances_by_saturation_excess(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head = np.asarray([11.0, 11.0], dtype=float)
+
+    assembly = assemble_transient_residual(
+        mesh,
+        head_m=head,
+        head_prev_m=head,
+        dt_seconds=3600.0,
+        recharge_rate_m_s=2.0e-7,
+    )
+
+    assert np.allclose(assembly.internal_edge_flux_m3_s, 0.0)
+    assert np.all(assembly.saturation_excess_rate_m_s > 0.0)
+    assert np.allclose(assembly.saturation_excess_rate_m_s, 2.0e-7, atol=1.0e-12)
+    assert np.allclose(assembly.residual_m3_s, 0.0, atol=1.0e-12)
+
+
+def test_local_backward_euler_step_with_side_dirichlet_boundary_injects_water(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head_prev = np.asarray([7.0, 7.0], dtype=float)
+    boundary_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    boundary_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+
+    step = solve_backward_euler_step(
+        mesh,
+        head_prev_m=head_prev,
+        dt_seconds=3600.0,
+        imposed_head_m_by_edge=boundary_heads,
+    )
+
+    assert step.converged is True
+    assert step.assembly.imposed_head_edge_flux_m3_s[4] < 0.0
+    assert step.head_m[1] > head_prev[1]
+    assert step.head_m[1] > step.head_m[0]
+
+
+def test_local_backward_euler_step_with_stream_stage_on_internal_river_edge(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle", river_internal_edge=True)
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head_prev = np.asarray([8.0, 8.0], dtype=float)
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.river_edge_indices()] = 7.0
+
+    step = solve_backward_euler_step(
+        mesh,
+        head_prev_m=head_prev,
+        dt_seconds=3600.0,
+        imposed_head_m_by_edge=imposed_heads,
+    )
+
+    assert step.converged is True
+    assert step.assembly.imposed_head_edge_flux_m3_s[2] > 0.0
+    assert np.all(step.head_m < head_prev)
+
+
+def test_local_backward_euler_step_with_pumping_well_draws_down_target_cell(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head_prev = np.asarray([8.0, 8.0], dtype=float)
+    well_flux = np.zeros(mesh.n_cells, dtype=float)
+    well_flux[0] = -1.0e-5
+
+    step = solve_backward_euler_step(
+        mesh,
+        head_prev_m=head_prev,
+        dt_seconds=3600.0,
+        well_flux_m3_s=well_flux,
+    )
+
+    assert step.converged is True
+    assert np.isclose(step.assembly.well_flux_m3_s[0], -1.0e-5)
+    assert step.head_m[0] < head_prev[0]
+    assert step.head_m[0] <= step.head_m[1]
+
+
+def test_local_backward_euler_step_with_drainage_reduces_surface_overshoot(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head_prev = np.asarray([10.5, 11.5], dtype=float)
+
+    step = solve_backward_euler_step(
+        mesh,
+        head_prev_m=head_prev,
+        dt_seconds=3600.0,
+        drainage_conductance_m2_s=1.0e-5,
+    )
+
+    assert step.converged is True
+    assert np.any(step.assembly.drainage_flux_m3_s > 0.0)
+    assert step.head_m[0] < head_prev[0]
+    assert step.head_m[1] < head_prev[1]
+
+
+def test_assembly_steady_state_balances_uniform_fixed_head(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head = np.full(mesh.n_cells, 8.0, dtype=float)
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 8.0
+    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 8.0
+
+    assembly = assemble_steady_residual(
+        mesh,
+        head_m=head,
+        imposed_head_m_by_edge=imposed_heads,
+    )
+
+    assert np.allclose(assembly.residual_m3_s, 0.0, atol=1.0e-12)
+
+
+def test_local_steady_state_with_side_dirichlet_relaxes_between_boundary_heads(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+
+    steady = solve_steady_state(
+        mesh,
+        head_initial_guess_m=np.full(mesh.n_cells, 7.0, dtype=float),
+        imposed_head_m_by_edge=imposed_heads,
+    )
+
+    assert steady.converged is True
+    assert steady.iterations >= 1
+    assert steady.residual_norm_inf <= 1.0e-9
+    assert steady.head_m[1] > steady.head_m[0]
+    assert steady.assembly.imposed_head_edge_flux_m3_s[4] < 0.0
+    assert steady.assembly.imposed_head_edge_flux_m3_s[1] > 0.0
+
+
+def test_boussinesq_runs_one_transient_period_and_keeps_history(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(FlowConfig.model_validate({"ic": {"type": "top"}}))
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_transient",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.has_numerical_solution is True
+    assert model.state is not None
+    assert model.state.head_history_m is not None
+    assert model.state.saturated_thickness_history_m is not None
+    assert model.state.head_history_m.shape == (2, 2)
+    assert model.state.saturated_thickness_history_m.shape == (2, 2)
+    assert len(model.state.nonlinear_iterations) == 1
+    assert model.state.nonlinear_iterations[0] >= 1
+    assert model.state.converged_by_period == (True,)
+    assert model.state.head_m[0] >= 10.0
+    assert model.state.head_m[1] < 11.0
+
+
+def test_boussinesq_runs_steady_local_runtime_without_time_grid(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "flow_regime": "steady",
+                "ic": {"type": "custom", "value": 7.0},
+                "active_bc": ["west_side", "east_side"],
+                "bc": {
+                    "dirichlet": {
+                        "west_side": {"value": 10.0},
+                        "east_side": {"value": 6.0},
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_steady",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.has_numerical_solution is True
+    assert model.state is not None
+    assert model.runtime_summary["steady_mode"] == "nonlinear_local"
+    assert model.state.head_history_m is not None
+    assert model.state.head_history_m.shape == (1, 2)
+    assert model.state.head_m[1] > model.state.head_m[0]
+    assert model.state.imposed_head_edge_flux_m3_s is not None
+    assert model.state.imposed_head_edge_flux_m3_s[4] < 0.0
+
+
+def test_boussinesq_runs_recharge_runtime_and_tracks_saturation_excess(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 11.0},
+                "active_sinks_sources": ["recharge"],
+                "sinks_sources": {"recharge": {"values": 2.0e-7}},
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_recharge",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.has_numerical_solution is True
+    assert model.state is not None
+    assert model.state.saturation_excess_history_m_s is not None
+    assert model.state.saturation_excess_history_m_s.shape == (2, 2)
+    assert np.any(model.state.saturation_excess_rate_m_s > 0.0)
+    assert np.allclose(model.state.recharge_rate_m_s, 2.0e-7)
+
+
+def test_boussinesq_runs_absolute_xy_well_runtime(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "active_sinks_sources": ["wells"],
+                "sinks_sources": {
+                    "wells": {
+                        "W1": {
+                            "location_mode": "absolute_xy",
+                            "x": 0.75,
+                            "y": 0.25,
+                            "flux": -1.0e-5,
+                        }
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_well",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.state is not None
+    assert model.state.well_flux_m3_s is not None
+    assert np.isclose(model.state.well_flux_m3_s[0], -1.0e-5)
+    assert np.isclose(model.state.well_flux_m3_s[1], 0.0)
+    assert model.state.head_m[0] < 8.0
+
+
+def test_boussinesq_runs_stream_boundary_on_river_edges(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle", river_internal_edge=True)
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "active_bc": ["stream"],
+                "bc": {
+                    "dirichlet": {
+                        "stream": {"value": 7.0},
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_stream",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.state is not None
+    assert model.state.imposed_head_edge_flux_m3_s is not None
+    assert model.state.imposed_head_edge_flux_m3_s[2] > 0.0
+    assert np.all(model.state.head_m < 8.0)
+
+
+def test_boussinesq_runs_ocean_boundary_with_period_dependent_support(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "active_bc": ["ocean"],
+                "bc": {
+                    "dirichlet": {
+                        "ocean": {"value": 10.5},
+                    }
+                },
+            }
+        )
+    )
+    flow.boundary_conditions["ocean"].value = [10.5, 9.5]
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type(
+            "TimeGrid",
+            (),
+            {"period_lengths_seconds": (3600.0, 3600.0)},
+        )(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_ocean",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.state is not None
+    assert model.state.head_history_m is not None
+    assert model.runtime_summary["active_ocean"] is True
+    assert model.state.head_history_m.shape == (3, 2)
+    assert model.state.head_history_m[1, 0] > 8.0
+    assert np.allclose(model.state.imposed_head_edge_flux_m3_s[[0, 1]], 0.0, atol=1.0e-12)
+    assert np.allclose(model.state.imposed_head_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
+
+
+def test_boussinesq_rejects_heterogeneous_recharge(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 7.0},
+                "active_sinks_sources": ["recharge"],
+                "sinks_sources": {"recharge": {"values": 1.0e-7}},
+            }
+        )
+    )
+    flow.sinks_sources["recharge"] = FlowRechargeConfig(
+        values=1.0e-7,
+        heterogeneous_source=object(),
+    )
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_bad_recharge",
+    )
+
+    model.pre_processing()
+
+    with pytest.raises(NotImplementedError, match="heterogeneous recharge"):
+        model.processing(run_model=True)
+
+
+def test_boussinesq_rejects_structured_well_addressing_on_triangular_mesh(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "ic": {"type": "custom", "value": 8.0},
+                "active_sinks_sources": ["wells"],
+                "sinks_sources": {
+                    "wells": {
+                        "W1": {
+                            "cell": [0, 0, 0],
+                            "flux": -1.0e-5,
+                        }
+                    }
+                },
+            }
+        )
+    )
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_bad_well",
+    )
+
+    model.pre_processing()
+
+    with pytest.raises(NotImplementedError, match="coordinate-based wells"):
+        model.processing(run_model=True)

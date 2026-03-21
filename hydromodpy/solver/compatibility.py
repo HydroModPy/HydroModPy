@@ -29,6 +29,7 @@ PROCESS_SOLVER_REQUIREMENTS: dict[ProcessSolverKey, tuple[ProcessSolverKey, ...]
     # Flow solvers are root producers: they do not require an earlier run.
     ("flow", "modflownwt"): (),
     ("flow", "modflow6"): (),
+    ("flow", "boussinesq"): (),
     # Transport solvers depend on a compatible flow backend already planned
     # earlier. The planner later binds these capability requirements to exact
     # upstream run ids such as ``flow_main::modflownwt``.

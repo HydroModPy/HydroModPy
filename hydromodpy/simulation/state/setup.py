@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from hydromodpy.domain import Domain
     from hydromodpy.geographic.core.domain_geographic_pipeline import DomainGeographicContext
     from hydromodpy.process import Flow, Transport
+    from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+        CatchmentMeshBundle,
+    )
     from hydromodpy.simulation.workspace import Workspace
 
 
@@ -23,5 +26,6 @@ class SetupContext:
     flow: Flow | None = None
     transport: Transport | None = None
     mesh_summary: dict[str, Any] | None = None
+    mesh_bundle: CatchmentMeshBundle | None = None
     run_id: str = "default"
     time_grid: Any = None
