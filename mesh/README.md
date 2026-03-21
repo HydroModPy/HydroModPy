@@ -53,11 +53,13 @@ mesh/
     summary.py
   runner/
     visualization_runner.py
-  examples/
+examples/
+  mesh_viewer/
     config_example.toml
-  sample_bundle/
-    ...
-  outputs/
+    sample_bundle/
+      ...
+outputs/
+  mesh_viewer/
     .gitignore
 ```
 
@@ -85,17 +87,17 @@ python run_visualization.py
 
 This default command uses:
 
-- `examples/config_example.toml`
-- `sample_bundle/`
+- `../examples/mesh_viewer/config_example.toml`
+- `../examples/mesh_viewer/sample_bundle/`
 
-Outputs are written into `mesh/outputs/`.
+Outputs are written into `../outputs/mesh_viewer/`.
 
 ## CLI Usage
 
 Standard usage:
 
 ```bash
-python run_visualization.py --config examples/config_example.toml
+python run_visualization.py --config ../examples/mesh_viewer/config_example.toml
 ```
 
 Available options:
@@ -188,34 +190,40 @@ To vendor the viewer into another repository, copy at minimum:
 2. one real bundle directory
 3. one TOML file pointing to that bundle
 
+If you want the zero-argument demo command `python mesh/run_visualization.py`
+to work out of the box, also copy one example pack under `examples/mesh_viewer/`.
+
 Typical layout:
 
 ```text
 project/
   mesh/
     ...
-  delivered_bundle/
-    mesh_2d.msh
-    nodes.csv
-    cells.csv
-    edges.csv
-    cell_geology_fractions.csv
-    metadata.json
-    mesh_summary.json
-  config/
-    mesh_view.toml
+  examples/
+    mesh_viewer/
+      mesh_view.toml
+      delivered_bundle/
+        mesh_2d.msh
+        nodes.csv
+        cells.csv
+        edges.csv
+        cell_geology_fractions.csv
+        metadata.json
+        mesh_summary.json
+  outputs/
+    mesh_viewer/
 ```
 
 Then run:
 
 ```bash
-python mesh/run_visualization.py --config config/mesh_view.toml
+python mesh/run_visualization.py --config examples/mesh_viewer/mesh_view.toml
 ```
 
 ## Notes
 
 - `mesh/` is meant to be portable as a directory
-- the bundled `sample_bundle/` is intentionally tiny and exists mainly to
-  validate the package layout and the default command
+- example data and generated outputs intentionally live outside `mesh/` so the
+  module stays code-only
 - the standalone package is now the only implementation; there is no shim or
   compatibility wrapper to keep in sync elsewhere

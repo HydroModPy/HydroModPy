@@ -1,6 +1,6 @@
 [mesh_distribution]
 # Example pointed at the bundled catchment example when `mesh/` lives next to
-# `mesh_examples/` inside a standalone project.
+# `examples/mesh_viewer/` and `mesh_examples/` inside a standalone project.
 bundle_dir = "../../mesh_examples/mesh_catchment_full_mnt_2km2_strahler3_target100km2_outlet_5/results_stable/mesh/gmsh/mesh_catchment_outlet_5_bundle"
 
 # Optional output PNG written next to the example bundle.

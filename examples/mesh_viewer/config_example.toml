@@ -3,15 +3,15 @@
 # Il peut etre absolu ou relatif au fichier TOML.
 # Le dossier cible doit contenir uniquement les CSV/JSON du bundle.
 # Le lecteur versionne est dans `mesh/reader.py`.
-bundle_dir = "../sample_bundle"
+bundle_dir = "./sample_bundle"
 
 # Chemin optionnel du PNG de synthese a ecrire.
 # Si absent, aucune figure n'est enregistree sur disque.
-figure_output_path = "../outputs/apercu_maillage.png"
+figure_output_path = "../../outputs/mesh_viewer/apercu_maillage.png"
 
 # Chemin optionnel du resume JSON a ecrire.
 # Si absent, aucun JSON n'est enregistre sur disque.
-summary_output_path = "../outputs/resume_apercu_maillage.json"
+summary_output_path = "../../outputs/mesh_viewer/resume_apercu_maillage.json"
 
 # Ouvre ou non une fenetre matplotlib interactive a la fin de l'execution.
 show_window = false

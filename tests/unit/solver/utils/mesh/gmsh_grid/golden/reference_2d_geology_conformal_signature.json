@@ -432,7 +432,6 @@
   ],
   "field_id": "field_geology",
   "source_kind": "vector",
-  "source_path": "C:\\codes\\HydroModPy-GH\\examples\\data\\geology\\GEO1M_brittany.shp",
   "n_source_features_total": 23,
   "n_source_features_clipped": 14,
   "zone_feature_counts": {
