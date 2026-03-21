@@ -9,17 +9,14 @@ introduced.
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Mapping
 import json
 from pathlib import Path
-from typing import Any
-
-import geopandas as gpd
 
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     generate_zone_conformal_mesh_from_dataframe,
 )
+# Compatibility re-exports kept in the runner for existing callers and tests.
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
     _resolve_case_config,
     _resolve_constraints_mode,
@@ -30,88 +27,22 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     _resolve_river_trace_for_meshing,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plotting import (
-    _build_figure,
-    _build_geographic_mesh_figure,
-    _build_regional_context_figure,
-    _build_zone_color_map,
-    _draw_domain_outline,
-    _draw_legend_panel,
-    _draw_mesh_edges,
-    _draw_river_lines,
-    _load_catchment_outline,
-    _load_regional_topography_background,
-    _load_topography_background,
-    _plot_zone_panel,
-    _resolve_river_lines_for_plot,
     _write_optional_figure_artifacts,
-    _set_panel_limits,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.reporting import (
     _build_summary,
     _finalize_summary_payload,
     _write_json,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.runner_support import (
+    _build_partition_gdf,
+    _parse_args,
+    _resolve_config_path,
+    _resolve_optional_output_path,
+)
 
 DEFAULT_CONFIG_FILE = "case_config_zone_conformal.toml"
 DEFAULT_SECTION = "mesh_case"
-
-
-def _parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        description="Generate one conformal 2D Gmsh mesh from configurable zone and river constraints."
-    )
-    parser.add_argument("--config-file", default=DEFAULT_CONFIG_FILE)
-    parser.add_argument("--section", default=DEFAULT_SECTION)
-    parser.add_argument("--output-mesh", default=None)
-    parser.add_argument("--output-summary-json", default=None)
-    parser.add_argument("--output-figure", default=None)
-    parser.add_argument("--output-figure-regional", default=None)
-    parser.add_argument("--show-plot", action="store_true")
-    return parser.parse_args(argv)
-
-
-def _resolve_config_path(raw_config: str | Path) -> Path:
-    candidate = Path(raw_config).expanduser()
-    if candidate.is_absolute() and candidate.exists():
-        return candidate.resolve()
-    cwd_candidate = candidate.resolve()
-    if cwd_candidate.exists():
-        return cwd_candidate
-    script_candidate = (Path(__file__).resolve().parent / candidate).resolve()
-    if script_candidate.exists():
-        return script_candidate
-    raise FileNotFoundError(f"Config TOML not found: '{raw_config}'")
-
-
-
-def _resolve_optional_output_path(
-    config_toml: Path,
-    config_value: Any,
-    override_value: str | None,
-) -> Path | None:
-    raw = override_value if override_value is not None else config_value
-    if raw is None:
-        return None
-    text = str(raw).strip()
-    if text == "":
-        return None
-    path = Path(text).expanduser()
-    if not path.is_absolute():
-        path = (config_toml.parent / path).resolve()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _build_partition_gdf(partition, *, crs) -> gpd.GeoDataFrame:
-    return gpd.GeoDataFrame(
-        {
-            "face_id": [int(face.face_id) for face in partition.faces],
-            "zone_key": [str(face.zone_key) for face in partition.faces],
-            "face_area": [float(face.area) for face in partition.faces],
-        },
-        geometry=[face.polygon for face in partition.faces],
-        crs=crs,
-    )
 
 
 def run_reference_2d_zone_conformal_case_from_toml(
@@ -127,7 +58,10 @@ def run_reference_2d_zone_conformal_case_from_toml(
     domain_geographic: object | None = None,
     show_plot: bool = False,
 ) -> dict[str, Any]:
-    config_path = _resolve_config_path(config_toml)
+    config_path = _resolve_config_path(
+        config_toml,
+        script_dir=Path(__file__).resolve().parent,
+    )
     cfg = _resolve_case_config(
         config_path,
         section=section,
@@ -227,7 +161,11 @@ def run_reference_2d_zone_conformal_case_from_toml(
 
 
 def main(argv=None) -> int:
-    args = _parse_args(argv)
+    args = _parse_args(
+        argv,
+        default_config_file=DEFAULT_CONFIG_FILE,
+        default_section=DEFAULT_SECTION,
+    )
     summary = run_reference_2d_zone_conformal_case_from_toml(
         args.config_file,
         section=args.section,
@@ -243,3 +181,15 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+__all__ = [
+    "DEFAULT_CONFIG_FILE",
+    "DEFAULT_SECTION",
+    "main",
+    "run_reference_2d_zone_conformal_case_from_toml",
+    "_clip_river_trace_to_domain",
+    "_resolve_case_config",
+    "_resolve_constraints_mode",
+    "_resolve_river_trace_for_meshing",
+]
