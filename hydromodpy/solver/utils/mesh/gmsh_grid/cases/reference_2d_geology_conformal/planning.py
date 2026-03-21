@@ -9,7 +9,6 @@ level conformal mesher.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -23,68 +22,16 @@ from hydromodpy.geographic.core.river_mesh_trace import (
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid import load_zone_meshing_domain_geometry
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import ZoneLinearConstraint
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
+    _resolve_constraint_usage,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+    ZoneConformalConstraintUsage,
+    ZoneConformalMeshingInputs,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
     clean_domain_geometry,
 )
-
-
-@dataclass(frozen=True)
-class ZoneConformalConstraintUsage:
-    """Resolved constraint switches for one conformal meshing run."""
-
-    constraints_mode: str
-    uses_geology_constraints: bool
-    uses_river_constraints: bool
-
-
-@dataclass(frozen=True)
-class ZoneConformalMeshingInputs:
-    """Common meshing contract assembled before calling the Gmsh core."""
-
-    usage: ZoneConformalConstraintUsage
-    source_payload: Mapping[str, Any]
-    zone_gdf: gpd.GeoDataFrame
-    domain_payload: Mapping[str, Any]
-    interface_scope_payload: Mapping[str, Any]
-    refinement_scope_payload: Mapping[str, Any]
-    interface_scope_is_custom: bool
-    refinement_scope_is_custom: bool
-    zone_meshing_cfg: Mapping[str, Any]
-    rivers_cfg: Mapping[str, Any] | None
-    watershed_boundary_cfg: Mapping[str, Any] | None
-    resolved_river_trace: object | None
-    linear_constraints: tuple[ZoneLinearConstraint, ...]
-
-
-def _resolve_constraints_mode(raw_value: Any) -> str:
-    token = str(raw_value).strip().lower()
-    if token == "":
-        raise ValueError(
-            "constraints_mode is required and must be one of: "
-            "geology_only, rivers_only, geology_rivers."
-        )
-    allowed = {
-        "geology_only",
-        "rivers_only",
-        "geology_rivers",
-    }
-    if token not in allowed:
-        raise ValueError(
-            "constraints_mode must be one of: "
-            "geology_only, rivers_only, geology_rivers."
-        )
-    return token
-
-
-def _resolve_constraint_usage(
-    constraints_mode: str,
-) -> ZoneConformalConstraintUsage:
-    mode = _resolve_constraints_mode(constraints_mode)
-    return ZoneConformalConstraintUsage(
-        constraints_mode=mode,
-        uses_geology_constraints=mode in {"geology_only", "geology_rivers"},
-        uses_river_constraints=mode in {"rivers_only", "geology_rivers"},
-    )
 
 
 def _valid_geometry_mask(geometries) -> object:
@@ -223,144 +170,6 @@ def _filter_line_constraint_by_min_segment_length(
         if length >= min_segment_length:
             kept_lines.append(line)
     return kept_lines
-
-
-def _validate_rivers_case_config(
-    config_data: Mapping[str, Any],
-    *,
-    section: str,
-) -> dict[str, Any]:
-    if not isinstance(config_data, Mapping):
-        raise ValueError(f"[{section}.rivers] configuration must be a mapping")
-    raw = dict(config_data)
-    source = str(raw.get("source", "domain_geographic")).strip().lower()
-    if source not in {"domain_geographic", "file"}:
-        raise ValueError(
-            f"[{section}.rivers].source must be 'domain_geographic' or 'file', got '{source}'."
-        )
-
-    path_value = raw.get("path")
-    path_text = None if path_value is None else str(path_value).strip()
-    if source == "file" and not path_text:
-        raise ValueError(f"[{section}.rivers].path is required when source='file'.")
-
-    clip_to_domain = raw.get("clip_to_domain", True)
-    if not isinstance(clip_to_domain, bool):
-        raise ValueError(f"[{section}.rivers].clip_to_domain must be a boolean.")
-
-    min_segment_length_raw = raw.get("min_segment_length", 0.0)
-    try:
-        min_segment_length = float(min_segment_length_raw)
-    except Exception as exc:
-        raise ValueError(
-            f"[{section}.rivers].min_segment_length must be a number, got '{min_segment_length_raw}'."
-        ) from exc
-    if min_segment_length < 0.0:
-        raise ValueError(f"[{section}.rivers].min_segment_length must be >= 0.")
-
-    snap_tolerance_raw = raw.get("snap_tolerance", 0.0)
-    try:
-        snap_tolerance = float(snap_tolerance_raw)
-    except Exception as exc:
-        raise ValueError(
-            f"[{section}.rivers].snap_tolerance must be a number, got '{snap_tolerance_raw}'."
-        ) from exc
-    if snap_tolerance < 0.0:
-        raise ValueError(f"[{section}.rivers].snap_tolerance must be >= 0.")
-
-    return {
-        "source": source,
-        "path": None if not path_text else path_text,
-        "clip_to_domain": clip_to_domain,
-        "min_segment_length": min_segment_length,
-        "snap_tolerance": snap_tolerance,
-    }
-
-
-def _validate_watershed_boundary_case_config(
-    config_data: Mapping[str, Any],
-    *,
-    section: str,
-) -> dict[str, Any]:
-    if not isinstance(config_data, Mapping):
-        raise ValueError(
-            f"[{section}.watershed_boundary] configuration must be a mapping"
-        )
-    raw = dict(config_data)
-    enabled = bool(raw.get("enabled", False))
-    source = str(raw.get("source", "domain_geographic")).strip().lower()
-    if source != "domain_geographic":
-        raise ValueError(
-            f"[{section}.watershed_boundary].source must be 'domain_geographic', got '{source}'."
-        )
-
-    clip_to_domain = raw.get("clip_to_domain", True)
-    if not isinstance(clip_to_domain, bool):
-        raise ValueError(
-            f"[{section}.watershed_boundary].clip_to_domain must be a boolean."
-        )
-    participates_in_refinement = raw.get("participates_in_refinement", False)
-    if not isinstance(participates_in_refinement, bool):
-        raise ValueError(
-            f"[{section}.watershed_boundary].participates_in_refinement must be a boolean."
-        )
-
-    def _parse_non_negative(name: str, default: float) -> float:
-        raw_value = raw.get(name, default)
-        try:
-            value = float(raw_value)
-        except Exception as exc:
-            raise ValueError(
-                f"[{section}.watershed_boundary].{name} must be a number, got '{raw_value}'."
-            ) from exc
-        if value < 0.0:
-            raise ValueError(
-                f"[{section}.watershed_boundary].{name} must be >= 0."
-            )
-        return value
-
-    smoothing_raw = raw.get("smoothing", {})
-    if smoothing_raw is None:
-        smoothing_raw = {}
-    if not isinstance(smoothing_raw, Mapping):
-        raise ValueError(
-            f"[{section}.watershed_boundary.smoothing] configuration must be a mapping."
-        )
-    smoothing_enabled = bool(smoothing_raw.get("enabled", False))
-
-    def _parse_smoothing_non_negative(name: str, default: float) -> float:
-        raw_value = smoothing_raw.get(name, default)
-        try:
-            value = float(raw_value)
-        except Exception as exc:
-            raise ValueError(
-                f"[{section}.watershed_boundary.smoothing].{name} must be a number, got '{raw_value}'."
-            ) from exc
-        if value < 0.0:
-            raise ValueError(
-                f"[{section}.watershed_boundary.smoothing].{name} must be >= 0."
-            )
-        return value
-
-    return {
-        "enabled": enabled,
-        "source": source,
-        "clip_to_domain": clip_to_domain,
-        "min_segment_length": _parse_non_negative("min_segment_length", 0.0),
-        "participates_in_refinement": participates_in_refinement,
-        "smoothing": {
-            "enabled": smoothing_enabled,
-            "simplify_tolerance": _parse_smoothing_non_negative(
-                "simplify_tolerance", 0.0
-            ),
-            "heal_tolerance": _parse_smoothing_non_negative(
-                "heal_tolerance", 0.0
-            ),
-            "min_polygon_area": _parse_smoothing_non_negative(
-                "min_polygon_area", 0.0
-            ),
-        },
-    }
 
 
 def _build_domain_zone_dataframe(
@@ -807,11 +616,8 @@ __all__ = [
     "_iter_river_lines",
     "_load_clipped_geology_dataframe",
     "_resolve_constraint_usage",
-    "_resolve_constraints_mode",
     "_resolve_river_trace_for_meshing",
     "_resolve_scope_payload",
     "_update_scope_summary_geometry",
     "_valid_geometry_mask",
-    "_validate_rivers_case_config",
-    "_validate_watershed_boundary_case_config",
 ]
