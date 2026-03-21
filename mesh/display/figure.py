@@ -65,9 +65,12 @@ def _build_node_xy_map(mesh: MeshBundleLike) -> dict[int, tuple[float, float]]:
     }
 
 
-def _build_cell_polygons(mesh: MeshBundleLike) -> list[list[tuple[float, float]]]:
+def _build_cell_polygons(
+    mesh: MeshBundleLike,
+    *,
+    node_xy_map: Mapping[int, tuple[float, float]],
+) -> list[list[tuple[float, float]]]:
     """Transforme la connectivite des cellules en polygones matplotlib."""
-    node_xy_map = _build_node_xy_map(mesh)
     polygons: list[list[tuple[float, float]]] = []
     for cell in mesh.cells:
         polygons.append([node_xy_map[int(node_id)] for node_id in cell.node_indices])
@@ -169,10 +172,10 @@ def _get_categorical_cell_values(
 def _build_edge_segments(
     mesh: MeshBundleLike,
     *,
+    node_xy_map: Mapping[int, tuple[float, float]],
     selector,
 ) -> list[list[tuple[float, float]]]:
     """Construit des segments 2D a partir des aretes du bundle."""
-    node_xy_map = _build_node_xy_map(mesh)
     segments: list[list[tuple[float, float]]] = []
     for edge in mesh.edges:
         if not selector(edge):
@@ -222,6 +225,22 @@ def _build_info_text(mesh: MeshBundleLike) -> str:
     geology_available = bool(metadata.get("geology", {}).get("available", False))
     lines.append(f"geologie : {'oui' if geology_available else 'non'}")
     return "\n".join(lines)
+
+
+def _get_mesh_edge_style(plot_config: PlotConfig) -> tuple[str, float]:
+    """Retourne le style d'aretes a appliquer aux collections de cellules."""
+    if not plot_config.show_mesh_edges:
+        return ("none", 0.0)
+    return (str(plot_config.mesh_edge_color), float(plot_config.mesh_edge_linewidth))
+
+
+def _build_default_panel_title(
+    *,
+    heading: str,
+    field_name: str,
+) -> str:
+    """Construit un titre par defaut coherent pour un panneau."""
+    return f"{heading}\n{field_name}"
 
 
 def _plot_numeric_cells(
@@ -322,6 +341,7 @@ def _plot_overlays(
     ax,
     *,
     mesh: MeshBundleLike,
+    node_xy_map: Mapping[int, tuple[float, float]],
     plot_config: PlotConfig,
     LineCollection,
 ) -> None:
@@ -331,7 +351,11 @@ def _plot_overlays(
     for flag_name, selector, label, color, linewidth in _OVERLAY_STYLES:
         if not getattr(plot_config, flag_name):
             continue
-        segments = _build_edge_segments(mesh, selector=selector)
+        segments = _build_edge_segments(
+            mesh,
+            node_xy_map=node_xy_map,
+            selector=selector,
+        )
         if not segments:
             continue
         ax.add_collection(LineCollection(segments, colors=color, linewidths=linewidth))
@@ -381,6 +405,7 @@ def _plot_mesh_panel(
     ax,
     *,
     mesh: MeshBundleLike,
+    node_xy_map: Mapping[int, tuple[float, float]],
     plot_config: PlotConfig,
     color_field: str,
     color_map: str,
@@ -394,11 +419,8 @@ def _plot_mesh_panel(
 ) -> None:
     """Construit un panneau base sur un coloriage par cellule."""
 
-    mesh_edge_color = str(plot_config.mesh_edge_color) if plot_config.show_mesh_edges else "none"
-    mesh_edge_linewidth = (
-        float(plot_config.mesh_edge_linewidth) if plot_config.show_mesh_edges else 0.0
-    )
-    polygons = _build_cell_polygons(mesh)
+    mesh_edge_color, mesh_edge_linewidth = _get_mesh_edge_style(plot_config)
+    polygons = _build_cell_polygons(mesh, node_xy_map=node_xy_map)
 
     if color_field in NUMERIC_COLOR_FIELDS:
         _plot_numeric_cells(
@@ -427,6 +449,7 @@ def _plot_mesh_panel(
     _plot_overlays(
         ax,
         mesh=mesh,
+        node_xy_map=node_xy_map,
         plot_config=plot_config,
         LineCollection=LineCollection,
     )
@@ -436,7 +459,6 @@ def _plot_mesh_panel(
         plot_config=plot_config,
     )
 
-    node_xy_map = _build_node_xy_map(mesh)
     _format_axes(ax, node_xy_map=node_xy_map)
     ax.set_title(title)
 
@@ -462,6 +484,7 @@ def _plot_continuous_topography_panel(
     ax,
     *,
     mesh: MeshBundleLike,
+    node_xy_map: Mapping[int, tuple[float, float]],
     plot_config: PlotConfig,
     color_map: str,
     title: str,
@@ -505,6 +528,7 @@ def _plot_continuous_topography_panel(
     _plot_overlays(
         ax,
         mesh=mesh,
+        node_xy_map=node_xy_map,
         plot_config=plot_config,
         LineCollection=LineCollection,
     )
@@ -514,7 +538,6 @@ def _plot_continuous_topography_panel(
         plot_config=plot_config,
     )
 
-    node_xy_map = _build_node_xy_map(mesh)
     _format_axes(ax, node_xy_map=node_xy_map)
     ax.set_title(title)
     return True
@@ -538,17 +561,19 @@ def build_visualization_figure(
         dpi=config.plot.dpi,
     )
     axes = [axes] if panel_count == 1 else list(axes)
+    node_xy_map = _build_node_xy_map(mesh)
 
     left_title = config.plot.title
     if left_title is None:
-        left_title = (
-            "Vue structurelle du maillage\n"
-            f"color_field = {config.plot.color_field}"
+        left_title = _build_default_panel_title(
+            heading="Vue structurelle du maillage",
+            field_name=f"color_field = {config.plot.color_field}",
         )
 
     _plot_mesh_panel(
         axes[0],
         mesh=mesh,
+        node_xy_map=node_xy_map,
         plot_config=config.plot,
         color_field=config.plot.color_field,
         color_map=config.plot.color_map,
@@ -564,14 +589,15 @@ def build_visualization_figure(
     if config.plot.show_topography_panel:
         right_title = config.plot.topography_title
         if right_title is None:
-            right_title = (
-                "Vue topographique continue\n"
-                f"topography_field = {config.plot.topography_field}"
+            right_title = _build_default_panel_title(
+                heading="Vue topographique continue",
+                field_name=f"topography_field = {config.plot.topography_field}",
             )
 
         has_continuous_render = _plot_continuous_topography_panel(
             axes[1],
             mesh=mesh,
+            node_xy_map=node_xy_map,
             plot_config=config.plot,
             color_map=config.plot.topography_cmap,
             title=right_title,
@@ -583,6 +609,7 @@ def build_visualization_figure(
             _plot_mesh_panel(
                 axes[1],
                 mesh=mesh,
+                node_xy_map=node_xy_map,
                 plot_config=config.plot,
                 color_field=config.plot.topography_field,
                 color_map=config.plot.topography_cmap,

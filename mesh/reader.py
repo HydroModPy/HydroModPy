@@ -108,107 +108,121 @@ class CatchmentMeshBundle:
         return (self.bundle_dir / filename).resolve()
 
 
-def _load_csv_rows(path: Path) -> list[dict[str, str]]:
+def _load_csv_rows(path: Path) -> tuple[dict[str, str], ...]:
     if not path.exists():
-        return []
+        return ()
     with path.open("r", encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream)
-        return [dict(row) for row in reader]
+        return tuple(dict(row) for row in reader)
+
+
+def _load_required_json(path: Path, *, label: str) -> dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
+    return dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _load_optional_json(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    return dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _parse_node(row: dict[str, str]) -> CatchmentMeshBundleNode:
+    return CatchmentMeshBundleNode(
+        node_id=int(row["node_id"]),
+        x=float(row["x"]),
+        y=float(row["y"]),
+        z_top=_parse_optional_float(row.get("z_top", "")),
+        z_bottom=_parse_optional_float(row.get("z_bottom", "")),
+    )
+
+
+def _get_cell_node_indices(row: dict[str, str]) -> tuple[int, ...]:
+    return tuple(
+        int(row[column_name])
+        for column_name in ("n0", "n1", "n2", "n3")
+        if str(row.get(column_name, "")).strip() != ""
+    )
+
+
+def _parse_cell(row: dict[str, str]) -> CatchmentMeshBundleCell:
+    return CatchmentMeshBundleCell(
+        cell_id=int(row["cell_id"]),
+        geom_type=str(row["geom_type"]),
+        node_indices=_get_cell_node_indices(row),
+        centroid_x=float(row["centroid_x"]),
+        centroid_y=float(row["centroid_y"]),
+        area_m2=float(row["area_m2"]),
+        z_top_centroid=_parse_optional_float(row.get("z_top_centroid", "")),
+        z_top_mean=_parse_optional_float(row.get("z_top_mean", "")),
+        z_bottom_centroid=_parse_optional_float(row.get("z_bottom_centroid", "")),
+        z_bottom_mean=_parse_optional_float(row.get("z_bottom_mean", "")),
+        geology_code=_parse_optional_int(row.get("geology_code", "")),
+        geology_key=str(row.get("geology_key", "")),
+        hydraulic_conductivity_m_s=_parse_optional_float(
+            row.get("hydraulic_conductivity_m_s", "")
+        ),
+        storage_coefficient=_parse_optional_float(row.get("storage_coefficient", "")),
+    )
+
+
+def _parse_edge(row: dict[str, str]) -> CatchmentMeshBundleEdge:
+    return CatchmentMeshBundleEdge(
+        edge_id=int(row["edge_id"]),
+        node_a=int(row["node_a"]),
+        node_b=int(row["node_b"]),
+        cell_a=int(row["cell_a"]),
+        cell_b=_parse_optional_int(row.get("cell_b", "")),
+        length_m=float(row["length_m"]),
+        edge_kind=str(row["edge_kind"]),
+        is_river=_parse_bool(row.get("is_river", "")),
+        geology_a_key=str(row.get("geology_a_key", "")),
+        geology_b_key=str(row.get("geology_b_key", "")),
+    )
+
+
+def _parse_geology_fraction(row: dict[str, str]) -> CatchmentMeshBundleGeologyFraction:
+    return CatchmentMeshBundleGeologyFraction(
+        cell_id=int(row["cell_id"]),
+        geology_key=str(row["geology_key"]),
+        fraction=float(row["fraction"]),
+    )
 
 
 def _load_nodes(path: Path) -> tuple[CatchmentMeshBundleNode, ...]:
-    rows = _load_csv_rows(path)
     return tuple(
-        CatchmentMeshBundleNode(
-            node_id=int(row["node_id"]),
-            x=float(row["x"]),
-            y=float(row["y"]),
-            z_top=_parse_optional_float(row.get("z_top", "")),
-            z_bottom=_parse_optional_float(row.get("z_bottom", "")),
-        )
-        for row in rows
+        _parse_node(row)
+        for row in _load_csv_rows(path)
     )
 
 
 def _load_cells(path: Path) -> tuple[CatchmentMeshBundleCell, ...]:
-    rows = _load_csv_rows(path)
-    out: list[CatchmentMeshBundleCell] = []
-    for row in rows:
-        node_indices = tuple(
-            int(row[column_name])
-            for column_name in ("n0", "n1", "n2", "n3")
-            if str(row.get(column_name, "")).strip() != ""
-        )
-        out.append(
-            CatchmentMeshBundleCell(
-                cell_id=int(row["cell_id"]),
-                geom_type=str(row["geom_type"]),
-                node_indices=node_indices,
-                centroid_x=float(row["centroid_x"]),
-                centroid_y=float(row["centroid_y"]),
-                area_m2=float(row["area_m2"]),
-                z_top_centroid=_parse_optional_float(row.get("z_top_centroid", "")),
-                z_top_mean=_parse_optional_float(row.get("z_top_mean", "")),
-                z_bottom_centroid=_parse_optional_float(
-                    row.get("z_bottom_centroid", "")
-                ),
-                z_bottom_mean=_parse_optional_float(row.get("z_bottom_mean", "")),
-                geology_code=_parse_optional_int(row.get("geology_code", "")),
-                geology_key=str(row.get("geology_key", "")),
-                hydraulic_conductivity_m_s=_parse_optional_float(
-                    row.get("hydraulic_conductivity_m_s", "")
-                ),
-                storage_coefficient=_parse_optional_float(
-                    row.get("storage_coefficient", "")
-                ),
-            )
-        )
-    return tuple(out)
+    return tuple(
+        _parse_cell(row)
+        for row in _load_csv_rows(path)
+    )
 
 
 def _load_edges(path: Path) -> tuple[CatchmentMeshBundleEdge, ...]:
-    rows = _load_csv_rows(path)
     return tuple(
-        CatchmentMeshBundleEdge(
-            edge_id=int(row["edge_id"]),
-            node_a=int(row["node_a"]),
-            node_b=int(row["node_b"]),
-            cell_a=int(row["cell_a"]),
-            cell_b=_parse_optional_int(row.get("cell_b", "")),
-            length_m=float(row["length_m"]),
-            edge_kind=str(row["edge_kind"]),
-            is_river=_parse_bool(row.get("is_river", "")),
-            geology_a_key=str(row.get("geology_a_key", "")),
-            geology_b_key=str(row.get("geology_b_key", "")),
-        )
-        for row in rows
+        _parse_edge(row)
+        for row in _load_csv_rows(path)
     )
 
 
 def _load_geology_fractions(path: Path) -> tuple[CatchmentMeshBundleGeologyFraction, ...]:
-    rows = _load_csv_rows(path)
     return tuple(
-        CatchmentMeshBundleGeologyFraction(
-            cell_id=int(row["cell_id"]),
-            geology_key=str(row["geology_key"]),
-            fraction=float(row["fraction"]),
-        )
-        for row in rows
+        _parse_geology_fraction(row)
+        for row in _load_csv_rows(path)
     )
 
 
 def load_catchment_mesh_bundle(bundle_dir: str | Path) -> CatchmentMeshBundle:
     """Load one previously exported catchment mesh bundle."""
     bundle_path = Path(bundle_dir).resolve()
-    metadata_path = bundle_path / "metadata.json"
-    if not metadata_path.exists():
-        raise FileNotFoundError(f"Bundle metadata not found: {metadata_path}")
-
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    summary_path = bundle_path / "mesh_summary.json"
-    mesh_summary = None
-    if summary_path.exists():
-        mesh_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    metadata = _load_required_json(bundle_path / "metadata.json", label="Bundle metadata")
+    mesh_summary = _load_optional_json(bundle_path / "mesh_summary.json")
 
     return CatchmentMeshBundle(
         bundle_dir=bundle_path,

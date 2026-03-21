@@ -19,7 +19,9 @@ Le point cle du code actuel est le suivant :
 - les conditions initiales portent sur une charge `h` en metres ;
 - les conditions aux limites Dirichlet/Cauchy/Robin sont deja normalisees ;
 - les puits et la recharge sont deja portes par `flow.sinks_sources` ;
-- le maillage est deja expose sous des formes solver-agnostiques (`HydroMesh`, `SolverMesh`, `CatchmentMeshBundle`).
+- le maillage est deja disponible dans plusieurs representations
+  (`HydroMesh`, `SolverMesh`, `CatchmentMeshBundle`), mais elles n'ont pas
+  vocation a devenir toutes des dependances du coeur solveur.
 
 Le contrat process reste naturellement exprime en charge `h`, car :
 
@@ -40,6 +42,15 @@ Autrement dit :
 - l'interface metier du processus `Flow` reste en `h`,
 - le solveur `boussinesq` peut assembler en `S`,
 - l'adapter du solveur assure la conversion `h <-> S` au besoin.
+
+Positionnement d'implementation vise :
+
+- pas de dependance directe du coeur `boussinesq` a `modflow_common` ;
+- pas d'obligation d'utiliser `HydroMesh` comme maillage d'entree ;
+- reutilisation prioritaire du maillage runtime deja construit par la chaine ;
+- `HydroMesh` reserve en pratique aux exports et a la visualisation ;
+- confinement de la logique PETSc dans une couche runtime dediee, sans fuite
+  dans le contrat `Flow`.
 
 ## 3. Variables retenues
 
@@ -729,6 +740,17 @@ Et extension des points d'entree existants :
 - `simulation.adapters.registry` -> ajouter `("flow", "boussinesq")`,
 - config solveur -> ajouter une section `boussinesq`.
 
+Important :
+
+- l'adapter `simulation.adapters.flow.boussinesq` doit etre un pair des
+  adapters MODFLOW existants, pas une surcouche de `modflow_common` ;
+- `modflow_common` peut servir de reference de structure pour le cycle
+  `pre/process/post`, mais ne doit pas devenir une dependance directe du
+  backend `boussinesq` tant qu'il transporte des types et options MODFLOW ;
+- si un vrai besoin de mutualisation apparait, il faudra extraire plus tard
+  une couche generique `flow_common`, et non empiler `boussinesq` sur
+  `modflow_common`.
+
 ### 8.2 Objets coeur
 
 #### `BoussinesqMesh`
@@ -746,6 +768,13 @@ Responsabilite :
   - `internal_edges`,
   - `edge_lengths`,
   - `neighbor_pairs`.
+
+Remarque :
+
+- `BoussinesqMesh` n'est pas un alias de `HydroMesh` ;
+- il s'agit d'une vue interne minimale adaptee au calcul ;
+- une conversion vers `HydroMesh` peut etre faite plus tard pour exporter des
+  champs, mais ne doit pas conditionner l'entree du solveur.
 
 #### `BoussinesqState`
 
@@ -814,8 +843,11 @@ retrouver aussi les familles de sorties suivantes :
 Formats cibles :
 
 - arrays `numpy`,
-- VTU via `HydroMesh.with_cell_data(...)`,
+- VTU via `HydroMesh.with_cell_data(...)` si un export maillage est demande,
 - series temporelles pour post-traitement.
+
+Autrement dit, `HydroMesh` est ici un support d'export et de visualisation,
+pas le contrat d'entree du solveur `boussinesq`.
 
 ## 9. Choix de conception a figer
 
@@ -833,6 +865,8 @@ Formats cibles :
 - drainage et autres echanges head-dependent,
 - routage possible vers un operateur ET/surface,
 - saturation-excess via regularisation `G_r(S/S_c) R(B)`,
+- pas de dependance directe a `modflow_common`,
+- maillage d'entree recu directement depuis le runtime,
 - backend independant de FLOPY/MODFLOW.
 
 ### 9.2 Ce qui peut venir ensuite
@@ -1015,8 +1049,10 @@ Sorties graphiques minimales recommandees :
 
 Support technique recommande dans le depot :
 
-- generation de snapshots PNG via `HydroMesh` et l'outillage de tracage 2D ;
-- export `VTU` en injectant les champs solveur dans `HydroMesh.with_cell_data(...)` ;
+- generation de snapshots PNG via le maillage runtime ou une conversion
+  legere vers `HydroMesh` uniquement cote sortie ;
+- export `VTU` en injectant les champs solveur dans `HydroMesh.with_cell_data(...)`
+  uniquement au moment de l'export ;
 - construction d'un GIF simple a partir des snapshots ;
 - conservation d'un mode "headless" pour la CI.
 
@@ -1041,7 +1077,7 @@ une famille de tests.
 - ajouter `solver_engine = "boussinesq"` ;
 - ajouter l'adapter `simulation.adapters.flow.boussinesq` ;
 - brancher le solveur sur le meme cycle `pre/process/post` que les solveurs
-  flow existants ;
+  flow existants, sans dependance directe a `modflow_common` ;
 - ajouter des tests de contrat simples sur le registre d'adapters.
 
 #### Bloc B : noyau numerique stationnaire et transient simple
