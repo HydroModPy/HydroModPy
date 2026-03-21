@@ -16,6 +16,7 @@ except (ImportError, OSError):
 _skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not available")
 
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal as conformal_case_module
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal as conformal_case_package
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
     _clip_river_trace_to_domain,
     _resolve_case_config,
@@ -566,6 +567,36 @@ def test_main_prints_summary_json(monkeypatch, capsys) -> None:
 
     assert exit_code == 0
     assert json.loads(captured.out) == payload
+
+
+def test_package_exports_public_entrypoints_only() -> None:
+    assert conformal_case_package.run_reference_2d_zone_conformal_case_from_toml is (
+        run_reference_2d_zone_conformal_case_from_toml
+    )
+    assert conformal_case_package.main is conformal_case_module.main
+    assert set(conformal_case_package.__all__) == {
+        "DEFAULT_CONFIG_FILE",
+        "DEFAULT_SECTION",
+        "main",
+        "run_reference_2d_zone_conformal_case_from_toml",
+    }
+
+
+def test_runner_module_declares_explicit_compatibility_exports() -> None:
+    exported = set(conformal_case_module.__all__)
+
+    assert {
+        "DEFAULT_CONFIG_FILE",
+        "DEFAULT_SECTION",
+        "main",
+        "run_reference_2d_zone_conformal_case_from_toml",
+        "_clip_river_trace_to_domain",
+        "_resolve_case_config",
+        "_resolve_constraints_mode",
+        "_resolve_river_trace_for_meshing",
+    } <= exported
+    assert "_build_figure" not in exported
+    assert "_build_geographic_mesh_figure" not in exported
 
 
 def test_river_constraints_mode_requires_river_trace(tmp_path: Path) -> None:

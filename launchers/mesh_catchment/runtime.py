@@ -33,7 +33,7 @@ from hydromodpy.geographic.core.domain_geographic_pipeline import (
     build_domain_geographic_context,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid import export_catchment_mesh_bundle
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal import (
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
 from launchers.mesh_catchment.config import validate_mesh_catchment_config_data
