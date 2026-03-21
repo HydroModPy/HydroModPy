@@ -23,6 +23,9 @@ def test_validate_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg["domain"]["kind"] == "geographic_box_buffer"
     assert cfg["geographic_outputs_mode"] == "keep"
     assert cfg["rivers"]["source"] == "domain_geographic"
+    assert cfg["watershed_boundary"]["enabled"] is True
+    assert cfg["watershed_boundary"]["source"] == "domain_geographic"
+    assert cfg["watershed_boundary"]["smoothing"]["enabled"] is True
     assert cfg["zone_meshing"]["algorithm"] == "delaunay"
 
 
@@ -53,6 +56,31 @@ def test_validate_mesh_catchment_config_accepts_watershed_boundary() -> None:
     assert cfg["watershed_boundary"]["smoothing"]["simplify_tolerance"] == 25.0
 
 
+def test_validate_mesh_catchment_config_defaults_boundary_smoothing_to_smallest_mesh_size() -> None:
+    cfg = validate_mesh_catchment_config_data(
+        {
+            "constraints_mode": "geology_only",
+            "geology": {
+                "source": {
+                    "path": "data/geology.tif",
+                    "kind": "raster",
+                }
+            },
+            "zone_meshing": {
+                "global_size": 600.0,
+                "min_size": 150.0,
+                "refine_interfaces": True,
+                "interface_size": 120.0,
+            },
+        }
+    )
+
+    smoothing = cfg["watershed_boundary"]["smoothing"]
+    assert smoothing["enabled"] is True
+    assert smoothing["simplify_tolerance"] == 120.0
+    assert smoothing["heal_tolerance"] == 60.0
+
+
 def test_validate_mesh_catchment_config_rejects_redundant_watershed_boundary() -> None:
     with pytest.raises(ValueError, match="watershed_boundary is redundant"):
         validate_mesh_catchment_config_data(
@@ -68,6 +96,48 @@ def test_validate_mesh_catchment_config_rejects_redundant_watershed_boundary() -
                 "watershed_boundary": {"enabled": True},
             }
         )
+
+
+def test_validate_mesh_catchment_config_auto_disables_watershed_boundary_on_strict_domain() -> None:
+    cfg = validate_mesh_catchment_config_data(
+        {
+            "constraints_mode": "geology_only",
+            "geology": {
+                "source": {
+                    "path": "data/geology.tif",
+                    "kind": "raster",
+                }
+            },
+            "domain": {"kind": "geographic_watershed"},
+        }
+    )
+
+    assert cfg["domain"]["kind"] == "geographic_watershed"
+    assert cfg["watershed_boundary"]["enabled"] is False
+
+
+def test_validate_mesh_catchment_config_respects_explicit_boundary_smoothing_disable() -> None:
+    cfg = validate_mesh_catchment_config_data(
+        {
+            "constraints_mode": "geology_only",
+            "geology": {
+                "source": {
+                    "path": "data/geology.tif",
+                    "kind": "raster",
+                }
+            },
+            "watershed_boundary": {
+                "smoothing": {
+                    "enabled": False,
+                }
+            },
+        }
+    )
+
+    smoothing = cfg["watershed_boundary"]["smoothing"]
+    assert smoothing["enabled"] is False
+    assert smoothing["simplify_tolerance"] == 0.0
+    assert smoothing["heal_tolerance"] == 0.0
 
 
 def test_validate_mesh_catchment_config_accepts_hydraulic_properties() -> None:

@@ -1,0 +1,4 @@
+base_config = "config_scoped_example.toml"
+
+[workspace]
+project_root = "C:/results/HydromodPy/mesh_catchment_runs/scoped_example/mesh"

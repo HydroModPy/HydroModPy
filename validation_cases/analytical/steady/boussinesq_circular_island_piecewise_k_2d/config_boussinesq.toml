@@ -1,0 +1,2 @@
+# Placeholder config file so validation metadata can advertise `solver=boussinesq`.
+# The actual local gmsh-bundle runtime is implemented in `runtime_boussinesq.py`.

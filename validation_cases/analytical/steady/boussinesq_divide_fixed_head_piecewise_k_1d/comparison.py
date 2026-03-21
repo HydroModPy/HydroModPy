@@ -8,7 +8,6 @@ from pathlib import Path
 import flopy.utils.binaryfile as fpu
 import numpy as np
 
-from hydromodpy.solver.modflow_nwt.modflow.postprocess import compute_watertable_elevation
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
@@ -22,6 +21,7 @@ from validation_cases.shared import (
 )
 
 from .reference import expected_boussinesq_divide_fixed_head_piecewise_profile
+from .runtime_boussinesq import run_boussinesq_divide_fixed_head_piecewise_k_case
 
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -47,6 +47,19 @@ class BoussinesqDivideFixedHeadPiecewiseKComparison:
     row_spread: float
 
 
+def _compute_watertable_elevation(head: np.ndarray) -> np.ndarray:
+    """Collapse one layer stack to a watertable grid without importing solver packages."""
+    head_array = np.asarray(head, dtype=float)
+    if head_array.ndim < 3:
+        return head_array
+    if int(head_array.shape[0]) == 1:
+        return np.asarray(head_array[0], dtype=float)
+
+    import flopy.utils.postprocessing as pp
+
+    return np.asarray(pp.get_water_table(head_array, -100.0), dtype=float)
+
+
 def _load_heads_for_comparison(
     *,
     result: ValidationRunResult,
@@ -65,7 +78,7 @@ def _load_heads_for_comparison(
     assert times, f"No time steps found in {head_path}"
 
     head = np.asarray(head_fpu.get_data(totim=times[-1]), dtype=float)
-    watertable = compute_watertable_elevation(head, head.shape[0])
+    watertable = _compute_watertable_elevation(head)
     return len(times) - 1, np.asarray(watertable, dtype=float)
 
 
@@ -77,7 +90,12 @@ def build_boussinesq_divide_fixed_head_piecewise_k_comparison(
 ) -> BoussinesqDivideFixedHeadPiecewiseKComparison:
     """Load one completed run and compare it to the analytical profile."""
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
-    case_tolerances = load_case_tolerances(CASE_DIR, solver=solver) if tolerances is None else tolerances
+    solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
+    case_tolerances = (
+        load_case_tolerances(CASE_DIR, solver=solver_name)
+        if tolerances is None
+        else tolerances
+    )
 
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))
@@ -87,7 +105,12 @@ def build_boussinesq_divide_fixed_head_piecewise_k_comparison(
         observable_name=observable_name,
     )
 
-    expected_shape = tuple(output_cfg.get("expected_shape", ()))
+    expected_shape_by_solver = output_cfg.get("expected_shape_by_solver", {})
+    expected_shape = ()
+    if isinstance(expected_shape_by_solver, dict) and solver_name in expected_shape_by_solver:
+        expected_shape = tuple(expected_shape_by_solver[solver_name])
+    else:
+        expected_shape = tuple(output_cfg.get("expected_shape", ()))
     if expected_shape:
         assert tuple(heads.shape) == expected_shape, (
             f"Unexpected shape for {observable_name}: {heads.shape} != {expected_shape}"
@@ -139,12 +162,19 @@ def run_boussinesq_divide_fixed_head_piecewise_k_comparison(
     """Run the launcher case and return the full comparison payload."""
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
-    result = run_launcher_validation_case(
-        case_dir=CASE_DIR,
-        test_file=caller_file,
-        timeout=timeout,
-        solver=solver,
-    )
+    normalized_solver = None if solver is None else str(solver).strip().lower()
+    if normalized_solver == "boussinesq":
+        result = run_boussinesq_divide_fixed_head_piecewise_k_case(
+            caller_file=caller_file,
+            timeout=timeout,
+        )
+    else:
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver,
+        )
     return build_boussinesq_divide_fixed_head_piecewise_k_comparison(
         result=result,
         metadata=metadata,

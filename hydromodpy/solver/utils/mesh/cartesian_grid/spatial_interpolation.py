@@ -198,8 +198,17 @@ def _idw_interpolation(
             distances = distances.reshape(-1, 1)
             indices = indices.reshape(-1, 1)
 
-        # Handle coincident points (distance = 0).
-        weights = np.where(distances > 0, 1.0 / np.power(distances, power), 0.0)
+        # Handle coincident points (distance = 0) without evaluating the
+        # singular branch on zero distances, which would emit a spurious
+        # RuntimeWarning even though exact matches are treated separately below.
+        weights = np.zeros_like(distances, dtype=float)
+        positive_distances = distances > 0
+        np.divide(
+            1.0,
+            np.power(distances, power),
+            out=weights,
+            where=positive_distances,
+        )
         exact_match = distances == 0.0
         has_exact = np.any(exact_match, axis=1)
 

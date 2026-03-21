@@ -33,6 +33,40 @@ __all__ = [
 ]
 
 
+def _format_cli_summary(
+    summary: dict,
+    *,
+    compact: bool,
+    summary_json_path: Path | None = None,
+) -> str:
+    """Render one CLI summary string suited to direct terminal execution."""
+    if not compact:
+        return json.dumps(summary, indent=2, ensure_ascii=True)
+
+    lines = [
+        (
+            "Catchment identification completed: "
+            f"basins={int(summary.get('basins_count', 0))}; "
+            f"outlets={int(summary.get('outlets_count', 0))}; "
+            f"candidates={int(summary.get('outlet_candidates_count', 0))}"
+        )
+    ]
+    output_dir = summary.get("output_dir")
+    if output_dir:
+        lines.append(f"output_dir: {output_dir}")
+    outlets_csv_path = summary.get("outlets_csv_path")
+    if outlets_csv_path:
+        lines.append(f"outlets_csv_path: {outlets_csv_path}")
+    if summary_json_path is not None:
+        lines.append(
+            f"summary_json_path: {summary_json_path.expanduser().resolve()}"
+        )
+    figures_dir = summary.get("figures_dir")
+    if figures_dir:
+        lines.append(f"figures_dir: {figures_dir}")
+    return "\n".join(lines)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -68,7 +102,13 @@ def main(argv: list[str] | None = None) -> int:
         section=args.section,
         output_json=args.output_json,
     )
-    print(json.dumps(summary, indent=2, ensure_ascii=True))
+    print(
+        _format_cli_summary(
+            summary,
+            compact=(args.output_json is not None),
+            summary_json_path=args.output_json,
+        )
+    )
     return 0
 
 

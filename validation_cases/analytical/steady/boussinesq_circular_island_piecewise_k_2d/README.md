@@ -20,11 +20,14 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: annular mean head profile on land
 - reference: steady radial Boussinesq solution with concentric piecewise `K`
+- for `solver=boussinesq`, the comparison is limited to `r <= 180 m` because the
+  current local backend needs a thin explicit ocean-support ring at the shoreline
 
 Direct execution:
 
 ```bash
 python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case
+python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --solver boussinesq
 ```
 
 The runner saves a PNG figure with:
