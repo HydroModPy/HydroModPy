@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from hydromodpy.simulation.adapters.base import SolverAdapter
-from hydromodpy.simulation.adapters.flow import Modflow6FlowAdapter, ModflowNwtFlowAdapter
+from hydromodpy.simulation.adapters.flow import (
+    BoussinesqFlowAdapter,
+    Modflow6FlowAdapter,
+    ModflowNwtFlowAdapter,
+)
 from hydromodpy.simulation.adapters.transport import (
     Modflow6GwtTransportAdapter,
     ModpathTransportAdapter,
@@ -13,6 +17,7 @@ from hydromodpy.simulation.adapters.transport import (
 _ADAPTERS: dict[tuple[str, str], SolverAdapter] = {
     ("flow", "modflownwt"): ModflowNwtFlowAdapter(),
     ("flow", "modflow6"): Modflow6FlowAdapter(),
+    ("flow", "boussinesq"): BoussinesqFlowAdapter(),
     ("transport", "modpath"): ModpathTransportAdapter(),
     ("transport", "mt3dms"): Mt3dmsTransportAdapter(),
     ("transport", "modflow6gwt"): Modflow6GwtTransportAdapter(),

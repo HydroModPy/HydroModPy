@@ -18,15 +18,15 @@ from sqlalchemy import (
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+from hydromodpy.data_managers.registry.constants import (
+    SENTINEL_CUSTOM,
+    SENTINEL_EMPTY,
+)
 from hydromodpy.support.tools.log_manager import get_logger
 
 logger = get_logger(__name__)
 
 SCHEMA_VERSION = 2
-
-# Sentinel path values stored in the catalog instead of real file paths.
-SENTINEL_CUSTOM = "custom"
-SENTINEL_EMPTY = "empty"
 
 
 class _Base(DeclarativeBase):

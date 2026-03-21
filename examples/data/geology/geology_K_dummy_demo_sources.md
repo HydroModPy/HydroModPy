@@ -8,6 +8,8 @@ It must not be used as hydrogeologic truth for site-scale studies.
 - Dataset name: `geology_K_dummy_demo.csv`
 - Property column: `K_value` (hydraulic conductivity, in m/s)
 - Enforced value range: `1e-6` to `1e-3` m/s
+- Coverage target: one row per `CODE_LEG` present in the bundled `GEO1M.shp`,
+  plus `SEA`
 
 ## Source data
 
