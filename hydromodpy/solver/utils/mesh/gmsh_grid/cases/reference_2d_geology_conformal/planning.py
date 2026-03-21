@@ -27,7 +27,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalConstraintUsage,
+    ZoneConformalGeometryPayload,
     ZoneConformalMeshingInputs,
+    ZoneConformalSourcePayload,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
     clean_domain_geometry,
@@ -174,22 +176,21 @@ def _filter_line_constraint_by_min_segment_length(
 
 def _build_domain_zone_dataframe(
     *,
-    domain_payload: Mapping[str, Any],
-) -> tuple[dict[str, Any], gpd.GeoDataFrame]:
-    domain_gdf = domain_payload["gdf"][["geometry"]].copy()
+    domain_payload: ZoneConformalGeometryPayload,
+) -> tuple[ZoneConformalSourcePayload, gpd.GeoDataFrame]:
+    domain_gdf = domain_payload.gdf[["geometry"]].copy()
     domain_gdf = domain_gdf.explode(index_parts=False).reset_index(drop=True)
     domain_gdf = domain_gdf[_valid_geometry_mask(domain_gdf.geometry)].copy()
     if domain_gdf.empty:
         raise ValueError("domain geometry produced no usable polygon for meshing")
     domain_gdf["zone_key"] = "domain"
-    summary = dict(domain_payload.get("summary", {}))
-    source_path = summary.get("domain_source_path")
-    source_payload = {
-        "field_id": "domain_zones",
-        "source_kind": "domain",
-        "source_path": "<domain>" if source_path is None else str(source_path),
-        "n_source_features_before_domain_clip": int(len(domain_gdf)),
-    }
+    source_path = domain_payload.summary.get("domain_source_path")
+    source_payload = ZoneConformalSourcePayload(
+        field_id="domain_zones",
+        source_kind="domain",
+        source_path="<domain>" if source_path is None else str(source_path),
+        n_source_features_before_domain_clip=int(len(domain_gdf)),
+    )
     return source_payload, domain_gdf
 
 
@@ -199,73 +200,82 @@ def _load_clipped_geology_dataframe(
     domain_cfg: Mapping[str, Any],
     config_path: Path,
     domain_geographic: object | None,
-):
+) -> tuple[ZoneConformalSourcePayload, gpd.GeoDataFrame, ZoneConformalGeometryPayload]:
     payload = load_vector_geology_dataframe(
         geology_cfg,
         config_path=config_path,
         zone_key_column="zone_key",
     )
     gdf = payload["gdf"].copy()
-    payload["n_source_features_before_domain_clip"] = int(len(gdf))
-    domain_payload = load_zone_meshing_domain_geometry(
-        domain_cfg,
-        config_path=config_path,
-        domain_geographic=domain_geographic,
-        target_crs=gdf.crs,
-        validate=False,
+    source_payload = ZoneConformalSourcePayload(
+        field_id=str(payload["field_id"]),
+        source_kind=str(payload["source_kind"]),
+        source_path=str(payload["source_path"]),
+        n_source_features_before_domain_clip=int(len(gdf)),
     )
-    clipped = gpd.clip(gdf, domain_payload["gdf"])
+    domain_payload = ZoneConformalGeometryPayload.from_mapping(
+        load_zone_meshing_domain_geometry(
+            domain_cfg,
+            config_path=config_path,
+            domain_geographic=domain_geographic,
+            target_crs=gdf.crs,
+            validate=False,
+        )
+    )
+    clipped = gpd.clip(gdf, domain_payload.gdf)
     clipped = clipped[_valid_geometry_mask(clipped.geometry)].copy()
     if clipped.empty:
         raise ValueError(
             "The selected domain geometry does not intersect the geology source"
         )
-    return payload, clipped, domain_payload
+    return source_payload, clipped, domain_payload
 
 
 def _resolve_scope_payload(
     *,
     scope_cfg: Mapping[str, Any] | None,
-    fallback_payload: Mapping[str, Any],
+    fallback_payload: ZoneConformalGeometryPayload,
     config_path: Path,
     domain_geographic: object | None,
     target_crs: object,
-) -> Mapping[str, Any]:
+) -> ZoneConformalGeometryPayload:
     if scope_cfg is None:
         return fallback_payload
-    scope_payload = load_zone_meshing_domain_geometry(
-        scope_cfg,
-        config_path=config_path,
-        domain_geographic=domain_geographic,
-        target_crs=target_crs,
-        validate=False,
+    scope_payload = ZoneConformalGeometryPayload.from_mapping(
+        load_zone_meshing_domain_geometry(
+            scope_cfg,
+            config_path=config_path,
+            domain_geographic=domain_geographic,
+            target_crs=target_crs,
+            validate=False,
+        )
     )
-    clipped = gpd.clip(scope_payload["gdf"], fallback_payload["gdf"])
+    clipped = gpd.clip(scope_payload.gdf, fallback_payload.gdf)
     clipped = clipped[_valid_geometry_mask(clipped.geometry)].copy()
     if clipped.empty:
         raise ValueError("Scope geometry does not intersect the support domain.")
     clipped_geometry = clipped.geometry.union_all()
     summary = _update_scope_summary_geometry(
-        dict(scope_payload.get("summary", {})),
+        dict(scope_payload.summary),
         geometry=clipped_geometry,
         feature_count_after_clip=int(len(clipped)),
     )
     summary["scope_clipped_to_support_domain"] = True
-    return {
-        "geometry": clipped_geometry,
-        "gdf": clipped,
-        "summary": summary,
-    }
+    return ZoneConformalGeometryPayload(
+        geometry=clipped_geometry,
+        gdf=clipped,
+        summary=summary,
+    )
 
 
 def _append_background_zone_outside_scope(
     *,
     zone_gdf: gpd.GeoDataFrame,
-    support_domain_payload: Mapping[str, Any],
-    interface_scope_payload: Mapping[str, Any],
+    support_domain_payload: ZoneConformalGeometryPayload,
+    interface_scope_payload: ZoneConformalGeometryPayload,
 ) -> gpd.GeoDataFrame:
-    support_geometry = support_domain_payload["geometry"]
-    interface_geometry = interface_scope_payload["geometry"]
+    support_geometry = support_domain_payload.geometry
+    interface_geometry = interface_scope_payload.geometry
     outside_geometry = support_geometry.difference(interface_geometry)
     outside_parts = [
         geometry
@@ -291,13 +301,20 @@ def _build_zone_source_inputs(
     cfg: Mapping[str, Any],
     config_path: Path,
     domain_geographic: object | None,
-) -> tuple[dict[str, Any], gpd.GeoDataFrame, Mapping[str, Any], Mapping[str, Any]]:
-    support_domain_payload = load_zone_meshing_domain_geometry(
-        cfg["domain"],
-        config_path=config_path,
-        domain_geographic=domain_geographic,
-        target_crs=None,
-        validate=False,
+) -> tuple[
+    ZoneConformalSourcePayload,
+    gpd.GeoDataFrame,
+    ZoneConformalGeometryPayload,
+    ZoneConformalGeometryPayload,
+]:
+    support_domain_payload = ZoneConformalGeometryPayload.from_mapping(
+        load_zone_meshing_domain_geometry(
+            cfg["domain"],
+            config_path=config_path,
+            domain_geographic=domain_geographic,
+            target_crs=None,
+            validate=False,
+        )
     )
     if usage.uses_geology_constraints:
         geology_cfg = cfg.get("geology")
@@ -312,12 +329,14 @@ def _build_zone_source_inputs(
             config_path=config_path,
             domain_geographic=domain_geographic,
         )
-        support_domain_payload = load_zone_meshing_domain_geometry(
-            cfg["domain"],
-            config_path=config_path,
-            domain_geographic=domain_geographic,
-            target_crs=raw_zone_gdf.crs,
-            validate=False,
+        support_domain_payload = ZoneConformalGeometryPayload.from_mapping(
+            load_zone_meshing_domain_geometry(
+                cfg["domain"],
+                config_path=config_path,
+                domain_geographic=domain_geographic,
+                target_crs=raw_zone_gdf.crs,
+                validate=False,
+            )
         )
         interface_scope_payload = _resolve_scope_payload(
             scope_cfg=cfg.get("interface_scope"),
@@ -326,16 +345,14 @@ def _build_zone_source_inputs(
             domain_geographic=domain_geographic,
             target_crs=raw_zone_gdf.crs,
         )
-        zone_gdf = gpd.clip(raw_zone_gdf, interface_scope_payload["gdf"])
+        zone_gdf = gpd.clip(raw_zone_gdf, interface_scope_payload.gdf)
         zone_gdf = zone_gdf[_valid_geometry_mask(zone_gdf.geometry)].copy()
         if zone_gdf.empty:
             raise ValueError(
                 "The selected interface scope does not intersect the geology source"
             )
         if not bool(
-            interface_scope_payload["geometry"].equals(
-                support_domain_payload["geometry"]
-            )
+            interface_scope_payload.geometry.equals(support_domain_payload.geometry)
         ):
             zone_gdf = _append_background_zone_outside_scope(
                 zone_gdf=zone_gdf,
@@ -364,7 +381,7 @@ def _build_river_constraint_inputs(
     config_path: Path,
     river_trace: object | None,
     domain_geographic: object | None,
-    interface_scope_payload: Mapping[str, Any],
+    interface_scope_payload: ZoneConformalGeometryPayload,
 ) -> tuple[Mapping[str, Any] | None, object | None, ZoneLinearConstraint | None]:
     if not usage.uses_river_constraints:
         return None, None, None
@@ -379,7 +396,7 @@ def _build_river_constraint_inputs(
     if bool(rivers_cfg.get("clip_to_domain", True)):
         resolved_river_trace = _clip_river_trace_to_domain(
             river_trace=resolved_river_trace,
-            domain_geometry=interface_scope_payload["geometry"],
+            domain_geometry=interface_scope_payload.geometry,
         )
     resolved_river_trace = _filter_river_trace_by_min_segment_length(
         river_trace=resolved_river_trace,
@@ -411,7 +428,7 @@ def _build_watershed_boundary_constraint_inputs(
     config_path: Path,
     domain_geographic: object | None,
     zone_crs: object,
-    domain_payload: Mapping[str, Any],
+    domain_payload: ZoneConformalGeometryPayload,
 ) -> tuple[Mapping[str, Any] | None, ZoneLinearConstraint | None]:
     boundary_cfg = dict(cfg.get("watershed_boundary") or {})
     if not bool(boundary_cfg.get("enabled", False)):
@@ -422,14 +439,16 @@ def _build_watershed_boundary_constraint_inputs(
             "watershed_boundary.enabled=true requires one domain_geographic context with watershed_shp."
         )
 
-    watershed_payload = load_zone_meshing_domain_geometry(
-        {"kind": "geographic_watershed"},
-        config_path=config_path,
-        domain_geographic=domain_geographic,
-        target_crs=zone_crs,
-        validate=False,
+    watershed_payload = ZoneConformalGeometryPayload.from_mapping(
+        load_zone_meshing_domain_geometry(
+            {"kind": "geographic_watershed"},
+            config_path=config_path,
+            domain_geographic=domain_geographic,
+            target_crs=zone_crs,
+            validate=False,
+        )
     )
-    watershed_geometry = watershed_payload["geometry"]
+    watershed_geometry = watershed_payload.geometry
     smoothing_cfg = dict(boundary_cfg.get("smoothing") or {})
     if bool(smoothing_cfg.get("enabled", False)):
         watershed_geometry, _ = clean_domain_geometry(
@@ -443,7 +462,7 @@ def _build_watershed_boundary_constraint_inputs(
     if bool(boundary_cfg.get("clip_to_domain", True)):
         boundary_lines = _clip_line_constraint_to_domain(
             lines=boundary_lines,
-            domain_geometry=domain_payload["geometry"],
+            domain_geometry=domain_payload.geometry,
         )
     boundary_lines = _filter_line_constraint_by_min_segment_length(
         lines=boundary_lines,
@@ -476,8 +495,8 @@ def _build_linear_constraint_inputs(
     river_trace: object | None,
     domain_geographic: object | None,
     zone_crs: object,
-    domain_payload: Mapping[str, Any],
-    interface_scope_payload: Mapping[str, Any],
+    domain_payload: ZoneConformalGeometryPayload,
+    interface_scope_payload: ZoneConformalGeometryPayload,
 ) -> tuple[
     Mapping[str, Any] | None,
     Mapping[str, Any] | None,

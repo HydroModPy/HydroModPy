@@ -13,16 +13,18 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     _resolve_constraint_usage,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+    ZoneConformalGeometryPayload,
     ZoneConformalMeshingInputs,
+    ZoneConformalSourcePayload,
 )
 
 
 def _build_summary(
     *,
     result,
-    source_payload: Mapping[str, Any],
+    source_payload: ZoneConformalSourcePayload,
     clipped_gdf: gpd.GeoDataFrame,
-    domain_payload: Mapping[str, Any],
+    domain_payload: ZoneConformalGeometryPayload,
 ) -> dict[str, Any]:
     zone_feature_counts = (
         clipped_gdf["zone_key"].astype(str).value_counts().sort_index()
@@ -30,13 +32,11 @@ def _build_summary(
     summary = dict(result.summary)
     summary.update(
         {
-            "field_id": str(source_payload["field_id"]),
-            "source_kind": str(source_payload["source_kind"]),
-            "source_path": str(source_payload["source_path"]),
+            "field_id": str(source_payload.field_id),
+            "source_kind": str(source_payload.source_kind),
+            "source_path": str(source_payload.source_path),
             "n_source_features_total": int(
-                source_payload.get(
-                    "n_source_features_before_domain_clip", len(clipped_gdf)
-                )
+                source_payload.n_source_features_before_domain_clip
             ),
             "n_source_features_clipped": int(len(clipped_gdf)),
             "zone_feature_counts": {
@@ -45,7 +45,7 @@ def _build_summary(
         }
     )
     summary.update(
-        {str(key): value for key, value in dict(domain_payload["summary"]).items()}
+        {str(key): value for key, value in dict(domain_payload.summary).items()}
     )
     return summary
 
@@ -243,10 +243,8 @@ def _finalize_summary_payload(
 ) -> dict[str, Any]:
     summary = dict(base_summary)
     summary["constraints_mode"] = str(constraints_mode)
-    summary["interface_scope"] = dict(meshing_inputs.interface_scope_payload["summary"])
-    summary["refinement_scope"] = dict(
-        meshing_inputs.refinement_scope_payload["summary"]
-    )
+    summary["interface_scope"] = dict(meshing_inputs.interface_scope_payload.summary)
+    summary["refinement_scope"] = dict(meshing_inputs.refinement_scope_payload.summary)
     summary["constraints_qa"] = _build_constraints_qa_contract(
         summary=summary,
         constraints_mode=constraints_mode,

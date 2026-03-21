@@ -570,11 +570,11 @@ def _write_optional_figure_artifacts(
     common_plot_kwargs = {
         "clipped_gdf": meshing_inputs.zone_gdf,
         "partition_gdf": partition_gdf,
-        "domain_gdf": meshing_inputs.domain_payload["gdf"],
+        "domain_gdf": meshing_inputs.domain_payload.gdf,
         "mesh": result.mesh,
-        "domain_bounds": list(meshing_inputs.domain_payload["geometry"].bounds),
-        "domain_area": float(meshing_inputs.domain_payload["summary"]["domain_area"]),
-        "domain_kind": str(meshing_inputs.domain_payload["summary"]["domain_kind"]),
+        "domain_bounds": list(meshing_inputs.domain_payload.geometry.bounds),
+        "domain_area": float(meshing_inputs.domain_payload.summary["domain_area"]),
+        "domain_kind": str(meshing_inputs.domain_payload.summary["domain_kind"]),
         "interface_refinement": dict(
             result.summary.get("mesh_size_fields", {}).get("interface_refinement", {})
         ),
@@ -591,7 +591,7 @@ def _write_optional_figure_artifacts(
 
         if figure_regional_path is not None or show_plot:
             regional_fig = _build_regional_context_figure(
-                domain_gdf=meshing_inputs.domain_payload["gdf"],
+                domain_gdf=meshing_inputs.domain_payload.gdf,
                 catchment_gdf=_load_catchment_outline(domain_geographic),
                 topo_background=_load_regional_topography_background(domain_geographic),
                 river_lines=_resolve_river_lines_for_plot(
