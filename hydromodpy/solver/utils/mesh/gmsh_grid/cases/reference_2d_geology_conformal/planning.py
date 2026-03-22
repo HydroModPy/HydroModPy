@@ -28,6 +28,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalCaseConfig,
     ZoneConformalConstraintUsage,
+    ZoneConformalDomainConfig,
     ZoneConformalGeometryPayload,
     ZoneConformalMeshingInputs,
     ZoneConformalRiversConfig,
@@ -201,7 +202,7 @@ def _build_domain_zone_dataframe(
 def _load_clipped_geology_dataframe(
     *,
     geology_cfg: Mapping[str, Any],
-    domain_cfg: Mapping[str, Any],
+    domain_cfg: ZoneConformalDomainConfig,
     config_path: Path,
     domain_geographic: object | None,
 ) -> tuple[ZoneConformalSourcePayload, gpd.GeoDataFrame, ZoneConformalGeometryPayload]:
@@ -219,7 +220,7 @@ def _load_clipped_geology_dataframe(
     )
     domain_payload = ZoneConformalGeometryPayload.from_mapping(
         load_zone_meshing_domain_geometry(
-            domain_cfg,
+            domain_cfg.to_mapping(),
             config_path=config_path,
             domain_geographic=domain_geographic,
             target_crs=gdf.crs,
@@ -237,7 +238,7 @@ def _load_clipped_geology_dataframe(
 
 def _resolve_scope_payload(
     *,
-    scope_cfg: Mapping[str, Any] | None,
+    scope_cfg: ZoneConformalDomainConfig | None,
     fallback_payload: ZoneConformalGeometryPayload,
     config_path: Path,
     domain_geographic: object | None,
@@ -247,7 +248,7 @@ def _resolve_scope_payload(
         return fallback_payload
     scope_payload = ZoneConformalGeometryPayload.from_mapping(
         load_zone_meshing_domain_geometry(
-            scope_cfg,
+            scope_cfg.to_mapping(),
             config_path=config_path,
             domain_geographic=domain_geographic,
             target_crs=target_crs,
@@ -313,7 +314,7 @@ def _build_zone_source_inputs(
 ]:
     support_domain_payload = ZoneConformalGeometryPayload.from_mapping(
         load_zone_meshing_domain_geometry(
-            cfg.domain,
+            cfg.domain.to_mapping(),
             config_path=config_path,
             domain_geographic=domain_geographic,
             target_crs=None,
@@ -335,7 +336,7 @@ def _build_zone_source_inputs(
         )
         support_domain_payload = ZoneConformalGeometryPayload.from_mapping(
             load_zone_meshing_domain_geometry(
-                cfg.domain,
+                cfg.domain.to_mapping(),
                 config_path=config_path,
                 domain_geographic=domain_geographic,
                 target_crs=raw_zone_gdf.crs,
@@ -457,7 +458,7 @@ def _build_watershed_boundary_constraint_inputs(
 
     watershed_payload = ZoneConformalGeometryPayload.from_mapping(
         load_zone_meshing_domain_geometry(
-            {"kind": "geographic_watershed"},
+            ZoneConformalDomainConfig(kind="geographic_watershed").to_mapping(),
             config_path=config_path,
             domain_geographic=domain_geographic,
             target_crs=zone_crs,
