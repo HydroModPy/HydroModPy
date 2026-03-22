@@ -14,12 +14,14 @@ import numpy as np
 import rasterio
 from rasterio.enums import Resampling
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
-    _iter_river_lines,
-    _valid_geometry_mask,
-)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalMeshingInputs,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
+    _iter_river_lines,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.scope_resolution import (
+    _valid_geometry_mask,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
     _disable_axis_offset,
