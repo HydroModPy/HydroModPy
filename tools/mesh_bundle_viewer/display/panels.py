@@ -1,4 +1,4 @@
-"""Public panel-level rendering facade for the standalone mesh viewer.
+﻿"""Public panel-level rendering facade for the standalone mesh viewer.
 
 This module intentionally re-exports a small panel API while the lower-level
 cell, overlay, and topography renderers live in dedicated helper modules.
@@ -8,26 +8,26 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from mesh.bundle_contracts import MeshBundleLike
-from mesh.display.cell_rendering import (
+from ..bundle_contracts import MeshBundleLike
+from .cell_rendering import (
     plot_categorical_cells,
     plot_numeric_cells,
 )
-from mesh.display.geometry import (
+from .geometry import (
     build_cell_polygons,
     format_axes,
     get_categorical_cell_values,
     get_numeric_cell_values,
 )
-from mesh.display.overlay_rendering import plot_overlays
-from mesh.display.rendering_common import (
+from .overlay_rendering import plot_overlays
+from .rendering_common import (
     build_default_panel_title,
     get_mesh_edge_style,
     load_matplotlib,
     plot_cell_annotations,
 )
-from mesh.display.topography_rendering import plot_continuous_topography_panel
-from mesh.schema import NUMERIC_COLOR_FIELDS, PlotConfig
+from .topography_rendering import plot_continuous_topography_panel
+from ..schema import NUMERIC_COLOR_FIELDS, PlotConfig
 
 
 def plot_mesh_panel(
@@ -52,7 +52,7 @@ def plot_mesh_panel(
     directly; this function is the stable panel-oriented entry point.
     """
 
-    from mesh.display.geometry import build_info_text
+    from .geometry import build_info_text
 
     mesh_edge_color, mesh_edge_linewidth = get_mesh_edge_style(plot_config)
     polygons = build_cell_polygons(mesh, node_xy_map=node_xy_map)
@@ -118,3 +118,4 @@ __all__ = [
     "plot_continuous_topography_panel",
     "plot_mesh_panel",
 ]
+

@@ -8,6 +8,6 @@ faiblement dependantes du reste du depot.
 
 ## Sous-outils disponibles
 
-- [mesh/](/c:/codes/HydroModPy-GH/mesh)
+- [mesh_bundle_viewer/](/c:/codes/HydroModPy-GH/tools/mesh_bundle_viewer)
   Relecture, visualisation et partage pedagogique des bundles de maillage.
   Cette brique vit maintenant comme package autonome a la racine du depot.

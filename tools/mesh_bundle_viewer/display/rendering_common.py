@@ -1,9 +1,9 @@
-"""Shared rendering helpers for the standalone mesh visualization package."""
+﻿"""Shared rendering helpers for the standalone mesh visualization package."""
 
 from __future__ import annotations
 
-from mesh.bundle_contracts import MeshBundleLike
-from mesh.schema import PlotConfig
+from ..bundle_contracts import MeshBundleLike
+from ..schema import PlotConfig
 
 
 def load_matplotlib(*, show_window: bool):
@@ -62,3 +62,4 @@ __all__ = [
     "load_matplotlib",
     "plot_cell_annotations",
 ]
+

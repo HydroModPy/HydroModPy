@@ -10,6 +10,11 @@ from rasterio.transform import from_origin
 
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
+from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
+    CatchmentBundleGeologyExportConfig,
+    CatchmentBundleHydraulicPropertiesConfig,
+    CatchmentBundleSummaryReference,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
     export_catchment_mesh_bundle,
     load_catchment_mesh_bundle,
@@ -112,27 +117,31 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
                 "substratum_elevation": 5.0,
             }
         },
-        geology_cfg={
-            "id": "field_geology",
-            "source": {
-                "path": "geology.tif",
-                "kind": "raster",
-            },
-            "cell_samples_per_axis": 8,
-        },
-        hydraulic_properties_cfg={
-            "conductivity": {
-                "values_source": "inline",
-                "unit": "m/day",
-                "values": {"1": 8.64, "2": 17.28},
-            },
-            "storage_coefficient": {
-                "values_source": "inline",
-                "values": {"1": 0.10, "2": 0.20},
-            },
-        },
+        geology_cfg=CatchmentBundleGeologyExportConfig.from_mapping(
+            {
+                "id": "field_geology",
+                "source": {
+                    "path": "geology.tif",
+                    "kind": "raster",
+                },
+                "cell_samples_per_axis": 8,
+            }
+        ),
+        hydraulic_properties_cfg=CatchmentBundleHydraulicPropertiesConfig.from_mapping(
+            {
+                "conductivity": {
+                    "values_source": "inline",
+                    "unit": "m/day",
+                    "values": {"1": 8.64, "2": 17.28},
+                },
+                "storage_coefficient": {
+                    "values_source": "inline",
+                    "values": {"1": 0.10, "2": 0.20},
+                },
+            }
+        ),
         river_trace=None,
-        summary=summary_payload,
+        summary=CatchmentBundleSummaryReference.from_mapping(summary_payload),
         config_path=config_path,
     )
 
@@ -156,6 +165,14 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     assert loaded.n_nodes == 4
     assert loaded.n_cells == 2
     assert loaded.n_edges == 5
+    assert loaded.metadata_view.files.mesh == "mesh_2d.msh"
+    assert loaded.metadata_view.geology.available is True
+    assert loaded.metadata_view.topography.source_path == str(dem_path)
+    assert loaded.metadata_view.vertical.derived_from == "domain.depth_model"
+    assert loaded.metadata_view.vertical.depth_model["type"] == "flat_substratum"
+    assert (
+        loaded.metadata_view.hydraulic_properties.conductivity.unit == "m/s"
+    )
     assert loaded.metadata["geology"]["available"] is True
     assert loaded.metadata["hydraulic_properties"]["available"] is True
     assert loaded.metadata["topography"]["source_path"] == str(dem_path)
@@ -284,22 +301,26 @@ def test_export_catchment_mesh_bundle_uses_default_csv_conductivity_for_unmapped
                 "thickness": "7 m",
             }
         },
-        geology_cfg={
-            "id": "field_geology",
-            "source": {
-                "path": str(geology_path),
-                "kind": "raster",
-            },
-            "cell_samples_per_axis": 8,
-        },
-        hydraulic_properties_cfg={
-            "conductivity": {
-                "values_source": "csv",
-                "values_csv_file": str(conductivity_csv),
-                "csv_value_column": "K_value",
-                "default_value": 1.0e-5,
+        geology_cfg=CatchmentBundleGeologyExportConfig.from_mapping(
+            {
+                "id": "field_geology",
+                "source": {
+                    "path": str(geology_path),
+                    "kind": "raster",
+                },
+                "cell_samples_per_axis": 8,
             }
-        },
+        ),
+        hydraulic_properties_cfg=CatchmentBundleHydraulicPropertiesConfig.from_mapping(
+            {
+                "conductivity": {
+                    "values_source": "csv",
+                    "values_csv_file": str(conductivity_csv),
+                    "csv_value_column": "K_value",
+                    "default_value": 1.0e-5,
+                }
+            }
+        ),
         config_path=tmp_path / "config.toml",
     )
 

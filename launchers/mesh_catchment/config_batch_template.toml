@@ -457,3 +457,87 @@ refine_interfaces = false
 # Type: int | Default: 64
 interface_sampling = 64
 
+
+# Optional local hotspot policy used to selectively thin low-priority refinement families when the mixed interface network becomes too dense for one robust Gmsh Delaunay run.
+
+# [mesh_catchment.zone_meshing.refinement_policy]
+# Type: bool | Default: false
+# enabled = false
+
+# Type: string | Default: "family_priority_local_budget"
+# mode = "family_priority_local_budget"
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.hotspot]
+# Type: float (optional) | Optional
+# radius = 0.0
+
+# Type: int | Default: 180
+# max_curve_count = 180
+
+# Type: int | Default: 2
+# max_family_count = 2
+
+# Type: float | Default: 80.0
+# min_gap = 80.0
+
+# Type: int | Default: 4
+# max_node_degree = 4
+
+# Type: float | Default: 120.0
+# short_segment_length = 120.0
+
+# Type: int | Default: 12
+# max_short_segment_count = 12
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.families.river]
+# Type: bool | Default: true
+# enabled = true
+
+# Type: int | Default: 0
+# priority = 0
+
+# Type: float (optional) | Optional
+# interface_size = 0.0
+
+# Type: float (optional) | Optional
+# interface_distance = 0.0
+
+# Type: int (optional) | Optional
+# interface_sampling = 0
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
+# Type: bool | Default: true
+# enabled = true
+
+# Type: int | Default: 0
+# priority = 0
+
+# Type: float (optional) | Optional
+# interface_size = 0.0
+
+# Type: float (optional) | Optional
+# interface_distance = 0.0
+
+# Type: int (optional) | Optional
+# interface_sampling = 0
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
+# Type: bool | Default: true
+# enabled = true
+
+# Type: int | Default: 0
+# priority = 0
+
+# Type: float (optional) | Optional
+# interface_size = 0.0
+
+# Type: float (optional) | Optional
+# interface_distance = 0.0
+
+# Type: int (optional) | Optional
+# interface_sampling = 0
+

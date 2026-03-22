@@ -1,4 +1,4 @@
-"""Standalone pedagogical tools for exported mesh bundles.
+﻿"""Standalone pedagogical tools for exported mesh bundles.
 
 This package exposes a compact API to:
 
@@ -10,33 +10,33 @@ It is designed for redistribution and review, not for mesh generation.
 
 Recommended public entry points:
 
-- CLI: ``python -m mesh`` via ``mesh.cli.main``
-- simple Python usage: ``mesh.run_visualization_from_toml(...)``
-- lower-level usage: ``mesh.load_toml_config(...)`` and
-  ``mesh.build_visualization_figure(...)``
+- CLI in this repository: ``python -m tools.mesh_bundle_viewer``
+- simple Python usage in this repository: ``tools.mesh_bundle_viewer.run_visualization_from_toml(...)``
+- lower-level usage in standalone form: `mesh_bundle_viewer.load_toml_config(...)` and
+  `mesh_bundle_viewer.build_visualization_figure(...)`
 """
 
-from mesh.display import (
+from .display import (
     build_visualization_figure,
     build_visualization_summary,
     build_visualization_summary_contract,
     has_continuous_node_topography,
 )
-from mesh.bundle_contracts import (
+from .bundle_contracts import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
     CatchmentMeshBundleEdge,
     CatchmentMeshBundleGeologyFraction,
     CatchmentMeshBundleNode,
 )
-from mesh.loading import (
+from .loading import (
     MeshVisualizationTomlSchema,
     VisualizationPlotTomlSchema,
     load_visualization_data,
     load_visualization_data_from_toml,
     load_toml_config,
 )
-from mesh.schema import (
+from .schema import (
     ALLOWED_COLOR_FIELDS,
     ALLOWED_TOPOGRAPHY_FIELDS,
     CATEGORICAL_COLOR_FIELDS,
@@ -52,11 +52,11 @@ from mesh.schema import (
     PlotConfig,
     VisualizationConfig,
 )
-from mesh.runner import (
+from .runner import (
     run_visualization,
     run_visualization_from_toml,
 )
-from mesh.visualization_summary import (
+from .visualization_summary import (
     VISUALIZATION_SUMMARY_SCHEMA_VERSION,
     VisualizationSummary,
 )
@@ -95,3 +95,10 @@ __all__ = [
     "run_visualization",
     "run_visualization_from_toml",
 ]
+
+
+
+
+
+
+

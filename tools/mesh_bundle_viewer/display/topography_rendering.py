@@ -1,18 +1,18 @@
-"""Topography-panel rendering for the standalone mesh visualization package."""
+﻿"""Topography-panel rendering for the standalone mesh visualization package."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from mesh.bundle_contracts import MeshBundleLike
-from mesh.display.geometry import (
+from ..bundle_contracts import MeshBundleLike
+from .geometry import (
     build_triangulation_inputs,
     format_axes,
     get_node_topography_values,
 )
-from mesh.display.overlay_rendering import plot_overlays
-from mesh.display.rendering_common import plot_cell_annotations
-from mesh.schema import PlotConfig
+from .overlay_rendering import plot_overlays
+from .rendering_common import plot_cell_annotations
+from ..schema import PlotConfig
 
 
 def plot_continuous_topography_panel(
@@ -78,3 +78,4 @@ def plot_continuous_topography_panel(
 __all__ = [
     "plot_continuous_topography_panel",
 ]
+

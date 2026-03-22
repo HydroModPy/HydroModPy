@@ -1,10 +1,10 @@
-"""Geometry preparation helpers for the standalone mesh visualization package."""
+﻿"""Geometry preparation helpers for the standalone mesh visualization package."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from mesh.bundle_contracts import MeshBundleLike
+from ..bundle_contracts import MeshBundleLike
 
 
 def build_node_xy_map(mesh: MeshBundleLike) -> dict[int, tuple[float, float]]:
@@ -181,3 +181,4 @@ __all__ = [
     "get_numeric_cell_values",
     "has_continuous_node_topography",
 ]
+

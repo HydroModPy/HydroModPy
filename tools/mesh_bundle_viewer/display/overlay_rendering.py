@@ -1,12 +1,12 @@
-"""Overlay rendering for the standalone mesh visualization package."""
+﻿"""Overlay rendering for the standalone mesh visualization package."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from mesh.bundle_contracts import MeshBundleLike
-from mesh.display.geometry import build_edge_segments
-from mesh.schema import PlotConfig
+from ..bundle_contracts import MeshBundleLike
+from .geometry import build_edge_segments
+from ..schema import PlotConfig
 
 
 OVERLAY_STYLES = (
@@ -75,3 +75,4 @@ __all__ = [
     "OVERLAY_STYLES",
     "plot_overlays",
 ]
+

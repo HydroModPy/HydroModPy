@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +33,18 @@ def _parse_optional_int(raw_value: str) -> int | None:
 def _parse_bool(raw_value: str) -> bool:
     """Parse permissive CSV booleans used by the bundle export."""
     return str(raw_value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _as_dict(raw_value: object) -> dict[str, Any]:
+    """Return one plain dictionary from a loose JSON-like object."""
+    return dict(raw_value) if isinstance(raw_value, dict) else {}
+
+
+def _as_text_tuple(raw_value: object) -> tuple[str, ...]:
+    """Return one tuple of strings from a loose JSON list/tuple field."""
+    if not isinstance(raw_value, (list, tuple)):
+        return ()
+    return tuple(str(value) for value in raw_value)
 
 
 @dataclass(frozen=True)
@@ -92,6 +104,235 @@ class CatchmentMeshBundleGeologyFraction:
 
 
 @dataclass(frozen=True)
+class CatchmentMeshBundleFilesView:
+    """Typed view of the exported filenames declared in ``metadata.json``."""
+
+    mesh: str = "mesh_2d.msh"
+    nodes: str | None = None
+    cells: str | None = None
+    edges: str | None = None
+    cell_geology_fractions: str | None = None
+    metadata: str | None = None
+    readme: str | None = None
+    mesh_summary: str | None = None
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw_value: object,
+    ) -> CatchmentMeshBundleFilesView:
+        payload = _as_dict(raw_value)
+        return cls(
+            mesh=str(payload.get("mesh", "mesh_2d.msh")),
+            nodes=_optional_text(payload.get("nodes")),
+            cells=_optional_text(payload.get("cells")),
+            edges=_optional_text(payload.get("edges")),
+            cell_geology_fractions=_optional_text(payload.get("cell_geology_fractions")),
+            metadata=_optional_text(payload.get("metadata")),
+            readme=_optional_text(payload.get("readme")),
+            mesh_summary=_optional_text(payload.get("mesh_summary")),
+        )
+
+
+@dataclass(frozen=True)
+class CatchmentMeshBundleGeologyView:
+    """Typed view of the geology metadata carried by one bundle."""
+
+    available: bool = False
+    field_id: str | None = None
+    source_kind: str | None = None
+    cell_samples_per_axis: int | None = None
+    zone_keys: tuple[str, ...] = ()
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw_value: object,
+    ) -> CatchmentMeshBundleGeologyView:
+        payload = _as_dict(raw_value)
+        return cls(
+            available=bool(payload.get("available", False)),
+            field_id=_optional_text(payload.get("field_id")),
+            source_kind=_optional_text(payload.get("source_kind")),
+            cell_samples_per_axis=_parse_optional_int(
+                "" if payload.get("cell_samples_per_axis") is None else str(payload.get("cell_samples_per_axis"))
+            ),
+            zone_keys=_as_text_tuple(payload.get("zone_keys")),
+        )
+
+
+@dataclass(frozen=True)
+class CatchmentMeshBundleTopographyView:
+    """Typed view of the topography metadata carried by one bundle."""
+
+    source_path: str | None = None
+    node_field: str | None = None
+    cell_fields: tuple[str, ...] = ()
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw_value: object,
+    ) -> CatchmentMeshBundleTopographyView:
+        payload = _as_dict(raw_value)
+        return cls(
+            source_path=_optional_text(payload.get("source_path")),
+            node_field=_optional_text(payload.get("node_field")),
+            cell_fields=_as_text_tuple(payload.get("cell_fields")),
+        )
+
+
+@dataclass(frozen=True)
+class CatchmentMeshBundleVerticalView:
+    """Typed view of the vertical/discretization metadata carried by one bundle."""
+
+    available: bool = False
+    surface_name: str | None = None
+    derived_from: str | None = None
+    node_field: str | None = None
+    cell_fields: tuple[str, ...] = ()
+    depth_model: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw_value: object,
+    ) -> CatchmentMeshBundleVerticalView:
+        payload = _as_dict(raw_value)
+        raw_depth_model = payload.get("depth_model")
+        depth_model = _as_dict(raw_depth_model)
+        return cls(
+            available=bool(payload.get("available", False)),
+            surface_name=_optional_text(payload.get("surface_name")),
+            derived_from=_optional_text(payload.get("derived_from")),
+            node_field=_optional_text(payload.get("node_field")),
+            cell_fields=_as_text_tuple(payload.get("cell_fields")),
+            depth_model=depth_model,
+        )
+
+
+@dataclass(frozen=True)
+class CatchmentMeshBundleHydraulicPropertyView:
+    """Typed view of one hydraulic-property metadata block."""
+
+    available: bool = False
+    unit: str | None = None
+    values_source: str | None = None
+    values_csv_file: str | None = None
+    default_value: float | None = None
+    zone_keys_defined: tuple[str, ...] = ()
+    missing_zone_keys: tuple[str, ...] = ()
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw_value: object,
+    ) -> CatchmentMeshBundleHydraulicPropertyView:
+        payload = _as_dict(raw_value)
+        default_value_raw = payload.get("default_value")
+        default_value = None if default_value_raw is None else float(default_value_raw)
+        return cls(
+            available=bool(payload.get("available", False)),
+            unit=_optional_text(payload.get("unit")),
+            values_source=_optional_text(payload.get("values_source")),
+            values_csv_file=_optional_text(payload.get("values_csv_file")),
+            default_value=default_value,
+            zone_keys_defined=_as_text_tuple(payload.get("zone_keys_defined")),
+            missing_zone_keys=_as_text_tuple(payload.get("missing_zone_keys")),
+        )
+
+
+@dataclass(frozen=True)
+class CatchmentMeshBundleHydraulicPropertiesView:
+    """Typed view of the hydraulic-properties metadata carried by one bundle."""
+
+    available: bool = False
+    averaging: str | None = None
+    cell_fields: tuple[str, ...] = ()
+    conductivity: CatchmentMeshBundleHydraulicPropertyView = field(
+        default_factory=CatchmentMeshBundleHydraulicPropertyView
+    )
+    storage_coefficient: CatchmentMeshBundleHydraulicPropertyView = field(
+        default_factory=CatchmentMeshBundleHydraulicPropertyView
+    )
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw_value: object,
+    ) -> CatchmentMeshBundleHydraulicPropertiesView:
+        payload = _as_dict(raw_value)
+        return cls(
+            available=bool(payload.get("available", False)),
+            averaging=_optional_text(payload.get("averaging")),
+            cell_fields=_as_text_tuple(payload.get("cell_fields")),
+            conductivity=CatchmentMeshBundleHydraulicPropertyView.from_mapping(
+                payload.get("conductivity")
+            ),
+            storage_coefficient=CatchmentMeshBundleHydraulicPropertyView.from_mapping(
+                payload.get("storage_coefficient")
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class CatchmentMeshBundleMetadataView:
+    """Typed convenience view over the otherwise raw ``metadata.json`` payload."""
+
+    bundle_schema_version: str | None = None
+    mesh_kind: str | None = None
+    cell_type: str | None = None
+    indexing: str | None = None
+    crs: str | None = None
+    n_nodes: int | None = None
+    n_cells: int | None = None
+    constraints_mode: str | None = None
+    source_mesh_path: str | None = None
+    files: CatchmentMeshBundleFilesView = field(
+        default_factory=CatchmentMeshBundleFilesView
+    )
+    geology: CatchmentMeshBundleGeologyView = field(
+        default_factory=CatchmentMeshBundleGeologyView
+    )
+    topography: CatchmentMeshBundleTopographyView = field(
+        default_factory=CatchmentMeshBundleTopographyView
+    )
+    vertical: CatchmentMeshBundleVerticalView = field(
+        default_factory=CatchmentMeshBundleVerticalView
+    )
+    hydraulic_properties: CatchmentMeshBundleHydraulicPropertiesView = field(
+        default_factory=CatchmentMeshBundleHydraulicPropertiesView
+    )
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw_value: object,
+    ) -> CatchmentMeshBundleMetadataView:
+        payload = _as_dict(raw_value)
+        return cls(
+            bundle_schema_version=_optional_text(payload.get("bundle_schema_version")),
+            mesh_kind=_optional_text(payload.get("mesh_kind")),
+            cell_type=_optional_text(payload.get("cell_type")),
+            indexing=_optional_text(payload.get("indexing")),
+            crs=_optional_text(payload.get("crs")),
+            n_nodes=_coerce_optional_int(payload.get("n_nodes")),
+            n_cells=_coerce_optional_int(payload.get("n_cells")),
+            constraints_mode=_optional_text(payload.get("constraints_mode")),
+            source_mesh_path=_optional_text(payload.get("source_mesh_path")),
+            files=CatchmentMeshBundleFilesView.from_mapping(payload.get("files")),
+            geology=CatchmentMeshBundleGeologyView.from_mapping(payload.get("geology")),
+            topography=CatchmentMeshBundleTopographyView.from_mapping(
+                payload.get("topography")
+            ),
+            vertical=CatchmentMeshBundleVerticalView.from_mapping(payload.get("vertical")),
+            hydraulic_properties=CatchmentMeshBundleHydraulicPropertiesView.from_mapping(
+                payload.get("hydraulic_properties")
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class CatchmentMeshBundle:
     """In-memory view of one self-contained bundle directory.
 
@@ -126,8 +367,13 @@ class CatchmentMeshBundle:
     @property
     def mesh_path(self) -> Path:
         """Return the path of the copied `.msh` file inside the bundle."""
-        filename = str(self.metadata.get("files", {}).get("mesh", "mesh_2d.msh"))
+        filename = self.metadata_view.files.mesh
         return (self.bundle_dir / filename).resolve()
+
+    @property
+    def metadata_view(self) -> CatchmentMeshBundleMetadataView:
+        """Return a typed convenience view over ``metadata.json``."""
+        return CatchmentMeshBundleMetadataView.from_mapping(self.metadata)
 
     def node_coordinates(self) -> list[tuple[float, float]]:
         """Return planar node coordinates in bundle node order."""
@@ -153,6 +399,21 @@ def _load_csv_rows(path: Path) -> list[dict[str, str]]:
     with path.open("r", encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream)
         return [dict(row) for row in reader]
+
+
+def _optional_text(raw_value: object) -> str | None:
+    """Return one stripped string or ``None`` when empty."""
+    if raw_value is None:
+        return None
+    text = str(raw_value).strip()
+    return None if text == "" else text
+
+
+def _coerce_optional_int(raw_value: object) -> int | None:
+    """Parse one optional integer from loose JSON metadata values."""
+    if raw_value is None:
+        return None
+    return int(raw_value)
 
 
 def _load_nodes(path: Path) -> tuple[CatchmentMeshBundleNode, ...]:

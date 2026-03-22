@@ -20,7 +20,11 @@ import numpy as np
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
+    CatchmentMeshBundleCell,
+    CatchmentMeshBundleEdge,
+    CatchmentMeshBundleNode,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
 
 def _normalize_geom_type(raw_value: object) -> str:
@@ -53,6 +57,27 @@ def _point_in_triangle(
         l1 >= -float(tolerance)
         and l2 >= -float(tolerance)
         and l3 >= -float(tolerance)
+    )
+
+
+def _optional_finite_float(value: float) -> float | None:
+    """Convert one sampled float to the bundle optional-float convention."""
+    if not np.isfinite(float(value)):
+        return None
+    return float(value)
+
+
+def _polygon_area(vertices: np.ndarray) -> float:
+    """Compute one polygon area from ordered XY vertices."""
+    coords = np.asarray(vertices, dtype=float)
+    x_vals = coords[:, 0]
+    y_vals = coords[:, 1]
+    return float(
+        0.5
+        * abs(
+            np.dot(x_vals, np.roll(y_vals, -1))
+            - np.dot(y_vals, np.roll(x_vals, -1))
+        )
     )
 
 
@@ -93,6 +118,7 @@ class BoussinesqMesh:
     edge_is_river: np.ndarray
     cell_index_by_id: dict[int, int]
     node_index_by_id: dict[int, int]
+    planar_mesh: GmshPlanarMesh2D | None = None
 
     @property
     def n_cells(self) -> int:
@@ -219,6 +245,178 @@ class BoussinesqMesh:
         return np.flatnonzero(np.asarray(self.edge_is_river, dtype=bool)).astype(
             int,
             copy=False,
+        )
+
+    @classmethod
+    def from_planar_mesh(
+        cls,
+        mesh: GmshPlanarMesh2D,
+        *,
+        domain: object,
+        hydraulic_conductivity_m_s,
+        storage_coefficient,
+        river_trace: object | None = None,
+    ) -> "BoussinesqMesh":
+        """Build the solver mesh view directly from one runtime Gmsh mesh.
+
+        This path keeps the solver in the same architectural shape as the
+        MODFLOW adapters: geometry comes from the runtime meshing workflow and
+        hydraulic properties come from process-level parameter mapping rather
+        than pre-exported CSV tables.
+        """
+        from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
+            _build_edge_rows,
+            _sample_surface,
+        )
+
+        if not isinstance(mesh, GmshPlanarMesh2D):
+            raise TypeError("mesh must be a GmshPlanarMesh2D instance")
+        if domain is None:
+            raise ValueError("Boussinesq runtime mesh construction requires a domain")
+
+        surface_topo = getattr(domain, "surface_topo", None)
+        substratum = getattr(domain, "substratum", None)
+        if surface_topo is None:
+            raise ValueError("domain.surface_topo is required for runtime mesh construction")
+        if substratum is None:
+            raise ValueError("domain.substratum is required for runtime mesh construction")
+
+        conductivity_values = np.asarray(
+            mesh.to_cell_values(hydraulic_conductivity_m_s),
+            dtype=float,
+        )
+        storage_values = np.asarray(
+            mesh.to_cell_values(storage_coefficient),
+            dtype=float,
+        )
+
+        node_x = np.asarray(mesh.points_xy[:, 0], dtype=float)
+        node_y = np.asarray(mesh.points_xy[:, 1], dtype=float)
+        node_z_top = _sample_surface(surface_topo, node_x, node_y).reshape(-1)
+        node_z_bottom = _sample_surface(substratum, node_x, node_y).reshape(-1)
+        centroid_x, centroid_y = mesh.cell_centroids()
+        centroid_x = np.asarray(centroid_x, dtype=float).reshape(-1)
+        centroid_y = np.asarray(centroid_y, dtype=float).reshape(-1)
+        centroid_z_top = _sample_surface(surface_topo, centroid_x, centroid_y).reshape(-1)
+        centroid_z_bottom = _sample_surface(substratum, centroid_x, centroid_y).reshape(-1)
+
+        nodes = tuple(
+            CatchmentMeshBundleNode(
+                node_id=int(node_id),
+                x=float(node_x[node_id]),
+                y=float(node_y[node_id]),
+                z_top=_optional_finite_float(float(node_z_top[node_id])),
+                z_bottom=_optional_finite_float(float(node_z_bottom[node_id])),
+            )
+            for node_id in range(int(mesh.n_nodes))
+        )
+
+        cells: list[CatchmentMeshBundleCell] = []
+        for cell in mesh.iter_cells():
+            cell_index = int(cell.index)
+            node_indices = tuple(int(node_id) for node_id in cell.node_indices)
+            cell_node_z_top = node_z_top[np.asarray(node_indices, dtype=int)]
+            cell_node_z_bottom = node_z_bottom[np.asarray(node_indices, dtype=int)]
+            cells.append(
+                CatchmentMeshBundleCell(
+                    cell_id=cell_index,
+                    geom_type=str(cell.kind),
+                    node_indices=node_indices,
+                    centroid_x=float(cell.centroid[0]),
+                    centroid_y=float(cell.centroid[1]),
+                    area_m2=_polygon_area(np.asarray(cell.vertices, dtype=float)),
+                    z_top_centroid=_optional_finite_float(
+                        float(centroid_z_top[cell_index])
+                    ),
+                    z_top_mean=_optional_finite_float(float(np.nanmean(cell_node_z_top))),
+                    z_bottom_centroid=_optional_finite_float(
+                        float(centroid_z_bottom[cell_index])
+                    ),
+                    z_bottom_mean=_optional_finite_float(
+                        float(np.nanmean(cell_node_z_bottom))
+                    ),
+                    geology_code=None,
+                    geology_key="",
+                    hydraulic_conductivity_m_s=float(conductivity_values[cell_index]),
+                    storage_coefficient=float(storage_values[cell_index]),
+                )
+            )
+
+        edge_rows = _build_edge_rows(
+            mesh=mesh,
+            cell_zone_keys=tuple("" for _ in range(int(mesh.n_cells))),
+            river_trace=river_trace,
+        )
+        edges = tuple(
+            CatchmentMeshBundleEdge(
+                edge_id=int(row["edge_id"]),
+                node_a=int(row["node_a"]),
+                node_b=int(row["node_b"]),
+                cell_a=int(row["cell_a"]),
+                cell_b=(
+                    None
+                    if str(row.get("cell_b", "")).strip() == ""
+                    else int(row["cell_b"])
+                ),
+                length_m=float(row["length_m"]),
+                edge_kind=str(row["edge_kind"]),
+                is_river=bool(row["is_river"]),
+                geology_a_key=str(row.get("geology_a_key", "")),
+                geology_b_key=str(row.get("geology_b_key", "")),
+            )
+            for row in edge_rows
+        )
+
+        source_path = getattr(mesh, "source_path", None)
+        bundle_dir = (
+            Path(source_path).resolve().parent
+            if source_path is not None
+            else Path.cwd()
+        )
+        runtime_bundle = CatchmentMeshBundle(
+            bundle_dir=bundle_dir,
+            metadata={
+                "source_mesh_path": None
+                if source_path is None
+                else str(Path(source_path).resolve())
+            },
+            nodes=nodes,
+            cells=tuple(cells),
+            edges=edges,
+            geology_fractions=(),
+            mesh_summary=None,
+        )
+        base_mesh = cls.from_bundle(runtime_bundle)
+        return cls(
+            bundle_dir=base_mesh.bundle_dir,
+            cell_ids=base_mesh.cell_ids,
+            node_ids=base_mesh.node_ids,
+            node_x_m=base_mesh.node_x_m,
+            node_y_m=base_mesh.node_y_m,
+            cell_node_ids=base_mesh.cell_node_ids,
+            cell_centroid_x_m=base_mesh.cell_centroid_x_m,
+            cell_centroid_y_m=base_mesh.cell_centroid_y_m,
+            cell_area_m2=base_mesh.cell_area_m2,
+            z_top_m=base_mesh.z_top_m,
+            z_bottom_m=base_mesh.z_bottom_m,
+            hydraulic_conductivity_m_s=base_mesh.hydraulic_conductivity_m_s,
+            storage_coefficient=base_mesh.storage_coefficient,
+            edge_ids=base_mesh.edge_ids,
+            edge_node_a=base_mesh.edge_node_a,
+            edge_node_b=base_mesh.edge_node_b,
+            edge_cell_a=base_mesh.edge_cell_a,
+            edge_cell_b=base_mesh.edge_cell_b,
+            edge_length_m=base_mesh.edge_length_m,
+            edge_distance_m=base_mesh.edge_distance_m,
+            edge_midpoint_distance_to_cell_a_m=base_mesh.edge_midpoint_distance_to_cell_a_m,
+            edge_midpoint_distance_to_cell_b_m=base_mesh.edge_midpoint_distance_to_cell_b_m,
+            edge_midpoint_x_m=base_mesh.edge_midpoint_x_m,
+            edge_midpoint_y_m=base_mesh.edge_midpoint_y_m,
+            edge_kind=base_mesh.edge_kind,
+            edge_is_river=base_mesh.edge_is_river,
+            cell_index_by_id=base_mesh.cell_index_by_id,
+            node_index_by_id=base_mesh.node_index_by_id,
+            planar_mesh=mesh,
         )
 
     @classmethod
@@ -416,6 +614,7 @@ class BoussinesqMesh:
             edge_is_river=np.asarray(edge_is_river, dtype=bool),
             cell_index_by_id=cell_index_by_id,
             node_index_by_id=node_index_by_id,
+            planar_mesh=None,
         )
 
 

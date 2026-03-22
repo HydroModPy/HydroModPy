@@ -1,0 +1,93 @@
+# Local real-case launcher example reusing one precomputed catchment mesh.
+# This config is intentionally tied to one machine-local results tree.
+
+[workspace]
+project_root = "C:/results/HydromodPy/process_simulation_runs/headwater_100km2/outlet_2_boussinesq"
+
+[geographic]
+catch_def = "from_outlet_coord"
+dem_init_path = "C:/codes/HydroModPy-GH/examples/data/dem/DEM_armorican_massif.tif"
+x_outlet = 407925.0
+y_outlet = 6808275.0
+snap_dist = "50 m"
+buff_area = "20%"
+crs_project = "EPSG:2154"
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "50.0 m"
+
+[domain.supports.field_geology]
+provider = "geology"
+
+[data]
+types = ["geology"]
+inference_mode = "strict"
+
+[data.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[[data.geology.sources]]
+source = "custom"
+path = "C:/codes/HydroModPy-GH/examples/data/geology/GEO1M.shp"
+code_field = "CODE_LEG"
+mask_path = "C:/results/HydromodPy/process_simulation_runs/headwater_100km2/outlet_2_boussinesq/results_stable/geographic/watershed_box_buff.shp"
+
+[simulation]
+name = "Headwater 100 km2 outlet 2 boussinesq"
+run_id = "headwater_100km2_outlet_2_boussinesq"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["boussinesq"]
+
+[mesh_input]
+mesh_path = "C:/results/HydromodPy/mesh_catchment_runs/headwater_100km2/mesh_outlet_2/mesh_catchment_outlet_2.msh"
+
+[flow]
+flow_regime = "steady"
+runtime_backend = "scipy_sparse"
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+param_list = ["K", "Sy"]
+
+[flow.param.K.field]
+id = "K"
+kind = "heterogeneous"
+unit = "m/s"
+
+[flow.param.K.field_heterogeneous]
+values_source = "csv"
+values_csv_file = "C:/codes/HydroModPy-GH/examples/data/geology/geology_K_dummy_demo.csv"
+csv_key_column = "zone_key"
+csv_value_column = "K_value"
+field_spatial_id = "field_geology"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+
+[flow.param.Sy.field_homogeneous]
+value = 0.02
+
+[flow.ic]
+type = "top"
+
+[flow.bc.cauchy.drainage]
+application_domain = "top"
+type = "cauchy"
+value = "1.0e-6 m2/s"
+
+[flow.sinks_sources.recharge]
+values = 1.0e-8
+first_clim = "mean"
+negative_to_evt = false
+
+[postprocess]
+enabled = false

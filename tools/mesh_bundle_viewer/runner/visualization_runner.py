@@ -1,4 +1,4 @@
-"""High-level orchestration for the standalone mesh visualization workflow.
+﻿"""High-level orchestration for the standalone mesh visualization workflow.
 
 Execution flow:
 
@@ -20,28 +20,28 @@ import json
 from pathlib import Path
 from typing import Any
 
-from mesh.display.figure import (
+from ..display.figure import (
     build_visualization_figure,
 )
-from mesh.display.summary import (
+from ..display.summary import (
     build_visualization_summary_contract,
     build_visualization_summary,
 )
-from mesh.loading.bundle_loader import (
+from ..loading.bundle_loader import (
     load_visualization_data,
     load_visualization_data_from_toml,
 )
-from mesh.loading.toml_loader import (
+from ..loading.toml_loader import (
     load_toml_config,
 )
-from mesh.schema import (
+from ..schema import (
     DEFAULT_CONFIG_FILENAME,
     DEFAULT_TOML_SECTION,
     MeshVisualizationData,
     PlotConfig,
     VisualizationConfig,
 )
-from mesh.visualization_summary import VisualizationSummary
+from ..visualization_summary import VisualizationSummary
 
 
 def _write_json_file(path: Path, content: Mapping[str, Any]) -> None:
@@ -143,3 +143,4 @@ __all__ = [
     "run_visualization",
     "run_visualization_from_toml",
 ]
+

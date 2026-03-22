@@ -185,15 +185,20 @@ DEM ou un raster de reference hors emprise.
 
 ### Flux embarque dans process_simulation
 
-`process_simulation` peut embarquer une phase `[mesh_catchment]`, mais pas un
-batch complet :
+`process_simulation` peut soit embarquer une phase `[mesh_catchment]`, soit
+reutiliser un maillage deja produit via `[mesh_input]`, mais pas un batch
+complet :
 
 - `[mesh_catchment]` : autorise
+- `[mesh_input]` : autorise pour charger `mesh_path` et/ou `bundle_dir`
 - `[mesh_catchment_batch]` : refuse si `enabled = true`
 
 Dans ce cas, la phase mesh est executee une fois apres la construction des
 supports spatiaux et avant les solveurs. Le resume de maillage est ensuite
 range dans l'etat runtime (`mesh_summary`) et remonte dans les artefacts de run.
+
+`[mesh_catchment]` et `[mesh_input]` sont mutuellement exclusifs dans un meme
+run `process_simulation`.
 
 ## Architecture
 

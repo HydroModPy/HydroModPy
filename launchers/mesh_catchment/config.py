@@ -869,15 +869,6 @@ class MeshCatchmentBatchSectionSchema(BaseModel):
         return self
 
 
-# ---------------------------------------------------------------------------
-# Validation entry points used by launcher/runtime code
-# ---------------------------------------------------------------------------
-
-def validate_mesh_catchment_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate one `[mesh_catchment]` section and return normalized data."""
-    return parse_mesh_catchment_config_data(config_data).model_dump(mode="python")
-
-
 def parse_mesh_catchment_config_data(
     config_data: Mapping[str, Any],
 ) -> MeshCatchmentConfigSchema:
@@ -891,13 +882,6 @@ def parse_mesh_catchment_config_data(
         return MeshCatchmentConfigSchema.model_validate(dict(config_data))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
-
-
-def validate_mesh_catchment_batch_config_data(
-    config_data: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Validate one optional `[mesh_catchment_batch]` section."""
-    return parse_mesh_catchment_batch_config_data(config_data).model_dump(mode="python")
 
 
 def parse_mesh_catchment_batch_config_data(
@@ -925,6 +909,4 @@ __all__ = [
     "MeshCatchmentWatershedBoundarySmoothingConfigSchema",
     "parse_mesh_catchment_batch_config_data",
     "parse_mesh_catchment_config_data",
-    "validate_mesh_catchment_batch_config_data",
-    "validate_mesh_catchment_config_data",
 ]

@@ -123,6 +123,29 @@ def test_load_mesh_catchment_outlet_records_reads_csv(tmp_path: Path) -> None:
     assert records[1].x_outlet == pytest.approx(30.0)
 
 
+def test_load_mesh_catchment_outlet_records_accepts_geometry_xy_fallback(
+    tmp_path: Path,
+) -> None:
+    table_path = tmp_path / "outlets_geometry_xy.csv"
+    table_path.write_text(
+        "outlet_id,geometry_x,geometry_y\nA1,10.5,20.5\n",
+        encoding="utf-8",
+    )
+
+    records = load_mesh_catchment_outlet_records(
+        table_path=table_path,
+        selection_mode="all",
+        selected_outlet_ids=(),
+        outlet_id_column="outlet_id",
+        x_column="x",
+        y_column="y",
+    )
+
+    assert len(records) == 1
+    assert records[0].x_outlet == pytest.approx(10.5)
+    assert records[0].y_outlet == pytest.approx(20.5)
+
+
 def test_write_mesh_catchment_batch_manifest_persists_csv(tmp_path: Path) -> None:
     manifest_path = tmp_path / "batch" / "manifest.csv"
     rows = [

@@ -25,6 +25,37 @@ class MeshCatchmentOutletRecord:
     y_outlet: float
 
 
+@dataclass(frozen=True)
+class MeshCatchmentOutletTableRow:
+    """One raw row loaded from the outlet table before normalization.
+
+    CSV and vector inputs do not expose coordinates the same way. This small
+    contract keeps the loader logic explicit: user columns remain in
+    ``values`` while optional point coordinates extracted from a vector
+    geometry are carried separately.
+    """
+
+    values: dict[str, Any]
+    geometry_x: float | None = None
+    geometry_y: float | None = None
+
+    def has_column(self, column_name: str) -> bool:
+        """Return whether one logical column can be read from this row."""
+        if column_name == "geometry_x":
+            return self.geometry_x is not None or column_name in self.values
+        if column_name == "geometry_y":
+            return self.geometry_y is not None or column_name in self.values
+        return column_name in self.values
+
+    def get(self, column_name: str) -> object | None:
+        """Return one raw value, including geometry-derived XY fallbacks."""
+        if column_name == "geometry_x" and self.geometry_x is not None:
+            return self.geometry_x
+        if column_name == "geometry_y" and self.geometry_y is not None:
+            return self.geometry_y
+        return self.values.get(column_name)
+
+
 def sanitize_batch_path_token(raw_value: object) -> str:
     """Convert one user-facing token into a filesystem-safe path fragment."""
     text = str(raw_value).strip()
@@ -127,17 +158,17 @@ def validate_outlets_within_raster(
     )
 
 
-def _load_outlet_rows_from_csv(table_path: Path) -> list[dict[str, Any]]:
+def _load_outlet_rows_from_csv(table_path: Path) -> list[MeshCatchmentOutletTableRow]:
     """Read outlet rows from one CSV file with a header row."""
 
     with table_path.open("r", encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream)
         if reader.fieldnames is None:
             raise ValueError(f"mesh_catchment_batch CSV has no header row: {table_path}")
-        return [dict(row) for row in reader]
+        return [MeshCatchmentOutletTableRow(values=dict(row)) for row in reader]
 
 
-def _load_outlet_rows_from_vector(table_path: Path) -> list[dict[str, Any]]:
+def _load_outlet_rows_from_vector(table_path: Path) -> list[MeshCatchmentOutletTableRow]:
     """Read outlet rows from one vector file and expose point XY columns."""
 
     import geopandas as gpd
@@ -145,22 +176,30 @@ def _load_outlet_rows_from_vector(table_path: Path) -> list[dict[str, Any]]:
     gdf = gpd.read_file(table_path)
     if gdf.empty:
         return []
-    rows: list[dict[str, Any]] = []
+    rows: list[MeshCatchmentOutletTableRow] = []
     for _, row in gdf.iterrows():
         payload = {
             str(column): row[column] for column in gdf.columns if str(column) != "geometry"
         }
         geometry = getattr(row, "geometry", None)
+        geometry_x = None
+        geometry_y = None
         if geometry is not None and not geometry.is_empty:
-            payload.setdefault("geometry_x", float(geometry.x))
-            payload.setdefault("geometry_y", float(geometry.y))
-        rows.append(payload)
+            geometry_x = float(geometry.x)
+            geometry_y = float(geometry.y)
+        rows.append(
+            MeshCatchmentOutletTableRow(
+                values=payload,
+                geometry_x=geometry_x,
+                geometry_y=geometry_y,
+            )
+        )
     return rows
 
 
 def _build_outlet_record(
     *,
-    row: Mapping[str, Any],
+    row: MeshCatchmentOutletTableRow,
     outlet_id_column: str,
     x_column: str,
     y_column: str,
@@ -168,15 +207,19 @@ def _build_outlet_record(
 ) -> MeshCatchmentOutletRecord:
     """Validate one raw table row and convert it into one outlet record."""
 
-    if outlet_id_column not in row:
+    if not row.has_column(outlet_id_column):
         raise KeyError(f"Missing outlet id column '{outlet_id_column}' in {row_label}")
     outlet_id = _require_text(
         row.get(outlet_id_column),
         label=f"{row_label}.{outlet_id_column}",
     )
     try:
-        raw_x = row.get(x_column, row.get("geometry_x"))
-        raw_y = row.get(y_column, row.get("geometry_y"))
+        raw_x = row.get(x_column)
+        if raw_x is None:
+            raw_x = row.get("geometry_x")
+        raw_y = row.get(y_column)
+        if raw_y is None:
+            raw_y = row.get("geometry_y")
         if raw_x is None or raw_y is None:
             raise KeyError
         x_outlet = float(raw_x)

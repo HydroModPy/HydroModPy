@@ -6,31 +6,32 @@ import pytest
 
 from hydromodpy.config.generate_toml import available_modules, generate_toml
 from launchers.mesh_catchment.config import (
-    validate_mesh_catchment_batch_config_data,
-    validate_mesh_catchment_config_data,
+    parse_mesh_catchment_batch_config_data,
+    parse_mesh_catchment_config_data,
 )
 from launchers.mesh_catchment.templates import render_mesh_catchment_template
 
 
-def test_validate_mesh_catchment_config_defaults_domain_and_rivers() -> None:
-    cfg = validate_mesh_catchment_config_data(
+def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
+    cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "rivers_only",
         }
     )
 
-    assert cfg["constraints_mode"] == "rivers_only"
-    assert cfg["domain"]["kind"] == "geographic_box_buffer"
-    assert cfg["geographic_outputs_mode"] == "keep"
-    assert cfg["rivers"]["source"] == "domain_geographic"
-    assert cfg["watershed_boundary"]["enabled"] is True
-    assert cfg["watershed_boundary"]["source"] == "domain_geographic"
-    assert cfg["watershed_boundary"]["smoothing"]["enabled"] is True
-    assert cfg["zone_meshing"]["algorithm"] == "delaunay"
+    assert cfg.constraints_mode == "rivers_only"
+    assert cfg.domain.kind == "geographic_box_buffer"
+    assert cfg.geographic_outputs_mode == "keep"
+    assert cfg.rivers.source == "domain_geographic"
+    assert cfg.watershed_boundary is not None
+    assert cfg.watershed_boundary.enabled is True
+    assert cfg.watershed_boundary.source == "domain_geographic"
+    assert cfg.watershed_boundary.smoothing.enabled is True
+    assert cfg.zone_meshing.algorithm == "delaunay"
 
 
-def test_validate_mesh_catchment_config_accepts_watershed_boundary() -> None:
-    cfg = validate_mesh_catchment_config_data(
+def test_parse_mesh_catchment_config_accepts_watershed_boundary() -> None:
+    cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "geology_only",
             "geology": {
@@ -51,13 +52,14 @@ def test_validate_mesh_catchment_config_accepts_watershed_boundary() -> None:
         }
     )
 
-    assert cfg["watershed_boundary"]["enabled"] is True
-    assert cfg["watershed_boundary"]["source"] == "domain_geographic"
-    assert cfg["watershed_boundary"]["smoothing"]["simplify_tolerance"] == 25.0
+    assert cfg.watershed_boundary is not None
+    assert cfg.watershed_boundary.enabled is True
+    assert cfg.watershed_boundary.source == "domain_geographic"
+    assert cfg.watershed_boundary.smoothing.simplify_tolerance == 25.0
 
 
-def test_validate_mesh_catchment_config_defaults_boundary_smoothing_to_smallest_mesh_size() -> None:
-    cfg = validate_mesh_catchment_config_data(
+def test_parse_mesh_catchment_config_defaults_boundary_smoothing_to_smallest_mesh_size() -> None:
+    cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "geology_only",
             "geology": {
@@ -75,15 +77,16 @@ def test_validate_mesh_catchment_config_defaults_boundary_smoothing_to_smallest_
         }
     )
 
-    smoothing = cfg["watershed_boundary"]["smoothing"]
-    assert smoothing["enabled"] is True
-    assert smoothing["simplify_tolerance"] == 120.0
-    assert smoothing["heal_tolerance"] == 60.0
+    assert cfg.watershed_boundary is not None
+    smoothing = cfg.watershed_boundary.smoothing
+    assert smoothing.enabled is True
+    assert smoothing.simplify_tolerance == 120.0
+    assert smoothing.heal_tolerance == 60.0
 
 
-def test_validate_mesh_catchment_config_rejects_redundant_watershed_boundary() -> None:
+def test_parse_mesh_catchment_config_rejects_redundant_watershed_boundary() -> None:
     with pytest.raises(ValueError, match="watershed_boundary is redundant"):
-        validate_mesh_catchment_config_data(
+        parse_mesh_catchment_config_data(
             {
                 "constraints_mode": "geology_only",
                 "geology": {
@@ -98,8 +101,8 @@ def test_validate_mesh_catchment_config_rejects_redundant_watershed_boundary() -
         )
 
 
-def test_validate_mesh_catchment_config_auto_disables_watershed_boundary_on_strict_domain() -> None:
-    cfg = validate_mesh_catchment_config_data(
+def test_parse_mesh_catchment_config_auto_disables_watershed_boundary_on_strict_domain() -> None:
+    cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "geology_only",
             "geology": {
@@ -112,12 +115,13 @@ def test_validate_mesh_catchment_config_auto_disables_watershed_boundary_on_stri
         }
     )
 
-    assert cfg["domain"]["kind"] == "geographic_watershed"
-    assert cfg["watershed_boundary"]["enabled"] is False
+    assert cfg.domain.kind == "geographic_watershed"
+    assert cfg.watershed_boundary is not None
+    assert cfg.watershed_boundary.enabled is False
 
 
-def test_validate_mesh_catchment_config_respects_explicit_boundary_smoothing_disable() -> None:
-    cfg = validate_mesh_catchment_config_data(
+def test_parse_mesh_catchment_config_respects_explicit_boundary_smoothing_disable() -> None:
+    cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "geology_only",
             "geology": {
@@ -134,14 +138,15 @@ def test_validate_mesh_catchment_config_respects_explicit_boundary_smoothing_dis
         }
     )
 
-    smoothing = cfg["watershed_boundary"]["smoothing"]
-    assert smoothing["enabled"] is False
-    assert smoothing["simplify_tolerance"] == 0.0
-    assert smoothing["heal_tolerance"] == 0.0
+    assert cfg.watershed_boundary is not None
+    smoothing = cfg.watershed_boundary.smoothing
+    assert smoothing.enabled is False
+    assert smoothing.simplify_tolerance == 0.0
+    assert smoothing.heal_tolerance == 0.0
 
 
-def test_validate_mesh_catchment_config_accepts_hydraulic_properties() -> None:
-    cfg = validate_mesh_catchment_config_data(
+def test_parse_mesh_catchment_config_accepts_hydraulic_properties() -> None:
+    cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "geology_only",
             "geology": {
@@ -160,35 +165,37 @@ def test_validate_mesh_catchment_config_accepts_hydraulic_properties() -> None:
         }
     )
 
-    assert cfg["hydraulic_properties"]["conductivity"]["unit"] == "m/day"
-    assert cfg["hydraulic_properties"]["conductivity"]["values"]["granite"] == 12.0
+    assert cfg.hydraulic_properties is not None
+    assert cfg.hydraulic_properties.conductivity is not None
+    assert cfg.hydraulic_properties.conductivity.unit == "m/day"
+    assert cfg.hydraulic_properties.conductivity.values["granite"] == 12.0
 
 
-def test_validate_mesh_catchment_config_accepts_cleanup_mode() -> None:
-    cfg = validate_mesh_catchment_config_data(
+def test_parse_mesh_catchment_config_accepts_cleanup_mode() -> None:
+    cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "rivers_only",
             "geographic_outputs_mode": "cleanup",
         }
     )
 
-    assert cfg["geographic_outputs_mode"] == "cleanup"
+    assert cfg.geographic_outputs_mode == "cleanup"
 
 
-def test_validate_mesh_catchment_config_accepts_flat_output_layout() -> None:
-    cfg = validate_mesh_catchment_config_data(
+def test_parse_mesh_catchment_config_accepts_flat_output_layout() -> None:
+    cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "rivers_only",
             "output_layout": "flat",
         }
     )
 
-    assert cfg["output_layout"] == "flat"
+    assert cfg.output_layout == "flat"
 
 
-def test_validate_mesh_catchment_config_rejects_unknown_cleanup_mode() -> None:
+def test_parse_mesh_catchment_config_rejects_unknown_cleanup_mode() -> None:
     with pytest.raises(ValueError, match="geographic_outputs_mode"):
-        validate_mesh_catchment_config_data(
+        parse_mesh_catchment_config_data(
             {
                 "constraints_mode": "rivers_only",
                 "geographic_outputs_mode": "drop",
@@ -196,9 +203,9 @@ def test_validate_mesh_catchment_config_rejects_unknown_cleanup_mode() -> None:
         )
 
 
-def test_validate_mesh_catchment_batch_selected_requires_ids() -> None:
+def test_parse_mesh_catchment_batch_selected_requires_ids() -> None:
     with pytest.raises(ValueError, match="selected_outlet_ids"):
-        validate_mesh_catchment_batch_config_data(
+        parse_mesh_catchment_batch_config_data(
             {
                 "enabled": True,
                 "outlets_table_path": "outlets.csv",

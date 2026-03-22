@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
         CatchmentMeshBundle,
     )
+    from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import (
+        GmshPlanarMesh2D,
+    )
     from hydromodpy.simulation.workspace import Workspace
 
 
@@ -27,5 +30,6 @@ class SetupContext:
     transport: Transport | None = None
     mesh_summary: dict[str, Any] | None = None
     mesh_bundle: CatchmentMeshBundle | None = None
+    mesh_planar: GmshPlanarMesh2D | None = None
     run_id: str = "default"
     time_grid: Any = None

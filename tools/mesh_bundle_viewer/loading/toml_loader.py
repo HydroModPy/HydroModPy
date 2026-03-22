@@ -1,4 +1,4 @@
-"""Read, validate, and resolve TOML config for the standalone viewer.
+﻿"""Read, validate, and resolve TOML config for the standalone viewer.
 
 This module is the bridge between the stable public TOML contract and the
 runtime ``VisualizationConfig`` used by the rest of the package.
@@ -10,13 +10,13 @@ from pathlib import Path
 import re
 import tomllib
 
-from mesh.loading.toml_contracts import (
+from .toml_contracts import (
     MeshVisualizationTomlSchema,
 )
-from mesh.loading.toml_validation import (
+from .toml_validation import (
     ValidationError,
 )
-from mesh.schema import (
+from ..schema import (
     DEFAULT_TOML_SECTION,
     VisualizationConfig,
 )
@@ -89,3 +89,4 @@ def load_toml_config(
 __all__ = [
     "load_toml_config",
 ]
+

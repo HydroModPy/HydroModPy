@@ -8,16 +8,18 @@ import sys
 
 import pytest
 
-from mesh.loading import (
+from tools.mesh_bundle_viewer.loading import (
     get_toml_parameter_descriptions,
     load_toml_config,
 )
-from mesh.loading.toml_loader import _looks_like_windows_absolute_path
-from mesh.runner.visualization_runner import (
+from tools.mesh_bundle_viewer.loading.toml_loader import _looks_like_windows_absolute_path
+from tools.mesh_bundle_viewer.runner.visualization_runner import (
     run_visualization_from_toml as run_root_mesh_visualization_from_toml,
 )
-from mesh.schema import DEFAULT_CONFIG_FILENAME as MESH_DEFAULT_CONFIG_FILENAME
-from mesh.runner import run_visualization_from_toml
+from tools.mesh_bundle_viewer.schema import (
+    DEFAULT_CONFIG_FILENAME as MESH_DEFAULT_CONFIG_FILENAME,
+)
+from tools.mesh_bundle_viewer.runner import run_visualization_from_toml
 
 
 def _ecrire_csv_bundle(path: Path, header: str, rows: list[str]) -> None:
@@ -373,13 +375,17 @@ def test_run_visualization_from_toml_accepts_missing_hydraulic_field(
     assert summary["hydraulic_conductivity_cell_count"] == 0
 
 
-def test_run_visualization_script_from_distributed_folder(tmp_path: Path) -> None:
+def test_python_module_mesh_bundle_viewer_runs_from_distributed_folder(
+    tmp_path: Path,
+) -> None:
     bundle_dir = tmp_path / "sample_bundle"
     _ecrire_bundle_minimal(bundle_dir)
 
     distribution_root = tmp_path / "distribution_package"
-    mesh_source_dir = Path(__file__).resolve().parents[3] / "mesh"
-    mesh_target_dir = distribution_root / "mesh"
+    mesh_source_dir = (
+        Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
+    )
+    mesh_target_dir = distribution_root / "mesh_bundle_viewer"
     shutil.copytree(mesh_source_dir, mesh_target_dir)
 
     config_path = distribution_root / "config_distributed.toml"
@@ -403,7 +409,8 @@ def test_run_visualization_script_from_distributed_folder(tmp_path: Path) -> Non
     completed = subprocess.run(
         [
             sys.executable,
-            str(mesh_target_dir / "run_visualization.py"),
+            "-m",
+            "mesh_bundle_viewer",
             "--config",
             str(config_path),
         ],
@@ -420,11 +427,15 @@ def test_run_visualization_script_from_distributed_folder(tmp_path: Path) -> Non
     assert summary["hydraulic_properties_available"] is False
 
 
-def test_root_mesh_script_runs_with_default_example_bundle(tmp_path: Path) -> None:
+def test_python_module_mesh_bundle_viewer_runs_with_default_example_bundle(
+    tmp_path: Path,
+) -> None:
     distribution_root = tmp_path / "rbflow_like_package"
-    mesh_source_dir = Path(__file__).resolve().parents[3] / "mesh"
+    mesh_source_dir = (
+        Path(__file__).resolve().parents[3] / "tools" / "mesh_bundle_viewer"
+    )
     examples_source_dir = Path(__file__).resolve().parents[3] / "examples" / "mesh_viewer"
-    mesh_target_dir = distribution_root / "mesh"
+    mesh_target_dir = distribution_root / "mesh_bundle_viewer"
     examples_target_dir = distribution_root / "examples" / "mesh_viewer"
     shutil.copytree(mesh_source_dir, mesh_target_dir)
     shutil.copytree(examples_source_dir, examples_target_dir)
@@ -432,9 +443,10 @@ def test_root_mesh_script_runs_with_default_example_bundle(tmp_path: Path) -> No
     completed = subprocess.run(
         [
             sys.executable,
-            str(mesh_target_dir / "run_visualization.py"),
+            "-m",
+            "mesh_bundle_viewer",
         ],
-        cwd=str(mesh_target_dir),
+        cwd=str(distribution_root),
         text=True,
         capture_output=True,
         check=False,

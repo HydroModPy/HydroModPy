@@ -43,8 +43,13 @@ from hydromodpy.solver.boussinesq.runtime_selection import (
     resolve_runtime_backend,
 )
 from hydromodpy.solver.prototype.solver import Solver
+from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.planar_forcing_discretization import (
+    discretize_fields_on_planar_mesh,
+    discretize_points_on_planar_mesh,
 )
 from hydromodpy.support.units.volumetric_flow import (
     convert_to_m3_per_s,
@@ -91,13 +96,16 @@ class Boussinesq(Solver):
     def __init__(
         self,
         *,
-        mesh_bundle: CatchmentMeshBundle,
+        mesh_bundle: CatchmentMeshBundle | None,
+        mesh: BoussinesqMesh | None = None,
         flow: object,
         domain: object,
         time_grid: object,
         model_folder: str | Path,
         model_name: str,
     ) -> None:
+        if mesh_bundle is None and mesh is None:
+            raise ValueError("Boussinesq requires either mesh_bundle or a prebuilt mesh")
         self.mesh_bundle = mesh_bundle
         self.flow = flow
         self.domain = domain
@@ -105,7 +113,7 @@ class Boussinesq(Solver):
         self.model_folder = Path(model_folder)
         self.model_name = str(model_name).strip() or "boussinesq"
         self.full_path = self.model_folder / self.model_name
-        self.mesh: BoussinesqMesh | None = None
+        self.mesh: BoussinesqMesh | None = mesh
         self.state: BoussinesqState | None = None
         self.runtime_summary: dict[str, Any] = {}
         self.has_numerical_solution = False
@@ -117,16 +125,25 @@ class Boussinesq(Solver):
     def pre_processing(self):
         """Build the compact solver mesh and initialize static run metadata."""
         self.full_path.mkdir(parents=True, exist_ok=True)
-        self.mesh = BoussinesqMesh.from_bundle(self.mesh_bundle)
+        if self.mesh is None:
+            if self.mesh_bundle is None:
+                raise ValueError(
+                    "Boussinesq pre_processing requires mesh_bundle when no prebuilt mesh "
+                    "was provided."
+                )
+            self.mesh = BoussinesqMesh.from_bundle(self.mesh_bundle)
         self.runtime_summary = {
             "n_cells": self.mesh.n_cells,
             "n_edges": self.mesh.n_edges,
             "n_nodes": self.mesh.n_nodes,
-            "bundle_dir": str(self.mesh.bundle_dir),
             "saturation_excess_regularization_radius": float(
                 self.saturation_excess_regularization_radius
             ),
         }
+        if self.mesh_bundle is not None:
+            self.runtime_summary["bundle_dir"] = str(self.mesh.bundle_dir)
+        else:
+            self.runtime_summary["mesh_source_dir"] = str(self.mesh.bundle_dir)
         self.solve_stage = "pre_processed"
 
     def processing(self, write_model: bool = True, run_model: bool = False, **kwargs):
@@ -292,15 +309,10 @@ class Boussinesq(Solver):
                 "active_sinks_sources=" + ",".join(unsupported_sinks_sources)
             )
 
-        if "recharge" in active_sinks_sources:
-            recharge_cfg = self._recharge_config()
-            if recharge_cfg is not None and getattr(recharge_cfg, "heterogeneous_source", None) is not None:
-                unsupported.append("heterogeneous recharge")
-
         if unsupported:
             raise NotImplementedError(
-                "The current boussinesq backend slice supports only homogeneous "
-                "recharge, XY wells, side Dirichlet boundaries, stream, ocean, "
+                "The current boussinesq backend slice supports recharge, XY "
+                "wells, side Dirichlet boundaries, stream, ocean, "
                 "top drainage, and default no-flow on other outer edges. The "
                 "following runtime features are not implemented yet: "
                 + "; ".join(unsupported)
@@ -447,7 +459,7 @@ class Boussinesq(Solver):
                     head_prev_m=head_prev,
                     dt_seconds=float(dt_seconds),
                     head_initial_guess_m=head_prev,
-                    recharge_rate_m_s=float(recharge_series_m_s[kper]),
+                    recharge_rate_m_s=recharge_series_m_s[kper],
                     well_flux_m3_s=well_flux_by_period_m3_s[kper],
                     imposed_head_m_by_edge=imposed_heads_by_period[kper],
                     drainage_conductance_m2_s=drainage_conductance,
@@ -508,8 +520,8 @@ class Boussinesq(Solver):
                 )
                 self.runtime_summary["last_residual_norm_inf"] = last_residual_norm
                 self.runtime_summary["n_periods"] = nper
-                self.runtime_summary["active_recharge"] = bool(
-                    np.any(recharge_series_m_s != 0.0)
+                self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
+                    recharge_series_m_s
                 )
                 self.runtime_summary["active_wells"] = bool(
                     np.any(well_flux_by_period_m3_s != 0.0)
@@ -544,7 +556,9 @@ class Boussinesq(Solver):
         )
         self.runtime_summary["n_periods"] = nper
         self.runtime_summary["last_residual_norm_inf"] = last_residual_norm
-        self.runtime_summary["active_recharge"] = bool(np.any(recharge_series_m_s != 0.0))
+        self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
+            recharge_series_m_s
+        )
         self.runtime_summary["active_wells"] = bool(
             np.any(well_flux_by_period_m3_s != 0.0)
         )
@@ -569,7 +583,7 @@ class Boussinesq(Solver):
         self._record_runtime_backend_summary(runtime_backend)
         self._assert_runtime_mesh_size_supported(runtime_backend)
 
-        recharge_rate_m_s = float(self._resolve_recharge_series(1)[0])
+        recharge_rate_m_s = self._resolve_recharge_series(1)[0]
         well_flux_m3_s = np.asarray(
             self._resolve_well_flux_by_period(1)[0],
             dtype=float,
@@ -661,7 +675,9 @@ class Boussinesq(Solver):
         self.runtime_summary["steady_termination_reason"] = str(
             steady.termination_reason
         )
-        self.runtime_summary["active_recharge"] = bool(recharge_rate_m_s != 0.0)
+        self.runtime_summary["active_recharge"] = self._has_active_recharge_payload(
+            (recharge_rate_m_s,)
+        )
         self.runtime_summary["active_wells"] = bool(np.any(well_flux_m3_s != 0.0))
         self.runtime_summary["active_imposed_head_bc"] = bool(
             np.isfinite(imposed_head_m_by_edge).any()
@@ -731,25 +747,150 @@ class Boussinesq(Solver):
             return np.full(self.mesh.n_cells, float(head_ic.value), dtype=float)
         raise ValueError(f"Unsupported flow.ic.type for boussinesq: '{head_ic.type}'.")
 
-    def _resolve_recharge_series(self, nper: int) -> np.ndarray:
-        """Resolve one homogeneous recharge value per stress period."""
+    def _resolve_recharge_series(
+        self,
+        nper: int,
+    ) -> tuple[float | np.ndarray, ...]:
+        """Resolve one recharge payload per stress period.
+
+        The returned per-period payload can be either:
+        - one scalar homogeneous recharge rate, or
+        - one cell-aligned array produced from a heterogeneous forcing source.
+        """
         active = tuple(getattr(self.flow, "active_sinks_sources", ()) or ())
         if "recharge" not in active:
-            return np.zeros(nper, dtype=float)
+            return tuple(0.0 for _ in range(int(nper)))
 
         recharge_cfg = self._recharge_config()
         if recharge_cfg is None:
-            return np.zeros(nper, dtype=float)
+            return tuple(0.0 for _ in range(int(nper)))
 
-        if getattr(recharge_cfg, "heterogeneous_source", None) is not None:
-            raise NotImplementedError(
-                "Boussinesq local V1 supports only homogeneous recharge values."
+        heterogeneous_source = getattr(recharge_cfg, "heterogeneous_source", None)
+        if heterogeneous_source is not None:
+            return self._resolve_heterogeneous_recharge_series(
+                heterogeneous_source=heterogeneous_source,
+                nper=nper,
+                first_clim=getattr(recharge_cfg, "first_clim", "mean"),
+                interpolation_method=getattr(
+                    recharge_cfg,
+                    "interpolation_method",
+                    "nearest",
+                ),
             )
-        return self._recharge_period_series(
+
+        series = self._recharge_period_series(
             payload=getattr(recharge_cfg, "values", 0.0),
-            nper=nper,
+            nper=int(nper),
             first_clim=getattr(recharge_cfg, "first_clim", "mean"),
             label="flow.sinks_sources.recharge.values",
+        )
+        return tuple(float(value) for value in np.asarray(series, dtype=float).tolist())
+
+    def _resolve_heterogeneous_recharge_series(
+        self,
+        *,
+        heterogeneous_source: object,
+        nper: int,
+        first_clim: object,
+        interpolation_method: str,
+    ) -> tuple[np.ndarray, ...]:
+        """Discretize heterogeneous recharge onto the current Gmsh cell set."""
+        if self.mesh is None:
+            raise RuntimeError("Mesh must be built before resolving recharge.")
+        solver_mesh = self._planar_mesh_for_forcing()
+
+        simulation_window = (
+            getattr(self.time_grid, "window", None)
+            if self.time_grid is not None
+            else None
+        )
+        if getattr(heterogeneous_source, "has_fields", False):
+            raw_arrays = discretize_fields_on_planar_mesh(
+                load_result=heterogeneous_source,
+                planar_mesh=solver_mesh,
+                nper=int(nper),
+                simulation_window=simulation_window,
+                method=str(interpolation_method),
+            )
+        elif getattr(heterogeneous_source, "has_points", False):
+            raw_arrays = discretize_points_on_planar_mesh(
+                load_result=heterogeneous_source,
+                planar_mesh=solver_mesh,
+                nper=int(nper),
+                simulation_window=simulation_window,
+                method=str(interpolation_method),
+            )
+        else:
+            raw_arrays = {
+                int(kper): np.zeros(self.mesh.n_cells, dtype=float)
+                for kper in range(int(nper))
+            }
+
+        return self._apply_first_clim_to_cellwise_recharge(
+            raw_arrays=raw_arrays,
+            nper=int(nper),
+            first_clim=first_clim,
+        )
+
+    def _planar_mesh_for_forcing(self):
+        """Return the planar mesh used to discretize spatial forcings."""
+        if self.mesh is None:
+            raise RuntimeError("Mesh must be built before resolving forcings.")
+        planar_mesh = getattr(self.mesh, "planar_mesh", None)
+        if planar_mesh is not None:
+            return planar_mesh
+        if self.mesh_bundle is None:
+            raise RuntimeError(
+                "Spatial forcings require either one runtime planar mesh or one "
+                "mesh bundle exposing mesh_path."
+            )
+        return load_planar_mesh(self.mesh_bundle.mesh_path)
+
+    def _apply_first_clim_to_cellwise_recharge(
+        self,
+        *,
+        raw_arrays: Mapping[int, np.ndarray],
+        nper: int,
+        first_clim: object,
+    ) -> tuple[np.ndarray, ...]:
+        """Apply the historical `first_clim` convention to cellwise recharge."""
+        if self.mesh is None:
+            raise RuntimeError("Mesh must be built before resolving recharge.")
+
+        if nper <= 0:
+            return ()
+
+        arrays = {
+            int(kper): np.asarray(values, dtype=float).reshape(-1)
+            for kper, values in raw_arrays.items()
+        }
+        if not arrays:
+            return tuple(np.zeros(self.mesh.n_cells, dtype=float) for _ in range(nper))
+
+        stacked = np.stack(tuple(arrays.values()), axis=0)
+        flow_regime = str(getattr(self.flow, "flow_regime", "transient")).strip().lower()
+        if flow_regime == "steady" or nper <= 1:
+            mean_array = np.nanmean(stacked, axis=0)
+            return (np.asarray(mean_array, dtype=float).reshape(-1),)
+
+        result = {
+            kper: arrays.get(kper, np.zeros(self.mesh.n_cells, dtype=float)).copy()
+            for kper in range(nper)
+        }
+        if first_clim == "mean":
+            result[0] = np.nanmean(stacked, axis=0)
+        elif first_clim == "first":
+            pass
+        elif self._is_scalar_number(first_clim):
+            result[0] = np.full(self.mesh.n_cells, float(first_clim), dtype=float)
+        else:
+            raise ValueError(
+                "flow.sinks_sources.recharge.first_clim must be 'mean', 'first', "
+                "or a numeric value."
+            )
+        return tuple(
+            np.asarray(result[kper], dtype=float).reshape(-1).copy()
+            for kper in range(nper)
         )
 
     def _resolve_well_flux_by_period(self, nper: int) -> np.ndarray:
@@ -1201,6 +1342,16 @@ class Boussinesq(Solver):
     def _is_scalar_number(value: object) -> bool:
         """Return true for numeric scalars while excluding booleans."""
         return isinstance(value, Real) and not isinstance(value, bool)
+
+    @staticmethod
+    def _has_active_recharge_payload(
+        payloads_by_period: tuple[float | np.ndarray, ...],
+    ) -> bool:
+        """Return whether at least one recharge payload contains a non-zero value."""
+        return any(
+            bool(np.any(np.asarray(payload, dtype=float) != 0.0))
+            for payload in payloads_by_period
+        )
 
     def _recharge_config(self) -> object | None:
         """Return the recharge config object when the flow contract provides one."""

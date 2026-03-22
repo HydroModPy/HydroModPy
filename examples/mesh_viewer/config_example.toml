@@ -2,7 +2,7 @@
 # Chemin vers le dossier bundle a relire.
 # Il peut etre absolu ou relatif au fichier TOML.
 # Le dossier cible doit contenir uniquement les CSV/JSON du bundle.
-# Le lecteur versionne est dans `mesh/reader.py`.
+# Le lecteur versionne est dans `mesh_bundle_viewer/reader.py`.
 bundle_dir = "./sample_bundle"
 
 # Chemin optionnel du PNG de synthese a ecrire.

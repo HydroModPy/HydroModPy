@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from launchers.mesh_catchment import runtime as mesh_runtime
 from launchers.mesh_catchment.batch_io import (
     MeshCatchmentOutletRecord,
     load_mesh_catchment_outlet_records,
@@ -129,7 +128,7 @@ class MeshCatchmentBatchRunner:
     workspace_cfg: object
     geographic_cfg: object
     domain_cfg: object | None
-    run_single_workflow: Callable[..., Mapping[str, Any]]
+    run_single_workflow: Callable[..., dict[str, Any]]
 
     def validate_output_configuration(
         self,
@@ -288,7 +287,7 @@ class MeshCatchmentBatchRunner:
         record: MeshCatchmentOutletRecord,
     ) -> dict[str, Path | None]:
         """Build outlet-specific output overrides for one child run."""
-        output_layout = mesh_runtime.resolve_output_layout(self.mesh_section_data)
+        output_layout = self.mesh_section_data.output_layout
         mesh_dir = (
             _workspace_project_root(workspace_cfg)
             if output_layout == "flat"

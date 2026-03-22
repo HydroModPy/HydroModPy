@@ -17,13 +17,12 @@ from dataclasses import replace
 import json
 from pathlib import Path
 import shutil
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 from shapely.geometry import LineString, Point
 from shapely.ops import unary_union
 
-from hydromodpy.data_managers.variables.geology.config import validate_geology_config_data
 from hydromodpy.data_managers.variables.geology.io import (
     load_geology_encoded_grid_on_raster_support,
     resolve_data_path,
@@ -38,6 +37,10 @@ from hydromodpy.field.geology.geology_field import GeologyField
 from hydromodpy.support.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleMetadata,
+    CatchmentBundleGeologyExportConfig,
+    CatchmentBundleHydraulicPropertiesConfig,
+    CatchmentBundleHydraulicPropertyConfig,
+    CatchmentBundleSummaryReference,
     GeologyFractionRow,
     GeologyProjectionPayload,
     HydraulicPropertiesPayload,
@@ -187,7 +190,7 @@ def _normalize_property_mapping_values(
 
 
 def _resolve_hydraulic_property_mapping(
-    property_cfg: Mapping[str, Any] | None,
+    property_cfg: CatchmentBundleHydraulicPropertyConfig | None,
     *,
     property_name: str,
     config_path: str | Path | None,
@@ -198,33 +201,33 @@ def _resolve_hydraulic_property_mapping(
     The returned payload is summary-oriented: it carries parsed values together
     with provenance information useful in `metadata.json`.
     """
-    if not isinstance(property_cfg, Mapping):
+    if property_cfg is None:
         return HydraulicPropertyPayload(
             property_name=property_name,
             available=False,
         )
 
-    values_source = str(property_cfg.get("values_source", "inline")).strip().lower()
+    values_source = str(property_cfg.values_source).strip().lower()
     if values_source == "csv":
         values_csv_path = _resolve_config_relative_path(
-            str(property_cfg.get("values_csv_file")),
+            str(property_cfg.values_csv_file),
             config_path=config_path,
         )
         raw_values = _load_zone_value_mapping_csv(
             values_csv_path,
-            key_column=str(property_cfg.get("csv_key_column", "zone_key")),
-            value_column=str(property_cfg.get("csv_value_column", "value")),
+            key_column=str(property_cfg.csv_key_column),
+            value_column=str(property_cfg.csv_value_column),
         )
     else:
         values_csv_path = None
-        raw_values = dict(property_cfg.get("values") or {})
+        raw_values = dict(property_cfg.values)
 
     values_by_zone_key = _normalize_property_mapping_values(
         raw_values,
         value_parser=value_parser,
         label_prefix=f"{property_name}.values",
     )
-    raw_default_value = property_cfg.get("default_value")
+    raw_default_value = property_cfg.default_value
     default_value = (
         None
         if raw_default_value is None
@@ -314,22 +317,25 @@ def _build_hydraulic_properties_payload(
     *,
     mesh,
     geology_payload: GeologyProjectionPayload,
-    hydraulic_properties_cfg: Mapping[str, Any] | None,
+    hydraulic_properties_cfg: CatchmentBundleHydraulicPropertiesConfig | None,
     config_path: str | Path | None,
 ) -> HydraulicPropertiesPayload:
     """Build conductivity/storage payloads summarized at the cell scale."""
-    conductivity_cfg = None
-    storage_cfg = None
-    if isinstance(hydraulic_properties_cfg, Mapping):
-        conductivity_cfg = hydraulic_properties_cfg.get("conductivity")
-        storage_cfg = hydraulic_properties_cfg.get("storage_coefficient")
+    conductivity_cfg = (
+        None if hydraulic_properties_cfg is None else hydraulic_properties_cfg.conductivity
+    )
+    storage_cfg = (
+        None
+        if hydraulic_properties_cfg is None
+        else hydraulic_properties_cfg.storage_coefficient
+    )
 
     conductivity_unit = "m/s"
-    if isinstance(conductivity_cfg, Mapping):
-        conductivity_unit = str(conductivity_cfg.get("unit", "m/s")).strip() or "m/s"
+    if conductivity_cfg is not None and conductivity_cfg.unit is not None:
+        conductivity_unit = str(conductivity_cfg.unit).strip() or "m/s"
 
     conductivity = _resolve_hydraulic_property_mapping(
-        conductivity_cfg if isinstance(conductivity_cfg, Mapping) else None,
+        conductivity_cfg,
         property_name="conductivity",
         config_path=config_path,
         value_parser=lambda raw, label: parse_to_m_per_s(
@@ -339,7 +345,7 @@ def _build_hydraulic_properties_payload(
         )[0],
     )
     storage = _resolve_hydraulic_property_mapping(
-        storage_cfg if isinstance(storage_cfg, Mapping) else None,
+        storage_cfg,
         property_name="storage_coefficient",
         config_path=config_path,
         value_parser=_parse_storage_coefficient_value,
@@ -539,13 +545,30 @@ def _polygon_area(vertices: np.ndarray) -> float:
 
 
 def _resolve_geology_config_paths(
-    geology_cfg: Mapping[str, Any],
+    geology_cfg: CatchmentBundleGeologyExportConfig,
     *,
     config_path: str | Path | None,
 ) -> dict[str, Any]:
-    """Resolve geology paths relative to the calling config when needed."""
-    cfg = validate_geology_config_data(geology_cfg)
+    """Resolve geology paths relative to the calling config when needed.
+
+    The export layer keeps a small typed contract, then converts it to the
+    legacy loader mapping only at the edge where the geology loader still
+    expects dictionary payloads.
+    """
+
+    cfg: dict[str, Any] = {
+        "id": geology_cfg.field_id or "field_geology",
+        "source": {
+            "path": geology_cfg.source.path,
+            "kind": geology_cfg.source.kind,
+        },
+        "cell_samples_per_axis": int(geology_cfg.cell_samples_per_axis),
+    }
     source_cfg = dict(cfg["source"])
+    if geology_cfg.source.code_field is not None:
+        source_cfg["code_field"] = geology_cfg.source.code_field
+    if geology_cfg.source.reference_raster_path is not None:
+        source_cfg["reference_raster_path"] = geology_cfg.source.reference_raster_path
     source_cfg["path"] = resolve_data_path(
         str(source_cfg["path"]),
         config_path=config_path,
@@ -580,7 +603,7 @@ def _compute_geology_payload(
     *,
     mesh,
     surface,
-    geology_cfg: Mapping[str, Any] | None,
+    geology_cfg: CatchmentBundleGeologyExportConfig | None,
     config_path: str | Path | None,
 ) -> GeologyProjectionPayload:
     """Project geology information from the source dataset onto the planar mesh."""
@@ -776,7 +799,7 @@ def _build_metadata(
     mesh_path: Path,
     geology_payload: GeologyProjectionPayload,
     hydraulic_properties_payload: HydraulicPropertiesPayload,
-    summary: Mapping[str, Any] | None,
+    summary: CatchmentBundleSummaryReference | None,
     domain_geographic: object,
     domain: Domain,
 ) -> CatchmentBundleMetadata:
@@ -784,7 +807,7 @@ def _build_metadata(
     surface = getattr(domain_geographic, "surface_topo", None)
     _, support = _surface_values_and_support(surface)
     topography_path = getattr(domain_geographic, "watershed_box_buff_dem", None)
-    summary_path = None if summary is None else summary.get("output_summary_json")
+    summary_path = None if summary is None else summary.output_summary_json
     return CatchmentBundleMetadata(
         {
         "bundle_schema_version": BUNDLE_SCHEMA_VERSION,
@@ -794,7 +817,7 @@ def _build_metadata(
         "crs": None if support is None else getattr(support, "crs", None),
         "n_nodes": int(mesh.n_nodes),
         "n_cells": int(mesh.n_cells),
-        "constraints_mode": None if summary is None else summary.get("constraints_mode"),
+        "constraints_mode": None if summary is None else summary.constraints_mode,
         "topography": {
             "node_field": "z_top",
             "cell_fields": ["z_top_centroid", "z_top_mean"],
@@ -907,10 +930,10 @@ def export_catchment_mesh_bundle(
     domain_geographic: object,
     domain_cfg: object | None = None,
     bundle_dir: str | Path | None = None,
-    geology_cfg: Mapping[str, Any] | None = None,
-    hydraulic_properties_cfg: Mapping[str, Any] | None = None,
+    geology_cfg: CatchmentBundleGeologyExportConfig | None = None,
+    hydraulic_properties_cfg: CatchmentBundleHydraulicPropertiesConfig | None = None,
     river_trace: object | None = None,
-    summary: Mapping[str, Any] | None = None,
+    summary: CatchmentBundleSummaryReference | None = None,
     config_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Export one catchment mesh bundle and return a compact summary.
@@ -1095,7 +1118,7 @@ def export_catchment_mesh_bundle(
     )
 
     shutil.copy2(mesh_path_obj, bundle_path / "mesh_2d.msh")
-    summary_path = None if summary is None else summary.get("output_summary_json")
+    summary_path = None if summary is None else summary.output_summary_json
     if summary_path is not None:
         summary_path_obj = Path(str(summary_path)).resolve()
         if summary_path_obj.exists():

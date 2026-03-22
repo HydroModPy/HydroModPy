@@ -22,13 +22,7 @@ import argparse
 from collections.abc import Mapping
 import json
 from pathlib import Path
-import sys
 from typing import Any
-
-# When this file is executed directly by path, Python adds the script folder to
-# ``sys.path`` but not necessarily the repository root. Insert the repo root
-# explicitly so local imports always resolve.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from hydromodpy.config.hydromodpy_config import _load_standard_section
 from hydromodpy.config.toml_loader import load_toml_with_base_config

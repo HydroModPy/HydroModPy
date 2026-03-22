@@ -27,10 +27,17 @@ import sys
 import tempfile
 from pathlib import Path
 
-# When this file is executed directly by path, Python adds only the script
-# folder to ``sys.path``. Insert the repository root explicitly so local
-# packages such as ``hydromodpy_annex`` remain importable.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+def _ensure_repo_root_on_sys_path() -> Path:
+    """Make direct script execution behave like ``python -m`` from the repo root."""
+    repo_root = Path(__file__).resolve().parents[2]
+    repo_root_str = str(repo_root)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+    return repo_root
+
+
+_REPO_ROOT = _ensure_repo_root_on_sys_path()
 
 from hydromodpy_annex.preprocess.catchment_identification_scan.config import (
     CatchmentIdentificationConfig,
@@ -145,10 +152,8 @@ def _render_identification_override_config(
     return "\n".join(
         [
             f"base_config = {_toml_basic_string(original_config_path.name)}",
-            "",
             "[catchment_identification_scan]",
             f"output_dir = {_toml_basic_string(output_dir)}",
-            "",
         ]
     )
 
@@ -161,17 +166,14 @@ def _render_mesh_override_config(
 ) -> str:
     lines = [
         f"base_config = {_toml_basic_string(original_config_path.name)}",
-        "",
         "[workspace]",
         f"project_root = {_toml_basic_string(project_root)}",
-        "",
     ]
     if outlets_table_path is not None:
         lines.extend(
             [
                 "[mesh_catchment_batch]",
                 f"outlets_table_path = {_toml_basic_string(outlets_table_path)}",
-                "",
             ]
         )
     return "\n".join(lines)

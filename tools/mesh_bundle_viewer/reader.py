@@ -1,4 +1,4 @@
-"""Read one self-contained catchment mesh bundle from disk.
+﻿"""Read one self-contained catchment mesh bundle from disk.
 
 This reader is intentionally lightweight so the standalone ``mesh`` package can
 reload standard bundles without requiring a per-bundle ``reader.py`` helper.
@@ -11,7 +11,7 @@ import csv
 import json
 from pathlib import Path
 from typing import Any
-from mesh.bundle_contracts import (
+from .bundle_contracts import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
     CatchmentMeshBundleEdge,
@@ -186,3 +186,4 @@ __all__ = [
     "CatchmentMeshBundleNode",
     "load_catchment_mesh_bundle",
 ]
+
