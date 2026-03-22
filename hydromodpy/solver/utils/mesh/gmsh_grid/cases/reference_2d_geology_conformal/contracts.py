@@ -51,6 +51,125 @@ class ZoneConformalGeometryPayload:
 
 
 @dataclass(frozen=True)
+class ZoneConformalGeologySourceConfig:
+    """Validated geology source definition used by the conformal case."""
+
+    path: str
+    kind: str
+    code_field: str | None = None
+    reference_raster_path: str | None = None
+    all_touched: bool = False
+
+    @classmethod
+    def from_mapping(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> "ZoneConformalGeologySourceConfig":
+        return cls(
+            path=str(payload["path"]),
+            kind=str(payload["kind"]),
+            code_field=(
+                None
+                if payload.get("code_field") is None
+                else str(payload["code_field"])
+            ),
+            reference_raster_path=(
+                None
+                if payload.get("reference_raster_path") is None
+                else str(payload["reference_raster_path"])
+            ),
+            all_touched=bool(payload.get("all_touched", False)),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "path": self.path,
+            "kind": self.kind,
+            "all_touched": self.all_touched,
+        }
+        if self.code_field is not None:
+            payload["code_field"] = self.code_field
+        if self.reference_raster_path is not None:
+            payload["reference_raster_path"] = self.reference_raster_path
+        return payload
+
+
+@dataclass(frozen=True)
+class ZoneConformalGeologyLandSeaConfig:
+    """Validated optional land/sea override carried with geology config."""
+
+    enabled: bool
+    path: str | None = None
+    sea_value: float = 0.0
+    override_code: str = "1"
+
+    @classmethod
+    def from_mapping(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> "ZoneConformalGeologyLandSeaConfig":
+        return cls(
+            enabled=bool(payload.get("enabled", False)),
+            path=None if payload.get("path") is None else str(payload["path"]),
+            sea_value=float(payload.get("sea_value", 0.0)),
+            override_code=str(payload.get("override_code", "1")),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "enabled": self.enabled,
+            "sea_value": self.sea_value,
+            "override_code": self.override_code,
+        }
+        if self.path is not None:
+            payload["path"] = self.path
+        return payload
+
+
+@dataclass(frozen=True)
+class ZoneConformalGeologyConfig:
+    """Validated geology config carried through conformal planning."""
+
+    id: str
+    source: ZoneConformalGeologySourceConfig
+    clip_polygon_path: str | None
+    landsea: ZoneConformalGeologyLandSeaConfig
+    cell_samples_per_axis: int
+
+    @classmethod
+    def from_mapping(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> "ZoneConformalGeologyConfig":
+        return cls(
+            id=str(payload["id"]),
+            source=ZoneConformalGeologySourceConfig.from_mapping(
+                payload["source"],
+            ),
+            clip_polygon_path=(
+                None
+                if payload.get("clip_polygon_path") is None
+                else str(payload["clip_polygon_path"])
+            ),
+            landsea=ZoneConformalGeologyLandSeaConfig.from_mapping(
+                payload.get("landsea", {}),
+            ),
+            cell_samples_per_axis=int(payload.get("cell_samples_per_axis", 8)),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "id": self.id,
+            "source": self.source.to_mapping(),
+            "landsea": self.landsea.to_mapping(),
+            "cell_samples_per_axis": self.cell_samples_per_axis,
+        }
+        if self.clip_polygon_path is not None:
+            payload["clip_polygon_path"] = self.clip_polygon_path
+        return payload
+
+
+@dataclass(frozen=True)
 class ZoneConformalDomainConfig:
     """Validated support/scope config reused across domain-like sections."""
 
@@ -165,7 +284,7 @@ class ZoneConformalCaseConfig:
     """Normalized top-level case configuration consumed by planning."""
 
     constraints_mode: str
-    geology: Mapping[str, Any] | None
+    geology: ZoneConformalGeologyConfig | None
     rivers: ZoneConformalRiversConfig | None
     watershed_boundary: ZoneConformalWatershedBoundaryConfig | None
     domain: ZoneConformalDomainConfig
@@ -201,6 +320,9 @@ __all__ = [
     "ZoneConformalCaseConfig",
     "ZoneConformalConstraintUsage",
     "ZoneConformalDomainConfig",
+    "ZoneConformalGeologyConfig",
+    "ZoneConformalGeologyLandSeaConfig",
+    "ZoneConformalGeologySourceConfig",
     "ZoneConformalGeometryPayload",
     "ZoneConformalMeshingInputs",
     "ZoneConformalRiversConfig",

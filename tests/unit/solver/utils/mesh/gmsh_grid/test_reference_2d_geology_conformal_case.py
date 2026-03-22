@@ -26,6 +26,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalDomainConfig,
+    ZoneConformalGeologyConfig,
     ZoneConformalRiversConfig,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
@@ -515,7 +516,7 @@ def test_resolve_case_config_supports_base_config_inheritance(tmp_path: Path) ->
 
     assert cfg.constraints_mode == "geology_rivers"
     assert cfg.output_figure == "outputs/inherited_overview.png"
-    assert cfg.geology is not None
+    assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
     assert cfg.zone_meshing is not None
     assert isinstance(cfg.domain, ZoneConformalDomainConfig)
 
@@ -560,7 +561,8 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
     assert isinstance(cfg.domain, ZoneConformalDomainConfig)
     assert cfg.domain.kind == "geographic_box_buffer"
     assert cfg.domain.to_mapping()["kind"] == "geographic_box_buffer"
-    assert cfg.geology is not None
+    assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
+    assert cfg.geology.source.kind == "vector"
 
 
 def test_main_prints_summary_json(monkeypatch, capsys) -> None:
