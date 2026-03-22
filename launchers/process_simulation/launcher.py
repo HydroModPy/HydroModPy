@@ -78,6 +78,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
     load_catchment_mesh_bundle,
 )
 from hydromodpy.support.units import convert_payload_to_m_per_s
+from launchers.mesh_catchment.config import parse_mesh_catchment_batch_config_data
 from launchers.mesh_catchment.runtime import (
     get_optional_mesh_section,
     prepare_geographic_config_for_meshing,
@@ -222,14 +223,8 @@ class HydroModPyLauncher:
         batch_section = raw_toml.get("mesh_catchment_batch")
         if batch_section is None:
             return section
-        if not isinstance(batch_section, Mapping):
-            raise ValueError(
-                "[mesh_catchment_batch] configuration must be a mapping when provided."
-            )
-        enabled_raw = batch_section.get("enabled", False)
-        if not isinstance(enabled_raw, bool):
-            raise ValueError("mesh_catchment_batch.enabled must be a boolean.")
-        if enabled_raw:
+        batch_cfg = parse_mesh_catchment_batch_config_data(batch_section)
+        if batch_cfg.enabled:
             raise ValueError(
                 "Embedded [mesh_catchment_batch] is not supported in process_simulation. "
                 "Use the dedicated mesh-catchment launcher for batch runs."

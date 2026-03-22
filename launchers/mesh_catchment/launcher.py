@@ -46,7 +46,7 @@ from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
 from launchers.mesh_catchment import runtime as mesh_runtime
-from launchers.mesh_catchment.config import validate_mesh_catchment_batch_config_data
+from launchers.mesh_catchment.config import parse_mesh_catchment_batch_config_data
 
 
 DEFAULT_CONFIG_NAME = "config_example.toml"
@@ -103,88 +103,42 @@ class MeshCatchmentBatchConfig:
         """Parse the optional batch section and return ``None`` when disabled."""
         if raw_value is None:
             return None
-        if not isinstance(raw_value, Mapping):
-            raise ValueError(
-                "mesh_catchment_batch configuration must be a mapping when provided."
-            )
-        enabled_raw = raw_value.get("enabled", False)
-        if not isinstance(enabled_raw, bool):
-            raise ValueError("mesh_catchment_batch.enabled must be a boolean.")
-        if not enabled_raw:
+        validated = parse_mesh_catchment_batch_config_data(raw_value)
+        if not validated.enabled:
             return None
-        validated = validate_mesh_catchment_batch_config_data(raw_value)
 
         outlets_table_path = _resolve_required_path(
-            validated.get("outlets_table_path"),
+            validated.outlets_table_path,
             label="mesh_catchment_batch.outlets_table_path",
             base_dir=base_dir,
         )
         outlet_id_column = _require_text(
-            validated.get("outlet_id_column", "outlet_id"),
+            validated.outlet_id_column,
             label="mesh_catchment_batch.outlet_id_column",
         )
         x_column = _require_text(
-            validated.get("x_column", "x_outlet_m"),
+            validated.x_column,
             label="mesh_catchment_batch.x_column",
         )
         y_column = _require_text(
-            validated.get("y_column", "y_outlet_m"),
+            validated.y_column,
             label="mesh_catchment_batch.y_column",
         )
 
-        selection_mode = str(validated.get("selection_mode", "all")).strip().lower()
-        if selection_mode not in {"all", "selected"}:
-            raise ValueError(
-                "mesh_catchment_batch.selection_mode must be 'all' or 'selected'."
-            )
-        selected_outlet_ids_raw = validated.get("selected_outlet_ids", ())
-        if selected_outlet_ids_raw is None:
-            selected_outlet_ids_raw = ()
-        if isinstance(selected_outlet_ids_raw, (str, bytes)) or not isinstance(
-            selected_outlet_ids_raw,
-            Sequence,
-        ):
-            raise ValueError(
-                "mesh_catchment_batch.selected_outlet_ids must be a list when provided."
-            )
-        selected_outlet_ids = tuple(
-            str(value).strip()
-            for value in selected_outlet_ids_raw
-            if str(value).strip() != ""
-        )
-        if selection_mode == "selected" and not selected_outlet_ids:
-            raise ValueError(
-                "mesh_catchment_batch.selection_mode='selected' requires one non-empty selected_outlet_ids list."
-            )
+        selection_mode = validated.selection_mode
+        selected_outlet_ids = tuple(validated.selected_outlet_ids)
 
         catch_name_pattern = _require_text(
-            validated.get("catch_name_pattern", "{catch_name}_outlet_{outlet_id}"),
+            validated.catch_name_pattern,
             label="mesh_catchment_batch.catch_name_pattern",
         )
-        if "{outlet_id}" not in catch_name_pattern:
-            raise ValueError(
-                "mesh_catchment_batch.catch_name_pattern must contain '{outlet_id}'."
-            )
-
-        continue_on_error_raw = validated.get("continue_on_error", False)
-        if not isinstance(continue_on_error_raw, bool):
-            raise ValueError(
-                "mesh_catchment_batch.continue_on_error must be a boolean."
-            )
-
-        outputs_raw = validated.get("outputs", {})
-        if outputs_raw is None:
-            outputs_raw = {}
-        if not isinstance(outputs_raw, Mapping):
-            raise ValueError("mesh_catchment_batch.outputs must be a mapping.")
+        outputs_cfg = validated.outputs
         outputs = MeshCatchmentBatchOutputsConfig(
-            mesh_filename=_optional_text(outputs_raw.get("mesh_filename")),
-            summary_filename=_optional_text(outputs_raw.get("summary_filename")),
-            figure_filename=_optional_text(outputs_raw.get("figure_filename")),
-            figure_regional_filename=_optional_text(
-                outputs_raw.get("figure_regional_filename")
-            ),
-            manifest_csv=_optional_text(outputs_raw.get("manifest_csv")),
+            mesh_filename=outputs_cfg.mesh_filename,
+            summary_filename=outputs_cfg.summary_filename,
+            figure_filename=outputs_cfg.figure_filename,
+            figure_regional_filename=outputs_cfg.figure_regional_filename,
+            manifest_csv=outputs_cfg.manifest_csv,
         )
 
         return cls(
@@ -195,7 +149,7 @@ class MeshCatchmentBatchConfig:
             selection_mode=selection_mode,
             selected_outlet_ids=selected_outlet_ids,
             catch_name_pattern=catch_name_pattern,
-            continue_on_error=continue_on_error_raw,
+            continue_on_error=validated.continue_on_error,
             outputs=outputs,
         )
 
