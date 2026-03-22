@@ -1,18 +1,18 @@
-"""Load one exported mesh bundle for the standalone visualization workflow."""
+﻿"""Load one exported mesh bundle for the standalone visualization workflow."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import cast
 
-from mesh.loading.toml_loader import load_toml_config
-from mesh.reader import (
+from .toml_loader import load_toml_config
+from ..reader import (
     load_catchment_mesh_bundle as load_internal_catchment_mesh_bundle,
 )
-from mesh.bundle_contracts import (
+from ..bundle_contracts import (
     MeshBundleLike,
 )
-from mesh.schema import (
+from ..schema import (
     DEFAULT_TOML_SECTION,
     MeshVisualizationData,
     VisualizationConfig,
@@ -30,14 +30,14 @@ def _resolve_bundle_dir(bundle_dir: Path) -> Path:
 
 
 def _load_bundle(bundle_dir: Path) -> MeshBundleLike:
-    """Load one bundle with the versioned reader shipped in ``mesh/``."""
+    """Load one bundle with the versioned reader shipped in ``mesh_bundle_viewer/``."""
     resolved_dir = _resolve_bundle_dir(bundle_dir)
     try:
         return cast(MeshBundleLike, load_internal_catchment_mesh_bundle(resolved_dir))
     except Exception as exc:
         raise RuntimeError(
             "Failed to load the bundle with the versioned reader shipped in "
-            f"mesh/reader.py. Bundle: {resolved_dir}. Error: {exc}"
+            f"mesh_bundle_viewer/reader.py. Bundle: {resolved_dir}. Error: {exc}"
         ) from exc
 
 
@@ -63,3 +63,5 @@ __all__ = [
     "load_visualization_data",
     "load_visualization_data_from_toml",
 ]
+
+

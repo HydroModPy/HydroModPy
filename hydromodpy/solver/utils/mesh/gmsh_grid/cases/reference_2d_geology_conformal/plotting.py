@@ -235,7 +235,7 @@ def _build_geographic_mesh_figure(
     zone_keys = _collect_display_zone_keys(source_domain_gdf)
     key_to_idx, key_to_color = _build_zone_color_map(zone_keys)
 
-    fig, axes = plt.subplots(1, 2, figsize=(18.5, 9.5), dpi=160)
+    fig, axes = plt.subplots(1, 2, figsize=(16.8, 8.6), dpi=160)
     ax_topo, ax_overlay = axes
 
     if topo_background is not None:
@@ -294,11 +294,11 @@ def _build_geographic_mesh_figure(
     _set_panel_limits(ax_topo, bounds=domain_bounds)
     _set_panel_limits(ax_overlay, bounds=domain_bounds)
 
-    ax_topo.set_title("Topography + catchment limits + hydro network", fontsize=15)
+    ax_topo.set_title("Topography + catchment limits + hydro network", fontsize=14)
     for ax in (ax_topo, ax_overlay):
-        ax.set_xlabel("x [m]", fontsize=12)
-        ax.set_ylabel("y [m]", fontsize=12)
-        ax.tick_params(labelsize=10)
+        ax.set_xlabel("x [m]", fontsize=11)
+        ax.set_ylabel("y [m]", fontsize=11)
+        ax.tick_params(labelsize=9)
         ax.set_aspect("equal")
         disable_axis_offset(ax)
 
@@ -320,7 +320,7 @@ def _build_geographic_mesh_figure(
     overlay_legend = ax_overlay.legend(
         handles=legend_handles,
         loc="lower left",
-        fontsize=10,
+        fontsize=9,
         framealpha=0.92,
     )
     ax_overlay.add_artist(overlay_legend)
@@ -333,13 +333,13 @@ def _build_geographic_mesh_figure(
         ax_overlay.legend(
             handles=geology_handles,
             title="Constrained zones",
-            loc="upper left",
-            fontsize=9,
-            title_fontsize=10,
+            loc="upper right",
+            fontsize=8,
+            title_fontsize=9,
             framealpha=0.92,
         )
 
-    fig.suptitle("Mesh-catchment overview", fontsize=18)
+    fig.suptitle("Mesh-catchment overview", fontsize=17)
     fig.subplots_adjust(
         left=0.05, right=0.985, top=0.92, bottom=0.08, wspace=0.12
     )
@@ -354,7 +354,7 @@ def _build_regional_context_figure(
     river_lines: list[object],
     outlet_xy: tuple[float, float] | None,
 ):
-    fig, ax = plt.subplots(1, 1, figsize=(11.5, 9.5), dpi=160)
+    fig, ax = plt.subplots(1, 1, figsize=(10.2, 8.3), dpi=160)
 
     extent = None
     if topo_background is not None:
@@ -407,10 +407,10 @@ def _build_regional_context_figure(
         ax.set_xlim(xmin - pad_x, xmax + pad_x)
         ax.set_ylim(ymin - pad_y, ymax + pad_y)
 
-    ax.set_title("Regional catchment location on DEM", fontsize=16)
-    ax.set_xlabel("x [m]", fontsize=12)
-    ax.set_ylabel("y [m]", fontsize=12)
-    ax.tick_params(labelsize=10)
+    ax.set_title("Regional catchment location on DEM", fontsize=15)
+    ax.set_xlabel("x [m]", fontsize=11)
+    ax.set_ylabel("y [m]", fontsize=11)
+    ax.tick_params(labelsize=9)
     ax.set_aspect("equal")
     disable_axis_offset(ax)
 
@@ -435,7 +435,7 @@ def _build_regional_context_figure(
                 label="Outlet",
             )
         )
-    ax.legend(handles=legend_handles, loc="lower left", fontsize=10, framealpha=0.92)
+    ax.legend(handles=legend_handles, loc="lower left", fontsize=9, framealpha=0.92)
     fig.subplots_adjust(left=0.08, right=0.96, top=0.93, bottom=0.08)
     return fig
 
@@ -501,8 +501,8 @@ def _draw_legend_panel(
         title="Constrained zones",
         loc="upper left",
         ncol=4,
-        fontsize=11,
-        title_fontsize=13,
+        fontsize=10,
+        title_fontsize=12,
         frameon=True,
     )
     legend.get_frame().set_alpha(0.95)
@@ -530,7 +530,7 @@ def _draw_legend_panel(
         transform=ax.transAxes,
         ha="left",
         va="bottom",
-        fontsize=12,
+        fontsize=11,
         color="0.15",
     )
 
@@ -569,7 +569,7 @@ def _build_figure(
     zone_keys = _collect_display_zone_keys(source_domain_gdf, partition_gdf)
     key_to_idx, key_to_color = _build_zone_color_map(zone_keys)
 
-    fig = plt.figure(figsize=(18.0, 10.5), dpi=160)
+    fig = plt.figure(figsize=(16.5, 9.2), dpi=160)
     axes = fig.subplot_mosaic(
         [["source", "mesh"], ["legend", "legend"]],
         height_ratios=[1.0, 0.28],
@@ -608,7 +608,7 @@ def _build_figure(
         domain_kind=domain_kind,
         interface_refinement=interface_refinement,
     )
-    fig.suptitle("Reference 2D zone-conformal Gmsh mesh", fontsize=19)
+    fig.suptitle("Reference 2D zone-conformal Gmsh mesh", fontsize=18)
     fig.subplots_adjust(
         left=0.05, right=0.985, top=0.92, bottom=0.06, wspace=0.12, hspace=0.12
     )

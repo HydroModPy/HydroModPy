@@ -3,10 +3,10 @@
 This directory is a tiny self-contained mesh bundle shipped with the standalone
 mesh viewer examples.
 
-It exists so that `python mesh/run_visualization.py` works out of the box in a
+It exists so that `python -m mesh_bundle_viewer` works out of the box in a
 repository layout where:
 
-- `mesh/` contains only the standalone viewer code
+- `mesh_bundle_viewer/` contains only the standalone viewer code
 - `examples/mesh_viewer/` contains example TOML files and sample data
 - `outputs/mesh_viewer/` receives generated figures and summaries
 
@@ -21,4 +21,4 @@ The files follow the standard catchment mesh bundle contract:
 - `mesh_summary.json`
 
 No per-bundle `reader.py` is required because the standalone viewer ships its
-own internal reader in `mesh/reader.py`.
+own internal reader in `mesh_bundle_viewer/reader.py`.

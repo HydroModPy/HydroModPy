@@ -1,8 +1,8 @@
-"""Public documentation strings and key sets for the mesh viewer TOML."""
+﻿"""Public documentation strings and key sets for the mesh viewer TOML."""
 
 from __future__ import annotations
 
-from mesh.schema import ALLOWED_COLOR_FIELDS, ALLOWED_TOPOGRAPHY_FIELDS
+from ..schema import ALLOWED_COLOR_FIELDS, ALLOWED_TOPOGRAPHY_FIELDS
 
 
 def _format_allowed_values(values: set[str]) -> str:
@@ -123,3 +123,4 @@ __all__ = [
     "TOML_PARAMETER_DESCRIPTIONS",
     "get_toml_parameter_descriptions",
 ]
+

@@ -7,6 +7,8 @@
 - `config_fast_nwt.toml` is the reduced NWT / MODPATH / MT3DMS regression
   variant.
 - `config_fast_mf6.toml` is the reduced MODFLOW 6 / GWT regression variant.
+- `run_fast_boussinesq_mesh_input.toml` is the reduced pure-flow Boussinesq
+  example that reuses one precomputed catchment mesh through `[mesh_input]`.
 - To generate a fresh commented mesh section from the schema instead of copying
   an example, use: `python -m launchers mesh-catchment template`
 - `config_extensive_nwt.toml` is the canonical default launcher config for

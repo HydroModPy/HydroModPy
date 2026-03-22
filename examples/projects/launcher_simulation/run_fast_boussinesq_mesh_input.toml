@@ -1,0 +1,25 @@
+# Reduced pure-flow Boussinesq example on one precomputed Gmsh catchment mesh.
+#
+# Update [mesh_input] with the output of one previous `mesh_catchment` run
+# before launching this config.
+base_config = "config_fast_common.toml"
+
+[simulation]
+name = "Example 12 launcher fast boussinesq mesh_input"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["boussinesq"]
+
+[mesh_input]
+mesh_path = "../../../results/mesh_catchment/example/mesh_2d.msh"
+bundle_dir = "../../../results/mesh_catchment/example/mesh_2d_bundle"
+
+[flow]
+runtime_backend = "scipy_sparse"
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[postprocess]
+enabled = false

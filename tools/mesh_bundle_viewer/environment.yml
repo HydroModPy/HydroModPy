@@ -1,10 +1,11 @@
-name: mesh-distribution
+﻿name: mesh-distribution
 channels:
   - conda-forge
 dependencies:
   - python=3.12
 
   # Standalone viewer: no project-specific runtime dependency.
-  # Standard bundles are read through `mesh/reader.py`.
+  # Standard bundles are read through `mesh_bundle_viewer/reader.py`.
   # TOML validation uses the standard library plus local validation helpers.
   - matplotlib>=3.8
+

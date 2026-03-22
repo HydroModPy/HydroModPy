@@ -5,7 +5,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import xarray as xr
 
+from hydromodpy.data_managers.contracts.load_result import LoadResult
+from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
 from hydromodpy.process.flow import Flow
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig
@@ -36,6 +39,7 @@ from hydromodpy.solver.boussinesq.scipy_sparse_runtime import (
 )
 from hydromodpy.solver.prototype.solver_config import SolverConfig
 from hydromodpy.solver.prototype.solver_engine import SolverEngine
+from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
@@ -117,6 +121,57 @@ def _write_minimal_bundle(
 
 def _build_flow_config(flow_section: dict[str, object]) -> FlowConfig:
     return FlowConfig.from_toml_section(flow_section, base_dir=Path("."))
+
+
+def _build_planar_mesh() -> GmshPlanarMesh2D:
+    return GmshPlanarMesh2D(
+        points_xy=np.asarray(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 1.0],
+            ],
+            dtype=float,
+        ),
+        connectivity=np.asarray(
+            [
+                [0, 1, 2],
+                [0, 2, 3],
+            ],
+            dtype=int,
+        ),
+        cell_type="triangle",
+    )
+
+
+def _make_static_recharge_field_record() -> FieldRecord:
+    ds = xr.Dataset(
+        {
+            "recharge": (
+                ("y", "x"),
+                np.asarray(
+                    [
+                        [1.0e-7, 4.0e-7],
+                        [2.0e-7, 3.0e-7],
+                    ],
+                    dtype=float,
+                ),
+            )
+        },
+        coords={
+            "x": np.asarray([0.333333, 0.666667], dtype=float),
+            "y": np.asarray([0.333333, 0.666667], dtype=float),
+        },
+    )
+    return FieldRecord(
+        variable="recharge",
+        source="test",
+        unit="m/s",
+        data=ds,
+        bbox=(0.0, 0.0, 1.0, 1.0),
+        crs="EPSG:2154",
+    )
 
 
 def _triplets_to_dense(
@@ -1106,9 +1161,16 @@ def test_boussinesq_runs_ocean_boundary_with_period_dependent_support(
     assert np.allclose(model.state.imposed_head_edge_flux_m3_s[[3, 4]], 0.0, atol=1.0e-12)
 
 
-def test_boussinesq_rejects_heterogeneous_recharge(tmp_path: Path) -> None:
+def test_boussinesq_supports_heterogeneous_recharge(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     bundle = load_catchment_mesh_bundle(bundle_dir)
+    monkeypatch.setattr(
+        "hydromodpy.solver.boussinesq.boussinesq.load_planar_mesh",
+        lambda path: _build_planar_mesh(),
+    )
     flow = Flow(
         _build_flow_config(
             {
@@ -1119,22 +1181,26 @@ def test_boussinesq_rejects_heterogeneous_recharge(tmp_path: Path) -> None:
         )
     )
     flow.sinks_sources["recharge"] = FlowRechargeConfig(
-        values=1.0e-7,
-        heterogeneous_source=object(),
+        values=0.0,
+        heterogeneous_source=LoadResult(fields=[_make_static_recharge_field_record()]),
+        interpolation_method="nearest",
     )
     model = Boussinesq(
         mesh_bundle=bundle,
         flow=flow,
         domain=None,
-        time_grid=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
         model_folder=tmp_path,
-        model_name="demo_boussinesq_bad_recharge",
+        model_name="demo_boussinesq_heterogeneous_recharge",
     )
 
     model.pre_processing()
+    success = model.processing(run_model=True)
 
-    with pytest.raises(NotImplementedError, match="heterogeneous recharge"):
-        model.processing(run_model=True)
+    assert success is True
+    assert model.state is not None
+    assert np.allclose(model.state.recharge_rate_m_s, [4.0e-7, 2.0e-7])
+    assert model.runtime_summary["active_recharge"] is True
 
 
 def test_boussinesq_rejects_structured_well_addressing_on_triangular_mesh(

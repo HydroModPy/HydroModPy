@@ -1,4 +1,4 @@
-"""Typed public TOML contracts for the standalone mesh visualization package.
+﻿"""Typed public TOML contracts for the standalone mesh visualization package.
 
 The public section name remains ``[mesh_distribution]`` for backward
 compatibility, even though the code internally talks about "visualization".
@@ -9,13 +9,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from mesh.loading.toml_docs import (
+from .toml_docs import (
     MAIN_ALLOWED_KEYS,
     MAIN_LABEL,
     PLOT_ALLOWED_KEYS,
     PLOT_LABEL,
 )
-from mesh.loading.toml_validation import (
+from .toml_validation import (
     ValidationError,
     coerce_bool,
     coerce_figure_size,
@@ -29,7 +29,7 @@ from mesh.loading.toml_validation import (
     read_mapping_value,
     require_mapping,
 )
-from mesh.schema import (
+from ..schema import (
     ALLOWED_COLOR_FIELDS,
     ALLOWED_TOPOGRAPHY_FIELDS,
     PlotConfig,
@@ -284,3 +284,4 @@ __all__ = [
     "normalize_color_field",
     "normalize_topography_field",
 ]
+

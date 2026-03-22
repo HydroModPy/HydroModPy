@@ -40,12 +40,20 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning impo
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
     add_polyline_segments,
     add_ring_loop,
+    apply_family_refinement_fields,
     apply_interface_refinement_field,
     apply_mesh_options,
     build_curve_group_name,
     configure_gmsh_terminal_output,
     iter_river_lines_from_trace,
     write_repository_compatible_mesh,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._refinement_policy import (
+    apply_local_refinement_policy,
+    build_refinement_candidates,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
+    ZoneMeshingRefinementPolicy,
 )
 
 
@@ -660,6 +668,7 @@ def generate_zone_conformal_mesh_from_dataframe(
     interface_size: float | None = None,
     interface_distance: float | None = None,
     interface_sampling: int = 64,
+    refinement_policy: ZoneMeshingRefinementPolicy | None = None,
     linear_constraints: Sequence[ZoneLinearConstraint] | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
@@ -778,6 +787,7 @@ def generate_zone_conformal_mesh_from_dataframe(
     constraint_embed_failures_by_name: dict[str, int] = {
         str(constraint.name): 0 for constraint in normalized_constraints
     }
+    refinement_policy_summary: dict[str, Any] | None = None
 
     trace_mesh_stage("zone_meshing.gmsh.initialize")
     gmsh.initialize()
@@ -992,41 +1002,87 @@ def generate_zone_conformal_mesh_from_dataframe(
                     constraint_embed_failures_by_name[constraint_name] += 1
         trace_mesh_stage("zone_meshing.constraints.embed.done")
 
-        interface_curve_tags_all = [
-            int(curve_tag)
-            for name, curve_tags_list in curve_tags_by_name.items()
-            if not str(name).startswith("boundary::")
-            and (
-                str(name) not in constraint_by_name
-                or bool(constraint_by_name[str(name)].participates_in_refinement)
-            )
-            for curve_tag in curve_tags_list
-        ]
-        interface_curve_tags = [
-            int(curve_tag)
-            for curve_tag in interface_curve_tags_all
-            if segment_intersects_refinement_scope(
-                segment=curve_tag_to_segment.get(int(curve_tag)),
-                scope_geometry=refinement_scope_geometry,
-                tolerance=point_tolerance,
-            )
-        ]
         trace_mesh_stage("zone_meshing.refinement.start")
-        mesh_size_fields_summary = apply_interface_refinement_field(
-            gmsh,
-            interface_curve_tags=interface_curve_tags,
-            global_size=global_size_value,
-            refine_interfaces=refine_interfaces_value,
-            interface_size=interface_size_value,
-            interface_distance=interface_distance_value,
-            interface_sampling=int(interface_sampling),
-        )
-        mesh_size_fields_summary["candidate_interface_curve_count"] = int(
-            len(sorted(set(int(tag) for tag in interface_curve_tags_all)))
-        )
-        mesh_size_fields_summary["scope_filtered_interface_curve_count"] = int(
-            len(sorted(set(int(tag) for tag in interface_curve_tags)))
-        )
+        refined_curve_tags: set[int]
+        if (
+            refine_interfaces_value
+            and refinement_policy is not None
+            and refinement_policy.enabled
+            and interface_size_value is not None
+            and interface_distance_value is not None
+        ):
+            policy_candidates = build_refinement_candidates(
+                curve_tags_by_name=curve_tags_by_name,
+                curve_tag_to_segment=curve_tag_to_segment,
+                refinement_scope_geometry=refinement_scope_geometry,
+                point_tolerance=point_tolerance,
+                policy=refinement_policy,
+                default_interface_size=float(interface_size_value),
+                default_interface_distance=float(interface_distance_value),
+                default_interface_sampling=int(interface_sampling),
+            )
+            policy_result = apply_local_refinement_policy(
+                candidates=policy_candidates,
+                policy=refinement_policy,
+            )
+            mesh_size_fields_summary = apply_family_refinement_fields(
+                gmsh,
+                family_curve_tags=policy_result.active_curve_tags_by_family,
+                global_size=global_size_value,
+                refine_interfaces=refine_interfaces_value,
+                family_settings=refinement_policy.families,
+                default_interface_size=float(interface_size_value),
+                default_interface_distance=float(interface_distance_value),
+                default_interface_sampling=int(interface_sampling),
+            )
+            mesh_size_fields_summary["candidate_interface_curve_count"] = int(
+                policy_result.candidate_count
+            )
+            mesh_size_fields_summary["scope_filtered_interface_curve_count"] = int(
+                policy_result.active_curve_count
+            )
+            refined_curve_tags = {
+                int(curve_tag)
+                for curve_tags in policy_result.active_curve_tags_by_family.values()
+                for curve_tag in curve_tags
+            }
+            refinement_policy_summary = policy_result.to_mapping()
+        else:
+            interface_curve_tags_all = [
+                int(curve_tag)
+                for name, curve_tags_list in curve_tags_by_name.items()
+                if not str(name).startswith("boundary::")
+                and (
+                    str(name) not in constraint_by_name
+                    or bool(constraint_by_name[str(name)].participates_in_refinement)
+                )
+                for curve_tag in curve_tags_list
+            ]
+            interface_curve_tags = [
+                int(curve_tag)
+                for curve_tag in interface_curve_tags_all
+                if segment_intersects_refinement_scope(
+                    segment=curve_tag_to_segment.get(int(curve_tag)),
+                    scope_geometry=refinement_scope_geometry,
+                    tolerance=point_tolerance,
+                )
+            ]
+            mesh_size_fields_summary = apply_interface_refinement_field(
+                gmsh,
+                interface_curve_tags=interface_curve_tags,
+                global_size=global_size_value,
+                refine_interfaces=refine_interfaces_value,
+                interface_size=interface_size_value,
+                interface_distance=interface_distance_value,
+                interface_sampling=int(interface_sampling),
+            )
+            mesh_size_fields_summary["candidate_interface_curve_count"] = int(
+                len(sorted(set(int(tag) for tag in interface_curve_tags_all)))
+            )
+            mesh_size_fields_summary["scope_filtered_interface_curve_count"] = int(
+                len(sorted(set(int(tag) for tag in interface_curve_tags)))
+            )
+            refined_curve_tags = set(int(tag) for tag in interface_curve_tags)
         mesh_size_fields_summary["refinement_scope_applied"] = bool(
             refinement_scope_geometry is not None
         )
@@ -1145,14 +1201,12 @@ def generate_zone_conformal_mesh_from_dataframe(
             embed_failures=int(
                 constraint_embed_failures_by_name.get(constraint_name, 0)
             ),
-            refined_with_interface_field=bool(
-                bool(refine_interfaces_value)
-                and bool(
-                    curve_tag_set.intersection(
-                        set(int(tag) for tag in interface_curve_tags)
+                refined_with_interface_field=bool(
+                    bool(refine_interfaces_value)
+                    and bool(
+                        curve_tag_set.intersection(refined_curve_tags)
                     )
-                )
-            ),
+                ),
             participates_in_refinement=bool(constraint.participates_in_refinement),
         )
     river_trace_summary = ZoneRiverTraceSummary.from_constraint_summary(
@@ -1205,6 +1259,8 @@ def generate_zone_conformal_mesh_from_dataframe(
         "surface_physical_groups": surface_group_summaries,
         "curve_physical_groups": curve_group_summaries,
     }
+    if refinement_policy_summary is not None:
+        summary["refinement_policy"] = refinement_policy_summary
     trace_mesh_stage("zone_meshing.generate.done", n_cells=mesh.n_cells)
     return ZoneConformalMeshResult(
         mesh=mesh,
@@ -1234,6 +1290,7 @@ def generate_zone_conformal_mesh_from_geology_config(
     interface_size: float | None = None,
     interface_distance: float | None = None,
     interface_sampling: int = 64,
+    refinement_policy: ZoneMeshingRefinementPolicy | None = None,
     linear_constraints: Sequence[ZoneLinearConstraint] | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
@@ -1262,6 +1319,7 @@ def generate_zone_conformal_mesh_from_geology_config(
         interface_size=interface_size,
         interface_distance=interface_distance,
         interface_sampling=interface_sampling,
+        refinement_policy=refinement_policy,
         linear_constraints=linear_constraints,
         river_trace=river_trace,
         refinement_scope_geometry=refinement_scope_geometry,

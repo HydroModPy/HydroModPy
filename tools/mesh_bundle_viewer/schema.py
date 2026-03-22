@@ -1,4 +1,4 @@
-"""Core runtime contracts for the standalone ``mesh`` package.
+﻿"""Core runtime contracts for the standalone ``mesh`` package.
 
 This module intentionally describes runtime configuration and shared execution
 state only:
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from mesh.bundle_contracts import (
+from .bundle_contracts import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
     CatchmentMeshBundleEdge,
@@ -122,3 +122,4 @@ __all__ = [
     "PlotConfig",
     "VisualizationConfig",
 ]
+

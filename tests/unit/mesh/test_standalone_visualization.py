@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from mesh import (
+from tools.mesh_bundle_viewer import (
     CatchmentMeshBundle,
     VISUALIZATION_SUMMARY_SCHEMA_VERSION,
     VisualizationSummary,
@@ -14,7 +14,7 @@ from mesh import (
     load_toml_config,
     load_visualization_data,
 )
-from mesh.reader import load_catchment_mesh_bundle
+from tools.mesh_bundle_viewer.reader import load_catchment_mesh_bundle
 
 
 def _repo_root() -> Path:
@@ -58,7 +58,9 @@ def test_build_visualization_summary_contract_returns_typed_summary() -> None:
     )
 
 
-def test_python_module_mesh_entrypoint_runs_on_example_bundle(tmp_path: Path) -> None:
+def test_python_module_mesh_bundle_viewer_entrypoint_runs_on_example_bundle(
+    tmp_path: Path,
+) -> None:
     config_path = tmp_path / "mesh_view.toml"
     summary_path = tmp_path / "summary.json"
     bundle_dir = _example_bundle_dir().as_posix()
@@ -82,7 +84,7 @@ def test_python_module_mesh_entrypoint_runs_on_example_bundle(tmp_path: Path) ->
         [
             sys.executable,
             "-m",
-            "mesh",
+            "tools.mesh_bundle_viewer",
             "--config",
             str(config_path),
             "--output-json",

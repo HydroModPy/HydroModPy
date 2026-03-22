@@ -20,6 +20,130 @@ from pydantic import (
 )
 
 
+class ZoneMeshingRefinementFamilySettingsSchema(BaseModel):
+    """One family-specific refinement override inside the hotspot policy."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    priority: int = 0
+    interface_size: float | None = None
+    interface_distance: float | None = None
+    interface_sampling: int | None = None
+
+    @field_validator("priority")
+    @classmethod
+    def _validate_priority(cls, value):
+        return int(value)
+
+    @field_validator("interface_size", "interface_distance")
+    @classmethod
+    def _validate_optional_non_negative_family_float(cls, value):
+        if value is None:
+            return None
+        out = float(value)
+        if out < 0.0:
+            raise ValueError("values must be >= 0")
+        return out
+
+    @field_validator("interface_sampling")
+    @classmethod
+    def _validate_optional_family_sampling(cls, value):
+        if value is None:
+            return None
+        out = int(value)
+        if out < 2:
+            raise ValueError("interface_sampling must be >= 2 when provided")
+        return out
+
+
+class ZoneMeshingRefinementFamiliesSchema(BaseModel):
+    """Validated family-specific refinement policy settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    river: ZoneMeshingRefinementFamilySettingsSchema = Field(
+        default_factory=lambda: ZoneMeshingRefinementFamilySettingsSchema(
+            enabled=True,
+            priority=300,
+        )
+    )
+    geology_interface: ZoneMeshingRefinementFamilySettingsSchema = Field(
+        default_factory=lambda: ZoneMeshingRefinementFamilySettingsSchema(
+            enabled=True,
+            priority=200,
+        )
+    )
+    watershed_boundary: ZoneMeshingRefinementFamilySettingsSchema = Field(
+        default_factory=lambda: ZoneMeshingRefinementFamilySettingsSchema(
+            enabled=True,
+            priority=100,
+        )
+    )
+
+
+class ZoneMeshingRefinementHotspotSettingsSchema(BaseModel):
+    """Validated hotspot-detection thresholds for local refinement budgeting."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    radius: float | None = None
+    max_curve_count: int = 180
+    max_family_count: int = 2
+    min_gap: float = 80.0
+    max_node_degree: int = 4
+    short_segment_length: float = 120.0
+    max_short_segment_count: int = 12
+
+    @field_validator("radius", "min_gap", "short_segment_length")
+    @classmethod
+    def _validate_optional_non_negative_hotspot_float(cls, value):
+        if value is None:
+            return None
+        out = float(value)
+        if out < 0.0:
+            raise ValueError("values must be >= 0")
+        return out
+
+    @field_validator(
+        "max_curve_count",
+        "max_family_count",
+        "max_node_degree",
+        "max_short_segment_count",
+    )
+    @classmethod
+    def _validate_positive_int(cls, value):
+        out = int(value)
+        if out < 1:
+            raise ValueError("values must be >= 1")
+        return out
+
+
+class ZoneMeshingRefinementPolicySchema(BaseModel):
+    """Validated local refinement policy for mixed river/geology interfaces."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    mode: str = Field(default="family_priority_local_budget")
+    hotspot: ZoneMeshingRefinementHotspotSettingsSchema = Field(
+        default_factory=ZoneMeshingRefinementHotspotSettingsSchema
+    )
+    families: ZoneMeshingRefinementFamiliesSchema = Field(
+        default_factory=ZoneMeshingRefinementFamiliesSchema
+    )
+
+    @field_validator("mode")
+    @classmethod
+    def _validate_mode(cls, value):
+        text = str(value).strip().lower()
+        allowed = {"family_priority_local_budget"}
+        if text not in allowed:
+            allowed_text = ", ".join(sorted(allowed))
+            raise ValueError(f"mode must be one of: {allowed_text}")
+        return text
+
+
 class ZoneMeshingSettingsSchema(BaseModel):
     """Validated settings for one conformal 2D Gmsh meshing run."""
 
@@ -102,6 +226,14 @@ class ZoneMeshingSettingsSchema(BaseModel):
             "Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost."
         ),
     )
+    refinement_policy: ZoneMeshingRefinementPolicySchema | None = Field(
+        default=None,
+        description=(
+            "Optional local hotspot policy used to selectively thin low-priority "
+            "refinement families when the mixed interface network becomes too "
+            "dense for one robust Gmsh Delaunay run."
+        ),
+    )
 
     @field_validator("algorithm")
     @classmethod
@@ -179,7 +311,122 @@ class ZoneMeshingSettingsSchema(BaseModel):
                 raise ValueError(
                     "interface_distance must be > 0 when refine_interfaces=true"
                 )
+        if self.refinement_policy is not None and self.refinement_policy.enabled:
+            if not self.refine_interfaces:
+                raise ValueError(
+                    "refinement_policy.enabled requires refine_interfaces=true"
+                )
+            if self.refinement_policy.hotspot.radius is None:
+                self.refinement_policy.hotspot.radius = self.interface_distance
+            for family_name in (
+                "river",
+                "geology_interface",
+                "watershed_boundary",
+            ):
+                family_settings = getattr(self.refinement_policy.families, family_name)
+                if family_settings.interface_size is not None:
+                    if family_settings.interface_size <= 0.0:
+                        raise ValueError(
+                            f"{family_name}.interface_size must be > 0 when provided"
+                        )
+                    if family_settings.interface_size > self.global_size:
+                        raise ValueError(
+                            f"{family_name}.interface_size must be <= global_size"
+                        )
+                if family_settings.interface_distance is not None:
+                    if family_settings.interface_distance <= 0.0:
+                        raise ValueError(
+                            f"{family_name}.interface_distance must be > 0 when provided"
+                        )
         return self
+
+
+@dataclass(frozen=True)
+class ZoneMeshingRefinementFamilySettings:
+    """Family-specific refinement behavior resolved from the config."""
+
+    enabled: bool
+    priority: int
+    interface_size: float | None
+    interface_distance: float | None
+    interface_sampling: int | None
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "enabled": bool(self.enabled),
+            "priority": int(self.priority),
+            "interface_size": (
+                None if self.interface_size is None else float(self.interface_size)
+            ),
+            "interface_distance": (
+                None
+                if self.interface_distance is None
+                else float(self.interface_distance)
+            ),
+            "interface_sampling": (
+                None
+                if self.interface_sampling is None
+                else int(self.interface_sampling)
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class ZoneMeshingRefinementHotspotSettings:
+    """Local hotspot thresholds used by the refinement policy."""
+
+    radius: float | None
+    max_curve_count: int
+    max_family_count: int
+    min_gap: float
+    max_node_degree: int
+    short_segment_length: float
+    max_short_segment_count: int
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "radius": None if self.radius is None else float(self.radius),
+            "max_curve_count": int(self.max_curve_count),
+            "max_family_count": int(self.max_family_count),
+            "min_gap": float(self.min_gap),
+            "max_node_degree": int(self.max_node_degree),
+            "short_segment_length": float(self.short_segment_length),
+            "max_short_segment_count": int(self.max_short_segment_count),
+        }
+
+
+@dataclass(frozen=True)
+class ZoneMeshingRefinementPolicy:
+    """Optional local budget policy used before creating Gmsh size fields."""
+
+    enabled: bool
+    mode: str
+    hotspot: ZoneMeshingRefinementHotspotSettings
+    families: dict[str, ZoneMeshingRefinementFamilySettings]
+
+    def sorted_families_by_priority(self) -> list[str]:
+        return [
+            family_name
+            for family_name, _ in sorted(
+                self.families.items(),
+                key=lambda item: (
+                    int(item[1].priority),
+                    str(item[0]),
+                ),
+                reverse=True,
+            )
+        ]
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "enabled": bool(self.enabled),
+            "mode": str(self.mode),
+            "hotspot": self.hotspot.to_mapping(),
+            "families": {
+                family_name: settings.to_mapping()
+                for family_name, settings in sorted(self.families.items())
+            },
+        }
 
 
 @dataclass(frozen=True)
@@ -197,6 +444,7 @@ class ZoneMeshingSettings:
     interface_size: float | None
     interface_distance: float | None
     interface_sampling: int
+    refinement_policy: ZoneMeshingRefinementPolicy | None
 
     @classmethod
     def from_mapping(cls, config_data: Mapping[str, Any]) -> "ZoneMeshingSettings":
@@ -208,6 +456,150 @@ class ZoneMeshingSettings:
         except ValidationError as exc:
             raise ValueError(str(exc)) from exc
         payload = parsed.model_dump(mode="python")
+        refinement_policy_payload = payload.get("refinement_policy")
+        refinement_policy = None
+        if refinement_policy_payload is not None:
+            families_payload = refinement_policy_payload["families"]
+            refinement_policy = ZoneMeshingRefinementPolicy(
+                enabled=bool(refinement_policy_payload["enabled"]),
+                mode=str(refinement_policy_payload["mode"]),
+                hotspot=ZoneMeshingRefinementHotspotSettings(
+                    radius=(
+                        None
+                        if refinement_policy_payload["hotspot"]["radius"] is None
+                        else float(refinement_policy_payload["hotspot"]["radius"])
+                    ),
+                    max_curve_count=int(
+                        refinement_policy_payload["hotspot"]["max_curve_count"]
+                    ),
+                    max_family_count=int(
+                        refinement_policy_payload["hotspot"]["max_family_count"]
+                    ),
+                    min_gap=float(refinement_policy_payload["hotspot"]["min_gap"]),
+                    max_node_degree=int(
+                        refinement_policy_payload["hotspot"]["max_node_degree"]
+                    ),
+                    short_segment_length=float(
+                        refinement_policy_payload["hotspot"]["short_segment_length"]
+                    ),
+                    max_short_segment_count=int(
+                        refinement_policy_payload["hotspot"][
+                            "max_short_segment_count"
+                        ]
+                    ),
+                ),
+                families={
+                    "river": ZoneMeshingRefinementFamilySettings(
+                        enabled=bool(families_payload["river"]["enabled"]),
+                        priority=int(families_payload["river"]["priority"]),
+                        interface_size=(
+                            None
+                            if families_payload["river"]["interface_size"] is None
+                            else float(families_payload["river"]["interface_size"])
+                        ),
+                        interface_distance=(
+                            None
+                            if families_payload["river"]["interface_distance"] is None
+                            else float(
+                                families_payload["river"]["interface_distance"]
+                            )
+                        ),
+                        interface_sampling=(
+                            None
+                            if families_payload["river"]["interface_sampling"] is None
+                            else int(families_payload["river"]["interface_sampling"])
+                        ),
+                    ),
+                    "geology_interface": ZoneMeshingRefinementFamilySettings(
+                        enabled=bool(
+                            families_payload["geology_interface"]["enabled"]
+                        ),
+                        priority=int(
+                            families_payload["geology_interface"]["priority"]
+                        ),
+                        interface_size=(
+                            None
+                            if families_payload["geology_interface"][
+                                "interface_size"
+                            ]
+                            is None
+                            else float(
+                                families_payload["geology_interface"][
+                                    "interface_size"
+                                ]
+                            )
+                        ),
+                        interface_distance=(
+                            None
+                            if families_payload["geology_interface"][
+                                "interface_distance"
+                            ]
+                            is None
+                            else float(
+                                families_payload["geology_interface"][
+                                    "interface_distance"
+                                ]
+                            )
+                        ),
+                        interface_sampling=(
+                            None
+                            if families_payload["geology_interface"][
+                                "interface_sampling"
+                            ]
+                            is None
+                            else int(
+                                families_payload["geology_interface"][
+                                    "interface_sampling"
+                                ]
+                            )
+                        ),
+                    ),
+                    "watershed_boundary": ZoneMeshingRefinementFamilySettings(
+                        enabled=bool(
+                            families_payload["watershed_boundary"]["enabled"]
+                        ),
+                        priority=int(
+                            families_payload["watershed_boundary"]["priority"]
+                        ),
+                        interface_size=(
+                            None
+                            if families_payload["watershed_boundary"][
+                                "interface_size"
+                            ]
+                            is None
+                            else float(
+                                families_payload["watershed_boundary"][
+                                    "interface_size"
+                                ]
+                            )
+                        ),
+                        interface_distance=(
+                            None
+                            if families_payload["watershed_boundary"][
+                                "interface_distance"
+                            ]
+                            is None
+                            else float(
+                                families_payload["watershed_boundary"][
+                                    "interface_distance"
+                                ]
+                            )
+                        ),
+                        interface_sampling=(
+                            None
+                            if families_payload["watershed_boundary"][
+                                "interface_sampling"
+                            ]
+                            is None
+                            else int(
+                                families_payload["watershed_boundary"][
+                                    "interface_sampling"
+                                ]
+                            )
+                        ),
+                    ),
+                },
+            )
         return cls(
             algorithm=str(payload["algorithm"]),
             global_size=float(payload["global_size"]),
@@ -232,6 +624,7 @@ class ZoneMeshingSettings:
                 else float(payload["interface_distance"])
             ),
             interface_sampling=int(payload["interface_sampling"]),
+            refinement_policy=refinement_policy,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -254,6 +647,11 @@ class ZoneMeshingSettings:
                 else float(self.interface_distance)
             ),
             "interface_sampling": int(self.interface_sampling),
+            "refinement_policy": (
+                None
+                if self.refinement_policy is None
+                else self.refinement_policy.to_mapping()
+            ),
         }
 
 
@@ -265,6 +663,10 @@ def parse_zone_meshing_settings(config_data: Mapping[str, Any]) -> ZoneMeshingSe
 
 __all__ = [
     "parse_zone_meshing_settings",
+    "ZoneMeshingRefinementFamilySettings",
+    "ZoneMeshingRefinementHotspotSettings",
+    "ZoneMeshingRefinementPolicy",
+    "ZoneMeshingRefinementPolicySchema",
     "ZoneMeshingSettings",
     "ZoneMeshingSettingsSchema",
 ]

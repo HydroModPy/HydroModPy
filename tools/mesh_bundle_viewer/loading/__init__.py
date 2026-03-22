@@ -1,4 +1,4 @@
-"""Public loading helpers for the standalone ``mesh`` package.
+﻿"""Public loading helpers for the standalone ``mesh`` package.
 
 Recommended usage:
 
@@ -7,21 +7,21 @@ Recommended usage:
 - ``load_visualization_data_from_toml(...)`` for a simple load-from-file flow
 """
 
-from mesh.loading.bundle_loader import (
+from .bundle_loader import (
     load_visualization_data,
     load_visualization_data_from_toml,
 )
-from mesh.loading.toml_contracts import (
+from .toml_contracts import (
     MeshVisualizationTomlSchema,
     VisualizationPlotTomlSchema,
 )
-from mesh.loading.toml_docs import (
+from .toml_docs import (
     get_toml_parameter_descriptions,
 )
-from mesh.loading.toml_loader import (
+from .toml_loader import (
     load_toml_config,
 )
-from mesh.loading.toml_validation import (
+from .toml_validation import (
     ValidationError,
 )
 
@@ -34,3 +34,4 @@ __all__ = [
     "load_visualization_data",
     "load_visualization_data_from_toml",
 ]
+

@@ -7,13 +7,16 @@ the higher-level ``conformal.py`` stays readable and testable.
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 from shapely.geometry import LineString, MultiLineString
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
     iter_line_parts,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
+    ZoneMeshingRefinementFamilySettings,
 )
 
 _GMSH_ALGORITHM_BY_NAME = {
@@ -317,6 +320,108 @@ def apply_interface_refinement_field(
     return summary
 
 
+def apply_family_refinement_fields(
+    gmsh,
+    *,
+    family_curve_tags: Mapping[str, list[int] | tuple[int, ...]],
+    global_size: float,
+    refine_interfaces: bool,
+    family_settings: Mapping[str, ZoneMeshingRefinementFamilySettings],
+    default_interface_size: float,
+    default_interface_distance: float,
+    default_interface_sampling: int,
+) -> dict[str, Any]:
+    """Create one distance-based refinement field per interface family."""
+
+    summary: dict[str, Any] = {
+        "enabled": bool(refine_interfaces),
+        "interface_curve_count": 0,
+        "active_families": [],
+        "family_fields": {},
+        "background_field": None,
+    }
+    if not refine_interfaces:
+        return summary
+
+    field_api = gmsh.model.mesh.field
+    threshold_fields: list[int] = []
+    total_curve_count = 0
+    active_families: list[str] = []
+
+    for family_name, curve_tags in sorted(family_curve_tags.items()):
+        unique_curves = sorted(set(int(tag) for tag in curve_tags))
+        family_cfg = family_settings.get(str(family_name))
+        if family_cfg is None or not family_cfg.enabled or not unique_curves:
+            summary["family_fields"][str(family_name)] = {
+                "enabled": False,
+                "interface_curve_count": int(len(unique_curves)),
+            }
+            continue
+
+        interface_size = float(
+            default_interface_size
+            if family_cfg.interface_size is None
+            else family_cfg.interface_size
+        )
+        interface_distance = float(
+            default_interface_distance
+            if family_cfg.interface_distance is None
+            else family_cfg.interface_distance
+        )
+        interface_sampling = int(
+            default_interface_sampling
+            if family_cfg.interface_sampling is None
+            else family_cfg.interface_sampling
+        )
+
+        distance_field = int(field_api.add("Distance"))
+        field_api.setNumbers(distance_field, "CurvesList", unique_curves)
+        field_api.setNumber(distance_field, "Sampling", float(interface_sampling))
+
+        threshold_field = int(field_api.add("Threshold"))
+        field_api.setNumber(threshold_field, "IField", float(distance_field))
+        field_api.setNumber(threshold_field, "LcMin", float(interface_size))
+        field_api.setNumber(threshold_field, "LcMax", float(global_size))
+        field_api.setNumber(threshold_field, "DistMin", 0.0)
+        field_api.setNumber(threshold_field, "DistMax", float(interface_distance))
+
+        threshold_fields.append(int(threshold_field))
+        total_curve_count += len(unique_curves)
+        active_families.append(str(family_name))
+        summary["family_fields"][str(family_name)] = {
+            "enabled": True,
+            "priority": int(family_cfg.priority),
+            "interface_curve_count": int(len(unique_curves)),
+            "interface_size": float(interface_size),
+            "interface_distance": float(interface_distance),
+            "interface_sampling": int(interface_sampling),
+            "distance_field_tag": int(distance_field),
+            "threshold_field_tag": int(threshold_field),
+        }
+
+    summary["interface_curve_count"] = int(total_curve_count)
+    summary["active_families"] = list(active_families)
+    if not threshold_fields:
+        return summary
+
+    if len(threshold_fields) == 1:
+        background_field = int(threshold_fields[0])
+    else:
+        background_field = int(field_api.add("Min"))
+        field_api.setNumbers(background_field, "FieldsList", threshold_fields)
+    field_api.setAsBackgroundMesh(background_field)
+
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0.0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.0)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0.0)
+
+    summary["background_field"] = {
+        "background_field_tag": int(background_field),
+        "threshold_fields": [int(tag) for tag in threshold_fields],
+    }
+    return summary
+
+
 def write_repository_compatible_mesh(gmsh, output_path: str | os.PathLike[str]) -> None:
     """Write one planar mesh in the ASCII MSH2 format expected by repo readers.
 
@@ -334,6 +439,7 @@ def write_repository_compatible_mesh(gmsh, output_path: str | os.PathLike[str]) 
 __all__ = [
     "add_polyline_segments",
     "add_ring_loop",
+    "apply_family_refinement_fields",
     "apply_interface_refinement_field",
     "apply_mesh_options",
     "build_curve_group_name",

@@ -74,6 +74,7 @@ from hydromodpy.simulation.time import (
     require_flow_simulation_time_grid,
     resolve_simulation_time_window,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
@@ -151,12 +152,31 @@ class HydroModPyLauncher:
 
         raw_toml = load_toml_with_base_config(self.config_path)
         self.mesh_section_data = self._resolve_optional_mesh_section(raw_toml)
+        self.external_mesh_input = self._resolve_optional_mesh_input(raw_toml)
         self.mesh_constraints_mode = None
+        if self.mesh_section_data is not None and self.external_mesh_input is not None:
+            raise ValueError(
+                "Embedded [mesh_catchment] and external [mesh_input] are mutually "
+                "exclusive in process_simulation. Use only one mesh source."
+            )
         if self.mesh_section_data is not None:
             self.mesh_constraints_mode = self.mesh_section_data.constraints_mode
             self.cfg.geographic = prepare_geographic_config_for_meshing(
                 self.cfg.geographic,
                 constraints_mode=self.mesh_constraints_mode,
+            )
+        elif (
+            self.external_mesh_input is not None
+            and "stream"
+            in {
+                str(bc_id).strip().lower()
+                for bc_id in getattr(self.cfg.flow, "active_bc", ())
+            }
+        ):
+            self.cfg.geographic = prepare_geographic_config_for_meshing(
+                self.cfg.geographic,
+                constraints_mode="rivers_only",
+                section_name="mesh_input",
             )
 
         self.spatial_support_provider_registry = (
@@ -231,6 +251,37 @@ class HydroModPyLauncher:
             )
         return section
 
+    def _resolve_optional_mesh_input(
+        self,
+        raw_toml: Mapping[str, object],
+    ) -> dict[str, str] | None:
+        """Resolve one optional external mesh-input block from raw launcher TOML."""
+        section = raw_toml.get("mesh_input")
+        if section is None:
+            return None
+        if not isinstance(section, Mapping):
+            raise ValueError("[mesh_input] configuration must be a mapping when provided.")
+
+        def _resolve_optional_path(raw_value: object) -> str:
+            text = str(raw_value or "").strip()
+            if text == "":
+                return ""
+            path = Path(text).expanduser()
+            if not path.is_absolute():
+                path = (self.config_path.parent / path).resolve()
+            return str(path)
+
+        mesh_path = _resolve_optional_path(section.get("mesh_path"))
+        bundle_dir = _resolve_optional_path(section.get("bundle_dir"))
+        if mesh_path == "" and bundle_dir == "":
+            raise ValueError(
+                "[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'."
+            )
+        return {
+            "mesh_path": mesh_path,
+            "bundle_dir": bundle_dir,
+        }
+
     def run(self) -> LauncherRunState:
         """Execute one full launcher session and return the populated runtime state.
 
@@ -276,6 +327,7 @@ class HydroModPyLauncher:
         self._run_data()
         self._build_domain_spatial_supports(phase="data")
         self._run_mesh_phase()
+        self._run_mesh_input_phase()
         # The runner owns the fine-grained solver dispatch. The launcher
         # only provides process-family callbacks for managed postprocess.
         SimulationRunner(
@@ -626,14 +678,60 @@ class HydroModPyLauncher:
             workspace=setup_state.workspace,
             domain_geographic=setup_state.domain_geographic,
         )
+        self._load_mesh_artifacts_from_summary(strict=False)
+
+    def _run_mesh_input_phase(self) -> None:
+        """Load one pre-existing external mesh declared in `[mesh_input]`."""
+        if self.external_mesh_input is None:
+            return
+
+        mesh_summary: dict[str, str] = {
+            "mesh_source": "external_input",
+        }
+        mesh_path = str(self.external_mesh_input.get("mesh_path", "")).strip()
+        bundle_dir = str(self.external_mesh_input.get("bundle_dir", "")).strip()
+        if mesh_path != "":
+            mesh_summary["output_mesh"] = mesh_path
+        if bundle_dir != "":
+            mesh_summary["output_exchange_bundle_dir"] = bundle_dir
+
+        self.run_state.setup.mesh_summary = mesh_summary
+        self._load_mesh_artifacts_from_summary(strict=True)
+
+    def _load_mesh_artifacts_from_summary(self, *, strict: bool) -> None:
+        """Populate runtime mesh objects from `setup.mesh_summary` when available."""
+        setup_state = self.run_state.setup
         setup_state.mesh_bundle = None
+        setup_state.mesh_planar = None
+
         mesh_summary = setup_state.mesh_summary
         if not isinstance(mesh_summary, Mapping):
+            if strict:
+                raise ValueError("Mesh loading requires setup.mesh_summary to be a mapping.")
             return
+
         bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
-        if bundle_dir == "":
+        if bundle_dir != "":
+            setup_state.mesh_bundle = load_catchment_mesh_bundle(bundle_dir)
+            if isinstance(mesh_summary, dict):
+                mesh_summary.setdefault(
+                    "output_mesh",
+                    str(setup_state.mesh_bundle.mesh_path),
+                )
+
+        mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
+        if mesh_path == "":
+            if strict and setup_state.mesh_bundle is None:
+                raise ValueError(
+                    "Mesh loading requires one 'output_mesh' path or "
+                    "'output_exchange_bundle_dir' in setup.mesh_summary."
+                )
             return
-        setup_state.mesh_bundle = load_catchment_mesh_bundle(bundle_dir)
+
+        mesh_path_obj = Path(mesh_path).expanduser()
+        if not strict and not mesh_path_obj.exists():
+            return
+        setup_state.mesh_planar = load_planar_mesh(mesh_path_obj)
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.

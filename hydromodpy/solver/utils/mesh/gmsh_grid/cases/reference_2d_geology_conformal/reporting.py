@@ -269,6 +269,11 @@ def _finalize_summary_payload(
                 linear_constraints_summary.get("watershed::boundary", {})
             )
 
+    if meshing_inputs.zone_meshing_cfg.refinement_policy is not None:
+        summary["refinement_policy_config"] = (
+            meshing_inputs.zone_meshing_cfg.refinement_policy.to_mapping()
+        )
+
     summary["output_mesh"] = str(mesh_path)
     return summary
 

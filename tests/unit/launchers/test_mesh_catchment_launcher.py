@@ -186,6 +186,22 @@ def test_mesh_runtime_require_mesh_section_returns_typed_model() -> None:
     assert section.domain.kind == "geographic_box_buffer"
 
 
+def test_prepare_geographic_config_for_meshing_updates_simple_namespace_runtime() -> None:
+    geographic_cfg = SimpleNamespace(
+        uses_synthetic_geographic=lambda: False,
+        river_network=SimpleNamespace(enabled=False),
+    )
+
+    updated = mesh_runtime.prepare_geographic_config_for_meshing(
+        geographic_cfg,
+        constraints_mode="rivers_only",
+    )
+
+    assert updated is not geographic_cfg
+    assert updated.river_network.enabled is True
+    assert geographic_cfg.river_network.enabled is False
+
+
 def test_mesh_catchment_launcher_passes_watershed_boundary_constraint_to_case(
     monkeypatch,
     tmp_path: Path,
@@ -625,10 +641,12 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
 
     summary = mesh_runtime.run_single_mesh_catchment_workflow(
         config_path=tmp_path / "config.toml",
-        section_data={
-            "constraints_mode": "rivers_only",
-            "geographic_outputs_mode": "cleanup",
-        },
+        section_data=MeshCatchmentConfigSchema.model_validate(
+            {
+                "constraints_mode": "rivers_only",
+                "geographic_outputs_mode": "cleanup",
+            }
+        ),
         workspace_cfg=workspace_cfg,
         geographic_cfg=geographic_cfg,
         domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(type="constant_thickness")),

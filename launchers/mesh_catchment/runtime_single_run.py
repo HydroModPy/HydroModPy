@@ -10,6 +10,11 @@ from types import SimpleNamespace
 from typing import Any
 
 from hydromodpy.geographic.geographic_config import GeographicConfig
+from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
+    CatchmentBundleGeologyExportConfig,
+    CatchmentBundleHydraulicPropertiesConfig,
+    CatchmentBundleSummaryReference,
+)
 from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
 
 
@@ -18,13 +23,15 @@ _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
 
 def clone_config_like(config: object, *, updates: Mapping[str, Any]) -> object:
     """Clone a config-like object while preserving Pydantic validation when available."""
+    model_copy = getattr(config, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update=dict(updates), deep=True)
+
     model_dump = getattr(config, "model_dump", None)
-    model_validate = getattr(config.__class__, "model_validate", None)
-    if callable(model_dump) and callable(model_validate):
+    if callable(model_dump):
         payload = dict(model_dump(mode="python"))
-        payload.update(dict(updates))
-        return config.__class__.model_validate(payload)
-    payload = dict(vars(config))
+    else:
+        payload = dict(vars(config))
     payload.update(dict(updates))
     return SimpleNamespace(**payload)
 
@@ -51,8 +58,8 @@ class MeshCatchmentSingleRunDependencies:
 
     workspace_factory: Callable[..., object]
     build_domain_geographic_context_fn: Callable[..., object]
-    run_reference_case_fn: Callable[..., Mapping[str, Any] | dict[str, Any]]
-    export_catchment_mesh_bundle_fn: Callable[..., Mapping[str, Any] | dict[str, Any]]
+    run_reference_case_fn: Callable[..., dict[str, Any]]
+    export_catchment_mesh_bundle_fn: Callable[..., dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -296,12 +303,16 @@ def _export_exchange_bundle_if_possible(
     geology_cfg = (
         None
         if section_cfg.geology is None
-        else section_cfg.geology.model_dump(mode="python")
+        else CatchmentBundleGeologyExportConfig.from_mapping(
+            section_cfg.geology.model_dump(mode="python")
+        )
     )
     hydraulic_properties_cfg = (
         None
         if section_cfg.hydraulic_properties is None
-        else section_cfg.hydraulic_properties.model_dump(mode="python")
+        else CatchmentBundleHydraulicPropertiesConfig.from_mapping(
+            section_cfg.hydraulic_properties.model_dump(mode="python")
+        )
     )
     try:
         bundle_summary = deps.export_catchment_mesh_bundle_fn(
@@ -311,7 +322,7 @@ def _export_exchange_bundle_if_possible(
             geology_cfg=geology_cfg,
             hydraulic_properties_cfg=hydraulic_properties_cfg,
             river_trace=river_trace,
-            summary=summary_dict,
+            summary=CatchmentBundleSummaryReference.from_mapping(summary_dict),
             config_path=config_path,
         )
         summary_dict["exchange_bundle"] = bundle_summary

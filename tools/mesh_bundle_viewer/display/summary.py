@@ -1,4 +1,4 @@
-"""Build the visualization summary for one loaded mesh bundle.
+﻿"""Build the visualization summary for one loaded mesh bundle.
 
 This module keeps the typed summary contract internal as long as possible and
 converts to a JSON-friendly mapping only at the public boundary.
@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import math
 
-from mesh.display.geometry import (
+from .geometry import (
     has_continuous_node_topography,
 )
-from mesh.schema import MeshVisualizationData
-from mesh.visualization_summary import VisualizationSummary
+from ..schema import MeshVisualizationData
+from ..visualization_summary import VisualizationSummary
 
 
 def _count_numeric_values(mesh, field_name: str) -> int:
@@ -113,3 +113,4 @@ __all__ = [
     "build_visualization_summary",
     "build_visualization_summary_contract",
 ]
+

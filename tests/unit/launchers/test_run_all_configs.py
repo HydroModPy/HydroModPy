@@ -102,11 +102,13 @@ def test_build_step_plan_collocates_identification_and_mesh_outputs(
         assert identification_override_path.parent == identification_dir
         assert mesh_override_path.parent == mesh_config_dir
         assert 'base_config = "config_demo_case.toml"' in identification_override_text
+        assert "\n\n" not in identification_override_text
         assert f'output_dir = "{identification_dir_out.as_posix()}"' in identification_override_text
         assert (
             f'"{(identification_dir_out / "selected_demo_outlets.csv").as_posix()}"'
             in mesh_override_text
         )
+        assert "\n\n" not in mesh_override_text
         assert f'project_root = "{mesh_dir_out.as_posix()}"' in mesh_override_text
     finally:
         for path in plan.cleanup_paths:

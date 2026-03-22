@@ -1,8 +1,4 @@
-"""Canonical command-line interface for the standalone mesh viewer.
-
-This module is the recommended CLI entry point. ``mesh.run_visualization`` is
-kept only as a compatibility wrapper for vendored directory execution.
-"""
+﻿"""Canonical command-line interface for the standalone mesh bundle viewer."""
 
 from __future__ import annotations
 
@@ -10,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from mesh.runner.visualization_runner import (
+from .runner.visualization_runner import (
     DEFAULT_CONFIG_FILENAME,
     DEFAULT_TOML_SECTION,
     run_visualization_from_toml,
@@ -20,15 +16,21 @@ from mesh.runner.visualization_runner import (
 def resolve_default_config_path() -> Path:
     """Return the default example TOML shipped with the package or repository."""
 
-    mesh_dir = Path(__file__).resolve().parent
+    package_dir = Path(__file__).resolve().parent
+    repo_root = package_dir.parents[1] if len(package_dir.parents) > 1 else None
     candidates = (
-        mesh_dir.parent / "examples" / "mesh_viewer" / DEFAULT_CONFIG_FILENAME,
-        mesh_dir / "examples" / DEFAULT_CONFIG_FILENAME,
+        (
+            repo_root / "examples" / "mesh_viewer" / DEFAULT_CONFIG_FILENAME
+            if repo_root is not None
+            else None
+        ),
+        package_dir.parent / "examples" / "mesh_viewer" / DEFAULT_CONFIG_FILENAME,
+        package_dir / "examples" / DEFAULT_CONFIG_FILENAME,
     )
     for path in candidates:
-        if path.exists():
+        if path is not None and path.exists():
             return path
-    return candidates[0]
+    return next(path for path in candidates if path is not None)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -66,9 +68,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Run the standalone viewer from the command line.
 
-    Use this function when embedding the CLI in another Python process. End
-    users should normally call ``python -m mesh`` or
-    ``python mesh/run_visualization.py``.
+    Use this function when embedding the CLI in another Python process. Inside
+    this repository, end users should normally call
+    ``python -m tools.mesh_bundle_viewer``.
     """
 
     args = build_parser().parse_args(argv)
@@ -88,3 +90,10 @@ __all__ = [
     "main",
     "resolve_default_config_path",
 ]
+
+
+
+
+
+
+

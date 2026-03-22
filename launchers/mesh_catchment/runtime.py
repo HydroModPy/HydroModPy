@@ -75,37 +75,6 @@ def get_optional_mesh_section(
         return None
     return parse_mesh_catchment_config_data(section)
 
-
-def _coerce_mesh_section_data(
-    section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
-) -> MeshCatchmentConfigSchema:
-    """Return one typed launcher section at the public Mapping/model boundary."""
-    if isinstance(section_data, MeshCatchmentConfigSchema):
-        return section_data
-    return parse_mesh_catchment_config_data(section_data)
-
-
-def resolve_constraints_mode(
-    raw_value: Any,
-    *,
-    section_name: str = DEFAULT_SECTION_NAME,
-) -> str:
-    """Normalize one launcher constraints mode."""
-    token = "" if raw_value is None else str(raw_value).strip().lower()
-    if token == "":
-        raise ValueError(
-            f"{section_name}.constraints_mode is required and must be one of: "
-            "geology_only, rivers_only, geology_rivers."
-        )
-    allowed = {"geology_only", "rivers_only", "geology_rivers"}
-    if token not in allowed:
-        raise ValueError(
-            f"{section_name}.constraints_mode must be one of: "
-            "geology_only, rivers_only, geology_rivers."
-        )
-    return token
-
-
 def prepare_geographic_config_for_meshing(
     geographic_cfg: GeographicConfig,
     *,
@@ -128,29 +97,26 @@ def prepare_geographic_config_for_meshing(
         geographic_cfg,
         updates={"river_network": updated_river_network},
     )
+    if isinstance(updated, GeographicConfig):
+        return updated
 
-    model_validate = getattr(geographic_cfg.__class__, "model_validate", None)
-    if callable(model_validate):
-        payload = dict(updated.model_dump(mode="python"))
-        return geographic_cfg.__class__.model_validate(payload)
-    try:
-        return GeographicConfig.model_validate(dict(updated.model_dump(mode="python")))
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        raise ValueError(
-            f"{section_name}.constraints_mode requires river_network support, "
-            "but the geographic config could not be revalidated after enabling it."
-        ) from exc
+    model_dump = getattr(updated, "model_dump", None)
+    if callable(model_dump):
+        try:
+            return GeographicConfig.model_validate(dict(model_dump(mode="python")))
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            raise ValueError(
+                f"{section_name}.constraints_mode requires river_network support, "
+                "but the geographic config could not be revalidated after enabling it."
+            ) from exc
 
-
-def resolve_output_layout(section_data: MeshCatchmentConfigSchema) -> str:
-    """Return the requested dedicated-launcher output layout."""
-    return section_data.output_layout
+    return updated
 
 
 def run_single_mesh_catchment_workflow(
     *,
     config_path: str | Path,
-    section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
+    section_data: MeshCatchmentConfigSchema,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     domain_cfg: object | None,
@@ -161,10 +127,9 @@ def run_single_mesh_catchment_workflow(
     section_name: str = DEFAULT_SECTION_NAME,
 ) -> dict[str, Any]:
     """Run one mono-catchment mesh workflow and return the summary payload."""
-    section_cfg = _coerce_mesh_section_data(section_data)
     return run_single_mesh_catchment_workflow_typed(
         config_path=Path(config_path).resolve(),
-        section_cfg=section_cfg,
+        section_cfg=section_data,
         workspace_cfg=workspace_cfg,
         geographic_cfg=geographic_cfg,
         domain_cfg=domain_cfg,
@@ -188,7 +153,5 @@ __all__ = [
     "get_optional_mesh_section",
     "prepare_geographic_config_for_meshing",
     "require_mesh_section",
-    "resolve_constraints_mode",
-    "resolve_output_layout",
     "run_single_mesh_catchment_workflow",
 ]

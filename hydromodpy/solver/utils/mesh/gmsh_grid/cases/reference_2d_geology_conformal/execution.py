@@ -48,6 +48,7 @@ def _run_zone_conformal_meshing(
         interface_size=meshing_inputs.zone_meshing_cfg.interface_size,
         interface_distance=meshing_inputs.zone_meshing_cfg.interface_distance,
         interface_sampling=meshing_inputs.zone_meshing_cfg.interface_sampling,
+        refinement_policy=meshing_inputs.zone_meshing_cfg.refinement_policy,
         linear_constraints=meshing_inputs.linear_constraints,
         refinement_scope_geometry=(
             meshing_inputs.refinement_scope_payload.geometry

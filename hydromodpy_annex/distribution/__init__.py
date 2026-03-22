@@ -1,6 +1,6 @@
 """Outils annexes de distribution pour les maillages HydroModPy."""
 
-from mesh import (
+from tools.mesh_bundle_viewer import (
     ALLOWED_COLOR_FIELDS,
     ALLOWED_TOPOGRAPHY_FIELDS,
     CATEGORICAL_COLOR_FIELDS,
