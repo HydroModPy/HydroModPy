@@ -1,4 +1,4 @@
-"""Chargement du bundle exporte pour la distribution des maillages."""
+"""Load one exported mesh bundle for the standalone visualization workflow."""
 
 from __future__ import annotations
 
@@ -9,9 +9,11 @@ from mesh.loading.toml_loader import load_toml_config
 from mesh.reader import (
     load_catchment_mesh_bundle as load_internal_catchment_mesh_bundle,
 )
+from mesh.bundle_contracts import (
+    MeshBundleLike,
+)
 from mesh.schema import (
     DEFAULT_TOML_SECTION,
-    MeshBundleLike,
     MeshVisualizationData,
     VisualizationConfig,
 )
@@ -21,9 +23,9 @@ def _resolve_bundle_dir(bundle_dir: Path) -> Path:
     """Validate one bundle directory before trying to read it."""
     resolved = Path(bundle_dir).resolve()
     if not resolved.exists():
-        raise FileNotFoundError(f"Dossier bundle introuvable : {resolved}")
+        raise FileNotFoundError(f"Bundle directory not found: {resolved}")
     if not resolved.is_dir():
-        raise NotADirectoryError(f"Le chemin bundle n'est pas un dossier : {resolved}")
+        raise NotADirectoryError(f"Bundle path is not a directory: {resolved}")
     return resolved
 
 
@@ -34,15 +36,15 @@ def _load_bundle(bundle_dir: Path) -> MeshBundleLike:
         return cast(MeshBundleLike, load_internal_catchment_mesh_bundle(resolved_dir))
     except Exception as exc:
         raise RuntimeError(
-            "Impossible de charger le bundle avec le lecteur versionne dans "
-            f"mesh/reader.py. Bundle: {resolved_dir}. Erreur: {exc}"
+            "Failed to load the bundle with the versioned reader shipped in "
+            f"mesh/reader.py. Bundle: {resolved_dir}. Error: {exc}"
         ) from exc
 
 
 def load_visualization_data(
     config: VisualizationConfig,
 ) -> MeshVisualizationData:
-    """Charge le bundle et assemble l'objet de travail final."""
+    """Load the bundle and assemble the final runtime payload."""
     mesh = _load_bundle(config.bundle_dir)
     return MeshVisualizationData(mesh=mesh, config=config)
 
@@ -52,7 +54,7 @@ def load_visualization_data_from_toml(
     *,
     section: str = DEFAULT_TOML_SECTION,
 ) -> MeshVisualizationData:
-    """Enchaine lecture du TOML puis lecture du bundle."""
+    """Load TOML config first, then load the referenced bundle."""
     config = load_toml_config(toml_path, section=section)
     return load_visualization_data(config)
 

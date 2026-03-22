@@ -122,11 +122,15 @@ The shared runtime used by all cases lives under `validation_cases/shared/`.
 | `analytical/steady/boussinesq_fixed_head_piecewise_k_1d` | launcher-backed | steady | Boussinesq, fixed heads, piecewise `K` | 1D heterogeneous benchmark with exact `h^2` profile and conductivity jumps. |
 | `analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d` | launcher-backed | steady | Boussinesq, recharge, piecewise `K` | 1D recharge benchmark with exact piecewise-constant `K` reference. |
 | `analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d` | launcher-backed | steady | Boussinesq, divide, piecewise `K` | 1D west-divide benchmark without geology dependencies. |
+| `analytical/steady/boussinesq_hillslope_interception_1d` | launcher-backed | steady | Boussinesq hillslope interception | 1D sloping-topography benchmark for emergence position and dry-zone profile on the dense in-house runtime. |
 | `analytical/steady/boussinesq_circular_island_piecewise_k_2d` | launcher-backed | steady | radial Boussinesq, concentric `K` | 2D circular-island benchmark with concentric heterogeneous conductivity. |
 | `analytical/steady/linearized_unconfined_drainage_1d` | launcher-backed | steady | linearized unconfined drainage | 1D equilibrium benchmark for the top-drainage boundary condition. |
+| `analytical/steady/linearized_unconfined_hillslope_drainage_1d` | launcher-backed | steady | linearized unconfined hillslope drainage | 1D sloping-topography proxy benchmark for distributed drainage above land surface. |
 | `analytical/transient/linearized_unconfined_1d.py` | module-only | transient | linearized Boussinesq | Standalone analytical helper for transient 1D checks. |
 | `analytical/transient/linearized_unconfined_recharge_step_1d` | launcher-backed | transient | linearized recharge step | 1D recharge-step benchmark under equal fixed heads. |
+| `analytical/transient/boussinesq_hillslope_recharge_step_interception_1d` | launcher-backed | transient | linearized hillslope interception onset | 1D sloping-topography benchmark for transient interception onset on the dense in-house Boussinesq runtime. |
 | `analytical/transient/linearized_unconfined_boundary_step_1d` | launcher-backed | transient | linearized boundary step | 1D west-boundary step benchmark with fixed east head. |
+| `analytical/transient/linearized_unconfined_recharge_step_deep_1d` | launcher-backed | transient | linearized recharge step, deep aquifer | 1D recharge-step benchmark with a much deeper reference thickness to reduce linearization error. |
 | `analytical/transient/linearized_unconfined_recharge_periodic_1d` | launcher-backed | transient | linearized periodic recharge | 1D sinusoidal recharge benchmark. |
 | `analytical/transient/linearized_unconfined_boundary_piecewise_1d` | launcher-backed | transient | linearized piecewise boundary forcing | 1D multi-step west-boundary benchmark using CSV forcing. |
 | `analytical/transient/late_time_unconfined_pumping_2d` | launcher-backed | transient | late-time Theis proxy | 2D radial pumping benchmark in the late-time unconfined regime. |
@@ -155,15 +159,19 @@ Some recurring conventions apply across several cases:
 | `boussinesq_fixed_head_piecewise_k_1d` | Strip with piecewise-constant `K`, fixed west/east heads, no recharge | Exact steady Boussinesq profile written on `U = h^2` | head-profile RMSE, max abs error, cross-row spread | Heterogeneous conductivity mapping and flux continuity across conductivity jumps |
 | `boussinesq_uniform_recharge_piecewise_k_1d` | Strip with piecewise-constant `K`, fixed west/east heads, uniform recharge | Exact steady piecewise-`K` Boussinesq recharge solution | head-profile RMSE, max abs error, cross-row spread | Coupling between recharge and conductivity jumps on a benchmark that remains analytical |
 | `boussinesq_divide_fixed_head_piecewise_k_1d` | Strip with piecewise-constant `K`, west divide, east fixed head, uniform recharge | Exact steady piecewise-`K` Boussinesq divide-fixed-head solution | head-profile RMSE, max abs error, cross-row spread | One no-flow side boundary combined with heterogeneity |
+| `boussinesq_hillslope_interception_1d` | Strip with west divide, east fixed head, uniform recharge, and linear topography | Approximate inland interception point from the dry no-drain Boussinesq profile | interception-position error, topography-overshoot check, cross-row spread | Steady seepage/interception onset on a sloping hillslope with the dense in-house Boussinesq runtime |
 | `boussinesq_circular_island_piecewise_k_2d` | Circular island with concentric piecewise-constant `K`, uniform recharge, `ocean` top BC | Radial steady Boussinesq island solution with concentric `K` zones | radial RMSE, radial max abs error, azimuthal spread, ocean head error, minimum land freeboard | 2D heterogeneous `K` mapping, ocean BC, radial symmetry and land/sea partitioning |
 | `linearized_unconfined_drainage_1d` | Homogeneous strip, fixed west/east heads, distributed top drainage everywhere, flat drainage level | Steady linearized unconfined solution with distributed drainage | head-profile RMSE, max abs error, cross-row spread | `drainage` boundary-condition path in a controlled analytical setting |
+| `linearized_unconfined_hillslope_drainage_1d` | Homogeneous strip, fixed west/east heads, linear topography, distributed top drainage everywhere | Steady linearized unconfined solution with linear drainage elevation | head-profile RMSE, max abs error, cross-row spread, minimum clearance above topography | Sloping-topography drainage behavior without introducing a free seepage-face problem |
 
 ### Transient Cases
 
 | Case | Numerical setup | Analytical target | Primary metrics | What the case validates |
 | --- | --- | --- | --- | --- |
 | `linearized_unconfined_recharge_step_1d` | Homogeneous strip, fixed west/east heads, recharge step from the first transient period | Linearized transient response to a recharge step | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Transient recharge handling and propagation of a simple forcing through time |
+| `boussinesq_hillslope_recharge_step_interception_1d` | Sloping strip, east fixed head, recharge step from the first transient period | Linearized onset approximation for the moving interception front | onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread | Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime |
 | `linearized_unconfined_boundary_step_1d` | Homogeneous strip, fixed east head, west-head step applied through CSV forcing | Linearized transient response to a west-boundary step | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Launcher-managed transient side-Dirichlet forcing using one simple head step |
+| `linearized_unconfined_recharge_step_deep_1d` | Homogeneous strip, fixed west/east heads, recharge step from the first transient period, deep reference thickness | Linearized transient response to a recharge step in the near-linear regime | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Separation between true transient-code issues and expected nonlinear deviation from the linearized theory |
 | `linearized_unconfined_boundary_piecewise_1d` | Homogeneous strip, fixed east head, piecewise west-head series from CSV, no recharge | Linearized transient response to a multi-step west-boundary forcing | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Multi-step boundary forcing and superposition behavior beyond the single-step case |
 | `linearized_unconfined_recharge_periodic_1d` | Homogeneous strip, fixed west/east heads, periodic recharge chronicle from CSV | Linearized transient response to sinusoidal recharge | space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread | Periodic recharge forcing and phase/amplitude propagation in transient flow |
 | `late_time_unconfined_pumping_2d` | Square unconfined domain, fixed heads on outer boundary, central pumping well, transient run | Late-time radial Theis proxy using `T = K * href` and `S = Sy` | space-time RMSE, space-time max abs error, final-time RMSE, final-time max abs error, azimuthal spread | Transient well forcing, late-time radial drawdown scaling, and numerical radial symmetry around the well |
@@ -194,8 +202,12 @@ Scientifically, the current suite provides direct validation for:
 - side Dirichlet boundaries,
 - implicit divide / no-flow situations,
 - uniform and transient recharge forcing,
+- one deep-aquifer transient benchmark used to suppress linearization error when validating the Boussinesq transient path,
+- one transient hillslope-interception onset benchmark for the dense in-house `boussinesq` runtime,
 - top `ocean` boundary condition,
 - top distributed `drainage` behavior,
+- steady topographic interception / seepage-onset position on a hillslope for the dense in-house `boussinesq` runtime,
+- one sloping-topography drainage benchmark that keeps the analytical assumptions explicit,
 - homogeneous and piecewise-constant horizontal conductivity fields,
 - radial symmetry preservation in 2D cases,
 - transient pumping in the late-time unconfined regime.

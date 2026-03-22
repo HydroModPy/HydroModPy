@@ -23,7 +23,11 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import (
 
 @dataclass(frozen=True)
 class ExtrudedFieldParamDiscretizationResult:
-    """Result bundle for one 3D discretization run on an extruded prism mesh."""
+    """Result bundle for one 3D discretization run on an extruded prism mesh.
+
+    Both the planar support projection and the final 3D values are returned so
+    callers can debug each stage independently.
+    """
 
     values_3d: np.ndarray
     values_2d: np.ndarray
@@ -35,7 +39,11 @@ class ExtrudedFieldParamDiscretizationResult:
 
 
 def _compute_prism_center_depths(mesh_3d: ExtrudedPrismMesh3D) -> np.ndarray:
-    """Return positive-downward prism-center depths shaped as (n_layers, n_cells_2d)."""
+    """Return positive-downward prism-center depths shaped as `(n_layers, n_cells_2d)`.
+
+    The helper reindexes prism centroids back onto the logical `(layer, source
+    cell)` grid used everywhere else in the extrusion pipeline.
+    """
     _, _, z_centers = mesh_3d.prism_centroids()
     z_centers = np.asarray(z_centers, dtype=float).reshape(-1)
     top_reference = float(mesh_3d.z_interfaces[0])
@@ -74,7 +82,6 @@ def discretize_fieldparam_on_extruded_mesh(
     cell_samples_per_axis: int | None = None,
     depth: float = 0.0,
     strict_field_spatial_id_match: bool = True,
-    geology_field=None,
 ) -> ExtrudedFieldParamDiscretizationResult:
     """Discretize one FieldParam on one extruded prism mesh.
 
@@ -83,13 +90,6 @@ def discretize_fieldparam_on_extruded_mesh(
     2. one planar reference map is computed,
     3. values are reevaluated on every prism layer using prism-center depths.
     """
-    if support_field is not None and geology_field is not None:
-        raise ValueError(
-            "Use either 'support_field' or legacy 'geology_field', not both."
-        )
-    if support_field is None:
-        support_field = geology_field
-
     if not isinstance(mesh_3d, ExtrudedPrismMesh3D):
         raise TypeError("mesh_3d must be an ExtrudedPrismMesh3D instance")
     if not hasattr(field_param, "to_mesh_field"):
@@ -124,6 +124,7 @@ def discretize_fieldparam_on_extruded_mesh(
     )
     n_sub = max(2, int(cell_samples_per_axis or default_n_sub))
 
+    # First compute the usual 2D support discretization on the base mesh.
     field_discretization = None
     if support_field is not None:
         field_discretization = support_field.on_mesh(
@@ -144,6 +145,7 @@ def discretize_fieldparam_on_extruded_mesh(
         planar_mesh.to_cell_values(planar_mesh_values.cell_values), dtype=float
     ).reshape(-1)
 
+    # Then revisit the same support layer by layer using prism-center depths.
     prism_center_depths = _compute_prism_center_depths(mesh_3d) + float(depth)
     n_layers = int(mesh_3d.n_layers)
     n_cells_2d = int(planar_mesh.n_cells)

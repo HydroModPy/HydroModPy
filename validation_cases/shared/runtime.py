@@ -99,6 +99,7 @@ _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
         "dupuit_fixed_head_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "dupuit_uniform_recharge_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "linearized_unconfined_drainage_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+        "linearized_unconfined_hillslope_drainage_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "linearized_unconfined_boundary_piecewise_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
     },
 }

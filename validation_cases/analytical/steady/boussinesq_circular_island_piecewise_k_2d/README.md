@@ -21,7 +21,7 @@ Comparison:
 - compared quantity: annular mean head profile on land
 - reference: steady radial Boussinesq solution with concentric piecewise `K`
 - for `solver=boussinesq`, the comparison is limited to `r <= 180 m` because the
-  current local backend needs a thin explicit ocean-support ring at the shoreline
+  current dense runtime still needs a thin explicit ocean-support ring at the shoreline
 
 Direct execution:
 

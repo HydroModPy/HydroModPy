@@ -39,20 +39,20 @@ from hydromodpy_annex.preprocess.catchment_identification_scan.config import (
 
 RUN_SEQUENCE = (
     {
-        "mesh_config": "config_example.toml",
-        "identification_config": None,
-    },
-    {
-        "mesh_config": "config_scoped_example.toml",
-        "identification_config": None,
-    },
-    {
         "mesh_config": "config_headwater_100km2.toml",
         "identification_config": "config_headwater_100km2.toml",
     },
     {
         "mesh_config": "config_s3_10km2.toml",
         "identification_config": "config_s3_10km2.toml",
+    },
+    {
+        "mesh_config": "config_example.toml",
+        "identification_config": None,
+    },
+    {
+        "mesh_config": "config_scoped_example.toml",
+        "identification_config": None,
     },
     {
         "mesh_config": "config_s3_100km2.toml",
@@ -64,9 +64,17 @@ RUN_SEQUENCE = (
     },
 )
 
-DEFAULT_RESULTS_ROOT = "C:/results/HydromodPy"
+def _default_results_root() -> Path:
+    """Return one OS-friendly default root for smoke-run outputs."""
+    if os.name == "nt":
+        return Path("C:/results/Hydromodpy")
+    return Path.home() / "HydroModPy"
+
+
+DEFAULT_RESULTS_ROOT = str(_default_results_root())
 _RUNS_SUBDIR = "mesh_catchment_runs"
 _IDENTIFICATION_SUMMARY_NAME = "catchment_identification_summary.json"
+_OVERRIDE_GLOB = "._run_all_*.toml"
 
 
 @dataclass(frozen=True)
@@ -76,6 +84,19 @@ class _StepPlan:
     mesh_command: list[str]
     identification_command: list[str] | None
     cleanup_paths: tuple[Path, ...]
+
+
+def _cleanup_stale_override_configs(*directories: Path) -> tuple[Path, ...]:
+    """Delete stale temporary override TOMLs left by interrupted smoke runs."""
+    deleted: list[Path] = []
+    for directory in directories:
+        for path in sorted(directory.glob(_OVERRIDE_GLOB)):
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                continue
+            deleted.append(path.resolve())
+    return tuple(deleted)
 
 
 def _results_root() -> Path:
@@ -274,6 +295,7 @@ def main() -> int:
     cleanup_paths: list[Path] = []
 
     try:
+        _cleanup_stale_override_configs(mesh_config_dir, identification_dir)
         for step in RUN_SEQUENCE:
             plan = _build_step_plan(
                 step=step,

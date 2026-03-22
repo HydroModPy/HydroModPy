@@ -12,9 +12,18 @@ base_config = "config_batch_common.toml"
 
 [workspace]
 # One output folder is created per selected outlet_id under this prefix.
-project_root = "C:/results/HydromodPy/mesh_s3_10km2"
+project_root = "~/HydroModPy/mesh_s3_10km2"
 
 [mesh_catchment_batch]
-outlets_table_path = "C:/results/HydromodPy/catchment_identification_scan/s3_10km2/exutoires_s3_10km2.csv"
+outlets_table_path = "~/HydroModPy/catchment_identification_scan/s3_10km2/exutoires_s3_10km2.csv"
 # This preprocess table is designed to return about 100 selected outlets.
 # selected_outlet_ids = [12, 37]
+
+# Keep the buffered support domain for context, but generate interfaces only
+# inside the strict watershed to preserve a coarser outer mesh.
+[mesh_catchment.interface_scope]
+kind = "geographic_watershed"
+
+# Apply interface refinement only inside the watershed as well.
+[mesh_catchment.refinement_scope]
+kind = "geographic_watershed"

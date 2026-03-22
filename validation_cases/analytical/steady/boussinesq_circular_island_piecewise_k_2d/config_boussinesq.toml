@@ -1,2 +1,5 @@
-# Placeholder config file so validation metadata can advertise `solver=boussinesq`.
-# The actual local gmsh-bundle runtime is implemented in `runtime_boussinesq.py`.
+# Local `flow/boussinesq` validation runtimes read `[flow]` defaults from this
+# file before applying case-specific values from `runtime_boussinesq.py`.
+
+[flow]
+runtime_backend = "scipy_sparse"

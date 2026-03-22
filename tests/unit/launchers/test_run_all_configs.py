@@ -42,7 +42,7 @@ def test_build_step_plan_collocates_identification_and_mesh_outputs(
         "\n".join(
             [
                 "[workspace]",
-                'project_root = "C:/results/HydromodPy/original_mesh_root"',
+                'project_root = "~/HydroModPy/original_mesh_root"',
                 "",
                 "[mesh_catchment]",
                 'constraints_mode = "rivers_only"',
@@ -62,7 +62,7 @@ def test_build_step_plan_collocates_identification_and_mesh_outputs(
             [
                 "[catchment_identification_scan]",
                 f'dem_path = "{dem_path.as_posix()}"',
-                'output_dir = "C:/results/HydromodPy/original_identification_root"',
+                'output_dir = "~/HydroModPy/original_identification_root"',
                 'outlets_csv_name = "selected_demo_outlets.csv"',
                 "",
             ]
@@ -111,3 +111,28 @@ def test_build_step_plan_collocates_identification_and_mesh_outputs(
     finally:
         for path in plan.cleanup_paths:
             path.unlink(missing_ok=True)
+
+
+def test_cleanup_stale_override_configs_removes_previous_temp_files(
+    tmp_path: Path,
+) -> None:
+    module = _load_run_all_configs_module()
+
+    mesh_dir = tmp_path / "mesh"
+    ident_dir = tmp_path / "ident"
+    mesh_dir.mkdir()
+    ident_dir.mkdir()
+    stale_mesh = mesh_dir / "._run_all_demo_mesh_deadbeef.toml"
+    stale_ident = ident_dir / "._run_all_demo_ident_deadbeef.toml"
+    untouched = mesh_dir / "config_demo_case.toml"
+    stale_mesh.write_text("mesh", encoding="utf-8")
+    stale_ident.write_text("ident", encoding="utf-8")
+    untouched.write_text("keep", encoding="utf-8")
+
+    deleted = module._cleanup_stale_override_configs(mesh_dir, ident_dir)
+
+    assert stale_mesh.resolve() in deleted
+    assert stale_ident.resolve() in deleted
+    assert not stale_mesh.exists()
+    assert not stale_ident.exists()
+    assert untouched.exists()

@@ -20,6 +20,7 @@ from hydromodpy.solver.modflow_common import (
 	SolverGridContext,
 	SolverRoutingContext,
 	build_solver_routing_context,
+	ensure_platform_executable,
 	write_grid_array_to_raster,
 )
 from hydromodpy.solver import Solver
@@ -123,6 +124,7 @@ class Modflow6(Solver):
 		else:
 			platform_dir = "win" if os.name == "nt" else ("mac" if os.uname().sysname.lower() == "darwin" else "linux")
 			self.exe = os.path.join(bin_path, platform_dir, exe_name)
+		self.exe = str(ensure_platform_executable(self.exe))
 
 		self.resolution = geographic.dem_res
 		self.xul = geographic.xmin

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import geopandas as gpd
 import pytest
-from shapely.geometry import LineString, box
+from shapely.geometry import LineString, Polygon, box
 
 try:
     import gmsh  # noqa: F401
@@ -17,6 +17,9 @@ _skip_no_gmsh = pytest.mark.skipif(not _gmsh_available, reason="gmsh not availab
 
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.run_case_zone_conformal as conformal_case_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal as conformal_case_package
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning as conformal_planning_module
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plotting as conformal_plotting_module
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.scope_resolution as conformal_scope_resolution_module
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
@@ -26,8 +29,10 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalDomainConfig,
+    ZoneConformalGeometryPayload,
     ZoneConformalGeologyConfig,
     ZoneConformalRiversConfig,
+    ZoneConformalZoneMeshingConfig,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
     _clip_river_trace_to_domain,
@@ -55,6 +60,147 @@ _CASE_RELATIVE_REFERENCE_RASTER_PATH = (
 )
 
 
+def test_partition_overlay_gdf_excludes_domain_background_fill() -> None:
+    partition_gdf = gpd.GeoDataFrame(
+        {"zone_key": ["domain_background", "geo_a", "geo_b"]},
+        geometry=[
+            box(0.0, 0.0, 10.0, 10.0),
+            box(1.0, 1.0, 3.0, 3.0),
+            box(4.0, 4.0, 6.0, 6.0),
+        ],
+        crs="EPSG:2154",
+    )
+
+    overlay_gdf = conformal_plotting_module._build_partition_overlay_gdf(partition_gdf)
+
+    assert overlay_gdf["zone_key"].astype(str).tolist() == ["geo_a", "geo_b"]
+
+
+def test_collect_display_zone_keys_includes_background_lithology() -> None:
+    source_domain_gdf = gpd.GeoDataFrame(
+        {"zone_key": ["geo_outside", "geo_inside"]},
+        geometry=[
+            box(0.0, 0.0, 6.0, 6.0),
+            box(6.0, 0.0, 12.0, 6.0),
+        ],
+        crs="EPSG:2154",
+    )
+    partition_overlay_gdf = gpd.GeoDataFrame(
+        {"zone_key": ["geo_inside"]},
+        geometry=[box(6.0, 0.0, 12.0, 6.0)],
+        crs="EPSG:2154",
+    )
+
+    zone_keys = conformal_plotting_module._collect_display_zone_keys(
+        source_domain_gdf,
+        partition_overlay_gdf,
+    )
+
+    assert zone_keys == ["geo_inside", "geo_outside"]
+
+
+def test_smooth_catchment_outline_gdf_applies_boundary_cleanup() -> None:
+    raw_polygon = Polygon(
+        [
+            (0.0, 0.0),
+            (8.0, 0.0),
+            (8.0, 1.0),
+            (7.5, 1.0),
+            (7.5, 1.4),
+            (7.0, 1.4),
+            (7.0, 1.0),
+            (6.5, 1.0),
+            (6.5, 1.4),
+            (6.0, 1.4),
+            (6.0, 1.0),
+            (0.0, 1.0),
+            (0.0, 0.0),
+        ]
+    )
+    catchment_gdf = gpd.GeoDataFrame(geometry=[raw_polygon], crs="EPSG:2154")
+    watershed_boundary_cfg = SimpleNamespace(
+        smoothing=SimpleNamespace(
+            enabled=True,
+            simplify_tolerance=0.45,
+            heal_tolerance=0.2,
+            min_polygon_area=0.0,
+        )
+    )
+
+    smoothed_gdf = conformal_plotting_module._smooth_catchment_outline_gdf(
+        catchment_gdf,
+        watershed_boundary_cfg=watershed_boundary_cfg,
+    )
+
+    assert smoothed_gdf.crs == catchment_gdf.crs
+    assert len(smoothed_gdf) == 1
+    assert not smoothed_gdf.geometry.iloc[0].equals(raw_polygon)
+
+
+def test_geographic_watershed_scope_payload_reuses_boundary_smoothing() -> None:
+    raw_polygon = Polygon(
+        [
+            (0.0, 0.0),
+            (8.0, 0.0),
+            (8.0, 1.0),
+            (7.5, 1.0),
+            (7.5, 1.4),
+            (7.0, 1.4),
+            (7.0, 1.0),
+            (6.5, 1.0),
+            (6.5, 1.4),
+            (6.0, 1.4),
+            (6.0, 1.0),
+            (0.0, 1.0),
+            (0.0, 0.0),
+        ]
+    )
+    scope_payload = ZoneConformalGeometryPayload(
+        geometry=raw_polygon,
+        gdf=gpd.GeoDataFrame(geometry=[raw_polygon], crs="EPSG:2154"),
+        summary={"domain_kind": "geographic_watershed"},
+    )
+    watershed_boundary_cfg = SimpleNamespace(
+        smoothing=SimpleNamespace(
+            enabled=True,
+            simplify_tolerance=0.45,
+            heal_tolerance=0.2,
+            min_polygon_area=0.0,
+        )
+    )
+
+    smoothed_payload = (
+        conformal_scope_resolution_module._maybe_smooth_geographic_watershed_scope_payload(
+            scope_payload,
+            scope_cfg=ZoneConformalDomainConfig(kind="geographic_watershed"),
+            watershed_boundary_cfg=watershed_boundary_cfg,
+        )
+    )
+
+    assert not smoothed_payload.geometry.equals(raw_polygon)
+    assert smoothed_payload.summary["watershed_boundary_smoothing_applied"] is True
+
+
+def test_internal_zone_priorities_keep_domain_background_below_geology() -> None:
+    zone_gdf = gpd.GeoDataFrame(
+        {"zone_key": ["geo_a", "domain_background"]},
+        geometry=[box(0.0, 0.0, 2.0, 2.0), box(0.0, 0.0, 3.0, 3.0)],
+        crs="EPSG:2154",
+    )
+
+    prioritized = conformal_planning_module._ensure_internal_zone_priorities(zone_gdf)
+
+    priorities = dict(
+        zip(
+            prioritized["zone_key"].astype(str).tolist(),
+            prioritized["_zone_priority"].astype(float).tolist(),
+            strict=True,
+        )
+    )
+    assert priorities["geo_a"] == 0.0
+    assert priorities["domain_background"] == -1.0
+
+
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
@@ -67,7 +213,7 @@ def _load_json(path: Path) -> dict:
         return json.load(stream)
 
 
-def _write_legacy_clip_bbox_case_toml(path: Path) -> None:
+def _write_invalid_clip_bbox_domain_case_toml(path: Path) -> None:
     raw = CASE_TOML.read_text(encoding="utf-8-sig")
     old_block = (
         "[mesh_case.domain]\n"
@@ -82,7 +228,7 @@ def _write_legacy_clip_bbox_case_toml(path: Path) -> None:
     )
     if old_block not in raw:
         raise AssertionError(
-            "Unable to build legacy clip_bbox test config: domain block not found"
+            "Unable to build invalid clip_bbox-domain test config: domain block not found"
         )
     migrated = raw.replace(old_block, new_block)
 
@@ -389,20 +535,20 @@ def test_reference_2d_geology_conformal_case_non_regression(
 
 
 @_skip_no_gmsh
-def test_reference_2d_geology_conformal_legacy_clip_bbox_rejected() -> None:
+def test_reference_2d_geology_conformal_rejects_removed_clip_bbox_syntax() -> None:
     output_dir = (
         Path.cwd()
         / "scratch_tests"
         / "reference_2d_geology_conformal"
-        / "runtime_legacy_clip_bbox"
+        / "runtime_invalid_clip_bbox_domain"
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    legacy_toml = output_dir / "case_config_legacy_clip_bbox.toml"
-    _write_legacy_clip_bbox_case_toml(legacy_toml)
+    invalid_toml = output_dir / "case_config_invalid_clip_bbox_domain.toml"
+    _write_invalid_clip_bbox_domain_case_toml(invalid_toml)
 
-    with pytest.raises(ValueError, match="clip_bbox is no longer supported"):
+    with pytest.raises(ValueError, match="requires one explicit geometry source"):
         run_reference_2d_zone_conformal_case_from_toml(
-            legacy_toml,
+            invalid_toml,
             output_mesh=output_dir / "reference_2d_geology_conformal.msh",
             output_summary_json=output_dir
             / "reference_2d_geology_conformal_summary.json",
@@ -518,6 +664,7 @@ def test_resolve_case_config_supports_base_config_inheritance(tmp_path: Path) ->
     assert cfg.output_figure == "outputs/inherited_overview.png"
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
     assert cfg.zone_meshing is not None
+    assert isinstance(cfg.zone_meshing, ZoneConformalZoneMeshingConfig)
     assert isinstance(cfg.domain, ZoneConformalDomainConfig)
 
 

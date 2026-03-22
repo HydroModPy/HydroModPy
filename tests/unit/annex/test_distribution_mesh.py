@@ -199,7 +199,7 @@ def test_load_toml_config_rejects_unknown_root_key(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="cles inconnues"):
+    with pytest.raises(ValueError, match="unknown keys"):
         load_toml_config(config_path)
 
 
@@ -223,7 +223,7 @@ def test_load_toml_config_rejects_unknown_plot_key(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="cles inconnues"):
+    with pytest.raises(ValueError, match="unknown keys"):
         load_toml_config(config_path)
 
 
@@ -331,13 +331,13 @@ def test_toml_schema_parameter_descriptions_cover_public_keys() -> None:
     descriptions = get_toml_parameter_descriptions()
 
     assert "[mesh_distribution].bundle_dir" in descriptions
-    assert "dossier bundle" in descriptions["[mesh_distribution].bundle_dir"]
+    assert "bundle directory" in descriptions["[mesh_distribution].bundle_dir"]
 
     assert "[mesh_distribution.plot].color_field" in descriptions
-    assert "Champ utilise" in descriptions["[mesh_distribution.plot].color_field"]
+    assert "Field used" in descriptions["[mesh_distribution.plot].color_field"]
 
     assert "[mesh_distribution.plot].show_river_edges" in descriptions
-    assert "rivieres" in descriptions["[mesh_distribution.plot].show_river_edges"]
+    assert "rivers" in descriptions["[mesh_distribution.plot].show_river_edges"]
 
 
 def test_run_visualization_from_toml_accepts_missing_hydraulic_field(

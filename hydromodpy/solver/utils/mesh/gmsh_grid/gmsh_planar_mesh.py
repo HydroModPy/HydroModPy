@@ -29,7 +29,11 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_reader import (
 
 
 class GmshPlanarMesh2D(BaseFieldMesh):
-    """Planar 2D mesh exposing explicit triangle or quadrilateral cells."""
+    """Planar 2D mesh exposing explicit triangle or quadrilateral cells.
+
+    This class is the bridge between low-level Gmsh connectivity and the
+    generic HydroModPy mesh interface used by field discretization utilities.
+    """
 
     _kind = "gmsh_2d"
 
@@ -80,6 +84,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
 
     @classmethod
     def from_mesh_data(cls, mesh_data: GmshMeshData) -> "GmshPlanarMesh2D":
+        """Build a planar mesh from the low-level normalized payload."""
         return cls(
             points_xy=mesh_data.points_xy,
             connectivity=mesh_data.connectivity,
@@ -129,6 +134,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         )
 
     def iter_cells(self):
+        """Yield explicit cell objects with vertices and centroids."""
         for idx, nodes in enumerate(np.asarray(self.connectivity, dtype=int)):
             vertices = np.asarray(self.points_xy[nodes], dtype=float)
             centroid = (float(vertices[:, 0].mean()), float(vertices[:, 1].mean()))
@@ -145,6 +151,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         return centroids[:, 0], centroids[:, 1]
 
     def to_cell_values(self, values):
+        """Validate and flatten one value array so it matches the mesh cells."""
         arr = np.asarray(values)
         flat = arr.reshape(-1)
         if flat.size != self.n_cells:
@@ -181,6 +188,7 @@ class GmshPlanarMesh2D(BaseFieldMesh):
         )
 
     def to_mesh_data(self) -> GmshMeshData:
+        """Convert the higher-level mesh object back to the low-level payload."""
         return GmshMeshData(
             points_xy=self.points_xy,
             cell_blocks=(

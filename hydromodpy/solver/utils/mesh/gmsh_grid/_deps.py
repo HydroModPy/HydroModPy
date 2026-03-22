@@ -1,10 +1,20 @@
-"""Lazy optional-dependency loaders for the gmsh_grid package."""
+"""Lazy optional-dependency loaders for the ``gmsh_grid`` package.
+
+The reusable mesh layer is designed so that light read-only use cases do not
+need to import every heavy dependency upfront. These helpers make optional
+imports explicit and provide clearer error messages than a raw
+``ModuleNotFoundError`` would.
+"""
 
 from __future__ import annotations
 
 
 def require_meshio():
-    """Import and return the ``meshio`` module, or raise a clear error."""
+    """Import and return ``meshio``.
+
+    ``meshio`` is used for neutral mesh I/O and for writing/reading 3D prism
+    meshes together with their metadata.
+    """
     try:
         import meshio  # type: ignore
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on environment
@@ -16,7 +26,7 @@ def require_meshio():
 
 
 def require_pyvista():
-    """Import and return ``pyvista``, or raise a clear error."""
+    """Import and return ``pyvista`` for optional interactive 3D viewing."""
     try:
         import pyvista as pv  # type: ignore
     except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
@@ -28,7 +38,7 @@ def require_pyvista():
 
 
 def require_gmsh():
-    """Import and return the ``gmsh`` module, or raise a clear error."""
+    """Import and return ``gmsh`` for zone-conformal mesh generation."""
     try:
         import gmsh  # type: ignore
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on environment

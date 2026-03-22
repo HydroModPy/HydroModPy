@@ -12,26 +12,18 @@ base_config = "config_batch_common.toml"
 
 [workspace]
 # Base prefix used to name one catchment folder per outlet_id.
-project_root = "C:/results/HydromodPy/mesh_headwater_100km2"
+project_root = "~/HydroModPy/mesh_headwater_100km2"
 
 [mesh_catchment_batch]
-outlets_table_path = "C:/results/HydromodPy/catchment_identification_scan/headwater_100km2/exutoires_headwater_100km2.csv"
+outlets_table_path = "~/HydroModPy/catchment_identification_scan/headwater_100km2/exutoires_headwater_100km2.csv"
 # Run all outlets found in the preprocess table.
 # selected_outlet_ids = [34, 28]
 
-# Optional scope to limit where geology/rivers interfaces are generated.
-# Omit this block to keep interfaces on the full support domain inherited from
-# config_batch_common.toml.
-#
-# [mesh_catchment.interface_scope]
-# kind = "geographic_watershed"
+# Keep the buffered support domain for context, but generate interfaces only
+# inside the strict watershed to preserve a coarser outer mesh.
+[mesh_catchment.interface_scope]
+kind = "geographic_watershed"
 
-# Optional scope to limit where interface refinement is applied.
-# This scope is clipped to the effective `interface_scope`.
-#
-# Example:
-# - interface_scope  = "geographic_watershed_box"
-# - refinement_scope = "geographic_watershed"
-#
-# [mesh_catchment.refinement_scope]
-# kind = "geographic_watershed"
+# Apply interface refinement only inside the watershed as well.
+[mesh_catchment.refinement_scope]
+kind = "geographic_watershed"

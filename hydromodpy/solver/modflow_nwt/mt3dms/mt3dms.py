@@ -35,11 +35,12 @@ df = dirname(dirname(abspath(__file__)))
 sys.path.append(df)
 
 # HydroModPy
-from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.solver.modflow_common import masstransfer
+from hydromodpy.solver.modflow_common import ensure_platform_executable
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
 )
+from hydromodpy.support.tools import toolbox, get_logger
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
 MT3DMS_NORMAL_MESSAGES = ["normal termination", "program completed"]
 
@@ -108,6 +109,7 @@ class Mt3dms:
             self.exe = os.path.join(bin_path, 'linux' ,'mt3dusgs')
         if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mt3dusgs')
+        self.exe = str(ensure_platform_executable(self.exe))
 
         conc_params = {}
         raw_params = getattr(transport.mt3dms, 'parameters', None)

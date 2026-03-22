@@ -730,7 +730,11 @@ def _build_comparison_overview_figure(
     )
     ax_layers_twin.set_ylabel("Depth delta [m]", fontsize=11, color="#7c3aed")
     ax_layers_twin.tick_params(axis="y", labelsize=10, colors="#7c3aed")
-    lines = list(ax_layers.get_lines()) + list(ax_layers_twin.get_lines())
+    lines = [
+        line
+        for line in list(ax_layers.get_lines()) + list(ax_layers_twin.get_lines())
+        if not str(line.get_label()).startswith("_")
+    ]
     ax_layers.legend(
         lines, [line.get_label() for line in lines], loc="best", fontsize=10
     )

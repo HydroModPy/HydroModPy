@@ -47,6 +47,7 @@ def _resolve_z_interfaces(
     top_z: float | None,
     layer_thicknesses,
 ) -> np.ndarray:
+    """Normalize vertical interfaces to one strictly monotonic 1D float array."""
     if z_interfaces is not None:
         if top_z is not None or layer_thicknesses is not None:
             raise ValueError(
@@ -82,6 +83,7 @@ def _resolve_z_interfaces(
 
 
 def _stable_unique(values) -> np.ndarray:
+    """Return unique values while preserving the original layered ordering."""
     arr = np.asarray(values, dtype=float).reshape(-1)
     out: list[float] = []
     for value in arr:
@@ -92,7 +94,7 @@ def _stable_unique(values) -> np.ndarray:
 
 @dataclass(frozen=True)
 class PrismCell3D:
-    """One explicit 3D prism cell."""
+    """One explicit 3D prism cell with cached geometry metadata."""
 
     index: int
     kind: str
@@ -105,7 +107,10 @@ class PrismCell3D:
 
 @dataclass(frozen=True)
 class ExtrudedPrismMeshData:
-    """Raw 3D extrusion payload independent from Field/FieldParam concerns."""
+    """Raw 3D extrusion payload independent from Field/FieldParam concerns.
+
+    This is the serialization-friendly form used by the reader/writer helpers.
+    """
 
     points_xyz: np.ndarray
     prism_connectivity: np.ndarray
@@ -209,11 +214,13 @@ def _build_default_components(
     planar_mesh: GmshPlanarMesh2D,
     z_interfaces: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Repeat the planar mesh at every interface and connect adjacent levels."""
     n_planar_nodes = int(planar_mesh.points_xy.shape[0])
     n_levels = int(z_interfaces.size)
     n_layers = int(n_levels - 1)
     n_planar_cells = int(planar_mesh.n_cells)
 
+    # Points are stacked level by level so the vertical layout stays explicit.
     points_xyz = np.vstack(
         [
             np.column_stack(
@@ -267,6 +274,7 @@ def _build_default_components(
 
 
 def _extract_cell_block(mesh: Any) -> tuple[int, str, np.ndarray]:
+    """Return the single supported 3D cell block from one meshio mesh."""
     supported: list[tuple[int, str, np.ndarray]] = []
     for idx, block in enumerate(tuple(mesh.cells)):
         block_type = str(block.type).strip().lower()
@@ -286,6 +294,7 @@ def _extract_cell_block(mesh: Any) -> tuple[int, str, np.ndarray]:
 def _extract_one_cell_data(
     mesh: Any, *, key: str, block_index: int
 ) -> np.ndarray | None:
+    """Return one cell-data array aligned with the supported 3D block."""
     cell_data = getattr(mesh, "cell_data", {})
     values = cell_data.get(key)
     if values is None:
@@ -296,6 +305,7 @@ def _extract_one_cell_data(
 
 
 def _build_planar_mesh_from_data(mesh_data: ExtrudedPrismMeshData) -> GmshPlanarMesh2D:
+    """Reconstruct the base 2D mesh from the layer-0 slice of a 3D extrusion."""
     point_mask = np.asarray(mesh_data.point_layer_indices == 0, dtype=bool)
     base_points = np.asarray(mesh_data.points_xyz[point_mask, :2], dtype=float)
     base_order = np.asarray(mesh_data.point_base_indices[point_mask], dtype=int)
@@ -333,6 +343,7 @@ def _build_planar_mesh_from_data(mesh_data: ExtrudedPrismMeshData) -> GmshPlanar
 
 
 def _infer_mesh_data(mesh: Any) -> ExtrudedPrismMeshData:
+    """Infer HydroModPy extrusion metadata from one meshio-compatible 3D mesh."""
     points_xyz = np.asarray(mesh.points, dtype=float)
     if points_xyz.ndim != 2 or points_xyz.shape[1] < 3:
         raise ValueError("Extruded mesh points must expose x, y and z coordinates")
@@ -349,6 +360,8 @@ def _infer_mesh_data(mesh: Any) -> ExtrudedPrismMeshData:
         mesh, key=_CELL_SOURCE_KEY, block_index=block_index
     )
 
+    # Prefer explicit HydroModPy metadata when available. Fall back to geometry
+    # inference only for simple layered meshes.
     if point_layer_indices is not None and point_base_indices is not None:
         point_layer_indices = np.asarray(point_layer_indices, dtype=int).reshape(-1)
         point_base_indices = np.asarray(point_base_indices, dtype=int).reshape(-1)
@@ -420,6 +433,7 @@ def _infer_mesh_data(mesh: Any) -> ExtrudedPrismMeshData:
 
 
 def extruded_mesh_data_to_meshio(mesh_data: ExtrudedPrismMeshData):
+    """Convert one raw extrusion payload to a meshio mesh."""
     meshio = _require_meshio()
     cell_type = _MESHIO_CELL_TYPE_BY_2D[mesh_data.cell_type_2d]
     return meshio.Mesh(
@@ -437,10 +451,12 @@ def extruded_mesh_data_to_meshio(mesh_data: ExtrudedPrismMeshData):
 
 
 def meshio_to_extruded_mesh_data(mesh: Any) -> ExtrudedPrismMeshData:
+    """Convert one meshio mesh to the raw HydroModPy extrusion payload."""
     return _infer_mesh_data(mesh)
 
 
 def read_extruded_prism_mesh(path: str | Path) -> ExtrudedPrismMeshData:
+    """Read one persisted extruded prism mesh from disk."""
     meshio = _require_meshio()
     path_obj = Path(path).resolve()
     mesh = meshio.read(path_obj)
@@ -454,6 +470,7 @@ def write_extruded_prism_mesh(
     *,
     file_format: str | None = None,
 ) -> Path:
+    """Write one raw extrusion payload to disk through meshio."""
     meshio = _require_meshio()
     path_obj = Path(path).resolve()
     meshio.write(
@@ -540,6 +557,7 @@ class ExtrudedPrismMesh3D:
         *,
         z_interfaces,
     ) -> "ExtrudedPrismMesh3D":
+        """Build one extrusion directly from explicit vertical interfaces."""
         return cls(planar_mesh=planar_mesh, z_interfaces=z_interfaces)
 
     @classmethod
@@ -550,6 +568,7 @@ class ExtrudedPrismMesh3D:
         top_z: float,
         layer_thicknesses,
     ) -> "ExtrudedPrismMesh3D":
+        """Build one extrusion from a top elevation and layer thicknesses."""
         z_interfaces = _resolve_z_interfaces(
             z_interfaces=None,
             top_z=top_z,
@@ -559,6 +578,7 @@ class ExtrudedPrismMesh3D:
 
     @classmethod
     def from_mesh_data(cls, mesh_data: ExtrudedPrismMeshData) -> "ExtrudedPrismMesh3D":
+        """Rebuild the high-level mesh object from the raw payload form."""
         planar_mesh = _build_planar_mesh_from_data(mesh_data)
         return cls(
             planar_mesh=planar_mesh,
@@ -574,46 +594,57 @@ class ExtrudedPrismMesh3D:
 
     @classmethod
     def from_meshio(cls, mesh) -> "ExtrudedPrismMesh3D":
+        """Build one extrusion from a meshio mesh object."""
         return cls.from_mesh_data(meshio_to_extruded_mesh_data(mesh))
 
     @classmethod
     def from_file(cls, path: str | Path) -> "ExtrudedPrismMesh3D":
+        """Read one persisted extrusion from disk."""
         return cls.from_mesh_data(read_extruded_prism_mesh(path))
 
     @property
     def kind(self) -> str:
+        """Return the stable HydroModPy mesh kind identifier."""
         return self._kind
 
     @property
     def cell_type_2d(self) -> str:
+        """Return the base 2D cell type (`triangle` or `quadrilateral`)."""
         return str(self.planar_mesh.cell_type)
 
     @property
     def cell_type_3d(self) -> str:
+        """Return the logical 3D prism type derived from the base 2D mesh."""
         return _INTERNAL_3D_KIND_BY_2D[self.cell_type_2d]
 
     @property
     def n_layers(self) -> int:
+        """Return the number of vertical prism layers."""
         return int(self.z_interfaces.size - 1)
 
     @property
     def n_nodes(self) -> int:
+        """Return the total number of 3D nodes."""
         return int(self.points_xyz.shape[0])
 
     @property
     def n_prisms(self) -> int:
+        """Return the total number of 3D prism cells."""
         return int(self.prism_connectivity.shape[0])
 
     @property
     def n_cells(self) -> int:
+        """Alias for `n_prisms` to match broader mesh APIs."""
         return self.n_prisms
 
     @property
     def shape(self) -> tuple[int, int]:
+        """Return the logical `(n_layers, n_cells_2d)` grid shape."""
         return (int(self.n_layers), int(self.planar_mesh.n_cells))
 
     @property
     def bounds(self) -> tuple[float, float, float, float, float, float]:
+        """Return the full 3D bounding box `(xmin, ymin, zmin, xmax, ymax, zmax)`."""
         x = np.asarray(self.points_xyz[:, 0], dtype=float)
         y = np.asarray(self.points_xyz[:, 1], dtype=float)
         z = np.asarray(self.points_xyz[:, 2], dtype=float)
@@ -628,15 +659,18 @@ class ExtrudedPrismMesh3D:
 
     @property
     def layer_centers_z(self) -> np.ndarray:
+        """Return one representative Z coordinate per vertical layer."""
         return 0.5 * (self.z_interfaces[:-1] + self.z_interfaces[1:])
 
     @property
     def prisms(self) -> tuple[PrismCell3D, ...]:
+        """Return cached explicit prism objects for inspection-oriented workflows."""
         if self._prisms_cache is None:
             self._prisms_cache = tuple(self.iter_prisms())
         return self._prisms_cache
 
     def iter_prisms(self):
+        """Yield prisms in the stored 3D ordering."""
         for prism_idx, node_ids in enumerate(
             np.asarray(self.prism_connectivity, dtype=int)
         ):
@@ -657,10 +691,12 @@ class ExtrudedPrismMesh3D:
             )
 
     def prism_centroids(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return prism centroid coordinates split as `(x, y, z)` arrays."""
         centroids = np.array([cell.centroid for cell in self.prisms], dtype=float)
         return centroids[:, 0], centroids[:, 1], centroids[:, 2]
 
     def to_prism_values(self, values):
+        """Normalize prism values to the canonical `(n_layers, n_cells_2d)` shape."""
         arr = np.asarray(values)
         expected_shape = (self.n_layers, self.planar_mesh.n_cells)
         if arr.ndim == 2:
@@ -681,6 +717,7 @@ class ExtrudedPrismMesh3D:
         return from_extruded_prism(self)
 
     def to_mesh_data(self) -> ExtrudedPrismMeshData:
+        """Return the serialization-oriented raw payload."""
         return ExtrudedPrismMeshData(
             points_xyz=self.points_xyz,
             prism_connectivity=self.prism_connectivity,
@@ -694,14 +731,17 @@ class ExtrudedPrismMesh3D:
         )
 
     def to_meshio(self):
+        """Convert the extrusion to one meshio mesh."""
         return extruded_mesh_data_to_meshio(self.to_mesh_data())
 
     def to_file(self, path: str | Path, *, file_format: str | None = None) -> Path:
+        """Persist the extrusion to disk."""
         return write_extruded_prism_mesh(
             path, self.to_mesh_data(), file_format=file_format
         )
 
     def as_dict(self):
+        """Return a compact JSON-friendly summary of the extrusion."""
         return {
             "kind": self.kind,
             "cell_type_2d": self.cell_type_2d,

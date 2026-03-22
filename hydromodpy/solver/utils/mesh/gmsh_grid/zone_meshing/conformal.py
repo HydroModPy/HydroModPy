@@ -11,17 +11,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 from shapely.geometry import LineString, Polygon, MultiPolygon
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import polygonize, unary_union
 
 from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.data_managers.variables.geology.processing import normalize_zone_key
 from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_gmsh as _require_gmsh
+from hydromodpy.solver.utils.mesh.gmsh_grid._trace import trace_mesh_stage
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
+    ZoneDomainCleaningDiagnostics,
     as_metric_tolerance,
     clean_domain_geometry,
     clean_zone_rows,
@@ -42,6 +45,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
     build_curve_group_name,
     configure_gmsh_terminal_output,
     iter_river_lines_from_trace,
+    write_repository_compatible_mesh,
 )
 
 
@@ -146,10 +150,292 @@ class ZoneLinearConstraint:
     def line_count(self) -> int:
         return int(len(self.lines))
 
+    @classmethod
+    def from_mapping(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> "ZoneLinearConstraint":
+        """Build one constraint from the public mapping form."""
+        name_text = str(payload.get("name", "")).strip()
+        kind_text = str(payload.get("kind", "")).strip()
+        if name_text == "":
+            raise ValueError("linear constraints require one non-empty name.")
+        if kind_text == "":
+            raise ValueError(
+                f"linear constraint '{name_text}' requires one non-empty kind."
+            )
+        lines_attr = payload.get("lines")
+        if lines_attr is None:
+            raise TypeError(
+                f"linear constraint '{name_text}' must expose one 'lines' collection."
+            )
+
+        lines: list[LineString] = []
+        for geometry in lines_attr:
+            if geometry is None:
+                continue
+            for line in iter_line_parts(geometry):
+                if float(line.length) > 0.0:
+                    lines.append(line)
+
+        if not lines:
+            raise ValueError(
+                f"linear constraint '{name_text}' produced no usable line segment."
+            )
+        return cls(
+            name=name_text,
+            kind=kind_text,
+            lines=tuple(lines),
+            participates_in_refinement=bool(
+                payload.get("participates_in_refinement", True)
+            ),
+        )
+
+@dataclass
+class ZoneCurveGroupDraft:
+    """Mutable accumulator used while building physical curve groups."""
+
+    group_kind: str
+    zone_keys: tuple[str, ...]
+    curve_tags: list[int]
+
+
+@dataclass(frozen=True)
+class ZoneCleaningSummary:
+    """Compact cleanup summary copied to the public sidecar payload."""
+
+    mode: str
+    source_feature_count: int
+    features_after_domain_clip_count: int
+    invalid_geometries_repaired_count: int
+    polygons_removed_by_area_threshold_count: int
+    simplify_tolerance: float | None
+    heal_tolerance: float | None
+    min_polygon_area: float | None
+    overlap_tolerance: float | None
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "mode": str(self.mode),
+            "source_feature_count": int(self.source_feature_count),
+            "features_after_domain_clip_count": int(
+                self.features_after_domain_clip_count
+            ),
+            "invalid_geometries_repaired_count": int(
+                self.invalid_geometries_repaired_count
+            ),
+            "polygons_removed_by_area_threshold_count": int(
+                self.polygons_removed_by_area_threshold_count
+            ),
+            "simplify_tolerance": (
+                None
+                if self.simplify_tolerance is None
+                else float(self.simplify_tolerance)
+            ),
+            "heal_tolerance": (
+                None if self.heal_tolerance is None else float(self.heal_tolerance)
+            ),
+            "min_polygon_area": (
+                None
+                if self.min_polygon_area is None
+                else float(self.min_polygon_area)
+            ),
+            "overlap_tolerance": (
+                None
+                if self.overlap_tolerance is None
+                else float(self.overlap_tolerance)
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class ZonePhysicalGroupsSummary:
+    """Counts of physical groups emitted by the conformal mesher."""
+
+    surface_group_count: int
+    curve_group_count: int
+    interface_group_count: int
+    boundary_group_count: int
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "surface_group_count": int(self.surface_group_count),
+            "curve_group_count": int(self.curve_group_count),
+            "interface_group_count": int(self.interface_group_count),
+            "boundary_group_count": int(self.boundary_group_count),
+        }
+
+
+@dataclass(frozen=True)
+class ZoneLinearConstraintSummary:
+    """Public summary fragment for one embedded linear constraint."""
+
+    provided: bool
+    kind: str
+    line_count: int
+    curve_count: int
+    embedded_surface_curve_pairs: int
+    embed_failures: int
+    refined_with_interface_field: bool
+    participates_in_refinement: bool
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "provided": bool(self.provided),
+            "kind": str(self.kind),
+            "line_count": int(self.line_count),
+            "curve_count": int(self.curve_count),
+            "embedded_surface_curve_pairs": int(self.embedded_surface_curve_pairs),
+            "embed_failures": int(self.embed_failures),
+            "refined_with_interface_field": bool(self.refined_with_interface_field),
+            "participates_in_refinement": bool(self.participates_in_refinement),
+        }
+
+
+@dataclass(frozen=True)
+class ZoneRiverTraceSummary:
+    """Reduced public summary focused on the optional river trace."""
+
+    provided: bool
+    line_count: int
+    curve_count: int
+    embedded_surface_curve_pairs: int
+    embed_failures: int
+    refined_with_interface_field: bool
+
+    @classmethod
+    def from_constraint_summary(
+        cls,
+        summary: ZoneLinearConstraintSummary | None,
+        *,
+        provided: bool,
+    ) -> "ZoneRiverTraceSummary":
+        if summary is None:
+            return cls(
+                provided=provided,
+                line_count=0,
+                curve_count=0,
+                embedded_surface_curve_pairs=0,
+                embed_failures=0,
+                refined_with_interface_field=False,
+            )
+        return cls(
+            provided=bool(summary.provided),
+            line_count=int(summary.line_count),
+            curve_count=int(summary.curve_count),
+            embedded_surface_curve_pairs=int(summary.embedded_surface_curve_pairs),
+            embed_failures=int(summary.embed_failures),
+            refined_with_interface_field=bool(summary.refined_with_interface_field),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "provided": bool(self.provided),
+            "line_count": int(self.line_count),
+            "curve_count": int(self.curve_count),
+            "embedded_surface_curve_pairs": int(self.embedded_surface_curve_pairs),
+            "embed_failures": int(self.embed_failures),
+            "refined_with_interface_field": bool(self.refined_with_interface_field),
+        }
+
+
+@dataclass(frozen=True)
+class ZoneConformalQaChecks:
+    """Simple QA checks emitted in the conformal summary sidecar."""
+
+    coverage_gap: float
+    coverage_tolerance: float
+    coverage_within_tolerance: bool
+    has_interface_groups: bool
+    has_zone_surface_groups: bool
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "coverage_gap": round(float(self.coverage_gap), 12),
+            "coverage_tolerance": round(float(self.coverage_tolerance), 12),
+            "coverage_within_tolerance": bool(self.coverage_within_tolerance),
+            "has_interface_groups": bool(self.has_interface_groups),
+            "has_zone_surface_groups": bool(self.has_zone_surface_groups),
+        }
+
 
 # ---------------------------------------------------------------------------
 # Partition builder
 # ---------------------------------------------------------------------------
+
+
+def _select_partition_face_owner(
+    *,
+    part: BaseGeometry,
+    point: BaseGeometry,
+    resolved_geometries: Mapping[str, BaseGeometry],
+    grouped_priorities: Mapping[str, float],
+    overlap_tolerance: float,
+    probe_radius: float,
+) -> str | None:
+    """Pick one stable owner for one polygonized face.
+
+    The nominal path is unambiguous ownership through ``geometry.covers(point)``.
+    When the representative point falls exactly on a shared boundary or a tiny
+    numerical sliver is created by polygonization, fall back progressively to:
+
+    1. largest face/zone overlap area;
+    2. largest local overlap around a tiny buffered probe at the point;
+    3. highest configured zone priority among direct point owners.
+    """
+
+    owners = [
+        zone_key
+        for zone_key, geometry in resolved_geometries.items()
+        if geometry.covers(point)
+    ]
+    if len(owners) == 1:
+        return str(owners[0])
+
+    owner_by_overlap: list[tuple[float, float, float, str]] = []
+    for zone_key, geometry in resolved_geometries.items():
+        overlap_area = float(part.intersection(geometry).area)
+        if overlap_area > overlap_tolerance:
+            owner_by_overlap.append(
+                (
+                    overlap_area,
+                    float(grouped_priorities.get(zone_key, 0.0)),
+                    float(getattr(geometry, "area", 0.0)),
+                    str(zone_key),
+                )
+            )
+    if owner_by_overlap:
+        return max(owner_by_overlap, key=lambda item: item[:3])[3]
+
+    if owners:
+        owner_by_priority = [
+            (
+                float(grouped_priorities.get(zone_key, 0.0)),
+                float(getattr(resolved_geometries[zone_key], "area", 0.0)),
+                str(zone_key),
+            )
+            for zone_key in owners
+        ]
+        return max(owner_by_priority, key=lambda item: item[:2])[2]
+
+    local_probe_radius = max(float(probe_radius), np.sqrt(overlap_tolerance), 1.0e-9)
+    local_probe = point.buffer(local_probe_radius)
+    owner_by_probe: list[tuple[float, float, float, str]] = []
+    for zone_key, geometry in resolved_geometries.items():
+        local_overlap = float(local_probe.intersection(geometry).area)
+        if local_overlap > 0.0:
+            owner_by_probe.append(
+                (
+                    local_overlap,
+                    float(grouped_priorities.get(zone_key, 0.0)),
+                    float(getattr(geometry, "area", 0.0)),
+                    str(zone_key),
+                )
+            )
+    if owner_by_probe:
+        return max(owner_by_probe, key=lambda item: item[:3])[3]
+
+    return None
 
 
 def build_zone_conformal_partition_from_dataframe(
@@ -180,13 +466,7 @@ def build_zone_conformal_partition_from_dataframe(
     overlap_tolerance = max(heal_tol * heal_tol, 1.0e-12)
 
     cleaned_domain = None
-    domain_cleaning_diagnostics: dict[str, Any] = {
-        "domain_invalid_geometry_count": 0,
-        "domain_invalid_geometries_repaired_count": 0,
-        "domain_polygon_parts_before_area_filter_count": 0,
-        "domain_polygon_parts_removed_by_area_threshold_count": 0,
-        "domain_polygon_parts_kept_count": 0,
-    }
+    domain_cleaning_diagnostics = ZoneDomainCleaningDiagnostics()
     if domain_geometry is not None:
         cleaned_domain, domain_cleaning_diagnostics = clean_domain_geometry(
             domain_geometry,
@@ -208,10 +488,10 @@ def build_zone_conformal_partition_from_dataframe(
     if not cleaned_rows:
         raise ValueError("Zone cleaning produced no usable polygon")
 
-    grouped_geometries, grouped_priority = group_zone_geometries(cleaned_rows)
+    grouped = group_zone_geometries(cleaned_rows)
     resolved_geometries = resolve_zone_overlaps(
-        grouped_geometries,
-        grouped_priority=grouped_priority,
+        grouped.geometries,
+        grouped_priority=grouped.priorities,
         priority_column=priority_column,
         overlap_tolerance=overlap_tolerance,
     )
@@ -230,6 +510,7 @@ def build_zone_conformal_partition_from_dataframe(
     linework = [domain.boundary]
     linework.extend(geometry.boundary for geometry in resolved_geometries.values())
     merged_boundaries = unary_union(linework)
+    owner_probe_radius = max(heal_tol, simplify_tol, 0.0)
 
     faces: list[ZonePartitionFace] = []
     for polygonized in polygonize(merged_boundaries):
@@ -240,21 +521,20 @@ def build_zone_conformal_partition_from_dataframe(
             point = part.representative_point()
             if not domain.covers(point):
                 continue
-            owners = [
-                zone_key
-                for zone_key, geometry in resolved_geometries.items()
-                if geometry.covers(point)
-            ]
-            if len(owners) == 0:
+            owner = _select_partition_face_owner(
+                part=part,
+                point=point,
+                resolved_geometries=resolved_geometries,
+                grouped_priorities=grouped.priorities,
+                overlap_tolerance=overlap_tolerance,
+                probe_radius=owner_probe_radius,
+            )
+            if owner is None:
                 continue
-            if len(owners) > 1:
-                raise ValueError(
-                    f"Ambiguous partition face ownership for point {point.wkt}"
-                )
             faces.append(
                 ZonePartitionFace(
                     face_id=len(faces),
-                    zone_key=str(owners[0]),
+                    zone_key=str(owner),
                     polygon=part,
                 )
             )
@@ -279,10 +559,10 @@ def build_zone_conformal_partition_from_dataframe(
         },
     }
     cleaning_diagnostics.update(
-        {str(key): value for key, value in zone_cleaning_diagnostics.items()}
+        zone_cleaning_diagnostics.to_mapping()
     )
     cleaning_diagnostics.update(
-        {str(key): value for key, value in domain_cleaning_diagnostics.items()}
+        domain_cleaning_diagnostics.to_mapping()
     )
     return ZoneConformalPartition(
         faces=tuple(faces),
@@ -299,6 +579,7 @@ def build_zone_conformal_partition_from_dataframe(
 
 
 def _group_kind_for_constraint_kind(kind: str) -> str:
+    """Map one constraint semantic kind to the exported physical-group kind."""
     token = str(kind).strip().lower()
     if token == "river_trace":
         return "river_curve"
@@ -306,6 +587,7 @@ def _group_kind_for_constraint_kind(kind: str) -> str:
 
 
 def _constraint_sort_key(constraint: ZoneLinearConstraint) -> tuple[int, str]:
+    """Sort constraints so river-like constraints win when a segment matches many."""
     token = str(constraint.kind).strip().lower()
     if token == "watershed_boundary":
         return (0, str(constraint.name))
@@ -314,71 +596,14 @@ def _constraint_sort_key(constraint: ZoneLinearConstraint) -> tuple[int, str]:
     return (10, str(constraint.name))
 
 
-def _normalize_zone_linear_constraint(
-    raw_constraint: ZoneLinearConstraint | Mapping[str, Any] | object,
-) -> ZoneLinearConstraint:
-    if isinstance(raw_constraint, ZoneLinearConstraint):
-        return raw_constraint
-
-    if isinstance(raw_constraint, Mapping):
-        name = raw_constraint.get("name")
-        kind = raw_constraint.get("kind")
-        lines_attr = raw_constraint.get("lines")
-        participates_in_refinement = raw_constraint.get(
-            "participates_in_refinement", True
-        )
-    else:
-        name = getattr(raw_constraint, "name", None)
-        kind = getattr(raw_constraint, "kind", None)
-        lines_attr = getattr(raw_constraint, "lines", None)
-        participates_in_refinement = getattr(
-            raw_constraint, "participates_in_refinement", True
-        )
-
-    name_text = str(name).strip()
-    kind_text = str(kind).strip()
-    if name_text == "":
-        raise ValueError("linear constraints require one non-empty name.")
-    if kind_text == "":
-        raise ValueError(
-            f"linear constraint '{name_text}' requires one non-empty kind."
-        )
-    if lines_attr is None:
-        raise TypeError(
-            f"linear constraint '{name_text}' must expose a 'lines' collection."
-        )
-
-    lines: list[LineString] = []
-    for geometry in lines_attr:
-        if geometry is None:
-            continue
-        for line in iter_line_parts(geometry):
-            if float(line.length) > 0.0:
-                lines.append(line)
-
-    if not lines:
-        raise ValueError(
-            f"linear constraint '{name_text}' produced no usable line segment."
-        )
-    return ZoneLinearConstraint(
-        name=name_text,
-        kind=kind_text,
-        lines=tuple(lines),
-        participates_in_refinement=bool(participates_in_refinement),
-    )
-
-
 def _normalize_linear_constraints(
     *,
-    linear_constraints: tuple[ZoneLinearConstraint | Mapping[str, Any] | object, ...]
-    | None,
+    linear_constraints: Sequence[ZoneLinearConstraint] | None,
     river_trace: object | None,
 ) -> tuple[ZoneLinearConstraint, ...]:
+    """Merge explicit linear constraints with the optional river trace payload."""
     if linear_constraints is not None:
-        out = [
-            _normalize_zone_linear_constraint(raw_constraint)
-            for raw_constraint in linear_constraints
-        ]
+        out = [constraint for constraint in linear_constraints]
         return tuple(sorted(out, key=_constraint_sort_key))
 
     river_lines = iter_river_lines_from_trace(river_trace)
@@ -398,9 +623,10 @@ def _find_matching_constraint(
     *,
     segment: LineString | None,
     ordered_constraints: tuple[ZoneLinearConstraint, ...],
-    constraint_linework_by_name: Mapping[str, Any],
+    constraint_linework_by_name: Mapping[str, BaseGeometry],
     tolerance: float,
 ) -> ZoneLinearConstraint | None:
+    """Return the first constraint whose linework matches the segment."""
     if segment is None:
         return None
     for constraint in ordered_constraints:
@@ -434,15 +660,19 @@ def generate_zone_conformal_mesh_from_dataframe(
     interface_size: float | None = None,
     interface_distance: float | None = None,
     interface_sampling: int = 64,
-    linear_constraints: tuple[
-        ZoneLinearConstraint | Mapping[str, Any] | object, ...
-    ]
-    | None = None,
+    linear_constraints: Sequence[ZoneLinearConstraint] | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",
 ) -> ZoneConformalMeshResult:
     """Generate one conformal planar mesh from polygon zones."""
+    trace_mesh_stage(
+        "zone_meshing.generate.start",
+        output_path=output_path,
+        n_source_features=len(gdf),
+        global_size=global_size,
+        refine_interfaces=refine_interfaces,
+    )
     global_size_value = float(global_size)
     if not np.isfinite(global_size_value) or global_size_value <= 0.0:
         raise ValueError("global_size must be finite and > 0")
@@ -476,6 +706,9 @@ def generate_zone_conformal_mesh_from_dataframe(
                 "interface_distance must be finite and > 0 when refine_interfaces=true"
             )
 
+    # Build the cleaned polygon partition first, then split it further if
+    # internal line constraints must become explicit mesh curves.
+    trace_mesh_stage("zone_meshing.partition.build.start")
     partition = build_zone_conformal_partition_from_dataframe(
         gdf,
         zone_key_column=zone_key_column,
@@ -485,9 +718,18 @@ def generate_zone_conformal_mesh_from_dataframe(
         heal_tolerance=heal_tolerance,
         min_polygon_area=min_polygon_area,
     )
+    trace_mesh_stage(
+        "zone_meshing.partition.build.done",
+        n_faces=partition.n_faces,
+        n_zone_keys=len(partition.zone_keys),
+    )
     normalized_constraints = _normalize_linear_constraints(
         linear_constraints=linear_constraints,
         river_trace=river_trace,
+    )
+    trace_mesh_stage(
+        "zone_meshing.constraints.normalized",
+        n_constraints=len(normalized_constraints),
     )
     constraint_lines = [
         line
@@ -495,6 +737,11 @@ def generate_zone_conformal_mesh_from_dataframe(
         for line in constraint.lines
     ]
     point_tolerance = as_metric_tolerance(heal_tolerance)
+    trace_mesh_stage(
+        "zone_meshing.partition.split.start",
+        n_constraint_lines=len(constraint_lines),
+        point_tolerance=point_tolerance,
+    )
     partition = split_partition_with_constraint_lines(
         partition,
         constraint_lines=constraint_lines,
@@ -502,7 +749,9 @@ def generate_zone_conformal_mesh_from_dataframe(
         ZonePartitionFace_cls=ZonePartitionFace,
         ZoneConformalPartition_cls=ZoneConformalPartition,
     )
+    trace_mesh_stage("zone_meshing.partition.split.done", n_faces=partition.n_faces)
 
+    trace_mesh_stage("zone_meshing.gmsh.require")
     gmsh = _require_gmsh()
     output_path_obj = Path(output_path).resolve()
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -516,7 +765,7 @@ def generate_zone_conformal_mesh_from_dataframe(
     surface_polygon_by_tag: dict[int, Polygon] = {}
     physical_groups: list[ZoneConformalPhysicalGroup] = []
     curve_tags_by_name: dict[str, list[int]] = {}
-    constraint_linework_by_name: dict[str, Any] = {}
+    constraint_linework_by_name: dict[str, BaseGeometry] = {}
     constraint_by_name = {
         str(constraint.name): constraint for constraint in normalized_constraints
     }
@@ -530,12 +779,16 @@ def generate_zone_conformal_mesh_from_dataframe(
         str(constraint.name): 0 for constraint in normalized_constraints
     }
 
+    trace_mesh_stage("zone_meshing.gmsh.initialize")
     gmsh.initialize()
     try:
         configure_gmsh_terminal_output(gmsh)
         gmsh.model.add(str(model_name).strip() or "zone_conformal_mesh")
         occ = gmsh.model.occ
 
+        # Create one OCC surface per partition face and record which curves are
+        # shared by which zones. That later drives physical-group naming.
+        trace_mesh_stage("zone_meshing.occ.surfaces.start", n_faces=partition.n_faces)
         for face in partition.faces:
             outer_loop, outer_curve_tags = add_ring_loop(
                 occ,
@@ -565,9 +818,18 @@ def generate_zone_conformal_mesh_from_dataframe(
 
             for curve_tag in outer_curve_tags + hole_curve_tags:
                 curve_usage.setdefault(int(curve_tag), set()).add(face.zone_key)
+        trace_mesh_stage(
+            "zone_meshing.occ.surfaces.done",
+            n_points=len(point_registry),
+            n_curves=len(line_registry),
+            n_surfaces=len(surface_polygon_by_tag),
+        )
 
         existing_curve_tags = set(int(tag) for tag in curve_usage)
         if normalized_constraints:
+            # Re-node the constraint lines against the partition boundary so
+            # Gmsh receives a consistent set of segments to embed/refine.
+            trace_mesh_stage("zone_meshing.constraints.embed_prep.start")
             partition_linework = unary_union(
                 [face.polygon.boundary for face in partition.faces]
             )
@@ -604,8 +866,12 @@ def generate_zone_conformal_mesh_from_dataframe(
                             continue
                         constraint_curve_tags_raw[constraint_name].append(int(curve_tag))
                         curve_usage.setdefault(int(curve_tag), set())
+            trace_mesh_stage("zone_meshing.constraints.embed_prep.done")
 
+        trace_mesh_stage("zone_meshing.occ.synchronize.start")
         occ.synchronize()
+        trace_mesh_stage("zone_meshing.occ.synchronize.done")
+        trace_mesh_stage("zone_meshing.mesh_options.apply.start")
         apply_mesh_options(
             gmsh,
             algorithm=algorithm,
@@ -613,7 +879,11 @@ def generate_zone_conformal_mesh_from_dataframe(
             min_size=min_size,
             max_size=max_size,
         )
+        trace_mesh_stage("zone_meshing.mesh_options.apply.done")
 
+        # Surface groups identify geology zones; curve groups identify
+        # interfaces, boundaries and named internal constraints.
+        trace_mesh_stage("zone_meshing.physical_groups.surfaces.start")
         for zone_key, surface_tags in sorted(surface_tags_by_zone.items()):
             if not surface_tags:
                 continue
@@ -629,8 +899,9 @@ def generate_zone_conformal_mesh_from_dataframe(
                     zone_keys=(str(zone_key),),
                 )
             )
+        trace_mesh_stage("zone_meshing.physical_groups.surfaces.done")
 
-        curve_groups: dict[str, dict[str, Any]] = {}
+        curve_groups: dict[str, ZoneCurveGroupDraft] = {}
         curve_tag_to_segment: dict[int, LineString] = {}
         for canonical, line_tag in line_registry.items():
             curve_tag_to_segment[int(line_tag)] = LineString(
@@ -665,16 +936,17 @@ def generate_zone_conformal_mesh_from_dataframe(
                 )
             payload = curve_groups.setdefault(
                 str(name),
-                {
-                    "group_kind": str(group_kind),
-                    "zone_keys": tuple(str(zone_key) for zone_key in zone_names),
-                    "curve_tags": [],
-                },
+                ZoneCurveGroupDraft(
+                    group_kind=str(group_kind),
+                    zone_keys=tuple(str(zone_key) for zone_key in zone_names),
+                    curve_tags=[],
+                ),
             )
-            payload["curve_tags"].append(int(curve_tag))
+            payload.curve_tags.append(int(curve_tag))
 
+        trace_mesh_stage("zone_meshing.physical_groups.curves.start")
         for name, payload in sorted(curve_groups.items()):
-            curve_tags = sorted(set(int(tag) for tag in payload["curve_tags"]))
+            curve_tags = sorted(set(int(tag) for tag in payload.curve_tags))
             curve_tags_by_name[str(name)] = curve_tags
             physical_tag = gmsh.model.addPhysicalGroup(1, curve_tags)
             gmsh.model.setPhysicalName(1, int(physical_tag), name)
@@ -683,12 +955,14 @@ def generate_zone_conformal_mesh_from_dataframe(
                     dimension=1,
                     tag=int(physical_tag),
                     name=str(name),
-                    group_kind=str(payload["group_kind"]),
+                    group_kind=str(payload.group_kind),
                     entity_tags=tuple(int(tag) for tag in sorted(curve_tags)),
-                    zone_keys=tuple(str(zone_key) for zone_key in payload["zone_keys"]),
+                    zone_keys=tuple(str(zone_key) for zone_key in payload.zone_keys),
                 )
             )
+        trace_mesh_stage("zone_meshing.physical_groups.curves.done")
 
+        trace_mesh_stage("zone_meshing.constraints.embed.start")
         for constraint in normalized_constraints:
             constraint_name = str(constraint.name)
             for curve_tag in curve_tags_by_name.get(constraint_name, []):
@@ -716,6 +990,7 @@ def generate_zone_conformal_mesh_from_dataframe(
                     constraint_embed_success_by_name[constraint_name] += 1
                 else:
                     constraint_embed_failures_by_name[constraint_name] += 1
+        trace_mesh_stage("zone_meshing.constraints.embed.done")
 
         interface_curve_tags_all = [
             int(curve_tag)
@@ -736,6 +1011,7 @@ def generate_zone_conformal_mesh_from_dataframe(
                 tolerance=point_tolerance,
             )
         ]
+        trace_mesh_stage("zone_meshing.refinement.start")
         mesh_size_fields_summary = apply_interface_refinement_field(
             gmsh,
             interface_curve_tags=interface_curve_tags,
@@ -754,16 +1030,27 @@ def generate_zone_conformal_mesh_from_dataframe(
         mesh_size_fields_summary["refinement_scope_applied"] = bool(
             refinement_scope_geometry is not None
         )
+        trace_mesh_stage(
+            "zone_meshing.refinement.done",
+            n_candidate_interface_curves=mesh_size_fields_summary["candidate_interface_curve_count"],
+            n_scope_interface_curves=mesh_size_fields_summary["scope_filtered_interface_curve_count"],
+        )
 
+        trace_mesh_stage("zone_meshing.gmsh.generate.start")
         gmsh.model.mesh.generate(2)
-        # Stay compatible with the repository fallback reader when meshio is absent.
-        gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
-        gmsh.option.setNumber("Mesh.Binary", 0)
-        gmsh.write(str(output_path_obj))
+        trace_mesh_stage("zone_meshing.gmsh.generate.done")
+        trace_mesh_stage("zone_meshing.mesh.write.start", output_path=output_path_obj)
+        write_repository_compatible_mesh(gmsh, output_path_obj)
+        trace_mesh_stage("zone_meshing.mesh.write.done", output_path=output_path_obj)
     finally:
+        trace_mesh_stage("zone_meshing.gmsh.finalize")
         gmsh.finalize()
 
+    # Re-read the generated mesh through the package reader so callers get the
+    # same normalized object regardless of how Gmsh wrote the file.
+    trace_mesh_stage("zone_meshing.mesh.readback.start", output_path=output_path_obj)
     mesh = GmshPlanarMesh2D.from_file(output_path_obj)
+    trace_mesh_stage("zone_meshing.mesh.readback.done", n_cells=mesh.n_cells)
     physical_group_summaries = [group.to_summary() for group in physical_groups]
     surface_group_summaries = [
         group_summary
@@ -801,66 +1088,64 @@ def generate_zone_conformal_mesh_from_dataframe(
         sum(1 for name in curve_tags_by_name if name.startswith("boundary::"))
     )
 
-    cleaning_summary = {
-        "mode": str(cleaning_diagnostics_raw.get("cleaning_mode", "unknown")),
-        "source_feature_count": int(
-            cleaning_diagnostics_raw.get("source_feature_count", 0)
-        ),
-        "features_after_domain_clip_count": int(
+    cleaning_summary = ZoneCleaningSummary(
+        mode=str(cleaning_diagnostics_raw.get("cleaning_mode", "unknown")),
+        source_feature_count=int(cleaning_diagnostics_raw.get("source_feature_count", 0)),
+        features_after_domain_clip_count=int(
             cleaning_diagnostics_raw.get("features_after_domain_clip_count", 0)
         ),
-        "invalid_geometries_repaired_count": int(
+        invalid_geometries_repaired_count=int(
             cleaning_diagnostics_raw.get("invalid_geometries_repaired_count", 0)
         ),
-        "polygons_removed_by_area_threshold_count": int(
+        polygons_removed_by_area_threshold_count=int(
             cleaning_diagnostics_raw.get("polygons_removed_by_area_threshold_count", 0)
         ),
-        "simplify_tolerance": (
+        simplify_tolerance=(
             None
             if "simplify_tolerance" not in tolerances
             else float(tolerances.get("simplify_tolerance", 0.0))
         ),
-        "heal_tolerance": (
+        heal_tolerance=(
             None
             if "heal_tolerance" not in tolerances
             else float(tolerances.get("heal_tolerance", 0.0))
         ),
-        "min_polygon_area": (
+        min_polygon_area=(
             None
             if "min_polygon_area" not in tolerances
             else float(tolerances.get("min_polygon_area", 0.0))
         ),
-        "overlap_tolerance": (
+        overlap_tolerance=(
             None
             if "overlap_tolerance" not in tolerances
             else float(tolerances.get("overlap_tolerance", 0.0))
         ),
-    }
-    physical_groups_summary = {
-        "surface_group_count": int(len(surface_group_summaries)),
-        "curve_group_count": int(len(curve_group_summaries)),
-        "interface_group_count": int(interface_group_count),
-        "boundary_group_count": int(boundary_group_count),
-    }
-    linear_constraints_summary: dict[str, dict[str, Any]] = {}
+    )
+    physical_groups_summary = ZonePhysicalGroupsSummary(
+        surface_group_count=len(surface_group_summaries),
+        curve_group_count=len(curve_group_summaries),
+        interface_group_count=interface_group_count,
+        boundary_group_count=boundary_group_count,
+    )
+    linear_constraints_summary: dict[str, ZoneLinearConstraintSummary] = {}
     for constraint in normalized_constraints:
         constraint_name = str(constraint.name)
         curve_tags = [
             int(tag) for tag in curve_tags_by_name.get(constraint_name, ())
         ]
         curve_tag_set = set(curve_tags)
-        linear_constraints_summary[constraint_name] = {
-            "provided": True,
-            "kind": str(constraint.kind),
-            "line_count": int(constraint.line_count),
-            "curve_count": int(len(curve_tags)),
-            "embedded_surface_curve_pairs": int(
+        linear_constraints_summary[constraint_name] = ZoneLinearConstraintSummary(
+            provided=True,
+            kind=str(constraint.kind),
+            line_count=constraint.line_count,
+            curve_count=len(curve_tags),
+            embedded_surface_curve_pairs=int(
                 constraint_embed_success_by_name.get(constraint_name, 0)
             ),
-            "embed_failures": int(
+            embed_failures=int(
                 constraint_embed_failures_by_name.get(constraint_name, 0)
             ),
-            "refined_with_interface_field": bool(
+            refined_with_interface_field=bool(
                 bool(refine_interfaces_value)
                 and bool(
                     curve_tag_set.intersection(
@@ -868,44 +1153,21 @@ def generate_zone_conformal_mesh_from_dataframe(
                     )
                 )
             ),
-            "participates_in_refinement": bool(
-                constraint.participates_in_refinement
-            ),
-        }
-    river_trace_summary = dict(
-        linear_constraints_summary.get(
-            "river::trace",
-            {
-                "provided": bool(river_trace is not None),
-                "line_count": 0,
-                "curve_count": 0,
-                "embedded_surface_curve_pairs": 0,
-                "embed_failures": 0,
-                "refined_with_interface_field": False,
-            },
+            participates_in_refinement=bool(constraint.participates_in_refinement),
         )
+    river_trace_summary = ZoneRiverTraceSummary.from_constraint_summary(
+        linear_constraints_summary.get("river::trace"),
+        provided=bool(river_trace is not None),
     )
-    river_trace_summary = {
-        "provided": bool(river_trace_summary.get("provided", False)),
-        "line_count": int(river_trace_summary.get("line_count", 0)),
-        "curve_count": int(river_trace_summary.get("curve_count", 0)),
-        "embedded_surface_curve_pairs": int(
-            river_trace_summary.get("embedded_surface_curve_pairs", 0)
-        ),
-        "embed_failures": int(river_trace_summary.get("embed_failures", 0)),
-        "refined_with_interface_field": bool(
-            river_trace_summary.get("refined_with_interface_field", False)
-        ),
-    }
-    qa_checks = {
-        "coverage_gap": round(float(coverage_gap), 12),
-        "coverage_tolerance": round(float(coverage_tolerance), 12),
-        "coverage_within_tolerance": bool(coverage_gap <= coverage_tolerance),
-        "has_interface_groups": bool(interface_group_count > 0),
-        "has_zone_surface_groups": bool(
+    qa_checks = ZoneConformalQaChecks(
+        coverage_gap=coverage_gap,
+        coverage_tolerance=coverage_tolerance,
+        coverage_within_tolerance=bool(coverage_gap <= coverage_tolerance),
+        has_interface_groups=bool(interface_group_count > 0),
+        has_zone_surface_groups=bool(
             len(surface_group_summaries) >= len(partition.zone_keys)
         ),
-    }
+    )
     summary = {
         "summary_schema_version": "zone_conformal_sidecar_v1",
         "output_mesh": str(output_path_obj),
@@ -929,17 +1191,21 @@ def generate_zone_conformal_mesh_from_dataframe(
         "max_size": None if max_size is None else float(max_size),
         "algorithm": str(algorithm),
         "cleaning_diagnostics": cleaning_diagnostics_raw,
-        "cleaning_summary": cleaning_summary,
-        "linear_constraints": linear_constraints_summary,
-        "river_trace": river_trace_summary,
-        "physical_groups_summary": physical_groups_summary,
-        "qa_checks": qa_checks,
+        "cleaning_summary": cleaning_summary.to_mapping(),
+        "linear_constraints": {
+            name: payload.to_mapping()
+            for name, payload in linear_constraints_summary.items()
+        },
+        "river_trace": river_trace_summary.to_mapping(),
+        "physical_groups_summary": physical_groups_summary.to_mapping(),
+        "qa_checks": qa_checks.to_mapping(),
         "mesh_size_fields": {
             "interface_refinement": mesh_size_fields_summary,
         },
         "surface_physical_groups": surface_group_summaries,
         "curve_physical_groups": curve_group_summaries,
     }
+    trace_mesh_stage("zone_meshing.generate.done", n_cells=mesh.n_cells)
     return ZoneConformalMeshResult(
         mesh=mesh,
         partition=partition,
@@ -968,10 +1234,7 @@ def generate_zone_conformal_mesh_from_geology_config(
     interface_size: float | None = None,
     interface_distance: float | None = None,
     interface_sampling: int = 64,
-    linear_constraints: tuple[
-        ZoneLinearConstraint | Mapping[str, Any] | object, ...
-    ]
-    | None = None,
+    linear_constraints: Sequence[ZoneLinearConstraint] | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",

@@ -62,6 +62,15 @@ class FlowConfig(ProcessSpatialConfig):
             "(steady or transient)."
         ),
     )
+    runtime_backend: Annotated[
+        Literal["local", "scipy", "scipy_sparse"], ParamLevel("dev")
+    ] = Field(
+        default="local",
+        description=(
+            "Optional nonlinear runtime backend hint used by the Boussinesq "
+            "solver implementation. Other flow solvers may ignore this field."
+        ),
+    )
     param_list: list[str] = Field(
         default_factory=list,
         description=(
@@ -199,6 +208,17 @@ class FlowConfig(ProcessSpatialConfig):
         text = str(value).strip().lower()
         if text not in {"steady", "transient"}:
             raise ValueError("flow.flow_regime must be 'steady' or 'transient'")
+        return text
+
+    @field_validator("runtime_backend", mode="before")
+    @classmethod
+    def _validate_runtime_backend(cls, value):
+        """Normalize the optional Boussinesq runtime backend selector."""
+        text = str(value or "local").strip().lower()
+        if text not in {"local", "scipy", "scipy_sparse"}:
+            raise ValueError(
+                "flow.runtime_backend must be 'local', 'scipy', or 'scipy_sparse'"
+            )
         return text
 
     @field_validator("bc", mode="before")
@@ -393,8 +413,10 @@ class FlowConfig(ProcessSpatialConfig):
             base_dir=base_dir,
         )
         raw_flow_regime = flow_section.get("flow_regime", "transient")
+        raw_runtime_backend = flow_section.get("runtime_backend", "local")
         return cls(
             flow_regime=raw_flow_regime,
+            runtime_backend=raw_runtime_backend,
             param_list=declared_param,
             param=parsed_param,
             ic=parsed_ic,

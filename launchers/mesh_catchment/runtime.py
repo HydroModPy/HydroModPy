@@ -26,6 +26,7 @@ from launchers.mesh_catchment.config import (
     parse_mesh_catchment_config_data,
 )
 from launchers.mesh_catchment.runtime_single_run import (
+    MeshCatchmentSingleRunDependencies,
     clone_config_like,
     constraints_mode_requires_river_trace,
     run_single_mesh_catchment_workflow_typed,
@@ -78,7 +79,7 @@ def get_optional_mesh_section(
 def _coerce_mesh_section_data(
     section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
 ) -> MeshCatchmentConfigSchema:
-    """Return one typed launcher section regardless of caller input style."""
+    """Return one typed launcher section at the public Mapping/model boundary."""
     if isinstance(section_data, MeshCatchmentConfigSchema):
         return section_data
     return parse_mesh_catchment_config_data(section_data)
@@ -141,11 +142,9 @@ def prepare_geographic_config_for_meshing(
         ) from exc
 
 
-def resolve_output_layout(
-    section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
-) -> str:
+def resolve_output_layout(section_data: MeshCatchmentConfigSchema) -> str:
     """Return the requested dedicated-launcher output layout."""
-    return _coerce_mesh_section_data(section_data).output_layout
+    return section_data.output_layout
 
 
 def run_single_mesh_catchment_workflow(
@@ -174,10 +173,12 @@ def run_single_mesh_catchment_workflow(
         workspace=workspace,
         domain_geographic=domain_geographic,
         section_name=section_name,
-        workspace_factory=hmp.Workspace,
-        build_domain_geographic_context_fn=build_domain_geographic_context,
-        run_reference_case_fn=run_reference_2d_zone_conformal_case_from_toml,
-        export_catchment_mesh_bundle_fn=export_catchment_mesh_bundle,
+        deps=MeshCatchmentSingleRunDependencies(
+            workspace_factory=hmp.Workspace,
+            build_domain_geographic_context_fn=build_domain_geographic_context,
+            run_reference_case_fn=run_reference_2d_zone_conformal_case_from_toml,
+            export_catchment_mesh_bundle_fn=export_catchment_mesh_bundle,
+        ),
     )
 
 

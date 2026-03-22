@@ -140,7 +140,7 @@ def test_run_flow_model_raises_when_solver_fails(monkeypatch) -> None:
 
     class _FailingFlowModel:
         model_name = "demo_model"
-        full_path = "C:/tmp/demo_model"
+        full_path = "tmp/demo_model"
 
         def __init__(self) -> None:
             self.calls: list[str] = []

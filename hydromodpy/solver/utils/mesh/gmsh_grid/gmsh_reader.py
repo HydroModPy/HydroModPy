@@ -51,7 +51,11 @@ def _parse_int_tokens(line: str, *, expected_at_least: int) -> list[int]:
 def _read_gmsh22_ascii_mesh(
     path: Path, *, cell_type: str | None = None
 ) -> GmshMeshData:
-    """Fallback parser for simple ASCII `.msh` 2.2 files with 2D triangles/quads."""
+    """Fallback parser for simple ASCII ``.msh`` 2.2 files.
+
+    This reader intentionally supports only the narrow subset used by the
+    repository examples: 2D triangles or quads in a single topological layer.
+    """
     requested_cell_type = None if cell_type is None else normalize_cell_type(cell_type)
     lines = path.read_text(encoding="utf-8").splitlines()
 
@@ -127,7 +131,7 @@ def _read_gmsh22_ascii_mesh(
 
 
 def normalize_cell_type(cell_type: str) -> str:
-    """Normalize external and meshio cell-type names to the internal convention."""
+    """Normalize external and ``meshio`` cell-type names to the internal convention."""
     normalized = _CELL_TYPE_ALIASES.get(str(cell_type).strip().lower())
     if normalized is None:
         allowed = ", ".join(sorted(set(_CELL_TYPE_ALIASES)))
@@ -169,7 +173,12 @@ class GmshCellBlock:
 
 @dataclass(frozen=True)
 class GmshMeshData:
-    """Raw planar mesh payload independent from the Field/FieldParam layers."""
+    """Raw planar mesh payload independent from the higher HydroModPy layers.
+
+    This object stays intentionally small: points, homogeneous cell blocks and
+    an optional source path. Rich mesh behavior belongs in
+    ``GmshPlanarMesh2D`` instead.
+    """
 
     points_xy: np.ndarray
     cell_blocks: tuple[GmshCellBlock, ...]
@@ -218,7 +227,7 @@ class GmshMeshData:
 
 
 def meshio_to_mesh_data(mesh: Any, *, cell_type: str | None = None) -> GmshMeshData:
-    """Convert one meshio mesh into a normalized planar mesh payload."""
+    """Convert one ``meshio`` mesh into a normalized planar mesh payload."""
     requested_cell_type = None if cell_type is None else normalize_cell_type(cell_type)
 
     points = np.asarray(mesh.points, dtype=float)
@@ -267,7 +276,11 @@ def meshio_to_mesh_data(mesh: Any, *, cell_type: str | None = None) -> GmshMeshD
 def read_gmsh_2d_mesh(
     path: str | Path, *, cell_type: str | None = None
 ) -> GmshMeshData:
-    """Read one planar 2D triangle or quadrilateral mesh from disk."""
+    """Read one planar 2D triangle or quadrilateral mesh from disk.
+
+    The function prefers ``meshio`` when available, then falls back to a small
+    in-house parser for simple ASCII Gmsh 2.2 files.
+    """
     path_obj = Path(path).resolve()
     try:
         meshio = _require_meshio()
@@ -281,7 +294,7 @@ def read_gmsh_2d_mesh(
 
 
 def mesh_data_to_meshio(mesh_data: GmshMeshData):
-    """Convert one normalized planar mesh payload back to a meshio object."""
+    """Convert one normalized planar payload back to a ``meshio`` object."""
     meshio = _require_meshio()
     points_xy = np.asarray(mesh_data.points_xy, dtype=float)
     points_xyz = np.column_stack((points_xy, np.zeros(points_xy.shape[0], dtype=float)))

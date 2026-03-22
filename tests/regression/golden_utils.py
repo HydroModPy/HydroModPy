@@ -39,6 +39,7 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pytest
+from hydromodpy.solver.modflow_common import ensure_platform_executable
 
 
 # Repository root for every path assembled in the regression helpers.
@@ -424,6 +425,8 @@ def assert_required_executables(
     missing = [str(p) for p in required_paths if not p.exists()]
     if missing:
         pytest.skip(f"Required executables are missing: {missing}")
+    for path in required_paths:
+        ensure_platform_executable(path)
 
 
 def require_url_available(url: str, *, timeout: float = 15.0, attempts: int = 3) -> None:

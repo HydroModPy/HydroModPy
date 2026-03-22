@@ -53,7 +53,12 @@ def build_dupuit_divide_river_comparison(
 ) -> DupuitDivideRiverComparison:
     """Load one completed run and compare it to the analytical Dupuit profile."""
     case_metadata = load_case_metadata(CASE_DIR) if metadata is None else metadata
-    case_tolerances = load_case_tolerances(CASE_DIR, solver=solver) if tolerances is None else tolerances
+    solver_name = str(getattr(result, "solver_name", "")).strip().lower() or None
+    case_tolerances = (
+        load_case_tolerances(CASE_DIR, solver=solver_name)
+        if tolerances is None
+        else tolerances
+    )
 
     output_cfg = dict(case_metadata.get("output", {}))
     reference_cfg = dict(case_metadata.get("reference", {}))

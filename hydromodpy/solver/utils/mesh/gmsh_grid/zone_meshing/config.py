@@ -7,6 +7,7 @@ performed. It separates configuration concerns from the actual meshing logic.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 from pydantic import (
@@ -181,13 +182,89 @@ class ZoneMeshingSettingsSchema(BaseModel):
         return self
 
 
-def validate_zone_meshing_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate raw meshing settings and return normalized Python values."""
+@dataclass(frozen=True)
+class ZoneMeshingSettings:
+    """Typed meshing settings consumed by the conformal Gmsh workflow."""
 
-    if not isinstance(config_data, Mapping):
-        raise ValueError("zone meshing configuration must be a mapping")
-    try:
-        parsed = ZoneMeshingSettingsSchema.model_validate(dict(config_data))
-    except ValidationError as exc:
-        raise ValueError(str(exc)) from exc
-    return parsed.model_dump(mode="python")
+    algorithm: str
+    global_size: float
+    min_size: float | None
+    max_size: float | None
+    simplify_tolerance: float
+    heal_tolerance: float
+    min_polygon_area: float
+    refine_interfaces: bool
+    interface_size: float | None
+    interface_distance: float | None
+    interface_sampling: int
+
+    @classmethod
+    def from_mapping(cls, config_data: Mapping[str, Any]) -> "ZoneMeshingSettings":
+        """Validate one raw mapping and return one typed settings contract."""
+        if not isinstance(config_data, Mapping):
+            raise ValueError("zone meshing configuration must be a mapping")
+        try:
+            parsed = ZoneMeshingSettingsSchema.model_validate(dict(config_data))
+        except ValidationError as exc:
+            raise ValueError(str(exc)) from exc
+        payload = parsed.model_dump(mode="python")
+        return cls(
+            algorithm=str(payload["algorithm"]),
+            global_size=float(payload["global_size"]),
+            min_size=(
+                None if payload["min_size"] is None else float(payload["min_size"])
+            ),
+            max_size=(
+                None if payload["max_size"] is None else float(payload["max_size"])
+            ),
+            simplify_tolerance=float(payload["simplify_tolerance"]),
+            heal_tolerance=float(payload["heal_tolerance"]),
+            min_polygon_area=float(payload["min_polygon_area"]),
+            refine_interfaces=bool(payload["refine_interfaces"]),
+            interface_size=(
+                None
+                if payload["interface_size"] is None
+                else float(payload["interface_size"])
+            ),
+            interface_distance=(
+                None
+                if payload["interface_distance"] is None
+                else float(payload["interface_distance"])
+            ),
+            interface_sampling=int(payload["interface_sampling"]),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        """Serialize one typed settings contract to plain Python mapping form."""
+        return {
+            "algorithm": self.algorithm,
+            "global_size": float(self.global_size),
+            "min_size": None if self.min_size is None else float(self.min_size),
+            "max_size": None if self.max_size is None else float(self.max_size),
+            "simplify_tolerance": float(self.simplify_tolerance),
+            "heal_tolerance": float(self.heal_tolerance),
+            "min_polygon_area": float(self.min_polygon_area),
+            "refine_interfaces": bool(self.refine_interfaces),
+            "interface_size": (
+                None if self.interface_size is None else float(self.interface_size)
+            ),
+            "interface_distance": (
+                None
+                if self.interface_distance is None
+                else float(self.interface_distance)
+            ),
+            "interface_sampling": int(self.interface_sampling),
+        }
+
+
+def parse_zone_meshing_settings(config_data: Mapping[str, Any]) -> ZoneMeshingSettings:
+    """Return one typed zone-meshing settings contract from a raw mapping."""
+
+    return ZoneMeshingSettings.from_mapping(config_data)
+
+
+__all__ = [
+    "parse_zone_meshing_settings",
+    "ZoneMeshingSettings",
+    "ZoneMeshingSettingsSchema",
+]

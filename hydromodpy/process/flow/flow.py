@@ -14,6 +14,9 @@ Scope
 runtime attributes after ``set_config(...)`` is called:
 
 - ``flow_regime`` : ``'steady'`` or ``'transient'``, forwarded from config.
+- ``runtime_backend`` : optional nonlinear runtime backend hint used by the
+  Boussinesq solver implementation (for example ``local``, ``scipy``,
+  ``scipy_sparse``).
 - ``parameters`` : normalized hydraulic property dict (K, Sy, Ss, …),
   keyed by parameter id and containing ``FieldParam`` objects.
 - ``initial_conditions`` : one ``FlowInitialConditions`` instance grouping
@@ -111,6 +114,9 @@ class Flow(ProcessSpatial):
     -------------------------------------------------
     flow_regime : str
         ``'steady'`` or ``'transient'``, forwarded from ``FlowConfig``.
+    runtime_backend : str
+        Optional nonlinear runtime backend hint, currently consumed by the
+        Boussinesq solver implementation.
     config : FlowConfig
         Reference to the last validated config applied via ``set_config``.
     parameters : dict[str, FieldParam | object]
@@ -151,6 +157,7 @@ class Flow(ProcessSpatial):
             raise TypeError("config must be a FlowConfig instance")
         self.config: FlowConfig
         self.flow_regime: str
+        self.runtime_backend: str
         self.initial_conditions: FlowInitialConditions | None
         self.boundary_condition_application_domains: dict[str, str] = {}
         self.initial_condition_types: dict[str, str] = {}
@@ -186,6 +193,7 @@ class Flow(ProcessSpatial):
 
         self.config = config
         self.flow_regime = config.flow_regime
+        self.runtime_backend = config.runtime_backend
         # Parameters are resolved in the declared order from `flow.param_list`.
         self.set_parameters_from_config(
             config.param,

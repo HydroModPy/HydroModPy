@@ -7,10 +7,12 @@ imported and executed without depending on the test package layout.
 """
 
 from validation_cases.shared.loaders import (
+    load_case_config,
     load_case_metadata,
     load_case_tolerances,
     load_last_npy_array,
     load_npy_time_series_arrays,
+    merge_case_flow_section,
 )
 from validation_cases.shared.cli import (
     build_run_case_parser,
@@ -33,6 +35,7 @@ from validation_cases.shared.runtime import (
 __all__ = [
     "ValidationRunResult",
     "build_run_case_parser",
+    "load_case_config",
     "load_case_metadata",
     "load_case_tolerances",
     "load_last_npy_array",
@@ -40,6 +43,7 @@ __all__ = [
     "max_abs_error",
     "max_std_along_axis",
     "mean_along_axis",
+    "merge_case_flow_section",
     "print_run_case_summary",
     "resolve_output_png",
     "resolve_validation_results_dir",

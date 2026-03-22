@@ -94,9 +94,6 @@ jobs:
               print(f'Removed {pth}')
           "
 
-      - name: Make MODFLOW binaries executable
-        run: chmod +x bin/linux/*
-
       - name: Run regression tests
         env:
           HYDROMODPY_COVERAGE: "1"

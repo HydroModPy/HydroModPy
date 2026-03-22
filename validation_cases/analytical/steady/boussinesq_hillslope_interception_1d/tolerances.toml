@@ -1,0 +1,8 @@
+[interception]
+x_error_m = 15.0
+
+[uniformity]
+row_spread = 0.001
+
+[contact]
+max_positive_clearance_m = 1e-6

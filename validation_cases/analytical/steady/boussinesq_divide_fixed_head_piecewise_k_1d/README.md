@@ -37,5 +37,5 @@ The runner saves a PNG figure with:
 Solver variants:
 
 - `modflownwt` and `modflow6` use the historical launcher-backed structured-grid setup,
-- `boussinesq` uses a local triangular strip bundle projected back to a regular
+- `boussinesq` uses a small triangular-strip bundle projected back to a regular
   `3 x 40` profile grid for plotting and metric comparison.

@@ -12,8 +12,15 @@ Numerical setup:
 - initial condition: uniform `10.0 m`,
 - simulated observable: `watertable_elevation`.
 
+For `solver=boussinesq`, the validation uses one small balanced triangular strip
+projected back to a regular `40 x 3` comparison grid. The runtime itself is
+selected through the case `config_boussinesq.toml`, so the geometry stays fixed
+while the nonlinear backend can evolve independently (`local`, `scipy`,
+`scipy_sparse`).
+
 Run manually:
 
 ```powershell
 python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_case
+python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_case --solver boussinesq --show
 ```

@@ -6,7 +6,8 @@ This module isolates all Shapely-based geometry manipulation so that
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from dataclasses import dataclass, field
+from typing import Mapping, TypeAlias
 
 import numpy as np
 from shapely.geometry import (
@@ -28,7 +29,106 @@ except ImportError:  # pragma: no cover - depends on environment
 # Metric tolerance
 # ---------------------------------------------------------------------------
 
+
+@dataclass(frozen=True)
+class ZoneDomainCleaningDiagnostics:
+    """Counters emitted while cleaning one support-domain geometry."""
+
+    invalid_geometry_count: int = 0
+    invalid_geometries_repaired_count: int = 0
+    polygon_parts_before_area_filter_count: int = 0
+    polygon_parts_removed_by_area_threshold_count: int = 0
+    polygon_parts_kept_count: int = 0
+
+    def to_mapping(self) -> dict[str, int]:
+        """Serialize domain-cleaning diagnostics to summary-friendly keys."""
+        return {
+            "domain_invalid_geometry_count": int(self.invalid_geometry_count),
+            "domain_invalid_geometries_repaired_count": int(
+                self.invalid_geometries_repaired_count
+            ),
+            "domain_polygon_parts_before_area_filter_count": int(
+                self.polygon_parts_before_area_filter_count
+            ),
+            "domain_polygon_parts_removed_by_area_threshold_count": int(
+                self.polygon_parts_removed_by_area_threshold_count
+            ),
+            "domain_polygon_parts_kept_count": int(
+                self.polygon_parts_kept_count
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class ZoneRowCleaningDiagnostics:
+    """Counters emitted while cleaning and clipping zone-source rows."""
+
+    source_feature_count: int = 0
+    source_invalid_geometry_count: int = 0
+    invalid_geometries_repaired_count: int = 0
+    features_skipped_empty_zone_key_count: int = 0
+    features_skipped_empty_geometry_count: int = 0
+    features_outside_domain_count: int = 0
+    features_after_domain_clip_count: int = 0
+    features_dropped_after_cleaning_count: int = 0
+    polygon_parts_before_area_filter_count: int = 0
+    polygons_removed_by_area_threshold_count: int = 0
+    polygon_parts_kept_count: int = 0
+    cleaned_zone_polygon_count: int = 0
+
+    def to_mapping(self) -> dict[str, int]:
+        """Serialize row-cleaning diagnostics to summary-friendly keys."""
+        return {
+            "source_feature_count": int(self.source_feature_count),
+            "source_invalid_geometry_count": int(self.source_invalid_geometry_count),
+            "invalid_geometries_repaired_count": int(
+                self.invalid_geometries_repaired_count
+            ),
+            "features_skipped_empty_zone_key_count": int(
+                self.features_skipped_empty_zone_key_count
+            ),
+            "features_skipped_empty_geometry_count": int(
+                self.features_skipped_empty_geometry_count
+            ),
+            "features_outside_domain_count": int(self.features_outside_domain_count),
+            "features_after_domain_clip_count": int(
+                self.features_after_domain_clip_count
+            ),
+            "features_dropped_after_cleaning_count": int(
+                self.features_dropped_after_cleaning_count
+            ),
+            "polygon_parts_before_area_filter_count": int(
+                self.polygon_parts_before_area_filter_count
+            ),
+            "polygons_removed_by_area_threshold_count": int(
+                self.polygons_removed_by_area_threshold_count
+            ),
+            "polygon_parts_kept_count": int(self.polygon_parts_kept_count),
+            "cleaned_zone_polygon_count": int(self.cleaned_zone_polygon_count),
+        }
+
+
+@dataclass(frozen=True)
+class CleanedZonePolygonRow:
+    """One cleaned polygon part ready for grouping and overlap resolution."""
+
+    zone_key: str
+    polygon: Polygon
+    priority: float | None = None
+
+
+@dataclass(frozen=True)
+class ZoneGeometryGrouping:
+    """Grouped per-zone geometries and priorities derived from cleaned rows."""
+
+    geometries: dict[str, "ZoneGeometry"]
+    priorities: dict[str, float] = field(default_factory=dict)
+
+
+ZoneGeometry: TypeAlias = Polygon | MultiPolygon
+
 def as_metric_tolerance(raw: float | None, *, default: float = 0.0) -> float:
+    """Normalize one optional metric tolerance used during Shapely cleaning."""
     if raw is None:
         return float(default)
     value = float(raw)
@@ -42,6 +142,7 @@ def as_metric_tolerance(raw: float | None, *, default: float = 0.0) -> float:
 # ---------------------------------------------------------------------------
 
 def is_invalid_nonempty_geometry(geometry) -> bool:
+    """Return whether one geometry is both non-empty and invalid."""
     if geometry is None:
         return False
     if getattr(geometry, "is_empty", False):
@@ -50,6 +151,7 @@ def is_invalid_nonempty_geometry(geometry) -> bool:
 
 
 def make_valid_geometry(geometry):
+    """Repair one geometry and return a polygon/collection-safe result."""
     if geometry is None:
         return GeometryCollection()
     if geometry.is_empty:
@@ -65,6 +167,7 @@ def make_valid_geometry(geometry):
 
 
 def make_valid_linework(geometry):
+    """Repair linework without forcing polygon-style buffering."""
     if geometry is None:
         return GeometryCollection()
     if geometry.is_empty:
@@ -77,6 +180,7 @@ def make_valid_linework(geometry):
 # ---------------------------------------------------------------------------
 
 def iter_polygon_parts(geometry):
+    """Yield polygon parts from polygon, multipolygon or geometry collection inputs."""
     if geometry is None or geometry.is_empty:
         return
     if isinstance(geometry, Polygon):
@@ -93,6 +197,7 @@ def iter_polygon_parts(geometry):
 
 
 def iter_line_parts(geometry):
+    """Yield line parts from line, multiline or geometry collection inputs."""
     if geometry is None or geometry.is_empty:
         return
     if isinstance(geometry, LineString):
@@ -118,7 +223,8 @@ def clean_domain_geometry(
     simplify_tolerance: float,
     heal_tolerance: float,
     min_polygon_area: float,
-) -> tuple[Any, dict[str, Any]]:
+) -> tuple[Any, ZoneDomainCleaningDiagnostics]:
+    """Clean the support-domain geometry before it is used for clipping."""
     invalid_before = is_invalid_nonempty_geometry(domain_geometry)
     domain_valid = make_valid_geometry(domain_geometry)
     invalid_after_repair = is_invalid_nonempty_geometry(domain_valid)
@@ -140,15 +246,15 @@ def clean_domain_geometry(
     if not polygons:
         raise ValueError("domain_geometry produced no usable polygon after cleaning")
     cleaned_domain = unary_union(polygons)
-    diagnostics = {
-        "domain_invalid_geometry_count": int(1 if invalid_before else 0),
-        "domain_invalid_geometries_repaired_count": int(repaired_count),
-        "domain_polygon_parts_before_area_filter_count": int(len(all_parts)),
-        "domain_polygon_parts_removed_by_area_threshold_count": int(
+    diagnostics = ZoneDomainCleaningDiagnostics(
+        invalid_geometry_count=int(1 if invalid_before else 0),
+        invalid_geometries_repaired_count=int(repaired_count),
+        polygon_parts_before_area_filter_count=int(len(all_parts)),
+        polygon_parts_removed_by_area_threshold_count=int(
             len(all_parts) - len(polygons)
         ),
-        "domain_polygon_parts_kept_count": int(len(polygons)),
-    }
+        polygon_parts_kept_count=int(len(polygons)),
+    )
     return cleaned_domain, diagnostics
 
 
@@ -166,80 +272,104 @@ def clean_zone_rows(
     heal_tolerance: float,
     min_polygon_area: float,
     normalize_zone_key_fn,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    diagnostics = {
-        "source_feature_count": int(len(gdf)),
-        "source_invalid_geometry_count": 0,
-        "invalid_geometries_repaired_count": 0,
-        "features_skipped_empty_zone_key_count": 0,
-        "features_skipped_empty_geometry_count": 0,
-        "features_outside_domain_count": 0,
-        "features_after_domain_clip_count": 0,
-        "features_dropped_after_cleaning_count": 0,
-        "polygon_parts_before_area_filter_count": 0,
-        "polygons_removed_by_area_threshold_count": 0,
-        "polygon_parts_kept_count": 0,
-    }
+) -> tuple[list[CleanedZonePolygonRow], ZoneRowCleaningDiagnostics]:
+    """Clean, clip and explode raw geology rows into independent polygon parts."""
+    out: list[CleanedZonePolygonRow] = []
+    diagnostics = ZoneRowCleaningDiagnostics(source_feature_count=int(len(gdf)))
+    counters = diagnostics.to_mapping()
 
     for _, row in gdf.iterrows():
         raw_zone_key = row[zone_key_column]
         zone_key = normalize_zone_key_fn(raw_zone_key)
         if zone_key == "":
-            diagnostics["features_skipped_empty_zone_key_count"] += 1
+            counters["features_skipped_empty_zone_key_count"] += 1
             continue
         raw_geometry = row.geometry
         if raw_geometry is None or raw_geometry.is_empty:
-            diagnostics["features_skipped_empty_geometry_count"] += 1
+            counters["features_skipped_empty_geometry_count"] += 1
             continue
         invalid_before = is_invalid_nonempty_geometry(raw_geometry)
         if invalid_before:
-            diagnostics["source_invalid_geometry_count"] += 1
+            counters["source_invalid_geometry_count"] += 1
 
         geometry = make_valid_geometry(raw_geometry)
         invalid_after = is_invalid_nonempty_geometry(geometry)
         if invalid_before and (not invalid_after):
-            diagnostics["invalid_geometries_repaired_count"] += 1
+            counters["invalid_geometries_repaired_count"] += 1
         if geometry.is_empty:
-            diagnostics["features_dropped_after_cleaning_count"] += 1
+            counters["features_dropped_after_cleaning_count"] += 1
             continue
         if domain_geometry is not None:
             geometry = make_valid_geometry(geometry.intersection(domain_geometry))
             if geometry.is_empty:
-                diagnostics["features_outside_domain_count"] += 1
+                counters["features_outside_domain_count"] += 1
                 continue
-        diagnostics["features_after_domain_clip_count"] += 1
+        counters["features_after_domain_clip_count"] += 1
         if heal_tolerance > 0.0:
             geometry = snap(geometry, geometry, heal_tolerance)
             geometry = make_valid_geometry(geometry)
             if geometry.is_empty:
-                diagnostics["features_dropped_after_cleaning_count"] += 1
+                counters["features_dropped_after_cleaning_count"] += 1
                 continue
         if simplify_tolerance > 0.0:
             geometry = geometry.simplify(simplify_tolerance, preserve_topology=True)
             geometry = make_valid_geometry(geometry)
             if geometry.is_empty:
-                diagnostics["features_dropped_after_cleaning_count"] += 1
+                counters["features_dropped_after_cleaning_count"] += 1
                 continue
 
         priority = None
         if priority_column is not None:
             priority = float(row[priority_column])
         for polygon in iter_polygon_parts(geometry):
-            diagnostics["polygon_parts_before_area_filter_count"] += 1
+            counters["polygon_parts_before_area_filter_count"] += 1
             if float(polygon.area) <= float(min_polygon_area):
-                diagnostics["polygons_removed_by_area_threshold_count"] += 1
+                counters["polygons_removed_by_area_threshold_count"] += 1
                 continue
-            diagnostics["polygon_parts_kept_count"] += 1
+            counters["polygon_parts_kept_count"] += 1
             out.append(
-                {
-                    "zone_key": zone_key,
-                    "priority": priority,
-                    "polygon": polygon,
-                }
+                CleanedZonePolygonRow(
+                    zone_key=zone_key,
+                    priority=priority,
+                    polygon=polygon,
+                )
             )
-    diagnostics["cleaned_zone_polygon_count"] = int(len(out))
-    return out, diagnostics
+    counters["cleaned_zone_polygon_count"] = int(len(out))
+    return (
+        out,
+        ZoneRowCleaningDiagnostics(
+            source_feature_count=int(counters["source_feature_count"]),
+            source_invalid_geometry_count=int(
+                counters["source_invalid_geometry_count"]
+            ),
+            invalid_geometries_repaired_count=int(
+                counters["invalid_geometries_repaired_count"]
+            ),
+            features_skipped_empty_zone_key_count=int(
+                counters["features_skipped_empty_zone_key_count"]
+            ),
+            features_skipped_empty_geometry_count=int(
+                counters["features_skipped_empty_geometry_count"]
+            ),
+            features_outside_domain_count=int(
+                counters["features_outside_domain_count"]
+            ),
+            features_after_domain_clip_count=int(
+                counters["features_after_domain_clip_count"]
+            ),
+            features_dropped_after_cleaning_count=int(
+                counters["features_dropped_after_cleaning_count"]
+            ),
+            polygon_parts_before_area_filter_count=int(
+                counters["polygon_parts_before_area_filter_count"]
+            ),
+            polygons_removed_by_area_threshold_count=int(
+                counters["polygons_removed_by_area_threshold_count"]
+            ),
+            polygon_parts_kept_count=int(counters["polygon_parts_kept_count"]),
+            cleaned_zone_polygon_count=int(counters["cleaned_zone_polygon_count"]),
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -247,26 +377,31 @@ def clean_zone_rows(
 # ---------------------------------------------------------------------------
 
 def group_zone_geometries(
-    clean_rows: list[dict[str, Any]],
-) -> tuple[dict[str, Any], dict[str, float]]:
-    grouped_polygons: dict[str, list[Any]] = {}
+    clean_rows: list[CleanedZonePolygonRow],
+) -> ZoneGeometryGrouping:
+    """Union cleaned rows by zone key and keep the strongest priority per zone."""
+    grouped_polygons: dict[str, list[Polygon]] = {}
     grouped_priority: dict[str, float] = {}
     for item in clean_rows:
-        zone_key = str(item["zone_key"])
-        grouped_polygons.setdefault(zone_key, []).append(item["polygon"])
-        if item["priority"] is not None:
+        zone_key = str(item.zone_key)
+        grouped_polygons.setdefault(zone_key, []).append(item.polygon)
+        if item.priority is not None:
             grouped_priority[zone_key] = max(
-                grouped_priority.get(zone_key, float("-inf")), float(item["priority"])
+                grouped_priority.get(zone_key, float("-inf")), float(item.priority)
             )
 
     grouped_geometries = {
         zone_key: make_valid_geometry(unary_union(polygons))
         for zone_key, polygons in grouped_polygons.items()
     }
-    return grouped_geometries, grouped_priority
+    return ZoneGeometryGrouping(
+        geometries=grouped_geometries,
+        priorities=grouped_priority,
+    )
 
 
 def intersection_area(geometry_a, geometry_b) -> float:
+    """Return the overlap area between two geometries."""
     intersection = geometry_a.intersection(geometry_b)
     if intersection.is_empty:
         return 0.0
@@ -274,12 +409,13 @@ def intersection_area(geometry_a, geometry_b) -> float:
 
 
 def resolve_zone_overlaps(
-    grouped_geometries: Mapping[str, Any],
+    grouped_geometries: Mapping[str, ZoneGeometry],
     *,
     grouped_priority: Mapping[str, float],
     priority_column: str | None,
     overlap_tolerance: float,
-) -> dict[str, Any]:
+) -> dict[str, ZoneGeometry]:
+    """Resolve overlaps between zone geometries, optionally using priorities."""
     zone_keys = sorted(str(key) for key in grouped_geometries)
     if priority_column is None:
         for idx, zone_key_a in enumerate(zone_keys):
@@ -298,7 +434,7 @@ def resolve_zone_overlaps(
         key=lambda zone_key: (float(grouped_priority.get(zone_key, 0.0)), zone_key),
         reverse=True,
     )
-    resolved: dict[str, Any] = {}
+    resolved: dict[str, ZoneGeometry] = {}
     assigned_geometry = None
     for zone_key in ordered_zone_keys:
         geometry = grouped_geometries[zone_key]
@@ -349,7 +485,7 @@ def split_partition_with_constraint_lines(
     if not valid_lines:
         return partition
 
-    zone_geometries: dict[str, Any] = {}
+    zone_geometries: dict[str, ZoneGeometry] = {}
     for face in partition.faces:
         zone_key = str(face.zone_key)
         current = zone_geometries.get(zone_key)
@@ -480,3 +616,25 @@ def segment_intersects_refinement_scope(
         return float(segment.distance(scope_geometry)) <= max(float(tolerance), 1.0e-9)
     except Exception:
         return False
+
+
+__all__ = [
+    "CleanedZonePolygonRow",
+    "ZoneDomainCleaningDiagnostics",
+    "ZoneGeometryGrouping",
+    "ZoneRowCleaningDiagnostics",
+    "as_metric_tolerance",
+    "clean_domain_geometry",
+    "clean_zone_rows",
+    "group_zone_geometries",
+    "intersection_area",
+    "is_invalid_nonempty_geometry",
+    "iter_line_parts",
+    "iter_polygon_parts",
+    "make_valid_geometry",
+    "make_valid_linework",
+    "resolve_zone_overlaps",
+    "segment_intersects_refinement_scope",
+    "segment_matches_linework",
+    "split_partition_with_constraint_lines",
+]

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
+
+from hydromodpy.config.toml_loader import load_toml_with_base_config, merge_toml_payloads
 
 
 def _load_toml(path: Path) -> dict:
@@ -17,6 +20,31 @@ def _load_toml(path: Path) -> dict:
 def load_case_metadata(case_dir: Path) -> dict:
     """Load metadata for one validation case directory."""
     return _load_toml(case_dir / "metadata.toml")
+
+
+def load_case_config(case_dir: Path, filename: str) -> dict:
+    """Load one case-local config file with optional ``base_config`` support."""
+    return load_toml_with_base_config(case_dir / filename)
+
+
+def merge_case_flow_section(
+    case_dir: Path,
+    flow_section: Mapping[str, object],
+    *,
+    config_name: str = "config_boussinesq.toml",
+) -> dict[str, object]:
+    """Merge ``[flow]`` defaults from one case config into one runtime payload."""
+    config_path = case_dir / str(config_name)
+    if not config_path.exists():
+        return dict(flow_section)
+
+    config_payload = load_case_config(case_dir, str(config_name))
+    raw_flow = config_payload.get("flow", {})
+    if raw_flow is None:
+        raw_flow = {}
+    if not isinstance(raw_flow, Mapping):
+        raise TypeError(f"{config_path} [flow] section must be a mapping")
+    return merge_toml_payloads(dict(raw_flow), dict(flow_section))
 
 
 def load_case_tolerances(case_dir: Path, solver: str | None = None) -> dict:

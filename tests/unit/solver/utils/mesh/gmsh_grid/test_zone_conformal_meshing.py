@@ -5,14 +5,25 @@ import numpy as np
 from pathlib import Path
 from types import SimpleNamespace
 import pytest
-from shapely.geometry import LineString, MultiPolygon, Polygon
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     build_zone_conformal_partition_from_dataframe,
     generate_zone_conformal_mesh_from_dataframe,
-    load_zone_meshing_domain_geometry,
+    load_zone_meshing_domain_payload,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
+    _select_partition_face_owner,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import ZoneLinearConstraint
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
+    ZoneMeshingDomainConfig,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
+    CleanedZonePolygonRow,
+    clean_zone_rows,
+    group_zone_geometries,
+)
 
 try:
     import gmsh  # noqa: F401
@@ -206,24 +217,24 @@ def test_generate_zone_conformal_mesh_accepts_generic_linear_constraints() -> No
     )
 
 
-def test_load_zone_meshing_domain_geometry_supports_inline_polygon() -> None:
-    payload = load_zone_meshing_domain_geometry(
-        {
-            "kind": "polygon",
-            "coordinates": [
-                [0.0, 0.0],
-                [2.0, 0.0],
-                [1.5, 1.0],
-                [0.0, 1.0],
-            ],
-        },
+def test_load_zone_meshing_domain_payload_supports_inline_polygon() -> None:
+    payload = load_zone_meshing_domain_payload(
+        ZoneMeshingDomainConfig(
+            kind="polygon",
+            coordinates=(
+                (0.0, 0.0),
+                (2.0, 0.0),
+                (1.5, 1.0),
+                (0.0, 1.0),
+            ),
+        ),
         target_crs="EPSG:2154",
     )
 
-    assert payload["summary"]["domain_kind"] == "polygon"
-    assert payload["summary"]["domain_vertex_count"] == 4
-    assert payload["summary"]["domain_area"] == pytest.approx(1.75)
-    assert str(payload["gdf"].crs) == "EPSG:2154"
+    assert payload.summary["domain_kind"] == "polygon"
+    assert payload.summary["domain_vertex_count"] == 4
+    assert payload.summary["domain_area"] == pytest.approx(1.75)
+    assert str(payload.gdf.crs) == "EPSG:2154"
 
 
 def test_build_zone_conformal_partition_reports_tolerant_cleaning_diagnostics() -> None:
@@ -256,3 +267,52 @@ def test_build_zone_conformal_partition_reports_tolerant_cleaning_diagnostics() 
     assert diag["invalid_geometries_repaired_count"] >= 1
     assert diag["polygons_removed_by_area_threshold_count"] >= 1
     assert diag["tolerances"]["min_polygon_area"] == pytest.approx(0.01)
+
+
+def test_clean_zone_rows_and_grouping_return_typed_internal_contracts() -> None:
+    gdf = _build_overlapping_zones_gdf()
+
+    cleaned_rows, diagnostics = clean_zone_rows(
+        gdf,
+        zone_key_column="zone_key",
+        priority_column="priority",
+        domain_geometry=None,
+        simplify_tolerance=0.0,
+        heal_tolerance=0.0,
+        min_polygon_area=0.0,
+        normalize_zone_key_fn=lambda value: str(value).strip(),
+    )
+    grouped = group_zone_geometries(cleaned_rows)
+
+    assert cleaned_rows
+    assert isinstance(cleaned_rows[0], CleanedZonePolygonRow)
+    assert diagnostics.cleaned_zone_polygon_count == len(cleaned_rows)
+    assert grouped.priorities == {"A": 10.0, "B": 1.0}
+    assert set(grouped.geometries) == {"A", "B"}
+
+
+def test_select_partition_face_owner_falls_back_to_priority_on_shared_boundary() -> None:
+    resolved_geometries = {
+        "A": Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]),
+        "B": Polygon([(1.0, 0.0), (2.0, 0.0), (2.0, 1.0), (1.0, 1.0)]),
+    }
+    part = Polygon(
+        [
+            (1.0 - 1.0e-7, 0.49),
+            (1.0 + 1.0e-7, 0.49),
+            (1.0 + 1.0e-7, 0.51),
+            (1.0 - 1.0e-7, 0.51),
+        ]
+    )
+    point = Point(1.0, 0.5)
+
+    owner = _select_partition_face_owner(
+        part=part,
+        point=point,
+        resolved_geometries=resolved_geometries,
+        grouped_priorities={"A": 10.0, "B": 1.0},
+        overlap_tolerance=1.0e-4,
+        probe_radius=0.0,
+    )
+
+    assert owner == "A"

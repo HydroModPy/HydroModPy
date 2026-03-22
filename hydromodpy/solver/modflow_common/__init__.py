@@ -1,5 +1,6 @@
 """Shared MODFLOW helper utilities used across solver backends."""
 
+from .executables import ensure_platform_executable
 from .grid_context import GridReference, SolverGridContext
 from .masstransfer import Masstransfer
 from .raster_export import write_grid_array_to_raster
@@ -12,6 +13,7 @@ __all__ = [
     "SolverGridContext",
     "SolverMesh",
     "SolverRoutingContext",
+    "ensure_platform_executable",
     "Masstransfer",
     "write_grid_array_to_raster",
     "build_solver_routing_context",
