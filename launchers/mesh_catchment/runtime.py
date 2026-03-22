@@ -36,12 +36,14 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import export_catchment_mesh_bundle
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
-from launchers.mesh_catchment.config import validate_mesh_catchment_config_data
+from launchers.mesh_catchment.config import (
+    MeshCatchmentConfigSchema,
+    parse_mesh_catchment_config_data,
+)
 
 
 DEFAULT_SECTION_NAME = "mesh_catchment"
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
-_OUTPUT_LAYOUTS = {"standard", "flat"}
 
 
 # ---------------------------------------------------------------------------
@@ -77,10 +79,10 @@ def require_mesh_section(
     payload: Mapping[str, Any],
     *,
     section_name: str = DEFAULT_SECTION_NAME,
-) -> Mapping[str, Any]:
+) -> MeshCatchmentConfigSchema:
     """Return one validated launcher section and fail fast when it is missing.
 
-    The returned mapping is already normalized by the Pydantic schema, which
+    The returned model is already normalized by the Pydantic schema, which
     means defaults such as the implicit support domain are materialized here
     instead of being rediscovered later from the raw TOML.
     """
@@ -90,14 +92,14 @@ def require_mesh_section(
             f"Missing [{section_name}] section in launcher TOML. "
             "Expected one mapping compatible with the conformal meshing case schema."
         )
-    return validate_mesh_catchment_config_data(section)
+    return parse_mesh_catchment_config_data(section)
 
 
 def get_optional_mesh_section(
     payload: Mapping[str, Any],
     *,
     section_name: str = DEFAULT_SECTION_NAME,
-) -> Mapping[str, Any] | None:
+) -> MeshCatchmentConfigSchema | None:
     """Return one validated optional mesh section, or ``None`` when absent/blank."""
     section = payload.get(section_name)
     if section is None:
@@ -107,7 +109,16 @@ def get_optional_mesh_section(
     raw_cm = section.get("constraints_mode")
     if raw_cm is None or str(raw_cm).strip() == "":
         return None
-    return validate_mesh_catchment_config_data(section)
+    return parse_mesh_catchment_config_data(section)
+
+
+def _coerce_mesh_section_data(
+    section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
+) -> MeshCatchmentConfigSchema:
+    """Return one typed launcher section regardless of caller input style."""
+    if isinstance(section_data, MeshCatchmentConfigSchema):
+        return section_data
+    return parse_mesh_catchment_config_data(section_data)
 
 
 def resolve_constraints_mode(
@@ -209,11 +220,11 @@ def _derive_regional_figure_path(output_figure: Path | None) -> Path | None:
     )
 
 
-def resolve_output_layout(section_data: Mapping[str, Any]) -> str:
+def resolve_output_layout(
+    section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
+) -> str:
     """Return the requested dedicated-launcher output layout."""
-    raw_value = section_data.get("output_layout", "standard")
-    token = str(raw_value).strip().lower()
-    return token if token in _OUTPUT_LAYOUTS else "standard"
+    return _coerce_mesh_section_data(section_data).output_layout
 
 
 def _default_mesh_output_dir(workspace: object) -> Path:
@@ -226,11 +237,11 @@ def _derive_flat_runtime_project_root(*, final_project_root: Path) -> Path:
     return final_project_root.parent / "_mesh_runtime" / final_project_root.name
 
 
-def _resolve_geographic_outputs_mode(section_data: Mapping[str, Any]) -> str:
+def _resolve_geographic_outputs_mode(
+    section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
+) -> str:
     """Return whether geographic intermediate folders should be kept or cleaned."""
-    raw_value = section_data.get("geographic_outputs_mode", "keep")
-    token = str(raw_value).strip().lower()
-    return token if token in {"keep", "cleanup"} else "keep"
+    return _coerce_mesh_section_data(section_data).geographic_outputs_mode
 
 
 def _cleanup_geographic_artifacts(*, workspace: object) -> list[str]:
@@ -264,7 +275,7 @@ def _cleanup_runtime_workspace_root(*, runtime_project_root: Path) -> list[str]:
 def _resolve_output_overrides(
     *,
     config_path: Path,
-    section_data: Mapping[str, Any],
+    section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
     workspace: object,
     explicit_overrides: Mapping[str, Path | str | None] | None = None,
     default_output_dir: Path | None = None,
@@ -281,6 +292,7 @@ def _resolve_output_overrides(
     naming rules while still letting the caller force precise destinations when
     needed.
     """
+    section_cfg = _coerce_mesh_section_data(section_data)
     overrides = dict(explicit_overrides or {})
     mesh_dir = (
         Path(default_output_dir)
@@ -292,7 +304,7 @@ def _resolve_output_overrides(
     if output_mesh is None:
         output_mesh = _resolve_optional_path(
             config_dir=config_path.parent,
-            raw_value=section_data.get("output_mesh"),
+            raw_value=section_cfg.output_mesh,
         )
     output_mesh = Path(output_mesh) if output_mesh is not None else mesh_dir / "mesh_catchment.msh"
 
@@ -300,7 +312,7 @@ def _resolve_output_overrides(
     if output_summary_json is None:
         output_summary_json = _resolve_optional_path(
             config_dir=config_path.parent,
-            raw_value=section_data.get("output_summary_json"),
+            raw_value=section_cfg.output_summary_json,
         )
     output_summary_json = (
         Path(output_summary_json)
@@ -312,7 +324,7 @@ def _resolve_output_overrides(
     if output_figure is None:
         output_figure = _resolve_optional_path(
             config_dir=config_path.parent,
-            raw_value=section_data.get("output_figure"),
+            raw_value=section_cfg.output_figure,
         )
     output_figure_path = None if output_figure is None else Path(output_figure)
 
@@ -320,7 +332,7 @@ def _resolve_output_overrides(
     if output_figure_regional is None:
         output_figure_regional = _resolve_optional_path(
             config_dir=config_path.parent,
-            raw_value=section_data.get("output_figure_regional"),
+            raw_value=section_cfg.output_figure_regional,
         )
     output_figure_regional_path = (
         None
@@ -330,8 +342,7 @@ def _resolve_output_overrides(
     if output_figure_regional_path is None:
         output_figure_regional_path = _derive_regional_figure_path(output_figure_path)
 
-    raw_show_plot = section_data.get("show_plot", False)
-    show_plot = bool(raw_show_plot) if isinstance(raw_show_plot, bool) else False
+    show_plot = bool(section_cfg.show_plot)
     return (
         output_mesh,
         output_summary_json,
@@ -368,7 +379,7 @@ def _resolve_river_trace(
 def run_single_mesh_catchment_workflow(
     *,
     config_path: str | Path,
-    section_data: Mapping[str, Any],
+    section_data: MeshCatchmentConfigSchema | Mapping[str, Any],
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
     domain_cfg: object | None,
@@ -393,8 +404,9 @@ def run_single_mesh_catchment_workflow(
     actual meshing logic, which remains owned by the generic zone-conformal
     case.
     """
+    section_cfg = _coerce_mesh_section_data(section_data)
     config_path = Path(config_path).resolve()
-    requested_output_layout = resolve_output_layout(section_data)
+    requested_output_layout = resolve_output_layout(section_cfg)
     dedicated_flat_layout = requested_output_layout == "flat" and workspace is None
     effective_output_layout = "flat" if dedicated_flat_layout else "standard"
     final_project_root = Path(getattr(workspace_cfg, "project_root")).resolve()
@@ -421,7 +433,7 @@ def run_single_mesh_catchment_workflow(
         else hmp.Workspace(config=runtime_workspace_cfg)
     )
     local_domain_geographic = domain_geographic
-    geographic_outputs_mode = _resolve_geographic_outputs_mode(section_data)
+    geographic_outputs_mode = _resolve_geographic_outputs_mode(section_cfg)
     built_domain_geographic_locally = False
     if local_domain_geographic is None:
         # Rebuild the geographic context only when the caller did not already
@@ -446,7 +458,7 @@ def run_single_mesh_catchment_workflow(
         show_plot,
     ) = _resolve_output_overrides(
         config_path=config_path,
-        section_data=section_data,
+        section_data=section_cfg,
         workspace=local_workspace,
         explicit_overrides=output_overrides,
         default_output_dir=final_project_root if dedicated_flat_layout else None,
@@ -458,7 +470,7 @@ def run_single_mesh_catchment_workflow(
     summary = run_reference_2d_zone_conformal_case_from_toml(
         config_path,
         section=section_name,
-        section_data_override=section_data,
+        section_data_override=section_cfg.model_dump(mode="python"),
         output_mesh=output_mesh,
         output_summary_json=output_summary_json,
         output_figure=output_figure,
@@ -476,12 +488,16 @@ def run_single_mesh_catchment_workflow(
         # because the bundle is derived from that mesh plus the geographic
         # context used to build it. A missing mesh means the meshing case
         # failed early enough that bundle export would only hide the real issue.
-        geology_cfg = section_data.get("geology")
-        if not isinstance(geology_cfg, Mapping):
-            geology_cfg = None
-        hydraulic_properties_cfg = section_data.get("hydraulic_properties")
-        if not isinstance(hydraulic_properties_cfg, Mapping):
-            hydraulic_properties_cfg = None
+        geology_cfg = (
+            None
+            if section_cfg.geology is None
+            else section_cfg.geology.model_dump(mode="python")
+        )
+        hydraulic_properties_cfg = (
+            None
+            if section_cfg.hydraulic_properties is None
+            else section_cfg.hydraulic_properties.model_dump(mode="python")
+        )
         try:
             bundle_summary = export_catchment_mesh_bundle(
                 mesh_path=output_mesh,

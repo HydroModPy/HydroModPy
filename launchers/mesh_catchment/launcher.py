@@ -304,13 +304,6 @@ def _workspace_stable_folder(workspace_like: object) -> Path:
     return Path(workspace_like.project_root) / "results_stable"
 
 
-def _resolve_mesh_output_layout(section_data: Mapping[str, Any]) -> str:
-    """Return the requested dedicated-launcher output layout."""
-    raw_value = section_data.get("output_layout", "standard")
-    token = str(raw_value).strip().lower()
-    return token if token in {"standard", "flat"} else "standard"
-
-
 def _point_is_within_bounds(*, x: float, y: float, bounds) -> bool:
     """Return whether one projected XY point lies inside raster bounds."""
     return (
@@ -333,9 +326,7 @@ class MeshCatchmentLauncher:
         self.workspace_cfg, self.geographic_cfg, self.domain_cfg = self._load_runtime_configs(
             self.raw_toml
         )
-        self.constraints_mode = mesh_runtime.resolve_constraints_mode(
-            self.mesh_section_data.get("constraints_mode")
-        )
+        self.constraints_mode = self.mesh_section_data.constraints_mode
         # River-constrained meshing requires the geographic pipeline to produce
         # a river trace, so we upgrade the geographic config here if needed.
         self.geographic_cfg = mesh_runtime.prepare_geographic_config_for_meshing(
@@ -451,7 +442,7 @@ class MeshCatchmentLauncher:
             "output_figure_regional": "figure_regional_filename",
         }
         for section_key, pattern_attr in required_patterns.items():
-            raw_value = self.mesh_section_data.get(section_key)
+            raw_value = getattr(self.mesh_section_data, section_key)
             if _optional_text(raw_value) is None:
                 continue
             if _optional_text(getattr(batch_cfg.outputs, pattern_attr)) is not None:
@@ -481,13 +472,10 @@ class MeshCatchmentLauncher:
             label="geographic.dem_init_path",
         )
 
-        geology_cfg = self.mesh_section_data.get("geology")
-        if not isinstance(geology_cfg, Mapping):
+        geology_cfg = self.mesh_section_data.geology
+        if geology_cfg is None:
             return
-        source_cfg = geology_cfg.get("source")
-        if not isinstance(source_cfg, Mapping):
-            return
-        reference_raster_raw = _optional_text(source_cfg.get("reference_raster_path"))
+        reference_raster_raw = _optional_text(geology_cfg.source.reference_raster_path)
         if reference_raster_raw is None:
             return
         reference_raster_path = Path(reference_raster_raw).expanduser()
@@ -703,7 +691,7 @@ class MeshCatchmentLauncher:
           workspace;
         - ``flat`` writes directly under the child project root.
         """
-        output_layout = _resolve_mesh_output_layout(self.mesh_section_data)
+        output_layout = mesh_runtime.resolve_output_layout(self.mesh_section_data)
         mesh_dir = (
             _workspace_project_root(workspace_cfg)
             if output_layout == "flat"
