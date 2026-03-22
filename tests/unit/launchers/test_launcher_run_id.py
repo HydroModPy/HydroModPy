@@ -243,6 +243,21 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     assert captured["output_dir"] == Path("workspace") / "results_stable" / "geographic"
 
 
+def test_process_launcher_rejects_embedded_mesh_catchment_batch_section() -> None:
+    launcher = HydroModPyLauncher.__new__(HydroModPyLauncher)
+
+    with pytest.raises(ValueError, match="Embedded \\[mesh_catchment_batch\\] is not supported"):
+        launcher._resolve_optional_mesh_section(
+            {
+                "mesh_catchment": {"constraints_mode": "rivers_only"},
+                "mesh_catchment_batch": {
+                    "enabled": True,
+                    "outlets_table_path": "outlets.csv",
+                },
+            }
+        )
+
+
 def test_run_setup_does_not_declare_unused_geology_zone(monkeypatch) -> None:
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.hmp.Workspace",
