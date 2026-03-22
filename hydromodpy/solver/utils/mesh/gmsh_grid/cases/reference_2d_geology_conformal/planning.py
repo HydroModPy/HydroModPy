@@ -29,6 +29,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     ZoneConformalCaseConfig,
     ZoneConformalConstraintUsage,
     ZoneConformalDomainConfig,
+    ZoneConformalGeologyConfig,
     ZoneConformalGeometryPayload,
     ZoneConformalMeshingInputs,
     ZoneConformalRiversConfig,
@@ -201,13 +202,13 @@ def _build_domain_zone_dataframe(
 
 def _load_clipped_geology_dataframe(
     *,
-    geology_cfg: Mapping[str, Any],
+    geology_cfg: ZoneConformalGeologyConfig,
     domain_cfg: ZoneConformalDomainConfig,
     config_path: Path,
     domain_geographic: object | None,
 ) -> tuple[ZoneConformalSourcePayload, gpd.GeoDataFrame, ZoneConformalGeometryPayload]:
     payload = load_vector_geology_dataframe(
-        geology_cfg,
+        geology_cfg.to_mapping(),
         config_path=config_path,
         zone_key_column="zone_key",
     )

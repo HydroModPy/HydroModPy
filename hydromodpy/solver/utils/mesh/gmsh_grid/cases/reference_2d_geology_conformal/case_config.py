@@ -17,6 +17,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     ZoneConformalCaseConfig,
     ZoneConformalConstraintUsage,
     ZoneConformalDomainConfig,
+    ZoneConformalGeologyConfig,
     ZoneConformalRiversConfig,
     ZoneConformalWatershedBoundaryConfig,
     ZoneConformalWatershedBoundarySmoothingConfig,
@@ -217,6 +218,13 @@ def _validate_domain_case_config(
     return ZoneConformalDomainConfig.from_mapping(raw)
 
 
+def _validate_geology_case_config(
+    config_data: Mapping[str, Any],
+) -> ZoneConformalGeologyConfig:
+    raw = validate_geology_config_data(dict(config_data))
+    return ZoneConformalGeologyConfig.from_mapping(raw)
+
+
 def _resolve_case_config(
     config_toml: Path,
     *,
@@ -252,7 +260,9 @@ def _resolve_case_config(
     )
     geology_cfg = None
     if usage.uses_geology_constraints:
-        geology_cfg = validate_geology_config_data(dict(section_cfg.get("geology", {})))
+        geology_cfg = _validate_geology_case_config(
+            dict(section_cfg.get("geology", {}))
+        )
     rivers_cfg = None
     if usage.uses_river_constraints:
         rivers_cfg = _validate_rivers_case_config(
