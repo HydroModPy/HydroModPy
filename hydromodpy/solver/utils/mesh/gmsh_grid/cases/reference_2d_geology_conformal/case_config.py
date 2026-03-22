@@ -16,6 +16,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalCaseConfig,
     ZoneConformalConstraintUsage,
+    ZoneConformalDomainConfig,
     ZoneConformalRiversConfig,
     ZoneConformalWatershedBoundaryConfig,
     ZoneConformalWatershedBoundarySmoothingConfig,
@@ -209,6 +210,13 @@ def _validate_zone_meshing_case_config(
     )
 
 
+def _validate_domain_case_config(
+    config_data: Mapping[str, Any],
+) -> ZoneConformalDomainConfig:
+    raw = validate_zone_meshing_domain_config_data(dict(config_data))
+    return ZoneConformalDomainConfig.from_mapping(raw)
+
+
 def _resolve_case_config(
     config_toml: Path,
     *,
@@ -226,17 +234,17 @@ def _resolve_case_config(
             "geology_only, rivers_only, geology_rivers."
         )
     usage = _resolve_constraint_usage(str(section_cfg.get("constraints_mode", "")))
-    domain_cfg = validate_zone_meshing_domain_config_data(
+    domain_cfg = _validate_domain_case_config(
         dict(section_cfg.get("domain", {}))
     )
     interface_scope_cfg = None
     if isinstance(section_cfg.get("interface_scope"), Mapping):
-        interface_scope_cfg = validate_zone_meshing_domain_config_data(
+        interface_scope_cfg = _validate_domain_case_config(
             dict(section_cfg.get("interface_scope", {}))
         )
     refinement_scope_cfg = None
     if isinstance(section_cfg.get("refinement_scope"), Mapping):
-        refinement_scope_cfg = validate_zone_meshing_domain_config_data(
+        refinement_scope_cfg = _validate_domain_case_config(
             dict(section_cfg.get("refinement_scope", {}))
         )
     zone_meshing_cfg = _validate_zone_meshing_case_config(
@@ -259,7 +267,7 @@ def _resolve_case_config(
         )
         if (
             watershed_boundary_cfg.enabled
-            and str(domain_cfg["kind"]) == "geographic_watershed"
+            and domain_cfg.kind == "geographic_watershed"
         ):
             raise ValueError(
                 "watershed_boundary is redundant when domain.kind='geographic_watershed'; "
