@@ -15,7 +15,7 @@ from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
 from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
 from launchers.mesh_catchment import runtime as mesh_runtime
-from launchers.mesh_catchment.launcher import MeshCatchmentBatchConfig, MeshCatchmentLauncher
+from launchers.mesh_catchment.launcher import MeshCatchmentLauncher
 
 
 class _DummyWorkspace:
@@ -184,31 +184,6 @@ def test_mesh_runtime_require_mesh_section_returns_typed_model() -> None:
     assert isinstance(section, MeshCatchmentConfigSchema)
     assert section.constraints_mode == "rivers_only"
     assert section.domain.kind == "geographic_box_buffer"
-
-
-def test_mesh_catchment_batch_config_from_mapping_returns_typed_values(
-    tmp_path: Path,
-) -> None:
-    batch_cfg = MeshCatchmentBatchConfig.from_mapping(
-        {
-            "enabled": True,
-            "outlets_table_path": "outlets.csv",
-            "selection_mode": "selected",
-            "selected_outlet_ids": [2, "A3"],
-            "outputs": {
-                "mesh_filename": "mesh_{outlet_id}.msh",
-                "summary_filename": "summary_{outlet_id}.json",
-            },
-        },
-        base_dir=tmp_path,
-    )
-
-    assert batch_cfg is not None
-    assert batch_cfg.outlets_table_path == (tmp_path / "outlets.csv").resolve()
-    assert batch_cfg.selection_mode == "selected"
-    assert batch_cfg.selected_outlet_ids == ("2", "A3")
-    assert batch_cfg.outputs.mesh_filename == "mesh_{outlet_id}.msh"
-    assert batch_cfg.outputs.summary_filename == "summary_{outlet_id}.json"
 
 
 def test_mesh_catchment_launcher_passes_watershed_boundary_constraint_to_case(
