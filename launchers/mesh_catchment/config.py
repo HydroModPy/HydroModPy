@@ -875,29 +875,41 @@ class MeshCatchmentBatchSectionSchema(BaseModel):
 
 def validate_mesh_catchment_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:
     """Validate one `[mesh_catchment]` section and return normalized data."""
+    return parse_mesh_catchment_config_data(config_data).model_dump(mode="python")
+
+
+def parse_mesh_catchment_config_data(
+    config_data: Mapping[str, Any],
+) -> MeshCatchmentConfigSchema:
+    """Validate one `[mesh_catchment]` section and return the typed model."""
     if not isinstance(config_data, Mapping):
         raise ValueError("mesh_catchment configuration must be a mapping.")
     raw_constraints_mode = config_data.get("constraints_mode")
     if raw_constraints_mode is None or str(raw_constraints_mode).strip() == "":
         raise ValueError("constraints_mode is required.")
     try:
-        parsed = MeshCatchmentConfigSchema.model_validate(dict(config_data))
+        return MeshCatchmentConfigSchema.model_validate(dict(config_data))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
-    return parsed.model_dump(mode="python")
 
 
 def validate_mesh_catchment_batch_config_data(
     config_data: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Validate one optional `[mesh_catchment_batch]` section."""
+    return parse_mesh_catchment_batch_config_data(config_data).model_dump(mode="python")
+
+
+def parse_mesh_catchment_batch_config_data(
+    config_data: Mapping[str, Any],
+) -> MeshCatchmentBatchSectionSchema:
+    """Validate one optional `[mesh_catchment_batch]` section and return the typed model."""
     if not isinstance(config_data, Mapping):
         raise ValueError("mesh_catchment_batch configuration must be a mapping.")
     try:
-        parsed = MeshCatchmentBatchSectionSchema.model_validate(dict(config_data))
+        return MeshCatchmentBatchSectionSchema.model_validate(dict(config_data))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
-    return parsed.model_dump(mode="python")
 
 
 __all__ = [
@@ -911,6 +923,8 @@ __all__ = [
     "MeshCatchmentRiversConfigSchema",
     "MeshCatchmentWatershedBoundaryConfigSchema",
     "MeshCatchmentWatershedBoundarySmoothingConfigSchema",
+    "parse_mesh_catchment_batch_config_data",
+    "parse_mesh_catchment_config_data",
     "validate_mesh_catchment_batch_config_data",
     "validate_mesh_catchment_config_data",
 ]

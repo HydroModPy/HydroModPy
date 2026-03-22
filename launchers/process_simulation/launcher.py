@@ -81,12 +81,12 @@ from hydromodpy.support.units import convert_payload_to_m_per_s
 from launchers.mesh_catchment.runtime import (
     get_optional_mesh_section,
     prepare_geographic_config_for_meshing,
-    resolve_constraints_mode,
     run_single_mesh_catchment_workflow,
 )
 
 if TYPE_CHECKING:
     from hydromodpy.data_managers import DataLoadPlan
+    from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
 
 
 def _build_data_plan(*args, **kwargs):
@@ -152,9 +152,7 @@ class HydroModPyLauncher:
         self.mesh_section_data = self._resolve_optional_mesh_section(raw_toml)
         self.mesh_constraints_mode = None
         if self.mesh_section_data is not None:
-            self.mesh_constraints_mode = resolve_constraints_mode(
-                self.mesh_section_data.get("constraints_mode")
-            )
+            self.mesh_constraints_mode = self.mesh_section_data.constraints_mode
             self.cfg.geographic = prepare_geographic_config_for_meshing(
                 self.cfg.geographic,
                 constraints_mode=self.mesh_constraints_mode,
@@ -219,7 +217,7 @@ class HydroModPyLauncher:
     def _resolve_optional_mesh_section(
         self,
         raw_toml: Mapping[str, object],
-    ) -> Mapping[str, Any] | None:
+    ) -> MeshCatchmentConfigSchema | None:
         section = get_optional_mesh_section(raw_toml)
         batch_section = raw_toml.get("mesh_catchment_batch")
         if batch_section is None:

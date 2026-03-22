@@ -13,6 +13,7 @@ from rasterio.transform import from_origin
 from hydromodpy.domain.domain_config import DomainConfig
 from hydromodpy.geographic.geographic_config import GeographicConfig
 from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
 from launchers.mesh_catchment import runtime as mesh_runtime
 from launchers.mesh_catchment.launcher import MeshCatchmentLauncher
 
@@ -173,6 +174,16 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     assert kwargs["section_data_override"]["domain"]["kind"] == "geographic_box_buffer"
     assert kwargs["section_data_override"]["watershed_boundary"]["enabled"] is True
     assert kwargs["domain_geographic"].river_mesh_trace is not None
+
+
+def test_mesh_runtime_require_mesh_section_returns_typed_model() -> None:
+    section = mesh_runtime.require_mesh_section(
+        {"mesh_catchment": {"constraints_mode": "rivers_only"}}
+    )
+
+    assert isinstance(section, MeshCatchmentConfigSchema)
+    assert section.constraints_mode == "rivers_only"
+    assert section.domain.kind == "geographic_box_buffer"
 
 
 def test_mesh_catchment_launcher_passes_watershed_boundary_constraint_to_case(
