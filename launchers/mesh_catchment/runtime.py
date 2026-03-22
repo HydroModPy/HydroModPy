@@ -22,6 +22,7 @@ follow from the launcher entry point.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 import shutil
 from types import SimpleNamespace
@@ -44,6 +45,17 @@ from launchers.mesh_catchment.config import (
 
 DEFAULT_SECTION_NAME = "mesh_catchment"
 _RIVER_TRACE_CONSTRAINT_MODES = {"rivers_only", "geology_rivers"}
+
+
+@dataclass(frozen=True)
+class _ResolvedMeshCatchmentOutputs:
+    """Resolved final output destinations for one mono-catchment mesh run."""
+
+    output_mesh: Path
+    output_summary_json: Path
+    output_figure: Path | None
+    output_figure_regional: Path | None
+    show_plot: bool
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +291,7 @@ def _resolve_output_overrides(
     workspace: object,
     explicit_overrides: Mapping[str, Path | str | None] | None = None,
     default_output_dir: Path | None = None,
-) -> tuple[Path, Path, Path | None, Path | None, bool]:
+) -> _ResolvedMeshCatchmentOutputs:
     """Resolve output paths after applying launcher/runtime precedence rules.
 
     The precedence is intentionally simple and stable:
@@ -343,12 +355,12 @@ def _resolve_output_overrides(
         output_figure_regional_path = _derive_regional_figure_path(output_figure_path)
 
     show_plot = bool(section_cfg.show_plot)
-    return (
-        output_mesh,
-        output_summary_json,
-        output_figure_path,
-        output_figure_regional_path,
-        show_plot,
+    return _ResolvedMeshCatchmentOutputs(
+        output_mesh=output_mesh,
+        output_summary_json=output_summary_json,
+        output_figure=output_figure_path,
+        output_figure_regional=output_figure_regional_path,
+        show_plot=show_plot,
     )
 
 
@@ -450,13 +462,7 @@ def run_single_mesh_catchment_workflow(
         geographic_cfg=geographic_cfg,
         domain_geographic=local_domain_geographic,
     )
-    (
-        output_mesh,
-        output_summary_json,
-        output_figure,
-        output_figure_regional,
-        show_plot,
-    ) = _resolve_output_overrides(
+    resolved_outputs = _resolve_output_overrides(
         config_path=config_path,
         section_data=section_cfg,
         workspace=local_workspace,
@@ -471,19 +477,19 @@ def run_single_mesh_catchment_workflow(
         config_path,
         section=section_name,
         section_data_override=section_cfg.model_dump(mode="python"),
-        output_mesh=output_mesh,
-        output_summary_json=output_summary_json,
-        output_figure=output_figure,
-        output_figure_regional=output_figure_regional,
+        output_mesh=resolved_outputs.output_mesh,
+        output_summary_json=resolved_outputs.output_summary_json,
+        output_figure=resolved_outputs.output_figure,
+        output_figure_regional=resolved_outputs.output_figure_regional,
         river_trace=river_trace,
         domain_geographic=local_domain_geographic,
-        show_plot=show_plot,
+        show_plot=resolved_outputs.show_plot,
     )
     summary_dict = dict(summary)
     summary_dict["output_layout"] = effective_output_layout
     summary_dict["geographic_outputs_mode"] = geographic_outputs_mode
     summary_dict["geographic_outputs_cleanup_applied"] = False
-    if Path(output_mesh).exists():
+    if resolved_outputs.output_mesh.exists():
         # Export the exchange bundle only after the final mesh exists on disk,
         # because the bundle is derived from that mesh plus the geographic
         # context used to build it. A missing mesh means the meshing case
@@ -500,7 +506,7 @@ def run_single_mesh_catchment_workflow(
         )
         try:
             bundle_summary = export_catchment_mesh_bundle(
-                mesh_path=output_mesh,
+                mesh_path=resolved_outputs.output_mesh,
                 domain_geographic=local_domain_geographic,
                 domain_cfg=domain_cfg,
                 geology_cfg=geology_cfg,
