@@ -87,6 +87,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx.ext.autosummary',
+    'sphinx.ext.mathjax',
     'nbsphinx',
     "sphinx_gallery.load_style",
     "myst_parser",
