@@ -8,7 +8,12 @@ from typing import Any
 
 import geopandas as gpd
 
-from hydromodpy.solver.utils.mesh.gmsh_grid import load_zone_meshing_domain_geometry
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
+    clean_domain_geometry,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
+    load_zone_meshing_domain_payload,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalDomainConfig,
     ZoneConformalGeometryPayload,
@@ -41,14 +46,11 @@ def _load_domain_payload(
     domain_geographic: object | None,
     target_crs: object,
 ) -> ZoneConformalGeometryPayload:
-    return ZoneConformalGeometryPayload.from_mapping(
-        load_zone_meshing_domain_geometry(
-            domain_cfg.to_mapping(),
-            config_path=config_path,
-            domain_geographic=domain_geographic,
-            target_crs=target_crs,
-            validate=False,
-        )
+    return load_zone_meshing_domain_payload(
+        domain_cfg,
+        config_path=config_path,
+        domain_geographic=domain_geographic,
+        target_crs=target_crs,
     )
 
 
@@ -66,6 +68,46 @@ def _load_geographic_watershed_payload(
     )
 
 
+def _maybe_smooth_geographic_watershed_scope_payload(
+    payload: ZoneConformalGeometryPayload,
+    *,
+    scope_cfg: ZoneConformalDomainConfig | None,
+    watershed_boundary_cfg: object | None,
+) -> ZoneConformalGeometryPayload:
+    if scope_cfg is None or str(scope_cfg.kind) != "geographic_watershed":
+        return payload
+    if watershed_boundary_cfg is None:
+        return payload
+    smoothing_cfg = getattr(watershed_boundary_cfg, "smoothing", None)
+    if smoothing_cfg is None or not bool(getattr(smoothing_cfg, "enabled", False)):
+        return payload
+    cleaned_geometry, _ = clean_domain_geometry(
+        payload.geometry,
+        simplify_tolerance=float(getattr(smoothing_cfg, "simplify_tolerance", 0.0)),
+        heal_tolerance=float(getattr(smoothing_cfg, "heal_tolerance", 0.0)),
+        min_polygon_area=float(getattr(smoothing_cfg, "min_polygon_area", 0.0)),
+    )
+    summary = _update_scope_summary_geometry(
+        dict(payload.summary),
+        geometry=cleaned_geometry,
+        feature_count_after_clip=1,
+    )
+    summary["watershed_boundary_smoothing_applied"] = True
+    summary["watershed_boundary_smoothing"] = {
+        "enabled": True,
+        "simplify_tolerance": float(
+            getattr(smoothing_cfg, "simplify_tolerance", 0.0)
+        ),
+        "heal_tolerance": float(getattr(smoothing_cfg, "heal_tolerance", 0.0)),
+        "min_polygon_area": float(getattr(smoothing_cfg, "min_polygon_area", 0.0)),
+    }
+    return ZoneConformalGeometryPayload(
+        geometry=cleaned_geometry,
+        gdf=gpd.GeoDataFrame(geometry=[cleaned_geometry], crs=payload.gdf.crs),
+        summary=summary,
+    )
+
+
 def _resolve_scope_payload(
     *,
     scope_cfg: ZoneConformalDomainConfig | None,
@@ -73,6 +115,7 @@ def _resolve_scope_payload(
     config_path: Path,
     domain_geographic: object | None,
     target_crs: object,
+    watershed_boundary_cfg: object | None = None,
 ) -> ZoneConformalGeometryPayload:
     if scope_cfg is None:
         return fallback_payload
@@ -81,6 +124,11 @@ def _resolve_scope_payload(
         config_path=config_path,
         domain_geographic=domain_geographic,
         target_crs=target_crs,
+    )
+    scope_payload = _maybe_smooth_geographic_watershed_scope_payload(
+        scope_payload,
+        scope_cfg=scope_cfg,
+        watershed_boundary_cfg=watershed_boundary_cfg,
     )
     clipped = gpd.clip(scope_payload.gdf, fallback_payload.gdf)
     clipped = clipped[_valid_geometry_mask(clipped.geometry)].copy()
@@ -103,6 +151,7 @@ def _resolve_scope_payload(
 __all__ = [
     "_load_domain_payload",
     "_load_geographic_watershed_payload",
+    "_maybe_smooth_geographic_watershed_scope_payload",
     "_resolve_scope_payload",
     "_update_scope_summary_geometry",
     "_valid_geometry_mask",

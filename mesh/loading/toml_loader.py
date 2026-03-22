@@ -1,4 +1,8 @@
-"""Lecture et validation TOML pour la distribution des maillages."""
+"""Read, validate, and resolve TOML config for the standalone viewer.
+
+This module is the bridge between the stable public TOML contract and the
+runtime ``VisualizationConfig`` used by the rest of the package.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +10,10 @@ from pathlib import Path
 import re
 import tomllib
 
-from mesh.loading.toml_schema import (
-    MeshDistributionTomlSchema,
+from mesh.loading.toml_contracts import (
+    MeshVisualizationTomlSchema,
+)
+from mesh.loading.toml_validation import (
     ValidationError,
 )
 from mesh.schema import (
@@ -17,7 +23,7 @@ from mesh.schema import (
 
 
 def _looks_like_windows_absolute_path(raw_value: str) -> bool:
-    """Detecte un chemin absolu Windows meme sur une plateforme POSIX."""
+    """Detect a Windows absolute path even when running on a POSIX platform."""
     return bool(re.match(r"^[A-Za-z]:[\\/]", raw_value))
 
 
@@ -26,7 +32,7 @@ def _resolve_config_path(
     config_path: Path,
     raw_value: Path | None,
 ) -> Path | None:
-    """Resout un chemin relatif depuis le dossier du fichier TOML."""
+    """Resolve one optional TOML path relative to the TOML file location."""
     if raw_value is None:
         return None
     raw_text = str(raw_value).strip()
@@ -35,9 +41,9 @@ def _resolve_config_path(
         return path.resolve()
     if _looks_like_windows_absolute_path(raw_text):
         raise ValueError(
-            "Le TOML contient un chemin absolu Windows qui n'est pas portable sur "
-            f"cette machine: '{raw_text}'. Remplacer par un chemin local valide ou "
-            "un chemin relatif au fichier TOML."
+            "The TOML file contains a Windows absolute path that is not portable "
+            f"on this machine: '{raw_text}'. Replace it with a valid local path "
+            "or a path relative to the TOML file."
         )
     return (config_path.parent / path).resolve()
 
@@ -47,13 +53,18 @@ def load_toml_config(
     *,
     section: str = DEFAULT_TOML_SECTION,
 ) -> VisualizationConfig:
-    """Charge la configuration TOML du module de distribution."""
+    """Load one public TOML config into a resolved runtime config.
+
+    This is the recommended low-level entry point when a caller wants the
+    validated ``VisualizationConfig`` object but does not want to execute the
+    full visualization pipeline yet.
+    """
 
     config_path = Path(toml_path).resolve()
     content = tomllib.loads(config_path.read_text(encoding="utf-8-sig"))
 
     try:
-        parsed = MeshDistributionTomlSchema.from_mapping(content.get(section))
+        parsed = MeshVisualizationTomlSchema.from_mapping(content.get(section))
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
 

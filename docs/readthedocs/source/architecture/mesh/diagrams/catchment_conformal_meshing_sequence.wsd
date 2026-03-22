@@ -19,7 +19,7 @@ participant "Workspace\nhydromodpy.Workspace" as Workspace
 participant "build_domain_geographic_context(...)" as DomainPipeline
 participant "DomainGeographicContext" as DomainCtx
 participant "run_reference_2d_zone_conformal_case_from_toml(...)\n<<reference case>>" as Case
-participant "load_zone_meshing_domain_geometry(...)" as DomainLoader
+participant "load_zone_meshing_domain_payload(...)" as DomainLoader
 participant "load_vector_geology_dataframe(...)" as GeologyIO
 participant "generate_zone_conformal_mesh_from_dataframe(...)\n<<Gmsh core>>" as GmshCore
 participant "export_catchment_mesh_bundle(...)" as BundleExporter
@@ -44,7 +44,7 @@ Runtime -> Case: run_reference_2d_zone_conformal_case_from_toml(\nconfig_path, s
 activate Case
 
 Case -> Case: _resolve_case_config(...)
-Case -> DomainLoader: load_zone_meshing_domain_geometry(...)
+Case -> DomainLoader: load_zone_meshing_domain_payload(...)
 DomainLoader --> Case: support domain payload
 
 alt geology_only or geology_rivers

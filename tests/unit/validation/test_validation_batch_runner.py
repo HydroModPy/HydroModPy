@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 from validation_cases.run_cases import (
     build_run_command,
@@ -67,14 +68,14 @@ def test_build_run_command_includes_solver_timeout_and_show_flag(tmp_path: Path)
 
     command = build_run_command(
         case,
-        python_executable=Path("C:/Python/python.exe"),
+        python_executable=Path(sys.executable),
         solver="modflow6",
         timeout=321,
         show_plot=True,
     )
 
     assert command == [
-        str(Path("C:/Python/python.exe")),
+        str(Path(sys.executable)),
         str(case.run_case_path),
         "--solver",
         "modflow6",

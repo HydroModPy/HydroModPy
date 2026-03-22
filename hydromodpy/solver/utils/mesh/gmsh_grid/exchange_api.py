@@ -22,7 +22,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMe
 def load_planar_mesh(
     path: str | Path, *, cell_type: str | None = None
 ) -> GmshPlanarMesh2D:
-    """Read one 2D planar mesh from disk."""
+    """Read one 2D planar mesh into the package-level mesh object."""
     return GmshPlanarMesh2D.from_file(path, cell_type=cell_type)
 
 
@@ -32,7 +32,7 @@ def save_planar_mesh(
     *,
     file_format: str | None = None,
 ) -> Path:
-    """Write one 2D planar mesh to disk."""
+    """Write one planar mesh through the stable package I/O surface."""
     if not isinstance(mesh, GmshPlanarMesh2D):
         raise TypeError("mesh must be a GmshPlanarMesh2D instance")
     return mesh.to_file(path, file_format=file_format)
@@ -62,7 +62,7 @@ def load_extruded_mesh_values(
     depth_name: str = "prism_center_depth",
     label: str | None = None,
 ) -> ExtrudedPrismMeshWithValues:
-    """Read one 3D prism mesh together with prism values."""
+    """Read one 3D prism mesh together with the scalar values attached to prisms."""
     return ExtrudedPrismMeshWithValues.from_file(
         path,
         value_name=value_name,
@@ -79,7 +79,7 @@ def save_extruded_mesh_values(
     depth_name: str = "prism_center_depth",
     file_format: str | None = None,
 ) -> Path:
-    """Write one 3D prism mesh carrying prism values."""
+    """Write one valued 3D prism mesh to disk."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
         raise TypeError(
             "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
@@ -96,7 +96,7 @@ def save_extruded_values_npy(
     mesh_with_values: ExtrudedPrismMeshWithValues,
     path: str | Path,
 ) -> Path:
-    """Write the `(n_layers, n_cells_2d)` value array to a `.npy` file."""
+    """Write the canonical ``(n_layers, n_cells_2d)`` value array to ``.npy``."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
         raise TypeError(
             "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
@@ -124,12 +124,12 @@ def save_extruded_values_summary(
 def load_planar_as_hydro_mesh(
     path: str | Path, *, cell_type: str | None = None
 ):
-    """Read one 2D planar mesh from disk as a ``HydroMesh``."""
+    """Read one planar mesh and convert it directly to the generic ``HydroMesh``."""
     return load_planar_mesh(path, cell_type=cell_type).to_hydro_mesh()
 
 
 def load_extruded_as_hydro_mesh(path: str | Path):
-    """Read one extruded 3D prism mesh from disk as a ``HydroMesh``."""
+    """Read one extruded mesh and convert it directly to the generic ``HydroMesh``."""
     return load_extruded_mesh(path).to_hydro_mesh()
 
 

@@ -5,27 +5,38 @@ This module owns the multi-outlet workflow built on top of the dedicated
 bootstrap work only: loading the shared runtime sections, preparing the mesh
 section, and delegating either to one mono-catchment run or to this batch
 layer.
+
+The supporting pieces are intentionally split by concern:
+
+* ``batch_io`` reads and validates outlet tables plus raster coverage.
+* ``batch_reporting`` persists manifest rows and the final batch summary.
+* this module keeps only the orchestration of child runs.
 """
 
 from __future__ import annotations
 
-import csv
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import re
-import rasterio
-from types import SimpleNamespace
 from typing import Any
 
 from launchers.mesh_catchment import runtime as mesh_runtime
+from launchers.mesh_catchment.batch_io import (
+    MeshCatchmentOutletRecord,
+    load_mesh_catchment_outlet_records,
+    sanitize_batch_path_token,
+    validate_outlets_within_raster,
+)
+from launchers.mesh_catchment.batch_reporting import (
+    MeshCatchmentBatchResultRow,
+    MeshCatchmentBatchSummary,
+    write_mesh_catchment_batch_manifest,
+)
 from launchers.mesh_catchment.config import (
     MeshCatchmentConfigSchema,
     parse_mesh_catchment_batch_config_data,
 )
-
-
-_VECTOR_TABLE_SUFFIXES = {".geojson", ".gpkg", ".json", ".shp"}
+from launchers.mesh_catchment.runtime_single_run import clone_config_like
 
 
 @dataclass(frozen=True)
@@ -110,16 +121,6 @@ class MeshCatchmentBatchConfig:
 
 
 @dataclass(frozen=True)
-class MeshCatchmentOutletRecord:
-    """One normalized outlet row ready to drive a child catchment run."""
-
-    outlet_id: str
-    outlet_id_safe: str
-    x_outlet: float
-    y_outlet: float
-
-
-@dataclass(frozen=True)
 class MeshCatchmentBatchRunner:
     """Orchestrate the multi-outlet mesh workflow for one launcher session."""
 
@@ -128,7 +129,7 @@ class MeshCatchmentBatchRunner:
     workspace_cfg: object
     geographic_cfg: object
     domain_cfg: object | None
-    run_single_workflow: Callable[..., dict[str, Any]]
+    run_single_workflow: Callable[..., Mapping[str, Any]]
 
     def validate_output_configuration(
         self,
@@ -164,7 +165,7 @@ class MeshCatchmentBatchRunner:
             return
 
         dem_path = Path(self.geographic_cfg.dem_init_path).expanduser().resolve()
-        self._validate_outlets_within_raster(
+        validate_outlets_within_raster(
             records=records,
             raster_path=dem_path,
             label="geographic.dem_init_path",
@@ -181,7 +182,7 @@ class MeshCatchmentBatchRunner:
             reference_raster_path = (
                 self.config_path.parent / reference_raster_path
             ).resolve()
-        self._validate_outlets_within_raster(
+        validate_outlets_within_raster(
             records=records,
             raster_path=reference_raster_path,
             label="mesh_catchment.geology.source.reference_raster_path",
@@ -194,7 +195,7 @@ class MeshCatchmentBatchRunner:
         """Run the outlet loop and keep the manifest updated incrementally."""
         records = self._load_outlet_records(batch_cfg)
         manifest_path = self._resolve_manifest_path(batch_cfg)
-        results: list[dict[str, Any]] = []
+        results: list[MeshCatchmentBatchResultRow] = []
 
         for record in records:
             catch_name, workspace_cfg, geographic_cfg, output_overrides = (
@@ -219,7 +220,7 @@ class MeshCatchmentBatchRunner:
                         summary=summary,
                     )
                 )
-                self._write_manifest(manifest_path, results)
+                write_mesh_catchment_batch_manifest(manifest_path, results)
             except Exception as exc:
                 results.append(
                     self._build_result_row(
@@ -229,181 +230,28 @@ class MeshCatchmentBatchRunner:
                         error=str(exc),
                     )
                 )
-                self._write_manifest(manifest_path, results)
+                write_mesh_catchment_batch_manifest(manifest_path, results)
                 if not batch_cfg.continue_on_error:
                     raise
 
-        self._write_manifest(manifest_path, results)
-        succeeded = [row for row in results if row["status"] == "ok"]
-        failed = [row for row in results if row["status"] != "ok"]
-        return {
-            "mode": "batch",
-            "summary_schema_version": "mesh_catchment_batch_v1",
-            "manifest_csv": str(manifest_path),
-            "outlets_total": int(len(results)),
-            "outlets_succeeded": int(len(succeeded)),
-            "outlets_failed": int(len(failed)),
-            "results": results,
-        }
-
-    @staticmethod
-    def _validate_outlets_within_raster(
-        *,
-        records: Sequence[MeshCatchmentOutletRecord],
-        raster_path: Path,
-        label: str,
-    ) -> None:
-        """Check that all selected outlets lie within one raster extent."""
-        if not raster_path.exists():
-            raise FileNotFoundError(f"{label} not found: {raster_path}")
-
-        with rasterio.open(raster_path) as src:
-            bounds = src.bounds
-            outside = [
-                record
-                for record in records
-                if not _point_is_within_bounds(
-                    x=record.x_outlet,
-                    y=record.y_outlet,
-                    bounds=bounds,
-                )
-            ]
-
-        if not outside:
-            return
-
-        sample = ", ".join(
-            f"{record.outlet_id}({record.x_outlet:.3f},{record.y_outlet:.3f})"
-            for record in outside[:3]
-        )
-        raise ValueError(
-            f"{label} does not cover all selected batch outlets. "
-            f"Raster bounds are {bounds}. First outside outlet(s): {sample}. "
-            "Override the batch config with a DEM/reference raster that covers the full outlets table."
-        )
+        write_mesh_catchment_batch_manifest(manifest_path, results)
+        return MeshCatchmentBatchSummary(
+            manifest_csv=str(manifest_path),
+            results=tuple(results),
+        ).to_mapping()
 
     def _load_outlet_records(
         self,
         batch_cfg: MeshCatchmentBatchConfig,
     ) -> list[MeshCatchmentOutletRecord]:
         """Load and normalize outlet rows from the configured batch table."""
-        table_path = batch_cfg.outlets_table_path
-        suffix = table_path.suffix.lower()
-        if suffix == ".csv":
-            rows = self._load_outlet_rows_from_csv(table_path)
-        elif suffix in _VECTOR_TABLE_SUFFIXES:
-            rows = self._load_outlet_rows_from_vector(table_path)
-        else:
-            raise ValueError(
-                "Unsupported mesh_catchment_batch outlets table format "
-                f"'{table_path.suffix}'. Supported: .csv, .shp, .gpkg, .geojson, .json."
-            )
-        if not rows:
-            raise ValueError(
-                f"mesh_catchment_batch outlets table contains no outlet row: {table_path}"
-            )
-
-        selected_ids = set(batch_cfg.selected_outlet_ids)
-        records: list[MeshCatchmentOutletRecord] = []
-        seen_outlet_ids: set[str] = set()
-        for index, row in enumerate(rows, start=1):
-            record = self._build_outlet_record(
-                row=row,
-                outlet_id_column=batch_cfg.outlet_id_column,
-                x_column=batch_cfg.x_column,
-                y_column=batch_cfg.y_column,
-                row_label=f"{table_path} row {index}",
-            )
-            if (
-                batch_cfg.selection_mode == "selected"
-                and record.outlet_id not in selected_ids
-            ):
-                continue
-            if record.outlet_id in seen_outlet_ids:
-                raise ValueError(
-                    "mesh_catchment_batch outlets table contains duplicated outlet_id "
-                    f"'{record.outlet_id}'."
-                )
-            seen_outlet_ids.add(record.outlet_id)
-            records.append(record)
-
-        if batch_cfg.selection_mode == "selected" and not records:
-            raise ValueError(
-                "mesh_catchment_batch.selected_outlet_ids did not match any outlet row."
-            )
-        return records
-
-    @staticmethod
-    def _load_outlet_rows_from_csv(table_path: Path) -> list[dict[str, Any]]:
-        """Read outlet rows from one CSV file with a header row."""
-        with table_path.open("r", encoding="utf-8-sig", newline="") as stream:
-            reader = csv.DictReader(stream)
-            if reader.fieldnames is None:
-                raise ValueError(
-                    f"mesh_catchment_batch CSV has no header row: {table_path}"
-                )
-            return [dict(row) for row in reader]
-
-    @staticmethod
-    def _load_outlet_rows_from_vector(table_path: Path) -> list[dict[str, Any]]:
-        """Read outlet rows from one vector file and expose point XY columns."""
-        import geopandas as gpd
-
-        gdf = gpd.read_file(table_path)
-        if gdf.empty:
-            return []
-        rows: list[dict[str, Any]] = []
-        for _, row in gdf.iterrows():
-            payload = {
-                str(column): row[column]
-                for column in gdf.columns
-                if str(column) != "geometry"
-            }
-            geometry = getattr(row, "geometry", None)
-            if geometry is not None and not geometry.is_empty:
-                payload.setdefault("geometry_x", float(geometry.x))
-                payload.setdefault("geometry_y", float(geometry.y))
-            rows.append(payload)
-        return rows
-
-    @staticmethod
-    def _build_outlet_record(
-        *,
-        row: Mapping[str, Any],
-        outlet_id_column: str,
-        x_column: str,
-        y_column: str,
-        row_label: str,
-    ) -> MeshCatchmentOutletRecord:
-        """Validate one raw table row and convert it into one outlet record."""
-        if outlet_id_column not in row:
-            raise KeyError(
-                f"Missing outlet id column '{outlet_id_column}' in {row_label}"
-            )
-        outlet_id = _require_text(
-            row.get(outlet_id_column),
-            label=f"{row_label}.{outlet_id_column}",
-        )
-        try:
-            raw_x = row.get(x_column, row.get("geometry_x"))
-            raw_y = row.get(y_column, row.get("geometry_y"))
-            if raw_x is None or raw_y is None:
-                raise KeyError
-            x_outlet = float(raw_x)
-            y_outlet = float(raw_y)
-        except KeyError as exc:
-            raise KeyError(
-                f"Missing outlet coordinates columns '{x_column}'/'{y_column}' in {row_label}"
-            ) from exc
-        except Exception as exc:
-            raise ValueError(
-                f"Invalid outlet coordinates in {row_label}: x={row.get(x_column)!r}, y={row.get(y_column)!r}"
-            ) from exc
-        return MeshCatchmentOutletRecord(
-            outlet_id=outlet_id,
-            outlet_id_safe=_sanitize_path_token(outlet_id),
-            x_outlet=x_outlet,
-            y_outlet=y_outlet,
+        return load_mesh_catchment_outlet_records(
+            table_path=batch_cfg.outlets_table_path,
+            selection_mode=batch_cfg.selection_mode,
+            selected_outlet_ids=batch_cfg.selected_outlet_ids,
+            outlet_id_column=batch_cfg.outlet_id_column,
+            x_column=batch_cfg.x_column,
+            y_column=batch_cfg.y_column,
         )
 
     def _format_batch_catch_name(
@@ -446,7 +294,9 @@ class MeshCatchmentBatchRunner:
             if output_layout == "flat"
             else _workspace_stable_folder(workspace_cfg) / "mesh"
         )
-        catch_name_safe = _sanitize_path_token(_workspace_catch_name(workspace_cfg))
+        catch_name_safe = sanitize_batch_path_token(
+            _workspace_catch_name(workspace_cfg)
+        )
         tokens = {
             "catch_name": catch_name_safe,
             "outlet_id": record.outlet_id_safe,
@@ -495,11 +345,11 @@ class MeshCatchmentBatchRunner:
                 current_name=base_catch_name,
                 child_name=catch_name,
             )
-        workspace_cfg = _clone_config(
+        workspace_cfg = clone_config_like(
             self.workspace_cfg,
             updates=workspace_updates,
         )
-        geographic_cfg = _clone_config(
+        geographic_cfg = clone_config_like(
             self.geographic_cfg,
             updates={
                 "x_outlet": record.x_outlet,
@@ -521,43 +371,25 @@ class MeshCatchmentBatchRunner:
         status: str,
         summary: Mapping[str, Any] | None = None,
         error: str = "",
-    ) -> dict[str, Any]:
+    ) -> MeshCatchmentBatchResultRow:
         """Build one manifest row summarizing the outcome of a batch child run."""
         summary_payload = dict(summary or {})
-        return {
-            "outlet_id": record.outlet_id,
-            "catch_name": catch_name,
-            "status": status,
-            "x_outlet": record.x_outlet,
-            "y_outlet": record.y_outlet,
-            "output_mesh": summary_payload.get("output_mesh", ""),
-            "output_summary_json": summary_payload.get("output_summary_json", ""),
-            "output_figure": summary_payload.get("output_figure", ""),
-            "output_figure_regional": summary_payload.get("output_figure_regional", ""),
-            "error": error,
-        }
-
-    @staticmethod
-    def _write_manifest(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-        """Persist the current batch progress to one CSV manifest."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fieldnames = [
-            "outlet_id",
-            "catch_name",
-            "status",
-            "x_outlet",
-            "y_outlet",
-            "output_mesh",
-            "output_summary_json",
-            "output_figure",
-            "output_figure_regional",
-            "error",
-        ]
-        with path.open("w", encoding="utf-8", newline="") as stream:
-            writer = csv.DictWriter(stream, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in rows:
-                writer.writerow({name: row.get(name, "") for name in fieldnames})
+        return MeshCatchmentBatchResultRow(
+            outlet_id=record.outlet_id,
+            catch_name=catch_name,
+            status=status,
+            x_outlet=record.x_outlet,
+            y_outlet=record.y_outlet,
+            output_mesh=_optional_text(summary_payload.get("output_mesh")) or "",
+            output_summary_json=(
+                _optional_text(summary_payload.get("output_summary_json")) or ""
+            ),
+            output_figure=_optional_text(summary_payload.get("output_figure")) or "",
+            output_figure_regional=(
+                _optional_text(summary_payload.get("output_figure_regional")) or ""
+            ),
+            error=error,
+        )
 
 
 def _optional_text(raw_value: object) -> str | None:
@@ -588,30 +420,6 @@ def _resolve_required_path(
     if not path.is_absolute():
         path = (base_dir / path).resolve()
     return path
-
-
-def _sanitize_path_token(raw_value: object) -> str:
-    """Convert one user-facing token into a filesystem-safe path fragment."""
-    text = str(raw_value).strip()
-    if text == "":
-        return "unknown"
-    collapsed = re.sub(r"\s+", "_", text)
-    sanitized = re.sub(r'[\\/:*?"<>|]+', "-", collapsed)
-    sanitized = sanitized.strip("._-")
-    return sanitized or "unknown"
-
-
-def _clone_config(config: object, *, updates: Mapping[str, Any]) -> object:
-    """Clone one config-like object while preserving Pydantic validation when possible."""
-    model_dump = getattr(config, "model_dump", None)
-    model_validate = getattr(config.__class__, "model_validate", None)
-    if callable(model_dump) and callable(model_validate):
-        payload = dict(model_dump(mode="python"))
-        payload.update(dict(updates))
-        return config.__class__.model_validate(payload)
-    payload = dict(vars(config))
-    payload.update(dict(updates))
-    return SimpleNamespace(**payload)
 
 
 def _workspace_catch_name(workspace_like: object) -> str:
@@ -647,17 +455,11 @@ def _workspace_stable_folder(workspace_like: object) -> Path:
     return Path(workspace_like.project_root) / "results_stable"
 
 
-def _point_is_within_bounds(*, x: float, y: float, bounds) -> bool:
-    """Return whether one projected XY point lies inside raster bounds."""
-    return (
-        float(bounds.left) <= float(x) <= float(bounds.right)
-        and float(bounds.bottom) <= float(y) <= float(bounds.top)
-    )
-
-
 __all__ = [
     "MeshCatchmentBatchConfig",
     "MeshCatchmentBatchOutputsConfig",
     "MeshCatchmentBatchRunner",
+    "MeshCatchmentBatchResultRow",
+    "MeshCatchmentBatchSummary",
     "MeshCatchmentOutletRecord",
 ]

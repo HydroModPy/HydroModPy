@@ -1,90 +1,26 @@
-"""Script de lancement direct du package autonome `mesh`.
+"""Backward-compatible script entry point for the standalone mesh viewer.
 
-Ce script permet de charger un bundle exporte, produire une figure de synthese
-et ecrire un resume JSON sans dependre d'une arborescence projet plus large.
+The preferred package entry point is now ``python -m mesh``. This file remains
+available so a vendored directory can still be launched directly with
+``python mesh/run_visualization.py``.
+
+Treat this module as a compatibility wrapper, not as the main place to extend
+the viewer.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 from pathlib import Path
 import sys
 
-# Ajoute le dossier parent de `mesh/` au `sys.path` afin de permettre
-# `python mesh/run_visualization.py` sans installation prealable.
+# When this file is executed directly, Python adds ``mesh/`` to ``sys.path``
+# but not necessarily the repository root. Insert the parent explicitly so the
+# package import below resolves without installation.
 _repo_root = Path(__file__).resolve().parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
-from mesh.runner.visualization_runner import (  # noqa: E402
-    DEFAULT_CONFIG_FILENAME,
-    DEFAULT_TOML_SECTION,
-    run_visualization_from_toml,
-)
-
-
-def _resolve_default_config_path() -> Path:
-    """Resout le fichier TOML d'exemple utilise par defaut.
-
-    Layout prefere :
-    - <repo>/examples/mesh_viewer/config_example.toml
-
-    Repli compatible avec les anciennes distributions :
-    - <repo>/mesh/examples/config_example.toml
-    """
-    mesh_dir = Path(__file__).resolve().parent
-    candidates = (
-        mesh_dir.parent / "examples" / "mesh_viewer" / DEFAULT_CONFIG_FILENAME,
-        mesh_dir / "examples" / DEFAULT_CONFIG_FILENAME,
-    )
-    for path in candidates:
-        if path.exists():
-            return path
-    return candidates[0]
-
-
-def _build_parser() -> argparse.ArgumentParser:
-    """Construit l'interface ligne de commande du module."""
-    default_config_path = _resolve_default_config_path()
-    parser = argparse.ArgumentParser(
-        description=(
-            "Charge un bundle de maillage exporte, produit une ou plusieurs "
-            "figures pedagogiques et ecrit un resume JSON si demande."
-        )
-    )
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=default_config_path,
-        help="Chemin du fichier TOML de configuration.",
-    )
-    parser.add_argument(
-        "--section",
-        type=str,
-        default=DEFAULT_TOML_SECTION,
-        help=f"Section TOML a charger (defaut : {DEFAULT_TOML_SECTION}).",
-    )
-    parser.add_argument(
-        "--output-json",
-        dest="output_json",
-        type=Path,
-        default=None,
-        help="Chemin optionnel pour forcer la sortie du resume JSON.",
-    )
-    return parser
-
-
-def main(argv: list[str] | None = None) -> int:
-    """Execute la visualisation depuis la ligne de commande."""
-    args = _build_parser().parse_args(argv)
-    summary = run_visualization_from_toml(
-        args.config,
-        section=args.section,
-        forced_summary_output_path=args.output_json,
-    )
-    print(json.dumps(summary, indent=2, ensure_ascii=True))
-    return 0
+from mesh.cli import main  # noqa: E402
 
 
 if __name__ == "__main__":

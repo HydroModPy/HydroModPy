@@ -45,6 +45,29 @@ class ResolvedMeshCatchmentOutputs:
     show_plot: bool
 
 
+@dataclass(frozen=True)
+class MeshCatchmentSingleRunDependencies:
+    """Concrete collaborators required to execute one mono-catchment run."""
+
+    workspace_factory: Callable[..., object]
+    build_domain_geographic_context_fn: Callable[..., object]
+    run_reference_case_fn: Callable[..., Mapping[str, Any] | dict[str, Any]]
+    export_catchment_mesh_bundle_fn: Callable[..., Mapping[str, Any] | dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class PreparedMeshCatchmentRuntime:
+    """Resolved runtime artifacts shared by the mono-run workflow."""
+
+    effective_output_layout: str
+    final_project_root: Path
+    runtime_project_root: Path | None
+    runtime_workspace_cfg: object
+    workspace: object
+    domain_geographic: object
+    built_domain_geographic_locally: bool
+
+
 def _resolve_optional_path(*, config_dir: Path, raw_value: Any) -> Path | None:
     """Resolve one optional file path relative to the launcher TOML when needed."""
     if raw_value is None:
@@ -202,24 +225,17 @@ def _resolve_river_trace(
     )
 
 
-def run_single_mesh_catchment_workflow_typed(
+def _prepare_runtime_environment(
     *,
-    config_path: Path,
     section_cfg: MeshCatchmentConfigSchema,
     workspace_cfg: object,
     geographic_cfg: GeographicConfig,
-    domain_cfg: object | None,
-    constraints_mode: str,
-    output_overrides: Mapping[str, Path | str | None] | None = None,
-    workspace: object | None = None,
-    domain_geographic: object | None = None,
-    section_name: str,
-    workspace_factory: Callable[..., object],
-    build_domain_geographic_context_fn: Callable[..., object],
-    run_reference_case_fn: Callable[..., Mapping[str, Any] | dict[str, Any]],
-    export_catchment_mesh_bundle_fn: Callable[..., Mapping[str, Any] | dict[str, Any]],
-) -> dict[str, Any]:
-    """Run one mono-catchment mesh workflow from an already typed launcher section."""
+    workspace: object | None,
+    domain_geographic: object | None,
+    deps: MeshCatchmentSingleRunDependencies,
+) -> PreparedMeshCatchmentRuntime:
+    """Resolve the runtime workspace and domain_geographic context for one run."""
+
     dedicated_flat_layout = section_cfg.output_layout == "flat" and workspace is None
     effective_output_layout = "flat" if dedicated_flat_layout else "standard"
     final_project_root = Path(getattr(workspace_cfg, "project_root")).resolve()
@@ -240,89 +256,100 @@ def run_single_mesh_catchment_workflow_typed(
     local_workspace = (
         workspace
         if workspace is not None
-        else workspace_factory(config=runtime_workspace_cfg)
+        else deps.workspace_factory(config=runtime_workspace_cfg)
     )
     local_domain_geographic = domain_geographic
     built_domain_geographic_locally = False
     if local_domain_geographic is None:
-        local_domain_geographic = build_domain_geographic_context_fn(
+        local_domain_geographic = deps.build_domain_geographic_context_fn(
             config=geographic_cfg,
             workspace=local_workspace,
         )
         built_domain_geographic_locally = True
 
-    river_trace = _resolve_river_trace(
-        constraints_mode=constraints_mode,
-        geographic_cfg=geographic_cfg,
-        domain_geographic=local_domain_geographic,
-    )
-    resolved_outputs = _resolve_output_overrides(
-        config_path=config_path,
-        section_cfg=section_cfg,
+    return PreparedMeshCatchmentRuntime(
+        effective_output_layout=effective_output_layout,
+        final_project_root=final_project_root,
+        runtime_project_root=runtime_project_root,
+        runtime_workspace_cfg=runtime_workspace_cfg,
         workspace=local_workspace,
-        explicit_overrides=output_overrides,
-        default_output_dir=final_project_root if dedicated_flat_layout else None,
-    )
-    summary = run_reference_case_fn(
-        config_path,
-        section=section_name,
-        section_data_override=section_cfg.model_dump(mode="python"),
-        output_mesh=resolved_outputs.output_mesh,
-        output_summary_json=resolved_outputs.output_summary_json,
-        output_figure=resolved_outputs.output_figure,
-        output_figure_regional=resolved_outputs.output_figure_regional,
-        river_trace=river_trace,
         domain_geographic=local_domain_geographic,
-        show_plot=resolved_outputs.show_plot,
+        built_domain_geographic_locally=built_domain_geographic_locally,
     )
-    summary_dict = dict(summary)
-    summary_dict["output_layout"] = effective_output_layout
-    summary_dict["geographic_outputs_mode"] = section_cfg.geographic_outputs_mode
-    summary_dict["geographic_outputs_cleanup_applied"] = False
-    if resolved_outputs.output_mesh.exists():
-        geology_cfg = (
-            None
-            if section_cfg.geology is None
-            else section_cfg.geology.model_dump(mode="python")
+
+
+def _export_exchange_bundle_if_possible(
+    *,
+    summary_dict: dict[str, Any],
+    resolved_outputs: ResolvedMeshCatchmentOutputs,
+    prepared_runtime: PreparedMeshCatchmentRuntime,
+    section_cfg: MeshCatchmentConfigSchema,
+    domain_cfg: object | None,
+    river_trace: object | None,
+    config_path: Path,
+    deps: MeshCatchmentSingleRunDependencies,
+) -> None:
+    """Export the catchment-mesh exchange bundle when the mesh file exists."""
+
+    if not resolved_outputs.output_mesh.exists():
+        return
+    geology_cfg = (
+        None
+        if section_cfg.geology is None
+        else section_cfg.geology.model_dump(mode="python")
+    )
+    hydraulic_properties_cfg = (
+        None
+        if section_cfg.hydraulic_properties is None
+        else section_cfg.hydraulic_properties.model_dump(mode="python")
+    )
+    try:
+        bundle_summary = deps.export_catchment_mesh_bundle_fn(
+            mesh_path=resolved_outputs.output_mesh,
+            domain_geographic=prepared_runtime.domain_geographic,
+            domain_cfg=domain_cfg,
+            geology_cfg=geology_cfg,
+            hydraulic_properties_cfg=hydraulic_properties_cfg,
+            river_trace=river_trace,
+            summary=summary_dict,
+            config_path=config_path,
         )
-        hydraulic_properties_cfg = (
-            None
-            if section_cfg.hydraulic_properties is None
-            else section_cfg.hydraulic_properties.model_dump(mode="python")
-        )
-        try:
-            bundle_summary = export_catchment_mesh_bundle_fn(
-                mesh_path=resolved_outputs.output_mesh,
-                domain_geographic=local_domain_geographic,
-                domain_cfg=domain_cfg,
-                geology_cfg=geology_cfg,
-                hydraulic_properties_cfg=hydraulic_properties_cfg,
-                river_trace=river_trace,
-                summary=summary_dict,
-                config_path=config_path,
-            )
-            summary_dict["exchange_bundle"] = bundle_summary
-            summary_dict["output_exchange_bundle_dir"] = str(
-                bundle_summary["bundle_dir"]
-            )
-        except Exception as exc:  # pragma: no cover - defensive only
-            summary_dict["exchange_bundle_error"] = str(exc)
+        summary_dict["exchange_bundle"] = bundle_summary
+        summary_dict["output_exchange_bundle_dir"] = str(bundle_summary["bundle_dir"])
+    except Exception as exc:  # pragma: no cover - defensive only
+        summary_dict["exchange_bundle_error"] = str(exc)
+
+
+def _apply_post_run_cleanup(
+    *,
+    summary_dict: dict[str, Any],
+    section_cfg: MeshCatchmentConfigSchema,
+    prepared_runtime: PreparedMeshCatchmentRuntime,
+) -> None:
+    """Apply launcher-level cleanup policies after the meshing case returns."""
+
     if (
         section_cfg.geographic_outputs_mode == "cleanup"
-        and built_domain_geographic_locally
-        and not dedicated_flat_layout
+        and prepared_runtime.built_domain_geographic_locally
+        and prepared_runtime.effective_output_layout != "flat"
     ):
         try:
-            deleted_paths = _cleanup_geographic_artifacts(workspace=local_workspace)
+            deleted_paths = _cleanup_geographic_artifacts(
+                workspace=prepared_runtime.workspace
+            )
             summary_dict["geographic_outputs_cleanup_applied"] = bool(deleted_paths)
             if deleted_paths:
                 summary_dict["geographic_outputs_cleanup_deleted"] = deleted_paths
         except Exception as exc:  # pragma: no cover - defensive only
             summary_dict["geographic_outputs_cleanup_error"] = str(exc)
-    if dedicated_flat_layout and runtime_project_root is not None:
+
+    if (
+        prepared_runtime.effective_output_layout == "flat"
+        and prepared_runtime.runtime_project_root is not None
+    ):
         try:
             deleted_runtime_paths = _cleanup_runtime_workspace_root(
-                runtime_project_root=runtime_project_root,
+                runtime_project_root=prepared_runtime.runtime_project_root,
             )
             summary_dict["runtime_workspace_cleanup_applied"] = bool(
                 deleted_runtime_paths
@@ -333,4 +360,87 @@ def run_single_mesh_catchment_workflow_typed(
                 )
         except Exception as exc:  # pragma: no cover - defensive only
             summary_dict["runtime_workspace_cleanup_error"] = str(exc)
+
+
+def run_single_mesh_catchment_workflow_typed(
+    *,
+    config_path: Path,
+    section_cfg: MeshCatchmentConfigSchema,
+    workspace_cfg: object,
+    geographic_cfg: GeographicConfig,
+    domain_cfg: object | None,
+    constraints_mode: str,
+    output_overrides: Mapping[str, Path | str | None] | None = None,
+    workspace: object | None = None,
+    domain_geographic: object | None = None,
+    section_name: str,
+    deps: MeshCatchmentSingleRunDependencies,
+) -> dict[str, Any]:
+    """Run one mono-catchment mesh workflow from an already typed launcher section."""
+    prepared_runtime = _prepare_runtime_environment(
+        section_cfg=section_cfg,
+        workspace_cfg=workspace_cfg,
+        geographic_cfg=geographic_cfg,
+        workspace=workspace,
+        domain_geographic=domain_geographic,
+        deps=deps,
+    )
+
+    river_trace = _resolve_river_trace(
+        constraints_mode=constraints_mode,
+        geographic_cfg=geographic_cfg,
+        domain_geographic=prepared_runtime.domain_geographic,
+    )
+    resolved_outputs = _resolve_output_overrides(
+        config_path=config_path,
+        section_cfg=section_cfg,
+        workspace=prepared_runtime.workspace,
+        explicit_overrides=output_overrides,
+        default_output_dir=(
+            prepared_runtime.final_project_root
+            if prepared_runtime.effective_output_layout == "flat"
+            else None
+        ),
+    )
+    summary = deps.run_reference_case_fn(
+        config_path,
+        section=section_name,
+        section_data_override=section_cfg.model_dump(mode="python"),
+        output_mesh=resolved_outputs.output_mesh,
+        output_summary_json=resolved_outputs.output_summary_json,
+        output_figure=resolved_outputs.output_figure,
+        output_figure_regional=resolved_outputs.output_figure_regional,
+        river_trace=river_trace,
+        domain_geographic=prepared_runtime.domain_geographic,
+        show_plot=resolved_outputs.show_plot,
+    )
+    summary_dict = dict(summary)
+    summary_dict["output_layout"] = prepared_runtime.effective_output_layout
+    summary_dict["geographic_outputs_mode"] = section_cfg.geographic_outputs_mode
+    summary_dict["geographic_outputs_cleanup_applied"] = False
+    _export_exchange_bundle_if_possible(
+        summary_dict=summary_dict,
+        resolved_outputs=resolved_outputs,
+        prepared_runtime=prepared_runtime,
+        section_cfg=section_cfg,
+        domain_cfg=domain_cfg,
+        river_trace=river_trace,
+        config_path=config_path,
+        deps=deps,
+    )
+    _apply_post_run_cleanup(
+        summary_dict=summary_dict,
+        section_cfg=section_cfg,
+        prepared_runtime=prepared_runtime,
+    )
     return summary_dict
+
+
+__all__ = [
+    "MeshCatchmentSingleRunDependencies",
+    "PreparedMeshCatchmentRuntime",
+    "ResolvedMeshCatchmentOutputs",
+    "clone_config_like",
+    "constraints_mode_requires_river_trace",
+    "run_single_mesh_catchment_workflow_typed",
+]

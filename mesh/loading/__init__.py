@@ -1,23 +1,34 @@
-"""Chargement des entrees du package `mesh`."""
+"""Public loading helpers for the standalone ``mesh`` package.
+
+Recommended usage:
+
+- ``load_toml_config(...)`` when you only need validated runtime config
+- ``load_visualization_data(...)`` when you already have a config object
+- ``load_visualization_data_from_toml(...)`` for a simple load-from-file flow
+"""
 
 from mesh.loading.bundle_loader import (
     load_visualization_data,
     load_visualization_data_from_toml,
 )
+from mesh.loading.toml_contracts import (
+    MeshVisualizationTomlSchema,
+    VisualizationPlotTomlSchema,
+)
+from mesh.loading.toml_docs import (
+    get_toml_parameter_descriptions,
+)
 from mesh.loading.toml_loader import (
     load_toml_config,
 )
-from mesh.loading.toml_schema import (
-    MeshDistributionTomlSchema,
-    PlotTomlSchema,
+from mesh.loading.toml_validation import (
     ValidationError,
-    get_toml_parameter_descriptions,
 )
 
 __all__ = [
-    "MeshDistributionTomlSchema",
-    "PlotTomlSchema",
+    "MeshVisualizationTomlSchema",
     "ValidationError",
+    "VisualizationPlotTomlSchema",
     "get_toml_parameter_descriptions",
     "load_toml_config",
     "load_visualization_data",

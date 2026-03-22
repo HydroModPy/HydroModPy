@@ -411,7 +411,8 @@ def run_boussinesq_circular_island_piecewise_k_case(
                                 "ocean": {"value": float(reference_cfg["sea_level_m"])},
                             }
                         },
-                    }
+                    },
+                    case_dir=CASE_DIR,
                 )
             ),
             domain=None,

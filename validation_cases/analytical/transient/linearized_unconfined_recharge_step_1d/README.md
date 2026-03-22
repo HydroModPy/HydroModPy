@@ -12,8 +12,14 @@ Numerical setup:
 - forcing: constant recharge `10 mm/day` from the first period,
 - simulated observable: `watertable_elevation`.
 
+For `solver=boussinesq`, the validation uses one small balanced triangular strip
+projected back to a regular `40 x 3` comparison grid. The runtime itself is
+selected through the case `config_boussinesq.toml`, while this geometry avoids
+the directional bias that appeared on the earlier `50 x 2` thin-strip harness.
+
 Run manually:
 
 ```powershell
 python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case
+python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case --solver boussinesq --show
 ```

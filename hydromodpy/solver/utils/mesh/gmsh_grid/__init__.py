@@ -1,4 +1,10 @@
-"""Public entry points for the Gmsh mesh workflow, loaded lazily."""
+"""Public entry points for the reusable ``gmsh_grid`` mesh workflow.
+
+The package exposes many classes and helper functions, but most users only need
+the public names re-exported here. Lazy imports keep import time low and avoid
+pulling optional dependencies such as ``gmsh``, ``meshio`` or ``pyvista``
+before they are actually needed.
+"""
 
 from __future__ import annotations
 
@@ -60,19 +66,23 @@ _EXPORT_TO_MODULE = {
     "ZoneConformalMeshResult": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
     "ZoneConformalPartition": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
     "ZoneLinearConstraint": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
+    "ZoneMeshingDomainConfig": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
+    "ZoneMeshingDomainPayload": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
+    "ZoneMeshingSettings": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
     "ZonePartitionFace": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
     "build_zone_conformal_partition_from_dataframe": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
     "generate_zone_conformal_mesh_from_dataframe": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
     "generate_zone_conformal_mesh_from_geology_config": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
-    "load_zone_meshing_domain_geometry": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
-    "validate_zone_meshing_config_data": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
-    "validate_zone_meshing_domain_config_data": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
+    "load_zone_meshing_domain_payload": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
+    "parse_zone_meshing_domain_config": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
+    "parse_zone_meshing_settings": "hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing",
 }
 
 __all__ = list(_EXPORT_TO_MODULE)
 
 
 def __getattr__(name: str):
+    """Resolve one exported symbol lazily from its implementation module."""
     module_name = _EXPORT_TO_MODULE.get(name)
     if module_name is None:
         raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

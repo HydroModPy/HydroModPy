@@ -23,9 +23,12 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.scope_resolution import (
     _valid_geometry_mask,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
-    _disable_axis_offset,
-    _show_figures_blocking,
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.plotting import (
+    disable_axis_offset,
+    show_figures_blocking,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
+    clean_domain_geometry,
 )
 
 
@@ -80,6 +83,9 @@ def _draw_river_lines(
 
 def _load_catchment_outline(
     domain_geographic: object | None,
+    *,
+    watershed_boundary_cfg: object | None = None,
+    target_crs: object | None = None,
 ) -> gpd.GeoDataFrame | None:
     if domain_geographic is None:
         return None
@@ -95,7 +101,33 @@ def _load_catchment_outline(
     gdf = gdf[_valid_geometry_mask(gdf.geometry)].copy()
     if gdf.empty:
         return None
+    if target_crs is not None and gdf.crs is not None and gdf.crs != target_crs:
+        gdf = gdf.to_crs(target_crs)
+    _ = watershed_boundary_cfg
     return gdf
+
+
+def _smooth_catchment_outline_gdf(
+    catchment_gdf: gpd.GeoDataFrame,
+    *,
+    watershed_boundary_cfg: object | None,
+) -> gpd.GeoDataFrame:
+    if catchment_gdf.empty or watershed_boundary_cfg is None:
+        return catchment_gdf
+    smoothing_cfg = getattr(watershed_boundary_cfg, "smoothing", None)
+    if smoothing_cfg is None or not bool(getattr(smoothing_cfg, "enabled", False)):
+        return catchment_gdf
+    catchment_geometry = catchment_gdf.geometry.union_all()
+    cleaned_geometry, _ = clean_domain_geometry(
+        catchment_geometry,
+        simplify_tolerance=float(getattr(smoothing_cfg, "simplify_tolerance", 0.0)),
+        heal_tolerance=float(getattr(smoothing_cfg, "heal_tolerance", 0.0)),
+        min_polygon_area=float(getattr(smoothing_cfg, "min_polygon_area", 0.0)),
+    )
+    return gpd.GeoDataFrame(
+        geometry=[cleaned_geometry],
+        crs=catchment_gdf.crs,
+    )
 
 
 def _load_topography_background(
@@ -170,9 +202,28 @@ def _set_panel_limits(
     ax.set_ylim(ymin, ymax)
 
 
+def _collect_display_zone_keys(*gdfs: gpd.GeoDataFrame) -> list[str]:
+    zone_keys: set[str] = set()
+    for gdf in gdfs:
+        if gdf.empty or "zone_key" not in gdf:
+            continue
+        zone_keys.update(str(zone_key) for zone_key in gdf["zone_key"].astype(str))
+    if not zone_keys:
+        return ["domain_background"]
+    return sorted(zone_keys)
+
+
+def _build_partition_overlay_gdf(partition_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    if partition_gdf.empty or "zone_key" not in partition_gdf:
+        return partition_gdf.copy()
+    overlay_mask = partition_gdf["zone_key"].astype(str) != "domain_background"
+    return partition_gdf.loc[overlay_mask].copy()
+
+
 def _build_geographic_mesh_figure(
     *,
     domain_gdf: gpd.GeoDataFrame,
+    source_domain_gdf: gpd.GeoDataFrame,
     partition_gdf: gpd.GeoDataFrame,
     mesh,
     domain_bounds: list[float],
@@ -180,10 +231,8 @@ def _build_geographic_mesh_figure(
     topo_background: tuple[np.ndarray, tuple[float, float, float, float]] | None,
     river_lines: list[object],
 ):
-    zone_keys = sorted(
-        str(zone_key)
-        for zone_key in partition_gdf["zone_key"].astype(str).unique().tolist()
-    )
+    _ = partition_gdf
+    zone_keys = _collect_display_zone_keys(source_domain_gdf)
     key_to_idx, key_to_color = _build_zone_color_map(zone_keys)
 
     fig, axes = plt.subplots(1, 2, figsize=(18.5, 9.5), dpi=160)
@@ -223,12 +272,16 @@ def _build_geographic_mesh_figure(
     river_count = _draw_river_lines(ax_topo, river_lines=river_lines)
     _plot_zone_panel(
         ax_overlay,
-        gdf=partition_gdf,
+        gdf=source_domain_gdf,
         key_to_idx=key_to_idx,
-        title="Geology + conformal mesh + hydro network",
+        title="Geology background + conformal mesh + hydro network",
+        linewidth=0.25,
+        edgecolor="0.45",
+        alpha=1.0,
+        zorder=1,
     )
     _draw_mesh_edges(ax_overlay, mesh)
-    _draw_river_lines(ax_overlay, river_lines=river_lines)
+    _draw_river_lines(ax_overlay, river_lines=river_lines, color="0.10", lw=0.95)
     _draw_domain_outline(ax_overlay, domain_gdf)
     if catchment_gdf is not None:
         catchment_gdf.boundary.plot(
@@ -247,7 +300,7 @@ def _build_geographic_mesh_figure(
         ax.set_ylabel("y [m]", fontsize=12)
         ax.tick_params(labelsize=10)
         ax.set_aspect("equal")
-        _disable_axis_offset(ax)
+        disable_axis_offset(ax)
 
     legend_handles: list[Line2D] = []
     if catchment_gdf is not None:
@@ -259,7 +312,7 @@ def _build_geographic_mesh_figure(
     )
     if river_count > 0:
         legend_handles.append(
-            Line2D([0], [0], color="#1f78b4", lw=1.1, label="Hydro network")
+            Line2D([0], [0], color="0.10", lw=1.0, label="Hydro network")
         )
     legend_handles.append(
         Line2D([0], [0], color="0.20", lw=0.9, label="Mesh edges")
@@ -359,7 +412,7 @@ def _build_regional_context_figure(
     ax.set_ylabel("y [m]", fontsize=12)
     ax.tick_params(labelsize=10)
     ax.set_aspect("equal")
-    _disable_axis_offset(ax)
+    disable_axis_offset(ax)
 
     legend_handles: list[Line2D] = [
         Line2D([0], [0], color="black", lw=1.3, label="Catchment boundary"),
@@ -388,8 +441,24 @@ def _build_regional_context_figure(
 
 
 def _plot_zone_panel(
-    ax, *, gdf: gpd.GeoDataFrame, key_to_idx: Mapping[str, int], title: str
+    ax,
+    *,
+    gdf: gpd.GeoDataFrame,
+    key_to_idx: Mapping[str, int],
+    title: str,
+    linewidth: float = 0.35,
+    edgecolor: str = "0.30",
+    alpha: float = 1.0,
+    zorder: int | float | None = None,
 ) -> None:
+    if gdf.empty:
+        ax.set_title(title, fontsize=16)
+        ax.set_xlabel("x [m]", fontsize=13)
+        ax.set_ylabel("y [m]", fontsize=13)
+        ax.tick_params(labelsize=11)
+        ax.set_aspect("equal")
+        disable_axis_offset(ax)
+        return
     plot_gdf = gdf.copy()
     plot_gdf["zone_idx"] = plot_gdf["zone_key"].map(key_to_idx).astype(float)
     cmap = plt.get_cmap("tab20", max(2, len(key_to_idx)))
@@ -397,8 +466,10 @@ def _plot_zone_panel(
         column="zone_idx",
         ax=ax,
         cmap=cmap,
-        linewidth=0.35,
-        edgecolor="0.30",
+        linewidth=linewidth,
+        edgecolor=edgecolor,
+        alpha=alpha,
+        zorder=zorder,
         legend=False,
     )
     ax.set_title(title, fontsize=16)
@@ -406,7 +477,7 @@ def _plot_zone_panel(
     ax.set_ylabel("y [m]", fontsize=13)
     ax.tick_params(labelsize=11)
     ax.set_aspect("equal")
-    _disable_axis_offset(ax)
+    disable_axis_offset(ax)
 
 
 def _draw_legend_panel(
@@ -466,7 +537,7 @@ def _draw_legend_panel(
 
 def _build_figure(
     *,
-    clipped_gdf: gpd.GeoDataFrame,
+    source_domain_gdf: gpd.GeoDataFrame,
     partition_gdf: gpd.GeoDataFrame,
     domain_gdf: gpd.GeoDataFrame,
     mesh,
@@ -474,10 +545,10 @@ def _build_figure(
     domain_area: float,
     domain_kind: str,
     interface_refinement: Mapping[str, Any],
+    catchment_gdf: gpd.GeoDataFrame | None = None,
     domain_geographic: object | None = None,
     river_trace: object | None = None,
 ):
-    catchment_gdf = _load_catchment_outline(domain_geographic)
     topo_background = _load_topography_background(domain_geographic)
     river_lines = _resolve_river_lines_for_plot(
         river_trace=river_trace,
@@ -486,6 +557,7 @@ def _build_figure(
     if catchment_gdf is not None or topo_background is not None or river_lines:
         return _build_geographic_mesh_figure(
             domain_gdf=domain_gdf,
+            source_domain_gdf=source_domain_gdf,
             partition_gdf=partition_gdf,
             mesh=mesh,
             domain_bounds=domain_bounds,
@@ -494,10 +566,7 @@ def _build_figure(
             river_lines=river_lines,
         )
 
-    zone_keys = sorted(
-        str(zone_key)
-        for zone_key in partition_gdf["zone_key"].astype(str).unique().tolist()
-    )
+    zone_keys = _collect_display_zone_keys(source_domain_gdf, partition_gdf)
     key_to_idx, key_to_color = _build_zone_color_map(zone_keys)
 
     fig = plt.figure(figsize=(18.0, 10.5), dpi=160)
@@ -511,7 +580,7 @@ def _build_figure(
 
     _plot_zone_panel(
         ax_source,
-        gdf=clipped_gdf,
+        gdf=source_domain_gdf,
         key_to_idx=key_to_idx,
         title="Constrained source polygons",
     )
@@ -533,7 +602,7 @@ def _build_figure(
     _draw_legend_panel(
         ax_legend,
         key_to_color=key_to_color,
-        n_source_features=int(len(clipped_gdf)),
+        n_source_features=int(len(source_domain_gdf)),
         n_partition_faces=int(len(partition_gdf)),
         domain_area=float(domain_area),
         domain_kind=domain_kind,
@@ -569,8 +638,14 @@ def _write_optional_figure_artifacts(
     if figure_path is None and figure_regional_path is None and not show_plot:
         return {}
 
+    catchment_gdf = _load_catchment_outline(
+        domain_geographic,
+        watershed_boundary_cfg=meshing_inputs.watershed_boundary_cfg,
+        target_crs=meshing_inputs.domain_payload.gdf.crs,
+    )
+
     common_plot_kwargs = {
-        "clipped_gdf": meshing_inputs.zone_gdf,
+        "source_domain_gdf": meshing_inputs.source_domain_gdf,
         "partition_gdf": partition_gdf,
         "domain_gdf": meshing_inputs.domain_payload.gdf,
         "mesh": result.mesh,
@@ -580,6 +655,7 @@ def _write_optional_figure_artifacts(
         "interface_refinement": dict(
             result.summary.get("mesh_size_fields", {}).get("interface_refinement", {})
         ),
+        "catchment_gdf": catchment_gdf,
         "domain_geographic": domain_geographic,
         "river_trace": meshing_inputs.resolved_river_trace,
     }
@@ -594,7 +670,7 @@ def _write_optional_figure_artifacts(
         if figure_regional_path is not None or show_plot:
             regional_fig = _build_regional_context_figure(
                 domain_gdf=meshing_inputs.domain_payload.gdf,
-                catchment_gdf=_load_catchment_outline(domain_geographic),
+                catchment_gdf=catchment_gdf,
                 topo_background=_load_regional_topography_background(domain_geographic),
                 river_lines=_resolve_river_lines_for_plot(
                     river_trace=meshing_inputs.resolved_river_trace,
@@ -611,7 +687,7 @@ def _write_optional_figure_artifacts(
             updates["output_figure_regional"] = str(figure_regional_path)
 
         if show_plot:
-            _show_figures_blocking(fig, regional_fig)
+            show_figures_blocking(fig, regional_fig)
     finally:
         if not show_plot:
             if fig is not None:

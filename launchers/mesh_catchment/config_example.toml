@@ -19,26 +19,15 @@ base_config = "config_common.toml"
 # To keep the boundary but disable its automatic smoothing:
 # [mesh_catchment.watershed_boundary.smoothing]
 # enabled = false
-output_figure = "C:/results/HydromodPy/mesh_catchment_nancon/mesh_catchment_nancon_overview.png"
+output_figure = "~/HydroModPy/mesh_catchment_nancon/mesh_catchment_nancon_overview.png"
 
-# Optional scope to limit where geology/rivers interfaces are generated.
-# Omit this block to keep interfaces on the full support domain inherited from
-# config_common.toml.
-# Typical choices:
-# - "geographic_watershed"     : strict catchment polygon
-# - "geographic_watershed_box" : watershed bounding box before extra buffer
-#
-# [mesh_catchment.interface_scope]
-# kind = "geographic_watershed"
+# Keep the support domain larger than the catchment, but materialize
+# interfaces only inside the delineated watershed. This leaves a coarser
+# background mesh outside the catchment while preserving outer context.
+[mesh_catchment.interface_scope]
+kind = "geographic_watershed"
 
-# Optional scope to limit where interface refinement is applied.
-# When omitted, refinement follows `interface_scope` when present, otherwise the
-# full support domain. This scope is always clipped to the effective
-# `interface_scope`, so it cannot enlarge the refinement area beyond it.
-#
-# Example:
-# - keep interfaces on `geographic_watershed_box`
-# - refine only on `geographic_watershed`
-#
-# [mesh_catchment.refinement_scope]
-# kind = "geographic_watershed"
+# Refine only inside the watershed as well, so interface-driven small cells do
+# not propagate to the outer buffered support.
+[mesh_catchment.refinement_scope]
+kind = "geographic_watershed"

@@ -7,6 +7,7 @@ already carry all geometry and cell-wise values needed for interactive QA.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ import numpy as np
 from hydromodpy.solver.utils.mesh.gmsh_grid._deps import require_pyvista as _require_pyvista
 from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_mesh_values import (
     ExtrudedPrismMeshWithValues,
+    ExtrudedVerticalProfile,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.extruded_prism_mesh import (
     ExtrudedPrismMesh3D,
@@ -24,7 +26,48 @@ _DEFAULT_VALUE_NAME = "field_param_value"
 _DEFAULT_DEPTH_NAME = "prism_center_depth"
 
 
+@dataclass(frozen=True)
+class PrismPickInfo:
+    """Typed metadata for one picked prism in the interactive viewer."""
+
+    prism_index: int
+    layer_index: int
+    source_cell_index: int
+    centroid: tuple[float, float, float]
+    value: float
+    vertical_profile: ExtrudedVerticalProfile
+    prism_center_depth: float | None = None
+
+    def to_mapping(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "prism_index": int(self.prism_index),
+            "layer_index": int(self.layer_index),
+            "source_cell_index": int(self.source_cell_index),
+            "centroid": _rounded_list(self.centroid),
+            "value": round(float(self.value), 12),
+            "vertical_profile": self.vertical_profile.to_mapping(),
+        }
+        if self.prism_center_depth is not None:
+            payload["prism_center_depth"] = round(float(self.prism_center_depth), 12)
+        return payload
+
+
+@dataclass(frozen=True)
+class SourceColumnSelection:
+    """Typed description of one highlighted source column."""
+
+    source_cell_index: int
+    vertical_profile: ExtrudedVerticalProfile
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "source_cell_index": int(self.source_cell_index),
+            "vertical_profile": self.vertical_profile.to_mapping(),
+        }
+
+
 def _require_mesh_3d(mesh_3d: ExtrudedPrismMesh3D) -> ExtrudedPrismMesh3D:
+    """Validate and return the expected 3D mesh type."""
     if not isinstance(mesh_3d, ExtrudedPrismMesh3D):
         raise TypeError("mesh_3d must be an ExtrudedPrismMesh3D instance")
     return mesh_3d
@@ -33,6 +76,7 @@ def _require_mesh_3d(mesh_3d: ExtrudedPrismMesh3D) -> ExtrudedPrismMesh3D:
 def _require_mesh_with_values(
     mesh_with_values: ExtrudedPrismMeshWithValues,
 ) -> ExtrudedPrismMeshWithValues:
+    """Validate and return the expected valued 3D mesh type."""
     if not isinstance(mesh_with_values, ExtrudedPrismMeshWithValues):
         raise TypeError(
             "mesh_with_values must be an ExtrudedPrismMeshWithValues instance"
@@ -41,6 +85,7 @@ def _require_mesh_with_values(
 
 
 def _vtk_cell_type_for_mesh(mesh_3d: ExtrudedPrismMesh3D) -> int:
+    """Map the HydroModPy prism type to the matching VTK cell identifier."""
     pv = _require_pyvista()
     if mesh_3d.cell_type_2d == "triangle":
         return int(pv.CellType.WEDGE)
@@ -52,12 +97,14 @@ def _vtk_cell_type_for_mesh(mesh_3d: ExtrudedPrismMesh3D) -> int:
 
 
 def _build_cells_array(connectivity: np.ndarray) -> np.ndarray:
+    """Convert a connectivity matrix to the VTK flat cell-array layout."""
     conn = np.asarray(connectivity, dtype=np.int64)
     widths = np.full((conn.shape[0], 1), conn.shape[1], dtype=np.int64)
     return np.hstack((widths, conn)).reshape(-1)
 
 
 def _rounded_list(values, *, ndigits: int = 12) -> list[float]:
+    """Round one numeric sequence for compact selection payloads."""
     return [
         round(float(v), ndigits) for v in np.asarray(values, dtype=float).reshape(-1)
     ]
@@ -67,6 +114,7 @@ def build_pyvista_grid(mesh_3d: ExtrudedPrismMesh3D):
     """Convert one `ExtrudedPrismMesh3D` into a PyVista `UnstructuredGrid`."""
     mesh = _require_mesh_3d(mesh_3d)
     pv = _require_pyvista()
+    # VTK expects one flattened cell array with a leading width per cell.
     cells = _build_cells_array(np.asarray(mesh.prism_connectivity, dtype=np.int64))
     celltypes: np.ndarray[Any, Any] = np.full(
         mesh.n_prisms, _vtk_cell_type_for_mesh(mesh), dtype=np.uint8
@@ -199,24 +247,32 @@ def extract_prism_pick_info(
         raise IndexError(f"prism_index out of range: {prism_idx}")
     prism = mesh_values.mesh.prisms[prism_idx]
     value = float(mesh_values.flat_values[prism_idx])
-    payload = {
-        "prism_index": prism_idx,
-        "layer_index": int(prism.layer_index),
-        "source_cell_index": int(prism.source_cell_index),
-        "centroid": _rounded_list(prism.centroid),
-        "value": round(value, 12),
-        "vertical_profile": mesh_values.extract_vertical_profile(
+    pick_info = PrismPickInfo(
+        prism_index=prism_idx,
+        layer_index=int(prism.layer_index),
+        source_cell_index=int(prism.source_cell_index),
+        centroid=tuple(float(v) for v in prism.centroid),
+        value=value,
+        vertical_profile=mesh_values.build_vertical_profile(
             int(prism.source_cell_index)
         ),
-    }
+    )
     if mesh_values.prism_center_depths is not None:
         flat_depths = mesh_values.flat_prism_center_depths
         if flat_depths is None:
             raise ValueError(
                 "flat_prism_center_depths should be available when prism_center_depths is set"
             )
-        payload["prism_center_depth"] = round(float(flat_depths[prism_idx]), 12)
-    return payload
+        pick_info = PrismPickInfo(
+            prism_index=pick_info.prism_index,
+            layer_index=pick_info.layer_index,
+            source_cell_index=pick_info.source_cell_index,
+            centroid=pick_info.centroid,
+            value=pick_info.value,
+            vertical_profile=pick_info.vertical_profile,
+            prism_center_depth=float(flat_depths[prism_idx]),
+        )
+    return pick_info.to_mapping()
 
 
 def _build_plotter(
@@ -224,6 +280,7 @@ def _build_plotter(
     title: str | None = None,
     off_screen: bool = False,
 ):
+    """Create the PyVista plotter used by the interactive helpers."""
     pv = _require_pyvista()
     return pv.Plotter(
         title=None if title is None else str(title), off_screen=bool(off_screen)
@@ -237,6 +294,7 @@ def _highlight_selection(
     prism_index: int | None,
     source_cell_index: int | None,
 ):
+    """Highlight a picked prism or a whole source column and summarize it."""
     selection_payload: dict[str, Any] | None = None
     if prism_index is not None:
         selection_payload = extract_prism_pick_info(mesh_with_values, int(prism_index))
@@ -251,10 +309,10 @@ def _highlight_selection(
         )
     elif source_cell_index is not None:
         source_idx = int(source_cell_index)
-        selection_payload = {
-            "source_cell_index": source_idx,
-            "vertical_profile": mesh_with_values.extract_vertical_profile(source_idx),
-        }
+        selection_payload = SourceColumnSelection(
+            source_cell_index=source_idx,
+            vertical_profile=mesh_with_values.build_vertical_profile(source_idx),
+        ).to_mapping()
         column_grid = extract_source_column_grid(mesh_with_values, source_idx)
         plotter.add_mesh(
             column_grid, color="#fb7185", line_width=2.5, show_edges=True, opacity=0.85
@@ -326,7 +384,12 @@ def show_interactive_values_3d(
     off_screen: bool = False,
     screenshot_path: str | Path | None = None,
 ):
-    """Open one interactive PyVista viewer on 3D prism values."""
+    """Open one interactive PyVista viewer on 3D prism values.
+
+    The viewer deliberately exposes a few simple QA tools only: thresholding,
+    clipping, vertical exaggeration, and optional highlighting of one prism or
+    one source column.
+    """
     mesh_values = _require_mesh_with_values(mesh_with_values)
     grid = build_pyvista_grid_with_values(
         mesh_values,

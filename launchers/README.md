@@ -82,6 +82,16 @@ Configuration en deux niveaux (meme logique que process_simulation) :
 - `launchers/mesh_catchment/config_batch_template.toml`
   : template batch versionne, regenere depuis les schemas Pydantic.
 
+Les configs de scenario versionnees activent maintenant un pattern recommande
+pour garder un maillage plus coarse hors bassin versant :
+
+- `domain.kind = "geographic_box_buffer"` pour conserver un support plus large
+- `interface_scope.kind = "geographic_watershed"` pour ne materialiser les interfaces que dans le bassin
+- `refinement_scope.kind = "geographic_watershed"` pour ne raffiner finement que dans le bassin
+
+Cela laisse un fond de maillage plus grossier autour du bassin tout en gardant
+le contexte geographique utile.
+
 Script utilitaire pour lancer successivement tous les TOML runnable du dossier :
 
 `python launchers/mesh_catchment/run_all_configs.py`

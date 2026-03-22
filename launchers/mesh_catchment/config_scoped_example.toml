@@ -10,7 +10,7 @@ base_config = "config_common.toml"
 
 [workspace]
 # Keep this example isolated from the default single-catchment outputs.
-project_root = "C:/results/HydromodPy/mesh_catchment_nancon_scoped"
+project_root = "~/HydroModPy/mesh_catchment_nancon_scoped"
 
 [mesh_catchment]
 # geographic_outputs_mode = "cleanup"
@@ -20,7 +20,7 @@ project_root = "C:/results/HydromodPy/mesh_catchment_nancon_scoped"
 # To keep the boundary but disable its automatic smoothing:
 # [mesh_catchment.watershed_boundary.smoothing]
 # enabled = false
-output_figure = "C:/results/HydromodPy/mesh_catchment_nancon_scoped/mesh_catchment_nancon_scoped_overview.png"
+output_figure = "~/HydroModPy/mesh_catchment_nancon_scoped/mesh_catchment_nancon_scoped_overview.png"
 
 [mesh_catchment.interface_scope]
 # Generate geology and river interfaces only inside the watershed-box support.

@@ -18,7 +18,7 @@ package "Geographic Context Layer" {
 }
 
 package "Constraint Source Layer" {
-  component "load_zone_meshing_domain_geometry(...)\n(domain support)" as DomainSupport
+  component "load_zone_meshing_domain_payload(...)\n(domain support)" as DomainSupport
   component "load_vector_geology_dataframe(...)\n(optional geology zones)" as GeologySource
   component "river_trace\nin-memory or file-backed source" as RiverTrace
 }

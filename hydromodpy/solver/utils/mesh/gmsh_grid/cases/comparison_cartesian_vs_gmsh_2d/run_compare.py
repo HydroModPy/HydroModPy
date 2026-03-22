@@ -38,11 +38,13 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases._comparison_utils import (
     show_saved_images_blocking,
     write_json,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.plotting import (
+    build_reference_case_figure,
+    disable_axis_offset,
+    maybe_scientific_colorbar,
+    plot_left_raw_geology,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.run_case_gmsh import (
-    _build_reference_case_figure,
-    _disable_axis_offset,
-    _maybe_scientific_colorbar,
-    _plot_left_raw_geology,
     build_reference_case_state_from_toml,
 )
 plt.switch_backend("Agg")
@@ -253,7 +255,7 @@ def _plot_mesh_value_panel(
     ax.set_xlabel("x [m]", fontsize=22)
     ax.set_ylabel("y [m]", fontsize=22)
     ax.tick_params(labelsize=19)
-    _disable_axis_offset(ax)
+    disable_axis_offset(ax)
     return mappable
 
 
@@ -408,7 +410,7 @@ def _build_comparison_figure(
     ax_gmsh = axes["gmsh"]
     ax_cbar = axes["cbar"]
 
-    cartouches = _plot_left_raw_geology(
+    cartouches = plot_left_raw_geology(
         ax_geology,
         geology_cfg=gmsh_cfg["geology"],
         geology_field=gmsh_geology,
@@ -456,7 +458,7 @@ def _build_comparison_figure(
     cbar.set_label("Field parameter value", fontsize=24.0, rotation=90, labelpad=20.0)
     cbar.ax.tick_params(labelsize=20)
     cbar.outline.set_linewidth(0.9)
-    _maybe_scientific_colorbar(cbar, combined_values)
+    maybe_scientific_colorbar(cbar, combined_values)
 
     fig.suptitle(
         "Comparison QA: shared geology, cartesian mesh vs Gmsh mesh", fontsize=34
@@ -577,7 +579,7 @@ def run_comparison_case(
     gmsh_figure = out_dir / "gmsh_reference.png"
     gmsh_summary_path = out_dir / "gmsh_summary.json"
     gmsh_state = build_reference_case_state_from_toml(gmsh_config_path, section=section)
-    gmsh_fig = _build_reference_case_figure(
+    gmsh_fig = build_reference_case_figure(
         cfg=gmsh_state["config"],
         geology_field=gmsh_state["geology_field"],
         mesh=gmsh_state["mesh"],

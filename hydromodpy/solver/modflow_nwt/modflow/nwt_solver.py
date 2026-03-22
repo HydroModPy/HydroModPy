@@ -41,6 +41,7 @@ _ITMUNI_TO_SECONDS: dict[int, float] = {
 
 from hydromodpy.support.tools import toolbox, get_logger
 from hydromodpy.solver.modflow_common import (
+    ensure_platform_executable,
     SolverGridContext,
     SolverRoutingContext,
     build_solver_routing_context,
@@ -197,6 +198,7 @@ class Modflow(Solver):
             self.exe = os.path.join(bin_path, "linux", "mfnwt")
         if sys.platform == "darwin":
             self.exe = os.path.join(bin_path, "mac", "mfnwt")
+        self.exe = str(ensure_platform_executable(self.exe))
 
         self.full_path = os.path.join(model_folder, model_name)  #'modraw'
 

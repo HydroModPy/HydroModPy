@@ -11,7 +11,7 @@ dem_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
 # region_polygon_path = "../../../data/Brittany/region/bretagne_boundary.shp"
 
 # Output folder for GeoPackage, CSV and intermediate rasters/vectors.
-output_dir = "C:/results/HydromodPy/catchment_identification_scan/s3_100km2"
+output_dir = "~/HydroModPy/catchment_identification_scan/s3_100km2"
 
 # Minimum accumulation area used as threshold to select outlets and basins.
 accumulation_area_km2 = 2.0

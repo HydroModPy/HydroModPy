@@ -1,6 +1,5 @@
-# The local `flow/boussinesq` validation variant is executed directly from
-# `runtime_boussinesq.py` and does not use a launcher TOML at runtime.
-#
-# This placeholder keeps the metadata inventory explicit so:
-# - `validation_cases.run_cases --solver boussinesq` can discover the case,
-# - the case directory documents that a `boussinesq` variant exists.
+# Local `flow/boussinesq` validation runtimes read `[flow]` defaults from this
+# file before applying case-specific values from `runtime_boussinesq.py`.
+
+[flow]
+runtime_backend = "scipy_sparse"

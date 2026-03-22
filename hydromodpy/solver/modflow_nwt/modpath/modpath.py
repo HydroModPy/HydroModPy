@@ -38,6 +38,7 @@ sys.path.append(df)
 
 # HydroModPy
 from hydromodpy.backends import get_whitebox_backend
+from hydromodpy.solver.modflow_common import ensure_platform_executable
 from hydromodpy.support.tools import toolbox, get_logger
 logger = get_logger(__name__)
 fontprop = toolbox.plot_params(8,15,18,20) # small, medium, interm, large
@@ -135,7 +136,8 @@ class Modpath(Solver):
             self.exe = os.path.join(bin_path, 'linux' ,'mp6')
         if (sys.platform == 'darwin'):
             self.exe = os.path.join(bin_path, 'mac' ,'mp6')
-        
+        self.exe = str(ensure_platform_executable(self.exe))
+
         # Parameters for the Modpath transport solver
         particle_params = {}
         raw_params = getattr(transport.modpath, 'parameters', None)

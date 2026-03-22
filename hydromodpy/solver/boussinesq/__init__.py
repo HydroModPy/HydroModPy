@@ -1,13 +1,19 @@
-"""Minimal local Boussinesq solver backend.
+"""Pedagogical entry points for the standalone Boussinesq backend.
 
-The first implementation slice focuses on:
+Importing from this package gives access to the three public objects that matter
+most to callers:
 
-- consuming one gmsh ``CatchmentMeshBundle``,
-- building one solver-owned mesh view,
-- initializing the head state from ``Flow`` initial conditions.
+- :class:`Boussinesq`, the high-level solver driver;
+- :class:`BoussinesqMesh`, the compact mesh view consumed by the solver;
+- :class:`BoussinesqState`, the normalized in-memory flow state.
 
-Time integration and the full nonlinear residual come later on top of the same
-runtime objects.
+The detailed implementation is intentionally split across several modules:
+
+- ``mesh.py``: geometry and material properties;
+- ``assembly.py``: residual assembly;
+- ``local_runtime.py``, ``scipy_runtime.py`` and ``scipy_sparse_runtime.py``:
+  nonlinear solvers;
+- ``boussinesq.py``: orchestration around the HydroModPy launcher contract.
 """
 
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq, BoussinesqState

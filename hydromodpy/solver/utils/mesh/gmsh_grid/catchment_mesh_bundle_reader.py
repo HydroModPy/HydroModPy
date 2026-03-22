@@ -15,6 +15,7 @@ from typing import Any
 
 
 def _parse_optional_float(raw_value: str) -> float | None:
+    """Parse one CSV field where the empty string means "missing"."""
     text = str(raw_value).strip()
     if text == "":
         return None
@@ -22,6 +23,7 @@ def _parse_optional_float(raw_value: str) -> float | None:
 
 
 def _parse_optional_int(raw_value: str) -> int | None:
+    """Parse one integer CSV field where the empty string means "missing"."""
     text = str(raw_value).strip()
     if text == "":
         return None
@@ -29,11 +31,14 @@ def _parse_optional_int(raw_value: str) -> int | None:
 
 
 def _parse_bool(raw_value: str) -> bool:
+    """Parse permissive CSV booleans used by the bundle export."""
     return str(raw_value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
 class CatchmentMeshBundleNode:
+    """One exported mesh node with optional top and bottom elevations."""
+
     node_id: int
     x: float
     y: float
@@ -43,6 +48,8 @@ class CatchmentMeshBundleNode:
 
 @dataclass(frozen=True)
 class CatchmentMeshBundleCell:
+    """One exported 2D cell with geometry, geology and hydraulic summaries."""
+
     cell_id: int
     geom_type: str
     node_indices: tuple[int, ...]
@@ -61,6 +68,8 @@ class CatchmentMeshBundleCell:
 
 @dataclass(frozen=True)
 class CatchmentMeshBundleEdge:
+    """One exported mesh edge with adjacency and river/interface flags."""
+
     edge_id: int
     node_a: int
     node_b: int
@@ -75,6 +84,8 @@ class CatchmentMeshBundleEdge:
 
 @dataclass(frozen=True)
 class CatchmentMeshBundleGeologyFraction:
+    """One non-zero geology fraction attached to one exported cell."""
+
     cell_id: int
     geology_key: str
     fraction: float
@@ -82,6 +93,13 @@ class CatchmentMeshBundleGeologyFraction:
 
 @dataclass(frozen=True)
 class CatchmentMeshBundle:
+    """In-memory view of one self-contained bundle directory.
+
+    The object deliberately stays simple: it mirrors the exported CSV/JSON
+    files so downstream scripts can inspect the bundle without importing the
+    full HydroModPy mesh stack.
+    """
+
     bundle_dir: Path
     metadata: dict[str, Any]
     nodes: tuple[CatchmentMeshBundleNode, ...]
@@ -92,28 +110,35 @@ class CatchmentMeshBundle:
 
     @property
     def n_nodes(self) -> int:
+        """Return the number of exported mesh nodes."""
         return int(len(self.nodes))
 
     @property
     def n_cells(self) -> int:
+        """Return the number of exported 2D cells."""
         return int(len(self.cells))
 
     @property
     def n_edges(self) -> int:
+        """Return the number of exported unique edges."""
         return int(len(self.edges))
 
     @property
     def mesh_path(self) -> Path:
+        """Return the path of the copied `.msh` file inside the bundle."""
         filename = str(self.metadata.get("files", {}).get("mesh", "mesh_2d.msh"))
         return (self.bundle_dir / filename).resolve()
 
     def node_coordinates(self) -> list[tuple[float, float]]:
+        """Return planar node coordinates in bundle node order."""
         return [(float(node.x), float(node.y)) for node in self.nodes]
 
     def cell_connectivity(self) -> list[tuple[int, ...]]:
+        """Return 2D cell connectivity using the exported zero-based node ids."""
         return [tuple(int(node_idx) for node_idx in cell.node_indices) for cell in self.cells]
 
     def cell_by_id(self, cell_id: int) -> CatchmentMeshBundleCell:
+        """Return one cell by its exported `cell_id`."""
         target = int(cell_id)
         for cell in self.cells:
             if int(cell.cell_id) == target:
@@ -122,6 +147,7 @@ class CatchmentMeshBundle:
 
 
 def _load_csv_rows(path: Path) -> list[dict[str, str]]:
+    """Read one bundle CSV file as a list of raw string dictionaries."""
     if not path.exists():
         return []
     with path.open("r", encoding="utf-8", newline="") as stream:
@@ -130,6 +156,7 @@ def _load_csv_rows(path: Path) -> list[dict[str, str]]:
 
 
 def _load_nodes(path: Path) -> tuple[CatchmentMeshBundleNode, ...]:
+    """Load the `nodes.csv` table."""
     rows = _load_csv_rows(path)
     return tuple(
         CatchmentMeshBundleNode(
@@ -144,6 +171,7 @@ def _load_nodes(path: Path) -> tuple[CatchmentMeshBundleNode, ...]:
 
 
 def _load_cells(path: Path) -> tuple[CatchmentMeshBundleCell, ...]:
+    """Load the `cells.csv` table."""
     rows = _load_csv_rows(path)
     out: list[CatchmentMeshBundleCell] = []
     for row in rows:
@@ -180,6 +208,7 @@ def _load_cells(path: Path) -> tuple[CatchmentMeshBundleCell, ...]:
 
 
 def _load_edges(path: Path) -> tuple[CatchmentMeshBundleEdge, ...]:
+    """Load the `edges.csv` table."""
     rows = _load_csv_rows(path)
     return tuple(
         CatchmentMeshBundleEdge(
@@ -199,6 +228,7 @@ def _load_edges(path: Path) -> tuple[CatchmentMeshBundleEdge, ...]:
 
 
 def _load_geology_fractions(path: Path) -> tuple[CatchmentMeshBundleGeologyFraction, ...]:
+    """Load the optional per-cell geology fractions table."""
     rows = _load_csv_rows(path)
     return tuple(
         CatchmentMeshBundleGeologyFraction(
@@ -211,7 +241,11 @@ def _load_geology_fractions(path: Path) -> tuple[CatchmentMeshBundleGeologyFract
 
 
 def load_catchment_mesh_bundle(bundle_dir: str | Path) -> CatchmentMeshBundle:
-    """Load one previously exported catchment mesh bundle."""
+    """Load one previously exported catchment mesh bundle.
+
+    The loader is intentionally conservative: missing metadata is an error,
+    while optional CSV companions simply become empty tuples.
+    """
     bundle_path = Path(bundle_dir).resolve()
     metadata_path = bundle_path / "metadata.json"
     if not metadata_path.exists():

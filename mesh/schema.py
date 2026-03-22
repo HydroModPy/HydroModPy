@@ -1,18 +1,31 @@
-"""Schemas et contrats de donnees pour le package `mesh`.
+"""Core runtime contracts for the standalone ``mesh`` package.
 
-Ce module regroupe a la racine les types centraux du package :
+This module intentionally describes runtime configuration and shared execution
+state only:
 
-- constantes publiques ;
-- protocoles minimaux attendus pour un bundle ;
-- dataclasses de configuration et de travail.
+- public constants such as the default TOML section
+- dataclasses used once TOML content has been validated and paths resolved
+
+The bundle data model itself lives in ``mesh.bundle_contracts`` so that bundle
+records and visualization configuration remain easy to distinguish.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from mesh.bundle_contracts import (
+    CatchmentMeshBundle,
+    CatchmentMeshBundleCell,
+    CatchmentMeshBundleEdge,
+    CatchmentMeshBundleGeologyFraction,
+    CatchmentMeshBundleNode,
+    GeologyFractionLike,
+    MeshBundleLike,
+    MeshCellLike,
+    MeshEdgeLike,
+    MeshNodeLike,
+)
 
 DEFAULT_CONFIG_FILENAME = "config_example.toml"
 DEFAULT_TOML_SECTION = "mesh_distribution"
@@ -37,85 +50,12 @@ ALLOWED_TOPOGRAPHY_FIELDS = {
 }
 
 
-class MeshNodeLike(Protocol):
-    """Structure minimale attendue pour un noeud du bundle."""
-
-    node_id: int
-    x: float
-    y: float
-    z_top: float | None
-    z_bottom: float | None
-
-
-class MeshCellLike(Protocol):
-    """Structure minimale attendue pour une cellule du bundle."""
-
-    cell_id: int
-    geom_type: str
-    node_indices: tuple[int, ...]
-    centroid_x: float
-    centroid_y: float
-    area_m2: float
-    z_top_centroid: float | None
-    z_top_mean: float | None
-    z_bottom_centroid: float | None
-    z_bottom_mean: float | None
-    geology_code: int | None
-    geology_key: str
-    hydraulic_conductivity_m_s: float | None
-    storage_coefficient: float | None
-
-
-class MeshEdgeLike(Protocol):
-    """Structure minimale attendue pour une arete du bundle."""
-
-    edge_id: int
-    node_a: int
-    node_b: int
-    cell_a: int
-    cell_b: int | None
-    length_m: float
-    edge_kind: str
-    is_river: bool
-    geology_a_key: str
-    geology_b_key: str
-
-
-class GeologyFractionLike(Protocol):
-    """Structure minimale attendue pour une fraction geologique."""
-
-    cell_id: int
-    geology_key: str
-    fraction: float
-
-
-class MeshBundleLike(Protocol):
-    """Structure minimale attendue pour le bundle relu en memoire."""
-
-    bundle_dir: Path
-    metadata: dict[str, Any]
-    nodes: Sequence[MeshNodeLike]
-    cells: Sequence[MeshCellLike]
-    edges: Sequence[MeshEdgeLike]
-    geology_fractions: Sequence[GeologyFractionLike]
-    mesh_summary: dict[str, Any] | None
-
-    @property
-    def n_nodes(self) -> int: ...
-
-    @property
-    def n_cells(self) -> int: ...
-
-    @property
-    def n_edges(self) -> int: ...
-
-    @property
-    def mesh_path(self) -> Path: ...
-
-
 @dataclass(frozen=True)
 class PlotConfig:
-    """Parametres d'affichage des figures."""
+    """Figure-specific rendering options.
+
+    This is the nested plotting block inside :class:`VisualizationConfig`.
+    """
 
     color_field: str = "geology_key"
     color_map: str = "viridis"
@@ -137,7 +77,11 @@ class PlotConfig:
 
 @dataclass(frozen=True)
 class VisualizationConfig:
-    """Configuration complete d'une execution."""
+    """Fully resolved runtime configuration for one visualization run.
+
+    Paths are already resolved against the TOML file location by the time this
+    object is created.
+    """
 
     bundle_dir: Path
     figure_output_path: Path | None = None
@@ -148,7 +92,10 @@ class VisualizationConfig:
 
 @dataclass(frozen=True)
 class MeshVisualizationData:
-    """Objet de travail central du package."""
+    """Central in-memory payload passed through the runner.
+
+    This object pairs one loaded mesh bundle with one resolved runtime config.
+    """
 
     mesh: MeshBundleLike
     config: VisualizationConfig
@@ -158,6 +105,11 @@ __all__ = [
     "ALLOWED_COLOR_FIELDS",
     "ALLOWED_TOPOGRAPHY_FIELDS",
     "CATEGORICAL_COLOR_FIELDS",
+    "CatchmentMeshBundle",
+    "CatchmentMeshBundleCell",
+    "CatchmentMeshBundleEdge",
+    "CatchmentMeshBundleGeologyFraction",
+    "CatchmentMeshBundleNode",
     "DEFAULT_CONFIG_FILENAME",
     "DEFAULT_TOML_SECTION",
     "GeologyFractionLike",

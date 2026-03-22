@@ -9,15 +9,10 @@ the examples straightforward.
 from __future__ import annotations
 
 import argparse
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-# When executed directly by path, Python resolves imports relative to the
-# script directory, which may exclude the repository root.
-sys.path.insert(0, str(Path(__file__).resolve().parents[6]))
 
 CASES_DIR = Path(__file__).resolve().parent
 

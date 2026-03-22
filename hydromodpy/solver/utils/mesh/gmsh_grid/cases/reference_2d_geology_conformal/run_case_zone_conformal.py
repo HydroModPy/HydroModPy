@@ -13,6 +13,7 @@ from collections.abc import Mapping
 import json
 from pathlib import Path
 
+from hydromodpy.solver.utils.mesh.gmsh_grid._trace import trace_mesh_stage
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
     _resolve_case_config,
 )
@@ -54,20 +55,28 @@ def run_reference_2d_zone_conformal_case_from_toml(
     domain_geographic: object | None = None,
     show_plot: bool = False,
 ) -> dict[str, Any]:
+    trace_mesh_stage("zone_conformal.run.start", config_toml=config_toml, section=section)
     config_path = _resolve_config_path(
         config_toml,
         script_dir=Path(__file__).resolve().parent,
     )
+    trace_mesh_stage("zone_conformal.config.resolved", config_path=config_path)
     cfg = _resolve_case_config(
         config_path,
         section=section,
         section_data_override=section_data_override,
     )
+    trace_mesh_stage("zone_conformal.config.loaded")
     meshing_inputs = _build_zone_conformal_meshing_inputs(
         cfg=cfg,
         config_path=config_path,
         river_trace=river_trace,
         domain_geographic=domain_geographic,
+    )
+    trace_mesh_stage(
+        "zone_conformal.inputs.built",
+        zone_features=len(meshing_inputs.zone_gdf),
+        constraints_mode=meshing_inputs.usage.constraints_mode,
     )
     constraints_mode = str(meshing_inputs.usage.constraints_mode)
 
@@ -96,20 +105,28 @@ def run_reference_2d_zone_conformal_case_from_toml(
         raise ValueError(
             "An output mesh path is required for the conformal reference case"
         )
+    trace_mesh_stage("zone_conformal.outputs.resolved", mesh_path=mesh_path)
 
     result = _run_zone_conformal_meshing(
         meshing_inputs=meshing_inputs,
         constraints_mode=constraints_mode,
         mesh_path=mesh_path,
     )
+    trace_mesh_stage(
+        "zone_conformal.meshing.done",
+        n_cells=result.mesh.n_cells,
+        output_mesh=result.output_path,
+    )
 
     partition_gdf = _build_partition_gdf(result.partition, crs=meshing_inputs.zone_gdf.crs)
+    trace_mesh_stage("zone_conformal.partition_gdf.built", n_faces=len(partition_gdf))
     summary = _build_summary(
         result=result,
         source_payload=meshing_inputs.source_payload,
         clipped_gdf=meshing_inputs.zone_gdf,
         domain_payload=meshing_inputs.domain_payload,
     )
+    trace_mesh_stage("zone_conformal.summary.built")
     summary = _finalize_summary_payload(
         base_summary=summary,
         meshing_inputs=meshing_inputs,
@@ -117,6 +134,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
         refine_interfaces=meshing_inputs.zone_meshing_cfg.refine_interfaces,
         mesh_path=mesh_path,
     )
+    trace_mesh_stage("zone_conformal.summary.finalized")
 
     summary.update(
         _write_optional_figure_artifacts(
@@ -129,11 +147,14 @@ def run_reference_2d_zone_conformal_case_from_toml(
             domain_geographic=domain_geographic,
         )
     )
+    trace_mesh_stage("zone_conformal.figures.done")
 
     if summary_path is not None:
         summary["output_summary_json"] = str(summary_path)
         _write_json(summary_path, summary)
+        trace_mesh_stage("zone_conformal.summary.written", summary_path=summary_path)
 
+    trace_mesh_stage("zone_conformal.run.done")
     return summary
 
 

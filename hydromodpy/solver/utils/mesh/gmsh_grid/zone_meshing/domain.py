@@ -7,6 +7,7 @@ small set of contracts that the meshing code can consume safely.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -29,7 +30,110 @@ except ImportError:  # pragma: no cover - depends on environment
     from shapely.validation import make_valid as _shapely_make_valid  # type: ignore[no-redef]
 
 
-CLIP_BBOX_REMOVAL_MESSAGE = "domain.clip_bbox is no longer supported; use domain.kind='bbox' with domain.bbox instead."
+@dataclass(frozen=True)
+class ZoneMeshingDomainConfig:
+    """Typed support-domain contract shared by conformal meshing workflows."""
+
+    kind: str
+    bbox: tuple[float, float, float, float] | None = None
+    coordinates: tuple[tuple[float, float], ...] | None = None
+    path: str | None = None
+    id_field: str | None = None
+    selected_id: str | None = None
+
+    @classmethod
+    def from_mapping(
+        cls,
+        config_data: Mapping[str, Any],
+    ) -> "ZoneMeshingDomainConfig":
+        """Validate one raw mapping and return one typed domain contract."""
+        parsed = _validate_zone_meshing_domain_model(config_data)
+        return cls.from_normalized_mapping(parsed.model_dump(mode="python"))
+
+    @classmethod
+    def from_normalized_mapping(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> "ZoneMeshingDomainConfig":
+        """Build one typed domain contract from already normalized values."""
+        bbox_raw = payload.get("bbox")
+        coordinates_raw = payload.get("coordinates")
+        return cls(
+            kind=str(payload["kind"]),
+            bbox=(
+                None
+                if bbox_raw is None
+                else tuple(float(value) for value in bbox_raw)
+            ),
+            coordinates=(
+                None
+                if coordinates_raw is None
+                else tuple((float(pair[0]), float(pair[1])) for pair in coordinates_raw)
+            ),
+            path=None if payload.get("path") is None else str(payload["path"]),
+            id_field=(
+                None if payload.get("id_field") is None else str(payload["id_field"])
+            ),
+            selected_id=(
+                None
+                if payload.get("selected_id") is None
+                else str(payload["selected_id"])
+            ),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        """Serialize one typed domain contract to mapping form."""
+        payload: dict[str, Any] = {"kind": self.kind}
+        if self.bbox is not None:
+            payload["bbox"] = [float(value) for value in self.bbox]
+        if self.coordinates is not None:
+            payload["coordinates"] = [
+                [float(x), float(y)] for x, y in self.coordinates
+            ]
+        if self.path is not None:
+            payload["path"] = self.path
+        if self.id_field is not None:
+            payload["id_field"] = self.id_field
+        if self.selected_id is not None:
+            payload["selected_id"] = self.selected_id
+        return payload
+
+
+@dataclass(frozen=True)
+class ZoneMeshingDomainPayload:
+    """Resolved geometry payload returned after loading one support domain."""
+
+    geometry: object
+    gdf: object
+    summary: dict[str, Any]
+
+    @classmethod
+    def from_mapping(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> "ZoneMeshingDomainPayload":
+        """Build one typed geometry payload from plain mapping form."""
+        return cls(
+            geometry=payload["geometry"],
+            gdf=payload["gdf"],
+            summary=dict(payload.get("summary", {})),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        """Serialize one typed geometry payload to mapping form."""
+        return {
+            "geometry": self.geometry,
+            "gdf": self.gdf,
+            "summary": dict(self.summary),
+        }
+
+
+def parse_zone_meshing_domain_config(
+    config_data: Mapping[str, Any],
+) -> ZoneMeshingDomainConfig:
+    """Return one typed support-domain contract from a raw mapping."""
+
+    return ZoneMeshingDomainConfig.from_mapping(config_data)
 
 
 class ZoneMeshingDomainBBoxSchema(BaseModel):
@@ -266,20 +370,11 @@ def _iter_polygon_parts(geometry):
             yield from _iter_polygon_parts(sub_geometry)
 
 
-def validate_zone_meshing_domain_config_data(
-    config_data: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Validate one domain meshing config block.
-
-    The legacy key `clip_bbox` is rejected and must be migrated to
-    `kind='bbox'` + `bbox=[xmin, ymin, xmax, ymax]`.
-    """
-
+def _validate_zone_meshing_domain_model(config_data: Mapping[str, Any]) -> BaseModel:
+    """Validate one domain mapping and return the concrete schema instance."""
     if not isinstance(config_data, Mapping):
         raise ValueError("domain configuration must be a mapping")
     raw = dict(config_data)
-    if "clip_bbox" in raw:
-        raise ValueError(CLIP_BBOX_REMOVAL_MESSAGE)
 
     kind = str(raw.get("kind", "")).strip().lower()
     if kind == "":
@@ -308,10 +403,9 @@ def validate_zone_meshing_domain_config_data(
         allowed = ", ".join(sorted(schema_by_kind))
         raise ValueError(f"Unsupported domain.kind '{kind}'. Allowed: {allowed}")
     try:
-        parsed = schema_by_kind[kind].model_validate(raw)
+        return schema_by_kind[kind].model_validate(raw)
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
-    return parsed.model_dump(mode="python")
 
 
 def _geometry_to_summary_payload(
@@ -329,27 +423,25 @@ def _geometry_to_summary_payload(
     return payload
 
 
-def load_zone_meshing_domain_geometry(
-    config: Mapping[str, Any],
+def load_zone_meshing_domain_payload(
+    config: ZoneMeshingDomainConfig,
     *,
     config_path: str | Path | None = None,
     domain_geographic: object | None = None,
     target_crs=None,
-    validate: bool = True,
-) -> dict[str, Any]:
-    """Load one domain geometry from bbox, inline polygon, or vector source."""
+) -> ZoneMeshingDomainPayload:
+    """Load one domain geometry and return one typed payload."""
 
     import geopandas as gpd
 
-    cfg = validate_zone_meshing_domain_config_data(config) if validate else dict(config)
-    kind = str(cfg["kind"])
+    kind = str(config.kind)
 
     def _load_geographic_domain_from_attr(
         *,
         attr_name: str,
         domain_id: str,
         label: str,
-    ) -> dict[str, Any]:
+    ) -> ZoneMeshingDomainPayload:
         if domain_geographic is None:
             raise ValueError(
                 f"domain.kind='{kind}' requires one domain_geographic context."
@@ -371,7 +463,11 @@ def load_zone_meshing_domain_geometry(
                 f"{label} domain source has only empty geometries: {source_path}"
             )
         source_crs = gdf.crs
-        if target_crs is not None and source_crs is not None and source_crs != target_crs:
+        if (
+            target_crs is not None
+            and source_crs is not None
+            and source_crs != target_crs
+        ):
             gdf = gdf.to_crs(target_crs)
 
         geometry = _make_valid_geometry(unary_union(list(gdf.geometry)))
@@ -391,10 +487,10 @@ def load_zone_meshing_domain_geometry(
             geometry=[geometry],
             crs=gdf.crs,
         )
-        return {
-            "geometry": geometry,
-            "gdf": domain_gdf,
-            "summary": _geometry_to_summary_payload(
+        return ZoneMeshingDomainPayload(
+            geometry=geometry,
+            gdf=domain_gdf,
+            summary=_geometry_to_summary_payload(
                 geometry=geometry,
                 kind=kind,
                 extras={
@@ -403,22 +499,24 @@ def load_zone_meshing_domain_geometry(
                     "domain_crs": None if gdf.crs is None else str(gdf.crs),
                 },
             ),
-        }
+        )
 
     if kind == "bbox":
-        geometry = box(*cfg["bbox"])
+        if config.bbox is None:  # pragma: no cover - validated upstream
+            raise ValueError("bbox domain requires bbox coordinates")
+        geometry = box(*config.bbox)
         domain_gdf = gpd.GeoDataFrame(
             {"domain_id": ["bbox_domain"]}, geometry=[geometry], crs=target_crs
         )
-        return {
-            "geometry": geometry,
-            "gdf": domain_gdf,
-            "summary": _geometry_to_summary_payload(
+        return ZoneMeshingDomainPayload(
+            geometry=geometry,
+            gdf=domain_gdf,
+            summary=_geometry_to_summary_payload(
                 geometry=geometry,
                 kind=kind,
-                extras={"domain_bbox": [round(float(v), 6) for v in cfg["bbox"]]},
+                extras={"domain_bbox": [round(float(v), 6) for v in config.bbox]},
             ),
-        }
+        )
 
     if kind == "geographic_box_buffer":
         return _load_geographic_domain_from_attr(
@@ -442,7 +540,9 @@ def load_zone_meshing_domain_geometry(
         )
 
     if kind == "polygon":
-        geometry = _make_valid_geometry(Polygon(cfg["coordinates"]))
+        if config.coordinates is None:  # pragma: no cover - validated upstream
+            raise ValueError("polygon domain requires coordinates")
+        geometry = _make_valid_geometry(Polygon(config.coordinates))
         polygons = [
             polygon
             for polygon in _iter_polygon_parts(geometry)
@@ -456,19 +556,19 @@ def load_zone_meshing_domain_geometry(
             geometry=[geometry],
             crs=target_crs,
         )
-        return {
-            "geometry": geometry,
-            "gdf": domain_gdf,
-            "summary": _geometry_to_summary_payload(
+        return ZoneMeshingDomainPayload(
+            geometry=geometry,
+            gdf=domain_gdf,
+            summary=_geometry_to_summary_payload(
                 geometry=geometry,
                 kind=kind,
-                extras={"domain_vertex_count": int(len(cfg["coordinates"]))},
+                extras={"domain_vertex_count": int(len(config.coordinates))},
             ),
-        }
+        )
 
-    source_path = Path(
-        resolve_data_path(cfg["path"], config_path=config_path)
-    ).resolve()
+    if config.path is None:  # pragma: no cover - validated upstream
+        raise ValueError("vector domain requires path")
+    source_path = Path(resolve_data_path(config.path, config_path=config_path)).resolve()
     gdf = gpd.read_file(source_path)
     if gdf.empty:
         raise ValueError(f"Domain vector source has no geometry: {source_path}")
@@ -479,8 +579,8 @@ def load_zone_meshing_domain_geometry(
         )
 
     n_source_features = int(len(gdf))
-    id_field = cfg.get("id_field")
-    selected_id = cfg.get("selected_id")
+    id_field = config.id_field
+    selected_id = config.selected_id
     if id_field is not None:
         if id_field not in gdf.columns:
             raise KeyError(f"Missing domain id field '{id_field}' in {source_path}")
@@ -492,7 +592,11 @@ def load_zone_meshing_domain_geometry(
                 )
 
     source_crs = gdf.crs
-    if target_crs is not None and source_crs is not None and source_crs != target_crs:
+    if (
+        target_crs is not None
+        and source_crs is not None
+        and source_crs != target_crs
+    ):
         gdf = gdf.to_crs(target_crs)
 
     geometry = _make_valid_geometry(unary_union(list(gdf.geometry)))
@@ -507,12 +611,14 @@ def load_zone_meshing_domain_geometry(
         )
     geometry = unary_union(polygons)
     domain_gdf = gpd.GeoDataFrame(
-        {"domain_id": ["domain_source"]}, geometry=[geometry], crs=gdf.crs
+        {"domain_id": ["domain_source"]},
+        geometry=[geometry],
+        crs=gdf.crs,
     )
-    return {
-        "geometry": geometry,
-        "gdf": domain_gdf,
-        "summary": _geometry_to_summary_payload(
+    return ZoneMeshingDomainPayload(
+        geometry=geometry,
+        gdf=domain_gdf,
+        summary=_geometry_to_summary_payload(
             geometry=geometry,
             kind=kind,
             extras={
@@ -524,4 +630,12 @@ def load_zone_meshing_domain_geometry(
                 "domain_crs": None if gdf.crs is None else str(gdf.crs),
             },
         ),
-    }
+    )
+
+
+__all__ = [
+    "parse_zone_meshing_domain_config",
+    "ZoneMeshingDomainConfig",
+    "ZoneMeshingDomainPayload",
+    "load_zone_meshing_domain_payload",
+]

@@ -8,7 +8,16 @@ from typing import Any
 
 import geopandas as gpd
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import ZoneLinearConstraint
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
+    ZoneMeshingSettings,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
+    ZoneLinearConstraint,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
+    ZoneMeshingDomainConfig,
+    ZoneMeshingDomainPayload,
+)
 
 
 @dataclass(frozen=True)
@@ -30,24 +39,7 @@ class ZoneConformalSourcePayload:
     n_source_features_before_domain_clip: int
 
 
-@dataclass(frozen=True)
-class ZoneConformalGeometryPayload:
-    """Resolved support or scope geometry passed between planning stages."""
-
-    geometry: object
-    gdf: gpd.GeoDataFrame
-    summary: dict[str, Any]
-
-    @classmethod
-    def from_mapping(
-        cls,
-        payload: Mapping[str, Any],
-    ) -> "ZoneConformalGeometryPayload":
-        return cls(
-            geometry=payload["geometry"],
-            gdf=payload["gdf"],
-            summary=dict(payload.get("summary", {})),
-        )
+ZoneConformalGeometryPayload = ZoneMeshingDomainPayload
 
 
 @dataclass(frozen=True)
@@ -169,81 +161,10 @@ class ZoneConformalGeologyConfig:
         return payload
 
 
-@dataclass(frozen=True)
-class ZoneConformalDomainConfig:
-    """Validated support/scope config reused across domain-like sections."""
-
-    kind: str
-    bbox: tuple[float, float, float, float] | None = None
-    coordinates: tuple[tuple[float, float], ...] | None = None
-    path: str | None = None
-    id_field: str | None = None
-    selected_id: str | None = None
-
-    @classmethod
-    def from_mapping(
-        cls,
-        payload: Mapping[str, Any],
-    ) -> "ZoneConformalDomainConfig":
-        bbox_raw = payload.get("bbox")
-        coordinates_raw = payload.get("coordinates")
-        return cls(
-            kind=str(payload["kind"]),
-            bbox=(
-                None
-                if bbox_raw is None
-                else tuple(float(value) for value in bbox_raw)
-            ),
-            coordinates=(
-                None
-                if coordinates_raw is None
-                else tuple(
-                    (float(pair[0]), float(pair[1])) for pair in coordinates_raw
-                )
-            ),
-            path=None if payload.get("path") is None else str(payload["path"]),
-            id_field=(
-                None if payload.get("id_field") is None else str(payload["id_field"])
-            ),
-            selected_id=(
-                None
-                if payload.get("selected_id") is None
-                else str(payload["selected_id"])
-            ),
-        )
-
-    def to_mapping(self) -> dict[str, Any]:
-        payload: dict[str, Any] = {"kind": self.kind}
-        if self.bbox is not None:
-            payload["bbox"] = [float(value) for value in self.bbox]
-        if self.coordinates is not None:
-            payload["coordinates"] = [
-                [float(x), float(y)] for x, y in self.coordinates
-            ]
-        if self.path is not None:
-            payload["path"] = self.path
-        if self.id_field is not None:
-            payload["id_field"] = self.id_field
-        if self.selected_id is not None:
-            payload["selected_id"] = self.selected_id
-        return payload
+ZoneConformalDomainConfig = ZoneMeshingDomainConfig
 
 
-@dataclass(frozen=True)
-class ZoneConformalZoneMeshingConfig:
-    """Validated meshing options consumed by the low-level Gmsh driver."""
-
-    algorithm: str
-    global_size: float
-    min_size: float | None
-    max_size: float | None
-    simplify_tolerance: float
-    heal_tolerance: float
-    min_polygon_area: float
-    refine_interfaces: bool
-    interface_size: float | None
-    interface_distance: float | None
-    interface_sampling: int
+ZoneConformalZoneMeshingConfig = ZoneMeshingSettings
 
 
 @dataclass(frozen=True)
@@ -303,6 +224,7 @@ class ZoneConformalMeshingInputs:
 
     usage: ZoneConformalConstraintUsage
     source_payload: ZoneConformalSourcePayload
+    source_domain_gdf: gpd.GeoDataFrame
     zone_gdf: gpd.GeoDataFrame
     domain_payload: ZoneConformalGeometryPayload
     interface_scope_payload: ZoneConformalGeometryPayload

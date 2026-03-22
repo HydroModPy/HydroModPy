@@ -10,8 +10,8 @@ from hydromodpy.config.toml_loader import load_toml_with_base_config
 from hydromodpy.data_managers.variables.geology.config import validate_geology_config_data
 from hydromodpy.solver.utils._config_helpers import get_nested_section
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
-    validate_zone_meshing_config_data,
-    validate_zone_meshing_domain_config_data,
+    parse_zone_meshing_domain_config,
+    parse_zone_meshing_settings,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalCaseConfig,
@@ -195,27 +195,13 @@ def _validate_watershed_boundary_case_config(
 def _validate_zone_meshing_case_config(
     config_data: Mapping[str, Any],
 ) -> ZoneConformalZoneMeshingConfig:
-    raw = validate_zone_meshing_config_data(dict(config_data))
-    return ZoneConformalZoneMeshingConfig(
-        algorithm=str(raw["algorithm"]),
-        global_size=float(raw["global_size"]),
-        min_size=raw["min_size"],
-        max_size=raw["max_size"],
-        simplify_tolerance=float(raw["simplify_tolerance"]),
-        heal_tolerance=float(raw["heal_tolerance"]),
-        min_polygon_area=float(raw["min_polygon_area"]),
-        refine_interfaces=bool(raw["refine_interfaces"]),
-        interface_size=raw["interface_size"],
-        interface_distance=raw["interface_distance"],
-        interface_sampling=int(raw["interface_sampling"]),
-    )
+    return parse_zone_meshing_settings(config_data)
 
 
 def _validate_domain_case_config(
     config_data: Mapping[str, Any],
 ) -> ZoneConformalDomainConfig:
-    raw = validate_zone_meshing_domain_config_data(dict(config_data))
-    return ZoneConformalDomainConfig.from_mapping(raw)
+    return parse_zone_meshing_domain_config(config_data)
 
 
 def _validate_geology_case_config(

@@ -65,6 +65,7 @@ dependencies = [
     "rasterio",
     "rioxarray",
     "scikit-learn",
+    "scipy",
     "selenium",
     "vedo",
     "whitebox-workflows",

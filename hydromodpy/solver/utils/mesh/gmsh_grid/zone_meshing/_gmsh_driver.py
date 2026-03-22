@@ -48,6 +48,7 @@ def configure_gmsh_terminal_output(gmsh) -> None:
 # ---------------------------------------------------------------------------
 
 def rounded_coord(value: float, *, tolerance: float) -> float:
+    """Snap one coordinate to the tolerance grid used for point deduplication."""
     if tolerance > 0.0:
         snapped = round(float(value) / tolerance) * tolerance
         return float(np.round(snapped, 12))
@@ -55,10 +56,26 @@ def rounded_coord(value: float, *, tolerance: float) -> float:
 
 
 def point_key(x: float, y: float, *, tolerance: float) -> tuple[float, float]:
+    """Return the deduplicated registry key used for OCC points."""
     return (
         rounded_coord(float(x), tolerance=tolerance),
         rounded_coord(float(y), tolerance=tolerance),
     )
+
+
+def _segment_is_degenerate(
+    key0: tuple[float, float],
+    key1: tuple[float, float],
+    *,
+    tolerance: float,
+) -> bool:
+    if key0 == key1:
+        return True
+    dx = float(key1[0]) - float(key0[0])
+    dy = float(key1[1]) - float(key0[1])
+    distance_sq = (dx * dx) + (dy * dy)
+    threshold = max(float(tolerance) * float(tolerance), 1.0e-18)
+    return bool(distance_sq <= threshold)
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +91,11 @@ def add_ring_loop(
     point_size: float,
     tolerance: float,
 ) -> tuple[int, list[int]]:
+    """Create one OCC curve loop from a polygon ring.
+
+    The point and line registries ensure neighboring faces reuse the exact same
+    OCC entities instead of creating almost-identical duplicates.
+    """
     coords = np.asarray(ring_coords, dtype=float)
     if coords.shape[0] < 4:
         raise ValueError("Linear rings must contain at least 4 coordinates")
@@ -84,7 +106,7 @@ def add_ring_loop(
         x1, y1 = float(coords[idx + 1, 0]), float(coords[idx + 1, 1])
         key0 = point_key(x0, y0, tolerance=tolerance)
         key1 = point_key(x1, y1, tolerance=tolerance)
-        if key0 == key1:
+        if _segment_is_degenerate(key0, key1, tolerance=tolerance):
             continue
         point_tag_0 = point_registry.get(key0)
         if point_tag_0 is None:
@@ -94,6 +116,8 @@ def add_ring_loop(
         if point_tag_1 is None:
             point_tag_1 = occ.addPoint(key1[0], key1[1], 0.0, point_size)
             point_registry[key1] = int(point_tag_1)
+        if int(point_tag_0) == int(point_tag_1):
+            continue
 
         canonical = (key0, key1) if key0 <= key1 else (key1, key0)
         line_tag = line_registry.get(canonical)
@@ -121,6 +145,7 @@ def add_polyline_segments(
     point_size: float,
     tolerance: float,
 ) -> list[int]:
+    """Create OCC line segments for one polyline while reusing shared entities."""
     coords = np.asarray(line_coords, dtype=float)
     if coords.shape[0] < 2:
         return []
@@ -130,7 +155,7 @@ def add_polyline_segments(
         x1, y1 = float(coords[idx + 1, 0]), float(coords[idx + 1, 1])
         key0 = point_key(x0, y0, tolerance=tolerance)
         key1 = point_key(x1, y1, tolerance=tolerance)
-        if key0 == key1:
+        if _segment_is_degenerate(key0, key1, tolerance=tolerance):
             continue
         point_tag_0 = point_registry.get(key0)
         if point_tag_0 is None:
@@ -140,6 +165,8 @@ def add_polyline_segments(
         if point_tag_1 is None:
             point_tag_1 = occ.addPoint(key1[0], key1[1], 0.0, point_size)
             point_registry[key1] = int(point_tag_1)
+        if int(point_tag_0) == int(point_tag_1):
+            continue
 
         canonical = (key0, key1) if key0 <= key1 else (key1, key0)
         line_tag = line_registry.get(canonical)
@@ -188,6 +215,7 @@ def apply_mesh_options(
     min_size: float | None,
     max_size: float | None,
 ) -> None:
+    """Apply the coarse global mesh-size policy and chosen 2D algorithm."""
     algorithm_key = str(algorithm).strip().lower()
     if algorithm_key not in _GMSH_ALGORITHM_BY_NAME:
         allowed = ", ".join(sorted(_GMSH_ALGORITHM_BY_NAME))
@@ -214,6 +242,7 @@ def build_curve_group_name(
     *,
     is_boundary: bool = True,
 ) -> tuple[str, str, tuple[str, ...]]:
+    """Return the exported physical-group name for one boundary/interface curve."""
     zone_names = tuple(sorted(str(zone_key) for zone_key in zone_keys))
     if len(zone_names) >= 2:
         return ("interface::" + "::".join(zone_names), "interface_curve", zone_names)
@@ -238,6 +267,7 @@ def apply_interface_refinement_field(
     interface_distance: float | None,
     interface_sampling: int,
 ) -> dict[str, Any]:
+    """Create the optional distance-based refinement field around interface curves."""
     summary: dict[str, Any] = {
         "enabled": bool(refine_interfaces),
         "interface_size": None if interface_size is None else float(interface_size),
@@ -285,3 +315,29 @@ def apply_interface_refinement_field(
         "background_field_tag": int(background_field),
     }
     return summary
+
+
+def write_repository_compatible_mesh(gmsh, output_path: str | os.PathLike[str]) -> None:
+    """Write one planar mesh in the ASCII MSH2 format expected by repo readers.
+
+    Some test and review utilities still rely on the lightweight repository
+    fallback reader when ``meshio`` is unavailable. Keeping the writer settings
+    here centralizes that compatibility choice instead of duplicating it in the
+    higher-level conformal mesher.
+    """
+
+    gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
+    gmsh.option.setNumber("Mesh.Binary", 0)
+    gmsh.write(str(output_path))
+
+
+__all__ = [
+    "add_polyline_segments",
+    "add_ring_loop",
+    "apply_interface_refinement_field",
+    "apply_mesh_options",
+    "build_curve_group_name",
+    "configure_gmsh_terminal_output",
+    "iter_river_lines_from_trace",
+    "write_repository_compatible_mesh",
+]

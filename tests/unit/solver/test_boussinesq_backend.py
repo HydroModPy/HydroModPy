@@ -14,9 +14,25 @@ from hydromodpy.solver.boussinesq.assembly import (
     assemble_steady_residual,
     assemble_transient_residual,
 )
+from hydromodpy.solver.boussinesq.jacobian_fd import (
+    build_cell_coupling_rows_by_column,
+    build_colored_sparse_fd_jacobian_triplets,
+    build_dense_fd_jacobian,
+    color_columns_by_row_overlap,
+)
+from hydromodpy.solver.boussinesq.jacobian_semianalytic import (
+    build_sparse_semianalytic_base_jacobian_triplets,
+)
 from hydromodpy.solver.boussinesq.local_runtime import (
     solve_backward_euler_step,
     solve_steady_state,
+)
+from hydromodpy.solver.boussinesq.runtime_contract import SteadySolveInputs
+from hydromodpy.solver.boussinesq.scipy_runtime import (
+    solve_steady_problem as solve_steady_problem_scipy,
+)
+from hydromodpy.solver.boussinesq.scipy_sparse_runtime import (
+    solve_steady_problem as solve_steady_problem_scipy_sparse,
 )
 from hydromodpy.solver.prototype.solver_config import SolverConfig
 from hydromodpy.solver.prototype.solver_engine import SolverEngine
@@ -103,10 +119,283 @@ def _build_flow_config(flow_section: dict[str, object]) -> FlowConfig:
     return FlowConfig.from_toml_section(flow_section, base_dir=Path("."))
 
 
+def _triplets_to_dense(
+    data: np.ndarray,
+    row_indices: np.ndarray,
+    col_indices: np.ndarray,
+    *,
+    shape: tuple[int, int],
+) -> np.ndarray:
+    matrix = np.zeros(shape, dtype=float)
+    np.add.at(
+        matrix,
+        (
+            np.asarray(row_indices, dtype=int),
+            np.asarray(col_indices, dtype=int),
+        ),
+        np.asarray(data, dtype=float),
+    )
+    return matrix
+
+
 def test_solver_config_accepts_boussinesq() -> None:
     cfg = SolverConfig(solver_engine="boussinesq")
 
     assert cfg.solver_engine == SolverEngine.BOUSSINESQ
+
+
+@pytest.mark.parametrize("runtime_backend", ["scipy", "scipy_sparse"])
+def test_flow_config_accepts_boussinesq_runtime_backend(runtime_backend: str) -> None:
+    cfg = FlowConfig.model_validate({"runtime_backend": runtime_backend})
+    flow = Flow(cfg)
+
+    assert cfg.runtime_backend == runtime_backend
+    assert flow.runtime_backend == runtime_backend
+
+
+def test_sparse_fd_coloring_groups_only_disjoint_columns() -> None:
+    rows_by_col = (
+        np.asarray([0], dtype=int),
+        np.asarray([0, 1], dtype=int),
+        np.asarray([1, 2], dtype=int),
+        np.asarray([2, 3], dtype=int),
+    )
+
+    groups = color_columns_by_row_overlap(rows_by_col)
+
+    assert len(groups) == 2
+    assert sorted(np.concatenate(groups).tolist()) == [0, 1, 2, 3]
+    for group in groups:
+        seen_rows: set[int] = set()
+        for col in np.asarray(group, dtype=int).tolist():
+            active_rows = set(np.asarray(rows_by_col[col], dtype=int).tolist())
+            assert seen_rows.isdisjoint(active_rows)
+            seen_rows.update(active_rows)
+
+
+def test_colored_sparse_fd_jacobian_matches_dense_with_fewer_residual_calls() -> None:
+    rows_by_col = (
+        np.asarray([0], dtype=int),
+        np.asarray([0, 1], dtype=int),
+        np.asarray([1, 2], dtype=int),
+        np.asarray([2, 3], dtype=int),
+    )
+    groups = color_columns_by_row_overlap(rows_by_col)
+    head = np.asarray([1.0, 2.0, 3.0, 4.0], dtype=float)
+    matrix = np.asarray(
+        [
+            [2.0, 3.0, 0.0, 0.0],
+            [0.0, -1.0, 5.0, 0.0],
+            [0.0, 0.0, 7.0, -1.0],
+            [0.0, 0.0, 0.0, 11.0],
+        ],
+        dtype=float,
+    )
+    offset = np.asarray([0.5, -1.0, 2.0, 3.0], dtype=float)
+
+    dense_calls = {"count": 0}
+
+    def residual_dense(candidate_head: np.ndarray) -> np.ndarray:
+        dense_calls["count"] += 1
+        return matrix @ np.asarray(candidate_head, dtype=float) + offset
+
+    sparse_calls = {"count": 0}
+
+    def residual_sparse(candidate_head: np.ndarray) -> np.ndarray:
+        sparse_calls["count"] += 1
+        return matrix @ np.asarray(candidate_head, dtype=float) + offset
+
+    residual0_dense = residual_dense(head)
+    residual0_sparse = residual_sparse(head)
+    dense_jacobian = build_dense_fd_jacobian(
+        residual_dense,
+        head,
+        residual0_dense,
+        rel_step=1.0e-7,
+    )
+    data, row_indices, col_indices = build_colored_sparse_fd_jacobian_triplets(
+        residual_sparse,
+        head,
+        residual0_sparse,
+        rows_by_col=rows_by_col,
+        column_groups=groups,
+        rel_step=1.0e-7,
+    )
+    sparse_jacobian = np.zeros_like(dense_jacobian)
+    sparse_jacobian[row_indices, col_indices] = data
+
+    assert np.allclose(sparse_jacobian, matrix)
+    assert np.allclose(sparse_jacobian, dense_jacobian)
+    assert sparse_calls["count"] == 1 + len(groups)
+    assert dense_calls["count"] == 1 + head.size
+
+
+def test_semianalytic_steady_base_jacobian_matches_dense_fd_without_saturation_excess(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head = np.asarray([8.2, 8.9], dtype=float)
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+
+    def residual_fn(candidate_head: np.ndarray) -> np.ndarray:
+        return assemble_steady_residual(
+            mesh,
+            head_m=candidate_head,
+            imposed_head_m_by_edge=imposed_heads,
+            regularization_radius=1.0e-6,
+        ).residual_m3_s
+
+    residual0 = residual_fn(head)
+    assembly0 = assemble_steady_residual(
+        mesh,
+        head_m=head,
+        imposed_head_m_by_edge=imposed_heads,
+        regularization_radius=1.0e-6,
+    )
+    dense_jacobian = build_dense_fd_jacobian(
+        residual_fn,
+        head,
+        residual0,
+        rel_step=1.0e-7,
+    )
+    data, row_indices, col_indices = build_sparse_semianalytic_base_jacobian_triplets(
+        mesh,
+        head,
+        imposed_head_m_by_edge=imposed_heads,
+    )
+    semianalytic_jacobian = _triplets_to_dense(
+        data,
+        row_indices,
+        col_indices,
+        shape=(mesh.n_cells, mesh.n_cells),
+    )
+
+    assert np.allclose(assembly0.saturation_excess_rate_m_s, 0.0)
+    assert np.allclose(semianalytic_jacobian, dense_jacobian, atol=1.0e-8)
+
+
+def test_semianalytic_transient_base_jacobian_matches_dense_fd_without_saturation_excess(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head_prev = np.asarray([8.0, 8.5], dtype=float)
+    head = np.asarray([8.2, 8.9], dtype=float)
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+
+    def residual_fn(candidate_head: np.ndarray) -> np.ndarray:
+        return assemble_transient_residual(
+            mesh,
+            head_m=candidate_head,
+            head_prev_m=head_prev,
+            dt_seconds=3600.0,
+            imposed_head_m_by_edge=imposed_heads,
+            regularization_radius=1.0e-6,
+        ).residual_m3_s
+
+    residual0 = residual_fn(head)
+    assembly0 = assemble_transient_residual(
+        mesh,
+        head_m=head,
+        head_prev_m=head_prev,
+        dt_seconds=3600.0,
+        imposed_head_m_by_edge=imposed_heads,
+        regularization_radius=1.0e-6,
+    )
+    dense_jacobian = build_dense_fd_jacobian(
+        residual_fn,
+        head,
+        residual0,
+        rel_step=1.0e-7,
+    )
+    data, row_indices, col_indices = build_sparse_semianalytic_base_jacobian_triplets(
+        mesh,
+        head,
+        dt_seconds=3600.0,
+        imposed_head_m_by_edge=imposed_heads,
+    )
+    semianalytic_jacobian = _triplets_to_dense(
+        data,
+        row_indices,
+        col_indices,
+        shape=(mesh.n_cells, mesh.n_cells),
+    )
+
+    assert np.allclose(assembly0.saturation_excess_rate_m_s, 0.0)
+    assert np.allclose(semianalytic_jacobian, dense_jacobian, atol=1.0e-8)
+
+
+def test_semianalytic_base_plus_colored_saturation_correction_matches_dense_fd(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    head = np.asarray([9.95, 10.95], dtype=float)
+    recharge_rate = 2.0e-7
+
+    def full_residual_fn(candidate_head: np.ndarray) -> np.ndarray:
+        return assemble_steady_residual(
+            mesh,
+            head_m=candidate_head,
+            recharge_rate_m_s=recharge_rate,
+        ).residual_m3_s
+
+    def saturation_correction_fn(candidate_head: np.ndarray) -> np.ndarray:
+        assembly = assemble_steady_residual(
+            mesh,
+            head_m=candidate_head,
+            recharge_rate_m_s=recharge_rate,
+        )
+        return mesh.cell_area_m2 * assembly.saturation_excess_rate_m_s
+
+    assembly0 = assemble_steady_residual(
+        mesh,
+        head_m=head,
+        recharge_rate_m_s=recharge_rate,
+    )
+    rows_by_col = build_cell_coupling_rows_by_column(
+        n_cells=mesh.n_cells,
+        edge_cell_a=mesh.edge_cell_a,
+        edge_cell_b=mesh.edge_cell_b,
+    )
+    groups = color_columns_by_row_overlap(rows_by_col)
+    dense_jacobian = build_dense_fd_jacobian(
+        full_residual_fn,
+        head,
+        assembly0.residual_m3_s,
+        rel_step=1.0e-7,
+    )
+    base_triplets = build_sparse_semianalytic_base_jacobian_triplets(
+        mesh,
+        head,
+    )
+    sat_triplets = build_colored_sparse_fd_jacobian_triplets(
+        saturation_correction_fn,
+        head,
+        mesh.cell_area_m2 * assembly0.saturation_excess_rate_m_s,
+        rows_by_col=rows_by_col,
+        column_groups=groups,
+        rel_step=1.0e-7,
+    )
+    hybrid_jacobian = _triplets_to_dense(
+        base_triplets[0],
+        base_triplets[1],
+        base_triplets[2],
+        shape=(mesh.n_cells, mesh.n_cells),
+    ) + _triplets_to_dense(
+        sat_triplets[0],
+        sat_triplets[1],
+        sat_triplets[2],
+        shape=(mesh.n_cells, mesh.n_cells),
+    )
+
+    assert np.any(assembly0.saturation_excess_rate_m_s > 0.0)
+    assert np.allclose(hybrid_jacobian, dense_jacobian, atol=1.0e-8)
 
 
 def test_boussinesq_mesh_builds_from_gmsh_bundle(tmp_path: Path) -> None:
@@ -359,6 +648,64 @@ def test_local_steady_state_with_side_dirichlet_relaxes_between_boundary_heads(
     assert steady.assembly.imposed_head_edge_flux_m3_s[1] > 0.0
 
 
+def test_scipy_steady_result_reassembles_outputs_on_final_head(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+
+    steady = solve_steady_problem_scipy(
+        SteadySolveInputs(
+            mesh=mesh,
+            head_initial_guess_m=np.full(mesh.n_cells, 7.0, dtype=float),
+            imposed_head_m_by_edge=imposed_heads,
+        )
+    )
+
+    assert steady.converged is True
+    rebuilt = assemble_steady_residual(
+        mesh,
+        head_m=steady.head_m,
+        imposed_head_m_by_edge=imposed_heads,
+    )
+    assert np.allclose(steady.assembly.residual_m3_s, rebuilt.residual_m3_s)
+    assert np.allclose(
+        steady.assembly.imposed_head_edge_flux_m3_s,
+        rebuilt.imposed_head_edge_flux_m3_s,
+    )
+
+
+def test_scipy_sparse_steady_result_reassembles_outputs_on_final_head(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    mesh = BoussinesqMesh.from_bundle(load_catchment_mesh_bundle(bundle_dir))
+    imposed_heads = np.full(mesh.n_edges, np.nan, dtype=float)
+    imposed_heads[mesh.boundary_edge_indices_for_side("west_side")] = 10.0
+    imposed_heads[mesh.boundary_edge_indices_for_side("east_side")] = 6.0
+
+    steady = solve_steady_problem_scipy_sparse(
+        SteadySolveInputs(
+            mesh=mesh,
+            head_initial_guess_m=np.full(mesh.n_cells, 7.0, dtype=float),
+            imposed_head_m_by_edge=imposed_heads,
+        )
+    )
+
+    assert steady.converged is True
+    rebuilt = assemble_steady_residual(
+        mesh,
+        head_m=steady.head_m,
+        imposed_head_m_by_edge=imposed_heads,
+    )
+    assert np.allclose(steady.assembly.residual_m3_s, rebuilt.residual_m3_s)
+    assert np.allclose(
+        steady.assembly.imposed_head_edge_flux_m3_s,
+        rebuilt.imposed_head_edge_flux_m3_s,
+    )
+
+
 def test_boussinesq_runs_one_transient_period_and_keeps_history(tmp_path: Path) -> None:
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
     bundle = load_catchment_mesh_bundle(bundle_dir)
@@ -388,6 +735,75 @@ def test_boussinesq_runs_one_transient_period_and_keeps_history(tmp_path: Path) 
     assert model.state.converged_by_period == (True,)
     assert model.state.head_m[0] >= 10.0
     assert model.state.head_m[1] < 11.0
+
+
+def test_boussinesq_runs_one_transient_period_with_scipy_backend(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "runtime_backend": "scipy",
+                "ic": {"type": "top"},
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_transient_scipy",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.has_numerical_solution is True
+    assert model.state is not None
+    assert model.runtime_summary["runtime_backend"] == "scipy"
+    assert model.state.head_history_m is not None
+    assert model.state.head_history_m.shape == (2, 2)
+    assert model.state.converged_by_period == (True,)
+
+
+def test_boussinesq_runs_one_transient_period_with_scipy_sparse_backend(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "runtime_backend": "scipy_sparse",
+                "ic": {"type": "top"},
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=type("TimeGrid", (), {"period_lengths_seconds": (3600.0,)})(),
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_transient_scipy_sparse",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.has_numerical_solution is True
+    assert model.state is not None
+    assert model.runtime_summary["runtime_backend"] == "scipy_sparse"
+    assert model.runtime_summary["runtime_linear_system_layout"] == "sparse"
+    assert model.state.head_history_m is not None
+    assert model.state.head_history_m.shape == (2, 2)
+    assert model.state.converged_by_period == (True,)
 
 
 def test_boussinesq_runs_steady_local_runtime_without_time_grid(tmp_path: Path) -> None:
@@ -424,12 +840,111 @@ def test_boussinesq_runs_steady_local_runtime_without_time_grid(tmp_path: Path) 
     assert success is True
     assert model.has_numerical_solution is True
     assert model.state is not None
+    assert model.runtime_summary["runtime_backend"] == "local"
     assert model.runtime_summary["steady_mode"] == "nonlinear_local"
     assert model.state.head_history_m is not None
     assert model.state.head_history_m.shape == (1, 2)
     assert model.state.head_m[1] > model.state.head_m[0]
     assert model.state.imposed_head_edge_flux_m3_s is not None
     assert model.state.imposed_head_edge_flux_m3_s[4] < 0.0
+
+
+def test_boussinesq_runs_steady_scipy_runtime_without_time_grid(tmp_path: Path) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "flow_regime": "steady",
+                "runtime_backend": "scipy",
+                "ic": {"type": "custom", "value": 7.0},
+                "active_bc": ["west_side", "east_side"],
+                "bc": {
+                    "dirichlet": {
+                        "west_side": {"value": 10.0},
+                        "east_side": {"value": 6.0},
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_scipy_steady",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.has_numerical_solution is True
+    assert model.state is not None
+    assert model.runtime_summary["runtime_backend"] == "scipy"
+    assert model.runtime_summary["steady_mode"] == "nonlinear_scipy"
+    assert model.runtime_summary["runtime_linear_system_layout"] == "dense"
+    assert (
+        model.runtime_summary["runtime_convergence_policy"]
+        == "state_update_inf <= tol_state_update_inf and residual_inf <= tol_residual_inf"
+    )
+    assert model.runtime_summary["runtime_iteration_counter"] == "function_evaluations"
+    assert model.state.head_m[1] > model.state.head_m[0]
+
+
+def test_boussinesq_runs_steady_scipy_sparse_runtime_without_time_grid(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "flow_regime": "steady",
+                "runtime_backend": "scipy_sparse",
+                "ic": {"type": "custom", "value": 7.0},
+                "active_bc": ["west_side", "east_side"],
+                "bc": {
+                    "dirichlet": {
+                        "west_side": {"value": 10.0},
+                        "east_side": {"value": 6.0},
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_scipy_sparse_steady",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.has_numerical_solution is True
+    assert model.state is not None
+    assert model.runtime_summary["runtime_backend"] == "scipy_sparse"
+    assert model.runtime_summary["steady_mode"] == "nonlinear_scipy_sparse"
+    assert (
+        model.runtime_summary["runtime_solver_kind"]
+        == "scipy_sparse_newton_line_search_semianalytic_base_sat_fd_colored"
+    )
+    assert model.runtime_summary["runtime_linear_system_layout"] == "sparse"
+    assert (
+        model.runtime_summary["runtime_convergence_policy"]
+        == "residual_inf <= tol_residual_inf"
+    )
+    assert model.runtime_summary["runtime_iteration_counter"] == "newton_iterations"
+    assert model.state.head_m[1] > model.state.head_m[0]
 
 
 def test_boussinesq_runs_recharge_runtime_and_tracks_saturation_excess(

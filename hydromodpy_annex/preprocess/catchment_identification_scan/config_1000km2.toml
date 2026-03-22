@@ -5,7 +5,7 @@ launcher_script = "run_catchment_identification_case.py"
 dem_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
 
 # Dedicated outputs for the 100-basin / 1000 km2 scenario.
-output_dir = "C:/results/HydromodPy/catchment_identification_scan/1000km2"
+output_dir = "~/HydroModPy/catchment_identification_scan/1000km2"
 
 # Use a lower stream threshold so each tile can propose one candidate outlet,
 # then select final basins around the 1000 km2 target.

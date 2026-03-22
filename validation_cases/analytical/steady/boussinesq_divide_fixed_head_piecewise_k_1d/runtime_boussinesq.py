@@ -66,7 +66,8 @@ def run_boussinesq_divide_fixed_head_piecewise_k_case(
                                 "east_side": {"value": EAST_HEAD_M},
                             }
                         },
-                    }
+                    },
+                    case_dir=Path(__file__).resolve().parent,
                 )
             ),
             domain=None,

@@ -1,4 +1,14 @@
-"""Finite-volume assembly helpers for the local Boussinesq backend."""
+"""Finite-volume assembly helpers shared by all current Boussinesq runtimes.
+
+This is the physical heart of the package. Given a candidate head vector, the
+functions in this module reconstruct:
+
+- the saturated thickness in each cell,
+- the transmissivity implied by that thickness,
+- the internal and boundary fluxes,
+- the drainage and saturation-excess source terms,
+- the final residual that the nonlinear solver must drive to zero.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +23,12 @@ _MIN_DISTANCE_M = 1.0e-12
 
 @dataclass(frozen=True)
 class BoussinesqAssembly:
-    """One assembled nonlinear state on the cell-centered Boussinesq mesh."""
+    """Fully assembled nonlinear state for one candidate head field.
+
+    Returning all intermediate arrays is deliberate: it makes debugging,
+    diagnostics and post-processing much easier than returning only the final
+    residual.
+    """
 
     head_m: np.ndarray
     saturated_thickness_m: np.ndarray
@@ -29,7 +44,11 @@ class BoussinesqAssembly:
 
 @dataclass(frozen=True)
 class _BoussinesqSpatialTerms:
-    """Spatial/operator contributions shared by steady and transient assembly."""
+    """Spatial contributions shared by steady and transient assembly.
+
+    The transient and steady residuals differ only by the storage term. All
+    other operators are assembled once here and reused by both residual builders.
+    """
 
     head_m: np.ndarray
     saturated_thickness_m: np.ndarray
@@ -50,7 +69,7 @@ def _as_cell_vector(
     n_cells: int,
     label: str,
 ) -> np.ndarray:
-    """Return one cell-aligned numeric vector from a scalar or array payload."""
+    """Return one cell-aligned vector from a scalar, array or missing payload."""
     if values is None:
         return np.zeros(n_cells, dtype=float)
     array = np.asarray(values, dtype=float).reshape(-1)
@@ -71,7 +90,7 @@ def _as_edge_vector(
     n_edges: int,
     label: str,
 ) -> np.ndarray:
-    """Return one edge-aligned numeric vector from an optional array payload."""
+    """Return one edge-aligned vector from an optional array payload."""
     if values is None:
         return np.full(n_edges, np.nan, dtype=float)
     array = np.asarray(values, dtype=float).reshape(-1)
@@ -86,7 +105,12 @@ def saturated_thickness_from_head(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
 ) -> np.ndarray:
-    """Return cell saturated thickness `b(h)` clipped to the physical domain."""
+    """Return the saturated thickness ``b(h)`` in each cell.
+
+    The thickness is clipped between zero and the full aquifer thickness. This
+    ensures that later operators always work with physically admissible values
+    even if a nonlinear iterate temporarily overshoots.
+    """
     max_thickness = np.maximum(mesh.z_top_m - mesh.z_bottom_m, 0.0)
     return np.clip(np.asarray(head_m, dtype=float) - mesh.z_bottom_m, 0.0, max_thickness)
 
@@ -95,7 +119,7 @@ def transmissivity_from_head(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
 ) -> np.ndarray:
-    """Return cell transmissivity `T(h) = K b(h)`."""
+    """Return the cell transmissivity ``T(h) = K b(h)``."""
     saturated_thickness_m = saturated_thickness_from_head(mesh, head_m)
     return mesh.hydraulic_conductivity_m_s * saturated_thickness_m
 
@@ -104,7 +128,7 @@ def _harmonic_conductivity(
     conductivity_a_m_s: float,
     conductivity_b_m_s: float,
 ) -> float:
-    """Return a harmonic conductivity average robust to non-positive values."""
+    """Return the harmonic mean conductivity used on one interior edge."""
     if conductivity_a_m_s <= 0.0 or conductivity_b_m_s <= 0.0:
         return 0.0
     return 2.0 / ((1.0 / conductivity_a_m_s) + (1.0 / conductivity_b_m_s))
@@ -114,7 +138,11 @@ def _edge_to_stage_tau_from_head(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return cell-to-edge transmissive factors for imposed-head exchanges."""
+    """Return transmissive factors used for imposed-head edge exchanges.
+
+    ``tau`` is the coefficient that turns a head difference into a flux between
+    a cell center and a boundary stage located on the edge.
+    """
     head = np.asarray(head_m, dtype=float)
     saturated_thickness = saturated_thickness_from_head(mesh, head)
     tau_a = np.zeros(mesh.n_edges, dtype=float)
@@ -154,7 +182,13 @@ def internal_edge_flux_from_head(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
 ) -> np.ndarray:
-    """Return one oriented flux per edge, positive when leaving `cell_a`."""
+    """Return one oriented inter-cell flux per edge.
+
+    The sign convention is important:
+
+    - a positive value means water leaves ``cell_a``;
+    - the same magnitude enters ``cell_b``.
+    """
     head = np.asarray(head_m, dtype=float)
     saturated_thickness = saturated_thickness_from_head(mesh, head)
     internal_flux = np.zeros(mesh.n_edges, dtype=float)
@@ -165,6 +199,9 @@ def internal_edge_flux_from_head(
             continue
         conductivity_a = float(mesh.hydraulic_conductivity_m_s[cell_a])
         conductivity_b = float(mesh.hydraulic_conductivity_m_s[cell_b])
+        # The edge transmissivity uses a harmonic conductivity and an averaged
+        # saturated thickness, which is the simplest conservative closure for
+        # the current triangular cell-centered scheme.
         conductivity_edge = _harmonic_conductivity(conductivity_a, conductivity_b)
         thickness_edge = 0.5 * (
             float(saturated_thickness[cell_a]) + float(saturated_thickness[cell_b])
@@ -182,7 +219,13 @@ def imposed_head_edge_flux_from_head(
     *,
     imposed_head_m_by_edge: np.ndarray | None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return edge totals and cell residuals for imposed-head edge exchanges."""
+    """Return fluxes created by imposed-head boundary conditions.
+
+    The function returns both:
+
+    - the total oriented flux stored per edge for diagnostics;
+    - the residual contribution accumulated per cell for assembly.
+    """
     imposed_heads = _as_edge_vector(
         imposed_head_m_by_edge,
         n_edges=mesh.n_edges,
@@ -250,7 +293,12 @@ def drainage_outflow_from_head(
     *,
     drainage_conductance_m2_s: np.ndarray | float | None,
 ) -> np.ndarray:
-    """Return one drainage outflow per cell, positive when leaving the aquifer."""
+    """Return one drainage outflow per cell.
+
+    Drainage is modeled as a top leakage activated only when the head rises
+    above the cell top elevation. Positive values therefore always mean water
+    leaves the aquifer toward the surface.
+    """
     if drainage_conductance_m2_s is None:
         return np.zeros(mesh.n_cells, dtype=float)
     conductance = _as_cell_vector(
@@ -272,7 +320,12 @@ def saturation_excess_rate_from_balance(
     surface_input_rate_m_s: np.ndarray | float | None,
     regularization_radius: float,
 ) -> np.ndarray:
-    """Return the regularized saturation-excess rate for each cell."""
+    """Return the regularized saturation-excess rate for each cell.
+
+    This term is a pragmatic regularization for near-surface overflow. Instead
+    of creating a sharp on/off switch exactly at saturation, the release is
+    smoothly ramped as the cell approaches full saturation.
+    """
     if float(regularization_radius) <= 0.0:
         raise ValueError("regularization_radius must be strictly positive.")
 
@@ -289,6 +342,9 @@ def saturation_excess_rate_from_balance(
         n_cells=mesh.n_cells,
         label="surface_input_rate_m_s",
     )
+    # A positive balance rate means the lateral system plus the surface input
+    # would continue to raise the water table, so saturation excess may need to
+    # release part of that water back to the surface.
     balance_rate = (
         -np.asarray(lateral_flux_residual_m3_s, dtype=float) / mesh.cell_area_m2
     ) + np.maximum(surface_input, 0.0)
@@ -311,7 +367,12 @@ def assemble_transient_residual(
     drainage_conductance_m2_s: np.ndarray | float | None = None,
     regularization_radius: float = 0.05,
 ) -> BoussinesqAssembly:
-    """Assemble the V1 transient residual with the currently supported operators."""
+    """Assemble the transient residual for one candidate head field.
+
+    The transient residual is the steady residual plus the backward-Euler
+    storage term. A converged transient step is obtained when every cell
+    residual is close to zero.
+    """
     if float(dt_seconds) <= 0.0:
         raise ValueError("dt_seconds must be strictly positive.")
 
@@ -331,6 +392,10 @@ def assemble_transient_residual(
         * (spatial_terms.head_m - head_prev)
         / float(dt_seconds)
     )
+    # Sign convention:
+    # - positive flux residual terms remove water from the cell,
+    # - recharge and positive well injection add water and are therefore
+    #   subtracted from the residual.
     residual = (
         temporal_term
         + spatial_terms.internal_flux_residual_m3_s
@@ -364,7 +429,7 @@ def assemble_steady_residual(
     drainage_conductance_m2_s: np.ndarray | float | None = None,
     regularization_radius: float = 0.05,
 ) -> BoussinesqAssembly:
-    """Assemble the V1 steady residual with the currently supported operators."""
+    """Assemble the steady residual for one candidate head field."""
     spatial_terms = _assemble_spatial_terms(
         mesh,
         head_m=np.asarray(head_m, dtype=float),
@@ -406,7 +471,11 @@ def _assemble_spatial_terms(
     drainage_conductance_m2_s: np.ndarray | float | None,
     regularization_radius: float,
 ) -> _BoussinesqSpatialTerms:
-    """Return one shared spatial/operator balance state for a candidate head."""
+    """Return the spatial/operator contributions for a candidate head field.
+
+    This helper keeps the steady and transient assemblies in sync by computing
+    all non-storage terms in one place.
+    """
     head = np.asarray(head_m, dtype=float)
     saturated_thickness = saturated_thickness_from_head(mesh, head)
     transmissivity = mesh.hydraulic_conductivity_m_s * saturated_thickness
@@ -427,6 +496,9 @@ def _assemble_spatial_terms(
         n_cells=mesh.n_cells,
         label="well_flux_m3_s",
     )
+    # Saturation excess is evaluated after lateral and imposed-head exchanges,
+    # because it is meant to regularize whatever water would still overfill the
+    # near-surface storage after those exchanges have taken place.
     saturation_excess_rate = saturation_excess_rate_from_balance(
         mesh,
         head,

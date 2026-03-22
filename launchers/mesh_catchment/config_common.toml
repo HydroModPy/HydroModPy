@@ -18,7 +18,7 @@ base_config = "../../examples/projects/launcher_simulation/project.toml"
 
 [workspace]
 # Keep generated mesh-catchment workspaces outside the git repository.
-project_root = "C:/results/HydromodPy/mesh_catchment_nancon"
+project_root = "~/HydroModPy/mesh_catchment_nancon"
 
 [geographic]
 catch_def = "from_outlet_coord"
@@ -54,8 +54,21 @@ output_layout = "flat"
 # The launcher keeps the delineated watershed boundary as one internal
 # constraint by default when the support domain is larger than the catchment.
 # It also smooths that outline automatically at the smallest target mesh scale
-# (here driven by `zone_meshing.min_size = 340 m`).
+# (here driven by `zone_meshing.min_size = 340 m`) and lets the interface
+# refinement field act along that smoothed boundary so the effect is visible in
+# the exported mesh.
 # Declare `[mesh_catchment.watershed_boundary] enabled = false` to disable it.
+
+[mesh_catchment.watershed_boundary]
+enabled = true
+participates_in_refinement = true
+
+[mesh_catchment.watershed_boundary.smoothing]
+# Make the boundary smoothing explicit in the shared launcher configs so the
+# final outline stays less angular on the exported meshes.
+enabled = true
+simplify_tolerance = 340.0
+heal_tolerance = 170.0
 
 [mesh_catchment.geology.source]
 # Use the France-wide geology source, then clip/rasterize locally on the

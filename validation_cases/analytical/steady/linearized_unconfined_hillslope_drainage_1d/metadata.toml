@@ -1,0 +1,34 @@
+case_id = "lu_hillslope_drainage_1d"
+category = "analytical"
+regime = "steady"
+dimension = "1d"
+launcher = "launcher_simulation"
+config_file = "config_modflownwt.toml"
+default_solver = "modflownwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflownwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_shape = [5, 50]
+
+[reference]
+xmin = 0.0
+xmax = 100.0
+length_y_m = 10.0
+west_head_m = 7.25
+east_head_m = 5.25
+topography_base_elevation_m = 5.0
+topography_right_to_left_amplitude_m = 2.0
+drainage_conductance_m2_per_s = 1e-5
+hydraulic_conductivity_m_per_s = 1e-4
+reference_saturated_thickness_m = 30.0
+aquifer_thickness_m = 30.0
+profile_axis = 0

@@ -52,7 +52,7 @@ Section: `[catchment_identification_scan]`
 - `launcher_script`: chemin du script de lancement (trace explicite du run)
 - `dem_path`: chemin vers le MNT
 - `region_polygon_path` (optionnel): limite de la zone d'etude
-- `output_dir`: dossier de sortie, de preference sous `C:/results/HydromodPy/catchment_identification_scan`
+- `output_dir`: dossier de sortie, de preference sous `~/HydroModPy/catchment_identification_scan`
 - `accumulation_area_km2`: seuil de surface d'accumulation (ex: `100.0`)
 - Sur le jeu de donnees par defaut fourni ici, une valeur de `5.0` km2 fonctionne.
 - `outlet_selection_mode`: `"border"` ou `"scan_global"`
@@ -73,8 +73,8 @@ Section: `[catchment_identification_scan]`
 
 Comportement par defaut:
 
-- si `output_dir` est omis, les resultats partent maintenant vers `C:/results/HydromodPy/catchment_identification_scan/<nom_config>`
-- si un ancien TOML utilise encore un chemin relatif du type `./outputs/...`, ce chemin est automatiquement redirige vers `C:/results/HydromodPy/catchment_identification_scan/...`
+- si `output_dir` est omis, les resultats partent maintenant vers `~/HydroModPy/catchment_identification_scan/<nom_config>`
+- si un ancien TOML utilise encore un chemin relatif du type `./outputs/...`, ce chemin est automatiquement redirige vers `~/HydroModPy/catchment_identification_scan/...`
 
 ## Lancement
 

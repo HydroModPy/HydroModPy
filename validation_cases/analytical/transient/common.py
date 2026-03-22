@@ -97,6 +97,7 @@ def load_transient_profile_outputs(
 ) -> tuple[dict, dict, str, np.ndarray, np.ndarray, float]:
     """Load one transient `watertable_elevation` dictionary and validate its shape."""
     case_metadata = load_case_metadata(case_dir) if metadata is None else metadata
+    solver_name = str(getattr(result, "solver_name", "")).strip().lower() or solver
     case_tolerances = (
         load_case_tolerances(case_dir, solver=solver) if tolerances is None else tolerances
     )
@@ -106,13 +107,26 @@ def load_transient_profile_outputs(
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
     period_indices, heads = load_npy_time_series_arrays(result.postprocess_dir, observable_name)
 
-    expected_periods = int(output_cfg.get("expected_periods", 0))
+    expected_periods_by_solver = output_cfg.get("expected_periods_by_solver", {})
+    expected_periods = 0
+    if isinstance(expected_periods_by_solver, dict) and solver_name in expected_periods_by_solver:
+        expected_periods = int(expected_periods_by_solver[solver_name])
+    else:
+        expected_periods = int(output_cfg.get("expected_periods", 0))
     if expected_periods > 0:
         assert heads.shape[0] == expected_periods, (
             f"Unexpected number of periods for {observable_name}: {heads.shape[0]} != {expected_periods}"
         )
 
-    expected_spatial_shape = tuple(output_cfg.get("expected_spatial_shape", ()))
+    expected_spatial_shape_by_solver = output_cfg.get("expected_spatial_shape_by_solver", {})
+    expected_spatial_shape = ()
+    if (
+        isinstance(expected_spatial_shape_by_solver, dict)
+        and solver_name in expected_spatial_shape_by_solver
+    ):
+        expected_spatial_shape = tuple(expected_spatial_shape_by_solver[solver_name])
+    else:
+        expected_spatial_shape = tuple(output_cfg.get("expected_spatial_shape", ()))
     if expected_spatial_shape:
         assert tuple(heads.shape[1:]) == expected_spatial_shape, (
             f"Unexpected spatial shape for {observable_name}: "

@@ -1,4 +1,15 @@
-"""Solver-owned mesh view for the gmsh catchment bundle contract."""
+"""Solver-owned mesh view for the gmsh catchment bundle contract.
+
+The gmsh bundle reader exposes a rich, generic description of the catchment
+mesh. The Boussinesq solver only needs a compact subset of that information:
+
+- cell geometry and material properties,
+- edge connectivity and metric terms,
+- a few helper methods to locate wells and identify boundary supports.
+
+This module performs that narrowing once, up front, so the assembly and runtime
+code can work with contiguous NumPy arrays only.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +24,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
 
 
 def _normalize_geom_type(raw_value: object) -> str:
+    """Map bundle geometry aliases to the canonical token used by the solver."""
     token = str(raw_value).strip().lower()
     if token in {"triangle", "tri", "tri3"}:
         return "triangle"
@@ -46,7 +58,12 @@ def _point_in_triangle(
 
 @dataclass(frozen=True)
 class BoussinesqMesh:
-    """Compact in-memory mesh view used by the Boussinesq backend."""
+    """Compact in-memory mesh view used by the Boussinesq backend.
+
+    Every array is solver-oriented: ids are normalized to positional indices
+    whenever useful, distances are precomputed and the geometry is kept
+    immutable through the frozen dataclass contract.
+    """
 
     bundle_dir: Path
     cell_ids: np.ndarray
@@ -119,7 +136,12 @@ class BoussinesqMesh:
         *,
         tolerance_m: float | None = None,
     ) -> np.ndarray:
-        """Return boundary-edge indices that lie on one cardinal side."""
+        """Return boundary edges that geometrically belong to one outer side.
+
+        The side is inferred from edge midpoints and the mesh bounding box,
+        which is sufficient for the rectangular strip-like domains used by the
+        current Boussinesq validation cases.
+        """
         boundary_mask = np.asarray(self.boundary_edge_mask, dtype=bool)
         if tolerance_m is None:
             span_x = max(self.x_max_m - self.x_min_m, 0.0)
@@ -165,7 +187,13 @@ class BoussinesqMesh:
         *,
         allow_nearest: bool = True,
     ) -> int:
-        """Return the cell index that contains one XY point."""
+        """Return the cell index that contains one XY point.
+
+        The method first performs an exact point-in-triangle search. If the
+        point lies outside the mesh and ``allow_nearest`` is true, it falls back
+        to the nearest cell centroid. That fallback is convenient for wells and
+        observation points defined in approximate coordinates.
+        """
         point_x_m = float(x_m)
         point_y_m = float(y_m)
         for cell_index, node_ids in enumerate(self.cell_node_ids):
@@ -187,7 +215,7 @@ class BoussinesqMesh:
         return int(np.argmin((dx * dx) + (dy * dy)))
 
     def river_edge_indices(self) -> np.ndarray:
-        """Return all edge indices tagged as river support in the gmsh bundle."""
+        """Return all edges tagged as river support in the gmsh bundle."""
         return np.flatnonzero(np.asarray(self.edge_is_river, dtype=bool)).astype(
             int,
             copy=False,
@@ -195,7 +223,13 @@ class BoussinesqMesh:
 
     @classmethod
     def from_bundle(cls, bundle: CatchmentMeshBundle) -> "BoussinesqMesh":
-        """Build the solver mesh view from one gmsh catchment bundle."""
+        """Build the solver mesh view from one gmsh catchment bundle.
+
+        This constructor is the main translation layer between the generic gmsh
+        exchange object and the compact arrays used by the solver. It also
+        performs early validation so runtime code can assume the mesh is
+        physically coherent.
+        """
         if bundle.n_cells == 0:
             raise ValueError("CatchmentMeshBundle must contain at least one cell.")
         if bundle.n_nodes == 0:
@@ -252,6 +286,8 @@ class BoussinesqMesh:
                         f"Unknown node_id={int(node_id)} referenced by cell_id={cell_id}."
                     )
 
+            # Cell arrays are stored exactly once here so the rest of the
+            # solver can use fast positional indexing only.
             cell_ids.append(cell_id)
             cell_node_ids.append(tuple(int(node_id) for node_id in bundle_cell.node_indices))
             cell_centroid_x.append(float(bundle_cell.centroid_x))
@@ -317,6 +353,9 @@ class BoussinesqMesh:
             distance_a_mid = float(np.hypot(dx_a_mid, dy_a_mid))
             distance_b_mid = np.nan
             if cell_b_index >= 0:
+                # Interior edges use centroid-to-centroid spacing in the flux
+                # denominator. Boundary edges only have one owner cell and keep
+                # the owner-centroid to edge-midpoint distance instead.
                 dx = cell_centroid_x_array[cell_b_index] - cell_centroid_x_array[cell_a_index]
                 dy = cell_centroid_y_array[cell_b_index] - cell_centroid_y_array[cell_a_index]
                 dx_b_mid = midpoint_x - cell_centroid_x_array[cell_b_index]
@@ -340,6 +379,8 @@ class BoussinesqMesh:
             edge_kind.append(str(bundle_edge.edge_kind))
             edge_is_river.append(bool(bundle_edge.is_river))
 
+        # After this point the mesh is fully normalized into dense arrays and
+        # no longer depends on the heavier bundle objects.
         return cls(
             bundle_dir=Path(bundle.bundle_dir),
             cell_ids=cell_ids_array,

@@ -29,6 +29,7 @@ dependencies:
   - rasterio
   - rioxarray
   - scikit-learn
+  - scipy
   - selenium
   - sqlalchemy>=2.0
   - spyder-kernels

@@ -20,6 +20,7 @@ from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
 )
+from validation_cases.shared.loaders import merge_case_flow_section
 
 
 CASE_ID = "boussinesq_fixed_head_piecewise_k_1d"
@@ -40,8 +41,18 @@ def _write_csv(path: Path, header: str, rows: list[str]) -> None:
     path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
 
 
-def _build_flow_config(flow_section: dict[str, object]) -> FlowConfig:
-    return FlowConfig.from_toml_section(flow_section, base_dir=Path("."))
+def _build_flow_config(
+    flow_section: dict[str, object],
+    *,
+    case_dir: Path | None = None,
+) -> FlowConfig:
+    base_dir = Path(".") if case_dir is None else Path(case_dir)
+    merged_flow = (
+        dict(flow_section)
+        if case_dir is None
+        else merge_case_flow_section(Path(case_dir), flow_section)
+    )
+    return FlowConfig.from_toml_section(merged_flow, base_dir=base_dir)
 
 
 def _zone_index_for_x(x_m: float) -> int:
@@ -283,7 +294,8 @@ def run_boussinesq_fixed_head_piecewise_k_case(
                                 "east_side": {"value": EAST_HEAD_M},
                             }
                         },
-                    }
+                    },
+                    case_dir=Path(__file__).resolve().parent,
                 )
             ),
             domain=None,

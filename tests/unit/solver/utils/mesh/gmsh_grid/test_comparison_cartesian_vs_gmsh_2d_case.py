@@ -182,7 +182,7 @@ def test_comparison_case_ensures_interactive_backend_before_show_build(
         },
     )
     monkeypatch.setattr(
-        compare_2d_module, "_build_reference_case_figure", lambda **kwargs: Figure()
+        compare_2d_module, "build_reference_case_figure", lambda **kwargs: Figure()
     )
 
     def _stub_build_comparison_figure(*, output_path, **kwargs):

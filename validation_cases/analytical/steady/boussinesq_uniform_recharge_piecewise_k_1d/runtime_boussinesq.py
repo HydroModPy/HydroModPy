@@ -68,7 +68,8 @@ def run_boussinesq_uniform_recharge_piecewise_k_case(
                                 "east_side": {"value": EAST_HEAD_M},
                             }
                         },
-                    }
+                    },
+                    case_dir=Path(__file__).resolve().parent,
                 )
             ),
             domain=None,

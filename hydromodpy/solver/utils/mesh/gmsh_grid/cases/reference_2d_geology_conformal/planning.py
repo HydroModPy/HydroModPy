@@ -45,6 +45,8 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning impo
     clean_domain_geometry,
 )
 
+_ZONE_PRIORITY_COLUMN = "_zone_priority"
+
 
 def _resolve_river_trace_for_meshing(
     *,
@@ -176,6 +178,7 @@ def _build_domain_zone_dataframe(
     if domain_gdf.empty:
         raise ValueError("domain geometry produced no usable polygon for meshing")
     domain_gdf["zone_key"] = "domain"
+    domain_gdf[_ZONE_PRIORITY_COLUMN] = 0.0
     source_path = domain_payload.summary.get("domain_source_path")
     source_payload = ZoneConformalSourcePayload(
         field_id="domain_zones",
@@ -184,6 +187,24 @@ def _build_domain_zone_dataframe(
         n_source_features_before_domain_clip=int(len(domain_gdf)),
     )
     return source_payload, domain_gdf
+
+
+def _ensure_internal_zone_priorities(zone_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    prioritized = zone_gdf.copy()
+    if _ZONE_PRIORITY_COLUMN not in prioritized.columns:
+        prioritized[_ZONE_PRIORITY_COLUMN] = 0.0
+    else:
+        prioritized[_ZONE_PRIORITY_COLUMN] = (
+            pd.to_numeric(prioritized[_ZONE_PRIORITY_COLUMN], errors="coerce")
+            .fillna(0.0)
+            .astype(float)
+        )
+    background_mask = prioritized["zone_key"].astype(str) == "domain_background"
+    prioritized.loc[background_mask, _ZONE_PRIORITY_COLUMN] = -1.0
+    prioritized.loc[~background_mask, _ZONE_PRIORITY_COLUMN] = prioritized.loc[
+        ~background_mask, _ZONE_PRIORITY_COLUMN
+    ].clip(lower=0.0)
+    return prioritized
 
 
 def _load_clipped_geology_dataframe(
@@ -239,7 +260,10 @@ def _append_background_zone_outside_scope(
     if not outside_parts:
         return zone_gdf
     background_gdf = gpd.GeoDataFrame(
-        {"zone_key": ["domain_background"] * len(outside_parts)},
+        {
+            "zone_key": ["domain_background"] * len(outside_parts),
+            _ZONE_PRIORITY_COLUMN: [-1.0] * len(outside_parts),
+        },
         geometry=outside_parts,
         crs=zone_gdf.crs,
     )
@@ -258,6 +282,7 @@ def _build_zone_source_inputs(
     gpd.GeoDataFrame,
     ZoneConformalGeometryPayload,
     ZoneConformalGeometryPayload,
+    gpd.GeoDataFrame,
 ]:
     support_domain_payload = _load_domain_payload(
         domain_cfg=cfg.domain,
@@ -290,6 +315,7 @@ def _build_zone_source_inputs(
             config_path=config_path,
             domain_geographic=domain_geographic,
             target_crs=raw_zone_gdf.crs,
+            watershed_boundary_cfg=cfg.watershed_boundary,
         )
         zone_gdf = gpd.clip(raw_zone_gdf, interface_scope_payload.gdf)
         zone_gdf = zone_gdf[_valid_geometry_mask(zone_gdf.geometry)].copy()
@@ -297,6 +323,7 @@ def _build_zone_source_inputs(
             raise ValueError(
                 "The selected interface scope does not intersect the geology source"
             )
+        zone_gdf = _ensure_internal_zone_priorities(zone_gdf)
         if not bool(
             interface_scope_payload.geometry.equals(support_domain_payload.geometry)
         ):
@@ -305,7 +332,13 @@ def _build_zone_source_inputs(
                 support_domain_payload=support_domain_payload,
                 interface_scope_payload=interface_scope_payload,
             )
-        return source_payload, zone_gdf, support_domain_payload, interface_scope_payload
+        return (
+            source_payload,
+            zone_gdf,
+            support_domain_payload,
+            interface_scope_payload,
+            raw_zone_gdf,
+        )
 
     interface_scope_payload = _resolve_scope_payload(
         scope_cfg=cfg.interface_scope,
@@ -313,11 +346,19 @@ def _build_zone_source_inputs(
         config_path=config_path,
         domain_geographic=domain_geographic,
         target_crs=None,
+        watershed_boundary_cfg=cfg.watershed_boundary,
     )
     source_payload, zone_gdf = _build_domain_zone_dataframe(
         domain_payload=support_domain_payload,
     )
-    return source_payload, zone_gdf, support_domain_payload, interface_scope_payload
+    zone_gdf = _ensure_internal_zone_priorities(zone_gdf)
+    return (
+        source_payload,
+        zone_gdf,
+        support_domain_payload,
+        interface_scope_payload,
+        zone_gdf,
+    )
 
 
 def _build_river_constraint_inputs(
@@ -495,7 +536,7 @@ def _build_zone_conformal_meshing_inputs(
     usage = _resolve_constraint_usage(cfg.constraints_mode)
     interface_scope_cfg = cfg.interface_scope
     refinement_scope_cfg = cfg.refinement_scope
-    source_payload, zone_gdf, domain_payload, interface_scope_payload = (
+    source_payload, zone_gdf, domain_payload, interface_scope_payload, source_domain_gdf = (
         _build_zone_source_inputs(
             usage=usage,
             cfg=cfg,
@@ -509,6 +550,7 @@ def _build_zone_conformal_meshing_inputs(
         config_path=config_path,
         domain_geographic=domain_geographic,
         target_crs=zone_gdf.crs,
+        watershed_boundary_cfg=cfg.watershed_boundary,
     )
     rivers_cfg, watershed_boundary_cfg, resolved_river_trace, linear_constraints = (
         _build_linear_constraint_inputs(
@@ -525,6 +567,7 @@ def _build_zone_conformal_meshing_inputs(
     return ZoneConformalMeshingInputs(
         usage=usage,
         source_payload=source_payload,
+        source_domain_gdf=source_domain_gdf,
         zone_gdf=zone_gdf,
         domain_payload=domain_payload,
         interface_scope_payload=interface_scope_payload,
@@ -581,6 +624,7 @@ __all__ = [
     "_build_zone_source_inputs",
     "_clip_line_constraint_to_domain",
     "_clip_river_trace_to_domain",
+    "_ensure_internal_zone_priorities",
     "_filter_line_constraint_by_min_segment_length",
     "_filter_river_trace_by_min_segment_length",
     "_iter_line_geometries",

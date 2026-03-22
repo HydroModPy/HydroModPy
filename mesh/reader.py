@@ -1,4 +1,4 @@
-"""Read self-contained catchment mesh exchange bundles.
+"""Read one self-contained catchment mesh bundle from disk.
 
 This reader is intentionally lightweight so the standalone ``mesh`` package can
 reload standard bundles without requiring a per-bundle ``reader.py`` helper.
@@ -9,9 +9,15 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from mesh.bundle_contracts import (
+    CatchmentMeshBundle,
+    CatchmentMeshBundleCell,
+    CatchmentMeshBundleEdge,
+    CatchmentMeshBundleGeologyFraction,
+    CatchmentMeshBundleNode,
+)
 
 
 def _parse_optional_float(raw_value: str) -> float | None:
@@ -30,82 +36,6 @@ def _parse_optional_int(raw_value: str) -> int | None:
 
 def _parse_bool(raw_value: str) -> bool:
     return str(raw_value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-@dataclass(frozen=True)
-class CatchmentMeshBundleNode:
-    node_id: int
-    x: float
-    y: float
-    z_top: float | None
-    z_bottom: float | None
-
-
-@dataclass(frozen=True)
-class CatchmentMeshBundleCell:
-    cell_id: int
-    geom_type: str
-    node_indices: tuple[int, ...]
-    centroid_x: float
-    centroid_y: float
-    area_m2: float
-    z_top_centroid: float | None
-    z_top_mean: float | None
-    z_bottom_centroid: float | None
-    z_bottom_mean: float | None
-    geology_code: int | None
-    geology_key: str
-    hydraulic_conductivity_m_s: float | None
-    storage_coefficient: float | None
-
-
-@dataclass(frozen=True)
-class CatchmentMeshBundleEdge:
-    edge_id: int
-    node_a: int
-    node_b: int
-    cell_a: int
-    cell_b: int | None
-    length_m: float
-    edge_kind: str
-    is_river: bool
-    geology_a_key: str
-    geology_b_key: str
-
-
-@dataclass(frozen=True)
-class CatchmentMeshBundleGeologyFraction:
-    cell_id: int
-    geology_key: str
-    fraction: float
-
-
-@dataclass(frozen=True)
-class CatchmentMeshBundle:
-    bundle_dir: Path
-    metadata: dict[str, Any]
-    nodes: tuple[CatchmentMeshBundleNode, ...]
-    cells: tuple[CatchmentMeshBundleCell, ...]
-    edges: tuple[CatchmentMeshBundleEdge, ...]
-    geology_fractions: tuple[CatchmentMeshBundleGeologyFraction, ...]
-    mesh_summary: dict[str, Any] | None = None
-
-    @property
-    def n_nodes(self) -> int:
-        return int(len(self.nodes))
-
-    @property
-    def n_cells(self) -> int:
-        return int(len(self.cells))
-
-    @property
-    def n_edges(self) -> int:
-        return int(len(self.edges))
-
-    @property
-    def mesh_path(self) -> Path:
-        filename = str(self.metadata.get("files", {}).get("mesh", "mesh_2d.msh"))
-        return (self.bundle_dir / filename).resolve()
 
 
 def _load_csv_rows(path: Path) -> tuple[dict[str, str], ...]:
@@ -219,7 +149,18 @@ def _load_geology_fractions(path: Path) -> tuple[CatchmentMeshBundleGeologyFract
 
 
 def load_catchment_mesh_bundle(bundle_dir: str | Path) -> CatchmentMeshBundle:
-    """Load one previously exported catchment mesh bundle."""
+    """Load one previously exported catchment mesh bundle.
+
+    Expected on disk:
+
+    - ``metadata.json`` is required
+    - ``nodes.csv``, ``cells.csv``, and ``edges.csv`` are optional but supported
+    - ``cell_geology_fractions.csv`` is optional
+
+    The returned object is the concrete bundle dataclass used by the standalone
+    visualization package. Plotting code typically depends on the lighter
+    ``MeshBundleLike`` protocol instead.
+    """
     bundle_path = Path(bundle_dir).resolve()
     metadata = _load_required_json(bundle_path / "metadata.json", label="Bundle metadata")
     mesh_summary = _load_optional_json(bundle_path / "mesh_summary.json")

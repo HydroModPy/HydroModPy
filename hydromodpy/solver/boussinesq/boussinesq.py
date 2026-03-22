@@ -1,4 +1,19 @@
-"""Local Boussinesq solver skeleton used by the new flow backend."""
+"""High-level driver for the standalone Boussinesq flow backend.
+
+This module does not assemble the nonlinear equations itself. Instead it:
+
+- converts launcher and ``Flow`` objects into cell-wise NumPy arrays,
+- delegates each nonlinear solve to a runtime backend,
+- stores the accepted state in the shape expected by the rest of HydroModPy.
+
+The easiest way to read the package is:
+
+1. ``mesh.py`` for geometry and properties,
+2. ``assembly.py`` for the residual,
+3. ``local_runtime.py``, ``scipy_runtime.py`` or ``scipy_sparse_runtime.py``
+   for the nonlinear solve,
+4. this module for orchestration.
+"""
 
 from __future__ import annotations
 
@@ -17,11 +32,16 @@ from hydromodpy.solver.boussinesq.assembly import (
     internal_edge_flux_from_head,
     saturated_thickness_from_head,
 )
-from hydromodpy.solver.boussinesq.local_runtime import (
-    solve_backward_euler_step,
-    solve_steady_state,
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    NonlinearRuntimeOptions,
+    SteadySolveInputs,
+    TransientStepInputs,
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.runtime_selection import (
+    BoussinesqRuntimeBackend,
+    resolve_runtime_backend,
+)
 from hydromodpy.solver.prototype.solver import Solver
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
@@ -38,7 +58,11 @@ _DEFAULT_SATURATION_EXCESS_REGULARIZATION = 0.05
 
 @dataclass
 class BoussinesqState:
-    """Primary flow state carried by the Boussinesq runtime."""
+    """Normalized flow state carried by the Boussinesq runtime.
+
+    The state stores both the current solution and, when available, the short
+    histories needed by validation and post-processing helpers.
+    """
 
     head_m: np.ndarray
     saturated_thickness_m: np.ndarray
@@ -57,7 +81,12 @@ class BoussinesqState:
 
 
 class Boussinesq(Solver):
-    """First implementation slice of the standalone Boussinesq backend."""
+    """Boussinesq solver driver compatible with the HydroModPy solver contract.
+
+    The class acts as a translator between high-level HydroModPy objects
+    (`flow`, `time_grid`, `domain`, gmsh bundle) and the low-level residual
+    assembly / nonlinear runtime APIs used inside this package.
+    """
 
     def __init__(
         self,
@@ -86,7 +115,7 @@ class Boussinesq(Solver):
         )
 
     def pre_processing(self):
-        """Build the solver-owned mesh view from the gmsh exchange bundle."""
+        """Build the compact solver mesh and initialize static run metadata."""
         self.full_path.mkdir(parents=True, exist_ok=True)
         self.mesh = BoussinesqMesh.from_bundle(self.mesh_bundle)
         self.runtime_summary = {
@@ -101,7 +130,13 @@ class Boussinesq(Solver):
         self.solve_stage = "pre_processed"
 
     def processing(self, write_model: bool = True, run_model: bool = False, **kwargs):
-        """Initialize the state and optionally advance it on the launcher time grid."""
+        """Initialize the state and optionally run the steady or transient solve.
+
+        In contrast with file-based MODFLOW launchers, ``write_model`` is mostly
+        irrelevant here because the Boussinesq backend runs in-process. The
+        method still keeps the legacy signature so the wider launcher layer can
+        treat it like any other solver.
+        """
         _ = write_model
         _ = kwargs
         if self.mesh is None:
@@ -116,20 +151,27 @@ class Boussinesq(Solver):
 
         self._assert_supported_runtime_subset()
         if str(getattr(self.flow, "flow_regime", "transient")).strip().lower() == "steady":
-            success = self._run_local_steady_runtime()
+            success = self._run_steady_runtime()
             self.has_numerical_solution = bool(success)
             self.solve_stage = "solved" if success else "failed"
             return bool(success)
         if self.time_grid is None:
             return True
 
-        success = self._run_local_transient_runtime()
+        success = self._run_transient_runtime()
         self.has_numerical_solution = bool(success)
         self.solve_stage = "solved" if success else "failed"
         return bool(success)
 
     def post_processing(self, *args, **kwargs):
-        """Write lightweight runtime diagnostics for the local backend."""
+        """Persist lightweight diagnostics and state histories for inspection.
+
+        The exported files are intentionally simple:
+
+        - one ``npz`` history for arrays useful in validation,
+        - one JSON summary explaining what was solved and how it converged,
+        - a minimal ``_postprocess`` directory compatible with existing helpers.
+        """
         _ = args
         _ = kwargs
         if self.state is not None:
@@ -189,7 +231,11 @@ class Boussinesq(Solver):
         self.solve_stage = "post_processed"
 
     def _write_standard_postprocess_outputs(self) -> None:
-        """Export the canonical `_postprocess` arrays expected by validation helpers."""
+        """Export the canonical ``_postprocess`` arrays expected by validation helpers.
+
+        This small compatibility layer lets existing plotting and validation
+        utilities consume Boussinesq results without a dedicated code path.
+        """
         if self.state is None or self.mesh is None:
             return
 
@@ -220,7 +266,12 @@ class Boussinesq(Solver):
         np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
 
     def _assert_supported_runtime_subset(self) -> None:
-        """Fail fast when the requested run exceeds the implemented slice."""
+        """Fail fast when the requested problem exceeds the implemented slice.
+
+        The current backend intentionally supports a narrow, explicit subset of
+        HydroModPy flow features. Rejecting unsupported cases early is less
+        dangerous than silently ignoring a forcing or boundary condition.
+        """
         active_bc = tuple(getattr(self.flow, "active_bc", ()) or ())
         active_sinks_sources = tuple(
             getattr(self.flow, "active_sinks_sources", ()) or ()
@@ -256,13 +307,75 @@ class Boussinesq(Solver):
                 + "."
             )
 
-    def _run_local_transient_runtime(self) -> bool:
-        """Advance the head state on the canonical launcher time grid."""
+    def _runtime_backend_name(self) -> str:
+        """Return the selected nonlinear runtime backend name."""
+        return str(getattr(self.flow, "runtime_backend", "local") or "local").strip().lower() or "local"
+
+    def _runtime_backend(self) -> BoussinesqRuntimeBackend:
+        """Resolve the selected nonlinear runtime backend implementation."""
+        return resolve_runtime_backend(self._runtime_backend_name())
+
+    def _runtime_options(self) -> NonlinearRuntimeOptions:
+        """Build backend-neutral nonlinear options for the selected runtime."""
+        runtime_backend_name = self._runtime_backend_name()
+        max_iterations = 20
+        if runtime_backend_name == "scipy_sparse":
+            # The sparse Newton backend converges reliably on the larger 2-D
+            # validation meshes, but it can need a few extra nonlinear
+            # iterations beyond the dense prototype defaults.
+            max_iterations = 30
+        return NonlinearRuntimeOptions(
+            regularization_radius=float(
+                self.saturation_excess_regularization_radius
+            ),
+            max_iterations=int(max_iterations),
+        )
+
+    def _record_runtime_backend_summary(
+        self,
+        runtime_backend: BoussinesqRuntimeBackend,
+    ) -> None:
+        """Record which nonlinear strategy was used for this solve.
+
+        These summary fields are meant for humans first: they help explain
+        afterwards whether the run used the in-house Newton loop, SciPy root
+        finding, dense Jacobians, and which convergence policy applied.
+        """
+        options = self._runtime_options()
+        self.runtime_summary["runtime_backend"] = runtime_backend.name
+        self.runtime_summary["runtime_solver_kind"] = (
+            runtime_backend.nonlinear_solver_kind
+        )
+        self.runtime_summary["runtime_linear_system_layout"] = (
+            runtime_backend.linear_system_layout
+        )
+        self.runtime_summary["runtime_convergence_policy"] = (
+            runtime_backend.convergence_policy
+        )
+        self.runtime_summary["runtime_iteration_counter"] = (
+            runtime_backend.iteration_counter_label
+        )
+        self.runtime_summary["runtime_tol_residual_inf"] = float(
+            options.tol_residual_inf
+        )
+        self.runtime_summary["runtime_tol_state_update_inf"] = float(
+            options.tol_state_update_inf
+        )
+
+    def _run_transient_runtime(self) -> bool:
+        """Advance the head state over all launcher stress periods.
+
+        This method resolves every period-dependent forcing into numeric arrays,
+        then loops over the stress periods and asks the selected runtime backend
+        to solve one fully implicit step at a time.
+        """
         if self.mesh is None:
-            raise RuntimeError("Mesh must be built before running the local runtime.")
+            raise RuntimeError("Mesh must be built before running the runtime.")
         if self.state is None:
             raise RuntimeError("Initial state must exist before time integration.")
-        self._assert_local_runtime_mesh_size_supported()
+        runtime_backend = self._runtime_backend()
+        self._record_runtime_backend_summary(runtime_backend)
+        self._assert_runtime_mesh_size_supported(runtime_backend)
 
         period_lengths = tuple(
             float(value)
@@ -272,6 +385,8 @@ class Boussinesq(Solver):
             return True
 
         nper = len(period_lengths)
+        # Resolve all time-varying forcings once so the per-period loop only
+        # has to pass already normalized arrays to the backend.
         recharge_series_m_s = self._resolve_recharge_series(nper)
         well_flux_by_period_m3_s = self._resolve_well_flux_by_period(nper)
         ocean_series_m = self._resolve_ocean_series(nper)
@@ -315,6 +430,9 @@ class Boussinesq(Solver):
                 np.any(ocean_supported_cell_mask)
                 and float(drainage_conductance_series_m2_s[kper]) != 0.0
             ):
+                # Cells influenced by the ocean stage already have an imposed
+                # head support; top drainage is disabled there to avoid
+                # stacking two different release mechanisms on the same cells.
                 drainage_conductance = np.full(
                     self.mesh.n_cells,
                     float(drainage_conductance_series_m2_s[kper]),
@@ -323,18 +441,18 @@ class Boussinesq(Solver):
                 drainage_conductance[np.asarray(ocean_supported_cell_mask, dtype=bool)] = 0.0
             else:
                 drainage_conductance = float(drainage_conductance_series_m2_s[kper])
-            step = solve_backward_euler_step(
-                self.mesh,
-                head_prev_m=head_prev,
-                dt_seconds=float(dt_seconds),
-                head_initial_guess_m=head_prev,
-                recharge_rate_m_s=float(recharge_series_m_s[kper]),
-                well_flux_m3_s=well_flux_by_period_m3_s[kper],
-                imposed_head_m_by_edge=imposed_heads_by_period[kper],
-                drainage_conductance_m2_s=drainage_conductance,
-                regularization_radius=float(
-                    self.saturation_excess_regularization_radius
-                ),
+            step = runtime_backend.solve_transient_step(
+                TransientStepInputs(
+                    mesh=self.mesh,
+                    head_prev_m=head_prev,
+                    dt_seconds=float(dt_seconds),
+                    head_initial_guess_m=head_prev,
+                    recharge_rate_m_s=float(recharge_series_m_s[kper]),
+                    well_flux_m3_s=well_flux_by_period_m3_s[kper],
+                    imposed_head_m_by_edge=imposed_heads_by_period[kper],
+                    drainage_conductance_m2_s=drainage_conductance,
+                    options=self._runtime_options(),
+                )
             )
             nonlinear_iterations.append(int(step.iterations))
             converged_by_period.append(bool(step.converged))
@@ -361,10 +479,15 @@ class Boussinesq(Solver):
                 dtype=float,
             )
             last_residual_norm = float(step.residual_norm_inf)
+            self.runtime_summary["last_termination_reason"] = str(
+                step.termination_reason
+            )
             head_history.append(head_prev.copy())
             thickness_history.append(step.assembly.saturated_thickness_m.copy())
             saturation_excess_history.append(final_saturation_excess_rate.copy())
             if not step.converged:
+                # Keep the partial state on failure so the caller can inspect
+                # how far the solve got and what the last iterate looked like.
                 self.state = BoussinesqState(
                     head_m=head_prev.copy(),
                     saturated_thickness_m=step.assembly.saturated_thickness_m.copy(),
@@ -436,13 +559,15 @@ class Boussinesq(Solver):
         )
         return True
 
-    def _run_local_steady_runtime(self) -> bool:
-        """Solve one steady-state nonlinear balance on the local backend."""
+    def _run_steady_runtime(self) -> bool:
+        """Solve one steady nonlinear balance on the selected backend."""
         if self.mesh is None:
-            raise RuntimeError("Mesh must be built before running the local runtime.")
+            raise RuntimeError("Mesh must be built before running the runtime.")
         if self.state is None:
             raise RuntimeError("Initial state must exist before steady solve.")
-        self._assert_local_runtime_mesh_size_supported()
+        runtime_backend = self._runtime_backend()
+        self._record_runtime_backend_summary(runtime_backend)
+        self._assert_runtime_mesh_size_supported(runtime_backend)
 
         recharge_rate_m_s = float(self._resolve_recharge_series(1)[0])
         well_flux_m3_s = np.asarray(
@@ -463,6 +588,8 @@ class Boussinesq(Solver):
         )
         drainage_value = float(self._resolve_drainage_conductance_series(1)[0])
         if np.any(ocean_supported_cell_mask) and drainage_value != 0.0:
+            # Same rule as in transient mode: an ocean-supported cell should not
+            # also leak through the generic top-drainage operator.
             drainage_conductance: np.ndarray | float = np.full(
                 self.mesh.n_cells,
                 drainage_value,
@@ -472,16 +599,16 @@ class Boussinesq(Solver):
         else:
             drainage_conductance = drainage_value
 
-        steady = solve_steady_state(
-            self.mesh,
-            head_initial_guess_m=np.asarray(self.state.head_m, dtype=float),
-            recharge_rate_m_s=recharge_rate_m_s,
-            well_flux_m3_s=well_flux_m3_s,
-            imposed_head_m_by_edge=imposed_head_m_by_edge,
-            drainage_conductance_m2_s=drainage_conductance,
-            regularization_radius=float(
-                self.saturation_excess_regularization_radius
-            ),
+        steady = runtime_backend.solve_steady_problem(
+            SteadySolveInputs(
+                mesh=self.mesh,
+                head_initial_guess_m=np.asarray(self.state.head_m, dtype=float),
+                recharge_rate_m_s=recharge_rate_m_s,
+                well_flux_m3_s=well_flux_m3_s,
+                imposed_head_m_by_edge=imposed_head_m_by_edge,
+                drainage_conductance_m2_s=drainage_conductance,
+                options=self._runtime_options(),
+            )
         )
         self.state = BoussinesqState(
             head_m=np.asarray(steady.head_m, dtype=float).copy(),
@@ -526,11 +653,14 @@ class Boussinesq(Solver):
             nonlinear_iterations=(int(steady.iterations),),
             converged_by_period=(bool(steady.converged),),
         )
-        self.runtime_summary["steady_mode"] = "nonlinear_local"
+        self.runtime_summary["steady_mode"] = f"nonlinear_{runtime_backend.name}"
         self.runtime_summary["steady_residual_norm_inf"] = float(
             steady.residual_norm_inf
         )
         self.runtime_summary["steady_nonlinear_iterations"] = int(steady.iterations)
+        self.runtime_summary["steady_termination_reason"] = str(
+            steady.termination_reason
+        )
         self.runtime_summary["active_recharge"] = bool(recharge_rate_m_s != 0.0)
         self.runtime_summary["active_wells"] = bool(np.any(well_flux_m3_s != 0.0))
         self.runtime_summary["active_imposed_head_bc"] = bool(
@@ -541,7 +671,7 @@ class Boussinesq(Solver):
         return bool(steady.converged)
 
     def _build_initial_state(self) -> BoussinesqState:
-        """Create the initial head field from the Flow initial-condition contract."""
+        """Create the initial state from the ``Flow`` initial-condition contract."""
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before initializing the state.")
         head_m = self._resolve_initial_head_field()
@@ -551,21 +681,32 @@ class Boussinesq(Solver):
             saturated_thickness_m=saturated_thickness_m,
         )
 
-    def _assert_local_runtime_mesh_size_supported(self) -> None:
-        """Fail fast when the dense local Newton runtime is used on large meshes."""
+    def _assert_runtime_mesh_size_supported(
+        self,
+        runtime_backend: BoussinesqRuntimeBackend,
+    ) -> None:
+        """Fail fast when the selected runtime still relies on dense Jacobians.
+
+        The current ``local`` and ``scipy`` backends still assemble dense
+        finite-difference Jacobians. That is acceptable for validation meshes,
+        but it should be rejected on larger production meshes.
+        """
         if self.mesh is None:
-            raise RuntimeError("Mesh must be built before checking the local runtime.")
-        max_cells_local = 256
-        if self.mesh.n_cells > max_cells_local:
+            raise RuntimeError("Mesh must be built before checking runtime limits.")
+        if runtime_backend.linear_system_layout != "dense":
+            return
+        max_cells_dense = 256
+        if self.mesh.n_cells > max_cells_dense:
             raise NotImplementedError(
-                "The current local boussinesq runtime uses one dense Newton solve "
-                f"and is limited to small meshes (<= {max_cells_local} cells). "
-                "Use a reduced test mesh for now; PETSc runtime support will be "
-                "added in a later slice."
+                f"The current {runtime_backend.name} boussinesq runtime still "
+                "assembles a dense finite-difference Jacobian and is limited to "
+                f"small meshes (<= {max_cells_dense} cells). "
+                "Use a reduced test mesh for now. A future sparse Jacobian path "
+                "should lift this limitation without changing the runtime contract."
             )
 
     def _resolve_initial_head_field(self) -> np.ndarray:
-        """Resolve the canonical `Flow` head IC into one cell-centered head vector."""
+        """Resolve the canonical ``Flow`` initial condition into cell heads."""
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before resolving initial heads.")
 
@@ -637,7 +778,12 @@ class Boussinesq(Solver):
         *,
         ocean_series_m: np.ndarray | None = None,
     ) -> tuple[np.ndarray, ...]:
-        """Return one imposed-head edge vector per stress period."""
+        """Return one imposed-head edge vector per stress period.
+
+        The result is a tuple of edge-aligned arrays. Each array contains
+        ``NaN`` on edges without imposed head and a stage value on the edges
+        controlled by side, stream or ocean boundary conditions.
+        """
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before resolving imposed-head BCs.")
 
@@ -703,6 +849,8 @@ class Boussinesq(Solver):
                     label="flow.bc.stream",
                 )
         if ocean_series_m is not None and ocean_series_m.size > 0:
+            # Ocean support depends on the stage itself because only coastal
+            # cells below the stage are considered active.
             for kper, head_value in enumerate(np.asarray(ocean_series_m, dtype=float).tolist()):
                 edge_indices = self._ocean_support_edge_indices(float(head_value))
                 self._assign_imposed_head_edges(
@@ -714,7 +862,7 @@ class Boussinesq(Solver):
         return tuple(period_vectors)
 
     def _resolve_ocean_series(self, nper: int) -> np.ndarray | None:
-        """Resolve one ocean stage series when the ocean BC is active."""
+        """Resolve the ocean stage series when the ocean boundary is active."""
         if not self._is_bc_active("ocean"):
             return None
         boundary = self._boundary_conditions_mapping().get("ocean")
@@ -732,7 +880,12 @@ class Boussinesq(Solver):
         self,
         ocean_stage_m: float | np.ndarray | None,
     ) -> np.ndarray:
-        """Return boundary edges influenced by the ocean stage support mask."""
+        """Return boundary edges influenced by the current ocean stage.
+
+        The current heuristic is geometric: a boundary edge is ocean-supported
+        when it is not a river edge and the top elevation of its owner cell lies
+        below the current sea stage.
+        """
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before resolving the ocean support.")
         if ocean_stage_m is None or np.asarray(ocean_stage_m, dtype=float).size == 0:
@@ -751,7 +904,7 @@ class Boussinesq(Solver):
         self,
         ocean_stage_m: float | np.ndarray | None,
     ) -> np.ndarray:
-        """Return one per-cell mask for ocean-influenced cells."""
+        """Return one boolean mask marking ocean-influenced cells."""
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before resolving the ocean support.")
         mask = np.zeros(self.mesh.n_cells, dtype=bool)
@@ -841,7 +994,12 @@ class Boussinesq(Solver):
         well_cfg: object,
         nper: int,
     ) -> np.ndarray:
-        """Resolve one well rate to one value per period in m3/s."""
+        """Resolve one well rate to one value per period in m3/s.
+
+        Both direct scalar/sequence payloads and time-forcing objects are
+        accepted. Values are converted to canonical ``m3/s`` units here so the
+        runtime only sees one unit system.
+        """
         forcing = getattr(well_cfg, "forcing", None)
         if forcing is not None:
             from hydromodpy.process.flow.time_forcing import (
@@ -883,7 +1041,11 @@ class Boussinesq(Solver):
         head_value_m: float,
         label: str,
     ) -> None:
-        """Assign one imposed head to a set of edges with overlap checks."""
+        """Assign one imposed head to a set of edges with overlap checks.
+
+        Overlap is allowed only when the overlapping conditions prescribe the
+        same value, which keeps corner cases deterministic.
+        """
         candidate = float(head_value_m)
         for edge_index in np.asarray(edge_indices, dtype=int).tolist():
             previous = float(edge_values_m[edge_index])
@@ -906,7 +1068,7 @@ class Boussinesq(Solver):
         bc_id: str,
         nper: int,
     ) -> np.ndarray:
-        """Resolve one side-Dirichlet boundary to one head value per period."""
+        """Resolve one boundary condition to one head value per period."""
         forcing = getattr(boundary, "forcing", None)
         if forcing is not None:
             from hydromodpy.process.flow.time_forcing import (
@@ -938,7 +1100,12 @@ class Boussinesq(Solver):
         first_clim: object,
         label: str,
     ) -> np.ndarray:
-        """Resolve the canonical Flow recharge payload to one value per period."""
+        """Resolve the canonical recharge payload to one value per period.
+
+        Recharge is slightly special because the first stress period may use a
+        climate aggregate (`mean`, `first` or an explicit value) while later
+        periods map directly to the provided sequence.
+        """
         if nper <= 0:
             return np.asarray([], dtype=float)
         if payload is None:
@@ -968,6 +1135,8 @@ class Boussinesq(Solver):
                 f"{label} length ({int(sequence.size)}) must be 1 or at least nper ({int(nper)})."
             )
 
+        # Period 0 follows the historical "first_clim" convention used by the
+        # Flow contract, while later periods use the explicit sequence values.
         series = np.zeros(nper, dtype=float)
         if first_clim == "mean":
             series[0] = float(np.nanmean(sequence))
@@ -991,7 +1160,7 @@ class Boussinesq(Solver):
         nper: int,
         label: str,
     ) -> np.ndarray:
-        """Resolve one scalar or explicit period sequence to length `nper`."""
+        """Resolve one scalar or explicit period sequence to length ``nper``."""
         if nper <= 0:
             return np.asarray([], dtype=float)
         if payload is None:
@@ -1030,26 +1199,31 @@ class Boussinesq(Solver):
 
     @staticmethod
     def _is_scalar_number(value: object) -> bool:
+        """Return true for numeric scalars while excluding booleans."""
         return isinstance(value, Real) and not isinstance(value, bool)
 
     def _recharge_config(self) -> object | None:
+        """Return the recharge config object when the flow contract provides one."""
         sinks_sources = getattr(self.flow, "sinks_sources", {})
         if not isinstance(sinks_sources, Mapping):
             return None
         return sinks_sources.get("recharge")
 
     def _boundary_conditions_mapping(self) -> Mapping[str, object]:
+        """Return the boundary-condition mapping from the flow contract."""
         boundary_conditions = getattr(self.flow, "boundary_conditions", {})
         if not isinstance(boundary_conditions, Mapping):
             raise TypeError("flow.boundary_conditions must be a mapping")
         return boundary_conditions
 
     def _is_bc_active(self, bc_id: str) -> bool:
+        """Return whether one boundary id is active in the current flow setup."""
         active = getattr(self.flow, "active_bc", ())
         return bc_id in active
 
     @staticmethod
     def _as_export_array(values: np.ndarray | None) -> np.ndarray:
+        """Normalize optional arrays before writing them to disk."""
         if values is None:
             return np.asarray([], dtype=float)
         return np.asarray(values, dtype=float)

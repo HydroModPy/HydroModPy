@@ -66,10 +66,19 @@ def test_attach_extruded_values_supports_layer_and_profile_queries():
     assert np.allclose(profile["values"], np.array([20.0, 16.0], dtype=float))
     assert np.allclose(profile["depths"], np.array([2.5, 10.0], dtype=float))
 
+    profile_contract = attached.build_vertical_profile(1)
+    assert profile_contract.source_cell_index == 1
+    assert profile_contract.layer_indices == (0, 1)
+    assert profile_contract.depths == (2.5, 10.0)
+
     summary = attached.to_summary_dict()
     assert summary["shape_3d"] == [2, 2]
     assert summary["values_signature_head"][:4] == [10.0, 20.0, 8.0, 16.0]
     assert summary["metadata"]["field_param_id"] == "K"
+
+    summary_contract = attached.build_summary_contract()
+    assert summary_contract.shape_3d == (2, 2)
+    assert summary_contract.n_cells_3d == 4
 
 
 def test_extruded_mesh_values_reject_invalid_shape():

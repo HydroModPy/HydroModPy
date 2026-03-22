@@ -34,19 +34,19 @@ Supported domain modes are restricted to:
 - `bbox`
 - `polygon`
 - `vector` (`path`, `id_field`, `selected_id`)
+- `geographic_box_buffer`
+- `geographic_watershed`
+- `geographic_watershed_box`
 
 No advanced mask/boolean domain contract is supported in this case.
 
-## Migration note (`clip_bbox` removed)
+When reading the code, the relevant public domain helpers are now:
 
-`domain.clip_bbox` is no longer supported in this case workflow.
+- `parse_zone_meshing_domain_config(...)`
+- `load_zone_meshing_domain_payload(...)` once one typed
+  `ZoneMeshingDomainConfig` has been built
 
-Required contract:
-
-- `domain.kind = "bbox"`
-- `domain.bbox = [xmin, ymin, xmax, ymax]`
-
-Example migration:
+For an inline rectangular support, the expected contract is:
 
 ```toml
 [mesh_case.domain]
