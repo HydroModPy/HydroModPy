@@ -9,15 +9,12 @@ from typing import Any
 
 import geopandas as gpd
 
-from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
-    _resolve_constraint_usage,
-)
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
+    ZoneConformalConstraintFamilies,
     ZoneConformalGeometryPayload,
     ZoneConformalMeshingInputs,
     ZoneConformalRiversConfig,
     ZoneConformalSourcePayload,
-    ZoneConformalWatershedBoundaryConfig,
 )
 
 
@@ -55,12 +52,11 @@ def _build_summary(
 def _build_constraints_qa_contract(
     *,
     summary: Mapping[str, Any],
-    constraints_mode: str,
+    constraint_families: ZoneConformalConstraintFamilies,
     refine_interfaces: bool,
 ) -> dict[str, Any]:
-    usage = _resolve_constraint_usage(constraints_mode)
-    uses_geology_constraints = usage.uses_geology_constraints
-    uses_river_constraints = usage.uses_river_constraints
+    uses_geology_constraints = bool(constraint_families.geology_interface)
+    uses_river_constraints = bool(constraint_families.river)
 
     zone_count = int(len(tuple(summary.get("zone_keys", ()))))
     interface_group_count = int(summary.get("interface_group_count", 0))
@@ -69,46 +65,14 @@ def _build_constraints_qa_contract(
         if isinstance(summary.get("river_trace"), Mapping)
         else {}
     )
-    linear_constraints_payload = (
-        dict(summary.get("linear_constraints", {}))
-        if isinstance(summary.get("linear_constraints"), Mapping)
-        else {}
-    )
-    watershed_payload = (
-        dict(summary.get("watershed_boundary", {}))
-        if isinstance(summary.get("watershed_boundary"), Mapping)
-        else {}
-    )
-    if not watershed_payload:
-        watershed_payload = (
-            dict(linear_constraints_payload.get("watershed::boundary", {}))
-            if isinstance(linear_constraints_payload.get("watershed::boundary"), Mapping)
-            else {}
-        )
     river_trace_provided = bool(river_payload.get("provided", False))
     river_line_count = int(river_payload.get("line_count", 0))
     river_curve_count = int(river_payload.get("curve_count", 0))
     river_embed_success = int(river_payload.get("embedded_surface_curve_pairs", 0))
     river_embed_failures = int(river_payload.get("embed_failures", 0))
     river_refined = bool(river_payload.get("refined_with_interface_field", False))
-    watershed_boundary_provided = bool(watershed_payload.get("provided", False))
-    watershed_boundary_absorbed_by_scope = bool(
-        watershed_payload.get("absorbed_by_effective_scope", False)
-    )
-    watershed_boundary_curve_count = int(watershed_payload.get("curve_count", 0))
-    watershed_boundary_embed_success = int(
-        watershed_payload.get("embedded_surface_curve_pairs", 0)
-    )
-    watershed_boundary_refined = bool(
-        watershed_payload.get("refined_with_interface_field", False)
-    )
     river_curve_group_present = any(
         str(group.get("name", "")) == "river::trace"
-        for group in summary.get("curve_physical_groups", ())
-        if isinstance(group, Mapping)
-    )
-    watershed_boundary_curve_group_present = any(
-        str(group.get("name", "")) == "watershed::boundary"
         for group in summary.get("curve_physical_groups", ())
         if isinstance(group, Mapping)
     )
@@ -134,8 +98,6 @@ def _build_constraints_qa_contract(
             uses_river_constraints and refine_interfaces
         ),
     }
-    if watershed_boundary_provided:
-        thresholds["min_watershed_boundary_curve_count"] = 1
     metrics = {
         "zone_count": zone_count,
         "interface_group_count": interface_group_count,
@@ -151,17 +113,6 @@ def _build_constraints_qa_contract(
         "river_refined_with_interface_field": river_refined,
         "refine_interfaces_config": bool(refine_interfaces),
     }
-    if watershed_boundary_provided or watershed_boundary_absorbed_by_scope:
-        metrics.update(
-            {
-                "watershed_boundary_provided": watershed_boundary_provided,
-                "watershed_boundary_absorbed_by_effective_scope": watershed_boundary_absorbed_by_scope,
-                "watershed_boundary_curve_count": watershed_boundary_curve_count,
-                "watershed_boundary_curve_group_present": watershed_boundary_curve_group_present,
-                "watershed_boundary_embedded_surface_curve_pairs": watershed_boundary_embed_success,
-                "watershed_boundary_refined_with_interface_field": watershed_boundary_refined,
-            }
-        )
     checks: dict[str, bool] = {}
     if uses_geology_constraints:
         checks["has_zone_partition"] = bool(zone_count >= int(thresholds["min_zone_count"]))
@@ -182,20 +133,7 @@ def _build_constraints_qa_contract(
             (not bool(thresholds["require_refinement_when_refine_interfaces_true"]))
             or river_refined
         )
-    if watershed_boundary_provided:
-        checks["watershed_boundary_curves_generated"] = bool(
-            watershed_boundary_curve_count
-            >= int(thresholds["min_watershed_boundary_curve_count"])
-        )
-        checks["watershed_boundary_curve_group_present"] = bool(
-            watershed_boundary_curve_group_present
-        )
-        checks["watershed_boundary_embedded_on_surfaces"] = bool(
-            watershed_boundary_embed_success > 0
-        )
-    elif watershed_boundary_absorbed_by_scope:
-        checks["watershed_boundary_effectively_meshed_via_scope"] = True
-    if constraints_mode == "geology_rivers":
+    if constraint_families.geology_interface and constraint_families.river:
         checks["geology_and_river_constraints_coexist"] = bool(
             checks.get("has_geology_interfaces", False)
             and checks.get("river_curves_generated", False)
@@ -203,7 +141,7 @@ def _build_constraints_qa_contract(
 
     return {
         "contract_version": "constraints_qa_v1",
-        "mode": str(constraints_mode),
+        "mode": str(summary.get("constraints_mode", "")),
         "thresholds": thresholds,
         "metrics": metrics,
         "checks": checks,
@@ -223,49 +161,6 @@ def _build_rivers_config_summary(
     }
 
 
-def _build_watershed_boundary_config_summary(
-    watershed_boundary_cfg: ZoneConformalWatershedBoundaryConfig,
-) -> dict[str, Any]:
-    return {
-        "enabled": watershed_boundary_cfg.enabled,
-        "source": watershed_boundary_cfg.source,
-        "clip_to_domain": watershed_boundary_cfg.clip_to_domain,
-        "min_segment_length": watershed_boundary_cfg.min_segment_length,
-        "participates_in_refinement": watershed_boundary_cfg.participates_in_refinement,
-        "smoothing": {
-            "enabled": watershed_boundary_cfg.smoothing.enabled,
-            "simplify_tolerance": watershed_boundary_cfg.smoothing.simplify_tolerance,
-            "heal_tolerance": watershed_boundary_cfg.smoothing.heal_tolerance,
-            "min_polygon_area": watershed_boundary_cfg.smoothing.min_polygon_area,
-        },
-    }
-
-
-def _build_watershed_boundary_summary(
-    *,
-    meshing_inputs: ZoneConformalMeshingInputs,
-    summary: Mapping[str, Any],
-) -> dict[str, Any]:
-    linear_constraints_summary = summary.get("linear_constraints", {})
-    if isinstance(linear_constraints_summary, Mapping):
-        payload = dict(linear_constraints_summary.get("watershed::boundary", {}))
-        if payload:
-            return payload
-
-    if not meshing_inputs.watershed_boundary_absorbed_by_scope:
-        return {}
-
-    scope_summary = dict(meshing_inputs.interface_scope_payload.summary)
-    return {
-        "provided": False,
-        "absorbed_by_effective_scope": True,
-        "effective_scope_kind": str(scope_summary.get("domain_kind", "")),
-        "smoothing_applied": bool(
-            scope_summary.get("watershed_boundary_smoothing_applied", False)
-        ),
-    }
-
-
 def _finalize_summary_payload(
     *,
     base_summary: Mapping[str, Any],
@@ -276,22 +171,12 @@ def _finalize_summary_payload(
 ) -> dict[str, Any]:
     summary = dict(base_summary)
     summary["constraints_mode"] = str(constraints_mode)
-    summary["interface_scope"] = dict(meshing_inputs.interface_scope_payload.summary)
-    summary["refinement_scope"] = dict(meshing_inputs.refinement_scope_payload.summary)
+    summary["effective_domain"] = dict(meshing_inputs.effective_domain_payload.summary)
 
-    if meshing_inputs.usage.uses_river_constraints and meshing_inputs.rivers_cfg is not None:
-        summary["rivers_config"] = _build_rivers_config_summary(meshing_inputs.rivers_cfg)
-
-    if meshing_inputs.watershed_boundary_cfg is not None:
-        summary["watershed_boundary_config"] = _build_watershed_boundary_config_summary(
-            meshing_inputs.watershed_boundary_cfg
+    if meshing_inputs.constraint_families.river and meshing_inputs.diagnostics.rivers_cfg is not None:
+        summary["rivers_config"] = _build_rivers_config_summary(
+            meshing_inputs.diagnostics.rivers_cfg
         )
-        watershed_boundary_summary = _build_watershed_boundary_summary(
-            meshing_inputs=meshing_inputs,
-            summary=summary,
-        )
-        if watershed_boundary_summary:
-            summary["watershed_boundary"] = watershed_boundary_summary
 
     if meshing_inputs.zone_meshing_cfg.refinement_policy is not None:
         summary["refinement_policy_config"] = (
@@ -300,7 +185,7 @@ def _finalize_summary_payload(
 
     summary["constraints_qa"] = _build_constraints_qa_contract(
         summary=summary,
-        constraints_mode=constraints_mode,
+        constraint_families=meshing_inputs.constraint_families,
         refine_interfaces=bool(refine_interfaces),
     )
     qa_checks = (

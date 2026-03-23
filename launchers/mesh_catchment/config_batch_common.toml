@@ -6,9 +6,8 @@
 # - [mesh_catchment_batch].outlets_table_path
 # - optional selected_outlet_ids comments per scenario
 #
-# The inherited mono-catchment bootstrap keeps the watershed-boundary
-# constraint disabled by default; batch scenarios can still re-enable it
-# explicitly when they really want the catchment outline as an internal line.
+# The inherited mono-catchment bootstrap keeps the public meshing contract
+# limited to one support domain plus geology/rivers constraints.
 
 base_config = "config_common.toml"
 

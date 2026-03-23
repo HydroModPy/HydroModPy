@@ -12,12 +12,15 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-import numpy as np
 from shapely.geometry import LineString, Point
 from shapely.ops import nearest_points
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
     segment_intersects_refinement_scope,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._refinement_grid import (
+    RefinementGridCellId,
+    build_refinement_grid,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingRefinementFamilySettings,
@@ -363,7 +366,23 @@ def detect_refinement_hotspots(
     policy: ZoneMeshingRefinementPolicy,
 ) -> tuple[RefinementHotspot, ...]:
     """Return local hotspots where the mixed refinement network exceeds budget."""
+    if str(policy.mode) == "grid_local_budget":
+        return _detect_refinement_hotspots_grid(
+            candidates=candidates,
+            policy=policy,
+        )
+    return _detect_refinement_hotspots_pairwise(
+        candidates=candidates,
+        policy=policy,
+    )
 
+
+def _detect_refinement_hotspots_pairwise(
+    *,
+    candidates: Sequence[RefinementCurveCandidate],
+    policy: ZoneMeshingRefinementPolicy,
+) -> tuple[RefinementHotspot, ...]:
+    """Return hotspots using the original pairwise/global search strategy."""
     if not candidates:
         return ()
 
@@ -419,6 +438,106 @@ def detect_refinement_hotspots(
 
     return tuple(
         sorted(hotspots.values(), key=_hotspot_sort_key, reverse=True)
+    )
+
+
+def _detect_refinement_hotspots_grid(
+    *,
+    candidates: Sequence[RefinementCurveCandidate],
+    policy: ZoneMeshingRefinementPolicy,
+) -> tuple[RefinementHotspot, ...]:
+    """Return hotspots using one regular grid and local neighborhoods only."""
+    if not candidates:
+        return ()
+
+    cell_size = _resolve_grid_cell_size(candidates=candidates, policy=policy)
+    grid = build_refinement_grid(
+        candidates=candidates,
+        cell_size=float(cell_size),
+    )
+    if not grid.active_cell_ids:
+        return ()
+
+    candidate_by_tag = {
+        int(candidate.curve_tag): candidate for candidate in candidates
+    }
+    neighborhoods: dict[tuple[int, ...], tuple[RefinementGridCellId, ...]] = defaultdict(tuple)
+    neighborhood_curve_tags_by_cell: dict[RefinementGridCellId, tuple[int, ...]] = {}
+    for cell_id in grid.active_cell_ids:
+        neighborhood_curve_tags = grid.collect_neighborhood_curve_tags(
+            cell_id,
+            rings=int(policy.grid.neighborhood_rings),
+        )
+        if not neighborhood_curve_tags:
+            continue
+        neighborhood_curve_tags_by_cell[cell_id] = neighborhood_curve_tags
+        neighborhoods.setdefault(neighborhood_curve_tags, ())
+        neighborhoods[neighborhood_curve_tags] = tuple(
+            sorted(
+                set(neighborhoods[neighborhood_curve_tags]) | {cell_id},
+                key=lambda item: (int(item.row), int(item.col)),
+            )
+        )
+
+    hotspot_candidates: list[RefinementHotspot] = []
+    for member_curve_tags, seed_cells in neighborhoods.items():
+        local_candidates = [
+            candidate_by_tag[int(curve_tag)]
+            for curve_tag in member_curve_tags
+            if int(curve_tag) in candidate_by_tag
+        ]
+        if not local_candidates:
+            continue
+        center = _cells_center(
+            grid=grid,
+            cell_ids=seed_cells,
+        )
+        radius = _grid_neighborhood_radius(
+            cell_size=float(grid.cell_size),
+            rings=int(policy.grid.neighborhood_rings),
+        )
+        metrics = _evaluate_local_metrics(
+            candidates=local_candidates,
+            center=center,
+            radius=radius,
+            policy=policy,
+        )
+        if not _metrics_exceed_budget(metrics=metrics, policy=policy):
+            continue
+        hotspot_candidates.append(
+            RefinementHotspot(
+                hotspot_id="",
+                reason=_hotspot_reason_from_metrics(metrics=metrics, policy=policy),
+                center=(float(center[0]), float(center[1])),
+                radius=float(radius),
+                member_curve_tags=tuple(
+                    sorted(int(candidate.curve_tag) for candidate in local_candidates)
+                ),
+                family_counts=dict(metrics["family_counts"]),
+                curve_count=int(metrics["curve_count"]),
+                family_count=int(metrics["family_count"]),
+                max_node_degree=int(metrics["max_node_degree"]),
+                short_segment_count=int(metrics["short_segment_count"]),
+                min_cross_family_gap=metrics["min_cross_family_gap"],
+            )
+        )
+
+    hotspot_candidates.sort(key=_hotspot_sort_key, reverse=True)
+    return tuple(
+        RefinementHotspot(
+            hotspot_id=f"hotspot_{index + 1}",
+            reason=hotspot.reason,
+            center=hotspot.center,
+            radius=hotspot.radius,
+            member_curve_tags=hotspot.member_curve_tags,
+            family_counts=hotspot.family_counts,
+            curve_count=hotspot.curve_count,
+            family_count=hotspot.family_count,
+            max_node_degree=hotspot.max_node_degree,
+            short_segment_count=hotspot.short_segment_count,
+            min_cross_family_gap=hotspot.min_cross_family_gap,
+        )
+        for index, hotspot in enumerate(hotspot_candidates)
     )
 
 
@@ -554,6 +673,14 @@ def _hotspot_exceeds_budget(
         ),
         policy=policy,
     )
+    return _metrics_exceed_budget(metrics=metrics, policy=policy)
+
+
+def _metrics_exceed_budget(
+    *,
+    metrics: Mapping[str, Any],
+    policy: ZoneMeshingRefinementPolicy,
+) -> bool:
     family_count = int(metrics["family_count"])
     if family_count <= 1:
         return False
@@ -587,7 +714,10 @@ def _evaluate_local_metrics(
         )
     )
     node_degree = _local_max_node_degree(candidates)
-    min_cross_family_gap = _min_cross_family_gap(candidates)
+    min_cross_family_gap = _maybe_min_cross_family_gap(
+        candidates=candidates,
+        policy=policy,
+    )
     return {
         "center": (float(center[0]), float(center[1])),
         "radius": float(radius),
@@ -605,6 +735,60 @@ def _local_max_node_degree(candidates: Sequence[RefinementCurveCandidate]) -> in
     if not node_map:
         return 0
     return int(max(len(node_candidates) for node_candidates in node_map.values()))
+
+
+def _resolve_grid_cell_size(
+    *,
+    candidates: Sequence[RefinementCurveCandidate],
+    policy: ZoneMeshingRefinementPolicy,
+) -> float:
+    cell_size = policy.grid.cell_size
+    if cell_size is not None and float(cell_size) > 0.0:
+        return float(cell_size)
+    return max(
+        max(float(candidate.interface_distance) for candidate in candidates) * 0.5,
+        max(float(candidate.interface_size) for candidate in candidates),
+    )
+
+
+def _cells_center(
+    *,
+    grid,
+    cell_ids: Sequence[RefinementGridCellId],
+) -> tuple[float, float]:
+    if not cell_ids:
+        xmin, ymin, xmax, ymax = grid.bounds
+        return (float((xmin + xmax) * 0.5), float((ymin + ymax) * 0.5))
+    xs: list[float] = []
+    ys: list[float] = []
+    xmin, ymin, _xmax, _ymax = grid.bounds
+    for cell_id in cell_ids:
+        xs.append(float(xmin) + (float(cell_id.col) + 0.5) * float(grid.cell_size))
+        ys.append(float(ymin) + (float(cell_id.row) + 0.5) * float(grid.cell_size))
+    return (float(sum(xs) / len(xs)), float(sum(ys) / len(ys)))
+
+
+def _grid_neighborhood_radius(
+    *,
+    cell_size: float,
+    rings: int,
+) -> float:
+    return float(cell_size) * (float(rings) + 0.75)
+
+
+def _maybe_min_cross_family_gap(
+    *,
+    candidates: Sequence[RefinementCurveCandidate],
+    policy: ZoneMeshingRefinementPolicy,
+) -> float | None:
+    if not candidates:
+        return None
+    if str(policy.mode) == "grid_local_budget":
+        if not bool(policy.grid.enable_exact_gap_check):
+            return None
+        if len(candidates) > int(policy.grid.max_exact_gap_candidates):
+            return None
+    return _min_cross_family_gap(candidates)
 
 
 def _node_map(
@@ -633,6 +817,25 @@ def _min_cross_family_gap(
             if min_gap is None or gap < min_gap:
                 min_gap = gap
     return min_gap
+
+
+def _hotspot_reason_from_metrics(
+    *,
+    metrics: Mapping[str, Any],
+    policy: ZoneMeshingRefinementPolicy,
+) -> str:
+    if int(metrics["curve_count"]) > int(policy.hotspot.max_curve_count):
+        return "local_curve_density"
+    if int(metrics["family_count"]) > int(policy.hotspot.max_family_count):
+        return "local_family_mix"
+    if int(metrics["max_node_degree"]) > int(policy.hotspot.max_node_degree):
+        return "mixed_node_degree"
+    if int(metrics["short_segment_count"]) > int(policy.hotspot.max_short_segment_count):
+        return "short_segments"
+    min_gap = metrics["min_cross_family_gap"]
+    if min_gap is not None and float(min_gap) < float(policy.hotspot.min_gap):
+        return "cross_family_gap"
+    return "local_budget"
 
 
 def _hotspot_sort_key(hotspot: RefinementHotspot) -> tuple[int, int, int, float]:

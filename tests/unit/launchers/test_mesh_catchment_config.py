@@ -23,75 +23,23 @@ def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg.domain.kind == "geographic_box_buffer"
     assert cfg.geographic_outputs_mode == "keep"
     assert cfg.rivers.source == "domain_geographic"
-    assert cfg.watershed_boundary is not None
-    assert cfg.watershed_boundary.enabled is False
-    assert cfg.watershed_boundary.source == "domain_geographic"
-    assert cfg.watershed_boundary.smoothing.enabled is False
+    assert "watershed_boundary" not in cfg.model_dump(mode="python")
     assert cfg.zone_meshing.algorithm == "delaunay"
 
 
-def test_parse_mesh_catchment_config_accepts_watershed_boundary() -> None:
-    cfg = parse_mesh_catchment_config_data(
-        {
-            "constraints_mode": "geology_only",
-            "geology": {
-                "source": {
-                    "path": "data/geology.tif",
-                    "kind": "raster",
-                }
-            },
-            "watershed_boundary": {
-                "enabled": True,
-                "participates_in_refinement": False,
-                "smoothing": {
-                    "enabled": True,
-                    "simplify_tolerance": 25.0,
-                    "heal_tolerance": 10.0,
-                },
-            },
-        }
-    )
-
-    assert cfg.watershed_boundary is not None
-    assert cfg.watershed_boundary.enabled is True
-    assert cfg.watershed_boundary.source == "domain_geographic"
-    assert cfg.watershed_boundary.smoothing.simplify_tolerance == 25.0
-
-
-def test_parse_mesh_catchment_config_defaults_boundary_smoothing_to_smallest_mesh_size_when_enabled() -> None:
-    cfg = parse_mesh_catchment_config_data(
-        {
-            "constraints_mode": "geology_only",
-            "geology": {
-                "source": {
-                    "path": "data/geology.tif",
-                    "kind": "raster",
-                }
-            },
-            "zone_meshing": {
-                "global_size": 600.0,
-                "min_size": 150.0,
-                "refine_interfaces": True,
-                "interface_size": 120.0,
-            },
-            "watershed_boundary": {
-                "enabled": True,
-                "smoothing": {
-                    "enabled": True,
-                },
-            },
-        }
-    )
-
-    assert cfg.watershed_boundary is not None
-    assert cfg.watershed_boundary.enabled is True
-    smoothing = cfg.watershed_boundary.smoothing
-    assert smoothing.enabled is True
-    assert smoothing.simplify_tolerance == 120.0
-    assert smoothing.heal_tolerance == 60.0
-
-def test_parse_mesh_catchment_config_rejects_redundant_watershed_boundary() -> None:
-    with pytest.raises(ValueError, match="watershed_boundary is redundant"):
+@pytest.mark.parametrize(
+    "removed_key, removed_payload",
+    [
+        ("watershed_boundary", {"enabled": True}),
+        ("interface_scope", {"kind": "geographic_watershed"}),
+        ("refinement_scope", {"kind": "geographic_watershed"}),
+    ],
+)
+def test_parse_mesh_catchment_config_rejects_removed_sections(
+    removed_key: str,
+    removed_payload: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match=rf"\[mesh_catchment\.{removed_key}\] is no longer supported"):
         parse_mesh_catchment_config_data(
             {
                 "constraints_mode": "geology_only",
@@ -101,54 +49,9 @@ def test_parse_mesh_catchment_config_rejects_redundant_watershed_boundary() -> N
                         "kind": "raster",
                     }
                 },
-                "domain": {"kind": "geographic_watershed"},
-                "watershed_boundary": {"enabled": True},
+                removed_key: removed_payload,
             }
         )
-
-
-def test_parse_mesh_catchment_config_auto_disables_watershed_boundary_on_strict_domain() -> None:
-    cfg = parse_mesh_catchment_config_data(
-        {
-            "constraints_mode": "geology_only",
-            "geology": {
-                "source": {
-                    "path": "data/geology.tif",
-                    "kind": "raster",
-                }
-            },
-            "domain": {"kind": "geographic_watershed"},
-        }
-    )
-
-    assert cfg.domain.kind == "geographic_watershed"
-    assert cfg.watershed_boundary is not None
-    assert cfg.watershed_boundary.enabled is False
-
-
-def test_parse_mesh_catchment_config_respects_explicit_boundary_smoothing_disable() -> None:
-    cfg = parse_mesh_catchment_config_data(
-        {
-            "constraints_mode": "geology_only",
-            "geology": {
-                "source": {
-                    "path": "data/geology.tif",
-                    "kind": "raster",
-                }
-            },
-            "watershed_boundary": {
-                "smoothing": {
-                    "enabled": False,
-                }
-            },
-        }
-    )
-
-    assert cfg.watershed_boundary is not None
-    smoothing = cfg.watershed_boundary.smoothing
-    assert smoothing.enabled is False
-    assert smoothing.simplify_tolerance == 0.0
-    assert smoothing.heal_tolerance == 0.0
 
 
 def test_parse_mesh_catchment_config_accepts_hydraulic_properties() -> None:
@@ -258,4 +161,4 @@ def test_template_renderer_mentions_output_layout() -> None:
 
     assert 'output_layout = "standard"' in content
     assert "write final mesh artifacts directly under `workspace.project_root`" in content
-    assert "[mesh_catchment.watershed_boundary]" in content
+    assert "[mesh_catchment.watershed_boundary]" not in content

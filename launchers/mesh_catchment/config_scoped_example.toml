@@ -1,9 +1,9 @@
-# Example mesh-only launcher config with explicit support/interface/refinement scopes.
+# Example mesh-only launcher config with one explicit support domain only.
 # Run with:
 #   python -m launchers mesh-catchment run launchers/mesh_catchment/config_scoped_example.toml
 #
 # Inherits the shared Naizin DEM, geology source, conductivity demo mapping,
-# and default meshing profile with no internal watershed-boundary constraint.
+# and the simplified geology/rivers-only public meshing contract.
 
 base_config = "config_common.toml"
 
@@ -13,18 +13,4 @@ project_root = "~/HydroModPy/mesh_catchment_nancon_scoped"
 
 [mesh_catchment]
 # geographic_outputs_mode = "cleanup"
-# To re-enable the internal catchment-boundary constraint:
-# [mesh_catchment.watershed_boundary]
-# enabled = true
-# To keep that boundary raw, without smoothing:
-# [mesh_catchment.watershed_boundary.smoothing]
-# enabled = false
 output_figure = "~/HydroModPy/mesh_catchment_nancon_scoped/mesh_catchment_nancon_scoped_overview.png"
-
-[mesh_catchment.interface_scope]
-# Generate geology and river interfaces only inside the watershed-box support.
-kind = "geographic_watershed_box"
-
-[mesh_catchment.refinement_scope]
-# Refine only inside the strict watershed polygon.
-kind = "geographic_watershed"

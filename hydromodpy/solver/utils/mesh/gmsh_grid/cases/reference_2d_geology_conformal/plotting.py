@@ -27,9 +27,6 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_base.plot
     disable_axis_offset,
     show_figures_blocking,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
-    clean_domain_geometry,
-)
 
 
 def _build_zone_color_map(zone_keys: list[str]):
@@ -84,7 +81,6 @@ def _draw_river_lines(
 def _load_catchment_outline(
     domain_geographic: object | None,
     *,
-    watershed_boundary_cfg: object | None = None,
     target_crs: object | None = None,
 ) -> gpd.GeoDataFrame | None:
     if domain_geographic is None:
@@ -103,31 +99,7 @@ def _load_catchment_outline(
         return None
     if target_crs is not None and gdf.crs is not None and gdf.crs != target_crs:
         gdf = gdf.to_crs(target_crs)
-    _ = watershed_boundary_cfg
     return gdf
-
-
-def _smooth_catchment_outline_gdf(
-    catchment_gdf: gpd.GeoDataFrame,
-    *,
-    watershed_boundary_cfg: object | None,
-) -> gpd.GeoDataFrame:
-    if catchment_gdf.empty or watershed_boundary_cfg is None:
-        return catchment_gdf
-    smoothing_cfg = getattr(watershed_boundary_cfg, "smoothing", None)
-    if smoothing_cfg is None or not bool(getattr(smoothing_cfg, "enabled", False)):
-        return catchment_gdf
-    catchment_geometry = catchment_gdf.geometry.union_all()
-    cleaned_geometry, _ = clean_domain_geometry(
-        catchment_geometry,
-        simplify_tolerance=float(getattr(smoothing_cfg, "simplify_tolerance", 0.0)),
-        heal_tolerance=float(getattr(smoothing_cfg, "heal_tolerance", 0.0)),
-        min_polygon_area=float(getattr(smoothing_cfg, "min_polygon_area", 0.0)),
-    )
-    return gpd.GeoDataFrame(
-        geometry=[cleaned_geometry],
-        crs=catchment_gdf.crs,
-    )
 
 
 def _load_topography_background(
@@ -640,24 +612,23 @@ def _write_optional_figure_artifacts(
 
     catchment_gdf = _load_catchment_outline(
         domain_geographic,
-        watershed_boundary_cfg=meshing_inputs.watershed_boundary_cfg,
-        target_crs=meshing_inputs.domain_payload.gdf.crs,
+        target_crs=meshing_inputs.effective_domain_payload.gdf.crs,
     )
 
     common_plot_kwargs = {
-        "source_domain_gdf": meshing_inputs.source_domain_gdf,
+        "source_domain_gdf": meshing_inputs.diagnostics.source_plot_gdf,
         "partition_gdf": partition_gdf,
-        "domain_gdf": meshing_inputs.domain_payload.gdf,
+        "domain_gdf": meshing_inputs.effective_domain_payload.gdf,
         "mesh": result.mesh,
-        "domain_bounds": list(meshing_inputs.domain_payload.geometry.bounds),
-        "domain_area": float(meshing_inputs.domain_payload.summary["domain_area"]),
-        "domain_kind": str(meshing_inputs.domain_payload.summary["domain_kind"]),
+        "domain_bounds": list(meshing_inputs.effective_domain_payload.geometry.bounds),
+        "domain_area": float(meshing_inputs.effective_domain_payload.summary["domain_area"]),
+        "domain_kind": str(meshing_inputs.effective_domain_payload.summary["domain_kind"]),
         "interface_refinement": dict(
             result.summary.get("mesh_size_fields", {}).get("interface_refinement", {})
         ),
         "catchment_gdf": catchment_gdf,
         "domain_geographic": domain_geographic,
-        "river_trace": meshing_inputs.resolved_river_trace,
+        "river_trace": meshing_inputs.diagnostics.river_trace,
     }
 
     fig = None
@@ -669,11 +640,11 @@ def _write_optional_figure_artifacts(
 
         if figure_regional_path is not None or show_plot:
             regional_fig = _build_regional_context_figure(
-                domain_gdf=meshing_inputs.domain_payload.gdf,
+                domain_gdf=meshing_inputs.effective_domain_payload.gdf,
                 catchment_gdf=catchment_gdf,
                 topo_background=_load_regional_topography_background(domain_geographic),
                 river_lines=_resolve_river_lines_for_plot(
-                    river_trace=meshing_inputs.resolved_river_trace,
+                    river_trace=meshing_inputs.diagnostics.river_trace,
                     domain_geographic=domain_geographic,
                 ),
                 outlet_xy=_resolve_outlet_xy(domain_geographic),

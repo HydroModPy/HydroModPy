@@ -50,6 +50,10 @@ RUN_SEQUENCE = (
         "identification_config": "config_headwater_100km2.toml",
     },
     {
+        "mesh_config": "config_1000km2.toml",
+        "identification_config": "config_1000km2.toml",
+    },
+    {
         "mesh_config": "config_s3_10km2.toml",
         "identification_config": "config_s3_10km2.toml",
     },
@@ -64,10 +68,6 @@ RUN_SEQUENCE = (
     {
         "mesh_config": "config_s3_100km2.toml",
         "identification_config": "config_s3_100km2.toml",
-    },
-    {
-        "mesh_config": "config_1000km2.toml",
-        "identification_config": "config_1000km2.toml",
     },
 )
 

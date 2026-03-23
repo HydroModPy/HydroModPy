@@ -21,6 +21,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingRefinementFamilySettings,
+    ZoneMeshingRefinementGridSettings,
     ZoneMeshingRefinementHotspotSettings,
     ZoneMeshingRefinementPolicy,
 )
@@ -247,6 +248,12 @@ def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
             max_node_degree=5,
             short_segment_length=0.02,
             max_short_segment_count=10,
+        ),
+        grid=ZoneMeshingRefinementGridSettings(
+            cell_size=None,
+            neighborhood_rings=1,
+            enable_exact_gap_check=True,
+            max_exact_gap_candidates=256,
         ),
         families={
             "river": ZoneMeshingRefinementFamilySettings(

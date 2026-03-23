@@ -88,60 +88,6 @@ min_segment_length = 0.0
 snap_tolerance = 0.0
 
 
-# Optional internal line constraint derived from the delineated watershed boundary.
-# When this subsection is omitted, the dedicated launcher now keeps it disabled by default.
-# Declare the subsection to enable or tune that constraint explicitly.
-
-# [mesh_catchment.watershed_boundary]
-# If true, inject the delineated watershed boundary as one internal constrained polyline in the mesh.
-# Dedicated launcher defaults now keep this disabled so mesh conformity is driven by rivers and geology only unless the catchment outline is requested explicitly.
-# This keeps the outer support unchanged without forcing mesh edges along the catchment outline.
-# Type: bool | Default: false
-# enabled = false
-
-# Origin of the watershed-boundary constraint.
-# The current implementation only supports 'domain_geographic', which reuses the watershed polygon already produced by geographic preprocessing.
-# Type: string | Default: "domain_geographic"
-# source = "domain_geographic"
-
-# If true, clip the watershed boundary polyline to the effective meshing support domain before sending it to Gmsh.
-# Type: bool | Default: true
-# clip_to_domain = true
-
-# Minimum retained watershed-boundary segment length, in projected metres, after clipping and smoothing.
-# Type: float | >= 0.0 | Default: 0.0
-# min_segment_length = 0.0
-
-# If true, allow the interface refinement field to also refine along the watershed-boundary constraint.
-# The default is false so the boundary is honored geometrically without forcing extra cells everywhere along it.
-# Type: bool | Default: false
-# participates_in_refinement = false
-
-
-# Optional cleanup applied only to the watershed boundary before converting it to constrained segments.
-
-# [mesh_catchment.watershed_boundary.smoothing]
-# If true, smooth the watershed polygon before extracting its boundary linework.
-# This cleanup is local to the watershed-boundary constraint and does not alter geology polygons or the outer meshing support.
-# Dedicated-launcher defaults now keep this disabled so the raw delineated outline is preserved unless smoothing is requested explicitly.
-# Type: bool | Default: false
-# enabled = false
-
-# Topology-preserving simplification tolerance, in projected metres, applied to the watershed polygon before boundary extraction.
-# Dedicated-launcher defaults derive it from the smallest target mesh size, typically `zone_meshing.min_size` or the local interface size when it is smaller.
-# Type: float | >= 0.0 | Default: 0.0
-# simplify_tolerance = 0.0
-
-# Snapping tolerance, in projected metres, used to heal nearly coincident watershed vertices before simplification.
-# Dedicated-launcher defaults set it to a conservative fraction of the smallest target mesh size.
-# Type: float | >= 0.0 | Default: 0.0
-# heal_tolerance = 0.0
-
-# Minimum polygon area kept, in projected square metres, when the smoothed watershed polygon contains small residual pieces.
-# Type: float | >= 0.0 | Default: 0.0
-# min_polygon_area = 0.0
-
-
 # Optional geology support used when constraints_mode includes geology.
 # This section defines which polygon source represents lithological zones and how those polygons should be interpreted before conformal meshing.
 
@@ -298,34 +244,6 @@ snap_tolerance = 0.0
 kind = "geographic_box_buffer"
 
 
-# Optional sub-domain where geology and river interfaces are actually materialized.
-# Use it to keep the support domain large enough for context while constraining interfaces only on a stricter inner area.
-
-# [mesh_catchment.interface_scope]
-# Use an explicit axis-aligned bounding box defined directly in the TOML.
-# This is the most direct way to prescribe a synthetic rectangular support.
-# Type: string | Default: "bbox"
-# kind = "bbox"
-
-# Bounding box coordinates ordered as [xmin, ymin, xmax, ymax] in the projected CRS used by the mesher.
-# Type: list[float] | REQUIRED
-# bbox = []
-
-
-# Optional sub-domain where interface refinement is allowed to act.
-# This scope is always clipped to the effective interface_scope and is useful when you want interfaces on a broad support but fine cells only near the core catchment.
-
-# [mesh_catchment.refinement_scope]
-# Use an explicit axis-aligned bounding box defined directly in the TOML.
-# This is the most direct way to prescribe a synthetic rectangular support.
-# Type: string | Default: "bbox"
-# kind = "bbox"
-
-# Bounding box coordinates ordered as [xmin, ymin, xmax, ymax] in the projected CRS used by the mesher.
-# Type: list[float] | REQUIRED
-# bbox = []
-
-
 # Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement.
 # Defaults are valid, but project examples typically override them to target a desired number of cells.
 
@@ -421,6 +339,20 @@ interface_sampling = 64
 
 # Type: int | Default: 12
 # max_short_segment_count = 12
+
+
+# [mesh_catchment.zone_meshing.refinement_policy.grid]
+# Type: float (optional) | Optional
+# cell_size = 0.0
+
+# Type: int | Default: 1
+# neighborhood_rings = 1
+
+# Type: bool | Default: true
+# enable_exact_gap_check = true
+
+# Type: int | Default: 256
+# max_exact_gap_candidates = 256
 
 
 # [mesh_catchment.zone_meshing.refinement_policy.families.river]

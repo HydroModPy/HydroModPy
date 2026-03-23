@@ -19,12 +19,12 @@ import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conform
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal as conformal_case_package
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning as conformal_planning_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plotting as conformal_plotting_module
-import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.scope_resolution as conformal_scope_resolution_module
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
     _resolve_case_config,
+    _resolve_constraint_families,
     _resolve_constraints_mode,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
@@ -99,154 +99,11 @@ def test_collect_display_zone_keys_includes_background_lithology() -> None:
     assert zone_keys == ["geo_inside", "geo_outside"]
 
 
-def test_smooth_catchment_outline_gdf_applies_boundary_cleanup() -> None:
-    raw_polygon = Polygon(
-        [
-            (0.0, 0.0),
-            (8.0, 0.0),
-            (8.0, 1.0),
-            (7.5, 1.0),
-            (7.5, 1.4),
-            (7.0, 1.4),
-            (7.0, 1.0),
-            (6.5, 1.0),
-            (6.5, 1.4),
-            (6.0, 1.4),
-            (6.0, 1.0),
-            (0.0, 1.0),
-            (0.0, 0.0),
-        ]
-    )
-    catchment_gdf = gpd.GeoDataFrame(geometry=[raw_polygon], crs="EPSG:2154")
-    watershed_boundary_cfg = SimpleNamespace(
-        smoothing=SimpleNamespace(
-            enabled=True,
-            simplify_tolerance=0.45,
-            heal_tolerance=0.2,
-            min_polygon_area=0.0,
-        )
-    )
+def test_resolve_constraint_families_marks_enabled_inputs() -> None:
+    families = _resolve_constraint_families("geology_rivers")
 
-    smoothed_gdf = conformal_plotting_module._smooth_catchment_outline_gdf(
-        catchment_gdf,
-        watershed_boundary_cfg=watershed_boundary_cfg,
-    )
-
-    assert smoothed_gdf.crs == catchment_gdf.crs
-    assert len(smoothed_gdf) == 1
-    assert not smoothed_gdf.geometry.iloc[0].equals(raw_polygon)
-
-
-def test_geographic_watershed_scope_payload_reuses_boundary_smoothing() -> None:
-    raw_polygon = Polygon(
-        [
-            (0.0, 0.0),
-            (8.0, 0.0),
-            (8.0, 1.0),
-            (7.5, 1.0),
-            (7.5, 1.4),
-            (7.0, 1.4),
-            (7.0, 1.0),
-            (6.5, 1.0),
-            (6.5, 1.4),
-            (6.0, 1.4),
-            (6.0, 1.0),
-            (0.0, 1.0),
-            (0.0, 0.0),
-        ]
-    )
-    scope_payload = ZoneConformalGeometryPayload(
-        geometry=raw_polygon,
-        gdf=gpd.GeoDataFrame(geometry=[raw_polygon], crs="EPSG:2154"),
-        summary={"domain_kind": "geographic_watershed"},
-    )
-    watershed_boundary_cfg = SimpleNamespace(
-        smoothing=SimpleNamespace(
-            enabled=True,
-            simplify_tolerance=0.45,
-            heal_tolerance=0.2,
-            min_polygon_area=0.0,
-        )
-    )
-
-    smoothed_payload = (
-        conformal_scope_resolution_module._maybe_smooth_geographic_watershed_scope_payload(
-            scope_payload,
-            scope_cfg=ZoneConformalDomainConfig(kind="geographic_watershed"),
-            watershed_boundary_cfg=watershed_boundary_cfg,
-        )
-    )
-
-    assert not smoothed_payload.geometry.equals(raw_polygon)
-    assert smoothed_payload.summary["watershed_boundary_smoothing_applied"] is True
-
-
-def test_geographic_watershed_scope_absorbs_watershed_boundary_constraint() -> None:
-    watershed_polygon = box(0.0, 0.0, 10.0, 10.0)
-    scope_payload = ZoneConformalGeometryPayload(
-        geometry=watershed_polygon,
-        gdf=gpd.GeoDataFrame(geometry=[watershed_polygon], crs="EPSG:2154"),
-        summary={
-            "domain_kind": "geographic_watershed",
-            "watershed_boundary_smoothing_applied": True,
-        },
-    )
-    support_polygon = box(-2.0, -2.0, 12.0, 12.0)
-    support_payload = ZoneConformalGeometryPayload(
-        geometry=support_polygon,
-        gdf=gpd.GeoDataFrame(geometry=[support_polygon], crs="EPSG:2154"),
-        summary={"domain_kind": "geographic_box_buffer"},
-    )
-    cfg = SimpleNamespace(
-        watershed_boundary=SimpleNamespace(
-            enabled=True,
-            source="domain_geographic",
-            clip_to_domain=True,
-            min_segment_length=0.0,
-            participates_in_refinement=True,
-            smoothing=SimpleNamespace(
-                enabled=True,
-                simplify_tolerance=5.0,
-                heal_tolerance=1.0,
-                min_polygon_area=0.0,
-            ),
-        )
-    )
-
-    boundary_cfg, constraint, absorbed = (
-        conformal_planning_module._build_watershed_boundary_constraint_inputs(
-            cfg=cfg,
-            config_path=Path.cwd() / "dummy.toml",
-            domain_geographic=None,
-            zone_crs="EPSG:2154",
-            domain_payload=support_payload,
-            interface_scope_payload=scope_payload,
-        )
-    )
-
-    assert boundary_cfg is not None
-    assert constraint is None
-    assert absorbed is True
-
-
-def test_internal_zone_priorities_keep_domain_background_below_geology() -> None:
-    zone_gdf = gpd.GeoDataFrame(
-        {"zone_key": ["geo_a", "domain_background"]},
-        geometry=[box(0.0, 0.0, 2.0, 2.0), box(0.0, 0.0, 3.0, 3.0)],
-        crs="EPSG:2154",
-    )
-
-    prioritized = conformal_planning_module._ensure_internal_zone_priorities(zone_gdf)
-
-    priorities = dict(
-        zip(
-            prioritized["zone_key"].astype(str).tolist(),
-            prioritized["_zone_priority"].astype(float).tolist(),
-            strict=True,
-        )
-    )
-    assert priorities["geo_a"] == 0.0
-    assert priorities["domain_background"] == -1.0
+    assert families.geology_interface is True
+    assert families.river is True
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -550,8 +407,7 @@ def test_reference_2d_geology_conformal_case_non_regression(
     assert summary["constraints_qa"]["mode"] == "geology_only"
     assert summary["constraints_qa"]["overall_pass"] is True
     assert summary["mesh_size_fields"]["interface_refinement"]["enabled"] is True
-    assert summary["interface_scope"]["domain_kind"] == "vector"
-    assert summary["refinement_scope"]["domain_kind"] == "vector"
+    assert summary["effective_domain"]["domain_kind"] == "vector"
     assert (
         summary["mesh_size_fields"]["interface_refinement"][
             "candidate_interface_curve_count"
@@ -597,6 +453,7 @@ def test_reference_2d_geology_conformal_case_non_regression(
     stable.pop("output_summary_json", None)
     stable.pop("output_figure", None)
     stable.pop("interface_scope", None)
+    stable.pop("effective_domain", None)
     stable.pop("refinement_scope", None)
     stable.pop("domain_source_path", None)
     stable.pop("source_path", None)
@@ -741,7 +598,7 @@ def test_resolve_case_config_supports_base_config_inheritance(tmp_path: Path) ->
 
     cfg = _resolve_case_config(child_path, section="mesh_catchment")
 
-    assert cfg.constraints_mode == "geology_rivers"
+    assert cfg.constraints_mode_label == "geology_rivers"
     assert cfg.output_figure == "outputs/inherited_overview.png"
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
     assert cfg.zone_meshing is not None
@@ -785,7 +642,7 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
         section_data_override=section_data,
     )
 
-    assert cfg.constraints_mode == "geology_only"
+    assert cfg.constraints_mode_label == "geology_only"
     assert isinstance(cfg.domain, ZoneConformalDomainConfig)
     assert cfg.domain.kind == "geographic_box_buffer"
     assert cfg.domain.to_mapping()["kind"] == "geographic_box_buffer"
@@ -940,8 +797,7 @@ def test_geographic_box_buffer_domain_uses_domain_geographic_support() -> None:
     assert summary["n_nodes"] > 0
 
 
-@_skip_no_gmsh
-def test_geographic_box_buffer_accepts_watershed_boundary_constraint() -> None:
+def test_reference_case_rejects_removed_watershed_boundary_section() -> None:
     output_dir = (
         Path.cwd()
         / "scratch_tests"
@@ -951,43 +807,18 @@ def test_geographic_box_buffer_accepts_watershed_boundary_constraint() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_geographic_box_buffer_watershed_boundary.toml"
     _write_geographic_box_buffer_watershed_boundary_case_toml(config_path)
-    support_path = output_dir / "support.geojson"
-    watershed_path = output_dir / "watershed.geojson"
-    _write_scope_vector(
-        support_path,
-        bounds=(355000.0, 6712500.0, 359000.0, 6716500.0),
-    )
-    _write_scope_vector(
-        watershed_path,
-        bounds=(355500.0, 6713000.0, 358500.0, 6716000.0),
-    )
 
-    summary = run_reference_2d_zone_conformal_case_from_toml(
-        config_path,
-        section="case",
-        output_mesh=output_dir
-        / "reference_2d_zone_conformal_geographic_box_buffer_watershed_boundary.msh",
-        output_summary_json=output_dir
-        / "reference_2d_zone_conformal_geographic_box_buffer_watershed_boundary_summary.json",
-        domain_geographic=SimpleNamespace(
-            box_buff_shp=str(support_path),
-            watershed_shp=str(watershed_path),
-        ),
-        show_plot=False,
-    )
-
-    payload = dict(summary.get("watershed_boundary", {}))
-    assert summary["domain_kind"] == "geographic_box_buffer"
-    assert summary["watershed_boundary_config"]["enabled"] is True
-    assert payload.get("provided") is True
-    assert int(payload.get("curve_count", 0)) > 0
-    assert payload.get("refined_with_interface_field") is False
-    assert summary["constraints_qa"]["checks"]["watershed_boundary_curves_generated"] is True
-    assert summary["constraints_qa"]["checks"]["watershed_boundary_curve_group_present"] is True
-    assert any(
-        group["name"] == "watershed::boundary"
-        for group in summary["curve_physical_groups"]
-    )
+    with pytest.raises(
+        ValueError,
+        match=r"\[case\.watershed_boundary\] is no longer supported",
+    ):
+        run_reference_2d_zone_conformal_case_from_toml(
+            config_path,
+            section="case",
+            output_mesh=output_dir
+            / "reference_2d_zone_conformal_geographic_box_buffer_watershed_boundary.msh",
+            show_plot=False,
+        )
 
 
 @_skip_no_gmsh
@@ -1030,8 +861,7 @@ def test_geology_rivers_mode_builds_combined_constraints_contract() -> None:
     assert summary["river_trace"]["curve_count"] > 0
     assert summary["river_trace"]["embedded_surface_curve_pairs"] > 0
 
-@_skip_no_gmsh
-def test_geographic_scopes_limit_interfaces_and_refinement() -> None:
+def test_reference_case_rejects_removed_scope_sections() -> None:
     output_dir = (
         Path.cwd()
         / "scratch_tests"
@@ -1042,108 +872,16 @@ def test_geographic_scopes_limit_interfaces_and_refinement() -> None:
     config_path = output_dir / "case_geographic_scopes.toml"
     _write_geographic_scope_case_toml(config_path)
 
-    support_path = output_dir / "support.geojson"
-    refinement_path = output_dir / "refinement.geojson"
-    interface_path = output_dir / "interface.geojson"
-    _write_scope_vector(
-        support_path,
-        bounds=(355000.0, 6712500.0, 359000.0, 6716500.0),
-    )
-    _write_scope_vector(
-        refinement_path,
-        bounds=(355500.0, 6712900.0, 358500.0, 6716100.0),
-    )
-    _write_scope_vector(
-        interface_path,
-        bounds=(356000.0, 6713300.0, 358000.0, 6715700.0),
-    )
-
-    summary = run_reference_2d_zone_conformal_case_from_toml(
-        config_path,
-        section="case",
-        output_mesh=output_dir / "reference_2d_zone_conformal_geographic_scopes.msh",
-        output_summary_json=output_dir
-        / "reference_2d_zone_conformal_geographic_scopes_summary.json",
-        domain_geographic=SimpleNamespace(
-            box_buff_shp=str(support_path),
-            watershed_box_shp=str(refinement_path),
-            watershed_shp=str(interface_path),
-        ),
-        show_plot=False,
-    )
-
-    assert summary["domain_kind"] == "geographic_box_buffer"
-    assert summary["interface_scope"]["domain_kind"] == "geographic_watershed"
-    assert summary["refinement_scope"]["domain_kind"] == "geographic_watershed_box"
-    assert "domain_background" in summary["zone_keys"]
-    refinement_summary = summary["mesh_size_fields"]["interface_refinement"]
-    assert refinement_summary["refinement_scope_applied"] is True
-    assert (
-        refinement_summary["scope_filtered_interface_curve_count"]
-        <= refinement_summary["candidate_interface_curve_count"]
-    )
-    assert summary["n_cells"] > 0
-    assert summary["n_nodes"] > 0
-
-
-@_skip_no_gmsh
-def test_geographic_watershed_scope_uses_smoothed_boundary_as_effective_mesh_contour() -> None:
-    output_dir = (
-        Path.cwd()
-        / "scratch_tests"
-        / "reference_2d_geology_conformal"
-        / "runtime_geographic_scope_watershed_boundary"
-    )
-    output_dir.mkdir(parents=True, exist_ok=True)
-    config_path = output_dir / "case_geographic_scope_watershed_boundary.toml"
-    _write_geographic_scope_watershed_boundary_case_toml(config_path)
-
-    support_path = output_dir / "support.geojson"
-    refinement_path = output_dir / "refinement.geojson"
-    interface_path = output_dir / "interface.geojson"
-    _write_scope_vector(
-        support_path,
-        bounds=(355000.0, 6712500.0, 359000.0, 6716500.0),
-    )
-    _write_scope_vector(
-        refinement_path,
-        bounds=(355500.0, 6712900.0, 358500.0, 6716100.0),
-    )
-    _write_scope_vector(
-        interface_path,
-        bounds=(356000.0, 6713300.0, 358000.0, 6715700.0),
-    )
-
-    summary = run_reference_2d_zone_conformal_case_from_toml(
-        config_path,
-        section="case",
-        output_mesh=output_dir
-        / "reference_2d_zone_conformal_geographic_scope_watershed_boundary.msh",
-        output_summary_json=output_dir
-        / "reference_2d_zone_conformal_geographic_scope_watershed_boundary_summary.json",
-        domain_geographic=SimpleNamespace(
-            box_buff_shp=str(support_path),
-            watershed_box_shp=str(refinement_path),
-            watershed_shp=str(interface_path),
-        ),
-        show_plot=False,
-    )
-
-    assert summary["n_cells"] > 0
-    assert summary["interface_scope"]["domain_kind"] == "geographic_watershed"
-    assert summary["interface_scope"]["watershed_boundary_smoothing_applied"] is True
-    assert summary["watershed_boundary_config"]["enabled"] is True
-    assert summary["watershed_boundary"]["absorbed_by_effective_scope"] is True
-    assert (
-        summary["constraints_qa"]["checks"][
-            "watershed_boundary_effectively_meshed_via_scope"
-        ]
-        is True
-    )
-    assert not any(
-        group["name"] == "watershed::boundary"
-        for group in summary["curve_physical_groups"]
-    )
+    with pytest.raises(
+        ValueError,
+        match=r"\[case\.interface_scope\] is no longer supported",
+    ):
+        run_reference_2d_zone_conformal_case_from_toml(
+            config_path,
+            section="case",
+            output_mesh=output_dir / "reference_2d_zone_conformal_geographic_scopes.msh",
+            show_plot=False,
+        )
 
 
 @_skip_no_gmsh
