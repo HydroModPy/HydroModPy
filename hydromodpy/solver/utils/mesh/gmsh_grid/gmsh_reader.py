@@ -288,7 +288,18 @@ def read_gmsh_2d_mesh(
         if path_obj.suffix.lower() == ".msh":
             return _read_gmsh22_ascii_mesh(path_obj, cell_type=cell_type)
         raise
-    mesh = meshio.read(path_obj)
+    try:
+        mesh = meshio.read(path_obj)
+    except (Exception, SystemExit) as exc:
+        if path_obj.suffix.lower() == ".msh":
+            try:
+                return _read_gmsh22_ascii_mesh(path_obj, cell_type=cell_type)
+            except Exception as fallback_exc:
+                raise ValueError(
+                    "Could not read planar mesh "
+                    f"'{path_obj}' through meshio or the ASCII Gmsh fallback."
+                ) from fallback_exc
+        raise ValueError(f"Could not read planar mesh '{path_obj}'.") from exc
     mesh.path = path_obj
     return meshio_to_mesh_data(mesh, cell_type=cell_type)
 

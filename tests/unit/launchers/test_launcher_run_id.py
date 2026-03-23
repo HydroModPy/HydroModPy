@@ -538,6 +538,7 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
 
     executed: dict[str, object] = {}
     captured_artifacts: dict[str, object] = {}
+    mesh_sentinel = object()
 
     class _DummySimulationRunner:
         def __init__(self, callbacks) -> None:
@@ -551,11 +552,14 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
 
     def _fake_mesh_workflow(**kwargs):
         captured_mesh.update(kwargs)
-        return {
-            "constraints_mode": "rivers_only",
-            "output_mesh": "workspace/results_stable/mesh/mesh_catchment.msh",
-            "output_summary_json": "workspace/results_stable/mesh/mesh_catchment_summary.json",
-        }
+        return SimpleNamespace(
+            summary={
+                "constraints_mode": "rivers_only",
+                "output_mesh": "workspace/results_stable/mesh/mesh_catchment.msh",
+                "output_summary_json": "workspace/results_stable/mesh/mesh_catchment_summary.json",
+            },
+            mesh_planar=mesh_sentinel,
+        )
 
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.HydroModPyConfig.from_toml",
@@ -638,8 +642,14 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
         _DummySimulationRunner,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.run_single_mesh_catchment_workflow",
+        "launchers.process_simulation.launcher.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         _fake_mesh_workflow,
+    )
+    monkeypatch.setattr(
+        "launchers.process_simulation.launcher.load_planar_mesh",
+        lambda path: (_ for _ in ()).throw(
+            AssertionError("embedded mesh phase should keep the runtime mesh in memory")
+        ),
     )
     monkeypatch.setattr(
         "launchers.process_simulation.launcher.HydroModPyLauncher._save_run_artifacts",
@@ -659,6 +669,7 @@ def test_run_executes_embedded_mesh_phase_and_records_metrics(monkeypatch) -> No
         assert captured_mesh["constraints_mode"] == "rivers_only"
         assert captured_mesh["workspace"] is run_state.setup.workspace
         assert captured_mesh["domain_geographic"] is run_state.setup.domain_geographic
+        assert run_state.setup.mesh_planar is mesh_sentinel
         assert run_state.setup.mesh_summary is not None
         assert (
             captured_artifacts["mesh_summary"]["output_mesh"]
@@ -847,7 +858,7 @@ def test_run_uses_external_mesh_input_phase_and_skips_embedded_workflow(
         _DummySimulationRunner,
     )
     monkeypatch.setattr(
-        "launchers.process_simulation.launcher.run_single_mesh_catchment_workflow",
+        "launchers.process_simulation.launcher.run_single_mesh_catchment_workflow_with_runtime_artifacts",
         lambda **kwargs: (_ for _ in ()).throw(
             AssertionError("embedded mesh workflow should not run")
         ),

@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 from typing import Any
 
 from launchers.mesh_catchment.batch_io import (
@@ -36,6 +37,10 @@ from launchers.mesh_catchment.config import (
     parse_mesh_catchment_batch_config_data,
 )
 from launchers.mesh_catchment.runtime_single_run import clone_config_like
+
+
+class _RecordedBatchFailure(RuntimeError):
+    """Internal marker used when one batch failure has already been recorded."""
 
 
 @dataclass(frozen=True)
@@ -211,6 +216,26 @@ class MeshCatchmentBatchRunner:
                     domain_cfg=self.domain_cfg,
                     output_overrides=output_overrides,
                 )
+                failure_message = self._detect_failed_mesh_run(summary)
+                if failure_message is not None:
+                    self._emit_batch_error(
+                        catch_name=catch_name,
+                        outlet_id=record.outlet_id,
+                        message=failure_message,
+                    )
+                    results.append(
+                        self._build_result_row(
+                            record=record,
+                            catch_name=catch_name,
+                            status="error",
+                            summary=summary,
+                            error=failure_message,
+                        )
+                    )
+                    write_mesh_catchment_batch_manifest(manifest_path, results)
+                    if not batch_cfg.continue_on_error:
+                        raise _RecordedBatchFailure(failure_message)
+                    continue
                 results.append(
                     self._build_result_row(
                         record=record,
@@ -220,13 +245,21 @@ class MeshCatchmentBatchRunner:
                     )
                 )
                 write_mesh_catchment_batch_manifest(manifest_path, results)
+            except _RecordedBatchFailure as exc:
+                raise RuntimeError(str(exc)) from None
             except Exception as exc:
+                error_message = self._format_batch_exception(exc)
+                self._emit_batch_error(
+                    catch_name=catch_name,
+                    outlet_id=record.outlet_id,
+                    message=error_message,
+                )
                 results.append(
                     self._build_result_row(
                         record=record,
                         catch_name=catch_name,
                         status="error",
-                        error=str(exc),
+                        error=error_message,
                     )
                 )
                 write_mesh_catchment_batch_manifest(manifest_path, results)
@@ -388,6 +421,43 @@ class MeshCatchmentBatchRunner:
                 _optional_text(summary_payload.get("output_figure_regional")) or ""
             ),
             error=error,
+        )
+
+    @staticmethod
+    def _format_batch_exception(exc: Exception) -> str:
+        """Render one concise batch error message with exception type context."""
+        message = str(exc).strip()
+        if message == "":
+            return exc.__class__.__name__
+        return f"{exc.__class__.__name__}: {message}"
+
+    @staticmethod
+    def _emit_batch_error(*, catch_name: str, outlet_id: str, message: str) -> None:
+        """Print one short error line while keeping the batch loop alive."""
+        print(
+            f"[ERROR] mesh_catchment batch outlet={outlet_id} catch={catch_name}: {message}",
+            file=sys.stderr,
+        )
+
+    def _detect_failed_mesh_run(
+        self,
+        summary: Mapping[str, Any],
+    ) -> str | None:
+        """Detect one run that returned a summary but did not actually write a mesh."""
+        output_mesh_raw = _optional_text(summary.get("output_mesh"))
+        if output_mesh_raw is None:
+            return (
+                "Mesh generation returned a summary but no output mesh path. "
+                "The run is treated as failed."
+            )
+        output_mesh = Path(output_mesh_raw).expanduser()
+        if not output_mesh.is_absolute():
+            output_mesh = output_mesh.resolve()
+        if output_mesh.exists():
+            return None
+        return (
+            "Mesh generation returned a summary but did not write the expected "
+            f"mesh file: {output_mesh}"
         )
 
 

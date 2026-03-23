@@ -17,6 +17,8 @@ runtime attributes after ``set_config(...)`` is called:
 - ``runtime_backend`` : optional nonlinear runtime backend hint used by the
   Boussinesq solver implementation (for example ``local``, ``scipy``,
   ``scipy_sparse``).
+- ``runtime_max_iterations`` / ``runtime_tol_*`` : optional nonlinear runtime
+  overrides forwarded to the Boussinesq backend.
 - ``parameters`` : normalized hydraulic property dict (K, Sy, Ss, …),
   keyed by parameter id and containing ``FieldParam`` objects.
 - ``initial_conditions`` : one ``FlowInitialConditions`` instance grouping
@@ -117,6 +119,12 @@ class Flow(ProcessSpatial):
     runtime_backend : str
         Optional nonlinear runtime backend hint, currently consumed by the
         Boussinesq solver implementation.
+    runtime_max_iterations : int | None
+        Optional nonlinear iteration-budget override forwarded to Boussinesq.
+    runtime_tol_residual_inf : float | None
+        Optional residual-tolerance override forwarded to Boussinesq.
+    runtime_tol_state_update_inf : float | None
+        Optional state-update-tolerance override forwarded to Boussinesq.
     config : FlowConfig
         Reference to the last validated config applied via ``set_config``.
     parameters : dict[str, FieldParam | object]
@@ -158,6 +166,9 @@ class Flow(ProcessSpatial):
         self.config: FlowConfig
         self.flow_regime: str
         self.runtime_backend: str
+        self.runtime_max_iterations: int | None
+        self.runtime_tol_residual_inf: float | None
+        self.runtime_tol_state_update_inf: float | None
         self.initial_conditions: FlowInitialConditions | None
         self.boundary_condition_application_domains: dict[str, str] = {}
         self.initial_condition_types: dict[str, str] = {}
@@ -194,6 +205,9 @@ class Flow(ProcessSpatial):
         self.config = config
         self.flow_regime = config.flow_regime
         self.runtime_backend = config.runtime_backend
+        self.runtime_max_iterations = config.runtime_max_iterations
+        self.runtime_tol_residual_inf = config.runtime_tol_residual_inf
+        self.runtime_tol_state_update_inf = config.runtime_tol_state_update_inf
         # Parameters are resolved in the declared order from `flow.param_list`.
         self.set_parameters_from_config(
             config.param,

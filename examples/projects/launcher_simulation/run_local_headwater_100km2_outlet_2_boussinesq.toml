@@ -52,6 +52,7 @@ mesh_path = "C:/results/HydromodPy/mesh_catchment_runs/headwater_100km2/mesh_out
 [flow]
 flow_regime = "steady"
 runtime_backend = "scipy_sparse"
+runtime_tol_residual_inf = 1.0e-7
 active_sinks_sources = ["recharge"]
 active_bc = ["drainage"]
 param_list = ["K", "Sy"]

@@ -3,8 +3,7 @@
 #   python -m launchers mesh-catchment run launchers/mesh_catchment/config_example.toml
 #
 # Inherits the shared Naizin DEM, geology source, conductivity demo mapping,
-# default meshing profile, and the launcher-default internal
-# watershed-boundary constraint.
+# and default meshing profile with no internal watershed-boundary constraint.
 
 base_config = "config_common.toml"
 
@@ -13,21 +12,17 @@ base_config = "config_common.toml"
 # output_mesh = "outputs/mesh_catchment_example.msh"
 # output_summary_json = "outputs/mesh_catchment_example_summary.json"
 # geographic_outputs_mode = "cleanup"
-# To disable the default internal catchment-boundary constraint:
+# To re-enable the internal catchment-boundary constraint:
 # [mesh_catchment.watershed_boundary]
-# enabled = false
-# To keep the boundary but disable its automatic smoothing:
+# enabled = true
+# To keep that boundary raw, without smoothing:
 # [mesh_catchment.watershed_boundary.smoothing]
 # enabled = false
 output_figure = "~/HydroModPy/mesh_catchment_nancon/mesh_catchment_nancon_overview.png"
 
-# Keep the support domain larger than the catchment, but materialize
-# interfaces only inside the delineated watershed. This leaves a coarser
-# background mesh outside the catchment while preserving outer context.
-[mesh_catchment.interface_scope]
-kind = "geographic_watershed"
-
-# Refine only inside the watershed as well, so interface-driven small cells do
-# not propagate to the outer buffered support.
+# Do not declare `interface_scope`: clipping geology/rivers on an intermediate
+# scope would materialize that scope in the mesh. Keep only a refinement scope
+# so small cells stay focused on the catchment while the outer support can
+# remain coarser.
 [mesh_catchment.refinement_scope]
 kind = "geographic_watershed"

@@ -164,3 +164,65 @@ def test_write_mesh_catchment_batch_manifest_persists_csv(tmp_path: Path) -> Non
     content = manifest_path.read_text(encoding="utf-8")
     assert "outlet_id,catch_name,status" in content
     assert "A1,catch_A1,ok,1.0,2.0,mesh_A1.msh" in content
+
+
+def test_batch_runner_marks_missing_mesh_output_as_error_and_continues(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    outlets_csv = tmp_path / "outlets.csv"
+    outlets_csv.write_text(
+        "outlet_id,x_outlet_m,y_outlet_m\n1,10.0,20.0\n2,30.0,40.0\n",
+        encoding="utf-8",
+    )
+    batch_cfg = MeshCatchmentBatchConfig.from_mapping(
+        {
+            "enabled": True,
+            "outlets_table_path": str(outlets_csv),
+            "continue_on_error": True,
+            "outputs": {
+                "mesh_filename": "mesh_{outlet_id}.msh",
+                "manifest_csv": "batch/manifest.csv",
+            },
+        },
+        base_dir=tmp_path,
+    )
+    assert batch_cfg is not None
+
+    mesh_section_data = MeshCatchmentConfigSchema.model_validate(
+        {"constraints_mode": "rivers_only"}
+    )
+    workspace_cfg = SimpleNamespace(project_root=tmp_path / "mesh_batch")
+    geographic_cfg = SimpleNamespace(dem_init_path=tmp_path / "dem.tif")
+    call_count = {"n": 0}
+
+    def _fake_run_single_workflow(**kwargs):
+        call_count["n"] += 1
+        output_mesh = Path(kwargs["output_overrides"]["output_mesh"])
+        if call_count["n"] == 2:
+            output_mesh.parent.mkdir(parents=True, exist_ok=True)
+            output_mesh.write_text("mesh", encoding="utf-8")
+        return {
+            "output_mesh": str(output_mesh),
+            "output_summary_json": str(output_mesh.with_suffix(".json")),
+        }
+
+    runner = MeshCatchmentBatchRunner(
+        config_path=tmp_path / "config.toml",
+        mesh_section_data=mesh_section_data,
+        workspace_cfg=workspace_cfg,
+        geographic_cfg=geographic_cfg,
+        domain_cfg=None,
+        run_single_workflow=_fake_run_single_workflow,
+    )
+
+    summary = runner.run(batch_cfg)
+
+    assert call_count["n"] == 2
+    assert summary["outlets_total"] == 2
+    assert summary["outlets_succeeded"] == 1
+    assert summary["outlets_failed"] == 1
+    assert summary["results"][0]["status"] == "error"
+    assert "did not write the expected mesh file" in summary["results"][0]["error"]
+    assert summary["results"][1]["status"] == "ok"
+    assert "[ERROR] mesh_catchment batch outlet=1" in capsys.readouterr().err

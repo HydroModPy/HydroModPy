@@ -172,7 +172,7 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     assert kwargs["output_figure"] is None
     assert kwargs["output_figure_regional"] is None
     assert kwargs["section_data_override"]["domain"]["kind"] == "geographic_box_buffer"
-    assert kwargs["section_data_override"]["watershed_boundary"]["enabled"] is True
+    assert kwargs["section_data_override"]["watershed_boundary"]["enabled"] is False
     assert kwargs["domain_geographic"].river_mesh_trace is not None
 
 
@@ -830,6 +830,8 @@ def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(
 
     def _fake_run_case(config_toml, **kwargs):
         captured_calls.append({"config_toml": config_toml, "kwargs": kwargs})
+        kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
         return {
             "summary_schema_version": "zone_conformal_sidecar_v1",
             "output_mesh": str(kwargs["output_mesh"]),
@@ -934,6 +936,8 @@ def test_mesh_catchment_launcher_batch_flat_layout_writes_directly_to_catchment_
 
     def _fake_run_case(config_toml, **kwargs):
         captured_calls.append({"config_toml": config_toml, "kwargs": kwargs})
+        kwargs["output_mesh"].parent.mkdir(parents=True, exist_ok=True)
+        kwargs["output_mesh"].write_text("mesh", encoding="utf-8")
         return {
             "summary_schema_version": "zone_conformal_sidecar_v1",
             "output_mesh": str(kwargs["output_mesh"]),

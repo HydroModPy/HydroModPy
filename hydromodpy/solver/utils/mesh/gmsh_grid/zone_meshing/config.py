@@ -191,6 +191,13 @@ class ZoneMeshingSettingsSchema(BaseModel):
             "Keep it near zero unless the source dataset is known to contain topology artifacts."
         ),
     )
+    linear_constraint_snap_tolerance: float = Field(
+        default=0.0,
+        description=(
+            "Optional global snapping tolerance, in projected metres, applied to internal linear constraints "
+            "such as rivers or watershed-boundary segments before partition splitting and Gmsh embedding."
+        ),
+    )
     min_polygon_area: float = Field(
         default=0.0,
         description=(
@@ -249,6 +256,7 @@ class ZoneMeshingSettingsSchema(BaseModel):
         "max_size",
         "simplify_tolerance",
         "heal_tolerance",
+        "linear_constraint_snap_tolerance",
         "min_polygon_area",
         "interface_size",
         "interface_distance",
@@ -439,6 +447,7 @@ class ZoneMeshingSettings:
     max_size: float | None
     simplify_tolerance: float
     heal_tolerance: float
+    linear_constraint_snap_tolerance: float
     min_polygon_area: float
     refine_interfaces: bool
     interface_size: float | None
@@ -611,6 +620,9 @@ class ZoneMeshingSettings:
             ),
             simplify_tolerance=float(payload["simplify_tolerance"]),
             heal_tolerance=float(payload["heal_tolerance"]),
+            linear_constraint_snap_tolerance=float(
+                payload["linear_constraint_snap_tolerance"]
+            ),
             min_polygon_area=float(payload["min_polygon_area"]),
             refine_interfaces=bool(payload["refine_interfaces"]),
             interface_size=(
@@ -636,6 +648,9 @@ class ZoneMeshingSettings:
             "max_size": None if self.max_size is None else float(self.max_size),
             "simplify_tolerance": float(self.simplify_tolerance),
             "heal_tolerance": float(self.heal_tolerance),
+            "linear_constraint_snap_tolerance": float(
+                self.linear_constraint_snap_tolerance
+            ),
             "min_polygon_area": float(self.min_polygon_area),
             "refine_interfaces": bool(self.refine_interfaces),
             "interface_size": (

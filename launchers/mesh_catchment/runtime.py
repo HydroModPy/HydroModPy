@@ -26,6 +26,7 @@ from launchers.mesh_catchment.config import (
     parse_mesh_catchment_config_data,
 )
 from launchers.mesh_catchment.runtime_single_run import (
+    MeshCatchmentWorkflowRuntimeArtifacts,
     MeshCatchmentSingleRunDependencies,
     clone_config_like,
     constraints_mode_requires_river_trace,
@@ -147,11 +148,53 @@ def run_single_mesh_catchment_workflow(
     )
 
 
+def run_single_mesh_catchment_workflow_with_runtime_artifacts(
+    *,
+    config_path: str | Path,
+    section_data: MeshCatchmentConfigSchema,
+    workspace_cfg: object,
+    geographic_cfg: GeographicConfig,
+    domain_cfg: object | None,
+    constraints_mode: str,
+    output_overrides: Mapping[str, Path | str | None] | None = None,
+    workspace: object | None = None,
+    domain_geographic: object | None = None,
+    section_name: str = DEFAULT_SECTION_NAME,
+) -> MeshCatchmentWorkflowRuntimeArtifacts:
+    """Run one mono-catchment mesh workflow and keep the runtime mesh in memory."""
+    result = run_single_mesh_catchment_workflow_typed(
+        config_path=Path(config_path).resolve(),
+        section_cfg=section_data,
+        workspace_cfg=workspace_cfg,
+        geographic_cfg=geographic_cfg,
+        domain_cfg=domain_cfg,
+        constraints_mode=constraints_mode,
+        output_overrides=output_overrides,
+        workspace=workspace,
+        domain_geographic=domain_geographic,
+        section_name=section_name,
+        deps=MeshCatchmentSingleRunDependencies(
+            workspace_factory=hmp.Workspace,
+            build_domain_geographic_context_fn=build_domain_geographic_context,
+            run_reference_case_fn=run_reference_2d_zone_conformal_case_from_toml,
+            export_catchment_mesh_bundle_fn=export_catchment_mesh_bundle,
+        ),
+        return_runtime_artifacts=True,
+    )
+    if not isinstance(result, MeshCatchmentWorkflowRuntimeArtifacts):
+        raise TypeError(
+            "Expected mesh-catchment runtime execution to return runtime artifacts."
+        )
+    return result
+
+
 __all__ = [
     "DEFAULT_SECTION_NAME",
     "constraints_mode_requires_river_trace",
     "get_optional_mesh_section",
+    "MeshCatchmentWorkflowRuntimeArtifacts",
     "prepare_geographic_config_for_meshing",
     "require_mesh_section",
     "run_single_mesh_catchment_workflow",
+    "run_single_mesh_catchment_workflow_with_runtime_artifacts",
 ]

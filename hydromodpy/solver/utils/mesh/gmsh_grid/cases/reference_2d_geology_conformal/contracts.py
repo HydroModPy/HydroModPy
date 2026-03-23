@@ -234,6 +234,7 @@ class ZoneConformalMeshingInputs:
     zone_meshing_cfg: ZoneConformalZoneMeshingConfig
     rivers_cfg: ZoneConformalRiversConfig | None
     watershed_boundary_cfg: ZoneConformalWatershedBoundaryConfig | None
+    watershed_boundary_absorbed_by_scope: bool
     resolved_river_trace: object | None
     linear_constraints: tuple[ZoneLinearConstraint, ...]
 

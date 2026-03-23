@@ -221,7 +221,6 @@ def test_generate_zone_conformal_mesh_accepts_generic_linear_constraints() -> No
         group.name == "watershed::boundary" for group in result.physical_groups
     )
 
-
 def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
     gdf = _build_split_zones_gdf()
     output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"

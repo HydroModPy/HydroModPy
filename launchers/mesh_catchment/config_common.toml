@@ -51,24 +51,16 @@ thickness = "50.0 m"
 [mesh_catchment]
 constraints_mode = "geology_rivers"
 output_layout = "flat"
-# The launcher keeps the delineated watershed boundary as one internal
-# constraint by default when the support domain is larger than the catchment.
-# It also smooths that outline automatically at the smallest target mesh scale
-# (here driven by `zone_meshing.min_size = 340 m`) and lets the interface
-# refinement field act along that smoothed boundary so the effect is visible in
-# the exported mesh.
-# Declare `[mesh_catchment.watershed_boundary] enabled = false` to disable it.
+# Shared launcher profile:
+# - constrain the mesh with rivers and geology
+# - keep the watershed boundary out of the internal constraint set by default
+# Do not set `interface_scope` when you want to avoid materializing an internal
+# scope boundary in the mesh. Keep only `refinement_scope =
+# geographic_watershed` when the goal is just to shrink cells inside the
+# catchment without creating an extra geometric frontier.
 
 [mesh_catchment.watershed_boundary]
-enabled = true
-participates_in_refinement = true
-
-[mesh_catchment.watershed_boundary.smoothing]
-# Make the boundary smoothing explicit in the shared launcher configs so the
-# final outline stays less angular on the exported meshes.
-enabled = true
-simplify_tolerance = 340.0
-heal_tolerance = 170.0
+enabled = false
 
 [mesh_catchment.geology.source]
 # Use the France-wide geology source, then clip/rasterize locally on the

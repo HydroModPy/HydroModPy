@@ -208,6 +208,25 @@ def test_flow_config_accepts_boussinesq_runtime_backend(runtime_backend: str) ->
     assert flow.runtime_backend == runtime_backend
 
 
+def test_flow_config_accepts_boussinesq_runtime_overrides() -> None:
+    cfg = FlowConfig.model_validate(
+        {
+            "runtime_backend": "scipy_sparse",
+            "runtime_max_iterations": 60,
+            "runtime_tol_residual_inf": 1.0e-7,
+            "runtime_tol_state_update_inf": 1.0e-8,
+        }
+    )
+    flow = Flow(cfg)
+
+    assert cfg.runtime_max_iterations == 60
+    assert cfg.runtime_tol_residual_inf == pytest.approx(1.0e-7)
+    assert cfg.runtime_tol_state_update_inf == pytest.approx(1.0e-8)
+    assert flow.runtime_max_iterations == 60
+    assert flow.runtime_tol_residual_inf == pytest.approx(1.0e-7)
+    assert flow.runtime_tol_state_update_inf == pytest.approx(1.0e-8)
+
+
 def test_sparse_fd_coloring_groups_only_disjoint_columns() -> None:
     rows_by_col = (
         np.asarray([0], dtype=int),
@@ -1000,6 +1019,49 @@ def test_boussinesq_runs_steady_scipy_sparse_runtime_without_time_grid(
     )
     assert model.runtime_summary["runtime_iteration_counter"] == "newton_iterations"
     assert model.state.head_m[1] > model.state.head_m[0]
+
+
+def test_boussinesq_uses_runtime_tolerance_overrides_from_flow(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_minimal_bundle(tmp_path / "bundle")
+    bundle = load_catchment_mesh_bundle(bundle_dir)
+    flow = Flow(
+        _build_flow_config(
+            {
+                "flow_regime": "steady",
+                "runtime_backend": "scipy_sparse",
+                "runtime_max_iterations": 41,
+                "runtime_tol_residual_inf": 1.0e-7,
+                "runtime_tol_state_update_inf": 1.0e-8,
+                "ic": {"type": "custom", "value": 7.0},
+                "active_bc": ["west_side", "east_side"],
+                "bc": {
+                    "dirichlet": {
+                        "west_side": {"value": 10.0},
+                        "east_side": {"value": 6.0},
+                    }
+                },
+            }
+        )
+    )
+
+    model = Boussinesq(
+        mesh_bundle=bundle,
+        flow=flow,
+        domain=None,
+        time_grid=None,
+        model_folder=tmp_path,
+        model_name="demo_boussinesq_runtime_overrides",
+    )
+
+    model.pre_processing()
+    success = model.processing(run_model=True)
+
+    assert success is True
+    assert model.runtime_summary["runtime_backend"] == "scipy_sparse"
+    assert model.runtime_summary["runtime_tol_residual_inf"] == pytest.approx(1.0e-7)
+    assert model.runtime_summary["runtime_tol_state_update_inf"] == pytest.approx(1.0e-8)
 
 
 def test_boussinesq_runs_recharge_runtime_and_tracks_saturation_excess(

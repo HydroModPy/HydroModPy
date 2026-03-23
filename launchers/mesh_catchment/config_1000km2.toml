@@ -5,8 +5,8 @@
 #   python -m launchers mesh-catchment run launchers/mesh_catchment/config_1000km2.toml
 #
 # Inherits the shared batch DEM, geology source, conductivity demo mapping,
-# output naming, default meshing profile, and the launcher-default
-# watershed-boundary internal constraint.
+# output naming, and the default profile where only rivers and geology
+# constrain the mesh.
 
 base_config = "config_batch_common.toml"
 
@@ -19,11 +19,8 @@ outlets_table_path = "~/HydroModPy/catchment_identification_scan/1000km2/exutoir
 # The preprocess summary reports 11 selected basins in this table.
 # selected_outlet_ids = [34, 28]
 
-# Keep the buffered support domain for context, but generate interfaces only
-# inside the strict watershed to preserve a coarser outer mesh.
-[mesh_catchment.interface_scope]
-kind = "geographic_watershed"
-
-# Apply interface refinement only inside the watershed as well.
+# Do not declare `interface_scope`: clipping geology/rivers on an intermediate
+# scope would materialize that scope in the mesh. Keep only a refinement scope
+# so small cells stay focused on the catchment.
 [mesh_catchment.refinement_scope]
 kind = "geographic_watershed"
