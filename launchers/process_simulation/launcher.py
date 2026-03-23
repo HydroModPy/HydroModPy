@@ -83,7 +83,7 @@ from launchers.mesh_catchment.config import parse_mesh_catchment_batch_config_da
 from launchers.mesh_catchment.runtime import (
     get_optional_mesh_section,
     prepare_geographic_config_for_meshing,
-    run_single_mesh_catchment_workflow,
+    run_single_mesh_catchment_workflow_with_runtime_artifacts,
 )
 
 if TYPE_CHECKING:
@@ -668,7 +668,7 @@ class HydroModPyLauncher:
             return
         run_state = self.run_state
         setup_state = run_state.setup
-        setup_state.mesh_summary = run_single_mesh_catchment_workflow(
+        mesh_runtime = run_single_mesh_catchment_workflow_with_runtime_artifacts(
             config_path=self.config_path,
             section_data=self.mesh_section_data,
             workspace_cfg=self.cfg.workspace,
@@ -678,7 +678,9 @@ class HydroModPyLauncher:
             workspace=setup_state.workspace,
             domain_geographic=setup_state.domain_geographic,
         )
-        self._load_mesh_artifacts_from_summary(strict=False)
+        setup_state.mesh_summary = mesh_runtime.summary
+        setup_state.mesh_planar = mesh_runtime.mesh_planar
+        self._load_mesh_artifacts_from_summary(strict=False, preserve_preloaded=True)
 
     def _run_mesh_input_phase(self) -> None:
         """Load one pre-existing external mesh declared in `[mesh_input]`."""
@@ -698,11 +700,17 @@ class HydroModPyLauncher:
         self.run_state.setup.mesh_summary = mesh_summary
         self._load_mesh_artifacts_from_summary(strict=True)
 
-    def _load_mesh_artifacts_from_summary(self, *, strict: bool) -> None:
+    def _load_mesh_artifacts_from_summary(
+        self,
+        *,
+        strict: bool,
+        preserve_preloaded: bool = False,
+    ) -> None:
         """Populate runtime mesh objects from `setup.mesh_summary` when available."""
         setup_state = self.run_state.setup
-        setup_state.mesh_bundle = None
-        setup_state.mesh_planar = None
+        if not preserve_preloaded:
+            setup_state.mesh_bundle = None
+            setup_state.mesh_planar = None
 
         mesh_summary = setup_state.mesh_summary
         if not isinstance(mesh_summary, Mapping):
@@ -711,7 +719,7 @@ class HydroModPyLauncher:
             return
 
         bundle_dir = str(mesh_summary.get("output_exchange_bundle_dir", "")).strip()
-        if bundle_dir != "":
+        if bundle_dir != "" and setup_state.mesh_bundle is None:
             setup_state.mesh_bundle = load_catchment_mesh_bundle(bundle_dir)
             if isinstance(mesh_summary, dict):
                 mesh_summary.setdefault(
@@ -721,7 +729,7 @@ class HydroModPyLauncher:
 
         mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
         if mesh_path == "":
-            if strict and setup_state.mesh_bundle is None:
+            if strict and setup_state.mesh_bundle is None and setup_state.mesh_planar is None:
                 raise ValueError(
                     "Mesh loading requires one 'output_mesh' path or "
                     "'output_exchange_bundle_dir' in setup.mesh_summary."
@@ -731,7 +739,8 @@ class HydroModPyLauncher:
         mesh_path_obj = Path(mesh_path).expanduser()
         if not strict and not mesh_path_obj.exists():
             return
-        setup_state.mesh_planar = load_planar_mesh(mesh_path_obj)
+        if setup_state.mesh_planar is None:
+            setup_state.mesh_planar = load_planar_mesh(mesh_path_obj)
 
     def _create_simulation_plan(self):
         """Resolve the declarative ``[simulation]`` block into concrete runs.

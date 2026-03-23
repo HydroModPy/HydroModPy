@@ -24,9 +24,9 @@ def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg.geographic_outputs_mode == "keep"
     assert cfg.rivers.source == "domain_geographic"
     assert cfg.watershed_boundary is not None
-    assert cfg.watershed_boundary.enabled is True
+    assert cfg.watershed_boundary.enabled is False
     assert cfg.watershed_boundary.source == "domain_geographic"
-    assert cfg.watershed_boundary.smoothing.enabled is True
+    assert cfg.watershed_boundary.smoothing.enabled is False
     assert cfg.zone_meshing.algorithm == "delaunay"
 
 
@@ -58,7 +58,7 @@ def test_parse_mesh_catchment_config_accepts_watershed_boundary() -> None:
     assert cfg.watershed_boundary.smoothing.simplify_tolerance == 25.0
 
 
-def test_parse_mesh_catchment_config_defaults_boundary_smoothing_to_smallest_mesh_size() -> None:
+def test_parse_mesh_catchment_config_defaults_boundary_smoothing_to_smallest_mesh_size_when_enabled() -> None:
     cfg = parse_mesh_catchment_config_data(
         {
             "constraints_mode": "geology_only",
@@ -74,15 +74,21 @@ def test_parse_mesh_catchment_config_defaults_boundary_smoothing_to_smallest_mes
                 "refine_interfaces": True,
                 "interface_size": 120.0,
             },
+            "watershed_boundary": {
+                "enabled": True,
+                "smoothing": {
+                    "enabled": True,
+                },
+            },
         }
     )
 
     assert cfg.watershed_boundary is not None
+    assert cfg.watershed_boundary.enabled is True
     smoothing = cfg.watershed_boundary.smoothing
     assert smoothing.enabled is True
     assert smoothing.simplify_tolerance == 120.0
     assert smoothing.heal_tolerance == 60.0
-
 
 def test_parse_mesh_catchment_config_rejects_redundant_watershed_boundary() -> None:
     with pytest.raises(ValueError, match="watershed_boundary is redundant"):

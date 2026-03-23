@@ -71,6 +71,27 @@ class FlowConfig(ProcessSpatialConfig):
             "solver implementation. Other flow solvers may ignore this field."
         ),
     )
+    runtime_max_iterations: Annotated[int | None, ParamLevel("dev")] = Field(
+        default=None,
+        description=(
+            "Optional override for the nonlinear iteration budget used by the "
+            "Boussinesq runtime backend."
+        ),
+    )
+    runtime_tol_residual_inf: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None,
+        description=(
+            "Optional override for the infinity-norm residual tolerance used "
+            "by the Boussinesq runtime backend."
+        ),
+    )
+    runtime_tol_state_update_inf: Annotated[float | None, ParamLevel("dev")] = Field(
+        default=None,
+        description=(
+            "Optional override for the infinity-norm state-update tolerance "
+            "used by Boussinesq backends that track it."
+        ),
+    )
     param_list: list[str] = Field(
         default_factory=list,
         description=(
@@ -220,6 +241,32 @@ class FlowConfig(ProcessSpatialConfig):
                 "flow.runtime_backend must be 'local', 'scipy', or 'scipy_sparse'"
             )
         return text
+
+    @field_validator("runtime_max_iterations", mode="before")
+    @classmethod
+    def _validate_runtime_max_iterations(cls, value):
+        """Validate one optional nonlinear iteration-budget override."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            raise ValueError("flow.runtime_max_iterations must be a positive integer")
+        numeric = float(value)
+        if not numeric.is_integer() or numeric <= 0:
+            raise ValueError("flow.runtime_max_iterations must be a positive integer")
+        return int(numeric)
+
+    @field_validator("runtime_tol_residual_inf", "runtime_tol_state_update_inf", mode="before")
+    @classmethod
+    def _validate_runtime_tolerances(cls, value, info):
+        """Validate optional positive runtime tolerances."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            raise ValueError(f"flow.{info.field_name} must be a positive number")
+        numeric = float(value)
+        if numeric <= 0.0:
+            raise ValueError(f"flow.{info.field_name} must be a positive number")
+        return numeric
 
     @field_validator("bc", mode="before")
     @classmethod
@@ -414,9 +461,15 @@ class FlowConfig(ProcessSpatialConfig):
         )
         raw_flow_regime = flow_section.get("flow_regime", "transient")
         raw_runtime_backend = flow_section.get("runtime_backend", "local")
+        raw_runtime_max_iterations = flow_section.get("runtime_max_iterations")
+        raw_runtime_tol_residual_inf = flow_section.get("runtime_tol_residual_inf")
+        raw_runtime_tol_state_update_inf = flow_section.get("runtime_tol_state_update_inf")
         return cls(
             flow_regime=raw_flow_regime,
             runtime_backend=raw_runtime_backend,
+            runtime_max_iterations=raw_runtime_max_iterations,
+            runtime_tol_residual_inf=raw_runtime_tol_residual_inf,
+            runtime_tol_state_update_inf=raw_runtime_tol_state_update_inf,
             param_list=declared_param,
             param=parsed_param,
             ic=parsed_ic,

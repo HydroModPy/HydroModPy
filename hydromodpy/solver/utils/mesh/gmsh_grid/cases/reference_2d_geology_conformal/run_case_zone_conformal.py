@@ -10,8 +10,10 @@ introduced.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 import json
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.solver.utils.mesh.gmsh_grid._trace import trace_mesh_stage
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.case_config import (
@@ -42,6 +44,14 @@ DEFAULT_CONFIG_FILE = "case_config_zone_conformal.toml"
 DEFAULT_SECTION = "mesh_case"
 
 
+@dataclass(frozen=True)
+class ZoneConformalCaseRuntimeArtifacts:
+    """Return payload used by integrated workflows that keep the mesh in memory."""
+
+    summary: dict[str, Any]
+    mesh: object
+
+
 def run_reference_2d_zone_conformal_case_from_toml(
     config_toml: str | Path,
     *,
@@ -54,7 +64,8 @@ def run_reference_2d_zone_conformal_case_from_toml(
     river_trace: object | None = None,
     domain_geographic: object | None = None,
     show_plot: bool = False,
-) -> dict[str, Any]:
+    return_runtime_artifacts: bool = False,
+) -> dict[str, Any] | ZoneConformalCaseRuntimeArtifacts:
     trace_mesh_stage("zone_conformal.run.start", config_toml=config_toml, section=section)
     config_path = _resolve_config_path(
         config_toml,
@@ -155,6 +166,11 @@ def run_reference_2d_zone_conformal_case_from_toml(
         trace_mesh_stage("zone_conformal.summary.written", summary_path=summary_path)
 
     trace_mesh_stage("zone_conformal.run.done")
+    if return_runtime_artifacts:
+        return ZoneConformalCaseRuntimeArtifacts(
+            summary=dict(summary),
+            mesh=result.mesh,
+        )
     return summary
 
 

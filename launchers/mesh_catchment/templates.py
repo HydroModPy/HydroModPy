@@ -31,7 +31,6 @@ _OUTPUT_LAYOUT_BLOCK = dedent(
     """
 ).strip()
 
-
 def _inject_output_layout_block(body: str) -> str:
     """Insert the launcher-specific output-layout block in generated TOML text.
 

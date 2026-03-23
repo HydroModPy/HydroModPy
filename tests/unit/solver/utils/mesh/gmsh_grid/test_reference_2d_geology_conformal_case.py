@@ -181,6 +181,54 @@ def test_geographic_watershed_scope_payload_reuses_boundary_smoothing() -> None:
     assert smoothed_payload.summary["watershed_boundary_smoothing_applied"] is True
 
 
+def test_geographic_watershed_scope_absorbs_watershed_boundary_constraint() -> None:
+    watershed_polygon = box(0.0, 0.0, 10.0, 10.0)
+    scope_payload = ZoneConformalGeometryPayload(
+        geometry=watershed_polygon,
+        gdf=gpd.GeoDataFrame(geometry=[watershed_polygon], crs="EPSG:2154"),
+        summary={
+            "domain_kind": "geographic_watershed",
+            "watershed_boundary_smoothing_applied": True,
+        },
+    )
+    support_polygon = box(-2.0, -2.0, 12.0, 12.0)
+    support_payload = ZoneConformalGeometryPayload(
+        geometry=support_polygon,
+        gdf=gpd.GeoDataFrame(geometry=[support_polygon], crs="EPSG:2154"),
+        summary={"domain_kind": "geographic_box_buffer"},
+    )
+    cfg = SimpleNamespace(
+        watershed_boundary=SimpleNamespace(
+            enabled=True,
+            source="domain_geographic",
+            clip_to_domain=True,
+            min_segment_length=0.0,
+            participates_in_refinement=True,
+            smoothing=SimpleNamespace(
+                enabled=True,
+                simplify_tolerance=5.0,
+                heal_tolerance=1.0,
+                min_polygon_area=0.0,
+            ),
+        )
+    )
+
+    boundary_cfg, constraint, absorbed = (
+        conformal_planning_module._build_watershed_boundary_constraint_inputs(
+            cfg=cfg,
+            config_path=Path.cwd() / "dummy.toml",
+            domain_geographic=None,
+            zone_crs="EPSG:2154",
+            domain_payload=support_payload,
+            interface_scope_payload=scope_payload,
+        )
+    )
+
+    assert boundary_cfg is not None
+    assert constraint is None
+    assert absorbed is True
+
+
 def test_internal_zone_priorities_keep_domain_background_below_geology() -> None:
     zone_gdf = gpd.GeoDataFrame(
         {"zone_key": ["geo_a", "domain_background"]},
@@ -428,6 +476,39 @@ def _write_geographic_scope_case_toml(
         f'constraints_mode = "{constraints_mode}"',
     )
     path.write_text(migrated, encoding="utf-8")
+
+
+def _write_geographic_scope_watershed_boundary_case_toml(
+    path: Path,
+    *,
+    section: str = "case",
+    constraints_mode: str = "geology_only",
+) -> None:
+    _write_geographic_scope_case_toml(
+        path,
+        section=section,
+        constraints_mode=constraints_mode,
+    )
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(
+            "\n".join(
+                (
+                    "",
+                    f"[{section}.watershed_boundary]",
+                    "enabled = true",
+                    "clip_to_domain = true",
+                    "min_segment_length = 0.0",
+                    "participates_in_refinement = true",
+                    "",
+                    f"[{section}.watershed_boundary.smoothing]",
+                    "enabled = true",
+                    "simplify_tolerance = 5.0",
+                    "heal_tolerance = 1.0",
+                    "min_polygon_area = 0.0",
+                    "",
+                )
+            )
+        )
 
 
 def _build_reference_river_trace() -> SimpleNamespace:
@@ -710,7 +791,6 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
     assert cfg.domain.to_mapping()["kind"] == "geographic_box_buffer"
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
     assert cfg.geology.source.kind == "vector"
-
 
 def test_main_prints_summary_json(monkeypatch, capsys) -> None:
     payload = {"status": "ok", "n_cells": 3}
@@ -1004,6 +1084,66 @@ def test_geographic_scopes_limit_interfaces_and_refinement() -> None:
     )
     assert summary["n_cells"] > 0
     assert summary["n_nodes"] > 0
+
+
+@_skip_no_gmsh
+def test_geographic_watershed_scope_uses_smoothed_boundary_as_effective_mesh_contour() -> None:
+    output_dir = (
+        Path.cwd()
+        / "scratch_tests"
+        / "reference_2d_geology_conformal"
+        / "runtime_geographic_scope_watershed_boundary"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    config_path = output_dir / "case_geographic_scope_watershed_boundary.toml"
+    _write_geographic_scope_watershed_boundary_case_toml(config_path)
+
+    support_path = output_dir / "support.geojson"
+    refinement_path = output_dir / "refinement.geojson"
+    interface_path = output_dir / "interface.geojson"
+    _write_scope_vector(
+        support_path,
+        bounds=(355000.0, 6712500.0, 359000.0, 6716500.0),
+    )
+    _write_scope_vector(
+        refinement_path,
+        bounds=(355500.0, 6712900.0, 358500.0, 6716100.0),
+    )
+    _write_scope_vector(
+        interface_path,
+        bounds=(356000.0, 6713300.0, 358000.0, 6715700.0),
+    )
+
+    summary = run_reference_2d_zone_conformal_case_from_toml(
+        config_path,
+        section="case",
+        output_mesh=output_dir
+        / "reference_2d_zone_conformal_geographic_scope_watershed_boundary.msh",
+        output_summary_json=output_dir
+        / "reference_2d_zone_conformal_geographic_scope_watershed_boundary_summary.json",
+        domain_geographic=SimpleNamespace(
+            box_buff_shp=str(support_path),
+            watershed_box_shp=str(refinement_path),
+            watershed_shp=str(interface_path),
+        ),
+        show_plot=False,
+    )
+
+    assert summary["n_cells"] > 0
+    assert summary["interface_scope"]["domain_kind"] == "geographic_watershed"
+    assert summary["interface_scope"]["watershed_boundary_smoothing_applied"] is True
+    assert summary["watershed_boundary_config"]["enabled"] is True
+    assert summary["watershed_boundary"]["absorbed_by_effective_scope"] is True
+    assert (
+        summary["constraints_qa"]["checks"][
+            "watershed_boundary_effectively_meshed_via_scope"
+        ]
+        is True
+    )
+    assert not any(
+        group["name"] == "watershed::boundary"
+        for group in summary["curve_physical_groups"]
+    )
 
 
 @_skip_no_gmsh

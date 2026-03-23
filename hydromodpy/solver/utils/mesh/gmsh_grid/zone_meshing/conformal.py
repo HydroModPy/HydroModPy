@@ -32,6 +32,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning impo
     iter_line_parts,
     iter_polygon_parts,
     make_valid_geometry,
+    make_valid_linework,
     resolve_zone_overlaps,
     segment_intersects_refinement_scope,
     segment_matches_linework,
@@ -43,6 +44,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
     apply_family_refinement_fields,
     apply_interface_refinement_field,
     apply_mesh_options,
+    build_runtime_planar_mesh_from_gmsh,
     build_curve_group_name,
     configure_gmsh_terminal_output,
     iter_river_lines_from_trace,
@@ -740,12 +742,11 @@ def generate_zone_conformal_mesh_from_dataframe(
         "zone_meshing.constraints.normalized",
         n_constraints=len(normalized_constraints),
     )
+    point_tolerance = as_metric_tolerance(float(heal_tolerance))
+    prepared_constraints = normalized_constraints
     constraint_lines = [
-        line
-        for constraint in normalized_constraints
-        for line in constraint.lines
+        line for constraint in prepared_constraints for line in constraint.lines
     ]
-    point_tolerance = as_metric_tolerance(heal_tolerance)
     trace_mesh_stage(
         "zone_meshing.partition.split.start",
         n_constraint_lines=len(constraint_lines),
@@ -776,16 +777,16 @@ def generate_zone_conformal_mesh_from_dataframe(
     curve_tags_by_name: dict[str, list[int]] = {}
     constraint_linework_by_name: dict[str, BaseGeometry] = {}
     constraint_by_name = {
-        str(constraint.name): constraint for constraint in normalized_constraints
+        str(constraint.name): constraint for constraint in prepared_constraints
     }
     constraint_curve_tags_raw: dict[str, list[int]] = {
-        str(constraint.name): [] for constraint in normalized_constraints
+        str(constraint.name): [] for constraint in prepared_constraints
     }
     constraint_embed_success_by_name: dict[str, int] = {
-        str(constraint.name): 0 for constraint in normalized_constraints
+        str(constraint.name): 0 for constraint in prepared_constraints
     }
     constraint_embed_failures_by_name: dict[str, int] = {
-        str(constraint.name): 0 for constraint in normalized_constraints
+        str(constraint.name): 0 for constraint in prepared_constraints
     }
     refinement_policy_summary: dict[str, Any] | None = None
 
@@ -836,14 +837,14 @@ def generate_zone_conformal_mesh_from_dataframe(
         )
 
         existing_curve_tags = set(int(tag) for tag in curve_usage)
-        if normalized_constraints:
+        if prepared_constraints:
             # Re-node the constraint lines against the partition boundary so
             # Gmsh receives a consistent set of segments to embed/refine.
             trace_mesh_stage("zone_meshing.constraints.embed_prep.start")
             partition_linework = unary_union(
                 [face.polygon.boundary for face in partition.faces]
             )
-            for constraint in normalized_constraints:
+            for constraint in prepared_constraints:
                 constraint_name = str(constraint.name)
                 constraint_linework = unary_union(list(constraint.lines))
                 constraint_linework_by_name[constraint_name] = constraint_linework
@@ -926,7 +927,7 @@ def generate_zone_conformal_mesh_from_dataframe(
             segment = curve_tag_to_segment.get(int(curve_tag))
             matched_constraint = _find_matching_constraint(
                 segment=segment,
-                ordered_constraints=normalized_constraints,
+                ordered_constraints=prepared_constraints,
                 constraint_linework_by_name=constraint_linework_by_name,
                 tolerance=point_tolerance,
             )
@@ -973,7 +974,7 @@ def generate_zone_conformal_mesh_from_dataframe(
         trace_mesh_stage("zone_meshing.physical_groups.curves.done")
 
         trace_mesh_stage("zone_meshing.constraints.embed.start")
-        for constraint in normalized_constraints:
+        for constraint in prepared_constraints:
             constraint_name = str(constraint.name)
             for curve_tag in curve_tags_by_name.get(constraint_name, []):
                 if int(curve_tag) in existing_curve_tags:
@@ -1098,15 +1099,21 @@ def generate_zone_conformal_mesh_from_dataframe(
         trace_mesh_stage("zone_meshing.mesh.write.start", output_path=output_path_obj)
         write_repository_compatible_mesh(gmsh, output_path_obj)
         trace_mesh_stage("zone_meshing.mesh.write.done", output_path=output_path_obj)
+        trace_mesh_stage(
+            "zone_meshing.mesh.capture_runtime.start",
+            output_path=output_path_obj,
+        )
+        mesh = build_runtime_planar_mesh_from_gmsh(
+            gmsh,
+            source_path=output_path_obj,
+        )
+        trace_mesh_stage(
+            "zone_meshing.mesh.capture_runtime.done",
+            n_cells=mesh.n_cells,
+        )
     finally:
         trace_mesh_stage("zone_meshing.gmsh.finalize")
         gmsh.finalize()
-
-    # Re-read the generated mesh through the package reader so callers get the
-    # same normalized object regardless of how Gmsh wrote the file.
-    trace_mesh_stage("zone_meshing.mesh.readback.start", output_path=output_path_obj)
-    mesh = GmshPlanarMesh2D.from_file(output_path_obj)
-    trace_mesh_stage("zone_meshing.mesh.readback.done", n_cells=mesh.n_cells)
     physical_group_summaries = [group.to_summary() for group in physical_groups]
     surface_group_summaries = [
         group_summary

@@ -336,11 +336,22 @@ class Boussinesq(Solver):
             # validation meshes, but it can need a few extra nonlinear
             # iterations beyond the dense prototype defaults.
             max_iterations = 30
+        runtime_max_iterations = getattr(self.flow, "runtime_max_iterations", None)
+        if runtime_max_iterations is not None:
+            max_iterations = int(runtime_max_iterations)
+        tol_residual_inf = float(
+            getattr(self.flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9
+        )
+        tol_state_update_inf = float(
+            getattr(self.flow, "runtime_tol_state_update_inf", 1.0e-9) or 1.0e-9
+        )
         return NonlinearRuntimeOptions(
             regularization_radius=float(
                 self.saturation_excess_regularization_radius
             ),
             max_iterations=int(max_iterations),
+            tol_residual_inf=tol_residual_inf,
+            tol_state_update_inf=tol_state_update_inf,
         )
 
     def _record_runtime_backend_summary(

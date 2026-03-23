@@ -425,13 +425,28 @@ def _build_watershed_boundary_constraint_inputs(
     domain_geographic: object | None,
     zone_crs: object,
     domain_payload: ZoneConformalGeometryPayload,
+    interface_scope_payload: ZoneConformalGeometryPayload,
 ) -> tuple[
     ZoneConformalWatershedBoundaryConfig | None,
     ZoneLinearConstraint | None,
+    bool,
 ]:
     boundary_cfg = cfg.watershed_boundary
     if boundary_cfg is None or not boundary_cfg.enabled:
-        return None, None
+        return None, None, False
+
+    def _payload_is_effective_watershed_scope(
+        payload: ZoneConformalGeometryPayload | None,
+    ) -> bool:
+        if payload is None:
+            return False
+        summary = dict(getattr(payload, "summary", {}) or {})
+        return str(summary.get("domain_kind", "")).strip().lower() == "geographic_watershed"
+
+    if _payload_is_effective_watershed_scope(interface_scope_payload) or _payload_is_effective_watershed_scope(
+        domain_payload
+    ):
+        return boundary_cfg, None, True
 
     if domain_geographic is None:
         raise ValueError(
@@ -477,6 +492,7 @@ def _build_watershed_boundary_constraint_inputs(
             lines=tuple(boundary_lines),
             participates_in_refinement=boundary_cfg.participates_in_refinement,
         ),
+        False,
     )
 
 
@@ -493,6 +509,7 @@ def _build_linear_constraint_inputs(
 ) -> tuple[
     ZoneConformalRiversConfig | None,
     ZoneConformalWatershedBoundaryConfig | None,
+    bool,
     object | None,
     tuple[ZoneLinearConstraint, ...],
 ]:
@@ -504,13 +521,14 @@ def _build_linear_constraint_inputs(
         domain_geographic=domain_geographic,
         interface_scope_payload=interface_scope_payload,
     )
-    watershed_boundary_cfg, watershed_boundary_constraint = (
+    watershed_boundary_cfg, watershed_boundary_constraint, watershed_boundary_absorbed_by_scope = (
         _build_watershed_boundary_constraint_inputs(
             cfg=cfg,
             config_path=config_path,
             domain_geographic=domain_geographic,
             zone_crs=zone_crs,
             domain_payload=domain_payload,
+            interface_scope_payload=interface_scope_payload,
         )
     )
     constraints = tuple(
@@ -521,6 +539,7 @@ def _build_linear_constraint_inputs(
     return (
         rivers_cfg,
         watershed_boundary_cfg,
+        watershed_boundary_absorbed_by_scope,
         resolved_river_trace,
         constraints,
     )
@@ -552,7 +571,7 @@ def _build_zone_conformal_meshing_inputs(
         target_crs=zone_gdf.crs,
         watershed_boundary_cfg=cfg.watershed_boundary,
     )
-    rivers_cfg, watershed_boundary_cfg, resolved_river_trace, linear_constraints = (
+    rivers_cfg, watershed_boundary_cfg, watershed_boundary_absorbed_by_scope, resolved_river_trace, linear_constraints = (
         _build_linear_constraint_inputs(
             usage=usage,
             cfg=cfg,
@@ -577,6 +596,7 @@ def _build_zone_conformal_meshing_inputs(
         zone_meshing_cfg=cfg.zone_meshing,
         rivers_cfg=rivers_cfg,
         watershed_boundary_cfg=watershed_boundary_cfg,
+        watershed_boundary_absorbed_by_scope=watershed_boundary_absorbed_by_scope,
         resolved_river_trace=resolved_river_trace,
         linear_constraints=linear_constraints,
     )

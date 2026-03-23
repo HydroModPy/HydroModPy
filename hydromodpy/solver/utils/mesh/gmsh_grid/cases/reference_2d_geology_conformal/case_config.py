@@ -197,7 +197,6 @@ def _validate_zone_meshing_case_config(
 ) -> ZoneConformalZoneMeshingConfig:
     return parse_zone_meshing_settings(config_data)
 
-
 def _validate_domain_case_config(
     config_data: Mapping[str, Any],
 ) -> ZoneConformalDomainConfig:

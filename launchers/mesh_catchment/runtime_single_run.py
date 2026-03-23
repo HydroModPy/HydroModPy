@@ -58,7 +58,7 @@ class MeshCatchmentSingleRunDependencies:
 
     workspace_factory: Callable[..., object]
     build_domain_geographic_context_fn: Callable[..., object]
-    run_reference_case_fn: Callable[..., dict[str, Any]]
+    run_reference_case_fn: Callable[..., Any]
     export_catchment_mesh_bundle_fn: Callable[..., dict[str, Any]]
 
 
@@ -73,6 +73,14 @@ class PreparedMeshCatchmentRuntime:
     workspace: object
     domain_geographic: object
     built_domain_geographic_locally: bool
+
+
+@dataclass(frozen=True)
+class MeshCatchmentWorkflowRuntimeArtifacts:
+    """Summary plus in-memory artifacts produced by one mono-catchment run."""
+
+    summary: dict[str, Any]
+    mesh_planar: object | None = None
 
 
 def _resolve_optional_path(*, config_dir: Path, raw_value: Any) -> Path | None:
@@ -327,8 +335,13 @@ def _export_exchange_bundle_if_possible(
         )
         summary_dict["exchange_bundle"] = bundle_summary
         summary_dict["output_exchange_bundle_dir"] = str(bundle_summary["bundle_dir"])
-    except Exception as exc:  # pragma: no cover - defensive only
-        summary_dict["exchange_bundle_error"] = str(exc)
+    except (Exception, SystemExit) as exc:  # pragma: no cover - defensive only
+        message = str(exc).strip()
+        summary_dict["exchange_bundle_error"] = (
+            type(exc).__name__
+            if message == ""
+            else f"{type(exc).__name__}: {message}"
+        )
 
 
 def _apply_post_run_cleanup(
@@ -386,7 +399,8 @@ def run_single_mesh_catchment_workflow_typed(
     domain_geographic: object | None = None,
     section_name: str,
     deps: MeshCatchmentSingleRunDependencies,
-) -> dict[str, Any]:
+    return_runtime_artifacts: bool = False,
+) -> dict[str, Any] | MeshCatchmentWorkflowRuntimeArtifacts:
     """Run one mono-catchment mesh workflow from an already typed launcher section."""
     prepared_runtime = _prepare_runtime_environment(
         section_cfg=section_cfg,
@@ -413,19 +427,40 @@ def run_single_mesh_catchment_workflow_typed(
             else None
         ),
     )
-    summary = deps.run_reference_case_fn(
+    case_kwargs: dict[str, Any] = {
+        "section": section_name,
+        "section_data_override": section_cfg.model_dump(mode="python"),
+        "output_mesh": resolved_outputs.output_mesh,
+        "output_summary_json": resolved_outputs.output_summary_json,
+        "output_figure": resolved_outputs.output_figure,
+        "output_figure_regional": resolved_outputs.output_figure_regional,
+        "river_trace": river_trace,
+        "domain_geographic": prepared_runtime.domain_geographic,
+        "show_plot": resolved_outputs.show_plot,
+    }
+    if return_runtime_artifacts:
+        case_kwargs["return_runtime_artifacts"] = True
+    case_result = deps.run_reference_case_fn(
         config_path,
-        section=section_name,
-        section_data_override=section_cfg.model_dump(mode="python"),
-        output_mesh=resolved_outputs.output_mesh,
-        output_summary_json=resolved_outputs.output_summary_json,
-        output_figure=resolved_outputs.output_figure,
-        output_figure_regional=resolved_outputs.output_figure_regional,
-        river_trace=river_trace,
-        domain_geographic=prepared_runtime.domain_geographic,
-        show_plot=resolved_outputs.show_plot,
+        **case_kwargs,
     )
-    summary_dict = dict(summary)
+    runtime_mesh = None
+    if return_runtime_artifacts:
+        summary_payload = getattr(case_result, "summary", None)
+        runtime_mesh = getattr(case_result, "mesh", None)
+        if not isinstance(summary_payload, Mapping):
+            raise TypeError(
+                "Mesh runtime capture requires one case result exposing a mapping "
+                "'summary' attribute."
+            )
+        if runtime_mesh is None:
+            raise TypeError(
+                "Mesh runtime capture requires one case result exposing a non-null "
+                "'mesh' attribute."
+            )
+        summary_dict = dict(summary_payload)
+    else:
+        summary_dict = dict(case_result)
     summary_dict["output_layout"] = prepared_runtime.effective_output_layout
     summary_dict["geographic_outputs_mode"] = section_cfg.geographic_outputs_mode
     summary_dict["geographic_outputs_cleanup_applied"] = False
@@ -444,10 +479,16 @@ def run_single_mesh_catchment_workflow_typed(
         section_cfg=section_cfg,
         prepared_runtime=prepared_runtime,
     )
+    if return_runtime_artifacts:
+        return MeshCatchmentWorkflowRuntimeArtifacts(
+            summary=summary_dict,
+            mesh_planar=runtime_mesh,
+        )
     return summary_dict
 
 
 __all__ = [
+    "MeshCatchmentWorkflowRuntimeArtifacts",
     "MeshCatchmentSingleRunDependencies",
     "PreparedMeshCatchmentRuntime",
     "ResolvedMeshCatchmentOutputs",
