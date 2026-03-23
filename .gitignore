@@ -152,6 +152,8 @@ scratch_*/
 hydromodpy/solver/utils/mesh/gmsh_grid/cases/**/scratch_tests/
 validation_cases/**/.__validation_runtime_*.toml
 launchers/mesh_catchment/._run*.toml
+launchers/mesh_catchment/._debug*.toml
+hydromodpy_annex/preprocess/catchment_identification_scan/._run*.toml
 
 # Codex CI artifacts
 .codex_*/
