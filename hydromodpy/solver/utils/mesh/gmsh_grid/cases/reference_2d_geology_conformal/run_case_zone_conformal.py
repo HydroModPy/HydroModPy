@@ -87,9 +87,9 @@ def run_reference_2d_zone_conformal_case_from_toml(
     trace_mesh_stage(
         "zone_conformal.inputs.built",
         zone_features=len(meshing_inputs.zone_gdf),
-        constraints_mode=meshing_inputs.usage.constraints_mode,
+        constraints_mode=meshing_inputs.constraints_mode_label,
     )
-    constraints_mode = str(meshing_inputs.usage.constraints_mode)
+    constraints_mode = str(meshing_inputs.constraints_mode_label)
 
     mesh_path = _resolve_optional_output_path(
         config_path,
@@ -120,7 +120,6 @@ def run_reference_2d_zone_conformal_case_from_toml(
 
     result = _run_zone_conformal_meshing(
         meshing_inputs=meshing_inputs,
-        constraints_mode=constraints_mode,
         mesh_path=mesh_path,
     )
     trace_mesh_stage(
@@ -135,7 +134,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
         result=result,
         source_payload=meshing_inputs.source_payload,
         clipped_gdf=meshing_inputs.zone_gdf,
-        domain_payload=meshing_inputs.domain_payload,
+        domain_payload=meshing_inputs.effective_domain_payload,
     )
     trace_mesh_stage("zone_conformal.summary.built")
     summary = _finalize_summary_payload(

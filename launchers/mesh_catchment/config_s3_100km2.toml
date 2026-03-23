@@ -5,8 +5,7 @@
 #   python -m launchers mesh-catchment run launchers/mesh_catchment/config_s3_100km2.toml
 #
 # Inherits the shared batch DEM, geology source, conductivity demo mapping,
-# output naming, and the default profile where only rivers and geology
-# constrain the mesh.
+# output naming, and the default profile where rivers and geology constrain the mesh.
 
 base_config = "config_batch_common.toml"
 
@@ -18,9 +17,3 @@ project_root = "~/HydroModPy/mesh_s3_100km2"
 outlets_table_path = "~/HydroModPy/catchment_identification_scan/s3_100km2/exutoires_s3_100km2.csv"
 # This preprocess table contains 314 selected outlets.
 # selected_outlet_ids = [148, 195]
-
-# Do not declare `interface_scope`: clipping geology/rivers on an intermediate
-# scope would materialize that scope in the mesh. Keep only a refinement scope
-# so small cells stay focused on the catchment.
-[mesh_catchment.refinement_scope]
-kind = "geographic_watershed"

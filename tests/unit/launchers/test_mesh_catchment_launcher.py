@@ -172,7 +172,7 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     assert kwargs["output_figure"] is None
     assert kwargs["output_figure_regional"] is None
     assert kwargs["section_data_override"]["domain"]["kind"] == "geographic_box_buffer"
-    assert kwargs["section_data_override"]["watershed_boundary"]["enabled"] is False
+    assert "watershed_boundary" not in kwargs["section_data_override"]
     assert kwargs["domain_geographic"].river_mesh_trace is not None
 
 
@@ -202,7 +202,7 @@ def test_prepare_geographic_config_for_meshing_updates_simple_namespace_runtime(
     assert geographic_cfg.river_network.enabled is False
 
 
-def test_mesh_catchment_launcher_passes_watershed_boundary_constraint_to_case(
+def test_mesh_catchment_launcher_rejects_removed_watershed_boundary_section(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -211,7 +211,6 @@ def test_mesh_catchment_launcher_passes_watershed_boundary_constraint_to_case(
         "[mesh_catchment]\nconstraints_mode='rivers_only'\n",
         encoding="utf-8",
     )
-    captured: dict[str, object] = {}
     minimal_cfg = _minimal_cfg(tmp_path)
 
     monkeypatch.setattr(
@@ -243,26 +242,11 @@ def test_mesh_catchment_launcher_passes_watershed_boundary_constraint_to_case(
         "launchers.mesh_catchment.runtime.build_domain_geographic_context",
         lambda **_: _DummyDomainGeographic(),
     )
-
-    def _fake_run_case(config_toml, **kwargs):
-        captured["config_toml"] = config_toml
-        captured["kwargs"] = kwargs
-        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
-
-    monkeypatch.setattr(
-        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
-        _fake_run_case,
-    )
-
-    _ = MeshCatchmentLauncher(config_path).run()
-
-    kwargs = captured["kwargs"]
-    watershed_cfg = kwargs["section_data_override"]["watershed_boundary"]
-    assert captured["config_toml"] == config_path.resolve()
-    assert watershed_cfg["enabled"] is True
-    assert watershed_cfg["clip_to_domain"] is True
-    assert watershed_cfg["participates_in_refinement"] is False
-    assert watershed_cfg["source"] == "domain_geographic"
+    with pytest.raises(
+        ValueError,
+        match=r"\[mesh_catchment\.watershed_boundary\] is no longer supported",
+    ):
+        _ = MeshCatchmentLauncher(config_path).run()
 
 
 def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_root(

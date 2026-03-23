@@ -119,6 +119,35 @@ class ZoneMeshingRefinementHotspotSettingsSchema(BaseModel):
         return out
 
 
+class ZoneMeshingRefinementGridSettingsSchema(BaseModel):
+    """Validated grid settings for one locality-first refinement policy."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cell_size: float | None = None
+    neighborhood_rings: int = 1
+    enable_exact_gap_check: bool = True
+    max_exact_gap_candidates: int = 256
+
+    @field_validator("cell_size")
+    @classmethod
+    def _validate_optional_positive_cell_size(cls, value):
+        if value is None:
+            return None
+        out = float(value)
+        if out <= 0.0:
+            raise ValueError("cell_size must be > 0 when provided")
+        return out
+
+    @field_validator("neighborhood_rings", "max_exact_gap_candidates")
+    @classmethod
+    def _validate_positive_grid_int(cls, value):
+        out = int(value)
+        if out < 1:
+            raise ValueError("values must be >= 1")
+        return out
+
+
 class ZoneMeshingRefinementPolicySchema(BaseModel):
     """Validated local refinement policy for mixed river/geology interfaces."""
 
@@ -129,6 +158,9 @@ class ZoneMeshingRefinementPolicySchema(BaseModel):
     hotspot: ZoneMeshingRefinementHotspotSettingsSchema = Field(
         default_factory=ZoneMeshingRefinementHotspotSettingsSchema
     )
+    grid: ZoneMeshingRefinementGridSettingsSchema = Field(
+        default_factory=ZoneMeshingRefinementGridSettingsSchema
+    )
     families: ZoneMeshingRefinementFamiliesSchema = Field(
         default_factory=ZoneMeshingRefinementFamiliesSchema
     )
@@ -137,7 +169,7 @@ class ZoneMeshingRefinementPolicySchema(BaseModel):
     @classmethod
     def _validate_mode(cls, value):
         text = str(value).strip().lower()
-        allowed = {"family_priority_local_budget"}
+        allowed = {"family_priority_local_budget", "grid_local_budget"}
         if text not in allowed:
             allowed_text = ", ".join(sorted(allowed))
             raise ValueError(f"mode must be one of: {allowed_text}")
@@ -326,6 +358,14 @@ class ZoneMeshingSettingsSchema(BaseModel):
                 )
             if self.refinement_policy.hotspot.radius is None:
                 self.refinement_policy.hotspot.radius = self.interface_distance
+            if (
+                self.refinement_policy.mode == "grid_local_budget"
+                and self.refinement_policy.grid.cell_size is None
+            ):
+                self.refinement_policy.grid.cell_size = max(
+                    float(self.interface_distance) * 0.5,
+                    float(self.interface_size),
+                )
             for family_name in (
                 "river",
                 "geology_interface",
@@ -404,12 +444,33 @@ class ZoneMeshingRefinementHotspotSettings:
 
 
 @dataclass(frozen=True)
+class ZoneMeshingRefinementGridSettings:
+    """Spatial grid settings used by one locality-first refinement policy."""
+
+    cell_size: float | None
+    neighborhood_rings: int
+    enable_exact_gap_check: bool
+    max_exact_gap_candidates: int
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "cell_size": (
+                None if self.cell_size is None else float(self.cell_size)
+            ),
+            "neighborhood_rings": int(self.neighborhood_rings),
+            "enable_exact_gap_check": bool(self.enable_exact_gap_check),
+            "max_exact_gap_candidates": int(self.max_exact_gap_candidates),
+        }
+
+
+@dataclass(frozen=True)
 class ZoneMeshingRefinementPolicy:
     """Optional local budget policy used before creating Gmsh size fields."""
 
     enabled: bool
     mode: str
     hotspot: ZoneMeshingRefinementHotspotSettings
+    grid: ZoneMeshingRefinementGridSettings
     families: dict[str, ZoneMeshingRefinementFamilySettings]
 
     def sorted_families_by_priority(self) -> list[str]:
@@ -430,6 +491,7 @@ class ZoneMeshingRefinementPolicy:
             "enabled": bool(self.enabled),
             "mode": str(self.mode),
             "hotspot": self.hotspot.to_mapping(),
+            "grid": self.grid.to_mapping(),
             "families": {
                 family_name: settings.to_mapping()
                 for family_name, settings in sorted(self.families.items())
@@ -494,6 +556,24 @@ class ZoneMeshingSettings:
                     max_short_segment_count=int(
                         refinement_policy_payload["hotspot"][
                             "max_short_segment_count"
+                        ]
+                    ),
+                ),
+                grid=ZoneMeshingRefinementGridSettings(
+                    cell_size=(
+                        None
+                        if refinement_policy_payload["grid"]["cell_size"] is None
+                        else float(refinement_policy_payload["grid"]["cell_size"])
+                    ),
+                    neighborhood_rings=int(
+                        refinement_policy_payload["grid"]["neighborhood_rings"]
+                    ),
+                    enable_exact_gap_check=bool(
+                        refinement_policy_payload["grid"]["enable_exact_gap_check"]
+                    ),
+                    max_exact_gap_candidates=int(
+                        refinement_policy_payload["grid"][
+                            "max_exact_gap_candidates"
                         ]
                     ),
                 ),
@@ -679,6 +759,8 @@ def parse_zone_meshing_settings(config_data: Mapping[str, Any]) -> ZoneMeshingSe
 __all__ = [
     "parse_zone_meshing_settings",
     "ZoneMeshingRefinementFamilySettings",
+    "ZoneMeshingRefinementGridSettings",
+    "ZoneMeshingRefinementGridSettingsSchema",
     "ZoneMeshingRefinementHotspotSettings",
     "ZoneMeshingRefinementPolicy",
     "ZoneMeshingRefinementPolicySchema",

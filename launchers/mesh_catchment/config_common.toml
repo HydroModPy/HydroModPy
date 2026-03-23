@@ -40,7 +40,7 @@ threshold_area_km2 = 1.0
 prune_short_streams = false
 compute_strahler_order = true
 compute_stream_links = true
-all_vertices = false
+all_vertices = true
 
 [domain.depth_model]
 # Exported mesh bundles derive `z_bottom` / substratum fields from this section.
@@ -53,14 +53,7 @@ constraints_mode = "geology_rivers"
 output_layout = "flat"
 # Shared launcher profile:
 # - constrain the mesh with rivers and geology
-# - keep the watershed boundary out of the internal constraint set by default
-# Do not set `interface_scope` when you want to avoid materializing an internal
-# scope boundary in the mesh. Keep only `refinement_scope =
-# geographic_watershed` when the goal is just to shrink cells inside the
-# catchment without creating an extra geometric frontier.
-
-[mesh_catchment.watershed_boundary]
-enabled = false
+# - use one single support domain without extra public scoping layers
 
 [mesh_catchment.geology.source]
 # Use the France-wide geology source, then clip/rasterize locally on the
@@ -92,8 +85,15 @@ interface_sampling = 96
 [mesh_catchment.zone_meshing.refinement_policy]
 # Local hotspot-aware refinement budget used to keep Delaunay robust on mixed
 # river/geology/watershed cases without dropping any geometric constraint.
+# The default shared mode now uses one locality grid so large catchments do not
+# spend most of their time in pairwise Shapely distance scans.
 enabled = true
-mode = "family_priority_local_budget"
+mode = "grid_local_budget"
+
+[mesh_catchment.zone_meshing.refinement_policy.grid]
+neighborhood_rings = 1
+enable_exact_gap_check = false
+max_exact_gap_candidates = 128
 
 [mesh_catchment.zone_meshing.refinement_policy.hotspot]
 radius = 610.0
@@ -113,5 +113,5 @@ enabled = true
 priority = 200
 
 [mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
-enabled = true
+enabled = false
 priority = 100

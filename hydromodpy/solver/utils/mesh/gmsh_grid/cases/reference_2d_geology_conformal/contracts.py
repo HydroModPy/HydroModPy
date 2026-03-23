@@ -21,12 +21,11 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
 
 
 @dataclass(frozen=True)
-class ZoneConformalConstraintUsage:
-    """Resolved constraint switches for one conformal meshing run."""
+class ZoneConformalConstraintFamilies:
+    """Resolved constraint families enabled for one conformal meshing run."""
 
-    constraints_mode: str
-    uses_geology_constraints: bool
-    uses_river_constraints: bool
+    geology_interface: bool
+    river: bool
 
 
 @dataclass(frozen=True)
@@ -179,38 +178,14 @@ class ZoneConformalRiversConfig:
 
 
 @dataclass(frozen=True)
-class ZoneConformalWatershedBoundarySmoothingConfig:
-    """Validated smoothing options for the watershed-boundary constraint."""
-
-    enabled: bool
-    simplify_tolerance: float
-    heal_tolerance: float
-    min_polygon_area: float
-
-
-@dataclass(frozen=True)
-class ZoneConformalWatershedBoundaryConfig:
-    """Validated watershed-boundary options for one run."""
-
-    enabled: bool
-    source: str
-    clip_to_domain: bool
-    min_segment_length: float
-    participates_in_refinement: bool
-    smoothing: ZoneConformalWatershedBoundarySmoothingConfig
-
-
-@dataclass(frozen=True)
 class ZoneConformalCaseConfig:
     """Normalized top-level case configuration consumed by planning."""
 
-    constraints_mode: str
+    constraint_families: ZoneConformalConstraintFamilies
+    constraints_mode_label: str
     geology: ZoneConformalGeologyConfig | None
     rivers: ZoneConformalRiversConfig | None
-    watershed_boundary: ZoneConformalWatershedBoundaryConfig | None
     domain: ZoneConformalDomainConfig
-    interface_scope: ZoneConformalDomainConfig | None
-    refinement_scope: ZoneConformalDomainConfig | None
     zone_meshing: ZoneConformalZoneMeshingConfig
     output_mesh: object | None
     output_summary_json: object | None
@@ -219,38 +194,39 @@ class ZoneConformalCaseConfig:
 
 
 @dataclass(frozen=True)
+class ZoneConformalMeshingDiagnostics:
+    """Secondary artifacts kept for reporting and plotting only."""
+
+    source_plot_gdf: gpd.GeoDataFrame
+    rivers_cfg: ZoneConformalRiversConfig | None
+    river_trace: object | None
+
+
+@dataclass(frozen=True)
 class ZoneConformalMeshingInputs:
     """Common meshing contract assembled before calling the Gmsh core."""
 
-    usage: ZoneConformalConstraintUsage
+    constraint_families: ZoneConformalConstraintFamilies
+    constraints_mode_label: str
     source_payload: ZoneConformalSourcePayload
-    source_domain_gdf: gpd.GeoDataFrame
     zone_gdf: gpd.GeoDataFrame
-    domain_payload: ZoneConformalGeometryPayload
-    interface_scope_payload: ZoneConformalGeometryPayload
-    refinement_scope_payload: ZoneConformalGeometryPayload
-    interface_scope_is_custom: bool
-    refinement_scope_is_custom: bool
+    effective_domain_payload: ZoneConformalGeometryPayload
     zone_meshing_cfg: ZoneConformalZoneMeshingConfig
-    rivers_cfg: ZoneConformalRiversConfig | None
-    watershed_boundary_cfg: ZoneConformalWatershedBoundaryConfig | None
-    watershed_boundary_absorbed_by_scope: bool
-    resolved_river_trace: object | None
     linear_constraints: tuple[ZoneLinearConstraint, ...]
+    diagnostics: ZoneConformalMeshingDiagnostics
 
 
 __all__ = [
     "ZoneConformalCaseConfig",
-    "ZoneConformalConstraintUsage",
+    "ZoneConformalConstraintFamilies",
     "ZoneConformalDomainConfig",
     "ZoneConformalGeologyConfig",
     "ZoneConformalGeologyLandSeaConfig",
     "ZoneConformalGeologySourceConfig",
     "ZoneConformalGeometryPayload",
+    "ZoneConformalMeshingDiagnostics",
     "ZoneConformalMeshingInputs",
     "ZoneConformalRiversConfig",
     "ZoneConformalSourcePayload",
-    "ZoneConformalWatershedBoundaryConfig",
-    "ZoneConformalWatershedBoundarySmoothingConfig",
     "ZoneConformalZoneMeshingConfig",
 ]
