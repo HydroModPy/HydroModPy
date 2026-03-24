@@ -6,6 +6,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from .mesh_case_registry import (
+    MESH_GALLERY_SCALE_ORDER,
+    iter_mesh_case_json_paths,
+    load_mesh_case_metadata,
+)
+
 
 Formatter = Callable[[Any], str]
 
@@ -109,10 +115,72 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
 }
 
 
+_MESH_GALLERY_METRIC_SPECS = (
+    GalleryMetricSpec("Nodes", "node_count", _format_int),
+    GalleryMetricSpec("Cells", "cell_count", _format_int),
+    GalleryMetricSpec("River edges", "river_edge_count", _format_int),
+    GalleryMetricSpec("Geology interfaces", "geology_interface_edge_count", _format_int),
+)
+
+
+def build_repo_mesh_gallery_case_specs(*, repo_root=None) -> tuple[GalleryCaseSpec, ...]:
+    """Discover versioned mesh-gallery cases imported under ``examples/mesh_gallery``."""
+
+    scale_rank = {scale: index for index, scale in enumerate(MESH_GALLERY_SCALE_ORDER)}
+    discovered_specs: list[GalleryCaseSpec] = []
+    discovery_kwargs = {} if repo_root is None else {"repo_root": repo_root}
+    for case_json_path in iter_mesh_case_json_paths(**discovery_kwargs):
+        payload = load_mesh_case_metadata(case_json_path)
+        slug = str(payload["slug"])
+        title = str(payload["title"])
+        discovered_specs.append(
+            GalleryCaseSpec(
+                slug=slug,
+                title=title,
+                category="mesh",
+                deck=str(payload["deck"]),
+                summary=str(payload["summary"]),
+                what_it_shows=tuple(str(item) for item in payload["what_it_shows"]),
+                reproduction_command=str(payload["reproduction_command"]),
+                source_paths=tuple(str(item) for item in payload["source_paths"]),
+                generator="mesh_viewer",
+                image_assets=(
+                    GalleryImageAsset(
+                        filename=f"{slug}_overview.png",
+                        caption=str(
+                            payload.get(
+                                "image_caption",
+                                f"Mesh overview rendered from the versioned bundle shipped with `{slug}`.",
+                            )
+                        ),
+                        alt_text=str(payload.get("image_alt_text", f"{title} overview")),
+                    ),
+                ),
+                metric_specs=_MESH_GALLERY_METRIC_SPECS,
+                case_setup=tuple(str(item) for item in payload.get("case_setup", ())),
+                reference_highlights=tuple(str(item) for item in payload.get("reference_highlights", ())),
+                equations_rst=tuple(str(item) for item in payload.get("equations_rst", ())),
+                metadata={
+                    "scale": str(payload["scale"]),
+                    "config_path": str(payload["config_path"]),
+                },
+            )
+        )
+    return tuple(
+        sorted(
+            discovered_specs,
+            key=lambda spec: (
+                scale_rank.get(str(spec.metadata.get("scale", "")), 999),
+                spec.slug,
+            ),
+        )
+    )
+
+
 def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
     """Return the v1 illustrated-gallery inventory."""
 
-    return (
+    static_specs = (
         GalleryCaseSpec(
             slug="mesh_sample_bundle",
             title="Mesh Sample Bundle",
@@ -433,6 +501,7 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
             },
         ),
     )
+    return static_specs + build_repo_mesh_gallery_case_specs()
 
 
 __all__ = [
