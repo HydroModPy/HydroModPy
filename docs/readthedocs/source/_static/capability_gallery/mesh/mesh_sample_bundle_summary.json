@@ -5,11 +5,14 @@
   "category": "mesh",
   "deck": "Standalone overview of a tiny bundled mesh, with geology and topography panels.",
   "summary": "This sample bundle is the smallest self-contained mesh illustration shipped with the repository. It is stable enough for documentation and still exposes the main viewer concepts: cells, edges, rivers, geology interfaces, and topography rendering.",
+  "case_setup": [],
   "what_it_shows": [
     "How the standalone bundle viewer turns one versioned mesh export into a didactic figure.",
     "How geology keys, river edges, and topographic information are surfaced in one compact layout.",
     "What a minimal bundle looks like when used as a reproducible documentation artifact."
   ],
+  "reference_highlights": [],
+  "equations_rst": [],
   "reproduction_command": "python -m tools.mesh_bundle_viewer --config examples/mesh_viewer/config_example.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [

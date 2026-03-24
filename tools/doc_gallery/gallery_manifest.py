@@ -44,6 +44,9 @@ class GalleryCaseSpec:
     generator: str
     image_assets: tuple[GalleryImageAsset, ...]
     metric_specs: tuple[GalleryMetricSpec, ...] = ()
+    case_setup: tuple[str, ...] = ()
+    reference_highlights: tuple[str, ...] = ()
+    equations_rst: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -234,6 +237,19 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 GalleryMetricSpec("Max abs error", "max_error", _format_float("m", precision=4)),
                 GalleryMetricSpec("Cross-row spread", "row_spread", _format_scientific("m", precision=2)),
             ),
+            case_setup=(
+                "Homogeneous unconfined strip, 400 m long, discretized on a 5 x 40 grid.",
+                "Fixed west head of 10.0 m and fixed east head of 5.0 m.",
+                "No recharge, hydraulic conductivity 1e-4 m/s, aquifer thickness 20.0 m.",
+            ),
+            reference_highlights=(
+                "The benchmark uses the steady 1D Dupuit approximation on a homogeneous aquifer with no recharge.",
+                "The comparison is performed on the row-averaged numerical head profile along x.",
+            ),
+            equations_rst=(
+                r"\frac{\mathrm{d}}{\mathrm{d}x}\left(K\,h\,\frac{\mathrm{d}h}{\mathrm{d}x}\right)=0",
+                r"h(x)=\sqrt{h_w^2+\left(h_e^2-h_w^2\right)\frac{x-x_{\min}}{x_{\max}-x_{\min}}}",
+            ),
             metadata={
                 "comparison_import": (
                     "validation_cases.analytical.steady.dupuit_fixed_head_1d.comparison:"
@@ -298,6 +314,20 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 GalleryMetricSpec(
                     "Min land freeboard", "land_clearance_min", _format_float("m", precision=4)
                 ),
+            ),
+            case_setup=(
+                "Synthetic circular island embedded in a 610 m x 610 m Cartesian grid sampled on 61 x 61 cells.",
+                "Island radius 200 m, flat substratum at -5.0 m, sea level fixed at 0.0 m on the shoreline.",
+                "Uniform recharge of 1.0 mm/day and hydraulic conductivity of 5e-6 m/s.",
+            ),
+            reference_highlights=(
+                "The benchmark uses the steady radial Dupuit-Boussinesq equation on a flat substratum.",
+                "HydroModPy's ocean boundary condition is checked against a fixed coastal head while the annular mean profile tests radial symmetry.",
+            ),
+            equations_rst=(
+                r"\frac{1}{r}\frac{\mathrm{d}}{\mathrm{d}r}\left(r\,K\,H\,\frac{\mathrm{d}H}{\mathrm{d}r}\right)+R=0",
+                r"H(r)^2=H(a)^2+\frac{R}{2K}\left(a^2-r^2\right)",
+                r"h(r)=z_b+\sqrt{\left(h_{\mathrm{sea}}-z_b\right)^2+\frac{R}{2K}\left(a^2-r^2\right)}",
             ),
             metadata={
                 "comparison_import": (
@@ -372,6 +402,21 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 GalleryMetricSpec(
                     "Azimuthal spread", "azimuthal_spread", _format_scientific("m", precision=2)
                 ),
+            ),
+            case_setup=(
+                "Transient unconfined flow on a 2000 m x 2000 m square domain discretized on a 101 x 101 grid.",
+                "Uniform initial head of 30.0 m with all outer boundaries held at that same fixed head.",
+                "One central pumping well at 1000 m3/day, hydraulic conductivity 1e-4 m/s, specific yield 0.15.",
+                "The reference comparison starts after day 4.0 to target the late-time regime only.",
+            ),
+            reference_highlights=(
+                "The benchmark is intentionally not a full Neuman solution; it uses a confined-equivalent late-time proxy for one unconfined pumping response.",
+                "HydroModPy is checked both against the radial drawdown scaling and against azimuthal symmetry around the well.",
+            ),
+            equations_rst=(
+                r"s(r,t)=\frac{Q}{4\pi T}E_1(u)",
+                r"u=\frac{r^2S}{4Tt}",
+                r"T=K\,h_{\mathrm{ref}},\qquad S=S_y",
             ),
             metadata={
                 "comparison_import": (

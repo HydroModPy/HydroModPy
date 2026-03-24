@@ -14,6 +14,14 @@ This transient case makes the gallery less static. It illustrates how HydroModPy
 
    Late-time drawdown traces, residual heatmap, and azimuthal-spread diagnostic.
 
+Case Setup
+----------
+
+- Transient unconfined flow on a 2000 m x 2000 m square domain discretized on a 101 x 101 grid.
+- Uniform initial head of 30.0 m with all outer boundaries held at that same fixed head.
+- One central pumping well at 1000 m3/day, hydraulic conductivity 1e-4 m/s, specific yield 0.15.
+- The reference comparison starts after day 4.0 to target the late-time regime only.
+
 What It Shows
 -------------
 
@@ -29,6 +37,24 @@ Key Metrics
 - Final-time RMSE: 0.0053 m
 - Final-time max abs error: 0.0098 m
 - Azimuthal spread: 1.91e-06 m
+
+Analytical Reference
+--------------------
+
+- The benchmark is intentionally not a full Neuman solution; it uses a confined-equivalent late-time proxy for one unconfined pumping response.
+- HydroModPy is checked both against the radial drawdown scaling and against azimuthal symmetry around the well.
+
+.. math::
+
+   s(r,t)=\frac{Q}{4\pi T}E_1(u)
+
+.. math::
+
+   u=\frac{r^2S}{4Tt}
+
+.. math::
+
+   T=K\,h_{\mathrm{ref}},\qquad S=S_y
 
 Reproduce
 ---------
