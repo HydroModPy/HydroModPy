@@ -861,7 +861,7 @@ def test_watershed_boundary_builds_linear_constraint_and_preserves_full_geology(
     assert not inputs.diagnostics.watershed_boundary_plot_gdf.empty
 
 
-def test_watershed_boundary_buffered_geology_conformity_clips_mesh_partition_only(
+def test_watershed_boundary_buffered_geology_conformity_uses_linear_geology_constraints(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "mesh_launcher.toml"
@@ -955,17 +955,15 @@ def test_watershed_boundary_buffered_geology_conformity_clips_mesh_partition_onl
         domain_geographic=SimpleNamespace(watershed_shp=str(watershed_path)),
     )
 
-    assert "outside_background" in set(inputs.zone_gdf["zone_key"].astype(str))
-    assert "outside_background" not in set(
-        inputs.diagnostics.source_plot_gdf["zone_key"].astype(str)
-    )
+    assert set(inputs.zone_gdf["zone_key"].astype(str)) == {"domain"}
+    assert "domain" not in set(inputs.diagnostics.source_plot_gdf["zone_key"].astype(str))
     assert not any(
         constraint.name == "watershed::boundary"
         for constraint in inputs.linear_constraints
     )
-    assert "_mesh_priority" in inputs.zone_gdf.columns
-    assert inputs.excluded_interface_zone_keys_for_refinement == (
-        "outside_background",
+    assert any(
+        constraint.name == "geology::active_interfaces"
+        for constraint in inputs.linear_constraints
     )
     assert inputs.diagnostics.watershed_boundary_summary is not None
     assert (
@@ -984,6 +982,13 @@ def test_watershed_boundary_buffered_geology_conformity_clips_mesh_partition_onl
     assert (
         inputs.diagnostics.geology_conformity_summary["buffer_distance"]
         == pytest.approx(250.0)
+    )
+    assert (
+        inputs.diagnostics.geology_conformity_summary["mesh_partition_mode"]
+        == "domain_background_plus_linear_geology_constraints"
+    )
+    assert (
+        inputs.diagnostics.geology_conformity_summary["constraint_line_count"] > 0
     )
     assert len(inputs.regional_size_fields) == 1
     assert inputs.regional_size_fields[0].inside_size == pytest.approx(250.0)
@@ -1236,10 +1241,14 @@ def test_watershed_boundary_buffered_geology_conformity_runs_end_to_end(
 
     assert summary["geology_conformity"]["mode"] == "buffered_watershed_envelope"
     assert summary["geology_conformity"]["buffer_distance"] == pytest.approx(250.0)
+    assert summary["geology_conformity"]["constraint_line_count"] > 0
     assert summary["watershed_boundary"]["explicit_constraint_applied"] is False
     assert summary["watershed_boundary"]["geometry_mode"] == "buffered_watershed_envelope"
-    assert "outside_background" not in summary["zone_feature_counts"]
-    assert "outside_background" in summary["zone_keys"]
+    assert summary["zone_keys"] == ["domain"]
+    assert "outside_background" not in summary["zone_keys"]
+    assert "geology::active_interfaces" in summary["linear_constraints"]
+    assert summary["linear_constraints"]["geology::active_interfaces"]["curve_count"] > 0
+    assert summary["constraints_qa"]["overall_pass"] is True
     assert summary["outside_coarsening"]["enabled"] is True
     assert summary["n_cells"] > 0
 

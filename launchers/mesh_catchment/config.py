@@ -203,15 +203,16 @@ class MeshCatchmentWatershedGeologyConformityConfigSchema(BaseModel):
         description=(
             "Control where geology remains conformal. "
             "Use 'full_domain' to keep the current behavior, or 'buffered_watershed_envelope' "
-            "to keep geology conformal only inside one buffered envelope around the regularized watershed."
+            "to keep geology interfaces active only inside one buffered envelope around the regularized watershed, "
+            "without creating one strict partition boundary on that envelope."
         ),
     )
     buffer_distance: float | None = Field(
         default=None,
         ge=0.0,
         description=(
-            "Optional outward buffer, in projected metres, added around the regularized watershed before clipping "
-            "the geology-conformal region. When omitted in buffered_watershed_envelope mode, the mesher reuses zone_meshing.global_size."
+            "Optional outward buffer, in projected metres, added around the regularized watershed before selecting "
+            "where geology interfaces remain active. When omitted in buffered_watershed_envelope mode, the mesher reuses zone_meshing.global_size."
         ),
     )
 

@@ -57,6 +57,20 @@ def _build_constraints_qa_contract(
 ) -> dict[str, Any]:
     uses_geology_constraints = bool(constraint_families.geology_interface)
     uses_river_constraints = bool(constraint_families.river)
+    geology_conformity_payload = (
+        dict(summary.get("geology_conformity", {}))
+        if isinstance(summary.get("geology_conformity"), Mapping)
+        else {}
+    )
+    linear_constraints_payload = (
+        dict(summary.get("linear_constraints", {}))
+        if isinstance(summary.get("linear_constraints"), Mapping)
+        else {}
+    )
+    buffered_geology_mode = (
+        str(geology_conformity_payload.get("mode", ""))
+        == "buffered_watershed_envelope"
+    )
 
     zone_count = int(len(tuple(summary.get("zone_keys", ()))))
     interface_group_count = int(summary.get("interface_group_count", 0))
@@ -75,6 +89,14 @@ def _build_constraints_qa_contract(
         str(group.get("name", "")) == "river::trace"
         for group in summary.get("curve_physical_groups", ())
         if isinstance(group, Mapping)
+    )
+    geology_constraint_curve_count = int(
+        sum(
+            int(payload.get("curve_count", 0))
+            for payload in linear_constraints_payload.values()
+            if isinstance(payload, Mapping)
+            and str(payload.get("kind", "")) == "geology_interface"
+        )
     )
 
     embed_attempts = int(river_embed_success + river_embed_failures)
@@ -113,11 +135,14 @@ def _build_constraints_qa_contract(
         "river_refined_with_interface_field": river_refined,
         "refine_interfaces_config": bool(refine_interfaces),
     }
+    if buffered_geology_mode or geology_constraint_curve_count > 0:
+        metrics["geology_constraint_curve_count"] = geology_constraint_curve_count
     checks: dict[str, bool] = {}
     if uses_geology_constraints:
         checks["has_zone_partition"] = bool(zone_count >= int(thresholds["min_zone_count"]))
         checks["has_geology_interfaces"] = bool(
             interface_group_count >= int(thresholds["min_interface_group_count"])
+            or (buffered_geology_mode and geology_constraint_curve_count > 0)
         )
     if uses_river_constraints:
         checks["river_trace_provided"] = bool(river_trace_provided)

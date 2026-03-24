@@ -74,8 +74,8 @@ transition_distance = 680.0
 grid_resolution = 680.0
 
 [mesh_catchment.watershed_boundary.geology_conformity]
-# Keep geology conformal inside one buffered envelope around the regularized
-# watershed, while leaving the full geology visible in diagnostic figures.
+# Keep geology interfaces active only inside one buffered envelope around the
+# regularized watershed, while leaving the full geology visible in diagnostic figures.
 mode = "buffered_watershed_envelope"
 buffer_distance = 100.0
 

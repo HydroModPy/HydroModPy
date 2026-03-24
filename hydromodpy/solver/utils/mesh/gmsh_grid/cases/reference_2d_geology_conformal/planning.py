@@ -37,10 +37,14 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     _load_domain_payload,
     _valid_geometry_mask,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import ZoneLinearConstraint
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import (
+    ZoneLinearConstraint,
+    build_zone_conformal_partition_from_dataframe,
+)
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
     iter_polygon_parts,
     make_valid_geometry,
+    make_valid_linework,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingRefinementPolicySchema,
@@ -414,6 +418,48 @@ def _clip_zone_dataframe_to_geometry(
     return gpd.GeoDataFrame(rows, geometry="geometry", crs=zone_gdf.crs)
 
 
+def _build_buffered_geology_interface_constraint(
+    *,
+    zone_gdf: gpd.GeoDataFrame,
+    clip_geometry,
+    zone_meshing_cfg: ZoneMeshingSettings,
+    effective_domain_payload: ZoneConformalGeometryPayload,
+) -> tuple[ZoneLinearConstraint | None, gpd.GeoDataFrame]:
+    clipped_gdf = _clip_zone_dataframe_to_geometry(
+        zone_gdf=zone_gdf,
+        clip_geometry=clip_geometry,
+    )
+    if clipped_gdf.empty:
+        raise ValueError(
+            "buffered watershed geology-conformity mode clipped away the whole geology source."
+        )
+
+    partition = build_zone_conformal_partition_from_dataframe(
+        clipped_gdf,
+        zone_key_column="zone_key",
+        domain_geometry=None,
+        simplify_tolerance=zone_meshing_cfg.simplify_tolerance,
+        heal_tolerance=zone_meshing_cfg.heal_tolerance,
+        min_polygon_area=zone_meshing_cfg.min_polygon_area,
+    )
+    partition_linework = unary_union(
+        [face.polygon.boundary for face in partition.faces]
+    )
+    internal_linework = make_valid_linework(
+        partition_linework.difference(partition.domain_geometry.boundary)
+    )
+    geology_constraint = _normalize_linear_constraint(
+        name="geology::active_interfaces",
+        kind="geology_interface",
+        lines=_iter_line_geometries((internal_linework,)),
+        domain_geometry=effective_domain_payload.geometry,
+        min_segment_length=0.0,
+        participates_in_refinement=True,
+        clip_to_domain=False,
+    )
+    return geology_constraint, clipped_gdf
+
+
 def _apply_geology_conformity_mode(
     *,
     zone_gdf: gpd.GeoDataFrame,
@@ -421,13 +467,18 @@ def _apply_geology_conformity_mode(
     zone_meshing_cfg: ZoneMeshingSettings,
     watershed_boundary_cfg: ZoneConformalWatershedBoundaryConfig,
     watershed_geometry,
-) -> tuple[gpd.GeoDataFrame, object | None, dict[str, object] | None]:
+) -> tuple[
+    gpd.GeoDataFrame,
+    tuple[ZoneLinearConstraint, ...],
+    object | None,
+    dict[str, object] | None,
+]:
     if zone_gdf.empty:
-        return zone_gdf, watershed_geometry, None
+        return zone_gdf, (), watershed_geometry, None
 
     mode = str(watershed_boundary_cfg.geology_conformity.mode)
     if mode == "full_domain":
-        return zone_gdf, watershed_geometry, None
+        return zone_gdf, (), watershed_geometry, None
 
     if watershed_geometry is None:
         raise ValueError(
@@ -440,45 +491,35 @@ def _apply_geology_conformity_mode(
         watershed_boundary_cfg=watershed_boundary_cfg,
         zone_meshing_cfg=zone_meshing_cfg,
     )
-    inside_gdf = _clip_zone_dataframe_to_geometry(
+
+    geology_constraint, inside_gdf = _build_buffered_geology_interface_constraint(
         zone_gdf=zone_gdf,
         clip_geometry=conformity_geometry,
+        zone_meshing_cfg=zone_meshing_cfg,
+        effective_domain_payload=effective_domain_payload,
     )
-    if inside_gdf.empty:
-        raise ValueError(
-            "buffered watershed geology-conformity mode clipped away the whole geology source."
-        )
-
-    inside_rows = inside_gdf.to_dict("records")
-    for row in inside_rows:
-        row["_mesh_priority"] = 1.0
-
-    outside_geometry = make_valid_geometry(
-        effective_domain_payload.geometry.difference(conformity_geometry)
-    )
-    outside_rows: list[dict[str, object]] = []
-    for polygon in iter_polygon_parts(outside_geometry):
-        outside_rows.append(
-            {
-                "zone_key": "outside_background",
-                "_mesh_priority": 0.0,
-                "geometry": polygon,
-            }
-        )
-
-    combined_rows = inside_rows + outside_rows
-    combined = gpd.GeoDataFrame(
-        combined_rows,
-        geometry="geometry",
-        crs=zone_gdf.crs,
+    _, combined = _build_domain_zone_dataframe(
+        effective_domain_payload=effective_domain_payload,
     )
     summary = {
         "mode": "buffered_watershed_envelope",
         "buffer_distance": float(buffer_distance),
         "conformity_area": float(getattr(conformity_geometry, "area", 0.0)),
-        "outside_background_polygon_count": int(len(outside_rows)),
+        "active_geology_feature_count": int(len(inside_gdf)),
+        "active_geology_zone_count": int(
+            len(set(inside_gdf["zone_key"].astype(str)))
+        ),
+        "constraint_line_count": int(
+            0 if geology_constraint is None else geology_constraint.line_count
+        ),
+        "mesh_partition_mode": "domain_background_plus_linear_geology_constraints",
     }
-    return combined, conformity_geometry, summary
+    geometry_constraints = (
+        ()
+        if geology_constraint is None
+        else (geology_constraint,)
+    )
+    return combined, geometry_constraints, conformity_geometry, summary
 
 
 def _derive_watershed_runtime_zone_meshing_config(
@@ -825,9 +866,9 @@ def _build_zone_conformal_meshing_inputs(
     )
     outside_region_geometry = watershed_geometry
     geology_conformity_summary: dict[str, object] | None = None
-    excluded_interface_zone_keys_for_refinement: tuple[str, ...] = ()
+    geology_linear_constraints: tuple[ZoneLinearConstraint, ...] = ()
     if cfg.geology is not None:
-        zone_gdf, outside_region_geometry, geology_conformity_summary = (
+        zone_gdf, geology_linear_constraints, outside_region_geometry, geology_conformity_summary = (
             _apply_geology_conformity_mode(
                 zone_gdf=zone_gdf,
                 effective_domain_payload=effective_domain_payload,
@@ -836,11 +877,6 @@ def _build_zone_conformal_meshing_inputs(
                 watershed_geometry=watershed_geometry,
             )
         )
-        if (
-            geology_conformity_summary is not None
-            and str(geology_conformity_summary.get("mode", "")) == "buffered_watershed_envelope"
-        ):
-            excluded_interface_zone_keys_for_refinement = ("outside_background",)
     regional_size_fields: tuple[ZoneRegionalSizeField, ...] = ()
     outside_coarsening_summary: dict[str, object] | None = None
     outside_field = _build_watershed_outside_size_field(
@@ -866,11 +902,12 @@ def _build_zone_conformal_meshing_inputs(
         zone_gdf=zone_gdf,
         effective_domain_payload=effective_domain_payload,
         zone_meshing_cfg=runtime_zone_meshing_cfg,
-        linear_constraints=tuple(watershed_boundary_constraints) + linear_constraints,
-        regional_size_fields=tuple(regional_size_fields),
-        excluded_interface_zone_keys_for_refinement=(
-            excluded_interface_zone_keys_for_refinement
+        linear_constraints=(
+            tuple(watershed_boundary_constraints)
+            + tuple(geology_linear_constraints)
+            + linear_constraints
         ),
+        regional_size_fields=tuple(regional_size_fields),
         diagnostics=ZoneConformalMeshingDiagnostics(
             source_plot_gdf=source_plot_gdf,
             rivers_cfg=cfg.rivers,
