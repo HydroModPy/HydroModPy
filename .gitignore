@@ -94,6 +94,7 @@ dmypy.json
 # ──────────────────────────────────────────────
 doc/
 docs/**/_build/
+docs/readthedocs/_build*/
 docs/**/_autosummary/
 docs/**/.doctrees/
 docs/readthedocs/source/notebooks/.virtual_documents/
@@ -145,6 +146,7 @@ z/
 *.bak
 *.old
 *.prof
+tools/vendor/
 .tmp_lock_repro
 .tmp_launcher*
 **/_tmp_outputs_env*

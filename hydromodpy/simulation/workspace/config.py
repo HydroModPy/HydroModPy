@@ -10,7 +10,8 @@ class WorkspaceConfig(BaseModel):
     """
     Workspace configuration for project-based workspace structure.
 
-    The workspace layout is convention-based:
+    The workspace layout is convention-based::
+
         workspace_root/
             catalog.db
             data/

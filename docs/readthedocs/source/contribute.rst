@@ -12,6 +12,12 @@ Set up the environment
    git clone https://github.com/HydroModPy/HydroModPy.git
    cd HydroModPy
    pip install -e '.[docs]'
+   python tools/setup_plantuml.py
+
+``python tools/setup_plantuml.py`` downloads a pinned PlantUML jar with SHA256
+verification. On Windows it can also install a repo-local Graphviz bundle; on
+other platforms it validates the system ``dot`` command unless you pass
+``--skip-graphviz``.
 
 Run tests before submitting (if you modify modelling code) and rebuild the docs
 to check for warnings:
@@ -19,8 +25,9 @@ to check for warnings:
 .. code-block:: bash
 
    pytest
+   python -m tools.doc_gallery --check
    cd docs/readthedocs
-   sphinx-build -b html source _build/html
+   python -m sphinx -E -a -W -b html source _build/html
 
 Coding guidelines
 -----------------
@@ -35,8 +42,26 @@ Documentation workflow
 
 1. Work in a feature branch derived from ``dev``.
 2. Update the relevant ``.rst`` pages plus the notebooks or scripts you touched.
-3. Preview locally with ``sphinx-autobuild -E -a source _build/html``.
-4. Run ``pip install -e '.[docs]'`` after changing the doc extras.
+3. If the change affects the illustrated capability gallery, refresh the generated artifacts:
+
+   .. code-block:: bash
+
+      python -m tools.doc_gallery
+
+   This rewrites:
+
+   - ``docs/readthedocs/source/capability_gallery/``
+   - ``docs/readthedocs/source/_static/capability_gallery/``
+   - according to the manifest in ``tools/doc_gallery/gallery_manifest.py``
+
+   The generator itself is documented in ``tools/doc_gallery/README.md``.
+
+4. Preview locally with ``sphinx-autobuild -E -a source _build/html``.
+5. Run ``python -m tools.doc_gallery --check`` before submitting if you touched
+   gallery sources or generated outputs.
+6. Keep PlantUML tooling available with ``python tools/setup_plantuml.py`` if
+   you work on UML-based architecture pages.
+7. Run ``pip install -e '.[docs]'`` after changing the doc extras.
 
 Submitting changes
 ------------------

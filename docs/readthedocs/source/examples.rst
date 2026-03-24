@@ -12,6 +12,27 @@ scenario you need.
 - **Conda / source installations** – the cloned repository already provides
   `examples/`, keep it in place so the relative paths used in the scripts remain valid.
 
+Illustrated capability gallery
+------------------------------
+
+The capability gallery complements the notebooks with a curated set of static,
+versioned figures generated from reproducible examples and validation cases.
+The documentation build does not execute these cases; it only reads the
+committed PNG and JSON artifacts produced by ``python -m tools.doc_gallery``.
+
+.. grid:: 1 1 1 1
+   :gutter: 2
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: capability_gallery/index
+      :link-type: doc
+
+      **Capability gallery**
+      ^^^
+      Mesh illustrations, geographic diagnostics, and analytical validation
+      figures curated for teaching and code demonstration.
+
 Notebook gallery
 ----------------
 
@@ -32,3 +53,9 @@ Notebook gallery
 .. warning::
    Some interactive figures (Plotly scenes, GIF animations, etc.) are hidden in
    the static documentation. Run the notebooks locally to see the full content.
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   capability_gallery/index

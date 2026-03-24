@@ -65,55 +65,46 @@ class Watershed:
                  climatic_object: object=None,
                  oceanic_object: object=None
                  ):
-        """
+        """Initialize one legacy watershed container.
+
         Parameters
         ----------
-        dem_path : str
-            Path of the initial Digital Elevation Model (DEM).
-        out_path : str
-            Path of the HydroModPy outputs to store results.
+        geographic_object : Geographic
+            Geographic context already prepared for the watershed.
         load : bool, optional
-            Load the existing watershed object. The default is False.
-        watershed_name : str, optional
-            Name of the watershed (name of folder results). The default is 'Default'.
-        from_dem : list, optional
-            List with two parameters: [path, cell_size]
-            path: Path of the DEM
-            cell_size: Resolution of the DEM. To change the initial resolution.
-            The default is empty list.
-        from_shp : list, optional
-            List of tow parameters: [path, buffer_size]
-            path: Path of the polygon shapefile.
-            buffer_size: Buffer distance (value in percent)
-            The default is empty list.
-        from_xyv : list, optional
-            List of four parameters: [x, y, snap_distance, buffer_size]
-            x: X coordinate [m] of the watershed outlet
-            y: Y coordinate [m] of the watershed outlet
-            snap_dist: Maximum distance where the outlet can be moved.
-            buffer_size: Buffer added to the generated watershed polygon (value in percent)
-            The default is empty list.
-        catch_def : str, optional
-            Catchment definition mode.
-            Supported modes are:
-            - ``"dem"``: model domain defined directly from ``from_dem``.
-            - ``"txt"``: model domain built from an XYZ text file
-              (``dem_path`` ending with ``.txt``).
-            - ``"xy"``: watershed defined from outlet coordinates provided in
-              ``from_xyv``.
-            - ``"shp"``: watershed defined from a polygon shapefile provided in
-              ``from_shp``.
-            The default is None.
-        reg_fold : str, None
-            Path of the folder with regional data/results.
-            If informed, the regional results will not be created, just loaded from folder.
-            The default is None.
-        bottom_path : str, optional
-            Path of a raster representing the bottom elevation.
-            Need to be the same shape of the model domain area (watershed DEM).
-            The default is None.
+            If ``True``, try to reload a previously pickled watershed object
+            before rebuilding it from the provided inputs.
+        initializing_object : object, optional
+            Legacy initialization object carrying the workspace-derived output
+            paths and catchment name.
+        setting_object : object, optional
+            Legacy settings payload attached to the watershed.
+        hydraulic_object : object, optional
+            Legacy hydraulic payload attached to the watershed.
         save_object : bool, optional
-            True : To save the watershed object (using pickle). The default is True.
+            If ``True``, persist the legacy watershed object with ``pickle``
+            after initialization.
+        transport_object : object, optional
+            Legacy transport payload attached to the watershed.
+        hydrography_object : object, optional
+            Legacy hydrography payload attached to the watershed.
+        subbasin_object : object, optional
+            Legacy subbasin payload attached to the watershed.
+        geology_object : object, optional
+            Legacy geology payload attached to the watershed.
+        hydrometry_object : object, optional
+            Legacy hydrometry payload attached to the watershed.
+        intermittency_object : object, optional
+            Legacy intermittency payload attached to the watershed.
+        climatic_object : object, optional
+            Legacy climatic payload attached to the watershed.
+        oceanic_object : object, optional
+            Legacy oceanic payload attached to the watershed.
+
+        Notes
+        -----
+        This class is kept for legacy workflows. New code should prefer the
+        modern workspace, domain, and data-manager stack.
         """
 
         toolbox.print_hydromodpy()

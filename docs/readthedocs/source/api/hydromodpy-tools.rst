@@ -1,5 +1,5 @@
 ﻿hydromodpy.support.tools
-================
+========================
 
 Helper routines used across the notebooks for filesystem handling, raster
 processing, and plotting presets.

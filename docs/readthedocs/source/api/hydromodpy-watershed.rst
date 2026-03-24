@@ -2,8 +2,8 @@
 ===========================
 
 Core data-model objects that describe a watershed and expose helper descriptors
-for geospatial, geological and hydraulic inputs, plus data-manager entry points
-used by watershed workflows.
+for geospatial, geological and hydraulic inputs, plus the current variable
+manager entry points used by watershed workflows.
 
 Class overview
 --------------
@@ -16,10 +16,10 @@ Class overview
    ~hydromodpy.geographic.Geographic
    ~hydromodpy.field.geology.GeologyField
    ~hydromodpy.legacy.watershed.hydrography.Hydrography
-   ~hydromodpy.legacy.watershed.Hydrometry
-   ~hydromodpy.data_managers.intermittency.Intermittency
-   ~hydromodpy.legacy.watershed.Piezometry
-   ~hydromodpy.data_managers.variables.oceanic.Oceanic
+   ~hydromodpy.data_managers.variables.hydrometry.manager.HydrometryManager
+   ~hydromodpy.data_managers.variables.intermittency.manager.IntermittencyManager
+   ~hydromodpy.data_managers.variables.piezometry.manager.PiezometryManager
+   ~hydromodpy.data_managers.variables.oceanic.manager.OceanicManager
    ~hydromodpy.data_managers.climatic.Climatic
    ~hydromodpy.legacy.watershed.settings.Settings
    ~hydromodpy.legacy.watershed.hydraulic.Hydraulic
