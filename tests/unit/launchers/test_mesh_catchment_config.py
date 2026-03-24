@@ -24,7 +24,34 @@ def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg.geographic_outputs_mode == "keep"
     assert cfg.rivers.source == "domain_geographic"
     assert cfg.watershed_boundary.enabled is False
+    assert cfg.figures_enabled is True
+    assert cfg.figure_dpi == 300
+    assert cfg.figure_regional_dpi == 220
     assert cfg.zone_meshing.algorithm == "delaunay"
+
+
+def test_parse_mesh_catchment_config_accepts_figures_disabled() -> None:
+    cfg = parse_mesh_catchment_config_data(
+        {
+            "constraints_mode": "rivers_only",
+            "figures_enabled": False,
+        }
+    )
+
+    assert cfg.figures_enabled is False
+
+
+def test_parse_mesh_catchment_config_accepts_custom_figure_dpi() -> None:
+    cfg = parse_mesh_catchment_config_data(
+        {
+            "constraints_mode": "rivers_only",
+            "figure_dpi": 360,
+            "figure_regional_dpi": 180,
+        }
+    )
+
+    assert cfg.figure_dpi == 360
+    assert cfg.figure_regional_dpi == 180
 
 
 @pytest.mark.parametrize(
@@ -232,6 +259,9 @@ def test_template_renderer_mentions_output_layout() -> None:
     content = render_mesh_catchment_template(batch=False, profile="user")
 
     assert 'output_layout = "standard"' in content
+    assert "figures_enabled = true" in content
+    assert 'figure_dpi = 300' in content
+    assert 'figure_regional_dpi = 220' in content
     assert "write final mesh artifacts directly under `workspace.project_root`" in content
     assert "[mesh_catchment.watershed_boundary]" in content
     assert "[mesh_catchment.watershed_boundary.outside_coarsening]" in content

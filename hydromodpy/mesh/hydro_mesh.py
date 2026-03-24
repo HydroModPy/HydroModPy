@@ -33,6 +33,7 @@ class CellBlock:
     connectivity: np.ndarray  # (n_cells, nodes_per_cell), int
 
     def __post_init__(self) -> None:
+        """Normalize and validate the homogeneous connectivity block."""
         ct = self.cell_type
         if not isinstance(ct, CellType):
             object.__setattr__(self, "cell_type", CellType.from_string(str(ct)))
@@ -77,6 +78,7 @@ class HydroMesh:
     structured_shape: tuple[int, ...] | None = None
 
     def __post_init__(self) -> None:
+        """Validate node coordinates and connectivity consistency."""
         verts = np.asarray(self.vertices, dtype=float)
         if verts.ndim != 2 or verts.shape[1] not in (2, 3):
             raise ValueError(
@@ -132,7 +134,12 @@ class HydroMesh:
 
     @property
     def flat_connectivity(self) -> np.ndarray:
-        """Concatenated connectivity across all blocks."""
+        """Concatenate connectivity across all blocks.
+
+        This helper is convenient when a downstream consumer only cares about
+        the flattened cell stream and has already ensured that mixed cell types
+        are acceptable.
+        """
         if len(self.cell_blocks) == 1:
             return np.asarray(self.cell_blocks[0].connectivity, dtype=int)
         return np.vstack(
@@ -146,7 +153,11 @@ class HydroMesh:
         return mins + maxs
 
     def with_cell_data(self, **fields: np.ndarray) -> "HydroMesh":
-        """Return a copy with additional cell-data fields."""
+        """Return a new mesh with validated per-cell arrays added.
+
+        The method preserves immutability of the original mesh and therefore
+        behaves as a light builder around the frozen dataclass.
+        """
         merged = dict(self.cell_data)
         for key, arr in fields.items():
             arr = np.asarray(arr)
@@ -165,7 +176,7 @@ class HydroMesh:
         )
 
     def with_point_data(self, **fields: np.ndarray) -> "HydroMesh":
-        """Return a copy with additional point-data fields."""
+        """Return a new mesh with validated per-point arrays added."""
         merged = dict(self.point_data)
         for key, arr in fields.items():
             arr = np.asarray(arr)
@@ -184,7 +195,11 @@ class HydroMesh:
         )
 
     def as_summary(self) -> dict[str, Any]:
-        """Light JSON-serializable summary for diagnostics."""
+        """Build a light JSON-serializable summary for diagnostics.
+
+        The summary intentionally stays compact so that it can be embedded in
+        logs, manifests, or small QA JSON files without dragging the full mesh.
+        """
         return {
             "ndim": self.ndim,
             "n_nodes": self.n_nodes,

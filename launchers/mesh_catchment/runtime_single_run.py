@@ -205,12 +205,18 @@ def _resolve_output_overrides(
     if output_figure_regional_path is None:
         output_figure_regional_path = _derive_regional_figure_path(output_figure_path)
 
+    show_plot = bool(section_cfg.show_plot)
+    if not bool(section_cfg.figures_enabled):
+        output_figure_path = None
+        output_figure_regional_path = None
+        show_plot = False
+
     return ResolvedMeshCatchmentOutputs(
         output_mesh=output_mesh,
         output_summary_json=output_summary_json,
         output_figure=output_figure_path,
         output_figure_regional=output_figure_regional_path,
-        show_plot=bool(section_cfg.show_plot),
+        show_plot=show_plot,
     )
 
 

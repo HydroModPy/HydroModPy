@@ -34,6 +34,7 @@ from hydromodpy.domain.depth_model import (
 )
 from hydromodpy.domain.domain import Domain
 from hydromodpy.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.support.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleMetadata,
@@ -55,6 +56,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import 
     load_catchment_mesh_bundle,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.exchange_api import load_planar_mesh
+from hydromodpy.solver.utils.mesh.gmsh_grid._river_linework_matching import (
+    RiverLineworkMatcher,
+)
 
 
 BUNDLE_SCHEMA_VERSION = "mesh_catchment_bundle_v1"
@@ -410,96 +414,14 @@ def _iter_line_geometries(lines_attr: object | None) -> list[object]:
 
 
 def _surface_values_and_support(surface) -> tuple[np.ndarray, object | None]:
-    """Extract the raw values array and its raster support from a surface-like object."""
-    if surface is None:
-        raise ValueError("domain_geographic.surface_topo is required for bundle export")
-    as_array = getattr(surface, "as_array", None)
-    if callable(as_array):
-        values = np.asarray(as_array(), dtype=float)
-    else:
-        values = np.asarray(getattr(surface, "values"), dtype=float)
-    support = getattr(surface, "support", None)
-    nodata = None if support is None else getattr(support, "nodata", None)
-    if nodata is not None:
-        values = np.where(values == float(nodata), np.nan, values)
-    return values, support
+    """Extract the raw values array and raster support from one prepared surface."""
+    sampler = PreparedSurfaceSampler.from_surface(surface)
+    return sampler.values, sampler.support
 
 
 def _sample_surface(surface, x_values, y_values) -> np.ndarray:
-    """Sample one raster/surface-like object at XY coordinates.
-
-    The helper accepts both HydroModPy surface objects exposing raster support
-    metadata and constant-like surfaces that simply return NaNs here.
-    """
-    values, support = _surface_values_and_support(surface)
-    x_arr = np.asarray(x_values, dtype=float)
-    y_arr = np.asarray(y_values, dtype=float)
-    if x_arr.shape != y_arr.shape:
-        raise ValueError("x_values and y_values must have the same shape")
-    flat_x = x_arr.reshape(-1)
-    flat_y = y_arr.reshape(-1)
-
-    if support is None:
-        return np.full(x_arr.shape, np.nan, dtype=float)
-
-    required = ("xmin", "xmax", "ymin", "ymax", "dx", "dy", "nrows", "ncols")
-    if any(getattr(support, name, None) is None for name in required):
-        return np.full(x_arr.shape, np.nan, dtype=float)
-
-    xmin = float(support.xmin)
-    xmax = float(support.xmax)
-    ymin = float(support.ymin)
-    ymax = float(support.ymax)
-    dx = float(support.dx)
-    dy = float(support.dy)
-    nrows = int(support.nrows)
-    ncols = int(support.ncols)
-
-    if dx <= 0.0 or dy <= 0.0 or nrows < 1 or ncols < 1:
-        return np.full(x_arr.shape, np.nan, dtype=float)
-
-    inside = (
-        (flat_x >= xmin)
-        & (flat_x <= xmax)
-        & (flat_y >= ymin)
-        & (flat_y <= ymax)
-    )
-
-    col_float = (flat_x - xmin) / dx - 0.5
-    row_float = (ymax - flat_y) / dy - 0.5
-
-    col0 = np.floor(col_float).astype(int)
-    row0 = np.floor(row_float).astype(int)
-    col1 = col0 + 1
-    row1 = row0 + 1
-
-    wc = col_float - np.floor(col_float)
-    wr = row_float - np.floor(row_float)
-
-    row0_clamped = np.clip(row0, 0, nrows - 1)
-    row1_clamped = np.clip(row1, 0, nrows - 1)
-    col0_clamped = np.clip(col0, 0, ncols - 1)
-    col1_clamped = np.clip(col1, 0, ncols - 1)
-
-    v00 = values[row0_clamped, col0_clamped]
-    v01 = values[row0_clamped, col1_clamped]
-    v10 = values[row1_clamped, col0_clamped]
-    v11 = values[row1_clamped, col1_clamped]
-
-    w00 = (1.0 - wr) * (1.0 - wc)
-    w01 = (1.0 - wr) * wc
-    w10 = wr * (1.0 - wc)
-    w11 = wr * wc
-
-    values_stack = np.vstack((v00, v01, v10, v11))
-    weights_stack = np.vstack((w00, w01, w10, w11))
-    valid = np.isfinite(values_stack)
-    weights_stack = np.where(valid, weights_stack, 0.0)
-    numerators = np.nansum(values_stack * weights_stack, axis=0)
-    denominators = np.sum(weights_stack, axis=0)
-    sampled = np.where(denominators > 0.0, numerators / denominators, np.nan)
-    sampled = np.where(inside, sampled, np.nan)
-    return sampled.reshape(x_arr.shape)
+    """Sample one surface-like object without keeping one persistent sampler."""
+    return PreparedSurfaceSampler.from_surface(surface).sample(x_values, y_values)
 
 
 def _build_domain_for_bundle(*, surface, domain_cfg: object | None) -> Domain:
@@ -602,7 +524,7 @@ def _resolve_geology_config_paths(
 def _compute_geology_payload(
     *,
     mesh,
-    surface,
+    raster_support,
     geology_cfg: CatchmentBundleGeologyExportConfig | None,
     config_path: str | Path | None,
 ) -> GeologyProjectionPayload:
@@ -614,7 +536,7 @@ def _compute_geology_payload(
             cell_zone_codes=tuple(0 for _ in range(mesh.n_cells)),
         )
 
-    _, support = _surface_values_and_support(surface)
+    support = raster_support
     if support is None:
         raise ValueError("surface_topo.support is required to project geology on mesh")
 
@@ -703,8 +625,32 @@ def _build_river_linework(river_trace: object | None):
     return unary_union(river_lines)
 
 
-def _segment_matches_river(segment: LineString, river_linework, *, tolerance: float) -> bool:
+def _build_river_matcher(
+    *,
+    river_trace: object | None,
+    tolerance: float,
+) -> RiverLineworkMatcher | None:
+    """Build one reusable matcher for exported river edges."""
+    lines_attr = getattr(river_trace, "lines", None)
+    river_lines = _iter_line_geometries(lines_attr)
+    if not river_lines:
+        return None
+    matcher = RiverLineworkMatcher(
+        line_geometries=tuple(river_lines),
+        tolerance=tolerance,
+    )
+    return matcher if matcher.available else None
+
+
+def _segment_matches_river(
+    segment: LineString,
+    river_linework,
+    *,
+    tolerance: float,
+) -> bool:
     """Return whether one exported edge segment belongs to the river trace."""
+    if isinstance(river_linework, RiverLineworkMatcher):
+        return river_linework.matches_segment(segment)
     if river_linework is None or bool(getattr(river_linework, "is_empty", True)):
         return False
     if float(river_linework.distance(segment)) > float(tolerance):
@@ -739,10 +685,18 @@ def _build_edge_rows(
             )
             edge_map.setdefault(key, []).append(int(cell.index))
 
-    river_linework = _build_river_linework(river_trace)
     span_x = float(np.nanmax(mesh.points_xy[:, 0]) - np.nanmin(mesh.points_xy[:, 0]))
     span_y = float(np.nanmax(mesh.points_xy[:, 1]) - np.nanmin(mesh.points_xy[:, 1]))
     tolerance = max(max(span_x, span_y) * 1.0e-8, 1.0e-4)
+    river_matcher = _build_river_matcher(
+        river_trace=river_trace,
+        tolerance=tolerance,
+    )
+    river_linework = (
+        river_matcher
+        if river_matcher is not None
+        else _build_river_linework(river_trace)
+    )
 
     rows: list[dict[str, object]] = []
     for edge_id, (key, cells) in enumerate(sorted(edge_map.items())):
@@ -959,16 +913,19 @@ def export_catchment_mesh_bundle(
     surface = getattr(domain_geographic, "surface_topo", None)
     domain = _build_domain_for_bundle(surface=surface, domain_cfg=domain_cfg)
     substratum = domain.substratum
-    node_z = _sample_surface(surface, mesh.points_xy[:, 0], mesh.points_xy[:, 1]).reshape(-1)
-    node_z_bottom = _sample_surface(
-        substratum,
-        mesh.points_xy[:, 0],
-        mesh.points_xy[:, 1],
-    ).reshape(-1)
+    surface_sampler = PreparedSurfaceSampler.from_surface(surface)
+    substratum_sampler = PreparedSurfaceSampler.from_surface(substratum)
+    point_xy = np.asarray(mesh.points_xy, dtype=float)
+    node_z = surface_sampler.sample_points_xy(point_xy)
+    node_z_bottom = substratum_sampler.sample_points_xy(point_xy)
+    cells = mesh.cells
+    centroid_xy = np.asarray([cell.centroid for cell in cells], dtype=float)
+    centroid_z_top_all = surface_sampler.sample_points_xy(centroid_xy)
+    centroid_z_bottom_all = substratum_sampler.sample_points_xy(centroid_xy)
     # Build the optional thematic payloads that enrich the raw geometry export.
     geology_payload = _compute_geology_payload(
         mesh=mesh,
-        surface=surface,
+        raster_support=surface_sampler.support,
         geology_cfg=geology_cfg,
         config_path=config_path,
     )
@@ -983,16 +940,15 @@ def export_catchment_mesh_bundle(
 
     # Assemble one row per cell with geometry, elevations and optional properties.
     cell_rows: list[dict[str, object]] = []
-    for cell in mesh.cells:
+    for cell in cells:
         vertices = np.asarray(cell.vertices, dtype=float)
-        centroid = np.asarray(cell.centroid, dtype=float)
+        cell_index = int(cell.index)
+        centroid = centroid_xy[cell_index]
         cell_node_indices = tuple(int(node_idx) for node_idx in cell.node_indices)
         cell_node_z = node_z[np.asarray(cell_node_indices, dtype=int)]
         cell_node_z_bottom = node_z_bottom[np.asarray(cell_node_indices, dtype=int)]
-        centroid_z = float(_sample_surface(surface, centroid[0], centroid[1]).reshape(-1)[0])
-        centroid_z_bottom = float(
-            _sample_surface(substratum, centroid[0], centroid[1]).reshape(-1)[0]
-        )
+        centroid_z = float(centroid_z_top_all[cell_index])
+        centroid_z_bottom = float(centroid_z_bottom_all[cell_index])
         mean_z = float(np.nanmean(cell_node_z)) if np.any(np.isfinite(cell_node_z)) else np.nan
         mean_z_bottom = (
             float(np.nanmean(cell_node_z_bottom))
@@ -1018,18 +974,18 @@ def export_catchment_mesh_bundle(
                 "z_bottom_centroid": _normalize_optional_float(centroid_z_bottom),
                 "z_bottom_mean": _normalize_optional_float(mean_z_bottom),
                 "geology_code": _normalize_optional_int(
-                    int(geology_payload.cell_zone_codes[int(cell.index)])
+                    int(geology_payload.cell_zone_codes[cell_index])
                 ),
-                "geology_key": str(geology_payload.cell_zone_keys[int(cell.index)]),
+                "geology_key": str(geology_payload.cell_zone_keys[cell_index]),
                 "hydraulic_conductivity_m_s": _normalize_optional_float(
                     None
-                    if int(cell.index) >= len(conductivity_values)
-                    else conductivity_values[int(cell.index)]
+                    if cell_index >= len(conductivity_values)
+                    else conductivity_values[cell_index]
                 ),
                 "storage_coefficient": _normalize_optional_float(
                     None
-                    if int(cell.index) >= len(storage_values)
-                    else storage_values[int(cell.index)]
+                    if cell_index >= len(storage_values)
+                    else storage_values[cell_index]
                 ),
             }
         )

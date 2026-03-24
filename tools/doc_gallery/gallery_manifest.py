@@ -11,6 +11,7 @@ from .mesh_case_registry import (
     iter_mesh_case_json_paths,
     load_mesh_case_metadata,
 )
+from .validation_case_registry import build_validation_case_records
 
 
 Formatter = Callable[[Any], str]
@@ -264,244 +265,27 @@ def build_gallery_specs() -> tuple[GalleryCaseSpec, ...]:
                 ),
             ),
         ),
-        GalleryCaseSpec(
-            slug="dupuit_fixed_head_1d",
-            title="Dupuit Fixed-Head 1D",
-            category="validation",
-            deck="Lightweight 1D steady benchmark comparing a numerical profile to the Dupuit solution.",
-            summary=(
-                "This is the simplest analytical validation case in the current inventory. It is well "
-                "suited to the documentation because the geometry, the reference solution, and the failure "
-                "modes are all immediately readable on one figure."
-            ),
-            what_it_shows=(
-                "How HydroModPy reproduces a steady unconfined profile between two imposed heads.",
-                "How one validation page can combine the profile, the residual, and a few scalar metrics.",
-                "What a minimal end-to-end scientific benchmark looks like in the current launcher workflow.",
-            ),
-            reproduction_command=(
-                "python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --no-show"
-            ),
-            source_paths=(
-                "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md",
-                "validation_cases/analytical/steady/dupuit_fixed_head_1d/reference.py",
-                "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py",
-                "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py",
-                "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py",
-                "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml",
-                "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml",
-                "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml",
-            ),
-            generator="validation_case",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="dupuit_fixed_head_1d_validation.png",
-                    caption="Numerical mean profile, analytical Dupuit profile, and residual panel.",
-                    alt_text="Dupuit fixed-head 1D validation plot",
-                ),
-            ),
-            metric_specs=(
-                GalleryMetricSpec("RMSE", "rms_error", _format_float("m", precision=4)),
-                GalleryMetricSpec("Max abs error", "max_error", _format_float("m", precision=4)),
-                GalleryMetricSpec("Cross-row spread", "row_spread", _format_scientific("m", precision=2)),
-            ),
-            case_setup=(
-                "Homogeneous unconfined strip, 400 m long, discretized on a 5 x 40 grid.",
-                "Fixed west head of 10.0 m and fixed east head of 5.0 m.",
-                "No recharge, hydraulic conductivity 1e-4 m/s, aquifer thickness 20.0 m.",
-            ),
-            reference_highlights=(
-                "The benchmark uses the steady 1D Dupuit approximation on a homogeneous aquifer with no recharge.",
-                "The comparison is performed on the row-averaged numerical head profile along x.",
-            ),
-            equations_rst=(
-                r"\frac{\mathrm{d}}{\mathrm{d}x}\left(K\,h\,\frac{\mathrm{d}h}{\mathrm{d}x}\right)=0",
-                r"h(x)=\sqrt{h_w^2+\left(h_e^2-h_w^2\right)\frac{x-x_{\min}}{x_{\max}-x_{\min}}}",
-            ),
-            metadata={
-                "comparison_import": (
-                    "validation_cases.analytical.steady.dupuit_fixed_head_1d.comparison:"
-                    "run_dupuit_fixed_head_comparison"
-                ),
-                "plotting_import": (
-                    "validation_cases.analytical.steady.dupuit_fixed_head_1d.plotting:"
-                    "plot_dupuit_fixed_head_comparison"
-                ),
-                "caller_file": "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py",
-                "timeout": 600,
-                "solver": "modflownwt",
-            },
-        ),
-        GalleryCaseSpec(
-            slug="dupuit_circular_island_ocean_2d",
-            title="Dupuit Circular-Island Ocean 2D",
-            category="validation",
-            deck="2D coastal benchmark showing shoreline geometry, land heads, annular profile, and residuals.",
-            summary=(
-                "This benchmark is especially useful pedagogically because it validates both a boundary "
-                "condition and a symmetry property. The figure is dense enough to teach with, while still "
-                "remaining compact in a documentation page."
-            ),
-            what_it_shows=(
-                "How the ocean boundary condition behaves on a radial-island synthetic geometry.",
-                "How HydroModPy preserves radial symmetry on a Cartesian grid through annular averages.",
-                "How a documentation figure can combine map views and profile-based validation in one page.",
-            ),
-            reproduction_command=(
-                "python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show"
-            ),
-            source_paths=(
-                "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/README.md",
-                "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/reference.py",
-                "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/comparison.py",
-                "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/plotting.py",
-                "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/run_case.py",
-                "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml",
-                "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml",
-                "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml",
-            ),
-            generator="validation_case",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="dupuit_circular_island_ocean_2d_validation.png",
-                    caption=(
-                        "Synthetic DEM, final land heads, annular Dupuit profile, and radial residuals."
-                    ),
-                    alt_text="Dupuit circular island ocean 2D validation plot",
-                ),
-            ),
-            metric_specs=(
-                GalleryMetricSpec("RMSE", "rms_error", _format_float("m", precision=4)),
-                GalleryMetricSpec("Max abs error", "max_error", _format_float("m", precision=4)),
-                GalleryMetricSpec(
-                    "Azimuthal spread", "azimuthal_spread", _format_float("m", precision=4)
-                ),
-                GalleryMetricSpec(
-                    "Ocean head error", "ocean_head_max_error", _format_scientific("m", precision=2)
-                ),
-                GalleryMetricSpec(
-                    "Min land freeboard", "land_clearance_min", _format_float("m", precision=4)
-                ),
-            ),
-            case_setup=(
-                "Synthetic circular island embedded in a 610 m x 610 m Cartesian grid sampled on 61 x 61 cells.",
-                "Island radius 200 m, flat substratum at -5.0 m, sea level fixed at 0.0 m on the shoreline.",
-                "Uniform recharge of 1.0 mm/day and hydraulic conductivity of 5e-6 m/s.",
-            ),
-            reference_highlights=(
-                "The benchmark uses the steady radial Dupuit-Boussinesq equation on a flat substratum.",
-                "HydroModPy's ocean boundary condition is checked against a fixed coastal head while the annular mean profile tests radial symmetry.",
-            ),
-            equations_rst=(
-                r"\frac{1}{r}\frac{\mathrm{d}}{\mathrm{d}r}\left(r\,K\,H\,\frac{\mathrm{d}H}{\mathrm{d}r}\right)+R=0",
-                r"H(r)^2=H(a)^2+\frac{R}{2K}\left(a^2-r^2\right)",
-                r"h(r)=z_b+\sqrt{\left(h_{\mathrm{sea}}-z_b\right)^2+\frac{R}{2K}\left(a^2-r^2\right)}",
-            ),
-            metadata={
-                "comparison_import": (
-                    "validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.comparison:"
-                    "run_dupuit_circular_island_ocean_comparison"
-                ),
-                "plotting_import": (
-                    "validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.plotting:"
-                    "plot_dupuit_circular_island_ocean_comparison"
-                ),
-                "caller_file": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/run_case.py",
-                "timeout": 900,
-                "solver": "modflownwt",
-            },
-        ),
-        GalleryCaseSpec(
-            slug="late_time_unconfined_pumping_2d",
-            title="Late-Time Unconfined Pumping 2D",
-            category="validation",
-            deck="Transient radial drawdown benchmark with late-time analytical comparison and symmetry checks.",
-            summary=(
-                "This transient case makes the gallery less static. It illustrates how HydroModPy compares "
-                "an entire time-radius response surface to a late-time analytical proxy, while also checking "
-                "azimuthal symmetry around the pumping well."
-            ),
-            what_it_shows=(
-                "How one transient validation page can expose traces, residuals, and symmetry diagnostics together.",
-                "How the late-time drawdown response is compared to a lightweight Theis-style proxy.",
-                "How the validation inventory extends beyond steady profiles without requiring an interactive notebook.",
-            ),
-            reproduction_command=(
-                "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show"
-            ),
-            source_paths=(
-                "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/README.md",
-                "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/reference.py",
-                "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py",
-                "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/plotting.py",
-                "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/run_case.py",
-                "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml",
-                "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml",
-                "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml",
-                "validation_cases/analytical/transient/common.py",
-            ),
-            generator="validation_case",
-            image_assets=(
-                GalleryImageAsset(
-                    filename="late_time_unconfined_pumping_2d_validation.png",
-                    caption=(
-                        "Late-time drawdown traces, residual heatmap, and azimuthal-spread diagnostic."
-                    ),
-                    alt_text="Late-time unconfined pumping 2D validation plot",
-                ),
-            ),
-            metric_specs=(
-                GalleryMetricSpec(
-                    "Space-time RMSE", "space_time_rmse", _format_float("m", precision=4)
-                ),
-                GalleryMetricSpec(
-                    "Space-time max abs error",
-                    "space_time_max_error",
-                    _format_float("m", precision=4),
-                ),
-                GalleryMetricSpec(
-                    "Final-time RMSE", "final_time_rmse", _format_float("m", precision=4)
-                ),
-                GalleryMetricSpec(
-                    "Final-time max abs error",
-                    "final_time_max_error",
-                    _format_float("m", precision=4),
-                ),
-                GalleryMetricSpec(
-                    "Azimuthal spread", "azimuthal_spread", _format_scientific("m", precision=2)
-                ),
-            ),
-            case_setup=(
-                "Transient unconfined flow on a 2000 m x 2000 m square domain discretized on a 101 x 101 grid.",
-                "Uniform initial head of 30.0 m with all outer boundaries held at that same fixed head.",
-                "One central pumping well at 1000 m3/day, hydraulic conductivity 1e-4 m/s, specific yield 0.15.",
-                "The reference comparison starts after day 4.0 to target the late-time regime only.",
-            ),
-            reference_highlights=(
-                "The benchmark is intentionally not a full Neuman solution; it uses a confined-equivalent late-time proxy for one unconfined pumping response.",
-                "HydroModPy is checked both against the radial drawdown scaling and against azimuthal symmetry around the well.",
-            ),
-            equations_rst=(
-                r"s(r,t)=\frac{Q}{4\pi T}E_1(u)",
-                r"u=\frac{r^2S}{4Tt}",
-                r"T=K\,h_{\mathrm{ref}},\qquad S=S_y",
-            ),
-            metadata={
-                "comparison_import": (
-                    "validation_cases.analytical.transient.late_time_unconfined_pumping_2d.comparison:"
-                    "run_late_time_unconfined_pumping_comparison"
-                ),
-                "plotting_import": (
-                    "validation_cases.analytical.transient.late_time_unconfined_pumping_2d.plotting:"
-                    "plot_late_time_unconfined_pumping_comparison"
-                ),
-                "caller_file": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/run_case.py",
-                "timeout": 900,
-                "solver": "modflownwt",
-            },
-        ),
     )
-    return static_specs + build_repo_mesh_gallery_case_specs()
+    validation_specs = tuple(
+        GalleryCaseSpec(
+            slug=record.slug,
+            title=record.title,
+            category="validation",
+            deck=record.deck,
+            summary=record.summary,
+            what_it_shows=record.what_it_shows,
+            reproduction_command=record.reproduction_command,
+            source_paths=record.source_paths,
+            generator="validation_case",
+            image_assets=(),
+            case_setup=record.case_setup,
+            reference_highlights=record.reference_highlights,
+            equations_rst=record.equations_rst,
+            metadata=record.metadata,
+        )
+        for record in build_validation_case_records()
+    )
+    return static_specs + validation_specs + build_repo_mesh_gallery_case_specs()
 
 
 __all__ = [

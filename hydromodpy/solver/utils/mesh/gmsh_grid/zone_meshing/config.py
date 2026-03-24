@@ -1,8 +1,13 @@
 """Validate and normalize configuration for zone-conformal meshing workflows.
 
-This module stays small on purpose: its role is to define what a valid
-zone-meshing configuration looks like before geometry and Gmsh calls are
-performed. It separates configuration concerns from the actual meshing logic.
+This module deliberately stays on the "contract" side of the pipeline. Its
+role is to answer:
+
+- which parameters are allowed,
+- what defaults are safe,
+- which combinations are incoherent before any geometry work starts.
+
+Actual geometry cleaning and Gmsh generation live elsewhere.
 """
 
 from __future__ import annotations

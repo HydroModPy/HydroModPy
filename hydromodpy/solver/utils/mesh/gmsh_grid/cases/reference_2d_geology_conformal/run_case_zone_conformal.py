@@ -24,6 +24,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
     _build_zone_conformal_meshing_inputs,
+    _load_watershed_geometry,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plotting import (
     _write_optional_figure_artifacts,
@@ -66,6 +67,16 @@ def run_reference_2d_zone_conformal_case_from_toml(
     show_plot: bool = False,
     return_runtime_artifacts: bool = False,
 ) -> dict[str, Any] | ZoneConformalCaseRuntimeArtifacts:
+    """Run the pedagogical conformal case from TOML or an in-memory override.
+
+    This function is the user-facing bridge between the case configuration and
+    the lower-level `zone_meshing` engine. Its responsibilities are:
+
+    - resolve and validate the case config;
+    - prepare the meshing inputs from geology / rivers / domain context;
+    - launch the actual meshing;
+    - assemble summary and optional figure artifacts.
+    """
     trace_mesh_stage("zone_conformal.run.start", config_toml=config_toml, section=section)
     config_path = _resolve_config_path(
         config_toml,
@@ -130,11 +141,24 @@ def run_reference_2d_zone_conformal_case_from_toml(
 
     partition_gdf = _build_partition_gdf(result.partition, crs=meshing_inputs.zone_gdf.crs)
     trace_mesh_stage("zone_conformal.partition_gdf.built", n_faces=len(partition_gdf))
+    watershed_geometry = None
+    if (
+        domain_geographic is not None
+        and getattr(domain_geographic, "watershed_shp", None) is not None
+    ):
+        try:
+            watershed_geometry = _load_watershed_geometry(
+                domain_geographic=domain_geographic,
+                target_crs=meshing_inputs.effective_domain_payload.gdf.crs,
+            )
+        except Exception:
+            watershed_geometry = None
     summary = _build_summary(
         result=result,
         source_payload=meshing_inputs.source_payload,
         clipped_gdf=meshing_inputs.diagnostics.source_plot_gdf,
         domain_payload=meshing_inputs.effective_domain_payload,
+        watershed_geometry=watershed_geometry,
     )
     trace_mesh_stage("zone_conformal.summary.built")
     summary = _finalize_summary_payload(
@@ -155,6 +179,8 @@ def run_reference_2d_zone_conformal_case_from_toml(
             meshing_inputs=meshing_inputs,
             partition_gdf=partition_gdf,
             domain_geographic=domain_geographic,
+            figure_dpi=cfg.figure_dpi,
+            figure_regional_dpi=cfg.figure_regional_dpi,
         )
     )
     trace_mesh_stage("zone_conformal.figures.done")

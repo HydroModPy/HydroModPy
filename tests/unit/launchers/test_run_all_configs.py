@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from contextlib import redirect_stdout
 import importlib.util
+from io import StringIO
 from pathlib import Path
 import sys
 
@@ -138,3 +140,129 @@ def test_cleanup_stale_override_configs_removes_previous_temp_files(
     assert not stale_mesh.exists()
     assert not stale_ident.exists()
     assert untouched.exists()
+
+
+def test_planned_action_count_counts_mesh_and_identification_steps() -> None:
+    module = _load_run_all_configs_module()
+
+    total = module._planned_action_count(
+        (
+            {"mesh_config": "config_a.toml", "identification_config": "config_a.toml"},
+            {"mesh_config": "config_b.toml", "identification_config": None},
+            {"mesh_config": "config_c.toml", "identification_config": "config_c.toml"},
+        )
+    )
+
+    assert total == 5
+
+
+def test_progress_prefix_formats_pytest_like_percentages() -> None:
+    module = _load_run_all_configs_module()
+
+    assert module._progress_prefix(step_index=0, total_steps=0) == "[100%]"
+    assert module._progress_prefix(step_index=1, total_steps=4) == "[ 25%]"
+    assert module._progress_prefix(step_index=2, total_steps=3) == "[ 67%]"
+    assert module._progress_prefix(step_index=4, total_steps=4) == "[100%]"
+
+
+def test_run_command_suppresses_blank_lines_and_prints_progress(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    module = _load_run_all_configs_module()
+
+    exit_code = module._run_command(
+        label="mesh demo",
+        command=[
+            sys.executable,
+            "-c",
+            (
+                "print('');"
+                "print('alpha');"
+                "print('   ');"
+                "print('beta')"
+            ),
+        ],
+        cwd=tmp_path,
+        step_index=1,
+        total_steps=4,
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "[ 25%] mesh demo ..." in captured.out
+    assert "[ 25%] mesh demo ... OK" in captured.out
+    assert "      alpha" in captured.out
+    assert "      beta" in captured.out
+    assert "      " + "\n" not in captured.out
+
+
+def test_print_skipped_uses_progress_prefix(capsys) -> None:
+    module = _load_run_all_configs_module()
+
+    module._print_skipped(
+        label="mesh demo",
+        step_index=2,
+        total_steps=3,
+        reason="identify failed",
+    )
+
+    captured = capsys.readouterr()
+
+    assert captured.out == "[ 67%] mesh demo ... SKIP (identify failed)\n"
+
+
+def test_main_counts_skipped_mesh_step_in_progress(monkeypatch) -> None:
+    module = _load_run_all_configs_module()
+
+    monkeypatch.setattr(
+        module,
+        "RUN_SEQUENCE",
+        (
+            {"mesh_config": "config_a.toml", "identification_config": "config_a.toml"},
+            {"mesh_config": "config_b.toml", "identification_config": None},
+        ),
+    )
+    monkeypatch.setattr(module, "_cleanup_stale_override_configs", lambda *args: ())
+
+    plans = iter(
+        (
+            module._StepPlan(
+                scenario_name="scenario_a",
+                scenario_root=Path("scenario_a"),
+                mesh_command=["mesh-a"],
+                identification_command=["identify-a"],
+                cleanup_paths=(),
+            ),
+            module._StepPlan(
+                scenario_name="scenario_b",
+                scenario_root=Path("scenario_b"),
+                mesh_command=["mesh-b"],
+                identification_command=None,
+                cleanup_paths=(),
+            ),
+        )
+    )
+    monkeypatch.setattr(module, "_build_step_plan", lambda **kwargs: next(plans))
+
+    calls: list[tuple[str, int, int]] = []
+
+    def _fake_run_command(**kwargs):
+        calls.append((kwargs["label"], kwargs["step_index"], kwargs["total_steps"]))
+        if kwargs["label"] == "identify scenario_a":
+            return 1
+        return 0
+
+    monkeypatch.setattr(module, "_run_command", _fake_run_command)
+
+    buffer = StringIO()
+    with redirect_stdout(buffer):
+        exit_code = module.main()
+
+    assert exit_code == 1
+    assert calls == [
+        ("identify scenario_a", 1, 3),
+        ("mesh scenario_b", 3, 3),
+    ]
+    assert "[ 67%] mesh scenario_a ... SKIP (identify failed)" in buffer.getvalue()

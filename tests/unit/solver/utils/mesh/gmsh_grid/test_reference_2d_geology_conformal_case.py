@@ -23,6 +23,7 @@ import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conform
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal as conformal_case_package
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning as conformal_planning_module
 import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.plotting as conformal_plotting_module
+import hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.reporting as conformal_reporting_module
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal import (
     run_reference_2d_zone_conformal_case_from_toml,
 )
@@ -142,9 +143,11 @@ def test_geographic_mesh_figure_uses_raw_black_boundary_and_blue_hydro_overlay()
         catchment_boundary_gdf=catchment_boundary_gdf,
         topo_background=topo_background,
         river_lines=[LineString([(2.0, 2.0), (8.0, 8.0)])],
+        figure_dpi=320,
     )
     try:
         fig.canvas.draw()
+        assert int(round(float(fig.dpi))) == 320
         ax_overlay = fig.axes[1]
         overlay_legend = ax_overlay.get_legend()
         assert overlay_legend is not None
@@ -186,9 +189,11 @@ def test_regional_context_figure_uses_bottom_horizontal_colorbar() -> None:
         topo_background=topo_background,
         river_lines=[],
         outlet_xy=None,
+        figure_dpi=180,
     )
     try:
         fig.canvas.draw()
+        assert int(round(float(fig.dpi))) == 180
         colorbar_ax = fig.axes[-1]
         bbox = colorbar_ax.get_position()
         assert bbox.width > bbox.height
@@ -213,6 +218,42 @@ def _write_json(path: Path, payload: dict) -> None:
 def _load_json(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
+
+
+def test_build_summary_reports_cells_inside_and_outside_watershed() -> None:
+    clipped_gdf = gpd.GeoDataFrame(
+        {"zone_key": ["geo_a", "geo_b"]},
+        geometry=[box(0.0, 0.0, 1.0, 1.0), box(1.0, 0.0, 2.0, 1.0)],
+        crs="EPSG:2154",
+    )
+    mesh = SimpleNamespace(
+        n_cells=3,
+        cell_centroids=lambda: (
+            np.array([0.5, 1.5, 2.5], dtype=float),
+            np.array([0.5, 0.5, 0.5], dtype=float),
+        ),
+    )
+    result = SimpleNamespace(
+        summary={"summary_schema_version": "zone_conformal_sidecar_v1"},
+        mesh=mesh,
+    )
+    domain_payload = SimpleNamespace(summary={"domain_area": 3.0})
+
+    summary = conformal_reporting_module._build_summary(
+        result=result,
+        source_payload=SimpleNamespace(
+            field_id="field_geology",
+            source_kind="vector",
+            source_path="dummy.shp",
+            n_source_features_before_domain_clip=2,
+        ),
+        clipped_gdf=clipped_gdf,
+        domain_payload=domain_payload,
+        watershed_geometry=box(0.0, 0.0, 2.0, 1.0),
+    )
+
+    assert summary["n_cells_in_watershed"] == 2
+    assert summary["n_cells_outside_watershed"] == 1
 
 
 def _write_invalid_clip_bbox_domain_case_toml(path: Path) -> None:
@@ -694,6 +735,8 @@ def test_resolve_case_config_supports_base_config_inheritance(tmp_path: Path) ->
 
     assert cfg.constraints_mode_label == "geology_rivers"
     assert cfg.output_figure == "outputs/inherited_overview.png"
+    assert cfg.figure_dpi == 300
+    assert cfg.figure_regional_dpi == 220
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
     assert cfg.zone_meshing is not None
     assert isinstance(cfg.zone_meshing, ZoneConformalZoneMeshingConfig)
@@ -708,6 +751,8 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
 
     section_data = {
         "constraints_mode": "geology_only",
+        "figure_dpi": 340,
+        "figure_regional_dpi": 210,
         "domain": {"kind": "geographic_box_buffer"},
         "geology": {
             "source": {
@@ -737,6 +782,8 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
     )
 
     assert cfg.constraints_mode_label == "geology_only"
+    assert cfg.figure_dpi == 340
+    assert cfg.figure_regional_dpi == 210
     assert isinstance(cfg.domain, ZoneConformalDomainConfig)
     assert cfg.domain.kind == "geographic_box_buffer"
     assert cfg.domain.to_mapping()["kind"] == "geographic_box_buffer"
@@ -1435,6 +1482,12 @@ def test_reference_case_accepts_watershed_boundary_section() -> None:
 
     assert summary["watershed_boundary"]["enabled"] is True
     assert summary["watershed_boundary"]["smoothing_enabled"] is True
+    assert summary["n_cells_in_watershed"] > 0
+    assert summary["n_cells_outside_watershed"] >= 0
+    assert (
+        summary["n_cells_in_watershed"] + summary["n_cells_outside_watershed"]
+        == summary["n_cells"]
+    )
     assert summary["n_cells"] > 0
 
 

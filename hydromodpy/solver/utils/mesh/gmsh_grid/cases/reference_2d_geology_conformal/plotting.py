@@ -250,12 +250,13 @@ def _build_geographic_mesh_figure(
     catchment_boundary_gdf: gpd.GeoDataFrame | None,
     topo_background: tuple[np.ndarray, tuple[float, float, float, float]] | None,
     river_lines: list[object],
+    figure_dpi: int = 300,
 ):
     _ = partition_gdf
     zone_keys = _collect_display_zone_keys(source_domain_gdf)
     key_to_idx, key_to_color = _build_zone_color_map(zone_keys)
 
-    fig, axes = plt.subplots(1, 2, figsize=(16.8, 8.6), dpi=160)
+    fig, axes = plt.subplots(1, 2, figsize=(16.8, 8.6), dpi=float(figure_dpi))
     ax_topo, ax_overlay = axes
     cbar = None
 
@@ -393,8 +394,9 @@ def _build_regional_context_figure(
     topo_background: tuple[np.ndarray, tuple[float, float, float, float]] | None,
     river_lines: list[object],
     outlet_xy: tuple[float, float] | None,
+    figure_dpi: int = 220,
 ):
-    fig, ax = plt.subplots(1, 1, figsize=(10.2, 8.3), dpi=160)
+    fig, ax = plt.subplots(1, 1, figsize=(10.2, 8.3), dpi=float(figure_dpi))
 
     extent = None
     cbar = None
@@ -610,6 +612,7 @@ def _build_figure(
     catchment_boundary_gdf: gpd.GeoDataFrame | None = None,
     domain_geographic: object | None = None,
     river_trace: object | None = None,
+    figure_dpi: int = 300,
 ):
     topo_background = _load_topography_background(domain_geographic)
     river_lines = _resolve_river_lines_for_plot(
@@ -627,12 +630,13 @@ def _build_figure(
             catchment_boundary_gdf=catchment_boundary_gdf,
             topo_background=topo_background,
             river_lines=river_lines,
+            figure_dpi=figure_dpi,
         )
 
     zone_keys = _collect_display_zone_keys(source_domain_gdf, partition_gdf)
     key_to_idx, key_to_color = _build_zone_color_map(zone_keys)
 
-    fig = plt.figure(figsize=(16.5, 9.2), dpi=160)
+    fig = plt.figure(figsize=(16.5, 9.2), dpi=float(figure_dpi))
     axes = fig.subplot_mosaic(
         [["source", "mesh"], ["legend", "legend"]],
         height_ratios=[1.0, 0.28],
@@ -697,6 +701,8 @@ def _write_optional_figure_artifacts(
     meshing_inputs: ZoneConformalMeshingInputs,
     partition_gdf: gpd.GeoDataFrame,
     domain_geographic: object | None,
+    figure_dpi: int = 300,
+    figure_regional_dpi: int = 220,
 ) -> dict[str, str]:
     if figure_path is None and figure_regional_path is None and not show_plot:
         return {}
@@ -722,6 +728,7 @@ def _write_optional_figure_artifacts(
         "catchment_boundary_gdf": catchment_boundary_gdf,
         "domain_geographic": domain_geographic,
         "river_trace": meshing_inputs.diagnostics.river_trace,
+        "figure_dpi": figure_dpi,
     }
 
     fig = None
@@ -742,13 +749,14 @@ def _write_optional_figure_artifacts(
                     domain_geographic=domain_geographic,
                 ),
                 outlet_xy=_resolve_outlet_xy(domain_geographic),
+                figure_dpi=figure_regional_dpi,
             )
 
         if figure_path is not None and fig is not None:
-            fig.savefig(figure_path)
+            fig.savefig(figure_path, dpi=float(figure_dpi))
             updates["output_figure"] = str(figure_path)
         if figure_regional_path is not None and regional_fig is not None:
-            regional_fig.savefig(figure_regional_path)
+            regional_fig.savefig(figure_regional_path, dpi=float(figure_regional_dpi))
             updates["output_figure_regional"] = str(figure_regional_path)
 
         if show_plot:

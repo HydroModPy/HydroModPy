@@ -13,6 +13,9 @@ from validation_cases.analytical.transient.linearized_unconfined_1d import build
 from validation_cases.shared import run_launcher_validation_case
 
 from .reference import expected_linearized_unconfined_recharge_periodic_profiles
+from .runtime_boussinesq import (
+    run_boussinesq_linearized_unconfined_recharge_periodic_case,
+)
 
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -65,12 +68,19 @@ def run_linearized_unconfined_recharge_periodic_comparison(
     solver: str | None = None,
 ) -> TransientHead1DComparison:
     """Run the launcher case and return the full comparison payload."""
-    result = run_launcher_validation_case(
-        case_dir=CASE_DIR,
-        test_file=caller_file,
-        timeout=timeout,
-        solver=solver,
-    )
+    normalized_solver = None if solver is None else str(solver).strip().lower()
+    if normalized_solver == "boussinesq":
+        result = run_boussinesq_linearized_unconfined_recharge_periodic_case(
+            caller_file=caller_file,
+            timeout=timeout,
+        )
+    else:
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver,
+        )
     return build_linearized_unconfined_recharge_periodic_comparison(result=result, solver=solver)
 
 

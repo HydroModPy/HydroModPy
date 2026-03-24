@@ -15,9 +15,11 @@ Exported types
 from hydromodpy.spatial.catchment_zones_field import CatchmentZonesField
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
+from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 __all__ = [
     "CatchmentZonesField",
+    "PreparedSurfaceSampler",
     "RasterSupport",
     "Surface",
 ]

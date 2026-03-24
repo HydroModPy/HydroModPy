@@ -42,6 +42,21 @@ constraints_mode = ""
 # Type: string (optional) | Optional
 # output_figure_regional = ""
 
+# If true, generate the overview figure artifacts when figure output paths are configured.
+# Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present.
+# Type: bool | Default: true
+figures_enabled = true
+
+# Pixel density used when rendering the main mesh overview figure.
+# Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.
+# Type: int | > 0 | Default: 300
+figure_dpi = 300
+
+# Pixel density used when rendering the regional overview figure.
+# Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
+# Type: int | > 0 | Default: 220
+figure_regional_dpi = 220
+
 # Dedicated-launcher output layout.
 # Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
 # Type: string | Default: "standard"
@@ -310,8 +325,6 @@ mode = "full_domain"
 # The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer prepared during delineation, which is usually the right support for mono-catchment meshing.
 
 [mesh_catchment.domain]
-# Reuse the buffered catchment box prepared by the geographic workflow.
-# This is usually the most convenient support for catchment meshing because it preserves some context around the watershed.
 # Type: string | Default: "geographic_box_buffer"
 kind = "geographic_box_buffer"
 

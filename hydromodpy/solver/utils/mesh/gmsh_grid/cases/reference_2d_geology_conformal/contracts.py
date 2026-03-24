@@ -11,7 +11,7 @@ import geopandas as gpd
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettings,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.contracts import (
     ZoneLinearConstraint,
     ZoneRegionalSizeField,
 )
@@ -232,6 +232,8 @@ class ZoneConformalCaseConfig:
     output_summary_json: object | None
     output_figure: object | None
     output_figure_regional: object | None
+    figure_dpi: int
+    figure_regional_dpi: int
 
 
 @dataclass(frozen=True)

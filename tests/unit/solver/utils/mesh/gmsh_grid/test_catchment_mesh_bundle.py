@@ -7,9 +7,11 @@ from types import SimpleNamespace
 import numpy as np
 import rasterio
 from rasterio.transform import from_origin
+from shapely.geometry import LineString
 
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
+import hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle as catchment_mesh_bundle_mod
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
     CatchmentBundleHydraulicPropertiesConfig,
@@ -256,6 +258,97 @@ def test_export_catchment_mesh_bundle_uses_constant_thickness_depth_model(
             float(cell.z_top_mean) - float(cell.z_bottom_mean),
             7.0,
         )
+
+
+def test_export_catchment_mesh_bundle_uses_bulk_surface_sampling(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    mesh_path = tmp_path / "mesh.msh"
+    _write_ascii_triangle_mesh(mesh_path)
+
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=0.5,
+        dy=0.5,
+        xmin=0.0,
+        xmax=1.0,
+        ymin=0.0,
+        ymax=1.0,
+        nrows=2,
+        ncols=2,
+        nodata=-9999.0,
+    )
+    surface = Surface(
+        name="surface_topo",
+        values=np.array([[10.0, 20.0], [30.0, 40.0]], dtype=float),
+        support=support,
+    )
+    domain_geographic = SimpleNamespace(surface_topo=surface, watershed_box_buff_dem=None)
+
+    def _forbidden_sample(*args, **kwargs):
+        raise AssertionError("_sample_surface should not be used inside bundle export")
+
+    monkeypatch.setattr(catchment_mesh_bundle_mod, "_sample_surface", _forbidden_sample)
+
+    bundle_summary = export_catchment_mesh_bundle(
+        mesh_path=mesh_path,
+        domain_geographic=domain_geographic,
+        domain_cfg={
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "7 m",
+            }
+        },
+    )
+
+    loaded = load_catchment_mesh_bundle(bundle_summary["bundle_dir"])
+    assert loaded.n_nodes == 4
+    assert loaded.n_cells == 2
+
+
+def test_export_catchment_mesh_bundle_marks_river_edges(tmp_path: Path) -> None:
+    mesh_path = tmp_path / "mesh.msh"
+    _write_ascii_triangle_mesh(mesh_path)
+
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=0.5,
+        dy=0.5,
+        xmin=0.0,
+        xmax=1.0,
+        ymin=0.0,
+        ymax=1.0,
+        nrows=2,
+        ncols=2,
+        nodata=-9999.0,
+    )
+    surface = Surface(
+        name="surface_topo",
+        values=np.array([[10.0, 20.0], [30.0, 40.0]], dtype=float),
+        support=support,
+    )
+    domain_geographic = SimpleNamespace(surface_topo=surface, watershed_box_buff_dem=None)
+    river_trace = SimpleNamespace(lines=(LineString([(0.0, 0.0), (1.0, 1.0)]),))
+
+    bundle_summary = export_catchment_mesh_bundle(
+        mesh_path=mesh_path,
+        domain_geographic=domain_geographic,
+        domain_cfg={
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "7 m",
+            }
+        },
+        river_trace=river_trace,
+    )
+
+    loaded = load_catchment_mesh_bundle(bundle_summary["bundle_dir"])
+    river_edges = [edge for edge in loaded.edges if edge.is_river]
+
+    assert len(river_edges) == 1
+    assert river_edges[0].node_a == 0
+    assert river_edges[0].node_b == 2
 
 
 def test_export_catchment_mesh_bundle_uses_default_csv_conductivity_for_unmapped_zone(

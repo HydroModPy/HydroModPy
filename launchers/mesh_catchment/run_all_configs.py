@@ -106,6 +106,29 @@ def _cleanup_stale_override_configs(*directories: Path) -> tuple[Path, ...]:
     return tuple(deleted)
 
 
+def _planned_action_count(
+    sequence: tuple[dict[str, str | None], ...] | None = None,
+) -> int:
+    """Return the number of progress-tracked actions for one smoke run."""
+    if sequence is None:
+        sequence = RUN_SEQUENCE
+    total = 0
+    for step in sequence:
+        total += 1  # one mesh action always exists
+        if step.get("identification_config") is not None:
+            total += 1
+    return total
+
+
+def _progress_prefix(*, step_index: int, total_steps: int) -> str:
+    """Render one pytest-like percentage prefix for console progress."""
+    if total_steps <= 0:
+        return "[100%]"
+    percentage = int(round((float(step_index) / float(total_steps)) * 100.0))
+    percentage = max(0, min(100, percentage))
+    return f"[{percentage:>3}%]"
+
+
 def _results_root() -> Path:
     raw_root = os.environ.get("HYDROMODPY_RESULTS_ROOT", DEFAULT_RESULTS_ROOT)
     return Path(raw_root).expanduser().resolve()
@@ -271,19 +294,53 @@ def _build_step_plan(
     )
 
 
-def _run_command(*, label: str, command: list[str], cwd: Path) -> int:
-    """Execute one child process and print a compact status line."""
-    print(f"==> {label}", flush=True)
-    completed = subprocess.run(
+def _run_command(
+    *,
+    label: str,
+    command: list[str],
+    cwd: Path,
+    step_index: int,
+    total_steps: int,
+) -> int:
+    """Execute one child process, suppress blank lines, and report progress."""
+    prefix = _progress_prefix(step_index=step_index, total_steps=total_steps)
+    print(f"{prefix} {label} ...", flush=True)
+    process = subprocess.Popen(
         command,
         cwd=cwd,
-        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
     )
-    if completed.returncode == 0:
-        print(f"OK   {label}", flush=True)
+
+    assert process.stdout is not None
+    for raw_line in process.stdout:
+        line = raw_line.rstrip()
+        if line.strip() == "":
+            continue
+        print(f"      {line}", flush=True)
+
+    return_code = int(process.wait())
+    if return_code == 0:
+        print(f"{prefix} {label} ... OK", flush=True)
         return 0
-    print(f"FAIL {label} (exit code {completed.returncode})", flush=True)
-    return int(completed.returncode)
+    print(f"{prefix} {label} ... FAIL (exit code {return_code})", flush=True)
+    return return_code
+
+
+def _print_skipped(
+    *,
+    label: str,
+    step_index: int,
+    total_steps: int,
+    reason: str,
+) -> None:
+    """Report one intentionally skipped action in the progress stream."""
+    prefix = _progress_prefix(step_index=step_index, total_steps=total_steps)
+    print(f"{prefix} {label} ... SKIP ({reason})", flush=True)
 
 
 def main() -> int:
@@ -295,6 +352,8 @@ def main() -> int:
     )
     failures = 0
     cleanup_paths: list[Path] = []
+    total_steps = _planned_action_count()
+    step_index = 0
 
     try:
         _cleanup_stale_override_configs(mesh_config_dir, identification_dir)
@@ -309,21 +368,34 @@ def main() -> int:
             if plan.identification_command is not None:
                 # Paired scenarios now write identification outputs under the
                 # same scenario root as the mesh results for easier inspection.
+                step_index += 1
                 exit_code = _run_command(
                     label=f"identify {plan.scenario_name}",
                     command=plan.identification_command,
                     cwd=repo_root,
+                    step_index=step_index,
+                    total_steps=total_steps,
                 )
                 if exit_code != 0:
                     failures += 1
+                    step_index += 1
+                    _print_skipped(
+                        label=f"mesh {plan.scenario_name}",
+                        step_index=step_index,
+                        total_steps=total_steps,
+                        reason="identify failed",
+                    )
                     continue
 
             # Only launch meshing after the optional identification step has
             # succeeded, so each config sees the freshest derived inputs.
+            step_index += 1
             exit_code = _run_command(
                 label=f"mesh {plan.scenario_name}",
                 command=plan.mesh_command,
                 cwd=repo_root,
+                step_index=step_index,
+                total_steps=total_steps,
             )
             if exit_code != 0:
                 failures += 1

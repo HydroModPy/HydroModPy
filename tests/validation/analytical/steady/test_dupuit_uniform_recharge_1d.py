@@ -22,6 +22,7 @@ from validation_cases.analytical.steady.dupuit_uniform_recharge_1d.comparison im
     [
         pytest.param("modflownwt", True, False, id="modflownwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
+        pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )
 

@@ -1,11 +1,14 @@
-"""VTU read/write for HydroMesh.
+"""VTU read/write for ``HydroMesh``.
 
-VTU (VTK Unstructured Grid XML) is the recommended disk format for both
-structured and unstructured meshes because it is:
+VTU (VTK Unstructured Grid XML) is the recommended portable disk format for
+both structured and unstructured HydroModPy meshes because it is:
 
 - widely supported (ParaView, PyVista, meshio, QGIS via plugins),
 - self-describing (vertices, connectivity, cell types, data arrays),
 - format-agnostic regarding 2D vs 3D, structured vs unstructured.
+
+This module intentionally remains thin and delegates the actual conversion to
+the ``meshio`` adapter layer.
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ def _require_meshio():
 
 
 def write_vtu(path: str | Path, hydro_mesh: HydroMesh) -> Path:
-    """Write a ``HydroMesh`` to a VTU file."""
+    """Write a ``HydroMesh`` to a VTU file and return the resolved path."""
     from hydromodpy.mesh.adapters.meshio_adapter import to_meshio
 
     meshio = _require_meshio()

@@ -512,6 +512,29 @@ class MeshCatchmentConfigSchema(BaseModel):
             "with suffix `_regional` to show where the catchment sits on the full DEM."
         ),
     )
+    figures_enabled: bool = Field(
+        default=True,
+        description=(
+            "If true, generate the overview figure artifacts when figure output paths are configured. "
+            "Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present."
+        ),
+    )
+    figure_dpi: int = Field(
+        default=300,
+        gt=0,
+        description=(
+            "Pixel density used when rendering the main mesh overview figure. "
+            "Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG."
+        ),
+    )
+    figure_regional_dpi: int = Field(
+        default=220,
+        gt=0,
+        description=(
+            "Pixel density used when rendering the regional overview figure. "
+            "Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy."
+        ),
+    )
     output_layout: str = Field(
         default="standard",
         description=(
