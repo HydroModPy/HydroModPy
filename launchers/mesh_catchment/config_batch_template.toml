@@ -289,6 +289,21 @@ size_factor = 2.0
 # grid_resolution = 1.0
 
 
+# Optional control of where geology remains conformal relative to the watershed.
+# Keep the default full_domain mode to preserve the current behavior.
+
+[mesh_catchment.watershed_boundary.geology_conformity]
+# Control where geology remains conformal.
+# Use 'full_domain' to keep the current behavior, or 'buffered_watershed_envelope' to keep geology conformal only inside one buffered envelope around the regularized watershed.
+# Type: string | Default: "full_domain"
+mode = "full_domain"
+
+# Optional outward buffer, in projected metres, added around the regularized watershed before clipping the geology-conformal region.
+# When omitted in buffered_watershed_envelope mode, the mesher reuses zone_meshing.global_size.
+# Type: float (optional) | >= 0.0 | Optional
+# buffer_distance = 0.0
+
+
 # Optional hydraulic-property tables keyed by geology zones.
 # The launcher projects geology on the mesh and exports per-cell conductivity/storage values as weighted averages of geology fractions.
 
