@@ -1,0 +1,415 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "linearized_unconfined_recharge_step_deep_1d",
+  "title": "Linearized Unconfined 1D Recharge Step (Deep Aquifer)",
+  "category": "validation",
+  "deck": "1D recharge-step benchmark with a much deeper reference thickness to reduce linearization error.",
+  "summary": "Variant of the recharge-step transient benchmark with a deeper aquifer, so the linearization error remains smaller for the same recharge forcing.",
+  "case_setup": [
+    "geometry: quasi-1D Cartesian grid (`50 x 5`, single layer),",
+    "flow regime: transient unconfined flow,",
+    "west/east boundaries: fixed at `100.0 m`,",
+    "initial condition: uniform `100.0 m`,",
+    "forcing: constant recharge `10 mm/day` from the first period,",
+    "reference saturated thickness: `100.0 m`,",
+    "simulated observable: `watertable_elevation`. For `solver=boussinesq`, the validation uses one small balanced triangular strip projected back to a regular `40 x 3` comparison grid. The runtime itself is selected through the case `config_boussinesq.toml`.",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "what_it_shows": [
+    "Separation between true transient-code issues and expected nonlinear deviation from the linearized theory",
+    "Primary metrics: space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "Linearized transient response to a recharge step in the near-linear regime"
+  ],
+  "equations_rst": [
+    "S_y\\frac{\\partial \\eta}{\\partial t}=T_0\\frac{\\partial^2 \\eta}{\\partial x^2}+R_0\\,H(t),\\qquad h=h_0+\\eta",
+    "T_0=K\\,h_{\\mathrm{ref}},\\qquad D=\\frac{T_0}{S_y}"
+  ],
+  "reproduction_command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/README.md",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/reference.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/comparison.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/plotting.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/run_case.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/metadata.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances_boussinesq.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflownwt.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_boussinesq.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "f397c8aa91690be2dd735ed507d3f5ca9ec4815bd5a7a6c4cccfd5a882298311",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/README.md": "adeaa173463eb58e1749263b276cfa3389a04cfae00179e090606513716cd00b",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/reference.py": "2bfc7dfaac0936e654631604d659ec794f719827d9efc3e23c11866d5cd652d2",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/comparison.py": "5a80144de4787d532f0af84f4b9779ed69b856479ef22fe0ef154ce15fcdcfac",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/plotting.py": "d65666bffbf83fe49953b25b96ef5dc5175a2ea8e21872ef47071d044779dc92",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/run_case.py": "ebfcd17a85c6a4ce6473dd930f78325d8664305c44993460cf2a60fd4b0a47bd",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/metadata.toml": "16b93b1dc61eaae390be4ac26f623d2dde16771fe8844c22c91c998c87b07289",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/runtime_boussinesq.py": "11ed1219c2514d9f6cd51d70b8d497b30ec9c0465afbbbbaf260d113dc16f864",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml": "32b1e0a1c039cae537c6a4a1a25f78663882c27642cc21fd5092ce217dbe02e6",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances_boussinesq.toml": "593007f5fff49c62ddf471829a6258522b67398780b866dda8ffd0836f383666",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflownwt.toml": "0e0cc13cc488083014e641969d2fc1ecb3ac5924df0a6251b47af5c5f86f6f8a",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml": "62ac6c429ecd1361db03ea65db823ad4c58f8b4f4e496732b3313019fd1a0012",
+    "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_boussinesq.toml": "aaebad7805cda1a24b2ee2a9aefb95270df1b1e498044e123a4ad0e9be5f28e8",
+    "validation_cases/analytical/transient/linearized_unconfined_1d.py": "87bd0c802ef3b86b88f5791b1ece5a70095f146920ffb3ad44aab32115921b00"
+  },
+  "docname": "cases/linearized_unconfined_recharge_step_deep_1d",
+  "images": [
+    {
+      "filename": "linearized_unconfined_recharge_step_deep_1d__modflownwt.png",
+      "caption": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflownwt.toml",
+        "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml",
+        "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_boussinesq.toml",
+        "expected_output": "Expected output: 60 periods, spatial shape 3 x 40",
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances_boussinesq.toml"
+      }
+    },
+    "regime": "transient",
+    "dimension": "1d",
+    "inventory_reference": "linearized recharge step, deep aquifer",
+    "case_sheet": {
+      "numerical_setup": "Homogeneous strip, fixed west/east heads, recharge step from the first transient period, deep reference thickness",
+      "analytical_target": "Linearized transient response to a recharge step in the near-linear regime",
+      "primary_metrics": "space-time RMSE, space-time max abs error, final-profile RMSE, cross-row spread",
+      "what_it_validates": "Separation between true transient-code issues and expected nonlinear deviation from the linearized theory"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml",
+      "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Space-time RMSE: 0.0018 m",
+        "Space-time max abs error: 0.0103 m",
+        "Final-profile RMSE: 0.0004 m",
+        "Cross-row head spread: 1.03e-05 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_recharge_step_deep_1d__modflownwt.png",
+        "caption": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_recharge_step_deep_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 60,
+            "expected_spatial_shape": [
+              5,
+              50
+            ],
+            "expected_spatial_shape_by_solver": {
+              "boussinesq": [
+                3,
+                40
+              ]
+            }
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 100.0,
+            "recharge_mm_day": 10.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 100.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              0.5,
+              2.0,
+              7.0,
+              20.0,
+              30.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03,
+            "row_spread": 0.0001
+          },
+          "final_profile": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03
+          }
+        },
+        "final_elapsed_days": 30.0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances.toml",
+      "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Space-time RMSE: 0.0005 m",
+        "Space-time max abs error: 0.0030 m",
+        "Final-profile RMSE: 0.0004 m",
+        "Cross-row head spread: 1.52e-07 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_recharge_step_deep_1d__modflow6.png",
+        "caption": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_recharge_step_deep_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 60,
+            "expected_spatial_shape": [
+              5,
+              50
+            ],
+            "expected_spatial_shape_by_solver": {
+              "boussinesq": [
+                3,
+                40
+              ]
+            }
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 100.0,
+            "recharge_mm_day": 10.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 100.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              0.5,
+              2.0,
+              7.0,
+              20.0,
+              30.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03,
+            "row_spread": 0.0001
+          },
+          "final_profile": {
+            "rmse": 0.02,
+            "max_abs_error": 0.03
+          }
+        },
+        "final_elapsed_days": 30.0
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_deep_1d/tolerances_boussinesq.toml",
+      "expected_output": "Expected output: 60 periods, spatial shape 3 x 40",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Space-time RMSE: 0.0014 m",
+        "Space-time max abs error: 0.0017 m",
+        "Final-profile RMSE: 0.0014 m",
+        "Cross-row head spread: 1.12e-09 m"
+      ],
+      "image": {
+        "filename": "linearized_unconfined_recharge_step_deep_1d__boussinesq.png",
+        "caption": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "lu_recharge_step_deep_1d",
+          "category": "analytical",
+          "regime": "transient",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_periods": 60,
+            "expected_spatial_shape": [
+              5,
+              50
+            ],
+            "expected_spatial_shape_by_solver": {
+              "boussinesq": [
+                3,
+                40
+              ]
+            }
+          },
+          "time": {
+            "dt_seconds": 43200.0
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "base_head_m": 100.0,
+            "recharge_mm_day": 10.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "reference_saturated_thickness_m": 100.0,
+            "specific_yield": 0.1,
+            "profile_axis": 0,
+            "n_terms": 400
+          },
+          "plot": {
+            "profile_times_days": [
+              0.5,
+              2.0,
+              7.0,
+              20.0,
+              30.0
+            ],
+            "monitor_positions_m": [
+              25.0,
+              50.0,
+              75.0
+            ]
+          }
+        },
+        "tolerances": {
+          "space_time": {
+            "rmse": 0.005,
+            "max_abs_error": 0.01,
+            "row_spread": 0.0001
+          },
+          "final_profile": {
+            "rmse": 0.005,
+            "max_abs_error": 0.01
+          }
+        },
+        "final_elapsed_days": 30.0
+      }
+    }
+  ]
+}

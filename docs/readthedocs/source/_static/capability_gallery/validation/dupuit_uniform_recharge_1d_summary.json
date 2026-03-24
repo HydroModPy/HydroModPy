@@ -1,0 +1,322 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "dupuit_uniform_recharge_1d",
+  "title": "Dupuit Uniform Recharge 1D",
+  "category": "validation",
+  "deck": "1D recharge benchmark with fixed heads on both sides.",
+  "summary": "Steady synthetic groundwater-flow case used to validate the launcher workflow against the Dupuit analytical profile for a homogeneous unconfined aquifer with uniform recharge and fixed heads at both ends.",
+  "case_setup": [
+    "Homogeneous strip, fixed west/east heads, uniform recharge",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq."
+  ],
+  "what_it_shows": [
+    "validate uniform recharge in a case still compatible with the current free-surface / convertible aquifer implementation,",
+    "keep the geometry one-dimensional so that the comparison stays robust.",
+    "Uniform recharge handling together with side Dirichlet boundaries",
+    "Primary metrics: head-profile RMSE, max abs error, cross-row spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "compared quantity: domain-averaged head profile along `x`",
+    "reference: steady Dupuit profile with uniform recharge"
+  ],
+  "equations_rst": [
+    "\\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K\\,h\\,\\frac{\\mathrm{d}h}{\\mathrm{d}x}\\right)+R=0",
+    "h(x)^2=h_w^2+\\left(h_e^2-h_w^2\\right)\\frac{\\xi}{L}+\\frac{R}{K}\\,\\xi\\left(L-\\xi\\right),\\quad \\xi=x-x_{\\min}"
+  ],
+  "reproduction_command": "python -m validation_cases.analytical.steady.dupuit_uniform_recharge_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/plotting.py",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/run_case.py",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml",
+    "validation_cases/shared/boussinesq_uniform_strip.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "f397c8aa91690be2dd735ed507d3f5ca9ec4815bd5a7a6c4cccfd5a882298311",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md": "6ac185d60659f416b0ad2c685f7166ab04b9a22880f591a1b1d93d49b95349b4",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "43319f308d4fe6f48d436a4c50eff12d0e44e40b0b7af5e14b1852c2811905a3",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "cf3da68a25b70ca0e3784f39ba009dfbb33202f8bf7742b9ff2521d6d483bcfa",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/plotting.py": "3c589e57b141c5aec2a64830cf3a9b56778532aa8607b6f16091863a1ab8321d",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/run_case.py": "63be1093ad42c5e48da81da8b3b335079a8c39f2759976f7208252e596235db1",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml": "02174e0e1844c96f1f0752c20a907b79555713bad1389f8a053a3b0fff636ad5",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py": "2c559f9c7fd15b37718784a4079453ff413ea126ce485184c2b8b125a52705be",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml": "3c7cdd060951dd9c33b5084475beac18c7b981d342f9d63eca2583e1b9c2fec8",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml": "0edc932a6d863e79dfa07815f8fd8a04cf0734cbccf716bd8db22a27c7c0ebd5",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml": "dd4e3068294fc8d19d1ca4b14b5a580c7f4ebfa1f49c476c91faa6d175def824",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml": "bf9a68e7c1dca1d194187dc5584f7f51dc4243bfab5d762e437760d1a797434c",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "a30de1464b42072886201ce1a46b12a0cb486e357b757b5bc69a9e2add48729e"
+  },
+  "docname": "cases/dupuit_uniform_recharge_1d",
+  "images": [
+    {
+      "filename": "dupuit_uniform_recharge_1d__modflownwt.png",
+      "caption": "Dupuit Uniform Recharge 1D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Dupuit Uniform Recharge 1D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "1d",
+    "inventory_reference": "Dupuit, uniform recharge",
+    "case_sheet": {
+      "numerical_setup": "Homogeneous strip, fixed west/east heads, uniform recharge",
+      "analytical_target": "Steady 1D Dupuit recharge solution",
+      "primary_metrics": "head-profile RMSE, max abs error, cross-row spread",
+      "what_it_validates": "Uniform recharge handling together with side Dirichlet boundaries"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/dupuit_uniform_recharge_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.dupuit_uniform_recharge_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0476 m",
+        "Head-profile max abs error: 0.0632 m",
+        "Cross-row head spread: 2.34e-07 m"
+      ],
+      "image": {
+        "filename": "dupuit_uniform_recharge_1d__modflownwt.png",
+        "caption": "Dupuit Uniform Recharge 1D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Dupuit Uniform Recharge 1D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_uniform_recharge_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 5.0,
+            "east_head": 5.0,
+            "recharge_mm_day": 3.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.05,
+            "max_abs_error": 0.1,
+            "row_spread": 2e-05
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.dupuit_uniform_recharge_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0406 m",
+        "Head-profile max abs error: 0.0547 m",
+        "Cross-row head spread: 1.74e-06 m"
+      ],
+      "image": {
+        "filename": "dupuit_uniform_recharge_1d__modflow6.png",
+        "caption": "Dupuit Uniform Recharge 1D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Dupuit Uniform Recharge 1D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_uniform_recharge_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 5.0,
+            "east_head": 5.0,
+            "recharge_mm_day": 3.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.045,
+            "max_abs_error": 0.06,
+            "row_spread": 1e-05
+          }
+        },
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.dupuit_uniform_recharge_1d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0340 m",
+        "Head-profile max abs error: 0.0735 m",
+        "Cross-row head spread: 2.06e-10 m"
+      ],
+      "image": {
+        "filename": "dupuit_uniform_recharge_1d__boussinesq.png",
+        "caption": "Dupuit Uniform Recharge 1D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Dupuit Uniform Recharge 1D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/dupuit_uniform_recharge_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "dupuit_uniform_recharge_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "config_file": "config_modflownwt.toml",
+          "default_solver": "modflownwt",
+          "base_config": "config_modflownwt.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 5.0,
+            "east_head": 5.0,
+            "recharge_mm_day": 3.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "aquifer_thickness_m": 20.0,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.05,
+            "max_abs_error": 0.1,
+            "row_spread": 2e-05
+          }
+        },
+        "timestep": 0
+      }
+    }
+  ]
+}
