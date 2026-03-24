@@ -55,6 +55,12 @@ Documentation workflow
    - according to the manifest in ``tools/doc_gallery/gallery_manifest.py``
 
    The generator itself is documented in ``tools/doc_gallery/README.md``.
+   For future mesh-gallery cases imported from ``C:/results/...``, keep the
+   canonical repo tree under ``examples/mesh_gallery/`` and use:
+
+   .. code-block:: bash
+
+      python -m tools.doc_gallery.import_mesh_bundle --help
 
 4. Preview locally with ``sphinx-autobuild -E -a source _build/html``.
 5. Run ``python -m tools.doc_gallery --check`` before submitting if you touched
