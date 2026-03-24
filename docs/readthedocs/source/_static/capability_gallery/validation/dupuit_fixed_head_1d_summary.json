@@ -5,10 +5,23 @@
   "category": "validation",
   "deck": "Lightweight 1D steady benchmark comparing a numerical profile to the Dupuit solution.",
   "summary": "This is the simplest analytical validation case in the current inventory. It is well suited to the documentation because the geometry, the reference solution, and the failure modes are all immediately readable on one figure.",
+  "case_setup": [
+    "Homogeneous unconfined strip, 400 m long, discretized on a 5 x 40 grid.",
+    "Fixed west head of 10.0 m and fixed east head of 5.0 m.",
+    "No recharge, hydraulic conductivity 1e-4 m/s, aquifer thickness 20.0 m."
+  ],
   "what_it_shows": [
     "How HydroModPy reproduces a steady unconfined profile between two imposed heads.",
     "How one validation page can combine the profile, the residual, and a few scalar metrics.",
     "What a minimal end-to-end scientific benchmark looks like in the current launcher workflow."
+  ],
+  "reference_highlights": [
+    "The benchmark uses the steady 1D Dupuit approximation on a homogeneous aquifer with no recharge.",
+    "The comparison is performed on the row-averaged numerical head profile along x."
+  ],
+  "equations_rst": [
+    "\\frac{\\mathrm{d}}{\\mathrm{d}x}\\left(K\\,h\\,\\frac{\\mathrm{d}h}{\\mathrm{d}x}\\right)=0",
+    "h(x)=\\sqrt{h_w^2+\\left(h_e^2-h_w^2\\right)\\frac{x-x_{\\min}}{x_{\\max}-x_{\\min}}}"
   ],
   "reproduction_command": "python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",

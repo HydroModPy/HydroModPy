@@ -14,6 +14,13 @@ This benchmark is especially useful pedagogically because it validates both a bo
 
    Synthetic DEM, final land heads, annular Dupuit profile, and radial residuals.
 
+Case Setup
+----------
+
+- Synthetic circular island embedded in a 610 m x 610 m Cartesian grid sampled on 61 x 61 cells.
+- Island radius 200 m, flat substratum at -5.0 m, sea level fixed at 0.0 m on the shoreline.
+- Uniform recharge of 1.0 mm/day and hydraulic conductivity of 5e-6 m/s.
+
 What It Shows
 -------------
 
@@ -29,6 +36,24 @@ Key Metrics
 - Azimuthal spread: 0.1120 m
 - Ocean head error: 0.00e+00 m
 - Min land freeboard: 0.7869 m
+
+Analytical Reference
+--------------------
+
+- The benchmark uses the steady radial Dupuit-Boussinesq equation on a flat substratum.
+- HydroModPy's ocean boundary condition is checked against a fixed coastal head while the annular mean profile tests radial symmetry.
+
+.. math::
+
+   \frac{1}{r}\frac{\mathrm{d}}{\mathrm{d}r}\left(r\,K\,H\,\frac{\mathrm{d}H}{\mathrm{d}r}\right)+R=0
+
+.. math::
+
+   H(r)^2=H(a)^2+\frac{R}{2K}\left(a^2-r^2\right)
+
+.. math::
+
+   h(r)=z_b+\sqrt{\left(h_{\mathrm{sea}}-z_b\right)^2+\frac{R}{2K}\left(a^2-r^2\right)}
 
 Reproduce
 ---------

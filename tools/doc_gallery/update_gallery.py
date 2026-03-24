@@ -175,7 +175,10 @@ def _build_case_summary(
         "category": spec.category,
         "deck": spec.deck,
         "summary": spec.summary,
+        "case_setup": list(spec.case_setup),
         "what_it_shows": list(spec.what_it_shows),
+        "reference_highlights": list(spec.reference_highlights),
+        "equations_rst": list(spec.equations_rst),
         "reproduction_command": spec.reproduction_command,
         "gallery_update_command": "python -m tools.doc_gallery",
         "source_paths": list(spec.source_paths),
@@ -410,6 +413,18 @@ def _build_case_page(case: dict[str, Any]) -> str:
             ]
         )
 
+    if case["case_setup"]:
+        lines.extend(
+            [
+                "Case Setup",
+                "----------",
+                "",
+            ]
+        )
+        for bullet in case["case_setup"]:
+            lines.append(f"- {bullet}")
+        lines.append("")
+
     lines.extend(
         [
             "What It Shows",
@@ -432,6 +447,28 @@ def _build_case_page(case: dict[str, Any]) -> str:
         for metric in case["metrics"]:
             lines.append(f"- {metric['label']}: {metric['display']}")
         lines.append("")
+
+    if case["reference_highlights"] or case["equations_rst"]:
+        lines.extend(
+            [
+                "Analytical Reference",
+                "--------------------",
+                "",
+            ]
+        )
+        for bullet in case["reference_highlights"]:
+            lines.append(f"- {bullet}")
+        if case["reference_highlights"] and case["equations_rst"]:
+            lines.append("")
+        for equation in case["equations_rst"]:
+            lines.extend(
+                [
+                    ".. math::",
+                    "",
+                    f"   {equation}",
+                    "",
+                ]
+            )
 
     lines.extend(
         [

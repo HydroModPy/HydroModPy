@@ -5,10 +5,25 @@
   "category": "validation",
   "deck": "Transient radial drawdown benchmark with late-time analytical comparison and symmetry checks.",
   "summary": "This transient case makes the gallery less static. It illustrates how HydroModPy compares an entire time-radius response surface to a late-time analytical proxy, while also checking azimuthal symmetry around the pumping well.",
+  "case_setup": [
+    "Transient unconfined flow on a 2000 m x 2000 m square domain discretized on a 101 x 101 grid.",
+    "Uniform initial head of 30.0 m with all outer boundaries held at that same fixed head.",
+    "One central pumping well at 1000 m3/day, hydraulic conductivity 1e-4 m/s, specific yield 0.15.",
+    "The reference comparison starts after day 4.0 to target the late-time regime only."
+  ],
   "what_it_shows": [
     "How one transient validation page can expose traces, residuals, and symmetry diagnostics together.",
     "How the late-time drawdown response is compared to a lightweight Theis-style proxy.",
     "How the validation inventory extends beyond steady profiles without requiring an interactive notebook."
+  ],
+  "reference_highlights": [
+    "The benchmark is intentionally not a full Neuman solution; it uses a confined-equivalent late-time proxy for one unconfined pumping response.",
+    "HydroModPy is checked both against the radial drawdown scaling and against azimuthal symmetry around the well."
+  ],
+  "equations_rst": [
+    "s(r,t)=\\frac{Q}{4\\pi T}E_1(u)",
+    "u=\\frac{r^2S}{4Tt}",
+    "T=K\\,h_{\\mathrm{ref}},\\qquad S=S_y"
   ],
   "reproduction_command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show",
   "gallery_update_command": "python -m tools.doc_gallery",

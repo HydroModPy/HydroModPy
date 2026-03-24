@@ -14,6 +14,13 @@ This is the simplest analytical validation case in the current inventory. It is 
 
    Numerical mean profile, analytical Dupuit profile, and residual panel.
 
+Case Setup
+----------
+
+- Homogeneous unconfined strip, 400 m long, discretized on a 5 x 40 grid.
+- Fixed west head of 10.0 m and fixed east head of 5.0 m.
+- No recharge, hydraulic conductivity 1e-4 m/s, aquifer thickness 20.0 m.
+
 What It Shows
 -------------
 
@@ -27,6 +34,20 @@ Key Metrics
 - RMSE: 0.0054 m
 - Max abs error: 0.0077 m
 - Cross-row spread: 4.67e-07 m
+
+Analytical Reference
+--------------------
+
+- The benchmark uses the steady 1D Dupuit approximation on a homogeneous aquifer with no recharge.
+- The comparison is performed on the row-averaged numerical head profile along x.
+
+.. math::
+
+   \frac{\mathrm{d}}{\mathrm{d}x}\left(K\,h\,\frac{\mathrm{d}h}{\mathrm{d}x}\right)=0
+
+.. math::
+
+   h(x)=\sqrt{h_w^2+\left(h_e^2-h_w^2\right)\frac{x-x_{\min}}{x_{\max}-x_{\min}}}
 
 Reproduce
 ---------
