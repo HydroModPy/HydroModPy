@@ -260,6 +260,7 @@ class ZoneConformalMeshingInputs:
     linear_constraints: tuple[ZoneLinearConstraint, ...]
     regional_size_fields: tuple[ZoneRegionalSizeField, ...]
     diagnostics: ZoneConformalMeshingDiagnostics
+    excluded_interface_zone_keys_for_refinement: tuple[str, ...] = ()
 
 
 __all__ = [

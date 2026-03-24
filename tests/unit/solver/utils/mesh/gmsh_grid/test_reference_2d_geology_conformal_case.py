@@ -959,7 +959,23 @@ def test_watershed_boundary_buffered_geology_conformity_clips_mesh_partition_onl
     assert "outside_background" not in set(
         inputs.diagnostics.source_plot_gdf["zone_key"].astype(str)
     )
+    assert not any(
+        constraint.name == "watershed::boundary"
+        for constraint in inputs.linear_constraints
+    )
     assert "_mesh_priority" in inputs.zone_gdf.columns
+    assert inputs.excluded_interface_zone_keys_for_refinement == (
+        "outside_background",
+    )
+    assert inputs.diagnostics.watershed_boundary_summary is not None
+    assert (
+        inputs.diagnostics.watershed_boundary_summary["explicit_constraint_applied"]
+        is False
+    )
+    assert (
+        inputs.diagnostics.watershed_boundary_summary["geometry_mode"]
+        == "buffered_watershed_envelope"
+    )
     assert inputs.diagnostics.geology_conformity_summary is not None
     assert (
         inputs.diagnostics.geology_conformity_summary["mode"]
@@ -1220,6 +1236,8 @@ def test_watershed_boundary_buffered_geology_conformity_runs_end_to_end(
 
     assert summary["geology_conformity"]["mode"] == "buffered_watershed_envelope"
     assert summary["geology_conformity"]["buffer_distance"] == pytest.approx(250.0)
+    assert summary["watershed_boundary"]["explicit_constraint_applied"] is False
+    assert summary["watershed_boundary"]["geometry_mode"] == "buffered_watershed_envelope"
     assert "outside_background" not in summary["zone_feature_counts"]
     assert "outside_background" in summary["zone_keys"]
     assert summary["outside_coarsening"]["enabled"] is True

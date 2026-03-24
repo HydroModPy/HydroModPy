@@ -48,6 +48,9 @@ def _run_zone_conformal_meshing(
         refinement_policy=meshing_inputs.zone_meshing_cfg.refinement_policy,
         linear_constraints=meshing_inputs.linear_constraints,
         regional_size_fields=meshing_inputs.regional_size_fields,
+        excluded_interface_zone_keys_for_refinement=(
+            meshing_inputs.excluded_interface_zone_keys_for_refinement
+        ),
         refinement_scope_geometry=None,
         model_name=(
             f"reference_2d_zone_conformal_{meshing_inputs.constraints_mode_label}"

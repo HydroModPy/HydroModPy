@@ -747,6 +747,7 @@ def generate_zone_conformal_mesh_from_dataframe(
     refinement_policy: ZoneMeshingRefinementPolicy | None = None,
     linear_constraints: Sequence[ZoneLinearConstraint] | None = None,
     regional_size_fields: Sequence[ZoneRegionalSizeField] | None = None,
+    excluded_interface_zone_keys_for_refinement: Sequence[str] | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",
@@ -881,6 +882,11 @@ def generate_zone_conformal_mesh_from_dataframe(
     refinement_policy_summary: dict[str, Any] | None = None
     regional_background_summary: dict[str, Any] | None = None
     regional_field_temp_paths: list[Path] = []
+    excluded_refinement_zone_keys = {
+        str(zone_key).strip()
+        for zone_key in (excluded_interface_zone_keys_for_refinement or ())
+        if str(zone_key).strip() != ""
+    }
 
     trace_mesh_stage("zone_meshing.gmsh.initialize")
     gmsh.initialize()
@@ -1005,6 +1011,7 @@ def generate_zone_conformal_mesh_from_dataframe(
         trace_mesh_stage("zone_meshing.physical_groups.surfaces.done")
 
         curve_groups: dict[str, ZoneCurveGroupDraft] = {}
+        curve_group_zone_keys_by_name: dict[str, tuple[str, ...]] = {}
         curve_tag_to_segment: dict[int, LineString] = {}
         for canonical, line_tag in line_registry.items():
             curve_tag_to_segment[int(line_tag)] = LineString(
@@ -1051,6 +1058,9 @@ def generate_zone_conformal_mesh_from_dataframe(
         for name, payload in sorted(curve_groups.items()):
             curve_tags = sorted(set(int(tag) for tag in payload.curve_tags))
             curve_tags_by_name[str(name)] = curve_tags
+            curve_group_zone_keys_by_name[str(name)] = tuple(
+                str(zone_key) for zone_key in payload.zone_keys
+            )
             physical_tag = gmsh.model.addPhysicalGroup(1, curve_tags)
             gmsh.model.setPhysicalName(1, int(physical_tag), name)
             physical_groups.append(
@@ -1098,6 +1108,17 @@ def generate_zone_conformal_mesh_from_dataframe(
         trace_mesh_stage("zone_meshing.refinement.start")
         refined_curve_tags: set[int]
         use_regional_background = bool(prepared_regional_size_fields)
+        refinable_curve_tags_by_name = {
+            str(name): list(curve_tags)
+            for name, curve_tags in curve_tags_by_name.items()
+            if not (
+                excluded_refinement_zone_keys
+                and (
+                    excluded_refinement_zone_keys
+                    & set(curve_group_zone_keys_by_name.get(str(name), ()))
+                )
+            )
+        }
         if (
             refine_interfaces_value
             and refinement_policy is not None
@@ -1106,7 +1127,7 @@ def generate_zone_conformal_mesh_from_dataframe(
             and interface_distance_value is not None
         ):
             policy_candidates = build_refinement_candidates(
-                curve_tags_by_name=curve_tags_by_name,
+                curve_tags_by_name=refinable_curve_tags_by_name,
                 curve_tag_to_segment=curve_tag_to_segment,
                 refinement_scope_geometry=refinement_scope_geometry,
                 point_tolerance=point_tolerance,
@@ -1145,7 +1166,7 @@ def generate_zone_conformal_mesh_from_dataframe(
         else:
             interface_curve_tags_all = [
                 int(curve_tag)
-                for name, curve_tags_list in curve_tags_by_name.items()
+                for name, curve_tags_list in refinable_curve_tags_by_name.items()
                 if not str(name).startswith("boundary::")
                 and (
                     str(name) not in constraint_by_name
