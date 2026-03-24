@@ -23,6 +23,7 @@ from hydromodpy.display.options import (
     display_options_from_raw_toml,
 )
 from hydromodpy.display.orchestration import (
+    plot_boussinesq_flow_suite,
     plot_flow_suite,
     plot_particles_suite,
     plot_transport_suite,
@@ -38,6 +39,7 @@ __all__ = [
     "observed_discharge_series",
     "observed_piezometry_series",
     # Orchestration suites
+    "plot_boussinesq_flow_suite",
     "plot_flow_suite",
     "plot_particles_suite",
     "plot_transport_suite",

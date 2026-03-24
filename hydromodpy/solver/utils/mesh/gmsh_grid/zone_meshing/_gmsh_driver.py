@@ -7,11 +7,12 @@ the higher-level ``conformal.py`` stays readable and testable.
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
-from shapely.geometry import LineString, MultiLineString
+from shapely.geometry import LineString, MultiLineString, Point
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.gmsh_grid.gmsh_reader import (
@@ -246,6 +247,34 @@ def apply_mesh_options(
     )
 
 
+def _disable_automatic_mesh_size_sources(gmsh) -> None:
+    """Force Gmsh to rely only on explicitly constructed background fields."""
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0.0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.0)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0.0)
+
+
+def set_background_mesh_from_fields(
+    gmsh,
+    *,
+    field_tags: list[int] | tuple[int, ...],
+) -> int | None:
+    """Activate one background mesh field, combining multiple fields with Min."""
+    unique_tags = sorted(set(int(tag) for tag in field_tags if int(tag) > 0))
+    if not unique_tags:
+        return None
+
+    field_api = gmsh.model.mesh.field
+    if len(unique_tags) == 1:
+        background_field = int(unique_tags[0])
+    else:
+        background_field = int(field_api.add("Min"))
+        field_api.setNumbers(background_field, "FieldsList", unique_tags)
+    field_api.setAsBackgroundMesh(background_field)
+    _disable_automatic_mesh_size_sources(gmsh)
+    return int(background_field)
+
+
 # ---------------------------------------------------------------------------
 # Physical group naming
 # ---------------------------------------------------------------------------
@@ -279,6 +308,7 @@ def apply_interface_refinement_field(
     interface_size: float | None,
     interface_distance: float | None,
     interface_sampling: int,
+    stop_at_distance_max: bool = False,
 ) -> dict[str, Any]:
     """Create the optional distance-based refinement field around interface curves."""
     summary: dict[str, Any] = {
@@ -291,6 +321,7 @@ def apply_interface_refinement_field(
         "interface_curve_count": int(
             len(sorted(set(int(tag) for tag in interface_curve_tags)))
         ),
+        "stop_at_distance_max": bool(stop_at_distance_max),
         "background_field": None,
     }
     if (not refine_interfaces) or (not interface_curve_tags):
@@ -313,14 +344,13 @@ def apply_interface_refinement_field(
     field_api.setNumber(threshold_field, "LcMax", float(global_size))
     field_api.setNumber(threshold_field, "DistMin", 0.0)
     field_api.setNumber(threshold_field, "DistMax", float(interface_distance))
+    if stop_at_distance_max:
+        field_api.setNumber(threshold_field, "StopAtDistMax", 1.0)
 
     background_field = int(field_api.add("Min"))
     field_api.setNumbers(background_field, "FieldsList", [threshold_field])
     field_api.setAsBackgroundMesh(background_field)
-
-    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0.0)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.0)
-    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0.0)
+    _disable_automatic_mesh_size_sources(gmsh)
 
     summary["background_field"] = {
         "distance_field_tag": int(distance_field),
@@ -340,6 +370,7 @@ def apply_family_refinement_fields(
     default_interface_size: float,
     default_interface_distance: float,
     default_interface_sampling: int,
+    stop_at_distance_max: bool = False,
 ) -> dict[str, Any]:
     """Create one distance-based refinement field per interface family."""
 
@@ -347,6 +378,7 @@ def apply_family_refinement_fields(
         "enabled": bool(refine_interfaces),
         "interface_curve_count": 0,
         "active_families": [],
+        "stop_at_distance_max": bool(stop_at_distance_max),
         "family_fields": {},
         "background_field": None,
     }
@@ -394,6 +426,8 @@ def apply_family_refinement_fields(
         field_api.setNumber(threshold_field, "LcMax", float(global_size))
         field_api.setNumber(threshold_field, "DistMin", 0.0)
         field_api.setNumber(threshold_field, "DistMax", float(interface_distance))
+        if stop_at_distance_max:
+            field_api.setNumber(threshold_field, "StopAtDistMax", 1.0)
 
         threshold_fields.append(int(threshold_field))
         total_curve_count += len(unique_curves)
@@ -420,16 +454,96 @@ def apply_family_refinement_fields(
         background_field = int(field_api.add("Min"))
         field_api.setNumbers(background_field, "FieldsList", threshold_fields)
     field_api.setAsBackgroundMesh(background_field)
-
-    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0.0)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.0)
-    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0.0)
+    _disable_automatic_mesh_size_sources(gmsh)
 
     summary["background_field"] = {
         "background_field_tag": int(background_field),
         "threshold_fields": [int(tag) for tag in threshold_fields],
     }
     return summary
+
+
+def create_regional_structured_size_field(
+    gmsh,
+    *,
+    region_geometry,
+    domain_bounds: tuple[float, float, float, float],
+    inside_size: float,
+    outside_size: float,
+    transition_distance: float,
+    grid_resolution: float,
+    scratch_dir: str | os.PathLike[str],
+    field_name: str,
+) -> tuple[int, dict[str, Any], Path]:
+    """Create one structured inside/outside background-size field."""
+    minx, miny, maxx, maxy = [float(value) for value in domain_bounds]
+    width = max(float(maxx - minx), 0.0)
+    height = max(float(maxy - miny), 0.0)
+    if grid_resolution <= 0.0:
+        raise ValueError("grid_resolution must be > 0 for regional size fields")
+
+    nx = max(int(np.ceil(width / float(grid_resolution))) + 1, 2)
+    ny = max(int(np.ceil(height / float(grid_resolution))) + 1, 2)
+    dx = float(width / float(nx - 1)) if nx > 1 else float(grid_resolution)
+    dy = float(height / float(ny - 1)) if ny > 1 else float(grid_resolution)
+    boundary = region_geometry.boundary
+
+    rows: list[str] = []
+    for ix in range(nx):
+        x = float(minx + (float(ix) * dx))
+        values: list[str] = []
+        for iy in range(ny):
+            y = float(miny + (float(iy) * dy))
+            point = Point(x, y)
+            if bool(region_geometry.covers(point)):
+                value = float(inside_size)
+            else:
+                value = float(outside_size)
+                if transition_distance > 0.0:
+                    distance_to_boundary = float(boundary.distance(point))
+                    if distance_to_boundary < float(transition_distance):
+                        ratio = float(distance_to_boundary / float(transition_distance))
+                        value = float(
+                            inside_size
+                            + (ratio * (outside_size - inside_size))
+                        )
+            values.append(f"{float(value):.12g}")
+        rows.append(" ".join(values))
+
+    fd, tmp_path = tempfile.mkstemp(
+        prefix="gmsh_structured_size_",
+        suffix=".txt",
+        dir=str(Path(scratch_dir)),
+    )
+    os.close(fd)
+    field_path = Path(tmp_path)
+    payload_lines = [
+        f"{float(minx):.12g} {float(miny):.12g} 0",
+        f"{float(dx):.12g} {float(dy):.12g} 1",
+        f"{int(nx)} {int(ny)} 1",
+        *rows,
+    ]
+    field_path.write_text("\n".join(payload_lines) + "\n", encoding="utf-8")
+
+    field_api = gmsh.model.mesh.field
+    field_tag = int(field_api.add("Structured"))
+    field_api.setString(field_tag, "FileName", str(field_path))
+    field_api.setNumber(field_tag, "TextFormat", 1.0)
+    field_api.setNumber(field_tag, "SetOutsideValue", 1.0)
+    field_api.setNumber(field_tag, "OutsideValue", float(outside_size))
+
+    summary = {
+        "enabled": True,
+        "name": str(field_name),
+        "inside_size": float(inside_size),
+        "outside_size": float(outside_size),
+        "transition_distance": float(transition_distance),
+        "grid_resolution": float(grid_resolution),
+        "grid_shape": [int(nx), int(ny), 1],
+        "grid_spacing": [float(dx), float(dy), 1.0],
+        "field_tag": int(field_tag),
+    }
+    return int(field_tag), summary, field_path
 
 
 def write_repository_compatible_mesh(gmsh, output_path: str | os.PathLike[str]) -> None:
@@ -546,6 +660,7 @@ def build_runtime_planar_mesh_from_gmsh(
 __all__ = [
     "add_polyline_segments",
     "add_ring_loop",
+    "create_regional_structured_size_field",
     "build_runtime_planar_mesh_from_gmsh",
     "apply_family_refinement_fields",
     "apply_interface_refinement_field",
@@ -553,5 +668,6 @@ __all__ = [
     "build_curve_group_name",
     "configure_gmsh_terminal_output",
     "iter_river_lines_from_trace",
+    "set_background_mesh_from_fields",
     "write_repository_compatible_mesh",
 ]

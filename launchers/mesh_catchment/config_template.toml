@@ -160,6 +160,63 @@ snap_tolerance = 0.0
 # override_code = "1"
 
 
+# Optional watershed-boundary mesh constraint.
+# Enable it to force a conformal mesh line along the catchment boundary while keeping the geology zonation represented on the whole support domain.
+
+[mesh_catchment.watershed_boundary]
+# If true, inject the watershed boundary as one dedicated linear constraint in addition to geology and/or river constraints.
+# Type: bool | Default: false
+enabled = false
+
+# Optional influence distance, in projected metres, used for the watershed-boundary refinement family.
+# When omitted, the mesher derives one conservative distance from the boundary extent.
+# Type: float (optional) | >= 0.0 | Optional
+# boundary_refinement_distance = 0.0
+
+
+# Optional regularization controls applied before the watershed boundary is converted to a linear constraint.
+
+[mesh_catchment.watershed_boundary.smoothing]
+# If true, apply the smoothing controls below before converting the watershed boundary into one linear constraint.
+# Type: bool | Default: false
+enabled = false
+
+# Optional regularization tolerance, in projected metres, used to simplify the watershed boundary at roughly the target internal mesh scale before it is injected as a linear mesh constraint.
+# When omitted, the mesher reuses zone_meshing.global_size.
+# Type: float (optional) | >= 0.0 | Optional
+# distance = 0.0
+
+# Optional protective buffer around river traces, in projected metres, merged into the boundary-support polygon before smoothing so the final watershed boundary stays slightly outside river corridors near the basin edge.
+# Type: float (optional) | >= 0.0 | Optional
+# river_buffer_distance = 0.0
+
+# Optional outward bias, in projected metres, applied after smoothing so the final watershed boundary remains slightly englobing instead of cutting back toward the raw catchment contour.
+# Type: float (optional) | >= 0.0 | Optional
+# outer_bias_distance = 0.0
+
+
+# Optional coarse-background size field applied outside the regularized watershed while keeping the geology partition unchanged.
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+# If true, add one regional mesh-size field that keeps the current background size inside the watershed and coarsens the mesh outside it.
+# Type: bool | Default: false
+enabled = false
+
+# Multiplicative factor applied to zone_meshing.global_size outside the watershed.
+# Use 2.0 for an outside background roughly twice as coarse as the internal baseline.
+# Type: float | >= 1.0 | Default: 2.0
+size_factor = 2.0
+
+# Optional transition width, in projected metres, used to ramp from the internal background size to the coarser outside size away from the watershed boundary.
+# Type: float (optional) | >= 0.0 | Optional
+# transition_distance = 0.0
+
+# Optional structured-grid resolution, in projected metres, used to discretize the outside coarsening field.
+# When omitted, the mesher reuses zone_meshing.global_size.
+# Type: float (optional) | > 0.0 | Optional
+# grid_resolution = 1.0
+
+
 # Optional hydraulic-property tables keyed by geology zones.
 # The launcher projects geology on the mesh and exports per-cell conductivity/storage values as weighted averages of geology fractions.
 

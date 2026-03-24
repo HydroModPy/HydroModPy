@@ -17,6 +17,7 @@ from hydromodpy.display.common import (
     resolve_model_figure_dir,
 )
 from hydromodpy.display.figures.animation import build_gif, build_plotly_slider
+from hydromodpy.display.figures.boussinesq import plot_boussinesq_state
 from hydromodpy.display.figures.cross_section import plot_cross_section
 from hydromodpy.display.figures.maps import plot_pathlines_map
 from hydromodpy.display.figures.timeseries import plot_discharge, plot_piezometry
@@ -34,6 +35,43 @@ def _resolve_flow_model(result):
     if flow_model is None:
         flow_model = result.get_model_for_solver("modflow6")
     return flow_model
+
+
+def _resolve_boussinesq_model(result):
+    """Return the configured Boussinesq flow model when present."""
+    return result.get_model_for_solver("boussinesq")
+
+
+def _resolve_boussinesq_triangles(mesh) -> np.ndarray:
+    """Map mesh cell node ids to positional triangle indices."""
+    return np.asarray(
+        [
+            [int(mesh.node_index_by_id[int(node_id)]) for node_id in node_ids]
+            for node_ids in mesh.cell_node_ids
+        ],
+        dtype=int,
+    )
+
+
+def _resolve_boussinesq_head(model) -> np.ndarray | None:
+    """Return the final Boussinesq head array from memory or disk."""
+    state = getattr(model, "state", None)
+    head_m = getattr(state, "head_m", None)
+    if head_m is not None:
+        return np.asarray(head_m, dtype=float).reshape(-1)
+
+    full_path = getattr(model, "full_path", None)
+    if full_path is None:
+        return None
+
+    state_history_path = Path(full_path) / "_boussinesq_state_history.npz"
+    if not state_history_path.exists():
+        return None
+
+    with np.load(state_history_path) as payload:
+        if "final_head_m" not in payload:
+            return None
+        return np.asarray(payload["final_head_m"], dtype=float).reshape(-1)
 
 
 def _load_observed_streamflow(result) -> pd.DataFrame | None:
@@ -171,6 +209,35 @@ def plot_flow_suite(result, options: DisplayOptions) -> None:
         )
 
 
+def plot_boussinesq_flow_suite(result, options: DisplayOptions) -> None:
+    """Render the Boussinesq-specific launcher display figure."""
+    if not options.should_render() or not options.flow.enabled:
+        return
+
+    model = _resolve_boussinesq_model(result)
+    if model is None:
+        return
+
+    mesh = getattr(model, "mesh", None)
+    head_m = _resolve_boussinesq_head(model)
+    if mesh is None or head_m is None:
+        return
+
+    run_id = str(getattr(model, "model_name", "")).strip() or "boussinesq"
+    output_dir = resolve_model_figure_dir(result.setup.workspace, run_id)
+    plot_boussinesq_state(
+        node_x_m=np.asarray(mesh.node_x_m, dtype=float),
+        node_y_m=np.asarray(mesh.node_y_m, dtype=float),
+        triangles=_resolve_boussinesq_triangles(mesh),
+        cell_head_m=head_m,
+        cell_centroid_x_m=np.asarray(mesh.cell_centroid_x_m, dtype=float),
+        cell_z_top_m=np.asarray(mesh.z_top_m, dtype=float),
+        cell_z_bottom_m=np.asarray(mesh.z_bottom_m, dtype=float),
+        options=options,
+        save_path=output_dir / "boussinesq_state.png",
+    )
+
+
 def plot_particles_suite(result, options: DisplayOptions) -> None:
     """Run all enabled particle-tracking outputs for one simulation result."""
     if not options.should_render():
@@ -254,3 +321,11 @@ def plot_transport_suite(result, options: DisplayOptions) -> None:
             html_path=html_path,
             show_in_browser=options.show,
         )
+
+
+__all__ = [
+    "plot_boussinesq_flow_suite",
+    "plot_flow_suite",
+    "plot_particles_suite",
+    "plot_transport_suite",
+]

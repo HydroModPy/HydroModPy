@@ -14,6 +14,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import (
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
     _select_partition_face_owner,
+    ZoneRegionalSizeField,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import ZoneLinearConstraint
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
@@ -307,6 +308,53 @@ def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
         bool(dict(payload).get("enabled", False))
         for payload in family_fields.values()
     )
+
+
+def test_generate_zone_conformal_mesh_accepts_regional_size_field() -> None:
+    gdf = _build_split_zones_gdf()
+    output_dir = Path.cwd() / "scratch_tests" / "zone_conformal_meshing"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "split_zone_conformal_with_regional_background.msh"
+
+    result = generate_zone_conformal_mesh_from_dataframe(
+        gdf,
+        output_path=output_path,
+        global_size=0.20,
+        refine_interfaces=False,
+        regional_size_fields=(
+            ZoneRegionalSizeField(
+                name="watershed::outside_coarsening",
+                region_geometry=Polygon(
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+                ),
+                inside_size=0.20,
+                outside_size=0.40,
+                transition_distance=0.10,
+                grid_resolution=0.10,
+            ),
+        ),
+    )
+
+    regional_background = dict(
+        result.summary["mesh_size_fields"].get("regional_background", {})
+    )
+    assert regional_background.get("enabled") is True
+    assert len(regional_background.get("fields", ())) == 1
+    assert regional_background["fields"][0]["outside_size"] == pytest.approx(0.40)
+
+    inside_areas: list[float] = []
+    outside_areas: list[float] = []
+    for cell in result.mesh.cells:
+        vertices = np.asarray(cell.vertices, dtype=float)
+        centroid_x = float(np.mean(vertices[:, 0]))
+        polygon = Polygon(vertices[:, :2])
+        if centroid_x <= 1.0:
+            inside_areas.append(float(polygon.area))
+        else:
+            outside_areas.append(float(polygon.area))
+    assert inside_areas
+    assert outside_areas
+    assert float(np.mean(outside_areas)) > float(np.mean(inside_areas))
 
 
 def test_load_zone_meshing_domain_payload_supports_inline_polygon() -> None:

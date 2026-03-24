@@ -13,6 +13,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
     ZoneLinearConstraint,
+    ZoneRegionalSizeField,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainConfig,
@@ -178,6 +179,45 @@ class ZoneConformalRiversConfig:
 
 
 @dataclass(frozen=True)
+class ZoneConformalWatershedBoundarySmoothingConfig:
+    """Optional smoothing controls for the watershed-boundary constraint."""
+
+    enabled: bool
+    distance: float | None
+    river_buffer_distance: float | None
+    outer_bias_distance: float | None
+
+
+@dataclass(frozen=True)
+class ZoneConformalWatershedOutsideCoarseningConfig:
+    """Optional coarse-background controls applied outside the watershed."""
+
+    enabled: bool
+    size_factor: float
+    transition_distance: float | None
+    grid_resolution: float | None
+
+
+@dataclass(frozen=True)
+class ZoneConformalWatershedGeologyConformityConfig:
+    """Control where geology remains conformal relative to the watershed."""
+
+    mode: str
+    buffer_distance: float | None
+
+
+@dataclass(frozen=True)
+class ZoneConformalWatershedBoundaryConfig:
+    """Optional watershed-boundary linear-constraint controls."""
+
+    enabled: bool
+    boundary_refinement_distance: float | None
+    smoothing: ZoneConformalWatershedBoundarySmoothingConfig
+    outside_coarsening: ZoneConformalWatershedOutsideCoarseningConfig
+    geology_conformity: ZoneConformalWatershedGeologyConformityConfig
+
+
+@dataclass(frozen=True)
 class ZoneConformalCaseConfig:
     """Normalized top-level case configuration consumed by planning."""
 
@@ -185,6 +225,7 @@ class ZoneConformalCaseConfig:
     constraints_mode_label: str
     geology: ZoneConformalGeologyConfig | None
     rivers: ZoneConformalRiversConfig | None
+    watershed_boundary: ZoneConformalWatershedBoundaryConfig
     domain: ZoneConformalDomainConfig
     zone_meshing: ZoneConformalZoneMeshingConfig
     output_mesh: object | None
@@ -200,6 +241,10 @@ class ZoneConformalMeshingDiagnostics:
     source_plot_gdf: gpd.GeoDataFrame
     rivers_cfg: ZoneConformalRiversConfig | None
     river_trace: object | None
+    watershed_boundary_plot_gdf: gpd.GeoDataFrame | None = None
+    watershed_boundary_summary: Mapping[str, Any] | None = None
+    outside_coarsening_summary: Mapping[str, Any] | None = None
+    geology_conformity_summary: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -213,6 +258,7 @@ class ZoneConformalMeshingInputs:
     effective_domain_payload: ZoneConformalGeometryPayload
     zone_meshing_cfg: ZoneConformalZoneMeshingConfig
     linear_constraints: tuple[ZoneLinearConstraint, ...]
+    regional_size_fields: tuple[ZoneRegionalSizeField, ...]
     diagnostics: ZoneConformalMeshingDiagnostics
 
 
@@ -228,5 +274,10 @@ __all__ = [
     "ZoneConformalMeshingInputs",
     "ZoneConformalRiversConfig",
     "ZoneConformalSourcePayload",
+    "ZoneConformalWatershedBoundaryConfig",
+    "ZoneConformalWatershedGeologyConformityConfig",
+    "ZoneConformalWatershedOutsideCoarseningConfig",
+    "ZoneConformalWatershedBoundarySmoothingConfig",
     "ZoneConformalZoneMeshingConfig",
+    "ZoneRegionalSizeField",
 ]

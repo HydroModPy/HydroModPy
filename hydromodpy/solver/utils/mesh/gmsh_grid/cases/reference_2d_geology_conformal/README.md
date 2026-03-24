@@ -27,6 +27,17 @@ The runner requires one explicit mode:
 - `constraints_mode = "rivers_only"`: river constraints only
 - `constraints_mode = "geology_rivers"`: geology + river constraints
 
+## Watershed boundary constraint
+
+The case keeps the geology zonation on the whole support domain by default.
+
+It can also inject one optional watershed-boundary linear constraint:
+
+- `[...watershed_boundary] enabled = true`: add the catchment boundary as one mesh constraint
+- `[...watershed_boundary.smoothing]`: optionally regularize that boundary with one simplification tolerance of the order of the internal mesh size, plus one small outward bias if needed
+
+Overview figures can still display geology on the whole support domain.
+
 ## Domain contract
 
 Supported domain modes are restricted to:

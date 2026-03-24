@@ -16,6 +16,8 @@
 
 Current non-regression tests:
 
+- `fast/test_launcher_simulation_fast_boussinesq_regression.py`
+- `fast/test_launcher_simulation_fast_boussinesq_divide_regression.py`
 - `fast/test_launcher_simulation_fast_mf6_regression.py`
 - `fast/test_launcher_simulation_fast_nwt_regression.py`
 - `extensive/test_launcher_simulation_extensive_mf6_regression.py`
@@ -80,6 +82,8 @@ python -m pytest -m "regression and mf6" -q -n auto
 Run one specific test:
 
 ```powershell
+python -m pytest tests/regression/fast/test_launcher_simulation_fast_boussinesq_regression.py -q -n 1
+python -m pytest tests/regression/fast/test_launcher_simulation_fast_boussinesq_divide_regression.py -q -n 1
 python -m pytest tests/regression/fast/test_launcher_simulation_fast_mf6_regression.py -q -n 1
 python -m pytest tests/regression/fast/test_launcher_simulation_fast_nwt_regression.py -q -n 1
 python -m pytest tests/regression/extensive/test_launcher_simulation_extensive_mf6_regression.py -q -n 1
@@ -175,6 +179,8 @@ python -m pytest -m regression -q -n auto --update-goldens
 Update one golden file from one test:
 
 ```powershell
+python -m pytest tests/regression/fast/test_launcher_simulation_fast_boussinesq_regression.py -q --update-goldens
+python -m pytest tests/regression/fast/test_launcher_simulation_fast_boussinesq_divide_regression.py -q --update-goldens
 python -m pytest tests/regression/fast/test_launcher_simulation_fast_mf6_regression.py -q --update-goldens
 python -m pytest tests/regression/fast/test_launcher_simulation_fast_nwt_regression.py -q --update-goldens
 python -m pytest tests/regression/extensive/test_launcher_simulation_extensive_mf6_regression.py -q --update-goldens

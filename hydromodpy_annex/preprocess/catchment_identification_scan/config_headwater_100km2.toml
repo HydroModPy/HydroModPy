@@ -16,7 +16,7 @@ outlet_selection_mode = "scan_global"
 scan_tile_size_km = 25.0
 scan_max_outlets_per_tile = 1
 scan_min_outlet_spacing_km = 6.0
-scan_max_total_outlets = 10
+scan_max_total_outlets = 50
 
 # Select headwater-like basins near the 100 km2 target.
 basin_selection_mode = "headwater_target"

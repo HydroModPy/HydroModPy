@@ -19,6 +19,10 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     ZoneConformalDomainConfig,
     ZoneConformalGeologyConfig,
     ZoneConformalRiversConfig,
+    ZoneConformalWatershedBoundaryConfig,
+    ZoneConformalWatershedGeologyConformityConfig,
+    ZoneConformalWatershedOutsideCoarseningConfig,
+    ZoneConformalWatershedBoundarySmoothingConfig,
     ZoneConformalZoneMeshingConfig,
 )
 
@@ -124,13 +128,165 @@ def _validate_geology_case_config(
     return ZoneConformalGeologyConfig.from_mapping(raw)
 
 
+def _validate_watershed_boundary_case_config(
+    config_data: Mapping[str, Any],
+    *,
+    section: str,
+) -> ZoneConformalWatershedBoundaryConfig:
+    if not isinstance(config_data, Mapping):
+        raise ValueError(
+            f"[{section}.watershed_boundary] configuration must be a mapping"
+        )
+    raw = dict(config_data)
+
+    def _optional_non_negative_float(key: str) -> float | None:
+        value = raw.get(key)
+        if value is None:
+            return None
+        try:
+            out = float(value)
+        except Exception as exc:
+            raise ValueError(
+                f"[{section}.watershed_boundary].{key} must be a number, got '{value}'."
+            ) from exc
+        if out < 0.0:
+            raise ValueError(
+                f"[{section}.watershed_boundary].{key} must be >= 0."
+            )
+        return out
+
+    enabled = bool(raw.get("enabled", False))
+    smoothing_raw = raw.get("smoothing", {})
+    if smoothing_raw is None:
+        smoothing_raw = {}
+    if not isinstance(smoothing_raw, Mapping):
+        raise ValueError(
+            f"[{section}.watershed_boundary.smoothing] configuration must be a mapping"
+        )
+    smoothing_cfg = dict(smoothing_raw)
+    smoothing_enabled = bool(smoothing_cfg.get("enabled", False))
+    outside_coarsening_raw = raw.get("outside_coarsening", {})
+    if outside_coarsening_raw is None:
+        outside_coarsening_raw = {}
+    if not isinstance(outside_coarsening_raw, Mapping):
+        raise ValueError(
+            f"[{section}.watershed_boundary.outside_coarsening] configuration must be a mapping"
+        )
+    outside_coarsening_cfg = dict(outside_coarsening_raw)
+    outside_coarsening_enabled = bool(outside_coarsening_cfg.get("enabled", False))
+    geology_conformity_raw = raw.get("geology_conformity", {})
+    if geology_conformity_raw is None:
+        geology_conformity_raw = {}
+    if not isinstance(geology_conformity_raw, Mapping):
+        raise ValueError(
+            f"[{section}.watershed_boundary.geology_conformity] configuration must be a mapping"
+        )
+    geology_conformity_cfg = dict(geology_conformity_raw)
+
+    def _optional_smoothing_float(key: str) -> float | None:
+        value = smoothing_cfg.get(key)
+        if value is None:
+            return None
+        try:
+            out = float(value)
+        except Exception as exc:
+            raise ValueError(
+                f"[{section}.watershed_boundary.smoothing].{key} must be a number, got '{value}'."
+            ) from exc
+        if out < 0.0:
+            raise ValueError(
+                f"[{section}.watershed_boundary.smoothing].{key} must be >= 0."
+            )
+        return out
+
+    def _outside_coarsening_float(
+        key: str,
+        *,
+        minimum: float,
+        allow_equal: bool = True,
+    ) -> float | None:
+        value = outside_coarsening_cfg.get(key)
+        if value is None:
+            return None
+        try:
+            out = float(value)
+        except Exception as exc:
+            raise ValueError(
+                f"[{section}.watershed_boundary.outside_coarsening].{key} must be a number, got '{value}'."
+            ) from exc
+        if (out < minimum) or ((not allow_equal) and out == minimum):
+            comparator = ">=" if allow_equal else ">"
+            raise ValueError(
+                f"[{section}.watershed_boundary.outside_coarsening].{key} must be {comparator} {minimum}."
+            )
+        return out
+
+    size_factor = _outside_coarsening_float("size_factor", minimum=1.0)
+    if size_factor is None:
+        size_factor = 2.0
+
+    geology_conformity_mode = str(
+        geology_conformity_cfg.get("mode", "full_domain")
+    ).strip().lower()
+    if geology_conformity_mode not in {"full_domain", "buffered_watershed_envelope"}:
+        raise ValueError(
+            f"[{section}.watershed_boundary.geology_conformity].mode must be 'full_domain' or 'buffered_watershed_envelope', got '{geology_conformity_mode}'."
+        )
+
+    return ZoneConformalWatershedBoundaryConfig(
+        enabled=enabled,
+        boundary_refinement_distance=_optional_non_negative_float(
+            "boundary_refinement_distance"
+        ),
+        smoothing=ZoneConformalWatershedBoundarySmoothingConfig(
+            enabled=smoothing_enabled,
+            distance=None if not smoothing_enabled else _optional_smoothing_float("distance"),
+            river_buffer_distance=(
+                None
+                if not smoothing_enabled
+                else _optional_smoothing_float("river_buffer_distance")
+            ),
+            outer_bias_distance=(
+                None
+                if not smoothing_enabled
+                else _optional_smoothing_float("outer_bias_distance")
+            ),
+        ),
+        outside_coarsening=ZoneConformalWatershedOutsideCoarseningConfig(
+            enabled=outside_coarsening_enabled,
+            size_factor=float(size_factor),
+            transition_distance=(
+                None
+                if not outside_coarsening_enabled
+                else _outside_coarsening_float("transition_distance", minimum=0.0)
+            ),
+            grid_resolution=(
+                None
+                if not outside_coarsening_enabled
+                else _outside_coarsening_float(
+                    "grid_resolution",
+                    minimum=0.0,
+                    allow_equal=False,
+                )
+            ),
+        ),
+        geology_conformity=ZoneConformalWatershedGeologyConformityConfig(
+            mode=geology_conformity_mode,
+            buffer_distance=(
+                None
+                if geology_conformity_mode == "full_domain"
+                else _outside_coarsening_float("buffer_distance", minimum=0.0)
+            ),
+        ),
+    )
+
+
 def _reject_removed_case_sections(
     section_cfg: Mapping[str, Any],
     *,
     section: str,
 ) -> None:
     removed_sections = (
-        "watershed_boundary",
         "interface_scope",
         "refinement_scope",
     )
@@ -180,12 +336,17 @@ def _resolve_case_config(
             dict(section_cfg.get("rivers", {})),
             section=section,
         )
+    watershed_boundary_cfg = _validate_watershed_boundary_case_config(
+        dict(section_cfg.get("watershed_boundary", {})),
+        section=section,
+    )
 
     return ZoneConformalCaseConfig(
         constraint_families=constraint_families,
         constraints_mode_label=constraints_mode_label,
         geology=geology_cfg,
         rivers=rivers_cfg,
+        watershed_boundary=watershed_boundary_cfg,
         domain=domain_cfg,
         zone_meshing=zone_meshing_cfg,
         output_mesh=section_cfg.get("output_mesh"),
@@ -200,4 +361,5 @@ __all__ = [
     "_resolve_constraint_families",
     "_resolve_constraints_mode",
     "_validate_rivers_case_config",
+    "_validate_watershed_boundary_case_config",
 ]

@@ -9,6 +9,10 @@ so they can be called from any context (simulation, overview, standalone).
 """
 
 from hydromodpy.display.figures.animation import build_gif, build_plotly_slider
+from hydromodpy.display.figures.boussinesq import (
+    plot_boussinesq_state,
+    render_boussinesq_state,
+)
 from hydromodpy.display.figures.cross_section import (
     plot_cross_section,
     render_cross_section,
@@ -78,6 +82,9 @@ __all__ = [
     "render_concentration_map",
     "plot_raster_field",
     "plot_concentration_map",
+    # boussinesq
+    "render_boussinesq_state",
+    "plot_boussinesq_state",
     # cross section
     "render_cross_section",
     "plot_cross_section",

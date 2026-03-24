@@ -25,7 +25,7 @@ outlet_selection_mode = "scan_global"
 scan_tile_size_km = 10.0
 scan_max_outlets_per_tile = 5
 scan_min_outlet_spacing_km = 4.0
-scan_max_total_outlets = 10
+scan_max_total_outlets = 50
 
 # Basin selection strategy:
 # - "all_min_area": keep all basins >= accumulation_area_km2

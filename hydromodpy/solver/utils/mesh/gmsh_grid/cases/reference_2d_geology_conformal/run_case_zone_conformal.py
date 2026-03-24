@@ -133,7 +133,7 @@ def run_reference_2d_zone_conformal_case_from_toml(
     summary = _build_summary(
         result=result,
         source_payload=meshing_inputs.source_payload,
-        clipped_gdf=meshing_inputs.zone_gdf,
+        clipped_gdf=meshing_inputs.diagnostics.source_plot_gdf,
         domain_payload=meshing_inputs.effective_domain_payload,
     )
     trace_mesh_stage("zone_conformal.summary.built")

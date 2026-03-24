@@ -33,6 +33,27 @@ class TestCrossSection:
         plt.close(fig)
 
 
+class TestBoussinesqState:
+    def test_render_boussinesq_state_draws_map_and_profile(self):
+        from hydromodpy.display.figures.boussinesq import render_boussinesq_state
+
+        fig, (ax_map, ax_profile) = plt.subplots(1, 2)
+        render_boussinesq_state(
+            ax_map,
+            ax_profile,
+            node_x_m=np.array([0.0, 1.0, 0.0, 1.0]),
+            node_y_m=np.array([0.0, 0.0, 1.0, 1.0]),
+            triangles=np.array([[0, 1, 2], [1, 3, 2]], dtype=int),
+            cell_head_m=np.array([9.0, 8.5]),
+            cell_centroid_x_m=np.array([1.0 / 3.0, 2.0 / 3.0]),
+            cell_z_top_m=np.array([10.0, 10.0]),
+            cell_z_bottom_m=np.array([5.0, 5.0]),
+        )
+        assert len(ax_map.collections) > 0
+        assert len(ax_profile.lines) > 0
+        plt.close(fig)
+
+
 class TestDischarge:
     def test_render_discharge_overview_mode(self):
         from hydromodpy.display.figures.timeseries import render_discharge

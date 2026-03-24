@@ -127,6 +127,12 @@ def load_golden_reference(path: Path) -> dict:
         return json.load(stream)
 
 
+def load_json_payload(path: Path) -> dict:
+    """Load one JSON file into a plain dictionary."""
+    with path.open("r", encoding="utf-8") as stream:
+        return json.load(stream)
+
+
 def resolve_tiered_golden_file(
     *,
     test_file: str | Path,
@@ -237,6 +243,19 @@ def array_stats(values) -> dict:
     }
 
 
+def array_signature(values) -> dict:
+    """Build one compact signature from a generic numeric array."""
+    arr = np.asarray(values, dtype=float)
+    sig = array_stats(arr)
+    sig["shape"] = list(arr.shape)
+    if sig["count"] == 0:
+        sig["sum"] = None
+    else:
+        finite = arr[np.isfinite(arr)]
+        sig["sum"] = float(finite.sum())
+    return sig
+
+
 def assert_stats(
     actual: dict,
     expected: dict,
@@ -333,6 +352,30 @@ def collect_modpath_signatures(particles_dir: Path, filenames: list[str]) -> dic
     return {name: snapshot_signature(particles_dir / name) for name in filenames}
 
 
+def collect_npz_signatures(
+    npz_path: Path,
+    names: list[str] | None = None,
+) -> dict:
+    """Collect compact signatures for arrays stored in one `.npz` file."""
+    with np.load(npz_path) as payload:
+        ordered_names = sorted(payload.files) if names is None else list(names)
+        return {
+            name: array_signature(np.asarray(payload[name], dtype=float))
+            for name in ordered_names
+        }
+
+
+def collect_json_signatures(
+    json_path: Path,
+    *,
+    keys: list[str] | None = None,
+) -> dict:
+    """Collect selected scalar/list JSON fields for regression comparison."""
+    payload = load_json_payload(json_path)
+    ordered_keys = sorted(payload) if keys is None else list(keys)
+    return {key: payload[key] for key in ordered_keys}
+
+
 def assert_modflow_signatures(
     actual_by_name: dict,
     expected_by_name: dict,
@@ -376,6 +419,77 @@ def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> N
         actual = actual_by_name[filename]
         assert actual["n_rows"] == expected["n_rows"]
         assert_stats(actual["time"], expected["time"])
+
+
+def assert_array_signatures(
+    actual_by_name: dict,
+    expected_by_name: dict,
+    *,
+    rel: float = 1e-4,
+    abs_tol: float = 1e-6,
+) -> None:
+    """Validate generic array signatures against golden expectations."""
+    assert set(actual_by_name) == set(expected_by_name)
+    for name, expected in expected_by_name.items():
+        actual = actual_by_name[name]
+        assert actual["shape"] == expected["shape"]
+        assert_stats(actual, expected, rel=rel, abs_tol=abs_tol)
+        if expected["sum"] is None:
+            assert actual["sum"] is None
+        else:
+            assert actual["sum"] == pytest.approx(expected["sum"], rel=rel, abs=abs_tol)
+
+
+def _assert_json_signature_value(
+    actual,
+    expected,
+    *,
+    rel: float,
+    abs_tol: float,
+) -> None:
+    if isinstance(expected, bool) or expected is None or isinstance(expected, str):
+        assert actual == expected
+        return
+    if isinstance(expected, int) and not isinstance(expected, bool):
+        assert actual == expected
+        return
+    if isinstance(expected, float):
+        assert float(actual) == pytest.approx(expected, rel=rel, abs=abs_tol)
+        return
+    if isinstance(expected, list):
+        assert isinstance(actual, list)
+        assert len(actual) == len(expected)
+        for actual_item, expected_item in zip(actual, expected, strict=True):
+            _assert_json_signature_value(
+                actual_item,
+                expected_item,
+                rel=rel,
+                abs_tol=abs_tol,
+            )
+        return
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict)
+        assert_json_signatures(actual, expected, rel=rel, abs_tol=abs_tol)
+        return
+    raise TypeError(f"Unsupported JSON signature value type: {type(expected)!r}")
+
+
+def assert_json_signatures(
+    actual: dict,
+    expected: dict,
+    *,
+    rel: float = 1e-4,
+    abs_tol: float = 1e-6,
+) -> None:
+    """Validate one JSON signature payload with tolerant float comparison."""
+    assert set(actual) == set(expected)
+    for key, expected_value in expected.items():
+        _assert_json_signature_value(
+            actual[key],
+            expected_value,
+            rel=rel,
+            abs_tol=abs_tol,
+        )
 
 
 def assert_required_executables(
@@ -570,6 +684,20 @@ def update_or_assert_goldens(
             expected["mt3dms_expected"],
             rel=5e-4,
             abs_tol=1e-5,
+        )
+
+    if "boussinesq_state_history_expected" in actual:
+        assert "boussinesq_state_history_expected" in expected
+        assert_array_signatures(
+            actual["boussinesq_state_history_expected"],
+            expected["boussinesq_state_history_expected"],
+        )
+
+    if "boussinesq_summary_expected" in actual:
+        assert "boussinesq_summary_expected" in expected
+        assert_json_signatures(
+            actual["boussinesq_summary_expected"],
+            expected["boussinesq_summary_expected"],
         )
 
 

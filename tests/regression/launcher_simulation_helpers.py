@@ -4,11 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
+from validation_cases.shared.boussinesq_piecewise_strip import (
+    aggregate_piecewise_strip_postprocess,
+    write_piecewise_strip_bundle,
+    write_piecewise_strip_launcher_config,
+)
 from tests.regression.golden_utils import (
     REPO_ROOT,
     assert_required_executables,
+    collect_json_signatures,
     collect_modflow_signatures,
     collect_modpath_signatures,
+    collect_npz_signatures,
     require_url_available,
     resolve_model_workspace,
     resolve_tiered_golden_file,
@@ -42,6 +50,39 @@ MODPATH_SNAPSHOT_FILES = [
 TRANSPORT_OUTPUT_NAMES = [
     "concentration_seepage",
     "mass_seepage",
+]
+
+BOUSSINESQ_OUTPUT_NAMES = [
+    "watertable_elevation",
+    "watertable_depth",
+]
+
+BOUSSINESQ_SUMMARY_KEYS = [
+    "active_drainage",
+    "active_imposed_head_bc",
+    "active_ocean",
+    "active_recharge",
+    "active_wells",
+    "converged_by_period",
+    "has_numerical_solution",
+    "model_name",
+    "n_cells",
+    "n_edges",
+    "n_nodes",
+    "nonlinear_iterations",
+    "period_lengths_seconds",
+    "runtime_backend",
+    "runtime_convergence_policy",
+    "runtime_iteration_counter",
+    "runtime_linear_system_layout",
+    "runtime_solver_kind",
+    "runtime_tol_residual_inf",
+    "runtime_tol_state_update_inf",
+    "solve_stage",
+    "steady_mode",
+    "steady_nonlinear_iterations",
+    "steady_residual_norm_inf",
+    "steady_termination_reason",
 ]
 
 SHOM_HEALTHCHECK_URL = "https://services.data.shom.fr"
@@ -198,6 +239,87 @@ def run_launcher_simulation_regression(
     else:
         raise ValueError(f"Unsupported transport_solver: {transport_solver}")
 
+    update_or_assert_goldens(
+        actual=actual,
+        golden_reference_file=resolve_tiered_golden_file(
+            test_file=test_file,
+            filename=golden_filename,
+        ),
+        update_goldens=update_goldens,
+    )
+
+
+def run_launcher_simulation_boussinesq_regression(
+    *,
+    test_file: str | Path,
+    golden_filename: str,
+    run_name: str,
+    update_goldens: bool,
+    timeout: int = 1800,
+    config_stem: str = "run_fast_boussinesq",
+    launcher_run_id: str = "launcher_simulation_fast_boussinesq",
+    process_id: str = "flow_main",
+    simulation_name: str = "Launcher fast Boussinesq regression",
+    simulation_description: str = "Fast steady Boussinesq regression on a precomputed strip bundle",
+    initial_head_m: float = 6.0,
+    west_head_m: float | None = 5.0,
+    east_head_m: float | None = 5.0,
+    recharge_mm_day: float | None = 3.0,
+) -> None:
+    """Run one self-contained fast launcher regression for flow/boussinesq."""
+    out_path = resolve_tiered_results_dir(
+        test_file=test_file,
+        run_name=run_name,
+    )
+    bundle_dir = write_piecewise_strip_bundle(out_path / "mesh_bundle")
+    config_path = write_piecewise_strip_launcher_config(
+        out_path / f"{config_stem}.toml",
+        run_id=launcher_run_id,
+        process_id=process_id,
+        simulation_name=simulation_name,
+        simulation_description=simulation_description,
+        bundle_dir=bundle_dir,
+        initial_head_m=initial_head_m,
+        west_head_m=west_head_m,
+        east_head_m=east_head_m,
+        recharge_rate_m_s=(
+            None if recharge_mm_day is None else mm_day_to_m_s(recharge_mm_day)
+        ),
+        runtime_backend="scipy_sparse",
+    )
+
+    run_example_script(
+        script_path=LAUNCHER_SIMULATION_SCRIPT,
+        out_path=out_path,
+        out_env_var="HYDROMODPY_OUT_PATH",
+        extra_env={"HYDROMODPY_NO_DISPLAY": "1"},
+        script_args=[str(config_path)],
+        timeout=timeout,
+    )
+
+    model_ws, postprocess_dir, _ = resolve_model_workspace(
+        out_path,
+        results_folder_name="results_simulations",
+        model_name=f"{process_id}__boussinesq",
+    )
+    aggregate_piecewise_strip_postprocess(
+        postprocess_dir,
+        bundle_dir=bundle_dir,
+    )
+
+    actual = {
+        "modflow_expected": collect_modflow_signatures(
+            postprocess_dir,
+            BOUSSINESQ_OUTPUT_NAMES,
+        ),
+        "boussinesq_summary_expected": collect_json_signatures(
+            model_ws / "_boussinesq_summary.json",
+            keys=BOUSSINESQ_SUMMARY_KEYS,
+        ),
+        "boussinesq_state_history_expected": collect_npz_signatures(
+            model_ws / "_boussinesq_state_history.npz",
+        ),
+    }
     update_or_assert_goldens(
         actual=actual,
         golden_reference_file=resolve_tiered_golden_file(
