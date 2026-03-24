@@ -1,8 +1,16 @@
-"""Round-trip conversion between HydroMesh and meshio Mesh objects.
+"""Round-trip conversion between ``HydroMesh`` and ``meshio`` meshes.
 
-meshio is the I/O backbone: VTU, MSH, XDMF, etc.  These two functions ensure
-lossless conversion so that ``HydroMesh`` can be serialized to any format
-meshio supports.
+``meshio`` is the generic I/O backbone used by HydroModPy to access common
+mesh file formats (VTU, MSH, XDMF, ...).  The goal of this module is to keep a
+lossless-enough bridge for the information that HydroModPy itself cares about:
+
+- points / vertices,
+- cell connectivity,
+- per-cell arrays,
+- per-point arrays.
+
+Unsupported ``meshio`` blocks such as line or vertex-only blocks are skipped
+deliberately because they do not map to the ``HydroMesh`` pivot contract.
 """
 
 from __future__ import annotations
@@ -21,7 +29,20 @@ _FROM_MESHIO: dict[str, CellType] = {
 
 
 def from_meshio(mesh: Any) -> HydroMesh:
-    """Convert a meshio ``Mesh`` into a ``HydroMesh``."""
+    """Convert a ``meshio.Mesh`` into a ``HydroMesh``.
+
+    Parameters
+    ----------
+    mesh :
+        Any object exposing the standard ``meshio.Mesh`` attributes
+        ``points``, ``cells``, ``cell_data`` and ``point_data``.
+
+    Returns
+    -------
+    HydroMesh
+        Mesh pivot populated from the supported cell blocks found in
+        ``mesh``.
+    """
     points = np.asarray(mesh.points, dtype=float)
     if points.ndim != 2 or points.shape[1] < 2:
         raise ValueError("meshio mesh must have at least 2D points")
@@ -82,7 +103,13 @@ def from_meshio(mesh: Any) -> HydroMesh:
 
 
 def to_meshio(hydro_mesh: HydroMesh) -> Any:
-    """Convert a ``HydroMesh`` back into a meshio ``Mesh``."""
+    """Convert a ``HydroMesh`` back into a ``meshio.Mesh``.
+
+    Notes
+    -----
+    ``meshio`` expects 3D point coordinates even for planar meshes, so 2D
+    vertices are padded with ``z=0`` before export.
+    """
     try:
         import meshio  # type: ignore
     except ModuleNotFoundError as exc:  # pragma: no cover

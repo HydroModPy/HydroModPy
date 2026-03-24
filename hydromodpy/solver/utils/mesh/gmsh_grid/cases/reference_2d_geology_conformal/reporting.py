@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+from shapely.geometry import Point
+from shapely.prepared import prep
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (
     ZoneConformalConstraintFamilies,
@@ -18,12 +20,36 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
 )
 
 
+def _build_watershed_cell_counts(
+    *,
+    mesh,
+    watershed_geometry: object | None,
+) -> dict[str, int]:
+    """Count cells inside the watershed using the cell centroid classifier."""
+    if watershed_geometry is None:
+        return {}
+
+    prepared_watershed = prep(watershed_geometry)
+    centroid_x, centroid_y = mesh.cell_centroids()
+    inside_count = 0
+    for x_value, y_value in zip(centroid_x, centroid_y):
+        if prepared_watershed.covers(Point(float(x_value), float(y_value))):
+            inside_count += 1
+
+    total_cells = int(mesh.n_cells)
+    return {
+        "n_cells_in_watershed": int(inside_count),
+        "n_cells_outside_watershed": int(total_cells - inside_count),
+    }
+
+
 def _build_summary(
     *,
     result,
     source_payload: ZoneConformalSourcePayload,
     clipped_gdf: gpd.GeoDataFrame,
     domain_payload: ZoneConformalGeometryPayload,
+    watershed_geometry: object | None = None,
 ) -> dict[str, Any]:
     zone_feature_counts = (
         clipped_gdf["zone_key"].astype(str).value_counts().sort_index()
@@ -45,6 +71,12 @@ def _build_summary(
     )
     summary.update(
         {str(key): value for key, value in dict(domain_payload.summary).items()}
+    )
+    summary.update(
+        _build_watershed_cell_counts(
+            mesh=result.mesh,
+            watershed_geometry=watershed_geometry,
+        )
     )
     return summary
 

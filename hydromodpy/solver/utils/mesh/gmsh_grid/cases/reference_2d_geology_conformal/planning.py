@@ -41,7 +41,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing import (
     ZoneLinearConstraint,
     build_zone_conformal_partition_from_dataframe,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning import (
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_utils import (
     iter_polygon_parts,
     make_valid_geometry,
     make_valid_linework,

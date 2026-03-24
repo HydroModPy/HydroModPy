@@ -30,7 +30,7 @@ dem_init_path = "../../examples/data/dem/regional_dem_naizin.tif"
 x_outlet = 265611.933
 y_outlet = 6784182.776
 snap_dist = "50 m"
-buff_area = "20%"
+buff_area = "30%"
 crs_project = "EPSG:2154"
 
 [geographic.river_network]
@@ -51,6 +51,9 @@ thickness = "50.0 m"
 [mesh_catchment]
 constraints_mode = "geology_rivers"
 output_layout = "flat"
+figures_enabled = true
+figure_dpi = 300
+figure_regional_dpi = 220
 # Shared launcher profile:
 # - constrain the mesh with rivers and geology
 # - use one single support domain without extra public scoping layers

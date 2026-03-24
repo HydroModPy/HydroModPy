@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
@@ -266,7 +267,6 @@ class BoussinesqMesh:
         """
         from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle import (
             _build_edge_rows,
-            _sample_surface,
         )
 
         if not isinstance(mesh, GmshPlanarMesh2D):
@@ -292,13 +292,15 @@ class BoussinesqMesh:
 
         node_x = np.asarray(mesh.points_xy[:, 0], dtype=float)
         node_y = np.asarray(mesh.points_xy[:, 1], dtype=float)
-        node_z_top = _sample_surface(surface_topo, node_x, node_y).reshape(-1)
-        node_z_bottom = _sample_surface(substratum, node_x, node_y).reshape(-1)
+        surface_topo_sampler = PreparedSurfaceSampler.from_surface(surface_topo)
+        substratum_sampler = PreparedSurfaceSampler.from_surface(substratum)
+        node_z_top = surface_topo_sampler.sample(node_x, node_y).reshape(-1)
+        node_z_bottom = substratum_sampler.sample(node_x, node_y).reshape(-1)
         centroid_x, centroid_y = mesh.cell_centroids()
         centroid_x = np.asarray(centroid_x, dtype=float).reshape(-1)
         centroid_y = np.asarray(centroid_y, dtype=float).reshape(-1)
-        centroid_z_top = _sample_surface(surface_topo, centroid_x, centroid_y).reshape(-1)
-        centroid_z_bottom = _sample_surface(substratum, centroid_x, centroid_y).reshape(-1)
+        centroid_z_top = surface_topo_sampler.sample(centroid_x, centroid_y).reshape(-1)
+        centroid_z_bottom = substratum_sampler.sample(centroid_x, centroid_y).reshape(-1)
 
         nodes = tuple(
             CatchmentMeshBundleNode(

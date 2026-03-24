@@ -74,6 +74,7 @@ def plot_cell_values(
 
 
 def _plot_structured(ax, verts, vals, shape, *, cmap, show_mesh, vmin, vmax):
+    """Render a structured quadrilateral mesh with ``pcolormesh``."""
     nrow, ncol = shape
     x = verts[:, 0].reshape(nrow + 1, ncol + 1)
     y = verts[:, 1].reshape(nrow + 1, ncol + 1)
@@ -93,6 +94,7 @@ def _plot_structured(ax, verts, vals, shape, *, cmap, show_mesh, vmin, vmax):
 
 
 def _plot_triangles(ax, verts, conn, vals, *, cmap, show_mesh, vmin, vmax):
+    """Render a purely triangular mesh with Matplotlib triangulation support."""
     tri = mtri.Triangulation(verts[:, 0], verts[:, 1], triangles=conn)
     mappable = ax.tripcolor(
         tri, facecolors=vals, shading="flat",
@@ -107,6 +109,7 @@ def _plot_triangles(ax, verts, conn, vals, *, cmap, show_mesh, vmin, vmax):
 
 
 def _plot_polygons(ax, verts, conn, vals, *, cmap, show_mesh, vmin, vmax):
+    """Fallback renderer for generic polygonal 2D meshes."""
     polygons = [verts[nodes] for nodes in conn]
     edge_color = "0.70" if show_mesh else "face"
     edge_width = 0.35 if show_mesh else 0.0

@@ -78,6 +78,11 @@ def to_flopy_disv_args(
         Top elevation(s).
     botm : ndarray
         Bottom elevation per layer, shape ``(nlay, ncpl)``.
+
+    Notes
+    -----
+    The function assumes that the planar connectivity already represents the
+    DISV cell polygons in the desired order.  It only reformats the data.
     """
     if hydro_mesh.ndim != 2:
         raise ValueError("to_flopy_disv_args requires a 2D mesh")

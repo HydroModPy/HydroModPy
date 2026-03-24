@@ -31,6 +31,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._geometry_cleaning impo
     clean_zone_rows,
     group_zone_geometries,
 )
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._linework_matching import (
+    SurfaceEmbeddingLocator,
+)
 
 try:
     import gmsh  # noqa: F401
@@ -222,6 +225,39 @@ def test_generate_zone_conformal_mesh_accepts_generic_linear_constraints() -> No
     assert any(
         group.name == "watershed::boundary" for group in result.physical_groups
     )
+
+
+def test_surface_embedding_locator_returns_face_covering_segment_midpoint() -> None:
+    locator = SurfaceEmbeddingLocator(
+        surface_polygon_by_tag={
+            10: Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]),
+            20: Polygon([(1.0, 0.0), (2.0, 0.0), (2.0, 1.0), (1.0, 1.0)]),
+        },
+        tolerance=1.0e-6,
+    )
+
+    matches = locator.locate_surface_tags(
+        LineString([(0.20, 0.50), (0.80, 0.50)])
+    )
+
+    assert matches == (10,)
+
+
+def test_surface_embedding_locator_tolerates_near_boundary_probe() -> None:
+    locator = SurfaceEmbeddingLocator(
+        surface_polygon_by_tag={
+            10: Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]),
+            20: Polygon([(1.0, 0.0), (2.0, 0.0), (2.0, 1.0), (1.0, 1.0)]),
+        },
+        tolerance=1.0e-3,
+    )
+
+    matches = locator.locate_surface_tags(
+        LineString([(0.9995, 0.25), (0.9995, 0.75)])
+    )
+
+    assert matches
+    assert int(matches[0]) == 10
 
 def test_generate_zone_conformal_mesh_reports_local_refinement_policy() -> None:
     gdf = _build_split_zones_gdf()

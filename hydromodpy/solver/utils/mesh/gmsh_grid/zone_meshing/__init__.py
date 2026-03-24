@@ -1,21 +1,30 @@
 """Expose the public API for zone-conformal meshing on top of Gmsh.
 
-Import from this package when the goal is to generate meshes that honor a
-polygonal zonation. It gathers the configuration helpers, geometry contracts,
-and conformal meshing entry points without exposing the whole internal layout.
+This package is intentionally organized in layers:
+
+- ``config.py`` validates user-facing meshing parameters
+- ``domain.py`` resolves support-domain geometries
+- ``conformal.py`` orchestrates partitioning + Gmsh generation
+- internal helpers stay in ``_geometry_cleaning.py``, ``_gmsh_driver.py`` and
+  ``_refinement_policy.py``
+
+Import from here when you need the stable public entry points without pulling
+the whole internal layout into higher-level code.
 """
 
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     parse_zone_meshing_settings,
     ZoneMeshingSettings,
 )
-from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.contracts import (
     ZoneConformalPhysicalGroup,
     ZoneConformalMeshResult,
     ZoneConformalPartition,
     ZoneLinearConstraint,
     ZoneRegionalSizeField,
     ZonePartitionFace,
+)
+from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.conformal import (
     build_zone_conformal_partition_from_dataframe,
     generate_zone_conformal_mesh_from_dataframe,
     generate_zone_conformal_mesh_from_geology_config,

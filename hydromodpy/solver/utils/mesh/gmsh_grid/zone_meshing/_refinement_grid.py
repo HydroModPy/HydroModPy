@@ -1,4 +1,9 @@
-"""Grid-based spatial indexing helpers for local refinement policies."""
+"""Grid-based spatial indexing helpers for local refinement policies.
+
+The grid is deliberately simple: it is not a replacement for Shapely or STRtree.
+Its only job is to answer "which refinement curves are plausible neighbors in
+this part of the domain?" so the policy can avoid near-global pairwise scans.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +43,14 @@ class RefinementCurveFootprint:
 
 @dataclass(frozen=True)
 class RefinementGrid:
-    """Regular grid used to localize refinement diagnostics."""
+    """Regular grid used to localize refinement diagnostics.
+
+    The grid stores two complementary views:
+
+    - cell -> curve tags, to query a local neighborhood quickly
+    - curve tag -> cell footprint, to explain afterwards why a curve was seen
+      in a given neighborhood
+    """
 
     bounds: tuple[float, float, float, float]
     cell_size: float
@@ -85,7 +97,11 @@ def build_refinement_grid(
     candidates: Sequence[RefinementCurveLike],
     cell_size: float,
 ) -> RefinementGrid:
-    """Index candidate curves in one regular bbox grid."""
+    """Index candidate curves in one regular bbox grid.
+
+    The indexing is bbox-based on purpose. It is conservative, cheap to build,
+    and sufficient for the hotspot preselection stage.
+    """
     if cell_size <= 0.0:
         raise ValueError("cell_size must be > 0")
 

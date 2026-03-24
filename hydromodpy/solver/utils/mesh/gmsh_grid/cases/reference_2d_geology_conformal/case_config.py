@@ -47,6 +47,23 @@ def _resolve_constraints_mode(raw_value: Any) -> str:
     return token
 
 
+def _resolve_positive_int(
+    raw_value: Any,
+    *,
+    label: str,
+    default: int,
+) -> int:
+    if raw_value is None:
+        return int(default)
+    try:
+        value = int(raw_value)
+    except Exception as exc:
+        raise ValueError(f"{label} must be one positive integer, got '{raw_value}'.") from exc
+    if value <= 0:
+        raise ValueError(f"{label} must be > 0.")
+    return int(value)
+
+
 def _resolve_constraint_families(
     constraints_mode: str,
 ) -> ZoneConformalConstraintFamilies:
@@ -353,6 +370,16 @@ def _resolve_case_config(
         output_summary_json=section_cfg.get("output_summary_json"),
         output_figure=section_cfg.get("output_figure"),
         output_figure_regional=section_cfg.get("output_figure_regional"),
+        figure_dpi=_resolve_positive_int(
+            section_cfg.get("figure_dpi"),
+            label=f"[{section}].figure_dpi",
+            default=300,
+        ),
+        figure_regional_dpi=_resolve_positive_int(
+            section_cfg.get("figure_regional_dpi"),
+            label=f"[{section}].figure_regional_dpi",
+            default=220,
+        ),
     )
 
 

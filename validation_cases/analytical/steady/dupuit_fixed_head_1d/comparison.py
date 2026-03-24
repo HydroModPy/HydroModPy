@@ -20,6 +20,7 @@ from validation_cases.shared import (
 )
 
 from .reference import expected_dupuit_fixed_head_profile
+from .runtime_boussinesq import run_boussinesq_dupuit_fixed_head_case
 
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -117,12 +118,19 @@ def run_dupuit_fixed_head_comparison(
     """Run the launcher case and return the full comparison payload."""
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
-    result = run_launcher_validation_case(
-        case_dir=CASE_DIR,
-        test_file=caller_file,
-        timeout=timeout,
-        solver=solver,
-    )
+    normalized_solver = None if solver is None else str(solver).strip().lower()
+    if normalized_solver == "boussinesq":
+        result = run_boussinesq_dupuit_fixed_head_case(
+            caller_file=caller_file,
+            timeout=timeout,
+        )
+    else:
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver,
+        )
     return build_dupuit_fixed_head_comparison(
         result=result,
         metadata=metadata,

@@ -1,4 +1,16 @@
-"""Adapters between HydroMesh and external mesh representations."""
+"""Public adapter entry points around ``HydroMesh``.
+
+This subpackage groups the conversions that are meant to be imported from the
+outside world:
+
+- ``meshio`` round-trips for file-oriented workflows,
+- ``flopy`` bridges for MODFLOW-style structured / DISV grids,
+- adapters from internal field and Gmsh mesh objects.
+
+The functions re-exported here are intentionally small and concrete so that a
+caller can usually guess which one to use from the source object it already
+has in hand.
+"""
 
 from hydromodpy.mesh.adapters.meshio_adapter import (
     from_meshio,

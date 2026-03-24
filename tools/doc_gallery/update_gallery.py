@@ -137,38 +137,47 @@ def _reset_generated_dirs(source_root: Path) -> None:
 def _build_case_summary(
     spec: GalleryCaseSpec,
     *,
-    metrics_source: dict[str, Any],
+    metrics_source: dict[str, Any] | None,
     metadata: dict[str, Any],
+    images_override: list[dict[str, Any]] | None = None,
+    metrics_override: list[dict[str, Any]] | None = None,
+    extra_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    images = []
-    for asset in spec.image_assets:
-        static_doc_path = "/" + _docs_relative_static_path(spec.category, asset.filename)
-        images.append(
-            {
-                "filename": asset.filename,
-                "caption": asset.caption,
-                "alt_text": asset.alt_text,
-                "doc_path": static_doc_path,
-                "repo_path": _repo_docs_artifact_path(spec.category, asset.filename),
-            }
-        )
+    images = images_override
+    if images is None:
+        images = []
+        for asset in spec.image_assets:
+            static_doc_path = "/" + _docs_relative_static_path(spec.category, asset.filename)
+            images.append(
+                {
+                    "filename": asset.filename,
+                    "caption": asset.caption,
+                    "alt_text": asset.alt_text,
+                    "doc_path": static_doc_path,
+                    "repo_path": _repo_docs_artifact_path(spec.category, asset.filename),
+                }
+            )
 
     summary_json_doc_path = "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json")
     summary_json_repo_path = _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json")
 
-    metrics = []
-    for metric_spec in spec.metric_specs:
-        raw_value = metrics_source[metric_spec.key]
-        metrics.append(
-            {
-                "label": metric_spec.label,
-                "key": metric_spec.key,
-                "value": _json_ready(raw_value),
-                "display": metric_spec.formatter(raw_value),
-            }
-        )
+    metrics = metrics_override
+    if metrics is None:
+        metrics = []
+        for metric_spec in spec.metric_specs:
+            if metrics_source is None:
+                raise ValueError("metrics_source is required when metrics_override is not provided.")
+            raw_value = metrics_source[metric_spec.key]
+            metrics.append(
+                {
+                    "label": metric_spec.label,
+                    "key": metric_spec.key,
+                    "value": _json_ready(raw_value),
+                    "display": metric_spec.formatter(raw_value),
+                }
+            )
 
-    return {
+    summary = {
         "summary_schema_version": "capability_gallery_case_v1",
         "slug": spec.slug,
         "title": spec.title,
@@ -193,6 +202,9 @@ def _build_case_summary(
             "image_repo_paths": [image["repo_path"] for image in images],
         },
     }
+    if extra_summary:
+        summary.update(_json_ready(extra_summary))
+    return summary
 
 
 def _generate_mesh_viewer_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
@@ -249,37 +261,128 @@ def _generate_copy_assets_case(spec: GalleryCaseSpec, source_root: Path) -> dict
     )
 
 
-def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    comparison_runner = _import_symbol(str(spec.metadata["comparison_import"]))
-    plotting_function = _import_symbol(str(spec.metadata["plotting_import"]))
-    figure_path = source_root / _docs_relative_static_path(spec.category, spec.image_assets[0].filename)
-    comparison = comparison_runner(
-        caller_file=_repo_path(str(spec.metadata["caller_file"])),
-        timeout=int(spec.metadata.get("timeout", 1800)),
-        solver=str(spec.metadata.get("solver", "modflownwt")),
-    )
-    plotting_function(comparison, output_png=figure_path, show_plot=False)
-
-    metadata = {
-        "case_dir": _repo_relative(_repo_path(str(spec.metadata["caller_file"])).parent),
-        "solver": str(spec.metadata.get("solver", "modflownwt")),
-        "observable_name": getattr(comparison, "observable_name", None),
-        "case_metadata": getattr(comparison, "metadata", {}),
-        "tolerances": getattr(comparison, "tolerances", {}),
+def _build_validation_image_summary(
+    *,
+    category: str,
+    filename: str,
+    caption: str,
+    alt_text: str,
+) -> dict[str, Any]:
+    return {
+        "filename": filename,
+        "caption": caption,
+        "alt_text": alt_text,
+        "doc_path": "/" + _docs_relative_static_path(category, filename),
+        "repo_path": _repo_docs_artifact_path(category, filename),
     }
-    if hasattr(comparison, "solver"):
-        metadata["comparison_solver"] = getattr(comparison, "solver")
-    if hasattr(comparison, "timestep"):
-        metadata["timestep"] = getattr(comparison, "timestep")
-    if hasattr(comparison, "final_elapsed_days"):
-        metadata["final_elapsed_days"] = getattr(comparison, "final_elapsed_days")
+
+
+def _build_validation_solver_command(*, run_case_module: str, solver: str, include_solver_flag: bool) -> str:
+    command = f"python -m {run_case_module} --no-show"
+    if include_solver_flag:
+        command += f" --solver {solver}"
+    return command
+
+
+def _generate_validation_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
+    run_case_module = importlib.import_module(str(spec.metadata["run_case_module"]))
+    comparison_runner = getattr(run_case_module, str(spec.metadata["comparison_function_name"]))
+    plotting_function = getattr(run_case_module, str(spec.metadata["plotting_function_name"]))
+    metric_builder = getattr(run_case_module, str(spec.metadata["metric_builder_name"]))
+    caller_file = _repo_path(str(spec.metadata["run_case_file"]))
+
+    solver_variants = tuple(str(item) for item in spec.metadata.get("solver_variants", ()))
+    default_solver = str(spec.metadata.get("default_solver", solver_variants[0] if solver_variants else ""))
+    solver_details = {
+        str(key): value for key, value in dict(spec.metadata.get("solver_details", {})).items()
+    }
+    include_solver_flag = len(solver_variants) > 1
+
+    solver_runs: list[dict[str, Any]] = []
+    all_image_repo_paths: list[str] = []
+    default_images: list[dict[str, Any]] = []
+
+    for solver in solver_variants:
+        detail = dict(solver_details.get(solver, {}))
+        filename = f"{spec.slug}__{solver}.png"
+        figure_path = source_root / _docs_relative_static_path(spec.category, filename)
+        comparison = comparison_runner(
+            caller_file=caller_file,
+            timeout=int(spec.metadata.get("timeout", 1800)),
+            solver=solver,
+        )
+        plotting_function(comparison, output_png=figure_path, show_plot=False)
+
+        image_summary = _build_validation_image_summary(
+            category=spec.category,
+            filename=filename,
+            caption=(
+                f"{spec.title} rendered with {detail.get('display_name', solver)} for the analytical gallery."
+            ),
+            alt_text=f"{spec.title} validation figure for {detail.get('display_name', solver)}",
+        )
+        all_image_repo_paths.append(image_summary["repo_path"])
+        if solver == default_solver:
+            default_images = [image_summary]
+
+        solver_metadata = {
+            "observable_name": getattr(comparison, "observable_name", None),
+            "case_metadata": getattr(comparison, "metadata", {}),
+            "tolerances": getattr(comparison, "tolerances", {}),
+        }
+        if hasattr(comparison, "solver"):
+            solver_metadata["comparison_solver"] = getattr(comparison, "solver")
+        if hasattr(comparison, "timestep"):
+            solver_metadata["timestep"] = getattr(comparison, "timestep")
+        if hasattr(comparison, "final_elapsed_days"):
+            solver_metadata["final_elapsed_days"] = getattr(comparison, "final_elapsed_days")
+
+        solver_runs.append(
+            {
+                "solver": solver,
+                "solver_display_name": detail.get("display_name", solver),
+                "is_default": solver == default_solver,
+                "config_path": detail.get("config_path"),
+                "tolerance_path": detail.get("tolerance_path"),
+                "expected_output": detail.get("expected_output"),
+                "command": _build_validation_solver_command(
+                    run_case_module=str(spec.metadata["run_case_module"]),
+                    solver=solver,
+                    include_solver_flag=include_solver_flag,
+                ),
+                "metric_lines": list(metric_builder(comparison)),
+                "image": image_summary,
+                "metadata": solver_metadata,
+            }
+        )
+
+    if not default_images and solver_runs:
+        default_images = [solver_runs[0]["image"]]
 
     return _build_case_summary(
         spec,
-        metrics_source={metric.key: getattr(comparison, metric.key) for metric in spec.metric_specs},
-        metadata=metadata,
+        metrics_source=None,
+        metadata={
+            "case_dir": str(spec.metadata["case_dir"]),
+            "default_solver": default_solver,
+            "solver_variants": list(solver_variants),
+            "solver_details": solver_details,
+            "regime": spec.metadata.get("regime"),
+            "dimension": spec.metadata.get("dimension"),
+            "inventory_reference": spec.metadata.get("inventory_reference"),
+            "case_sheet": spec.metadata.get("case_sheet", {}),
+        },
+        images_override=default_images,
+        metrics_override=[],
+        extra_summary={
+            "solver_runs": solver_runs,
+            "artifacts": {
+                "summary_json_doc_path": "/" + _docs_relative_static_path(spec.category, f"{spec.slug}_summary.json"),
+                "summary_json_repo_path": _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary.json"),
+                "image_repo_paths": all_image_repo_paths,
+            },
+        },
     )
-
 
 def _generate_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
     if spec.generator == "mesh_viewer":
@@ -385,8 +488,56 @@ def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str
         ]
     )
     for case in cases:
-        lines.append(f"   {case['docname']}")
+            lines.append(f"   {case['docname']}")
     return "\n".join(lines)
+
+
+def _append_figure(lines: list[str], image: dict[str, Any], *, indent: str = "") -> None:
+    lines.extend(
+        [
+            f"{indent}.. figure:: {image['doc_path']}",
+            f"{indent}   :alt: {image['alt_text']}",
+            f"{indent}   :width: 100%",
+            "",
+            f"{indent}   {image['caption']}",
+            "",
+        ]
+    )
+
+
+def _render_validation_solver_block(run: dict[str, Any], *, indent: str = "") -> list[str]:
+    lines: list[str] = []
+    image = run.get("image")
+    if image:
+        _append_figure(lines, image, indent=indent)
+
+    if run.get("metric_lines"):
+        lines.append(f"{indent}**Metrics**")
+        for metric_line in run["metric_lines"]:
+            lines.append(f"{indent}- {metric_line}")
+        lines.append("")
+
+    details: list[str] = []
+    if run.get("config_path"):
+        details.append(f"Config file: ``{run['config_path']}``")
+    if run.get("tolerance_path"):
+        details.append(f"Tolerances: ``{run['tolerance_path']}``")
+    if run.get("expected_output"):
+        details.append(str(run["expected_output"]))
+    for item in details:
+        lines.append(f"{indent}- {item}")
+    if details:
+        lines.append("")
+
+    lines.extend(
+        [
+            f"{indent}.. code-block:: bash",
+            "",
+            f"{indent}   {run['command']}",
+            "",
+        ]
+    )
+    return lines
 
 
 def _build_case_page(case: dict[str, Any]) -> str:
@@ -401,17 +552,10 @@ def _build_case_page(case: dict[str, Any]) -> str:
         str(case["summary"]),
         "",
     ]
-    for image in case["images"]:
-        lines.extend(
-            [
-                f".. figure:: {image['doc_path']}",
-                f"   :alt: {image['alt_text']}",
-                "   :width: 100%",
-                "",
-                f"   {image['caption']}",
-                "",
-            ]
-        )
+    solver_runs = list(case.get("solver_runs", []))
+    if not solver_runs:
+        for image in case["images"]:
+            _append_figure(lines, image)
 
     if case["case_setup"]:
         lines.extend(
@@ -469,6 +613,51 @@ def _build_case_page(case: dict[str, Any]) -> str:
                     "",
                 ]
             )
+
+    if solver_runs:
+        metadata = dict(case.get("metadata", {}))
+        default_solver = metadata.get("default_solver")
+        solver_display_names = [
+            str(run.get("solver_display_name", run.get("solver", "")))
+            for run in solver_runs
+        ]
+        lines.extend(
+            [
+                "Solver Coverage",
+                "---------------",
+                "",
+            ]
+        )
+        if default_solver:
+            default_label = next(
+                (
+                    run.get("solver_display_name", run.get("solver", ""))
+                    for run in solver_runs
+                    if run.get("solver") == default_solver
+                ),
+                default_solver,
+            )
+            lines.append(f"- Default solver: {default_label}")
+        lines.append(f"- Available variants: {', '.join(solver_display_names)}")
+        lines.append("")
+
+        if len(solver_runs) > 1:
+            lines.extend(
+                [
+                    ".. tab-set::",
+                    "",
+                ]
+            )
+            for run in solver_runs:
+                lines.extend(
+                    [
+                        f"   .. tab-item:: {run['solver_display_name']}",
+                        "",
+                    ]
+                )
+                lines.extend(_render_validation_solver_block(run, indent="      "))
+        else:
+            lines.extend(_render_validation_solver_block(solver_runs[0]))
 
     lines.extend(
         [

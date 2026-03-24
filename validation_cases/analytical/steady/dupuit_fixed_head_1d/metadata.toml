@@ -9,6 +9,7 @@ base_config = "config_common.toml"
 [config_files]
 modflownwt = "config_modflownwt.toml"
 modflow6 = "config_modflow6.toml"
+boussinesq = "config_boussinesq.toml"
 
 [workspace]
 results_folder_name = "results_simulations"

@@ -58,6 +58,15 @@ For future mesh-gallery cases, the canonical repository input tree lives under
 - `tools/doc_gallery/mesh_case_registry.py` defines the shared case schema and naming
 - `tools/doc_gallery/gallery_manifest.py` auto-discovers `examples/mesh_gallery/**/case.json`
 
+Analytical validation cases are discovered automatically from
+`validation_cases/analytical/`.
+
+- `tools/doc_gallery/validation_case_registry.py` reads `metadata.toml`, the
+  case `README.md`, and the global inventory in `validation_cases/README.md`
+- solver coverage is inferred from `[config_files]`
+- gallery pages render one common benchmark description plus solver-specific
+  tabs when a case exposes more than one backend
+
 ## How To Add One Case
 
 1. Add a new `GalleryCaseSpec` in `tools/doc_gallery/gallery_manifest.py`.
@@ -74,3 +83,13 @@ For future mesh-gallery cases, the canonical repository input tree lives under
 3. Review the generated `case.json`, `viewer_config.toml`, and `README.md`.
 4. Run `python -m tools.doc_gallery`.
 5. Rebuild Sphinx and inspect the new page under `capability_gallery/mesh`.
+
+## How To Add One Validation Case
+
+1. Add the case under `validation_cases/analytical/` with `README.md`,
+   `metadata.toml`, `comparison.py`, `plotting.py`, and `run_case.py`.
+2. Register the case in the inventory tables of `validation_cases/README.md`.
+3. If the benchmark belongs to a new analytical family, add its equations in
+   `tools/doc_gallery/validation_case_registry.py`.
+4. Run `python -m tools.doc_gallery`.
+5. Rebuild Sphinx and inspect the page under `capability_gallery/validation`.

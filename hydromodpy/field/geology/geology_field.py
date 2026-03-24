@@ -31,6 +31,7 @@ This allows:
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -42,6 +43,34 @@ from hydromodpy.field.core.field_spatial import Field
 from hydromodpy.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+
+
+@lru_cache(maxsize=None)
+def _quadrilateral_sample_weights(n_sub_per_axis: int) -> np.ndarray:
+    n = max(2, int(n_sub_per_axis))
+    u = (np.arange(n, dtype=float) + 0.5) / float(n)
+    v = (np.arange(n, dtype=float) + 0.5) / float(n)
+    uu, vv = np.meshgrid(u, v, indexing="xy")
+    return np.column_stack(
+        (
+            ((1.0 - uu) * (1.0 - vv)).ravel(),
+            (uu * (1.0 - vv)).ravel(),
+            (uu * vv).ravel(),
+            ((1.0 - uu) * vv).ravel(),
+        )
+    )
+
+
+@lru_cache(maxsize=None)
+def _triangle_sample_weights(n_sub_per_axis: int) -> np.ndarray:
+    n = max(2, int(n_sub_per_axis))
+    u = (np.arange(n, dtype=float) + 0.5) / float(n)
+    v = (np.arange(n, dtype=float) + 0.5) / float(n)
+    uu, vv = np.meshgrid(u, v, indexing="xy")
+    mask = (uu + vv) < 1.0
+    uu = uu[mask]
+    vv = vv[mask]
+    return np.column_stack((1.0 - uu - vv, uu, vv))
 
 
 class GeologyField(Field):
@@ -106,11 +135,21 @@ class GeologyField(Field):
         self.crs = crs
         self.source_kind = str(source_kind).strip().lower()
         self.default_cell_samples_per_axis = max(2, int(default_cell_samples_per_axis))
+        zone_codes = np.array(sorted(self.encoded_to_zone), dtype=np.int32)
+        self._zone_codes = zone_codes
+        self._zone_keys = tuple(self.encoded_to_zone[int(code)] for code in zone_codes)
+        max_code = int(zone_codes.max())
+        code_to_zone_index = np.full(max_code + 1, -1, dtype=np.int32)
+        code_to_zone_index[zone_codes] = np.arange(zone_codes.size, dtype=np.int32)
+        self._code_to_zone_index = code_to_zone_index
+        known_codes = np.zeros(max_code + 1, dtype=bool)
+        known_codes[zone_codes] = True
+        self._known_encoded_codes = known_codes
 
     @property
     def zone_keys(self):
         """Ordered tuple of zone keys used for heterogeneous mapping."""
-        return tuple(self.encoded_to_zone[k] for k in sorted(self.encoded_to_zone))
+        return self._zone_keys
 
     @property
     def shape(self):
@@ -120,42 +159,42 @@ class GeologyField(Field):
     @staticmethod
     def _sample_points_in_cell(cell, *, n_sub_per_axis: int):
         """Generate deterministic interior sample points for one mesh cell."""
-        n = max(2, int(n_sub_per_axis))
         verts = np.asarray(cell.vertices, dtype=float)
 
         if cell.kind == "quadrilateral":
-            u = (np.arange(n, dtype=float) + 0.5) / float(n)
-            v = (np.arange(n, dtype=float) + 0.5) / float(n)
-            uu, vv = np.meshgrid(u, v, indexing="xy")
-            w0 = (1.0 - uu) * (1.0 - vv)
-            w1 = uu * (1.0 - vv)
-            w2 = uu * vv
-            w3 = (1.0 - uu) * vv
-            x = w0 * verts[0, 0] + w1 * verts[1, 0] + w2 * verts[2, 0] + w3 * verts[3, 0]
-            y = w0 * verts[0, 1] + w1 * verts[1, 1] + w2 * verts[2, 1] + w3 * verts[3, 1]
+            weights = _quadrilateral_sample_weights(n_sub_per_axis)
+            x = np.einsum("pv,v->p", weights, verts[:, 0], optimize=True)
+            y = np.einsum("pv,v->p", weights, verts[:, 1], optimize=True)
             return x.ravel(), y.ravel()
 
         if cell.kind == "triangle":
-            u = (np.arange(n, dtype=float) + 0.5) / float(n)
-            v = (np.arange(n, dtype=float) + 0.5) / float(n)
-            uu, vv = np.meshgrid(u, v, indexing="xy")
-            mask = (uu + vv) < 1.0
-            uu = uu[mask]
-            vv = vv[mask]
-            p0, p1, p2 = verts[0], verts[1], verts[2]
-            x = p0[0] + uu * (p1[0] - p0[0]) + vv * (p2[0] - p0[0])
-            y = p0[1] + uu * (p1[1] - p0[1]) + vv * (p2[1] - p0[1])
+            weights = _triangle_sample_weights(n_sub_per_axis)
+            x = np.einsum("pv,v->p", weights, verts[:, 0], optimize=True)
+            y = np.einsum("pv,v->p", weights, verts[:, 1], optimize=True)
             return x, y
 
         raise ValueError(f"Unsupported cell kind '{cell.kind}'")
 
-    def zone_id(self, x, y):
-        """
-        Sample geology zone keys at coordinate arrays.
+    @staticmethod
+    def _sample_points_in_cells(
+        vertices: np.ndarray, *, cell_kind: str, n_sub_per_axis: int
+    ) -> tuple[np.ndarray, np.ndarray]:
+        verts = np.asarray(vertices, dtype=float)
+        if verts.ndim != 3:
+            raise ValueError("vertices must have shape (n_cells, n_vertices, 2)")
 
-        Coordinates outside raster extent or with encoded class ``0``
-        (nodata) are returned as empty key ``""``.
-        """
+        if cell_kind == "quadrilateral":
+            weights = _quadrilateral_sample_weights(n_sub_per_axis)
+        elif cell_kind == "triangle":
+            weights = _triangle_sample_weights(n_sub_per_axis)
+        else:
+            raise ValueError(f"Unsupported cell kind '{cell_kind}'")
+
+        x = np.asarray(verts[:, :, 0] @ weights.T, dtype=float)
+        y = np.asarray(verts[:, :, 1] @ weights.T, dtype=float)
+        return x, y
+
+    def _sample_encoded_codes(self, x, y) -> np.ndarray:
         x_arr = np.asarray(x, dtype=float)
         y_arr = np.asarray(y, dtype=float)
         if x_arr.shape != y_arr.shape:
@@ -164,9 +203,8 @@ class GeologyField(Field):
         rows, cols = rowcol(self.transform, x_arr.ravel(), y_arr.ravel(), op=np.floor)
         rows = np.asarray(rows, dtype=int)
         cols = np.asarray(cols, dtype=int)
+        out = np.zeros(rows.shape, dtype=np.int32)
 
-        out = np.empty(rows.shape, dtype=object)
-        out[:] = ""
         n_rows, n_cols = self.shape
         valid = (
             (rows >= 0)
@@ -174,22 +212,45 @@ class GeologyField(Field):
             & (cols >= 0)
             & (cols < n_cols)
         )
-
         if np.any(valid):
             valid_rows = rows[valid]
             valid_cols = cols[valid]
-            valid_codes = self.encoded_codes[valid_rows, valid_cols]
-            mapped = np.empty(valid_codes.shape, dtype=object)
-            mapped[:] = ""
-            for encoded in np.unique(valid_codes):
-                if int(encoded) <= 0:
-                    continue
-                zone_key = self.encoded_to_zone.get(int(encoded), "")
-                if zone_key:
-                    mapped[valid_codes == int(encoded)] = zone_key
-            out[valid] = mapped
+            sampled = np.asarray(self.encoded_codes[valid_rows, valid_cols], dtype=np.int32)
+            positive = sampled > 0
+            if np.any(positive):
+                positive_codes = sampled[positive]
+                known = positive_codes < self._known_encoded_codes.size
+                if np.any(known):
+                    keep = np.zeros(sampled.shape, dtype=bool)
+                    positive_positions = np.flatnonzero(positive)
+                    keep_positions = positive_positions[known]
+                    keep[keep_positions] = self._known_encoded_codes[positive_codes[known]]
+                    sampled = np.where(keep, sampled, 0)
+                else:
+                    sampled = np.zeros_like(sampled, dtype=np.int32)
+            out[valid] = sampled
 
         return out.reshape(x_arr.shape)
+
+    def zone_id(self, x, y):
+        """
+        Sample geology zone keys at coordinate arrays.
+
+        Coordinates outside raster extent or with encoded class ``0``
+        (nodata) are returned as empty key ``""``.
+        """
+        encoded = self._sample_encoded_codes(x, y)
+        out = np.empty(encoded.shape, dtype=object)
+        out[:] = ""
+        valid_codes = encoded > 0
+        if np.any(valid_codes):
+            positive_codes = encoded[valid_codes]
+            mapped = np.empty(positive_codes.shape, dtype=object)
+            mapped[:] = ""
+            for code in np.unique(positive_codes):
+                mapped[positive_codes == int(code)] = self.encoded_to_zone.get(int(code), "")
+            out[valid_codes] = mapped
+        return out
 
     def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
         """
@@ -211,29 +272,63 @@ class GeologyField(Field):
         """
         n_sub = max(2, int(cell_samples_per_axis))
         zone_keys = self.zone_keys
-
-        fractions_flat = {
-            key: np.zeros(int(mesh.n_cells), dtype=float)
-            for key in zone_keys
-        }
-
+        n_cells = int(mesh.n_cells)
+        fractions_flat = np.zeros((len(zone_keys), n_cells), dtype=float)
+        grouped_cells: dict[str, list] = {}
         for cell in mesh.cells:
-            x_s, y_s = self._sample_points_in_cell(cell, n_sub_per_axis=n_sub)
-            zones = np.asarray(self.zone_id(x_s, y_s), dtype=object).reshape(-1)
+            grouped_cells.setdefault(cell.kind, []).append(cell)
 
-            valid = np.array([str(z).strip() != "" for z in zones], dtype=bool)
-            n_valid = int(np.count_nonzero(valid))
-            if n_valid == 0:
+        for cell_kind, kind_cells in grouped_cells.items():
+            if not kind_cells:
                 continue
 
-            zones_valid = zones[valid]
-            for key in zone_keys:
-                count = int(np.count_nonzero(zones_valid == key))
-                fractions_flat[key][cell.index] = float(count) / float(n_valid)
+            n_vertices = 4 if cell_kind == "quadrilateral" else 3
+            weights = (
+                _quadrilateral_sample_weights(n_sub)
+                if cell_kind == "quadrilateral"
+                else _triangle_sample_weights(n_sub)
+            )
+            n_points_per_cell = int(weights.shape[0])
+            chunk_size = max(1, int(200000 // max(1, n_points_per_cell)))
+
+            for start in range(0, len(kind_cells), chunk_size):
+                chunk = kind_cells[start : start + chunk_size]
+                cell_indices = np.array([int(cell.index) for cell in chunk], dtype=np.int32)
+                vertices = np.empty((len(chunk), n_vertices, 2), dtype=float)
+                for idx, cell in enumerate(chunk):
+                    vertices[idx, :, :] = np.asarray(cell.vertices, dtype=float)
+
+                x_s, y_s = self._sample_points_in_cells(
+                    vertices,
+                    cell_kind=cell_kind,
+                    n_sub_per_axis=n_sub,
+                )
+                encoded = self._sample_encoded_codes(x_s, y_s)
+                valid = encoded > 0
+                if not np.any(valid):
+                    continue
+
+                chunk_counts = np.zeros((len(zone_keys), len(chunk)), dtype=np.int32)
+                cell_positions = np.repeat(np.arange(len(chunk), dtype=np.int32), n_points_per_cell)
+                valid_flat = valid.reshape(-1)
+                valid_codes = encoded.reshape(-1)[valid_flat]
+                zone_indices = self._code_to_zone_index[valid_codes]
+                np.add.at(
+                    chunk_counts,
+                    (zone_indices, cell_positions[valid_flat]),
+                    1,
+                )
+
+                valid_counts = np.count_nonzero(valid, axis=1)
+                active_cells = valid_counts > 0
+                if np.any(active_cells):
+                    fractions_flat[:, cell_indices[active_cells]] = (
+                        chunk_counts[:, active_cells] / valid_counts[active_cells]
+                    )
 
         fractions_by_zone = {
-            key: np.asarray(mesh.to_cell_values(values), dtype=float)
-            for key, values in fractions_flat.items()
+            key: np.asarray(mesh.to_cell_values(fractions_flat[idx]), dtype=float)
+            for idx, key in enumerate(zone_keys)
         }
 
         return WeightedAverageFieldDiscretization(
