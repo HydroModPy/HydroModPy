@@ -554,14 +554,23 @@ def _build_watershed_boundary_inputs(
         watershed_boundary_cfg=cfg.watershed_boundary,
         zone_meshing_cfg=zone_meshing_cfg,
     )
+    geometry_conformity_mode = str(cfg.watershed_boundary.geology_conformity.mode)
+    plot_geometry = watershed_geometry
+    if geometry_conformity_mode == "buffered_watershed_envelope":
+        plot_geometry, _ = _build_buffered_watershed_envelope_geometry(
+            watershed_geometry=watershed_geometry,
+            effective_domain_geometry=effective_domain_payload.geometry,
+            watershed_boundary_cfg=cfg.watershed_boundary,
+            zone_meshing_cfg=zone_meshing_cfg,
+        )
     plot_gdf = _build_watershed_boundary_plot_gdf(
-        watershed_geometry=watershed_geometry,
+        watershed_geometry=plot_geometry,
         effective_domain_payload=effective_domain_payload,
     )
     runtime_cfg = zone_meshing_cfg
     boundary_constraints: tuple[ZoneLinearConstraint, ...] = ()
     boundary_summary: dict[str, object] | None = None
-    if cfg.watershed_boundary.enabled:
+    if cfg.watershed_boundary.enabled and geometry_conformity_mode != "buffered_watershed_envelope":
         boundary_constraint = _build_watershed_boundary_constraint(
             watershed_geometry=watershed_geometry,
             effective_domain_payload=effective_domain_payload,
@@ -599,6 +608,35 @@ def _build_watershed_boundary_inputs(
                         cfg.watershed_boundary.smoothing.outer_bias_distance or 0.0
                     ),
                 }
+    elif cfg.watershed_boundary.enabled:
+        boundary_summary = {
+            "enabled": False,
+            "configured": True,
+            "explicit_constraint_applied": False,
+            "geometry_mode": "buffered_watershed_envelope",
+            "boundary_length": float(
+                getattr(plot_geometry.boundary, "length", 0.0)
+            ),
+            "boundary_area_source": float(getattr(plot_geometry, "area", 0.0)),
+        }
+        if cfg.watershed_boundary.boundary_refinement_distance is not None:
+            boundary_summary["boundary_refinement_distance"] = float(
+                cfg.watershed_boundary.boundary_refinement_distance
+            )
+        if cfg.watershed_boundary.smoothing.enabled:
+            boundary_summary["smoothing"] = {
+                "distance": float(
+                    zone_meshing_cfg.global_size
+                    if cfg.watershed_boundary.smoothing.distance is None
+                    else cfg.watershed_boundary.smoothing.distance
+                ),
+                "river_buffer_distance": float(
+                    cfg.watershed_boundary.smoothing.river_buffer_distance or 0.0
+                ),
+                "outer_bias_distance": float(
+                    cfg.watershed_boundary.smoothing.outer_bias_distance or 0.0
+                ),
+            }
 
     return (
         watershed_geometry,
@@ -787,6 +825,7 @@ def _build_zone_conformal_meshing_inputs(
     )
     outside_region_geometry = watershed_geometry
     geology_conformity_summary: dict[str, object] | None = None
+    excluded_interface_zone_keys_for_refinement: tuple[str, ...] = ()
     if cfg.geology is not None:
         zone_gdf, outside_region_geometry, geology_conformity_summary = (
             _apply_geology_conformity_mode(
@@ -797,6 +836,11 @@ def _build_zone_conformal_meshing_inputs(
                 watershed_geometry=watershed_geometry,
             )
         )
+        if (
+            geology_conformity_summary is not None
+            and str(geology_conformity_summary.get("mode", "")) == "buffered_watershed_envelope"
+        ):
+            excluded_interface_zone_keys_for_refinement = ("outside_background",)
     regional_size_fields: tuple[ZoneRegionalSizeField, ...] = ()
     outside_coarsening_summary: dict[str, object] | None = None
     outside_field = _build_watershed_outside_size_field(
@@ -824,6 +868,9 @@ def _build_zone_conformal_meshing_inputs(
         zone_meshing_cfg=runtime_zone_meshing_cfg,
         linear_constraints=tuple(watershed_boundary_constraints) + linear_constraints,
         regional_size_fields=tuple(regional_size_fields),
+        excluded_interface_zone_keys_for_refinement=(
+            excluded_interface_zone_keys_for_refinement
+        ),
         diagnostics=ZoneConformalMeshingDiagnostics(
             source_plot_gdf=source_plot_gdf,
             rivers_cfg=cfg.rivers,

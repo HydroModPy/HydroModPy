@@ -77,7 +77,7 @@ grid_resolution = 680.0
 # Keep geology conformal inside one buffered envelope around the regularized
 # watershed, while leaving the full geology visible in diagnostic figures.
 mode = "buffered_watershed_envelope"
-buffer_distance = 200.0
+buffer_distance = 100.0
 
 [mesh_catchment.geology.source]
 # Use the France-wide geology source, then clip/rasterize locally on the
