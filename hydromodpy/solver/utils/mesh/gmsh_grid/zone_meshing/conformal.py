@@ -47,7 +47,9 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._gmsh_driver import (
     build_runtime_planar_mesh_from_gmsh,
     build_curve_group_name,
     configure_gmsh_terminal_output,
+    create_regional_structured_size_field,
     iter_river_lines_from_trace,
+    set_background_mesh_from_fields,
     write_repository_compatible_mesh,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing._refinement_policy import (
@@ -200,6 +202,18 @@ class ZoneLinearConstraint:
                 payload.get("participates_in_refinement", True)
             ),
         )
+
+
+@dataclass(frozen=True)
+class ZoneRegionalSizeField:
+    """One regional inside/outside background-size field."""
+
+    name: str
+    region_geometry: BaseGeometry
+    inside_size: float
+    outside_size: float
+    transition_distance: float | None
+    grid_resolution: float
 
 @dataclass
 class ZoneCurveGroupDraft:
@@ -652,6 +666,66 @@ def _find_matching_constraint(
     return None
 
 
+def _normalize_regional_size_fields(
+    *,
+    regional_size_fields: Sequence[ZoneRegionalSizeField] | None,
+    domain_geometry: BaseGeometry,
+) -> tuple[ZoneRegionalSizeField, ...]:
+    """Validate and clip optional regional size fields to the meshing domain."""
+    if not regional_size_fields:
+        return ()
+
+    normalized: list[ZoneRegionalSizeField] = []
+    for payload in regional_size_fields:
+        name = str(payload.name).strip()
+        if name == "":
+            raise ValueError("regional size fields require one non-empty name")
+        inside_size = float(payload.inside_size)
+        outside_size = float(payload.outside_size)
+        grid_resolution = float(payload.grid_resolution)
+        transition_distance = (
+            None
+            if payload.transition_distance is None
+            else float(payload.transition_distance)
+        )
+        if (not np.isfinite(inside_size)) or inside_size <= 0.0:
+            raise ValueError(
+                f"regional size field '{name}' requires inside_size > 0"
+            )
+        if (not np.isfinite(outside_size)) or outside_size <= 0.0:
+            raise ValueError(
+                f"regional size field '{name}' requires outside_size > 0"
+            )
+        if (not np.isfinite(grid_resolution)) or grid_resolution <= 0.0:
+            raise ValueError(
+                f"regional size field '{name}' requires grid_resolution > 0"
+            )
+        if transition_distance is not None and (
+            (not np.isfinite(transition_distance)) or transition_distance < 0.0
+        ):
+            raise ValueError(
+                f"regional size field '{name}' requires transition_distance >= 0"
+            )
+
+        clipped_geometry = make_valid_geometry(
+            make_valid_geometry(payload.region_geometry).intersection(domain_geometry)
+        )
+        polygons = list(iter_polygon_parts(clipped_geometry))
+        if not polygons:
+            continue
+        normalized.append(
+            ZoneRegionalSizeField(
+                name=name,
+                region_geometry=make_valid_geometry(unary_union(polygons)),
+                inside_size=inside_size,
+                outside_size=outside_size,
+                transition_distance=transition_distance,
+                grid_resolution=grid_resolution,
+            )
+        )
+    return tuple(normalized)
+
+
 def generate_zone_conformal_mesh_from_dataframe(
     gdf,
     *,
@@ -672,6 +746,7 @@ def generate_zone_conformal_mesh_from_dataframe(
     interface_sampling: int = 64,
     refinement_policy: ZoneMeshingRefinementPolicy | None = None,
     linear_constraints: Sequence[ZoneLinearConstraint] | None = None,
+    regional_size_fields: Sequence[ZoneRegionalSizeField] | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",
@@ -760,11 +835,26 @@ def generate_zone_conformal_mesh_from_dataframe(
         ZoneConformalPartition_cls=ZoneConformalPartition,
     )
     trace_mesh_stage("zone_meshing.partition.split.done", n_faces=partition.n_faces)
+    prepared_regional_size_fields = _normalize_regional_size_fields(
+        regional_size_fields=regional_size_fields,
+        domain_geometry=partition.domain_geometry,
+    )
 
     trace_mesh_stage("zone_meshing.gmsh.require")
     gmsh = _require_gmsh()
     output_path_obj = Path(output_path).resolve()
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+    effective_max_size = (
+        global_size_value if max_size is None else float(max_size)
+    )
+    if prepared_regional_size_fields:
+        effective_max_size = max(
+            float(effective_max_size),
+            max(
+                max(float(field.inside_size), float(field.outside_size))
+                for field in prepared_regional_size_fields
+            ),
+        )
 
     point_registry: dict[tuple[float, float], int] = {}
     line_registry: dict[tuple[tuple[float, float], tuple[float, float]], int] = {}
@@ -789,6 +879,8 @@ def generate_zone_conformal_mesh_from_dataframe(
         str(constraint.name): 0 for constraint in prepared_constraints
     }
     refinement_policy_summary: dict[str, Any] | None = None
+    regional_background_summary: dict[str, Any] | None = None
+    regional_field_temp_paths: list[Path] = []
 
     trace_mesh_stage("zone_meshing.gmsh.initialize")
     gmsh.initialize()
@@ -888,7 +980,7 @@ def generate_zone_conformal_mesh_from_dataframe(
             algorithm=algorithm,
             global_size=global_size_value,
             min_size=min_size,
-            max_size=max_size,
+            max_size=effective_max_size,
         )
         trace_mesh_stage("zone_meshing.mesh_options.apply.done")
 
@@ -1005,6 +1097,7 @@ def generate_zone_conformal_mesh_from_dataframe(
 
         trace_mesh_stage("zone_meshing.refinement.start")
         refined_curve_tags: set[int]
+        use_regional_background = bool(prepared_regional_size_fields)
         if (
             refine_interfaces_value
             and refinement_policy is not None
@@ -1035,6 +1128,7 @@ def generate_zone_conformal_mesh_from_dataframe(
                 default_interface_size=float(interface_size_value),
                 default_interface_distance=float(interface_distance_value),
                 default_interface_sampling=int(interface_sampling),
+                stop_at_distance_max=use_regional_background,
             )
             mesh_size_fields_summary["candidate_interface_curve_count"] = int(
                 policy_result.candidate_count
@@ -1076,6 +1170,7 @@ def generate_zone_conformal_mesh_from_dataframe(
                 interface_size=interface_size_value,
                 interface_distance=interface_distance_value,
                 interface_sampling=int(interface_sampling),
+                stop_at_distance_max=use_regional_background,
             )
             mesh_size_fields_summary["candidate_interface_curve_count"] = int(
                 len(sorted(set(int(tag) for tag in interface_curve_tags_all)))
@@ -1087,6 +1182,45 @@ def generate_zone_conformal_mesh_from_dataframe(
         mesh_size_fields_summary["refinement_scope_applied"] = bool(
             refinement_scope_geometry is not None
         )
+        interface_background_field_tag = None
+        background_payload = mesh_size_fields_summary.get("background_field")
+        if isinstance(background_payload, dict):
+            background_field_tag = background_payload.get("background_field_tag")
+            if background_field_tag is not None:
+                interface_background_field_tag = int(background_field_tag)
+
+        combined_background_field_tags: list[int] = []
+        if interface_background_field_tag is not None:
+            combined_background_field_tags.append(int(interface_background_field_tag))
+        if prepared_regional_size_fields:
+            regional_background_summary = {
+                "enabled": True,
+                "fields": [],
+            }
+            for regional_field in prepared_regional_size_fields:
+                field_tag, field_summary, temp_path = create_regional_structured_size_field(
+                    gmsh,
+                    region_geometry=regional_field.region_geometry,
+                    domain_bounds=tuple(partition.domain_geometry.bounds),
+                    inside_size=float(regional_field.inside_size),
+                    outside_size=float(regional_field.outside_size),
+                    transition_distance=float(regional_field.transition_distance or 0.0),
+                    grid_resolution=float(regional_field.grid_resolution),
+                    scratch_dir=output_path_obj.parent,
+                    field_name=regional_field.name,
+                )
+                regional_field_temp_paths.append(temp_path)
+                combined_background_field_tags.append(int(field_tag))
+                regional_background_summary["fields"].append(field_summary)
+            final_background_field_tag = set_background_mesh_from_fields(
+                gmsh,
+                field_tags=combined_background_field_tags,
+            )
+            regional_background_summary["final_background_field_tag"] = (
+                None
+                if final_background_field_tag is None
+                else int(final_background_field_tag)
+            )
         trace_mesh_stage(
             "zone_meshing.refinement.done",
             n_candidate_interface_curves=mesh_size_fields_summary["candidate_interface_curve_count"],
@@ -1114,6 +1248,11 @@ def generate_zone_conformal_mesh_from_dataframe(
     finally:
         trace_mesh_stage("zone_meshing.gmsh.finalize")
         gmsh.finalize()
+        for temp_path in regional_field_temp_paths:
+            try:
+                Path(temp_path).unlink(missing_ok=True)
+            except Exception:
+                continue
     physical_group_summaries = [group.to_summary() for group in physical_groups]
     surface_group_summaries = [
         group_summary
@@ -1266,6 +1405,16 @@ def generate_zone_conformal_mesh_from_dataframe(
         "surface_physical_groups": surface_group_summaries,
         "curve_physical_groups": curve_group_summaries,
     }
+    if regional_background_summary is not None:
+        summary["mesh_size_fields"]["regional_background"] = regional_background_summary
+    if (
+        (max_size is None and effective_max_size > global_size_value)
+        or (
+            max_size is not None
+            and effective_max_size > float(max_size)
+        )
+    ):
+        summary["effective_max_size"] = float(effective_max_size)
     if refinement_policy_summary is not None:
         summary["refinement_policy"] = refinement_policy_summary
     trace_mesh_stage("zone_meshing.generate.done", n_cells=mesh.n_cells)
@@ -1299,6 +1448,7 @@ def generate_zone_conformal_mesh_from_geology_config(
     interface_sampling: int = 64,
     refinement_policy: ZoneMeshingRefinementPolicy | None = None,
     linear_constraints: Sequence[ZoneLinearConstraint] | None = None,
+    regional_size_fields: Sequence[ZoneRegionalSizeField] | None = None,
     river_trace: object | None = None,
     refinement_scope_geometry=None,
     model_name: str = "zone_conformal_mesh",
@@ -1328,6 +1478,7 @@ def generate_zone_conformal_mesh_from_geology_config(
         interface_sampling=interface_sampling,
         refinement_policy=refinement_policy,
         linear_constraints=linear_constraints,
+        regional_size_fields=regional_size_fields,
         river_trace=river_trace,
         refinement_scope_geometry=refinement_scope_geometry,
         model_name=model_name,

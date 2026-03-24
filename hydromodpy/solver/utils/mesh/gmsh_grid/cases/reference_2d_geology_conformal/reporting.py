@@ -172,6 +172,18 @@ def _finalize_summary_payload(
     summary = dict(base_summary)
     summary["constraints_mode"] = str(constraints_mode)
     summary["effective_domain"] = dict(meshing_inputs.effective_domain_payload.summary)
+    if meshing_inputs.diagnostics.watershed_boundary_summary is not None:
+        summary["watershed_boundary"] = dict(
+            meshing_inputs.diagnostics.watershed_boundary_summary
+        )
+    if meshing_inputs.diagnostics.geology_conformity_summary is not None:
+        summary["geology_conformity"] = dict(
+            meshing_inputs.diagnostics.geology_conformity_summary
+        )
+    if meshing_inputs.diagnostics.outside_coarsening_summary is not None:
+        summary["outside_coarsening"] = dict(
+            meshing_inputs.diagnostics.outside_coarsening_summary
+        )
 
     if meshing_inputs.constraint_families.river and meshing_inputs.diagnostics.rivers_cfg is not None:
         summary["rivers_config"] = _build_rivers_config_summary(

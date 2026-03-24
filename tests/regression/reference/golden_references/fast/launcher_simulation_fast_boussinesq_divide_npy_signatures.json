@@ -1,0 +1,186 @@
+{
+  "modflow_expected": {
+    "watertable_elevation": {
+      "count": 120,
+      "mean": 6.46178022190133,
+      "p50": 6.685961143941448,
+      "p95": 7.207350521480112,
+      "shape": [
+        3,
+        40
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 775.4136266281596
+    },
+    "watertable_depth": {
+      "count": 120,
+      "mean": 13.538219778098668,
+      "p50": 13.314038856058552,
+      "p95": 14.796664605243535,
+      "shape": [
+        3,
+        40
+      ],
+      "timestep": 0,
+      "available_timesteps": 1,
+      "sum": 1624.5863733718402
+    }
+  },
+  "boussinesq_summary_expected": {
+    "active_drainage": false,
+    "active_imposed_head_bc": true,
+    "active_ocean": false,
+    "active_recharge": true,
+    "active_wells": false,
+    "converged_by_period": [
+      true
+    ],
+    "has_numerical_solution": true,
+    "model_name": "flow_main__boussinesq",
+    "n_cells": 240,
+    "n_edges": 403,
+    "n_nodes": 164,
+    "nonlinear_iterations": [
+      4
+    ],
+    "period_lengths_seconds": [],
+    "runtime_backend": "scipy_sparse",
+    "runtime_convergence_policy": "residual_inf <= tol_residual_inf",
+    "runtime_iteration_counter": "newton_iterations",
+    "runtime_linear_system_layout": "sparse",
+    "runtime_solver_kind": "scipy_sparse_newton_line_search_semianalytic_base_sat_fd_colored",
+    "runtime_tol_residual_inf": 1e-09,
+    "runtime_tol_state_update_inf": 1e-09,
+    "solve_stage": "solved",
+    "steady_mode": "nonlinear_scipy_sparse",
+    "steady_nonlinear_iterations": 4,
+    "steady_residual_norm_inf": 1.065110461501817e-11,
+    "steady_termination_reason": "sparse Newton residual tolerance reached"
+  },
+  "boussinesq_state_history_expected": {
+    "drainage_flux_m3_s": {
+      "count": 240,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "shape": [
+        240
+      ],
+      "sum": 0.0
+    },
+    "final_head_m": {
+      "count": 240,
+      "mean": 6.46178022190133,
+      "p50": 6.686096049756092,
+      "p95": 7.207622684403551,
+      "shape": [
+        240
+      ],
+      "sum": 1550.8272532563192
+    },
+    "final_recharge_rate_m_s": {
+      "count": 240,
+      "mean": 1.157407407407407e-08,
+      "p50": 1.1574074074074074e-08,
+      "p95": 1.1574074074074074e-08,
+      "shape": [
+        240
+      ],
+      "sum": 2.777777777777777e-06
+    },
+    "final_saturated_thickness_m": {
+      "count": 240,
+      "mean": 6.46178022190133,
+      "p50": 6.686096049756092,
+      "p95": 7.207622684403551,
+      "shape": [
+        240
+      ],
+      "sum": 1550.8272532563192
+    },
+    "final_saturation_excess_rate_m_s": {
+      "count": 240,
+      "mean": 1.0131915842934651e-25,
+      "p50": 0.0,
+      "p95": 0.0,
+      "shape": [
+        240
+      ],
+      "sum": 2.4316598023043165e-23
+    },
+    "final_well_flux_m3_s": {
+      "count": 240,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "shape": [
+        240
+      ],
+      "sum": 0.0
+    },
+    "head_history_m": {
+      "count": 240,
+      "mean": 6.46178022190133,
+      "p50": 6.686096049756092,
+      "p95": 7.207622684403551,
+      "shape": [
+        1,
+        240
+      ],
+      "sum": 1550.8272532563192
+    },
+    "imposed_head_edge_flux_m3_s": {
+      "count": 403,
+      "mean": 3.446391323751573e-07,
+      "p50": 0.0,
+      "p95": 0.0,
+      "shape": [
+        403
+      ],
+      "sum": 0.0001388895703471884
+    },
+    "internal_edge_flux_m3_s": {
+      "count": 403,
+      "mean": -3.907121699833453e-08,
+      "p50": 0.0,
+      "p95": 3.781137892114067e-05,
+      "shape": [
+        403
+      ],
+      "sum": -1.5745700450328814e-05
+    },
+    "period_lengths_seconds": {
+      "count": 0,
+      "mean": null,
+      "p50": null,
+      "p95": null,
+      "shape": [
+        0
+      ],
+      "sum": null
+    },
+    "saturated_thickness_history_m": {
+      "count": 240,
+      "mean": 6.46178022190133,
+      "p50": 6.686096049756092,
+      "p95": 7.207622684403551,
+      "shape": [
+        1,
+        240
+      ],
+      "sum": 1550.8272532563192
+    },
+    "saturation_excess_history_m_s": {
+      "count": 240,
+      "mean": 1.0131915842934651e-25,
+      "p50": 0.0,
+      "p95": 0.0,
+      "shape": [
+        1,
+        240
+      ],
+      "sum": 2.4316598023043165e-23
+    }
+  }
+}

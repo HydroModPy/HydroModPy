@@ -54,6 +54,24 @@ output_layout = "flat"
 # Shared launcher profile:
 # - constrain the mesh with rivers and geology
 # - use one single support domain without extra public scoping layers
+# - optionally add one smoothed watershed-boundary constraint without changing
+#   the geology zonation outside the basin
+
+[mesh_catchment.watershed_boundary]
+enabled = true
+boundary_refinement_distance = 500.0
+
+[mesh_catchment.watershed_boundary.smoothing]
+enabled = true
+distance = 200.0
+river_buffer_distance = 100.0
+outer_bias_distance = 10.0
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+enabled = true
+size_factor = 3.0
+transition_distance = 680.0
+grid_resolution = 680.0
 
 [mesh_catchment.geology.source]
 # Use the France-wide geology source, then clip/rasterize locally on the
@@ -113,5 +131,5 @@ enabled = true
 priority = 200
 
 [mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
-enabled = false
+enabled = true
 priority = 100

@@ -8,6 +8,7 @@ import pandas as pd
 
 from hydromodpy.display.options import DisplayOptions, DisplaySectionOptions
 from hydromodpy.display.suites import (
+    plot_boussinesq_flow_suite,
     plot_flow_suite,
     plot_particles_suite,
     plot_transport_suite,
@@ -17,6 +18,7 @@ from hydromodpy.display.suites import (
 def _build_result(
     *,
     flow_model,
+    boussinesq_model=None,
     transport_model=None,
 ):
     geographic = SimpleNamespace(
@@ -37,6 +39,8 @@ def _build_result(
                 return flow_model
             if name == "modflow6":
                 return None
+            if name == "boussinesq":
+                return boussinesq_model
             if name == "mt3dms":
                 return transport_model
             if name == "modflow6gwt":
@@ -159,3 +163,42 @@ def test_plot_transport_suite_passes_solver_base_raster(monkeypatch) -> None:
     plot_transport_suite(result, options)
 
     assert captured == [Path("solver_grid_template.tif")]
+
+
+def test_plot_boussinesq_flow_suite_saves_figure(tmp_path) -> None:
+    mesh = SimpleNamespace(
+        node_x_m=np.array([0.0, 20.0, 0.0, 20.0], dtype=float),
+        node_y_m=np.array([0.0, 0.0, 10.0, 10.0], dtype=float),
+        cell_node_ids=((0, 1, 2), (1, 3, 2)),
+        node_index_by_id={0: 0, 1: 1, 2: 2, 3: 3},
+        cell_centroid_x_m=np.array([20.0 / 3.0, 40.0 / 3.0], dtype=float),
+        z_top_m=np.array([12.0, 11.5], dtype=float),
+        z_bottom_m=np.array([5.0, 5.0], dtype=float),
+    )
+    boussinesq_model = SimpleNamespace(
+        model_name="bouss_main",
+        mesh=mesh,
+        state=SimpleNamespace(head_m=np.array([10.0, 9.5], dtype=float)),
+    )
+    result = _build_result(
+        flow_model=None,
+        boussinesq_model=boussinesq_model,
+    )
+    result.setup.workspace.simulations_folder = tmp_path
+
+    options = DisplayOptions(
+        enabled=True,
+        show=False,
+        save=True,
+        flow=DisplaySectionOptions(enabled=True),
+    )
+
+    plot_boussinesq_flow_suite(result, options)
+
+    assert (
+        tmp_path
+        / "bouss_main"
+        / "_postprocess"
+        / "_figures"
+        / "boussinesq_state.png"
+    ).exists()

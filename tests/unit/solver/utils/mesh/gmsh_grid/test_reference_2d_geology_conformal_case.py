@@ -5,8 +5,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import geopandas as gpd
+import matplotlib
+import numpy as np
 import pytest
 from shapely.geometry import LineString, Polygon, box
+
+matplotlib.use("Agg", force=True)
 
 try:
     import gmsh  # noqa: F401
@@ -35,6 +39,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal
     ZoneConformalZoneMeshingConfig,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.planning import (
+    _build_zone_conformal_meshing_inputs,
     _clip_river_trace_to_domain,
     _resolve_river_trace_for_meshing,
 )
@@ -97,6 +102,98 @@ def test_collect_display_zone_keys_includes_background_lithology() -> None:
     )
 
     assert zone_keys == ["geo_inside", "geo_outside"]
+
+
+def test_geographic_mesh_figure_uses_raw_black_boundary_and_blue_hydro_overlay() -> None:
+    domain_gdf = gpd.GeoDataFrame(
+        geometry=[box(0.0, 0.0, 10.0, 10.0)],
+        crs="EPSG:2154",
+    )
+    source_domain_gdf = gpd.GeoDataFrame(
+        {"zone_key": ["geo_a", "geo_b"]},
+        geometry=[
+            box(0.0, 0.0, 5.0, 10.0),
+            box(5.0, 0.0, 10.0, 10.0),
+        ],
+        crs="EPSG:2154",
+    )
+    partition_gdf = source_domain_gdf.copy()
+    topo_background = (
+        np.arange(100, dtype=float).reshape(10, 10),
+        (0.0, 10.0, 0.0, 10.0),
+    )
+    catchment_gdf = gpd.GeoDataFrame(
+        geometry=[box(1.0, 1.0, 9.0, 9.0)],
+        crs="EPSG:2154",
+    )
+    catchment_boundary_gdf = gpd.GeoDataFrame(
+        {"name": ["watershed::boundary"]},
+        geometry=[LineString([(1.5, 1.3), (8.8, 1.6), (8.6, 8.5), (1.7, 8.2), (1.5, 1.3)])],
+        crs="EPSG:2154",
+    )
+
+    fig = conformal_plotting_module._build_geographic_mesh_figure(
+        domain_gdf=domain_gdf,
+        source_domain_gdf=source_domain_gdf,
+        partition_gdf=partition_gdf,
+        mesh=SimpleNamespace(cells=[]),
+        domain_bounds=[0.0, 0.0, 10.0, 10.0],
+        catchment_gdf=catchment_gdf,
+        catchment_boundary_gdf=catchment_boundary_gdf,
+        topo_background=topo_background,
+        river_lines=[LineString([(2.0, 2.0), (8.0, 8.0)])],
+    )
+    try:
+        fig.canvas.draw()
+        ax_overlay = fig.axes[1]
+        overlay_legend = ax_overlay.get_legend()
+        assert overlay_legend is not None
+        legend_labels = [text.get_text() for text in overlay_legend.get_texts()]
+        assert "geo_a" not in legend_labels
+        assert "geo_b" not in legend_labels
+        assert "Catchment boundary" in legend_labels
+        assert "Raw catchment boundary" not in legend_labels
+        assert "Regularized boundary" not in legend_labels
+
+        colorbar_ax = fig.axes[-1]
+        bbox = colorbar_ax.get_position()
+        assert bbox.width > bbox.height
+
+        hydro_handle = next(
+            handle
+            for handle, label in zip(overlay_legend.legend_handles, legend_labels)
+            if label == "Hydro network"
+        )
+        assert hydro_handle.get_color() == "#1f78b4"
+    finally:
+        conformal_plotting_module.plt.close(fig)
+
+
+def test_regional_context_figure_uses_bottom_horizontal_colorbar() -> None:
+    domain_gdf = gpd.GeoDataFrame(
+        geometry=[box(0.0, 0.0, 10.0, 10.0)],
+        crs="EPSG:2154",
+    )
+    topo_background = (
+        np.arange(100, dtype=float).reshape(10, 10),
+        (0.0, 10.0, 0.0, 10.0),
+    )
+
+    fig = conformal_plotting_module._build_regional_context_figure(
+        domain_gdf=domain_gdf,
+        catchment_gdf=None,
+        catchment_boundary_gdf=None,
+        topo_background=topo_background,
+        river_lines=[],
+        outlet_xy=None,
+    )
+    try:
+        fig.canvas.draw()
+        colorbar_ax = fig.axes[-1]
+        bbox = colorbar_ax.get_position()
+        assert bbox.width > bbox.height
+    finally:
+        conformal_plotting_module.plt.close(fig)
 
 
 def test_resolve_constraint_families_marks_enabled_inputs() -> None:
@@ -246,15 +343,13 @@ def _write_geographic_box_buffer_watershed_boundary_case_toml(
                     "",
                     f"[{section}.watershed_boundary]",
                     "enabled = true",
-                    "clip_to_domain = true",
-                    "min_segment_length = 0.0",
-                    "participates_in_refinement = false",
+                    "boundary_refinement_distance = 500.0",
                     "",
                     f"[{section}.watershed_boundary.smoothing]",
                     "enabled = true",
-                    "simplify_tolerance = 5.0",
-                    "heal_tolerance = 1.0",
-                    "min_polygon_area = 0.0",
+                    "distance = 50.0",
+                    "river_buffer_distance = 100.0",
+                    "outer_bias_distance = 10.0",
                     "",
                 )
             )
@@ -353,15 +448,13 @@ def _write_geographic_scope_watershed_boundary_case_toml(
                     "",
                     f"[{section}.watershed_boundary]",
                     "enabled = true",
-                    "clip_to_domain = true",
-                    "min_segment_length = 0.0",
-                    "participates_in_refinement = true",
+                    "boundary_refinement_distance = 500.0",
                     "",
                     f"[{section}.watershed_boundary.smoothing]",
                     "enabled = true",
-                    "simplify_tolerance = 5.0",
-                    "heal_tolerance = 1.0",
-                    "min_polygon_area = 0.0",
+                    "distance = 50.0",
+                    "river_buffer_distance = 100.0",
+                    "outer_bias_distance = 10.0",
                     "",
                 )
             )
@@ -462,6 +555,7 @@ def test_reference_2d_geology_conformal_case_non_regression(
     interface_refinement.pop("candidate_interface_curve_count", None)
     interface_refinement.pop("scope_filtered_interface_curve_count", None)
     interface_refinement.pop("refinement_scope_applied", None)
+    interface_refinement.pop("stop_at_distance_max", None)
     stable["mesh_size_fields"] = {"interface_refinement": interface_refinement}
 
     if update_goldens:
@@ -649,6 +743,278 @@ def test_resolve_case_config_accepts_prevalidated_launcher_section_defaults(
     assert isinstance(cfg.geology, ZoneConformalGeologyConfig)
     assert cfg.geology.source.kind == "vector"
 
+
+def test_watershed_boundary_builds_linear_constraint_and_preserves_full_geology(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "mesh_launcher.toml"
+    config_path.write_text("[mesh_catchment]\nconstraints_mode = \"geology_only\"\n", encoding="utf-8")
+
+    watershed_path = tmp_path / "watershed.geojson"
+    watershed_gdf = gpd.GeoDataFrame(
+        {"catch_id": ["ws_1"]},
+        geometry=[box(355400.0, 6712900.0, 358400.0, 6716100.0)],
+        crs="EPSG:2154",
+    )
+    watershed_gdf.to_file(watershed_path, driver="GeoJSON")
+
+    section_data = {
+        "constraints_mode": "geology_only",
+        "watershed_boundary": {
+            "enabled": True,
+            "boundary_refinement_distance": 500.0,
+            "smoothing": {
+                "enabled": True,
+                "distance": 50.0,
+                "river_buffer_distance": 100.0,
+                "outer_bias_distance": 10.0,
+            },
+            "outside_coarsening": {
+                "enabled": True,
+                "size_factor": 2.0,
+                "transition_distance": 300.0,
+                "grid_resolution": 250.0,
+            },
+        },
+        "domain": {
+            "kind": "vector",
+            "path": str((CASE_TOML.parent / "domain_window.geojson").resolve()),
+            "id_field": "domain_id",
+            "selected_id": "main",
+        },
+        "geology": {
+            "source": {
+                "path": str((CASE_TOML.parent / _CASE_RELATIVE_GEOLOGY_PATH).resolve()),
+                "kind": "vector",
+                "code_field": "CODE_LEG",
+                "reference_raster_path": str(
+                    (CASE_TOML.parent / _CASE_RELATIVE_REFERENCE_RASTER_PATH).resolve()
+                ),
+            }
+        },
+        "zone_meshing": {
+            "algorithm": "delaunay",
+            "global_size": 250.0,
+            "min_size": 125.0,
+            "max_size": 400.0,
+            "simplify_tolerance": 0.0,
+            "heal_tolerance": 0.0,
+            "min_polygon_area": 0.0,
+            "refine_interfaces": True,
+            "interface_size": 90.0,
+            "interface_distance": 450.0,
+            "interface_sampling": 64,
+        },
+    }
+
+    cfg = _resolve_case_config(
+        config_path,
+        section="mesh_catchment",
+        section_data_override=section_data,
+    )
+    river_trace = SimpleNamespace(
+        lines=(
+            LineString(
+                [
+                    (355450.0, 6713000.0),
+                    (356800.0, 6714200.0),
+                    (358250.0, 6715900.0),
+                ]
+            ),
+        )
+    )
+
+    inputs = _build_zone_conformal_meshing_inputs(
+        cfg=cfg,
+        config_path=config_path,
+        river_trace=river_trace,
+        domain_geographic=SimpleNamespace(watershed_shp=str(watershed_path)),
+    )
+
+    assert set(inputs.zone_gdf["zone_key"].astype(str)) == set(
+        inputs.diagnostics.source_plot_gdf["zone_key"].astype(str)
+    )
+    assert "outside_background" not in set(inputs.zone_gdf["zone_key"].astype(str))
+    assert any(
+        constraint.name == "watershed::boundary"
+        for constraint in inputs.linear_constraints
+    )
+    assert inputs.zone_meshing_cfg.global_size == pytest.approx(250.0)
+    assert inputs.zone_meshing_cfg.refinement_policy is not None
+    assert (
+        inputs.zone_meshing_cfg.refinement_policy.families["watershed_boundary"].enabled
+        is True
+    )
+    assert (
+        inputs.zone_meshing_cfg.refinement_policy.families["watershed_boundary"].interface_distance
+        == pytest.approx(500.0)
+    )
+    assert inputs.diagnostics.watershed_boundary_summary is not None
+    assert inputs.diagnostics.watershed_boundary_summary["enabled"] is True
+    assert len(inputs.regional_size_fields) == 1
+    assert inputs.regional_size_fields[0].inside_size == pytest.approx(250.0)
+    assert inputs.regional_size_fields[0].outside_size == pytest.approx(500.0)
+    assert inputs.diagnostics.outside_coarsening_summary is not None
+    assert inputs.diagnostics.outside_coarsening_summary["enabled"] is True
+    assert inputs.diagnostics.outside_coarsening_summary["size_factor"] == pytest.approx(2.0)
+    assert inputs.diagnostics.watershed_boundary_plot_gdf is not None
+    assert not inputs.diagnostics.watershed_boundary_plot_gdf.empty
+
+
+def test_watershed_boundary_defaults_regularization_tolerance_to_global_size(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "mesh_launcher.toml"
+    config_path.write_text("[mesh_catchment]\nconstraints_mode = \"geology_only\"\n", encoding="utf-8")
+
+    watershed_path = tmp_path / "watershed.geojson"
+    gpd.GeoDataFrame(
+        {"catch_id": ["ws_1"]},
+        geometry=[box(355400.0, 6712900.0, 358400.0, 6716100.0)],
+        crs="EPSG:2154",
+    ).to_file(watershed_path, driver="GeoJSON")
+
+    section_data = {
+        "constraints_mode": "geology_only",
+        "watershed_boundary": {
+            "enabled": True,
+            "smoothing": {
+                "enabled": True,
+                "river_buffer_distance": 100.0,
+                "outer_bias_distance": 10.0,
+            },
+        },
+        "domain": {
+            "kind": "vector",
+            "path": str((CASE_TOML.parent / "domain_window.geojson").resolve()),
+            "id_field": "domain_id",
+            "selected_id": "main",
+        },
+        "geology": {
+            "source": {
+                "path": str((CASE_TOML.parent / _CASE_RELATIVE_GEOLOGY_PATH).resolve()),
+                "kind": "vector",
+                "code_field": "CODE_LEG",
+                "reference_raster_path": str(
+                    (CASE_TOML.parent / _CASE_RELATIVE_REFERENCE_RASTER_PATH).resolve()
+                ),
+            }
+        },
+        "zone_meshing": {
+            "algorithm": "delaunay",
+            "global_size": 250.0,
+            "min_size": 125.0,
+            "max_size": 400.0,
+            "simplify_tolerance": 0.0,
+            "heal_tolerance": 0.0,
+            "min_polygon_area": 0.0,
+            "refine_interfaces": True,
+            "interface_size": 90.0,
+            "interface_distance": 450.0,
+            "interface_sampling": 64,
+        },
+    }
+
+    cfg = _resolve_case_config(
+        config_path,
+        section="mesh_catchment",
+        section_data_override=section_data,
+    )
+    inputs = _build_zone_conformal_meshing_inputs(
+        cfg=cfg,
+        config_path=config_path,
+        river_trace=SimpleNamespace(
+            lines=(LineString([(355450.0, 6713000.0), (358250.0, 6715900.0)]),)
+        ),
+        domain_geographic=SimpleNamespace(watershed_shp=str(watershed_path)),
+    )
+
+    assert inputs.diagnostics.watershed_boundary_summary is not None
+    assert inputs.diagnostics.watershed_boundary_summary["smoothing"]["distance"] == pytest.approx(250.0)
+
+
+@_skip_no_gmsh
+def test_watershed_boundary_runs_end_to_end_with_smoothed_constraint(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "mesh_launcher.toml"
+    config_path.write_text("[mesh_catchment]\nconstraints_mode = \"geology_only\"\n", encoding="utf-8")
+
+    watershed_path = tmp_path / "watershed.geojson"
+    watershed_gdf = gpd.GeoDataFrame(
+        {"catch_id": ["ws_1"]},
+        geometry=[box(355400.0, 6712900.0, 358400.0, 6716100.0)],
+        crs="EPSG:2154",
+    )
+    watershed_gdf.to_file(watershed_path, driver="GeoJSON")
+
+    summary = run_reference_2d_zone_conformal_case_from_toml(
+        config_path,
+        section="mesh_catchment",
+        section_data_override={
+            "constraints_mode": "geology_only",
+            "watershed_boundary": {
+                "enabled": True,
+                "boundary_refinement_distance": 500.0,
+                "smoothing": {
+                    "enabled": True,
+                    "distance": 50.0,
+                    "river_buffer_distance": 100.0,
+                    "outer_bias_distance": 10.0,
+                },
+            },
+            "domain": {
+                "kind": "vector",
+                "path": str((CASE_TOML.parent / "domain_window.geojson").resolve()),
+                "id_field": "domain_id",
+                "selected_id": "main",
+            },
+            "geology": {
+                "source": {
+                    "path": str((CASE_TOML.parent / _CASE_RELATIVE_GEOLOGY_PATH).resolve()),
+                    "kind": "vector",
+                    "code_field": "CODE_LEG",
+                    "reference_raster_path": str(
+                        (CASE_TOML.parent / _CASE_RELATIVE_REFERENCE_RASTER_PATH).resolve()
+                    ),
+                }
+            },
+            "zone_meshing": {
+                "algorithm": "delaunay",
+                "global_size": 250.0,
+                "min_size": 125.0,
+                "max_size": 400.0,
+                "simplify_tolerance": 0.0,
+                "heal_tolerance": 0.0,
+                "min_polygon_area": 0.0,
+                "refine_interfaces": True,
+                "interface_size": 90.0,
+                "interface_distance": 450.0,
+                "interface_sampling": 64,
+            },
+        },
+        output_mesh=tmp_path / "watershed_boundary_mesh.msh",
+        output_summary_json=tmp_path / "watershed_boundary_summary.json",
+        river_trace=SimpleNamespace(
+            lines=(
+                LineString(
+                    [
+                        (355450.0, 6713000.0),
+                        (356800.0, 6714200.0),
+                        (358250.0, 6715900.0),
+                    ]
+                ),
+            )
+        ),
+        domain_geographic=SimpleNamespace(watershed_shp=str(watershed_path)),
+        show_plot=False,
+    )
+
+    assert summary["watershed_boundary"]["enabled"] is True
+    assert summary["watershed_boundary"]["smoothing_enabled"] is True
+    assert summary["mesh_size_fields"]["interface_refinement"]["enabled"] is True
+    assert summary["n_cells"] > 0
+
 def test_main_prints_summary_json(monkeypatch, capsys) -> None:
     payload = {"status": "ok", "n_cells": 3}
 
@@ -797,7 +1163,8 @@ def test_geographic_box_buffer_domain_uses_domain_geographic_support() -> None:
     assert summary["n_nodes"] > 0
 
 
-def test_reference_case_rejects_removed_watershed_boundary_section() -> None:
+@_skip_no_gmsh
+def test_reference_case_accepts_watershed_boundary_section() -> None:
     output_dir = (
         Path.cwd()
         / "scratch_tests"
@@ -807,18 +1174,31 @@ def test_reference_case_rejects_removed_watershed_boundary_section() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = output_dir / "case_geographic_box_buffer_watershed_boundary.toml"
     _write_geographic_box_buffer_watershed_boundary_case_toml(config_path)
+    box_buff_shp = (CASE_TOML.parent / "domain_window.geojson").resolve()
+    watershed_path = output_dir / "watershed.geojson"
+    gpd.GeoDataFrame(
+        {"catch_id": ["ws_1"]},
+        geometry=[box(355400.0, 6712900.0, 358400.0, 6716100.0)],
+        crs="EPSG:2154",
+    ).to_file(watershed_path, driver="GeoJSON")
 
-    with pytest.raises(
-        ValueError,
-        match=r"\[case\.watershed_boundary\] is no longer supported",
-    ):
-        run_reference_2d_zone_conformal_case_from_toml(
-            config_path,
-            section="case",
-            output_mesh=output_dir
-            / "reference_2d_zone_conformal_geographic_box_buffer_watershed_boundary.msh",
-            show_plot=False,
-        )
+    summary = run_reference_2d_zone_conformal_case_from_toml(
+        config_path,
+        section="case",
+        output_mesh=output_dir
+        / "reference_2d_zone_conformal_geographic_box_buffer_watershed_boundary.msh",
+        output_summary_json=output_dir
+        / "reference_2d_zone_conformal_geographic_box_buffer_watershed_boundary_summary.json",
+        domain_geographic=SimpleNamespace(
+            box_buff_shp=str(box_buff_shp),
+            watershed_shp=str(watershed_path),
+        ),
+        show_plot=False,
+    )
+
+    assert summary["watershed_boundary"]["enabled"] is True
+    assert summary["watershed_boundary"]["smoothing_enabled"] is True
+    assert summary["n_cells"] > 0
 
 
 @_skip_no_gmsh

@@ -9,7 +9,12 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from hydromodpy.display import plot_flow_suite, plot_particles_suite, plot_transport_suite
+from hydromodpy.display import (
+    plot_boussinesq_flow_suite,
+    plot_flow_suite,
+    plot_particles_suite,
+    plot_transport_suite,
+)
 from hydromodpy.postprocess.flow.matching_streams import run_matching_streams
 from hydromodpy.postprocess.postprocess_config import PostprocessConfig
 
@@ -61,6 +66,11 @@ class PostprocessRunner:
             flow_model = state.get_model_for_solver("modflow6")
         return flow_model
 
+    @staticmethod
+    def _resolve_boussinesq_model(state: "LauncherRunState"):
+        """Resolve the Boussinesq flow model from canonical run registry."""
+        return state.get_model_for_solver("boussinesq")
+
     def _after_flow(self, state: "LauncherRunState") -> None:
         cfg = self.config.flow
         if not cfg.enabled:
@@ -68,6 +78,12 @@ class PostprocessRunner:
 
         flow_model = self._resolve_flow_model(state)
         if flow_model is None:
+            boussinesq_model = self._resolve_boussinesq_model(state)
+            if boussinesq_model is None:
+                return
+            if cfg.display:
+                display_options = state.cfg.display.to_runtime_options()
+                plot_boussinesq_flow_suite(state, display_options)
             return
 
         if cfg.timeseries.enabled:

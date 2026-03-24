@@ -19,7 +19,6 @@ from hydromodpy.simulation.planning.plan import (
 )
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
     _build_flow_config,
-    _write_csv,
 )
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.runtime import (
@@ -35,6 +34,10 @@ LAND_SUPPORT_RADII_M = (25.0, 50.0, 70.0, 100.0, 140.0, 180.0, 200.0)
 OUTER_OCEAN_BUFFER_M = 5.0
 OCEAN_RING_CONDUCTIVITY_M_S = 1.0
 STORAGE_COEFFICIENT = 0.1
+
+
+def _write_csv(path: Path, header: str, rows: list[str]) -> None:
+    path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
 
 
 def _load_reference_cfg() -> dict:

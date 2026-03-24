@@ -23,14 +23,13 @@ def test_parse_mesh_catchment_config_defaults_domain_and_rivers() -> None:
     assert cfg.domain.kind == "geographic_box_buffer"
     assert cfg.geographic_outputs_mode == "keep"
     assert cfg.rivers.source == "domain_geographic"
-    assert "watershed_boundary" not in cfg.model_dump(mode="python")
+    assert cfg.watershed_boundary.enabled is False
     assert cfg.zone_meshing.algorithm == "delaunay"
 
 
 @pytest.mark.parametrize(
     "removed_key, removed_payload",
     [
-        ("watershed_boundary", {"enabled": True}),
         ("interface_scope", {"kind": "geographic_watershed"}),
         ("refinement_scope", {"kind": "geographic_watershed"}),
     ],
@@ -102,6 +101,53 @@ def test_parse_mesh_catchment_config_accepts_flat_output_layout() -> None:
     assert cfg.output_layout == "flat"
 
 
+def test_parse_mesh_catchment_config_accepts_watershed_boundary_settings() -> None:
+    cfg = parse_mesh_catchment_config_data(
+        {
+            "constraints_mode": "geology_only",
+            "geology": {
+                "source": {
+                    "path": "data/geology.tif",
+                    "kind": "raster",
+                }
+            },
+            "watershed_boundary": {
+                "enabled": True,
+                "boundary_refinement_distance": 500.0,
+                "smoothing": {
+                    "enabled": True,
+                    "distance": 50.0,
+                    "river_buffer_distance": 100.0,
+                    "outer_bias_distance": 10.0,
+                },
+                "outside_coarsening": {
+                    "enabled": True,
+                    "size_factor": 2.0,
+                    "transition_distance": 500.0,
+                    "grid_resolution": 250.0,
+                },
+            },
+            "zone_meshing": {
+                "refine_interfaces": True,
+                "global_size": 250.0,
+                "interface_size": 125.0,
+                "interface_distance": 500.0,
+            },
+        }
+    )
+
+    assert cfg.watershed_boundary.enabled is True
+    assert cfg.watershed_boundary.boundary_refinement_distance == 500.0
+    assert cfg.watershed_boundary.smoothing.enabled is True
+    assert cfg.watershed_boundary.smoothing.distance == 50.0
+    assert cfg.watershed_boundary.smoothing.river_buffer_distance == 100.0
+    assert cfg.watershed_boundary.smoothing.outer_bias_distance == 10.0
+    assert cfg.watershed_boundary.outside_coarsening.enabled is True
+    assert cfg.watershed_boundary.outside_coarsening.size_factor == 2.0
+    assert cfg.watershed_boundary.outside_coarsening.transition_distance == 500.0
+    assert cfg.watershed_boundary.outside_coarsening.grid_resolution == 250.0
+
+
 def test_parse_mesh_catchment_config_rejects_unknown_cleanup_mode() -> None:
     with pytest.raises(ValueError, match="geographic_outputs_mode"):
         parse_mesh_catchment_config_data(
@@ -161,4 +207,5 @@ def test_template_renderer_mentions_output_layout() -> None:
 
     assert 'output_layout = "standard"' in content
     assert "write final mesh artifacts directly under `workspace.project_root`" in content
-    assert "[mesh_catchment.watershed_boundary]" not in content
+    assert "[mesh_catchment.watershed_boundary]" in content
+    assert "[mesh_catchment.watershed_boundary.outside_coarsening]" in content

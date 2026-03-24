@@ -54,6 +54,53 @@ def _draw_domain_outline(ax, domain_gdf: gpd.GeoDataFrame) -> None:
     )
 
 
+def _draw_raw_catchment_boundary(
+    ax,
+    *,
+    catchment_gdf: gpd.GeoDataFrame | None,
+    color: str = "#d95f02",
+    linewidth: float = 1.0,
+    linestyle: str = "--",
+) -> bool:
+    if catchment_gdf is None or catchment_gdf.empty:
+        return False
+    catchment_gdf.boundary.plot(
+        ax=ax,
+        color=color,
+        linewidth=linewidth,
+        linestyle=linestyle,
+        zorder=8,
+    )
+    return True
+
+
+def _draw_regularized_catchment_boundary(
+    ax,
+    *,
+    catchment_boundary_gdf: gpd.GeoDataFrame | None,
+    catchment_gdf: gpd.GeoDataFrame | None,
+    color: str = "black",
+    linewidth: float = 1.25,
+) -> bool:
+    if catchment_boundary_gdf is not None and not catchment_boundary_gdf.empty:
+        catchment_boundary_gdf.plot(
+            ax=ax,
+            color=color,
+            linewidth=linewidth,
+            zorder=8,
+        )
+        return True
+    if catchment_gdf is not None:
+        catchment_gdf.boundary.plot(
+            ax=ax,
+            color=color,
+            linewidth=linewidth,
+            zorder=8,
+        )
+        return True
+    return False
+
+
 def _resolve_river_lines_for_plot(
     *,
     river_trace: object | None,
@@ -200,6 +247,7 @@ def _build_geographic_mesh_figure(
     mesh,
     domain_bounds: list[float],
     catchment_gdf: gpd.GeoDataFrame | None,
+    catchment_boundary_gdf: gpd.GeoDataFrame | None,
     topo_background: tuple[np.ndarray, tuple[float, float, float, float]] | None,
     river_lines: list[object],
 ):
@@ -209,6 +257,7 @@ def _build_geographic_mesh_figure(
 
     fig, axes = plt.subplots(1, 2, figsize=(16.8, 8.6), dpi=160)
     ax_topo, ax_overlay = axes
+    cbar = None
 
     if topo_background is not None:
         dem, extent = topo_background
@@ -219,24 +268,46 @@ def _build_geographic_mesh_figure(
             origin="upper",
             zorder=1,
         )
-        cbar = fig.colorbar(im, ax=ax_topo, fraction=0.042, pad=0.015)
+        cbar_ax = fig.add_axes([0.32, 0.885, 0.36, 0.018])
+        cbar = fig.colorbar(
+            im,
+            cax=cbar_ax,
+            orientation="horizontal",
+        )
         cbar.set_label("Elevation [m]", fontsize=11)
         cbar.ax.tick_params(labelsize=9)
     else:
         ax_topo.set_facecolor("0.96")
 
-    if catchment_gdf is not None:
-        catchment_gdf.boundary.plot(
-            ax=ax_topo,
+    boundary_drawn = _draw_raw_catchment_boundary(
+        ax_topo,
+        catchment_gdf=catchment_gdf,
+        color="black",
+        linewidth=1.1,
+        linestyle="-",
+    )
+    if not boundary_drawn:
+        boundary_drawn = _draw_regularized_catchment_boundary(
+            ax_topo,
+            catchment_boundary_gdf=catchment_boundary_gdf,
+            catchment_gdf=None,
             color="black",
-            linewidth=1.25,
-            zorder=8,
+            linewidth=1.1,
         )
-        catchment_gdf.boundary.plot(
-            ax=ax_overlay,
+    overlay_boundary_drawn = _draw_raw_catchment_boundary(
+        ax_overlay,
+        catchment_gdf=catchment_gdf,
+        color="black",
+        linewidth=1.05,
+        linestyle="-",
+    )
+    if not overlay_boundary_drawn:
+        _draw_regularized_catchment_boundary(
+            ax_overlay,
+            catchment_boundary_gdf=catchment_boundary_gdf,
+            catchment_gdf=None,
             color="black",
-            linewidth=1.25,
-            zorder=8,
+            linewidth=1.05,
         )
 
     _draw_domain_outline(ax_topo, domain_gdf)
@@ -253,14 +324,21 @@ def _build_geographic_mesh_figure(
         zorder=1,
     )
     _draw_mesh_edges(ax_overlay, mesh)
-    _draw_river_lines(ax_overlay, river_lines=river_lines, color="0.10", lw=0.95)
+    _draw_river_lines(
+        ax_overlay,
+        river_lines=river_lines,
+        color="#1f78b4",
+        lw=0.72,
+        alpha=0.85,
+    )
     _draw_domain_outline(ax_overlay, domain_gdf)
-    if catchment_gdf is not None:
-        catchment_gdf.boundary.plot(
-            ax=ax_overlay,
+    if not overlay_boundary_drawn:
+        _draw_regularized_catchment_boundary(
+            ax_overlay,
+            catchment_boundary_gdf=catchment_boundary_gdf,
+            catchment_gdf=None,
             color="black",
-            linewidth=1.15,
-            zorder=8,
+            linewidth=1.05,
         )
 
     _set_panel_limits(ax_topo, bounds=domain_bounds)
@@ -275,16 +353,16 @@ def _build_geographic_mesh_figure(
         disable_axis_offset(ax)
 
     legend_handles: list[Line2D] = []
-    if catchment_gdf is not None:
+    if boundary_drawn:
         legend_handles.append(
-            Line2D([0], [0], color="black", lw=1.25, label="Catchment boundary")
+            Line2D([0], [0], color="black", lw=1.05, label="Catchment boundary")
         )
     legend_handles.append(
         Line2D([0], [0], color="black", lw=1.2, linestyle="--", label="Meshing domain")
     )
     if river_count > 0:
         legend_handles.append(
-            Line2D([0], [0], color="0.10", lw=1.0, label="Hydro network")
+            Line2D([0], [0], color="#1f78b4", lw=0.9, label="Hydro network")
         )
     legend_handles.append(
         Line2D([0], [0], color="0.20", lw=0.9, label="Mesh edges")
@@ -297,24 +375,13 @@ def _build_geographic_mesh_figure(
     )
     ax_overlay.add_artist(overlay_legend)
 
-    geology_handles = [
-        Patch(facecolor=key_to_color[zone_key], edgecolor="0.25", label=zone_key)
-        for zone_key in zone_keys
-    ]
-    if geology_handles:
-        ax_overlay.legend(
-            handles=geology_handles,
-            title="Constrained zones",
-            loc="upper right",
-            fontsize=8,
-            title_fontsize=9,
-            framealpha=0.92,
-        )
-
     fig.suptitle("Mesh-catchment overview", fontsize=17)
     fig.subplots_adjust(
-        left=0.05, right=0.985, top=0.92, bottom=0.08, wspace=0.12
+        left=0.05, right=0.985, top=0.84, bottom=0.14, wspace=0.12
     )
+    if cbar is not None:
+        cbar.ax.xaxis.set_label_position("top")
+        cbar.ax.xaxis.set_ticks_position("top")
     return fig
 
 
@@ -322,6 +389,7 @@ def _build_regional_context_figure(
     *,
     domain_gdf: gpd.GeoDataFrame,
     catchment_gdf: gpd.GeoDataFrame | None,
+    catchment_boundary_gdf: gpd.GeoDataFrame | None,
     topo_background: tuple[np.ndarray, tuple[float, float, float, float]] | None,
     river_lines: list[object],
     outlet_xy: tuple[float, float] | None,
@@ -329,6 +397,7 @@ def _build_regional_context_figure(
     fig, ax = plt.subplots(1, 1, figsize=(10.2, 8.3), dpi=160)
 
     extent = None
+    cbar = None
     if topo_background is not None:
         dem, extent = topo_background
         im = ax.imshow(
@@ -338,19 +407,32 @@ def _build_regional_context_figure(
             origin="upper",
             zorder=1,
         )
-        cbar = fig.colorbar(im, ax=ax, fraction=0.040, pad=0.018)
+        cbar_ax = fig.add_axes([0.30, 0.89, 0.40, 0.02])
+        cbar = fig.colorbar(
+            im,
+            cax=cbar_ax,
+            orientation="horizontal",
+        )
         cbar.set_label("Elevation [m]", fontsize=11)
         cbar.ax.tick_params(labelsize=9)
     else:
         ax.set_facecolor("0.96")
 
     river_count = _draw_river_lines(ax, river_lines=river_lines)
-    if catchment_gdf is not None:
-        catchment_gdf.boundary.plot(
-            ax=ax,
+    boundary_drawn = _draw_raw_catchment_boundary(
+        ax,
+        catchment_gdf=catchment_gdf,
+        color="black",
+        linewidth=1.1,
+        linestyle="-",
+    )
+    if not boundary_drawn:
+        boundary_drawn = _draw_regularized_catchment_boundary(
+            ax,
+            catchment_boundary_gdf=catchment_boundary_gdf,
+            catchment_gdf=None,
             color="black",
-            linewidth=1.4,
-            zorder=8,
+            linewidth=1.2,
         )
     _draw_domain_outline(ax, domain_gdf)
 
@@ -387,9 +469,13 @@ def _build_regional_context_figure(
     disable_axis_offset(ax)
 
     legend_handles: list[Line2D] = [
-        Line2D([0], [0], color="black", lw=1.3, label="Catchment boundary"),
         Line2D([0], [0], color="black", lw=1.2, linestyle="--", label="Meshing domain"),
     ]
+    if boundary_drawn:
+        legend_handles.insert(
+            0,
+            Line2D([0], [0], color="black", lw=1.2, label="Catchment boundary"),
+        )
     if river_count > 0:
         legend_handles.append(
             Line2D([0], [0], color="#1f78b4", lw=1.1, label="Hydro network")
@@ -408,7 +494,10 @@ def _build_regional_context_figure(
             )
         )
     ax.legend(handles=legend_handles, loc="lower left", fontsize=9, framealpha=0.92)
-    fig.subplots_adjust(left=0.08, right=0.96, top=0.93, bottom=0.08)
+    fig.subplots_adjust(left=0.08, right=0.96, top=0.84, bottom=0.14)
+    if cbar is not None:
+        cbar.ax.xaxis.set_label_position("top")
+        cbar.ax.xaxis.set_ticks_position("top")
     return fig
 
 
@@ -518,6 +607,7 @@ def _build_figure(
     domain_kind: str,
     interface_refinement: Mapping[str, Any],
     catchment_gdf: gpd.GeoDataFrame | None = None,
+    catchment_boundary_gdf: gpd.GeoDataFrame | None = None,
     domain_geographic: object | None = None,
     river_trace: object | None = None,
 ):
@@ -534,6 +624,7 @@ def _build_figure(
             mesh=mesh,
             domain_bounds=domain_bounds,
             catchment_gdf=catchment_gdf,
+            catchment_boundary_gdf=catchment_boundary_gdf,
             topo_background=topo_background,
             river_lines=river_lines,
         )
@@ -614,6 +705,7 @@ def _write_optional_figure_artifacts(
         domain_geographic,
         target_crs=meshing_inputs.effective_domain_payload.gdf.crs,
     )
+    catchment_boundary_gdf = meshing_inputs.diagnostics.watershed_boundary_plot_gdf
 
     common_plot_kwargs = {
         "source_domain_gdf": meshing_inputs.diagnostics.source_plot_gdf,
@@ -627,6 +719,7 @@ def _write_optional_figure_artifacts(
             result.summary.get("mesh_size_fields", {}).get("interface_refinement", {})
         ),
         "catchment_gdf": catchment_gdf,
+        "catchment_boundary_gdf": catchment_boundary_gdf,
         "domain_geographic": domain_geographic,
         "river_trace": meshing_inputs.diagnostics.river_trace,
     }
@@ -642,6 +735,7 @@ def _write_optional_figure_artifacts(
             regional_fig = _build_regional_context_figure(
                 domain_gdf=meshing_inputs.effective_domain_payload.gdf,
                 catchment_gdf=catchment_gdf,
+                catchment_boundary_gdf=catchment_boundary_gdf,
                 topo_background=_load_regional_topography_background(domain_geographic),
                 river_lines=_resolve_river_lines_for_plot(
                     river_trace=meshing_inputs.diagnostics.river_trace,

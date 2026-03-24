@@ -117,6 +117,156 @@ class MeshCatchmentRiversConfigSchema(BaseModel):
         return self
 
 
+class MeshCatchmentWatershedBoundarySmoothingConfigSchema(BaseModel):
+    """Optional smoothing controls for the watershed-boundary constraint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "If true, apply the smoothing controls below before converting the watershed boundary into one linear constraint."
+        ),
+    )
+    distance: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Optional regularization tolerance, in projected metres, used to simplify the watershed boundary "
+            "at roughly the target internal mesh scale before it is injected as a linear mesh constraint. "
+            "When omitted, the mesher reuses zone_meshing.global_size."
+        ),
+    )
+    river_buffer_distance: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Optional protective buffer around river traces, in projected metres, merged into the boundary-support "
+            "polygon before smoothing so the final watershed boundary stays slightly outside river corridors near the basin edge."
+        ),
+    )
+    outer_bias_distance: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Optional outward bias, in projected metres, applied after smoothing so the final watershed boundary "
+            "remains slightly englobing instead of cutting back toward the raw catchment contour."
+        ),
+    )
+
+
+class MeshCatchmentWatershedOutsideCoarseningConfigSchema(BaseModel):
+    """Optional coarse-background size controls outside the watershed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "If true, add one regional mesh-size field that keeps the current background size inside the watershed "
+            "and coarsens the mesh outside it."
+        ),
+    )
+    size_factor: float = Field(
+        default=2.0,
+        ge=1.0,
+        description=(
+            "Multiplicative factor applied to zone_meshing.global_size outside the watershed. "
+            "Use 2.0 for an outside background roughly twice as coarse as the internal baseline."
+        ),
+    )
+    transition_distance: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Optional transition width, in projected metres, used to ramp from the internal background size "
+            "to the coarser outside size away from the watershed boundary."
+        ),
+    )
+    grid_resolution: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Optional structured-grid resolution, in projected metres, used to discretize the outside coarsening field. "
+            "When omitted, the mesher reuses zone_meshing.global_size."
+        ),
+    )
+
+
+class MeshCatchmentWatershedGeologyConformityConfigSchema(BaseModel):
+    """Optional control of where geology remains conformal around the watershed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: str = Field(
+        default="full_domain",
+        description=(
+            "Control where geology remains conformal. "
+            "Use 'full_domain' to keep the current behavior, or 'buffered_watershed_envelope' "
+            "to keep geology conformal only inside one buffered envelope around the regularized watershed."
+        ),
+    )
+    buffer_distance: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Optional outward buffer, in projected metres, added around the regularized watershed before clipping "
+            "the geology-conformal region. When omitted in buffered_watershed_envelope mode, the mesher reuses zone_meshing.global_size."
+        ),
+    )
+
+    @field_validator("mode")
+    @classmethod
+    def _validate_mode(cls, value: object) -> str:
+        token = str(value).strip().lower()
+        if token not in {"full_domain", "buffered_watershed_envelope"}:
+            raise ValueError(
+                "geology_conformity.mode must be 'full_domain' or 'buffered_watershed_envelope'."
+            )
+        return token
+
+
+class MeshCatchmentWatershedBoundaryConfigSchema(BaseModel):
+    """Optional watershed-boundary mesh constraint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "If true, inject the watershed boundary as one dedicated linear constraint in addition to geology "
+            "and/or river constraints."
+        ),
+    )
+    boundary_refinement_distance: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Optional influence distance, in projected metres, used for the watershed-boundary refinement family. "
+            "When omitted, the mesher derives one conservative distance from the boundary extent."
+        ),
+    )
+    smoothing: MeshCatchmentWatershedBoundarySmoothingConfigSchema = Field(
+        default_factory=MeshCatchmentWatershedBoundarySmoothingConfigSchema,
+        description=(
+            "Optional regularization controls applied before the watershed boundary is converted to a linear constraint."
+        ),
+    )
+    outside_coarsening: MeshCatchmentWatershedOutsideCoarseningConfigSchema = Field(
+        default_factory=MeshCatchmentWatershedOutsideCoarseningConfigSchema,
+        description=(
+            "Optional coarse-background size field applied outside the regularized watershed while keeping the geology partition unchanged."
+        ),
+    )
+    geology_conformity: MeshCatchmentWatershedGeologyConformityConfigSchema = Field(
+        default_factory=MeshCatchmentWatershedGeologyConformityConfigSchema,
+        description=(
+            "Optional control of where geology remains conformal relative to the watershed. "
+            "Keep the default full_domain mode to preserve the current behavior."
+        ),
+    )
+
+
 _SUPPORTED_HYDRAULIC_VALUE_SOURCES = {"inline", "csv"}
 
 
@@ -401,6 +551,14 @@ class MeshCatchmentConfigSchema(BaseModel):
             "should be interpreted before conformal meshing."
         ),
     )
+    watershed_boundary: MeshCatchmentWatershedBoundaryConfigSchema = Field(
+        default_factory=MeshCatchmentWatershedBoundaryConfigSchema,
+        description=(
+            "Optional watershed-boundary mesh constraint. "
+            "Enable it to force a conformal mesh line along the catchment boundary while keeping the geology zonation "
+            "represented on the whole support domain."
+        ),
+    )
     hydraulic_properties: MeshCatchmentHydraulicPropertiesConfigSchema | None = Field(
         default=None,
         description=(
@@ -472,6 +630,14 @@ class MeshCatchmentConfigSchema(BaseModel):
         if self.constraints_mode in {"geology_only", "geology_rivers"} and self.geology is None:
             raise ValueError(
                 "geology section is required when constraints_mode includes geology."
+            )
+        if (
+            self.geology is None
+            and self.watershed_boundary.geology_conformity.mode
+            != "full_domain"
+        ):
+            raise ValueError(
+                "watershed_boundary.geology_conformity requires the geology section."
             )
         if self.hydraulic_properties is not None and self.geology is None:
             raise ValueError(
@@ -650,7 +816,7 @@ def parse_mesh_catchment_config_data(
     """Validate one `[mesh_catchment]` section and return the typed model."""
     if not isinstance(config_data, Mapping):
         raise ValueError("mesh_catchment configuration must be a mapping.")
-    for removed_key in ("watershed_boundary", "interface_scope", "refinement_scope"):
+    for removed_key in ("interface_scope", "refinement_scope"):
         if removed_key in config_data:
             raise ValueError(
                 f"[mesh_catchment.{removed_key}] is no longer supported. "
@@ -686,6 +852,8 @@ __all__ = [
     "MeshCatchmentBatchSectionSchema",
     "MeshCatchmentConfigSchema",
     "MeshCatchmentRiversConfigSchema",
+    "MeshCatchmentWatershedBoundaryConfigSchema",
+    "MeshCatchmentWatershedBoundarySmoothingConfigSchema",
     "parse_mesh_catchment_batch_config_data",
     "parse_mesh_catchment_config_data",
 ]

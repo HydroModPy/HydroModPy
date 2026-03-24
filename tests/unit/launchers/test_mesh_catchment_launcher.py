@@ -172,7 +172,7 @@ def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path:
     assert kwargs["output_figure"] is None
     assert kwargs["output_figure_regional"] is None
     assert kwargs["section_data_override"]["domain"]["kind"] == "geographic_box_buffer"
-    assert "watershed_boundary" not in kwargs["section_data_override"]
+    assert kwargs["section_data_override"]["watershed_boundary"]["enabled"] is False
     assert kwargs["domain_geographic"].river_mesh_trace is not None
 
 
@@ -202,7 +202,7 @@ def test_prepare_geographic_config_for_meshing_updates_simple_namespace_runtime(
     assert geographic_cfg.river_network.enabled is False
 
 
-def test_mesh_catchment_launcher_rejects_removed_watershed_boundary_section(
+def test_mesh_catchment_launcher_accepts_watershed_boundary_section(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -228,8 +228,13 @@ def test_mesh_catchment_launcher_rejects_removed_watershed_boundary_section(
                 "constraints_mode": "rivers_only",
                 "watershed_boundary": {
                     "enabled": True,
-                    "clip_to_domain": True,
-                    "participates_in_refinement": False,
+                    "boundary_refinement_distance": 500.0,
+                    "smoothing": {
+                        "enabled": True,
+                        "distance": 50.0,
+                        "river_buffer_distance": 100.0,
+                        "outer_bias_distance": 10.0,
+                    },
                 },
             }
         },
@@ -242,11 +247,28 @@ def test_mesh_catchment_launcher_rejects_removed_watershed_boundary_section(
         "launchers.mesh_catchment.runtime.build_domain_geographic_context",
         lambda **_: _DummyDomainGeographic(),
     )
-    with pytest.raises(
-        ValueError,
-        match=r"\[mesh_catchment\.watershed_boundary\] is no longer supported",
-    ):
-        _ = MeshCatchmentLauncher(config_path).run()
+    captured: dict[str, object] = {}
+
+    def _fake_run_case(config_toml, **kwargs):
+        captured["config_toml"] = config_toml
+        captured["kwargs"] = kwargs
+        return {"summary_schema_version": "zone_conformal_sidecar_v1"}
+
+    monkeypatch.setattr(
+        "launchers.mesh_catchment.runtime.run_reference_2d_zone_conformal_case_from_toml",
+        _fake_run_case,
+    )
+
+    summary = MeshCatchmentLauncher(config_path).run()
+
+    assert summary["summary_schema_version"] == "zone_conformal_sidecar_v1"
+    assert captured["kwargs"]["section_data_override"]["watershed_boundary"]["enabled"] is True
+    assert (
+        captured["kwargs"]["section_data_override"]["watershed_boundary"][
+            "boundary_refinement_distance"
+        ]
+        == 500.0
+    )
 
 
 def test_mesh_catchment_launcher_flat_output_layout_writes_directly_to_project_root(

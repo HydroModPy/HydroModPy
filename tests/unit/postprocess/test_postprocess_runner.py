@@ -236,3 +236,56 @@ def test_postprocess_runner_passes_flow_model_to_matching_streams(monkeypatch) -
     assert captured[0]["model_modflow"] is flow_model
     assert captured[0]["iteration_label"] == "flow_main"
     assert captured[0]["from_calib"] is False
+
+
+def test_postprocess_runner_calls_boussinesq_display_when_enabled(monkeypatch) -> None:
+    cfg = PostprocessConfig.model_validate(
+        {
+            "enabled": True,
+            "flow": {
+                "timeseries": {"enabled": False},
+                "netcdf": {"enabled": False},
+                "matching_streams": False,
+                "display": True,
+            },
+            "transport": {"enabled": False},
+        }
+    )
+    runner = PostprocessRunner(cfg)
+
+    captured: list[dict] = []
+
+    monkeypatch.setattr(
+        "hydromodpy.postprocess.runner.plot_flow_suite",
+        lambda state, options: captured.append({"suite": "modflow"}),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.postprocess.runner.plot_boussinesq_flow_suite",
+        lambda state, options: captured.append(
+            {"suite": "boussinesq", "state": state, "options": options}
+        ),
+    )
+
+    boussinesq_model = SimpleNamespace(model_name="bouss_flow")
+    display_options = SimpleNamespace(enabled=True, show=False, save=True)
+
+    class _State:
+        setup = SimpleNamespace(geographic=SimpleNamespace(), workspace=SimpleNamespace())
+        loaded_data = SimpleNamespace(hydrography=None, runoff=None)
+        cfg = SimpleNamespace(
+            display=SimpleNamespace(to_runtime_options=lambda: display_options)
+        )
+
+        @staticmethod
+        def get_model_for_solver(name: str):
+            if name == "boussinesq":
+                return boussinesq_model
+            return None
+
+    state = _State()
+    runner.after_process("flow", state)
+
+    assert len(captured) == 1
+    assert captured[0]["suite"] == "boussinesq"
+    assert captured[0]["state"] is state
+    assert captured[0]["options"] is display_options

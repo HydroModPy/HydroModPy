@@ -28,7 +28,11 @@ def _run_zone_conformal_meshing(
         meshing_inputs.zone_gdf,
         output_path=mesh_path,
         zone_key_column="zone_key",
-        priority_column=None,
+        priority_column=(
+            "_mesh_priority"
+            if "_mesh_priority" in meshing_inputs.zone_gdf.columns
+            else None
+        ),
         domain_geometry=meshing_inputs.effective_domain_payload.geometry,
         algorithm=meshing_inputs.zone_meshing_cfg.algorithm,
         global_size=meshing_inputs.zone_meshing_cfg.global_size,
@@ -43,6 +47,7 @@ def _run_zone_conformal_meshing(
         interface_sampling=meshing_inputs.zone_meshing_cfg.interface_sampling,
         refinement_policy=meshing_inputs.zone_meshing_cfg.refinement_policy,
         linear_constraints=meshing_inputs.linear_constraints,
+        regional_size_fields=meshing_inputs.regional_size_fields,
         refinement_scope_geometry=None,
         model_name=(
             f"reference_2d_zone_conformal_{meshing_inputs.constraints_mode_label}"
