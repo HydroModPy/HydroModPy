@@ -126,6 +126,10 @@ def test_parse_mesh_catchment_config_accepts_watershed_boundary_settings() -> No
                     "transition_distance": 500.0,
                     "grid_resolution": 250.0,
                 },
+                "geology_conformity": {
+                    "mode": "buffered_watershed_envelope",
+                    "buffer_distance": 400.0,
+                },
             },
             "zone_meshing": {
                 "refine_interfaces": True,
@@ -146,6 +150,28 @@ def test_parse_mesh_catchment_config_accepts_watershed_boundary_settings() -> No
     assert cfg.watershed_boundary.outside_coarsening.size_factor == 2.0
     assert cfg.watershed_boundary.outside_coarsening.transition_distance == 500.0
     assert cfg.watershed_boundary.outside_coarsening.grid_resolution == 250.0
+    assert (
+        cfg.watershed_boundary.geology_conformity.mode
+        == "buffered_watershed_envelope"
+    )
+    assert cfg.watershed_boundary.geology_conformity.buffer_distance == 400.0
+
+
+def test_parse_mesh_catchment_config_rejects_buffered_geology_conformity_without_geology() -> None:
+    with pytest.raises(
+        ValueError,
+        match="watershed_boundary.geology_conformity requires the geology section",
+    ):
+        parse_mesh_catchment_config_data(
+            {
+                "constraints_mode": "rivers_only",
+                "watershed_boundary": {
+                    "geology_conformity": {
+                        "mode": "buffered_watershed_envelope",
+                    }
+                },
+            }
+        )
 
 
 def test_parse_mesh_catchment_config_rejects_unknown_cleanup_mode() -> None:
@@ -209,3 +235,4 @@ def test_template_renderer_mentions_output_layout() -> None:
     assert "write final mesh artifacts directly under `workspace.project_root`" in content
     assert "[mesh_catchment.watershed_boundary]" in content
     assert "[mesh_catchment.watershed_boundary.outside_coarsening]" in content
+    assert "[mesh_catchment.watershed_boundary.geology_conformity]" in content
