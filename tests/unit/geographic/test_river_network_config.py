@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.geographic import GeographicConfig
-from hydromodpy.geographic.geographic_paths import build_geographic_paths
+from hydromodpy.spatial.geographic import GeographicConfig
+from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
 
 
 def test_river_network_config_accepts_area_threshold_mode():

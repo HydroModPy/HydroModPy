@@ -14,8 +14,8 @@ import rasterio
 from rasterio.transform import xy
 from shapely.geometry import Point
 
-from hydromodpy.backends import get_whitebox_backend
-from hydromodpy.geographic.geographic_io import ensure_crs
+from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.spatial.geographic.geographic_io import ensure_crs
 
 from .config import CatchmentIdentificationConfig, DEFAULT_SECTION
 from .diagnostic_plots import export_diagnostic_figures

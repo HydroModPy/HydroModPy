@@ -12,8 +12,8 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.field.geology.geology_field import GeologyField
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.cartesian_grid.examples.discretization.case_runner import (
     run_discretization_case_from_toml,
 )

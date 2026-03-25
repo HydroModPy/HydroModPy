@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.field.core.field_param_config import (
+from hydromodpy.spatial.field.core.field_param_config import (
     load_field_param_toml,
     validate_resolved_field_param_data,
 )

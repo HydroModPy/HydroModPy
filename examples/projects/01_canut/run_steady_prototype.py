@@ -31,16 +31,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 import hydromodpy as hmp
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.data_managers import DataManagersPlanner, DataManagersRuntimeLoader
-from hydromodpy.domain import Domain
-from hydromodpy.geographic.structure_binders import (
+from hydromodpy.data import DataManagersPlanner, DataManagersRuntimeLoader
+from hydromodpy.spatial.domain import Domain
+from hydromodpy.spatial.geographic.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )
 from hydromodpy.process.flow import Flow
 from hydromodpy.process.flow.structure_binders import apply_recharge_load_result_to_flow
 from hydromodpy.process.transport import Transport
-from hydromodpy.simulation.state.run_state import LauncherRunState
+from hydromodpy.core.state.run_state import LauncherRunState
 from hydromodpy.solver.modflow_nwt import (
     Modflow,
     ModflowPostprocessOptions,
@@ -48,8 +48,8 @@ from hydromodpy.solver.modflow_nwt import (
     ModflowRunOptions,
     Modpath,
 )
-from hydromodpy.simulation.time import ResolvedSteadySimulationTimeGrid
-from hydromodpy.display import visualization_watershed, visualization_results, export_vtuvtk
+from hydromodpy.core.time import ResolvedSteadySimulationTimeGrid
+from hydromodpy.analysis.display import visualization_watershed, visualization_results, export_vtuvtk
 
 
 # =====================================================================

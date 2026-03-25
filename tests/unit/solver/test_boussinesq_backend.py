@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from hydromodpy.data_managers.contracts.load_result import LoadResult
-from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.process.flow import Flow
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.flow.sinks_sources import FlowRechargeConfig

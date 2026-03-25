@@ -19,7 +19,7 @@ from __future__ import annotations
 from pathlib import Path
 from textwrap import dedent
 
-from hydromodpy.config.generate_toml import generate_toml
+from hydromodpy.core.config.generate_toml import generate_toml
 
 
 _OUTPUT_LAYOUT_BLOCK = dedent(

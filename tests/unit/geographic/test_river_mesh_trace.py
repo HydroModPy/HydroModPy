@@ -6,7 +6,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, MultiLineString, box
 
-from hydromodpy.geographic.core.river_mesh_trace import (
+from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     RiverMeshTrace,
     build_river_mesh_trace_from_vector,
 )

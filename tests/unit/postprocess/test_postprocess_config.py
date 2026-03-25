@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.postprocess.postprocess_config import PostprocessConfig
+from hydromodpy.analysis.postprocess.postprocess_config import PostprocessConfig
 
 
 def test_postprocess_config_defaults_keep_feature_disabled() -> None:

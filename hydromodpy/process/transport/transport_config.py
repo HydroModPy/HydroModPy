@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.process.prototype import ProcessSpatialConfig
 
 

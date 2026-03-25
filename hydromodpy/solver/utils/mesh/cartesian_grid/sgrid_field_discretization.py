@@ -20,13 +20,13 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import pandas as pd
 
-from hydromodpy.support.units import factor_to_m_per_s
+from hydromodpy.core.units import factor_to_m_per_s
 
 if TYPE_CHECKING:
-    from hydromodpy.data_managers.contracts.load_result import LoadResult
-    from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-    from hydromodpy.data_managers.contracts.timeseries import PointRecord
-    from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
+    from hydromodpy.data.contracts.load_result import LoadResult
+    from hydromodpy.data.contracts.spatial_field import FieldRecord
+    from hydromodpy.data.contracts.timeseries import PointRecord
+    from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +270,7 @@ def _stress_period_bounds(
     if simulation_window is None:
         return None
 
-    from hydromodpy.simulation.time import build_simulation_time_boundaries
+    from hydromodpy.core.time import build_simulation_time_boundaries
 
     boundaries = build_simulation_time_boundaries(simulation_window)
     if len(boundaries) < 2:

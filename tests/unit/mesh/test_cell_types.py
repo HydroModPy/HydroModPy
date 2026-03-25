@@ -2,7 +2,7 @@
 
 import pytest
 
-from hydromodpy.mesh.cell_types import CellType
+from hydromodpy.spatial.mesh.cell_types import CellType
 
 
 def test_from_string_canonical_names() -> None:

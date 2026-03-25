@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
 
 @dataclass(frozen=True)
@@ -285,7 +285,7 @@ class SolverMesh:
 
     def to_disv_kwargs(self) -> dict[str, Any]:
         """Build FloPy DISV keyword arguments for MODFLOW 6."""
-        from hydromodpy.mesh.adapters.flopy_adapter import to_flopy_disv_args
+        from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
 
         return to_flopy_disv_args(
             self.planar_mesh,
@@ -314,7 +314,7 @@ class SolverMesh:
         inactive_mask : ndarray, shape (nlay, nrow, ncol) or (nrow, ncol)
             Inactive cell mask.
         """
-        from hydromodpy.mesh.adapters.flopy_adapter import from_flopy_structured
+        from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
 
         planar_mesh = from_flopy_structured(sgrid)
         top = np.asarray(getattr(sgrid, "top"), dtype=float).reshape(-1)

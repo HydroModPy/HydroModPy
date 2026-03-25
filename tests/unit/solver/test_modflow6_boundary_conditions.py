@@ -15,7 +15,7 @@ from hydromodpy.process.flow.boundary_conditions import FlowBoundaryConditionCon
 from hydromodpy.process.flow.sinks_sources import FlowWellConfig
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow6 import Modflow6
-from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 
 class _DummyGeographic:

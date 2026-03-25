@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from hydromodpy.data_managers.variables.geology.config import validate_geology_config_data
+from hydromodpy.data.variables.geology.config import validate_geology_config_data
 
 
 def _optional_text(raw_value: object) -> str | None:

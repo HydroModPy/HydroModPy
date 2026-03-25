@@ -6,10 +6,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.data_managers.variables.geology.config import (
+from hydromodpy.data.variables.geology.config import (
     validate_geology_config_data,
 )
-from hydromodpy.field.core.field_param_config import (
+from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
     validate_resolved_field_param_data,
 )

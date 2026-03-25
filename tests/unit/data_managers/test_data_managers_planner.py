@@ -2,7 +2,7 @@
 
 import pytest
 
-from hydromodpy.data_managers import (
+from hydromodpy.data import (
     DataManagersConfig,
     DataManagersPlanner,
 )

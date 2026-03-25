@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data_managers.variables.oceanic.cases.run_oceanic_case import run_oceanic_case_from_toml
+from hydromodpy.data.variables.oceanic.cases.run_oceanic_case import run_oceanic_case_from_toml
 
 
 GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_oceanic_case_golden.json"
@@ -44,7 +44,7 @@ def test_run_oceanic_case_golden(update_goldens: bool, tmp_path: Path) -> None:
     base_config_path = (
         _repo_root()
         / "hydromodpy"
-        / "data_managers"
+        / "data"
         / "variables"
         / "oceanic"
         / "cases"

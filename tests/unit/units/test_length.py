@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.support.units.length import (
+from hydromodpy.core.units.length import (
     convert_to_m,
     factor_to_m,
     normalize_length_unit,

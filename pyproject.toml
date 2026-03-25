@@ -120,9 +120,9 @@ include = ["hydromodpy*", "launchers*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["../bin/**/*"]
-"hydromodpy.hydrology.pyhelp" = ["*.FOR"]
-"hydromodpy.calibration.devkit" = ["templates/case/*.tmpl"]
-"hydromodpy.data_managers.common.administrative" = ["*.gpkg"]
+"hydromodpy.process.hydrology.pyhelp" = ["*.FOR"]
+"hydromodpy.analysis.calibration.devkit" = ["templates/case/*.tmpl"]
+"hydromodpy.data.common.administrative" = ["*.gpkg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -146,9 +146,9 @@ markers = [
 
 [tool.coverage.run]
 source = [
-    "hydromodpy.legacy.watershed",
-    "hydromodpy.support.tools",
-    "hydromodpy.display",
+    "hydromodpy.spatial.geographic",
+    "hydromodpy.core.tools",
+    "hydromodpy.analysis.display",
 ]
 parallel = true
 omit = [

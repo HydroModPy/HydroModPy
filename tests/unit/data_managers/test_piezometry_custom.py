@@ -6,8 +6,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.variables.piezometry.config import PiezometrySourceConfig
-from hydromodpy.data_managers.variables.piezometry.custom import load_custom
+from hydromodpy.data.variables.piezometry.config import PiezometrySourceConfig
+from hydromodpy.data.variables.piezometry.custom import load_custom
 
 
 class TestPiezometryCustomCSV:

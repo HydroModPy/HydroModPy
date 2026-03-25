@@ -16,7 +16,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.data_managers.variables.geology.config import GeologyConfigSchema
+from hydromodpy.data.variables.geology.config import GeologyConfigSchema
 from hydromodpy.solver.utils.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettingsSchema,
 )

@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.process.flow.boundary_conditions import (
     DIRICHLET_BC_CANONICAL_DOMAINS,
     FlowBoundaryConditionConfig,

@@ -9,7 +9,7 @@ from datetime import datetime
 
 import pytest
 
-from hydromodpy.data_managers.variables.water_quality.apis.hubeau import fetch
+from hydromodpy.data.variables.water_quality.apis.hubeau import fetch
 
 
 @pytest.mark.integration

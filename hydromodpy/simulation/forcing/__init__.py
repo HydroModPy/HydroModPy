@@ -1,13 +1,13 @@
-"""Re-export from hydromodpy.forcing."""
+"""Re-export from hydromodpy.process.forcing."""
 
-from hydromodpy.forcing import (  # noqa: F401
+from hydromodpy.process.forcing import (  # noqa: F401
     _MM_PER_DAY_TO_M_PER_S,
     align_forcing_series_to_simulation_window,
     build_forcing_series,
     extract_homogeneous_series,
     resolve_forcing,
 )
-from hydromodpy.hydrology.synthetic.forcing import (
+from hydromodpy.process.hydrology.synthetic.forcing import (
     build_hydrological_step_series,
     build_hydrological_year_dates,
     build_recharge_from_reservoir_chronicle,

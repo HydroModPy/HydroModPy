@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data_managers.variables.intermittency.cases.run_intermittency_case import run_intermittency_case_from_toml
+from hydromodpy.data.variables.intermittency.cases.run_intermittency_case import run_intermittency_case_from_toml
 
 
 GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_intermittency_case_golden.json"
@@ -38,7 +38,7 @@ def test_run_intermittency_case_golden(update_goldens: bool, tmp_path: Path) -> 
     base_config_path = (
         _repo_root()
         / "hydromodpy"
-        / "data_managers"
+        / "data"
         / "variables"
         / "intermittency"
         / "cases"

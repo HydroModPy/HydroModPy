@@ -134,8 +134,8 @@ except Exception as e:
 # ══════════════════════════════════════════════════════════════
 _section("1) Custom CSV via DataStore.load_recharge()")
 
-from hydromodpy.data_managers.store import DataStore
-from hydromodpy.data_managers.variables.recharge.config import (
+from hydromodpy.data.store import DataStore
+from hydromodpy.data.variables.recharge.config import (
     RechargeConfig,
     RechargeSourceConfig,
 )
@@ -319,7 +319,7 @@ else:
 # ══════════════════════════════════════════════════════════════
 _section("6) Recharge bridge: CSV → séries homogènes (m/s)")
 
-from hydromodpy.forcing.forcing_bridge import (
+from hydromodpy.process.forcing.forcing_bridge import (
     _MM_PER_DAY_TO_M_PER_S,
     build_forcing_series,
     extract_homogeneous_series,
@@ -761,7 +761,7 @@ if HAS_NC:
     try:
         import flopy
 
-        from hydromodpy.forcing.forcing_bridge import build_forcing_series, _MM_PER_DAY_TO_M_PER_S
+        from hydromodpy.process.forcing.forcing_bridge import build_forcing_series, _MM_PER_DAY_TO_M_PER_S
         from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_field_discretization import (
             discretize_fields_on_sgrid,
         )

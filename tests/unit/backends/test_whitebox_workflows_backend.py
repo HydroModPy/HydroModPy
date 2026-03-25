@@ -12,9 +12,9 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point, box
 
-import hydromodpy.backends as backends_pkg
-from hydromodpy.backends import get_whitebox_backend
-from hydromodpy.backends.whitebox_workflows_backend import (
+import hydromodpy.core.backends as backends_pkg
+from hydromodpy.core.backends import get_whitebox_backend
+from hydromodpy.core.backends.whitebox_workflows_backend import (
     WhiteboxWorkflowsBackend,
     _get_cached_whitebox_backend,
 )
@@ -93,9 +93,9 @@ def test_whitebox_workflows_backend_suppresses_native_stdio(capfd) -> None:
 
 
 def test_whitebox_tools_backend_module_is_no_longer_importable() -> None:
-    sys.modules.pop("hydromodpy.backends.whitebox_tools_backend", None)
+    sys.modules.pop("hydromodpy.core.backends.whitebox_tools_backend", None)
     try:
-        importlib.import_module("hydromodpy.backends.whitebox_tools_backend")
+        importlib.import_module("hydromodpy.core.backends.whitebox_tools_backend")
     except ModuleNotFoundError:
         pass
     else:  # pragma: no cover - defensive

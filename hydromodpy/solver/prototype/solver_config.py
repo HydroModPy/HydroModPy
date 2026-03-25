@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from hydromodpy.config.param_level import ParamLevel
+from hydromodpy.core.config.param_level import ParamLevel
 from hydromodpy.solver.prototype.solver_engine import SolverEngine
 
 

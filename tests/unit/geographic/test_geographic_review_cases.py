@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.geographic.cases.review_cases import (
+from hydromodpy.spatial.geographic.cases.review_cases import (
     available_case_review_names,
     list_case_reviews,
     resolve_case_review_specs,

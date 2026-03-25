@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.simulation.state.run_state import LauncherRunState
+from hydromodpy.core.state.run_state import LauncherRunState
 
 from launchers.process_simulation.launcher import HydroModPyLauncher
 

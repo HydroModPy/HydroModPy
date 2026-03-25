@@ -1,0 +1,147 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "mesh_1000km2_outlet_2_geology_rivers_buffer30",
+  "title": "1000 km2 Mesh, Outlet 2, Geology + rivers, 30% buffer",
+  "category": "mesh",
+  "deck": "1000 km2 catchment mesh with rivers, geology interfaces, watershed boundary, and outside coarsening kept active on a 30% buffered support.",
+  "summary": "This case is reserved for a conformal catchment mesh where HydroModPy keeps both river traces and geology interfaces as active constraints while preserving the current watershed-boundary handling and de-refinement outside the basin.",
+  "case_setup": [
+    "Scale target: 1000 km2.",
+    "Outlet identifier: 2.",
+    "Gallery variant: Geology + rivers, 30% buffer.",
+    "Bundle-reported constraints mode: geology_rivers."
+  ],
+  "what_it_shows": [
+    "How river traces, geology interfaces, and the watershed boundary interact on one buffered support domain.",
+    "How outside coarsening keeps the basin readable without over-resolving the external envelope.",
+    "What changes visually when geology remains fully coupled to the conformal mesh."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "reproduction_command": "python -m launchers mesh-catchment run launchers/mesh_catchment/config_1000km2.toml",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "launchers/mesh_catchment/config_1000km2.toml",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/case.json",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/viewer_config.toml",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/README.md",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_2d.msh",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/nodes.csv",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cells.csv",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/edges.csv",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cell_geology_fractions.csv",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/metadata.json",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_summary.json",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/README.md"
+  ],
+  "source_hashes": {
+    "launchers/mesh_catchment/config_1000km2.toml": "614219223e3c18193737972c7c9b862efd399704d81d11809a7a5092a2fad28c",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/case.json": "27900f82675b5772e8331244f1ca8bd3d2176e37ec59c5977979f9eb7598ce77",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/viewer_config.toml": "455d7786bbcdfd006d056655d6c81f506e24d73bd4ff1bd9b81ff388d66f0d9b",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/README.md": "e71f78a939be194845955cb17109c904e6f5ac1326fd2001bef5221960986ce8",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_2d.msh": "af130399dd4ad8963ebd0f7913fc82345daf8ab86d90907255316f395c94f31b",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/nodes.csv": "275140f54b729fb6693dc3873cf185352fd91fb598cfe0f9e1a7700162f8d70f",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cells.csv": "a78a44e2944d9f11da3731c5a140544ee360c3cb560f3527fb7e1875f4970813",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/edges.csv": "c426b3a95b951a1f10215865801ac4fadadccae522a031a9370d47907029f9e5",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/cell_geology_fractions.csv": "9e484a874fef857d2aaa2e52e2fc0f5231e64dea14618e6fa5f0e075921eaabc",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/metadata.json": "49027d94a8d93dc18ae9a3ffe81dc2e3097f56cb1441c8039bbbd9849d0e9003",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_summary.json": "33fc3fc1980c26117e0d1fea7f4fe5a33c7c7c2baf455569ba2052786e2a59b8",
+    "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/README.md": "907acd271014d678341d059179e4e9364f2502eb0ada9bc4bb8ec6c8e483cd37"
+  },
+  "docname": "cases/mesh_1000km2_outlet_2_geology_rivers_buffer30",
+  "images": [
+    {
+      "filename": "mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png",
+      "caption": "Mesh overview rendered from the versioned bundle stored under `examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle`.",
+      "alt_text": "1000 km2 Mesh, Outlet 2, Geology + rivers, 30% buffer overview",
+      "doc_path": "/_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Nodes",
+      "key": "node_count",
+      "value": 19969,
+      "display": "19969"
+    },
+    {
+      "label": "Cells",
+      "key": "cell_count",
+      "value": 39774,
+      "display": "39774"
+    },
+    {
+      "label": "River edges",
+      "key": "river_edge_count",
+      "value": 6732,
+      "display": "6732"
+    },
+    {
+      "label": "Geology interfaces",
+      "key": "geology_interface_edge_count",
+      "value": 2306,
+      "display": "2306"
+    }
+  ],
+  "metadata": {
+    "config_path": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/viewer_config.toml",
+    "viewer_summary": {
+      "summary_schema_version": "mesh_distribution_v1",
+      "bundle_dir": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle",
+      "mesh_file": "examples/mesh_gallery/1000km2/mesh_1000km2_outlet_2_geology_rivers_buffer30/bundle/mesh_2d.msh",
+      "node_count": 19969,
+      "cell_count": 39774,
+      "edge_count": 59742,
+      "crs": "EPSG:2154",
+      "constraints_mode": "geology_rivers",
+      "geology_available": true,
+      "geology_keys": [
+        "1",
+        "11",
+        "1181",
+        "1241",
+        "1301",
+        "1321",
+        "1341",
+        "1381",
+        "1421",
+        "1481",
+        "1521",
+        "1561",
+        "161",
+        "1621",
+        "1641",
+        "1701",
+        "1981",
+        "2041",
+        "2061",
+        "2081",
+        "21",
+        "2101",
+        "2121",
+        "2161",
+        "2201"
+      ],
+      "hydraulic_properties_available": true,
+      "hydraulic_conductivity_available": true,
+      "hydraulic_conductivity_cell_count": 39774,
+      "storage_coefficient_available": false,
+      "storage_coefficient_cell_count": 0,
+      "river_edge_count": 6732,
+      "boundary_edge_count": 162,
+      "geology_interface_edge_count": 2306,
+      "color_field": "geology_key",
+      "show_topography_panel": true,
+      "topography_field": "z_top_mean",
+      "topography_render_mode": "continuous_on_nodes"
+    }
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png"
+    ]
+  }
+}

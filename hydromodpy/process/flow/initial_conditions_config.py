@@ -16,7 +16,7 @@ from hydromodpy.process.flow.initial_conditions import (
     FlowInitialCondition,
     FlowInitialConditions,
 )
-from hydromodpy.support.units import parse_to_m
+from hydromodpy.core.units import parse_to_m
 
 
 def normalize_flow_initial_conditions(

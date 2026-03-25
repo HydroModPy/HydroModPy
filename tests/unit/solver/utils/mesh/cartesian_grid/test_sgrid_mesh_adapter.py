@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.field.meshes import StructuredFieldMesh
+from hydromodpy.spatial.field.meshes import StructuredFieldMesh
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_mesh_adapter import (
     build_field_mesh_from_sgrid,
 )

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.geographic.core.flow_products import FlowProducts
+from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.solver.modflow_common.routing_context import (
     SolverRoutingContext,
     build_solver_routing_context,

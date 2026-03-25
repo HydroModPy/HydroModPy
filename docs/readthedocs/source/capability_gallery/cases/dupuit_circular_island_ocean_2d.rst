@@ -12,7 +12,7 @@ Case Setup
 ----------
 
 - Circular synthetic island on Cartesian grid, uniform recharge, flat substratum, `ocean` top BC
-- Available solver variants: MODFLOW-NWT, MODFLOW 6.
+- Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq.
 
 What It Shows
 -------------
@@ -46,7 +46,7 @@ Solver Coverage
 ---------------
 
 - Default solver: MODFLOW-NWT
-- Available variants: MODFLOW-NWT, MODFLOW 6
+- Available variants: MODFLOW-NWT, MODFLOW 6, Boussinesq
 
 .. tab-set::
 
@@ -96,6 +96,29 @@ Solver Coverage
 
          python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show --solver modflow6
 
+   .. tab-item:: Boussinesq
+
+      .. figure:: /_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__boussinesq.png
+         :alt: Dupuit Circular-Island Ocean 2D validation figure for Boussinesq
+         :width: 100%
+
+         Dupuit Circular-Island Ocean 2D rendered with Boussinesq for the analytical gallery.
+
+      **Metrics**
+      - Radial head-profile RMSE: 0.1325 m
+      - Radial head-profile max abs error: 0.3215 m
+      - Azimuthal spread: 0.2059 m
+      - Ocean head max abs error: 0.00e+00 m
+      - Minimum land freeboard: 1.5441 m
+
+      - Config file: ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml``
+      - Tolerances: ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml``
+      - Expected shape: 61 x 61
+
+      .. code-block:: bash
+
+         python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show --solver boussinesq
+
 Reproduce
 ---------
 
@@ -121,14 +144,18 @@ Source Pointers
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/plotting.py``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/run_case.py``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml``
+- ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/runtime_boussinesq.py``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
+- ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
 - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml``
+- ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml``
 
 Artifacts
 ---------
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__modflow6.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/dupuit_circular_island_ocean_2d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

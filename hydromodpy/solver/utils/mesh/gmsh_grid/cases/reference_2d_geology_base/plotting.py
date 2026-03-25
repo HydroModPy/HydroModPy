@@ -12,7 +12,7 @@ import matplotlib.ticker as mticker
 import numpy as np
 from shapely.geometry import box
 
-from hydromodpy.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.plot_window_utils import maximize_figure_windows
 

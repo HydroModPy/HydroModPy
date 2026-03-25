@@ -22,7 +22,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from hydromodpy.support.tools import get_logger
+from hydromodpy.core.tools import get_logger
 from hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization import (
     discretize_fieldparam_on_sgrid,
 )

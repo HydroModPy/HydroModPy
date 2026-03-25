@@ -122,7 +122,7 @@ jupyter notebook
 
 ```python
 import hydromodpy
-from hydromodpy import Watershed
+from hydromodpy.core.config import HydroModPyConfig
 
 # Check version
 print(hydromodpy.__version__)

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from hydromodpy.data_managers.scaffold import scaffold, create_project
+from hydromodpy.data.scaffold import scaffold, create_project
 
 
 class TestScaffold:
@@ -48,7 +48,7 @@ class TestScaffold:
         assert "ST01" in loc.read_text()
 
     def test_default_path(self):
-        from hydromodpy.data_managers.scaffold import DEFAULT_ROOT
+        from hydromodpy.data.scaffold import DEFAULT_ROOT
         assert DEFAULT_ROOT == Path.home() / "hydromodpy"
 
 

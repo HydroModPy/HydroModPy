@@ -1,4 +1,4 @@
-﻿"""Unit tests for pydantic schemas used in calibration2 configuration."""
+"""Unit tests for pydantic schemas used in calibration2 configuration."""
 
 from __future__ import annotations
 
@@ -7,18 +7,18 @@ import textwrap
 
 import pytest
 
-from hydromodpy.calibration.core.engine_config import validate_calibration_config_data
-from hydromodpy.calibration.cases.recession_brutsaert.case_config import (
+from hydromodpy.analysis.calibration.core.engine_config import validate_calibration_config_data
+from hydromodpy.analysis.calibration.cases.recession_brutsaert.case_config import (
     validate_brutsaert_chronicle_config,
 )
-from hydromodpy.calibration.cases.groundwater_1d.case_config import (
+from hydromodpy.analysis.calibration.cases.groundwater_1d.case_config import (
     validate_groundwater_1d_chronicle_config,
 )
-from hydromodpy.calibration.cases.reservoir.case_config import (
+from hydromodpy.analysis.calibration.cases.reservoir.case_config import (
     validate_reservoir_chronicle_config,
 )
-from hydromodpy.calibration.core.methods_config import validate_method_kwargs
-from hydromodpy.calibration.core.engine_config import load_calibration_toml
+from hydromodpy.analysis.calibration.core.methods_config import validate_method_kwargs
+from hydromodpy.analysis.calibration.core.engine_config import load_calibration_toml
 
 
 def _base_config():

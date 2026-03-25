@@ -52,24 +52,24 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import hydromodpy as hmp
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.config.toml_loader import load_toml_with_base_config
-from hydromodpy.domain import Domain
-from hydromodpy.domain.spatial_support import (
+from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.config.toml_loader import load_toml_with_base_config
+from hydromodpy.spatial.domain import Domain
+from hydromodpy.spatial.domain.spatial_support import (
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
 )
-from hydromodpy.geographic.structure_binders import apply_catchment_zones_to_domain, apply_geology_to_domain
-from hydromodpy.postprocess.runner import PostprocessRunner
+from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain, apply_geology_to_domain
+from hydromodpy.analysis.postprocess.runner import PostprocessRunner
 from hydromodpy.process.flow.structure_binders import (
     apply_oceanic_to_flow,
     apply_recharge_load_result_to_flow,
 )
-from hydromodpy.geographic.synthetic import build_synthetic_geographic
+from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
 from hydromodpy.simulation import SimulationPlanner, ensure_flow, ensure_transport
-from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
-from hydromodpy.simulation.state.run_state import LauncherRunState
-from hydromodpy.simulation.time import (
+from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
+from hydromodpy.core.state.run_state import LauncherRunState
+from hydromodpy.core.time import (
     apply_explicit_time_window_to_tgrids,
     require_flow_simulation_time_grid,
     resolve_simulation_time_window,
@@ -78,7 +78,7 @@ from hydromodpy.solver.utils.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.solver.utils.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
-from hydromodpy.support.units import convert_payload_to_m_per_s
+from hydromodpy.core.units import convert_payload_to_m_per_s
 from launchers.mesh_catchment.config import parse_mesh_catchment_batch_config_data
 from launchers.mesh_catchment.runtime import (
     get_optional_mesh_section,
@@ -87,20 +87,20 @@ from launchers.mesh_catchment.runtime import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.data_managers import DataLoadPlan
+    from hydromodpy.data import DataLoadPlan
     from launchers.mesh_catchment.config import MeshCatchmentConfigSchema
 
 
 def _build_data_plan(*args, **kwargs):
     """Import planner lazily to keep launcher imports lightweight in tests."""
-    from hydromodpy.data_managers import DataManagersPlanner
+    from hydromodpy.data import DataManagersPlanner
 
     return DataManagersPlanner().build(*args, **kwargs)
 
 
 def _build_data_runtime_loader(*args, **kwargs):
     """Import runtime loader lazily to avoid importing the full data stack at module import."""
-    from hydromodpy.data_managers import DataManagersRuntimeLoader
+    from hydromodpy.data import DataManagersRuntimeLoader
 
     return DataManagersRuntimeLoader(*args, **kwargs)
 

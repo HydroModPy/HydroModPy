@@ -250,7 +250,7 @@ def _append_regression_directory_selection(
 
 def _cmd_init(args: argparse.Namespace) -> None:
     """Create HydroModPy workspace with shared data and projects directory."""
-    from hydromodpy.data_managers.scaffold import scaffold
+    from hydromodpy.data.scaffold import scaffold
 
     result = scaffold(args.path)
 
@@ -274,7 +274,7 @@ def _cmd_init(args: argparse.Namespace) -> None:
 
 def _cmd_new(args: argparse.Namespace) -> None:
     """Create a new project inside a workspace."""
-    from hydromodpy.data_managers.scaffold import create_project, DEFAULT_ROOT
+    from hydromodpy.data.scaffold import create_project, DEFAULT_ROOT
 
     workspace_root = Path(args.workspace or DEFAULT_ROOT).expanduser().resolve()
     if not (workspace_root / "data").is_dir() and not (workspace_root / "projects").is_dir():
@@ -299,7 +299,7 @@ def _cmd_new(args: argparse.Namespace) -> None:
 
 def _cmd_config(args: argparse.Namespace) -> None:
     """Generate a TOML configuration template."""
-    from hydromodpy.config.generate_toml import generate_toml, available_modules
+    from hydromodpy.core.config.generate_toml import generate_toml, available_modules
 
     if args.list_modules:
         for name in available_modules():
@@ -308,7 +308,7 @@ def _cmd_config(args: argparse.Namespace) -> None:
 
     if getattr(args, "ui", False):
         import subprocess
-        ui_module = Path(__file__).resolve().parent / "config" / "streamlit_config.py"
+        ui_module = Path(__file__).resolve().parent / "core" / "config" / "streamlit_config.py"
         cmd = [sys.executable, "-m", "streamlit", "run", str(ui_module), "--server.headless", "true"]
         if args.output:
             cmd.extend(["--", "--load", str(args.output)])
@@ -339,7 +339,7 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
 
 def _cmd_run(args: argparse.Namespace) -> None:
     """Run a simulation from a TOML configuration file."""
-    from hydromodpy.support.tools.toolbox import print_hydromodpy
+    from hydromodpy.core.tools.toolbox import print_hydromodpy
     from launchers import HydroModPyLauncher
 
     print_hydromodpy()
@@ -359,7 +359,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
 def _cmd_list(args: argparse.Namespace) -> None:
     """List projects or runs inside a workspace."""
-    from hydromodpy.data_managers.scaffold import DEFAULT_ROOT
+    from hydromodpy.data.scaffold import DEFAULT_ROOT
 
     workspace_root = Path(args.workspace or DEFAULT_ROOT).expanduser().resolve()
     projects_dir = workspace_root / "projects"
@@ -467,9 +467,9 @@ def _cmd_overview(args: argparse.Namespace) -> None:
     summary = DataOverviewLauncher(config_path).run()
     report_paths = summary.get("report_paths", [])
     if report_paths:
-        print(f"\nOverview complete — {len(report_paths)} panel(s) generated.", file=sys.stderr)
+        print(f"\nOverview complete - {len(report_paths)} panel(s) generated.", file=sys.stderr)
     else:
-        print("Overview complete — no panels generated.", file=sys.stderr)
+        print("Overview complete - no panels generated.", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -511,7 +511,7 @@ def main() -> None:
     )
 
     # --- config subcommand ---
-    from hydromodpy.config.generate_toml import PROFILES
+    from hydromodpy.core.config.generate_toml import PROFILES
 
     config_parser = subparsers.add_parser(
         "config",

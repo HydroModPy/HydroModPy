@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.support.units.hydraulic_conductance import (
+from hydromodpy.core.units.hydraulic_conductance import (
     convert_to_m2_per_s,
     factor_to_m2_per_s,
     normalize_m2_per_s_unit,

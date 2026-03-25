@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from hydromodpy.support.units import normalize_length_unit, normalize_m2_per_s_unit
+from hydromodpy.core.units import normalize_length_unit, normalize_m2_per_s_unit
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",

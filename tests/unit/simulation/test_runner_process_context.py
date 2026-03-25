@@ -9,7 +9,7 @@ from hydromodpy.process.transport.transport_config import TransportConfig
 from hydromodpy.simulation.adapters.flow.modflow_common import run_flow_model
 from hydromodpy.solver.modflow_nwt import ModflowPreprocessOptions
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.runtime.runner import ProcessCallbacks, SimulationRunner
+from hydromodpy.simulation.execution.runner import ProcessCallbacks, SimulationRunner
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 
 
@@ -53,7 +53,7 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
         ("transport", "mt3dms"): transport_adapter,
     }
     monkeypatch.setattr(
-        "hydromodpy.simulation.runtime.runner.get_solver_adapter",
+        "hydromodpy.simulation.execution.runner.get_solver_adapter",
         lambda process_type, solver_name: adapters[(process_type, solver_name)],
     )
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.domain import Domain, DomainConfig
+from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial import RasterSupport, Surface
 
 def test_domain_depth_model_default_is_constant_thickness():

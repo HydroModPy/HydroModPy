@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.field.cases.square.field_spatial_square import FieldSquare
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.solver.utils.mesh.gmsh_grid import (
     ExtrudedPrismMesh3D,
     GmshPlanarMesh2D,

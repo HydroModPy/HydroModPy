@@ -5,8 +5,8 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.contracts.location import StationLocation
-from hydromodpy.data_managers.contracts.timeseries import PointRecord
+from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.contracts.timeseries import PointRecord
 
 
 class TestStationLocation:

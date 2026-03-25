@@ -135,13 +135,13 @@ def load_extruded_as_hydro_mesh(path: str | Path):
 
 def save_hydro_mesh_vtu(hydro_mesh, path: str | Path) -> Path:
     """Write a ``HydroMesh`` to a VTU file (any topology, 2D or 3D)."""
-    from hydromodpy.mesh.io import write_vtu
+    from hydromodpy.spatial.mesh.io import write_vtu
 
     return write_vtu(path, hydro_mesh)
 
 
 def load_hydro_mesh_vtu(path: str | Path):
     """Read a ``HydroMesh`` from a VTU file."""
-    from hydromodpy.mesh.io import read_vtu
+    from hydromodpy.spatial.mesh.io import read_vtu
 
     return read_vtu(path)

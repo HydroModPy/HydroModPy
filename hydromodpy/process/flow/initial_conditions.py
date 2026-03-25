@@ -25,7 +25,7 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from hydromodpy.process.prototype import InitialCondition as BaseInitialCondition
-from hydromodpy.support.units import normalize_length_unit
+from hydromodpy.core.units import normalize_length_unit
 
 
 class FlowInitialCondition(BaseInitialCondition):

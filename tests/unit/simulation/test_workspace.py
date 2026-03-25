@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from hydromodpy.simulation.workspace import Workspace, WorkspaceConfig, WorkspacePathRegistry
+from hydromodpy.core.workspace import Workspace, WorkspaceConfig, WorkspacePathRegistry
 
 
 def test_workspace_bin_path_resolves_repo_bin(tmp_path) -> None:

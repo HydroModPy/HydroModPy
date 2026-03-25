@@ -1,9 +1,11 @@
-﻿hydromodpy.legacy.watershed
-===========================
+:orphan:
 
-Core data-model objects that describe a watershed and expose helper descriptors
-for geospatial, geological and hydraulic inputs, plus the current variable
-manager entry points used by watershed workflows.
+hydromodpy.watershed
+====================
+
+Historical watershed runtime preserved for notebooks and regression assets.
+New projects should start from ``hydromodpy.spatial.geographic`` and the
+modern runtime packages.
 
 Class overview
 --------------
@@ -12,15 +14,15 @@ Class overview
    :nosignatures:
    :toctree: generated/watershed
 
-   ~hydromodpy.legacy.watershed.watershed_root_legacy.Watershed
-   ~hydromodpy.geographic.Geographic
-   ~hydromodpy.field.geology.GeologyField
-   ~hydromodpy.legacy.watershed.hydrography.Hydrography
-   ~hydromodpy.data_managers.variables.hydrometry.manager.HydrometryManager
-   ~hydromodpy.data_managers.variables.intermittency.manager.IntermittencyManager
-   ~hydromodpy.data_managers.variables.piezometry.manager.PiezometryManager
-   ~hydromodpy.data_managers.variables.oceanic.manager.OceanicManager
-   ~hydromodpy.data_managers.climatic.Climatic
-   ~hydromodpy.legacy.watershed.settings.Settings
-   ~hydromodpy.legacy.watershed.hydraulic.Hydraulic
+   ~hydromodpy.watershed.watershed.Watershed
+   ~hydromodpy.spatial.geographic.Geographic
+   ~hydromodpy.spatial.field.geology.GeologyField
+   ~hydromodpy.watershed.hydrography.Hydrography
+   ~hydromodpy.data.variables.hydrometry.manager.HydrometryManager
+   ~hydromodpy.data.variables.intermittency.manager.IntermittencyManager
+   ~hydromodpy.data.variables.piezometry.manager.PiezometryManager
+   ~hydromodpy.data.variables.oceanic.manager.OceanicManager
+   ~hydromodpy.data.climatic.Climatic
+   ~hydromodpy.watershed.settings.Settings
+   ~hydromodpy.watershed.hydraulic.Hydraulic
 

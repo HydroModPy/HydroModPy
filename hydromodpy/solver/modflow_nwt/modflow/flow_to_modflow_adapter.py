@@ -100,13 +100,13 @@ import pandas as pd
 from hydromodpy.process.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow_common.grid_context import GridReference
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh
-from hydromodpy.support.units import (
+from hydromodpy.core.units import (
     convert_payload_to_m,
     convert_payload_to_m_per_s,
     factor_to_m2_per_s,
     normalize_length_unit,
 )
-from hydromodpy.support.units.volumetric_flow import (
+from hydromodpy.core.units.volumetric_flow import (
     convert_to_m3_per_s,
     normalize_m3_per_s_unit,
 )
@@ -117,7 +117,7 @@ from .property_mapping import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.simulation.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
 
 def _discretize_heterogeneous_source(

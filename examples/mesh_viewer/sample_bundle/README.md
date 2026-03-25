@@ -1,24 +1,19 @@
-# Sample Bundle
+# Catchment Mesh Bundle
 
-This directory is a tiny self-contained mesh bundle shipped with the standalone
-mesh viewer examples.
+Self-contained export for external numerical workflows.
 
-It exists so that `python -m mesh_bundle_viewer` works out of the box in a
-repository layout where:
+Files:
+- `mesh_2d.msh`: original planar Gmsh mesh.
+- `nodes.csv`: node coordinates, topography (`z_top`) and substratum (`z_bottom`).
+- `cells.csv`: per-cell geometry, topography, substratum, geology, and hydraulic summary.
+- `edges.csv`: edge adjacency and boundary/interface flags.
+- `cell_geology_fractions.csv`: one row per non-zero geology fraction.
+- `metadata.json`: bundle schema, CRS, and field semantics.
 
-- `mesh_bundle_viewer/` contains only the standalone viewer code
-- `examples/mesh_viewer/` contains example TOML files and sample data
-- `outputs/mesh_viewer/` receives generated figures and summaries
+Conventions:
+- all indices are zero-based,
+- coordinates are expressed in the CRS declared in `metadata.json`,
+- empty values in CSV mean missing / not available.
 
-The files follow the standard catchment mesh bundle contract:
-
-- `mesh_2d.msh`
-- `nodes.csv`
-- `cells.csv`
-- `edges.csv`
-- `cell_geology_fractions.csv`
-- `metadata.json`
-- `mesh_summary.json`
-
-No per-bundle `reader.py` is required because the standalone viewer ships its
-own internal reader in `mesh_bundle_viewer/reader.py`.
+Geology exported: yes
+Hydraulic properties exported: yes

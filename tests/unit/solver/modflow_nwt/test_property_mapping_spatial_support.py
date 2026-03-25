@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.field.core.field_param import FieldParam
-from hydromodpy.field.core.field_spatial_weighted_discretization import (
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
 from hydromodpy.solver.modflow_common.solver_mesh import SolverMesh

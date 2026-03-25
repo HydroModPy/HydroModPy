@@ -239,41 +239,40 @@ __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 
 # Initialize logging system
-from hydromodpy.support.tools.log_manager import LogManager
+from hydromodpy.core.tools.log_manager import LogManager
 _log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
 # Public access to log manager for users
 log_manager = _log_manager
 
 _MODULE_EXPORTS = {
-    "calibration": "hydromodpy.calibration",
-    "data_managers": "hydromodpy.data_managers",
-    "domain": "hydromodpy.domain",
-    "geographic": "hydromodpy.geographic",
-    "hydrology": "hydromodpy.hydrology",
-    "legacy": "hydromodpy.legacy",
-    "support": "hydromodpy.support",
+    "analysis": "hydromodpy.analysis",
+    "core": "hydromodpy.core",
+    "data": "hydromodpy.data",
+    "modeling": "hydromodpy.modeling",
+    "process": "hydromodpy.process",
+    "simulation": "hydromodpy.simulation",
+    "solver": "hydromodpy.solver",
+    "spatial": "hydromodpy.spatial",
+    "watershed": "hydromodpy.watershed",
 }
 
 _LAZY_IMPORTS = {
-    # watershed classes
-    "Watershed": "hydromodpy.legacy.watershed.watershed_root_legacy",
-    "Geographic": "hydromodpy.geographic.geographic",
-    "Hydraulic": "hydromodpy.legacy.watershed.hydraulic",
-    "HydrographyResult": "hydromodpy.data_managers.variables.hydrography.result",
-    "HydrographyManager": "hydromodpy.data_managers.variables.hydrography.manager",
-    "HydrographyConfig": "hydromodpy.data_managers.variables.hydrography.config",
-    "Hydrometry": "hydromodpy.data_managers.variables.hydrometry.hydrometry",
-    "Workspace": "hydromodpy.simulation.workspace",
-    "IntermittencyManager": "hydromodpy.data_managers.variables.intermittency.manager",
-    "IntermittencyConfig": "hydromodpy.data_managers.variables.intermittency.config",
-    "OceanicManager": "hydromodpy.data_managers.variables.oceanic",
-    "OceanicConfig": "hydromodpy.data_managers.variables.oceanic",
-    "Piezometry": "hydromodpy.data_managers.variables.piezometry.piezometry",
-    "Subbasin": "hydromodpy.geographic.subbasin",
+    "Geographic": "hydromodpy.spatial.geographic.geographic",
+    "HydrographyResult": "hydromodpy.data.variables.hydrography.result",
+    "HydrographyManager": "hydromodpy.data.variables.hydrography.manager",
+    "HydrographyConfig": "hydromodpy.data.variables.hydrography.config",
+    "Hydrometry": "hydromodpy.data.variables.hydrometry.hydrometry",
+    "Workspace": "hydromodpy.core.workspace",
+    "IntermittencyManager": "hydromodpy.data.variables.intermittency.manager",
+    "IntermittencyConfig": "hydromodpy.data.variables.intermittency.config",
+    "OceanicManager": "hydromodpy.data.variables.oceanic",
+    "OceanicConfig": "hydromodpy.data.variables.oceanic",
+    "Piezometry": "hydromodpy.data.variables.piezometry.piezometry",
+    "Subbasin": "hydromodpy.spatial.geographic.subbasin",
     # config
-    "HydroModPyConfig": "hydromodpy.config.hydromodpy_config",
-    "WorkspaceConfig": "hydromodpy.simulation.workspace",
-    "GeographicConfig": "hydromodpy.geographic.geographic_config",
+    "HydroModPyConfig": "hydromodpy.core.config.hydromodpy_config",
+    "WorkspaceConfig": "hydromodpy.core.workspace",
+    "GeographicConfig": "hydromodpy.spatial.geographic.geographic_config",
     # modeling
     "Modflow": "hydromodpy.solver.modflow_nwt",
     "Modpath": "hydromodpy.solver.modflow_nwt",
@@ -287,15 +286,7 @@ def __getattr__(name):
         globals()[name] = module
         return module
     if name in _LAZY_IMPORTS:
-        try:
-            module = importlib.import_module(_LAZY_IMPORTS[name])
-        except ModuleNotFoundError as exc:
-            if name == "Watershed":
-                raise ModuleNotFoundError(
-                    "Watershed requires optional dependencies that are not installed "
-                    f"(original error: {exc})."
-                ) from exc
-            raise
+        module = importlib.import_module(_LAZY_IMPORTS[name])
         attr = getattr(module, name)
         globals()[name] = attr  # cache for subsequent accesses
         return attr
@@ -303,14 +294,16 @@ def __getattr__(name):
 
 
 __all__ = [
-    "calibration",
-    "data_managers",
-    "domain",
-    "geographic",
-    "hydrology",
-    "legacy",
+    "analysis",
+    "core",
+    "data",
     "log_manager",
-    "support",
+    "modeling",
+    "process",
+    "simulation",
+    "solver",
+    "spatial",
+    "watershed",
     "__version__",
     *_LAZY_IMPORTS,
 ]

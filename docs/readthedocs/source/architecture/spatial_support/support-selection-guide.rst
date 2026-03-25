@@ -12,9 +12,9 @@ case, ``field_spatial_id`` must reference a support known by the ``Domain``.
 
 Relevant code paths:
 
-- support declarations are validated in ``hydromodpy.domain.domain_config``.
-- support definitions are modeled in ``hydromodpy.domain.spatial_support_config``.
-- runtime support objects are built in ``hydromodpy.domain.spatial_support``.
+- support declarations are validated in ``hydromodpy.spatial.domain.domain_config``.
+- support definitions are modeled in ``hydromodpy.spatial.domain.spatial_support_config``.
+- runtime support objects are built in ``hydromodpy.spatial.domain.spatial_support``.
 - heterogeneous mapping is consumed through ``FieldParam.field_spatial_id`` and
   discretized by ``hydromodpy.solver.utils.mesh.cartesian_grid.sgrid_fieldparam_discretization``.
 

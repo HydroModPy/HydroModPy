@@ -1,4 +1,4 @@
-﻿Install
+Install
 =======
 
 Requirements
@@ -90,7 +90,7 @@ Command recipes
 ---------------
 
 Pick the setup that matches your workflow. Replace ``<env>`` with your
-environment name, set ``<py>`` to the desired Python version (3.11â€“3.13), and switch
+environment name, set ``<py>`` to the desired Python version (3.11–3.13), and switch
 ``hydromodpy`` to ``"hydromodpy[docs]"`` if you need the documentation extras.
 
 .. dropdown:: Conda + YAML
@@ -187,10 +187,11 @@ Check the installation
 .. code-block:: python
 
    import hydromodpy
-   from hydromodpy.legacy.watershed import watershed_root_legacy
+   from hydromodpy.core.config import HydroModPyConfig
+   from hydromodpy.spatial.geographic import Geographic
    # Examples of submodule imports
-   from hydromodpy.display import visualization_watershed, visualization_results
-   from hydromodpy.support.tools import toolbox
+   from hydromodpy.analysis.display import visualization_watershed, visualization_results
+   from hydromodpy.core.tools import toolbox
 
    font_sizes = toolbox.plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
    print(hydromodpy.__version__)

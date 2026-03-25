@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hydromodpy.data_managers.common.io_helpers import (
+from hydromodpy.data.common.io_helpers import (
     parse_chronicle_filename,
     parse_loc_filename,
     read_locations_csv,

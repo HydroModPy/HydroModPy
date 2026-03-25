@@ -5,10 +5,10 @@ import shutil
 
 import pytest
 
-from hydromodpy.field.cases import review_cases
-from hydromodpy.field.cases.square import FieldMeshSquare, FieldSquare
-from hydromodpy.field.cases.square.run_field_demo import run_field_demo_case
-from hydromodpy.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.cases import review_cases
+from hydromodpy.spatial.field.cases.square import FieldMeshSquare, FieldSquare
+from hydromodpy.spatial.field.cases.square.run_field_demo import run_field_demo_case
+from hydromodpy.spatial.field.core.field_param import FieldParam
 
 
 def test_run_case_reviews_uses_registry_order_for_selected_cases(

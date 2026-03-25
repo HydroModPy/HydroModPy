@@ -81,7 +81,7 @@ Guides
 
       **API reference**
       ^^^
-      Browse the package tree exactly as in ``hydromodpy/`` (watershed, modeling,
+      Browse the package tree exactly as in ``hydromodpy/`` (spatial, modeling,
       display, pyhelp, and tooling APIs).
 
    .. grid-item-card::

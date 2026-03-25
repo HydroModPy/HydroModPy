@@ -9,12 +9,12 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from hydromodpy.geographic import GeographicConfig
-from hydromodpy.geographic.core.domain_geographic_pipeline import (
+from hydromodpy.spatial.geographic import GeographicConfig
+from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     build_domain_geographic_context,
 )
-from hydromodpy.simulation.workspace import Workspace
-from hydromodpy.simulation.workspace.config import WorkspaceConfig
+from hydromodpy.core.workspace import Workspace
+from hydromodpy.core.workspace.config import WorkspaceConfig
 
 
 def _write_dem(path: Path) -> None:
@@ -168,7 +168,7 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
     catchment_calls: list[str] = []
 
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.domain_geographic_pipeline.prepare_geographic_run",
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.prepare_geographic_run",
         lambda **kwargs: setup,
     )
 
@@ -185,7 +185,7 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
         )
 
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.domain_geographic_pipeline.build_regional_flow_products",
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.build_regional_flow_products",
         _fake_build_flow,
     )
 
@@ -199,27 +199,27 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
         return None
 
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.domain_geographic_pipeline.build_standard_catchment",
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.build_standard_catchment",
         _fake_build_standard_catchment,
     )
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.domain_geographic_pipeline.compute_catchment_area_km2",
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.compute_catchment_area_km2",
         lambda path: 12.5,
     )
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.domain_geographic_pipeline.build_standard_domain_polygons",
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.build_standard_domain_polygons",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.domain_geographic_pipeline.clip_dem_to_box_buffer",
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.clip_dem_to_box_buffer",
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.domain_geographic_pipeline.build_river_network_products",
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.build_river_network_products",
         lambda **kwargs: SimpleNamespace(river_mesh_trace=None),
     )
     monkeypatch.setattr(
-        "hydromodpy.geographic.core.domain_geographic_pipeline.build_surface_topo_from_dem",
+        "hydromodpy.spatial.geographic.core.domain_geographic_pipeline.build_surface_topo_from_dem",
         lambda path: object(),
     )
 

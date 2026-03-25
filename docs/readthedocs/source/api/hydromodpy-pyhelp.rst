@@ -1,5 +1,5 @@
-hydromodpy.hydrology.pyhelp
-===========================
+hydromodpy.process.hydrology.pyhelp
+===================================
 
 Coupling layer that runs the HELP land-surface model and exposes utilities to
 convert its outputs for HydroModPy.
@@ -11,9 +11,9 @@ Overview
    :nosignatures:
    :toctree: generated/pyhelp
 
-   ~hydromodpy.hydrology.pyhelp.help_example
-   ~hydromodpy.hydrology.pyhelp.pyhelp_netcdf
-   ~hydromodpy.hydrology.pyhelp.daily_output
-   ~hydromodpy.hydrology.pyhelp.processing
-   ~hydromodpy.hydrology.pyhelp.bilan
-   ~hydromodpy.hydrology.pyhelp.utils
+   ~hydromodpy.process.hydrology.pyhelp.help_example
+   ~hydromodpy.process.hydrology.pyhelp.pyhelp_netcdf
+   ~hydromodpy.process.hydrology.pyhelp.daily_output
+   ~hydromodpy.process.hydrology.pyhelp.processing
+   ~hydromodpy.process.hydrology.pyhelp.bilan
+   ~hydromodpy.process.hydrology.pyhelp.utils

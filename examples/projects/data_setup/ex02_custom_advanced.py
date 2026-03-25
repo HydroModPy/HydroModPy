@@ -14,11 +14,11 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from hydromodpy.data_managers.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-from hydromodpy.data_managers.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
-from hydromodpy.data_managers.variables.water_quality.config import WaterQualityConfig, WaterQualitySourceConfig
+from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
+from hydromodpy.data.variables.piezometry.config import PiezometryConfig, PiezometrySourceConfig
+from hydromodpy.data.variables.water_quality.config import WaterQualityConfig, WaterQualitySourceConfig
 from hydromodpy.config.generate_toml import generate_toml_from_instances
-from hydromodpy.data_managers.store import DataStore
+from hydromodpy.data.store import DataStore
 
 # %% Paths and geographic context
 BV_DIR = Path(__file__).resolve().parent

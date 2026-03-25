@@ -18,8 +18,8 @@ from types import SimpleNamespace
 import geopandas as gpd
 from shapely.ops import unary_union
 
-from hydromodpy.data_managers.variables.geology.io import load_vector_geology_dataframe
-from hydromodpy.geographic.core.river_mesh_trace import (
+from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
+from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     build_river_mesh_trace_from_vector,
 )
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases.reference_2d_geology_conformal.contracts import (

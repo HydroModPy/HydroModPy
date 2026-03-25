@@ -7,9 +7,9 @@ from types import SimpleNamespace
 import numpy as np
 import xarray as xr
 
-from hydromodpy.data_managers.contracts.load_result import LoadResult
-from hydromodpy.data_managers.contracts.spatial_field import FieldRecord
-from hydromodpy.field.core.field_spatial_weighted_discretization import (
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
 from hydromodpy.process.flow import Flow

@@ -1,8 +1,8 @@
 """Process simulation launcher workflow package."""
 
 from launchers.process_simulation.launcher import HydroModPyLauncher
-from hydromodpy.simulation.state.run_state import LauncherRunState
-from hydromodpy.geographic.structure_binders import (
+from hydromodpy.core.state.run_state import LauncherRunState
+from hydromodpy.spatial.geographic.structure_binders import (
     apply_catchment_zones_to_domain,
     apply_geology_to_domain,
 )

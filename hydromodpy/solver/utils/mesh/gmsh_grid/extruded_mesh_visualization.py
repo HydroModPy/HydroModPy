@@ -293,7 +293,7 @@ def plot_planar_cell_values(
 
     Uses the unified ``HydroMesh`` plotting pipeline internally.
     """
-    from hydromodpy.mesh.plotting import plot_cell_values as _unified_plot
+    from hydromodpy.spatial.mesh.plotting import plot_cell_values as _unified_plot
 
     hydro_mesh = mesh.to_hydro_mesh()
     mappable = _unified_plot(

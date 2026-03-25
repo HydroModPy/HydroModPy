@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from hydromodpy.process import Flow, Transport
 from hydromodpy.process.flow.flow_config import FlowConfig
 from hydromodpy.process.transport.transport_config import TransportConfig
-from hydromodpy.simulation.runtime.runner import (
+from hydromodpy.simulation.execution.runner import (
     ensure_flow,
     ensure_process_context,
     ensure_transport,

@@ -8,8 +8,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
-from hydromodpy.geographic.synthetic.topography import build_topography_values
+from hydromodpy.spatial.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
+from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from hydromodpy.process.flow import Flow
 from hydromodpy.simulation.adapters.flow.boussinesq import BoussinesqFlowAdapter
 from hydromodpy.simulation.planning.plan import (

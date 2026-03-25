@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.geographic import GeographicConfig
+from hydromodpy.core.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.spatial.geographic import GeographicConfig
 
 
 def test_geographic_config_txt_accepts_cell_size_with_unit_string():

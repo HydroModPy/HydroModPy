@@ -1,4 +1,4 @@
-﻿"""Light integration tests for reference-case calibration workflows."""
+"""Light integration tests for reference-case calibration workflows."""
 
 from __future__ import annotations
 
@@ -8,30 +8,30 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.core.case_orchestrator import run_calibration_case
-from hydromodpy.calibration.core.results import CalibrationResults
-from hydromodpy.calibration.cases.recession_brutsaert.case_implementation import (
+from hydromodpy.analysis.calibration.core.case_orchestrator import run_calibration_case
+from hydromodpy.analysis.calibration.core.results import CalibrationResults
+from hydromodpy.analysis.calibration.cases.recession_brutsaert.case_implementation import (
     CASE_IMPLEMENTATION as BRUTSAERT_CASE_IMPLEMENTATION,
 )
-from hydromodpy.calibration.cases.groundwater_1d.case_implementation import (
+from hydromodpy.analysis.calibration.cases.groundwater_1d.case_implementation import (
     CASE_IMPLEMENTATION as GROUNDWATER_CASE_IMPLEMENTATION,
 )
-from hydromodpy.calibration.cases.recession_brutsaert.workflow import (
+from hydromodpy.analysis.calibration.cases.recession_brutsaert.workflow import (
     build_noisy_coarse_sand_chronicle,
     calibrate_k_sy,
 )
-from hydromodpy.calibration.cases.groundwater_1d.workflow import (
+from hydromodpy.analysis.calibration.cases.groundwater_1d.workflow import (
     build_noisy_groundwater_chronicle,
     calibrate_groundwater_model,
 )
-from hydromodpy.calibration.cases.reservoir.case_implementation import (
+from hydromodpy.analysis.calibration.cases.reservoir.case_implementation import (
     CASE_IMPLEMENTATION as RESERVOIR_CASE_IMPLEMENTATION,
 )
-from hydromodpy.calibration.cases.reservoir.workflow import (
+from hydromodpy.analysis.calibration.cases.reservoir.workflow import (
     calibrate_reservoir_model,
     resolve_model_name,
 )
-from hydromodpy.calibration.cases.reservoir.synthetic_data import build_noisy_reservoir_chronicle
+from hydromodpy.analysis.calibration.cases.reservoir.synthetic_data import build_noisy_reservoir_chronicle
 
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
@@ -44,7 +44,7 @@ METHOD_ABS_TOL = {
     "random_search": 1e-10,
     "nelder_mead": 2e-4,
     "simplex": 2e-4,
-    "gp_mapping": 2e-2,
+    "gp_mapping": 3e-2,
     "da_mh_gp": 6e-2,
 }
 

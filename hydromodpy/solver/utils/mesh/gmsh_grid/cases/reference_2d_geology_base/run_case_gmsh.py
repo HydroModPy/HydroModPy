@@ -15,8 +15,8 @@ from typing import Any
 
 from matplotlib import pyplot as plt
 
-from hydromodpy.field.core.field_param import FieldParam
-from hydromodpy.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 from hydromodpy.solver.utils.mesh.gmsh_grid import GmshPlanarMesh2D
 from hydromodpy.solver.utils.mesh.gmsh_grid.cases._common import (
     optional_case_output_path,

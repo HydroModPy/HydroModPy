@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.forcing.time_alignment import (
+from hydromodpy.process.forcing.time_alignment import (
     align_forcing_series_to_simulation_window,
 )
-from hydromodpy.simulation.time import (
+from hydromodpy.core.time import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
 )

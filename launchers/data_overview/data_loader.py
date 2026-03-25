@@ -11,8 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.data_managers.plan import DataLoadPlan
-from hydromodpy.data_managers.runtime_loader import DataManagersRuntimeLoader
+from hydromodpy.data.plan import DataLoadPlan
+from hydromodpy.data.runtime_loader import DataManagersRuntimeLoader
 
 if TYPE_CHECKING:
     from launchers.data_overview.state import DataOverviewState

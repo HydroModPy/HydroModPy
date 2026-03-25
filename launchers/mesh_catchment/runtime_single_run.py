@@ -9,7 +9,7 @@ import shutil
 from types import SimpleNamespace
 from typing import Any
 
-from hydromodpy.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleGeologyExportConfig,
     CatchmentBundleHydraulicPropertiesConfig,

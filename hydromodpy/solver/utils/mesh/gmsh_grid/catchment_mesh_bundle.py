@@ -23,19 +23,19 @@ import numpy as np
 from shapely.geometry import LineString, Point
 from shapely.ops import unary_union
 
-from hydromodpy.data_managers.variables.geology.io import (
+from hydromodpy.data.variables.geology.io import (
     load_geology_encoded_grid_on_raster_support,
     resolve_data_path,
 )
-from hydromodpy.data_managers.variables.geology.processing import normalize_zone_key
-from hydromodpy.domain.depth_model import (
+from hydromodpy.data.variables.geology.processing import normalize_zone_key
+from hydromodpy.spatial.domain.depth_model import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
 )
-from hydromodpy.domain.domain import Domain
-from hydromodpy.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.domain.domain import Domain
+from hydromodpy.spatial.field.geology.geology_field import GeologyField
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
-from hydromodpy.support.units.hydraulic_conductivity import parse_to_m_per_s
+from hydromodpy.core.units.hydraulic_conductivity import parse_to_m_per_s
 from hydromodpy.solver.utils.mesh.gmsh_grid._bundle_export_contracts import (
     CatchmentBundleMetadata,
     CatchmentBundleGeologyExportConfig,
